@@ -8,7 +8,7 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
 
 @pytest.fixture()
-def plant_a(qtbot) -> CircleItem:  # noqa: ARG001
+def plant_a(qtbot) -> CircleItem:
     """A plant at (100, 100) with radius 25."""
     item = CircleItem(100.0, 100.0, 25.0, object_type=ObjectType.TREE)
     item.plant_species = "apple"
@@ -16,7 +16,7 @@ def plant_a(qtbot) -> CircleItem:  # noqa: ARG001
 
 
 @pytest.fixture()
-def plant_b(qtbot) -> CircleItem:  # noqa: ARG001
+def plant_b(qtbot) -> CircleItem:
     """A plant at (160, 100) with radius 20."""
     item = CircleItem(160.0, 100.0, 20.0, object_type=ObjectType.SHRUB)
     item.plant_species = "rose"
@@ -161,7 +161,7 @@ class TestSerialization:
 class TestNonPlantItemsIgnored:
     """Ensure non-plant circle items don't get spacing features."""
 
-    def test_generic_circle_returns_none(self, qtbot) -> None:  # noqa: ARG002
+    def test_generic_circle_returns_none(self, qtbot) -> None:
         """Generic circles return None (no data), and rendering is gated on is_plant_type."""
         item = CircleItem(0, 0, 50.0, object_type=ObjectType.GENERIC_CIRCLE)
         assert item.effective_spacing_radius() is None

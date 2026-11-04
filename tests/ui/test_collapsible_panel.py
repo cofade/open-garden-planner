@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QLabel
 from open_garden_planner.ui.widgets import CollapsiblePanel, PanelState
 
 
-def test_collapsible_panel_creation(qtbot):  # noqa: ARG001
+def test_collapsible_panel_creation(qtbot):
     """Test that a collapsible panel can be created."""
     content = QLabel("Test Content")
     panel = CollapsiblePanel("Test Panel", content, expanded=True)
@@ -76,7 +76,7 @@ def test_collapsible_panel_set_content(qtbot):
     assert content.isVisible()
 
 
-def test_collapsible_panel_signal(qtbot):  # noqa: ARG001
+def test_collapsible_panel_signal(qtbot):
     """Test that expanded_changed signal is emitted."""
     content = QLabel("Test Content")
     panel = CollapsiblePanel("Test Panel", content, expanded=True)

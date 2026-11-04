@@ -11,7 +11,6 @@ Regression cover for issue #212. Exercises the full wiring through the real
 and that clicking a row whose item was deleted does not crash.
 """
 
-# ruff: noqa: ARG002
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem

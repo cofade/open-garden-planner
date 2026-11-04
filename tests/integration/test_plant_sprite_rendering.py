@@ -55,7 +55,7 @@ def _coverage(pixmap: QPixmap) -> float:
 
 
 @pytest.fixture(autouse=True)
-def _fresh_cache(qtbot: object) -> None:  # noqa: ARG001
+def _fresh_cache(qtbot: object) -> None:
     clear_plant_cache()
 
 

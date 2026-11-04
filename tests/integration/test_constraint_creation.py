@@ -5,7 +5,6 @@ two free-floating items, only the first-clicked item (A) moves to satisfy the
 distance; the second-clicked item (B) stays in place as the reference.
 """
 
-# ruff: noqa: ARG002
 
 import math
 from unittest.mock import MagicMock

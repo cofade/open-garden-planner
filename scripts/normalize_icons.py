@@ -128,7 +128,7 @@ def normalize_svg_text(text: str, *, strict: bool = False) -> str:
             repair (non-24x24 viewBox, text/raster/group elements, …).
     """
     try:
-        root = ET.fromstring(text)  # noqa: S314 - repo-controlled input only
+        root = ET.fromstring(text)
     except ET.ParseError as exc:
         raise NormalizationError(f"not well-formed XML: {exc}") from exc
 

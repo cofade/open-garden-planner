@@ -13,7 +13,6 @@ lost outright. Measured before the fix: arming ``indoor_sow`` start and
 ``harden_off`` end and flushing stored only ``harden_off``; the user's
 ``indoor_sow`` start never reached the project.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

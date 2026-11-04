@@ -7,7 +7,6 @@ This ensures the Command pattern is wired correctly end-to-end:
   tool gesture → CreateItemCommand pushed → undo removes item → redo restores it.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

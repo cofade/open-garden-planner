@@ -1,0 +1,82 @@
+"""Material kinds → the QML part components, and the tint rule (L1.2). Engine-free.
+
+A ``MeshPart`` names one of ``core.scene3d.MATERIAL_KINDS``; ``qml/Garden.qml``
+declares one part ``Component`` per kind (a ``Model`` with its own material
+instance), looked up by the same string. ``PART_COMPONENTS`` is the table both
+sides are pinned against (``tests/unit/test_quick3d_qml.py``).
+
+The tint rule, one for every kind::
+
+    albedo = vertex colour x tint          (in linear light)
+
+``tint`` is the item's ``Material.tint_rgba`` for a part with ``tinted=True``
+and white for every other part. It is a property of the part's Model, never
+baked into the vertex buffer — so a recolour is one property write and no
+geometry upload (``EngineSink.update_material``).
+
+How each material receives it (``Garden.qml``):
+
+- ``vc``, ``roof``, ``glass`` — ``PrincipledMaterial.baseColor`` with vertex
+  colours enabled. The engine linearises ``baseColor`` with its own polynomial
+  approximation of the sRGB curve; it differs from the exact
+  ``Material.tint_linear()`` by less than one 8-bit code.
+- ``foliage``, ``grass``, ``water`` — a ``vec3`` uniform of the custom shader,
+  computed here with the exact curve (``tint_uniform``).
+"""
+
+from __future__ import annotations
+
+from types import MappingProxyType
+from typing import Final
+
+from open_garden_planner.core.scene3d import (
+    Material,
+    MeshPart,
+    Rgba,
+    pattern_texture_name,
+    srgb8_to_linear,
+)
+
+#: ``MeshPart.material_kind`` → id of the part ``Component`` in ``Garden.qml``. Its keys
+#: are exactly ``core.scene3d.MATERIAL_KINDS`` (pinned, with the QML, by a test).
+PART_COMPONENTS: Final = MappingProxyType({
+    "vc": "vcPart",
+    "roof": "roofPart",
+    "foliage": "foliagePart",
+    "grass": "grassPart",
+    "glass": "glassPart",
+    "water": "waterPart",
+})
+
+#: The kinds whose look draws BOTH sides of a triangle (``cullMode: Material.NoCulling``
+#: in their part component, whatever the scene's state). Since Qt 6.12 the engine's
+#: pick honours a material's cull mode (``qssgrenderray.cpp``: a ``Disabled`` cull
+#: mode accepts either determinant sign), so a ray picks these from behind too; the
+#: other kinds cull back faces and pick front faces only — as every kind did on Qt
+#: 6.11, whose ray test accepted positive determinants alone (Phase 17 L7, #391).
+#: Pinned against the QML by ``tests/unit/test_quick3d_qml.py``.
+TWO_SIDED_KINDS: Final = frozenset({"foliage", "grass", "glass"})
+
+#: The tint of a part that is not tinted: the identity of the multiplication.
+WHITE: Final[Rgba] = (255, 255, 255, 255)
+
+
+def part_tint(part: MeshPart, material: Material) -> Rgba:
+    """The sRGB tint the Model of ``part`` carries for an item with ``material``.
+
+    THE rule — the engine read-backs (``quick3d_render_driver``, the engine test,
+    the adapter's double) must call it rather than copy it. A ``fill_texture`` part
+    shows the item's own picture, which carries the colour, so its tint is white —
+    except for a SOLID fill, which has no picture and shows the fill colour through
+    the same ``set_part_fill`` call. (``host.engine_parts`` reads the QML ``tint``
+    property; it does not call this.)
+    """
+    if part.fill_texture:
+        return WHITE if pattern_texture_name(material.pattern) is not None else material.tint_rgba
+    return material.tint_rgba if part.tinted else WHITE
+
+
+def tint_uniform(tint_rgba: Rgba) -> tuple[float, float, float]:
+    """``tint_rgba`` as the linear RGB a custom shader multiplies with."""
+    red, green, blue, _alpha = srgb8_to_linear(tint_rgba)
+    return (red, green, blue)

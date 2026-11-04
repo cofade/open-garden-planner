@@ -260,6 +260,26 @@ def grown_height_cm(
     )
 
 
+def growth_share(
+    metadata: dict[str, Any] | None,
+    at_date: date,
+    object_type_name: str = "",
+) -> float | None:
+    """How far along its growth a plant is at ``at_date`` (0..1) — the share of its
+    years to maturity since planting (``growth_fraction``) — or None when the plant
+    does not grow on the timeline: no species, no planting date, or no measured size
+    to grow from (then it is drawn at its static size, and a share would describe a
+    growth nobody sees). The 3D info card's "growth share" (Phase 17 L2.3)."""
+    species = (metadata or {}).get("plant_species")
+    if not isinstance(species, dict):
+        return None
+    if grown_height_cm(species, metadata, at_date, object_type_name) is None and \
+            grown_spread_cm(species, metadata, at_date, object_type_name) is None:
+        return None
+    return growth_fraction(planting_date_from_metadata(metadata), at_date,
+                           years_to_maturity(species, object_type_name))
+
+
 def grown_spread_cm(
     species: dict[str, Any],
     metadata: dict[str, Any] | None,

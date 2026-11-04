@@ -9,7 +9,7 @@ from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 
 
 @pytest.fixture()
-def tomato_item(qtbot) -> CircleItem:  # noqa: ARG001
+def tomato_item(qtbot) -> CircleItem:
     """A CircleItem representing a tomato plant at (100, 100)."""
     item = CircleItem(100.0, 100.0, 25.0, object_type=ObjectType.TREE)
     item.plant_species = "tomato"
@@ -17,7 +17,7 @@ def tomato_item(qtbot) -> CircleItem:  # noqa: ARG001
 
 
 @pytest.fixture()
-def basil_item(qtbot) -> CircleItem:  # noqa: ARG001
+def basil_item(qtbot) -> CircleItem:
     """A CircleItem representing basil at (150, 100) — 50cm from tomato."""
     item = CircleItem(150.0, 100.0, 15.0, object_type=ObjectType.SHRUB)
     item.plant_species = "basil"
@@ -25,7 +25,7 @@ def basil_item(qtbot) -> CircleItem:  # noqa: ARG001
 
 
 @pytest.fixture()
-def fennel_item(qtbot) -> CircleItem:  # noqa: ARG001
+def fennel_item(qtbot) -> CircleItem:
     """A CircleItem representing fennel at (160, 100) — 60cm from tomato."""
     item = CircleItem(160.0, 100.0, 15.0, object_type=ObjectType.SHRUB)
     item.plant_species = "fennel"
@@ -132,7 +132,7 @@ class TestHighlightLogic:
         tomato_item: CircleItem,
         basil_item: CircleItem,
         fennel_item: CircleItem,
-        qtbot,  # noqa: ARG002
+        qtbot,
     ) -> None:
         """When two selected plants conflict, antagonistic takes priority."""
         # Create a second selected plant (basil) near fennel
@@ -145,7 +145,7 @@ class TestHighlightLogic:
         assert fennel2.companion_highlight == ANTAGONISTIC
 
     def test_unrelated_plants_get_no_highlight(
-        self, tomato_item: CircleItem, qtbot  # noqa: ARG002
+        self, tomato_item: CircleItem, qtbot
     ) -> None:
         """Plants with no recorded relationship remain unhighlighted."""
         unknown = CircleItem(120.0, 100.0, 15.0, object_type=ObjectType.SHRUB)

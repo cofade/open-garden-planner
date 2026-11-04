@@ -8,7 +8,6 @@ pixmap, no glyph text) and — where the widget opts in — re-tints on a theme
 switch through `refresh_theme_icons`.
 """
 
-# ruff: noqa: ARG001, ARG002
 
 import pathlib
 import uuid
@@ -251,24 +250,12 @@ class TestPanelsAndWidgets:
         finally:
             apply_theme(app, ThemeMode.LIGHT)
 
-    def test_view3d_toolbar_actions_carry_icons(self, qtbot) -> None:
-        pytest.importorskip("PyQt6.Qt3DCore")
-        from open_garden_planner.ui.view3d.view3d_window import View3DWindow
-
-        try:
-            win = View3DWindow()
-        except Exception:  # noqa: BLE001 — no GL / no Qt3D on this machine
-            pytest.skip("Qt3D window not constructible here")
-        qtbot.addWidget(win)
-        assert not win._refresh_action.icon().isNull()
-        assert not win._walk_action.icon().isNull()
-
     def test_sun_sim_toolbar_buttons_carry_icons(self, qtbot) -> None:
         bar = SunSimToolbar()
         qtbot.addWidget(bar)
         assert not bar._animate_button.icon().isNull()
         assert not bar._heatmap_button.icon().isNull()
-        assert bar._time_icon.pixmap() is not None and not bar._time_icon.pixmap().isNull()
+        assert bar._time_edit.displayFormat() == "HH:mm"  # editable time replaces the clock glyph
         play = _img(bar._animate_button.icon().pixmap(QSize(20, 20)))
         bar._animate_button.setChecked(True)  # play → pause
         assert _img(bar._animate_button.icon().pixmap(QSize(20, 20))) != play

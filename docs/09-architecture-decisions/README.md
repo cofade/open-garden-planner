@@ -51,11 +51,28 @@ or a claim that finite hostile outlines have bounded rendering costs.
 
 ## ADR-004: Command Pattern for Undo/Redo
 
-**Status**: Accepted
+**Status**: Accepted (CommandManager; see Addenda)
 **Context**: Need robust undo/redo support for all editing operations.
-**Decision**: Wrap all modifications in Command objects, push to QUndoStack.
+**Decision**: Wrap all modifications in Command objects, managed via CommandManager (replaces original QUndoStack).
 **Rationale**: Industry standard pattern. Qt provides QUndoStack. Clean separation of actions from UI.
 **Consequences**: Every new editing operation requires a corresponding Command class. More code but predictable behavior.
+
+### Addendum (2026-10-23, #559/#560 — panel commit boundaries)
+
+The application uses its existing CommandManager, rather than QUndoStack. Species
+and instance edits store deep snapshots; command merge_from applies subsequent
+ticks of the same numeric gesture. editingFinished closes that gesture.
+before_history_navigation flushes active editors before choosing a stack entry;
+history_navigated only refreshes. This replaces discarding staged notes after undo
+and prevents post-undo commands from erasing redo. An active edit is the first edit
+undone. ProjectManager.before_save and document dirty guards share the flush path.
+Callbacks remain registered until form teardown, so repeated save/undo cycles work.
+Ordinary refresh protects each focused editor instead of skipping the whole form.
+
+Plan undo restores the item's species/instance identity and dependent geometry;
+shared custom-library updates are intentionally not rolled back. No dependency,
+new persisted lock flag or file-format change. See section 8.32 and the package
+integration tests.
 
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
@@ -67,7 +84,7 @@ or a claim that finite hostile outlines have bounded rendering costs.
 
 ## ADR-006: AI-Generated SVG Assets
 
-**Status**: Accepted (Phase 6)
+**Status**: Superseded by ADR-040 and ADR-042 (Phase 6)
 **Context**: Need illustrated SVG graphics for plants, furniture, and infrastructure objects.
 **Decision**: Use AI image generation to create consistent top-down plant/object illustrations, then convert to SVG.
 **Rationale**: Fast production, consistent art style, fully custom, no licensing issues. Can iterate on style.
@@ -75,7 +92,7 @@ or a claim that finite hostile outlines have bounded rendering costs.
 
 ## ADR-007: Tileable PNG Textures (over Procedural)
 
-**Status**: Accepted (Phase 6)
+**Status**: Superseded by ADR-042 (Phase 6)
 **Context**: Current procedural patterns are too subtle. Need rich, recognizable textures.
 **Decision**: Replace procedural fill patterns with pre-made tileable PNG textures.
 **Rationale**: Better visual quality, easier to create realistic materials, AI-generated or CC0 sourced.
@@ -110,7 +127,7 @@ actual finite source symbols/data fields and binds exact dynamic consumers; unre
 or stale bindings fail rather than silently excluding a file.
 
 **Consequences:** every new wrapped UI key needs all supported target translations in
-the same PR. Existing English/German catalogs were reconciled without grandfathered
+the same PR. Existing English/German/Spanish catalogs were reconciled without grandfathered
 gaps. Developer diagnostics remain English; linguistic quality, visual fit and truly
 unwrapped text still require review. The existing required Test check owns enforcement.
 Pinned by the translation gate unit/integration tests and registry-driven menu tests.
@@ -133,7 +150,7 @@ Pinned by the translation gate unit/integration tests and registry-driven menu t
 
 ## ADR-011: Hybrid Plant Rendering
 
-**Status**: Accepted (Phase 6)
+**Status**: Superseded by ADR-040 (Phase 6)
 **Context**: How many unique plant SVG illustrations to create.
 **Decision**: Hybrid approach: ~15-20 category-based shapes varied by color/size, plus unique illustrations for ~10 most popular species.
 **Rationale**: Best balance of visual appeal and production effort. Category shapes cover 90% of cases. Popular species get special treatment.
@@ -162,8 +179,140 @@ extraction. Numerical oracles assert physical residuals, feasibility, pinned sta
 and exact conflict IDs, rather than an arbitrary iteration count. A no-variable
 Newton call must evaluate residuals before reporting convergence; incompatible
 pinned anchors are not a solved system. The fresh eight-mutant sample and its test
-selection are recorded in `audit-2026-10-a5-evidence.md`; historical mutmut counts
+selection are recorded in `audits/2026-10/audit-2026-10-a5-evidence.md`; historical mutmut counts
 are not a current full-suite measurement.
+
+**Addendum (CAD-precision package, #669/#670, 2026-10-31).** The incidence path had
+drifted into three answers to one question, and the trial answered a different question
+than the application. Six decisions, each pinned:
+
+1. **One residual.** `constraints.incidence_error(type, a, b, c, target)` is the single
+   definition of the `POINT_ON_EDGE` / `POINT_ON_CIRCLE` / `TANGENT` residual. The
+   Gauss-Seidel pass, `find_conflicting_constraints` and `ConstraintsPanel._is_satisfied`
+   call it; the panel previously fell through to an anchor-to-anchor distance and painted
+   satisfied constraints red (#669).
+2. **One tolerance pair.** `DISPLAY_TOLERANCE_CM = 0.1` is what the panel reports;
+   `APPLY_TOLERANCE_CM = 0.05` is what a *committed* application solve targets
+   (`validate_constraint` and `_compute_constraint_solve_moves`). Live drags keep the
+   cm-scale tolerance: they run per mouse frame and a sub-millimetre chase is invisible
+   while the cursor moves. A constraint the user adds therefore meets the precision the
+   panel then displays (#670 cause 4).
+3. **A trial joins a component, it does not re-solve the plan.** `validate_constraint`
+   restricts positions, offsets, deformable items and pins to the connected component the
+   trial link creates. A knowingly violated constraint in an unrelated component is not a
+   reason to refuse a satisfiable one (#670 cause 1). **The application and the conflict
+   scan answer the same scoped question:** `_compute_constraint_solve_moves()` (and the
+   edge-length path) accept the trial's component, `find_conflicting_constraints()` scopes
+   its solve and its rescan to that component, and `_constraint_reference_pins()` supplies
+   the same pins to the trial, the dialog and the applied solve. The dialog's 1.0 cm
+   threshold is a separate, deliberate question — "would this visibly distort an existing
+   relation?" — not the application's convergence tolerance.
+4. **The trial pins what the application pins.** One rule,
+   `CanvasView._constraint_reference_pins`: B stays still (A moves to B) unless A
+   is always pinned (construction geometry, or a FIXED constraint), or both
+   anchors share a VERTEX-DEFORMABLE item (polygon/polyline). A self-constraint on
+   a rigid shape pins that shape, so the solver cannot translate it; if the
+   constraint is a self `EDGE_LENGTH`, the solver makes no move at all (a rigid
+   edge length changes through a resize, not through the positional solver), and
+   the distance dialog and the Properties resize refuse that edit with a
+   translated message. It feeds the feasibility trial and every application
+   surface, and `solve_anchored()` only injects a `FIXED` item that the solve
+   actually contains, so an out-of-component locked pair cannot make a scoped
+   trial non-convergent (#670 causes 1–2).
+5. **Reconstruct resolved state from deltas, symmetrically.** `find_conflicting_constraints`
+   rebuilds every vertex as `pre-solve vertex + item delta + vertex delta`. A polygon that
+   translated rigidly has no vertex delta, which is exactly when the old reconstruction
+   evaluated its pre-solve position (#670 cause 3).
+6. **An edge reference is an index, not a direction.** `measure_snapper.resolve_anchor_point`
+   (and `anchor_offset_table`) matches polygon/polyline edge anchors by `anchor_index`,
+   because their `EDGE_*` type is re-derived from the current dominant axis. Dimension
+   lines, drag enforcement and the solver's offset table all use it (#670 cause 6), and
+   `POINT_ON_EDGE` resolves its third anchor through the same vertex-aware helper the rest
+   of the solver uses (#670 cause 5).
+
+No `.ogp` format change: FIXED targets are **re-derived on every load** from the loaded
+item's own `pos()` — the shape serializers fold the Qt translation into the geometry, so a
+saved target names a frame the reload no longer has; only a target captured after loading
+is truthful (round-2 review). Tests: `tests/unit/test_incidence_consistency.py` (all six
+causes plus the panel residual definitions and the precision pair) and
+`tests/integration/test_cad_precision_integrity.py` (the real add-constraint path: an
+unrelated broken component neither moves nor raises a dialog, a cross-component trial the
+trial rejects is reported by the conflict scan, a locked pair at non-zero `pos()` does not
+block a compatible link, a point-on-edge added through the view lands on the edge and shows
+satisfied, and a lock on a MOVED item keeps its scene geometry through save → drag → save).
+The four application surfaces (add, Properties resize, distance edit, vertex-drag correction)
+share the component scope, and each has an integration test with an unrelated broken
+component; the new-constraint surfaces also share the pin rule.
+
+**Addendum (rigid shapes and topology, #670 review).** "Same item" does not mean "can
+deform its vertices": `measure_snapper.is_vertex_deformable()` is the one predicate for
+polygons/polylines. The pin rule leaves a self-constraint's item free only when it is
+vertex-deformable; the solver MEASURES a self-constraint on a rigid item but never moves the
+item — moving it translates both anchors, so every iteration re-applied the full correction
+(measured before the fix: a 200 cm top edge edited to 400 left the edge at 200 and moved the
+item to −4000 cm). The measured residual still counts towards convergence, so the trial
+refuses an unsatisfiable one and the conflict dialog fires, while Newton does not receive it
+(a translation-invariant residual would floor the refinement). A rigid shape's edge length
+follows its size, not the solver, so the distance dialog and the Properties resize both
+refuse that edit and ask the user to remove the constraint before resizing.
+Vertex insert/delete renumber indexed anchors (`CORNER`, `ENDPOINT` and `EDGE_*`) through
+`AddVertexCommand`/`DeleteVertexCommand`, which capture a before-state and restore it on
+undo; the Agent API, GUI and undo/redo share that invariant. A corner edit also reconciles
+bed membership in the same undo step (`ReconcileBedMembershipCommand`), so a plant left
+outside a chamfered bed is unlinked — and relinked on undo — rather than staying attached
+to geometry it no longer touches.
+
+**Addendum (replacement identity, #668).** A command that rebuilds a shape (`inherit_item_identity()`
+in `core/item_look.py`) keeps the source's UUID, name, metadata copy, parent/child links,
+layer, stack rank, label flags and transform — including the stored `rotation_angle` the
+serializer reads, which `setRotation()` alone does not update. Identity does not extend to
+topology: a corner edit replaces one vertex with two and renumbers every later indexed
+anchor (`CORNER`/`ENDPOINT` **and** `EDGE_*` midpoints), and a trim turns a closed shape
+into an open line. Those edits are **refused** when the item carries any indexed anchor
+(corner edits) or is a plant-parent / carries any constraint (trim), with a translated
+status message, rather than silently retargeting an anchor or attaching a bed's records to
+a fence.
+
+**Addendum (2026-10-23, issue #552 — FIXED closes the panel path).** The canvas
+drag, arrange and vertex paths honoured FIXED; the Properties panel X/Y fields
+did not (an empty propagation set fell through to a plain `MoveItemsCommand`,
+a data-integrity defect: the moved position is what a save writes). The panel
+now refuses the edit when `_is_item_fixed`, restores the pinned values and
+explains why. Lock/Unlock lives in the item right-click menu, backed by the
+existing `AddConstraintCommand` / `RemoveConstraintCommand` with
+`AnchorType.CENTER` (no second lock state, no new persisted field), and a
+`ItemIgnoresTransformations` padlock badge re-derived by the scene constraint
+refresh and after load, including unselected objects. PositionLockMixin shares
+this behavior across shapes, paths, curves and text.
+
+**Addendum (2026-10-30, PR #649 owner manual step 5).**
+**Status:** Shipped in v1.34.9 (PR #649) after owner manual acceptance on 2026-10-30.
+
+Creating an
+inter-object PARALLEL or PERPENDICULAR relation is an automatic rotation,
+so it must honor FIXED before the rotation-only command is executed.
+Both tools use `_plan_edge_rotation`: existing orientation constraints form
+a co-rotation group, and one FIXED member pins the group. Preserve the usual
+second-object preference where possible, then try the other free group.
+Never rotate one group relative to itself and thereby break an existing
+orientation relation. If no group is free, refuse before graph, geometry or
+history changes and explain how the user can unlock/remove a constraint.
+An already satisfied relation is allowed without rotating either object.
+The canonical rotation applier and AddConstraintCommand still provide the
+single undo step. No persisted lock angle or new file-format field is needed.
+
+The picked scene-space edge vectors are the correctness oracle: dot product
+zero for perpendicular, cross product zero for parallel. A polygon's edge
+need not align with its bounding-box axis, so comparing item rotation angles
+would miss the owner's suspected wrong-edge result. The numeric reproduction
+proved the FIXED violation; it did not reproduce parallel selected edges.
+A later visual probe did identify a wrongly attached indicator: the resolver
+used index-only matching for all shapes, but every rectangle edge has index 0.
+Only polygon/polyline vertex edges use that dynamic-classification fallback;
+rectangle, ellipse and circle edge anchors match their unique edge type.
+The connector itself is asserted against the selected edge midpoints.
+`tests/integration/test_orientation_constraint_locks.py` pins these contracts,
+including the real toolbar/viewport and save/reload path.
 
 ## ADR-014: Bundled `plant_species.json` is single source of truth for species + calendar
 
@@ -182,7 +331,7 @@ are not a current full-suite measurement.
 **Context**: US-12.10c shipped a calculator that walked deficits in priority order and picked the *first matching unused* substance for each fix tag. This worked for single-nutrient organics (blood meal → N, bone meal → P, greensand → K) but silently mishandled real-world commercial fertilizers, where one bag carries N + P + K + Mg + S in a single product. The old "consume substance, decrement secondaries by 1 step" rule under-credited compound fertilizers and produced over-long lists. Users also wanted to disable substances they don't have on hand, and to add structural amendments (sand, perlite, vermiculite, diatomaceous earth) driven by a soil-texture rating.
 **Decision**: Replace the pick-once-per-fix loop with a **deficit-map + greedy max-coverage** loop. Each iteration scores every unused candidate by the number of currently-outstanding nutrient deficits it touches; the breadth-leader is picked, its primary nutrient is fully closed (quantity scales with deficit), and co-fixed nutrients are credited at the same dose factor and recorded in `AmendmentRecommendation.credits`. The pool is filtered by a per-project `enabled_amendments` allowlist that the user manages from a checkbox panel embedded in the existing Amendment Plan dialog. A `prefer_organic` flag biases tie-breaks. A new `SoilTestRecord.soil_texture` field drives a structural-pick phase that runs after the nutrient phase.
 **Alternatives considered**:
-- *Linear-program optimal solver* (e.g. scipy.optimize.linprog) — would minimise total grams across all substances. Rejected: ≤24 substances × ≤7 nutrients is too small to justify a numpy/scipy build dependency, the greedy pick is provably optimal for the breadth metric, and users prefer "one bag covers most" reasoning over "two-half-bags covers slightly less". 
+- *Linear-program optimal solver* (e.g. scipy.optimize.linprog) — would minimise total grams across all substances. Rejected: ≤24 substances × ≤7 nutrients is too small to justify a numpy/scipy build dependency, the greedy pick is provably optimal for the breadth metric, and users prefer "one bag covers most" reasoning over "two-half-bags covers slightly less".
 - *Two-pass: organic first, then mineral* — clean conceptually but loses the "one compound substance covers multiple deficits" insight that motivated the rewrite.
 - *Per-substance application_rate scaled by chemistry mass-balance (NPK %)* — would let the calculator do exact label-percentage math. Deferred: keeps the calculator's domain to "Rapitest level steps", avoids per-substance NPK% data entry on JSON, and the +1 step credit suffices for end-user purchasing decisions.
 **Consequences**: Compound NPK fertilizers (Blaukorn, Tomatendünger, etc.) emit one row instead of three. Users see an honest "Raises N 1→3 + also raises P 1→3, K 1→3" rationale. Disabling substances changes both the inline preview and the cross-bed plan and shopping-list materials in real time. Soil-texture-driven structural picks add up to two rows for clayey soil (drainage + aeration), one row for sandy or compacted soil. Bundle data file grows by 12 entries (12 → 23 substances). No file-format bump; legacy projects load with `enabled_amendments=None` (= all enabled) and `soil_texture=None` (no structural picks).
@@ -294,6 +443,8 @@ are not a current full-suite measurement.
 
 **Consequences**: The Bezier item lives at `ui/canvas/items/bezier_item.py`; its undoable mutations live in `core/commands.py::BezierMoveAnchor/Handle/Add/Delete/ToggleSmoothCommand`. The pen tool stores `_active_drag_anchor_index` and applies the smooth-handle mirror on `mouse_move` until the user releases. **Alt-break-symmetry** (independent left/right handle angles) is deferred to a follow-up — the MVP ships with smooth-only. Filleted rectangles cannot be un-filleted except via undo; once the command is no longer on the undo stack, the polygon stays a polygon. DXF export rasterises Bezier curves to short line segments (limitation logged in the export-service comments); native cubic export will follow in a future package. `tests/unit/test_bezier_item.py` (14 tests), `test_bezier_commands.py`, `test_fillet_geometry.py` (12), `test_chamfer_geometry.py` (6), `tests/integration/test_fillet_chamfer.py` (10) cover the new geometry and undo paths.
 
+**Addendum 2026-10-31 (owner manual test, follow-up to #668/#670) — the fillet arc is baked into its host.** The free-standing `ArcItem` did not survive normal use: the host polygon moved and the arc stayed behind, exposing that the filled shape was the straight chamfer with a floating arc over it. A fillet now samples the tangent arc into the host's own vertex list (`cad_geometry.sample_arc_points`, max chord deviation `FILLET_ARC_TOLERANCE_CM = 0.02 cm`) and inserts those points in place of the corner vertex. One visual, one item: the rounded corner moves, groups, saves, deletes and undoes with the shape, and the fill follows the arc. Rectangles are still destructively converted to a polygon; the replacement type is the source's polygonal equivalent — raised bed → **garden bed** (a type the polygon panel offers; the conversion takes that type's soil fill pattern while keeping the user's colour), generic rectangle → generic polygon, hedge section → hedge polygon — and a type with no polygonal form (furniture, containers, trellis) is refused rather than left in an impossible state. A corner whose own vertex or incident edge carries a constraint is refused; later indexed anchors are renumbered by the command, so an unrelated corner stays editable. Rectangle anchors are numbered TL, TR, BL, BR while the corner geometry walks TL, TR, BR, BL, so the command maps surviving corner anchors through `RECT_CORNER_POLYGON_ORDER` before shifting (a mismatched order silently moved a bottom-corner constraint to the other side). Trade-off: a filleted corner exports (DXF/SVG) as short line segments rather than one arc, the same limitation Bezier curves already carry. Pinned by `tests/integration/test_fillet_chamfer.py` (no `ArcItem`, every sample on the circle, host moves alone), `tests/unit/test_fillet_geometry.py::test_sample_arc_points_lie_on_the_arc_between_the_tangent_points`, and `tests/unit/test_geometry_identity.py` (type conversion, unrelated-corner constraint, load migration). Shipped in **v1.34.10 (PR #672)** after owner manual acceptance on 2026-11-01; the 3D curved-fence fillet is issue #675.
+
 ## ADR-023: Snap Pipeline v2
 
 **Status**: Accepted (Phase 13 — Package B, US-B4/B5/B6)
@@ -370,7 +521,7 @@ are not a current full-suite measurement.
 - *Per-control `MoveVertexCommand`* — rejected: an anchor move also moves two tangents and a smooth handle move moves its mirror, so a single `(index, old, new)` point can't capture the change; a whole-geometry snapshot is simpler and always correct.
 - *Derive the arc through-point as the angular midpoint instead of storing it* — rejected: the through-handle would jump on release (the recomputed arc's angular midpoint ≠ the user's point) and start/end drags would lack a stable third DOF.
 
-**Consequences**: 3-point arcs render exactly through the third click at any radius/sweep; the fillet arc inherits the fix for free. Selecting a Bezier or Arc shows draggable handles that reshape it in place with single-step undo, surviving save/reload. `FILE_VERSION` unchanged. Tests: `test_arc_item.py` (`TestArcRenderedEndpointPrecision` incl. the near-collinear bug case, `TestArcThroughPoint`, `TestArcReshape`), `test_bezier_item.py` (`TestBezierReshape` — anchor-carries-tangents, smooth mirror, Alt corner), and `test_curve_vertex_edit.py` (selection→handles, drag→one undo, collinear reject, save/reload still editable).
+**Consequences**: 3-point arcs render exactly through the third click at any radius/sweep. Selecting a Bezier or Arc shows draggable handles that reshape it in place with single-step undo, surviving save/reload. (The fillet no longer creates an `ArcItem` — its arc is baked into the host, ADR-022 addendum 2026-10-31 — so it does not consume this path.) `FILE_VERSION` unchanged. Tests: `test_arc_item.py` (`TestArcRenderedEndpointPrecision` incl. the near-collinear bug case, `TestArcThroughPoint`, `TestArcReshape`), `test_bezier_item.py` (`TestBezierReshape` — anchor-carries-tangents, smooth mirror, Alt corner), and `test_curve_vertex_edit.py` (selection→handles, drag→one undo, collinear reject, save/reload still editable).
 
 ## ADR-026: Mirror Tool — Per-Type Rebuild, Copy/Move Identity, Shapes-Only v1
 
@@ -610,6 +761,19 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 - *YAML / `jsonschema`* — extra dependencies for no real gain; JSON + manual validation + a dry-run `generate()` (the CI test) suffices.
 **Consequences**: Smart symbols are a data-only feature — adding/curating symbols is editing JSON. i18n for symbol/param names is baked into the data (`name`/`name_de`, `label`/`label_de`, like `Amendment.display_name`), not Qt `tr()`; only the panel chrome goes through `tr()`. A param edit is an undoable `ChangePropertyCommand` (apply_func = set param + regenerate). Rotated-symbol DXF INSERT rotation sign is a known nuance left for a follow-up (unrotated is exact). The bundled starter set (`raised_bed_rows`, `greenhouse_gabled`, `pergola`, `fence_panel`, `compost_bay_3`) doubles as the format's worked examples. Tests: `tests/unit/test_parametric_eval.py` (adversarial), `test_smart_symbol_model.py`, `test_smart_symbol_schema.py` (CI validator over every bundled file), `tests/integration/test_smart_symbols.py` (place/edit/undo/round-trip/missing-def/version-mismatch/DXF). This completes Package C (#188). **Known limitations (follow-ups):** rotated-symbol DXF INSERT rotation sign (unrotated is exact); a DXF block is keyed on `(symbol_id, params)` so two identical-param instances on different colours share the first instance's colour; `choice` parameter option strings have no `_de` localisation path yet (no bundled symbol uses `choice`); editing a bundled symbol's geometry without bumping `version` silently re-renders already-saved files (the version field is a strict geometry contract). Untrusted-JSON runtime errors (divide-by-zero, overflow, over-budget `repeat`) are caught at the `generate()`/`_resolve_specs` chokepoint and degrade to the cached geometry + a warning rather than crashing.
 
+### Addendum (Issue #599 — Typed Smart-Symbol Members and Definition Versioning, 2026-11-02)
+
+**Status**: Shipped in v1.34.13 | **Context**: issue #599, Slice B of 3D performance and correctness.
+Smart symbol children previously instantiated exclusively as untyped/generic canvas items (`RectangleItem` with `GENERIC_RECTANGLE`, plain polylines, etc.). As a result, smart symbols containing garden beds (`raised_bed_rows`), greenhouses, compost bays, or fences were invisible to bed parenting, plant capacity accounting, soil diagnostics, 2D shadow casting, and 3D builders. Furthermore, regenerating geometry on parameter edits discarded and recreated children with random UUIDs, breaking any existing plant-to-bed parenting links.
+
+**Decision**:
+1. **Typed member resolution through canonical `_spec_to_item`**: Symbol element definitions declare `object_type` (matching `ObjectType` enum names, e.g. `"RAISED_BED"`, `"GREENHOUSE"`, `"COMPOST"`, `"FENCE"`). `_spec_to_item` instantiates the corresponding canonical item subclass (`BedItem`, `PolylineItem`, `RectangleItem`, etc.). Structural dividers use existing fence/wall primitives with explicit height.
+2. **Construction guides**: Elements declared with `role: "guide"` (or `is_guide: true`) serve as 2D layout references and are explicitly excluded from 3D record snapshotting and shadow casting.
+3. **Deterministic UUID derivation**: Generated children receive stable deterministic UUIDs computed from the parent symbol's UUID and element index / repeat key (`uuid5(symbol_uuid, key)`). On parameter edits, surviving children preserve their identities so child plants maintain their `parent_bed_id` links.
+4. **Atomic undo and bed membership reconciliation**: Parameter changes run through `ChangeSmartSymbolParamCommand`, which regenerates geometry and invokes `_membership_change_for_geometry` in a single atomic undo/redo command.
+5. **Definition versioning & read-only fallback**: Bundled symbols bump to `"version": 2`. When a plan is opened with an instance whose `symbol_version` is older than the library definition's version, the symbol retains its serialized children without silent regeneration. In the Properties panel, parameter editing is disabled with a translated explanation (`Symbol definition version mismatch — saved geometry is read-only.`).
+6. **Zero `FILE_VERSION` bump**: Format remains additive via existing group metadata and child serialization. The Smart Symbols sidebar panel remains hidden per owner policy.
+
 ## ADR-033: Agent API — Embedded MCP-over-HTTP Server + Main-Thread Marshaling Boundary (US-D1.1)
 
 **Status**: Accepted (Phase 13 — Package D, US-D1.1 spike). Read-only surface; built write-ready.
@@ -693,7 +857,7 @@ Epic #237 required **one** answer across #332 and #333, and #333 escalated it: *
 
 - **No second translation path.** The agent layer **passes the generator's string through unchanged**; the localisation stays upstream where it already lives. A test asserts pass-through *and* upstream translation separately, because asserting only "the title changed" would pass even if the wrapper had invented a translation of its own.
 - **No new `title_key` field.** `task_type` + `source` + `task_id` already give an agent every branch it needs; a parallel label would be a second thing to keep in sync.
-- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are bilingual *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
+- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are localized *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
 - **Enforcement.** `tests/unit/test_agent_d3_localisation.py` installs a real `QTranslator` and asserts that the machine keys are byte-identical while the display strings change. It also asserts the schema field descriptions carry the rule, because a convention nothing states erodes.
 
 **Addendum (US-D3.3 — task sources).** `Task.source` has **six** values — `calendar`, `propagation`, `succession`, `soil`, `frost`, `manual` — read off the `source=` argument of all seven generators. **Not** seven: both soil generators emit `source="soil"`, and the two are distinguished by `task_type` (`soil_amendment` vs `soil_mismatch`), not by `source`. An agent filtering by `source` alone therefore cannot select one of them, which the `get_tasks` docstring states. A drift guard asserts **equality** in both directions between the tuple and the engine; see §11.4 for why a subset-only guard was not enough.
@@ -840,6 +1004,8 @@ Neither tool is an undo step — a new or loaded document resets the undo stack
 (`CommandManager.clear` emits no `stack_changed`, so the new plan starts clean
 and not dirty), so there is nothing to Ctrl+Z back to.
 
+### Addendum (US-D2.1 + US-D2.2 — tool return models, #365)
+
 **A tool's declared return model is part of its contract, and testing the
 provider is not the same as testing the tool.** `new_plan` and `open_plan`
 first shipped returning `ExportResult(**result)` while their providers returned
@@ -857,7 +1023,9 @@ tool's result crosses a `BaseModel`, that model needs coverage at the same level
 as the handler, and the cheapest form is one transport test per new result type
 rather than per tool.
 
-**Addendum (US-D2.5 — shape/structure creation, #329):** `create_object`
+### Addendum (US-D2.5 — shape/structure creation, #329)
+
+`create_object`
 continues to build through `ProjectManager._deserialize_item_core`, now with
 explicit circle, rectangle, ellipse, polygon, polyline, and callout families.
 Vertices use the native scene centimetre/Y-up frame with no conversion; the
@@ -945,7 +1113,7 @@ No `FILE_VERSION` change. Added tests: `tests/unit/test_ai_client_onboarding.py`
 - **Per-tool token check, not a blanket middleware.** Reads must stay open so D1 clients onboarded *without* a token keep working; a server-wide auth middleware would break them. Only the write tools require the token. A pure-ASGI middleware (`_bearer_token_middleware`, wrapping `mcp.streamable_http_app()` in `AgentApiServer._start_locked`) reads the `Authorization: Bearer <token>` header off each request into a module `contextvars.ContextVar`; each write tool's `async` handler calls `_require_write_auth(write_token)` — running in the SAME request task, so it sees that request's token — **before** the `anyio.to_thread.run_sync` main-thread hop. Comparison is constant-time (`secrets.compare_digest`). Empirically verified end-to-end against mcp 1.28.1 with `stateless_http=True` (the ContextVar set in middleware is visible in the tool handler for the same request). Chosen over a `ctx: Context` tool parameter reading `ctx.request_context.request.headers` so the gate does not depend on FastMCP `Context` internals.
 - **Two independent guards: a writes-enabled toggle AND a token.** `agent_api_writes_enabled` (Settings, **default OFF**) is the user's explicit opt-in to agent editing; the bearer token gates each call on top of it. The write tools are **registered only when `writes_enabled and write_token`** — when either is missing they don't appear in the agent's tool list at all (cleanest UX and defence in depth: a disabled write path is unreachable, not merely rejected). Settings changes already restart the server (`_on_preferences`), so this re-evaluates live.
 - **Auto-generated, in-app token (reuses D1.6).** `agent_api_token` is lazily generated with `secrets.token_urlsafe(32)` on first access and persisted, so a user who enables editing always has a token to hand out — never invents one. It is read (and thus generated) **only when writes are enabled**, so a user who never opts in never gets a token written to settings. Surfaced with Copy + Regenerate in Preferences → Agent API and threaded into the D1.6 "Connect AI Assistant" onboarding writers so a one-click install actually reaches the write tools. It is delivered to clients **in the server URL as a `?token=` query parameter** (see the addendum below); the server also still accepts an `Authorization: Bearer` header for clients that reliably send one. `Regenerate` is a deliberate revoke — clients using the old token must reconnect.
-- **Writes go through the existing command system (invariants #3/#4/#13, unchanged) — matching GUI *behaviour*, not just reusing a Command class.** Each write tool routes through an `AgentProviders` callable that, on the Qt main thread via `MainThreadBridge`, resolves the item by UUID (`scene.find_item_by_id`) and runs `canvas_view.command_manager.execute(cmd)` — never a hand-append. `delete_object` is genuinely one command (`DeleteItemsCommand` already detaches contained plants and restores that on undo). `move_object` mirrors the *whole* drag-release sequence `CanvasView` runs, not only its simplest branch: a bed/container/trellis carries its contained plants along (`AlignItemsCommand` over item+children, same as `_propagate_bed_children_during_drag`'s release-time commit), and a moved plant has its bed membership re-evaluated afterward (`SetParentBedCommand`, same as `_update_plant_bed_relationships`) — a first cut that used a bare `MoveItemsCommand([item], delta)` looked like it matched the GUI's call site but silently abandoned a bed's plants and left stale parent/child links for soil-mismatch diagnostics to act on. So **one agent write is one undo step for a lone item, and two when the move also reparents a plant** — exactly mirroring the GUI's own two-command sequence in that case, never more. Every command still dirties the document via `stack_changed`; no parallel mutation path is invented for agents.
+- **Writes go through the existing command system (invariants #3/#4/#13, unchanged) — matching GUI *behaviour*, not just reusing a Command class.** Each write tool routes through an `AgentProviders` callable that, on the Qt main thread via `MainThreadBridge`, resolves the item by UUID (`scene.find_item_by_id`) and runs `canvas_view.command_manager.execute(cmd)` — never a hand-append. `delete_object` is genuinely one command (`DeleteItemsCommand` already detaches contained plants and restores that on undo). `move_object` mirrors the *whole* drag-release sequence `CanvasView` runs, not only its simplest branch: a bed/container/trellis carries its contained plants along (`AlignItemsCommand` over item+children, same as `_propagate_bed_children_during_drag`'s release-time commit), and a moved plant has its bed membership re-evaluated afterward (`SetParentBedCommand`, same as `_update_plant_bed_relationships`) — a first cut that used a bare `MoveItemsCommand([item], delta)` looked like it matched the GUI's call site but silently abandoned a bed's plants and left stale parent/child links for soil-mismatch diagnostics to act on. So **one agent write is one undo step for a lone item, and exactly one undo step even when the move reparents a plant** (#635) — matching the GUI, which wraps its move and its links in ONE `CompoundCommand` (#627). Every command still dirties the document via `stack_changed`; no parallel mutation path is invented for agents.
 - **Curated `WriteResult` return.** A stable pydantic confirmation (`item_id`, `action`, `undo_description`, resulting `x`/`y` for move) decoupled from the `.ogp` serializer — mirrors D1.2's curated-schema principle.
 
 **Alternatives considered**:
@@ -964,7 +1132,7 @@ No `FILE_VERSION` change. Added tests: `tests/unit/test_ai_client_onboarding.py`
 
 **Addendum (issue #355 — bounded callout input):** callout offsets are validated in the Qt-free `agent_api/creates.py` boundary before `_deserialize_item_core` or a command can run. The accepted domain is signed and canvas-relative: `abs(offset) <= 2 * max(canvas_width_cm, canvas_height_cm)`, with finite values required; the resolved default offsets go through the same check. Because some JSON stacks normalize non-finite numbers to `null`, the MCP wrapper uses an omission sentinel and rejects explicit null rather than allowing a hostile value to fall back to the default. Refusals leave the scene and undo stack untouched; valid negative/default offsets and save/load/render/delete behavior remain unchanged. This is an input contract, not a new geometry implementation.
 
-**Independent review (round 2, fresh worktree) — P0 caught: `move_object` didn't behave like the GUI's own move, only like its narrowest branch.** `_do_agent_move_object`'s first cut moved the target item alone via a bare `MoveItemsCommand` — plants and shapes aren't Qt-children of their bed (`parent_bed_id`/`child_item_ids` are logical links, not scene-graph parentage; `RectangleItem.itemChange` doesn't cascade a position change to contents), so moving a bed via the agent silently abandoned its contained plants at their old position while `child_item_ids` kept claiming they were still inside it — soil-mismatch diagnostics then reasoned about a layout that no longer existed. A related P1: a moved plant's bed membership was never re-evaluated, so an agent-driven "move the tomato into the raised bed" left it unparented, and moving one out left it falsely still attached — with no `set_parent_bed` tool yet, there was no way for an agent to correctly relocate a plant at all. Root cause: `CanvasView`'s drag-release path is not one call site but an orchestrated sequence (live child-propagation during drag → a release-time `AlignItemsCommand` spanning item+children → a separate `_update_plant_bed_relationships` pass issuing `SetParentBedCommand` on a boundary crossing) — the first cut matched the *class name* (`MoveItemsCommand`) the GUI happens to use in its narrowest branch (single item, no propagation, no reparenting) without checking that that branch is not what a bed or an in-bed plant actually goes through. **Fix**: `_do_agent_move_object` now builds the same `(item, delta)` pairs `CanvasView._propagate_bed_children_during_drag`'s release-time commit does (item plus every `child_item_ids` entry, via `AlignItemsCommand` when there's more than one), then runs the same reconciliation `_update_plant_bed_relationships` does (`SetParentBedCommand` if `find_smallest_bed_containing` disagrees with the current `parent_bed_id`) — extracted as `_agent_move_item_deltas`/`_agent_reconcile_bed_membership`. So **one agent move is one undo step for a lone item, and two when it also reparents a plant** — mirroring the GUI's own two-command sequence in that case, never more; `WriteResult` gained `children_moved`/`bed_membership_changed`/`new_parent_bed_id` so the agent can see which happened. The ADR/FR/§8.19 "one agent write = one undoable step" wording was corrected everywhere it appeared (it was never true of the GUI's own plant-move behaviour either). Pinned by three new integration tests: a bed with two contained plants moved together as one undo step, a plant moved across a bed boundary into a bed (reparented, two undo steps), and a plant moved out of its bed (detached).
+**Independent review (round 2, fresh worktree) — P0 caught: `move_object` didn't behave like the GUI's own move, only like its narrowest branch.** `_do_agent_move_object`'s first cut moved the target item alone via a bare `MoveItemsCommand` — plants and shapes aren't Qt-children of their bed (`parent_bed_id`/`child_item_ids` are logical links, not scene-graph parentage; `RectangleItem.itemChange` doesn't cascade a position change to contents), so moving a bed via the agent silently abandoned its contained plants at their old position while `child_item_ids` kept claiming they were still inside it — soil-mismatch diagnostics then reasoned about a layout that no longer existed. A related P1: a moved plant's bed membership was never re-evaluated, so an agent-driven "move the tomato into the raised bed" left it unparented, and moving one out left it falsely still attached — with no `set_parent_bed` tool yet, there was no way for an agent to correctly relocate a plant at all. Root cause: `CanvasView`'s drag-release path is not one call site but an orchestrated sequence (live child-propagation during drag → a release-time `AlignItemsCommand` spanning item+children → a separate `_update_plant_bed_relationships` pass issuing `SetParentBedCommand` on a boundary crossing) — the first cut matched the *class name* (`MoveItemsCommand`) the GUI happens to use in its narrowest branch (single item, no propagation, no reparenting) without checking that that branch is not what a bed or an in-bed plant actually goes through. **Fix**: `_do_agent_move_object` now builds the same `(item, delta)` pairs `CanvasView._propagate_bed_children_during_drag`'s release-time commit does (item plus every `child_item_ids` entry, via `AlignItemsCommand` when there's more than one), then runs the same reconciliation `_update_plant_bed_relationships` does (`SetParentBedCommand` if `find_smallest_bed_containing` disagrees with the current `parent_bed_id`) — extracted as `_agent_move_item_deltas`/`_agent_reconcile_bed_membership`. So **one agent move was two undo steps when it also reparented a plant** at the time of that review — mirroring the GUI's own two-command sequence — and has been ONE step since #635/#443, when the move command itself began reconciling membership; `WriteResult` gained `children_moved`/`bed_membership_changed`/`new_parent_bed_id` so the agent can see which happened. The ADR/FR/§8.19 "one agent write = one undoable step" wording was corrected everywhere it appeared (it was never true of the GUI's own plant-move behaviour either). Pinned by three new integration tests: a bed with two contained plants moved together as one undo step, a plant moved across a bed boundary into a bed (reparented, ONE undo step since #635/#443), and a plant moved out of its bed (detached). *Since #443 the move command reconciles membership itself; the separate `SetParentBedCommand` described above remains as an idempotent belt-and-braces inside the same compound.*
 
 **Same review pass, two more gaps in `_delete_selected_items`'s orchestration that `DeleteItemsCommand` alone doesn't cover** (found via the same "read the actual GUI call site, don't assume the Command class is the whole behaviour" method): the GUI's delete also (a) removes any constraint referencing the deleted item via a separate `RemoveConstraintCommand` per constraint — otherwise the constraint graph keeps a dangling reference to a UUID no longer in the scene — and (b) expands a `HOUSE` deletion to include its linked `ROOF_RIDGE` (a `metadata["ridge_item_id"]` association, not a Qt-child or bed relationship), otherwise the ridge is orphaned on screen. `_do_agent_delete_object` now replicates both, exactly mirroring the GUI's command sequence (constraint removals first, then one `DeleteItemsCommand` over `[item, *linked_ridge]`); `WriteResult` gained `linked_items_deleted`/`constraints_removed` for transparency. **Also from this pass**: `move_object` now explicitly refuses (raises) when the target item — or a bed child it would carry along — participates in any geometric constraint, rather than silently moving it while `CanvasView`'s own live solver (`_propagate_constraints_during_drag`, which computes a per-item delta via constraint solving, not a uniform offset) goes unreplicated; integrating that solver into a one-shot agent call is out of scope for this slice, and a clean refusal is preferable to silent constraint violation. Both `move_object` and `delete_object` also now refuse journal pins outright — `JournalPinItem` has its own `DeleteJournalNoteCommand` path that prunes a `ProjectData` note record, which a bare `DeleteItemsCommand` doesn't do, so silently "deleting" one via the agent would leave an orphaned note dict forever. Pinned by five more tests: move refused on a constrained item, move refused when a bed child is constrained, delete removes a referencing constraint, delete of a `HOUSE` also deletes its ridge (one undo step for both), and both tools reject a journal pin.
 
@@ -982,7 +1150,7 @@ The second write slice adds **`create_object(object_type, x, y, width?, height?,
 
 2. **The API speaks centres, both directions.** `x`/`y` are the object's centre in the read tools' own Y-up frame, so an agent can place relative to something it just read. Rectangles serialise anchor-based, so the conversion is `anchor = centre − extent/2` — chosen deliberately because it holds under either y-direction reading and therefore **cannot** introduce a Y-flip bug, the failure mode ADR-002/§8.20 keeps costing this project.
 
-3. **The bed-linking premise was wrong, and a probe is what caught it.** The design started from "the GUI's gallery-drop path never sets `parent_bed_id`, so a dropped plant stays unlinked until something moves it" — read off the `CanvasView` drop handler, which indeed contains no linking code. The plan was therefore to reconcile membership explicitly after creating (as `move_object` must), accepting a deliberate divergence from the GUI. **A failing test then contradicted it**, and instrumenting the real path showed the new plant *already* carried the correct `parent_bed_id` before the reconcile ran: `CreateItemCommand.execute` calls `_auto_parent_plant`, and `undo` calls `_detach_from_parent` (`core/commands.py`). The linking is one layer below where it was looked for. Consequences: the reconcile call was **removed as dead code** (it could only ever return "unchanged"), `create_object` always produces **exactly one undo-stack entry** — unlike `move_object`, whose `MoveItemsCommand` has no such hook — and `WriteResult.bed_membership_changed` is documented as strictly meaning "a *second* undo step happened", with the new plant's parent reported via `new_parent_bed_id` instead. The general lesson is the project's own: **verify the premise against the running code before designing around it** — reading the obvious call site was not the same as measuring the behaviour.
+3. **The bed-linking premise was wrong, and a probe is what caught it.** The design started from "the GUI's gallery-drop path never sets `parent_bed_id`, so a dropped plant stays unlinked until something moves it" — read off the `CanvasView` drop handler, which indeed contains no linking code. The plan was therefore to reconcile membership explicitly after creating (as `move_object` must), accepting a deliberate divergence from the GUI. **A failing test then contradicted it**, and instrumenting the real path showed the new plant *already* carried the correct `parent_bed_id` before the reconcile ran: `CreateItemCommand.execute` calls `_auto_parent_plant`, and `undo` calls `_detach_from_parent` (`core/commands.py`). The linking is one layer below where it was looked for. Consequences: the reconcile call was **removed as dead code** (it could only ever return "unchanged"), and `create_object` always produces **exactly one undo-stack entry**. At the time of that review `move_object` had no such hook and produced a second entry when it reparented; since #635/#443 the move command reconciles membership itself, so it is one step too, and `WriteResult.bed_membership_changed` means "the addressed plant's parent changed", not "a second step happened". The general lesson is the project's own: **verify the premise against the running code before designing around it** — reading the obvious call site was not the same as measuring the behaviour.
 
 Note that "one undo-stack entry" is a claim about the *stack*, not about total side effects: creating on a **hidden** active layer silently un-hides it (`QGraphicsScene.addItem` does this for the GUI's draw tools too) and undo does not re-hide it. Pre-existing GUI behaviour rather than a D2.1 regression, but it sits oddly beside the deliberate locked-layer refusal, so it is stated in §8.19 and FR-AGENT-14 rather than left to be discovered.
 
@@ -1010,7 +1178,7 @@ Scope is deliberately narrow (plants + the five `SOIL_CONTAINER_TYPES`); resize/
 
 **Refusals** extend D2.0's list rather than inventing one: constrained objects (via the new shared `_agent_require_unconstrained`, so `move_object`/`resize_object`/`rotate_object` cannot drift on whether they check at all), plus vertex-backed objects — a polygon or polyline has no width/height box, so `resize_object` refuses it **by name** and points at the vertex tools later delivered by US-D2.6, rather than silently no-opping. Resizability is decided by the item's actual shape (`is_resizable_rect_like`, a capability check) rather than by a type-name allowlist, because that is the question the apply function actually asks; the *message* names the type. Sanity bounds are D2.1's, reused verbatim including the plant-diameter cap that exists because a plant's footprint drives a quadratic `QImage` allocation.
 
-**One undo step, always.** Neither tool reparents, so unlike `move_object` neither can produce a second step. No `FILE_VERSION` change. See FR-AGENT-15.
+**One undo step, always.** A bed resize or rotate re-decides only that bed's plants inside the same step (#443), and a move's reparent is likewise part of its own step since #635/#443. No `FILE_VERSION` change. See FR-AGENT-15.
 
 ### ADR-036 addendum: species assignment + explicit bed reparenting (US-D2.3, #327)
 
@@ -1020,11 +1188,11 @@ Scope is deliberately narrow (plants + the five `SOIL_CONTAINER_TYPES`); resize/
 
 **The `apply_database_size` parameter is narrower than its name suggests, and the issue's premise about it was wrong.** #327 specified it as "default `False`, leaves the drawn footprint alone". Reading `apply_species_to_item` disproved that: the app *always* resizes the footprint to the species' `max_spread_cm` when assigning a species — silently — and only asks the user anything when a manual `spacing_radius_cm` override disagrees with the database, via a two-button dialog. Defaulting the agent to "don't resize" would therefore have made the agent behave differently from the GUI on the common path, which is exactly the divergence this package exists to prevent. So `apply_database_size` **defaults to `True` and is the agent's answer to that dialog**: `True` takes the database values and clears the override, `False` keeps the user's. Without a conflicting override the footprint adopts the database size either way. Both the tool docstring and the provider docstring say so in those terms.
 
-**The D2.1 asymmetry, decided rather than left implicit.** `create_object` sizes a new plant from the *gallery defaults* (radius 100/50/30 cm for TREE/SHRUB/PERENNIAL); `set_species` sizes from `max_spread_cm`. That is kept, deliberately: `radius` is an explicit `create_object` parameter, and having `species` silently overrule it would make two arguments fight with no way for the caller to express which it meant. An agent that wants a database-sized new plant calls `create_object` and then `set_species` — two documented steps, not a gap. Recorded here because #327 required the decision to be made either way and said silence was not acceptable.
+**The D2.1 asymmetry, decided rather than left implicit.** `create_object` sizes a new plant from the *gallery defaults* (radius 100/50/30 cm for TREE/SHRUB/PERENNIAL); `set_species` sizes from `max_spread_cm`. That is kept, deliberately: `radius` is an explicit `create_object` parameter, and having `species` silently overrule it would make two arguments fight with no way for the caller to express which it meant. An agent that wants a database-sized new plant calls `create_object` and then `set_species` — two documented steps, not a gap. The GUI's own gallery drop is not that second copy: when the entry names a known species it sizes the footprint from `max_spread_cm` (FR-PLANT-15, #596), while `create_object` keeps the caller's explicit `radius`. The asymmetry is therefore agent-vs-GUI argument handling, not two sizing rules. Recorded here because #327 required the decision to be made either way and said silence was not acceptable.
 
 **`set_species` is a geometry mutation, so it clears the geometry gate.** Assigning a species resizes the footprint to `max_spread_cm`, which makes it an arbitrary agent-driven resize — so it calls the same `_agent_require_unconstrained` check `resize_object` does. The first cut did not, and the senior review proved the consequence: an agent refused by `resize_object` on a constrained plant could obtain the identical resize by calling `set_species` on the same item one line later. A shared gate that three of four geometry-mutating tools honour is a perimeter with a door in it. Clearing a species (`species=None`) resizes nothing and is therefore not gated. Both D2.3 tools also refuse a **no-op**: linking a plant to the bed it is already in, or clearing a species that was never set — a success report plus a junk undo step for a state that did not change is exactly the kind of lie that makes an agent's model of the plan diverge from the plan.
 
-**`set_parent_bed` deliberately does not require geometric containment.** The plant does not move; only the link changes. This is the one state `move_object` cannot reach — a plant already sitting inside a bed that was drawn around it, and therefore never linked — and the app's own properties-panel Link action does not require containment either. Refusing would make the tool useless for the exact case it exists for. The result carries `link_is_geometric` so an agent can see that the link and the geometry disagree and tell the user. A no-op (linking to the bed it is already in, or detaching an unlinked plant) is refused rather than silently succeeding, so an agent's model of the plan cannot quietly diverge from it.
+**`set_parent_bed` deliberately does not require geometric containment.** The plant does not move; only the link changes. This is the one state `move_object` cannot reach — a plant already sitting inside a bed that was drawn around it, and therefore never linked — and the app's own properties-panel Link action does not require containment either. Refusing would make the tool useless for the exact case it exists for. The result carries `link_is_geometric` so an agent can see that the link and the geometry disagree and tell the user. (Since #443 it tests the SAME standing point the sun study and the 3D scene use — the plant's stable geometric centre, which no warning badge can move — so it agrees with the lift's containment half; it can still be `true` for a plant that stands on the ground because the parent is a trellis, an in-ground bed or hidden. The schema's field description says so. ADR-037 addendum "base stacking", decision 5 and "bed membership is reconciled by geometry".) A no-op (linking to the bed it is already in, or detaching an unlinked plant) is refused rather than silently succeeding, so an agent's model of the plan cannot quietly diverge from it.
 
 **Plant-parent types follow §8.14 / ADR-017 exactly**, including the asymmetry that trips people up: `TRELLIS` is a plant parent but **not** a soil container, so a plant on a trellis has a parent yet no soil readings. `agent_api/edits.py` inlines the name set to stay Qt-free and `tests/unit/test_agent_api_edits.py` guards it against the real `PLANT_PARENT_TYPES`; a `HOUSE` target is refused by name, with the message listing what *would* work. `WriteResult` gains `species_key`, `link_is_geometric`, `width`/`height`/`radius` and `rotation_deg`, and its `action` literal gains the four new verbs — the `Literal` is itself the drift guard. One undo step each. No `FILE_VERSION` change. See FR-AGENT-16.
 
@@ -1034,7 +1202,7 @@ Scope is deliberately narrow (plants + the five `SOIL_CONTAINER_TYPES`); resize/
 
 **The stable geometry read comes from the live Qt item, not the serializer.** `get_object(raw=True)` exposes pre-transform storage and is deliberately allowed to change with `FILE_VERSION`; it is not a safe input/output contract for geometry edits. `get_geometry` therefore resolves the top-level live item on the Qt main thread and reports `center_x_cm`/`center_y_cm` from the same serialized-center resolver as `get_object`, while polygon and polyline vertices pass through `mapToScene()`. At 215° those live points and the raw stored points genuinely differ. The inverse direction (`set_vertex`) uses `mapFromScene`, except when the requested scene point is within `1e-9 cm` of the current mapped vertex: then it reuses the exact current local `QPointF`. A measured raw scene→local→scene round trip perturbs a rotated polyline by about `5.7e-14 cm`; invisible to a person, but enough to make an unchanged write look like a real mutation. The epsilon turns that into an exact no-op detection, not user-facing snapping: an unchanged `set_vertex` refuses with no command, no history entry, and no dirty state, consistent with `set_object_position` and the other no-op refusals. Moving a vertex and setting it back leaves the serialized object byte-identical.
 
-**Absolute placement is a delta into the existing move orchestration, not a second move implementation.** `set_object_position` validates the requested centre, obtains the current centre through the read-layer resolver, computes `(target-current)`, and enters the same helper as `move_object`. That helper owns logical bed/container/trellis child propagation, the complete constraint preflight, `MoveItemsCommand` versus multi-item `AlignItemsCommand` selection, and plant bed-membership reconciliation. Consequently the documented move exception is inherited exactly: one undo step normally, two only when absolute placement moves a plant across a bed boundary. A no-op is refused, but constraint preflight happens first so a constrained object still receives the required constraint-named error.
+**Absolute placement is a delta into the existing move orchestration, not a second move implementation.** `set_object_position` validates the requested centre, obtains the current centre through the read-layer resolver, computes `(target-current)`, and enters the same helper as `move_object`. That helper owns logical bed/container/trellis child propagation, the complete constraint preflight, `MoveItemsCommand` versus multi-item `AlignItemsCommand` selection, and plant bed-membership reconciliation. Consequently the documented move contract is inherited exactly: **one undo step, including when absolute placement moves a plant across a bed boundary** (the move command reconciles membership in the same step since #443). A no-op is refused, but constraint preflight happens first so a constrained object still receives the required constraint-named error.
 
 **Vertex commands extend the D2.2 canonical-apply rule rather than bypassing it.** `MoveVertexCommand`, `AddVertexCommand`, and `DeleteVertexCommand` also take caller-supplied callbacks. `ui/canvas/geometry_apply.py` now owns `build_move_vertex_command`, `build_add_vertex_command`, and `build_delete_vertex_command`; interactive polygon/polyline commit callbacks and the Agent API call those same builders. The item-local `_move_vertex_to` / `_insert_vertex` / `_remove_vertex` methods remain the one low-level mutation protocol. Topology changes invoke a small hook after insertion/deletion; `PolygonItem` uses it to preserve the existing HOUSE→ROOF_RIDGE boundary reprojection through execute, undo, and redo. Qt-free `agent_api/edits.py` owns finite/reachable point checks, zero-based index semantics (append uses `index == vertex_count`), and minimum-count refusal before any Qt geometry is constructed. No accepted set/add/delete writes a closure in `application.py`.
 
@@ -1074,7 +1242,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 - **Two keys, never aliased**: `object_height_cm` (above-ground height, shadows/3D) vs `container_height_cm` (soil fill, drives volume) — a tall pot on legs can be 90 cm tall with a 30 cm fill. The resolver arbitrates; nothing else reads both. **Known simplification (review-flagged, revisit in US-E3/#258)**: with no explicit override the fill height *stands in* for a container's above-ground height (there is no separate source in this slice), so an on-legs pot under-shadows until the user sets a height — marked in a code comment at the fallback.
 - **Additive metadata, NO FILE_VERSION bump** (stays "1.4"): the serializer round-trips `item.metadata` wholesale, old apps ignore unknown keys (precedent: the `container_*` keys). Graceful degrade both directions is pinned by `tests/integration/test_height_property.py`.
 - **Qt-free by name-matching**: `core/object_types.py` imports PyQt6 (translated labels), so the resolver matches object types by enum **name** (`"FENCE"`) instead of importing the enum — same spirit as `plant_sizing`/`container_model`'s metadata-only duck-typing. The name sets (`DEFAULT_HEIGHTS_CM` keys, container/plant name sets) are pinned against the real enum by unit tests, so a rename breaks a test rather than silently orphaning a default.
-- **Undoable UI**: the properties-panel "Object height:" spin displays the *resolved effective* height (0 = "Auto" clears the override — the exact semantics of the existing spacing-radius field) and commits via `ChangePropertyCommand(apply_func=…)` — one undo step (#209). The container section's direct-metadata mutation remains documented debt, not a precedent.
+- **Undoable UI**: the properties-panel "Object height:" spin displays the *resolved effective* height (0 = "Auto" clears the override — the exact semantics of the existing spacing-radius field) and commits via `ChangePropertyCommand(apply_func=…)` — one undo step (#209). The container section's direct-metadata mutation was documented debt, not a precedent; it is paid now (#530 - each of those edits is one `ChangePropertyCommand`).
 
 **Consequences**: US-E3 consumes `solar_position()` + `effective_height_cm()` without new plumbing; US-E5/E6's extrusion uses the same resolver, so 2D shadows and 3D heights can never disagree. `height_source()` gives the UI (and future diagnostics) provenance for free.
 
@@ -1106,9 +1274,440 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **Rendering redesign (2026-07, `feature/sun-display-polish`).** The original 4-band discrete fill (hard colours + nearest-neighbour scaling) read as blocks. The overlay now renders a **continuous cool→warm ramp** — Qt-free `core/heatmap_render.py::build_sun_lut` (deep indigo in shade → amber/pale-yellow in full sun; alpha fades out toward full sun so a good spot shows the garden through) drawn with `SmoothTransformation` — plus **topographic contour lines every hour** (pure-numpy marching squares `iso_segments`, drawn as cosmetic-pen `QGraphicsPathItem`s that follow the terrain) with **even-hour `{n} h` labels** (`QGraphicsSimpleTextItem` + `ItemIgnoresTransformations`, the dimension-line idiom — zoom-stable). The labeled contours are the key, so the toolbar swatch legend is removed. **Display-only**: the aggregation, the toy-case gates and the worker are unchanged; contour extraction is cheap GUI-thread work after the compute. The horticultural bands (`BAND_THRESHOLDS_MINUTES`) stay as the domain classification the even-hour contours align with.
 
+### ADR-037 addendum: base stacking in the shared caster model (Phase 17, L1.6)
+
+**Status**: Accepted (2026-10-11, #385 story L1.6); amended the same day after the senior review's first round — the membership half of decision 5, the container soil rule in decision 4, the strict caster type in decision 1 and the two gates of decision 3 are that round's — and after its second: the POINT the lift asks and the per-walk shape, both in decision 5. **Changes shipped 2D behaviour** — the sun & shade overlay (FR-SUN-03) and the hours-of-sun heatmap (FR-SUN-05) — for one class of item: a plant that is linked to, and stands inside, a soil container with a height (FR-SUN-11).
+
+**Context.** The resolver above answers *how tall*; nothing answered *standing on what*. Every caster was a prism from the ground: a 60 cm perennial in a 40 cm raised bed cast as if it grew out of the lawn *through* the bed. Two consequences, both measured. (a) In 3D the same plant would stand inside its box, breaking the "Base" truth gate of `ogp-lush-cinematic` §1. (b) In 2D the plant was simply **invisible in the shadow map**: at a 35° sun its tip reached 85.7 cm past its footprint, the bed's own shadow 57.1 cm past the bed's edge — a plant in the middle of a bed never left the bed's shadow. Its real tip is 140.0 cm out. And the two views were about to disagree: 3D needs the base (L1.6 stands plants on their soil), the 2D casters had none.
+
+**Decision.**
+
+1. **A caster is a solid `footprint × [base, base + h]`** — `core/shadow_geometry.ShadowCaster(footprint, height_cm, base_cm = 0.0)`, a `NamedTuple` (plain data: it still crosses to the heatmap worker thread). `height_cm` stays `effective_height_cm`, measured from the caster's own ground. The shadow functions also accept the pre-L1.6 pair `(footprint, height)` — which stands on the ground — and **nothing else**: `caster_fields` unpacks by TYPE and raises `TypeError` for any other shape (a list, a bare 3-tuple, another named tuple), so a third element is a base only when a `ShadowCaster` says so. The first cut read any 3-tuple's last element as a height above ground.
+2. **The shadow of a raised caster, defined once**: with the sun at elevation α and unit shadow direction `d`,
+   `S(F, b, h) = { p + t·d : p ∈ F, t ∈ [b / tan α, (b + h) / tan α] }` —
+   the footprint projected from the base, swept on to its projection from the top; equivalently the ground shadow `S(F, 0, h)` translated by `(b / tan α)·d`. The **tip lies `b / tan α` further from the sun** and so does the near edge: what is below the base is not this caster's shadow but that of whatever it stands on (the bed is a caster of its own, so the union stays one region). Implemented as one step in front of the unchanged sweep: `_caster_paths_int` translates the integer footprint by `round(b / tan α · d · 1000)` and then sweeps exactly as before.
+3. **`base = 0` is the released code — and that is proven on every platform, by two gates that are not the same gate.** For a caster on the ground the translation step does not run, so the integer paths are the ones the old code produced. **(i) Platform-independent.** `tests/unit/shadow_geometry_v1_29_10.py` is `core/shadow_geometry.py` as released in v1.29.10 — the same git blob (`bde1030`), which the test checks — kept as an oracle. The released functions and today's return identical polygons and identical integer paths for 276 ground casters, a whole scene and a heatmap, compared exactly, on whatever machine the test runs: old and new then share its C library. This is what carries the claim "nothing on the ground changed". **(ii) A golden fixture** generated from the unchanged code pins absolute numbers: `compute_scene_shadows` over 120 footprint × height × sun cases, the caster walk and shadow unions of both bench plans, the real overlay's painter path at a high and a low sun, and the heatmap toy case. "Unchanged" is release **v1.29.10**: `core/shadow_geometry.py` and `core/shade_aggregation.py` are byte-identical to that tag (the generating commit `aaec048` and the fixture's first commit `8d1cd0a` are on branches a squash merge makes unreachable; the tag stays). **What the fixture enforces depends on the platform**: on win32, where it was generated, every float bit for bit and the SHA-256 of the bench plans' caster lists and unions; anywhere else — the CI test jobs run on Linux — the same structure (polygon and vertex counts, path element types), every coordinate within 2e-3 cm (two steps of pyclipper's 1/1000 cm grid) and every union area within 1e-6 relative, without the hashes. It cannot be made exact everywhere cheaply: a coordinate leaves the integer grid only as `k / 1000`, which is correctly rounded on any IEEE machine, so comparing integer paths instead of floats would change nothing; what can differ is how a value gets ONTO the grid — a sweep displacement is `round(sin(az) · h / tan α · 1000)` with the C library's `sin` / `cos` / `tan`, which are not correctly rounded everywhere. The tolerant comparison runs on every platform (it was dead code on the generating one), and `test_the_portable_comparison_can_fail` shows it refuses three grid steps, a lost vertex or polygon and a changed area.
+4. **One rule for where an item stands** — `core/object_height.standing_base_cm(parent_type, parent_metadata, at_date)`: the **soil surface** of a soil-capable parent that has a resolved height, `0.0` for every other parent. `soil_surface_cm(type, h)` has two cases, because the plan says two different things. A **container** (`CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER`) has its soil AT its resolved height: that height IS its soil fill height (the resolver above — the fill stands in for the above-ground height; the plan holds no rim), so the plan's one soil datum is not lowered for the look of a lip, and where the user overrode the height the soil is at the top they gave, so a plant never stands inside the solid. A **bed** (`RAISED_BED`, a `GARDEN_BED` that carries a height) has a rim height and no fill, so its soil is ASSUMED `SOIL_DROP_CM = 2.0` under the rim: `max(h − 2, 0)`. **`SOIL_DROP_CM` is a modelling assumption, not a datum of the plan**, and it moves shadows in the shipped sun study: the shadow of every plant in a raised bed shifts by `2 / tan α` — 7.5 cm at a 15° sun, 2.9 cm at 35°, 1.2 cm at 60°. (The first cut applied the drop to containers too, which put a plant in a pot 2 cm below the plan's own soil level.) "Soil-capable" is the repo's one predicate, `is_bed_type` (`SOIL_CONTAINER_TYPES`), mirrored by name in the Qt-free module and pinned against the real set (the module's existing convention); "above ground" is not a type property but *the parent has a height* — so an in-ground `GARDEN_BED` is the ground, a `GARDEN_BED` that carries a height is raised, and a `TRELLIS` (a plant parent that holds no soil) is the ground. A `GARDEN_BED` gets a height only through its metadata — a hand-edited or generated `.ogp`, or an item that had a height before its type changed: the properties panel offers no Height field for a garden bed without one, and no Agent API tool writes it. **No base is derived from a height beyond `MAX_PARENT_HEIGHT_CM`** (10 km — the scene contract's `MAX_LENGTH_CM`, mirrored into the Qt-free 2D module and pinned equal), as none is from an infinite one: a base is itself a length of a scene record, and one derived from a taller parent would be out of range, so the plant would lose its record over its parent's nonsense height (measured on the merged contract: a bed of 20 km took its plant out of the scene with it). That is ALL this bound says. **"Nothing stands on a parent the 3D scene does not hold" is not the height module's rule** — it cannot know which parents have a record — and is settled in `snapshot_records` (decision 5).
+5. **One caller for items, and the link alone never lifts** — `ui/canvas/footprints.item_base_cm(item, lookup, at_date)` lifts an item only when BOTH hold: its `parent_bed_id` (a `GardenItem` property, never metadata) names a *visible* parent for which rule 4 gives a base, **and the item's stable geometric centre lies inside that parent's shape**. The second half exists because the link is bookkeeping, not geometry. *(Superseded in part by the #443 addendum below, 2026-10-29: every edit path now reconciles the link, and the link decisions ask `standing_point`; this paragraph records the L1.6 decision.)* The app evaluates it when a plant is created — one by one, in bulk or pasted (`core/commands._auto_parent_plant`, called by `CreateItemCommand` and `CreateItemsCommand`) —, when a selected plant is dropped after a drag (`CanvasView._update_plant_bed_relationships`) and when the agent moves a plant (`_agent_reconcile_bed_membership`, after `move_object` and `set_object_position`, which share one path); never when a BED changes — no resize and no vertex edit touches it — and `set_parent_bed` sets it on purpose without containment (`link_is_geometric: false`). In the first cut the link alone decided: a raised bed shrunk away from its plant left a plant on the lawn casting from 38 cm, and at a 15° sun its shadow began 141.8 cm away — 111.8 cm of lit ground between a plant and its own shadow, new wrong output in the shipped overlay and heatmap (senior review, round 1). **One predicate, two points.** The containment PREDICATE is the app's own construct, extracted once — `footprints.shape_contains(parent, scene_point)`, Qt's `contains` in the parent's frame — and asked by every link decision (auto-parenting, the re-link after a drag, the agent's re-link and its `link_is_geometric`, through `find_smallest_bed_containing` or `centre_is_inside`) and by the lift; a drift guard counts the construct in both of its spellings. The POINT it is asked with differs, deliberately (review round 2). The link decisions keep theirs exactly as shipped: `bed_membership_point`, the centre of the item's `boundingRect()`. The lift asks `standing_point`, the item's stable geometric centre — `item_outline`'s anchor in scene coordinates: a plant circle's mapped centre, the origin of its footprint and of its 3D record. The two are one point until something is painted asymmetrically over the plant: the antagonist badge grows the bounding rect towards +x / +y by `0.3 · min(0.45 · radius, 12)` cm, which moves its centre by up to 1.8 cm along EACH axis — 2.55 cm in all, the margin against an edge at 45° (pinned on a bed turned by 45°: a plant 2.2 cm inside the edge is outside for the link decisions). Round 1 asked the lift with the link point, and a linked plant 1 cm inside its bed's east edge read base 38 without the badge and 0 with it — in the 3D record and in the 2D caster: a shadow that flipped with a warning. Where a solid stands must not depend on what is painted over it. **So within the badge's margin of a bed's edge a link decision and the lift can differ**: a plant created under a badge 1 cm outside a bed's west edge is linked and stays on the ground; `set_parent_bed` can report `link_is_geometric: false` for a plant that is lifted. Shipped parenting behaviour is not changed here — the badge dependence of the drop-time decision goes into the follow-up issue. `TestWhichPointEachDecisionAsks` pins the point of each of the six decisions (before it, swapping the link point for the geometric centre passed every parenting, agent-write, container, trellis and base-stacking test). **The parent's shape is built once per walk** — `ItemLookup.shape_of`, handed to `shape_contains`: Qt's `contains` rebuilds an item's shape on every call, 240 times a walk on bench_large. A lookup therefore lives for ONE walk (kept across a bed resize it still answers 38): a source-reading test holds that the identifier `ItemLookup` appears in the application only as an import, the class, a parameter's annotation and a call inside the two walks, and that a lookup is handed to `item_base_cm` / `_record_of` and to nothing else (what a reading cannot see — a dynamic spelling such as `type(lookup)(…)` — is stated in the test). **A parent that got no record lifts nothing, whatever the reason** (review round 3): `snapshot_records` knows, once every record is built, which parents the 3D scene holds — a raised bed 30 km wide is `out_of_range`, another's outline cannot be built, a third's record failed — and puts every record whose parent has none on the ground. Before, such a plant stood at 38 over nothing. The 2D casters are a different view with their own facts and are not touched: there that bed casts, and its plant casts from its soil. Otherwise base 0 — exactly the behaviour before L1.6. `item_base_cm` is called by `collect_shadow_casters` (→ overlay **and** heatmap, which share that one walk) and by `snapshot_records` (→ `transform.base_cm`). A parent that is not *visible* is not there: it casts nothing and has no solid, so its plants stand on the ground rather than float.
+6. **The overlay's change key carries the base**, so an edit that changes only what a plant stands on (a re-parent) recomputes.
+
+**What changes for the user.** A plant on raised soil now casts from the soil: its shadow tip is `base / tan α` further out (54.3 cm for the example above; 141.8 cm at a 15° winter sun) and the plant becomes visible in the overlay and in the hours-of-sun map where it was hidden inside its bed's shadow. Everything on the ground is unchanged (decision 3). On the bench plans: 22 of 87 casters (bench_small: 19 at 38 cm in raised beds, 3 at 30 cm in pots) and 240 of 379 (bench_large) are raised, and every one of them stands inside its parent.
+
+**Known limits — a plant can be IN a raised bed and not ON it.** *(Superseded for the link half by the addendum below, 2026-10-29: membership is now reconciled by every edit path and both decisions ask the same point. The nesting limits (c)/(d) remain as described.)* The rule needs the link, and the app does not reconcile links (follow-up issue: *bed membership is not reconciled when a bed is created or resized* — which also takes the link decisions' dependence on the antagonist badge, decision 5). Three standing states, each pinned by a test so that the reconciliation, when it comes, changes them knowingly. **(b) A raised bed drawn around a plant** links nothing: the plant has no parent and stays at ground level — in 2D it casts from the ground, inside the bed's own shadow; in 3D it is drawn inside the box — while the same-looking plan drawn bed-first gives 38. **(c) A climber on a trellis that stands in a raised bed** is linked to the trellis, the smallest parent that contains it; a trellis holds no soil and has no base of its own (parents do not nest), so the climber is at 0 while its neighbour in the same bed is at 38. **(d) A pot standing on a raised bed** is on the ground — only plants carry a parent link — and its plant stands at the pot's own soil, 30, not at 68. Case (a), a bed resized away from its plant, is what decision 5's second half handles: the link survives, the plant is back on the ground. **Two more ways into the same state** (found in the last review pass; shipped behaviour, pinned in `TestCopiesAndMovesFollowTheLink`): a plant **mirror-copied** into its source's raised bed without the bed gets no link — base 0 beside its source at 38 —, and an **array copy** takes its source's link unevaluated and is missing from the bed's child list — inside the bed it stands at 38, outside at 0 with a stale link. And two moves the link does not follow: a linked plant moved by anything but a mouse drop or an agent move keeps its link (where it stands still follows its centre: 38 → 0 → 38), and a bed moved by a typed coordinate or by align / distribute leaves its plants where they were, linked and on the ground.
+
+**Alternatives considered (rejected).**
+- *A base only in 3D.* Two answers to one question; the Split view would show a 3D shadow and a 2D overlay that disagree by half a metre.
+- *Lift the height instead (`h' = h + base`, base 0).* The tip would be right and the near edge wrong — the plant would also shade the ground under and beside its bed's far side that the bed alone does not — and the 3D solid would be a pole from the ground.
+- *A new name set for "raised parents" (the spike's four names).* It left out a `GARDEN_BED` with a height and would drift from `is_bed_type`; the height test needs no list.
+- *Counting a hidden parent.* Its plants would float in 3D and cast from thin air in 2D.
+- *The link alone as the test (the first cut).* Decision 5: the link is not geometric, and a bed resized away from its plant produced a shadow that began 1.4 m from the plant.
+- *The link decisions' point for the lift (the first round's fix), or the stable centre for the link decisions too.* The first lets a shadow flip with a badge (decision 5). The second is the cleaner end state and changes shipped parenting behaviour — which plants a drop links at a bed's edge — so it belongs to the follow-up, not to a story about where solids stand.
+- *Guessing a parent from geometry where there is no link* (which would also lift cases b and c). It would make the base disagree with the Properties panel, the bed's plant list, the soil-mismatch borders and the agent's read tools, which all follow the link; the place to fix a missing link is where links are made.
+- *The bed's 2 cm soil drop for containers too (the first cut).* Decision 4: a container's height is its fill height.
+- *Tightening the golden's non-Windows tolerance blind, or comparing integer paths.* Decision 3: neither removes the C library from the path onto the grid; the released-code oracle does the proving instead.
+- *Fixing the closed-polyline footprint in the same change.* `polyline_footprint` of a closed line returns an outer ring and a hole, and both shipped consumers shade the enclosed area. It is a separate defect with its own issue; the golden deliberately pins today's behaviour, defect included, so this change proves it moved nothing else.
+- *Keeping the 2-tuple and adding a parallel list of bases.* Two lists that must stay in step; six test call sites unpack the tuple and now name the third field instead.
+
+**Consequences.** The rule costs time on the two walks every edit runs. Measured on bench_large (505 items, 240 lifted plants; best of 80, three alternating runs per tree, a shared machine): the caster walk 3.7–4.0 ms before L1.6, 6.5–6.9 ms after round 1, **5.0–5.3 ms** now; `snapshot_records` 8.5–8.8 / 12.1–12.5 / **9.9–10.6 ms**. Per lifted plant the rule takes 2.8 µs — of round 1's 7.6 µs (its parts, summed), 4.1 were the plant's `boundingRect()` (a Python override; the stable centre costs 0.3) and 1.4 the parent's shape rebuilt per plant. A plan without raised soil pays nothing: the geometric test runs last, and only for an item that would be lifted. `collect_shadow_casters` returns `list[ShadowCaster]`. `transform.base_cm` of a scene record is real (ADR-059): a bed that changes height reaches its plants as `update_transform` — no plant mesh is rebuilt — and a re-parent is a transform change (it was an empty diff). No `.ogp` change, no `FILE_VERSION` bump, no user-visible string. Not changed: the shipped Qt 3D view (`collect_scene3d_records`) still extrudes a plant from the ground; it has no shadows and retires in L1.10. Parents do not nest (only plants are parented), so there is nothing to sum.
+
+**Validation.** `tests/unit/test_shadow_caster_base.py` — tip shift = `base / tan α` at 15° / 35° / 60° × five azimuths × three footprints (≤ 0.1 cm; measured ≤ 2e-3, the integer grid); `S(F, b, h)` = the translated ground shadow; a ray oracle that knows no polygons (a ground point is shaded iff the ray toward the sun crosses the solid), 4,000 points per case; the bed casts the part below; `TestTheGroundPathIsTheReleasedCode` — the v1.29.10 functions against today's (decision 3 i); `TestACasterIsATypeNotALength`; the soil rule for beds and for containers. `tests/integration/test_shadow_caster_golden.py` — the golden on every platform as far as that platform can hold it, plus on both bench plans: same walk, grounded union unchanged, ground casters unchanged, raised count = an independent oracle's. `tests/integration/test_scene3d_base_stacking.py` — gate G3 through a real scene; 3D base = 2D caster base for nine parent cases; `TestMembershipIsReconciledAndTheLinkAloneNeverLifts` — (a) the bed shrunk with the real resize command now UNLINKS the plant, (b) a bed drawn around a plant links and lifts it, (c)–(d) the nesting limits, an explicit link without containment, and the one-predicate drift guard; `TestWhereAPlantStandsDoesNotDependOnABadge` — badge on and off: the 3D record, the 2D caster base and the real overlay's path unchanged; `TestLinkAndLiftAskTheSamePoint` — create, bulk create / paste, the drop, the agent's move re-link and `link_is_geometric` on the real application window, all asserting the SAME standing point; `TestCopiesAndMovesFollowTheLink` — array and mirror copies, moves in and out, and a bed moved by align/typed coordinate; `TestTheParentShapeIsBuiltOncePerWalk` — the cached path against Qt's `contains` on 7,128 points over four parent shapes, one shape per parent and walk, and the lookup's lifetime (constructed only in the two walks, never kept); `TestTheOneRule::test_a_parent_without_a_record_lifts_nothing` (30 km wide; a failed record; an unbuildable outline) and `::test_a_plant_is_grounded_whichever_of_the_two_is_stacked_higher`; `TestTheOverlaysOwnEcho` — the overlay's own `scene.changed` echo, made deterministic; one caster walk and its consumers (AST guard); a bed height change and a re-parent reaching the real overlay through the command stack; `TestHeatmapEndToEnd` — a raised plant through `SunHeatmapController` and its worker, the tip read off the grid. `tests/integration/test_bed_membership_reconciliation.py` — the #443 edit paths and their one-step undo. `tests/unit/test_object_height.py::test_soil_parent_names_match_the_soil_predicate`.
+
+### ADR-037 addendum — bed membership is reconciled by geometry (#443, 2026-10-29)
+
+**Status:** Shipped in v1.34.9 (PR #649) after owner manual acceptance on 2026-10-30.
+
+**Context.** Decision 5's second half ("the link AND the centre inside the parent")
+made the lift honest, but the LINK itself was only evaluated on a few paths: a
+plant's creation, a mouse drop, the agent's move. Everything else kept whatever
+link it had — a bed resized, turned or vertex-edited away from its plants; a
+bed drawn around standing plants; a plant moved by the arrow keys, a typed
+coordinate or align/distribute; a plant moved INTO a bed; every array copy
+(which inherited its source's `parent_bed_id` while the bed's `child_item_ids`
+never held it); a mirror copy without its bed; a bed moved by a typed
+coordinate or align/distribute (which left its plants behind). The Properties
+panel, the soil-mismatch and companion logic and the diagnostics could follow
+a link to a bed the plant no longer stood in, or miss one it did. The link
+decision's point was also the centre of `boundingRect()`, which the antagonist
+badge moves by up to 1.8 cm per axis, so it could disagree with the lift.
+
+**Decision.**
+
+1. **One rule.** A plant's link is the smallest plant-parent
+   (`find_smallest_bed_containing`) that contains its **standing point** —
+   ``footprints.bed_membership_point`` now returns ``standing_point``. The link
+   decision and the lift therefore ask the SAME question; a badge, a selection
+   or a spacing ring can change neither.
+2. **One mutator.** ``core/commands.set_parent_link(scene, plant, parent_id)``
+   sets ``parent_bed_id`` and the parent's ``child_item_ids`` together (and heals
+   a stale id whose child list never got it). ``_auto_parent_plant``,
+   ``SetParentBedCommand``, the neighbourhood reconcile and every command below
+   call it. A few deliberate writers still set the id directly; the
+   authoritative list is ``set_parent_link``'s docstring (the loader, delete
+   snapshots/restores, the paste/duplicate remap, and the mirror tool's remap
+   and identity stamp).
+3. **Every edit path applies it, in the same undo step.**
+   ``MoveItemsCommand``/``AlignItemsCommand`` reconcile after moving (covering
+   arrow keys, typed coordinates, align/distribute and constraint propagation)
+   and expand a moved plant-parent with its children; ``ResizeItemCommand`` and
+   ``RotateItemCommand`` carry a ``BedMembershipChange`` tracker for a plant or
+   plant-parent edit; ``AddConstraintCommand`` and
+   ``EditConstraintDistanceCommand`` build that tracker from the payload —
+   moves, rotations AND vertex moves — at each ``execute``, because the
+   constraint tools trial-execute, undo and only then inject the solver payload;
+   the live-applied drag paths (resize, corner edit, vertex edit) go through
+   ``register_applied_with_membership``; the create, paste, duplicate, array and
+   mirror commands reconcile the items they add; a new bed reconciles the plants
+   that already stood where it lands. ``undo`` restores the recorded links, so
+   one Ctrl+Z reverses geometry AND membership. (The properties panel's trailing
+   live constraint-solver pass and the fillet/chamfer + object-type conversions
+   are not routed through this yet; the next edit of the plant or its parent bed
+   re-decides them.)
+4. **A copy never inherits its source's link.** Array, mirror-copy and paste
+   paths drop the serialised link for plants and let geometry decide; a
+   non-plant child's deliberate remap (mirror of a bed with its contents) is
+   kept.
+5. **An explicit link is not overruled until the next geometry edit.**
+   ``set_parent_bed`` / the panel's Link action may link a plant outside a bed
+   (``link_is_geometric: false``); the link alone still never lifts it, and
+   the plant's next move re-decides it. This is deliberate: the user's Link
+   action is a decision, not a stale link.
+6. **Nesting is unchanged (decision (ii) of #443).** Only plants carry a link;
+   parents do not nest, so the smallest parent wins and the base is that
+   parent's soil — a climber on a trellis inside a bed stands at 0, and a pot's
+   plant at the pot's soil, not the sum. A nesting model is a separate feature.
+7. **"Inside" keeps Qt's shape semantics (decision (vii) of #443).** The
+   predicate is the parent's own ``shape()`` (with its clip path), which
+   includes half the pen stroke for polygons and round containers. The lift and
+   the link ask the same predicate, so they agree; changing the definition
+   would move every plan's soil line and is not part of this fix.
+
+8. **Explicit constraints outrank implicit bed carrying (#649 review, 2026-10-30).**
+   A child with its own constraints keeps its solver-controlled position, or
+   stays where it is when outside the solve component. Only unconstrained
+   children inherit the parent's translation. This includes FIXED and zero-delta
+   solver results. The shared `bed_child_has_constraints` predicate applies to
+   live propagation, move/align expansion and one-shot constraint commands.
+   Membership is reconciled against the resulting geometry. The agent's
+   existing preflight remains stricter: a bed move with any constrained child
+   refuses the entire operation before geometry or history can change.
+9. **No-op means the complete gesture is unchanged.** Returning a rotation to
+   its initial angle can leave partner translations or vertex corrections.
+   Such changes still produce one undo entry; a click without any geometry
+   change produces none.
+
+**Consequences.** ``.ogp`` unchanged (``parent_bed_id`` already serialised; the
+loader's ``_relink_parent_child_relationships`` remains the file-level heal).
+One gesture is still one undo entry. Cost: a plant move tracks only that plant
+(one containment query); a focused bed edit tracks the scene's plants and asks
+``find_smallest_bed_containing`` per plant, which scans the scene's items —
+O(plants × items) per bed edit, fine at plan scale but not a hot path. It only
+CHANGES links whose target or current parent is that bed, so a deliberate link
+to another bed is left alone. Each changed link refreshes its layer's z once.
+The agent's move/set-position reconcile and the drag-release link commands
+remain as belt-and-braces and are idempotent. FR-SUN-11 and FR-STACK-10's known
+limit (b) are updated; the tests that pinned the old behaviour in
+``test_scene3d_base_stacking.py`` changed knowingly (classes
+``TestMembershipIsReconciledAndTheLinkAloneNeverLifts``,
+``TestLinkAndLiftAskTheSamePoint``, ``TestCopiesAndMovesFollowTheLink``).
+
+**Validation.** ``tests/integration/test_bed_membership_reconciliation.py`` —
+resize/turn/vertex of a bed, plants moved in and out, a bed moved over a plant,
+a bed moved with its plants, array copy links by landing position, an explicit
+link surviving until the move, undo/redo of each; plus the updated pinned suite
+above. The full suite, ruff, bandit and the frozen exe gates ran before the
+draft PR.
+
+### ADR-037 addendum — one resolver for (height, source) (#581, 2026-10-25)
+
+**Context.** L2's info card added `height_source_at` beside `effective_height_cm` and
+`height_source`; the three carried hand-copied versions of the same precedence ladder
+(custom → container → grown → current → species → default). Any change to the ladder had
+to be made three times.
+
+**Decision.** `core/object_height.resolve_height(object_type, metadata, at_date)`
+returns `(height, source)` and is the only implementation. `effective_height_cm` returns
+`resolve_height(...)[0]`; `height_source` and `height_source_at` return the source from
+the same call (with and without the date). The public names, their docstrings and their
+answers are unchanged; the private `_species_height_cm` copy is gone. The growth branch
+is the only date-dependent one and reports `SOURCE_GROWN`.
+
+**Pins.** `tests/unit/test_object_height.py::TestOneResolver` projects the public
+functions from the resolver over explicit/container/species/current/grown/default/none
+cases and checks the grown source; all existing precedence, shadow and 3D height tests
+are unchanged. No `.ogp`, UI or behaviour change.
+
+### ADR-037 addendum — one caster's ring set is one REGION (#444, 2026-10-27)
+
+**Status**: Accepted. **Changes shipped 2D behaviour** — the sun & shade overlay
+(FR-SUN-03) and the hours-of-sun heatmap (FR-SUN-05) — for exactly two classes of item:
+a fence, wall or hedge stroke whose centre line closes on itself, and an outline that
+crosses itself. It closes the alternative this ADR's base-stacking addendum deliberately
+left open ("*Fixing the closed-polyline footprint in the same change* … a separate defect
+with its own issue").
+
+**Context.** A closed polyline comes back from `PyclipperOffset` as an outer ring **and a
+hole** (`polyline_footprint([(0,0),(1000,0),(1000,800),(0,800),(0,0)], 10)` → +818,062
+and −782,100 cm²). `_caster_paths_int` normalised each ring counter-clockwise and swept it
+as a **solid**, so the hole cast the shadow of a slab the size of the enclosed garden.
+Measured on master (`81d2b62f`, and in v1.30.0 as shipped): a 10 m × 8 m loop, 10 cm
+stroke, 1.2 m high, 60° sun, azimuth 180° — **888,037 cm² of shade where the stroke's
+prisms give 174,526 cm²**. The issue's four-rectangle reference gives 174,564: the 38 cm²
+is the ring's own chamfered corners (outer area 818,062.1, not the rectangles' 818,100),
+so the repaired ring's figure is the exact one for the outline the plan holds. A
+self-crossing outline had the same shape of defect: `[(0,0),(400,300),(400,0),(0,300)]` at
+300 cm and 60° drew **80,000 cm²** where its two lobes' prisms give **129,282 cm²**, and a
+pentagram of radius 400 drew **334,617 cm²** where its five lobes give **321,565**.
+
+**Decision.** One caster is one REGION, and the region is repaired once per WALK, where
+the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
+
+1. **Detection is structural, not a type test.** A ring set needs the repair when (a) some
+   ring's enclosed area is negative while there is more than one ring — a hole — or (b)
+   some ring's even-odd decomposition is not exactly ONE ring (`SimplifyPolygons`) — a
+   self-crossing outline. (b) is not an area difference: a pentagram decomposes into an
+   outer plus a hole whose total area is SMALLER than the ring's printed area (235,114
+   cm² printed, 124,108 in five lobes), so the sign of that difference is not fixed. A
+   LONE ring is never a hole whatever its winding: a solid drawn clockwise is a solid,
+   and the sweep already normalises winding. Everything else is returned **point for
+   point**, which is what keeps `tests/fixtures/shadows/shadow_golden.json` valid — every
+   footprint it pins
+   is a simple ring (measured: no hole-bearing and no self-crossing caster in
+   `bench_small.ogp`'s 87 or `bench_large.ogp`'s 379).
+2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
+   from the hole's topmost vertex to the nearest boundary above it (at x offsets
+   0, ±1, ±2 … grid steps; a ray that still lands on a vertex duplicates it, and the
+   region is exact either way — measured), and the ring visits it down
+   and up again. The slit encloses no ground, so the ring's region is exactly
+   `outer − holes`; the sweep of a region is the sweep of its rings, so nothing else
+   changes. Holes are bridged highest-first, so a lower hole's slit meets the boundary
+   above it and the result stays simple; a hole is attached to the INNERMOST outer ring
+   that contains it. Containment is asked of ONE vertex normally — a full scan would be
+   O(vertices × vertices) and cost seconds on a crafted 16,384-point closed fence — and a
+   MAJORITY only when that vertex lies exactly on the boundary, which is how two pieces
+   of a pinched outline (sharing that vertex) are told apart.
+3. **A self-crossing outline is split into its lobes** by `SimplifyPolygons` (even-odd),
+   and each lobe is swept as the solid it is — whichever way the outline winds. A
+   mirrored or clockwise star draws the same ground as a counter-clockwise one, and the
+   app's own mirror tool flips the winding, so the split must not ask the ring's sign
+   whether it is a hole (measured: a clockwise pentagram swept as one ring also drew
+   334,617 cm² where its lobes give 321,565). The SIGN selects that branch; the ROLE is
+   decided by CONTAINMENT, because a lone reversed solid has a negative sign too: a ring
+   whose majority of vertices lies strictly inside another ring is a hole (its lobes
+   reversed), and one inside nothing is a solid (its lobes positive). "Crosses itself" is decided by the
+   decomposition returning more than one ring — not by an area difference, because a
+   pentagram decomposes into an outer **plus a hole** whose total area is SMALLER than
+   the ring's printed area (printed 235,114 cm², five lobes 124,108). Measured: one
+   5-vertex pentagram swept as one ring drew 334,617 cm² where its five lobes' prisms
+   give 321,565 cm². Above `MAX_REGION_VERTICES = 256` the test is skipped, so a
+   crafted 16,384-vertex outline pays no `SimplifyPolygons` call on every walk (measured
+   257 ms) and is swept exactly as it was before this repair — the hole half of the
+   repair has no such bound.
+4. **The role of a ring is its winding sign**, which is what every pyclipper offset hands
+   out; a negative ring inside no outer ring is kept as a piece of its own rather than
+   dropped (it is a caller's lone reversed ring, not a hole).
+
+The repair lives in `collect_identified_casters` — the one walk the overlay
+(`collect_shadow_casters`), the heatmap (`compute_grouped_shadows`) and the per-plant
+estimates all read. `item_footprints` is unchanged: it answers *which ground does the
+item cover* (the 3D records and the golden-pinned extraction), not *what does this shadow
+sweep*. The sweep functions still take simple rings; a hole passed to them on its own
+would still be cast as a solid, which is why the repair is not inside them.
+
+**Cost, and the gate that keeps it.** The repair needs `pyclipper` work, so the walk asks
+for it only where the extractor can have produced something to repair: more than one ring,
+or `footprints.footprints_can_self_cross(item)` — True exactly for a `PolygonItem`, whose
+vertices are the user's own order (a polyline's crossing centre line is resolved by the
+offset into separate rings, and circles, ellipses and rectangles are generated from a
+centre/radius/rect). Measured on bench_large (379 casters: 320 circles, 56 rectangles, 2
+polygons, 1 polyline; best of 30, Windows, against an `origin/master` worktree in the same
+session): **10.5 ms a walk with the repair on every ring, 6.7 ms with the gate, 6.8 ms on
+master.** The base-stacking addendum measured this walk at 5.0–5.3 ms, so the gate restores
+the released cost. A ring above `MAX_REGION_VERTICES = 256` skips only the self-crossing
+test: the loader's ceiling is 16,384 vertices and one `SimplifyPolygons` call costs 0.12 ms
+at 256, 20 ms at 4,096 and **257 ms at 16,384**, per walk. The premise is measured, not
+asserted: `tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
+walks every `OUTLINE_SHAPES` value, checks the predicate and that each non-polygon ring is
+one positively wound ring, and pins that a crossing closed polyline arrives as several
+rings. Two known limits of this decision, both stated rather than hidden: a self-crossing
+outline above 256 vertices is swept as one ring (as it was before this repair), and an
+outline whose crossing the decomposition resolves into ONE ring would not be detected (no
+such ring was produced by 4,000 fuzzed 5–9-gons; a ring that touches itself is resolved
+into two).
+
+**Validation.** `tests/integration/test_shadow_region.py` - both before/after numbers
+above; a pentagram whose decomposition is an outer plus a hole; a clockwise and a
+mirrored pentagram and a pinched outline in both windings and through the mirror tool
+(the winding must not decide the role); a hole inside an island
+inside a hole (the innermost-outer rule); a **ray oracle** that knows no polygons (a
+ground point is shaded iff some point between it and the sun's footprint of it is in the
+region) agreeing with the polygon answer on every cell of a 20 cm grid over the loop, and
+rejecting the old answer on >1,500 cells; the simple-ring pass-through (including a
+clockwise ring); a 16,384-vertex ring passing through with no `SimplifyPolygons` call at
+all (the vertex bound, pinned by a monkeypatch that raises); idempotence; the
+walk handing out one ring and one `ShadowCaster` for a closed `FENCE` item; the real
+`SunShadowController` overlay leaving the garden inside a loop in the sun while still
+drawing the fence's own shadow; and a self-crossing `PolygonItem` in a plan keeping both
+lobes. The full golden gate is unchanged - regenerating it was not needed and was not
+done. The mutation check keeps its shadow mutants killed (`scripts/mutation_check_built_world.py`).
+
+**Left out.** The pore/gable modelling of a porous fence or a gabled roof (#440) is a
+product decision and stays open. The 3D meshes of fences and walls are not the prisms
+this ADR casts (ADR-059). The mesh of a closed loop in 3D still builds its own shape,
+not this region. Nothing serialized; no `FILE_VERSION` change; no new user-visible string.
+
+### ADR-037 addendum — every item with a footprint can be given a height (#628, 2026-10-27)
+
+**Context.** The precedence ladder above honours an explicit `object_height_cm` for ANY
+type, and `lies_on_ground` already yields the moment a ground surface has one. The
+Properties panel, however, showed its Height field only when
+`has_height_semantics(type, metadata)` was true — and for a type with no per-type default
+that predicate's last clause is "an explicit height already exists". The field that would
+create that value could therefore never appear: a generic polygon (the owner's star), an
+in-ground bed, a terrace, a pond, a lawn, a path and a driveway had no way to become a
+solid, and the only workaround was to change the object's TYPE to one with a default
+(Garage), losing its look and its 3D builder.
+
+**Decision.** The question splits in two. `has_height_semantics` stays the TYPE-level
+answer (a default, a container's fill, a plant's species/measurement, or an explicit
+value). The new `shows_height_field(object_type, metadata, has_footprint=...)` answers
+what the panel asks: true for every item that HAS a footprint — asked of
+`footprints.item_has_footprint(item)`, the yes/no form of `item_outline(item)`, which the
+casters and the 3D records use — and for every type with height semantics. The yes/no form
+exists because the panel asks it for every selected item on every rebuild and materialising
+a 16 000-vertex polygon's outline to answer it cost 8.9 ms; a drift guard pins it equal to
+`item_outline(...) is not None` over every placeable kind, including the one clause that is
+not a class check (an ellipse with no area has no outline). "Auto" (0) remains no height,
+so an object that was not given one behaves exactly as before: a lawn, path, terrace,
+driveway or pond keeps lying on the ground (and under the sun overlays, FR-STACK-09), and a
+generic shape casts nothing and stands as nothing in 3D. Typing a value stores the explicit
+override, one undo step, and that is all: the ladder, `is_solid_soil_parent` (a mounded bed
+becomes a soil parent), the shadow casters and the 3D builders already agreed.
+
+**Not offered.** An item without a footprint — a text annotation, a callout, a group, an
+arc, a bezier or a journal pin — has no closed outline to extrude, so the field stays
+absent (pinned for all six through the real panel).
+
+**Pins.** `tests/integration/test_height_property.py`: a generic rectangle shows the row,
+reads "Auto", stores 150 on one undo step and clears back to none; a terrace's
+`lies_on_ground` flips when it is given 30 cm; the six outline-less kinds have no row; and
+the whole set (generic polygon/rectangle/circle/ellipse, in-ground bed, terrace, pond,
+lawn, path, driveway) offers the field with the "No height — no shadow on the 2D plan"
+tooltip; a generic polygon given a height becomes a caster with a non-empty shadow and
+stops being one when cleared.
+`tests/unit/test_footprint_predicate.py` pins `item_has_footprint` against `item_outline`
+for every placeable kind. PF-UI-29 records the class ("a control that is the only way to
+set a value must not be gated on the value existing"), and FR-SUN-02 states the rule.
+
+**Follow-up — the solid keeps the fill the ground baked (owner manual pass of #627).** The
+field worked, but every surface the owner raised lost its texture: a 40 cm lawn became a flat
+green slab and a 10 cm soil bed a plain brown one, because a solid was ONE tinted prism and no
+3D solid had ever shown a fill pattern (a height on these kinds could not be set before this
+requirement). The fix is a part flag and one picture rule: `MeshPart.fill_texture` says "this
+part shows the item's own fill", and the sink supplies
+`core.fill_patterns.tinted_pattern_pixels` — the very picture the 2D brush paints (the same
+`_tint_texture`, RGBA8, opaque, its mean the fill colour) — as `vcPart`'s `baseColorMap`
+(the Model's `patternMap`). It is per (pattern, colour), shared and refcounted by the sink
+(`release_fill` with the last Model), so a recolour is a material update and leaves no texture
+behind. UVs are `(position + paint_origin) / PATTERN_TILE_CM` — `paint_origin` is
+`params["paint_origin"]`, the anchor the canvas phases the fill from, so the solid shows the
+bake's own picture: NCC **0.995** against the bake with the mesh's own UVs on a real
+rectangle (MULCH; BRICK 0.995), while the opposite sign reads 0.759 / 0.866
+(`tests/integration/test_scene3d_fill_phase.py`, measured 2026-10-27) — and the 256 cm ruler is
+pinned against every shipped texture's size. A SOLID fill has no picture and shows its colour
+through the same `set_part_fill` call, so the two cases cannot diverge. A GARDEN_BED's soil cap
+is the item's fill too — the Properties panel calls it "Boden-Substrat" — while a raised bed's
+and a container's soil stay the builder's palette soil, and a raised deck keeps its boards.
+
+**Second manual pass — the TOP keeps the picture, the SIDES are the tint, and a lawn still
+grows (2026-10-28).** The owner confirmed the field and reported three residues, each a
+different layer:
+
+- **A raised lawn lost its blades** ("looks like a lower quality setting"). The fill picture is
+  the paint; the *blades* are the relief geometry that made the ground lawn read as grass, and
+  `_lawn` returned the plain prism at a height. It now builds the solid AND the sward, lifted to
+  the new top. `top_cm`/`fit_scale` and `verify_builder`'s G1 height gate ignore `ground_detail` parts:
+  relief standing 0.3-9.4 cm above the solid (swept h = 1..200; 20.3-29.4 cm for h = 20) is not
+  the item's height, and counting it failed G1 for every raised lawn - the blades are the one
+  registered relief, so the exception is written into the gate rather than hidden in a test.
+- **One fill-textured prism smeared the picture down the sides** (a lawn's grass stretched the
+  full height of the edge, a generic shape's pattern ran down its wall). The canvas paints a
+  texture on the TOP and no texture down an edge. A raised flat surface is now TWO Models:
+  tinted sides (`walls_mesh`, no UVs) and a fill cap (`cap_mesh`, plan UVs). `default_builder`,
+  `raised_surface` (a terrace/platform) and the raised lawn share one helper. `plain_block` — a
+  building's or an odd outline's honest block — stays one tinted part.
+- **A raised pond was the flat fill colour** ("the water became unreflective"): `_raised_pool`
+  drew its water with the water material's tint only. The water part now takes
+  `fill_texture=True`, and `water.frag` samples it through a `TextureInput` (`uFill`, gated by
+  `uHasFill`) as its albedo — linearised with the ground's own polynomial — while keeping the
+  hue-in-every-mood rule and the sky reflection. A ground pond has no picture and is unchanged.
+- **A bed dragged on its own left its child plant behind** (found by the review of the fix
+  above, pre-existing): the child's origin was recorded as `child.pos() - delta` on its first
+  sighting, when it had not moved yet, so a two-step drag left the plant short by the first
+  frame and undo overshot it the other way (measured: bed +600 cm, plant +300, undo -300). The
+  origin is the child's own position; the bed's cumulative delta is then the whole story.
+- **A plant dropped into a bed linked, but Ctrl+Z undid only the link** — the move and the link
+  were two stack entries. A finished drag now executes its move and the links it decides as ONE
+  `CompoundCommand` (`core/commands.py`), which undoes in reverse. The link commands are asked
+  where the drag LEFT everything — its final positions — so a bed dragged in the same gesture is
+  found at its new place and a plant that travelled with it keeps its parent (a first version
+  predicted the centre from the pre-drag point plus the delta, against beds still at their old
+  place, and unlinked the plant).
+
+**Why a picture and not a luminance map multiplied by a tint.** The obvious smaller design — a
+greyscale detail map per pattern with the fill colour as the tint — was rejected: an 8-bit
+texture has no value above white, so every texel brighter than the pattern's mean would clip.
+For soil those bright specks are what make it read as soil (the owner's L4 pass made the same
+point about the 2D fills). The engine holds 256 KB per picture actually in use (the tinted
+QPixmap it is made from is another 256 KB, shared with the canvas and cleared with its
+200-entry cache), and the sink's refcount is what keeps the engine side bounded.
+
+**One tint rule.** `materials.part_tint` is the ONE answer every engine read-back compares
+against (the render driver, the engine test, the adapter's double): a `fill_texture` part is
+white when its pattern has a picture — the picture carries the colour — and the fill colour for
+SOLID. `set_part_fill` still writes `tintLinear` from the fill colour when `tint` is white,
+because the X-ray screen door samples no picture and must ghost in the colour: left at 1, a
+faded raised lawn measured a white ghost (max 255) instead of its green.
+
+**Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
+GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same mean (121.3 /
+120.8) — the texture is there and the average brightness is the fill colour. A raised lawn's
+blades measure 20.3–29.4 cm above the ground for a 20 cm lawn (rooted on its top, ±30 %
+variation), and its sides carry no UVs. A raised pool's water carries PLAN UVs, without which
+`texture(uFill, UV0)` sampled one texel: measured luma std **17.25** with the UVs against
+**0.000** (7.1e-15) without, on the same 300 × 220 cm pond at 40 cm. Engine traps, measured: `baseColorMap: patternMap` logs
+"Unable to assign [undefined] to QQuick3DTexture*" until the binding is
+`patternMap ? patternMap : null`; and a `Texture` is made with its data at birth — re-pointing
+one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).
+
+**Pins.** `tests/unit/test_fill_patterns.py::TestThe3DFillPicture` (the picture is the canvas's:
+256 × 256 RGBA, opaque, mean = the fill; names resolve; every texture is 256 px);
+`tests/unit/test_scene3d_mesh.py` (the default solid is sides + cap, the cap carries
+`(position + paint_origin) / 256`, a fill part must be `vc` or `water`, untinted and not ground
+detail); `tests/unit/test_scene3d_builders.py::TestSoilRule`
+(a garden bed's soil is the item's fill, a container's is not);
+`tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill cap beside tinted sides, a
+raised deck is not; a raised lawn's blades ride its top; a raised pool's water is a fill part);
+`tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture reaches the engine,
+a recolour swaps it without an upload, one picture per key, released with its last user);
+`tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture` (the binding and
+the one-Texture-per-data rule) and `test_every_custom_shader_multiplies_with_the_tint` (water's
+`uFill` branch); `tests/unit/test_quick3d_pure.py` (the fill branch of the one tint rule);
+`tests/integration/test_scene3d_fill_phase.py` (the mesh's own UVs against the ground bake: NCC
+0.995, the opposite sign 0.759 / 0.866); `tests/integration/test_plant_drop_undo.py` (a drag
+into a bed is one Ctrl+Z, and one Ctrl+Y, and a bed dragged with its plant keeps the link); and
+the render gate
+`tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
+SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), the raised
+POOL's water luma std > 4 (the caustics, which a constant UV cannot show), and the live
+lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).
+`tests/unit/test_scene3d_mesh.py` also refuses a heighted record whose every part is
+`ground_detail`: the gate may skip relief, never the solid itself.
+PF-L3D-17 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
+`ogp-lush-cinematic`'s owner taste log holds the pass itself.
+
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
-**Status**: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
+**Status**: **Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum "the default and the removal", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
 
 **Decision criteria (written BEFORE gathering evidence — the issue's discipline):**
 
@@ -1154,7 +1753,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **One interpolation, consumed everywhere.** `core/growth_model.py` (Qt-free): `size(t) = current + (max−current)·clamp(years_since_planting / years_to_maturity, 0, 1)` for height AND canopy spread. The low end is the plant's **own measured size** (`current_height_cm` / `current_spread_cm`), not the species minimum — see the redesign note below. `years_to_maturity` = the species' `days_to_maturity_min/max` average when present (annual vegetables ripen within the season), else TREE 10 y / everything else 3 y / annual-cycle ≈150 days. Growth engages only when a planting date **and** a current size are both present; otherwise the model returns `None` and the resolver falls back to the static current size, else the mature max. An already-oversized plant (current ≥ max) stays flat at max. **No new metadata key**: the issue's "verify first" paid off — plants already carry `metadata["plant_instance"]` with `planting_date`, `current_height_cm` and `current_spread_cm` (editable in the Plant Details panel since Phase 8), serialized wholesale and old-app compatible. New plants get today's `planting_date` stamped at creation (`stamp_default_planting_date`, fresh-creation sites only — never on load, which must preserve saved metadata verbatim). No FILE_VERSION change.
 
-**Routing**: `object_height.effective_height_cm` gained an optional `at_date`; when given, a measured + dated plant resolves to its projected height. Independently of any date, a plant's measured `current_height_cm` now outranks the species `max_height_cm` in the precedence chain (new `SOURCE_CURRENT` for the properties tooltip) — explicit user override still wins; un-measured plants and non-plants are byte-identical to pre-E8. `collect_shadow_casters(scene, at_date)` mirrors this for the canopy: the projected spread with a date, the measured `current_spread_cm` without one. The canopy radius is **absolute cm, not a scale of the drawn circle** — both measured fields therefore mean literal centimetres (type a 150 cm spread, get a 150 cm shadow canopy). A proportional scale was rejected on two counts found by dogfooding: the drawn circle only equals the mature spread when a species was applied to an *existing* plant (#213), while the gallery drop uses a fixed 200/100/60 cm default, so a typed 100 cm read as 33 cm; and clamping the scale to ≤1 capped canopy growth at the placeholder circle, so a tree could never shadow wider than the size it happened to be dropped at. Consumers all pass the **sim timeline's date**: the shadow overlay (`sim_datetime_utc.date()`), the heatmap (its chosen day), and the 3D snapshot — so scrubbing the sun slider ahead five years regrows every dated tree in 2D shadows, hours-of-sun, and 3D at once, from ONE model.
+**Routing**: `object_height.effective_height_cm` gained an optional `at_date`; when given, a measured + dated plant resolves to its projected height. Independently of any date, a plant's measured `current_height_cm` now outranks the species `max_height_cm` in the precedence chain (new `SOURCE_CURRENT` for the properties tooltip) — explicit user override still wins; un-measured plants and non-plants are byte-identical to pre-E8. `collect_shadow_casters(scene, at_date)` mirrors this for the canopy: the projected spread with a date, the measured `current_spread_cm` without one. The canopy radius is **absolute cm, not a scale of the drawn circle** — both measured fields therefore mean literal centimetres (type a 150 cm spread, get a 150 cm shadow canopy). A proportional scale was rejected on two counts found by dogfooding: the drawn circle only equals the mature spread when a species was applied to an *existing* plant (#213), while the gallery drop used a fixed 200/100/60 cm default (a gallery entry naming a known species now takes its `max_spread_cm` at drop - FR-PLANT-15, #596), so a typed 100 cm read as 33 cm; and clamping the scale to ≤1 capped canopy growth at the placeholder circle, so a tree could never shadow wider than the size it happened to be dropped at. Consumers all pass the **sim timeline's date**: the shadow overlay (`sim_datetime_utc.date()`), the heatmap (its chosen day), and the 3D snapshot — so scrubbing the sun slider ahead five years regrows every dated tree in 2D shadows, hours-of-sun, and 3D at once, from ONE model.
 
 **Redesigned before merge (owner manual test).** The first cut interpolated the *species'* `min_height_cm → max_height_cm` and keyed everything off the planting date alone. Manual testing found it inert and unintuitive: nothing set a planting date at creation, so `grown_height_cm` always returned `None` and every plant fell straight through to the mature `max_height_cm` — "shadow scales only based on max height". Worse, the Plant Details **Current height** / **Current spread** fields the user would naturally reach for were read by *nothing* in the sun/shade path, and the species-min curve meant the user could not state how big their plant actually is. The owner chose "current size anchors it": the measured fields become the truth (with or without a date), growth interpolates from them toward the species max, and new plants get today's planting date so scrubbing works immediately. **Lesson**: a derived-from-age model is only as good as the inputs the UI actually captures — check that the creation flow sets them before building the curve on top.
 
@@ -1163,6 +1762,19 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **Revised (issue #299, manual-test finding on PR #298)**: this addendum originally kept the 2D canvas drawing the stored (mature) footprint unconditionally — growth visible only in shadow size, heatmap and the 3D view — and rejected rescaling canvas circles on the grounds that "a display-scale on live items perturbs selection/snap/`mapToScene`, exactly the #218/#219 territory." Manual testing of an unrelated PR found this backwards from a user's perspective: a full-size mature icon casting a visibly smaller shadow read as a bug, not a feature. The owner's call: keep the rejection's *reasoning* (never touch `rect()`/`radius`/`pos()`/`transformOriginPoint()` — the actual #218/#219 hazard, since THAT is what selection/snap/`mapToScene` depend on) but reverse the *conclusion* (the icon must still visually track growth). The fix threads a value through `paint()`/`boundingRect()` only — `CircleItem._visual_plant_diameter_cm()` — without touching the item's actual QGraphicsItem geometry at all, so selection/snap/drag/rotation/undo are provably untouched (none of them read anything but `rect()`/`pos()`/`transformOriginPoint()`, none of which this touches). Two things this surfaced that a first cut of the fix missed and a second pass corrected: the decorative drop-shadow (a separate cosmetic effect, unrelated to sun/shade) has to track the SAME diameter as the icon or a shrunk icon renders inside an oversized grey disc; and `boundingRect()`'s overflow term must never shrink below the footprint's own size (hit-testing/selection on the mature footprint must stay intact) while still growing for a current measurement that exceeds the species max. See §11.4 and the debug-verbose skill's matching case study for the full investigation. `plant_sizing.py` now documents FOUR sizes, not three.
 
 **Revised (Phase 17 L1.0, ADR-053)**: "Consumers all pass the sim timeline's date" named two dates. The shadow overlay and the 3D snapshot passed `sim_datetime_utc.date()`, the **UTC** date, while the heatmap passed the toolbar's **local** day, so after local midnight east of UTC (or before it west of UTC) they grew the same plant for different days. The overlay also kept a private UTC instant seeded separately from the toolbar's "now". Now `core/sim_clock.SimClock` holds the one moment: every consumer reads `plan_date` (the local day the toolbar shows) for growth and `utc` for the sun. The controller reads the clock instead of storing an instant, and the toolbar is a view of the clock. ADR-053 records the decision; the time-control paragraph of ADR-037 above ("the controller stores UTC") is superseded by it in the same way.
+
+### ADR-037 / ADR-048 addendum — unified geometry-aware analytical caster path (#440, 2026-11-02)
+
+**Status**: Shipped in v1.34.13 | **Context**: issue #440, Slice B of 3D performance and correctness.
+The 2D shadow overlay and hours-of-sun heatmap previously treated all buildings as flat rectangular prisms of ridge height and all fences as opaque solid walls. This produced severe over-shadowing to the north of pitched roofs (overhangs and gable/hip slopes were ignored) and completely ignored the open porosity of wooden picket fences, metal bars, and chain-link fences.
+
+**Decision**:
+1. **Shared 3D structural profiles for analytical casters**: `collect_identified_casters` extracts full structural 3D roof and wall triangles (`pitched_roof_triangles_for_record`) for ridged buildings (`GABLE`, `HIP`, `SHED`) using shared builders from `core/scene3d/builders/buildings.py`. Flat-roof buildings remain on the prism path.
+2. **Angle-dependent fence porosity**: Fence styles (`PathFenceStyle.WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`) define structural parameters and nominal open fractions in `core/scene3d/builders/fences.py`. `fence_transmittance` calculates effective sunlight transmittance in `[0.0, 1.0]` as a function of fence run orientation, sun azimuth, and solar elevation.
+3. **Owner grouping & multi-caster overlap**: `compute_weighted_shadows` groups casters by owner first. Multi-segment fences belonging to the same owner union their projected footprints so self-overlap does not square attenuation. Overlapping independent casters multiply transmittance: $T_{\text{total}} = \prod T_i$ with occlusion $1 - T_{\text{total}}$. Porous shade overlapping opaque shade remains fully opaque ($T = 0, \text{occlusion} = 1$).
+4. **Fractional sun aggregation & sample retention**: `compute_sun_exposure` accumulates direct sunlight as `sample_minutes * transmittance`. For fractional scenes, per-sample transmittance arrays (`sample_transmittance`, float32) are retained alongside binary `sample_shade` masks, bounded by `MAX_SAMPLE_SHADE_BYTES = 64 MiB`. When the memory ceiling is reached, sample history is dropped rather than truncating fractional shade to binary shade.
+5. **3D analysis drape integration**: `shadow_drape` consumes `Sequence[WeightedShadowRegion]` to interpolate linear RGB vertex multipliers (`1.0 - occlusion * (1.0 - m_c)`) in a single persistent `"shade"` mesh.
+6. **Measured physical agreement**: All 9 built-world families meet the agreed 10% relative-area ratio (`0.90 <= area_ratio <= 1.10`) and maximum 15 cm reach difference (`abs(reach_diff_cm) <= 15.0`) at 15°, 35°, and 60° against the independent measurement oracle (`scripts/measure_built_world_shadows.py --check`).
 
 ### ADR-038 addendum: US-E6 implementation (3D view MVP)
 
@@ -1186,7 +1798,7 @@ The GO decision's evidence log (item 2) already found the Qt3D micro-version tra
 
 **Two bugs, two classes of fix.** The *dependency* bug: pin **all four** Qt wheels to equal micros (`PyQt6`, `PyQt6-Qt6`, `PyQt6-3D`, `PyQt6-3D-Qt6` — the invariant is *equal micros*, not a specific version; bump them together, or all to 6.11.1 once a matching `PyQt6-3D-Qt6 6.11.1` exists). The *process* bug: the release build was not reproducible (no lockfile → the same commit resolves different Qt runtimes on different days), and the only exe gate smoke-tested **startup**, which a lazily-imported subsystem sidesteps — structurally the same miss as the US-D1.4 `unittest` exclusion. Defenses added (PR #274): a source-level guard test (`qVersion()` == `PyQt6-3D-Qt6` micro) that fails the fast CI test job on drift; a frozen-exe `--selftest` step in `release.yml` that imports the Qt3D bindings headless **in the actual shipped artifact** and fails the release on a non-zero exit; and graceful degradation — `_on_open_3d_view` catches the `ImportError` for a translated "3D View Unavailable" dialog, plus a `sys.excepthook` backstop in `main.py` so no uncaught slot exception can ever again abort the process silently. See §11.4.
 
-**Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve.
+**Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve. **Corrected at Qt 6.12 (Phase 17 L7, #391, 2026-11-03):** the 6.10 WebEngine wheel next to `PyQt6-Qt6 6.12.0` failed to import (*"DLL load failed … procedure not found"*), so WebEngine now moves WITH the pair — its 6.12-era release is numbered `6.140.0` (Chromium 140) and requires `PyQt6>=6.12.0`; ADR-048 addendum L7, PF-CI-17.
 
 **Dependency-lock follow-up (#404, ADR-050).** PR #274 fixed #277 by matching the four Qt pins and adding runtime/frozen guards. This CI/release package adds reproducible selection of all Python dependencies and packaging tools; it complements those Qt guards.
 
@@ -1274,6 +1886,44 @@ special files and simulated chmod failure. The factory does not alter global
 umask, QSettings format or path statics. A protection failure produces a sanitized,
 translated startup error using the system locale and exits before the main window.
 
+### ADR-041 addendum — the chokepoint refuses an unsafe production context (#587, 2026-10-25)
+
+**Context.** A review probe built `GardenPlannerApp` in a scratchpad to measure the
+Plan & Sun strip. It gave the QApplication a throwaway name and called
+`QSettings.setDefaultFormat(IniFormat)`, both of which look like isolation; neither
+redirects `create_qsettings()`, which passes the module's own names to
+`QSettings(org, app)` and that constructor always uses the native format. The write
+reached the owner's registry and switched off the startup Welcome dialog; three more
+probes that day had the same defect. Written rules and the existing
+`tests/integration/test_script_isolation.py` gate cover only `scripts/`, not a probe in
+a temp directory.
+
+**Decision.** The chokepoint itself refuses the production names in a process that is
+not the product or a deliberately isolated script. `SettingsIsolationError` is raised
+when `(ORGANIZATION_NAME, APPLICATION_NAME)` is the production pair and any of these
+holds: the Qt platform is `offscreen`/`minimal` (the product never runs there), or an
+exact agent-session variable is set (`CODEX_HOME`, `CODEX_SANDBOX`, `CLAUDECODE`,
+`CLAUDE_CODE*`, `OPENCODE*` — exact names, so an API key such as `CODEX_API_KEY` does
+not trigger it). The product marks itself with `OGP_PRODUCT_PROCESS=1` in `main()`
+(not at module import: a probe that imports `main` for a helper must not inherit it).
+`script_isolation.isolate_settings()` rebinds the names to a throwaway pair, which is
+the other sanctioned way through. `OGP_ALLOW_PRODUCTION_SETTINGS=1` is the explicit
+override for a one-off tool that really must read the real store. A plain desktop
+shell with production names is allowed — that is how the app runs. The check keys
+on the *production* pair, so a test or script that rebinds the names is unaffected.
+
+**Rejected alternatives.** Logging loudly instead of refusing was the incident's shape
+with a different verb: a probe that ignores a warning still writes the registry. Keying
+on the QApplication name or on `setDefaultFormat` is what the probe already did and is
+not an isolation mechanism. Refusing while the real GUI runs from an agent shell was
+avoided by the product marker, so the frozen exe and `python -m open_garden_planner`
+still start from a tooling terminal.
+
+**Consequences.** `tests/unit/test_settings_isolation_guard.py` pins the refusal, the
+product marker's placement inside `main()`, the explicit override and the exact-name
+scan; the suite and `scripts/script_isolation.py` rebind the names rather than set a
+marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or product behaviour changes.
+
 ## ADR-042: Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography
 
 **Status**: Accepted (2026-08-17 Package 3a; 2026-08-18 Packages 3b and 3c) | **Context**: epic #284 (Phase 15 Package 3), decisions locked in the 2026-08-17 planning session and logged on the issue; sub-issues #308 (3a), #309 (3b), #310 (3c)
@@ -1284,7 +1934,7 @@ translated startup error using the system locale and exits before the main windo
 
 **Decision — the generator IS the asset, again.** All furniture/infrastructure SVGs are emitted by `scripts/generate_object_sprites.py` — seeded per object, byte-deterministic (`--check` + `tests/unit/test_object_sprite_conformance.py::TestDeterminism`), so hand edits are unlandable and the generator doubles as the provenance record (`resources/objects/PROVENANCE.md`). The style is the man-made sibling of ADR-040's Lush Sprite — **"Lush Object"**, contract in `resources/objects/README.md`: rim-dark → crown-light shading per part, occlusion halos where parts stack, a `MATERIALS` anchor table (woods, metals, enamels/plastics, fabrics, minerals, glass/water/soil/sand) rendered by material primitives (`plank`/`wood_surface`, `disc`/`ring`, `fabric` with weave hatch + puff shading, `metal_bar`, `glass_pane`, `water_fill`, `granular_fill`, `glow`/`flame`), and one builder per object. Two invariants carried over from ADR-040 and one that is new: **(a) QtSvg subset only** (allowlist walk in the gate; rings are two-subpath paths, circle-clipped planks are computed analytically — no clipPath); **(b) rotation safety** — furniture rotation is USER-controlled, so light comes from straight above and **no directional shadow is baked** (`test_no_baked_directional_shadow` pins the legacy `#00000020` shadow's absence; the item-level painted shadow is the single shadow source, still user-toggleable); **(c) the viewBox IS the nominal footprint** in cm (`test_default_dimensions_match_viewboxes` pins it to `FURNITURE_DEFAULT_DIMENSIONS`, a gate-read metadata table with no production sizing consumer) — the canvas stretches art to the user's rect, so square viewBoxes for circle-tool objects and rounded footprints keep mild non-uniform stretch harmless. Owner-decided richness: **full parity** with the plant sprites (per-part gradients, gloss, micro-detail), not a calmer "lite" tier; budgets ≤ 460 elements / 44 KB (1.2× the densest, `hot_tub` at 380 elements / 35,910 bytes).
 
-**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision.
+**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision. **Superseded (2026-10-27, ADR-065 "Owner's second manual pass"):** the owner made that decision. All nine height-less kinds (swing, pergola, hammock and the six above) now have rows in `DEFAULT_HEIGHTS_CM`, and `_HEIGHT_FIELD_TYPES` is gone. The solid-prism overstatement for the open frames is accepted (a picket fence's strip was too, until #440 weighted fences by their transmittance); the footprint-fill factor — #440's caster transmittance — is still the way to honest frame shadows (#698).
 
 **Three latent inconsistencies fixed en passant.** Every SVG-rendered object was drawn upside-down on the canvas — the view/export `scale(1, -1)` flips a pixmap blitted in item-local coordinates, and the plant sprites hid it by radial symmetry; the owner's manual test caught it on the fire pit's flames, and the furniture paint branches now un-flip about the rect centre (§11.4, pinned by `TestUprightOnCanvas`). `BBQ_GRILL` is drawn by the *circle* tool but its art/default dims were 80×60 — the sprite was stretched to a square on every canvas; the art is now square (80×80) and the type is offered in the circle branch of the "Change Type" menu (it was only in the rectangle branch). Gallery thumbnails stretched non-square art into squares (bench → brown block); `gallery_data.render_svg_thumbnail` now letterboxes by the SVG's viewBox aspect (pixel-pinned by `TestGalleryThumbnails`). The `HEDGE_SECTION` mapping in `furniture_renderer.py` looked dead (load-time migration to `HEDGE_POLYGON`) but is still reachable through the rectangle "Change Type" menu — left untouched.
 
@@ -1347,6 +1997,198 @@ translated startup error using the system locale and exits before the main windo
 | A lone plant free to move anywhere in its layer, independent of its bed | Rejected by the owner in the design session: a plant that could render behind its own bed would be indistinguishable from a plant that isn't actually planted there. The derive-only clamp (Decision point 3) makes "in front of my bed" a structural guarantee, not a convention the user could accidentally violate via Arrange. |
 
 **Consequences**: New `core/stacking.py` (Qt-free), `ui/canvas/arrange.py` (the seam), `ArrangeItemsCommand` in `core/commands.py`; the old `ensure_z_above_parent` helper and its three dead call sites are deleted, its three live call sites replaced by a refresh. `MoveToLayerCommand`, `SetParentBedCommand`, `GroupCommand`/`UngroupCommand`, and `DeleteItemsCommand.undo` all gained refresh calls where an item becomes top-level or re-links without going through `addItem`. Agent API: `list_objects`/`objects_in_region`/`get_object` now document a bottom→top stacking order (previously accidental top-first); `get_diagnostics` is explicitly **not** in that order. Clipboard copy/duplicate now sort by stacking order and carry `layer_id` (previously pasted items were layer-less — a pre-existing gap fixed as a side effect, §11.4). No `FILE_VERSION` change; old files load and re-save correctly under the new order regardless of whether they carry a `stack_order` key. Tests: `tests/unit/test_stacking.py` (the Qt-free algorithm), `tests/integration/test_stacking_roundtrip.py` (the save/load inversion regression + old-file compatibility), `tests/integration/test_arrange_z_order.py` (every mode, undo/redo, bed block, plant clamp, cross-layer), `tests/integration/test_arrange_context_menu.py`/`test_arrange_menu_actions.py`/`test_arrange_properties_panel.py` (the three GUI surfaces), `tests/integration/test_agent_api_writes.py`/`test_agent_api_default_on.py` (the write tool), `tests/unit/test_agent_api_queries.py` (`stack_index`). Cross-refs: FR-31, §8.25, §11.4.
+
+### ADR-043 addendum: ground surfaces lie under the sun study (manual pass of PR #584, 2026-10-24)
+
+**Context.** The owner drew a lawn and switched the 2D shadows and Hours of Sun on: both overlays were hidden under the lawn ("objects of height = 0 like grass"). Since US-E3/E4 the shadow overlay (`-500`) and the heatmap (`-450`) sat below every layer item, so anything drawn over the ground, however flat, covered the analysis that is ABOUT the ground. No single overlay z can fix it: the layer bands interleave a lawn in one layer with a tree in another.
+
+**Decision.**
+1. **A ground surface is a garden surface without a height.** `core.object_height.lies_on_ground(type, metadata)`: a `LAWN`, `PATH`, `TERRACE_PATIO`, `DRIVEWAY`, `POND_POOL` or `GARDEN_BED` (`GROUND_SURFACE_TYPE_NAMES`) whose `effective_height_cm` is `None` — only stored metadata can give these types a height, and it makes them solids. `canvas_scene.on_ground(item)` adds groups: a group whose every member is a ground surface is drawn in one slot, so it takes the band too; a group that mixes surfaces and solids stays in its layer's band. Pinned by `tests/unit/test_object_height.py::TestLiesOnGround` and `test_sun_overlays_on_ground.py`.
+2. **Ground surfaces get their own band below the overlays.** `_refresh_layer_z` stays the one z writer; for a ground surface it writes `ground_z(z)` — a strictly increasing map of the layer-band value into `GROUND_Z_RANGE = (-990, -510)` — so ground surfaces keep their order among themselves (layer, then rank) for any number of layers, above the background image and below both overlays. §8.25.2 and §8.25.6.
+3. **One band split for drawing and Arrange.** `CanvasScene._band_entries` splits a layer's items into the two bands, ground surfaces first; `_normalized_layer_order` (the drawing) normalizes each band alone, and `build_arrange_command` arranges each band of the selection on that same split (`core.stacking.arrange` unchanged) and renumbers the layer ground first. So a recorded step is always a visible one and ranks agree with the drawing; at the edge of its band an item reports "already at front/back". The derive-only clamp acts inside a band: a plant on an in-ground bed is above it by the band and sorts by its own rank among the other items; the clamp still orders a plant on an edged or raised bed. Two earlier cuts disagreed: over the whole layer a lawn stepped "forward" past a table with nothing visible; with arrange split by band but the drawing normalized over the whole layer, sending a lawn to the back moved a perennial on an in-ground bed under a tree. The agent's `stack_index` and `list_objects` order are "as displayed" and therefore list ground surfaces first; the tool descriptions say so.
+4. **The band follows reclassification.** `CanvasScene._restack_ground_changes` runs after every `stack_changed` (execute, undo, redo — every writer of a type, a group or a height commits through a command) and refreshes only the layers whose items' band disagrees with `on_ground`; about 1 ms on 500 items. A `plan_changed` hook was tried and dropped: `plan_changed(int)` connected to `QTimer.start` made the revision the timer's delay, and it would have scanned the plan on every drag frame for a writer that does not exist.
+
+**Rejected alternatives.**
+
+| Option | Why not |
+|--------|---------|
+| Move the overlays above every layer item, clipped to the footprints of the objects with a height | Annotations (text, callouts, dimension labels in the layer bands) would sink under a translucent overlay; the clip is a second copy of the caster model |
+| One overlay per layer | Two overlay items per layer to keep in sync with the controllers' single results, for the same ordering a z band gives |
+| Every object without a height that covers ground (the 3D view's ground rule) | Tried, and reverted after review: a cold frame, rain barrel, planter pot or parasol has no height in the plan but stands up — a cold frame on a raised bed sank under the bed, and none of them offers a Height field to lift it back. Generic shapes, often a zone or a highlight placed above a plant by layer, stay in their layer's band until the owner decides otherwise |
+
+**Consequences.** Saved files list ground surfaces first (the serializer writes display order; ranks are saved per item, so older versions reload the same ranks; the committed bench and edge-case fixtures were regenerated — a pure reorder). A ground surface's own label, badges and selection handles are children and lie under the overlays with it, and under any solid that overlaps them (the overlays take no clicks; a handle under a solid cannot be grabbed). Construction lines (`-10`) now draw over ground surfaces instead of hiding under them. A mixed group (a lawn grouped with a bench) keeps its lawn above the overlays, and is drawn over any top-level ground surface ranked above it — in 2D and in the 3D ground bake. The 3D ground bake follows the scene order, so a generic shape or a height-less standing object ranked under a surface now paints over it on the 3D ground as well (the two views agree). A plant on an in-ground bed sorts by its own rank among the layer's other items instead of next to its bed: a plan saved by an earlier build without being reloaded since can show such a plant under a tree it was drawn over (plans an earlier build loaded and re-saved carry clamp-ordered ranks and do not change), and giving that bed a height moves the plant back next to it. Pinned by `tests/integration/test_sun_overlays_on_ground.py` (export-pipeline pixels: a shadow and the heatmap change the lawn and leave the shed alone; the band follows a height, a type change, undo, layers and a reload).
+
+### ADR-043 addendum: one z derivation per layer, never one per add (#450, 2026-10-24)
+
+**Context.** A loop of 2 000 single `CanvasScene.addItem` calls took 45 s because each add
+re-derived z for its whole layer, and the same O(n) derivation sat behind every command
+that added an item. The issue's acceptance is "adding n items costs time in proportion to
+n, whoever adds them".
+
+**Decision.** The four rank writers do not change, and the derivation stays the only z
+writer; what changes is how often it runs. An appended independent solid is given the
+derivation's own next value on a **fixed** `Z_POSITION_SCALE` grid inside its layer band
+(the divisor is a constant, not `n + 1`, which is what makes an append's value final). Any
+item that can re-order items already in the layer — a pre-ranked re-add, a child, a bed
+with children, a linked plant, a roof ridge, or a ground surface, which sorts into its own
+band — re-derives synchronously. There is no deferred pass and no command-boundary flush:
+what `addItem` writes is final, so a loop of any length, direct or one item per command,
+costs **one** derivation per layer. Every derivation reseeds the per-layer provisional
+cache with the top of its band-space order — a layer-band value, never the highest
+`zValue` — because since the ground band (PR #584) a ground surface's z lives in
+`GROUND_Z_RANGE`, and seeding from it would put the next added solids below the background.
+A rank writer or a layer reorder invalidates the rank and provisional caches.
+
+**Measurements (dev box, 2026-10-24).** 2 000 direct `addItem` calls: 45 s as reported
+in #450, 26.3 s reproduced on `master` at this tree (2 000 derivations), about 0.1 s
+after (one `_refresh_layer_z` call), also with 1 000–1 500 items already in the layer. 1 000 one-item `CreateItemCommand` executions: 13.09 s before this addendum's final
+shape, 3.18 s after (2 000: 12.1 s), still one derivation for the whole loop; the residual is
+*not* z work — it is the per-command UI refresh that already existed (`update_dimension_lines`
+refreshing every item's lock badge, about 1.8 s of 3.1 s, and PR #584's O(items)
+`_restack_ground_changes`, about 1.0 s), each O(n) per command. A per-command loop is
+therefore still quadratic, but no longer because of the stacking derivation; the follow-up
+is tracked in #592.
+
+**Pins.** `tests/integration/test_canvas_z_batch.py` holds the call count (one for 2 000
+adds, one for 200 commands), ordering, uniqueness, band membership, the layer-reorder case,
+the parent-bed synchronous case, and `test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it`
+for the merge with the ground band.
+
+### ADR-043 addendum — the per-command refresh is scoped to what a command can change (#592, 2026-10-25)
+
+**Context.** The #450 addendum above measured the residual: 1 000 one-item
+`CreateItemCommand` executions took 3.18 s because two `stack_changed` listeners walked
+the whole scene after every command — `update_dimension_lines` called
+`refresh_lock_badge` on every item (each call scanned the whole constraint dict: 360 600
+badge refreshes for 600 commands on a 600-item plan), and `_restack_ground_changes`
+classified every item (about 1.0 s). Both are independent of what the command changed.
+
+**Decision.** Two indexed/scoped refreshes, no new write path. `ConstraintGraph` gains
+`fixed_item_ids()`; `update_dimension_lines` refreshes only items in that set or already
+showing a badge (so an unlock clears it), and skips the rest. `Command` gains
+`changes_ground_band`, default **True** for safety; the move/resize/rotate/vertex/curve/
+copy/link/constraint commands declare `False`. Create is neutral because `addItem`
+derives a ground surface's band synchronously and bulk adds end in
+`_update_items_z_order`; Delete/Group/Ungroup/Boolean/ChangeProperty keep the scan
+because they can change a type, a height or a group.
+`CommandManager.last_command` lets the `stack_changed` slot ask what just happened. A
+ground surface added one command at a time still gets its band from `addItem`'s own
+synchronous derivation, so the neutral `CreateItemCommand` flag does not trade correctness
+for speed.
+
+**Measurements (dev box, 2026-10-25).** 600 single-item adds: 0.31 s with the scan, 0.11 s
+with the flag (2.8×); a 100-command pin counts zero badge refreshes and zero ground-band
+classifications, and still sees the badge on `AddConstraintCommand` and the band change on
+`ChangePropertyCommand` (execute and undo).
+
+**Pins.** `tests/integration/test_canvas_command_refresh.py` (zero classifications and
+zero badge refreshes for neutral commands; a FIXED constraint refreshes only its item; a
+type change still restacks; a move is neutral). PF-CAN-25 and §8.25.4 record the rule.
+
+### ADR-043 addendum — a plant draws above the bed it stands in, linked or not (#629, 2026-10-27)
+
+**Context.** The clamp in `normalize_order` ("a child renders immediately above its
+parent") has always been right, and it followed `parent_bed_id` — the LINK. Drawing a bed
+AROUND a standing plant makes no link (#443), so the plant stayed below the new parent:
+gone behind it in 2D, still drawn on the soil in 3D, and its sun badge (#481/#627) gone
+with it. Measured (plant added first, parent drawn around it): z(plant) 0.00001 against
+z(parent) 0.00002 for `RAISED_BED`, `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER` and
+`TRELLIS`. The in-ground `GARDEN_BED` looked immune only because it is a *ground surface*
+and sorts into `GROUND_Z_RANGE` under everything — a `GARDEN_BED` with a stored height is a
+solid and hid the plant the same way. The owner's rule, from the manual pass: "plants are
+always on top of beds. Needs to be the same for raised beds and planters."
+
+**Decision.** A plant's stacking parent is its LINK, or — when it has none — the SMALLEST
+plant-parent in its layer whose outline contains the plant's **stable centre**
+(`footprints.standing_point`, the same point the lift and the sun estimate ask;
+`footprints.shape_contains`, the app's one containment predicate). It is the choice #481
+already made for the sun estimate: geometry over bookkeeping. The derive-only clamp does
+the rest, so the plant renders immediately above that parent — in the drawing order and
+therefore in hit-testing (a click at the plant's centre finds the plant, not the bed).
+
+Re-derivation, all through the one `_stack_entries`:
+- **add**: `_needs_synchronous_z_refresh` now asks `_parent_captures_a_plant(item)` for an
+  arriving plant-parent — a bed drawn round a plant re-derives at once, while a bed added
+  where no plant stands only appends (600 childless beds added one at a time: 0.24 s, not
+  the 2.12 s a blanket synchronous re-derivation cost).
+- **arrange**: unchanged — the clamp is applied inside `core.stacking.normalize_order`, so
+  Send to Back on a plant stops just above its bed, and the bed's own block carries it.
+- **every other command**: a new `Command.changes_containment` flag (default **True**,
+  `False` on the create/delete commands, which `addItem` and a deletion make neutral) gates
+  `CanvasScene._restack_plant_containment`, a `stack_changed` slot that re-derives a layer
+  whose drawing disagrees with the derivation. That covers a bed RESIZED or MOVED around a
+  plant, a vertex edit that swallows one, and a plant dragged into a bed — none of which is
+  an add. It is NOT gated by `changes_ground_band` (#592), because the commands that change
+  containment (move/resize/rotate/vertex) are exactly the ones that set that flag False.
+
+**One answer, checked rather than re-derived.** Which parent a plant takes is
+`CanvasScene._derived_plant_parent` — the link, else the smallest containing parent — and
+BOTH the derivation (`_stack_entries`) and the per-command check call it. The check is
+therefore not a second rule: it compares the plant's z against the parent that function
+names, so the two cannot drift (review round 2 found three near-copies of this question
+with three different points and caching, and the check rebuilt each parent's
+`QPainterPath` per (plant, parent) pair). Two structural details follow from the
+derivation and are load-bearing: only a parent of the plant's own BAND counts (an
+in-ground bed lies under the plant by the ground band, §8.25.2, not by the clamp — asking
+about it re-derived on every command and never changed anything), and the check runs on
+the SMALLEST containing parent rather than "any parent above the plant" (the latter marks
+a layer stale forever when an outer bed is arranged above an inner one, because the
+derivation can only move the plant above the inner one).
+
+**Cost, measured (dev box, 2026-10-27).** `_restack_plant_containment` on the 990-item
+reference plan (200 plants, no links): **0.9 ms**; 300 plants in 30 raised beds: 1.1 ms
+linked and 2.8 ms unlinked. It is one O(items) classification pass, then per plant: a
+single z comparison against the layer's highest parent (a garden whose plants stand above
+its beds ends there), the link lookup when the linked parent is in the plant's own band (no
+geometry), or - unlinked, or linked into the ground band - a rect prefilter plus the cached
+shape test. Shapes are cached for the pass, as
+`ItemLookup.shape_of` caches them for a walk: an adversarial plan (200 plants under 50
+concave beds whose bounding boxes all cover them) cost **8 ms at 6 vertices, 30 ms at 200
+and 133 ms at 1 200**, against 43 / 330 / 1 661 ms for the draft that rebuilt each shape
+per (plant, parent) pair. Only a layer that fails the test is re-derived, once. The pinned
+budgets are untouched: the paint gate, the ground-bake G3 gate (it times the bake, not the
+command), the caster walk and the snapshot.
+
+**Known limits, stated.** (a) One-way: the check asks whether the plant is BELOW the
+parent the derivation names, so a plant that LEAVES a bed keeps the higher z it was given
+while inside — harmless (a plant above a bed it is not in hides nothing) and it is what
+keeps the scan a one-way test. (b) Containment is asked of the plant's CENTRE, so a plant
+straddling a bed's edge with its centre outside is not clamped (it is beside the bed, not
+in it). (c) The clamp follows the SMALLEST containing parent, so a larger parent that also
+contains the plant — arranged above that one, or simply added after it — still covers it:
+the derive-only clamp cannot fix that, because `normalize_order` only ever moves a plant
+above its one parent, so a second containing parent above it stays where it is. (d)
+Stacking is geometric, and since #443 so is the link: a bed drawn around an unlinked plant
+is a stacking parent AND the create command links the plant, so
+`footprints.item_base_cm` (ADR-037 decision 5) lifts it by the bed's soil. The lift still
+requires the link to name a visible solid whose outline contains the plant, so an explicit
+Link action that geometry does not support is the one state where a plant is drawn above a
+bed and stands on the floor — a user decision, not a stale link. It is stated in
+FR-STACK-10's design and FR-SUN-11.
+(e) Only plants: a pot standing on a raised bed is not clamped to it by geometry (the app
+parents only plants, ADR-037 decision 5), and a `GARDEN_BED` that becomes a ground surface
+again by losing its height simply drops out of the parent set.
+
+**Pins.** `tests/integration/test_plant_above_parent_stacking.py` — every parent type (a
+parametrised matrix over `RAISED_BED`/`CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`/
+`TRELLIS`/`GARDEN_BED`) keeps an existing plant on top both in z and as the item a click
+finds through a real `CanvasView`; an L-shaped bed clamps a plant in its arm but not in its
+notch; a distant bed does not clamp; the linked case is unchanged; a plant moved into a bed
+by `MoveItemsCommand` comes above it (and undo leaves it outside, with the note above); a
+bed grown around a plant is raised by a real `ResizeItemCommand` - through the command's
+own slot, not a hand-made call; a healthy layer asks `shape_contains` **and**
+`standing_point` zero times (the centre is asked lazily); one pass builds each parent's
+path **once** (counted: five concave beds over twenty plants in the notch, five builds —
+the per-(plant, parent) rebuild this addendum measures fails at 100); the
+`changes_containment` table is re-derived from `core.commands` (every command class but the
+three neutral ones must keep the default, and the neutral set is named), and a create is
+pinned to skip the scan while a move runs it. The cost itself is a budget in
+`tests/perf/test_nfr_budgets.py::TestNfrPerf01ContainmentScanBudget` (linked and
+unlinked). The drift guards in
+`tests/integration/test_scene3d_base_stacking.py` name the new users of `standing_point`
+and `contains_path`. `tests/unit/test_plant_bed_relationship.py`'s rank-symmetry test now
+puts its plant OUTSIDE the bed, because a contained plant is clamped by geometry and the
+pre-attach assertion would stop being falsifiable.
 
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
@@ -1524,6 +2366,8 @@ the release workflow or establish any effect on antivirus reputation. Attestatio
 verification and signing evaluation remain their existing separate processes.
 
 ## ADR-045: Compatible-set search — maximal cliques, ranked by bed coverage (issue #319, US-D3.1)
+
+**Status**: Accepted (2026-08-18)
 
 **Problem.** Permapeople's "companion plant combinations" page computes mutually compatible 3/4/5-plant sets from a companion graph. Exposing that to OGP needs two decisions the D3.1 issue body left open: which graph algorithm, and what "compatible set for THIS bed" means when the bed already contains plants.
 
@@ -1757,7 +2601,7 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 
 **Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
-(`docs/11-risks-and-technical-debt/audit-2026-10.md`); changes how technical debt is
+(`docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10.md`); changes how technical debt is
 recorded, not what the code does.
 
 **Context.** The project records lessons at the incident level with unusual discipline:
@@ -1835,6 +2679,21 @@ outside an audit, in another ADR's evidence (TD-035 to TD-037, ADR-048), links t
 package that carries it instead of the audit checklist, because no audit epic owns it; a
 P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037: #414).
 
+### ADR-047 addendum: the audit family moves to `audits/2026-10/` (ADR-061)
+
+The eight dated 2026-10 artifacts moved from `docs/11-risks-and-technical-debt/` into
+`docs/11-risks-and-technical-debt/audits/2026-10/`, and the reference-plan fixture moved to
+`tests/fixtures/plans/`. The snapshot's text is unchanged, and it contains no relative links, so
+the move needed no edit to it. Its statement that it was "not edited after merge" is corrected:
+commit `07241b9` (#426, 2026-10-10) rewrote its AUD-063 entry and table row (the issue resolved via
+ADR-052). That edit is recorded here and in ADR-061. The decision above keeps its original convention for future
+snapshots (beside the register); this addendum supersedes it: future snapshots go to
+`audits/YYYY-MM/audit-YYYY-MM.md`, with their metrics JSON beside them.
+
+`audit-2026-10-metrics.json` still records the snapshot-date values (2,104 mypy errors in
+134 files). TD-020 in §11.3 records the later baseline (1,966 errors).
+
+
 ## ADR-048: 3D Renderer — Qt Quick 3D replaces Qt 3D (supersedes ADR-038's engine choice) — GO/NO-GO spike (Phase 17, Package L0)
 
 **Status**: **Accepted (GO)** (owner decision 2026-10-05, Package L0 "Proof of Beauty"). This entry committed its criteria **before** any GO evidence was gathered; the evidence log below records the measurements, and entry 19 the owner-GPU runs. | **Context**: Owner goal (2026-10-03): make the 3D mode "modern, beautiful, really usable" in a *Lush Cinematic* look, experience + analyze (editing stays 2D), fully procedural models. ADR-038 chose PyQt6-3D (Qt 3D) among PyQt6-3D, PyVista, pyqtgraph.opengl and a 2.5D fallback — **Qt Quick 3D was never evaluated**. Since then: Qt 3D is deprecated since Qt 6.8 and no longer part of official Qt releases (Riverbank still ships PyQt6-3D up to 6.11.0); its forward renderer has no shadow maps, no image-based lighting and no post-processing out of the box (the US-E6 "lighting-only" MVP), and its separately-versioned wheel pair is the #277 failure class. Qt Quick 3D ships **inside the already-pinned wheels** (`PyQt6==6.11.0` provides `QtQuick3D` with `QQuick3DGeometry` + `QQuick3DTextureData`; `PyQt6-Qt6==6.11.0` provides the runtime incl. Helpers/Effects/Particles/AssetUtils QML modules) and offers PBR, IBL, cascaded soft shadows (blue-noise PCF in 6.11), SSAO, `ExtendedSceneEnvironment` (tonemapping, glow, DOF, LUT, fog; SSGI/SSR in 6.11), particles and custom materials. Timebox: 6 working days, hard stop.
@@ -1891,7 +2750,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
    - **Projection:** the click pixels come from the engine's `mapFrom3DScene`, so a wrong engine projection could aim and pick consistently wrong. An orthographic projection of our own agrees with it to **0.0 px**, and the picked point lies 0.0 cm from the target, on both backends (container; v6 frozen).
    - **Engine rule found on the way:** Windows v3 picked 0/20, reproduced on OpenGL. Once the Model using a `QQuick3DGeometry` is destroyed, handing that geometry to a new Model renders and picks nothing; the frame equals an empty scene's. `update()` does not restore it; a full re-upload of the data does. A `Repeater3D` over a JS array recreates **every** delegate on any array change, so a model present both before and after the change came back blank too. The spike re-uploads every previously shown geometry, and the probe compares the frame before the detach with the frame after the re-attach: mean absolute difference 0.0 on both backends (container; v6 frozen).
    - **Its texture twin** (caught by `--second-window`, diagnosed in senior review, pass 4): a `QQuick3DTextureData` detached from its `Texture` and attached again renders **white**. The IoU and orientation probes clear `groundTexture` for their measurement, and the restore set the same texture object back, so from then until the next project reload the plan ground drew white: mean difference 13.1 against the frame before the probe, all of it in the ground half (llvmpipe, 640×360). `update()` alone changes nothing; `setTextureData(textureData())` plus `update()`, or a fresh texture object, restores it (0.0). `preserved_state` re-uploads a detached ground, and every run checks the restore in pixels (`probe_restore_frame_diff` < 1, measured 9.83 before the fix and 0.0 after, with the IoU and orientation probes in the run; 0.0 in all three render-tier runs that probe at 479d78c, at 100 % and 150 % display scale, and 0.0 on D3D11 in Windows run v11; the render tier and the Windows driver both assert it).
-   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. A texture is re-uploaded whenever it is re-attached.
+   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. **Reuse of a live Model was tried and WITHDRAWN (ADR-069, #531, 2026-11-01):** assigning a new geometry to a Model that is already drawing, or re-loading new data into the geometry it already has, renders NOTHING while the item still picks on both render tiers (0.0 IoU against its own mask). One geometry per Model lifetime therefore stands, and a changed part gets a new Model. (The cost measured here — handing one geometry object to a SECOND Model — still never happens.) A texture is re-uploaded whenever it is re-attached.
 5. *Python geometry path (criterion 6)*: replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping, interleave, `QByteArray` copy) takes **10.5 ms median** in the container (n = 10, max 25 ms). On the Windows runners the same code took 14.4 ms (v3), 27.3 ms (v4) and 36.4 ms (v6, max 71.5 ms); runner instances differ by up to 2.5×. That is borderline against ≤ 10 ms; the owner's hardware decides, and the interleave copy is the first optimisation target.
    - **Scope of the number** (senior review): `set_mesh` covers the Python side only. The GUI thread also blocks during the next scene-graph sync, and with `QSG_RENDER_LOOP=basic` the whole render runs on it, so the criterion's main-thread budget is larger than this; L1.1 measures the full edit-to-frame path (≤ 50 ms p95).
    - The time to the next presented frame is recorded but is not a criterion number: on a software rasteriser it is the frame's own render cost.
@@ -1972,7 +2831,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
       - **So criterion 10's leak half is open on D3D11.** An A/B soak (ground re-bake off, geometry rebuild off) would locate the growth; a longer soak would not.
       - **How it closes.** The owner's run cannot close it, only add to it: a GPU resource sits in a discrete GPU's VRAM, which private bytes do not see, while a runtime or driver allocation in system memory would show whether WARP's growth reproduces on real hardware. The spike's share of criterion 10 as written (show/hide cycles, project reloads, close while animating: zero aborts) holds; the full pytest run with the production view is L1.3's. The leak half closes in L1.3, whose production-view soak runs that A/B and adds a dedicated-GPU-memory reading (for example DXGI `QueryVideoMemoryInfo`; not yet tried) under the same pre-registered slope gate. A GO before then accepts the open half explicitly, and the decision records it (senior review, passes 6–7).
     - **Container render tier** (llvmpipe, 640×360, 479d78c), the same gate on RSS: 0.02 MB/reload over reloads 11–20, +4.7 MB over reloads 2–20 (1715.6 → 1720.3 MB), Theil–Sen over all 20 points 0.24. Its control read **25.0 MB/reload** for the 25 MB it held; the five later runs named above read 26.97, 27.85, 28.24, 24.5 and 26.28. Four of their five intervals include 25 (36e3d18 20.6–33.0, f71cdef 18.9–36.7, 308c773 16.6–27.3, 46d88ff 23.7–29.6); a64ae9e's, 25.6–35.4, does not. Until pass 4 that control ran 5 reloads at 320×180, a two- or three-point slope and so a smoke check rather than a control (senior review); it now runs the pre-registered 20 reloads in the clean run's window.
-    - **A leak the reloads found, in the spike's own code:** RSS grew linearly, one baked ground (2400×1600 RGBA ≈ 15 MB plus its GPU copy) per reload, 771 → 1035 MB over 10 reloads. `set_ground()` appended every texture to an append-only keep-alive list. Holding only the shown texture settles at ~885 MB; an A/B on llvmpipe isolated it, and the engine and the geometries released their memory. Both variants grew ~70 MB on the first reload, so the soak gates the RSS **slope over the second half of the reloads** (< 10 MB/reload), not the total growth (§11.4.5).
+    - **A leak the reloads found, in the spike's own code:** RSS grew linearly, one baked ground (2400×1600 RGBA ≈ 15 MB plus its GPU copy) per reload, 771 → 1035 MB over 10 reloads. `set_ground()` appended every texture to an append-only keep-alive list. Holding only the shown texture settles at ~885 MB; an A/B on llvmpipe isolated it, and the engine and the geometries released their memory. Both variants grew ~70 MB on the first reload, so the soak gates the RSS **slope over the second half of the reloads** (< 10 MB/reload), not the total growth (PF-E3D-04).
     - **Earlier soaks** (same models re-set, no reloads): 10 cycles in the container, 1010.0 → 1010.2 MB; 20 cycles in the frozen exe, 723.6 → 731.5 MB (v4) and 692.0 → 725.4 MB (v6).
     - **Not covered by the spike:** a full pytest run with the production 3D view (L1.3).
 11. *Size (criterion 9)*: Windows dist built from this branch and from master in the same job: **626.2–626.3 MB vs 624.5 MB = +1.7 MB**, the same in v2–v6, with 5–6 new files (v6 adds the creator's `water.frag`; output committed as [`windows-v6-footprint.txt`](adr-048-evidence/windows-v6-footprint.txt)). The Qt Quick 3D runtime (Quick3D + ShaderTools, 21.1 MB) **already ships** with today's bundle; only `QtQuick3D.pyd` and the spike's QML files are new. Qt 3D's own DLLs are 5.8 MB.
@@ -2027,7 +2886,7 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
       - octahedron flower centres;
       - a VeryHigh shadow map at low: ridge-cap scallops 25 → 2 columns, low IoU 0.953 / 0.959 / 0.922 at 1280×720;
       - a `sunset` shot at 5.9°, the golden anchor of the rig.
-    - **Pass 5** (f1b998e): **APPROVE**, no P0 or P1. The reviewer's own board is bit-identical to the creator's (21 of 21 PNGs), and every round-4 claim reproduced: isolated dark pixels as above, December clipping 0.27 % at both presets (noon: 0.25 %), 0 of 448 swept trees over budget against a hand-checked bound of 22,466, ridge-scallop columns 25 → 2, and the sunset shot on the golden anchor with truthful shadow directions. It confirmed that none of its pass-4 numbers came from a render that imported the main checkout's code (§11.4.5 #14). Open P2s, deferred to L1: the trampoline mat reads tan in low sun (the broad specular sheen of the shared vertex-colour material; a rubber material measured 97 → 70 luma at golden hour); the roof's tile courses; meadow value noise. `sharpnessAmount` has no clean middle value (0.03 overshoots nearly like 0.08), so it stays at 0, and the frames lost 16–29 % of their edge energy (an owner question).
+    - **Pass 5** (f1b998e): **APPROVE**, no P0 or P1. The reviewer's own board is bit-identical to the creator's (21 of 21 PNGs), and every round-4 claim reproduced: isolated dark pixels as above, December clipping 0.27 % at both presets (noon: 0.25 %), 0 of 448 swept trees over budget against a hand-checked bound of 22,466, ridge-scallop columns 25 → 2, and the sunset shot on the golden anchor with truthful shadow directions. It confirmed that none of its pass-4 numbers came from a render that imported the main checkout's code (PF-E3D-04). Open P2s, deferred to L1: the trampoline mat reads tan in low sun (the broad specular sheen of the shared vertex-colour material; a rubber material measured 97 → 70 luma at golden hour); the roof's tile courses; meadow value noise. `sharpnessAmount` has no clean middle value (0.03 overshoots nearly like 0.08), so it stays at 0, and the frames lost 16–29 % of their edge energy (an owner question).
 
 17. *Custom materials*: the pond's `water.frag` samples the image-based light through Qt-internal shader-library functions (`qt_sampleDiffuse`, `qt_sampleGlossy`, guarded by `QSSG_ENABLE_LIGHT_PROBE`), not documented built-ins, so a Qt upgrade (Package L7 plans 6.12) can break it silently. Since a shader error now fails the run (entry 14), the render tier and the Windows run check it on OpenGL and D3D11; production adopts it only with that check in its own render tests and a line in the L1 ADR.
 18. *What L1 inherits, and how the owner measures*:
@@ -2074,6 +2933,985 @@ P0/P1 row links its own issue, as decision 1 requires of every P0/P1 row (TD-037
 - **6** — `set_mesh` for a 100k-vertex geometry read 10.48 ms median (max 12.82) against ≤ 10 ms (over budget), and the "1,000 Models ≤ 300 ms" clause is unmeasured. Accepted: `set_mesh` covers the Python side only; L1.1 measures the full edit-to-frame path (≤ 50 ms p95), per entry 5.
 - **8** — the gated low and high presets pass (≥ 0.85); medium's 60° reads 0.847, a hair under the bound, on a preset outside the pre-registered low/high set. The < 0.85 policy (illustrative shadows + draped 2D analysis) covers it either way.
 - **10** — the spike's share passes (zero aborts; 100 cycles + 20 reloads, exit 0), but the D3D11 leak is open: the owner tail slope read 15.73 MB/reload, above the pre-registered < 10 gate. Accepted as open (option a); it closes in L1.3 with an A/B soak plus a dedicated-GPU-memory reading.
+
+### Addendum L1.2 — the production engine package (2026-10-11, #385 story L1.2)
+
+**Status**: Accepted with L1.2. It turns the GO into code: `ui/view3d/quick3d/`, the Qt Quick 3D
+side of ADR-059's `EngineSink`. Nothing is wired into the app yet (L1.3), and the shipped
+"3D View…" still opens the Qt 3D window.
+
+**Context.** The spike proved the engine on one long-lived script: build everything, set a model
+list, wait for frames, grab. A product needs the opposite shape — a scene that follows edits one
+call at a time, a host that is embedded and kept, a render path with no window for tests, tools
+and the frozen exe's self-test, and all of it testable on machines without a GPU, because the
+release runner has none. Three things the spike left open had to be measured first: whether
+`engine_pose`'s rotation sense is the engine's (L1.1's open proof), whether a window that is
+never shown can render at all, and what the self-test costs on WARP.
+
+**Decision.**
+
+1. **One package, two engine modules.** `ui/view3d/quick3d/` is the only importer of
+   `PyQt6.QtQuick3D` / `QtQuick` / `QtQml` in the product, and inside it only `geometry.py` and
+   `host.py` are (`offscreen.py` reaches the engine through `host`). Every decision that is not a
+   Qt call sits in an engine-free module — `adapter`, `lifecycle`, `materials`, `look`, `shots`,
+   `qt_messages`, `runlog`, the scene and the judge of `selftest` — and the byte layout sits in
+   the Qt-free `core/scene3d/interleave.py`.
+2. **`Quick3DSink` is pure bookkeeping against a narrow boundary.** It implements `EngineSink`
+   and drives `EngineScene` (create / destroy / pose / tint a part, sun, ground, request a
+   frame). `Quick3DHost` implements `EngineScene` with real Models; a list-backed double
+   implements it in the default test tier. The sink never swallows an engine error. The host
+   OWNS every Model; the sink's one teardown, `clear()` (`EngineSink`'s tenth method, which
+   `SceneSync.reset()` calls), asks the host once and empties its books whatever the host
+   answers — legal at any time, also when the engine is gone. *Corrected in review round 2:*
+   a Model leaves the HOST's books only when the engine confirms it is gone, so after a
+   failed destroy books and engine still agree and the next `clear()` tries again; a sink
+   whose `clear()` failed refuses `begin()` until one went through; and a scene that holds
+   Models has an owner — a second sink is refused, at construction and at `attach()`.
+3. **One Model per mesh part, one geometry and one material instance per Model.** Created through
+   a QML function (`createPart`), never a `Repeater3D` over a list; destroyed hidden-first,
+   because `destroy()` is deferred. `BufferGeometry` uploads once, at construction, and has no
+   method to upload again — the re-attach rule is structural.
+4. **One tint rule for every material kind: `albedo = vertex colour × tint`, in linear light**, the
+   tint being a property of the Model. This is what makes `update_material` a property write.
+5. **The host is a `QQuickView`; `container()` is how it is embedded** (criterion 3's policy
+   outcome, now measured for the container itself). **It is an explicit state machine: six
+   states (new, starting, live, hidden, spent, closed) as a pure function of facts the host
+   reads from Qt on every call** (`lifecycle.state_of`, engine-free, its whole truth table in
+   the unit tests). Every public call answers truthfully for the state or raises
+   `HostStateError`. **The contract itself — the facts, the states, the legal calls, what
+   `wait_ready()` means, what raises what — is the module docstring of `lifecycle.py` and is
+   written down nowhere else** (round 3, below); what follows is how it got its shape.
+   *Corrected in review round 1:* the first version guarded `grab()` on `isVisible()` and
+   listed three refusals; the engine's condition is "the scene graph is initialised", and the
+   difference killed the process in two call orders. *Corrected in review round 2:* three
+   predicates were still too few. "No scene graph and not visible" is not "new" — on xcb a
+   window shown and hidden again took the offscreen frame and the process segfaulted — so
+   `NEW` now means no platform window was EVER created. And "scene graph, visible, exposed"
+   is not "live": a collapsed splitter pane is all three and 0 px wide, a window one pixel
+   wide draws no 3D, and after a resize the scene can lag the window — so `LIVE` also needs
+   an area of at least 2 × 2 px and a root item that has caught up. *Corrected in review
+   round 3:* round 2 wrote here "after every resize the scene lags the window by one
+   event-loop pass". False twice. `showFullScreen()` delivers its resize INSIDE the call:
+   scene and window agree at once, and the render target keeps the old size until the next
+   expose — the host read "live" and the grab came back in the old size. And when a parent
+   window is maximised, the embedded view has not changed at all until the layout ran. So
+   `LIVE` also needs the render target to have caught up — a tenth fact, latched from the
+   window's own resize and expose events — and the documentation stopped speaking of
+   "passes". *Corrected in review round 4:* that tenth fact could only be switched on by an
+   expose — a paint message of the operating system — and Windows sends none to a pane that
+   grows where no screen is: the host read "starting" for ever. The fact is gone. **The
+   frame is the witness.** The state holds only what Qt reports when it is asked; `LIVE`
+   means a frame may be ASKED for; whether it has the window's size is said by the frame,
+   which the host checks — to the device pixel — every time it takes one. *Corrected in
+   review round 5:* "to the device pixel" was "less than one pixel off", and that is not
+   exact: Qt rounds a render target to `qRound(logical × ratio)`, and at 125 % the frame of
+   a 442 px pane (553 px) is 0.75 px off the size of a 443 px one — it was handed out. The
+   check is Qt's own rounding: at most HALF a device pixel off.
+6. **`grab()` on a LIVE host is the synchronisation point.** Nothing in the package or its
+   tests waits for a frame to be presented. *Corrected in review round 1:* a host that was just
+   shown is not live until its first expose was delivered, and a grab before that is fatal;
+   `wait_ready()` pumps the event loop until then, bounded, and its answer is checked wherever
+   it is asked. *Round 2:* `wait_ready()` is True only when a grab right after it is truthful;
+   it waits only for a host that is on its way, looks again in every pass, blocks for events
+   instead of spinning, and gives up as soon as Qt reports that no graphics device will come.
+   *Corrected in review round 3:* "True only when a grab right after it is truthful" was
+   false after every `showFullScreen()` (20 of 20): `wait_ready()` said True and the grab
+   raised. The promise was narrowed to what can be kept, and is pinned in `lifecycle.py`: a
+   live host gives the scene at the window's current size or refuses, and after
+   `wait_ready()` answered True the next frame call answers. To keep it, `wait_ready()`
+   delivers what is pending once for any visible host before it looks — also for one that
+   reads live — and a grab that still comes back in another size is a STATE (a
+   `HostStateError`; the host reads starting until the next expose), no longer an
+   `EngineError`. It also answers False at once when the application is quitting: Qt's
+   event loop returns immediately then, and the wait span (158,574 looks in 3.0 s).
+   *Corrected in review round 4:* `wait_ready()` proves readiness with a frame of its own —
+   True means that frame had the window's size — instead of believing the state. It is back
+   within its timeout, the delivery of pending events included (a zero timeout runs no
+   event at all; it had taken 1.0 to 1.4 s); its default is 1 s (was 10); and it answers
+   False 0.5 s after the last sign of progress, whatever the timeout — "starting" no longer
+   means "wait for it". `pick()` and `project()` take a frame of their own after a resize:
+   without one the engine picks with the old viewport and misses.
+   *Corrected in review round 5:* "back within its timeout" was false, and so was the
+   exception stated for it ("the one handler that is running"): one pass of Qt's event
+   loop delivers EVERYTHING that is queued — 0.2 s asked, 1.80 s taken behind six handlers
+   of 0.3 s. The contract now says what holds: no pass starts once the time is up; the
+   call returns within its timeout plus whatever was queued when its last pass began; only
+   `wait_ready(0)` is bounded by itself. And it says what the call IS: a nested event loop
+   that takes user input — the workspace needs it nowhere on the GUI thread. Silence is
+   counted pass by pass, not as wall time (a GUI thread that was busy for 0.7 s inside the
+   wait had made it answer False, and True when asked again). `pick()` and `project()`
+   took their frame on EVERY call while the render target was behind (200 calls, 200
+   frames, all refused): one per refusal now — renewed by a sign of progress, by other
+   facts, or after 0.25 s — and a tick that draws stops at its first `HostStateError`.
+7. **Offscreen = one never-shown host per frame**, through the real `SceneSync` → sink → host
+   path, with every Qt message recorded and an error-class message raising `RenderError`. It is
+   for processes that own themselves — it blocks for 0.4–1.3 s and builds a graphics device per
+   call — writes nothing unless a log is passed, puts the message handler and Qt's logging rules
+   back, refuses a backend that renders no 3D, and names every item whose builder failed.
+   *Round 2:* this is the ONLY place a Qt message recorder is installed, because it is the
+   only rendering that happens on the calling thread (decision 11) — measured per message, not
+   assumed: the recorder counts what arrives on another thread, and the render tier requires
+   0. The call refuses to run while a Qt Quick window is shown in the process.
+8. **One look, `NEUTRAL_DAY`** — the spike's noon rig, a plain sky colour, no image-based light
+   probe, a flat fill derived from the noon sky (its mean in linear light × the spike's probe
+   exposure). `set_look(Look)` takes plain data; L1.4 builds the looks.
+9. **`--selftest` renders and judges** one hidden 160 × 120 frame containing every material kind.
+   ONE watchdog bounds the whole command — the Qt3D and Agent API blocks too, 300 s — and writes
+   its reason into the log before it ends the process; the log goes into the app's per-user
+   log directory. *Round 2:* the watchdog has two lines of defence. `faulthandler`'s exit
+   was measured NOT to end a Windows process whose threads are deadlocked inside Qt (the dump
+   is written, the process lives on), so a second process — the same exe, started with
+   `--selftest-supervisor` — terminates it from outside ten seconds after the deadline.
+   *Round 3:* that process acts for ONE block of ONE process and is built so that it cannot
+   act for anything else. The release event's name carries a random nonce per block — named
+   per process, a finished block's late supervisor terminated the healthy block after it,
+   4.1 s in. It refuses a process that is not its own parent, and in the frozen build one
+   that does not run its own image; its arguments are validated before anything is opened;
+   and one watchdog is armed per process at a time. And the safety net is checked like the
+   subsystems it guards: on Windows the self-test FAILS when its supervising process did
+   not start, refused, or did not leave. *Round 4:* a supervisor that found nothing to
+   wait for exits 4, not 0 — it never supervised, and the self-test fails on it; a block
+   keeps its signalled release event until its supervisor has left, so that one which
+   comes up late is "released" and not "lost"; a watchdog that fails while arming disarms
+   what it had armed. *Round 5:* a supervisor whose own wait FAILS exits 3 (it said 0:
+   everything that was not a timeout counted as a release); and `Armed.supervised` and
+   `Armed.gap` are one statement (a supervisor that had not left read as "supervised").
+10. **A render tier in two processes**: a driver with a real Qt platform renders; the tests, in
+    the ordinary offscreen process, judge with a CPU projection of their own. The host's
+    lifecycle is a matrix of call orders, one process each. CI runs the tier in a `render3d`
+    job that is not a required check; a second workflow, `frozen-selftest.yml`, builds the
+    bundle with the release recipe and runs the frozen gate on every pull request that changes
+    shipped code (`src/open_garden_planner/**`, the installer, the locks). *Round 2:* the
+    matrix is judged against a table of what a truthful host must answer — a frame with the
+    probe at the predicted pixels, or a refusal — never against the state the host reports;
+    the first judge was blind to a host that reported the wrong state.
+11. **No Python Qt message handler beside a shown window; a shown host reports through
+    `health()`.** *This replaces the first version's decision ("a live view's errors have a
+    seam: `watch_messages()` / `engine_errors()`"), which review round 2 measured to deadlock
+    the process.* Qt Quick renders a shown window on a thread of its own — the threaded render
+    loop, on Direct3D 11 (GPU and WARP) and on xcb + OpenGL alike. Qt's message handler is
+    process-wide, and PyQt calls a Python handler under the GIL on whichever thread emits the
+    message. When the render thread emits one while the GUI thread sits in a Python-called Qt
+    function that waits for the render thread — `hide()` does — each waits for the other,
+    for good. There is no render-thread-safe Python recorder. So:
+    - a recorder is installed only around rendering on the calling thread (decision 7);
+    - a SHOWN host learns about itself from what Qt delivers on the GUI thread, collected in
+      `Quick3DHost.health()` and written to the app's log as it arrives: the QML engine's
+      `warnings` signal, the window's `sceneGraphError` signal, and a count of presented
+      frames (`frameSwapped`) — the last two connected QUEUED, so that no Python ever runs on
+      the render thread (the host counts slot calls that arrive elsewhere; the tier requires 0);
+    - `sceneGraphError` MUST be connected: with nothing connected, Qt answers a graphics
+      device that cannot be created with a modal error box and then aborts the process —
+      which in the app is the whole 2D application;
+    - a shader of a SHIPPED material that does not compile is therefore not reported at run
+      time. It is caught BEFORE release: the render tier and the frozen self-test compile
+      every shipped shader under a recorder, and the tier shows that a shown window draws
+      what the offscreen frame draws, material for material;
+    - *round 3:* the host does NOT refuse to show itself while a Python handler is installed
+      — ruled out: it cannot know whose handler it is, and the app installs none. The guard
+      is static, an AST scan over all of `src/` (`tests/unit/test_quick3d_boundary.py`):
+      `qInstallMessageHandler` and `QLoggingCategory.installFilter` only in the recorder
+      module (and in the dormant spike's own, which retires in L1.10), the recorder's
+      `install` only from `offscreen.py`, a render-thread signal only through the one
+      queued-connect helper. Necessary, not sufficient: it cannot see a handler that a
+      third-party package installs, nor a Python override of a virtual that Qt calls on the
+      render thread.
+12. **At rest the wind moves nothing.** With the scene's clock at 0 a vertex is drawn exactly
+    where its mesh puts it; the truth principle (ADR-059) does not stop at the shader. "At
+    rest" means the clock IS 0 (or the wind strength is): a clock paused at any other value
+    leaves the sway in the frame, so a truth probe pins the clock or the strength.
+
+**Ported from the spike unchanged** (each measured there, ADR-048 evidence log): the vertex
+layout (stride 48, linear colour); the frame mapping; the sun as
+`QQuaternion.rotationTo((0, 0, −1), travel)`; the High preset's shadow settings — bias 5,
+`ShadowMapQualityVeryHigh`, PCF16, `pcfFactor` 2, `shadowMapFar` 9000, locked texels, factor 82,
+two cascades and none in the orthographic view; the material numbers (vertex-colour 0.78 / 0.35,
+roof 0.80 / 0.15, glass, the foliage and grass shaders, the water shader's lighting model and its
+`#if QSSG_ENABLE_LIGHT_PROBE` guard); the endless meadow (4 × 4 km, 1 cm under the plan, one
+albedo); the cameras (clip planes, 40° field of view, the top camera at 40 m); the pick helper
+returning a plain JS object; the Qt-message classifier; the log-plus-watchdog pattern; the noon
+rig's numbers.
+
+**Changed, and why.**
+
+| Spike | L1.2 | Why |
+|---|---|---|
+| `Repeater3D` over a JS array of models | `createPart()` per mesh part | any change of the array recreates every delegate, and a geometry does not survive its Model |
+| `NumpyGeometry.set_mesh` re-uploads into one object | `BufferGeometry`: one upload, no re-upload method | one geometry per Model lifetime, enforced by the type |
+| interleaving inside the Qt class | `core/scene3d/interleave.py` | the default test run covers the layout byte for byte |
+| shared material objects, colour baked into vertices | one material instance per Model, tint as a property | a recolour must not upload geometry |
+| the water colour as one uniform for every pond | water albedo = vertex colour × tint (`VAR_COLOR`) | the same rule as every other kind; the mesh carries its colour |
+| sky light probe, fog, glow, AO, four presets | plain sky colour, flat fill, one look | L1.4 owns looks; a probe costs 40–85 s once on WARP — nothing for a self-test |
+| the meadow hidden and a white probe ground in the orthographic view | the meadow and the plan rectangle always shown | the truth view shows the scene, not a probe rig |
+| `wait_frames` on `frameSwapped`, then grab | grab only | a visible window may present one frame and no more (PF-E3D-06) |
+| two hosts, `QQuickView` and `QQuickWidget` | `QQuickView` only | criterion 3; the package does not import `QtQuickWidgets` |
+| one process-wide message recorder | recorders that chain; an exact `environment` class | a render inside a recorded run, or inside the app, must not deafen the outer listener |
+| `SunState` with colour and brightness | direction (`core/scene3d.SunState`) apart from the look | where the sun stands is truth; what it looks like is art direction |
+
+**Alternatives considered — rejected.**
+
+- *Engine imports in the sink.* Then no line of the sync-to-engine logic runs without a GPU.
+- *Leaving the host to the render tier alone.* Measured on one tree with one denominator
+  (2026-10-11, after review round 1): the default tier covers 674 of the package's 1,060
+  statements without the host tests and 993 with them. Added to CI's numbers for the base
+  commit (`ui`: 18,880 of 26,500) that is an estimated 70.95 % against the floor of 71 % in the
+  first case and 72.11 % in the second — CI's coverage job is the judge, and it passed. The
+  host is therefore also exercised under the offscreen platform, where `Garden.qml` loads and
+  Models are created, posed and read back without a pixel (`tests/ui/test_quick3d_host.py`).
+  (The first version of this entry quoted 511 of 871 and 855 of 879 — two measurements on two
+  trees.) After review round 2, measured on Linux in a container: 789 of 1,325 without the
+  host tests and 1,176 with them — an estimated 70.69 % and 72.08 % on the same base.
+- *Recolour by rewriting vertex colours.* Simple, but an upload per recolour and a second code
+  path for something the material can do.
+- *A persistent hidden render target (`QQuickRenderControl`).* Not attempted: one hidden host
+  per frame serves every consumer L1 has (0.4–1.3 s per frame). Revisit if a tool needs many
+  windowless frames per second.
+- *Waiting for presented frames.* Measured to stall with the display asleep.
+- *The self-test in a child process with the parent as its watchdog.* More moving parts in a
+  frozen exe for the same guarantee `faulthandler` gives in-process.
+- *A "was shown" flag in the host.* The first version had one. The parent of an embedded
+  container shows and hides it without calling the host, so the flag is wrong exactly where
+  L1.3 will use the host; Qt's predicates are asked instead.
+- *Letting `grab()` wait for the first expose itself.* It would run the event loop inside a
+  call that reads like a getter. `grab()` refuses, and `wait_ready()` is the one place that
+  pumps.
+- *Allowing a grab while hidden.* Measured to return a correct frame on Direct3D 11 (2 of 2).
+  Refused all the same: unmeasured on OpenGL, and no caller needs it.
+- *A Qt message watch for the live host* (round 1's decision 11). Deadlocks the process
+  (round 2, below). Also rejected: keeping the watch and forcing the non-threaded render
+  loop (`QSG_RENDER_LOOP=basic`) — the product would run a render loop nobody else tests, to
+  buy a notice about shaders that are checked before release anyway; and a C-level handler —
+  not available from PyQt.
+- *Deriving "new" from `QWindow.handle()`.* The same fact as the `PlatformSurface` event the
+  host uses, and PyQt6 6.11 does not bind it; `winId()` would create the window it asks about.
+- *Ending a hung self-test from inside.* `faulthandler`'s `exit=True` and a native timer that
+  calls `ExitProcess` both hang in the deadlock (DLL detach); a native timer that calls
+  `TerminateProcess` on its own process does end it, but with an exit code that is not ours.
+  A second process is the only one that decides the exit code and needs nothing from the
+  first.
+- *Clearing a host that already holds Models when a second sink attaches.* It would destroy
+  what somebody else is showing. Refused instead.
+- *Deriving "the render target has caught up" from `frameSwapped`* (round 3). That signal is
+  queued from the render thread: one emitted before a resize can arrive after it. The
+  window's own resize and expose events are delivered on the GUI thread, in order.
+- *Deriving it from the window's `Resize` / `Expose` events* — round 3's own choice,
+  rejected in round 4: no expose reaches a window that is not on a screen, and a state that
+  waits for one waits for ever.
+- *A named state "nothing of the view is on any screen", derived from geometry* (round 4;
+  the other option the review offered). It would have closed the off-screen case and no
+  other. The same stale render target was measured ON the screen — with the view's paint
+  events withheld — and on one machine the pane beyond one edge kept its old target while
+  the display slept (no update request arrives either) and got the new one while it was
+  awake, both on the same day — and on WARP it got the new one either way. Geometry does
+  not say whether Qt draws; a frame does. The probe is also
+  the smaller change: it removes a fact instead of adding a state.
+- *Treating a change of the device pixel ratio as a resize* (round 3). Unmeasured — the
+  machine has one scale — and an event whose order relative to the expose is unknown could
+  leave a host starting for ever. The grab's own size check covers the case: such a frame
+  is refused, never handed out.
+- *A run-time refusal in `show()` while a Python Qt message handler is installed* (round 3).
+  Decision 11.
+- *Naming the supervisor's release event by the process alone* (round 2's). Decision 9.
+- *Reading a shown host's shader errors from stderr in the product.* A frozen GUI exe has no
+  stderr. (The render tier does read the DRIVER's stderr — that is a test process.)
+- *A composite action for the self-test step.* One script in two workflows is duplication; a
+  test pins the two texts as identical instead, which leaves the existing guards on
+  `release.yml` (the command line itself must be in that file) as they are.
+- *The self-test log in the temp directory.* The first version; a predictable name in a shared
+  directory (CWE-377). Replaced in review (§8.11).
+- *`render3d` as a required check.* A software rasteriser on a shared runner proves correctness,
+  not speed, and the job could not be run before it was written.
+
+**Consequences.** New: the package (eleven modules, `Garden.qml`, four shaders),
+`core/scene3d/interleave.py`, `Quick3DSink.clear()` and `attach()`, a CI job, the
+`frozen-selftest.yml` workflow, a third block in `--selftest`, a watchdog around all three and
+the internal `--selftest-supervisor` flag (the exe as the process that ends a hung self-test). No `.ogp`
+change, no `FILE_VERSION` bump, no new dependency, no
+user-visible string. Bundle +0.08 MB. The spike stays untouched and importable; it and the
+spec's spike entries retire in L1.10. Seams left for later stories: `Quick3DHost.container()` and
+`set_shot` (L1.3), `set_look(Look)` and `windTime` (L1.4), the plan rectangle in `Garden.qml`
+(L1.5), `pick()` → `PickHit` (L1.8).
+
+**Evidence** (Windows 11, RTX 4070 and WARP via `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`, PyQt6
+6.11.0, Python 3.12.9, 2026-10-11; the monitor was asleep, which is how the second row was found).
+
+| Question | Measured |
+|---|---|
+| Can a never-shown window render? | Yes, once: the first hidden grab is pixel-identical to a shown grab (mean abs difference 0.0), WARP vs GPU differ by ≤ 4 of 255; the SECOND hidden grab is the bare clear colour (difference 161). Cost per hidden frame: 0.4–0.5 s with one material, 1.1–1.3 s with all six (three custom shaders), GPU and WARP alike |
+| Do frames keep coming on a visible window? | Not with the display asleep: 1 `frameSwapped`, then none in 40 update requests; with `QT_D3D_NO_VBLANK_THREAD=1` about 4 per second; on WARP they flow. A shown grab: 1–9 ms |
+| Is `eulerRotation.y = +rotation_deg` counter-clockwise from above? | Yes: mask IoU against the CPU prediction 1.000 / 0.9994 / 1.000 / 0.9895 at 0° / 17° / 90° / 213.5°; against the opposite sense 0.288 (17°) and 0.157 (213.5°) |
+| East right, north up? | Centroids of an east and a north box exact to 0.0 px, IoU 1.000; predicted under a mirrored or swapped mapping: IoU 0.000 |
+| Shadow vs the analytic 2D shadow | IoU 0.9777 / 0.9763 / 0.9770 at azimuth 225° / 135° / 45°, elevation 35°, 480 × 360 (WARP within 0.0002); direction within 0.02° |
+| Lit and shaded faces | luma 229.5 lit vs 126.6 shaded (filmic view), the lit pair following the azimuth in all three cases |
+| Radiance of a lit top face (truth view) | predicted 167.2 of 255, measured 171 |
+| Tint through `baseColor` vs a shader uniform | 171 vs 169 |
+| Picking | 10 of 10 easy targets, 6 of 6 adversarial (inside a bounding box, off the mesh), 0 of 10 false hits on bare ground; our projection vs the engine's 0.0 px; 0.01–0.2 ms per pick |
+| Uploads per edit | add 2 items: 2 · move: 0 · recolour: 0 · replace geometry: 1 · remove: 0 · re-add: 1 · clear and re-send: 2 · hide and show: 0; the re-added, the re-sent and the re-shown frame identical to the one before (difference 0.0) |
+| Open: request → first finished readback, `bench_small.ogp` (87 Models, 640 × 400; 99 records, 98 since the L1.1 review took the roof ridge out of the snapshot) | GPU: 1.11 s in the first run of the day (QML load 17 ms, first expose with device creation 935 ms, apply 31 ms, grab 21 ms) and 0.40 s in the last (QML load 18 ms, apply 41 ms, grab 25 ms) — the device creation is the part that varies. WARP: 0.17 s and 0.39 s |
+| Edit → finished readback (30 moves, the same plan) | GPU: median 7.1 ms, p95 17.9 ms, max 26.8 ms (snapshot 2.3, apply 0.2, grab 4.5); after review round 1 median 7.5 ms, p95 18.0 ms, max 26.2 ms. WARP: median 23.2 ms, then 26.5 ms (p95 29.0). Against ADR-048 entries 5/6's 50 ms p95 |
+| Engine import cost in the running app | the package 1 ms; the sink with `core/scene3d` 17 ms; the Qt Quick bindings 17 ms. App start loads none of it |
+| Embedding (criterion 3) with the window container | top-level surface stays `RasterSurface`; 2D pan step median 2.56 ms with the 3D container vs 2.63 ms without (×0.97; WARP ×0.92) — and 2.96 vs 2.97 ms (×1.00; WARP ×1.11) in the last run of the day. Control: a `QQuickWidget` makes the surface `Direct3DSurface` and the step 262 ms on this machine (its presents wait for the sleeping display) |
+| `--selftest`, the whole command, three runs each | from source: 2.2–4.3 s (GPU), 2.1–5.7 s (WARP). Frozen exe via `Start-Process -Wait -PassThru`: 3.0–4.1 s (GPU), 3.0–3.1 s (WARP), 3.0 s (WARP, every shader cache disabled); 6.1–7.2 s on either adapter while other test suites ran on the machine. Exit 0 in all; exit 1 under the offscreen platform, on a broken shader, on a hang (watchdog) |
+| Bundle | 650,815,562 vs 650,736,554 bytes for the base commit: +79,008 bytes (+0.08 MB); smoke exit 124 |
+| The whole render tier | first version: 51 tests, about 50 s on the GPU. After review round 1: 79 tests — 114 s on the GPU (79 passed), 112 s on WARP (77 passed, the two hardware-only budgets skipped); zero Qt warnings and errors in the clean runs of both |
+| The frozen gate after review round 1 (built from 3c236b6) | smoke: exit 124. `--selftest`, three runs each: 2.95–3.20 s on the GPU, 2.93–3.25 s on WARP, exit 0. The workflows' step script, run as GitHub's pwsh runs it against that exe: verdict first, log after, exit 0; with a platform that renders nothing, `::error::` verdict, log, exit 1; with a directory where the log should be, the exe fails closed (exit 1, "no log"), the step prints its verdict and "the log could not be printed", exit 1 |
+| What decides a local bundle's size besides the code | PATH. Built from Git Bash the bundle carries `libcrypto-3-x64.dll` and `libssl-3-x64.dll` — 5,531,448 bytes, byte for byte the files in Git for Windows' `mingw64/bin` — and built from a plain PowerShell process it does not (650,815,562 vs 645,326,627 bytes; the rest differed by 42,513 bytes, this package's own files). Compare sizes only between builds from the same shell; the +79,008 bytes above were |
+
+**Review round 1 (2026-10-11).** An independent review of the first version found no P0, four
+P1 and fourteen P2 defects, and CI ran the branch for the first time. None was refuted; each
+was reproduced or read in the code before it was fixed. What a green suite had not seen:
+
+1. *Two call orders killed the process* — `show()` then `grab()` before the first expose, and
+   one hidden grab followed by `show()`, which the error message recommended. The guard asked
+   `isVisible()`. → decisions 5 and 6, the state machine.
+2. *The default-tier host tests could not fail on a broken scene file*: their canary ran the
+   product. → a canary of bare Qt, and a positive control.
+3. *`Quick3DSink.clear()` raised in every order once the host was closed or destroyed*, and
+   left its books dirty. → one owner of Model lifetime, decision 2.
+4. *The release's self-test step had no time limit, and the in-exe watchdog covered the render
+   only.* → decision 9, limits on step and job, the verdict before the log, and the frozen
+   gate on pull requests (decision 10).
+
+| Question (review round 1) | Measured |
+|---|---|
+| What do Qt's predicates say? (visible, exposed, scene graph initialised) | new F F F · after `show()` T F F · after one `processEvents()` T T T · right after `hide()` F T T, then F F T · shown again T F T · minimised T F T. Under the offscreen platform the scene graph reports initialised from birth and nothing 3D is drawn |
+| Which grabs kill? | `show()`, then `grabWindow()` before the first expose: the image is right (2,500 of 2,500 probe pixels) and the process is dead within the next event-loop passes — exit 3, `0xC0000005` or `0xC0000374`; 3 of 3 here, 5 of 5 GPU / 3 of 3 WARP / 4 of 4 embedded in the review. One hidden grab, then `show()`: 3 of 3. Embedded, never shown, grabbed, then shown by the parent: 2 of 2 GPU, 1 of 1 WARP |
+| Which do not? | the same two orders when the window is destroyed before the event loop runs again (6 of 6 survived — why one host per offscreen frame never met it); a grab while hidden WITH a scene graph (correct frame, 2 of 2); embedding a view that is live, starting or hidden (2 of 2 GPU, 1 of 1 WARP each). *Corrected in round 2:* "show + hide before any event, then the one offscreen grab" stood in this row. It survives on Direct3D 11 and KILLS on xcb (below) |
+| The lifecycle matrix (round 1) | 15 call orders, one process each: every one survived and answered as the state table said; the two controls — the killing orders on the raw view — died, 3 of 3 each on the RTX 4070 and on WARP. *The judge compared each answer with the state the host reported, so it could not see a host that reported the wrong state — round 2* |
+| Wind at rest | boxes whose every vertex has the full wind weight, wind 40 × the look's: IoU 1.000, offset 0.00 px against the CPU footprint. With the shaders as ported: 10.2 px (foliage) and 18.9 px (grass) off — 20 cm and 38 cm — and no message |
+| A broken shader in a SHOWN view | no exception; the leaf is not drawn; four Qt messages classified as errors. *Round 1 recorded them with a Python handler called on Qt's render thread — the arrangement round 2 measured to deadlock; removed (decision 11)* |
+| A broken `Garden.qml` under the default-tier host tests | before: 32 skipped, 0 failed. After: 9 failed, 43 errors, 12 passed, 0 skipped |
+| A hang outside the render | a `--selftest` whose second block sleeps: exit 1 when the watchdog's time is up, `[watchdog] fired=True … did not finish within …` in the log before the stack dump, which names the sleeping frame |
+| Recovery after a failed engine call | the engine refuses the second Model of a transaction that adds two items and moves one: the half-applied frame shows one new box and no move; after `sync.reset()` the engine holds nothing; after `sync.apply` the sink equals `sync.expected_state()`, the Models match it part for part and the frame matches the CPU prediction (IoU ≥ 0.95). The same on a list-backed engine for each of the sink's engine calls |
+| The graphics API's name | PyQt6 6.11 names the enum members `OpenGL` but `Direct3D11Rhi`; the first Linux run reported `OpenGL` against a typed list that said `OpenGLRhi`. The name now comes from the enum member |
+| First CI run of `render3d` (commit af9300d) | windows-latest: green. ubuntu-latest: 47 passed, 4 skipped, 1 failed — the API name. The four skips are by design: two hardware-only budgets (llvmpipe is a software rasteriser) and two Windows-only self-test checks (WARP; the whole `--selftest`, whose Qt3D block needs the bundled Qt runtime) |
+
+**Review round 2 (2026-10-11).** The re-review confirmed three of the four round-1 fixes and
+found the host's central claim — "answers truthfully or raises, never kills" — false in three
+measured ways; CI was red on Linux. None of its findings was refuted. What a green suite and
+a first fix had not seen:
+
+1. *`NEW` was not safe on xcb*: `show(); hide(); grab()` read "new", took the offscreen frame
+   and the process segfaulted in the next event-loop pass. The matrix had pinned that very
+   order as safe, from a Windows measurement. → decision 5: `NEW` = no platform window ever.
+2. *`LIVE` ignored geometry*: in a collapsed splitter pane the host said "live" and returned a
+   blank frame, a bogus pick and a projection of (0, 0). → decision 5: an area and a caught-up
+   root item; and the judge no longer asks the host (decision 10).
+3. *`watch_messages()` deadlocked the process.* → decision 11.
+4. *Teardown was not exception-safe* (the fourth `reset()` "succeeded" with three Models left),
+   *`attach()` accepted an occupied host*, *`wait_ready()` span to its timeout*, *the watchdog's
+   exit was not guaranteed*, and *tests of the package wrote into the developer's profile.*
+   → decisions 2, 6 and 9, and §8.10.8.
+5. Found while fixing, before any reviewer saw it: the first supervised watchdog would have
+   ENDED A PROCESS THAT HAD FINISHED ITS BLOCK. A block that is over before the supervising
+   process is up destroys the release event; the late supervisor found none, waited on the
+   process alone and terminated it at the deadline — a pytest run, 310 s after the test that
+   called the bounded self-test had passed. A missing event now means "released".
+
+| Question (review round 2) | Measured (Qt 6.11; Direct3D 11 on an RTX 4070 and on WARP; xcb + OpenGL on llvmpipe, Mesa 25.2, Ubuntu 24.04 under xvfb in a container — the CI job's stack) |
+|---|---|
+| Which thread renders a shown window? | `qt.scenegraph.general` names the **threaded render loop** on Direct3D 11 (GPU and WARP) and on xcb + OpenGL (llvmpipe); `QSG_RENDER_LOOP=basic` selects the basic one. The tier records the answer of every run with its artifacts |
+| Which thread delivers the messages of a ONE-SHOT offscreen frame? | the calling thread: 24 of 24 messages of a frame with a broken shader (the shader errors included), 0 from any other thread; asserted for every offscreen frame of the render tier and for each failed render of the shader controls |
+| A Python Qt message handler beside a shown window | a handler, `qt.scenegraph.renderloop` debug output switched on, `hide()`: the call never returns — every run, on the GPU, on WARP and on xcb. Without the handler `hide()` returns in 6–9 ms |
+| Does the watchdog end that process? | `faulthandler.dump_traceback_later(exit=True)`: the dump is written; on Linux the process then ends (exit 1, 5 of 5); on Windows it stays alive (every run, one observed for three minutes) — `_exit` is `ExitProcess`, which waits in a DLL's detach code. `ExitProcess` from a native timer thread: hangs, 2 of 2. `TerminateProcess` on itself from a native timer thread: ends it, 3 of 3, with an exit code that is not 1. A second process calling `TerminateProcess(handle, 1)`: exit code 1, every run |
+| What do Qt's facts say? (platform window ever created · visible · exposed · scene graph) | new 0 F F F · `show()` 1 T F F · one event-loop pass later 1 T T T · `hide()` 1 F T T, then 1 F F T · `show(); hide()` before any event 1 F F F — and it stays so · a window the user closed 1 F F T (its platform window is destroyed; a raw grab is an access violation, on xcb a segfault) · minimised 1 T F T with `visibility() == Minimized` |
+| A `QSplitter` pane collapsed to width 0 | window 0 × 500, `geometry().isValid()` false, visible T, exposed T, scene graph T. A raw grab: a 447 × 500 image without one probe pixel; a raw pick: a hit. After every change of size the QML root item has the OLD size until one event-loop pass ran (collapsed: root 447; reopened: root 0) |
+| How small can a window be and still show 3D? | 1 px wide or high: the bare clear colour. 2 px: the scene. `MIN_SIDE_PX = 2` |
+| `show(); hide(); grab()` on the raw view | Direct3D 11: a correct frame, the process survives. xcb: SIGSEGV in the next event-loop pass, 5 of 5 (and the red CI job) |
+| The other killing orders on xcb | shown and grabbed before the first expose; the offscreen frame, then shown; a window the user closed, grabbed: SIGSEGV, SIGBUS or SIGABRT, 5 of 5 each |
+| A graphics device that cannot be created (`QT_D3D_ADAPTER_INDEX=9`) | with a slot on `sceneGraphError`: `(ContextNotAvailable, "Failed to initialize graphics backend for D3D11.")` arrives on the GUI thread, the process lives, the window is visible and exposed and never gets a scene graph, 0 frames, `wait_ready()` answers False in 0.02 s. With NO slot: a native modal dialog with that text; the process sits in it; after OK it aborts, exit `0xC0000409`. (`QSG_RHI_BACKEND=bogus` falls back to the default backend; `vulkan` without a driver is an access violation inside Qt — another failure, not covered) |
+| A QML function called from Python that fails | missing: PyQt raises `RuntimeError`; one that THROWS: the call returns `None`, silently, and the QML engine emits a warning. Both are an `EngineError` now |
+| pytest-qt and the rule of decision 11 | pytest-qt 4.5 installs a Python Qt message handler for every test (`_QtMessageCapture`), unless the test is marked `no_qt_log`. Under the offscreen platform Qt logs "Loading backend software" and announces no render loop; the in-process host tier ran under that handler several hundred times without a hang. It is marked `no_qt_log` all the same, and real-platform hosts stay in child processes |
+| The frozen gate after review round 2 (built from 7ca084f, locked Python 3.11) | 646,640,942 bytes, 2,442 files — the exe +37,668 bytes and three QML / shader files +691 against round 1's build, plus Git's two OpenSSL DLLs (the PATH effect below). Smoke: exit 124. `--selftest` through `Start-Process -Wait -PassThru`, three runs each: exit 0; 6.1–7.2 s on the GPU and 7.1 s on WARP with a full test suite running on the machine (3.0–4.9 s for the build of 264f06b on a quieter one); `other_threads=0`; the supervising process started in every run and had nothing to do. The frozen exe AS the supervising process, against a dummy: past the deadline the dummy ends with exit code 1 and the reason is in the log; with the wrong creation time it is left alone; released, the supervisor is gone 0.07 s later; with no event it leaves after 0.4 s |
+| Where does `QStandardPaths` point on Windows? | at `<USERPROFILE>/AppData/Roaming` and `…/Local` — the shell expands its known folders from `USERPROFILE`; the `APPDATA` variable is not read. Hence the test children's profile (§8.10.8) |
+| The lifecycle matrix (round 2) | 19 call orders and 9 controls, one process each, judged against the truth table: green on the GPU and on WARP, and on xcb in the container — where every control that can run there (the three killing orders, the collapsed pane's wrong frames, the message-handler deadlock) fails the way it was first measured to on Windows, and the fourth killing order, `show(); hide(); grab()`, fails only there |
+
+**Review round 3 (2026-10-11).** The scoped re-review confirmed the three round-2 P1 fixes on
+three platforms — CI was green on all eleven jobs, the Linux render job with exactly the 88
+passed and 8 skipped the container had predicted — and found two narrow new P1 and ten P2
+defects. None was refuted. The first P1 was reproduced here before it was fixed; the second
+was fixed from the code and then reproduced against the previous head (the process ends with
+exit code 1, 4.7 s in). What a green suite on three platforms had not seen:
+
+1. *`wait_ready()` said True and the next `grab()` raised, after every `showFullScreen()`* —
+   and `application.py` calls `showFullScreen()` on the window the workspace embeds into.
+   The matrix had no full-screen row, and the truth table could not have had one: the fact
+   that differs was not among its nine. → decisions 5 and 6; two window-state orders and a
+   seeded random walk in the matrix.
+2. *The supervisor's release event was named per process, not per block*: a finished block's
+   late supervisor terminated the healthy block after it. Latent — every user armed one
+   block per process — and advertised for reuse. → decision 9.
+3. *The state contract stood in nine places, and three of them were wrong.* → one place,
+   `lifecycle.py`; a test fails a second copy of the state table.
+4. *The gate's own safety net could be missing without a word* (`supervisor=none` passed the
+   self-test), *a quitting application made `wait_ready()` spin*, *the offscreen recorder's
+   "must be 0" was asserted by the render tier only*, and *the frozen workflow's step limits
+   added up to its job's.* → decisions 6, 7 and 9, §7.4.
+
+| Question (review round 3) | Measured (Qt 6.11; an event filter on the view; Direct3D 11 on an RTX 4070 unless a row says otherwise) |
+|---|---|
+| What does `showFullScreen()` deliver, and when? | INSIDE the call: `Resize`, `Move`, `WindowStateChange` — the window is 5120 × 1440 and so is the QML root item, at once; a raw grab then is 320 × 240, the old size. In the next event-loop pass: `Expose`; a raw grab then is 5120 × 1440 |
+| `showNormal()` out of full screen | `Resize`, `Move` AND `Expose` inside the call: the grab is right at once |
+| `showMaximized()` of a standalone view | nothing inside the call: the window has the new size, the root item the old one. `Resize`, `Move`, `WindowStateChange`, `Expose` in the next pass |
+| `showMaximized()` of a main window that embeds the view | nothing has changed for the view — its size, its root item, no event — until the next pass (`Resize`, `Move`, `Expose`); a grab before that is a correct frame of the OLD size |
+| A splitter move, `resize()` | `Resize` and `Expose` in the next pass |
+| The rule that covers all five | a grab has the wrong size exactly between a `Resize` event and the next `Expose` event of the exposed window. (*Round 4:* true of these five, and not a rule to wait on — where no expose comes the grab stays wrong, and a host that waits for one waits for ever) |
+| How long is "the next pass"? | 6–13 ms; up to about 1 s on this machine when a grab preceded the resize and the display is asleep — spent inside Qt's own expose handling, not in the host's wait |
+| The reviewer's reproducer against the fix | full screen / normal / maximised, standalone, embedded and re-parented: 38 of 38 transitions give the scene at the new size after `wait_ready()`. Before: `EngineError` after 20 of 20 `showFullScreen()` |
+| A seeded random walk (seed 20261011, 250 steps, an embedded host) | GPU: 252 looks — 70 frames, 182 refusals; `wait_ready()` answered True 50 times, each followed by a frame, and False 105 times. WARP: the same 70 / 182 and 50 / 105. xcb + llvmpipe: 63 frames, 189 refusals; True 44 times, False 111 times. No wrong frame, no stuck host and 0 frames of a stale size on any of the three. (*Round 4:* on this machine's 5120 px screen. On the CI runner's 1024 px screen the same walk reported three stuck hosts and three waits of 5 s — its 1203 and 1500 px wide windows put the pane beyond the edge) |
+| `QEventLoop.exec()` once the application is quitting | inside a running main loop after `QCoreApplication.quit()`: it returns −1 in about 2 µs, every time. Without a running main loop `quit()` does nothing |
+| Two supervised blocks in one process | before: block A (1 s budget, empty), then block B (60 s, healthy) — A's supervisor terminated the process 4.1 s into B. After: both blocks run to their end, exit 0; with the nonce taken out of the event's name again, the pin fails |
+| The supervising process, started by hand or aimed elsewhere | a deadline of `nan`, `inf`, `0` or `-1`; a pid that is no number; a nonce that is not 32 hex digits; a log that does not exist: exit code 2, one line, nothing opened. A process that is not its parent — given the right pid, creation time and nonce of a live block: exit code 2, the process lives |
+| The lifecycle matrix (round 3) | 21 call orders, the random walk and 9 controls, one process each. The whole render tier: 99 passed and one control reported, not asserted, in 321 s on the GPU, 97 passed, the two hardware-only budgets skipped and the one control reported, in 244 s on WARP, 92 passed and 8 skipped in 184 s on xcb in the container |
+| The frozen gate after review round 3 (built from 324fcf3, locked Python 3.11) | 646,651,032 bytes, 2,442 files (+10,090 bytes against round 2's build). Smoke: exit 124. `--selftest` through `Start-Process -Wait -PassThru`, three runs each: exit 0 in 4.05–4.09 s on the GPU and 4.03–6.08 s on WARP; in every run a supervising process started, was released and left with exit code 0 (`[selftest_supervisor] ok=True`), and `other_threads=0`. The frozen exe started as a supervisor by anything else — malformed arguments (six cases), a live process that is not its parent, its real parent running another image: exit code 2 in 0.2–1.1 s, one ASCII line, the process it named alive, nothing written. Its TERMINATE path cannot be reached from outside any more, by design; from source it runs in every run of its pin |
+
+**Review round 4 (2026-10-12).** The scoped check confirmed round 3's two P1 and ten P2 fixes
+— and CI was red: on `windows-latest` the story's own seeded walk reported 7 problems in 252
+looks. One blocking finding and five P2; none refuted.
+
+1. *A shown pane that never came up.* Round 3's tenth fact could only become true through an
+   `Expose`. The walk asked for 1203 and 1500 px wide windows on whatever screen it found;
+   on the runner's small screen the pane lay beyond the edge, where Windows sends none. The
+   host read "starting", and every `wait_ready()` took its whole timeout. Never a wrong
+   frame — the refusal was truthful; liveness was broken. → decisions 5 and 6.
+2. *The matrix depended on the screen it ran on* — "the local render tiers pass only because
+   every window fits on this screen". → every window of the matrix is placed on the screen
+   on purpose; the walk runs twice, once fitted to the screen it finds and once where a
+   1024 × 768 screen leaves the window; rows for the pane beyond the edge, for a 2 × 60 px
+   pane, and for a view that nothing draws.
+3. *`wait_ready(0)` took 1.0 to 1.4 s, and the default was 10 s on the GUI thread.*
+   → decision 6.
+4. *A supervisor that never supervised exited 0*, and *a watchdog that failed while arming
+   stayed "armed"*. → decision 9.
+
+| Question (review round 4) | Measured (Qt 6.11, Direct3D 11 on an RTX 4070, one 5120 × 1440 screen, unless a row says otherwise) |
+|---|---|
+| What does a pane get that GROWS beyond the screen's edge? | With the display asleep (2026-10-11): `Resize`, `Move` — nothing else. A raw grab is 49 × 500 px for a 136 × 500 window, for as long as the pane stays there; `view.update()` and 1.5 s change nothing (the review: 4 of 13 steps). With the display awake (2026-10-12), the same pane beyond the same edge: `Resize`, `Move`, `UpdateRequest` — still no expose — and the raw grab has the new size. Later that day, the session idle for 25 min with a display-off time of 5 min: `Resize`, `Move` again, the grab stale, the host "live" and `wait_ready(5)` False. On WARP in those same minutes, the display still asleep: `Resize`, `Move`, `UpdateRequest`, and the frame is right — the update request depends on the adapter too; the EXPOSE round 3 waited for came in none of these. A pane SHOWN there was exposed in none of them either |
+| The same condition made on purpose: the pane ON the screen, an event filter eats the view's `Expose` / `UpdateRequest` / `Paint` | grown and shrunk, Qt's frame stays 447 × 500 px for a 600 × 500 and a 200 × 500 window. The host says "live" — every fact Qt reports is in place — and refuses on the evidence of the frame. `wait_ready(5)`: False in 0.50 s; `wait_ready(60)`: False in 0.50 s; `wait_ready(0)`: False in 0.00 s. Painting resumes: True, and a frame of the window's size |
+| A raw pick right after a resize, no frame in between | MISS — at once after `showFullScreen()`, and for the pane that grew beyond the edge; after one frame, even one of the old size, it hits. The projection is right in both |
+| What does a probe frame cost? | 0.7 to 4 ms; 18 to 27 ms right after `showFullScreen()`; about 0.25 s for a 5120 × 1440 frame, or behind a frame Qt is presenting. A whole `wait_ready()` on a host that is live, its probe included: 2 to 6 ms on the GPU, 26 to 31 ms on WARP (447 × 500 px) |
+| How long until the expose arrives? | after a resize: 1.0 to 1.5 ms, in the first pass of the event loop; after `show()`: 12 to 91 ms. The pass that handles the first expose takes 0.83 to 1.0 s (it creates the graphics device); one that handles an expose after a grab, about 1 s on this machine |
+| `wait_ready()` in the walks | the longest wait beyond its timeout — what Qt had queued for the window when the wait's last pass began (*round 5:* not "ONE handler", as this row said: a pass delivers the whole queue): 0.75 s on the GPU with the display awake, 1.22 s with it asleep, 0.20 s on WARP, 0.007 s on xcb. `wait_ready(0)`: at most 11 ms (31 calls). A False that was not behind such a handler: 0.500 to 0.504 s. Longest quiet spell before a host came up: 0.0 s on Direct3D 11, 0.0 s on xcb + llvmpipe — the bound is 0.5 s |
+| The default `wait_ready()` on the FIRST show of a process (18 processes) | top-level: True after 0.86–0.92 s (GPU), 0.70–0.75 s (WARP). Embedded in a splitter: True after 1.67–1.73 s (GPU), 1.52–1.63 s (WARP) — beyond its second by the expose handler of its own window, which was running when the second was up |
+| The size check | it allowed two pixels: a 447 × 500 frame was handed out for a 448 × 500 window. "Less than one device pixel" from then on (*round 5:* exact at 100 %, 150 % and 200 % — and not in between; the table below) |
+| The walk, fitted to the screen (seed 20261011, 250 steps) | GPU: 252 looks — 67 frames, 185 refusals; `wait_ready()` answered True 47 times, each followed by a frame, and False 108 times; the host took 110 frames for itself and refused none for its size. WARP: the same 67 / 185 and 47 / 108. xcb + llvmpipe: 61 frames, 191 refusals; True 42 times, False 113 times. No wrong frame, every host came up, every wait within its bound |
+| The same walk where a 1024 × 768 screen leaves the window | GPU: 61 frames, 191 refusals; True 43, False 112; 11 looks with the pane shown beyond the edge; 9 frames refused for their size (the display was asleep). WARP: 63 / 189 and 44 / 111; 11 looks beyond the edge; no frame refused for its size. xcb + llvmpipe: 61 / 191 and 42 / 113; 26 looks beyond the edge; 1 frame refused for its size. No wrong frame; no wait beyond its bound; no False later than 0.5 s after the last sign of progress plus one Qt handler |
+| A supervisor that cannot find its block (a creation time that is not the process's) | it is gone 1.5 s into a 20 s block — with exit code 4 now (it was 0), and the block says "left without having supervised". One that comes up after its block is over: exit code 0, released |
+| The whole render tier (round 4: 104 tests) | 103 passed and one control reported, not asserted, in 458 s on the GPU; 101 passed, the two hardware-only budgets skipped and the control reported, in 355 s on WARP — both with the display asleep, the condition in which round 3's head showed the runner's failure on this machine; 96 passed and 8 skipped in 241 s on xcb in the container |
+
+**Review round 5 (2026-10-12).** CI on round 4's head was green on all jobs — `Render 3D
+(windows-latest)` 101 passed, 2 skipped, 1 xfailed; `ubuntu-latest` 96 passed, 8 skipped, as
+predicted — and the independent re-check confirmed the blocking finding fixed with the display
+off. It found two small P1 and five P2; none refuted. What they have in common: each was a
+statement that was one measurement short.
+
+1. *"Exact to the device pixel"* was "less than one pixel off". Between 100 % and 150 % that
+   lets a neighbour's frame through. And the tests' judge used the same inequality, so it
+   was blind exactly where the host was wrong. → decision 5; the judge computes Qt's rounding
+   itself.
+2. *"`pick()` and `project()` take a frame once per resize"* — once per CALL while the render
+   target was behind. → decision 6.
+3. *"`wait_ready(t)` returns within `t`, plus the one handler that is running"* — plus the
+   whole queue. And *"`STALL_S` after the last sign of progress"* counted wall time, in which
+   a busy GUI thread looks like silence. → decision 6.
+4. *`wait_ready(inf)` overflowed; a supervisor's failed wait said 0; `supervised` and `gap`
+   disagreed.* → decisions 6 and 9.
+
+| Question (review round 5) | Measured (Qt 6.11, Direct3D 11 on an RTX 4070 and on WARP; ratios set with `QT_SCALE_FACTOR` on a 100 % screen) |
+|---|---|
+| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.76), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
+| "Less than one pixel off" at 125 % | the pane made one logical pixel wider, 442 → 443, with the render target behind (the no-paint filter): `grab()` handed out the 553 px frame and `pick()` answered with the old viewport — on the GPU and on WARP (the reviewer). In the arithmetic 750 of 11,993 neighbour frames passed at 1.25, and every ratio strictly between 1 and 1.5 had some; 1.0, 1.5 and above had none |
+| The half-pixel rule | every logical width from 2 to 3000 at 1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5, 1.75, 2.0, 2.25, 2.5 and 3.0, against `QSize * ratio` asked of Qt: 0 of 2,999 right frames refused and 0 of 11,993 neighbour frames accepted, at each of the twelve. On a real window at 1.25: 442 → 443 and 446 → 447 px with the target behind — a raw grab is 553 and 558 px wide, the pane's own frame 554 and 559 — refused by `grab()`, `pick()` and `project()`, on Direct3D 11 (GPU, WARP) and on xcb + OpenGL alike; the reviewer's probe: 0 of 12 handed out (it was 1 of 13) |
+| `pick()` / `project()` while the render target is behind | before: 200 `project()` took 200 frames, all refused — 2.0 ms each on the GPU, 4.1 ms on WARP; 13 and 33 ms a frame at 2560 × 1369 (the reviewer). Now: 200 `project()` take ONE frame — 0.06 ms a call, 12 ms for the tick where it was 399 ms — and the 200 `pick()` after them none (0.013 ms a call), on the GPU |
+| The steady state, and a resize | 500 `project()` + 500 `pick()`: 0 frames; 60 resize steps: exactly 60 frames (the reviewer; unchanged). What that one frame costs per step: with the display ASLEEP, on the GPU, 33 ms a step for a 60-step splitter drag without a call and 1,031 ms a step with one `project()` (the reviewer: +1.0 s on the GPU, +25 ms on WARP) — a present that waits for a display that is off. With the display awake it is NOT measured: it slept through this round, and "drag the splitter with 3D visible" is on the manual-test checklist |
+| `wait_ready(0.2)` behind six queued handlers of 0.3 s | 1.80 s (the reviewer): one dispatcher pass delivers them all. Unchanged — it cannot be changed from the thread those handlers run on — and it is what the contract says now |
+| The GUI thread busy for 0.7 s inside the wait, the repaint posted 10 ms after | before: `wait_ready(5)` False after 0.75 s, and True when asked again. Now: True after 1.80 s (the display asleep: the expose that mends it takes a second) |
+| `wait_ready(inf)`, `wait_ready(3e6)`, `wait_ready(nan)` | before: `OverflowError` for the first two. Now: a timeout is clamped to a day, one that is not a number is 0; on a host that makes no progress each is False after 0.5 s |
+| A supervisor whose `WaitForMultipleObjects` fails | before: exit code 0, "supervised". Now: 3, one line on stderr, nothing terminated |
+| The whole render tier (round 5: 105 tests, the 125 % row among them) | 104 passed and one control reported, not asserted, in 411 s on the GPU; 102 passed, the two hardware-only budgets skipped and the control reported, in 287 s on WARP — both with the display asleep. The lifecycle file on xcb + llvmpipe in the container, where the 125 % row had never run: 41 passed, 4 skipped in 159 s; that row gives the same 553 / 554 and 558 / 559 px there |
+
+**Not measured** — stated so nobody assumes it: platforms that un-expose an occluded window
+(macOS, Wayland) — a visible, covered window may read "starting" there for as long as it is
+covered; `wait_ready()` then answers False after 0.5 s, like for every other cause; a change
+of the device pixel ratio in mid-session (a window dragged to a display with another scale);
+real display scaling of the operating system (the ratios between 1 and 3 were set with
+`QT_SCALE_FACTOR` on a 100 % screen); what the one frame after each resize costs with the
+display AWAKE (asleep it was about 1 s a step on the GPU and 25 ms on WARP — a present that
+waits for a display that is off; the reviewer expects one vblank when it is on);
+what GitHub's Windows runner does with a pane beyond its screen (the walk failed there; this
+tree has not run there — the stuck condition is made on purpose in the tier instead). The
+round-2 tree on GitHub's own runners (the
+Linux numbers above are from a container with the job's packages on the developer's machine,
+not from the runner). The `frozen-selftest.yml` workflow: written without access to the
+runners and unproven until its first run, in particular the 8-second smoke, which no workflow
+ran before, and the supervising process inside a GitHub job. macOS. An integrated GPU; a
+display at a scale other than 100 % (the code and the tests carry the device pixel ratio, the
+machine did not have one); a failed device creation on OpenGL or Vulkan (only Direct3D 11's
+was forced); the memory curve of criterion 10, which stays with L1.3.
+
+### Addendum L1.3 — criterion 2's deferred half and criterion 10's leak half, in the production view (2026-10-12, #385 story L1.3)
+
+Two things this decision left to the workspace story (criterion 2's coexistence with Qt
+WebEngine in the product, and "criterion 10's leak half is open on D3D11" in entry 10 of the
+evidence log above; ADR-060 is the workspace's own record). Both are answered in the REAL app — its own `main()` with
+`OGP_QUICK3D=1`, in a child process on a settings store that is never the developer's
+(`tests/integration/workspace_gate_hook.py`) — on the dev box: Windows 11, Direct3D 11, RTX 4070,
+Qt 6.11. The bounds are asserted in `tests/integration/test_view3d_workspace_render.py`.
+
+**Criterion 2 — Qt WebEngine beside the production host.** A `QWebEngineView` on a page of one
+colour loads and paints (the colour read back from its centre) BEFORE the 3D host was created
+and AFTER, in the same session, with the 3D view drawing its garden beside it (131 and 138
+distinct colours in a 2334 × 1203 frame, two runs); zero Qt warnings. The automated check uses the map picker's
+ENGINE on a local page — the picker's own page needs the network and a key — so the picker
+itself stays on the owner's manual checklist. The main window is still a raster window with the
+3D pane embedded (`surfaceType() == RasterSurface`), and a 2D pan step costs 1.04 times what it
+costs without the 3D view (six alternating rounds of 60 steps along one path at the same canvas
+size; bound 1.3).
+
+**Criterion 10, the leak half — located, and closed by a release — reopened by the ground bake (L1.5, #532): every release keeps about half of the same-size ground-tile textures (a Qt Quick 3D 6.11.0 bug, up to ~42 MB per release for the largest ground); G7 measures the product with an allowance derived from its own ground (§8.29.5 limit 11, ADR-059 addendum "Part B").** The pre-registered gate
+(private bytes, Theil–Sen over reloads 11–20 of 20, below 10 MB per reload, with its positive
+control on the same machine) read **34.6 MB per reload** in the production host on the small
+bench plan (98 parts) when every reload rebuilt the engine scene, 0.2 when it rebuilt nothing,
+58.8 for the control (the display was asleep: every frame of those runs was a readback). So
+the growth this log could not explain (entry 10: 1.5 to 9.0 MB per reload on WARP, +62 to +222
+MB by reload 50) is real, grows with what is REBUILT, and is larger on a hardware adapter with
+the production scene's shadow passes. Where it is:
+
+- **Not in Python.** `tracemalloc` between reloads 5 and 15 of the same soak: 0.045 MB per reload.
+  No geometry wrapper survives its Model (a weak set of every `BufferGeometry`: 0 alive).
+- **Not in dedicated GPU memory.** `IDXGIAdapter3::QueryVideoMemoryInfo` (node 0, the local
+  segment group, called through `ctypes` — `CurrentUsage` is the figure for the calling process):
+  298.1 MB before, 305.6 MB after the first reload, the same after the twentieth.
+- **Two retentions inside Qt Quick 3D, separated with a bare host** (100 Models of 3,000
+  vertices — 14.9 MB of buffers — created, drawn and destroyed per round, 20 rounds):
+
+  | What the round does | MB per round |
+  |---|---|
+  | builds the buffers and drops them (no Qt object) | −0.13 |
+  | builds the geometries and drops them (no Model) | 0.00 |
+  | Models created and destroyed, never drawn (hidden host, or shown and not read back) | 0.8 – 1.0 |
+  | drawn through readbacks only (`grabWindow()`), no sun | 22.0 – 22.5 |
+  | drawn in PRESENTED frames (no readback), no sun | 6.3 – 7.7 |
+  | presented, sun up — 300 / 3,000 / 12,000 vertices per Model | 18.2 / 18 – 20 / 22 – 25 |
+  | presented, sun up, the Models cast no shadow | 6.2 |
+  | presented, sun up, `QQuickWindow.releaseResources()` once per round | 2.4 – 3.9 (20 rounds), 0.85 – 1.14 (60 rounds) |
+
+  1. **What a frame holds for destroyed Models comes back at the end of a PRESENTED frame —
+     and a readback is a frame that is never presented.** `grabWindow()` renders a frame of
+     its own and reads it back: it emitted `afterFrameEnd` 0 times in 40 grabs, 40 presented
+     frames emitted it 40 times. On Windows update requests come from a display-vblank
+     thread, and with the display asleep a visible window presents its first frame and no
+     more (the addendum "L1.2" above) — so every soak run with the display asleep, whose
+     every frame was a readback, kept everything it drew. Qt's own
+     `QT_D3D_NO_VBLANK_THREAD=1` paces update requests by timer; the soak runs with it.
+     *This entry was written twice before it was right.* First: "a measuring fact, not a
+     product leak". Then — after the ground story read +16 MB per re-bake in a view that did
+     not present — "a view that presents nothing keeps every byte uploaded to it", and a
+     pacing rule was built on that sentence. Both soaks READ BACK once per cycle. With the
+     readback out of the loop a view that presents nothing is drawn by nobody: nothing is
+     uploaded (dedicated GPU memory does not move) and what grows is the 1.5 MB per rebuild
+     that replacing 98 QML Models costs anyway (the tables below). The growth was per frame
+     rendered by a readback and never presented — not per upload, not per edit. The rule
+     that follows is about the readback, not about the pipeline (ADR-060 decision 17), and
+     the pacing was taken out again.
+  2. **Per Model that was ever drawn, Qt keeps cached draw-call state after the Model is
+     destroyed** — about 62 kB without shadow passes, about 190 kB with the sun's two cascades,
+     independent of the vertex count (the 300-vertex row), 0.16 to 0.2 MB per Model in the
+     production host. `QQuickWindow.releaseResources()` gives it back — on a visible window Qt
+     keeps the scene graph and drops what it caches. Nothing else does: more frames, the QML
+     engine's garbage collection, `clear()` instead of single destroys, an embedded instead of
+     a top-level window and the material kind made no difference. No readback is involved
+     in this one: the bare host's "presented" rows took none (and read the same with two
+     readbacks per round: 6.4 and 18.7 against 6.4 and 18.0).
+
+**The fix** (ADR-060 decisions 15 and 17): `Quick3DHost.release_cached_resources()` — the
+pipeline counts the items whose Models each pass destroyed, and the workspace releases when 64
+piled up and the pipeline has been quiet for half a second, or at once at 512; one release
+costs 2 to 10 ms on the GUI thread — and nothing in the product takes a frame from the live
+view.
+
+**The gate, through the product's own path.** No readback inside the measured loop: ONE frame
+before it and ONE after it, equal in every run below. Each rebuild is followed by the
+workspace's own release, as a user who opened a plan gives it the time. Private bytes,
+Theil–Sen over rebuilds 11–20 of 20; the small bench plan (98 parts); RTX 4070; 2026-10-12.
+"Frames withheld" is the engine story's no-paint device for the length of the loop — an event
+filter that eats the view's expose, update-request and paint events: shown, exposed, on the
+screen, 0 frames presented.
+
+| The view | Variant | MB per rebuild | growth over 20 | releases |
+|---|---|---|---|---|
+| presenting | rebuild on | **2.00** | +125 MB | 20 |
+| frames withheld | rebuild on | **1.48** | +34 MB | 20 |
+| presenting | rebuild off | 0.01 | +1.4 MB | 0 |
+| presenting | positive control (rebuild on, 25 MB kept per rebuild) | 27.3 — fails, as it must | +603 MB | 20 |
+| presenting | rebuild on, the workspace's release out of reach | 19.3 | +391 MB | 0 |
+| frames withheld | rebuild on, the release out of reach | 1.54 | +27 MB | 0 |
+| presenting | rebuild on, the release INSIDE every pass (the "at once" rule, threshold 1) | 1.82 | +42 MB | 20 |
+
+The curve with the release, presenting, in MB: 1374, 1436, 1472, 1472, 1468, 1449, 1452, 1462,
+1464, 1466, 1468, 1469, 1470, 1472, 1489, 1476, 1511, 1497, 1478, 1499 — a rise of about 100
+MB over the first three rebuilds, then about 2 MB per rebuild with a scatter of ±15. Dedicated
+GPU memory rises with it over the first releases (289 → 346 → 362 → 378 MB) and stays there
+(slope 0.0); without the release it never leaves 289. So with the release the driver keeps a
+larger pool, once: about +90 MB dedicated and +100 MB committed. Not explained further, and
+not growing. With frames withheld dedicated GPU memory does not move during the loop at all
+(282.5 MB, twenty readings: nothing is drawn), and the same single step comes with the first
+frame after the dark spell (committed 1382 → 1498 MB).
+
+**What a readback per rebuild adds** — the way this soak measured until the independent review
+of the ground story took the readback out of its own loop; reported, never judged:
+
+| The view | with the release | without it |
+|---|---|---|
+| presenting | 3.85 (the first runs of this addendum, with up to two readbacks per rebuild: 4.90 and 3.88) | 16.4 (those runs: 29.0, 27.9, 38.5) |
+| frames withheld | **8.48** (+266 MB; about 94 MB of it came back with the first presented frame) | **26.0** (+526 MB) |
+
+In a presenting view the readback's frame is given back with the next presented frame, and
+the numbers stay in the spread of the ones without it. In a view that presents nothing they
+do not come back: that is the whole of what the withdrawn pacing rule was aimed at.
+
+**The same soak elsewhere** (no readback in the loop; one run each, the same day):
+
+| Where | with the release | without it |
+|---|---|---|
+| the large bench plan (421 parts), RTX 4070, presenting | **6.38** MB per rebuild (+164 MB), 20 releases; dedicated GPU memory 346 → 378 MB in the first five rebuilds, slope 0.0 after | 65.5 MB per rebuild (+1,111 MB over 20) |
+| the small bench plan on WARP ("Microsoft Basic Render Driver", the whole process), presenting | **3.32** MB per rebuild (+139 MB) | 20.1 MB per rebuild (+396 MB) |
+| the same on WARP, frames withheld | 1.23 MB per rebuild (−1 MB over 20) | — |
+| the same on WARP, frames withheld AND a readback per rebuild | 6.20 MB per rebuild (+250 MB) | — |
+
+So the retention is Qt's own and not the hardware driver's: WARP keeps the same 20 MB per
+rebuild, and a readback into a view that presents nothing costs there too.
+
+**Longer.** 60 rebuilds through the same path, presenting: **1.78 MB per rebuild over rebuilds
+31–60** (2.07 over all 60; +203 MB, of which the first rebuild's step, 1372 → 1445 MB, is 73).
+60 releases, the frame after the loop equal to the frame before it, dedicated GPU memory
+between 362 and 378 MB throughout (slope 0.0 over the second half).
+
+**What remains, and where its floor is.** After the release about **2 MB per rebuild of 98
+Models** stays (6.4 per rebuild of 421) — 15 to 20 kB per destroyed Model, linear over 60
+rebuilds, not converging. It is not the cached draw-call state (that is what the release
+removes: 19 → 2) and not the mesh, **and it is not graphics state at all: the same rebuilds
+in a view that draws nothing leave 1.5 MB each** (1.2 on WARP). A floor of it is Qt's own,
+measured in bare Qt with no product code and nothing ever drawn: 100 objects created with
+`Component.createObject()` and destroyed with `destroy()` per round, 120 rounds, the QML
+engine's garbage collector called every round — **0.78 kB per `QtObject`, 1.4 per `Node`, 2.2
+per `Model`, 3.4 per `Model` with a `PrincipledMaterial`**, each a straight line. The engine
+package's own parts cost 6.6 to 7.8 kB each that way (never drawn), and 15 to 20 kB in the
+production host. Not located further. What it means: a plan change costs about 2 MB, an edit
+that replaces one Model about 20 kB — and anything that replaces MANY Models per tick (a date
+played back day by day regrows every dated plant) pays that per Model per tick, with or
+without the release. Two ways out, neither tried: keep the Model and give it a new geometry
+(the spike measured that a GEOMETRY does not survive its Model; the reverse was not measured),
+or scale a grown plant instead of rebuilding it.
+
+**What this closes and what it does not.** Criterion 10's leak half holds under its
+pre-registered gate, in the production view, presenting and with its frames withheld, on a
+hardware adapter and on WARP, over 20 and over 60 rebuilds, with its control firing and with
+dedicated GPU memory read for the first time. Open: the residual above; the one-time step of
+both memories with the first releases. Not measured: a frozen exe; a CI runner (the
+workspace's render tier is not part of CI's render job).
+
+### Addendum L1.10 — closing: Qt 3D removed (2026-10-19, #385 story L1.10)
+
+**Status**: Executed. The decision above is carried out: Qt Quick 3D is the product's only 3D
+engine and Qt 3D (ADR-038, now *Superseded*) is out of the code, the dependencies and the
+bundle. Nothing of criterion 10 changes with it — its leak half stays reopened by L1.5's ground
+textures (#532, above).
+
+**What left.** The US-E6 / E7 window and its adapter (`ui/view3d/view3d_window.py`,
+`qt3d_adapter.py`), the pre-L1.1 scene module (`core/scene3d/legacy.py`), the walkthrough helper
+(`core/walk_camera.py`), every path of the main window that drove them, the L0 spike
+(`spike_q3d/`, `--spike-q3d`, `scripts/bench_view3d.py`, eleven test files), `--selftest`'s Qt 3D
+import block, the spec's six Qt 3D hidden imports with `QtQuickWidgets` and the spike's data,
+and the two wheels `PyQt6-3D` / `PyQt6-3D-Qt6` 6.11.0. The scars the old window carried and why
+the workspace's host needs none of them: ADR-060 addendum "the default and the removal", L1.10
+part. The spike's measured values outlive it in `tests/data/l0_spike_reference.json` (the drift
+guards read it, §8.10.13); this ADR's evidence log and `adr-048-evidence/` stay as they are.
+
+**The lock** (ADR-050): `uv lock --offline` (uv 0.12.23) after removing the two pins — `uv.lock`
+lost the two packages and reordered three resolution-marker lines (the same strings; no version
+changed), and `uv export --locked --all-extras --group build --no-emit-project --no-header
+--format pylock.toml --output-file pylock.toml --offline` removed exactly the two packages' 26
+lines from `pylock.toml`. `scripts/check_dependency_lock.py` agrees; the dependency provenance
+record drops the two entries and says why.
+
+**The bundle**, built twice in ONE clean environment (Python 3.11.9, the release pin): synced from
+the L1.9 tree's lock and built, then synced from the L1.10 tree's lock — which uninstalled
+exactly `pyqt6-3d` and `pyqt6-3d-qt6` — and built again (2026-10-19, the dev box, Git Bash):
+
+| | Before (L1.9 tree) | After (L1.10, with L1.5 merged) | Difference |
+|---|---|---|---|
+| total | 652,687,676 bytes, 2,876 files | 639,202,072 bytes, 2,819 files | −13,485,604 bytes (−13.5 MB), −57 files |
+| Qt 3D bindings (`PyQt6/Qt3D*.pyd`) | 6 files, 2,382,336 bytes | none | all left |
+| Qt 3D runtime (`Qt6/bin/Qt63D*.dll`, 11, and `Qt6Concurrent.dll`, which nothing left in the bundle links) | 12 files, 6,078,624 bytes | none | all left |
+| Qt 3D plugins (`geometryloaders/`, `renderers/`, `sceneparsers/`) | 7 files, 4,169,352 bytes | none | all left |
+| QML modules `Qt3D/` and `QtQuick/Scene2D/` | 15 files, 688,952 bytes | none | all left |
+| the spike's QML and shaders | 5 files, 20,612 bytes | none | left |
+| the two wheels' metadata | 12 files | none | left |
+| Qt Quick 3D + ShaderTools | 610 files, 21,923,461 bytes | the same | nothing new since master |
+| SBOM components / `THIRD_PARTY_NOTICES.md` | 74 / 13,200 lines | 72 / 12,348 lines | exactly `pyqt6-3d` and `pyqt6-3d-qt6`: one deleted block, nothing added |
+
+No file arrived; nine changed size — the exe (−82,512 bytes, its archive of Python modules: the
+removed modules, with L1.5's ground bake added), the collected-distributions record, the six
+translation catalogues and `Garden.qml` (L1.5's ground). Both bundles pass the 8-second smoke and
+`--selftest` on the RTX 4070 and on WARP (after: 5.1 s and 4.0 s; the log names "a baked ground of
+12 tiles … the selection ring"). A bundle built in a development venv that still has the two
+wheels installed carries their DLLs and QML modules anyway (PF-E3D-09 item 10): judge bundles
+built from a locked environment.
+
+**Start-up** is unchanged: Qt 3D was never loaded at start (it was imported when the window
+opened), and the workspace loads no engine before 3D is asked for — 2.20 s to the first turn of
+the event loop on the L1.9 tree against 2.19 s before the flip (median of five), 0 engine modules
+in both; after L1.10 with L1.5 merged: 2.12–2.14 s in three runs, 0 engine modules.
+
+**What it leaves open.** The residual per destroyed Model (above) is still Qt's; L1.9 bounded the
+one path that destroyed many Models per second (date playback, ADR-060 addendum D3). #532 stays
+open: the owner shipped the default with it at the L1 pull request (ADR-060 addendum D5).
+(#532 is closed as a tracker by PR #654; the leak remains: QTBUG-151940, TD-040, §8.29.5
+known limit 11.)
+
+### Addendum L7 — Qt 6.12 LTS and the atmosphere sky (2026-11-03, #391)
+
+**Status**: Shipped in v1.36.0 (PR #721) after the owner's manual test, 2026-11-03. Two parts: the Qt pins
+move to the 6.12 LTS, and an opt-in **atmosphere sky** — Qt 6.12's new `SkyMaterial` with a port
+of Qt's `skymaterial` example (Hillaire's atmosphere, ray-marched volumetric clouds) — joins the
+painted sky. Preconditions of #391 met: PyQt6 6.12.0 was published on 2026-10-28, and L1.10 had
+removed Qt 3D.
+
+**The pins.** `PyQt6` and `PyQt6-Qt6` 6.12.0 (`uv lock --upgrade-package` per package with the
+pinned uv 0.12.23, `pylock.toml` re-exported with `check_dependency_lock.py`'s arguments; the
+gate agrees). Two things moved with them that ADR-038's scope note did not foresee:
+
+- **WebEngine can no longer float a minor behind.** `PyQt6-WebEngine` 6.10.0 next to Qt 6.12.0
+  failed `import PyQt6.QtWebEngineWidgets` with *"DLL load failed … Die angegebene Prozedur wurde
+  nicht gefunden"* — the import `main.py` makes at module level, so the app would not start.
+  Its 6.12-era release is numbered **6.140.0** (`qWebEngineVersion()` 6.140.0, Chromium
+  140.0.7339.225, published 2026-11-02) and requires `PyQt6>=6.12.0`; the pin is
+  `PyQt6-WebEngine>=6.140.0,<6.141`, the governance test holds both bounds.
+- **QtPdf left the WebEngine wheel** for `PyQt6-Pdf` 6.140.0. The app never imports it; two
+  integration tests and `scripts/validate_exports.py` read exported PDFs back with it, so it is a
+  `dev` extra. Its runtime files (`Qt6Pdf.dll`, `Qt6PdfQuick.dll`, the `QtQuick/Pdf` QML module,
+  the `qpdf` image plugin) still land in the bundle, as they did from `PyQt6-WebEngine-Qt6`
+  before: PyInstaller's QML and image-format hooks collect what lies under `PyQt6/Qt6`, and the
+  build environment carries every extra. No WebEngine DLL links `Qt6Pdf.dll` (import tables
+  read); the notices and the SBOM now name `PyQt6-Pdf-Qt6`.
+
+**What 6.12 changed that this repository had pinned** (each measured or read at the tag, both
+versions):
+
+| Fact | 6.11 | 6.12 | What changed here |
+|---|---|---|---|
+| Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12. Accepted as the click hitting what the user sees: a two-sided part is drawn from behind, so it is picked from behind — a crown seen from below, a greenhouse's glass from inside (walk mode). Open for the owner to confirm (PR); `TWO_SIDED_KINDS` treats `vc` as culled although Cutaway draws it two-sided (#720) |
+| `QAccessibilityHints.motionPreference` | absent | `NoPreference` / `ReducedMotion`, with a change signal (Windows: `SPI_GETCLIENTAREAANIMATION`, the "Animation effects" switch) | honoured beside the app's setting (FR-3D-LOOK-04): either stops the wind; the drift guard now fails on a SECOND motion hint |
+| A destroyed window's lambda-connection proxies | freed in the first deferred-delete round | one round later | the widget-leak test flushes two rounds with a collection after each (PF-TST-36); not a product leak — the event loop keeps turning |
+| Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: after a host's first sun change (in the 3D review's run without the fix: the first rebuild, once also the second; later rebuilds never) the view drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
+| Colour-property linearisation (`qssgutils.cpp`) | polynomial | unchanged (byte-identical source) | none |
+| `sampleProbe.glsllib` (`qt_sampleDiffuse` / `qt_sampleGlossy`, used by `water.frag`) | — | unchanged (byte-identical) | none |
+| `QSGRendererInterface.GraphicsApi` member names | `OpenGL`, `Direct3D11Rhi`, … | identical | none |
+| QTBUG-151940 (#532, TD-040) | leaks | the committed reproducer still leaks on the 6.12.0 wheels: 16 → 96 textures over 10 cycles, 8 a cycle (WARP, frames presented); the report is *In Review*, no fix version (2026-11-03) | the versions named move; nothing else |
+
+**The atmosphere sky — the decision.** A second **sky model** (`SkySpec.model`, setting
+`view3d/sky_model`, Preferences → 3D View → **Sky**: *Painted* / *Atmosphere with clouds*). The
+**default stays the painted sky**: every look of L1–L5 was accepted on it, and changing the
+default is the owner's call (asked in the PR). The model is never a quality preset's choice; on
+a software adapter there is no sky at all, as before. A change of model is built at once, like
+a change of phase.
+
+**The design: the painted sky is the base, the atmosphere is painted over it.** `atmosphere.frag`
+is the example's shader up to its `MAIN()`; the app's `MAIN()` evaluates Qt's
+`ProceduralSkyTextureData` formula per direction (`paintedSky()`, the same colours the look gives
+the painted sky) and mixes the atmosphere over it by
+`share = atmosphereWeight × smoothstep(0, hazeDeg, elevation)`:
+
+- **at and below the horizon, and through a 6° haze band, the painted sky shows** — the fog is
+  calibrated on the painted horizon (`FOG_OF_HORIZON`), so the meadow meets the same horizon in
+  either model and in every direction (the atmosphere's horizon changes with the azimuth, the
+  fog's colour cannot);
+- **`atmosphereWeight` = 1 − the look's twilight**: the atmosphere fades out through civil
+  twilight, so the night is the painted night exactly (measured: −8° sun, frame luma 23.98
+  against 23.99, sky 0.9/1.3/6.1 against 0.9/1.4/6.1);
+- **the gain is computed per sky**, not chosen: scaled by `atmosphereGain` the atmosphere sends
+  the same cosine-weighted luminance onto a horizontal surface as the painted sky it replaces
+  (`atmosphere_lut.atmosphere_gain`, 48 × 96 directions of the upper hemisphere). The physical
+  sky's radiance changes about sevenfold between a 60° and a 2° sun; the gain runs from 0.055 to
+  0.31 (and 0.95 at −4°): the auto-exposure the accepted look implies. Measured on the GPU, the
+  sunlit grass reads the same under both skies at every sun height (60°: 197.7 / 197.7; 15°:
+  139.0 / 139.0; 2°: 62.9 / 63.3; −2°: 47.6 / 47.2): the probe's light balance against the sun is
+  the accepted one, only the sky's hue and structure are new;
+- **clouds**: coverage = the weather's cloud (overcast and rain 1.0, snow 0.85, clear 0). Their
+  scattered light takes the atmosphere's one gain: `cloudLightGain` = `ATMOSPHERE_CLOUD_GAIN`
+  0.064 × the clear sky's gain at the actual sun (`quick3d.look.cloud_light_gain`; the example's
+  scale saturates a full cover to white — its own comment says so), calibrated so a full
+  Overcast lights the ground at noon as the painted Overcast does (ground luminance 0.198 /
+  0.207, about 2 luma). A thick deck diffuses: its forward lobe and its silver lining fade with
+  the cover (`atmosphere.frag`, `CLOUD_DIFFUSION` 0.8). Without that, a full overcast was bright
+  toward a low sun, a cloudy sunset read 0.96–1.0 of its noon and the L5 weather gates (which
+  had not run on the atmosphere) failed; a scale of the clouds' own at a fixed high sun dimmed
+  the deck twice (garden at a cloudy sunset 0.6–0.75 of the painted one) and deepened a bright
+  band round the horizon (3D reviews). Measured (Medium, 640 × 360): sunset over noon 0.750 /
+  0.776 / 0.668 for overcast / rain / snow against the painted 0.761 / 0.781 / 0.674; the
+  garden under a cloudy sky 0.96–0.99 of the painted one at noon, 0.90–0.92 at golden hour,
+  0.87–0.89 at the sunset mood. The deck also loses the sun through civil twilight as the look
+  does (its sunlight × `atmosphereWeight`): the example clamps the sun's slant at the horizon,
+  so its deck kept the horizon sun's light down to −6°; every cloudy dusk is monotone, the
+  sunset step 0.0088 / 0.0088 / 0.0142 against day ramps of 0.041 / 0.042 / 0.057. Left over
+  (#719): under the deck at a low sun the painted haze band reads brighter than the deck above
+  it — 30 / 42 / 55 luma toward / across / away from a 0.5° sun (painted sky: 6), 11–20 at 6°.
+  The clouds take the look's horizon hue (under a weather, the weather's own grey) in
+  proportion to the cover (`cloudHueShare`: the example's analytic sun reddening read beige to
+  mustard), and fade out between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded
+  them at 2.4–4.7° elevation, where the clear sky's bright horizon then showed as a stripe);
+- the disc: the look's sun colour × `ATMOSPHERE_DISC_ENERGY` 4 in its core, shown while the sun
+  is up and as far as the cloud lets it (`sunAlpha` = 1 − cloud) — at the painted disc's energy
+  the aerosol halo outshone it (240,239,237 under a glow of 248,244,230). The glow around the
+  core keeps the painted disc's colour and energy: × 4 there clipped a sunset disc and its glow
+  to white (255,255,253 against the painted 222,196,154; 3D review);
+- the water: Qt 6.12 lights a custom material through its `IBL_PROBE()` under a `SkyMaterial`
+  but leaves `QSSG_ENABLE_LIGHT_PROBE` false, so `water.frag` / `water_door.frag` guard their
+  sky term on that macro OR `SAMPLE_PROBE_GLSLLIB` (Qt's probe-sampler include guard) —
+  measured on the render tier's raised pool, the atmosphere's water at a 4° sun read
+  (1, 18, 32) against the painted (5, 40, 65), and (6, 41, 65) with the guard; the painted
+  sky's frames are identical with either guard (PF-E3D-15);
+- the air: the example's composition with half its aerosol haze
+  (`atmosphere_lut.EARTH_ATMOSPHERE`, turbidity 0.5): at 1 the noon sky read pale and a
+  camera facing a low sun washed to cream.
+
+**Why the look-up tables are computed on the CPU** (the example renders both in the frame with
+`QuadTextureProvider`). A `SkyMaterial` compiles its shader only once every texture it samples
+exists (`qssgrenderskymaterial.cpp`, `skyShaderTexturesReady`: "the GLSL sampler type depends on
+the actual texture"), and a provider's texture exists only after its first render. Measured: the
+first frame after the atmosphere appeared was white on a shown window; with a texture input left
+empty the shader never compiled and Qt drew its built-in debug sky; and the app's offscreen
+frames — the board, the probes, `--selftest` — may render only ONCE (a second `grabWindow()` on
+the never-shown view was an access violation), so they were white every time. As texture DATA
+(`core/scene3d/atmosphere_lut.py`, a numpy port of `transmittance.frag` and `skytexture.frag`,
+float32 as the shader computes, within 0.75 % of float64), the table is ready before the first
+frame, it is computed once per sun instead of every frame, and the sky's colour is known to
+Python — which is what makes the gain exact. The cloud noise volume is likewise texture data
+(`core/scene3d/cloud_noise.py`, a port of `CloudNoiseTextureData`, checked voxel by voxel against
+a scalar transcription of the C++ to 1e-12); it costs about a second of numpy, so the look
+controller makes it on a worker when the model is chosen and shows the painted sky until it is
+ready. The volume and the table each have ONE `Texture` for the host's life; the table's data is
+refilled in place for a new sun.
+
+**The sun.** The example derives its sun from a light's forward vector; here it is SET from the
+solar position (at night the key light is the moon): the engine-frame vector at the sun through
+the one scene → engine map, then `(x, y, z) → (−x, −z, y)` — derived from the two shaders (the
+LUT reads z as up; `MAIN()` turns it back with `(−s.x, s.z, −s.y)`) and pinned by a unit test over
+30 sun positions; the painted sky's measured `sunLongitude = azimuth + 90°` is not assumed for
+it. Measured by the board's sky probe (gate G4, disc read 25° off centre in the east, south and
+west): bearing error at most 0.02° (the painted sky: 0.08°), the disc read at
+11.98° for a 12° sun. (Before the disc energy above, the probe locked onto the horizon glow 9°
+below the sun with the bearing still within 0.35° — a gate that checks the bearing alone would
+have passed the wrong blob; the render tier also checks the elevation.).
+
+**Cost** (RTX 4070, Direct3D 11, a shown 960 × 540 host): the first atmosphere sky's frame
+783 ms against the painted sky's 663 ms (a one-time shader compile); each later sun change
+~200 ms on the GUI thread against the painted sky's 122 ms (the sky-view table ~110 ms, the gain
+~30 ms), the next frame 1–7 ms after it. The board renders a fresh host per frame and so pays
+the compile per frame (~2.5 s).
+
+**Truth gates on the atmosphere** (`render_beauty_board.py --sky atmosphere`, 640 × 360,
+low and high): every gate green on the final configuration, the painted
+sky's numbers from the same machine and day in brackets — shadow IoU 0.918 / 0.967 / 0.962
+(low) and 0.985 / 0.968 / 0.962 (high) at 15° / 35° / 60°, identical (the key light is the
+same); north-up identity NCC 0.757 (identical); night over noon 0.093 / 0.086 (0.100 / 0.092;
+bound 0.25); the night rows' luma 53.60 / 51.31 (53.61 / 51.32); dusk monotone, the sunset
+step 0.0089 / 0.0087 against the day ramp's largest 0.030 (0.0067 / 0.0066 against 0.028 /
+0.029); the low preset's picket alias error 7.91 (8.07); the plan edge 0.43 / line 1.36
+(0.21 / 1.64; bounds 1.0 / 2.0); no Qt warning or error in either board. The mood order is read on the garden: the render tier gates
+noon > golden hour > sunset > night on `ground_luminance` (the rows below the horizon,
+`board_probes.ground_luminance`) on both skies, and on the whole frame on the painted sky
+only — facing a low sun, the atmosphere's sun and its halo enter the frame and its sunset
+frame read up to 1.9 % above its golden hour while the garden below darkened 23–25 %, as
+under the painted sky. (Before the 3D review the tier allowed that swap within 3 %; the
+review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
+sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
+3.44 / 3.48; 67 m / 31.6° high: 3.11) — a pre-existing failure filed as #714, not this
+package's.
+
+**Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
+clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
+a frame without a sky. With the revision below (half resolution, the sky's own exposure) it
+reads 81.4 apart from the plain background and 24.5 between clear and cloudy, on the GPU and on
+WARP alike (bounds 11 and 7, a quarter of the first build's 44.3 and 28.1); the three frames
+took 10.2 s / 9.5 s, the cloud volume made once included.
+
+**Licences** (per-file check at the tag; `qml/PROVENANCE.md`, `qml/LICENSE-qt-skymaterial.txt`):
+the example's sky shader (`advancedsky.frag`, three marked changes) and the two look-up-table
+shaders ported to numpy (`core/scene3d/atmosphere_lut.py`) are MIT (© 2023 Fernando García Liñán,
+© 2026 The Qt Company), the QML
+and the noise generator BSD-3-Clause (offered as "LicenseRef-Qt-Commercial OR BSD-3-Clause"); the
+painted-sky arithmetic re-expressed in `paintedSky()` and `painted_radiance()` comes from Qt
+Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app already ships
+under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
+statement of the rule are `qml/PROVENANCE.md`.
+
+**Left open.** The default model: the painted sky stays the default as built. The owner accepted
+this build ("works perfectly as is") without answering that question by name, and an integrated
+GPU is unmeasured (#720). The first-frame shader compile could be
+pre-warmed like the Cutaway's (`shaderWarmer`). (Whether a "partly cloudy" weather should exist
+was answered by the owner's manual test: see the revision below.)
+
+**Revision after the owner's manual test (2026-11-03): the atmosphere only draws the sky.** The
+owner's frozen exe crashed natively while testing *Atmosphere with clouds*. The cause is Qt
+6.12.0's `SkyMaterial` light cube: its pre-filter (`QSSGRenderSkyMaterialManager::
+runPrefilterCycle`) used a freed QRhi resource (PF-E3D-17, with the dump, the probe and the
+numbers). The owner also saw no difference between the skies: Clear has no cloud, and Overcast
+and Rain close the deck, so the clouds never showed. The owner chose to keep the atmosphere,
+fix the crash, and add a partly cloudy weather. What changed:
+
+- **The painted sky lights the garden under both models.** The atmosphere is `enableIBL:
+  false` and `skyboxMode: ScreenSpaceHalf`. Qt draws it on screen per frame
+  (`SkyMaterialBackgroundPass`) and never builds its cube (`resolveLayerIblTexture` builds one
+  only for image-based light, Cubemap mode, reflection probes or a screen texture). For the
+  atmosphere model the host builds the painted sky first (`buildSky`) and then writes the
+  atmosphere (`buildAtmosphere`) in the same GUI-thread turn. The painted texture stays the
+  environment's `lightProbe`. So the light balance above is now exact by construction, and the
+  cloudy-light numbers (0.96–0.99 at noon, 0.87–0.92 toward sunset) no longer apply: the
+  garden is lit as under the painted sky in every weather. `atmosphere_gain` and
+  `cloudLightGain` still scale the sky and the deck to the painted sky's brightness. The
+  water's widened probe guard (PF-E3D-15) is no longer reached under the atmosphere, because a
+  `lightProbe` is set; it stays, correct for any `SkyMaterial`.
+- **The sky applies its own exposure** (`atmosphere.frag` `skyExposed`, `skyExposure` =
+  the look's `probeExposure`): `1 − exp(−radiance × exposure)`, the curve of Qt's `qt_exposure`
+  that the painted sky's skybox shader runs. Qt's screen path passes `FRAGCOLOR` straight
+  through under our post effects, because its tonemap variant has no
+  `QSSG_FORCE_IBL_EXPOSURE`. The first build of this revision missed that (3D review, round 3,
+  REJECT): the sky read 1.8× too bright by day and 2.9× at night, 25–28 % of a low-sun frame
+  clipped, the disc vanished, and the horizon step rose to 36–56 luma. With the curve (no fitted
+  constant; a multiply needed an unexplained 0.80 by day because the curve compresses bright
+  values): clipping 0.0 / 0.8 / 0.04 % at golden hour / sunset / morning, horizon steps 1.1–3.4
+  luma (bound 6.0), the disc read at 12.06° for a 12° sun with a bearing error of 0.01°.
+- **The crash is gone.** A full-app probe of the manual checklist crashed 3 of 5 times at one
+  painted to atmosphere switch before the fix. After it, the same sequence ran 4 × 240 s with
+  no crash.
+- **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4 is the atmosphere's
+  cover; the sun stays out, because the light takes 0.15 of the overcast's changes
+  (`WeatherSpec.light`) and the sky 0.25 of its grey (`WeatherSpec.grey`). Every other weather
+  has one share for all three, so its look under the painted sky is unchanged (under the
+  atmosphere Snow's disc went from 0.15 to 0.30 and its clouds' light × 1.09). Wind 3.0, haze
+  0.9, dry, and the mood
+  stays a day (it is overcast from 0.5). The cover sheet of the owner pass read scattered clouds
+  at 0.35 and 0.6 and a closed deck at 1.0. Separate clouds take
+  `ATMOSPHERE_THIN_CLOUD_LIFT` 4.2 × (1 − cover)² more light (× 2.5 at 0.4, × 1 at Overcast and
+  Rain, × 1.09 at Snow), because the 0.064 was calibrated on a full deck and they read as dark
+  smoke at noon; `sunAlpha` goes only as the deck closes (1 − max(cloud − 0.5, 0) / 0.5), since
+  the clouds themselves hide the disc. Today's Weather maps WMO code 2 (partly cloudy) to it;
+  codes 0 and 1 stay clear. The painted sky shows only its slightly greyer blue; the clouds are
+  the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
+- **Cost** (RTX 4070, Direct3D 11, a shown 1280 × 720 host looking into the sky, the median of
+  40 frames, the range of three runs of the same code): painted 2.1–2.3 ms; atmosphere at
+  cover 0: 2.2–3.6 ms (Half), 3.2–3.7 (Full), 2.1–3.5 (Quarter); at cover 0.4: 3.1–5.6 ms
+  (Half), 4.5–8.9 (Full), 3.7–4.9 (Quarter). The atmosphere's numbers move by up to × 1.9
+  between runs. The GPU idles at 210 MHz between them, so we read that as its clock state, but
+  did not pin it down; compare ranges, not single runs. Half and Full look the same, so the
+  default is Half. A sun change now also builds the painted sky (~120 ms) beside the sky-view
+  table, about 0.32 s of GUI thread in all, and the light cube's one-time filter is gone. An
+  integrated GPU is still unmeasured (owner question), and a playing day stalls on those
+  builds (#722).
+- **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
+  machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
@@ -2289,10 +4127,13 @@ dependency-update path a documented home:
    (`uv export --locked --all-extras --group build`) and runs `pip-audit` over it **on both
    matrix operating systems**, because pip-audit evaluates requirement markers against the
    running interpreter: the export is universal, so a Linux-only scan never sees the
-   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception is recorded
+   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception was recorded
    by ID: the `setuptools` advisory `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
-   affects publishing macOS source distributions — a thing this project does not do. Its fix
-   (83.0.0) stays reserved for a separately reviewed dependency PR (§11.2, AUD-054).
+   affects publishing macOS source distributions — a thing this project does not do. **It
+   ended on 2026-10-24** (#571, #572): the build group moved to setuptools 84.1.0 for
+   GHSA-xmj3-9gf7-h52w, which contains the 83.0.0 fix, and a waiver that matches nothing in
+   the lock would hide a widened advisory unreviewed. No advisory is waived now; a new waiver
+   is named in `tests/unit/test_dependency_governance.py::WAIVERS` and justified in §11.2.
 6. **Update automation: verified unavailable, manual fallback adopted.** Dependabot's uv
    ecosystem image ships uv **0.12.19** (`uv/Dockerfile` in dependabot-core, read
    2026-10-13) while this project pins `uv ==0.12.23`; a `required-version` mismatch makes
@@ -2306,7 +4147,8 @@ dependency-update path a documented home:
    when hosted uv reaches the pin.
 7. **One dependency source of truth.** `requirements.txt` / `requirements-dev.txt` were
    deleted (AUD-052); they listed 2 of 15 runtime dependencies and still carried
-   `PyQt6>=6.6.0`, the exact spec behind #277. Installation is `uv sync --locked` from
+   `PyQt6>=6.6.0`, the exact spec behind #277. Installation is
+   `UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build` from
    `pyproject.toml` + `uv.lock` + `pylock.toml`, and a test keeps the files deleted and
    unreferenced.
 
@@ -2323,6 +4165,85 @@ build proves the pins produce a working artifact.
 with a test-visible value, not an implicit drift. A new vulnerability fails the audit
 unless it is explicitly recorded with a justification. The parse of `pylock.toml` remains
 read-only; no file format, runtime behaviour or `.ogp` version changes.
+
+### ADR-050 addendum: Release version attribution from triggering commit (#543, 20 October 2026)
+
+**Status:** Accepted (2026-10-20).
+
+**Context.** PR #484 (Phase 17 L1) was merged with the `minor` label on 2026-10-19 as commit `bf4fd77a`. The Release workflow published `v1.30.14`, a patch release, instead of `v1.31.0`. The root cause was `.github/workflows/release.yml` using `gh pr list --state merged --base master --limit 1` to pick the PR whose labels to inspect. `gh pr list` sorts by PR creation date (`createdAt` descending), not merge time or triggering commit SHA. PR #484 was created weeks earlier and was shadowed by PR #521 (created and merged earlier on the same day without a label). Additionally, `echo "$LABELS" | grep -q "minor"` used substring matching rather than exact line matching.
+
+**Decision.**
+1. Delegate version determination in `.github/workflows/release.yml` directly to `python scripts/resolve_release_pr.py --write-github-output`, maintaining one canonical implementation.
+2. In `scripts/resolve_release_pr.py`, resolve the merged PR from the triggering commit SHA:
+   - Primary: `gh api "repos/${REPO}/commits/${COMMIT_SHA}/pulls"` selecting the newest master-merged PR.
+   - Fallback: parse `(#N)` suffix or merge syntax from the commit subject (`git log -1 --format=%s`).
+   - Query `gh pr view` for labels when resolved via subject fallback.
+3. Match labels with exact set equality (`"major"`, `"minor"`), eliminating substring matches.
+4. Pin the behavior in `tests/unit/test_release_version.py` covering multi-PR timestamp ordering, squash subject regex, exact label matching, subprocess error recovery, CLI output formats, and workflow static guards.
+
+### ADR-050 addendum — PEP 639 license metadata in the project manifest (#574, 2026-10-25)
+
+**Context.** The senior review of #571/#575 found setuptools 82.0.0/84.1.0 warning
+about two `[project]` forms: `license = {text = "GPL-3.0-or-later"}` and the
+`License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)`
+classifier. The warning carries a 2027-02-18 due date, after which setuptools may
+refuse to build. The build group pins `setuptools==84.1.0`, but
+`[build-system] requires = ["setuptools>=61.0", "wheel"]` floats for an isolated
+build, so a plain `pip install .` or `uv build` picks the newest setuptools.
+
+**Decision.** `pyproject.toml` uses the PEP 639 form: `license = "GPL-3.0-or-later"`,
+`license-files = ["LICENSE"]`, no license classifier, and the build floor is
+`setuptools>=77` (the first release with PEP 639 support). The wheel's metadata is
+`Metadata-Version: 2.4` with `License-Expression: GPL-3.0-or-later` and
+`License-File: LICENSE`; the LICENSE is inside `dist-info/licenses/`. No runtime
+dependency, SBOM schema, notices format or `.ogp` field changes.
+
+**Evidence.** A no-isolation `pip wheel` with 84.1.0 and an isolated `uv build` both
+complete with no `SetuptoolsDeprecationWarning`; the wheel metadata above was read
+from the built artifact. `tests/unit/test_packaging_metadata.py` pins the SPDX
+string, the license file, the absence of a `License ::` classifier and the floor.
+PF-CI-14 records the rule.
+
+### ADR-050 addendum — the frozen version module is generated, not tracked (#596 manual pass, 2026-10-25)
+
+**Context.** A direct `python -m PyInstaller installer/ogp.spec` build showed **1.2.0** in
+Help → About while `pyproject.toml` and `src/open_garden_planner/__init__.py` said
+1.31.1. `get_current_version()` reads `open_garden_planner._version` when frozen; the
+release path (`installer/build_installer.py`) writes that module, but a direct PyInstaller
+build bundled a tracked file last written on 2026-03-01. The 2026-10 audit had already
+recorded the three disagreeing version sources as AUD-072.
+
+**Decision.** `_version.py` is a build artifact. It is removed from the repository and
+gitignored; `build_installer.py` writes it before PyInstaller (the release version may lead
+`pyproject.toml` until the sync) and deletes it in a `finally` afterwards, and a direct
+PyInstaller build has no such file, so the frozen app falls back to `__version__`. The module is read with
+`importlib.import_module` so type checkers do not require a tracked file; that removes the
+static import edge PyInstaller followed, so `installer/ogp.spec` lists
+`open_garden_planner._version` as a hidden import when the file exists. Either build path
+reports a version, and neither can report a tracked stale one.
+**Evidence.** `tests/unit/test_packaging_metadata.py` pins the write/remove pair, the
+fallback (`sys.frozen` + no module), the release direction (a module whose `__version__`
+differs from the package's wins) and the spec's conditional hidden import; `--selftest`
+checks the frozen version against `OGP_EXPECTED_VERSION`. The rebuilt direct exe's About
+reports 1.31.1. The release path is unchanged: `build_installer.py` still writes the module before
+PyInstaller, and the frozen bundle includes it. No runtime dependency, `.ogp` field or
+product behaviour changes.
+
+### ADR-050 addendum — Tag conflict recovery and release classification (A11: AUD-038, AUD-086, AUD-090, 2026-10-28)
+
+**Context.** The 2026-10 repository audit identified three related release-path debt items in A11:
+1. **AUD-038**: `release.yml` used a naive `git rev-parse "$TAG"` existence check, silently skipping releases on both legitimate idempotent workflow retries and catastrophic tag conflicts (where a calculated tag already points to a *different* commit SHA).
+2. **AUD-086**: Post-release version-sync PRs (`prepare_version_sync.py`) update `pyproject.toml`, `__init__.py`, and lockfiles under reviewed PR finalization. The maintenance cost and architectural tradeoff of dynamic git-tag version derivation versus explicit checked-in manifests required formal evaluation.
+3. **AUD-090**: `release.yml` skipped workflow execution strictly based on commit message prefixes (`chore:` / `chore(...)`), creating a vulnerability where a commit labeled as a chore could conceal unreleased executable code in `src/` or `installer/`.
+
+**Decision.**
+1. **Tag disposition resolution (AUD-038)**: `scripts/resolve_release_pr.py` now implements `check_tag_disposition(tag, commit_sha)` returning `'new'`, `'idempotent_retry'`, or `'conflict'`. If a tag already exists and points to a different commit, `.github/workflows/release.yml` halts with `::error::` (exit 1) rather than silently skipping. Idempotent workflow retries on the same commit SHA gracefully skip without error.
+2. **Version derivation evaluation (AUD-086)**: Dynamic derivation at build time (e.g. `setuptools_scm`) was evaluated against OGP's single-binary offline desktop distribution model. OGP requires deterministic offline packaging, strict dependency hashing (`uv.lock`), zero-network local developer builds, and frozen binary verification. The maintenance cost of a 30-second automated version-sync chore PR per release is far lower than the risk of build-time version drift, tag-parsing desyncs across multi-platform worktrees, or untracked dirty builds. CI remains the authoritative source of releases; `prepare_version_sync.py` keeps manifests synchronized under human review.
+3. **Release classification gate (AUD-090)**: Added `scripts/check_release_classification.py` to differentiate executable modifications (`src/`, `installer/`, package dependencies) from documentation and mechanical version-sync chores. The classification enforces that no chore commit may alter executable paths, preventing unreleased code from being masked by chore prefixes.
+
+**Evidence.**
+- Pinned by `tests/unit/test_release_version.py` (59 tests passing) and `tests/unit/test_release_classification.py` (20 tests passing).
+- Static workflow tests verify `release.yml` attributes PRs and checks tag disposition.
 
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
@@ -2531,7 +4452,7 @@ more consumers of the same moment — the 3D workspace (L1.3), sky and looks (L1
 - Senior review, round 1, found the two P1s that decisions 3 and 7 now close. The first draft's
   gate held on `set_time_of_day` but not on the toolbar's real path, and its stale rule keyed on
   `isRunning()`. It also found the channel's strong-reference cycle and the doc numbers corrected in
-  decision 6. Lesson (§11.4.7): test the gate on the path the product actually takes.
+  decision 6. Lesson (PF-DOM-22): test the gate on the path the product actually takes.
 - Round 2 found the P1 the round-1 fix introduced: the clock-to-toolbar mirror rewrote the
   unchanged date on every Animate tick and wiped a date being typed. It also found the launch
   guard, the overclaimed "Qt's rules", the instant-derived `local` reads, and app-glue tests that
@@ -2573,6 +4494,42 @@ It pins:
 - an unparented controller dies without a GC cycle.
 
 All three P1 tests (round 1's two, round 2's typing test) fail when their fix is reverted.
+
+### Addendum L1.3 — `connect_qobject`: the rule of decision 4 as a mechanism (2026-10-12, #385 story L1.3)
+
+Decision 4 ended with a rule: nothing disconnects a QObject receiver whose C++ side is destroyed
+while its Python wrapper lives, so every Qt subscriber disconnects in its own teardown. L1.3 adds
+more subscribers (the 3D pipeline's controller listens on both channels) and turns the rule into
+one helper, `ui/sim_clock_subscription.py`:
+
+```python
+connect_qobject(clock.date_changed, self._on_date_changed)      # a bound method of a QObject
+connect_qobject(clock.instant_changed, self._on_instant_changed)
+```
+
+- The channel calls a **guard**, not the slot. The guard asks `sip.isdeleted(receiver)` at every
+  delivery; a receiver Qt has destroyed is not called, and the guard takes itself off the channel.
+- The guard lives exactly as long as the receiver's Python wrapper (a weak-keyed registry), so
+  L1.0's two properties survive: a subscription never keeps its receiver alive, and a collected
+  receiver leaves the channel at once.
+- Only a bound method of a live QObject is taken (`TypeError` otherwise; `RuntimeError` for a
+  receiver that is already gone). `disconnect_qobject` takes a slot off by hand.
+- **Binding from now on:** no module of the product connects to `date_changed` or
+  `instant_changed` directly. An AST scan of `src/` enforces it
+  (`tests/unit/test_sim_clock_subscription.py::test_no_module_of_the_product_connects_to_a_clock_channel_directly`);
+  the main window's two subscriptions and the shadow overlay's were moved.
+
+**The alternative that was built first and crashed.** "Disconnect on `destroyed`", as decision 4
+suggests, was implemented as `receiver.destroyed.connect(<closure that disconnects>)`. The suite
+then died with an access violation in a test that has nothing to do with it
+(`test_sim_clock_wiring.py::TestHeatmapMidComputeDateChange`). Reproduced in bare PyQt: a Python
+callable connected to `destroyed` lives and dies with Python's idea of the wrapper. When the
+wrapper is garbage in a reference cycle while Qt still owns the C++ object (a `deleteLater()` is
+pending), the cyclic collector clears the callable and the connection stays behind — and then
+the signal is either never delivered (the hook ran 0 times) or delivered into what is left (the
+access violation). The helper therefore hangs nothing on `destroyed`; a test pins that
+(`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). PF-E3D-07, item 1 of archive/05-l1-3-workspace.md, has the reproduction.
+
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
 **Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
@@ -2611,6 +4568,8 @@ One parented/debounced coordinator computes guild status and applies idempotent 
 
 **Status:** Accepted; owner testing confirmed on 12 October 2026, shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436).
 
+Control layout, the 21 June shortcut and explicit-only refresh are superseded by ADR-062. The receiver-estimate model remains applicable.
+
 **Context.** A raw ground heatmap sampled inside a solid receiving plant includes its own shadow: both reference tomatoes measured zero hours. The issue's literal centre lookup therefore cannot distinguish the shaded northern plant from the sunny southern plant. A second defect lets an old worker paint after New/Open because document replacement did not cancel the heatmap or invalidate queued success.
 
 **Decision.** Use the shared `SimClock.plan_date`, with an opt-in **21 June** shortcut retaining the current simulation year. Only the explicit Hours of Sun action computes. One worker accumulates the unchanged ground grid plus sparse receiver exposure at the corresponding cell centres, excluding only each receiver's identified caster. The established integer-grid sweeps, solar positions, date-projected growth and 15-minute sampling remain authoritative. Per-owner unions combine overlapping footprints before coverage counting; bbox pruning and vectorized even-odd point sampling avoid one full aggregation per plant.
@@ -2626,6 +4585,70 @@ The shared Diagnostics coordinator publishes guild, sun and existing warnings to
 **Limits and alternatives.** These are estimates of direct sun at ground level excluding self-shadow, not leaf-height measurements or a translucent-canopy model. No automatic recomputation, new date owner, persistent setting, dependency or file-version change. Re-running the full day per receiver was rejected: the planning probe took 17.6 seconds for 20 receivers among 100 casters. The implemented 200-caster/receiver test measured **3.226 seconds** locally (10-second target, 30-second CI ceiling); final delivery reports retain actual repeated timings.
 
 **Evidence.** The committed 24 m × 24 m Berlin plan, 21 June 2026, has a 10 m tree at (12 m, 12 m), 3 m canopy radius, tomatoes 1 m north and 8 m south: independently measured expected values are **0 h north and 16.5 h south**, excluding own casters. Unit tests pin sparse/reference parity, holes, multi-footprint ownership, raw-grid equivalence, strict tolerance boundaries and unavailable states. Integration tests pin explicit compute, badges, panel/MCP parity, canopy navigation, geometry, invalidation, worker responsiveness and document replacement during running/queued results; malformed loads retain the map. #328 shipped in PR #352 and is outside this PR.
+
+**Addendum — merged into the Living Garden 3D tree (#385, story L1.3, 2026-10-12).** Two
+changes to what this decision ships, both in the plain data the one walk hands the worker.
+
+1. *Where a caster stands.* `IdentifiedCaster` gained `base_cm` (ADR-037's base-stacking
+   addendum: a plant on a raised bed's soil is a solid `footprint × [base, base + height]`).
+   `collect_identified_casters` is THE walk — one `ItemLookup`, `footprints.item_base_cm` per
+   item — and `collect_shadow_casters` flattens it for the overlay; `compute_grouped_shadows`
+   takes `GroupedCaster(footprints, height_cm, base_cm)`. The heat-map grid, the per-owner
+   unions and the overlay therefore sweep the same solid (pinned: the grid of
+   `compute_sun_exposure` equals `compute_heatmap` over the overlay's casters, bases included).
+2. *A plant is not shaded by the soil it stands in.* **Measured on v1.30.1**: a tomato in a
+   40 cm raised bed in the open, Berlin, 21 June — **0.0 hours**, a `too_little` mismatch and
+   the warning badge; 16.5 hours for the same tomato on open ground. The estimate samples the
+   ground point under the plant and left out only the plant's own caster; the bed is a caster
+   too, and its footprint covers that point all day. So every plant in every raised bed
+   warned. `SunReceiver` gained `stands_on`: the id of the soil parent the plant stands in —
+   `footprints.standing_parent`, the membership half of the base rule (linked, visible, a
+   soil-capable solid with a height, the plant's centre inside) — and that caster is spared
+   for this receiver like its own. Merged tree, the same day: **16.5 h** on the bed; 10.5 h
+   for a small plant on the ground 10 cm north of the bed; 11.5 h on the bed with a 3 m wall
+   60 cm south of it, exactly what the same plant reads with the bed removed; 16.5 h in a bed
+   2 cm high (a solid that lifts nothing: "is the plant in the parent's solid?" is asked, not
+   "is it lifted?").
+
+**Limits, stated.** Every OTHER caster shades a receiver as at ground level: a neighbour on
+the same raised soil casts onto the ground plane from `base / tan α` on, so right behind it
+the estimate is too sunny (pinned as a decision). A plant inside a bed's outline WITHOUT a
+link to it stands on the ground inside the bed's solid and reads 0 hours — the bed-membership
+follow-up, not this decision. `measurement_method` keeps its identifier
+`ground_cell_centre_excluding_self`. The coordinator's clock subscription goes through
+`connect_qobject` and nothing hangs on its own `destroyed` signal (ADR-053 addendum "L1.3":
+in bare PyQt the closure v1.30.1 hung there runs 0 times when the wrappers are collected
+before Qt's deferred delete, 5 of 5); its theme listener asks at the moment of use and takes
+itself off the registry.
+
+**Addendum — the estimate spares the soil solid a plant stands in, linked or not (#481,
+2026-10-27).** The paragraph above ("reads 0 hours — the bed-membership follow-up") is
+reversed for the ESTIMATE, because the follow-up (#443) is not a prerequisite for reading
+the right sun. **Measured on master**: a full-sun tomato inside a 40 cm raised bed whose
+outline contains it, Berlin, 21 June — **0.0 h** and a `too_little` mismatch when the link
+was never made (a bed drawn around the plant, a mirror copy without its bed, a move by the
+arrow keys or a typed coordinate), **16.5 h** linked. The link is bookkeeping and follows
+only some edit paths; the geometry is the fact.
+
+`IdentifiedCaster` gained `holds_plants` (the walk's `is_solid_soil_parent`: a bed, raised
+bed, container or wall planter with a resolved, positive, finite height — the predicate
+`object_height` already documents as "the per-plant sun estimate must not count that solid
+as shade"). `_aggregate_day` spares such a caster for every receiver whose own point lies
+inside its outline, on top of the existing `stands_on` link spare. It is a PER-RECEIVER
+spare, not a hole in the bed's shadow: a plant 15 cm north or south of the same bed still
+loses sun to it (pinned). The test is static for a run, so it costs one pass of
+`points_in_polygons` per soil caster per run, not per sample. A `WALL`, a `TRELLIS` or an
+in-ground bed with no height is NOT spared (pinned) — a solid that contains the point but
+cannot hold soil is still between the plant and the sun. **Why not fix the link instead**:
+making the link, or the base, follow the geometry is #443, whose nesting decisions (a
+trellis in a bed, a pot on a bed) are open; this addendum changes only what the estimate
+leaves out, and leaves where a plant STANDS (FR-SUN-11, `item_base_cm`) exactly as shipped.
+The residue is stated: an unlinked plant inside a raised bed still casts its OWN shadow
+from the ground (its base is 0), so its estimate is right and its own shadow is the known
+link gap. Pins: `tests/integration/test_sun_exposure_raised_soil.py` (the
+no-link estimate, the per-receiver spare with a neighbouring plant, the wall negative
+control, the walk-vs-predicate drift guard). No `.ogp` change, no `FILE_VERSION` bump, no
+user-visible string.
 
 ## ADR-057: Bounded 2D canvas paint for crafted plans (#472)
 
@@ -2650,6 +4673,250 @@ Two measurements decided the remedy, and both were needed:
 **Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and the LOD flat fill was **removed** rather than repaired — it never ran and bought no measurable time, so `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist and `is_interactive_paint` now serves the paint bound above alone (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
 
 **Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
+
+### ADR-057 addendum — a dense vertex-edit sample is reused until the viewport leaves its region (#594, 2026-10-25)
+
+**Context.** §8.9.11's #551 sample caps the number of overlay handles, not the CPU that
+chooses them. `_dense_overlay_indices` maps every vertex through the item's device
+transform to decide which 128 to show, and `CanvasView.scrollContentsBy` asked for a
+fresh sample on every scrollbar step. The senior review of PR #585 measured a selected
+16 384-vertex polygon (the loader's cap) at ~100 ms per scrollbar step and ~176 ms per
+zoom step; master did no per-scroll re-sampling, so the scroll cost was new.
+
+**Decision.** The sample is still viewport-derived, but it is **cached with the scene
+region it actually covered**. `_remember_dense_sample` records the sampler's own
+candidate region — the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 viewport
+pixels), the same rect `_dense_overlay_indices` tests candidates in — together with
+the zoom and the item's pose. `_dense_sample_covers_view` lets
+`refresh_vertex_edit_overlay` return immediately while the current viewport is
+inside that region, the zoom is unchanged and the item has not moved. A pan
+translates the points, which does not change their pairwise distances, so the
+chosen indices keep their 24-px spacing; every vertex now visible was a candidate
+when the sample was taken. A zoom change, a pose/geometry change, or a pan beyond
+the region samples again. The cache lives on the item (polygon and polyline
+mixins) and is cleared when the outline is no longer dense, on a geometry update,
+and on leaving edit mode.
+
+**Measurements (dev box, 2026-10-25).** 16 384-vertex polygon at 1100×650, zoom 1.0:
+**98.58 ms** per forced re-sample, **0.01 ms** with the cache. The pin is a call count on
+`_dense_overlay_indices` after ten 2-px scrollbar steps (zero), a 100-px pan beyond the
+24-px candidate margin (>0, and the new viewport gets handles), a far pan (>0) and a
+zoom (>0), for both a polygon and a polyline; not a timer.
+
+**Pins.** `tests/integration/test_dense_polygon_edit.py::test_a_pan_inside_the_sampled_region_does_not_resample`.
+PF-CAN-26 records the rule. The saved geometry is unchanged; entering, zooming and leaving
+edit mode still compare the polygon before and after.
+
+## ADR-058: The suite runs in parallel, and the timing tests do not (issue #509)
+
+**Status:** Accepted.
+
+**Context.** The full battery took 912.6 s serially on the development box and gated every
+iteration between a change and the owner's hands-on pass. Three candidate causes were
+separated by measurement, and only one of them is a scheduling problem.
+
+The suite was **highly concentrated**: the median test took 0.030 s against a mean of
+0.339 s (11.3×), and ten files of 228 held 57 % of measured call time. But the naive
+reading of that table — "these files are slow" — was **wrong**. `test_iconography_3c.py`
+alone runs 36 tests in 2.14 s; the same file immediately after
+`tests/ui/test_main_window.py` takes 447 s, with individual theme tests at 60–66 s.
+Probing `QApplication` directly: a clean process holds **0** widgets and one
+`apply_theme()` round-trip costs **1.3 ms**; after `test_main_window.py` it holds
+**38 271** widgets and **1 580** top-level widgets, **0 % of them visible**, and the
+round-trip costs **22 478 ms**.
+
+So the expensive tests were **victims**. Thirty apps leaked their widget graphs because
+`qtbot.addWidget` *closes* a widget and closing is not deleting, and `apply_theme()`
+walks `app.allWidgets()` on every call. Fixing the leak — one autouse fixture that
+closes and `deleteLater()`s every top-level widget per test — took the serial suite from
+912.6 s to **673.6 s** and flattened the distribution (slowest-50 share 50.9 % → 37.9 %;
+mean/median 11.3× → 6.8×). It changes no product code and removes no test.
+
+**One measurement detail worth stating, because the two halves of that pair come from
+different runs.** The *before* figures are from the recorded serial run at `132f6715`; the
+*after* figures are from the serial full-suite run immediately after the leak fix. They are
+**not** comparable with a parallel run of the same tree, which measures 32.2 % and 20.7×
+on the identical code: per-test call time inflates when tests contend, so one suite reads
+620.6 s of call time serially and 1 700 s under `-n auto`. The distribution's shape is a
+signal; its sum is a statement about the scheduler.
+`docs/11-risks-and-technical-debt/audits/2026-10/test-suite-latency-2026-10.md` holds both runs and that
+caveat.
+
+**Decision.** `addopts` carries `-n auto --dist worksteal -m 'not perf'`, and
+`pytest-xdist>=3.8.0` joins the `dev` extra.
+
+Measured on the fixed tree, all four modes genuinely parallel:
+
+| Mode | Wall clock |
+|---|---|
+| **`-n 8 --dist worksteal`** | **156.2 s** |
+| `-n 8 --dist loadfile` | 186.3 s |
+| `-n 8 --dist load` | 250.2 s |
+| `-n 4 --dist worksteal` | 245.2 s |
+
+**`worksteal` is chosen because it splits at test level**, so no single slow file
+becomes one worker's floor. That distinction was only measurable *after* the leak fix:
+before it, `test_iconography_3c.py` at 96.7 s was the binding constraint and
+`loadfile`'s whole-file granularity looked essential. Its advantage over `loadfile` is
+the general one — a suite that grows a slow file should not silently lose a worker.
+
+**Alternatives rejected.**
+
+- **Not parallelising, and only documenting an inner loop.** `pytest tests/unit` is
+  192.6 s against 673.6 s for everything, so this captures a large part of the win with
+  no new dependency. It does not help the case the owner actually described — running
+  *everything* before testing by hand — and a convention nobody is forced to follow is
+  the failure mode this repository has already paid for twice.
+- **`@pytest.mark.xdist_group` + `--dist loadgroup` to keep the colliding tests
+  together.** It works, and it was rejected for three reasons: the `--dist` modes are
+  mutually exclusive, so `loadgroup` *replaces* `loadfile` rather than combining with it;
+  the protection `loadfile` was originally chosen for turns out to be worth under 4.6 s
+  (the three files with module-scoped fixtures do not reach the slowest-30 list); and
+  grouping schedules around the symptom. The actual collision was a test writing into the
+  git working tree, and that hazard also applied to two concurrently launched pytest
+  processes — the 2026-08-17 §11.4 incident that made `TEST_APPLICATION` per-PID in the
+  first place.
+- **Fixing the leak in the 51 files that build an app.** Correct, and it is the reason the
+  chokepoint exists: one place cannot be forgotten, and a 51-file diff would put the fix
+  behind review of every unrelated line.
+
+**The timing tests are excluded deliberately, and this is a scheduling principle rather
+than a convenience.** Two tests were observed failing intermittently when they share a
+runner with the parallel workers — the NFR repaint budget and the map-picker close bound among them — and
+§11.4's #354 entry already holds that a performance test must protect a *sustained*
+regression statistically rather than assert that one shared runner owns a quiet CPU. A
+single-step gate here would have been a gate that cries wolf.
+
+The marker means **wall-clock sensitive, not "lives in `tests/perf/`"**, and that
+distinction is the load-bearing part of the decision. Seven of the 14 marked tests live
+outside `tests/perf/`, which is why the runner command is
+`pytest tests/ -m perf -n 0` and not a directory. All three details of that command are
+load-bearing; the `-n 0` is easy to omit precisely because the command looks complete
+without it. Two errors in this ADR were caught by review and are recorded because
+they are the natural mistakes: an earlier version justified the marker by naming
+`tests/integration/test_tasks.py`, which carries **no marker** and so is not covered by
+the flag at all. Its hazard was real — two schedulers call `_check_overdue_tasks` — but it
+is a shared-*state* defect and was fixed by isolating the arm, not by scheduling around it.
+
+**Consequences (limitations, stated).**
+
+- **`-n auto` in `addopts` makes a *small* targeted run slower**, because worker start-up
+  dominates: one 11-test file measured 2.85 s serial against 5.48 s under `-n auto`.
+  `-n 0` is the escape hatch. The trade is asymmetric and deliberate — 517 s saved on a
+  full run against 2.6 s added to a small one — but it is a real cost and is the first
+  thing to revisit if the inner loop starts using single-file runs heavily.
+- **`pytest tests/` now deselects the perf tests**, so they must be invoked explicitly as
+  `pytest tests/ -m perf -n 0` — three details, all load-bearing. It is `tests/`, because a directory-only form (`pytest tests/perf -m perf`)
+  runs 7 of the 14 and **silently passes**, which is the worst failure mode available to a
+  gate that exists to catch slow drift. It needs `-m perf`, or the `-m 'not perf'` in
+  `addopts` wins and nothing is collected. It needs `-n 0`, because running the timing
+  tests across workers is the thing the split exists to prevent.
+  CI does this as its own step, so nothing stops being verified.
+  `tests/unit/test_perf_marker_guard.py` fails the build if a wall-clock assertion is added
+  without the marker, so this list cannot silently go stale — an audit written in prose had
+  already been wrong twice by the time the third review found the two `TestPerf` classes.
+- **A crashed worker is not a clean abort.** The 180 s `pytest-timeout` guard stays — #448
+  and the 2026-08-17 stall both earn it — but on Windows it currently dumps stacks and
+  aborts the run. Under xdist a timeout kills one worker, which is restarted, and the run
+  continues: **a hang now presents as a crashed worker rather than as a failure.**
+- **A parallel run's first visible failure mode is coverage, not tests.**
+  `quality/coverage-floors.json` holds exact `covered * 100 // statements` integers per
+  package plus a per-file floor, so losing a single line fails that job — and since
+  `Coverage` is not a required check, that red would sit there unblocking merges while
+  looking authoritative.
+- **Coverage tracing and the perf tests are not in conflict; an earlier draft of this ADR
+  said they were, and was wrong.** It claimed the repaint budget "fails under coverage
+  tracing at 20.29 ms against a 16.70 ms budget" and concluded the `Coverage` job had
+  "always been measuring something it cannot gate". Both steps fail. The 20.29 ms figure
+  is a **local** measurement against the **local** budget:
+  `tests/perf/test_nfr_budgets.py:56-57` reads
+  `_IS_CI = os.environ.get("CI") == "true" or ... GITHUB_ACTIONS` and
+  `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`, so on CI the budget is **50 ms** and the
+  test passes under tracing. Verified both ways on one machine, same file, same
+  `--cov`: `CI=true` → 6 passed; `CI` unset → 1 failed. And `gh run view 39076508170`
+  (CI, master `412f01bd`) records the `Coverage` job **succeeded**, 8565 passed.
+  The lesson is this ADR's own first rule about instruments: a measurement taken against
+  one configuration does not describe another, and "locally it fails here" became "it has
+  always been broken there" without anyone running the second half.
+- **What #509 does to that job: two steps, and they are one decision.** The job now runs
+  `pytest tests/ -m 'not perf'` with `-n auto`, and then a **second, serial** step runs the
+  14 perf tests with `-n 0 --cov-append`. The parallel step **keeps** the `-m 'not perf'`
+  filter. The deselect and the append are one decision:
+  **step 1 alone is `agent_api` 2012 of 2195 with the gate exiting 1; step 1 plus the append
+  is 2026 of 2195 with `regressions: []`**, a delta of exactly the fourteen `stop()`
+  escalation lines. Drop the append and the job goes red on `agent_api`; drop the deselect
+  and the append becomes redundant while three zero-slack budgets (map-picker close < 0.5 s,
+  point-snapper mean < 16 ms, spatial-index medians < 200 ms / < 1 ms) run beside workers on
+  a 4-vCPU runner. `-n auto` is 4 workers there and 20 on the dev box; the "eight" this ADR
+  quotes elsewhere is the measurement harness, which matches neither.
+
+**Evidence.** `scripts/measure_test_suite_latency.py` reproduces the concentration table
+from a recorded `--durations` report (11 unit tests pin its arithmetic against a
+hand-computable fixture, including the ways it could report a confident wrong number);
+`docs/11-risks-and-technical-debt/audits/2026-10/test-suite-latency-2026-10.md` holds the full baseline,
+the per-layer and per-file tables, the widget-leak measurement and the corrections to
+issue #509's stated facts. The CI `Test` job uploads its `--durations=0` report as the
+`test-durations-linux` artifact.
+
+### ADR-058 addendum: scoped timing functions and attribute carriers (#528, PR #556)
+
+The guard follows duration attributes into local support modules. Attribute ownership
+alone did not fix the original same-module collision: the first implementation still
+indexed functions and propagated calls by bare name. A tagged AST probe printed
+`clock closure: ['bake', 'test_session']` for a test that called only the ordinary baker
+and asserted a tile-count bound. A separate-module equality assertion could not expose it.
+
+Both closures now use a cached lexical index whose keys preserve the class and enclosing
+functions within each module. Calls resolve through lexical names, `self`/`cls`, explicit
+classes and locally constructed or annotated instances; unresolved receivers never fall
+back to another class's method name. Imported helper functions, dynamic receivers, instance
+aliases and inherited methods remain outside this static analysis. Attribute ownership
+retains its module/class/attribute identity. Regressions cover both class orders, duplicate
+test/helper names, both call-graph closures and the real ground-bake AST with `TimedBaker`
+restored inline. The G3 marker remains required; ordinary session count bounds stay on the
+parallel runner. No application runtime, dependency or file-format change.
+
+### ADR-058 addendum: the coverage floor blocks, and the perf pin is mutation-verified (#512–#516, 19 October 2026)
+
+**Decision 1 — a coverage-floor regression blocks a merge (#514).** `Coverage` joins the
+required checks; it is **not** folded into `Test`. The floor step already computes a
+deterministic result (executed lines, not wall clock) and the job already runs on every push
+in parallel with `Test` — it has no `needs:` on it, so promotion adds no wall clock to the
+critical path and no runner-minutes. What changes is only whether the existing verdict is
+enforced. The `agent_api` floor's margin is **six lines** (2026 covered of 2195 against
+92% of 2195 = 2020), so an advisory red is precisely the signal that erodes silently. The
+local inner loop never runs `--cov`; CI is the only place the floor is computed, and a sole
+detector that cannot fail a merge is a measurement, not a gate. **Rejected:** folding
+`Coverage` into `Test` — it re-serializes the suite into the required job, re-paying the
+runner-minutes #509 removed, and blurs the check's identity. The floor gate also **fails
+closed**: `check_coverage_floors.main` returns 2 when the XML is missing, malformed or does
+not resolve into `src/open_garden_planner` (pinned by
+`tests/unit/test_ci_quality_gates.py`), so the step's `if: always()` cannot report a pass
+without a measurement. Mechanics: `quality/master-protection.json` gains `Coverage`, the job
+display name is pinned as the protection context, and the owner applies the live payload and
+confirms `scripts/check_branch_protection.py`. Until that application the verifier is
+deliberately red.
+
+**Decision 2 — the perf pin evaluates the command that gates the step (#513).** A `run:`
+script may hold several commands, and the one whose exit status is the step's is the **last**.
+The pin now identifies the command that selects the `perf` marker and requires it to be that
+last command and to actually invoke pytest (a `pytest` head, or `python -m pytest`). This
+closes, in one rule, the echo-smuggle, a here-doc body plus its executor, a delegating script
+(`bash scripts/ci_perf.sh …`), and a trailing `|| true`/pipe. It also refuses collect-only
+flags — directly or inside an `-o addopts=` value — and `PYTEST_ADDOPTS` on the step or job.
+The rules are deliberately few: this matcher's history is five defects in one commit, so the
+remaining shapes (`-k`/`--deselect` inside an override, a control operator embedded mid-token,
+zero-combination matrices, `concurrency` cancellation) are re-listed as measured-open in the
+pin rather than guessed at.
+
+**Evidence — the pin is now re-runnable, not asserted (#512).** `scripts/replay_gate_mutations.py`
+commits the harness that #509's review had to write in a scratch directory: sixteen
+perturbations of `ci.yml`, each applied through a temp file, YAML-validated **structurally**
+(an edit that YAML reads as something else is reported as an invalid mutation, never as an
+honest "not caught"), replayed against the pin, and restored by **copy** with a byte-identity
+assertion after every iteration. Fourteen must be caught and two must pass (a diamond in the
+`needs` graph, and a comment that changes no configuration) — the passing controls are what
+distinguish a working pin from one that fails everything. Run it after touching the matcher.
 
 ### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
 
@@ -2749,3 +5016,5180 @@ they work, well under the 0.4 threshold — every texture on the canvas would ha
 a solid colour. *Reachability is necessary, not sufficient: before promoting a dormant
 path, ask whether it earns the degradation it costs, and put the answer in front of the
 person who has to look at it.*
+
+### ADR-058 addendum: complete coverage on parallel runners (#601, 26 October 2026)
+
+**Status.** Owner approved as a chore on 26 October 2026 (PR #606), without GUI
+testing; no application release or version synchronization is needed.
+
+**Decision.** Keep full line and branch tracing and the uninstrumented `Test`
+job. Split non-perf coverage by a stable SHA-256 test-ID partition across two
+Linux runners, with xdist within each. Measure the entire perf set serially on a
+separate runner. `Coverage`, the existing protected check name, runs with
+`if: always()`, rejects failed/skipped producers, combines three explicitly named
+files and enforces the existing line floors. A missing producer or input fails;
+there is no partial-report success. Required check names and protection do not change.
+
+Only actual wall-clock-sensitive cases and shared measurement scenarios retain
+`perf`; 27 deterministic cases return to parallel execution. Reuse the marker
+guard's parsed AST/index, consolidate duplicate CLI sweep consumers, and separate
+fifty acyclic receiver lifecycles from one real cyclic-GC check.
+
+**Alternatives.** Merely dropping `--cov-branch` leaves TOML's `branch = true`
+active. Line-only tracing is benchmarked explicitly but would remove diagnostic
+branch data; it is not the delivery mechanism. Replacing `Test` with a forwarding
+status would remove the uninstrumented budgets (traced budgets have slack).
+Larger/paid runners and a Python migration are unnecessary here. Hash membership
+avoids the collection-order assumption of an initial round-robin partition.
+
+**Consequences.** Extra runner setup/collection may increase total runner minutes
+while reducing latency. No dependency, runtime behavior, `.ogp` format, product
+budget or floor changes. The phenology gate's reproduced tracer-only overrun uses
+the existing snapshot-budget tracing factor with CI slack disabled: the real
+16 ms gate remains in Test, with a 160 ms tripwire under tracing. Pins:
+`tests/integration/test_ci_coverage_shards.py`,
+`tests/unit/test_gate_commands.py`, `tests/unit/test_perf_marker_guard.py` and the
+existing receiver/harness guards. Measurements and all 116 original marker cases
+are in [the investigation](../11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).
+
+## ADR-059: 3D scene pipeline and the truth principle (Phase 17, L1.1)
+
+**Status**: Accepted (2026-10-11, #385 story L1.1, epic #383). This is the scene-pipeline ADR the
+epic reserved as "ADR-049" (that number went to frost dates; ADR-053 announced it for L1.1). It
+was written as "ADR-054", then carried as "ADR-056" and as "ADR-064", and renumbered each time before it
+reached master, where Package F and the audit packages had taken those numbers while this package was in work
+(likewise its concept section, written as 8.26, 8.27 and 8.32 before it became 8.29, and its requirements
+bucket, written as FR-32, FR-33 and FR-36 before it became FR-33) — an older note or branch that says
+"ADR-054", "ADR-056" or "ADR-064, 3D scene pipeline" means this record, and "ADR-065" in a note older than L4 (#388) means ADR-060 (since L4, ADR-065 is the built world's record). The
+same renumber moved the test-policy sections 8.10.23–31 to 8.10.5–13 and the pitfall sections, now the PF entries of §11.4. It
+builds on ADR-048 (Qt Quick 3D, GO) and ADR-053 (one sim clock). Nothing is rendered by this
+story: it is the Qt-free foundation L1.2–L1.7 build on. **Amended the same day by the independent
+review of the story** (two interface defects and a list of smaller ones — decisions 1, 3, 8, 9, 10
+and 12 and the section "What the first version got wrong" below); the text here is the contract as
+it stands after that round.
+
+### Context
+
+- **The shipped 3D view rebuilds everything.** `collect_scene3d_records` returns scene-space
+  prisms and decals, and `Qt3DAdapter.rebuild` replaces every entity and re-frames the camera on
+  each change. L1's workspace ("Plan / 3D / Split without camera resets") and live sync need the
+  opposite: the engine must receive only what changed.
+- **The engine punishes rebuilds.** L0 measured (ADR-048, `ogp-3d-renderer` §2–§3): one geometry
+  per Model lifetime, a full re-upload on re-attach, ~10 ms per 100k vertices, and an
+  array-driven `Repeater3D` that recreates every delegate when one element changes.
+- **The spike built its world from private canvas helpers at absolute scene positions** (TD-036),
+  with hacks a product cannot keep (a chair "facing the first table").
+- **Beautiful wrong frames happened in L0.** The first board lit the wrong roof slope (each slab
+  stored the other slope's normal), a December board showed June plants, a BBQ stood 15.6 % too
+  tall. Each looked fine. A planning tool that misstates the plan is broken however good it looks,
+  so "truth" has to be something a test can fail, not a sentence in a style guide.
+- **The Qt-free cores are the NO-GO insurance** of ADR-048 and must not depend on the engine.
+
+### Decision
+
+1. **One pipeline; everything after the snapshot is Qt-free** — the package `core/scene3d/`
+   (standard library, numpy and Qt-free `core` siblings only; pinned by an AST scan over every
+   module that also follows those siblings):
+
+   ```
+   live canvas items ──snapshot_records()──▶ {item_id: Record}        ui/view3d/snapshot.py (GUI thread)
+                                                  │ diff() against the last snapshot       scene_diff.py
+                                                  ▼
+                             SceneSync.apply ──▶ builders, for added + geometry only       build.py, sync.py
+                                                  │ MeshPart (item-local frame)             mesh.py, polygon.py
+                                                  ▼
+                                              EngineSink                                    sink.py
+                                  Qt Quick 3D (L1.2) · RecordingSink (tests, NO-GO path)
+   ```
+
+   "Qt-free" is a statement about this package's SOURCE: no module of it, and none of the `core`
+   siblings it imports, imports Qt. It is not a statement about the interpreter: importing
+   `open_garden_planner.core.scene3d` runs `core/__init__.py`, which loads PyQt6 for other
+   modules of `core`. A process that must stay Qt-free needs that package `__init__` untangled
+   first; the scan guarantees only that nothing here *uses* Qt.
+
+   The former `core/scene3d.py` became `core/scene3d/legacy.py` — the Qt 3D view's record, its
+   scene-space extruder and its frame helper — and the package re-exports every name, so the Qt 3D
+   window, the dormant spike and their tests did not change. **L1.10 deletes exactly that file**
+   (and its re-exports). The two functions of the old module that the new pipeline uses as well
+   moved out of it: the ear clipper `triangulate_polygon` to `polygon.py`, `sun_direction_scene`
+   to `frame.py`; `legacy.py` imports them back.
+2. **Item-local geometry plus a rigid transform.** A record's `footprints` / `path` are
+   centimetres relative to the item's own anchor — the circle's centre, `rect().center()` of an
+   ellipse or rectangle (the geometric centre, never the decoration-expanded `boundingRect()`:
+   #219), the centre of the vertex bounding box of a polygon or polyline — and
+   `transform = (east_cm, north_cm, rotation_deg, base_cm)` places that frame:
+   `scene = T + R(θ)·local`, θ counter-clockwise seen from above with north up. Moving or rotating
+   an item changes the transform and nothing else, so the engine re-poses a Model.
+   - The transform is **derived from `item.sceneTransform()`**, never from `pos()` + `rotation()` +
+     `transformOriginPoint()` (the #218/#219 lesson). Qt's matrix is
+     `m11 = cos a, m12 = sin a, m21 = −sin a, m22 = cos a`, so `θ = atan2(m12, m11)`; on the Y-up
+     canvas Qt's `setRotation(+90)` takes local +x (east) to scene +y (north). Measured, not
+     assumed: the matrix reproduces `mapToScene` bit for bit, and `transform ∘ local footprint`
+     reproduces `item_footprints` to **1.5e-7 cm** over 96 cases (gate: 1e-6) — for every shape
+     compared vertex by vertex, and for a polyline's centre line. **One thing is outside that
+     number: a polyline's stroke polygon**, which agrees only to pyclipper's 1/1000 cm grid
+     (measured 1.6e-3 cm; see the rejected alternative "the 2D stroke polygon of a polyline").
+   - **A circle's rotation is 0 by construction.** The 2D footprint polygonises a circle around its
+     mapped centre and does not turn with the item; a record that turned would either disagree with
+     the 2D shadow or make a rotation a geometry change.
+   - **A scene transform that is not rigid is baked.** Scale, mirror or shear (an item in a scaled
+     group) cannot live in a rigid transform, so the whole linear part goes into the local
+     coordinates and the rotation is 0. `scene = T + local` still holds; the price is that rotating
+     such an item rebuilds it. The app never produces such a transform on a garden item today.
+3. **A record is everything a builder needs**, as plain immutable data (`record.py`): `kind`
+   (ObjectType name), `shape`, `footprints` and `holes`, a polyline's centre line `path` and
+   `path_width_cm`, `height_cm` — the 2D shadow's own `effective_height_cm(..., at_date)`, `None`
+   meaning decoration that casts no shadow, exactly as in 2D — and `params`, a sorted immutable
+   mapping: the seed (item id), a circle's radius, a HOUSE's ridge ends in the HOUSE's frame read
+   from the live ridge item (ADR-046), the canonical species key and common name, the plant
+   category, a path/fence style, a container's material. `material` holds the item's own sRGB
+   fill, stroke and pattern. Not captured: what only the spike's hacks needed.
+   - **`footprints` are OUTER rings; `holes` are what is cut out of them.** An outer ring is a
+     simple polygon, counter-clockwise (positive signed area); `holes[i]` are the clockwise rings
+     inside `footprints[i]`; both orientations are enforced by `Record` itself. The ground an item
+     covers is the outers minus the holes (`Record.regions`, `Record.plan_area_cm2`). A polyline's
+     stroke is sorted into both — a fence that closes on itself is one outer ring and one hole, a
+     ladder drawn as one stroke one outer ring and a hole per cell. `holes` is part of
+     `geometry_sig`. Holes are not a stroke's alone: a polygon drawn crossing itself can enclose
+     a pocket.
+   - **When a stroke that almost closes does close.** A stroke has butt ends
+     (`polyline_footprint`: `ET_OPENBUTT`): it reaches half its width to either side of the centre
+     line and not at all past its end points. Two ends that stop short of each other AT A CORNER
+     therefore close the loop only while the gap is at most half the stroke's width — a 10 cm
+     stroke closes a corner gap of up to 5 cm, and one of 6 cm stays open — and a gap in the
+     middle of a straight run never closes, however small. (The first version of this text said
+     "a gap narrower than the stroke"; measured, that is wrong by a factor of two at a corner and
+     altogether in a straight run.)
+   - **Every region of a record is one a builder can build — as a checked fact.** ONE predicate
+     says what that means: `polygon.is_buildable_region(outer, holes)`, true exactly when
+     `polygon.cut_region` — the triangulation the default builder itself uses — cuts the region
+     and proves the cut (every triangle counter-clockwise, their areas summing to the region's).
+     The snapshot asks it for every outline it turns into rings and hands on nothing for which
+     it does not hold; `prism_mesh` calls the same cached function, so "the predicate holds" and
+     "the default builder builds it" cannot come apart. An outline for which no reading holds
+     gets no record and is reported (decision 12): measured over 7,500 random self-crossing
+     polygons and 4,500 random strokes, none.
+   - **A polygon that crosses itself is resolved in the snapshot, and the record says so.** It
+     becomes buildable regions by the non-zero rule: one ring, several, or rings with holes —
+     the ring COUNT says nothing (measured: one outline of five vertices resolves into a single
+     ring of ten). What says it is `params["outline_resolved"]` (`PARAM_OUTLINE_RESOLVED`), True
+     and present only for such a record — and **a HOUSE resolved this way carries no `ridge`**:
+     the drawn ridge belongs to the drawn outline, not to the regions that replace it, so a
+     house builder's "no usable ridge" path fires and builds `record.regions`. Its vertices sit
+     on pyclipper's 1/1000 cm grid; where two parts of it meet in a single point and the region
+     cannot be cut as it stands, they are drawn apart by 0.002 cm (11 % of random outlines; the
+     rest keep the clipper's exact coordinates). A vertex placed twice in a row — a double click,
+     a closing vertex that repeats the first — is dropped first and resolves nothing: such an
+     outline stays the drawn ring, vertex for vertex.
+   - **pyclipper's reading of such an outline is checked, not trusted.** The ring hierarchy is
+     taken from its `PolyTree` (who is whose hole is the clipper's answer, not a point test on a
+     boundary vertex), and every reading is held against the DRAWN outline: its winding number
+     on a 48 × 48 lattice must agree with what the regions cover. Needed, because for an outline
+     that retraces one of its own edges the clipper's answer is sometimes wrong — measured: a
+     solid triangle of 357 cm² handed out as a hole (`StrictlySimple`), and a plain union whose
+     signed ring areas sum to 33,133 cm² for an outline that fills 36,704. Three readings are
+     tried in order (the strict tree; the union with a 0.002 cm band cut away along its rings;
+     the drawn rings with that band cut away along every edge), and the first that is buildable
+     AND matches the outline is taken. Stated as measured: in 19,500 random outlines every wrong
+     reading of the clipper's was also not buildable, so the buildability check alone turned it
+     down and the outline check never decided — the mutation check showed that by letting "the
+     reading is taken on trust" survive. The outline check stays as the safeguard for a reading
+     that is wrong AND buildable, and is pinned with a simulated one.
+   - Non-zero because it is the rule the 2D shadow fills a caster's own
+     footprint with — measured at a vertical sun: both lobes of a bow-tie, the whole star of a
+     pentagram — and the solid must stand where its shadow starts. It is *not* what the canvas
+     paints for every such polygon: Qt fills by odd-even, which leaves a pentagram's centre open
+     (7,757 against 11,226 cm² for a star of radius 1 m); for a bow-tie the two rules agree. A
+     drawn self-crossing polygon is an accident more often than a plan, and of the two readings
+     the shadow's is the one a truth gate compares against.
+   - **No length beyond what a plan can hold.** `record.MAX_LENGTH_CM` = 1e6 cm (10 km): a
+     height, a stroke width, a radius, every coordinate of `footprints`, `holes` and `path`, the
+     position and base of the transform, and every float param is held to it by `Record`,
+     `Transform` and `Params` themselves (`RecordRangeError`, a `ValueError`). The bound is from
+     the domain — nothing in a garden plan is taller, wider or farther from its origin — and it
+     is decided in the record, once, because of what it prevents: a plan file edited by hand can
+     hold `"object_height_cm": 1e300`, a positive finite float that is infinity in a mesh's
+     float32. It passed "positive and finite" and reached a sink that does not validate as
+     non-finite positions, for the default prism and for every other builder alike (found by the
+     plant story's review, at the pipeline level). An infinite height falls under the same rule
+     (the first version turned it into "no height", silently). The mesh layer refuses the same
+     thing on its own: `Mesh.from_arrays` raises for a value that is not finite once it is
+     float32, and `prism_mesh` for such a height or coordinate before computing with it — so a
+     hand-made call cannot emit one either.
+   - **A ROOF_RIDGE item has no record.** The ridge reaches the pipeline as its HOUSE's `ridge`
+     param. As a record of its own it changed *geometry* whenever the house turned (the app
+     re-derives the ridge item's points: measured on 400 of 400 rotations), which would have made
+     "rotate → transform only" false for the one item a house owns.
+4. **Three signatures — and a signature is only an accelerator.** `geometry_sig` covers what
+   changes a mesh, `transform_sig` the transform, `material_sig` the material. `item_id`, the
+   display `name` and `parent_id` are in none; selection and hover are not in the record at all.
+   Signatures are Python hashes, and **`hash(-1.0) == hash(-2.0)`**: a vertex moved from −1 cm to
+   −2 cm has the same tuple hash. `Record.same_geometry` therefore compares the signature first
+   and the values second; a pure-hash diff would have hidden that edit from the engine.
+5. **One record grid.** Every length is snapped to 1e-7 cm and every angle to 1e-9°. An unchanged
+   scene snapshots identically without it, but the same geometry reached along another float path
+   must not read as an edit. Measured: the app re-writes a HOUSE's ridge points by `+ delta` on
+   every move, and unsnapped **689 of 1,000 moves changed the HOUSE's geometry**; snapped, 0 of
+   20,000 (the dust had reached 1.1e-10 cm). The grid is far below anything the UI can express and
+   below float32 vertex resolution beyond ~1 cm from the origin, so it cannot hide an edit. When
+   dust does straddle a grid line the cost is one redundant sink call, never a wrong frame.
+6. **`diff(old, new) → SceneDiff(added, removed, transform, material, geometry, reordered)`** —
+   three *independent* comparisons per surviving item: it is listed under each aspect that changed
+   and under no other (all eight combinations are pinned). `reordered` reports a changed paint
+   order; it is never a geometry change and causes no engine call, but the ground bake (L1.5)
+   paints flat surfaces in that order.
+7. **Meshes live in the item-local frame**, in the spike's vertex layout (`mesh.py`).
+   `Mesh.validate()` rejects wrong dtypes or shapes, non-finite values, out-of-range indices,
+   non-unit normals, and a flat face whose stored normal is not its winding normal (dot < 0.99 —
+   the L0 roof bug); foliage and grass are exempt from the last by design. A `MeshPart` names a
+   material kind, whether it casts a shadow, and whether it is **tinted**: the builder leaves the
+   vertex colours neutral and the sink multiplies them with the item's material, so a recolour is
+   an `update_material` and never a rebuild.
+8. **The engine boundary is ten methods** (`sink.py`): `begin`, `commit`, `add`, `remove`,
+   `update_transform`, `update_material`, `replace_geometry`, `set_sun`, `set_ground` — and
+   `clear`. (Eleven since L1.8: `set_selection`, the selection ring — ADR-060 addendum
+   "selection, info card and walk".) `RecordingSink` implements it with a list and a dict, answers "what would the engine
+   hold now?", and enforces the protocol — every call but `clear` inside `begin`/`commit`, no
+   `add` of a held id, no update of an unknown one. `set_sun` takes plain solar data from
+   `core/solar` (light = −sun vector, ADR-037); `set_ground` a deliberately minimal plan rectangle
+   that L1.5 extends.
+   - **`clear()` is the verb recovery needs.** After it the engine holds nothing — no items, no
+     sun, no ground — and no transaction is open. It is legal at any time: inside a transaction
+     (it aborts it), outside one, on an empty sink. Without it "tear the scene down" could not be
+     said through the protocol, and a sink that failed in mid-transaction could not be brought
+     back by anything `SceneSync` is allowed to call.
+9. **A builder is a pure function of one record's geometry part** (`build.py`):
+   `Builder = Callable[[Record], tuple[MeshPart, ...]]`, looked up by `kind` in a
+   `BuilderRegistry` *instance*. It may not read the transform, the material, the id, the name or
+   the parent — the pipeline calls it only when `geometry_sig` changed, so anything else it read
+   would go stale. `verify_builder` enforces that in tests. The default builder is the honest v0: a
+   prism of the footprint — outer rings minus their holes, with walls around each hole that face
+   into the hole — whose top is exactly the resolved height, and nothing for an item without one.
+   - **The default builder never emits a wrong solid.** `prism_mesh` refuses a ring that is not a
+     simple polygon (`ValueError`: `SceneSync` then shows the item without a solid and reports it)
+     and checks its own cap before returning it: every triangle faces up and their areas sum to
+     the region's (`polygon.cut_region`, the function behind `is_buildable_region`). Two kinds of
+     triangle are left out because they are nothing: an ear whose three corners lie on one line
+     (vertices of different rings along the edge of a diagonal stroke — its area is float noise
+     around zero), and a cap triangle below the resolution of the engine's float32 coordinates
+     (a doubled area under 5e-7 · the largest coordinate · its two edges). Either would come out
+     wound downwards in the mesh as often as not — measured on a ladder drawn as one stroke:
+     13 of 239 cap triangles. `prism_mesh` takes any sequence of `(x, y)` pairs for a ring —
+     tuples, lists, numpy rows.
+   - **What an outline may cost is bounded — as work, as a sum, and before the work.** Each hole
+     is joined to the boundary by a bridge found in one pass over the edges (holes × vertices),
+     then the merged ring is ear-clipped in array passes. Measured (the first version in
+     brackets): a closed fence along 400 traced vertices, one hole, 1,201 ring vertices 45 ms
+     (12.6 s); a ladder of 58 holes 43 ms (2.5 s). The bound went through three forms, and the
+     first two are on record because each looked finished:
+     1. *Two size limits for regions with holes* (fix round 2: 8,000 vertices, holes × vertices
+        = 500,000). Judged AFTER the quadratic simplicity test, so refusing cost more than
+        building (2,700 traced points: 2.59 s to say no); rings without holes had no limit (a
+        comb of 5,004 vertices: 1.5 s per tick); and it was no bound on work at all (7,187
+        vertices and 61 holes, inside both limits: 4.0 s). The example this ADR quoted for it —
+        "400 holes in a mesh 0.31 s" — was itself beyond the second limit.
+     2. *One work bound per region, counted* (`MAX_REGION_WORK`, first half of fix round 3):
+        work units paid as the cut goes, the size judged first. Right for a region. But the
+        snapshot applied it to the LARGEST outer ring of a stroke, after the clipper had
+        inflated the path and every ring had been read — and the clipper's own work has no
+        bound: 800 points scribbled across a plan took it half a second and came back as 53,000
+        rings, 4,000 teeth standing side by side 1.6 s without one crossing, the last reading
+        of a self-crossing outline of 800 vertices ten seconds (a security review of that
+        commit found the pattern; the numbers are this round's).
+     3. *One budget per ITEM, every step paid before it runs* (now). `polygon.WorkBudget`,
+        `MAX_REGION_WORK` = 150,000,000 units: counting the pairs of a path
+        (`touching_pairs`), the clipper (priced from the points, their stack — `stack_height` —
+        and the pairs that cross or lie within a stroke's reach), reading what it returns
+        (counted first), sorting it (holes × outer rings), every region's cut out of what the
+        item has LEFT (`pay_for_region`), every union, band and comparison of a resolution.
+        Before all of it, an item's stored vertex count: more than `MAX_ITEM_VERTICES` =
+        16,384 is one comparison. What the budget does not cover is `RegionTooLargeError`
+        inside and the skip code `outline_too_large` outside. Section 8.29.1 has the table of
+        what fits and what a refusal costs; section 8.11 the two patterns.
+        *Corrected in fix round 4:* the strict union was asked for a tree (`StrictlySimple`
+        with `Execute2`), whose cost follows the rings it makes and the splits it tries, not
+        anything this price list reads — a two-level zigzag of 340 vertices took it 3.6 s
+        inside the budget. It is asked for a flat list now and `group_rings` sorts it (19 ms).
+        And a level segment is no longer counted into a path's stack: the sweep walks along a
+        level edge, so a straight fence costs the same in either direction (it fitted 1,416
+        posts east–west and 6,645 north–south).
+        *Corrected again in fix round 5:* the PLAIN union was still asked for a tree — and the
+        tree flattened on the next line. ONE ring with 720 holes bridged to its wall, 4,324
+        vertices, took it 5.3 s inside the budget (as a list: the whole item in 0.25 to
+        0.31 s, the same answer for the same units). `_clip_tree` is split so that it cannot
+        be written again: `_union_rings` (`Execute`) serves both unions, and `_band_tree`
+        (`Execute2`) is called only by the two band readings that read a hierarchy. A band's
+        tree is not priced by its rings and need not be — a band leaves nothing to join, and
+        the call costs the same as a list and as a tree (801 rings 1.8 / 3.0 ms, 1,600 rings
+        123 / 144 ms).
+     The clipper cannot be counted, only priced, and a price is a measurement: each is the
+     dearest case found (`scripts/measure_region_work.py` prints units charged against time for
+     every family it knows — and, since fix round 5, FAILS when a row costs more than 12 times
+     its price: a union as a tree stood at 14 to 76). A family nobody has drawn yet can be
+     dearer than its price — the simplicity test was, by a factor of a hundred, for a ring
+     whose every pair of edges lies close, until its near pairs were priced; and a second family
+     was, until #451 re-priced it: a ring whose holes touch its outer ring stood at 3.6 to 8.1
+     in the cut's bridge search (110 such holes: refused after 0.6 to 1.5 s). A block of bridge
+     candidates now costs 600 units per edge, the dearest row of the table is 1.3 to 1.5, and 110
+     such holes are refused in about 0.07 s - at the price of capacity (a slab of 49 touching
+     holes now fits, 89 before; triangular 117, 146 before; square 88, 105 before; and an
+     outlined region with many holes has a higher pre-cut floor: a crafted 25 x 25 line grid
+     is now refused from its size, a 22 x 22 one still resolves). *Rejected:* a time-out (the verdict would depend on
+     the machine and the moment, and Python cannot interrupt the clipper); a cap on vertices
+     alone (it admits the scribble and refuses the long honest fence); a budget across the whole
+     plan (a record would depend on what else is on the plan).
+   - **What is remembered: what the plan asks for, and a bounded rest.** The verdict and the
+     cut of a region, a ring's area, a record's ring facts and the regions of an outline are
+     remembered by `polygon.ring_keyed`. A snapshot is one generation; an answer asked for by
+     the snapshot being taken or the one before is live and never dropped; the STALE answers
+     are bounded — 262,144 vertices per function, keys and answers together, the least recently
+     asked dropped first — and a ring of more than `MAX_ITEM_VERTICES` is never hashed. Two
+     forms came before. Each was an `lru_cache` of 2,048 to 8,192 ANSWERS: an outline of 4,000
+     vertices dragged for a minute was a gigabyte (this ADR had it at "16 kB per entry": it had
+     counted two floats per vertex; a tuple of two Python floats and its place in the ring are
+     104 bytes). Then (fix round 3) a cap on ALL vertices held, least recently asked first —
+     which bounded the memory and recomputed an unchanged plan on every tick once the plan was
+     larger than the cap, because a snapshot asks in the same order each time (160 polygons of
+     1,000 vertices: all 160 regions cut again per idle tick, 4.6 to 5.3 s). *Rejected now:* a
+     larger cap (the cliff moves, it does not go); no cap (the gigabyte); a cap per item (an
+     edit session of one item is the case to bound).
+     Two things this leaves, stated since fix round 5. What a LIVE plan holds has no cap —
+     linear in the plan, 130 bytes a vertex (400 accepted polygons of 3,000 vertices: 156 MB),
+     112 bytes a point for a refused line, at most about 1.8 MB an item. And the generation
+     is the process's clock: **one snapshotting scene per process is the supported case**
+     (three scenes in turn recompute each other), and a plan that is gone stays held until
+     two more snapshots have run. No redesign: `ui.view3d.snapshot.clear_outline_cache()` is
+     the one public call that drops everything, live and stale; the workspace calls it on a
+     document change and when the 3D view closes. *Rejected:* a generation per scene (a
+     second mechanism, for a case the app does not have).
+   - **The regions of a record stand in a stated order** (fix round 5): by the smallest vertex
+     of the outer ring, put in that order before they are judged. The order had been whatever
+     the clipper handed out, and it changed with a clipper mode — seven outlines of 13,740
+     when the plain union became a list. A signature must not follow that. Over those 13,740:
+     no verdict changed, 9,077 answers are identical, 4,663 are the same regions in the
+     stated order. A region's holes keep the reading's order (the cut that was proven joins
+     them in it).
+   - **A ring that is convex by construction is judged without a cut** (fix round 4): a circle
+     from 1e-3 cm by its radius, an ellipse or a rectangle by arithmetic on its corners
+     (`is_convex_ring`), and only a ring that is not convex on the record grid by the cut — so
+     no verdict changed. The predicate had been asked of every circle since fix round 3, which
+     cut a 24-gon per new radius: scrubbing the date on `bench_large` went from 11.6 to 33 ms a
+     snapshot; 12.7 now. The arithmetic had to learn one thing from the cut before it could
+     stand in for it — a bed of 120 m by 2 µm turns left at every corner and fails the cut's
+     proof on float noise — and a sweep of 120,000 shapes found no second.
+   - **Where the cap is cut, and what that costs an outline under edit.** Because the predicate
+     needs the triangulation, it is computed in the snapshot and cached; the builder reuses it.
+     A ring that is being edited misses the cache on every tick, as before — only now in the
+     snapshot rather than in the builder. With the ear clipper the two 3D views share that is
+     272 ms for 1,000 vertices, so from `ARRAY_EAR_CLIP_FROM` = 256 vertices a ring without
+     holes is cut by the array ear clipper as well: snapshot plus build of a traced outline
+     with one vertex dragged takes 22 ms at 500 vertices and 41 ms at 1,000, where the first
+     version took 51 ms and 250 ms. Below 256 the shared clipper stays (it is faster there, and
+     the cap is the Qt 3D view's, triangle for triangle); above it the same polygon is cut into
+     other triangles. A ring the array clipper cannot finish is NOT handed to the shared one
+     (whose work is not counted): the region is not buildable.
+   - The simplicity test is quadratic in the vertex count and misses its cache on
+     every tick while a ring is being edited, so from 32 vertices on it prunes edge pairs by
+     bounding box and runs on arrays (500 vertices: 72 ms in a plain loop, 2.9 ms now; 1,000:
+     262 ms → 10.8 ms) — with a test that both versions agree.
+   - **`verify_builder` looks at the solid from above — and bounds EXCESS only.** Beside
+     determinism, purity, mesh validity and the height, it refuses a builder that covers more
+     than `hole_cover_limit` (default one half) of a HOLE of the footprint (a hole sampled on a
+     lattice of its own points; a hole narrower than `HOLE_MIN_WIDTH_CM` = 10 cm — one into which
+     no circle of that diameter fits — is not judged: a 12 cm panel on a 10 cm stroke covers the
+     2 cm sliver between two runs and is right. A hole of 10 cm and more is judged whole, as
+     before), or puts more than 1 % of the footprint's area as top surface
+     further than `plan_margin_cm` (default 50 cm, for eaves) outside it. Each bound is a
+     keyword the caller tunes or switches off with `None`. Neither asks a mesh to *cover* its
+     footprint: a flower, a grass tuft, the posts and pickets of a fence fill a fraction of
+     theirs and are right — a lower bound would have rejected every honest sparse mesh. The
+     height tolerance is a fraction of the height by default (1 % built, 3 % plants) or, with
+     `height_tolerance_cm`, absolute centimetres (L1.6's gate is ±0.5 cm).
+   - **A registry may change after the first apply.** `SceneSync` remembers which builder built
+     each item; the next `apply` rebuilds the items whose builder is no longer that one. Freezing
+     the registry was the alternative; it would have made the order in which builder packages
+     register a correctness condition. The comparison is IDENTITY, and that is a contract on the
+     registry: `builder_for(kind)` returns the same object for the same kind until a `register`
+     changes it, and every `register` moves `BuilderRegistry.version`. `SceneSync` looks for
+     items to rebuild only when the version moved — so a registry that hands out a fresh
+     callable per call no longer rebuilds every item on every idle apply (measured before), and
+     an idle apply asks the registry nothing.
+10. **`SceneSync` keeps the sink in step** (`sync.py`). All builders run **before** the sink is
+    touched; then one `begin`/`commit` — or no call at all. Invariant: after any sequence of
+    applies the sink holds exactly what one apply of the latest snapshot puts into an empty sink
+    (`SceneSync.expected_state()` is that reference — built with the registry as it is at the
+    moment of asking, so between a registration and the next `apply` it is ahead of the sink).
+    - *One transaction per tick.* `apply(records, sun=…, ground=…)` sends the records, the ground
+      and the sun in the same `begin`/`commit`: a sim-clock tick that moves the sun and grows the
+      plants never shows a frame with the new sun over the old plants. `set_sun` / `set_ground`
+      remain for a change of the sun or ground alone.
+    - *A builder that raises is contained*: the item gets no parts, the failure is logged and
+      listed in `failures`, the rest of the scene is applied, and the builder is not run again
+      until that item's geometry (or its builder) changes.
+    - *A sink that raises poisons the sync*: the engine's state is unknown — and its transaction
+      is still open — so every later call raises `SyncStateError` until `reset()`.
+    - *`reset()` is the recovery, and it goes through the protocol*: it calls `sink.clear()` and
+      forgets the records, the failures, the poison flag and the sun and ground it deduplicates
+      against, so the next `apply` re-adds every item and re-sends sun and ground. If `clear()`
+      itself raises, the sync stays poisoned. What the sync cannot see is a sink that *ignores*
+      `clear()` — it returns nothing; a test catches that by comparing the sink's own account of
+      itself with `expected_state()`.
+    - *When `reset()` is needed*: after a sink failure, and when the engine's scene was destroyed
+      behind the sync's back (the 3D view was torn down and rebuilt around the same sink, the
+      graphics device was lost). **Not for a new or newly opened plan**: a plain `apply` of the new
+      snapshot removes what is gone and adds what is new, in one transaction. A new sink gets a
+      new `SceneSync`.
+11. **One footprint extraction.** `ui/canvas/footprints.py` is the public home of
+    `item_footprints` and `plant_canopy_radius_cm`, and of `item_outline` — the same vertex
+    enumeration in item coordinates, from which both the scene-space footprints (2D shadows,
+    heatmap, Qt 3D) and the item-local records are made. Closes TD-036.
+12. **The snapshot never lets one item blank the view** (`ui/view3d/snapshot.py`).
+    `snapshot_records` returns the plain `dict` it always did; what it had to leave out is
+    reported through an optional keyword-only out-parameter, `skipped=` — a list the caller
+    passes and the snapshot appends `SkippedItem`s to. An item whose record cannot be built
+    (malformed metadata, geometry that is not finite: any exception is contained to that item) is
+    left out, appended, and logged once per item and kind of failure (the exception's type) — not
+    once per edit. A `SkippedItem` is plain data a caller may keep: the item's id and kind, a
+    `SkipReason` CODE (`record_failed`, `duplicate_id`, `outline_unbuildable`,
+    `outline_too_large`, `out_of_range` —
+    a UI maps a code to a translated text; the value is never shown as it is), and the exception's type name and
+    message as strings. It never holds the exception: a traceback keeps its frames alive, and
+    they hold the scene and the item. The exception goes to the log, and the log is bounded in
+    volume as well as memory — after 2,048 different failures one line says that further ones
+    are not logged, and none are. A second item carrying an id already taken is skipped
+    the same way, with a warning; the lower one wins. Items left out by design (invisible,
+    without an object type, covering no ground, a roof ridge) are not reported. (An
+    out-parameter rather than a richer return type: a dict subclass carrying the report was
+    written first, and loses it in the first `dict(...)` or comprehension a later step applies —
+    the very silence the report exists to prevent.)
+13. **The truth principle: a beautiful wrong frame is a P0.** The contract is the gate table of
+    `ogp-lush-cinematic` §1, and from this story on each gate that does not need pixels is a test
+    a builder cannot pass by looking good:
+
+    | Gate | Where it is enforced now |
+    |---|---|
+    | Height: mesh top = resolved height | `verify_builder` (±1 % built, ±3 % plants, or absolute cm); default prism exact |
+    | Faces: the sun lights the face that faces it | `Mesh.validate` winding rule |
+    | Footprint / spread: the 2D footprint | golden fixture + `transform ∘ local == item_footprints` over every ring: ≤ 1e-6 cm vertex for vertex — except a polyline's stroke polygon, which matches to pyclipper's grid (≤ 3e-3 cm; its centre line to 1e-6) |
+    | Ground covered: the solid stands where the plan has something | `verify_builder` plan view (holes, overreach); default prism's cap area = footprint area |
+    | North / nothing mirrored | `frame.SCENE_TO_ENGINE` has determinant +1; one mapping |
+    | Sun: only `core/solar` | `SunState` carries angles, nothing art-directed |
+    | Date: the plan's sim date | `snapshot_records(scene, at_date)` feeds the 2D resolvers |
+
+    A builder reads plan data only through the record, so it has no way to tune a domain number.
+    The pixel gates (shadow IoU, sky azimuth, orientation) arrive with the engine in L1.2/L1.4.
+
+### Alternatives considered (rejected)
+
+- **Scene-space meshes at absolute positions** (the legacy collector and the spike). Every move
+  rebuilds a mesh, and float32 vertices lose precision far from the origin.
+- **Qt's item coordinates verbatim, no centring.** The same shape would give different records
+  depending on its history (after an undo that re-bases, a save and reload, a centred resize),
+  vertices would sit at plan-scale coordinates in float32, and a Model's pivot would be nowhere
+  near its item.
+- **Signatures as the only equality.** Refuted by the measured hash collision (decision 4).
+- **No quantisation.** Refuted by the ridge measurement (decision 5).
+- **A second, coarser grid for a HOUSE's ridge.** Built first, then measured as unnecessary: the
+  ridge dust stays three orders below the one grid. Removed.
+- **Carrying a circle's rotation, or the 2D stroke polygon of a polyline.** Both make the record
+  disagree with one of two truths. The 2D code inflates a polyline's centre line in *scene* space
+  on pyclipper's 1/1000 cm integer grid, so that polygon is not translation-equivariant: a record
+  derived from it would change on every move. The record inflates the centre line in the local
+  frame instead; the two polygons differ by that grid (measured 1.6e-3 cm), while the centre line
+  itself — what fences and walls are built from — agrees to 1e-7.
+- **Telling outer rings and holes apart by orientation alone, inside `footprints`.** It is what
+  pyclipper returns, and it is how the defect below happened: nothing in the type said that the
+  second ring of a closed fence is not a solid. A separate field makes the wrong reading a
+  deliberate act; `footprints` kept its name and type so that code written against the first
+  contract still reads the outer rings.
+- **Letting the snapshot raise.** One plant with `plant_species = {"scientific_name": None}` took
+  the 3D view of the whole plan with it. And **swallowing it silently**: the user would see a
+  plan with a hole in it and no one would know why — hence the `skipped=` report plus one log
+  line.
+- **Aborting the whole apply when a builder fails.** One broken archetype would freeze the 3D
+  view for the whole plan. Containment keeps the plan visible; running builders before the sink
+  keeps the transaction whole either way.
+- **A module-level registry filled at import time.** Import-order coupling between builder
+  packages; an instance handed to each package's `register(registry)` has none.
+- **Validating every mesh in production.** Linear in vertices on every build; it is an opt-in of
+  `SceneSync` and the default of `verify_builder`.
+- **A polar decomposition for non-rigid transforms.** It would keep rotation in the transform for
+  a scaled item — a case the app does not produce.
+- **A `QObject` sink or signals in `core/`.** Qt in the layer ADR-048 keeps Qt-free.
+
+### Consequences
+
+- New: `core/scene3d/{record,scene_diff,frame,mesh,polygon,sink,build,sync,color}.py`,
+  `ui/canvas/footprints.py`, `snapshot_records` in `ui/view3d/snapshot.py`. Moved:
+  `core/scene3d.py` → `core/scene3d/legacy.py` (minus the two shared functions, decision 1).
+  `sun_shadow_controller` keeps two underscore aliases for the two frozen test suites that import
+  them, until L1.10. The module that holds `diff` is `scene_diff`, so that
+  `open_garden_planner.core.scene3d.diff` is one thing — the function.
+- **The 2D shadow has the defect the 3D pipeline had, and this story does not touch it.**
+  `item_footprints` hands a closed fence's two rings to `compute_scene_shadows` as two solids, so
+  a 10 m × 8 m fence 1.2 m high shades 88.8 m² at a 60° sun where its stroke shades 17.5 m². The
+  golden footprint fixture pins `item_footprints` byte for byte, so the fix is a follow-up of its
+  own (PF-L3D-02 has the reproduction). Until it lands, 2D and 3D disagree ON PURPOSE for a closed
+  stroke and for a polygon that crosses itself: the 3D record is the stroke, or the resolved
+  regions; the 2D footprint is every ring as a solid, or the ring as drawn. That follow-up should
+  also move "resolve an outline" and "sort rings into regions" into one `core` function both
+  views call — today `ui/view3d/snapshot.py` is a second place that knows the clipper's scale.
+- No `.ogp` change, no `FILE_VERSION` bump, no user-visible string, no new dependency, no app
+  wiring (L1.3) and nothing rendered.
+- `SceneDiff` has a sixth field, `reordered`, beyond the five the issue names.
+- **A resize that keeps a corner fixed is geometry *and* transform** (the frame hangs on the
+  centre); a centred resize, a height change, a vertex edit inside the bounding box and a plant
+  growing with the date are geometry alone.
+- **A measured plant's drawn circle is not its footprint** — its canopy is, as in the 2D shadow —
+  so resizing that circle changes nothing in 3D.
+- A circle item's own rotation is not in the record. If round furniture ever needs a facing (L4),
+  it becomes a param.
+- ADR-048 (entries 5 and 6) expected L1.1 to measure the full edit-to-frame path (≤ 50 ms p95).
+  That needs an engine and moves to L1.2/L1.3. What L1.1 measures is its own share: a snapshot
+  takes 2.2 ms (98 records) / 9.6 ms (424 records) median against budgets of
+  15 / 60 ms, a diff 0.08 / 0.37 ms; a third of the snapshot is the shared height and
+  canopy resolvers.
+- **Open for later stories**: L1.2 implements `EngineSink` — all ten methods, `clear()` included —
+  and proves `engine_pose` against the engine (one geometry per Model lifetime); L1.3 owns the
+  debounced tick, sends sun and records in one `apply`, passes a `skipped=` list to the snapshot
+  and shows it and `SceneSync.failures` somewhere a user can find them, and calls `reset()` only after a sink
+  failure or a rebuilt engine scene — not on project load; L1.4 extends `SunState` with the look;
+  L1.5 extends `GroundSpec`, consumes `reordered` and paints `Record.regions`, not `footprints`;
+  L1.6 fills `transform.base_cm` from `parent_id` and registers built-world builders; L1.7
+  registers plant builders and adds a resolved "in season" param (it needs the plan's location,
+  which a record does not carry).
+
+### Validation
+
+- **`tests/unit/test_scene3d_contract.py`, `test_scene3d_frame.py`, `test_scene3d_mesh.py`,
+  `test_scene3d_polygon.py`, `test_scene3d_sync.py`** (Qt-free): the field groups of `Record`
+  (every field in exactly one), ring orientation, the hash collision in every value-bearing
+  field, all eight diff combinations, determinant +1 and winding, the legacy scalar mapping, one
+  failing mesh per defect class, triangulation with holes, the plan-view check, the sink
+  protocol, builder containment, sink poisoning, **recovery through the protocol only** (a sink
+  that fails on `add` / `update_transform` / `set_sun` / `commit`, then `reset()` and one apply,
+  compared with a from-scratch apply), a sink that ignores `clear()`, a registry that changes
+  late, and incremental == full rebuild over random edit sequences.
+- **`tests/integration/test_footprints_golden.py`**: 120 footprint cases with exact float reprs,
+  generated before the move, byte-identical after it.
+- **`tests/integration/test_scene3d_snapshot.py`**: the diff matrix over every footprint shape
+  through the app's own commands; `transform ∘ local == item_footprints` for every shape ×
+  rotation × position × pivot; the non-rigid rule; 1,000 moves of a ridged HOUSE; every bench-plan
+  record through `verify_builder`; 100 identical snapshots on both bench plans; a closed fence, a
+  nearly closed one and an open U (cap area = stroke area; walls face away from the solid; the
+  first default builder, reconstructed, is refused); a bow-tie house; one malformed item per
+  record field group; two items with one id; a house turned with its ridge; the four outlines of
+  the re-review, each with a ridge item; 7,500 random self-crossing outlines on three grids
+  (0 without regions, 0 the default builder cannot build, every mesh valid in float32, the ground
+  covered equal to the outline's winding-number raster); 4,500 random strokes the same way; two
+  outlines pyclipper itself misreads; a vertex placed twice; a height of 1e300, one just over
+  the bound and an infinite one, each through snapshot → `SceneSync` → an unvalidated sink.
+- **`tests/integration/test_scene3d_edge_plan.py`** over the third committed plan,
+  `tests/fixtures/plans/scene3d_edge_cases.ogp` (`scripts/make_scene3d_edge_plan.py`): the same
+  gates — 100 identical snapshots, every mesh valid with its cap area equal to the footprint's,
+  `transform ∘ local == item_footprints` over every ring — on the shapes the bench plans lack:
+  16 items, among them a closed fence, a ladder drawn as one stroke (four holes), a fence whose
+  ends stop 2 cm apart at a corner (closes) and one whose ends stop 6 cm apart (does not), and
+  a house whose outline crosses itself around a pocket.
+- **`tests/integration/test_scene3d_pipeline.py`** (§8.10): draw with the real tools, then move,
+  rotate, recolour, resize, select, delete, undo, redo — the exact sink calls and incremental ==
+  full rebuild after every step; the same on a real `GardenPlannerApp` with the sim clock; and
+  the diff matrix again as a table of 70 edit × shape cases through `SceneSync` and
+  `RecordingSink`, each with its exact sink calls and builder invocations.
+- **`tests/perf/test_scene3d_snapshot_budget.py`**: the snapshot budget.
+- **`scripts/mutation_check_scene3d.py`** — 180 single-rule breaks (mirrored frame, flipped
+  rotation, no grid, no value compare, colour baked into the mesh, a prism 1 % too tall, holes
+  ignored, `reset()` that clears no sink, a bad item that raises, a ridge with a record, a
+  resolved house that keeps its ridge, a reading of pyclipper's taken on trust, a hole given to
+  the island inside it, a height of 1e300 taken for a height …), each run against the tests that must notice. Not part of the suite
+  (it rewrites source files); run by hand after changing the pipeline or its tests. Every mutant
+  is killed — and "killed" means pytest ran the tests and one failed (exit code 1), not that it
+  exited with anything but zero. What CAN rot between two runs is in the suite
+  (`tests/unit/test_scene3d_mutation_script.py`): every pattern still matches its file exactly
+  once, and every test a mutant names exists.
+
+### What the first version got wrong (independent review, same day)
+
+Recorded because each of these passed every gate the story had set itself:
+
+- **A closed fence became a slab.** `footprints` carried the hole ring of a closed stroke, and
+  the default builder extruded it: 3.6 m² of fence turned into a solid over 81.8 m² of garden with
+  an inside-out inner wall. G4 compared ring by ring (both rings were "right"), G7 validated the
+  mesh (it was a valid mesh) and `verify_builder` checked the height (it was the right height).
+  No gate asked **how much ground the solid covers** — and neither bench plan contains a stroke
+  that closes on itself. The fix is decision 3 and the plan-view check of decision 9; the lesson
+  is the fourth row of the gate table and the third committed plan.
+- **Recovery could not be said through the protocol.** `reset()` forgot the sync's records but
+  touched no sink, so after a mid-transaction failure the next `begin()` raised "a transaction is
+  already open". The tests passed because they called the recording double's own `reset()` first —
+  a method no real engine has. The fix is `clear()`; the lesson is that a recovery test may only
+  use what the protocol offers.
+- **(Re-review, one round later.) "Simple rings a builder can always triangulate" was a
+  promise, not a fact.** The snapshot handed pyclipper's output on unchecked, and four HOUSE
+  outlines measured through `snapshot_records` showed what that is worth: one became a single
+  ring of ten vertices that passed for an ordinary house, with a ridge that belonged to another
+  shape; one an outer ring with a pocket the default builder could not cut; one a ring that
+  touched itself; one got no record at all — its hole started on the outer ring, and `group_rings`
+  asked a point test, documented as undefined on a boundary, who owned it. Every failure was
+  honest (reported, or a build failure) and every one contradicted a sentence other stories were
+  coding against. The fix is the predicate of decision 3; the lesson is that *a statement about
+  what a consumer may rely on is a gate to write, not a sentence to write* — and that "0 of N
+  random inputs" is a number a test can hold (N = 7,500 here).
+- **(Re-review.) And the tool the fix leaned on was itself wrong, twice.** Taking the ring
+  hierarchy from pyclipper's `PolyTree` — the ruling's own remedy — produced a solid piece handed
+  out as a hole, and the plain union produced an area 10 % short, both on outlines that retrace
+  an edge. Found only because the first attempt compared the result with an independent raster
+  of the drawn outline's winding number instead of with another call into the same library.
+  *When a library's answer is the thing in doubt, the check must not ask the library.*
+- **(Re-review.) A test written for this round found a defect of the first one.** The ladder the
+  reviewer drew to show a cost cliff also has vertices of five rings on one line; the cap had
+  thirteen triangles of zero area, wound downwards in float32, and `Mesh.validate` refused the
+  fence. No earlier test had a diagonal stroke crossed by others. (Decision 9.)
+- **(Fix round 3.) "No real stroke takes this path" was a count, not a proof.** The fallback
+  that resolves a stroke whose rings touch was reported as unreachable: 0 of 4,500 random
+  strokes took it. A fence drawn back to a point one stroke width beside its start has two
+  butt ends that meet corner to corner; pyclipper returns ONE ring that touches itself, and
+  every such fence takes the fallback (18 of 18 here, 15 of 15 the reviewer drew). With the
+  fallback replaced by "no regions", 694 tests and all 93 mutants of that round still passed.
+  It is pinned now through real items and in `scene3d_edge_cases.ogp` ("Fence that meets
+  itself": one ring of 20 vertices, 0.002 cm inside the drawn stroke, no flag — a stroke's
+  rings never were the drawn vertices, and what builds a fence reads `path`). *Random input
+  does not find a shape that needs two exact coincidences; ask what would make the branch
+  run, and draw that.*
+- **(Fix round 3.) A bound was added three times before it bounded.** See decision 9: a limit
+  judged after the work it was to prevent; a work bound on the largest element of a sum; and
+  then a budget — and inside the budget one quadratic priced by its size where its cost was
+  the pairs it had to look at. Each form passed its tests, because each test asked "is the
+  large thing refused?" and none asked "what ran before it was?". The tests that hold now
+  assert what was called, to the unit of the budget, and read no clock.
+- **(Fix round 3.) A mutant that breaks the collection is not a kill.** One mutant made the
+  test file fail while pytest collected it (the file sorts a ladder's rings in a
+  `parametrize` list): exit code 2, which the script reports as BROKEN — it was built to, since
+  round 2. Two further mutants of the first half of the round survived a run nobody had waited
+  for (the cut's own size check, shadowed by its caller's; the size check of
+  `triangulate_region`, shadowed by the budget running out twenty bridges later). All three
+  have a test now. *Run the mutation script before the report, not after it.*
+- **(Fix round 5.) The same defect, one call away.** Round 4 took the tree from the strict
+  union and left it on the plain one — eight lines above, in the same function, with a test
+  that pinned `("tree", False)` as EXPECTED. The fix was made for the call the review named,
+  not for the rule the review found. Now the rule is in the code's shape (one function makes
+  unions and cannot return a tree; one makes the band's tree), a test watches
+  `pyclipper.Pyclipper` itself below every seam, and the measuring script fails instead of
+  printing. *When a review finds a defect, fix the rule and then search for every other place
+  the same thing is done — the next one is usually within sight.*
+- **(Fix round 4.) The bound of round 3 had two holes, and the suite was green over both.**
+  A memory that drops the least recently asked answer recomputes the whole plan every tick
+  once the plan outgrows it; every test of round 3 used a plan far below the cap. And one call
+  of the clipper was priced by what came back while its cost followed how it was asked
+  (`StrictlySimple` as a tree). Both were found by a reviewer who built the input the
+  mechanism's own comment described as its limit. Now pinned by counting what an UNCHANGED
+  plan does on its second and third tick with the cap shrunk under it (zero cuts, zero
+  inflations), and by a clipper stand-in that records whether a strict union was ever asked
+  for a tree. *For a cache, test at the size where it is full; for a priced call, measure the
+  call, not its answer.*
+- **One malformed plant blanked the plan**, a roof ridge had a record that broke "rotate →
+  transform only", a late builder registration left stale geometry, and a clock tick took two
+  transactions. Decisions 3, 9, 10 and 12.
+
+### Addendum (L1.7, 2026-10-11): plant art v0 — one recipe table for 2D and 3D
+
+**Context.** What a plant looks like on the plan is a *recipe*: an archetype (`canopy`, `mound`,
+`rosette` … thirteen of them), a palette and a few numbers per species. The recipes lived in a
+script (`scripts/generate_plant_sprites.py`), the rule that picks a plant's sprite lived privately
+in `core/plant_renderer` (a Qt module), and the L0 spike had copied the palettes and kept a
+species table of its own, keyed by common name. A 3D plant built from a second table can disagree
+with the sprite on the plan about its shape or its green, and no test would notice.
+
+**Decision.**
+
+1. **The tables have one home: `core/plant_art/recipes.py`** (standard library only). `PALETTES`,
+   `FRUITS`, `FLOWERS`, `SPECIES` and `CATEGORIES` were sliced out of the script by line, not
+   retyped; the script executes that file by its path and keeps the drawing code — by path, so
+   that it still needs nothing but the standard library (importing the package by name runs
+   `core/__init__.py` and with it PyQt6) and cannot be led to another checkout by an editable
+   install. Its output is byte-identical to the committed blobs over all 123 SVGs (5,833,889
+   bytes) before and after. The one palette that was a literal
+   in the drawing code, the hedge's, became data too (`HEDGE_PALETTE`).
+2. **The resolution is one function: `core/plant_art/resolve.py::resolve_sprite(kind, species,
+   category, available=…)`** — the 2D rule extracted, with the sprite maps it reads.
+   `plant_renderer._resolve_svg_path` calls it and asks "does the SVG exist?"; the 3D
+   builder calls it and asks "do the tables hold a recipe?" (the two sets are the same 123 names,
+   pinned). It is held to a golden of 1,562 answers — **regenerated from the rule when the rule
+   changed** (#446, below) — and, with sprite files missing, to a statement-for-statement copy of
+   the rule in the golden's generator (`scripts/make_sprite_resolution_golden.py`), which also
+   keeps the rule it replaced as `legacy_resolve` for the before/after. A species the canvas
+   draws with a category sprite gets the category's recipe in 3D.
+   **Both callers hand it the same inputs** (orchestrator ruling R14): the item's type, its plant
+   category and the item's OWN species string exactly as it is. The record carries that string
+   for this purpose as `params["sprite_species"]` (`PARAM_SPRITE_SPECIES`: `item.plant_species`,
+   not stripped; absent when empty). `species_name` and `species_key` stay in the record and
+   describe the species DATA. **A species assigned from the plant database writes the item's
+   string** (#445, below), so the assigned species is the one both views draw and build.
+3. **One builder for the plant kinds, one silhouette per archetype**
+   (`core/scene3d/builders/plants.py`, registered for `plant_art.PLANT_KINDS` — the table
+   `plant_renderer.is_plant_type` answers from). Every archetype of the tables has a builder; a
+   recipe with an unknown one raises, so a new 2D archetype fails a test instead of borrowing
+   another one's shape. v0 is a few soft volumes and a shell of large geometric leaves: at most
+   2,000 triangles a plant, bounded per archetype and by construction — counts are clipped
+   functions of recipe numbers, never of the plant's size.
+4. **Builders build to the data; the fit normalises the last millimetre and reports it.** A
+   builder works at the plant's real height and radius and keeps to them: every archetype places
+   its highest point AT the height; shell leaves are set by the lobe's own surface normal and stay
+   inside the plant's cylinder by turning (lying down without headroom, quarter turns at the
+   canopy circle), never longer than 0.6 canopy radii; bow, ripple and fold of a folded leaf are
+   held to the height; a volume on the ground has no flat sole. `_fit` then pulls back what still
+   strays beyond the canopy circle, centres the foliage on it (a trunk's foot stays on the plan
+   position), presses what dips below the ground onto it, scales so the top is `height_cm` and
+   the widest span the canopy diameter — exact to float32 — and, LAST, puts whatever FOLIAGE is
+   still further than 1.09 canopy radii from the axis onto that circle (`REACH_MAX`, `_rein_in`:
+   a vertex keeps its larger coordinate, so the widest span stays exact). Each earlier step
+   undoes a little of the one before, so none of them says where a vertex ends; the last one
+   does, for any builder output — for the foliage the story's gate (nothing more than 10 %
+   outside the canopy circle) holds by construction, not by a sample. Wood is not moved (a
+   flat-shaded face would keep a normal that is no longer its own); for the plant the gate rests
+   on an invariant of the trunk builders — foliage is the outermost part: a trunk is built within
+   0.32 canopy radii of the axis — which the tests hold for every recipe at every proportion
+   step. It RETURNS what all of that took (`FitReport`;
+   `fit_report()` for a built plant), including where the plant ends and whether the last step
+   moved anything (3 plants in 63,099). The bounding box is the gate the issue names;
+   the report and the foliage's area-weighted height quantiles are what make it mean something,
+   because the box is exact for anything the fit is given. For the plan view to be honest as
+   well, the elements that draw a plant's outline are regular (`_RIM_REACH`, `_RIM_JITTER`): with
+   outlines of any reach at any angle a fitted plant left its canopy circle by up to 39 %. A
+   plant is never *lifted* to put its lowest vertex at zero — that made a cushion float on one
+   hanging leaf (PF-L3D-01).
+5. **Foliage colours come from the recipe's palette alone, and their balance from the sprite.** A
+   vertex is an sRGB mix of the palette's base anchors and tip anchors, in linear light times a
+   hue-neutral depth shade. The mean tip weight of a plant is a constant per archetype, measured
+   from the rendered sprites — a palette spans up to 41° of hue between its anchors, and where a
+   sprite's foliage sits in that span is decided by its drawing code. Wood has no colour in the
+   plant tables (a top-down sprite shows no trunk): v0 takes the mean colour of the 2D BARK fill
+   texture in linear light, `#5d432d`, pinned against the PNG.
+6. **v0 makes no seasonal claim.** No fruit, flowers, pods, umbels or bulbs (`FEATURE_KEYS`), no
+   curd on the `head` archetype and no flower head on the `flower` archetype: the season gates
+   need the plan's frost dates, which a record does not carry. A recipe stripped of those keys
+   builds the identical mesh (pinned). "In season" is therefore **not** added to the record by
+   this story; it arrives with Package L3.
+7. **A plant without a height gets a placeholder, never a guess.** `height_cm is None` — no
+   species data, no measurement, no typed height — builds one part: a smooth spherical cap over
+   the canopy circle (48 sides: the rim covers 99.7 % of it), `min(0.12 × diameter, 25 cm)` high,
+   in the 2D white × 0.5 in linear light (sRGB 170 / 167 / 158), material `vc`,
+   `casts_shadow=False`, the same for every item.
+8. **Seed.** `core.scene3d.item_seed(record.params["seed"], "plant")`, the function L1.1 ported;
+   no second one. `core/plant_art` does not re-export it — that would make the package import
+   numpy. Builders draw uniform numbers only (`Generator.random`), from a generator named by its
+   bit generator — `Generator(PCG64(seed))`, not `default_rng(seed)`, whose bit generator numpy
+   may change: every plant of every plan would change its shape. A plant's dice depend on its id
+   alone, never on its proportions: a count that follows the proportion (a conifer's three to
+   six whorls) rolls the dice of all it could have, so a plant that grows a step changes
+   proportion, not form.
+9. **A shape is built once and scaled.** `build_silhouette` builds a shape per (recipe form,
+   seed, proportion step) and remembers it; the plan's exact height and radius are a scale of the
+   remembered shape. The proportion (height over canopy radius) is rounded to a whole power of
+   1.05 for the BUILD only, so the size is never misstated (the scale is exact) and the form is
+   stretched by at most 2.5 % in one axis. The cache is bounded in BYTES (`SHAPE_CACHE_BYTES`,
+   256 MB — about 3,500 average plants), not in a count, so it follows the plan; at the cap a new
+   shape gets room only from shapes nobody asked for since it was last asked for, so a scrub over
+   more plants than fit rebuilds the overflow and not everything (a least-recently-used cache of
+   1,024 shapes rebuilt all 1,025 growing plants on every tick). The price, at the cap only: a
+   shape that was dropped comes back in two builds — going back to a dropped plan costs two cold
+   ticks, a backward scrub at the cap twice the forward one — which `clear_shape_cache()` on
+   plan close avoids; the request log behind the rule (65,536 keys, 15–21 MB) is outside the
+   cap. GUI thread only; untested under threads. It holds arrays on immutable
+   memory, and its key is the very object a builder is handed as its recipe — a builder cannot
+   read a recipe key the key lacks. The builder stays a pure
+   function of its record. A daily date scrub of 320 plants is then 15 ms where it was 342 ms
+   (busy machine); a first build is as slow as before and is L1.3's to schedule.
+
+**Alternatives rejected.**
+
+- **Copying the tables into the 3D code** (what the spike did). Two tables drift; the spike's copy
+  is now drift-guarded against the shared one until it retires in L1.10.
+- **A better resolver for 3D** — keyed on `species_key`, without the partial match. It would be a
+  second rule: "Lemon Balm" takes the lemon tree's sprite in 2D (`"lemon" in "lemon balm"`),
+  "Melon" the eggplant's, and a 3D view that knew better would show a different plant than the
+  plan. Fixing the 2D rule changes sprites users see and is its own issue.
+  *(Superseded by #446 — see "the species name is a whole name, and the assignment writes it" below:
+  the rule was fixed in ONE place, and it is the same rule the 3D builder asks.)*
+- **Scaling the farthest vertex onto the canopy circle** instead of fitting the bounding box. The
+  box then spans as little as 72 % of the canopy diameter (measured, feathery), outside the ± 10 %
+  spread gate. Bounding-box fit plus regular outlines keeps both — and the fit's last step
+  makes the second one a fact: box exact, no foliage vertex beyond 1.09 canopy radii, by
+  construction (and no wood either, by the trunk builders' radii — decision 4).
+  (For one round that bound was a measurement, "at most 9.2 % over 117,000 builds", stated as a
+  limit; one id in 300,000 read 10.06 %.)
+- **Pulling a stray vertex straight toward the axis** as that last step. It shortens the
+  bounding box when the vertex is the box's extreme — the spread would be exact only when
+  nothing was moved. Keeping the larger coordinate keeps the widest span whatever is moved.
+- **Stating where the foliage's mass is as a requirement.** It is a property of thirteen forms at
+  171 proportions; enforcing a floor per archetype would mean designing the forms to the floor.
+  It is stated as what it is — measured, with its sample — and held by a tripwire.
+- **Resolving the 3D recipe from the species data** (`species_name`, as the first version did,
+  or `species_key`). The data's name is not the string the plan draws from: a gallery "pumpkin"
+  carries the bundled record "Winter Squash" and was built as a squash; a species assigned from
+  the plant database changes the data and not the string. One rule on two inputs is two rules.
+- **Squashing an over-tall plant into its height** (what the first fit did). Exact bounding box,
+  wrong plant: its body ends where the squash factor puts it. See "what the first version got
+  wrong".
+- **Rebuilding a plant on every date tick.** 218 ms per daily tick for `bench_large` on a busy
+  machine (the reviewer's measurement), every tick, on the GUI thread. A proportionally grown
+  plant is the same shape scaled; decision 9.
+- **A build budget in milliseconds on a shared machine.** The same build is 3.5 times slower
+  with every core busy, in CPU time as much as in wall time. The budgets are stated in units of
+  a reference workload timed alongside, and the counts that cause the time are asserted —
+  exactly for a first build and a cold tick, as a bound (10 % of the plants that changed;
+  measured 1.1–1.6 %) for a warm one.
+- **A least-recently-used cache of N shapes.** It has a cliff at N + 1 growing plants (decision
+  9), and N is a guess about plans. A cap in bytes with an admission rule has neither.
+- **Checking the foliage hue against the palette's entries.** The palette is what the builder
+  mixes from — the check would test the mixing against itself. The reference is the sprite as
+  QSvgRenderer draws it: the shipped SVG minus the same sprite with a black palette is exactly
+  the ink that depends on the palette (source-over compositing is linear per layer), so fruit,
+  flowers and shadows cancel without a hand-made mask.
+- **A box for the hedge section.** The record is a circle, and a circle has no heading; a box's
+  orientation would be invented. It is a hand-clipped drum.
+- **Building the curd and the sunflower's head.** They are flower heads; see decision 6.
+- **A leaf-green or item-tinted placeholder.** It reads as a low plant. The neutral tone has a
+  third of the saturation of the palest real foliage (0.07 against 0.21). The 2D white × 0.7 —
+  the spike's rule for a sun-lit white, made for an upright trunk — rendered a dome that faces
+  the noon sun at luma 232 through the spike's engine: unclipped, and the brightest thing in the
+  garden. × 0.5 is a judgement, not a measurement of the production rig; the look pass decides.
+- **Species-specific crowns and bark** (the spike's `CANOPY_FORM`, the white birch). Not in the 2D
+  tables; Package L3.
+
+**Consequences.**
+
+- New: `core/plant_art/{__init__,recipes,resolve}.py`, `core/scene3d/builders/plants.py` (and a
+  one-line `builders/__init__.py`; L1.6 owns the real one and its registry factory calls
+  `plants.register`). Changed: the sprite generator (loads the tables by path, two palette
+  defaults), `core/plant_renderer` (derives its three maps, calls `resolve_sprite`),
+  `core/scene3d/record.py` (`PARAM_SPRITE_SPECIES`) and `ui/view3d/snapshot.py` (writes it). New
+  scripts: `make_sprite_resolution_golden.py`, `measure_plant_art_3d.py`,
+  `mutation_check_plant_art.py`. No `.ogp` change, no `FILE_VERSION` bump, no user-visible
+  string, no new dependency, nothing wired into the app.
+- **3D builds what 2D draws — including what 2D draws oddly.** A plant given a species from
+  the plant database (`ApplySpeciesCommand` writes the data and leaves the item's string) keeps
+  its old sprite on the plan, and so its old shape in 3D, at the new species' size. That was
+  recorded as a known gap between the views in the first version (3D built the new species); it
+  is now one behaviour, and a 2D question: should the sprite follow an assigned species?
+  Follow-up issue material, with the partial-match quirks below — not a 3D matter.
+  *(Superseded by #445 — see "the species name is a whole name, and the assignment writes it" below:
+  the assignment now writes the item's string, so the sprite DOES follow the assigned species, in
+  both views.)*
+- **One 2D input is NOT followed: the item's fill colour.** The canvas lays it over a plant's
+  sprite at 60 / 255 opacity; 3D foliage is the recipe's palette alone, so a recoloured plant
+  differs in hue between the views and a recolour changes nothing in 3D. The hue gate's
+  reference is the untinted sprite. An owner question for the look pass (§8.29.7).
+- **The resolver's quirks are visible in 3D.** Lemon Balm (90 × 60 cm) is built as a `canopy` —
+  a trunk and a crown 90 cm tall — because that is the sprite the plan shows; "Melon" takes the
+  eggplant's recipe, "Bean (Bush)" a climber's, a string of blanks the rose's. Twelve of the 118
+  bundled species have no sprite of their own and take their item type's category.
+  *(Superseded by #446 — the melon and a string of blanks no longer take those sprites; "Lemon Balm"
+  and "Bean (Bush)" still do, and that residue is pinned in the unit test.)*
+- **Many plants are placeholders until someone says how tall they are.** A category plant from
+  the gallery ("Round Deciduous", "Palm" …) has no species data and so no height: the 2D shadow
+  model casts none for it either. A typed height, a measured one or a species turns the marker
+  into the plant. The same holds for a plant whose species string names one of the twelve
+  SPRITES the bundled database has no species for (squash, turnip, arugula, chard, okra,
+  tarragon, lemongrass, marjoram, bay laurel, stevia, sorrel, lovage): its own sprite on the
+  plan, a grey disc in 3D. The gallery offers none of them (all 86 gallery species have a record
+  and a height); they come from plant lists, older plans, an agent or a typed species.
+- **A sprite's tuning numbers move its 3D plant.** `leaf_scale` and `n_out` were tuned for the 2D
+  drawing and are read by the 3D builders (within clipped ranges). `core/object_height` and
+  `agent_api/creates.py` keep their own lists of the plant kinds; both are drift-guarded.
+- One bark for every species (a birch is brown); a climber stands without its support; a
+  `hedge_section` is a drum; sweet corn is a fountain of blades (its 2D archetype is `allium`).
+- **Open for later stories**: L1.2 shows the parts (`foliage`, `vc`); L1.4's wind reads
+  `uv.x` (0 at the ground, 1 at the top) and `uv.y` (phase); L1.6 stands plants on their bed and
+  replaces `builders/__init__.py`; the combined look-dev pass renders the Beauty Board and the
+  3D reviewer judges it — nothing here was approved by its author.
+
+**Evidence.**
+
+- **`tests/unit/test_plant_art.py`**: the package imports the standard library only; the
+  generator executes the package's `recipes.py` and runs with PyQt6 and numpy blocked; the
+  renderer holds the package's maps; `resolve_sprite` equals the 1,562 golden answers under each
+  availability rule, the golden is what its generator writes, and old rule, new rule and
+  renderer agree with sprite files missing; a plant whose sprite file is missing is painted with
+  the next sprite in line; plant kinds, category names and recipe keys cannot drift; the spike's
+  palette copy equals the shared table. `tests/unit/test_plant_sprite_conformance.py`
+  (unchanged) regenerates all 123 SVGs.
+- **`tests/unit/test_scene3d_plants.py`**: all 123 recipes × EVERY proportion step (171, from
+  1 : 50 to 80 : 1; a different id in every cell — 21,033 plants) and × six real sizes × 5 ids
+  through the pipeline's builder, and nine extreme sizes × three recipe forms per archetype.
+  Asserted for every one: height, spread and base exact, no foliage vertex beyond 1.09 canopy
+  radii (by construction — and the same for 500 hostile point clouds handed to the fit itself)
+  and no wood vertex beyond 0.5 (the trunk builders' invariant). A size outside a micrometre …
+  10 km is refused with `ValueError`; the corners of that range build an exact plant. Measured,
+  as tripwires with stated headroom (`scripts/measure_plant_art_3d.py truth`: 63,099 plants):
+  the builder's own top 1.0000 of the height before the fit; nothing pressed onto the ground;
+  at most 2.18 % of the foliage vertices pulled back onto the canopy circle from at most 1.085
+  radii; foliage area quantiles per archetype; no ground-flat triangle; at least six vertices
+  on the ground. Triangles at most canopy 1,904, mound 1,608, climber 1,352, grass 1,120, ground
+  1,092, hedge 900, feathery 792, conifer 664, rosette 560, allium 470, head 400, palm 356,
+  flower 316. The foliage hue
+  within 10° of the rendered sprite for all 123 (worst 5.0°), and the tip weights re-derived
+  from the sprites. Same record → same mesh, built twice from nothing, every archetype. Two ids: twelve ids a recipe, no pair
+  above 0.985 (measured over 30 ids: maximum 0.975, 99 % of 53,505 pairs below 0.952). The fit's
+  report against hand-made plants. The shape cache: exact scale, exact size at 600 random
+  sizes, shared arrays that cannot be made writeable, a key that is the builder's only view of
+  a recipe, and its behaviour AT its cap (0 rebuilt), one plant past it (1 per tick) and far
+  past it (the overflow). A plant one proportion step on is still itself. The
+  placeholder; wind weights; `verify_builder` throughout.
+- **`tests/integration/test_scene3d_plants.py`** (§8.10): fifteen plants planted through the real
+  drop and tool paths, two dates, exact sink calls; ALL 100 gallery plants and all 222 species
+  strings (and the odd ones) drawn and built from the same sprite, through the real scene and
+  `snapshot_records`; a species assigned from the plant database.
+- **`tests/perf/test_scene3d_plants_budget.py`**: both bench plans — 61 plants 68,402 triangles,
+  320 plants 291,652; June → December reaches the sink as 29 / 80 `replace_geometry` calls and
+  nothing else; a first build, and a daily scrub tick warm and cold, in milliseconds and in
+  units of a reference workload (the numbers: §8.29.7); a warm tick holds what a cold build
+  holds.
+- **`scripts/measure_plant_art_3d.py`** prints every number above (`truth`, `reach`, `growth`,
+  `clones`, `shapes`, `scrub`, `cache`); **`scripts/mutation_check_plant_art.py`** breaks one
+  rule at a time on a copy of the tree: 94 mutants (73 before the second review, 87 before the
+  third), every one killed — a kill being pytest's exit code 1 with a named FAILED test, held
+  by `tests/unit/test_plant_art_mutation_script.py`. (Its first run on the reworked builder, in
+  the first fix round, killed
+  72: the survivor — the fit no longer sets a hovering plant down — showed that no builder hovers
+  any more, so that safety net was exercised by nothing; the fit-report test now asserts it. The
+  run before the review, 45 mutants, had found the placeholder's round rim unpinned the same
+  way.)
+
+### ADR-059 addendum: the species name is a whole name, and the assignment writes it (#446, #445)
+
+**Context.** The "plant art v0" addendum above extracted the 2D sprite rule as it stood, quirks
+included, and the alternative it rejected there was explicit: "a better resolver for 3D - keyed on
+`species_key`, without the partial match ... Fixing the 2D rule changes sprites users see and is
+its own issue." That issue is #446, and it is now decided. The rule matched a species name by
+asking whether a key was CONTAINED in the name, or the name in the key - which is not a name
+match: "Melon" took the eggplant's sprite ("melon" is inside "solanum melongena"),
+"Petroselinum crispum" took the rose's, "peach_tree" took the pea's, and a string of blanks
+took the rose's (the empty string is inside every key). A second, quieter half of the same
+defect sat next door (#445): a species assigned from the plant database wrote the RECORD
+(`metadata["plant_species"]`) and not the item's own species STRING, and the string is what the
+resolver reads - so a plant assigned "Oak" kept the generic tree sprite in 2D and was built as a
+tree in 3D.
+
+**Decision.**
+
+1. **A species name is matched as a whole name or alias, in three steps**: the whole name; else a
+   key whose every word is a word of the name ("Broad Bean" -> bean, "Winter Squash" -> squash);
+   else a key that holds every word of the name ("Solanum" -> tomato). A name no sprite knows
+   falls back to the plant's CATEGORY sprite. The whole-name-only rule the issue proposed was
+   MEASURED first and rejected: it changes 266 of the golden's 1,562 answers over 110 distinct
+   names, and most of those are regressions - "Quercus robur", "Broad Bean", "Sweet Corn" have no
+   exact key and would fall back to a generic sprite. The rule that shipped changes 74 answers
+   over 37 names, and of the bundled species' 118 names exactly ONE changes - the melon, which
+   was drawn as an eggplant. The rule stays ONE rule, shared by the 2D renderer and the 3D plant
+   builder, and the golden is regenerated from it; the rule it replaced is kept as
+   `legacy_resolve` in the golden's generator, which prints the before and after
+   (`--legacy-diff`).
+2. **What the fix does not do, stated here rather than left to be discovered**: "Lemon Balm",
+   "Bean (Bush)" and "Sweet Potato" still take a fruit or vegetable sprite, because their names
+   contain a whole word that is another plant's name ("lemon", "bean", "potato"). A curated
+   alias table would fix them; the owner declined it, and the residue is pinned in
+   `tests/unit/test_plant_art.py` so that a later change to the rule has to say so.
+3. **An assignment writes the item's species STRING**, so the plant is drawn - and built - with
+   the species it was assigned. The string is the plant's own name: the gallery writes it when the
+   plant is created, and an assignment replaces it with the name of the species assigned (the
+   record's common name, or its scientific name when the common name names no sprite). The
+   record's DATA and the string can still differ - a gallery "Pumpkin" carries the data of "Winter
+   Squash" while its own string is "pumpkin" - which is exactly why the resolver reads the string
+   and never the record's name. The string is written inside the same `ApplySpeciesCommand`, so
+   the record, the spacing override, the footprint radius and the string revert together in one
+   undo step.
+
+**Alternatives rejected.**
+
+- **Whole-name-only** (the issue's own proposal): measured above - 266 answers over 110 names, and
+  most of those regressions. A rule that is right for "Melon" and wrong for "Quercus robur" is not
+  a rule.
+- **A curated alias table** for the residue ("lemon balm" -> herb, "bean (bush)" -> vegetable):
+  it fixes the last three cases exactly, at the price of a hand-maintained table that can rot and
+  a second place where a name has to be taught. The owner declined it; the residue is pinned
+  instead.
+- **Resolving the sprite from the record's data name** (never writing the string): the item's
+  string and the record's name are different things - a gallery "Pumpkin" carries the data of
+  "Winter Squash" - so the record's name would draw the wrong plant, and the 2D/3D contract of
+  "the item's own string, exactly as it is" would be lost.
+
+**Consequences.** The 2D and the 3D view answer the same question the same way, and a species
+assigned from the database is the species the plan shows - in the plan and in the 3D view alike.
+The golden is no longer an independent oracle (it is regenerated from the rule), so the rule is
+held by the mutation script instead: `scripts/mutation_check_plant_art.py` breaks one rule at a
+time, and four new mutants pin the three matching steps and the normalisation of the name.
+
+**Evidence.** `tests/unit/test_plant_art.py::TestTheNameIsMatchedAsAWholeName` (the rule and the
+residue), `tests/integration/test_apply_database_species.py::test_the_assigned_species_is_the_sprite_the_plant_is_drawn_with`
+(the assignment, through the real panel), `tests/integration/test_scene3d_plants.py::test_a_species_assigned_from_the_database_is_built_as_the_canvas_draws_it`
+(2D and 3D agree), `scripts/make_sprite_resolution_golden.py --legacy-diff` (the before and
+after), FR-PLANT-ART-05, FR-PLANT-21, PF-DOM-26, PF-DOM-27.
+
+
+### What the second review found (same story, the fix round's own claims)
+
+- **A sample's maximum, dressed as a guarantee — again, one level down.** The requirement said
+  "no part more than 10 % outside the canopy circle" on the strength of a maximum over 117,000
+  builds (1.092); one id in 300,000, at a proportion the sample did not hold, read 1.1006. It
+  said the foliage's mass reaches "62–87 % of the height"; a rhubarb half as tall as wide read
+  60.3 %. The reach is structural now (decision 4), the mass is stated as a measurement, and the
+  tests sweep every proportion step instead of six sizes (§8.29.7, §8.10.6).
+- **The shape cache had a cliff** at 1,025 growing plants (decision 9), **made the determinism
+  tests vacuous** (a warm second build is a look-up: they passed with unseeded dice), and
+  **handed out arrays whose read-only flag could be switched back on** — damage that every later
+  build of that plant would then carry.
+- **"A growing plant re-rolls its form at every step" was NOT so** — measured, a plant one step
+  on is 0.99 … 1.00 itself against 0.71 … 0.92 for another id — except the conifer at the steps
+  where it gains a whorl (decision 8).
+
+### What the first version of the plant art got wrong (independent review, same day)
+
+Recorded because each of these passed every gate the story had set itself (the entries with
+their measurements: PF-L3D-01).
+
+- **A squash was built 1.6 times too tall and squashed back.** The height gate compared the
+  mesh's top with the plan's height after a fit that scales the top onto the height: it could
+  not fail. Shell leaves faced along the ray from the plant's heart instead of along the lobe's
+  surface, so on a flat plant they stood on edge; at 15 × 800 cm nine archetypes were 3.5 to 11.6
+  times too tall. The test matrix scaled height and spread together and never saw another
+  proportion. Decision 4, and the fourth test pattern of §8.10.6.
+- **"2D and 3D agree for every plant from the gallery" was false.** The builder resolved from the
+  species data's name; the canvas resolves from the item's string. Checked for 11 of 86 gallery
+  species. Decision 2 (ruling R14).
+- **The renderer's missing-file fall-through was pinned by nothing** — dropping it survived
+  3,048 tests, because the shipped sprite set is complete. Decision 2's differential.
+- **The generator needed Qt for the first time**, the no-clones gate was five fixed ids, the
+  build budget was six times a quiet median with no scrub tick timed, and a daily scrub rebuilt
+  every growing plant. Decisions 1, 8 and 9, and §8.29.7's numbers.
+
+### ADR-059 addendum: builders v0 — the built world (Phase 17, L1.6)
+
+**Status**: Accepted (2026-10-11, #385 story L1.6); amended the same day after the senior
+review's first round (decisions 5, 7 and 9, the first consequence and its table) and after its
+second (the table's reach column and what replaced a false sentence about shadow tips; the
+conditions of three stated bounds; the run-time warning for an unknown style). Nothing is
+rendered by this story either: the builders are judged by numbers on `Mesh` and `RecordingSink`;
+the look is judged later, by the combined look-dev pass and the independent 3D reviewer.
+
+**Context.** Decision 9 left every kind on the default prism. The L0 spike has builders for
+buildings, fences, walls, beds and hedges (`spike_q3d/meshes.py`), measured and owner-signed, but
+they build at absolute scene positions, take their colours from literals, handle convex footprints
+only, and correct their heights with a fit after the fact.
+
+**Decision.**
+
+1. **A package of pure builders**, `core/scene3d/builders/`, one module per family with a
+   module-level `register(registry)`; `production_registry()` returns a fresh registry holding all
+   of them — and the plant builder: it calls `plants.register(registry)` (L1.7) after the built
+   world's `register`; a test holds that no kind belongs to both families and that each of the
+   15 kinds resolves to its own builder. The built world's kinds: `HOUSE`, `GARAGE_SHED`,
+   `TOOL_SHED`, `FENCE`, `WALL`, `RAISED_BED`, `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND`,
+   `GARDEN_BED`, `HEDGE_SECTION`, `HEDGE_POLYGON`. Every other kind keeps the default: paths,
+   lawns and ridge items have no height (ground); furniture, glass, water and pergolas are L4.
+2. **The top is the height, by construction.** Every builder shapes its item FOR a height and its
+   highest vertex is that height to the float32 — posts are the top of a fence, the ridge tile's
+   apex the top of a house, a pot's rim the top of a pot, the highest leaf of a hedge is put on
+   its trim line. `fit_parts` (one z-scale for all parts, the spike's `fit_height`) stays as a
+   safety net, and a test asserts every builder's fit scale is 1.0 ± 1e-6 over the whole matrix.
+   The spike's builders decorated first and fitted afterwards; a fit hides a builder that is
+   wrong.
+3. **No height, no shadow.** `BuiltBuilder` wraps a shape function `(record, height) -> parts`:
+   an item the plan gives no height is built at its kind's nominal height — ASKED of the 2D
+   height resolver (`effective_height_cm(kind, None)`), never a table of kinds of its own — as
+   decoration, every part `casts_shadow=False`. A kind without a nominal height (an in-ground
+   bed) gets no solid. (Honestly: this path is almost never taken. The snapshot already resolves
+   a height for every registered kind but `GARDEN_BED`, so only hand-made records reach it.)
+   *Superseded for 3D by the owner in L4 (ADR-065, "Owner's manual pass"): what is built
+   casts in 3D; the 2D sun study keeps "no height, no shadow".*
+4. **A gable roof is two planes through the ridge LINE** (`roofs.gable_roof`):
+   `z = top − cap rise − slope·|distance to the line|` over the footprint grown by the overhang.
+   That is the model the 2D canvas paints (`_paint_with_ridge` splits the polygon along the
+   infinite line), so it holds for concave footprints and for a ridge the user dragged. The walls
+   are one trapezoid per footprint edge — split where an edge crosses the line — up to the slab's
+   underside, so gable ends need no special case. **The ridge is consumed, never derived**
+   (ADR-046): `params["ridge"]` is the live ridge item's ends; a HOUSE without a usable one is a
+   plain block. The ridge tile's apex line lies ON that line and runs to the roof's edge:
+   `overhang / cos θ` beyond a ridge end whose wall it meets at θ, exactly the 30 cm overhang
+   where it meets the wall squarely. Sheds have no ridge item; theirs is the long axis of the
+   bounding box **aligned with the footprint's longest edge**, in the item-local frame.
+5. **Polylines are built from the centre line** (`record.path`, `record.path_width_cm`), segment
+   by segment, never from the stroke outline in `record.footprints`: a fence round a garden is a
+   closed loop, and its record holds the stroke's OUTER ring in `footprints` and the garden it
+   encloses as a hole in `holes` (decision 3 of this ADR, as corrected). The outer ring taken for
+   the fence's shape lays a slab over the garden; `verify_builder` refuses any solid that covers
+   more than half of a hole, and every line solid is held to it on loops the size of a garden
+   (the matrix's 8 m × 6 m loop, a nearly closed one and one with a 30° corner, in every style:
+   a post fence or a plain panel covers ≤ 3 % of the hole, a wall or hedge ≤ 30 %). **The
+   default bound does not fit a SMALL loop of a thick line.** A wall's section reaches 19 cm
+   either side of its centre line where its stroke reaches 2, so of the 96 cm hole a 1 m square
+   loop encloses it covers a 17 cm strip all round — 56 % measured — and the default refuses the
+   production builder's own, correct solid. Such a loop is verified with an explicit
+   `hole_cover_limit` and the reason (pinned at 0.65 for a 1 m loop; from 1.5 m on the default
+   holds). The contract's gate also has a size floor (`build.HOLE_MIN_WIDTH_CM`, 10 cm — a hole
+   narrower than that is not judged): the OTHER end of the range, a 12 cm loop of wall being one
+   solid block that passes. **Measured for square loops at 1 cm steps of the side (6 – 200 cm),
+   the default refuses: a WALL 15 – 120 cm, a stone-wall fence 16 – 118 cm, a hedge fence
+   19 – 111 cm and again at 114 cm** — the gate samples the hole on a coarse grid, so its
+   reading moves in steps (0.83 / 0.66 / 0.56 / 0.44 for a wall) and its verdict is not
+   monotonic at the edge of a range. (Earlier versions of this paragraph printed readings taken
+   at 10 cm and 2 cm steps as if they were exact.) A closed
+   centre line is swept as a loop. **A builder that needs
+   one simple outline checks that it has one**: one outer ring, no hole, and not
+   `params["outline_resolved"]` — the contract's flag for a polygon drawn crossing or touching
+   itself (`common.has_one_plain_ring`). Every other polygon-footprint record is built as
+   `common.plain_block` — ALL regions, holes cut out — and that same function is every fallback
+   block (a house without a usable ridge, with a ridge off the building, too low for a roof), so
+   none of them takes `footprints[0]` for the whole (the first cut's house block extruded
+   `footprints[:1]`). **The flag decides, not the ring count**: a resolved outline may be one
+   plain ring, and until the flag existed such a HOUSE kept a gable roof. It is the block now —
+   for every polygon kind, because a resolved ring can come within 0.002 cm of itself and no
+   frame, inset or overhang is offset from that; and for a HOUSE also when a ridge IS handed in
+   (the snapshot hands none on for a resolved outline; the builder does not rely on it). **What a line becomes is decided in ONE place**, `builders/lines.py`,
+   from its kind and style; `fences.py` and `walls.py` are geometry only and do not import each
+   other. A `FENCE` without a style is the default fence (posts, rails, pickets); a `WALL`
+   without one is the wall; one of the five fence styles is that style whatever the kind. **A
+   style no builder knows — a path style on a fence, or a fence style added to
+   `PATH_FENCE_STYLES` later — is a plain panel**: the stroke as wide as it is drawn, up to the
+   height, exactly the solid the 2D model casts. The first cut turned it into a picket fence
+   without a word. A new fence style is caught before that: the mirror `fences.FENCE_STYLES` is
+   pinned against the 2D table's "fence" category by a test. **And the fallback is not silent
+   at run time:** the first build of a line in such a style writes ONE warning to the
+   application's log per style name (`lines._report_plain`) — not one per build, since every
+   edit rebuilds the items it touches. The memory of names is bounded at 64 and so is the log:
+   after 64 names one line says that no more follow, and nothing further is logged for the
+   session (the first version started the memory over when full, which logged every name again
+   on every rebuild pass — the policy the snapshot's own log rejects).
+6. **The plan's own colour is a tint; everything else is a mirrored 2D table entry.** Read from
+   the code, not assumed: every 2D fence and wall style paints from the item's own pen colour (the
+   style table only pre-sets it), and containers are filled in the item's colour. So fences,
+   walls, building walls and containers are `tinted` parts with pure white vertices — a recolour
+   never rebuilds them. What 2D draws from a fixed material is baked: roof tiles, shingles,
+   timber, a raised bed's oak (it is SVG-rendered), soil, hedge greens. Those 13 colours live in
+   `builders/palette.py`, each naming its source, and a drift guard loads both generator scripts
+   and fails when a mirror and its source disagree.
+7. **One soil rule.** The soil of every bed and container is at
+   `object_height.soil_surface_cm(kind, height)` — the function that gives a plant its base
+   (ADR-037 addendum above, decision 4): 2 cm under a bed's rim, AT a container's height. So
+   for the bed builders a plant is on its soil by construction. (Not for a bed that is built as
+   the plain block of decision 5 — an outline that is not one plain ring: that block's top is
+   the rim, and its plants stand 2 cm inside it. Pinned as a stated limit.) A
+   container has no lip in 3D — its top runs straight into its soil — because the plan holds
+   none. A `GARDEN_BED` that carries a height gets a bed solid for the same reason: its plants
+   stand 2 cm under its rim, so there must be soil there.
+8. **Budgets are per metre and per corner**, and asserted as CEILINGS (`builders.triangle_budget`),
+   never as exact counts: a picket fence ≤ 105 triangles per metre + 60 per segment, metal
+   100 + 35, chain link 55 + 110; a wall 36 per segment + 20; a plain panel 12 per segment + 8;
+   a building 80 + 30 per footprint corner; a hedge at most 6,000 leaves (12,000 triangles)
+   whatever its size.
+9. **A corner is mitred up to two offsets and bevelled beyond** (`primitives.BEVEL_BEYOND = 2.0`,
+   a turn of 120°, an interior angle of 60°). A mitre at an interior angle φ is `1 / sin(φ / 2)`
+   offsets long — 3.9 at 30°, 5.8 at 20°. On the side of a corner where the two offset edges run
+   APART (the outside of a bend, an outward offset at a convex corner), a longer mitre is cut
+   flat: `sweep` ends the section square on each segment and joins the two with a face,
+   `offset_ring` returns two points for the corner. Where the edges run TOGETHER (the inside of a
+   bend, an inset at an acute corner) their intersection is the true corner and is kept, up to
+   `MITER_LIMIT` = 4 offsets from the joint. **Stated bound, with its condition:** nothing lies
+   further than `BEVEL_BEYOND` offsets from the line or ring it was built on WHEN every leg of
+   a line is at least `MITER_LIMIT` offsets long (76 cm for a wall's 19 cm of coping) —
+   asserted over the whole matrix, whose legs are, and over 400 random zigzags. The kept inside
+   corner lies `tan(turn / 2)` offsets back along each leg; where a leg is SHORTER than that,
+   the corner lies beyond the leg's other end, and the real bound is the mitre's own length,
+   `MITER_LIMIT` offsets: a wall zigzag with 25 cm legs reaches 2.62–2.70 offsets (50–51 cm), a
+   bare 10 cm half width along 20 cm legs at 160° reaches 2.06 — both pinned. Such a wall is
+   drawn with legs shorter than it is thick and overlaps itself; the plan describes no such
+   wall, and v0 does not clamp it. The first cut only cut a mitre at 4 offsets: a 116 cm eave
+   spike on an acute-triangle house with a 30 cm overhang, a 76 cm spike of coping on a hairpin
+   wall.
+
+**Alternatives considered (rejected).**
+- *Moving `MATERIALS` out of `scripts/generate_object_sprites.py` into the package.* One table,
+  no mirror — but the sprite generator would have to import the application (and Qt, through
+  `core/__init__`), the provenance record of 24 shipped sprites would move (ADR-042), and the
+  texture palettes are locals inside generator functions anyway. A 13-entry mirror with a drift
+  guard is the smaller change; the precedent is `TRAMPOLINE_MAT`.
+- *Baked fence and wall colours from the style table.* `core/object_types` imports Qt, and the
+  table is only a preset: a recoloured fence would have stayed brown in 3D.
+- *Shading weights on tinted parts* (posts darker than pickets). Not in any table; v0 carries
+  none, and a look pass can add them with evidence.
+- *Importing pyclipper for the roof's overhang.* The package's import rule allows the standard
+  library, numpy and Qt-free `core` modules only. A mitre offset in numpy (every edge moves
+  exactly the distance) is what a roof needs and all it needs.
+- *The scene-frame bounding box for a shed's ridge* (the spike). Found by turning the local
+  footprint in the test matrix: a shed drawn as a turned polygon got a ridge askew to its walls.
+- *Clamping hedge leaves at the trim height vertex by vertex.* It flattened leaves into the
+  plane and turned some inside out; a leaf is moved whole instead.
+- *The stroke width as the wall's thickness.* See the first consequence.
+- *An unknown style as the default picket fence, or a raised error* (which `SceneSync` turns into
+  "no solid at all" plus a logged `BuildFailure`). The first invents a look, the second removes a
+  fence the plan has. The plain panel is what the plan itself describes.
+- *A mitre limit alone (the first cut), or bevelling the inside too.* Decision 9.
+- *Thinner 3D bodies, or porosity in the 2D caster model, to close the gap of the first
+  consequence.* Out of scope by ruling: the nominal sections stay (the owner answered "keep
+  as-is" to path and wall widths on the L0 board), and the 2D model is the analysis.
+
+**Consequences.**
+- **The built world's 3D shadows are not the 2D model's shadows — and for fences the difference
+  goes the other way from what this addendum first said.** The truth gate "Shadows"
+  (`ogp-lush-cinematic` §1, IoU ≥ 0.85 against the analytic 2D shadow) is defined on a solid BOX
+  caster, where both models are the same solid. The built world departs from the prism in four
+  stated ways. Measured by the committed `scripts/measure_built_world_shadows.py`.
+  **Measuring conditions:** one item on flat ground; each mesh projected ANALYTICALLY onto the
+  ground along the sun ray — no shadow map, no texel — against `compute_scene_shadows` of the
+  item's footprint and height; a straight 10 m line with the sun square to it, a building with
+  the sun square to or along its ridge; a sun elevation of 15° / 35° / 60°. Three numbers: 3D
+  area ÷ 2D area, intersection over union, and the **reach** — how much further (+) or less
+  far (−) the 3D shadow extends along the shadow direction than the 2D one, in cm: where its
+  TIP is.
+
+  | Kind | 3D area ÷ 2D area | IoU | Reach 3D − 2D (cm) | Why |
+  |---|---|---|---|---|
+  | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (weighted 2D area; IoU vs solid strip) |
+  | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (weighted 2D area; IoU vs solid strip) |
+  | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (weighted 2D area; IoU vs solid strip) |
+  | hedge fence | 1.04 / 1.13 / 1.31 | 0.96 / 0.89 / 0.76 | +19.6 / +19.5 / +19.6 | nominal section |
+  | stone-wall fence | 1.06 / 1.15 / 1.37 | 0.94 / 0.87 / 0.73 | +14.5 / +14.5 / +15.3 | nominal section |
+  | wall | 1.04 / 1.10 / 1.24 | 0.96 / 0.91 / 0.81 | +15.0 / +15.0 / +15.8 | nominal section |
+  | plain panel (unknown style) | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | none: the stroke strip |
+  | house, sun square to the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles) |
+  | house, sun along the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles) |
+  | shed, sun square to the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles) |
+  | raised bed | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | −0.6 / −0.6 / −0.3 | none: a prism |
+  | container (box) | 1.00 / 0.99 / 0.99 | 1.00 / 0.99 / 0.99 | −0.6 / −0.6 / −0.3 | none: a prism |
+  | terracotta pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | −0.6 / −0.6 / −0.3 | taper |
+  | round tub | 0.91 / 0.89 / 0.89 | 0.91 / 0.89 / 0.89 | −0.5 / −0.5 / −0.3 | taper |
+  | hedge (polygon) | 0.98 / 0.96 / 0.94 | 0.97 / 0.96 / 0.94 | +3.6 / +4.0 / +4.4 | leaf shell |
+  | hedge (section) | 0.97 / 0.96 / 0.94 | 0.96 / 0.95 / 0.93 | +2.7 / +3.0 / +3.2 | leaf shell |
+  | house, hip roof | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | hip roof (#440: shared roof+wall triangles) |
+  | house, single-slope roof | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | single-slope roof (#440: shared roof+wall triangles) |
+  | house, flat roof | 1.02 / 1.03 / 1.04 | 0.98 / 0.97 / 0.96 | +15.0 / +15.0 / +15.0 | flat roof: the prism (L4) |
+  | table | 0.38 / 0.54 / 0.70 | 0.38 / 0.54 / 0.70 | −0.5 / −0.5 / −0.3 | porosity: a top on legs (L4) |
+  | picnic table | 0.37 / 0.41 / 0.57 | 0.37 / 0.41 / 0.57 | −38.5 / −38.5 / −20.6 | porosity: boards and A-frames (L4) |
+  | grill | 0.28 / 0.30 / 0.36 | 0.28 / 0.30 / 0.36 | −27.3 / −23.0 / −17.5 | porosity: a kettle on legs (L4) |
+  | greenhouse | 0.30 / 0.23 / 0.25 | 0.30 / 0.23 / 0.25 | −97.5 / −93.3 / −38.3 | porosity: the glass casts nothing (L4) |
+  | trampoline | 0.47 / 0.64 / 0.76 | 0.47 / 0.64 / 0.76 | −1.0 / −1.0 / −1.0 | porosity: a mat on legs (L4) |
+  | table round | 0.35 / 0.50 / 0.67 | 0.35 / 0.50 / 0.67 | -1.2 / -1.2 / -0.7 | shape and porosity vs solid 2D prism |
+  | chair | 0.49 / 0.54 / 0.62 | 0.49 / 0.54 / 0.62 | -4.3 / -4.3 / -4.0 | shape and porosity vs solid 2D prism |
+  | bench | 0.39 / 0.45 / 0.54 | 0.39 / 0.45 / 0.54 | -7.6 / -7.6 / -7.3 | shape and porosity vs solid 2D prism |
+  | lounger | 0.64 / 0.71 / 0.77 | 0.64 / 0.71 / 0.77 | -9.7 / -9.7 / -9.7 | shape and porosity vs solid 2D prism |
+  | parasol | 0.24 / 0.41 / 0.60 | 0.24 / 0.41 / 0.60 | -150.0 / -82.5 / -34.5 | shape and porosity vs solid 2D prism |
+  | fire pit | 0.94 / 0.94 / 0.93 | 0.94 / 0.94 / 0.93 | -2.1 / -2.1 / -2.1 | shape and porosity vs solid 2D prism |
+  | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
+  | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
+  | hot tub | 1.00 / 0.85 / 0.60 | 1.00 / 0.85 / 0.60 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
+  | swing | 0.17 / 0.16 / 0.15 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | shape and porosity vs solid 2D prism |
+  | hammock | 0.21 / 0.26 / 0.30 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | shape and porosity vs solid 2D prism |
+  | compost bin | 0.93 / 0.94 / 0.89 | 0.93 / 0.94 / 0.89 | -0.8 / -0.8 / -0.5 | shape and porosity vs solid 2D prism |
+  | cold frame | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
+  | rain barrel | 0.81 / 0.79 / 0.76 | 0.81 / 0.79 / 0.76 | -20.1 / -10.9 / -7.5 | shape and porosity vs solid 2D prism |
+  | water tap | 0.64 / 0.63 / 0.61 | 0.64 / 0.63 / 0.61 | -6.0 / -6.0 / -6.0 | shape and porosity vs solid 2D prism |
+  | wheelbarrow | 0.44 / 0.45 / 0.46 | 0.44 / 0.45 / 0.46 | -22.0 / -22.0 / -22.0 | shape and porosity vs solid 2D prism |
+  | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
+  | pergola | 0.25 / 0.28 / 0.29 | 0.25 / 0.28 / 0.29 | -1.8 / -1.8 / -1.5 | shape and porosity vs solid 2D prism |
+  | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
+  | garden light | 0.21 / 0.28 / 0.37 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | shape and porosity vs solid 2D prism |
+
+  Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
+  (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
+  addendum from the owner's manual test), so it has no row.
+  The script uses each new case's production default height, its stated footprint
+  in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
+  and pergola shadows are porous geometry; the analytical 2D caster remains a
+  solid prism (ADR-065). The table records that deliberate difference, rather
+  than changing analytical sun estimates to match decoration.
+
+  The four reasons: **(1) nominal section** — a polyline's stroke is a line weight (fence 3 cm,
+  wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
+  board's sections (a wall `max(stroke, 30)` cm, a hedge `max(stroke, 40)` cm): a WIDER shadow,
+  more so the higher the sun — fine at 15° (IoU ≥ 0.94), under the box gate at 60° (0.73–0.81);
+  **(2) porosity** (until #440) — a picket, metal or chain-link fence is mostly air, so its 3D
+  shadow lies INSIDE the unweighted 2D strip's and was 67–70 %, 19–24 % and 13–19 % of it
+  (the ratio column before #440, at its parent cc2b3eb7): the hours-of-sun map showed full shade behind a chain-link fence;
+  **(3) gable against prism** (until #440) — 2D extruded a building's footprint flat-topped to
+  its ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
+  footprint drawn in by 4 cm. Which rows meet IoU 0.85 is the table's to say, not a sentence's.
+  Since #440 reasons (2) and (3) no longer hold for the analysis: a picket, metal or
+  chain-link fence is weighted by its transmittance (ratio 0.98–1.09), and a pitched building's roof and
+  walls are projected — the gabled, hip and single-slope houses in the table above read IoU 1.00
+  and a reach of 0.0. The analysis — overlay and heatmap — stays the 2D
+  model's, draped onto the 3D ground (ADR-048, the scope note of criterion 8); the 3D shadow is
+  a picture of the mesh.
+
+  **Where the tip is — what agrees and what does not.** The height is the same number in both
+  models, but the height alone does not place a tip: the tip is cast by the highest EDGE, and
+  what counts is where that edge stands. *Agree within 2.5 cm at every elevation:* the prisms
+  (raised bed and box −0.6 cm: the top edge's bevel; the plain panel 0.0), the pots (−0.6 and
+  −0.5 cm: the rim's bevel) and the post fences (picket +2.0 to +2.4, metal +0.8, chain link
+  +1.5 cm: a post is wider than the stroke). The hedge polygons pass the 2D tip by 2.7–4.4 cm
+  (leaf tips). *Did not agree until #440 (cc2b3eb7's `DOCUMENTED`), which projects a pitched
+  roof and its walls — the table's pitched houses now read a reach of 0.0:* **(a) a gabled
+  building with the sun square to its ridge.** The 2D model extruded the whole footprint to the
+  ridge height, so its highest edge was at the FAR WALL; a gable's ridge is mid-house. At a low
+  sun the ridge cast the tip and the 3D shadow was exactly half the depth short — 270 cm on the
+  5.4 m deep house, 150 cm on the 3 m shed; at a high sun the far eave cast it and the miss
+  shrank to 108 cm and 21 cm at 60°. The roof was right; the difference was the 2D model's
+  flat-topped prism, which #440 replaced. **(b) The same building with the sun along its
+  ridge:** the 30 cm overhang carried the ridge height past the gable wall, +30 cm. *Still do
+  not agree, among these L0 builder rows (the open objects of L4/L5 — a parasol, a swing, the
+  garden lights — and the flat-roofed house are in the table):* **(c) Nominal sections:** a wall's coping edge stands 17 cm from the centre line
+  where the 4 cm stroke's edge stands at 2, so its tip lies 15 cm further (stone-wall fence
+  +14.5, hedge fence +19.5). An earlier version of
+  this paragraph claimed the opposite of (a)–(c) in one universal sentence; **no sentence about
+  shadows goes next to the gate unless the script prints the number behind it.**
+
+  **What these numbers are for.** They are analytic references for the BUILDERS:
+  `tests/unit/test_scene3d_shadow_agreement.py` holds the builders to this table within 0.05
+  (a reach within 1 cm), and holds this table, §8.29.6's and the skill's to the script's
+  `DOCUMENTED`; a builder that moves a number updates all of them. They are not what an engine
+  render must read: a shadow map is judged on solid casters (the box gate), and a member near
+  one shadow-map texel — a 0.8 cm chain-link wire, a 1.6 cm bar — can read lower in a render
+  through no fault of the builder. Thin members are exempt from a per-pixel IoU.
+  **Porous fences (answered by #440):** the 2D sun study no longer treats a chain-link, metal or
+  picket fence as a solid strip — #440 weights it by its angle-dependent structural transmittance
+  (the ADR-037 / ADR-048 addendum on the unified geometry-aware caster path), and projects a
+  building's roof and walls; the other open objects in this table still cast a solid prism
+  (#698).
+- A HOUSE's fill colour tints its WALLS in 3D; in 2D it tints the roof texture (a 31 % overlay).
+  And the tint rule is uneven for hedges: a hedge POLYGON is baked in the hedge texture's greens
+  and ignores a recolour, while a hedge FENCE is tinted with the item's stroke. Both follow what
+  2D draws from (a texture there, a pen here) and both are open look questions for the look pass
+  and the owner — not decided here.
+- Tinted parts are one flat colour; default fences are saddle brown and default walls dim grey —
+  darker than the L0 board's literals, which were in no 2D table (plaster `#efe4cf`, roof
+  `#b4553d`, fence `#a0744a`, wall `#9b9384`, bed `#9a6b3f`, soil `#4a3222`, pot `#c46a3c`,
+  hedge core `#1f4a26`).
+- A hedge whose shell exceeds 18 m² — about 5 m of a 1.5 m hedge — is at the leaf cap, and its
+  coverage thins:
+  bench_small's 10.5 m hedge has 47 % of the uncapped count, bench_large's 30 m hedge 17 %. The
+  spike had the same cap; "larger leaves at the same coverage" is a look decision left to the
+  look-dev pass.
+- `MATERIAL_KINDS` has one opaque kind, so wood, plaster, stone and soil share its roughness until
+  L1.4.
+- Measured: both bench plans' built worlds build in 9.8 ms (15 items, 16,874 triangles) and
+  18.7 ms (28 items, 22,482 triangles) median on an idle machine — 18 / 24 ms with a second test
+  run sharing it, 25 / 50 ms with four agents working on it. Budgets 40 / 60 ms (×3 on a CI
+  runner). Because that factor would let a per-vertex Python loop pass on CI, a second,
+  clock-free tripwire stands next to the time: a builder makes the same number of Python-level
+  calls for 5 m and for 50 m of fence (404), and at most 3,000 for any bench item.
+
+**Validation.** `tests/unit/test_scene3d_builders_primitives.py` (outward winding, exact tops,
+mitres and bevels, the lathe's ring = the 2D circle footprint); `tests/unit/test_scene3d_builders.py`
+— a matrix of 466 records (every kind × sizes × local geometry turned by 0 / 17 / 90 / 213.5° ×
+a straight, bent, closed, nearly closed, hairpin, zigzag and acute-loop line per style, the
+styles including a path style and an unknown name × acute-triangle footprints × with and without
+a height) through `verify_builder`, exact top, base 0, fit scale 1, budget, winding, the stated
+footprint bound, colours → palette; `TestAcuteCorners`; the dispatch table of `lines.py`;
+`tests/unit/test_scene3d_builders_palette.py` (palette → 2D sources, and the mirrored or shared
+name sets: fence styles, container materials, nominal heights);
+`tests/unit/test_scene3d_shadow_agreement.py` (the table above with its reach column, the rule
+per kind, and every copy of the table against the script's); `TestAcuteCorners` also pins the
+short-leg bound, and `TestPolylinesAreBuiltFromTheCentreLine` a 1 m closed loop per thick solid
+with its explicit hole limit and the one-warning-per-style log; `scripts/mutation_check_built_world.py`
+breaks one rule at a time (a kill is pytest exit 1 with a failed test); the merged contract's cases —
+nothing built over a closed line's hole (`verify_builder`'s plan view, every style), a
+self-crossing polygon's lobes as the default prism, a resolved ONE-ring outline as the block for
+all ten polygon kinds (and a self-crossing HOUSE drawn in a real scene, with a ridge item: one
+ring of ten, flagged, a block — with the flag taken away the same ring gets its roof), and the
+committed `scene3d_edge_cases.ogp` — 16 items, 14 records: a turned house on its live ridge, a
+house drawn crossing itself (three regions, one block), closed and nearly closed fences, a
+ladder of a fence with four holes, a fence 6 cm short of closing, plants on a turned bed and in
+a pot — through the production builders;
+`tests/integration/test_scene3d_built_world.py` (§8.10: a garden drawn with the real tools, an
+edit session with exact sink calls, the ridge in the mesh against the live ridge item for turned
+and non-rectangular houses, ≤ 0.1 cm); `tests/perf/test_scene3d_built_world_budget.py`.
+
+### ADR-059 addendum: looks, sky and the animation policy (Phase 17, L1.4)
+
+**Status**: Accepted (2026-10-19, #385 story L1.4); amended the same day by fix round 1
+after the code review (`senior-reviewer`) and the look review (`ogp-3d-reviewer`) — see
+"Fix round 1" at the end; decisions 1, 3, 4, 5, 6 and 8 below are written as amended. The look itself is judged by the independent
+3D reviewer and the owner on the production Beauty Board, not by this record; this record states
+what was decided and what was measured.
+
+**Context.** L1.2 shipped ONE fixed look (`NEUTRAL_DAY`: the spike's noon rig, a plain sky colour,
+a flat fill light), no sky texture, no fog, no presets, and a wind clock standing still. The L0
+spike had measured the rest — three day anchors joined by continuous ramps, a night rig, a
+procedural sky rebuilt per sun change, fog = sky horizon × probe exposure × 0.8, four presets —
+in one QML file, with every preset's settings inline, the sky regenerated at High quality on the
+GUI thread for every sun change, and, on WARP, 40–85 s for each new light probe. Issue #385 row
+L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. Key gates: light
+= −sun vector; IoU ≥ 0.85 at 15°/35°/60°; night < ¼ luminance; fps table."
+
+**Decision.**
+
+1. **The look is data, Qt-free** (`core/scene3d/look.py`): `look_for(sun, preset) -> LookSpec` —
+   plain, frozen, comparable — holds the mood (key-light colour and brightness, exposure, probe
+   exposure, saturation, contrast), the sky's inputs (`SkySpec`), the shadow settings
+   (`ShadowSpec`: the preset's map, cascades, filter and bias; the mood's darkness and blur), the
+   fog, the flat fill and the plain sky (each in LINEAR light), and at night the moon's direction.
+   The day rig is the spike's three anchors — noon at 30° and above, golden at 6°, low sun at
+   0.5° — joined by continuous ramps (colours mixed in linear light, exposure in stops, the rest
+   linearly); at `MIN_SUN_ELEVATION_DEG` (0.5°), the 2D shadow overlay's own threshold, the
+   sun's key light goes; civil twilight down to `TWILIGHT_DEG` (−6°) fades the low-sun rig into
+   the night rig (`twilight_rig`); night below.
+   The values are the spike's, with their provenance, pinned against the spike's functions at
+   every quarter degree until the spike retires. Two deliberate differences, each from a board:
+   the night fog carries the night sky's energy (× 0.25), the night sky's ground hemisphere is
+   drawn at that same energy (the spike: 0.15), and civil twilight is a ramp (the spike switched
+   to night at 0.5°).
+2. **Truth stays out of the look.** A day look has no direction in it (`moon_travel_scene` is
+   None); a night look states its moon (azimuth 165°, elevation 38° — a look, not an ephemeris).
+   The host aims the key light in ONE place (`Quick3DHost._apply_light`): the look's moon if it
+   has one (twilight and night), else the sun the pipeline sent (light travel = −sun vector,
+   `core/solar`), else none.
+3. **A preset is cost, never mood.** `PRESET_SPECS`: low / medium / high / ultra differ in shadow
+   map (VeryHigh / VeryHigh / VeryHigh / Ultra), cascades (1 / 1 / 2 / 3), PCF (4 / 8 / 16 / 32),
+   bias (15 / 15 / 10 / 10), anti-aliasing (4x MSAA at low and medium, 4x at high, 8x at ultra),
+   ambient occlusion and glow (medium up), screen-space reflections (ultra); no preset costs
+   less than the one below it in any of these (pinned). Fog at every preset, no
+   sharpening at any, SSGI at none. A preset change is ONE `set_look`: no camera, no geometry, no
+   sky (pinned by the §8.10 test's sink log).
+4. **The automatic preset** (the default, `auto`) is a Qt-free state machine, `AutoPreset`, fed
+   with the host's count of PRESENTED frames (`health().frames_presented`, Qt's own frame
+   signal), polled every 0.5 s and only while the wind animates — a view drawn on demand has no
+   frame rate. It moves among low, medium and high (ultra only by choice): down when the median
+   frame time of at least three samples over at least 3 s exceeds 1/27 s; up only when every
+   sample is under 1/50 s, at least 10 s after the last change, and the level above is not
+   barred; a level left for being slow is barred for 300 s, doubling up to 3,600 s. Ten seconds
+   without a presented frame is NO DATA (the display asleep, a stall): what was collected is
+   dropped and the preset holds. Where it settled and its bars (with their deadline in wall-clock
+   seconds and the next bar's length) are stored (`view3d/auto_quality_level`,
+   `view3d/auto_quality_bars`) and seed the next session; every session holds its level
+   `hold_s` from its first poll before a first step up. Reduced motion freezes it (no animation,
+   no frames). It measures PRESENTED frames under vsync: on a 30 Hz display or in a remote-desktop
+   session it sits in the dead band or steps down for reasons that are not the GPU's.
+5. **The sky follows the sun — when the sun moved noticeably.** `sky_is_stale`: a new sky when
+   the sun stands 1° (great circle) or more from where the SHOWN sky draws it, at once on a
+   change of the sky's phase (`sky_phase`: day, twilight, night — sunset, nightfall, dawn), one
+   per degree through twilight, and never for the sun's position at night (a night sky draws no
+   disc); the sky's sun is floored at −6°. A sky the engine cannot build is logged once and the
+   session goes on with the plain sky; the look is sent separately and always. While the
+   sun is dragged the sky is built once it has rested 150 ms (`SKY_SETTLE_MS`). Light, exposure
+   and fog follow every instant; while the sky lags, the fog is computed for the sky ON SCREEN.
+   Each build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child, every
+   input set at the cheapest quality and Medium quality set last; the old pair is destroyed after
+   the scene shows the new one (#476). `sunLongitude = azimuth + 90°`; the ground hemisphere takes
+   the sky's horizon colour, curve 0.1 and the sky's energy. No sky before the first sun; no sky
+   input bound live.
+6. **One render mode on the software adapter: no sky, no wind, `auto` = low.** In compatibility
+   mode (`LookController(software=True)`, the ONE parameter the workspace passes) no sky
+   texture — and so no light probe — is ever created, nothing animates, and `auto` is `low`: a
+   plain background in the fog's colour and a flat fill (the mean of the sky's top and horizon in
+   linear light × probe exposure × the sky's energy × `FILL_OF_SKY` 0.5). The top-down truth view and the
+   `--selftest` frame render the same; the self-test FAILS when its frame built a sky.
+   `render_records(sky_light=True, prefer_software=True)` is refused.
+7. **Colours derived in linear light reach the engine exactly.** The fog, the plain sky and the
+   fill are handed over as `QColor.fromRgbF(engine_srgb(linear))`, the inverse of Qt Quick 3D's
+   own polynomial linearisation of a colour property (PF-L3D-05 item 1).
+8. **The animation policy.** The wind's clock (`windTime`, a `FrameAnimation`) runs only while
+   the 3D pane is shown, reduced motion is off and the adapter is not a software one; hidden, it stops where it is (no tick);
+   reduced motion RESTS it at 0 (`rest_wind`), so every vertex is drawn where its mesh puts it.
+   The policy stops the clock rather than trust "hidden": the engine keeps a hidden window's
+   animation running. Qt 6.11 exposes no operating-system "reduce motion" preference, so the
+   setting `view3d/reduced_motion` (default off) is the application's own.
+9. **Wiring.** One `LookController` per host (`ui/view3d/look_controller.py`, engine-free). The
+   workspace hands it the sun the pipeline last sent (`Scene3DController.sync.sun`) after every
+   pass, so the light and the look come from one moment and one solar path; a time-of-day change
+   stays a light-only pass (no snapshot). Nothing in it takes a frame from the live host (ADR-060
+   decision 17; a source scan pins it). The quality and reduced motion are a "3D View" group in
+   Preferences, offered only where the window has a 3D workspace; "Save" re-reads them.
+10. **A retired sky does not count towards the release policy for retired Models** (ADR-060
+    decision 15): twenty sun changes, frames presented and withheld, leave no growth per change
+    without a cache release (Evidence).
+11. **The production Beauty Board** (`scripts/render_beauty_board.py`) replaces the spike as the
+    board of record: the spike's shots, dates, times and cameras, through the production
+    pipeline, one never-shown host per frame, with the truth rows in `metrics.json`
+    (`ogp-lush-cinematic` §5). The spike's board remains the "before" until L1.10.
+
+**Alternatives rejected.**
+
+- *A sky per sun change (the spike).* Every step of a dragged time slider would hold the GUI
+  thread for the generation (95 ms at Medium on the dev box's GPU, 215 ms at High) and, on WARP,
+  for the probe's filtering (9–13 s on the dev box, 40–85 s on a CI runner).
+- *Sky inputs bound live to the look.* One full generation per input change (the spike measured
+  2,192 ms for a sun change that way against 344 ms set-then-raise).
+- *High sky quality.* The same picture at 2.3× the GUI-thread time (round 3).
+- *One Texture, a new data object per build.* A Texture loses its data when a data object it held
+  earlier is destroyed (#476): a white or black sky after the second build.
+- *The automatic preset from readback times.* A readback is a frame that is never presented and
+  holds memory until a presented one ends (ADR-060 decision 17); on a sleeping display it never
+  returns it.
+- *The automatic preset from the frames of a still view.* A view drawn on demand presents nothing
+  while nothing changes: "slow" for no reason.
+- *Ultra as an automatic level.* It adds screen-space reflections and the largest shadow map for
+  no gain in readability; a user may choose it.
+- *The flat fill also beside a sky (L1.2's seam).* The sky is the fill; a second fill flattens the
+  frame — the first spike renders read flat and blue for that reason. The fill now exists only
+  where no sky texture lights the view.
+- *The spike's night fog and night ground energy.* Each drew a line along the night horizon
+  (PF-L3D-05 item 2).
+
+**Consequences.**
+
+- Truth and look are separable by construction: no look value can move a shadow, and a stale
+  look aims nothing.
+- The sky lags the sun by less than 1° and 150 ms of rest; the light, the exposure and the fog
+  never lag.
+- On the dev box's display (60 Hz, vsync) every preset presents about 60 frames a second on both
+  bench plans; what a frame COSTS is the readback number in the table below. An integrated GPU
+  (the target the automatic preset's default `medium` is budgeted for) is unmeasured — the
+  owner's manual check.
+- The moon is fixed (a look); night shows no stars, no moon disc.
+- Compatibility mode keeps the sun's direction, the shadows and the presets but has no sky
+  picture and no light from the sky.
+
+**Evidence** (RTX 4070, Direct3D 11, Windows 11; WARP = Direct3D's software adapter on the same
+machine; 2026-10-19 unless stated).
+
+| Gate | What | Measured |
+|---|---|---|
+| G1 | the light's rotation read back from the QML scene: (0, 0, −1) onto −sun, engine frame | 49 suns × 2 presets within 1e-5 (`TestKeyLight`); at night the moon's stated direction; through a scripted day on a real host, GPU and WARP |
+| G2 | shadow IoU of a 100 × 100 × 200 cm box, azimuth 225°, PERSPECTIVE view with the preset's cascades, at 15° / 35° / 60° (gate ≥ 0.85) | bench_small board 960 × 540, GPU: low (1 cascade) 0.921 / 0.985 / 0.974, high (2) 0.976 / 0.986 / 0.978 (the L0 board of the same day, orthographic without cascades: 0.984 / 0.982 / 0.965 and 0.981 / 0.985 / 0.963). Render tier 640 × 360, all four presets: GPU low 0.919 / 0.968 / 0.962, medium 0.961 / 0.969 / 0.956, high 0.985 / 0.975 / 0.968, ultra 0.986 / 0.983 / 0.970; WARP (no sky, flat fill) low 0.919 / 0.971 / 0.964, medium 0.961 / 0.975 / 0.960, high 0.986 / 0.979 / 0.968, ultra 0.986 / 0.985 / 0.971 |
+| G3 | night against noon, one camera and date, mean luminance in linear light (gate < 0.25) | 0.104 (low) / 0.093 (high) on bench_small, 0.098 / 0.088 on bench_large; the lower the sun, the darker the frame in every preset; ramp: no step between adjacent half degrees above the bounds of `test_scene3d_look.py` |
+| G4 | the sky's sun disc read 25° off centre, sun in the east, south and west (gate < 6°) | max 0.07° (both bench plans); one sky per noticeable move and none below 1° (§8.10 test; on a real host 9 builds for the scripted day's 9 noticeable moves); the old sky released: twenty sun changes, committed memory per change over the second half (Theil–Sen; bound 1.0 MB, registered before the first run): 0.0 presenting, 0.125 with the frames withheld; dedicated GPU memory 0.008 / 0.0; positive control (no destroy) 8.2 MB per change; no cache release in the loop |
+| G5 | fog against sky at eye height, per mood and preset: row-mean step / dip / ridge within 0.4° of the horizon (bounds 6.0 / 4.5 / 2.5 luma) | max 3.1 / 0.12 / 0.71 (bench_small and bench_large, low and high); speckle: isolated dark pixels at 640 × 360 medium: noon 194 (the far picket fence, the same with and without sharpening), December noon 2; the 0.08-sharpening control 315 / 150 (bounds 260 / 30, control at least +80) |
+| G6 | auto preset on synthetic series; a preset change moves no camera and rebuilds nothing | `TestAutoPreset` (28 tests: slow, fast, noisy around each threshold, stalled, hitch, counter restart); the §8.10 test: a quality change is ONE `set_look`, zero sink calls, the camera pose object unchanged |
+| G7 | hidden → no tick, reduced motion → no animation, at rest rendered = mesh | the controller tests; on the engine: rest, run, stop, stop again, rest again — the last frame equal to the first to the pixel; a hidden window's running clock advanced (why the policy stops it) |
+| G8 | software adapter: no light probe; the self-test's wall time | 0 sky builds in every WARP frame; `--selftest` wall time (s, three alternating runs each, other test runs sharing the CPU): GPU base 10.00 / 6.72 / 5.80, head 6.29 / 6.43 / 4.83; WARP base 5.61 / 5.95 / 5.07, head 5.54 / 5.67 / 5.66 |
+| G10 | the production board end to end | bench_small and bench_large, low and high, all seven shots: `status: ok`, 0 Qt errors and warnings, every `sun_date` = `build_date`, 0 build failures, `probe_restore_frame_diff` 0.0, `wind_time` 0.0 |
+
+**G9 — the frame-rate table.** 1280 × 720, the golden-hour camera, the wind running, five seconds
+per preset, frames PRESENTED to a 60 Hz display (vsync caps the GPU at 60); two runs on the GPU
+(other agents' test runs were sharing the CPU), one on WARP. A readback's time (a new frame each,
+`--fps-seconds`) is reported beside it in the board's `metrics.json`; on the GPU it is dominated
+by the copy back and is not the frame's cost.
+
+| Plan | Device | low | medium | high | ultra |
+|---|---|---|---|---|---|
+| bench_small (98 records) | RTX 4070 | 59.6 / 56.8 | 58.2 / 59.6 | 58.2 / 59.8 | 59.8 / 59.6 |
+| bench_large (424 records) | RTX 4070 | 60.0 / 60.0 | 53.2 / 51.0 | 53.5 / 44.6 | 40.6 / 36.2 |
+| bench_small | WARP | 22.6 | 14.2 | 9.6 | 4.7 |
+| bench_large | WARP | 10.5 | 7.8 | 5.6 | 2.9 |
+
+A first run under a heavier CPU load read bench_large 45.8 / 51.2 / 40.7 / 24.3: the frame rate
+of the large plan on this machine is sensitive to CPU load (one 5-s window per preset). An
+integrated GPU, the device `medium` is the automatic preset's start for, is unmeasured.
+
+**Sky cost.** GUI-thread generation of one Medium sky: 95 ms against 215 ms at High in the round-3
+A/B on a quiet machine; 123–301 ms (median 171–201) in the 2026-10-19 boards, a fresh host per
+frame, the CPU shared. On WARP the first frame after a new sky took 11.1 / 13.2 / 12.3 s (the
+probe's filtering; the generation 145–340 ms at High) — the reason for decision 6.
+
+**Look-dev log** (bench_small, 960 × 540, `low` and `high`; boards in the story's scratch):
+round 1 — the night fog carries the sky's energy and reaches the engine in linear light: night
+horizon step 10.5 / 21.2 → 2.4 / 3.2; round 2 — bias 10 at high and ultra: a grazed lit wall's
+hatch 1.15 % → 0.18 % of its luma, IoU unchanged; round 3 — Medium sky: same picture (mean luma
+within 0.02, disc within 0.07°), 215 → 95 ms; round 4 — no change: the merged tree against the
+L0 board of the same day (like for like: shots, dates, cameras, size); round 5 — the night ground
+hemisphere at the sky's energy: night dip 2.07 / 1.04 → 0.01 / 0.12.
+
+Tests: `tests/unit/test_scene3d_look.py`, `test_view3d_look_settings.py`, `test_board_probes.py`,
+`test_render_beauty_board.py`, `test_quick3d_pure.py`; `tests/ui/test_quick3d_host.py`
+(`TestKeyLight`, `TestSky`, `TestWind`); `tests/integration/test_view3d_look_controller.py`,
+`test_view3d_looks.py` (§8.10); on a real device `tests/integration/test_view3d_looks_render.py`
+with `view3d_looks_driver.py` (§8.10.11).
+
+**Fix round 1** (2026-10-19, after the two reviews; numbers on the dev box, bench_small at
+960 × 540 unless named).
+
+- *Code review P0 — the wind ran in compatibility mode* (1,351 % of one core on WARP, 139 frames
+  in 4 s; still: 1 frame, 18 %). The controller decided the sky by the render mode and the wind
+  and the automatic preset by visibility alone. Now ONE parameter (`software`) decides all three
+  (decision 6). Pinned: `test_a_software_adapter_never_animates_and_auto_is_low` (3 qualities),
+  the §8.10 test's compatibility case, the render tier's `[software]` controller day (no wind).
+- *P1 — a failing sky stopped every later look* (20 suns: 0 looks, 20 sky attempts, 20 ERROR
+  lines). The sky has its own `try`; one error, the plain sky for the session, every look sent
+  (20 looks, 2 sky calls, 1 error: `test_a_sky_that_cannot_be_built_never_keeps_the_look_…`).
+- *P1 — the automatic preset forgot its bars* ("high too slow, medium fine" flipped once per
+  session). Stored with their deadline and next length, seeded at the first poll; the first step
+  up waits `hold_s` (`test_a_level_that_was_too_slow_stays_barred_in_the_next_session`: a session
+  a minute later does not step; after the deadline one retry, and the next bar doubles).
+- *P1 — Preferences → apply was untested.* The §8.10 test now drives `window._on_preferences()`
+  with the dialog's `exec` patched; deleting the window's call fails 2 tests.
+- *Look P1 — night was a switch at 0.5°* (luma 77 → 37 within 90 s of plan time; −0.5° … −6°
+  all full night). The twilight ramp (decision 1), as the review's recipe: colours in linear
+  light. Mixed in STOPS instead, the sky was smoother but the frame went darker than the night it
+  ends in, then brighter (dusk sweep, low: 0.116 at 0.6° → 0.023 at −3°/−4° → 0.034 at −6°);
+  linearly it darkens all the way — 0.116 → 0.105 (0.4°) → 0.099 (0°) → 0.052 (−3°) → 0.034
+  (−6°) — and sunset's step (0.011) is under the largest half degree of the day ramp (0.027),
+  low and high. In parameters the sky horizon moves at most 52 sRGB codes per half degree (its
+  last, where the moon carries the frame's light) and the exposure 0.072 stops.
+- *Look P1 — picket moiré at low* (the look review's P1). The review named 2x MSAA; measured, 2x
+  does not resolve the pickets: the fences' luma error against a 2x-supersampled render FXAA
+  20.0, 2x 12.0, 4x 6.2 (medium 7.2), and 2x's dark-pixel share 18.8 % is worse than FXAA's
+  12.7 % (4x 13.1 %; medium 12.3 %). Low takes 4x (decision 3). Cost on the RTX 4070
+  (bench_large, 1280 × 720, a new frame's readback; the display asleep, so no presented frames):
+  FXAA 23–28, 2x 23–30, 4x 24–32 ms — inside the run-to-run spread; on WARP under a shared CPU
+  FXAA 67–152, 2x 96–147, 4x 107–199 ms. An integrated GPU is unmeasured; the owner kept 4× at Low
+  without that measurement (2026-10-19, ADR-060 addendum D5).
+- *Look P2s.* The flat fill × 0.5 (compatibility mode read +22 luma over the GPU's sky-lit frame);
+  the plan ground takes the meadow's material (roughness 1.0, specular 0.15): its step along the
+  plan's edges ≤ 0.21 luma in every view, the old material up to 4.65 (the instrument fits both
+  sides at the edge line — two band means read the view's gradient as a step); medium takes the
+  2048 map: +4 % of a WARP frame on bench_large (183 → 191 ms), nothing measurable on the GPU;
+  the horizon's CIE76 hue difference is reported (not gated; the noon ΔE ~60 is the lime band
+  the owner kept on 2026-10-19, ADR-060 addendum D5); the board's date row is read back from the records rendered, the shot's day is the
+  plan's local day (ADR-053), and a per-date digest of (item, height) must differ between June
+  and December.
+- *Recorded.* A soak of the default steady state (shown, wind running; the workspace soaks run
+  with reduced motion): committed memory +2.6 MB per minute over 2 minutes, +2.09 over 6
+  (linear, 21,594 frames, dedicated GPU memory flat; 0.81 with the QML engine's collector every
+  5 s) — over the 2.0 registered before the first run: OPEN (FU-L14-2), kept as a strict `xfail`.
+  *(L1.9, 2026-10-19: not reproduced — six alternating soaks, 0.46–2.03 MB a minute, the
+  planned NumberAnimation clock no different; the xfail is removed and the gate stands at its
+  bound — ADR-060 addendum "the default and the removal".)*
+  The looks' render gates are not in CI's render job; L1.9 decides, with L1.8's selection file.
+
+### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
+
+**Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first
+review — "Review round 1" below changes decisions 3, 7, 8 and 9 and withdraws the statement that
+gate G6 is unmet.
+
+**Context.** Decision 9 gave every item with a height a solid; everything without one — lawns,
+terraces, driveways, paths, in-ground beds, flat furniture — had no place in the 3D scene. The L0
+spike put them on the ground by hiding the other items and rendering the live `QGraphicsScene`
+into one texture: that toggled item visibility, cleared the user's selection, fired
+`scene.changed`, painted the canvas's beige where nothing was drawn, re-rendered the whole plan
+for every edit, and kept every texture it ever made alive.
+
+**Decision.**
+
+1. **Paint from records, never from the scene.** `ui/view3d/ground_bake.GroundBaker` paints what
+   `snapshot_records` handed over. No `QGraphicsItem` is read, hidden or created by a bake (an
+   AST scan pins it), so the selection, item visibility and `scene.changed` cannot be touched —
+   gate G4 is a property of the design, and a test with spies and a control holds it.
+2. **The rule for what is on the ground:** a record that carries a paint description
+   (`Material.paint`; every item but a plant) and for which the scene holds no solid
+   (`SceneSync.solid_ids`). "No solid" is asked of the sync, not of the kind: an item a builder
+   makes a solid for leaves the ground, one whose builder made nothing stays on it. Under a solid
+   lies whatever flat item was drawn there, else meadow — the spike left that ground bare, and a
+   house on a lawn stood in a hole.
+3. **The paint description is additive record data.** `Paint` (pen width, style, cap, join; the
+   item's opacity; a circle's paint turn — review round 1) lives in `Material` — a restyle is a
+   material change; the anchor of the local
+   frame in item coordinates is `params["paint_origin"]` — geometry; `Record.outline` holds a
+   polygon as drawn where `footprints` cannot. The diff semantics of L1.1 hold unchanged: a move
+   is a transform change, a recolour a material change. (A first design put the whole paint frame
+   into the material: 29 of L1.1's diff cases failed — a move became a material change.)
+4. **A flat item the solid path refuses still gets its record.** `outline_too_large` is a bound
+   on the WORK of cutting regions; painting needs none. A polygon or polyline without a height
+   whose outline is refused for work keeps a record with `footprints == ()`. The SIZE bound
+   (`MAX_ITEM_VERTICES`) stays in front of everything.
+5. **One implementation with the canvas.** The brush is `create_pattern_brush`, a sprite
+   `render_furniture_pixmap`, and the path-style painters were moved out of `PolylineItem.paint`
+   into `ui/canvas/items/path_style_paint.py`, which both call. Only single `QPainter` calls are
+   mirrored. A second implementation of ten path and fence styles would have been a second place to be
+   wrong; the extraction found two defects of the first (PF-L3D-03, PF-L3D-04 and PF-CAN-21).
+6. **Tiles are crops of one pixel grid.** 512 px tiles; the finest of 1, ½, ¼ … px/cm within
+   4096 × 4096 px and 256 tiles; whole-pixel offsets — seamless by construction, not by
+   blending. A tile is a pure function of its records in order, so an untouched tile can be handed
+   out as the same object and the sink uploads by identity.
+7. **The baker is driven by `SceneSync`, with the geometry path's diff, in the same
+   transaction.** `SceneSync(…, ground_baker=)`; the bake runs before the sink is touched; a baker
+   that raises is contained (`ground_failure`, the ground stays as it was or bare) and never
+   poisons the sync; `reset()` clears it. The protocol (`core.scene3d.GroundBaking`) is Qt-free:
+   the sync logic is tested with a double.
+8. **What a bake may cost is bounded per tile, each bound taken before its work** (§8.29.5 has
+   the table): records and outline-vertex passes by admission, style elements and walk steps and
+   dashes by one budget per tile, a sprite's image before the renderer is asked. The criterion
+   is "the cost of what the file holds times a stated constant, no amplification, no bound behind
+   its work" — not "nothing is ever slow".
+9. **In the engine: one quad and one texture per tile; a changed tile gets a NEW Model with a
+   new texture object** (review round 1: not a new texture on the old Model), and the replaced
+   texture is held until the next presented frame — at the latest until the next update.
+   `flipV`, `ClampToEdge`, quads 0.02 cm oversized, the bare rectangle hidden under tiles.
+
+**Alternatives considered (rejected).**
+
+- *Render the scene region* (`render_scene_region` with items hidden) — the spike's way; see
+  Context. It remains the tests' REFERENCE, on a scene the test owns.
+- *One texture for the whole plan* — every edit re-bakes and re-uploads up to 64 MB.
+- *Meshes for flat items (decals above the ground)* — z-fighting or visible steps, and every
+  texture, sprite and path style rebuilt as geometry: a third implementation.
+- *A paint-only side channel beside the records* — a second snapshot with its own diff; one edit
+  would be two diffs that can disagree.
+- *Updating a tile's texture in place* — measured not to show (PF-L3D-04).
+- *Hairline-exact tiles by rendering the plan in one image and cropping* — exact, but every edit
+  costs the whole plan.
+
+**Consequences.**
+
+- `Record`, `Material` and `GroundSpec` grew (`outline`, `paint`, `tiles`); `EngineSink.set_ground`
+  keeps its signature. `render_records` takes `ground_baker=`. Nothing is wired into the app by
+  this story: the workspace (L1.3) constructs the baker.
+- The engine package has a THIRD engine module: `quick3d/ground_tiles.py` imports
+  `QQuick3DTextureData` (ADR-048's L1.2 addendum says "two engine modules"; the boundary test's
+  `ENGINE_IMPORTERS` names all three). The baker itself is no engine module — QtGui only.
+- Three changes to the 2D canvas, all defects found by painting the same items twice: a loaded
+  rectangle keeps its saved `fill_color`; the rails of a bent boardwalk and the borders of a bent
+  stone wall no longer fill the bend; the path-style walk refuses a spacing below 0.05 cm or
+  above 100 km (a pen width that is no width).
+- Known limits (§8.29.5 has the list with its measurements): arcs, Bézier curves and text have
+  no record and are not on the ground; lines up to a pixel wide are rasterised per tile; the
+  meeting corner of a cut dashed outline is blended twice; a dashed round outline cut by a tile
+  is stroked along chords; coarse pixels on plans above 41 × 41 m; ground tiles are not pickable
+  (a click on the ground hits no item, as before).
+- **G6 is met in the two cells that were measured** (review rounds 1 and 2): twenty full
+  re-bakes of a 16 MB ground do not grow the process on WARP, whose window presents its frames,
+  nor on the hardware adapter, whose window presented NONE — where nothing is rendered, so that
+  cell shows the process side only. A hardware window that presents is on the story's manual
+  checklist. What the first version of this addendum reported as "unmet where no frame is
+  presented" was its own soak calling `grab()` after every re-bake (PF-L3D-04, the grab() paragraph of archive/07-l1-5-ground-bake.md).
+
+**Validation.** Default tier — `tests/integration/test_scene3d_ground_bake.py`: G1 parity for the
+25 fill patterns × tinted/untinted × 0° / 33° × two tile-straddling positions (200 cases: not
+turned mean 0 and max 0, turned mean ≤ 0.0002 and max 1, of 255; bound 6), every shape, the ten
+path styles (one tile: bit-identical; six tiles: mean ≤ 0.016), sprites, pens, opacity; G2 on
+`bench_small.ogp` (mean 0.00006, max 3; NCC 0.99999999 against −0.28 / −0.09 / 0.005); G3 on both
+bench plans (≤ 2 tiles, 3.4 ms and 3.3 ms median, `last_examined == 1`, untouched tiles the same
+objects); G4 with spies and a control; G5 a scripted session through the app's commands against
+a from-scratch bake, bit for bit; G8 stacking and arrange; the refused-outline pins (3,000-point
+path, 5,000-vertex lawn, clipper never called); the hostile corpus by counts.
+`tests/unit/test_scene3d_ground.py` (grid, tiles, the sync with a double),
+`tests/unit/test_path_style_paint.py` (the shared painters: the canvas's walk unchanged, the
+clipped walk and its budget), `tests/ui/test_quick3d_ground_tiles.py` and
+`tests/unit/test_quick3d_ground_tiles.py` (the engine's books, the QML component). Render tier —
+`tests/integration/test_scene3d_ground_render.py`: the pipeline on a real renderer, shown and
+through `render_records`; G2 in the engine (NCC 0.98 against 0.08 / −0.11 / −0.07); G7 (luma
+spread 0.0 to 0.7 across every border; controls 48 and 7.9); G6 in objects (≤ 32 of 16 tiles
+alive; control 320) and in memory on WARP (≤ 0.2 MB a cycle; control +32) and on the hardware
+adapter (review round 1: −0.10 to +0.01 MB a cycle with 0 frames presented, no frame taken in
+the loop; the grabbing control +16.1 to +17.4).
+
+#### Review round 1 (2026-10-12): what the first review changed
+
+The story's independent review found no regression of the 2D canvas and no unbounded count, and
+five places where the bake did not keep its promise. What was DECIDED in answer — the findings
+themselves, with their measurements, are PF-L3D-03, PF-L3D-04 and PF-CAN-21:
+
+- **Decision 3, amended — a circle's turn is paint.** A circle's record does not turn (decision 9
+  of the contract: footprint and solid are the same whatever its rotation). What the canvas
+  paints in its coordinates does, and the bake painted it unturned. `Paint.rotation_deg` carries
+  that turn (`LocalFrame.paint_turn_deg`; 0.0 for every other shape). **The diff matrix changes
+  in one cell:** a circle the canvas paints, turned about its centre, is now ONE material change
+  (`update_material`), where it was no change at all; geometry and transform are unchanged, no
+  builder runs, and a plant — never painted — still changes nothing. *Rejected:* making a
+  circle's transform rotatable (every turned round solid would be re-posed, and L1.1's "a
+  circle's footprint does not turn" would be false in the record); a param (params are
+  geometry: a turn would rebuild the mesh).
+- **Decision 7, amended — the `GroundBaking` seam knows about unfinished work, and the sync
+  remembers a failed bake.** A baker MAY stop early: `bake` hands a tile it has not re-painted
+  out as the object it was, `pending` says how many such tiles there are, and every later call —
+  whatever its diff — goes on. The promise is stated on the END: once `pending` is 0 the tiles
+  are those of one call on an empty baker, with a diff or without. `fresh()` is a baker without a
+  budget. `SceneSync` gains `ground_pending` and `continue_ground()` (one bake with an empty
+  diff, one transaction when a tile changed); every `apply` continues as well;
+  `expected_state()` is the FINISHED ground, so while work is pending the sink is behind it in
+  exactly the pending tiles and equal in everything else; `reset()` drops pending work; a sink
+  that raises in a continuation poisons the sync like any sink call; a baker that raises is
+  contained as before — and, new, is not asked again until a record, the set of solids or the
+  plan's rectangle changes (three idle ticks after a failing bake had been three bakes and three
+  tracebacks). *Rejected:* leaving the decision when to stop to the workspace — only the baker
+  can stop between two tiles; a worker thread — the brushes and sprites are `QPixmap`s (GUI
+  thread), and a second thread painting records the GUI thread replaces is a second story.
+- **Decision 8, amended — a time budget between tiles, and a stated loss.** The bounds stay
+  bounds on counts; what a count costs is Qt's and spans three orders of magnitude, so a `bake`
+  paints for `BAKE_BUDGET_S` (10 ms, an injectable clock), at least one tile, nearest to the last
+  edit first. And "the topmost 256 records of a tile" is replaced by a rule that says what is
+  lost: the walk ends at the first record that opaquely covers the tile, and below the cut a tile
+  keeps what covers it whole (four underlays, to the first opaque one) — a capped tile loses the
+  records below its topmost 256 that do not cover the whole tile. (That rule kept a lawn only
+  when it was the plan rectangle; review round 2, below, replaces it.) *Rejected:* dropping from the
+  top (the newest items vanish); a bound on scanline crossings to cap a comb polygon's time (a
+  fourth pass over every outline for a shape the 2D canvas cannot paint either — recorded as a
+  scan not acted on).
+- **Decision 9, amended — one texture per `Texture`, for life.** Found by the budget's first run
+  on a real engine, not by the review: a tile whose `Texture` element was pointed at a second
+  `QQuick3DTextureData` is drawn white once the first is destroyed. A re-baked tile is therefore
+  a new Model, as a changed geometry has always been a new geometry. *Rejected:* keeping the
+  replaced texture longer (it only moves the white frame); setting the property again after the
+  release (the L0 spike measured that a texture detached and attached again draws white).
+- **One writer for an item's look (2D).** The record's fill comes from the item's attributes, the
+  canvas paints its brush, and three shipped tools and the loader set only one of the two.
+  `core/item_style.py` is the one place that sets both; the 2D suite walks every operation that
+  makes an item from an item. This is a change to the 2D app made by a 3D story, on purpose: the
+  alternative — reading the brush back in the snapshot — cannot recover a pattern or a tint from
+  a textured brush.
+- **Gate G6 measures what a live view does.** No frame is taken in the soak's loop; the gate is
+  unconditional (which cells it measured, and what the hardware cell cannot see: review round
+  2, below). The rule that follows from what DID grow the process is for the workspace: no
+  repeated `grab()` on a live host that is not presenting; a screenshot goes through the
+  offscreen path.
+
+Validation of the round: `tests/integration/test_scene3d_ground_rules.py` (42 tests by counts —
+the lawn under 255, 256 and 2,000 pavers; six shapes of cover; the budget with a clock that
+advances a second a reading; random edit sessions through three bakers; a raising painter),
+`tests/unit/test_scene3d_ground.py::TestSyncWithAGroundBaker` (pending work, the remembered
+failure, poisoning in a continuation), the 2D suites named in PF-CAN-21, the render tier's
+budgeted open and five re-texture sequences on the RTX 4070 and on WARP, and 23 mutants of the
+new rules, all killed.
+
+#### Review round 2 (2026-10-12): what the re-check changed
+
+The re-check found the save / load work of round 1 clean, the round-1 rule for a full tile right
+in its wording and wrong in its outcome, and several places where a rule had been guarded by
+the one case its author thought of. What was decided in answer (the findings are PF-L3D-03, PF-L3D-04 and PF-CAN-21):
+
+- **Decision 8, amended again — admission by outcome.** "The topmost 256, and under them what
+  covers the WHOLE tile" kept a lawn only when it was the plan rectangle; 10 cm inside the plan's
+  edge 149,604 px of the first tile were bare. The rule is now stated by what it must achieve:
+  *when a bound bites, a tile loses its smallest records, never a large one.* A tile's members
+  are ranked by how much of the tile their paint box overlaps (box against box; ties to the
+  topmost) and the lowest-ranked go, for the record bound and the vertex bound alike; the kept
+  ones are painted in z order; an opaque cover still ends the walk. `TILE_UNDERLAYS` is gone.
+  *Rejected:* the smaller variant "keep as an underlay any filled record whose paint box covers
+  at least half the tile" — a second threshold with the same kind of edge (a lawn over 30 % of
+  the tile is dropped again), where a ranking has none; ranking by true covered area — it would
+  read vertices for records that are then left out, which the security criterion forbids (no
+  work behind the bound). The price is stated in §8.29.5: the ranking does not know a shape.
+- **Decision 7, amended again — the backlog is owed a tile a pass, and a tile's failure is the
+  tile's.** A call that brings an edit paints the edit's own tiles first and then one tile of
+  the backlog whatever the budget says (a pass: the budget plus two tiles); without it a drag
+  kept 14 of 15 tiles pending for as long as it lasted. And a tile whose paint raises as a whole
+  keeps its picture, is listed (`GroundBaker.tile_failures`), is not pending, and is retried by
+  the next call that brings a change — where clearing the baker made the NEXT edit blank fifteen
+  of sixteen tiles. For a bake that raises anywhere else the seam gains `restart()`: the sync
+  calls it instead of `clear()`, and the baker forgets its books and keeps its pictures until
+  each tile is painted anew — the outcome ("the edit after a failure does not blank the
+  ground") holds for every raise site, not only for the one the review used. *Rejected:*
+  keeping the sink's tiles in the sync for the keys a cleared baker has not painted yet (the
+  sync would need to know WHICH tiles are pending: a wider seam than one method); retrying a
+  failed tile on every pass (a tile that cannot be
+  allocated would be tried sixty times a second); reporting it through `ground_failure` (that
+  is the whole bake's, and it stops all ground work until the plan changes).
+- **One writer for an item's look — and a guard that does not read the source.** The census of
+  derivation sites caught one of six planted forgetful operations. The guard is now a teardown
+  fixture over every integration test: every item of every scene a test built must have style
+  attributes that describe its brush and pen. It found the last writers that set one half —
+  a freshly drawn polyline stated no stroke at all (undoing a width, dash or type edit on it
+  raised, in the shipped app), the panel's undo of a type change — and 31 hand-made pens and
+  brushes in the tests themselves. A sprite's pen is exempt: it says nothing about the picture
+  (`GardenItemMixin.paints_sprite`). *Rejected:* widening the source scan (every new spelling
+  is a new blind spot); scoping the fixture to the 2D suites only (the 3D suites build scenes
+  and drive the same writers — and held 161 of the 167 first findings).
+- **G6, restated by what was measured.** "Met … whether its window presents frames or not"
+  claimed a cell nobody ran: measured are a software rasteriser whose window presents, and the
+  hardware adapter whose window presented none and therefore rendered nothing. The requirement
+  and the test now say so, and the presenting hardware window is a manual check.
+- **The loader reads a preset line's stroke with care.** Reading it at all (round 1) made a
+  hand-made `"stroke_width": null` skip the item, where every such file had loaded at the
+  preset's stroke. A width that is no finite number of at least the panel's minimum (0.5) and a
+  colour Qt cannot read keep the preset's value, each on its own; a fully transparent colour is
+  a colour (the panel's dialog offers the alpha channel) and loads as given. A plain line's
+  stroke is applied as it always was.
+
+Validation of the round: `tests/integration/test_scene3d_ground_rules.py`
+(`TestATileLosesItsSmallestRecords`, `TestATileThatCannotBePainted`, the backlog tests),
+`tests/integration/test_item_style_in_step.py` (the fresh line and its undos, the hand-made
+files, the guard's own teeth), the fixture across the integration folder (4,232 tests of the
+integration and ui folders passed under it), and 63 mutants of the round's rules, all killed.
+The review's own probes, run on the finished round: a lawn 10 cm and 0.5 cm inside the plan's
+edge under 255, 256, 300 and 2,000 pavers — 0 lawn pixels bare in every case (149,604 and
+158,721 before at 256); the real scene of 256 pavers on an inset lawn against the canvas —
+mean 0.033 of 255 and 484 px off by more than 8, one paver and its outline (24.4 and 130,129
+before); an edit a pass with one tile a pass — pending 13, 9, 4, 0, 0 after edits 1, 5, 10,
+20 and 40 (14 at each before); the edit after a failing bake — 16 painted tiles shown (1
+before).
+
+#### Sync with the integration branch and master v1.30.13 (2026-10-19)
+
+`master` fixed three of the 2D defects this story had fixed on its own, with mechanisms of its own:
+`core/item_look.py::restore_stored_look` (#502 — the loader writes the saved attributes, #438 /
+#469) and `core/item_look.py::copy_visual_style` (#501 — offset and mirror, #470). **Where both
+fixed the same defect, `master`'s mechanism wins:**
+
+- `core/item_style.py` is deleted. Its helpers that `master` has no equivalent for — `adopt_pen`,
+  `fill_brush`, `style_gaps`, `paints_sprite`, `saved_stroke_width` / `saved_stroke_colour`,
+  `MIN_STROKE_WIDTH`, `stroke_style_of` — moved into `master`'s module, `core/item_look.py`, so
+  that an item's look has ONE module again; this branch's own `copy_visual_style` is gone, and the
+  corner tools and `PolylineItem.clone_with_points` call `master`'s.
+- The loader calls `restore_stored_look` in every branch, as on `master`; this branch's own
+  attribute writes there are gone, and the four filled shapes set their pen as `master` does. What
+  `master` does not cover stays, each pinned by a test that fails with the integration branch's
+  code at that place (10 of 10 checked by putting that code back): the saver writes a dashed
+  line's dash style (#467); a preset line's own saved stroke is read — validated — and stated
+  (#468); a file with a fill colour and no pattern is painted in the type's texture at the saved
+  colour from the first load (`fill_brush`); chamfer / fillet copies, re-pointed lines and trim
+  results carry their source's look (#441); a freshly drawn line states its stroke, and the panel's
+  undo of a type change states the pen it builds; a bent boardwalk or stone wall does not fill its
+  bend (#439).
+- `restore_stored_look` leaves a stroke attribute alone where the file holds no colour or number
+  at all (`null`, a list) instead of raising: merged as it was, it SKIPPED a preset line with
+  `"stroke_width": null` — the regression review 2 had found in this story's round 1, now in
+  `master`'s helper (#527). A plain shape still refuses such a value at its pen, as before.
+- A loaded sprite states what its file holds (`master`'s rule), not its type's stroke as review 2
+  had this branch do; `style_gaps` no longer judges a sprite at all (`master`'s
+  `test_canvas_item_cache.py` gives three sprites a texture brush they never paint).
+- `master`'s strict numeric plan I/O (#453) refuses a whole document whose stroke width is
+  infinite, not a number or an integer no float holds: three of review 2's preset-stroke cases no
+  longer reach an item.
+- Gate G3's median is a wall-clock assertion and carries `@pytest.mark.perf` (ADR-058); it ran at
+  11.58 ms beside eight workers. Its stopwatch moved to `tests/integration/ground_bake_support.py`:
+  in the test module, `master`'s perf-marker guard (which keys a module's functions by their bare
+  name) took every test that calls a baker's `bake` for a timing test.
+- The identifiers are the placeholders (`renumber_385_v2.py`, before the merge): this addendum
+  belongs to ADR-059; its concept section is §8.29.5, its test patterns §8.10.10, its lessons
+  PF-L3D-03, PF-L3D-04 and PF-CAN-21, its requirements FR-33's `FR-3D-GROUND-*`.
+
+#### Part B: the bake wired into the workspace (2026-10-19)
+
+- **The baker lives in the sync, not in a ground stage.** The workspace's controller gets
+  `ground_baker=` and hands it to `SceneSync`, which bakes with the diff the builders run from
+  AND the set of items a builder made a solid for (`solid_ids`) — what decides whether an item
+  is ground. *Rejected:* the controller's ground stage (`set_ground_stage`), which runs BEFORE
+  `apply` and cannot know which items get a solid in it.
+- **Pending ground work is a pass of its own.** `SceneSync.continue_ground()` (one bake, no
+  snapshot, no diff) is scheduled by the controller exactly like any pass and is preempted by
+  an edit, paused while 3D is hidden, never scheduled after a pass that was given up. A ground
+  pass that FAILS is rebuilt by a full pass once per change of the plan; the second failure
+  gives up until the next change (review 3: rebuilding every time paints the first slice,
+  goes through, and fails at the same tile again — 2,308 ground passes in 3 s). The workspace
+  does not take a ground pass as a sun or as "the pipeline worked" (the stale-sky timer, the
+  quiet-time release).
+  *Rejected:* `mark_dirty()` per slice, as the controller's seam suggested — a whole-plan
+  snapshot (O(total vertices), ADR-060) for every 10-ms slice; a timer of its own — the posted
+  event was measured not to starve due timers (offscreen and Windows platforms: a 5 ms timer
+  fired after the first of 40 slices of 10 ms).
+- **What the bake could not do reaches the problems list** (`GroundProblems`): an item whose
+  paint failed is listed by name, but it is SHOWN (cut off), so it is not counted with the
+  objects "not shown in 3D" — it makes the ground incomplete (review 3; first delivered as an
+  object problem); capped tiles, tiles that could not be painted, a failed bake and ground
+  work given up are NOTES of the ground — rows of no item, first. *Rejected:* listing the
+  records a capped tile left out by id — the admission walk keeps only what a tile keeps, and
+  naming the rest would put work behind the bound.
+- **A document change clears the baker**; an engine reset clears it through `SceneSync.reset()`.
+- **Release policy: tiles are not counted.** First built conservatively — every tile Model a
+  pass destroyed counted in `TickReport.retired` — and reversed by measurement: tile Models need
+  no release (new tile Models with the same textures, twenty cycles, with or without a release:
+  flat — a reading later found broken, its frame was white), and a `releaseResources()` leaves
+  tile textures behind (+10.7 to +13.3 MB a cycle on WARP with a release each cycle; flat
+  without). Counting tiles only called the leaking release more often; NOT counting them does
+  not make the leak rarer — every release that item changes cause still leaks (review 3). The leak itself is
+  OPEN (PF-L3D-04; the workspace's G7 soak with the baker in: GPU +7.5 MB per rebuild with its
+  release after quiet, +19 with the release in the pass, against 0.0 and −0.1 without the
+  baker; with tiles no longer counted, GPU +10.2 and private bytes +30.4 with the release in
+  the pass). The cause is a Qt Quick 3D 6.11.0 bug, read in its source and proven by measurement (#532): `QSSGBufferManager::clear()` walks `customTextureMap` with `++it` while `releaseTextureData(it.key())` erases through its own lookup; Qt 6's `QHash` shifts the next entry of a collision run back into the freed slot, `++it` skips it, and `customTextureMap.clear()` drops the skipped entries unreleased. The key's hash covers only size, depth, format and transparency, so same-size tiles all collide and about half leak per release (WARP, 16 × 512²: +10.8 / +11.7 MB a cycle against a prediction of 8 × 1.333 MiB) — tried and rejected: in-place updates, distinct tile
+  sizes, tiles as `Texture.sourceItem` images. Static tiles leak too: EVERY release leaks, up
+  to ~42 MB for the largest ground (4096² px, ~85 MB with mips). *Gate (review 3, replacing a
+  first fallback that gated with the bake OFF and reported the product against a 60 MB
+  ceiling that could not fail):* the workspace's G7 soak measures the PRODUCT — ADR-060
+  decision 15 makes it the leak half of ADR-048 criterion 10 — against
+  `LEAK_BOUND_MB_PER_RELOAD` + 0.6 × the soak's own tile-texture bytes per release × releases
+  per reload; a non-strict `xfail` tripwire holds the GPU slope to the plain bound; the
+  bake-off run stays as Model churn alone. 3D became the default view with #532 open, on the
+  owner's decision at the L1 pull request with the measured exposure (§8.29.5 limit 11; ADR-060
+  addendum D5).
+- **The tile's material is the endless meadow's** (roughness 1.0, specular amount 0.15), so a
+  baked lawn meets the meadow without a step (the L1.4 look review: 0.92 / 0.2 measured 2 to 8
+  luma darker; the combined look pass gates the edge at ≤ 1 luma).
+- **The bake's log lines follow §8.11**: one normalised, capped line at ERROR, the traceback at
+  DEBUG (they quoted an exception's message as it came).
+- **Ruling R41:** gate G6 reads the median of the last ten cycles' growth instead of Theil–Sen
+  over them (one +20.6 MB step read +2.80 MB a cycle); bound unchanged; §8.10.10.
+- **The frozen `--selftest`** bakes one flat lawn with the product's baker over twelve tiles and
+  as many passes, and fails on a wrong tile count, a bake that raised, or no lawn in the frame.
+
+Validation: `tests/integration/test_scene3d_ground_wiring.py` (12 tests), the workspace's suites
+with the baker in (two of their assertions said "a bare plan rectangle" and say "tiles" now),
+`tests/unit/test_quick3d_selftest.py`, the render tier (GPU and WARP).
+
+### Addendum (2026-10-23, issues #557/#558 — illustrative category heights, width propagation)
+
+- **Estimated heights (#557)** are a deliberate product-policy change to the
+  unknown-height contract: a plant with no usable height renders the matching
+  plant form at a documented illustrative category fallback
+  (`core/plant_height_estimate.py`: tree 400, shrub 150, perennial 60,
+  vegetable 50 cm; category group first, then kind) instead of the pale
+  marker. The plan keeps height unknown — nothing is written to species data,
+  measurements or the saved file; the transient record carries
+  `estimated_height_cm`, viewing 3D adds no undo step, and the info card shows
+  "{height} (estimated)". The estimate drives decorative 3D geometry (and its
+  shadow) only; the analytical 2D sun/shade model keeps treating the height as
+  unknown (`effective_height_cm` still returns `None`). Known and measured
+  heights keep their exact geometry; setting a real height replaces the
+  estimate. Pinned by `tests/integration/test_plant_package_558_559_560_552_557.py`.
+- **Maximum-width propagation (#558)** rides the same builder/record path:
+  editing Max Spread on a species-sized plant resizes the 2D footprint and the
+  3D canopy spread together (center and rotation pivot preserved,
+  `set_radius_centered`), as one undo step with the metadata edit. Explicit
+  spacing overrides, measured spreads and custom footprints win; a cleared
+  maximum preserves geometry.
+
+## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
+
+**Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
+`OGP_QUICK3D=1` until L1.9 made the workspace the default and deleted the switch (addendum
+"the default and the removal" at the end of this ADR; decision 1 below is superseded by it). Builds on ADR-048 (the engine), ADR-053 (the clock) and ADR-059 (the pipeline), and closes
+the two things ADR-048 left to this story: criterion 2's deferred half and criterion 10's leak half
+(addendum there).
+
+### Context
+
+L1.1 built a pipeline (records → diff → builders → sink) and L1.2 an engine host; nothing connected
+either to the app. The shipped 3D view is a second window that rebuilds its whole scene on every
+change. The epic wants 3D to be a **mode of the main window** — Plan, 3D, or both side by side — in
+which an edit appears while the user watches.
+
+Five facts shaped the design:
+
+- **The engine's view is a native window** (`QQuickView` in `QWidget.createWindowContainer`,
+  ADR-048 criterion 3). No sibling widget paints over it; a notice "on top of 3D" cannot exist.
+- **The host must be built lazily and never built twice.** Importing and starting it costs 0.4 to
+  1.2 s on the GUI thread, and ADR-048 criterion 10 demands zero aborts over hide / show cycles —
+  which the host delivers when it is kept and only hidden.
+- **A first 3D start can kill the process inside the graphics driver** — no exception, no dialog,
+  no log line. A user whose driver does that must still reach 3D at the next start.
+- **The default test tier has no GPU** (`QT_QPA_PLATFORM=offscreen` selects the software scene
+  graph, where Qt Quick 3D draws nothing). Whatever is a decision and not a Qt Quick call must be
+  testable without the engine.
+- **A whole-plan snapshot is O(total vertices) even when every record is cached** (3 to 4 ms on
+  the small bench plan, 13 to 15 ms on the large one, measured below), and the first pass of a
+  plan costs the sum of its items — seconds for a hostile plan.
+
+### Decision
+
+1. *(Superseded by L1.9: no switch — addendum "the default and the removal", D1.)* **One
+   internal switch.** `app/settings.py::quick3d_workspace_enabled()` was the only read of
+   `OGP_QUICK3D`; exactly `"1"` switches the workspace on. Off, the app is what it was: no
+   workspace object, nothing of `ui/view3d/workspace` or of Qt Quick imported, the canvas area's
+   widget tree unchanged. No setting, no menu entry, no persisted value: the switch leaves with
+   L1.9.
+2. **`Workspace` holds the canvas and, from the first switch to 3D or Split on, a 3D pane beside
+   it** (`ui/view3d/workspace.py`). Three modes: *Plan* (the canvas alone, at the size and with the
+   pixels it had without the workspace), *3D* (the pane alone), *Split* (a splitter; neither side
+   collapses, the pane is at least 220 px wide — a collapsed 3D pane would be a third way of saying
+   "Plan" in which the engine keeps running). The mode is three checkable, exclusive actions:
+   **Alt+1 / Alt+2 / Alt+3**, a *Workspace* submenu of the View menu with "Reset 3D View", and a
+   small button row — floating over the canvas in Plan and Split, in the pane's strip in 3D. The
+   Split position is kept through the UI-state store (ADR-041), and only when the session really
+   was in Split — saved the moment Split is LEFT, and when the app closes in it (FR-3D-WS-01
+   says "remembered between sessions"; it used to be saved only by an app closed in Split).
+   **Entering 3D mode cleared the canvas selection** — a stopgap with an owner,
+   `Workspace.clear_selection_hidden_by_3d_mode`: 3D mode hides the canvas, and the app's
+   shortcuts stay, so Delete, Ctrl+X and Ctrl+D would have acted on what nobody could see.
+   **Removed by the selection story (L1.8 addendum)**: the selection is shown in 3D — the ring
+   round every selected item and the info card below the view — so 3D mode keeps it and the
+   shortcuts act on what is shown (`test_view3d_workspace.py::test_3d_mode_keeps_the_selection_and_shows_it_so_its_shortcuts_act_on_what_is_seen`).
+3. **Nothing overlays the native 3D window.** Every control, notice and message of the 3D pane
+   sits in a strip ABOVE the view or REPLACES the view (a message page in a stacked widget). The
+   floating switch is the one overlay there is, and it floats over the canvas, an ordinary widget.
+   L1.8's info card goes into the same pane, beside or below the view. **The strip is a row of
+   controls with the notices below it, one per line; a sentence is a label that wraps, and a
+   button holds a short command, is never narrower than its text and, after a sentence, has a
+   row of its own.** Measured on the first delivery: one row of non-wrapping labels needed 785
+   px, and Split in a 1366 px window gives the pane 455 — the compatibility sentence was cut
+   with no ellipsis and no tooltip. After the labels were made to wrap, two sentences were
+   still on BUTTONS (the problems count; "Try Hardware Next Time", whose German text alone is
+   456 px): squeezed to 220 px, cut. A click's outcome is said in a label of the strip, never
+   written onto a button (a sentence on a button of fixed size made the pane as wide as the
+   sentence). Pinned at 1366 px with every notice at once, in English, German and Spanish.
+4. **One engine host per main window, built on first use, kept, only hidden and shown.**
+   `Workspace.engine_factory(prefer_software) -> (host, sink)` builds it — by default
+   `Quick3DHost` and `Quick3DSink`, imported inside the factory — and is THE test seam: the
+   default tier hands in a recording sink and a stand-in host. The workspace module imports no Qt
+   Quick binding. Shutdown runs in the main window's `closeEvent`, while the window exists:
+   pipeline, start marker, host.
+5. **The pipeline's controller is engine-free** (`ui/view3d/sync_controller.py::Scene3DController`):
+   the scene's PLAN REVISION, the clock's two channels and one quiet timer in — at most ONE pass
+   per turn of the event loop out. **What starts a pass is an announced change of the plan, not
+   a repaint** (two layers):
+   - *The fast path — the plan revision.* `CanvasScene.plan_revision` / `plan_changed(int)` move
+     exactly when plan CONTENT changed, at the chokepoints the scene and the undo stack already
+     have: an item added or removed; a command executed, undone or redone
+     (`CanvasScene.set_command_manager` → `stack_changed`); a `GardenItem`'s position,
+     transform, visibility, z or parent changing (`garden_item.handle_item_change`, THE hook
+     every item's `itemChange` calls first — a census of `ui/canvas/items` pins it; a group,
+     whose members Qt tells nothing when it moves, has one too); a layer added, removed,
+     reordered, shown, hidden, locked or made translucent (`layers_changed`); the canvas
+     resized; the scene cleared; every mouse move of the four handles that change a geometry
+     in place; and **THE nudge, `CanvasScene.note_plan_changed()`**, for a writer that goes
+     round all of those (the plant panel's instance fields — its shipped ad-hoc `item.update()`
+     "nudge" calls it now — and the Properties panel's seven direct writes). A moved revision
+     marks the records dirty at once. Qt's polish of a new item (`ItemVisibleHasChanged(true)`
+     one turn after it was added, to an item that was visible all along) is not announced: the
+     hook remembers at the pre-change notice what the item was.
+   - *The net — what is not announced.* A `scene.changed` that no revision move explains
+     snapshots nothing: it (re)starts ONE single-shot timer, `NET_QUIET_MS` = **400 ms** (twice
+     the sun animation's tick, pinned, so that "Animate" never reconciles between two ticks),
+     only while 3D is visible. When the scene has been quiet that long, ONE reconciliation pass
+     runs (`TickReport.reconciled`). It normally finds nothing; when it finds a difference an
+     edit path forgot its announcement — the pass applies it, `unannounced_changes` counts it
+     and one DEBUG line names the kinds that differed, with no id. So no edit stays out of 3D
+     for longer than the quiet time, whatever wrote it. No `changed`, no timer; a scene that is
+     never quiet is reconciled every `NET_MAX_WAIT_S` (5 s); a repaint while 3D is hidden
+     leaves a flag, and coming back starts the timer once. A `changed` with an EMPTY list is
+     not a repaint and is ignored: with a listener on `changed`, Qt reports an item's
+     `update()` at once from its dirty-item pass, and the queued `_q_emitUpdated` the same
+     update asked for arrives afterwards and finds nothing (measured: every `item.update()` gave
+     `changed([rect])`, then `changed([])`). Taken as a repaint, that echo of an announced write
+     whose repaint lands after its pass (the Properties panel repaints, then nudges) was
+     "unexplained" and cost a second snapshot a quiet time later — found by a hand mutant that
+     survived, not by a gate. **An announcement explains repaints for one turn after its pass,
+     no longer** (`_expire_explanation`, scheduled at the end of every records pass): an
+     announcement that repaints nothing (a typed height through its command, the bare nudge)
+     otherwise left "the revision moved" standing, and the NEXT unannounced write's repaint read
+     as explained — no timer, and the write stayed out of 3D until some unrelated repaint
+     (measured by the scoped re-check: 3D height 250 against 777 in the plan after 1.5 s). The
+     guarantee above holds only with the expiry; pinned by
+     `test_an_unannounced_write_after_an_announcement_that_repainted_nothing_is_still_found`.
+     The one write the net cannot see is a write to an item on an opacity-0 layer: Qt emits no
+     `changed` at all (a limit of a repaint-driven net, recorded). While "Animate" runs, the
+     `NET_MAX_WAIT_S` bound reconciles every 5 s (a whole-plan snapshot that finds nothing) — a
+     stated cost.
+   - *Measured* in the real window (Split, a recording sink): a time sweep with the sun
+     simulation on, 20 preview moves of the polygon tool, three selections and a clear, a hover
+     over handles, "Animate" for 2 s — 0 snapshots while each happens and 1 after the quiet
+     time, which found nothing (first delivery: 10, 20, 4, …, one per tick). 31 edit paths —
+     the §8.10 workflow's, undo / redo, layer visibility / lock / opacity, arrange, group /
+     ungroup, paste, duplicate, a handle drag, an Agent API write, the Properties-panel edits,
+     the plant panel's instance AND species fields (the species fields were missing their
+     nudge until the scoped re-check found them) — each moves the revision and reaches 3D by a pass it announced; `unannounced_changes == 0`.
+     A preview mouse-move turn costs in Split what it costs in Plan: median ratio **0.94** on
+     the small bench plan (0.58 against 0.62 ms) and **0.98** on the large one (0.76 against
+     0.77 ms), 0 snapshots in 160 moves in Split — the `perf` run on a quiet machine; 1.01 and
+     1.01 in a run beside other suites (1.86 / 1.84 and 2.69 / 2.66 ms); first delivery: 6.7
+     against 1.0 and 18.3 against 0.7. One whole-plan snapshot costs 3.4 and 14.3 ms. The gate
+     is ≤ 2.0 (`perf`).
+
+   The pipeline's other rules:
+   - *Paused while 3D is hidden*: two flags and nothing else — no snapshot, no diff, no sink call,
+     no timer. Showing 3D runs one catch-up pass, which `SceneSync` guarantees equals a
+     from-scratch apply.
+   - *One pass, one transaction*: records, sun and ground travel in one `sync.apply`. A
+     time-of-day change is LIGHT ONLY (one `set_sun`, no snapshot); a date change regrows the dated
+     plants; writes faster than passes coalesce in the flags — an animated date never queues more
+     than one regrow.
+   - *A snapshot only on an announced change of the plan, or once after a quiet time — never on
+     a timer that spins, and never per repaint* (above).
+   - *A pass that keeps failing is tried again when something changed, and says so once.* The
+     next change of the plan, of the date or of the light tries again; a repaint does not (the
+     net stands down while a pass is owed). The log gets ONE ERROR line per distinct failure of
+     an outage (the same failure again is a DEBUG line; the next pass in which nothing failed
+     ends the outage). It used to be 2 to 3 ERROR lines per change, with no backoff.
+   - *A document change is not a reset.* A new or opened plan is another snapshot; `apply` removes
+     what is gone. `SceneSync.reset()` is RECOVERY: after a sink call raised or the sync is
+     poisoned the controller resets, applies once more, logs one line, and never lets the error
+     reach the event loop; if that fails too it gives up for this pass and the next change tries
+     again.
+   - *One snapshotting scene per process* — the record layer's outline memories ride a
+     process-wide generation clock (ADR-059); the workspace has one canvas scene and one
+     controller.
+   - *What 3D remembers per plan is dropped in one place* (`_drop_plan_memories`: the plant
+     builder's shapes, the record layer's outlines) — on a document change and when the view
+     closes.
+   - *The ground seam*: `set_ground_stage(stage)` — `stage(previous_records, records, width_cm,
+     depth_cm) -> GroundSpec` runs BEFORE `apply`, so what it returns rides the same transaction
+     (L1.5's baker).
+6. **A pass is a posted event of normal priority, not a zero timer.** Measured in the real app
+   with the real engine (RTX 4070, window 1600 × 900, 3D pane 574 × 734, 120 scripted edits, clock
+   from before the command to a finished readback taken the moment the pass committed):
+
+   | scheduling | `bench_small` p50 / p95 | `bench_large` p50 / p95 | wait for the pass, p95 (large) |
+   |---|---|---|---|
+   | timer, 1 ms | 16.1 / 24.5 ms | 38.4 / 257.4 ms | 228.5 ms |
+   | posted event, high priority | 14.0 / 18.9 ms | 29.7 / 45.5 ms | 0.1 ms |
+   | **posted event, normal priority** | 13.0 / 17.6 ms | 29.2 / 66.7 ms | 34.9 ms |
+
+   A zero timer waits behind the timers that are due — the 2D side's own debounced work
+   (spacing, companions, the minimap). A posted event is delivered before them. At HIGH priority
+   it also overtakes the scene's own queued `changed` for the same edit, which then costs a
+   SECOND whole-plan snapshot per edit; at normal priority the undo stack's signal and the
+   scene's share one pass.
+7. **The first pass of a document is started by the PAINT of its notice.** "Building the 3D
+   view…" is set, and an event filter on that label starts the pipeline after the label painted
+   — not a timer that hopes the paint came first. A label that is never painted releases the
+   pipeline after 250 ms; with the controls hidden (fullscreen preview) nothing is waited for.
+   The same on a document change while 3D is shown, and for a catch-up pass after hidden edits
+   (which may be a whole new plan).
+8. **The camera is a Qt-free value with one owner** (`core/scene3d/camera.py::OrbitCamera`): a
+   goal pose that input moves and a pose that follows it as a critically damped spring,
+   integrated exactly (a stalled timer lands where many short steps would have). Target on the
+   ground, distance 0.5 to 600 m, pitch 5° to 89°, the target kept within the plan plus 10 m.
+   **It is moved by four things only — user input, "Reset 3D View", the first open and a
+   document change — and "edits never move the camera" is therefore a property of the code:
+   there is no other call site.** The step timer (16 ms) runs only while the camera is still
+   moving and the pane is shown. Home (and "Reset 3D View") takes the SHORTEST turn to the
+   default side: yaw is free while orbiting, and aiming at the default yaw itself unwound every
+   turn (six turns, then Home: 2,477.5° back to 317.5°). The goal is the equivalent angle
+   nearest to where the camera is; a snap (first open, new document) lands on the default
+   itself.
+9. **Input is an event filter on the native window** (`ui/view3d/orbit_input.py`,
+   `Quick3DHost.install_event_filter`): the shipped view's gestures — left or middle drag pans,
+   right drag orbits, both buttons or the wheel zoom, arrows pan, Alt+arrows orbit, PageUp /
+   PageDown zoom, Home resets. Escape and every other key are passed on: the app's shortcuts
+   work with the keyboard in the 3D window (measured: Ctrl+Z undoes, Alt+1 leads back to the
+   plan), and Escape stays free for L1.8's walk mode.
+10. **A start guard instead of a crash** (`ui/view3d/init_guard.py`, standard library only). Two
+    small files in the app's log directory, beside `app.log`: `view3d-init-<pid>.marker`, written
+    before the first 3D window of a session is built and removed when a frame was presented (or
+    Qt reported "no graphics device", or Python caught an error, or the app closed in good
+    order); and `view3d-compat.flag`. A marker whose process is gone means the start died: the
+    flag goes on and 3D renders on the software adapter — **per window**
+    (`QQuickGraphicsConfiguration.setPreferSoftwareDevice`), because
+    `QSG_RHI_PREFER_SOFTWARE_RENDERER` is read once per process and does nothing after the first
+    Qt Quick window (measured both ways). The pane says so, and offers "Try Hardware Next Time";
+    ONLY the user removes the flag — a machine whose driver crashes would otherwise alternate
+    between a crash and a software session for ever. A marker is per process, so a second
+    running instance is not a crash; one older than 600 s whose process id "runs" is (the id was
+    handed out again). A session that never opens 3D reads and writes nothing. **Three outcomes,
+    not two — hardware, software, off.** A start that died in SOFTWARE mode switches 3D off (the
+    flag says `off`; nothing is built or marked; the pane says why) — before, such a machine
+    died at every 3D open, because the marker's mode was written and never read. A marker with
+    this process's OWN id and no start of ours pending is a death (the process that had the id
+    before us). And the poll that confirms the first frame runs only while 3D is shown: 3D
+    hidden before its first frame takes its marker away (`Init3DGuard.abandon`), and shown
+    again puts it back (`mark_again`) — a marker left pending was read as a death by a second
+    instance 601 s later, and a healthy machine was put into compatibility mode. The notice and
+    "Try Hardware Next Time" are on screen in EVERY state of the pane while the flag is on
+    (running, failed to start, no device, switched off), and the button reports what happened
+    to the file, not what was asked.
+11. **"No graphics device" is a message, not a retry loop.** `health().scene_graph_error` ends
+    the view for the session: the pane shows the message and — once, on hardware — "Use
+    Compatibility Mode Next Time". Clicked, the button goes and the strip says what happens
+    next, with the way back beside it; a setting that cannot be written is said in the strip
+    and the button stays. An error raised in-process (an import, the scene file) is a message
+    with "Try Again". Opening 3D never takes the 2D app down.
+12. **What 3D could not show is said.** The record layer refuses some items the canvas draws
+    (`SkipReason`), and a builder can fail: the strip shows a quiet, persistent count ("3 objects
+    are not shown in 3D", with "Show List") and, on demand, a non-modal list — name, kind, a
+    translated text per reason code — whose rows select the item on the canvas. The list shows
+    at most `MAX_PROBLEM_ROWS` (200) rows and then "… and N more"; a fill walks the scene ONCE
+    for every name (it walked it per row: 300 rows over 3,000 items took 0.55 s, 3,000 rows
+    3.1 s, on the GUI thread, again on every change while the list was open — and duplicated
+    ids, one hostile plan, are a reason code). The German reasons name no possessive ("der
+    Umriss", not "sein Umriss"): they follow objects of every gender. A notice of the ENGINE
+    ("The 3D view reported a problem") stays until that engine is gone — a pass used to erase
+    it.
+13. **Plan text is text** (`core/plain_text.py`, §8.11). A plan file is untrusted and Qt decides
+    "rich text or plain" by LOOKING at a string. Everything plan-derived that reaches a tooltip,
+    a label or a log goes through one helper: normalise (every line boundary `str.splitlines()`
+    knows becomes one line break; other control characters and the bidi overrides become
+    U+FFFD), THEN cap (lines and length, on what the consumer will see), THEN escape. Labels are
+    `PlainText`; list rows are plain by the default delegate. This story's own log records are
+    one normalised line at ERROR / WARNING with the traceback at DEBUG only.
+14. **`connect_qobject` is how a QObject listens to the clock** (`ui/sim_clock_subscription.py`,
+    ADR-053 addendum): the channel calls a guard that asks `sip.isdeleted` at every delivery. A
+    scan of the product refuses a direct connect.
+15. **What a destroyed Model leaves behind is released.** Qt Quick 3D keeps per-draw-call
+    graphics state for every Model it ever drew, after the Model is destroyed — about 0.2 MB
+    each on Direct3D 11 with the sun's shadow passes on, independent of the mesh — and only
+    `QQuickWindow.releaseResources()` gives it back (`Quick3DHost.release_cached_resources()`,
+    2 to 10 ms, the next frame unchanged). Every pass says how many items lost their Models
+    (`TickReport.retired`: removed, geometry replaced, cleared by a reset); the workspace counts
+    them and releases when 64 piled up and the pipeline has been quiet for half a second, or at
+    once at 512 — an animated date regrows every dated plant per tick and is never quiet.
+    **This is the leak half of ADR-048 criterion 10** (numbers in the addendum there).
+16. **One mechanism says "the document was replaced" — the scene's.**
+    `CanvasScene.document_replaced` fires when the old document is about to go — in `clear()`
+    and at the start of the second, committing phase of a load; never for a load that failed
+    its validation. master's fix of #428 rides on it (ADR-056: `_reset_sun_document`), and the
+    workspace listens to the same signal (`Workspace.connect_plan` → `document_changed`); the
+    main window tells the workspace nothing by hand. The slot reads nothing from the scene —
+    it sets flags, and the pass they ask for runs with a later turn of the event loop, when
+    the new document is in. *This story's first delivery had a mechanism of its own — a pair
+    of hooks of the main window around the three document paths — and it was wrong: the first
+    hook cleared the hours-of-sun map BEFORE `ProjectManager.load()` could fail, so opening a
+    damaged file threw away the map of the plan that stayed open (master pins the opposite).
+    It is gone.* An open that fails leaves the 3D view, its camera and what it remembers of
+    the plan exactly as they were — pinned on the three paths a load can fail on (File → Open,
+    Open Recent on a moved file, the agent's `open_plan`).
+17. **Nothing takes a frame from the live view.** A readback of the shown host — `grab()`, and
+    `wait_ready()` / `pick()` / `project()`, which need a frame — renders a frame of its own
+    that is never presented, and what such a frame holds is given back only when a PRESENTED
+    frame ends. In a view that presents nothing (the display asleep, a session that does not
+    present) that is never: twenty rebuilds of the small bench plan with the view's frames
+    withheld grew by 1.5 MB per rebuild without a readback and by 8.5 MB with one readback
+    per rebuild — 26 without the release of decision 15 (ADR-048 addendum "L1.3"). So the
+    workspace's steady paths — the pass, the health poll, the timers, a resize, the splitter
+    — ask the host for none of them: the workspace tells the engine what the plan is, and
+    Qt draws it when it draws. A picture of the 3D view for a file or a thumbnail goes
+    through `quick3d/offscreen.py` (a host of its own, which gives everything back when it
+    closes), never through repeated readbacks of the shown host. A click that picks (L1.8)
+    is the user's own action, once. **The pipeline is NOT held back in a view that presents
+    nothing**: it applies as always, nothing is drawn, nothing is uploaded (dedicated GPU
+    memory did not move in those twenty rebuilds), and the first frame after the dark spell
+    shows the plan as it is. Pinned twice — a stand-in host that records every frame-taking
+    call through all the steady paths, and a scan of the five modules' source — and the
+    memory soak keeps the same rule: no readback inside its measured loop, one frame before
+    and one after.
+
+### Alternatives considered (rejected)
+
+- **A stacked widget instead of a splitter.** Split is the mode that makes the feature (an edit on
+  the left, its solid on the right); a stack has no Split.
+- **The mode switch in the toolbar, the tab bar or the status bar.** The toolbars are the tools';
+  the tab bar belongs to the tabs. A switch on the surface it switches needs no finding, and in
+  3D mode it must be in the pane anyway. Cost: one small overlay on the canvas in Plan mode — the
+  canvas view's own pixels stay identical (pinned), the area's do not.
+- **A notice over the 3D view.** Not possible over a native window; `QQuickWidget` would allow
+  it and was rejected by ADR-048 (an offscreen round trip per frame).
+- **Building the host at start-up, or rebuilding it per show.** The first costs every session
+  half a second and a graphics device it may never use; the second is the abort ADR-048
+  measured.
+- **Polling the scene on a timer.** A snapshot per tick is O(total vertices): 13 ms of the GUI
+  thread per tick on the large plan, for nothing, also while idle.
+- **A timer of interval zero, or a high-priority event** — decision 6's table.
+- **`scene.changed` as "the plan is dirty"** (the first delivery). `changed` is a REPAINT: a
+  hover, a selection, a tool's preview under the mouse, the sun's shadow while the time slider
+  moves. Measured by the independent review: a snapshot per repaint, a preview mouse-move turn
+  6.7 ms in Split against 1.0 in Plan (large plan: 18.3 against 0.7). Its gates had passed only
+  because they changed the time with the sun simulation off — and the toolbar that holds the
+  time slider is shown while it is on.
+- **The plan revision alone, without the net.** Every writer that goes round the chokepoints
+  would have to be found — and the next one written would not be. The net turns a missing
+  announcement from "3D silently stale" into "3D right after the quiet time, and a number".
+- **The net alone, without the plan revision** (reconcile after every quiet time). Every edit
+  would reach 3D 400 ms late; the gate is 50 ms.
+- **Pacing the pipeline by presented frames** ("no second pass before the view has presented
+  the first", so that a view that presents nothing is given one generation). Built (commit
+  `f02c5f6`), measured, and taken out again. It was aimed at "a view that presents nothing
+  keeps every byte uploaded to it", read from a soak that READ BACK once per rebuild — and
+  the growth belonged to the readbacks. Without them the same dark view, with no pacing at
+  all, grows by 1.5 MB per rebuild (the cost of replacing 98 QML Models, which a held pass
+  only postpones), and nothing is uploaded. What the rule added was a way to get stuck: a
+  pass that waits for a frame which nothing asks for. Decision 17 is what the measurement
+  supports.
+- **A pair of hooks of the main window around every document path** (this story's first
+  delivery: "before the scene is cleared" / "after the new document is in"). Two mechanisms
+  for one fact, and the "before" hook ran before a load could fail (decision 16). The scene
+  already says when a document is replaced, and says it only when it is.
+- **Keeping the start marker in the settings store.** The marker must be on disk before the
+  engine is imported and must survive a process that dies without flushing anything; it is a
+  fact about a process (it carries a pid), and it belongs where support looks — beside
+  `app.log` and `crash.log`. A registry value is none of these.
+- **Falling back to software automatically, within the session.** A device that could not be
+  created is reported by Qt in good order (`sceneGraphError`), and a second host built at once
+  on the software adapter would be a second engine in a session that was promised one. A dead
+  PROCESS cannot fall back at all. Both lead to the same place: the next start, and a choice
+  the user can undo.
+- **Disconnecting a clock subscriber on its own `destroyed` signal.** Built first; it crashed
+  the suite with an access violation — the cyclic collector clears a Python callable connected
+  to `destroyed` while Qt still owns the object, and Qt then calls what is left (PF-E3D-07, item 1 of archive/05-l1-3-workspace.md).
+- **Releasing the engine's caches on every pass, on a timer, or never.** Every pass: 2 to 10 ms
+  per edit plus a frame that rebuilds what was dropped. A timer: wake-ups while idle, and no
+  relation to what was destroyed. Never: 19 MB per rebuild of the small bench plan and 65 of
+  the large (measured), and a date animation that keeps hundreds of megabytes per minute.
+
+### Consequences
+
+- **For L1.4 (looks, sky):** subscribe with `connect_qobject`; a look is applied through the host
+  (`set_look`), never through the pipeline. Whatever animates `windTime` makes frames differ from
+  one another — the soak's "the frame after the loop is the frame before it" check and the
+  camera rule's readbacks assume a still scene and must pin the wind clock to 0.
+- **For L1.5 (ground bake):** `Scene3DController.set_ground_stage(stage)` is the seam; the stage
+  runs on the GUI thread inside the pass and is contained when it raises (the bare rectangle is
+  sent). A bake that replaces a texture per pass destroys no Model and so does not count as
+  retired; if it creates and destroys engine objects of its own, they need the same release.
+- **For every writer of plan content:** a change that goes round the command stack, the item
+  hook and the scene's other chokepoints calls `CanvasScene.note_plan_changed()` (or
+  `garden_item.note_plan_changed(item.scene())`) — and `item.update()` if the canvas shows it.
+  Forgetting it is not silent: the net applies it after 400 ms and counts it.
+- **For L1.8 (selection, walk):** `Workspace.clear_selection_hidden_by_3d_mode` is yours to
+  remove or replace once the selection is shown in 3D (decision 2) — removed, see the L1.8
+  addendum. `OrbitInput` passes Escape and unknown keys on;
+  `Workspace.select_item(id)` is how the problems list selects on the canvas; a click on the 3D
+  view is `try: host.pick(...) except HostStateError` — never `wait_ready()` (the workspace calls
+  it nowhere); the info card goes beside or below the view.
+- **The workspace needs three things of the host beyond the engine story's contract:**
+  `Quick3DHost(prefer_software=…)`, `install_event_filter(watcher)` and
+  `release_cached_resources()` (with the `cache_releases` counter).
+- **How the workspace is measured follows from decision 17.** A readback is the measuring
+  device of the latency and picture scenarios (edit → finished readback; the camera rule;
+  WebEngine beside 3D) and costs memory of its own, so the memory soak takes none inside its
+  measured loop — one frame before and one after, which must be equal — and is judged
+  twice: with the view presenting and with its frames withheld (`frames="withheld"`: the
+  engine story's no-paint filter on the view). The gate's children run with Qt's
+  `QT_D3D_NO_VBLANK_THREAD=1` by default (`run_gate(timer_paced=True)`): on Windows update
+  requests come from a display-vblank thread, with the display asleep a visible window
+  presents its first frame and no more, and no scenario may depend on whether the dev box's
+  display is awake. The three close gates run once more as the product starts — paced by the
+  display (`timer_paced=False`) — which proves less than it seems: on a sleeping display such
+  a view presents one frame, so "close with 3D visible" there is not a view presenting frame
+  after frame while it closes. That case stays on the owner's checklist.
+- **Wall-clock gates carry the `perf` marker** (ADR-058): the strict repaint gate and the
+  preview-move cost ratio (default tier: their load-proof half — no repaint starts a pass of
+  its own, the net finds nothing), and G2 / G11 of the render tier, whose whole file is run
+  with `-m "perf or not perf" -n 0`.
+- **The ground bake (L1.5) plugs in at two places and is not wired here.** Where the pass hands
+  a ground to the engine: `Scene3DController.__init__` builds `SceneSync(sink, registry)` — the
+  bake's `ground_baker=` goes there — and `_pass_records` passes `ground=` from `_ground()`
+  (`set_ground_stage` if a stage function is preferred). Where its problems join the list:
+  `problems_dialog.problems_of(skipped, failures)` and `Scene3DController._set_problems` /
+  `problem_count` are the one path from "something is missing in 3D" to the count in the
+  strip — `GroundBaker.capped`, `.failures` and `sync.ground_failure` become a third source
+  there, with their own reason codes in `View3DProblemsDialog.reason_text`. **The pass is
+  re-runnable while a bake has work left**: `mark_dirty()` — also from inside the stage, or
+  from a slot on `applied` — asks for another pass in the next turn of the event loop
+  (pinned with a ground made in four slices), at the price of one snapshot per pass (3.6 ms
+  on the small bench plan, 15 on the large). Nothing here builds on one pass painting the
+  whole ground; the "Building the 3D view…" notice, though, goes with the FIRST pass.
+- **Known limits, stated.** The Keyboard Shortcuts dialog does not list Alt+1 / 2 / 3 while the
+  workspace is behind its switch (L1.9). Edit latency is measured to a finished READBACK; the
+  time to photons is not measured. The real map picker (it needs the network and a key) is on
+  the manual checklist; the automated check uses its engine on a local page. A change of the
+  device pixel ratio in mid-session, and OS display scaling, are unmeasured (manual checklist).
+  With the release in place, dedicated GPU memory rises once, by about 90 MB over the first
+  releases (289 → 378 MB), and is flat after; committed memory rises with it once, by about
+  100 MB (ADR-048 addendum "L1.3"). The workspace's render tier is not part of CI's render
+  job: it was measured on the dev box only (GPU, and the soak on WARP by hand).
+- **A residual remains: 15 to 20 kB per destroyed Model** (2 MB per rebuild of the small bench
+  plan, 6.4 of the large, linear over 60 rebuilds). It is not graphics state — the same
+  rebuilds in a view that draws nothing leave 1.5 MB each — and its floor is Qt's own cost of
+  creating and destroying a QML object (3.4 kB for a bare `Model` with a material, measured
+  without product code); the rest is not located. It is inside the gate and small for
+  editing; it is NOT small for a story that replaces many Models per tick (date playback) —
+  ADR-048 addendum "L1.3" has the numbers and two ways out.
+- The builder-failure record of `core/scene3d/sync.py` and the record layer's `record_failed`
+  record still attach the exception at ERROR (they are the scene contract's, and pinned by its
+  tests): decision 13's "one line" holds for this story's five modules.
+
+### Validation
+
+Default tier (no GPU; the engine replaced at the seam):
+
+- `tests/unit/test_scene3d_camera.py` (62) — pose, clamps, framing, the exact spring; the module
+  is standard library only.
+- `tests/unit/test_sim_clock_subscription.py` (23), `tests/unit/test_view3d_init_guard.py` (44 —
+  every transition in a temp directory; the default folder under pytest is inside the test
+  root), `tests/unit/test_plain_text.py` (71), `tests/unit/test_view3d_workspace_i18n.py` (40),
+  `tests/unit/test_view3d_workspace_packaging.py` (4).
+- `tests/ui/test_view3d_orbit_input.py` (21), `tests/ui/test_view3d_host_seams.py` (7).
+- `tests/integration/test_view3d_sync_controller.py` (39) — through the real `scene.changed`,
+  `stack_changed` and clock channels: **G4** (28 hidden edits: 0 snapshots, 0 sink calls; one
+  catch-up pass equal to a from-scratch apply), **G9** (time → light only; date → the dated
+  plants and nothing else; a destroyed subscriber is never called), the ground seam (the
+  stage sees both snapshots; a stage that raises is contained; a ground made in four slices
+  asks for its next pass from inside the pass and then stops asking).
+- `tests/integration/test_view3d_workspace_widget.py` (44) — modes, the kept host, **G3** (the
+  pose compared exactly around each of 100 edits of every kind, a date and a time change; a
+  document change frames once), **G6** (the marker and its notices), the notice painted
+  before the first snapshot, the release thresholds, hostile names — and decision 17: a
+  stand-in host that records `grab` / `wait_ready` / `pick` / `project` sees none of them
+  through passes, polls, the camera's timer, a resize, the splitter, a release, mode
+  switches and a document change; a scan finds no such call in the five modules (and finds
+  one in the offscreen driver, its control).
+- `tests/integration/test_plan_revision.py` — the scene's plan revision: every chokepoint
+  moves it (an edit matrix), no repaint does, Qt's polish of a new item is not a second edit, a
+  census pins THE hook in every item class's `itemChange` and in every geometry handle's mouse
+  move. `tests/integration/test_view3d_plan_revision.py` — in the real window with a recording
+  sink: the gates (five activities; default tier: no repaint starts a pass of its own; `perf`:
+  0 snapshots while it happens, ≤ 1 after the quiet time), the announcement matrix (31 edit
+  paths, `unannounced_changes == 0`), the container's height and material through the real
+  Properties panel (by an ANNOUNCED pass), the net applying and counting a write nobody
+  announced, and the preview-move cost ratio (`perf`).
+- `tests/integration/test_view3d_workspace.py` (22) — the §8.10 workflow through a real
+  `GardenPlannerApp`; **G1** in two fresh processes (without the switch: no engine import and
+  the canvas view's pixels identical to the build with it in Plan mode); what **G10** leaves
+  to this story — #428 itself is master's fix and master's tests
+  (`tests/integration/test_sun_document_lifecycle.py`): a replaced document reaches the
+  workspace through the scene's signal alone (one emission, one slot call, the camera framed
+  once, on four ways of replacing it), and an open that fails on any of three paths leaves
+  the view, the camera, the per-plan memories and the hours-of-sun map as they were.
+- `tests/integration/test_workspace_gate.py` (11) — the gate's own safety: `main()` on a plan
+  builds every store on the throw-away key; a decoy organisation is refused with exit code 97.
+
+Render tier (`OGP_RENDER3D=1`), `tests/integration/test_view3d_workspace_render.py` (24) — the
+app's own `main()` in a child, on Direct3D 11 (RTX 4070), 2026-10-12; the numbers of the tier's
+run on the final code unless a cell says "by hand" (the same scenario started from a script):
+
+| Gate | Measured | Bound |
+|---|---|---|
+| G2 edit → finished readback, `bench_small`, Split at 1600 × 900, 120 edits of seven kinds | p50 14.8 / **p95 19.7** / max 52.4 ms (edit 0.9, wait 0.9, snapshot 3.6, apply 0.4, readback 8.6 at the median; an earlier run of the tier: 15.2 / 20.6 / 43.4) | p95 ≤ 50 ms |
+| the same on `bench_large` (424 records) | p50 31.3 / p95 71.8 / max 105 ms (snapshot 13.6 ms at the median, 21.4 at p95; wait p95 39 ms; an earlier run: 29.9 / 80.3 / 150) | reported |
+| the same on the maximised window (5120 × 1369, 3D pane 2334 × 1203), `bench_small`, by hand | p50 18.5 / p95 29.2 / max 51.2 ms (the readback alone 12.9 ms at the median) | reported |
+| G3 twin: 100 edits of nine kinds on the real host | the engine's camera was set 0 times; a new document set it once | exact |
+| G5 never / visible / hidden | exit 0, 0 Qt warnings, no ERROR in `app.log`, nothing of Qt Quick imported before 3D is asked for | — |
+| G5 in the frozen build (`installer/workspace_gate.spec`: the product recipe plus the gate's runtime hook; PyInstaller 6.18, Python 3.12) | the same three: exit 0, 0 Qt warnings, 98 parts drawn on the GPU; every store the exe built is the throw-away one. The product exe from the same tree: the 8-second smoke stays up, `--selftest` exit 0 in 4.2 s | — |
+| G6 twin: died → next start → try hardware → next start | compatibility mode on "Microsoft Basic Render Driver" by Qt's own log, then "NVIDIA GeForce RTX 4070" again | — |
+| G7 soak, 20 rebuilds, the view PRESENTING, no readback inside the measured loop | **1.56 MB / rebuild** (rebuilds 11–20; 2.00 in a run by hand), growth +121 MB, 20 releases, the frame after the loop equal to the frame before it | < 10 |
+| G7 the same with the view's frames WITHHELD (paint events eaten; 0 frames presented) | **1.32 MB / rebuild** (1.48 by hand), growth +36 MB, 20 releases; dedicated GPU memory did not move; the view presents again → the same frame | < 10 |
+| G7 rebuild off / positive control (+25 MB per rebuild) / release out of reach | 0.33 / 26.8 (fails, as it must) / 18.8 (by hand: 0.01 / 27.3 / 19.3, and 1.54 without the release with frames withheld) | < 10 / ≥ 10 / reported |
+| G7 dedicated GPU memory (DXGI, this process), presenting | 289 → 346 → 362 → 378 MB over the first releases, then flat (slope 0.0) | < 10 |
+| G7 elsewhere, with the release (one run each, by hand) | the large plan (421 parts): 6.38 MB / rebuild (65.5 without the release); WARP: 3.32 (20.1 without), 1.23 with frames withheld | < 10 |
+| G7 over 60 rebuilds (by hand); and with the release inside every pass (20 rebuilds) | 1.78 MB / rebuild over rebuilds 31–60 (60 releases, the frame after equal to the frame before); 1.88 (1.82 by hand) | < 10 |
+| What a readback per rebuild adds — why decision 17 (reported, never judged) | frames withheld: 8.63 MB / rebuild with the release (8.48 by hand), 26.0 without (WARP: 6.20 with); presenting, by hand: 3.85 and 16.4 | — |
+| G8 a Qt WebEngine page before and after the 3D host exists | painted both times (`#1e90ff` at its centre); 138 distinct colours in the 3D frame beside it | — |
+| G11 pan step, Split against Plan at the same canvas size (874 × 967) | 1.04 (the fastest tenth: 1.04) | ≤ 1.3 |
+
+Hand mutation (one text mutant at a time, the tests that should notice run, the tree restored;
+a scratch tool, point-in-time, not a gate): on the final code **every mutant killed** in 18
+sets — controller 14, workspace 19, plain text in the dialog 3 and in the workspace 5, the
+plain-text helper 14, log lines 5 + 2 + 2, the application's wiring 11, the switch 2, retired
+counts and plan memories 11, the release 9, the notice 7, the host seam 3, workspace paths
+that moved 6, a pass asked for from inside the pass 1 (114 mutants), and six mutants that ADD
+a frame-taking call to a steady path — a readback in the health poll, a `wait_ready()` there,
+a readback after every pass, a `project()` per camera step, a readback after a release, a
+`pick()` on a moved splitter — each killed by the recording stand-in host ALONE and by the
+source scan ALONE. Two findings of the tool itself are worth
+keeping: every mutant of `application.py` was once "killed" by the same unrelated test, which
+was failing on the unmutated tree (a mutation verdict is only worth something on a green
+tree — run the story's tests first); and one set listed too few test files and reported a
+survivor that a test in the missing file kills.
+
+### ADR-060 addendum: selection, info card and walk (L1.8)
+
+**Status**: Accepted (2026-10-12, #385 story L1.8). Behind `OGP_QUICK3D=1`, like the workspace
+(until L1.9 made it the default).
+
+#### Context
+
+The workspace shows the plan in 3D and nothing connects the two views: what is selected on the
+plan is not marked in 3D, a click in 3D does nothing, and the garden can only be looked at from
+outside. Six facts shaped what was built:
+
+- **Selection is in none of a record's three signatures** (ADR-059). Whatever marks a selected
+  item must not rebuild, re-pose or re-tint its model.
+- **A destroyed Model is never free** (15 to 20 kB stay, decision 16 above). A marker made of
+  Models that come and go with the selection is retired work on every click.
+- **`pick()` takes a frame from the live view** (decision 17): on a click, once — never on a
+  move, a timer or a resize.
+- **The view is a native window.** Nothing can be drawn over it; whatever is shown beside it
+  takes room from it — and a view that changes its size re-scales its picture.
+- **The built world is thicker than the plan's strokes.** A wall drawn with a 5 cm line is built
+  30 cm thick with a 38 cm coping (ADR-059 addendum L1.6). Whoever reasons from the footprint —
+  an outline to mark, an obstacle to stop at — reasons about something the user does not see.
+- **The canvas has selection rules, and none of them is written down.** What a click through a
+  locked item does, what Shift does, what a click on a group member selects: measured with real
+  clicks on the real canvas before anything was decided
+  (`tests/integration/test_view3d_selection_bridge.py`).
+
+#### Decision
+
+**S1. One selection: the canvas scene's.** 3D keeps none. A click in the 3D view becomes a
+canvas selection — through `QGraphicsItem.setSelected` / `clearSelection`, the canvas's own
+path, so the property panel, the status bar and the undo stack behave as after a click on the
+plan (a selection is no command: the undo stack does not move). The canvas's `selectionChanged`
+becomes the ring in 3D and the info card. Selecting by id is ONE path for the whole app,
+`ui/canvas/select_by_id.py` (revision of 2026-10-19): which item an id names (`item_with_id`),
+what selecting it selects (`click_target`, the outermost group), whether it can be selected
+(`is_selectable`, which a locked layer answers) and `select_by_ids` on top. The Diagnostics,
+Canopy and Guilds panels (`ObjectNavigator`, which had a resolver and a group rule of its own),
+the plant search, the 3D "Not Shown in 3D" list (`Workspace.select_item(item_id, *,
+toggle=False, center=True)`) and a click in 3D (`ui/view3d/selection_bridge.py`, which adds
+only the ray's rule) all go through it, so a row of a panel and a click in 3D cannot disagree
+about an id. The panels' behaviour is unchanged (their tests pass as they were).
+
+**S2. The rules are the canvas's, as measured.**
+
+| A click … | on the canvas (measured) | in 3D |
+|---|---|---|
+| on an item | selects it alone | the same |
+| with Ctrl, or with Shift | toggles it; the rest stays | the same |
+| on nothing (the ground, the sky) | clears — with any modifier | the same |
+| on an item of a LOCKED layer | the item is transparent: what lies behind it is selected; with nothing behind, a plain or Shift click clears and a CTRL click keeps the selection (Qt's Ctrl rule) | the same, along the ray (`PickHit.behind`) — the bridge is told which modifier was held, not only "toggle" (fix round 1) |
+| on an item of a HIDDEN layer | cannot happen: it is not drawn | cannot happen: it has no record |
+| on a member of a group | selects the outermost group | the same; the ring runs round every member |
+| with Shift THROUGH a locked item | acts as a PLAIN click: the selection is replaced | toggles, as Shift does everywhere else |
+
+The last row is the one deliberate difference: the canvas's behaviour there is a defect of the
+select tool (its Shift branch looks at the top item only), reported as a follow-up, and 3D does
+not copy it. A flat item — a lawn, a path: no height, no solid — cannot be selected from 3D: it
+has no mesh to hit. Selecting it on the plan still rings it.
+
+**S3. A click is a press and a release of the left button within 4 px and 0.4 s**
+(`orbit_input.CLICK_SLOP_PX`, `CLICK_MAX_S`); inside that slop the press does not pan. Anything
+else is a drag and never selects. `OrbitInput._release` is the ONE place of the workspace's
+modules that calls `host.pick` (the scan test allows exactly that call, by module, function and
+name). `HostStateError` — the host cannot answer now — is no click: nothing changes and nothing is
+said. Any other exception is one ERROR line. `picked` carries the click's modifiers (fix round 1:
+Ctrl and Shift differ on a locked item). In walk mode a left drag turns the view only once it
+leaves the same slop, and a drag that turned cancels the click (`WalkMode.turned` →
+`OrbitInput.cancel_click`): a look never selects.
+
+**S4. `pick()` answers with the whole chain.** `PickHit.behind` holds what the ray meets after
+the first hit, nearest first (`View3D.pickAll`). A second host call (`pick_all`) would have been
+a second frame-taking call to allow in the scan and to keep off the steady paths; a field costs
+neither.
+
+**S5. The seam is the sink: `EngineSink.set_selection(Selection)`** — the eleventh method, inside
+`begin` / `commit` like every other. Not a method of the host, for three reasons: a selected item
+that moves must take its ring along in the move's own transaction (one frame, never the model
+here and the ring there); recovery must restore it (`SceneSync.reset()` forgets what was sent
+and keeps what is asked for); and `RecordingSink` logs it, so "what did a selection change tell
+the engine" is a default-tier question with an exact answer. A `Selection` is the sorted ids
+that have a record plus ONE merged mesh in the scene frame, built by the Qt-free
+`core/scene3d/selection.py` from the records' own regions — every outer ring and every hole —
+at the item's standing base plus 1 cm (a plant on a raised bed: at the bed's soil).
+
+**S6. The sync remembers a wish and sends a difference.** `SceneSync.select(ids)` calls nothing.
+The ring goes out with the next `apply` — in its transaction — or alone (`send_selection`). It
+is rebuilt only when the wish changed or the diff touches a selected item's outline or pose (a
+recolour does not), and sent only when it then differs from the ring the sink has. While 3D is
+hidden a selection change is a flag (`Scene3DController.set_selection`).
+
+**S7. Engine side: one Model, one geometry, for the life of the host.** `Garden.qml` declares
+ONE static ring Model; the first selection creates ONE `ReloadableGeometry` for it; every later
+selection re-loads that geometry in place, and an empty selection hides the Model.
+`host.clear()` hides it; nothing destroys it. **A selection change creates 0 engine objects and
+destroys 0** (measured: 120 changes in the real workspace — 120 loads, one geometry, the count
+of Models and of model-geometry uploads unchanged). Nothing counts towards `TickReport.retired`.
+
+**S8. The ring is a band of 3 px on screen, in the canvas's selection blue, drawn in front.**
+Constant width on screen (a vertex shader moves each outline point outward by band widths —
+`ring.vert`), so it is a hair neither with the whole garden framed nor a plank in walk mode;
+outside the outline; unlit, casting no shadow, not pickable; the colour is the select tool's
+`#0078d7`, handed over in linear light. **In front of everything** — its depth is pulled to a
+hundredth of its distance from the near plane, wherever the backend has that plane
+(`mix(NEAR_CLIP_VALUE * POSITION.w, POSITION.z, 0.01)`) — because of the fifth fact above:
+measured from above, the depth-tested ring of a wall shows 3.6 % of its outline; it lies
+inside the masonry.
+
+**S9a. 3D mode keeps the selection** (fix round 1, after the workspace's plan revision landed).
+The workspace's stopgap — `clear_selection_hidden_by_3d_mode`, which cleared the canvas
+selection on entering 3D-only mode so that Delete could not act on what nobody saw — is
+REMOVED, not replaced: what is selected is shown in 3D (the ring; the card, which also names
+an item 3D does not show and counts several). The problems list still switches 3D-only mode to
+Split before it selects: an item of that list is one 3D does not show, so no ring can mark it.
+
+**S9. The info card has a place of ONE height.** `ui/view3d/info_card.py`: `View3DInfoCard` in a
+`View3DCardSlot` below the view. The card is shown while exactly one item is selected and the
+3D pane is visible; the slot is there with the engine view whether or not a card is, and holds
+a line of hint text otherwise. Every number on the card is read from the item's APPLIED record
+(`height_cm`, `params["radius_cm"]`, its regions) — the numbers the model was built from, no
+second computation; an item without a model shows why, in the words of the "Not Shown in 3D"
+list. Every label is `Qt.TextFormat.PlainText`, plan text goes through `clip_line`, no tooltip
+carries plan text, and no label asks for the width of its text — a plan cannot widen or
+heighten the pane. One action: "Show in Plan" (from 3D-only mode it switches to Split).
+
+**S10. Walking is a Qt-free core** (`core/scene3d/walk.py`: standard library and numpy, plain
+frozen data, pure functions) and a thin input filter (`ui/view3d/walk_mode.py`).
+
+- *The walker*: a vertical cylinder of radius 22.5 cm (shoulders 45 cm); eye heights 165 / 150 /
+  110 cm; 140 cm/s, twice that with Shift; no head bob, no smoothing — reduced motion has
+  nothing to switch off.
+- *What blocks*: every record of a built-world kind (`BUILT_WORLD_KINDS`) or a greenhouse whose
+  shown top is more than a step of 25 cm above the ground — over its footprint (outer rings
+  minus holes: a courtyard is free ground) AND over the plan-view edges of the mesh the view
+  shows for it between 25 cm and a headroom of 200 cm. The second half is what makes a wall
+  stop the walker at the masonry and not at the stroke. Plants other than hedges, furniture and
+  flat items are walked through or over in v0. The plan rectangle is the world's edge.
+- *Motion*: fixed ticks of 1/120 s (2.3 cm at a run: a tenth of the radius — no tunnelling), the
+  time not yet ticked carried and shown one resolved partial step ahead; each tick is "move,
+  then be pushed out along the normal of what the circle entered", which is sliding; a
+  position that is still not free after 8 pushes refuses the tick, so a narrow gap stops the
+  walker and never traps it. A uniform grid over the outline segments finds the candidates.
+- *The camera*: `Workspace._apply_camera` stays the one place that tells the host where the
+  camera is — it asks walk mode while walking. Field of view 60°, the engine's near plane
+  5 cm: the farthest corner of the near rectangle is 6.94 cm from the eye at 4:3 and under the
+  walker's radius up to an aspect of 7:1, so a walker pressed against a solid cannot look
+  through it.
+- *Entering and leaving*: the "Walk" toggle in the pane's strip puts the walker where the orbit
+  camera looks (the nearest free spot, if that is inside a solid), facing the way it looks.
+  Walk mode never touches the orbit camera, the plan or the undo stack: Escape, the toggle,
+  "Reset 3D View" and a new document leave it, and the orbit pose is the one the user had.
+  W A S D / the arrow keys move, a drag looks (pitch within ±80°), a click still selects, the
+  wheel does nothing. A hidden view lets go of every key and keeps the walker; an edit while
+  walking rebuilds the walker's world (from the parts the sink holds — nothing is built twice —
+  and only when a solid moved) and moves it to free ground if something was put where it stands.
+- *The keyboard* (fix round 1, review P0 / P1-2). **While walking, the walk keys belong to the
+  walker; every key with Ctrl or Alt, and every other key, is passed on.** The walk keys are
+  `walk_mode.WALKER_KEYS` — W A S D, the arrows, Shift, Escape — stated once. They are claimed
+  at `ShortcutOverride`, which Qt sends to the view's window BEFORE it looks for a shortcut
+  (measured on the real main window: the override reaches the `QQuickView` first, then its
+  active focus item; accepted at the view's filter, no shortcut fires). Without that the main
+  window's Snap to Grid (`S`) fired and the walker never saw S. "Walk" gives the 3D view the
+  keyboard (`Quick3DHost.focus`: `requestActivate`; measured: the focus window is the view and
+  its container is the focus widget) — else W picked the Wall tool on the plan and Escape
+  went to the canvas — and leaving gives it back to where it was, while the view still has it
+  (`Quick3DHost.has_focus`).
+
+#### Alternatives considered (rejected)
+
+- **A highlight by tinting or scaling the selected model.** Selection would enter the material
+  signature — every selection change a material update on every part, and a "selected" look
+  that depends on the item's own colour.
+- **A ring Model per selected item (a pool).** More objects for the same picture; one merged
+  mesh in one geometry needs no pool and no policy for its size.
+- **A world-space ring width.** 3 cm is invisible with the garden framed and 3 cm is a plank at
+  eye height; the canvas's own selection outline is a pen of constant width.
+- **A depth-tested ring.** Measured: inside the masonry of a wall (3.6 % visible).
+- **Pulling the ring forward by scaling clip z** (`POSITION.z *= 0.01`) — the first version.
+  Right where clip z runs 0..1 (Direct3D); where it runs −1..1 (OpenGL) it moves the ring to
+  the middle of the depth range, behind the ground of the orthographic truth view: 0 ring
+  pixels in every top-down frame. Found by one run with `QSG_RHI_BACKEND=opengl`; the
+  perspective frame had hidden it.
+- **A card that comes and goes with the selection** — the first version. Measured on the real
+  engine: 152 px taken from the view each time, the picture re-scaled under the pointer, and
+  a Ctrl+click on the neighbour of the item just selected cleared the selection. Also a new
+  swapchain per selection, and a view that answers no click while it is between two sizes.
+- **A card over the view.** Not possible over a native window (decision 2 above).
+- **Colliding with footprints alone.** The walker would stand 12.5 cm inside a wall's masonry.
+- **Stepping per frame.** The path would depend on the frame rate, and a slow frame could step
+  over a thin wall. (Pinned: the same inputs at 30 and 144 Hz end within a micrometre.)
+- **Plants as obstacles in v0.** A canopy circle is not where a trunk is; stopping at it would
+  fence off half of a planted bed. Out of scope by the story; stated on the manual checklist.
+
+#### Consequences
+
+- **`EngineSink` has eleven methods.** An adapter that does not implement `set_selection` is not
+  a sink; `Quick3DSink` and `RecordingSink` do, and `expected_state()` includes the selection.
+- **The 3D view is 80 to 94 px lower** (the slot: a title line and three lines of facts in the
+  desktop's font — 94 px in Segoe UI 9 pt) — permanently, card or no card. That is the price
+  of a view that never jumps.
+- **`host.pick()` calls `pickAll`**: one probe frame as before, and it returns more.
+- **The frozen `--selftest` selects one swatch** and judges the ring's band: the ring's shaders
+  are compiled only when something is selected, and a release must not ship one that does
+  not compile.
+- **For L1.4 (looks)**: the ring's colour goes through the exposure and the tone curve (the
+  canvas blue arrives as rgb(0, 142, 226), hue 202° against 206°); a look that changes the
+  exposure changes its brightness. The ring writes a near depth: a depth-reading post effect
+  will see it.
+- **For L1.5 (ground)**: ground tiles are not pickable — a click on the ground is "nothing" and
+  clears the selection.
+- **Known limits, stated.** Flat items cannot be selected from 3D. Plants, furniture and
+  pergolas do not stop the walker; there are no stairs, slopes or doors, and no pointer
+  capture. A selection change costs NO snapshot, also with the canvas visible — since the
+  workspace's plan revision (before it: 6 snapshots for 4 selection changes, the canvas's
+  repaints read as edits; after it: 0, the repaints go to the quiet-time net, which finds
+  nothing — `test_a_canvas_selection_in_split_takes_no_snapshot`, a strict `xfail` until the
+  plan revision landed). The ring is drawn in front of
+  everything, the item's own model included: it reads as an outline seen through the model.
+  A device pixel ratio other than 1 was not exercised through the real window.
+- **One open doubt.** In the first WARP run of the timing loop one selection change of 120 did
+  not reach the engine within two seconds, and the ring was loaded 121 times instead of 120.
+  It did not happen again in 3,240 changes on WARP and 480 on the GPU; the cause is not known
+  (PF-E3D-08, item 11). The driver records every pass of a change that misses.
+
+#### Validation
+
+Default tier (no GPU): `tests/unit/test_scene3d_walk.py`, `test_scene3d_pick_oracle.py`,
+`test_scene3d_selection.py`, `test_quick3d_selection_ring.py`; `tests/ui/test_view3d_click.py`,
+`test_view3d_walk_mode.py`, `test_view3d_info_card.py`, `test_view3d_selection_ring_host.py`;
+`tests/integration/test_view3d_selection_bridge.py` (the canvas's rules, with real clicks),
+`test_view3d_selection_workspace.py` (also the one select-by-id path: a panel row and a 3D list
+row give the same selection, and a structure scan), `test_view3d_selection_controller.py`,
+`test_view3d_walk_bench.py`, `test_view3d_selection_walk.py` (the §8.10 workflow through a real
+`GardenPlannerApp`); `tests/perf/test_view3d_selection_walk_budget.py`.
+
+Render tier (`OGP_RENDER3D=1`), `tests/integration/test_view3d_selection_render.py`, on
+Direct3D 11 — RTX 4070 and WARP ("Microsoft Basic Render Driver"), 2026-10-12:
+
+| Gate | Measured (GPU; WARP where it differs) | Bound |
+|---|---|---|
+| G1 twenty seeded picks against the CPU oracle, `bench_small` and the edge-case plan | 20 / 20 and 20 / 20; all 400 seeded positions: 360 of 360 and 362 of 362 off the silhouette edges, 36 of 40 and 38 of 38 on one; a plant on a bed, a polygon's hole, the sky: as the oracle says | 20 / 20 |
+| what lies behind a hit (`PickHit.behind`) | 349 of 349 and 362 of 362 whole chains equal to the oracle's | exact |
+| G2 sixty real clicks on the `QQuickView` of the real workspace | 54 of 54 off the edges select on the canvas what the ray meets (11 items of 8 kinds, 39 on nothing); plain / Ctrl / Ctrl / Shift / plain: {a}, {a, b}, {a}, {a, b}, {a} | exact |
+| G4 the ring from above: a turned rectangle, a polygon with a hole, a circle, a plant on a bed | every ring pixel within 3.82 / 3.54 / 2.97 / 2.88 px of our projection of the outline; the outline covered 100 % | ≤ 5.24 px; ≥ 98 % |
+| G4 the height of a plant's ring | 1.64 px (mean) from the outline at the bed's soil height, 16.77 px from the one on the ground | ≤ 3 px; ≥ 4 × |
+| the ring depth-tested (the control of S8) | 3.6 % of a wall's outline visible (48 px of 1,548) | — |
+| the ring on the OpenGL backend | the outline covered 100 %; with clip z plainly scaled (the first version): 0 px | ≥ 98 % |
+| a selection change in the engine | 0 Models, 0 model uploads, one ring geometry for 120 loads | 0 |
+| G7 walk mode with real keys | W held 0.70 s: 139.9 cm/s, straight ahead; a drag of 60 px: 18°, nothing selected; Escape: the engine's camera equal to the last digit, the frame equal (mean difference 0.02 of 255) | — |
+| standing against a wall (S10) | 288 frames at the wall and in the inside corner: 0 marker pixels; the control 2 cm from the masonry: 114,560 | 0 |
+| G8 a selection change → the engine has its ring, 120 changes, no readback in the loop | median 11.5, p95 17.7, max 22.9 ms (with the display asleep and no frame presented meanwhile: 6.8 / 9.9 / 10.7); WARP over 28 runs: median 11 to 13, p95 15 to 30, max 22 to 51 | p95 ≤ 50 ms |
+
+Re-run on the merged tree (the integration branch with master v1.30.13), 2026-10-19, on the GPU
+and on WARP: every pick, chain, ring, depth, look-through and click number of the table is
+unchanged (the plant's ring at soil height on WARP: 584 px, 16.75 px from the ground's outline);
+G8 to the real engine, GPU median 15.5, p95 19.3, max 21.1 ms, WARP 14.4 / 24.3 / 50.0 ms; G7 W
+held 0.71 s: 138.1 cm/s on the GPU, 139.9 cm/s on WARP.
+
+Fix round 1 (review 1, 2026-10-19): the walker's keys in the FULL main window, real engine
+(`test_view3d_selection_render.py::test_in_the_full_main_window_every_walkers_key_walks_and_no_shortcut_fires`)
+and with a stand-in engine whose view is a real `QWindow`, keys delivered by `QTest` to the
+window that has the keyboard (`test_view3d_selection_walk.py`): of the main window's 12
+single-key shortcuts — derived from the live app — the one on a walker's key is Snap to Grid
+(S); all eight movement keys walk and none fires; the control (not walking, S into the 3D view)
+toggles Snap to Grid. Ctrl on a locked item with nothing behind: the canvas keeps
+`['free']`, 3D the same (`test_view3d_selection_bridge.py`, two new measured rows). The
+self-test's ring share through `run_selftest`: 1.00 on the GPU and 1.00 on WARP.
+
+Default-tier numbers: G5 — a 20 cm gap blocks and a 60 cm gate passes; diagonally into a wall
+the walker keeps 100 % of its tangential speed; an inside corner does not trap; the same
+inputs at 30 and 144 Hz end within 10⁻⁶ cm; 20,000 seeded steps on each bench plan (841 m and
+945 m walked, 5,469 and 3,664 of them in contact) never leave free ground by a brute-force
+judge that uses no index. G8 — a walk tick's collision resolve on the large plan (32,548
+outline segments): 0.02 to 0.03 ms at the median, 0.03 to 0.04 in contact (bound 0.5); a
+selection change to the end of its pass on the recording sink: 10.3 ms at the median, 14.9 at
+p95 (bound 50).
+
+Hand mutation of the walk core (six text mutants, each killed by the default tier): no
+push-out; one step per frame; footprints only; no sliding; a walker 5 cm thinner; the carried
+time thrown away.
+
+### ADR-060 addendum: the default and the removal (L1.9 / L1.10)
+
+**Status**: Accepted (2026-10-19, #385 stories L1.9 and L1.10); shipped in v1.30.14 (PR #484)
+with #532 open, the owner's decision at the L1 pull request (D5). Two commit groups: every L1.9 commit (the flip;
+the tree after them still holds the Qt 3D code, reachable from no menu) strictly before every
+L1.10 commit (the removal), so that shipping the flip without the removal is one revert.
+
+#### Context
+
+L1.3 built the workspace behind `OGP_QUICK3D=1`, and L1.4 – L1.8 filled it: looks and sky, the
+built world, plants, selection, the info card and walk mode (L1.5's ground bake, built in parallel,
+joined on the integration branch before L1.10). The product still opened the Qt 3D window of US-E6 / E7 (ADR-038), which
+ADR-048 replaced as a decision. What was left: make the workspace THE 3D view; bound what the
+view costs in its steady state before it is the default (L1.4's wind soak, FU-L14-2; a held key
+in the date field, #531); show that what FR-SUN-06 / 07 / 08 promised is kept or knowingly
+changed; then delete Qt 3D.
+
+#### Decision
+
+**D1. One code path, no switch, no escape hatch.** `quick3d_workspace_enabled()` and the
+variable are gone; `_setup_central_widget` builds the workspace always. An escape hatch was
+considered and rejected: a flag must name a failure the existing net does not cover, and none is
+left. The workspace module imports no engine, the engine starts only when the user asks for 3D
+(the import scan pins it, G1), the app starts in Plan mode in every session (the mode is not
+saved), and a start that fails is caught at every depth (§8.29.9's table: an import that fails →
+a message in the pane; a device that cannot be created → a message and compatibility mode next
+time; a driver that kills the process → the start marker → compatibility mode; a death in
+compatibility mode too → 3D switched off with the way back on screen). The one case the marker
+does not see — a crash AFTER the first frame — leaves the next session in Plan mode with
+"Use Compatibility Mode Next Time" in the strip; an environment variable would not reach a user
+any sooner than that button.
+
+**D2. View → Sun & 3D → "3D View" shows the 3D pane.** From Plan mode it switches to Split — the
+plan stays on screen, and the 3D view appears beside it, where the old window used to open; in 3D
+or Split it changes nothing. Its place, icon and (absent) shortcut are kept; its text lost the
+ellipsis (it opens no window) and its status tip says "beside the plan" (en / de / es). The mode
+actions stay as they were (Alt+1 / 2 / 3). Help → Keyboard Shortcuts lists them, the camera's
+mouse and keys, Home, a click that selects and walk mode's keys. Preferences → 3D View is shown in
+every window (`PreferencesDialog` lost its `show_view3d` parameter: one path).
+
+**D3. Date playback is throttled** (#531, `sync_controller.DATE_REGROW_MIN_MS` = 500): a date
+regrows the dated plants at once when the last regrowth for a date was at least 500 ms ago,
+otherwise ONE trailing regrowth is booked for the end of the interval and runs only if the
+clock's date is not the one the last records pass read. The light follows every step. Rejected:
+reusing the Models (a geometry re-loaded in place, as the selection ring does — no destroyed
+Model, nothing left behind): it would change the adapter's "one geometry per Model lifetime"
+rule for every replace_geometry and its picking, measured nowhere yet; a debounce that regrows
+only when the key is released (no growth seen while holding); a rate limit in the toolbar (it
+would hold back the 2D shadows too). Measured (60 s, a step every 33 ms, 20 dated trees, RTX 4070): 90 and 97 regrowth passes
+(1,800 and 1,940 Models) against 312 and 452 — one per step — without the interval; the view
+ended on the last date every time.
+
+**D4. The wind's clock stays a `FrameAnimation`.** The planned fix for FU-L14-2 — the clock as a
+C++ `NumberAnimation`, no JavaScript per frame — was built and measured against the unchanged
+code in six alternating soaks (§8.29.9): no difference, and the growth L1.4 measured did not
+reproduce on either. Reverted. The final render tier the same day read 2.637 MB a minute (bound
+2.0): intermittent, not gone — the gate is a non-strict `xfail` citing #534.
+
+**D5. The flip ships with #532 open — the owner's call, made 2026-10-19.** #532 (Qt 6.11's `QSSGBufferManager::clear()`
+skips hash entries, so about half of the same-size ground-tile textures leak on every cache
+release) is L1.5's known limitation; the flip ships the ground with it. The exposure is measured
+by L1.5 (up to ~42 MB per release on a 4096² ground) and, on the default's own path, after the
+merge: a held date key on bench_small keeps 41–63 MB of dedicated GPU memory a minute (5–6
+releases of 8–10 MB each) with D3's interval, 76–112 without it (§8.29.9 "With the ground"); the
+consolidated checklist of the L1 pull request asked the owner to choose. **Decided 2026-10-19:**
+the owner accepted the L1 pull request after its manual checklist and chose (a), ship the flip
+with #532 open. The six other decisions put to them there were kept as built: the twilight fade
+(FR-3D-LOOK-01), the noon horizon's lime band, 4× MSAA at Low (FR-3D-LOOK-07), the flat sky in
+compatibility mode, `master`'s rule for a loaded sprite's stated stroke (PF-CAN-21), and the new
+view's cost over the old window (§8.29.9) with no lighter default preset.
+
+#### Alternatives rejected
+
+- **Keep `OGP_QUICK3D` as an "off" switch** — D1: no failure left that it would cover; a second
+  code path to test for nothing.
+- **"3D View" opens 3D-only mode** — it would hide the plan the user was editing; the old window
+  opened BESIDE the plan, and Split is that.
+- **A `NumberAnimation` wind clock** — D4: measured, no difference.
+
+#### Consequences
+
+- Every main window carries the workspace widget; nothing of the engine is loaded before 3D is
+  asked for.
+- The parity of FR-SUN-06 / 07 / 08 is a table of tests and stated differences (§8.29.9); the
+  three FRs are rewritten for the new view and point to FR-33.
+- What the default costs is measured against the old view (§8.29.9 "What the default costs").
+
+#### Evidence
+
+All on the dev box (Windows 11, RTX 4070 / Direct3D 11; WARP = Direct3D's software adapter), the
+product's own `main()` in a child process on a throw-away settings store, 2026-10-19; the full
+table, with what it says, is §8.29.9 "What the default costs".
+
+| What | Measured |
+|---|---|
+| start-up to the first event-loop turn, 3D never opened (median of 5) | 2.20 s; the tree before the flip 2.19 s; 0 engine modules in both |
+| first 3D click → first presented frame / first finished readback | small plan 1.10 / 2.29 s (first run of the day 1.88 / 4.49), large 1.81 / 3.25 s; the old window 0.57 s (small) / 0.74 s (large) to a drawn frame on screen |
+| edit → finished frame, p95 (2334 × 1105 pane) | small 45.9 ms (bound 50), large 180 ms (no bound) |
+| committed / dedicated GPU memory after the first frame | small +550–800 / 312 MB, large +950 / 312 MB; the old window +328 / 45 MB and +696 / 47 MB |
+| date playback, 60 s | the interval: 1.5–1.6 regrowth passes a second; without it one per step (312 and 452) |
+| the wind soak (FU-L14-2), 6 alternating runs of 4–5 min | 0.46–2.03 MB a minute overall, second-half slopes 0.0–1.51, both clocks; a seventh run (the final render tier) 2.637 — intermittent, #534 |
+| after L1.5 joined (the ground on) | first readback small 2.68–2.96 s, large 4.21–4.33 s; GPU memory 332 / 428 MB; edit → frame p95 small 41.5 ms; a held date key keeps 41–63 MB of GPU memory a minute through #532 (76–112 without the interval) |
+
+#### L1.10: the removal, and the scars it retires
+
+**D6. Qt 3D leaves the product.** Deleted: the US-E6 / E7 window and its adapter
+(`ui/view3d/view3d_window.py`, `qt3d_adapter.py`), the pre-L1.1 scene module
+(`core/scene3d/legacy.py`: the Qt 3D record, scene-space extrusion, decals,
+`collect_scene3d_records`), the walkthrough helper (`core/walk_camera.py`, replaced in L1.8 by
+`core/scene3d/walk.py`), every path of the main window that drove them, the L0 spike with its
+flag and its benchmark script, the two wheels (`PyQt6-3D`, `PyQt6-3D-Qt6`) from the manifest,
+the lock and the bundle, and `--selftest`'s Qt 3D import block. ADR-048's closing addendum has
+the bundle and the lock before and after; `tests/unit/test_no_qt3d_left.py` keeps the code
+areas free of the names, and documentation names them only where history is kept (§8.10.13).
+
+Each workaround the old window carried existed because of how Qt 3D hosted its scene; the
+workspace's host does not need it:
+
+| Scar in the old view | Why it was there | Why the workspace does without it |
+|---|---|---|
+| `closeEvent` hid every 3D window before quitting | the viewer was a parentless top-level `Qt3DWindow`; a visible one kept the process alive under `quitOnLastWindowClosed` | the engine's window is a child of the main window (`QWidget.createWindowContainer` in the 3D pane); `Workspace.shutdown()` closes the host while the main window still exists (§6.9, G5: no warning, no ERROR line, from source and frozen) |
+| a new window on every open, the old one kept hidden for later | a hidden and re-shown `Qt3DWindow` painted white — Qt 3D never rebuilt its swapchain for the re-exposed surface | ONE host for the session, hidden and shown (L1.3: re-entry 7–53 ms); a hidden pane does no work and catches up once |
+| the closed window retired with `deleteLater` only at the NEXT open | deleting it at close raced its live render thread and segfaulted (#230 class) | Models are created and destroyed on the GUI thread through the sink; no Python runs on the render thread (signals from it are queued, §8.29.2) |
+| a "3D View Unavailable" dialog around the import | a Qt 3D wheel built for another Qt micro failed to load (#277) and would otherwise have killed the process | `Workspace._start_engine` turns anything the start raises into a message in the pane with "Try Again" (§8.29.9's safety-net table); `--selftest` RENDERS the engine in the frozen artifact |
+| the app forwarded the sun to the window (`_apply_sun_to_3d`), with a fixed 50° / 180° sun without a location | the window had no clock of its own | the controller subscribes to the one sim clock (ADR-053) and keeps the same fallback as `NO_LOCATION_SUN` |
+| a Refresh button and a rebuild on open | no live sync | live: every change of the plan within one pass (FR-3D-WS) |
+
+**Values that outlive their producer are frozen first.** The production look, sky, fog,
+materials, meshes and probe geometry were ported from the spike and drift-guarded against it.
+Before the spike was deleted, a scratch tool ran it on the L1.9 tree and wrote everything those
+guards compared with into `tests/data/l0_spike_reference.json` (provenance inside the file); the
+guards read the file now. A production value that leaves it is a deliberate, documented change,
+as before — only the comparison no longer needs the spike's code.
+
+Rejected: keeping the spike as "evidence tooling" (it was the last importer of Qt 3D's era of
+the code and a second QML scene to keep compiling — the Beauty Board and the render tier
+measure the product itself); deleting the drift guards with the spike (the values they pin are
+the L0 measurements the look was accepted on).
+
+### ADR-060 addendum: L1 follow-ups #537, #539, #541, #542
+
+**Status**: Accepted; owner acceptance confirmed, shipped in [v1.30.19](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.19) via [PR #565](https://github.com/cofade/open-garden-planner/pull/565).
+
+Four small follow-ups from the L1.9/L1.10 review, shipped together:
+
+- **#537 - L1.10 leftovers.** The workspace gate no longer passes the retired OGP_QUICK3D switch to its child or names it in the render-tier docstring; the no-reader guard stays. The main window assigns walk.svg to the Walk action so theme switches replay it; the pane button shows text beside the icon. The exact stale-DPR warning is classified as environment, with and without Qt's QTBUG-report suffix. [Qt 6.11.0 processExposeEvent()](https://github.com/qt/qtbase/blob/v6.11.0/src/gui/kernel/qguiapplication.cpp#L3222) corrects the cache before warning and delivering expose; the missing earlier notification's cause remains unproven. Other text/categories and critical reports retain their severity, pinned by tests/unit/test_quick3d_pure.py::TestClassify.
+- **#539 - the main window owns show the 3D view.** View -> '3D View' selects Garden Plan first, then switches Plan to Split; existing 3D/Split modes remain. Global Workspace actions also select Garden Plan: Alt+1 shows Plan, Alt+2 shows 3D, Alt+3 shows Split. The integration workflow fires the action from Calendar and real Alt+1/2/3 keys from Seed Inventory.
+- **#541 - Home uses Qt's native key translation.** The shortcuts dialog and Reset tooltip obtain the key name through QKeySequence(Qt.Key.Key_Home).toString(NativeText). German Qt translations supply 'Pos1'; the tooltip's surrounding text and {key} placeholder are compiled in all three app catalogs.
+- **#542 - the trailing check stamps only a real regrowth.** _regrow_if_the_date_moved stamps _regrown_at only when it calls mark_dirty(). Deterministic controller tests replace only that module's clock, preserving real event-loop waits and performance measurements. Three clock origins pin no-op timestamp preservation, immediate admission through the next date_changed signal, and the real trailing pass. Replaying the old unconditional stamp fails all three cases. A constant 1000-second stamp previously booked a long timer on a young CI VM; a fixed 70-ms wait never proved idle. See PF-TST-25 and the runtime view. No file-format or dependency change.
+
+### ADR-059 addendum: line history restores values; cache bounds contain paint (#524–#526, #471)
+
+The owner selected one type-change rule for both UI surfaces: use the new type's
+defaults and clear the old preset. This supersedes the L1.5 expectation that a
+Properties type change retains its preset. Undo restores the old type and preset,
+including a custom stroke. Existing project files retain their stored presets;
+this policy applies only to a new type-change gesture. No file-format bump is needed.
+
+`LineLook` in the existing `core.item_look` module holds copied appearance values.
+Both controls use one restore function rather than rebuilding defaults on undo.
+Reapplying a preset during restoration was rejected: it overwrites user stroke
+changes and makes Properties and context-menu history disagree. Preserving the old
+appearance through a type change was considered and not selected by the owner.
+
+The shared style painter now also owns its conservative geometric reach. The
+canvas contains that reach in its cache rectangle; the ground baker retains its
+previous formula and pixel allowance through the shared helper. Disabling caches,
+changing painters and deriving expected pixels from the rectangle under test were
+rejected. Width/preset geometry notifications precede mutation. Regression coverage
+is documented in section 8.30; the existing ground hairpin/tile-border gates remain.
+
+## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
+
+**Status**: Accepted (2026-10-20). Owner review of the dedupe table and of the pins flagged for a human look is pending. Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
+
+### Context
+
+At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Development Pitfalls") was 498 KB in two parts: 145 unstructured items in the intro (240 KB) and 21 numbered diaries (258 KB), of which the nine Phase 17 L-step diaries (numbered 12 to 20) held 180 KB. Every feature PR appended to that one file, and the README changed in 27 of the 50 commits visible in the shallow clone. The numbering was broken: diary 6 named two different entries, the headings were out of order, and six engineering lessons sat under §11.5. The citation gate (`scripts/check_skill_citations.py`) resolves `§N.M` against the headings of the skill files and of the chapter READMEs. The `§11.4` heading is kept, so bare references still resolve; the numbered forms are retired.
+
+### Decision
+
+1. **Layout.** The chapter README keeps §11.1 to §11.3 and §11.5 (governance only). Its §11.4 is the index: one row per entry (ID, rule, status, where, legacy) and a redirect table from the 20 legacy numbers, which has 23 rows because diary 6 names two entries and diary 17 names three. Standing rules live in `pitfalls/01…12-*.md`, one file per area (3 KB to 52 KB). Narratives are copied verbatim into `archive/01…13-*.md`: 01 to 11 are the Phase 17 L-steps, 12 holds incidents outside Phase 17, and 13 holds retired work.
+2. **IDs.** `PF-<AREA>-<NN>`, with the area codes CAN, LIF, PER, UI, I18, CI, TST, API, DOM, E3D, L3D and PRC. An ID is never reused, and a pointer or retired entry keeps its ID. The numbers in the file names give reading order only.
+3. **Entry template.** A `### PF-…` heading, then the fields **Rule** (one sentence, with no pipe and no bold), **Pinned by** (`tests/…py` or `tests/…py::name`, joined by `; `, or `none — <reason>`), **Source** (issues, PRs and ADRs), **Status** (`standing`, `standing; narrative in […]`, `pointer → […]` or `retired; narrative in […]`) and **Legacy** (`b1faaa9 README L…`, with the legacy number of a numbered diary). A standing entry keeps its verbatim b1faaa9 body where it has one, with relative links re-based for `pitfalls/`; a narrative with no entry body lives in the archive.
+4. **Canonical home.** A fact already held in substance in an ADR addendum, a §8 section or a skill is not repeated. An entry becomes a pointer only when its home section holds the entry's issue numbers, the test files and functions its body names, and at least half of its distinctive identifiers. Of 44 candidates, 17 passed and are pointers; 27 failed and were restored verbatim. `audits/2026-10/dedupe-2026-10.md` records every entry's origin and decision.
+5. **Rules and pins** were decided per entry from each verbatim body, in five passes by area, and then validated mechanically: every pinned file exists and defines the named test, and no placeholder remains. 68 entries carry pins (a Pinned by field that starts with a backticked test path); 112 give the reason they have none.
+6. **Frozen snapshot.** `audits/2026-10/audit-2026-10.md` keeps its text (SHA-256 `8f9ea849…c27`, identical to its copy at b1faaa9). Its family moves with it, per the ADR-047 addendum.
+7. **Gates.** `tests/unit/test_pitfall_catalogue.py` (16 tests) checks that index rows and entries agree (ID, rule, status, legacy and anchor); that every heading in an area file is an entry heading; that every Status is one of the four forms; that no placeholder remains; that every pin names a real test under `tests/`; that every pointer's home holds its issue numbers and pins; that every archive link resolves; that the redirect table matches the Legacy fields; that every PF citation resolves; that no legacy numbered citation survives outside the archive and the legacy columns; and the size budgets. The budgets are 64 KB per area file and 80 KB for the chapter README (96 KB since the 2026-10-24 addendum below). The area budget is raised from the 48 KB first set, because the UI area holds 22 entries with their full rules and measures 52 KB; the README budget is raised because each index row now carries a full rule (73 KB measured).
+8. **Citations.** 117 numbered citations in the files outside the chapter became PF citations. A diary-level citation names every standing rule of its diary, so one citation may name up to three entries. Where a citation relies on a sub-lesson that has no entry of its own, it names the entry and the item of the archived narrative, for example `PF-E3D-07, item 1 of archive/05-l1-3-workspace.md`.
+
+### Consequences
+
+- One place per lesson. A reader scans the index, which carries each entry's rule, status and legacy number, and opens an area file for the body.
+- A pointer depends on its home. The gate fails when the home stops naming the issue numbers or pins the entry names; it does not compare prose. Fourteen of the 17 pointers name no test in their body, so for them the issue number is the only anchor, and a long home weakens even that. A reviewer must read the home of each pointer; the gate does not replace that.
+- Some standing rules state the headline of a diary. The archived narrative holds the full text, and a sub-lesson without its own entry is cited by item.
+- Open points for owner review. Some rules compress several lessons (PF-API-21 covers seven findings; PF-DOM-02, PF-DOM-22, PF-DOM-23 and PF-DOM-24 hold more than one rule each). Some pins are judgements: PF-E3D-06's control test shows that the trap exists, PF-E3D-08's named test covers another item, and PF-PER-13's pin cannot tell a restored layer id from the active-layer fallback. Conftest fixtures count as pins only where the entry names one (PF-TST-07); the other fixture guards are recorded as the fix. PF-E3D-09 has no pin, because its body does not name the removal gate `tests/unit/test_no_qt3d_left.py`. The gate checks that a named file mentions the pinned name, not that the test covers the rule: a review found a pointer whose home mentioned the same function in an unrelated context (PF-API-01), and that entry is now standing with its own text. Method pins are written without their class, and the gate checks that the name is defined in the file.
+
+### Evidence
+
+- Verbatim split: the 181 blocks of §11.4 at b1faaa9 were checked against their destination files before the dedupe. The 27 restored bodies were checked equal to the base text after link re-basing.
+- Dedupe: `audits/2026-10/dedupe-2026-10.md` lists all 180 entries with their origin line at b1faaa9, their kind and their decision.
+- Gates: `tests/unit/test_pitfall_catalogue.py` (16 tests, passing), with `test_no_qt3d_left`, `test_quick3d_packaging`, `test_dependency_governance` and `test_skill_citations` (89 passing), `scripts/check_skill_citations.py`, `scripts/check_agent_context.py` and `scripts/sync_wiki.py --check` passing.
+- Code: no runtime file moved. Of the Python lines changed since b1faaa9, all are comments or docstrings except two fixture path constants, `AUDIT_PLAN` in `tests/integration/test_item_style_in_step.py` and `BENCHMARK_PLAN` in `tests/perf/test_nfr_budgets.py`.
+
+### ADR-061 addendum: the index budget is raised, not met by shortening rules (#588, 2026-10-24)
+
+**Context.** PR #584 brought the §11.4 index to 79,997 of its 80,000-byte budget (measured
+newline-normalised, `test_pitfall_catalogue.py::test_size_budgets_hold`) and filed #588: the
+next index row in any area would fail the gate. The non-3D hardening package then needed
+three new PF rows (PF-CAN-23, PF-CAN-24, PF-CI-13) plus PF-UI-28 and the `04b` area-table
+row — 1,665 bytes, taking the index to 81,662. Under that pressure the rules had already
+been cut once in PR #584, and a review called that the wrong feedback loop — a byte count
+that shapes the wording of a rule makes the rule incomplete.
+
+**Decision.** Of #588's three options (split the index per area, raise the budget with a
+stated reason, shorten the index format), this raises the chapter-README budget to 96,000
+bytes. The index inherently grows by one row per lesson — a permanent addition, not a leak
+— and the budget's job is to force the structural split before the file becomes unwieldy,
+not to compress what each lesson says. 96,000 leaves 14,338 bytes, about eight more packages
+at the observed 1,665 bytes each, so the next package does not reopen the question. The
+area files keep their 64 KB budgets; `04-ui-panels-dialogs.md` (63,440) is the next one to
+split. The test's comment says the budget is a maintenance trigger, not a target.
+
+**Consequences.** #588 stays open for the structural decision (a per-area index or a shorter
+row format), which this addendum does not make; the raise is the option it lists and buys
+the time to take it deliberately. No entry, rule or pin changed to fit.
+
+### ADR-061 addendum: structural split of the pitfall index by area (#588, 2026-10-26)
+
+**Context.** As anticipated in the 2026-10-24 addendum, the central chapter README had
+grown to 217 index rows and ~83 KB. Compressing rule wording was rejected as the wrong
+feedback loop. The structural decision selected by the owner on 2026-10-24 is executed.
+
+**Decision.**
+1. **Central navigation.** The chapter README §11.4 retains its role as the central entry point,
+   presenting a concise area navigation table linking to per-area index files and detailed body files,
+   plus the legacy numbered redirect table (`11.4.N` -> `PF-*`).
+2. **Area indexes.** The 217 full index rows are distributed into 12 dedicated area index files under
+   `docs/11-risks-and-technical-debt/pitfalls/index/` (`01-canvas-geometry.md` through `12-process-and-docs.md`).
+   Logical areas remain independent of body-file splits (`UI` index covers both `04` and `04b`).
+   All 5 columns (`ID`, `Rule`, `Status`, `Where`, `Legacy`) are preserved verbatim with rebased
+   relative links (`../01-canvas-geometry.md#pf-can-01`).
+3. **Gates & Budgets.** `tests/unit/test_pitfall_catalogue.py` discovers area index files,
+   enforcing full coverage in central navigation, exact ID matching, per-area row locality, and link resolution.
+   Size budgets are adjusted to reflect the split architecture:
+   - Chapter README: `README_MAX_BYTES = 48_000` (measured 26,489 B; ~21 KB headroom)
+   - Area indexes: `INDEX_MAX_BYTES = 24_000` (measured 2,141 B – 8,284 B; >=15 KB headroom each)
+   - Detailed body files: `PITFALL_MAX_BYTES = 64_000` (unchanged)
+4. Closes #588.
+
+## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
+
+### Context
+
+Season Manager copies a whole plan into a separate yearly file. Multi-year designs
+also need an in-plan view of plants before planting and after removal. ADR-053 already
+provides one local plan date through SimClock; another timeline date would split
+growth, shadows and visibility. The 2D sprite still read today's wall date, so it
+could disagree with the existing date-projected 3D canopy.
+
+### Decision
+
+- Keep SimClock as the only date state. One permanent adaptive Plan & Sun toolbar
+  has an exact calendar, Today, a monthly slider preserving the preferred day, editable
+  time, the daily animation and an optional live Hours of Sun map. Time is preserved
+  by date navigation. The date is session state, never saved.
+- A plant is present on the half-open interval `[planting_date, removal_date)`.
+  Missing/malformed ISO bounds are open; a stored inverted interval has no present
+  day. UI edits reject removal on/before planting before changing data/history.
+  `removal_date` is optional additive `plant_instance` metadata; no FILE_VERSION bump.
+  Fresh creation stamps the active plan date. Copies and loads preserve saved dates.
+- CanvasScene combines presence with layer visibility; construction geometry retains
+  its separate tool toggle. Date edits use one ChangePropertyCommand per gesture.
+  Command stack changes, document loads and clock date changes reapply visibility.
+  Hidden plants cannot be selected, including marquee selection. The hidden-plant
+  menu names dates and can navigate to a present day to edit the plant again.
+  Revealing a hidden layer uses the normal undoable layer command.
+- Companion, spacing, capacity, guild and data diagnostics evaluate the date-present
+  set independently of drawing-layer visibility. Solar receivers and casters also
+  honor layer visibility. Hidden plants remain saved. API summary counts retain their existing counting
+  rule, and object lists retain absent plants with `present=false`; `as_of_date`
+  names the shared plan date. Runtime annotations live only in the API snapshot.
+- PNG/SVG/PDF/DXF render the current visible state. The PDF plant table excludes
+  date-absent plants while retaining hidden-layer data; every report page identifies a non-today plan date. An API layer
+  override may reveal a hidden layer but cannot reveal a date-absent plant.
+- Both 2D sprites and the existing shadow/heatmap/3D collectors use the shared date
+  with the unchanged US-E8 growth model. Sprites invalidate their cached paint after
+  a scrub; mature drawing geometry and spacing reservations remain unchanged.
+- Task reminders keep their real-world reference day (or an explicit API reference
+  day). Historical calendar windows end before removal; actionable plant tasks stop
+  once all instances of that species are removed. A surviving undated/later-removal
+  instance keeps the species schedule. Future sowing tasks are useful before planting
+  and are retained. Manual tasks and succession plans retain their independent dates.
+- Season Manager retains hard copies and its existing keep/remove-plants choice;
+  scrubbing never deletes objects or changes the season year.
+
+### Alternatives rejected and consequences
+
+A second slider date, deleting/recreating absent plants, and persisting the viewed
+date were rejected: they create conflicting simulations, undo mutations while viewing,
+or stale startup dates. Editing hidden plants requires navigation or undo, so their
+names and date bounds remain discoverable. This feature filters plant instances only;
+structure installation/removal dates and a new growth model are outside this story.
+
+Evidence: `tests/integration/test_plan_timeline.py` exercises real controls, history,
+save/load, diagnostics, rendered sprites and export artifacts; boundary and task
+aggregation tests live in `tests/unit/test_plan_timeline.py`.
+
+
+### Addendum: combined controls and live exposure (owner planning session, 2026-10-20)
+
+The master merge brings ADR-059/060's Qt Quick 3D workspace. This timeline decision
+is ADR-062: the original ADR-059 collided with the workspace, and the initially
+chosen ADR-061 was taken by the later pitfall-catalogue merge (#546). Its
+requirement bucket remains FR-34.
+
+The owner chose one adaptive strip, monthly steps preserving the calendar day,
+current local time at startup, a dated old-map preview during refresh, and exports
+that wait for current exposure. The 21 June shortcut is removed. Past/Future
+replaces the duplicated date text; on today the Today action already supplies that
+context. A current map uses the calendar's date rather than repeating it, and empty
+map status takes no space. Complete control groups centre vertically within each
+row and wrap at narrow widths;
+the calendar's width derives from font metrics. Page steps remain twelve months.
+Within a continuous month drag a preferred 31st survives February; direct calendar
+edits establish a new preferred day. Today preserves time and daily animation keeps
+running while the user changes the date. No independent date state is introduced.
+
+Decorative shadows and solar simulation are always on, including night/no-location
+behavior. The old shadow-disable preference no longer overrides this policy. The
+View menu's direct 3D View action uses the existing workspace; no new 3D window,
+growth path or ground heatmap is added. The old simulation submenu/toggles are gone.
+
+`LiveSunMap` owns the opt-in intent and latest desired exposure snapshot, separate
+from the worker's snapshot and the displayed result. A 200 ms debounce coalesces
+input bursts. One worker remains owned through queued finished; superseded work is
+canceled and only the latest pending request is launched when ownership is released.
+Date/geometry/lifetime/layer/location/bounds changes refresh while enabled; time-only
+animation and requirement-only reclassification do not launch daily work. The old
+map's actual date remains labelled Updating; stale receiver measurements cannot feed
+badges/diagnostics. Document/location/grid replacement drops old imagery. Failure is
+labelled Unavailable; unchecking cancels work and clears the preview. A failed open
+that never commits leaves the current document/result intact.
+
+`SunExportGate` is the shared visual-export readiness boundary. It pauses animation
+under a counted lease and restores it after the last export. GUI waits pump a modal,
+cancellable progress dialog; API waits occur in the existing provider worker thread,
+outside the five-second GUI bridge call, with a 30-second deadline. Immediately before
+writing, it checks document generation, plan revision, wall time and accepted exposure
+identity. Cancellation, changed inputs, timeout or calculation failure writes no new
+  output. PNG/SVG/PDF, Print and API image/PDF share this rule; DXF/data exports are unchanged.
+
+Tests: `test_plan_sun_controls.py`, `test_timeline_quick3d.py`, the lifetime workflow,
+the existing clock/heatmap/document/badge suites and the export transport tests.
+No dependency, project-file version or persisted simulation-state change.
+
+
+### Current constraints
+
+New lifetime calendar choices currently use the SimClock range (1971–2999);
+stored legacy dates are preserved and displayed. Entering a new pre-1971 planting
+date through this editor is not available. Some legacy intervals have no present
+day in the viewing range; the reveal action reports that limitation. Exposure
+failure retry, per-tick scene scans, duplicate lifetime refresh and temporary
+render-layer changes during concurrent exports remain maintenance follow-ups.
+The review record and validation detail belong to PR #533.
+
+### ADR-062 addendum: fixed toolbar topology survives legacy state (PR #556)
+
+The owner manual pass reproduced a legacy saved layout with SunSimToolbar in the
+same row as the drawing tools: at 1707 pixels wide it received 259 pixels, while
+every neighbor stretched to 137 pixels tall. Making the strip visible did not
+restore its dedicated row. A native capture using an isolated copy of the owner's
+state reproduced the screenshot.
+
+The main window now calls `UiStateStore.restore_geometry` with
+`restore_window_state=False`. Window bounds and splitter proportions still restore;
+the non-movable toolbar topology remains the application's initial two-row layout.
+The generic store keeps layout replay as its default and preserves existing blobs.
+No settings reset, project-format change or new user-visible option is introduced.
+Replaying then relocating the adaptive toolbar before first show was rejected after
+a reproducible native abort; bypassing obsolete topology avoids that path entirely.
+
+Pinned by `test_restored_shared_row_cannot_squeeze_the_permanent_plan_strip` (strip
+first/last in a shared row, two subsequent launches) and
+`test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state` (both policies).
+Native Windows layout checks and captures use actual platform fonts; an offscreen
+run with missing font discovery cannot establish the application's visual acceptance.
+
+### ADR-062 addendum: chronological editor stepping (owner acceptance follow-up, PR #565)
+
+**Context:** The owner found that holding an arrow stopped at the selected field's
+boundary: 31 October, December, minute 59 and hour 23. Native stepEnabled disabled
+that direction. Instrumented setWrapping(True) was rejected: it produced 31 October
+to 1 October and 10:59 to 10:00, without carrying into the larger unit.
+
+**Decision:** Keep native date/time editor subclasses and their appearance, text
+editing and popup. Override both step entry and availability; both editors delegate
+to one toolbar wall-reading path. Calendar arithmetic handles leap years and short
+months, retaining the preferred day for month/year stepping. Civil minute indices
+carry hours/minutes across midnight without timezone conversion or DST normalization.
+Only the existing 1971-01-01 through 2999-12-31 range saturates a step. Mirror widgets
+with their signals blocked, then emit one complete naive reading through the existing
+SimClock writer; no intermediate old-date/new-time reading is published.
+
+**Consequences:** Sliders/daily animation retain their existing selected-day policy.
+No new clock, persistent setting, undo command, file-format change or dependency.
+Pins: tests/integration/test_plan_sun_stepping.py (arrows/repeat, wheel/buttons,
+leap/preferred days, range and atomic signals), and
+tests/integration/test_timeline_quick3d.py::test_minute_rollover_updates_presence_sun_and_3d_once
+(real midnight keypress, presence/builders/light, unchanged plan revision/history).
+
+**Status:** Accepted; owner acceptance confirmed, shipped in [v1.30.19](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.19) via [PR #565](https://github.com/cofade/open-garden-planner/pull/565).
+
+### ADR-062 addendum: actionable location prerequisite (PR #566 manual pass)
+
+The owner confirmed that configuring the missing location restored 2D shadows,
+Hours of Sun and animated 3D lighting. The prior status-bar explanation was too
+remote from those controls. Plan & Sun now displays a persistent translated link
+beside Hours of Sun while either coordinate is missing, replacing the generic
+map-unavailable label. The link emits a UI request to the existing location-dialog
+handler; it does not guess coordinates or change the clock. Cancel preserves the
+hint and plan. Location changes, including New/Open, refresh the hint; saving valid
+coordinates lets the existing live-map scheduler recover. Zero coordinates are
+valid. Unlike time-varying night text, this prerequisite changes only on location
+or document edits, and is covered by the adaptive toolbar's native layout tests.
+
+Pinned by test_sun_location_hint_opens_existing_dialog_and_recovers_map and the
+located/unlocated locale/theme/width matrix in test_plan_sun_controls.py.
+
+### ADR-062 addendum: Past/Future in the Today button (PR #584 manual pass)
+
+The owner found the separate Past/Future label more disruptive than useful. It
+appeared, disappeared and changed width as the date moved. That pushed the
+controls after it, including the month slider under the dragging pointer. The
+label is removed. The Today button says Past or Future in its own place while the
+plan date is elsewhere. Its tooltip says where the date is and that a click goes
+back to today, and the click does what it always did. On today it says Today and
+is disabled, as before.
+
+The button has one width for all three texts. `_TodayButton.sizeHint` keeps the
+style's padding and puts it around the widest of the three texts in the active
+language. Each text is measured as `QToolButton::sizeHint` measures it
+(`fontMetrics().size(Qt::TextShowMnemonic, …)`, a bounding rectangle rounded up).
+The first version used `horizontalAdvance`, which rounds to the nearest pixel. With
+fractional font metrics the width then still moved by 1 px: in 378 of 480
+font/size/language combinations at 125 % scaling (hinted Windows fonts), and in 342
+of 432 with unhinted fonts at 100 %.
+One letter's width is added as the buffer the owner asked for. The width follows a
+font or theme change, because it is a size hint and not a fixed pixel value. A
+language change takes effect on restart, as for every string in the app. The
+button's accessible name stays "Go to today", because its text now names a state.
+
+The cost is a wider Today group on today. With real Verdana 9 pt (Windows font
+engine) the button goes from 59 to 123 px in German and from 45 to 78 px in
+Spanish. With the theme, German at 10 pt in an 800-px strip then needed a third
+row by the strip's own row estimate, with the sliders at their former 90-px floor;
+80 px brings it back to two. The floor is now 70 px (`_MIN_SLIDER_WIDTH`): the
+measured need plus 10 px for a platform font that runs wider. The reflow only
+shrinks the sliders when the strip needs it, so wider windows are unchanged. At such
+widths the month slider was never month-precise by mouse (its range spans at least
+132 months: about 0.55 px a month at 90 px, 0.4 at 70); its keys and the wheel step
+by month. (The first draft of this addendum quoted 48 and 108 px. Those were the
+offscreen platform's box font, not Verdana: PF-TST-26.)
+
+Pinned by test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves
+(en/de/es × both themes), which scrubs the month slider across today and back and
+asserts the button's width and the month slider's position do not change;
+test_today_button_width_holds_with_fractional_font_metrics (unhinted fonts at
+fractional sizes); and the themed variants of
+test_translated_controls_fit_two_rows_at_narrow_width, which also assert the
+reflow's own two-row estimate. Run with `QT_QPA_PLATFORM=minimal:enable_fonts`
+for real fonts on the dev box.
+
+## ADR-063: Analyze in 3D — the 2D analysis on the 3D ground, sun path, info card v1, growth jump, Cutaway (Phase 17 L2, #386)
+
+**Status:** Accepted; owner acceptance confirmed on 24 October 2026 (two manual passes), shipped in [v1.31.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.31.0) via [PR #584](https://github.com/cofade/open-garden-planner/pull/584).
+
+### Context
+
+ADR-048 (the scope note of criterion 8) settled that the engine's shadow maps are
+illustrative and the analysis stays with the 2D model, "draped onto the 3D ground".
+L2 makes the 3D view a place to READ the sun: the two 2D maps on its ground, a ground
+probe, the sun's path, a day sweep, a richer info card, jumps of the plan date with a
+before/after, and a cutaway that sees the selection. Every piece meets an engine rule
+that L1 measured: a destroyed Model leaves 15–20 kB behind for good (#531), every cache
+release leaks half the same-size textures (#532), a re-pointed `Texture` draws white,
+QML carries no text, a readback from the live view is a frame that is never presented
+(ADR-060 decision 17), and the 3D strip of a 1366 px window has no pixel to spare.
+
+### Decision
+
+1. **The 2D analysis is the source; nothing computes a shadow or a sun hour a second
+   time.** The shadow drape lays `SunShadowController.drape_polygons()` — the polygons
+   the canvas overlay paints (the union, the whole canvas at night) — announced by a
+   new `shadows_changed` signal, cut at the plan rectangle as the canvas cuts them
+   (`shadow_geometry.clip_to_rect`) and triangulated (`polygon.triangulate_region`;
+   a region the triangulator refuses is laid as a 5 cm raster, never lost). The
+   hours-of-sun drape lays `SunHeatmapController.result()` — a new plain-data
+   `SunHoursMap` — announced by a new `computed` signal, in the canvas's own ramp
+   (`build_sun_lut`), one vertex per cell centre plus a clamped edge (the canvas's
+   smooth scaling), row 0 = SOUTH as everywhere. Choosing it switches the SHARED
+   Hours of Sun on (`LiveSunMap.set_enabled`: the toolbar follows); leaving it leaves
+   the 2D map alone.
+2. **Overlays are meshes in Models that live as long as the scene** — one for the drape
+   (blended, no depth write), one for the lines (sun path, compass, probe pin) —
+   re-loaded in place (`ReloadableGeometry`, the selection ring's pattern) through ONE
+   host call, `Quick3DHost.set_overlay(layer, buffers)`. No analysis change creates or
+   destroys a Model or a texture. A texture drape was rejected for exactly that: the
+   day sweep and the sun ball change the overlays several times a second. The
+   overlays are not items: the sink's `clear()` leaves them (like the sky); the
+   controller says what they show. `EngineSink` keeps its eleven methods.
+3. **Blending keeps the frame's alpha.** A blended custom material uses
+   `sourceAlphaBlend: Zero` / `destinationAlphaBlend: One`. Measured on the first
+   build: with the colour factors applied to alpha too, the frame's alpha became
+   1 − a(1 − a) and the view's texture let the window's white through — black at
+   a = 0.5 read 64 grey levels too BRIGHT, the shadow drape brightened the meadow
+   (rgb(79, 107, 75) over rgb(25, 73, 11)). Pinned by the self-test's judge and the
+   render tier (PF-L3D-06).
+4. **The sun path is drawn from `core.solar` and nothing chosen.** Four arcs — the plan
+   date, 21 June, 21 December, 20 March of the plan's year — each one LOCAL day of the
+   clock's zone (`SimInstant`), cut where the sun crosses the horizon, with solar noon
+   found to the second and inserted; ONE mapping to the dome (`sun_path.dome_point`,
+   radius 0.55 × the plan's diagonal). The gate: the noon point IS `solar_position` at
+   its instant and the day's highest sun (brute force at 20 s). The compass rose lies
+   on the ground at the dome's rim; its four letters are TRANSLATED (context
+   `Compass`) and handed to the core as glyph outlines from the application font
+   (`ui/view3d/compass_glyphs.py`) — text drawn as geometry, not as a texture.
+5. **The day sweep moves the ONE clock and fills the map from its own samples.** The
+   clock's time of day runs from sunrise to sunset of the plan date (10 min every
+   100 ms) and is given back at the end. The heatmap now keeps every daylight sample's
+   shade mask (`np.packbits`, up to 64 MB), so the drape shows the minutes collected
+   up to the current time — samples taken by their LOCAL time of day, because the map
+   samples a UTC civil day (Sydney's runs 10:00 → 10:00): at sunset the sweep ends on
+   the whole map, everywhere. No second heatmap run.
+6. **The ground probe reads the shown map.** A click that picks nothing (the existing
+   pick, `OrbitInput.ground_clicked`) while the hours of sun lie on the ground meets
+   the ground where the view ray through it does (`pick_oracle.perspective_ray`); the
+   card's place below the view says the minutes of that cell
+   (`SunHoursMap.minutes_at`) and their band (`sun_mismatch_service.band_of`, the
+   glossary's bands), and a pin marks the spot. The reading follows a new map.
+7. **The info card v1's facts each come from their one home**: the height's source at
+   the plan date (`object_height.height_source_at`, new `SOURCE_GROWN`), the growth
+   share (`growth_model.growth_share`, only where the plant grows on the timeline),
+   the sun the Hours-of-Sun run published for the plant, and the sowing / harvest
+   windows of the plan's year (`task_generator.calendar_windows` — extracted from
+   `generate_calendar_tasks`, which now calls it: one frost-relative formula). Five
+   lines of facts (was three); a species' week offset beyond 520 weeks is ignored
+   (plan files are untrusted).
+8. **A growth jump is a date change of the ONE clock, and its before/after takes two
+   frames — the user's action, like the click.** +1 / +3 / +10 years (29 February →
+   1 March, the frost dates' rule of ADR-049; the clock's range bounds it); "Back"
+   returns to the date before the first jump. The before-picture is taken in the jump,
+   the after-picture in the pipeline's first pass that read the new date (the
+   `applied` slot, where readbacks already belong); both through
+   `growth_jump._grab`, the second sanctioned frame-taker after the click (a source
+   scan pins both, and that `_grab` is reached from `jump` and `on_applied` only).
+   The wipe (`ui/view3d/wipe.py`) replaces the view in its pane — nothing is drawn
+   over the native window — and gives it back on "Back to 3D View" or Escape.
+9. **Cutaway = roofs off + X-ray, with no Model touched.** Roofs: one scene property
+   (`roofsHidden`) every roof part binds, so a roof built while it is on is born
+   hidden. X-ray: `core/scene3d/xray.py` casts segments from the eye to nine points of
+   each selected item's box (at most 16 items) through the meshes the ENGINE holds,
+   box-culled, with the pick oracle's own triangle test (`pick_oracle.cast_segment`,
+   no second ray code); the items met fade (`set_faded_items`: a `fade` property per
+   part Model, opacity 0.22, not pickable — a click meets what is behind). Custom
+   materials blend only while they fade. Recomputed 150 ms after the camera, the
+   selection or the records last changed — never per frame.
+10. **One "Analyze" menu in the strip, and the strip's control row wraps.** In German
+    a Split pane of a 1366 px window had 7 px beside "Reset 3D View" and "Walk"; the
+    row is now a wrapping layout (`_WrapRow`) that asks for its widest control, not
+    the sum. The sun path's legend is a line of the notices.
+
+### Alternatives rejected
+
+- **Painting the drapes into the ground tiles.** Every sun step would re-bake tiles:
+  new Models and textures per step, the two leaks (#531, #532) at animation rate, and
+  the analysis lit by the engine's own (illustrative) shadows.
+- **A texture per drape update.** Same leaks; an attached `QQuick3DTextureData`
+  cannot be updated in place.
+- **Engine shadows as the 3D answer.** ADR-048 criterion 8's scope note: they differ
+  from the 2D model by design (gable roofs, porous fences, crowns on trunks).
+- **A second heatmap run for the sweep, or sampling the sweep by instant.** The first
+  costs seconds per date; the second, at the end of the local day, misses the morning
+  of every garden whose local day is far from the UTC day.
+- **A split screen of two live engine views for before/after.** Two hosts, two
+  graphics devices, and every Model twice; two readbacks of one host cost a few ms.
+
+### Consequences
+
+No new dependency, persisted key or `FILE_VERSION` change; `.ogp` files are untouched.
+`EngineSink` is unchanged; `Quick3DHost` gains `set_overlay`, `set_roofs_hidden`,
+`set_faded_items`; `Garden.qml` two overlay Models, a `fade` per part, `roofsHidden`
+and the alpha rule; `overlay.vert` / `overlay.frag` ship beside it and are compiled by
+`--selftest` (it now draws a drape patch and a lines patch and judges their colours).
+The shade masks add one bit per cell and sample to a heatmap result.
+
+**Pinned by:** `tests/unit/test_scene3d_drape.py`, `test_scene3d_sun_path.py` (the noon
+gate), `test_scene3d_xray.py`, `test_plant_card_facts.py`, `test_quick3d_selftest.py`;
+`tests/ui/test_view3d_analysis_host.py` (one Model per overlay, roofs, fades, in the
+real QML scene); `tests/integration/test_view3d_analysis.py` (§8.10 — the workflow with
+the real 2D analysis beside the workspace); `tests/integration/test_view3d_analysis_render.py`
+(the render tier: the drape darkens, row 0 south, north up, fades and the cutaway, on
+the GPU, WARP and OpenGL); the frame-taker scan in `test_view3d_workspace_widget.py`.
+
+#### Addendum: review round 1 (2026-10-24) — what the 3D and the senior review changed
+
+The `ogp-3d-reviewer` rejected the first build (one P0, four P1s) with every truth gate
+green (drape IoU against the canvas 0.993–0.999, row 0 south, noon = `solar_position`,
+the L1 frames bit-identical); the `senior-reviewer` found three P1s at the boundary to
+the 2D Hours of Sun. Decisions 2, 3, 6 and 9 change as follows.
+
+- **The 2D shadows MULTIPLY the frame (decision 2/3).** A third overlay Model, the
+  `"shade"` layer (`sourceBlend: DstColor`, `destinationBlend: Zero`, the alpha rule
+  kept), carries the shadow drape; its vertex colour is a linear multiplier,
+  `drape.SHADE_MULTIPLIER` (0.60, 0.62, 0.95: every channel below 1, ordered like the
+  canvas's shadow colour). Over-blended, the canvas colour was unlit and went through
+  the mood's exposure: at night (exposure 2.4) the "shadow" turned the garden LIGHTER
+  (+17.6 / +24.1 luma, up to +43.7), and at golden hour it was a −4 luma wash.
+  Measured on D3D11, the lit lawn under the shade now reads 0.83 of its luma at noon,
+  0.76 at golden hour, 0.74 at sunset, 0.78 on a December noon and 0.76 at night, the
+  engine's own shadow under it 0.71–0.84; the render tier asserts that no pixel under
+  it brightens in three moods (PF-L3D-07). The hours-of-sun map stays blended over.
+- **Overlay colours divide by the exposure (decision 2).** `overlay.frag` writes
+  `vColor.rgb / uExposure` (1 for the shade, 1 in the top-down truth view), and the
+  arcs are BUILT in pre-compensated colours (`sun_path.ARC_ENGINE_RGBA`) while the
+  legend keeps `ARC_RGBA`: the filmic curve bent the legend colours by up to +14° /
+  −11° by day and washed them to near white at night. Re-measured: within 2.7° of the
+  legend's hue in five moods. The plan date's arc is drawn last and 1.5 × thicker (it
+  lay hidden under its twin on a key day); the compass letters are 0.12 of the dome's
+  radius (0.065 left E and W 6 px high).
+- **X-ray and Cutaway draw screen doors, not blends or hidden Models (decision 9).** A
+  blended or hidden part drops out of the shadow map: Cutaway took the house's shadow
+  off the lawn and X-ray a faded tree's 30 m shadow. A faded built part now switches
+  to a screen-door material (`screen.frag`: a 4 × 4 ordered dither keeps `uOpacity` of
+  its pixels and discards the rest; foliage, grass and water dither in their own
+  shaders), and a cut roof is the same screen door with nothing left. Both stay opaque
+  casters — measured top-down: ground outside the footprints unchanged (max 0.0 for
+  the faded trees, about 10 edge pixels for the cut roofs). The principled look stays
+  the material while nothing fades, so the L1 frames do not change. The walls drop
+  back-face culling while Cutaway is on (the roofless house read as one wall and a free
+  gable); a cut roof is not pickable (a click goes inside). The stipple, its 25 % share
+  and whether a selected bed's own plants should fade are owner questions.
+- **X-ray sees flat items, and a cut roof is no occluder.** An item the engine holds no
+  mesh for (a bed without a height, a lawn, a path) is looked at on its posed
+  footprint, 5 cm above its base (`xray.flat_targets`); the board's Cutaway row selected
+  such a bed and faded nothing in all 14 rows. Roof parts are left out of the X-ray
+  scene: X-ray runs only in Cutaway.
+- **One owner of the hours-of-sun state (decisions 1 and 6).** `LiveSunMap` gained
+  `enabled_changed`; the analysis takes the live map itself as its `SunHoursSource`.
+  When the shared Hours of Sun goes off (the toolbar, a document replace) the 3D drape
+  falls back to "Nothing on the Ground" and the menu follows; choosing the hours-of-sun
+  drape always switches it on. Before, a document replace left the 3D menu on the
+  drape with the 2D side off and the probe saying "not computed yet" for good.
+- **The probe measures only a current map (decision 6).** While the shown map is a
+  dated preview of a changed plan (ADR-056) the probe reads `"updating"` and says so;
+  it re-reads on `exposure_changed`. It meets the drape's plane (1.5 cm), not z = 0 — at
+  a walk-mode grazing angle that is 19 cm, two cells. Leaving the hours of sun takes
+  the pin along.
+- **Every exit of the sweep gives the time back; a jump owes only its own comparison
+  (decisions 5 and 8).** A time the user sets during a sweep ends it and stays; a date
+  change ends it and gives the time back a turn later (the clock refuses a write from
+  its own notification, ADR-053); the engine going (`shutdown`) gives it back. While a
+  sweep runs, the hours-of-sun drape is built with at most 65,536 vertices (62 ms per
+  step at a 50 × 50 m garden on the GUI thread at full size). A jump stops a sweep
+  before its before-picture; a jump whose date the user moves away from owes no
+  comparison. The controller dispatches only `HOST_CALLS` (no frame-taking call can
+  slip past the frame-taker scan by name).
+
+Also: the shadow drape's fallback for rings that do not group rasters the whole set
+even-odd (a sunny island stayed shaded); the card takes week offsets as the task
+generator does (it truncated them).
+
+**Round 2 (both reviews).** The depth pass that fills ambient occlusion's depth texture
+does not run the screen door's discard: from the Medium preset (the AUTO start) a cut
+roof left a ghost of itself and a faded occluder its silhouette as AO. Every
+screen-door material collapses in that pass (`#if QSSG_ENABLE_DEPTH_PASS` in
+`screen.vert`, `foliage_door.vert`, `grass_door.vert`); the shadow pass keeps the part
+(measured: AO adds at most 1.5 luma for a cut roof or a faded box, up to 26 without;
+`NeverDepthDraw` instead lost the shadow and kept the ghost). Foliage, grass and water
+switch to screen-door copies of their shaders as the built parts do, so the look
+shaders are master's to the byte and carry no discard while nothing fades. The probe
+says "could not be computed" after a failed run (`LiveSunMap.unavailable`), and the
+legend names a key day whose arc the plan date's arc covers (noons within 0.5°). Pinned by the render tier's new mood, shadow and
+screen-door tests, `test_quick3d_qml.py` (blends, screen doors), the self-test (four
+faded cubes — built part, crown, grass, pond: every screen-door shader compiled from
+the bundle), and `test_view3d_analysis.py`
+with the real `LiveSunMap`.
+
+**Owner manual pass (2026-10-24).** With Hours of Sun switched on in the toolbar the
+canvas showed its map and the 3D ground nothing: the drape followed the shared switch
+going OFF (round 1) but never going ON, so it lay on the ground only when chosen in
+the Analyze menu. The real app on the real engine was reproduced first (the owner's
+ultra preset, a 50 × 30 m plan at 45° N, Animate running): chosen in the menu the
+drape loads and draws on screen in every order tried — the data path and the engine
+were sound. Decision 1 now reads: the hours-of-sun drape comes AND goes with the
+shared Hours of Sun — switched on (the toolbar), it replaces what lay on the 3D ground,
+also the 2D shadows, and switched off, what lay there before comes back (the 3D
+review's point: on and off are a pair); a 3D view opened while it is on shows it at
+once — also an engine rebuilt while it is on (a quality change), which therefore starts
+on the hours of sun rather than on the user's earlier 3D choice, as a rebuild already
+started from "Nothing on the Ground" before. Pinned by
+`test_view3d_analysis.py::test_the_toolbar_switching_hours_of_sun_on_lays_the_3d_drape`
+and `::test_3d_opened_with_hours_of_sun_already_on_shows_it_on_the_ground` (both fail
+without the change). The same pass found the 2D overlays hidden under lawns: ADR-043's
+addendum "ground surfaces lie under the sun study".
+
+---
+
+## ADR-064: Plant Forge — Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
+
+**Status:** Accepted; shipped in v1.32.0 after owner acceptance (PR #593).
+**Date:** 2026-10-25
+**Context:** L3 replaces the first silhouettes with procedural species models,
+while preserving plan dimensions, responsive navigation and a shared local date.
+The implementation contains 123 recipes in 13 archetypes; the initial PR text's
+128 recipes, 16 habits, invented trait APIs and smaller triangle limits were
+incorrect and are replaced here by executable contracts.
+
+**Decision:**
+
+1. **One art source.** Frozen `Traits3D` combines crown, branching, leaf and
+   illustrative seasonal traits from the existing recipes. The exact Lemon Balm /
+   Melissa officinalis alias resolves to the herb category before word matching
+   (L3.0 explicitly requests this correction; the earlier #446 decision had left
+   it unresolved). Melon and flax keep the already-correct category fallbacks.
+   `core/object_art/materials.py` supplies the unchanged object SVG colour tables.
+2. **Qt-free synthesis.** `core/plant_forge/` uses stdlib and NumPy for
+   space-colonisation skeletons, parallel-transport tubes, geometric micro-leaves,
+   tiered conifers, palms, shrubs, hedges, herbaceous forms and climbers. Total
+   triangle caps are 25,000 / 6,000 / 800 at LOD0/1/2, as issue #387 requires;
+   distance thresholds are 18/45 m. Foliage counts derive from crown area with
+   target coverage 1.6; capped distant crowns receive larger leaves. Deciduous
+   structural wood keeps its base and full height independently of foliage.
+3. **Bounded instance cache.** The LRU stores fully sized, seeded immutable meshes,
+   at most 256 entries and 64 MiB of array data. It is not a unit-template cache.
+   Local cold synthesis across all 123 recipes (height 420 cm / radius 180 cm / seed 303,
+   median of three per recipe, Python 3.11) measured median 3.69 / p90 13.07 / maximum 23.01 ms;
+   warm median 0.0012 ms. A disk cache is unnecessary against the issue's median
+   150 ms budget. These numbers exclude GUI uploads and presentation.
+4. **Background synthesis, main-thread admission.** The workspace retains the
+   existing first silhouettes and uses a one-job executor for upgrades. A GUI
+   timer admits only a current document epoch, geometry signature and LOD.
+   Controller recovery invalidates applied upgrades; orbit and walk camera
+   movement update visibility/distance ordering and LOD. Render flags never
+   disable this production feature. The Beauty Board uses the same forge and
+   seasonal path, rather than silently rendering the old registry alone.
+5. **Support precedence.** A climber first uses its trellis parent; otherwise the
+   nearest fence/wall/pergola/trellis within 50 cm of its canopy edge, accounting
+   for path width, then a three-pole bamboo tripod. Supports are transient record
+   inputs, not saved plan mutations. The guide carries the finite segment in the
+   plant's local frame, its physical width and relative height/base. Vines reach
+   a support within the recorded canopy; a farther support supplies direction
+   without enlarging the footprint to invent contact. Resolution runs with
+   synthesis on the worker thread. Exact support/plant geometry dependencies
+   invalidate its cache and reject older in-flight guides; date-only updates
+   reuse them, retaining current plant height and seed.
+6. **Stable seasonal geometry.** Flowers, fruits/pods and tubers are separate
+   parts. Foliage density/tint/snow, bloom and ripeness update persistent Models
+   without mesh copies on season-only changes. Leaf collapse removes seasonal
+   shadows too; X-ray retains its independent screen-door shadow policy.
+   `core/calendar_windows.py` owns exact frost-relative arithmetic, re-exported
+   at the old task-generator API; phenology reads instance harvest offsets and
+   the plan's frost dates across all contributing anchor years. Hemisphere
+   shifting applies to illustrative seasonal cycles, never to recorded local
+   frost dates. Plant existence remains #315's shared clock/lifetime rule.
+
+**Alternatives rejected:** GUI timer batches still block the GUI during synthesis
+(measured six-apple batch 116.6 ms). Replacing meshes on a date step defeats the
+16 ms scrub contract. A merged accent mesh cannot hide spring fruit independently
+of blossom. A render-only feature bypass makes green gates irrelevant to shipping.
+A disk cache adds persistence/versioning costs without the measured need.
+
+**Consequences:** No external asset or runtime dependency, plan format change, or
+new persistent setting. The old silhouettes remain a temporary first view.
+Acceptance uses the production workspace, real engine seasonal tests, 40 mesh
+references, calendar/geometry regressions and an independently rendered board.
+The 300-plant date budget calls the workspace's actual refresh path with 100
+supports, including queue admission and QML updates, rather than timing only
+the phenology evaluator. It also asserts unchanged Models/buffers and no new jobs.
+The owner approved final beauty and interactive use on 25 October 2026. PR #593
+merged under protection and its exact merge commit was released as v1.32.0.
+
+**Finalization benchmark correction (PR #597).** An unchanged-head Windows job
+read 16.8508 ms against 16 ms while its matching PR job passed. Five independent
+local WARP runs ranged from 10.59 to 24.21 ms under the original maximum-of-three
+statistic. Settled collocated controls read 17.49/16.33 ms; grid controls read
+13.67/14.93 ms. These observations establish variance and an unrepresentative
+fixture, but do not prove render contention or a production regression.
+Following the existing NFR median protocol, the gate now establishes typical
+per-date callback cost with one fixed set of 15 interleaved samples per date,
+retaining the 16.0 ms threshold. Section 8.29.11 defines the protocol, raw/tail
+reporting and injected 20 ms negative control. The statistical guarantee has
+changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
+This correction changes tests and documentation, not the released runtime.
+
+## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
+
+**Status:** Accepted; shipped in [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0) via [PR #613](https://github.com/cofade/open-garden-planner/pull/613), after the owner's third manual pass ("all perfect") confirmed every decision below, including the "Owner's second manual pass" addendum (every object without a 2D default height gets a real, settable one; detail-normal strength 3.0) and the two re-review fixes (the AO fade switched SSAO on at Low, PF-L3D-15; a plain-block house had a sandstone top instead of roof tiles).
+**Date:** 2026-10-26
+**Naming note:** older branches used "ADR-065" as a working name for ADR-060 (see
+ADR-059's status line). This record is the L4 one.
+**Context:** after L1–L3 every plant had a species model, but most built things were
+still flat: the 24 furniture, play, utility and structure objects were painted
+sprites on the ground, every house had a gable whatever the user wanted, walls had no
+windows or doors, paths were 6–10 cm lines with nothing on them, and lawns were a
+flat texture. Issue #388 asked for all of it under the truth gates of ADR-048/059
+(the top of a thing is its resolved height; nothing reaches more than 10 cm past
+its footprint), with one shared material table and no new texture assets. The
+owner added that a path capped at 20 px is not a path.
+
+**Decisions:**
+
+1. **Every object kind gets a builder; one material table.** `builders/furniture.py`,
+   `play.py`, `utility.py` and `structures.py` build the 24 `OBJECT_KINDS` from the
+   bevelled pieces in `builders/kit.py`, in the colours of `builders/palette.py`,
+   which mirrors the 2D object `MATERIALS` (drift guard in
+   `test_scene3d_builders_palette.py`). Each is bounded by construction
+   (`OBJECT_TRIANGLE_BUDGET` 4,000; slats, staves, bays and lattice cells are
+   capped, so a hostile 9 km object stays bounded). Every object goes through
+   `BuiltBuilder`: its top is its resolved height by construction.
+2. **An object without a height is built at an illustrative one.** A parasol, fire
+   pit, planter pot, cold frame, rain barrel, water tap, swing, hammock or pergola has
+   no 2D default height (`core/object_height.py`). In 3D it is built at an
+   illustrative height (`core/object_height_estimate.py`, carried as
+   `params["estimated_height_cm"]`, as #557 does for plants), and the 2D sun study
+   sees no caster. It first cast no shadow in 3D either; the owner reversed that
+   (addendum "Owner's manual pass"): it casts in 3D, as a #557 plant estimate does.
+   **Superseded** by the owner's second pass: the nine kinds have real default
+   heights in the 2D resolver, and the estimate module is gone.
+3. **Roof style is additive item metadata.** `roof_style` (gable, hip, shed, flat),
+   `roof_pitch_deg` (5–60°) and `roof_overhang_cm` (0–150) on HOUSE, GARAGE_SHED and
+   TOOL_SHED (`core/roof_style.py`). There is no FILE_VERSION bump: an older app
+   ignores the keys. Missing keys mean automatic: a gable along the live ridge
+   where there is one, otherwise a flat roof on a house. A hip on a footprint that
+   is not convex falls back to a gable. The properties panel edits each key with one
+   `ChangePropertyCommand`; "Automatic"/"Auto" removes the key. The roof's top
+   stays the building's height (ADR-037: the height is the ridge's), so a steeper
+   pitch lowers the eaves. **The 2D plan and its sun study do not read these
+   keys.** A roof-aware 2D caster is #440's work, not L4's.
+4. **The facade is a heuristic, and its context is a wall index.** Windows go on
+   every wall long and tall enough to hold them; the door goes on the wall that
+   faces the nearest PATH (a garage's nearest DRIVEWAY first), centred on that
+   wall. The snapshot's new context pass (`core/scene3d/context.py`, `with_context`)
+   writes the wall's INDEX into `params["door_wall"]` in the building's own frame,
+   not a point. A building moved along its path keeps the same index, so the move
+   stays a transform only (ADR-059: "move → transform only").
+5. **Relief on painted ground is a `ground_detail` part.** Stepping stones (where
+   the 2D painter's walk places them, slid onto the path at its ends and dropped at a
+   bend they would overhang), boardwalk planks, paving kerbs, gravel edging (its
+   pebbles went in the owner's manual pass), terrace kerbs or deck boards, a pond's water and coping, and lawn blades
+   are `MeshPart(ground_detail=True)`. Such a part casts no shadow (enforced in
+   `MeshPart`), is never picked and never makes its item a solid, so the ground
+   bake still paints the item and the 2D picture stays the ground. A surface the
+   user gave a height is a solid as before (a raised deck, a raised pool, the
+   prism).
+6. **The build-only params do not re-bake the ground.** The roof keys,
+   `door_wall`, `surface_pattern`, `lawn_cutouts` and `lawn_blades` are
+   `record.BUILD_ONLY_PARAMS`. They are geometry for `SceneSync`, so a change
+   rebuilds the one item, but `Record.same_ground_geometry` ignores them. A terrace
+   moved across a lawn rebuilds the lawn's blades and re-bakes only the terrace's
+   tiles.
+7. **Lawn blades are bounded and cut out.** 220 blades per m², at most 36,000 per
+   lawn and 60,000 per plan, shared by area with what a capped or small lawn cannot
+   use going to the others. They grow nowhere under a flat item painted above the
+   lawn, nor inside an enclosed building on it (at most 96 cut-outs per lawn, the
+   largest first). They are built at every preset, because a preset step changes no
+   geometry, and drawn from High up (QML `lawnBlades`). A flat item moved over a lawn
+   rebuilds its blades; the blades are remembered whole (64 MB cap), so that rebuild
+   re-masks them in 4.6–12.8 ms on the bench plans (median of 15) instead of
+   regrowing them in 11.7–28.2 ms.
+8. **Detail normals come from the baked ground, in a shader.** From Medium up, the
+   ground tiles use `ground.frag`, which tilts the normal by the luminance gradient
+   of the tile's own texture (strength 3.0 since the owner's second pass, first 1.0;
+   slope clamped to ±0.35). No normal-map
+   asset is generated or shipped, and PBR texture sets remain ADR-042's subject.
+   Measured: a `CustomMaterial`'s `TextureInput` does not apply the `Texture`'s
+   `flipV`, so the tiles drew mirrored north–south until the shader flipped `v`
+   itself.
+9. **No order-independent transparency.** Scene-wide `OITWeightedBlended` was
+   measured to break L2's multiply drapes (pixels up to 243 levels lighter: the
+   PF-L3D-06/07 P0 class). Greenhouse and cold-frame glass therefore use the
+   existing `glass` material.
+10. **A path's width is its width on the ground.** The path presets are 70–100 cm
+    and the PATH default is 80 cm. The properties panel sets a line's width in cm
+    up to `MAX_LINE_WIDTH_CM` (5 m); a shape's outline keeps its 20 px range. Saved
+    plans keep the width they were saved with, and so do the older bench plans
+    (`LEGACY_PATH_WIDTH_CM`). The new `bench_built.ogp` shows every L4 kind, path
+    style and roof style.
+11. **The Beauty Board shows the bake (#586).** Its shot, mood and horizon frames
+    pass a `GroundBaker` with no time budget. The IoU and orientation probes stay
+    bare, because their oracles are the records' own footprints.
+
+**Deferred:** smart-symbol builders (#599; a smart symbol is a group of ordinary items,
+which L4 already builds item by item) and roof-aware 2D shadow casters (#440).
+
+**Alternatives rejected:** a door point instead of a wall index (every move rebuilt
+the house); a ground-detail part as a solid (the bake stopped painting paths and
+lawns); per-lawn blade caps without a plan cap (2,000 stacked lawns, 72 M blades);
+an even per-area share (a small lawn next to a capped one got 594 of its 7,920
+blades while the budget went unused); OIT (decision 9); a generated normal-map asset
+(a second picture of the ground that can drift from the bake).
+
+**Consequences:** No new dependency, asset or setting. The ground bake paints fewer
+items (objects are solids now), which changes the counts that the bake and render
+tests pin. Every L4 builder passes `verify_builder` on hostile input, and the
+integration story `tests/integration/test_l4_built_world.py` drives the panel,
+undo, snapshot, context pass and production registry end to end.
+
+**3D review round 1 (2026-10-26).** The independent `ogp-3d-reviewer` board found:
+- **P0, older than L4:** the endless meadow lay 1 cm under the plan and won the depth
+  test from 14 of 36 orbit cameras on `bench_built`, so the pond, terraces and paths
+  vanished. #586's baked board made it visible, and it showed in the live view too. The
+  meadow now lies 5 cm under the plan; a render-tier gate keys the meadow's colour and
+  finds it on no plan pixel in 36 orbit views (`test_the_meadow_never_shows_through_the_plan`;
+  at −1 cm it read up to 21,141 key pixels).
+- **P1:** path relief reached 15–18.6 cm past the path. Boardwalk end planks were centred
+  on the path's ends, and rails were swept on the mitred centre line where the outline
+  (`polyline_footprint`) squares a bend off at half the width. Now end planks stand half a
+  plank in, each rail runs on its own offset line chorded outside a bend, and a path is
+  open at a loop's first point (its outline is). The per-area `verify_builder` check could
+  not see this, so a per-vertex and per-triangle reach test holds every surface to
+  footprint + 10 cm.
+- P2s fixed: lawn blades at the lawn's own value (they read as dark stubble), deck boards
+  2.5 cm high (chairs sank 6 cm into them), round ponds from 64 segments, splayed legs and
+  rods lifted where their end caps dipped under the ground, a low parasol's canopy and pole
+  bounded by its height, the pergola's rafters in mid oak, the orientation probe without
+  relief, and the eight L4 shadow cases in the measured table. Left as owner questions:
+  roof colour (terracotta, or the item's fill as the walls), windows beside a centred
+  door on a long wall, and object porosity (as for the fences).
+
+**3D review round 2 (2026-10-26).** Round 2 rejected again with one P0: the round-1 fix
+had only moved the failing views.
+- **P0:** from the workspace's own default framing, a few wheel notches out, the meadow
+  still drew over the plan in 13 of 120 views on the three bench plans (on `bench_built`
+  at ×1.5, over 52 % of it). The reviewer measured the cause: the meadow was ONE quad of
+  two triangles, 4 km across, and its interpolated depth was more than 5 cm off at
+  55–90 m. The same quad cut into 100 m cells failed no view. 24-bit depth precision
+  (about 0.3 cm at 50 m) is not the limit.
+- **P1:** the 5 cm step drew a ±14 luma ambient-occlusion line along every plan edge,
+  and shadows jumped where they crossed it.
+- **Decision:** the meadow is a frame IN the plan's plane (`core/scene3d/meadow.py`).
+  - It is a 4 km square around the plan, in cells of at most 100 m, with the plan cut out.
+  - The cut-out is smaller than the plan on each side (1 cm at first, 1 mm after round 3),
+    so no crack opens along the edge where the tiles' and the frame's vertices differ.
+  - Its one geometry belongs to the host, which loads it at start and whenever the plan
+    rectangle changes, like the selection ring (`Quick3DHost._show_meadow`, a
+    `ReloadableGeometry`).
+  - Two QML routes were tried first and measured wrong: a `ProceduralMesh` whose lists are
+    replaced in place kept drawing its first data, and one created later drew nothing
+    (PF-L3D-14).
+- **Gates:**
+  - The meadow gate now covers the workspace's own camera on the three bench plans:
+    156 views, worst 1 key pixel.
+  - The old quad at −5 cm, re-created as a mutation, reads 27,726 key pixels.
+  - The gate also asserts that the meadow is drawn at all, because a missing meadow passes
+    the first half (one attempt during this fix did).
+  - `board_probes.plan_edge_step` gained `line`: the largest deviation within 3 px of the
+    edge. Under the ±14 luma line the fitted step had read 0.45. The board gates `line` at
+    2 luma (PF-L3D-13).
+- **P2s fixed in the same pass:**
+  - A deck's boards lie on the ground; they floated 1.25 cm above it.
+  - No blade grows through a pond's coping or a gravel or dirt path's round ends. The
+    cut-outs are now the coping's outline and the rounded stroke the canvas paints.
+  - A closed path loop, or a surface with a hole, keeps the lawn inside it. A cut-out was a
+    filled ring, so the hole's blades were cut too; it is now one keyhole ring per region.
+  - The `bench_built` deck, loungers and hammock no longer overlap anything.
+- **Left as follow-ups:**
+  - Blade back faces lit from below, which still read as stubble at High: #604.
+  - The 2D painter's outer bends, mitred fill against chord border lines: #605 (with an
+    owner question).
+
+**3D review round 3 (2026-10-26): approved, no P0 or P1.**
+- **Verified fixed:**
+  - The meadow drew on the plan in 0 of 264 views of the workspace's framing on the three
+    bench plans: 8 yaws × 11 zoom factors, worst 2 px. The gate also passes on D3D11,
+    OpenGL and WARP.
+  - The edge line now reads 1.22–1.43 luma. The new probe reads 5.49–10.21 on round 2's
+    frames, so it would have caught round 2.
+  - Shadows cross the plan edge unbroken.
+  - Every round-2 P2 holds.
+- **P2s taken in the same pass:**
+  - The meadow's strip under the plan's edge is now 1 mm. In that strip the meadow wins
+    the equal depth test, and at 1 cm it took the outer centimetre of a surface painted to
+    the edge (4 px at 0.5 m).
+  - A 100 m cell line within 5 mm of a plan edge is dropped for the edge. Kept in its
+    place, a line just outside the plan opened a gap there.
+  - The bench rain barrel stands clear of the tool shed.
+  - The board's 2× fence reference is skipped and reported when the screen cannot hold
+    the window. Before, it ended the board in an error on a 2560 × 1440 display.
+- **Owner question added:** from far out (×3 the default distance, about 7 wheel notches)
+  the fog washes the garden out. Should the fog follow the camera distance?
+
+**Senior review round 1 (2026-10-26): three P1s, none visible on the board.**
+- **A drag over a lawn rebuilt the lawn at every step.**
+  - A lawn's cut-outs are the other items' outlines in its frame. So every drag step of a
+    flat item over it (and of the lawn itself) replaced the lawn's blade Model: 30 of 30
+    steps, Model churn of about 15–20 kB each (#531).
+  - Decision: `CONTEXT_PARAMS` (door wall, lawn cut-outs, lawn blades), changing alone, are
+    applied at most once per `CONTEXT_REBUILD_MIN_MS` (400 ms). The first change goes at
+    once and the last in a trailing pass, like date playback; the item's own move is never
+    held back.
+  - Pinned with a fake controller clock: 12 steps give 1 rebuild, then the trailing pass.
+    Without the throttle: 12.
+- **The deck builder was unbounded.**
+  - A 402-vertex comb took 14 s and built 446,364 triangles; an 8,002-vertex one never
+    finished.
+  - Decision: board runs come from numpy crossings, and `MAX_DECK_BOARDS` caps the total
+    before any mesh is built. A capped deck falls back to a kerb, or to the plain solid when
+    raised.
+  - Relief along an outline is capped at `MAX_RELIEF_VERTICES`: a kerb of 64,000 vertices
+    was 768,000 triangles.
+- **Roof eaves went below the ground at the panel's own extremes.**
+  - At 60° and 150 cm a small shed reached −91.5 cm, and "Hip" fell back to a gable that
+    sank the same.
+  - Decision: the overhang is shortened by bisection until the roof's lowest edge is at
+    least half the eave floor above the ground. Style and pitch are kept, and a hip falls
+    back to a gable only when its outline cannot hold one.
+  - No default roof is affected: 0 of 180 default cases change.
+- **P2s fixed:**
+  - Objects without a height cut a lawn only when they cover the ground
+    (`GROUND_COVERING_KINDS`).
+  - Fences and walls are capped at 100 cm wide; their builds reached a metre past the line
+    at 200 cm.
+  - The pitch spin shows only stored values.
+  - The agent's polyline text now gives a path's width.
+  - `same_ground_geometry` derives from `GEOMETRY_FIELDS`.
+  - The window cap's comment now says what the code counts.
+  - Test nits.
+- **Left, in #607:** lawn masking per edge in Python, blades built at presets that draw
+  none, the two copies of the roof clamp, and degenerate sizes under 1 cm.
+
+**Senior review round 2 (2026-10-26): one P1, introduced by the round-1 throttle.**
+- **P1:** the blade share is a context param, so a held lawn kept its old, larger share
+  while new lawns got theirs. Two lawns created within one interval put 80,000 blades in
+  the scene, against a plan budget of 60,000.
+  - Fix: a held share is never above its new one. **Not enough, round 3:** a MISSING
+    held share escaped the rule; one budget check replaced it.
+  - Pinned with the fake clock; without the fix the test reads 30,000 + 30,000 + 20,000.
+- **P2s fixed:**
+  - The hold now ends at a document change (its first pass is a plain apply), at a pause
+    and at `shutdown()`. A recovery from scratch applies the plan unheld.
+  - The deck's work is bounded too: `MAX_DECK_ROWS` counts row scans over all regions, and
+    regions narrower than 1 cm are skipped. A 601-region sawtooth took 2.8 s and now
+    takes 0 ms.
+  - The roof's overhang search tries a secant's guess first: about three builds instead of
+    twelve. A 64-corner hip went from 472 ms to 175 ms. (Rounds 3 and 4 replaced the
+    search; the round-4 search takes that hip in 3 roofs, 266 ms.)
+  - Ground-covering objects cut a lawn whatever their height and paint order.
+  - Smaller fixes:
+    - `same_geometry` stays a list by hand: `scripts/mutation_check_scene3d.py` deletes its
+      comparisons one by one, so each one is pinned.
+    - The pond case left the relief-cap test, and the raised pool's total-vertex guard was
+      deleted as dead code. **Reversed by the security review:** the water's work bound
+      holds per region, so a pond of many small regions passed it and swept walls along
+      all their vertices. The guard is back (`_raised_pool`), pinned by a many-regions
+      test; the coping has the same total cap.
+    - The hip check asserts four slopes instead of comparing the builder with itself.
+    - The FR wording is corrected.
+    - The glossary gained "Context playback".
+- **Left as smells, not defects:** the throttle keeps one timestamp for all records (an
+  unrelated context change may wait up to 400 ms), and the caps bound each builder's output
+  one at a time, not a per-record work budget (#607).
+
+**Senior review round 3 (2026-10-26): two P1s.**
+- **P1, the blade budget:** the round-2 rule skipped a held share that was MISSING. A
+  terrace turned into a lawn inside the interval was built with its own count: 75,637
+  blades against 60,000.
+  - Fix: one budget check in `_hold_context`. The old shares are kept while the lawns'
+    total fits `MAX_PLAN_BLADES`; otherwise no held share is above its new one. A lawn of
+    the new plan without a held share counts as unbounded.
+  - The same check closes a round-3 P2: a lawn resized next to another (the budget
+    binds) rebuilt the OTHER lawn at every drag step, 12 of 12. It is left alone now.
+  - Pinned with the fake clock: a type change to lawn, a resize beside another lawn, and
+    a recovery from scratch inside a hold, which applies the snapshot unheld. Each test
+    fails with its fix reverted.
+- **P1, this addendum:** round 2's text still said the raised-pool guard was gone (the
+  reversal above), and the `_pond` comment said the water refuses first. Both are
+  corrected.
+- **P2s fixed:**
+  - The round-2 overhang search dropped its bracket after a failed guess and halved from
+    there. A hexagonal hip kept 37.5 cm of overhang where 73.9 cm holds, and a shed whose
+    edge the slope clamp curves kept 40.3 where 76.9 holds. The search is a regula falsi
+    on the measured edge heights, with Illinois halving. Over 6,048 panel cases it finds
+    at least 97 % of the longest overhang that holds (it was 51 %), in 1.3 roofs on
+    average and 6 at most. Pinned against a 30-step bisection. **Wrong, round 4:** those
+    6,048 cases had no U outline. Its gable builds no roof at exactly 100 cm, and the
+    search took that as a sunk roof and kept 50–94 cm.
+  - `_kept_up` no longer returns a roof it never checked: when even a roof without an
+    overhang is below the floor, it returns None and the caller falls back. Of the 6,048
+    cases this changes four, the unreachable tool shed with an L outline and a rectangle
+    shape. **Wrong, round 4:** it also took the roof off every gabled building 18.5–21.5 cm
+    tall.
+  - The FR's eave sentence states the floor's numbers instead of "a door still fits".
+  - An AST test pins every `GEOMETRY_FIELDS` name in `same_geometry`'s hand-written list.
+  - Nits: a second timer stop, a test name, the `context_deferrals` comment.
+- **Left as a smell:** the hold builds records that never existed (new geometry with old
+  context), so every plan-wide invariant over context params needs its own check in
+  `_hold_context`. The blade budget is the only one today.
+
+**Senior review round 4 (2026-10-26): no P0. One P1: round 3's measured claims.**
+- **Confirmed fixed:** the reviewer fuzzed `_hold_context` with 3,000 random plans through
+  6 chained held passes each (12,292 held passes, with type changes, heights toggled, and
+  lawns added and removed). The worst total was exactly 60,000; round 3's controller went
+  over in 1,135 passes, up to 123,151.
+- **P1:** round 3 wrote two numbers into this addendum, §8.29.12 and a code comment that
+  the code did not meet (the two "Wrong, round 4" notes above), and the measurement was
+  not in the repo.
+- **Decisions:**
+  - `_kept_up` tells "no roof" from "sunk". A guess stays `OVERHANG_NUDGE_CM` (0.5 cm)
+    short of an overhang that built no roof. With no roof at the long end, the edge's fall
+    per centimetre comes from the last two roofs that held, or at first from the pitch.
+  - The search stops on overhang, not on edge height: once its next step would gain
+    under 2.5 % of the overhang found, or under a centimetre.
+  - A building too low for the floor even without an overhang keeps that roof, as before
+    round 3, because there is no overhang left to shorten. The function returns None
+    only when the style builds no roof at all. **Wrong, round 5:** a gable is also no
+    roof at exactly no overhang when the ridge lies on an edge (an L drawn on a grid),
+    and the house lost its roof.
+  - The measurement is committed: `scripts/measure_roof_overhang.py` (9,072 cases, the
+    grid in its docstring). Of the 569 cases it shortens to at least 5 cm, the worst
+    found 97.0 % of the longest overhang that holds, with 0 floor violations and 0 roofs
+    lost. It builds 1.30 roofs per case on average and 6 at most. **Wrong, round 5:** its
+    "lost" counted only cases whose zero overhang builds, and its grid had no L drawn on
+    a grid and no small shed roof. Round 5's numbers replace these.
+  - A 64-corner hip at 700 cm, 60° and 150 cm takes 3 roofs, 266 ms (round 3: 6 roofs,
+    527 ms; the long end builds no roof).
+- **P2s fixed:**
+  - One reading of a lawn's blade share, `record.lawn_blade_share`, now serves the
+    builder and the budget check.
+  - A lawn with a height grows no blades and now takes no share, so the real lawn beside
+    a raised one gets its 36,000.
+  - A record whose kind changed is not held: a lawn turned into a terrace no longer
+    carries blade params onto the terrace.
+  - The trailing-pass tests emit the timer's signal instead of waiting on a real timer.
+  - The glossary and §8.29.12 now agree on what ends a hold.
+  - Docstrings that round 3 made false are corrected, and the review history is trimmed
+    from code comments (#516).
+- **Pins:** the U outline and the 64-corner hip join the overhang test at 97 %. Each of
+  these is pinned:
+  - the None path (a style with no roof at all, then the plain block);
+  - low buildings keeping their own roof;
+  - the raised lawn's share;
+  - a raised lawn lowered inside a hold;
+  - a lawn turned into a terrace inside a hold.
+
+  Eight mutants, one per fix, each fail their test.
+
+**Senior review round 5 (2026-10-26): no P0. One P1, the same trap at the other end.**
+- **P1:** a builder also returns no roof on an exact coincidence at NO overhang. An L
+  drawn on a grid with the HOUSE tool has its ridge on the inner edge. At 700 cm, 60° and
+  100–150 cm the house lost its roof and facade, although every overhang from 0.01 cm to
+  about 100 cm holds. Round 4's "lost" could not see the case, and its test pinned it as
+  right.
+- **Decisions:**
+  - The short end is tried at `OVERHANG_NUDGE_CM` too, and a guess, 1 % short of its
+    estimate, never lands on the long end. None means no roof at either end. (Round 4's
+    nudge at the long end is gone: the shading does its work, and a mutant without it
+    survived every test.)
+  - A guess is the nearer of two estimates: the chord to a roof that sank, and the line
+    from the last roof that held at its measured fall (that roof's own `slope`, then two
+    roofs). On a curve that flattens or steepens, the nearer is short of the root. After
+    a guess sank, the next goes at most halfway. **Wrong, round 6:** `slope` is the edge's
+    fall per cm only for a hip and a gable square to its ridge, so neither estimate is
+    sure to be short. The halving after a sink carried the worst case.
+  - `OVERHANG_TRIES` is 5. A single-slope roof on a small shed kinks where its slope
+    clamp starts, and with 4 tries it ended at 87 % of the longest overhang that holds.
+  - The walls' own roof stays. A gable holds its eaves to 0.75 × (top − ridge cap −
+    slab), lower than `eave_floor`, so a gable 18–22 cm tall cannot reach the floor
+    without an overhang. `eave_floor`'s docstring now says so. Unifying the two floors
+    would change the roofs of buildings under about 3.1 m, so they are left as they are.
+- **The measurement now:** `scripts/measure_roof_overhang.py` covers 17,424 cases.
+  - The grid gained an L and a U drawn on a grid, small sheds of 100 × 50 and
+    150 × 60 cm, and 400 and 600 cm heights.
+  - "Lost" now means no roof although one of 31 overhangs in range holds.
+  - Results: 0 violations, 0 lost, and 528 gables at 20 cm that keep the walls' own
+    roof.
+  - Of 1,482 shortened cases the median is 99.0 % of the longest overhang that holds and
+    the worst is 95.5 %. The 6 under 97 % are those small shed roofs at 4 m.
+  - It builds 1.46 roofs per case, 7 at most, and 3 for the 64-corner hip.
+  - Round 4 cited a reviewer's sweep that is not in the repo; that line is gone.
+- **P2s fixed:**
+  - A record whose context gains or loses a param is not held. This replaces the kind
+    filter: a lawn given a height carried its blade params onto the prism, the twin of
+    the terrace case. **Wrong, round 6:** a lawn's cut-outs come and go as an item
+    crosses its box, so this switched the drag throttle off there.
+  - The budget check's guard for a held lawn without a share is pinned directly.
+  - The script-isolation exemption states the import facts correctly.
+  - The round numbers are gone from this branch's code comments. Measured facts keep
+    their source, as elsewhere in the code.
+  - The tests count every build, and the hexagon case is a polygon.
+- **Pins:** the overhang test covers 11 cases at 95 % of the longest overhang that holds,
+  including the L on a grid and the two small sheds. These are pinned too:
+  - an L on a grid, and a tool shed with an L outline, keep a roof and facade;
+  - a hip on an L is None, and the caller builds the gable;
+  - a lawn given a height inside a hold carries no lawn params.
+
+**Senior review round 6 (2026-10-26): no P0. Two P1s.**
+- **Confirmed fixed:** the L drawn on a grid keeps its roof and facade, and every number
+  in §8.29.12 matched the script's output on re-run.
+- **P1, the drag throttle:** round 5's "same keys" rule was defeated at a lawn's
+  bounding-box edge. A flat item wiggled across it rebuilt the lawn's blades on every
+  step: 12 of 12, 0 deferrals.
+  - Fix: only a record that becomes or stops being a lawn (its blade share appears or
+    goes) skips the hold. An absent cut-out is held at its old state.
+  - Pinned by an edge-wiggle test, which fails under the round-5 rule.
+- **P1, a false description:** round 5 said `slope` is the edge's fall per cm and that
+  the nearer estimate is short "either way".
+  - The reviewer measured otherwise: a hip falls exactly at `slope`; a gable with an
+    oblique ridge falls √2 faster at 45°; a shed falls at twice `slope` until its clamp
+    and slower after it.
+  - The code comment, §8.29.12 and this ADR now say what holds. Only a roof that holds
+    is kept, a guess after a sink goes at most halfway, and the quality is what the
+    script measures.
+- **P2s fixed:**
+  - The chord was neither pinned nor measured; deleting it moved nothing. The HOUSE
+    tool's ridge follows the bounding box, so a house drawn turned has an oblique ridge.
+    The grid now has two such houses, and a test asserts that a straight edge takes
+    three roofs. Without the chord it takes five.
+  - The stop now uses the larger estimate within the bracket, not the nearer one. The
+    150 × 60 cm shed had stopped at 95.5 % with tries unused. `OVERHANG_GAIN_SHARE` is
+    pinned by the same test: stopping at a centimetre alone takes four roofs.
+  - The walls'-own-roof branch says it only makes the loop's result explicit.
+  - The script's leftover long-end filter is gone, and its runtime note is fixed.
+- **The measurement now:** 20,592 cases. Results:
+  - 0 violations and 0 lost;
+  - 624 gables at 20 cm keep the walls' own roof;
+  - of 1,581 shortened cases, the median is 99.0 % and the worst 96.5 %. The 3 under
+    97 % are one small shed roof at 4 m, once for each kind;
+  - 1.40 roofs per case, 7 at most;
+  - 3 roofs for the 64-corner hip.
+- **Pins:** the overhang test's floor is 96 %. Ten mutants each fail a test: the
+  key-set rule, holding every record, the round-2 min rule, no chord, a stop at a
+  centimetre, a stop on the nearer estimate, no short-end nudge, no halving, no
+  measured fall, and four tries.
+- **Left as the reviewer advised:** the search is not tuned further. A closed form per
+  roof style would replace it, but the overhang is cosmetic, and the guarantee that
+  matters (no edge below the floor, no roof lost) is measured on 20,592 cases.
+
+**Senior review round 7 (2026-10-26): no P0, no P1. The 3D delta review approves.**
+- Round 7 confirmed both round-6 fixes by running them, and every doc number matched the
+  script. Its four P2 nits are fixed: the stop's comment, a pin of the "starts being a
+  lawn" half of the rule, the edge-wiggle test's trailing pass, and a docstring.
+- The runtime view (docs/06) now describes the context hold.
+- **Left as follow-ups:**
+  - #611: hold only the params that both the old and the new record take, and
+    pin the stop's bracket cap.
+  - #612: the Properties panel shows the overhang that was asked for, while 3D builds a
+    shorter one when it must. This is an owner question.
+- **The 3D delta review at 032b08d0:** the round-3 approval still holds.
+  - Against 514eee80, every Low frame and every probe is byte-identical.
+  - At High, blades now grow under the swing and the hammock (the bald patches are gone).
+  - Default roofs, decks, kerbs and ponds keep identical mesh digests.
+  - At the panel's extremes, sunk eaves are lifted: on a 60 × 100 cm shed from
+    −101.5 cm to +78.7 cm.
+- **G3** (`test_scene3d_ground_bake.py`) had placed its stand-in terrace where four tiles
+  meet; this round moved it across one tile border, as master's furniture item did. The
+  reason given (13.5 ms for four tiles "under load") was wrong; see "G3, corrected" below.
+
+**Senior review of the merge with master (2026-10-26): one P1, fixed.**
+- The review compared every line on both sides of the merge and found nothing lost. It
+  also checked the CR CR LF normalisation (#614): only line endings changed.
+- **P1:** master's #596 put every short Properties input in one 120 px column. The three
+  roof rows were written before that rule and the merge missed them (111, 54 and 79 px
+  under a 120 px height field). They now use the shared helpers. A combo's tooltip is
+  its own text (#596), so the "Shapes the roof in the 3D view" hint is on each row's
+  label as well, set through `labelForField`; the label stays the field's buddy.
+  `test_properties_panel.py::TestRoofRows` checks every input of each building kind in
+  the shape the app draws it (a HOUSE as a polygon). Before, only a raised bed was
+  checked, so the suite stayed green.
+- **P2s, fixed:**
+  - The raised-lawn and "gets a height" hold tests change the height through the panel's
+    own command. A bare metadata write skipped the ground-band restack and reached a 2D
+    order no user can reach.
+  - The trailing-pass helper's cumulative counter is replaced by `_held`: the applied
+    context differs from a fresh snapshot. The callers assert it where it holds.
+  - §8.29.12 now says that the cut-outs follow the 2D paint order, which is right only
+    after the restack scan. The scan is skipped when `last_command` is marked
+    `changes_ground_band = False` (#592).
+- **G3, corrected (after four more review rounds).** bench_large has no flat item of its
+  own since L4, so the gate moves a stand-in terrace, placed from the plan's middle, across
+  one tile border (two tiles) and where four tiles meet (four). Every move must repaint
+  exactly those tiles.
+  - **A four-tile edit does not reliably hold 10 ms on CI.** It can run over the budget by
+    its last tile, as `BAKE_BUDGET_S`'s contract allows ("the budget plus ONE tile").
+    CI run 40405246734 passed it uninstrumented, at ≤ 10 ms, and read 13.29 ms under
+    coverage (passes median 1, max 1). Run 40407192860 read 12.15 ms uninstrumented
+    (median 1, max 2). Until this PR, G3 printed its readings only when it failed. It now
+    prints them in every serial (`-n 0`) run's log, as CI's perf steps run, so #615 can be
+    decided on a distribution.
+  - **Master (fee03ea3) against the branch,** measured with `scripts/measure_ground_edit.py`
+    (committed: it opts out of power throttling and takes the other tree through
+    `OGP_MEASURE_TREE`). Unthrottled, 61 moves a run, on the dev box:
+    - Five alternating pairs on Qt's Windows platform gave medians of 3.50 ms on master and
+      3.78 ms here across a border, and 6.73 against 7.02 ms on the corner. The branch was
+      slower in 4 of 5 border pairs and 5 of 5 corner pairs.
+    - Two pairs on the offscreen platform (CI's) showed no difference: corner 7.81 / 7.74 ms
+      on master, 7.98 / 6.80 ms here.
+
+    So L4 adds at most about 0.3 ms per move, and the work behind it differs. Per move the
+    branch examines 2 records where master examines 1, because the terrace is a lawn's
+    cut-out. On the corner it paints 14 records where master paints 20, because L4 builds
+    furniture as solids: bench_large has 25 painted records against master's 45. Across a
+    border both paint 7. The four-tile cost is master's. CI has never run a four-tile
+    case on master.
+  - Readings of 14–17 ms in two passes on the dev box came from Windows power throttling
+    (EcoQoS), not from load or the code (#616). The first fix blamed machine load.
+    e7916be7 then blamed the coverage job's 13.29 ms on the tracer and skipped the clock
+    under a tracer. Its own CI run then failed uninstrumented, at 12.15 ms. The tracer is a
+    real cost (about 1.4× on bench_large, §8.10.10) and pushed that one coverage reading
+    over the bound, but the corner overruns without it too.
+  - **The gate:** each case states its tiles, passes and median bound as literals.
+    - Two tiles: a median of one pass and at most 10 ms, as on master, also under coverage.
+    - Four tiles: a median of at most 20 ms and two passes. The last tile can fall into a
+      second pass: CI's coverage run 40426416434 took 2 passes in the median (14.57 ms),
+      after a commit that had briefly asserted one. A third pass would need 20 ms first.
+    - **Owner decision (2026-10-29, #615):** a four-tile pass does not have to hold 10 ms
+      on CI. The 20 ms / two-pass bound is final: it is the `BAKE_BUDGET_S` contract ("costs
+      at most the budget plus ONE tile") measured on CI, 7.29–12.15 ms uninstrumented and
+      10.57–14.57 ms under coverage. Two-tile edits keep 10 ms in one pass.
+    - The test is renamed `test_a_small_move_repaints_few_tiles_within_its_bound`, because
+      the old name promised four tiles in 10 ms. FR-3D-GROUND-03 now states this gate.
+- The roof hint stays a tooltip (on the row labels and the spin boxes, and as the
+  inputs' accessible description). The review proposed a visible hint row instead, but
+  that would add a line of text to every building's panel, while the other 3D-only rows
+  (Object height's source) explain themselves in a tooltip too.
+- The merge commit's message says "three unused noqa directives". There were nine, in
+  four files. The merge commit is pushed and not rewritten; ruff is clean.
+
+**Owner's manual pass (2026-10-27).** The owner ran the checklist on the frozen exe:
+everything passed except two path styles. They answered the eight questions:
+1. **Objects without a height cast in 3D.** "In 3D they are also displayed with some
+   height." Decision 2 is reversed for 3D: `BuiltBuilder` no longer clears
+   `casts_shadow` on a build at a nominal or estimated height (and ADR-059's L1.6
+   decision 3, "no height, no shadow", holds for the 2D sun study only). The 2D sun
+   study and the hours-of-sun map are unchanged: the plan holds no height, as for a
+   #557 plant estimate. (The second pass gave these objects real heights, which
+   cast in 2D as well.)
+2. **Detail-normal strength:** not decided. The owner asked how to see it; the PR
+   shows the same walk-height views at 1.0 and 3.0. The value stays 1.0. (The
+   second pass chose 3.0.)
+3. **Roof colour: "2D should also be terracotta."** The HOUSE's default fill is now
+   the 3D roof tiles' `palette.ROOF_TILE` (178, 90, 62), so a new house is the same
+   terracotta in 2D and 3D. The 3D roof keeps its own material, as the owner chose
+   over "follow the item colour". The walls took the fill colour, which would have
+   made a new house one terracotta block. A house's walls are now
+   `palette.SANDSTONE` (196, 174, 134), close to the tan the default walls had
+   (210, 180, 140). A shed's walls still take its fill. A house's 2D colour no
+   longer changes its 3D walls. Saved plans keep their stored fill, so an older
+   house stays tan in 2D.
+4. **Object porosity:** kept. Tables, the grill, the greenhouse and the trampoline
+   cast their members' shadows in 3D, as fences do.
+5. **Windows beside a centred door: yes.** `facade.window_columns` spaces the
+   ground row on each side of the door's clear stretch. The upper row runs over
+   those windows and over the door. Before, a 5.2 m wall had one window place, in
+   its middle, and the door took it.
+6. **The fog follows the camera.** "When entering the 3D view, I usually only ever
+   see fog, until I zoom in." The fog's 26 m and 160 m were fixed, so a plan framed
+   from 80 m lay a third of the way into it.
+   - `look.fog_depth_cm(distance)` begins the fog at 1.5 times the camera's distance
+     to its target and makes it full at 6 times that.
+   - The floors are the old 26 m and 160 m, so close views keep their reviewed look.
+   - The fog is full by 760 m. (The 800 m far plane's cut still showed from about 400 m;
+     the second pass moved the far plane to 3 km.)
+   - Near that cap the fog begins at most three quarters of the way to it.
+   - `Quick3DHost.set_camera` sets `fogNear` and `fogFar`.
+   - Five plan sizes and aspects lie in front of the fog from their framing distance
+     and from three times it (`TestFogDepth`).
+7. **The silent overhang clamp is acceptable.** #612 is closed.
+8. **The "mushroom" shed stays** an honest result of its input.
+
+**Owner finding: soil and gravel did not look like soil and gravel.** The 2D
+painters were made for 6–10 cm lines:
+- gravel was the colour at 100 / 255 over the ground, so a gravel path on a lawn was
+  green, with stipple dots;
+- dirt was the colour at 140 / 255, with a darker core.
+
+The ground bake paints what the canvas paints, so 3D showed the same.
+- **Painters:** both are now their fill textures (`FillPattern.GRAVEL` / `SOIL`, 1 px =
+  1 cm in the item's frame, tinted like an area), opaque.
+- **Gravel edging:** the stroke's own rim, the 3D edging's width and shade (three
+  constants, held equal by a test). Two offset lines drew a spike inside every bend
+  (#605 for gravel).
+- **Dirt margin:** a faint 3 cm margin.
+- **Dirt preset:** new dirt paths start in the sprites' light soil (125, 92, 62);
+  150, 110, 60 read orange over the texture.
+- **3D relief:** the gravel pebbles are gone. They read as little tents on a lawn, and
+  the texture is the gravel.
+- **Element budget tests:** gravel's dots were the densest walk, so the bake's
+  element-budget tests now use a chain-link path 5 cm wide, which places an element
+  every 4 cm, the dots' spacing. The hostile numbers hold unchanged (5 × 16,001 steps).
+- **Pin:** `test_gravel_and_dirt_are_their_textures_and_hide_what_lies_under` renders
+  each path over white and over black. Its inside must be the same picture with the
+  texture's grain, and the old painters fail it.
+
+**Owner's second manual pass (2026-10-27).** The owner confirmed the gravel and dirt
+paths, the house colours, the camera and the fog, and decided the two open points:
+1. **Every standing object has a real height.** "Why don't we simply allow setting a
+   height for these objects as well? Doesn't make sense for me e.g. that a parasol
+   doesn't have a height, while a trampoline has it."
+   - The nine kinds of decision 2 have rows in `DEFAULT_HEIGHTS_CM`, at the values the
+     3D estimate used: parasol 250 cm, fire pit 30, planter pot 50, cold frame 45,
+     rain barrel 100, water tap 80, swing 220, hammock 110, pergola 250.
+   - Each shows the "Object height" field with its default. It casts in the 2D sun
+     study, in the hours-of-sun map and in 3D.
+   - `core/object_height_estimate.py`, the snapshot's object estimate and
+     `BuiltBuilder`'s estimate branch are deleted. The plants' estimate (#557) is
+     unchanged.
+   - `test_every_standing_object_kind_has_a_default_height` holds every object kind
+     to a height without data, except the ground surfaces, the roof ridge, generic
+     shapes, annotations and plants. A new object kind cannot slip back.
+   - This supersedes ADR-042's roster note for swing, pergola and hammock. The 2D
+     shadow model extrudes the whole footprint as a solid prism, so in 2D a pergola
+     shades its footprint completely (a picket fence did too, until #440 gave fences a
+     transmittance). A plant under a pergola reads as shaded in 2D. A footprint-fill
+     factor — #440's caster transmittance — is still the way to honest frame shadows
+     (#698).
+   - A plant inside a cold frame or a planter pot now lies in its holder's 2D shadow.
+     The per-plant sun estimate spares only a soil parent the plant stands on, and a
+     plant cannot be linked to either kind. Measured at 50°N on 21 June: 0 minutes,
+     975 without the holder. A greenhouse did this before. In 3D the cold frame's glass
+     casts no shadow. Follow-up #621 spares a holder that stands around the plant.
+   - Saved plans store no default, so an existing parasol resolves to 250 cm and
+     casts in 2D after the update. Nothing in the file changes.
+2. **Detail-normal strength 3.0** (`look.DETAIL_NORMALS`; `Garden.qml`'s default
+   follows, held equal by `test_quick3d_qml.py`). In the walk-height comparison the
+   gravel, the clods of earth and the paving joints stand out without noise. The
+   slope clamp (±0.35) is unchanged. The 3D review recommended 1.0: at a 15° sun,
+   43.6 % of the gravel's and 31.4 % of the lawn's texels reach the clamp at 3.0, and
+   the lawn reads 6.7 luma darker. The owner chose from the views, so 3.0 stands.
+
+**3D review and senior review of the first pass's changes.** The fog had hidden three
+engine limits, which showed once it followed the camera:
+- **Shadows ended at 90 m** (`shadowMapFar` 9000): a plan framed from 134 m lay clear and
+  shadowless at golden hour. The shadow map now reaches as far as the fog begins
+  (`Math.max(9000, fogNear)`); the top-down truth view keeps 9000. The shadow IoU gate's
+  camera is a perspective camera 7.6–14.5 m from its target, where the fog begins at
+  26 m, so its map still reaches 9000. `test_render_beauty_board.py` pins that distance;
+  past 60 m the gate would measure another map. The board's shots are 25 m or closer, so
+  their shadow map is unchanged; the far plane below still moves their cascades (re-review
+  below).
+- **Ambient occlusion drew a hard line about 101.5 m out** (6.6 luma at twice the default
+  framing). Its strength fades out between 45 m and 90 m from the camera's target
+  (`aoFade`).
+- **The far plane cut the meadow in view.** At 800 m the cut showed from about 400 m
+  (41.6 luma a row at 403 m, 76.8 at 600 m): the fogged meadow ended against the sky's
+  darker lower half. The perspective camera's far plane is 3 km: from the camera's
+  farthest 600 m it lies past the midpoints of the meadow's edges, 2 km out, so the
+  meadow ends in full fog. Its corners, 2.83 km out, can lie past the far plane; the
+  fog is full by 760 m. Measured 0.86 luma a row at 600 m.
+- Not taken here: the gravel edging's chord at outer bends and square rail ends (#605),
+  the horizon probe that cannot see the fog's change (#618), and the gravel texture's
+  highlights in shade (#619).
+
+The senior review found what the raster gates could not:
+- **Gravel and dirt exported to SVG as black bars.** A texture-brush pen is written as its
+  colour, and a texture brush's colour is black. The painters now fill the stroker's
+  outline with the texture (PF-CAN-27); `test_path_style_export.py` exports every style.
+- **Two routes still tinted a house's walls:** the roofless block and the plain block of a
+  house that is not one plain outline. `BuiltBuilder` takes a `recolour` step that sees the
+  parts of every route, and the HOUSE builder's makes every tinted part sandstone.
+- **The facade's window bounds:** a long door wall now spreads its windows on both sides
+  (half the wall's places each), and the upper row runs only over the ground windows
+  built and the door, so a facade has at most twice its places plus one.
+- Not taken here: with a layer's opacity under 100 %, the gravel rim and the dirt margin
+  show through the texture drawn over them (#617).
+
+**Re-reviews of the second pass's changes.** The 3D re-review confirmed the three engine
+fixes at the default camera: on bench_large at golden hour 69–71 % of the plan lies in
+shadow at twice the framing distance (0 % before), the AO line is gone, and the far-plane
+step fell from 71 to 3.2 luma at 403 m. It found two regressions of this pass, both fixed:
+- **The AO fade switched SSAO on at Low.** Qt's `setAoStrength` turns AO on whenever the
+  strength is not 0, whatever `aoEnabled` says, so Low and compatibility mode drew SSAO
+  once the camera stood 45–90 m out (PF-L3D-15). The strength is now 0 wherever AO is off.
+- **A house's plain block had a sandstone top**, where the 2D plan draws roof tiles (24°
+  of hue apart). The block's top is the roof seen from above, so it is `ROOF_TILE`; the
+  walls under a real roof have no top.
+- **Correction:** this pass's commit said the board was bit-identical. It is not. The
+  3 km far plane moves the cascaded shadow fit: 1–6 % of every board frame changes by more
+  than 8 luma, and the shadow IoU by at most 0.0023. Every gate still passes.
+- The senior re-review found the consequence above for plants in a cold frame or planter
+  pot (#621), and stale far-plane and no-height text, which is fixed.
+- Not taken here: shadows still end inside the plan for a camera aimed at a plan corner
+  or 600 m out, and the meadow's edge draws a 10–18 luma line at a pitch of 15° or less
+  from 400–600 m (#624). Detail 3.0's pits and sky-blue crescents under a low sun are
+  measured on #619.
+
+
+### Addendum — L4 hardening (#611, #607, #604, #617, #624, #618, #609, #600, #603, #626, #536)
+
+**Status:** Accepted; owner acceptance confirmed on 27 October 2026, shipped in [v1.34.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.1) via [PR #630](https://github.com/cofade/open-garden-planner/pull/630).
+
+**Decision (27 October 2026).** Hold context only for parameters applicable to both
+records, derived from door targets and the lawn predicate. Type changes apply
+newly relevant or irrelevant parameters immediately. Quality changes admit lawn
+geometry only when its preset draws it. Lawn normals use a dedicated material;
+plant grass keeps its own material. Roof clamping remains in `core/roof_style.py`;
+objects too small for detail use the plain verified prism. Mask batching retains
+the original even-odd membership, holes and exact root positions.
+
+Perspective shadows use reach from the eye to all four plan corners plus a
+margin, bounded by fog reach with the existing floor. The meadow and clip plane
+hold the full far frame including its corners. Distant horizon rows cover
+67/202/403/600 m at default and 15 degree pitch; the outer-column adjacent-row
+luma step is bounded by 3. The two-row statistic is retained separately. Far-plan
+probes pin shadow presence and AO continuity at two and four times framing.
+The shadow-agreement table now measures all 24 L4 object kinds; porous structures
+retain the documented difference from solid analytical shadows.
+
+For translucent paths, raster-mask only the rim in bounded 512-pixel device
+tiles. A pair of odd-even stroke contours fails at overlaps; exact subtraction
+was measured at 6.6 seconds for 4,096 points. DestinationOut removes the complete
+inner stroke before one opacity composition. Opaque items retain the fast path;
+textures remain vector pattern fills for SVG/PDF. The mask follows the painter's
+device transform, clip and viewport, with bounded temporary memory.
+
+Render oracles export actual sink-held meshes while keeping independent CPU ray
+math. They rest the wind and wait for ground, camera LOD and forge admissions.
+Document replacement legitimately re-admits forged meshes; unchanged same-document
+passes still upload none. Geometry budgets count v0 and forge stages separately.
+G6 retains its 20 cycles, 2 MB/cycle bound, positive control and median statistic,
+but samples after two presented frames rather than a fixed 20 ms pump. No
+readbacks are introduced into the memory loop. Fractional-DPR probes pin both
+Qt scale factors, desktop windows fit their work area, and startup drivers retry
+short idle refusals within one total deadline; the product host's idle contract
+is unchanged. Evidence: `audits/2026-10/3d-hardening-611.md` in the risk chapter.
+
+### ADR-065 addendum: Plant holders and per-plant sun exposure (#621)
+
+**Context:** Phase 17 L4 gave every standing object a default height (ADR-065). Two of those kinds hold plants: `COLD_FRAME` (45 cm) and `PLANTER_POT` (50 cm), joining `GREENHOUSE` (220 cm) as 2D shadow casters. `collect_exposure_snapshot` previously spared only soil parents (`is_solid_soil_parent`). Because cold frames, planter pots, and greenhouses are not soil parents (they hold no soil test history or crop rotation links), plants growing inside them were covered by their solid prism all day, reading 0 hours of sun and generating false `sun_mismatch` warnings.
+
+**Decision:** The caster walk (`ui.canvas.footprints.holds_plants`) now marks casters of type `COLD_FRAME`, `PLANTER_POT`, and `GREENHOUSE` with a positive finite height as `holds_plants=True`. `core.shade_aggregation._aggregate_day` automatically spares casters with `holds_plants=True` for any receiver point inside their footprints via static polygon containment. Plants growing inside a cold frame, planter pot, or greenhouse read open-ground sun (~16.5 h in Berlin summer solstice), while plants outside on the shadow side remain properly shaded. A drift guard pins the exhaustive set of placeable kinds with a default height that hold plants.
+
+## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
+
+**Status:** Accepted; owner executable acceptance confirmed on 27 October 2026; shipped in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) via [PR #610](https://github.com/cofade/open-garden-planner/pull/610).
+**Date:** 2026-10-26. The number follows ADR-065 (Phase 17 L4, #388), written at the same time on another branch.
+
+**Context.** A saved plan includes site and history data. Reusing it as a starting
+point must never attach Save or autosave to the bundled file. A new file format,
+second loader or community server would add unnecessary compatibility seams.
+
+**Decision.** A template is the existing version-1.4 JSON format filtered through
+`core/templates.py::template_plan`. Keep canvas dimensions, geometry (including
+species, plant dates, guild snapshots and smart symbols), layers, constraints,
+guides, succession plans and the layer-assignment flag. Explicitly classify every
+`ProjectData` field as keep/strip; a test fails on future unclassified fields.
+Drop unknown top-level keys, site/history/preferences, top-level metadata,
+background-image and journal-pin records (also inside groups), georeferencing,
+photos and path-bearing fields. Recursively remove absolute Windows/POSIX paths,
+UNC and drive-relative paths and file URIs. Names and free-form annotations are
+retained: the export explanation asks users to review them before sharing.
+
+`ProjectManager.load(as_template=True)` validates the original file version,
+filters the document and uses the normal prepare/apply/metadata restoration path.
+It finishes untitled and dirty, without adding the source to Recent Files.
+`GardenPlannerApp._load_project_file` remains the only UI replacement path,
+including history/autosave/compare cleanup. Export uses the normal snapshot and
+atomic `write_plan`, flushes pending editors, never changes the current file or
+cleans the document, and refuses to overwrite the live project or bundled files.
+
+Three CC-BY-SA-4.0 learning layouts ship with localized sidecars and rendered PNGs.
+The catalog lists local `<app-data>/templates/*.ogp` by filename without parsing
+untrusted files. Opening a corrupt local template follows normal load recovery.
+The read-only `garden://examples` resource lists bundled content only. GUI actions
+open copies. No agent-open tool, network gallery or community server is added.
+The later community-sharing phase can reuse this template subset.
+
+**Verified spec correction.** `SuccessionEntry` stores absolute ISO calendar dates,
+not frost-relative offsets. Preserve them without rebasing; the raised-bed example
+and descriptions explicitly label its 2027 dates as illustrative. No climate or
+companion benefit is inferred from an absence of antagonistic rules.
+
+**Alternatives rejected.** A new extension/schema; a temporary-file loader; direct
+scene construction per gallery entry; silently rewriting crop dates; sanitizing
+arbitrary prose as if this were a complete anonymizer. No new dependency or file
+version bump. A pre-F reader can ignore additive F keys and retain geometry.
+
+**Evidence.** `tests/unit/test_templates.py`,
+`tests/integration/test_templates_gallery.py`, `tests/ui/test_welcome_dialog.py`.
+`generate_examples.py` uses production constructors, creation commands, serializer
+and renderer with isolated stores. `dogfood_agent_api.py --emit-sample` copies the
+maintained raised-bed example and preview instead of constructing another schema.
+
+**Review hardening.** Record-type filtering applies only to structural objects and
+children lists; custom dictionaries may contain arbitrary type values. The gallery
+reclaims the banner space and scrolls details so the minimum-size viewport holds
+a complete card. Sample emission short-circuits before exe/settings/server work.
+
+**Owner-feedback addendum, 2026-10-27.** A teaching example needs an actual sun
+study and soil workflow. `example_copy_plan` therefore retains only location and
+soil tests for known bundled paths, including locale variants authorized by their
+canonical sidecar. Coordinates describe public northern-hemisphere cities, not a
+private garden. Soil and frost dates are explicitly fictional teaching inputs.
+External templates and every template export still use the strict portable subset.
+No history exemption is added. The load path, untitled identity and Save As remain
+unchanged. Observed-failing load tests pin the demo-state exception and the
+same-filename external refusal in `test_example_demo_state.py`.
+
+All three layouts ship in English, German and Spanish, with identical object IDs
+and geometry. Gallery thumbnails are rendered separately from each saved locale
+plan, so tutorial text inside previews follows the language too. Display names,
+annotations, notes, guild labels and credits follow
+the selected language; canonical species and artwork identifiers stay stable.
+Known edible-part terms translate at the editor/search display boundary and an
+unchanged translated field preserves the exact raw list. This prevents an
+unrelated property edit from rewriting species metadata in the UI language.
+
+The 21 September 2026 teaching date is explicit in notes, never silently installed
+in SimClock. Mature perennials have historical planting dates and nursery-size
+anchors. Spacing is measured against actual plant circles and the shipped 2D bed
+sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
+describes nearby plants, while missing roles remain honest diagnostics. Production
+scene rendering and real-font annotation bounds supplement structural assertions.
+
+## ADR-067: Release download statistics without telemetry
+
+**Status:** Accepted (owner decision, 28 October 2026: no telemetry; chart accepted as "perfect" on the same date).
+**Date:** 2026-10-28.
+
+**Context.** We want to know how often the release executables are downloaded over time.
+GitHub exposes only a cumulative `download_count` per asset
+(`GET /repos/{owner}/{repo}/releases`), no history and no per-day, per-country or per-user
+breakdown; *Insights → Traffic* covers page views and clones, not release downloads. The
+app must not report anything about itself.
+
+**Decision.** A scheduled workflow (`download-stats.yml`) snapshots the counters daily;
+`scripts/download_stats.py` derives the values between consecutive snapshots. Snapshots
+carry a timestamp and the asset id, only the installer and `SHA256SUMS.txt` of non-draft
+releases are recorded, and files are split per month. The snapshots are the only source of
+truth; `daily/` and `SUMMARY.md` are rebuilt from them. A value is a window in hours, not a
+calendar day.
+
+The data goes to the orphan branch `download-stats`. `master` requires a pull request and
+green checks (`quality/master-protection.json`, administrators included), and every push
+to it runs `release.yml`; a bot could not commit there at all, and a pull request per day
+would be noise. The orphan branch shares no history with `master`, and neither `ci.yml`
+nor `release.yml` runs for it (and a `GITHUB_TOKEN` push starts no workflow anyway).
+
+**Rejected.**
+- *App telemetry or an update ping:* the owner ruled it out; it would also count users
+  who never download.
+- *Splitting in-app from web via `SHA256SUMS.txt`:* first planned (an in-app update fetches
+  the checksum file and the installer, a web visitor the installer only) and dropped after
+  review. Two of our own artifacts break the inference: the README, wiki and release notes
+  tell web users to fetch the checksum file, and apps older than v1.30.3 update without
+  fetching it. The errors point in opposite directions, so the sign of the error is
+  unknown and a derived column would look more certain than it is. The summary reports
+  the raw columns and says so.
+- *One ever-growing CSV recording every asset:* at the current release rate (about five
+  assets per release, 40+ releases a month) it would pass GitHub's 100 MB file limit in
+  under two years and every push would then fail. Per-month files of two asset kinds
+  avoid a later migration.
+- *Commit to `master`:* blocked by the protection and would trigger a release run.
+- *Actions artifacts:* expire after 90 days by default; history is the point.
+- *Issue comment per day (as `dependency-review.yml` does):* a month of noise and no
+  machine-readable form.
+- *Presenting reconstructed history as measured:* GitHub keeps no history; the raw
+  series starts at the first snapshot. The addendum below permits a labelled model.
+
+**Consequences.** The numbers include bots, virus scanners and retries and are not users.
+A skipped scheduled run or a manual run gives a window of a different length, reported in
+hours and flagged. A falling counter is a reset; a re-uploaded asset (new id) counts from
+zero. The listing is validated before anything is written; an empty or sharply shrunken
+listing fails the run. A snapshot row is only ever replaced by a rerun on the same UTC
+date, and a snapshot older than the latest stored one is refused. A listing that lost
+more than half of the assets is refused unless `--accept-shrink` (the `accept_shrink`
+dispatch input) says the releases were pruned on purpose. Steps of one job are not
+isolated, so the workflow does not claim a token boundary between them: it relies on the
+`master`-only job, no persisted credentials, hook-free commits and a publish step that
+checks it is committing in the data worktree. Scheduled workflows stop after 60 days of
+repository inactivity (§7.4). See `docs/07-deployment-view/README.md` §7.4.
+
+### Addendum — daily chart and explicit historical model (28 October 2026)
+
+**Owner decision.** Show daily installer downloads, with sum-preserving week/month/year
+switches, rather than only release totals. Model the pre-observation past by allocating
+each baseline release's count uniformly while it was the latest regular release. This
+is an assumption, not an inference of download timestamps. UTC was explicitly chosen;
+missing observations are bridged by equal daily estimates. The owner accepted the chart
+on 28 October 2026 ("perfect") and authorized finalization. Pages deploys after protected merge.
+
+**Decision.** Preserve the earliest available snapshot in immutable `baseline.json`
+BEFORE a same-date run can replace it. Exact elapsed-second fractions handle multiple
+releases on one date and retain every baseline download. The most recent seed release
+ends at the seed time. Future increments are computed against this seed once and then
+against their own previous asset observation; the frozen historical component never
+changes. One-date windows approximate the previous UTC date, same-date manual windows
+are partial, longer windows are shared equally and coloured as gap estimates. Schedule
+00:17 UTC, off the hour. Preserve actual timestamps and new/reset markers in daily JSON.
+Raw snapshot/delta CSV schemas and meanings remain unchanged. No in-app/web inference.
+
+The standard-library report module emits a daily series, SVG and a local-asset website.
+Its browser code SUMS days into Monday weeks, calendar months or years after applying
+the selected date range; cut-off buckets retain partial labels and estimate components.
+Default view: daily, last 365 covered calendar dates. Website English/German/Spanish catalogs
+are separate from Qt: reporting runs on a plain Python runner, not an installed app.
+Both themes, mobile layout, accessible bar descriptions and keyboard inspection are
+supported without an external chart dependency or CDN.
+
+Persist data before uploading/deploying only the site through a separate least-privilege
+Pages job. Pages is enabled once after owner acceptance and merge. A deploy failure
+cannot lose the stored measurement; `--report-only` rebuilds without a network call or
+new snapshot. Do not use branch-triggered publication: bot-token pushes do not start
+workflows. The owner-requested estimates supersede the earlier exclusion of all past
+modelling; the rejection of unlabelled reconstruction remains.
+
+**Evidence.** Unit cases pin the owner's 4/2 and 12/4 example, fractions, subday releases,
+migration, immutable reruns, zero counts, missing asset windows, promotions and resets.
+The CLI integration test produces a complete site from existing snapshots. Tests execute
+the real browser aggregation with Node for all four grains, ISO boundaries and leap day.
+Browser look/interaction evidence and the manual acceptance checklist accompany the PR.
+
+### Addendum — current-release observation basis and single tooltip (1 November 2026, #677)
+
+**Context.** In the `2026-10-30T05:51:20Z` snapshot window, 386 of 408 tracked assets across
+every historical release moved by `+1` (204 installer rows summing to 218 and 204 checksum rows
+summing to 217) — the fingerprint of a release-history crawl. Because `_history()` distributed
+baseline counters across each release's tenure as the latest release while `calendar_series()`
+summed post-seed increments across all ~200 installer assets, the `2026-10-29` bar reached 218
+(24 % of the chart total), forcing the Y-axis maximum to 250 and compressing every normal day
+(1–8 downloads) to a hairline. In addition, `SUMMARY.md` labelled that 386-row `normal` window
+`new release or asset` because 4 new releases were also present, `chart.js` appended an SVG
+`<title>` alongside the HTML `#tooltip` overlay (producing a doubled tooltip on hover in
+Chromium), and multi-window tooltips concatenated distinct `kind` labels after a bare count
+(`5 · Zählerdifferenz, Neuer Release, neues Asset oder Freigabe`).
+
+**Owner decision (2026-11-01, #677).** An older release is **closed** the moment a newer
+non-prerelease release is published. Only the counter of the release that is current at a
+snapshot contributes to the observed/gap chart series.
+
+**Decision.**
+1. **Per-snapshot current-release resolution (`scripts/download_stats_report.py`).**
+   `current_release(snapshot_rows)` selects the non-prerelease installer row (`*-Setup.exe`)
+   with the highest `(instant(published_at), asset_id)` present in that snapshot.
+   `calendar_series()` accumulates `observed` and `gap` increments only for that asset and
+   closes superseded regular releases at each snapshot so crawls of older releases never enter
+   the chart. `_history()` is unchanged, so historical and observed components now share one
+   definition. `timeline.json` emits `"version": 2` and `"basis": "current_release"`.
+2. **Auditable raw tables and tightened window note (`scripts/download_stats.py`).**
+   `snapshots/`, `daily/`, and `SUMMARY.md` per-release totals remain raw across all releases
+   so bulk crawls stay auditable. The `SUMMARY.md` preamble states why the chart total and the
+   `**All**` row differ by design. `_summary_row()` appends `new release or asset` only when
+   `KIND_NEW` deltas are the reason for the window's numbers (`new_total > 0 and normal_total == 0`).
+3. **Single tooltip and unmixed window summary (`scripts/download_stats_web/`).**
+   `chart.js` removes the SVG `<title>` nodes (retaining `role="img"` and `aria-label` on each
+   bar `<g>`) so hovering displays only the HTML `#tooltip` overlay. `describe()` is exported on
+   `globalThis.DownloadChart` and formats multi-window buckets (`windows.length > 3`) with the
+   localized `windowCount` key (`{count} observation windows` / `{count} Messfenster` /
+   `{count} intervalos de medición`) instead of joining distinct `kind` strings behind a bare
+   count. `messages.json` updates the `observed` legend to `Increment of the current release`
+   (and its German/Spanish equivalents) and documents the current-release basis and release-cadence
+   effect in `method`.
+
+**Trade-offs and consequences.** On the stored snapshots, `2026-10-29` drops from 218 to 2 and
+the year maximum is the historical ~19.7 on `2026-07-23`. Real downloads of older releases are
+deliberately excluded from the chart (the chart is a floor for current-release uptake, while
+`SUMMARY.md` retains all-release counters); mid-window releases attribute their initial counter
+to the window ending at the next snapshot; and with roughly daily releases each bar reflects
+uptake while a release is current. This is not a bot filter and is not described as one. Pinned
+by `tests/unit/test_download_stats_report.py`, `tests/unit/test_download_stats.py`, and
+`tests/integration/test_download_stats_report.py`.
+
+
+## ADR-068: Audit boundaries, responsibility extraction and progressive agent context (#392)
+
+**Status**: Shipped in v1.34.5 (PR #640) after full manual-test confirmation, independent senior review, and protected merge.
+
+**Context**: A4 (#456) precedes A6 (#458) and A7 (#459). Current measurements
+replace the historical audit's line/import counts. A9 (#461) needs representative
+workloads, A12 (#464) needs smaller loading units without losing knowledge, and
+A13 (#465) must describe continuity without assigning privileges.
+
+**Decision**:
+1. **Shared leaves preserve identity.** `config.settings` and `config.paths`
+   own configuration and safe dialog paths; `app.settings`/`app.paths` alias the
+   exact module objects. Mutable isolation bindings therefore reach one factory.
+   `models.theme`, `models.parametric_eval` and `models.storage_paths` own the
+   Qt-free values/evaluator/data-directory resolver. The old evaluator module
+   also aliases its implementation. ADR-041's factory and isolation rules remain
+   binding. Core/tool exports are lazy, with explicit static-typing exports.
+2. **Static boundary enforcement.** `check_import_boundaries.py` checks eager
+   module/class imports, including relative imports, conditionals and try blocks.
+   Local and `TYPE_CHECKING` adapters remain permitted. The exception baseline
+   is empty. The permitted layer graph is acyclic; this does not claim that all
+   deferred runtime imports are cycle-free or that dynamic imports are analyzed.
+3. **Extract responsibilities through composition.** `ClipboardOperations`,
+   `DragConstraints`, `PropertyEdits` and `AgentHost` have an explicit typed host.
+   Hosts retain document, widget, bridge and server state and compatibility
+   methods. There is no attribute-forwarding proxy or duplicate state. The
+   command/serialization/geometry paths remain canonical; the property dispatcher
+   delegates to named handlers after its characterization net passes. Shared
+   repeat-menu actions retain literal translation contexts and shape-specific
+   guards. Handle primitives, vertex/midpoint/curve editing and resize/rotation
+   have separate owners; existing imports return the same classes/functions.
+4. **Keep the instruments attached.** Source censuses, mutation targets, child
+   isolation hooks, spies and cleanup scopes follow defining modules. Real MCP
+   transport and pending-hop shutdown tests remain mandatory. Moved UI strings
+   use their original explicit Qt translation contexts. No type allowances are
+   increased: newly extracted modules pass the existing zero-allowance rule.
+5. **Measure performance honestly.** The committed harness records every sample,
+   machine/profile, source versus frozen startup, native/headless Qt, traced
+   versus untraced execution, RSS and callbacks. Startup means a shown canvas,
+   synchronous repaint and an event-loop callback; launch timing includes the
+   executable's bootstrap. Fresh processes do not imply a cold filesystem cache.
+   Measured repeated theme work justifies a post-show palette/title-bar refresh
+   without another stylesheet/listener pass. Targets remain targets when a
+   measured machine misses them; no universal flaky timing assertion is added.
+6. **Progressive disclosure with provenance.** Large skill bodies move into
+   mirrored indexed references, after recursive citation discovery is extended.
+   Every original normalized body was reconstructed exactly before citation/link
+   repairs. `quality/context-migration.json` records original/current hashes;
+   tests pin the retained fragments. Root handoff narrative has a complete
+   snapshot. Root context warns at 28 KiB and fails above the 32 KiB soft budget,
+   below the configured 64 KiB reader cap; skill entries also cap at 32 KiB.
+   New historical lessons get their own references and index rows. Required
+   method/runbook rules remain discoverable from each entry point.
+7. **Review and authorization are distinct.** Changes touching >30 production
+   files, >1000 non-generated lines, several subsystems or new public APIs need
+   design-stage review and named semantic slices. Counts trigger scrutiny; they
+   never grant approval. Record review rounds, SHA, findings and dispositions.
+   `check_delivery_state.py` verifies the actual draft/base/head/closing-keyword
+   handoff. Local rules still cannot infer owner approval or private account
+   recovery. No host permission hook is invented, no grant is changed, and no
+   draft is made ready automatically. Existing manual-test/protected-merge rules
+   remain in force.
+
+**Alternatives considered**:
+- Re-exporting settings globals by value: rejected because isolation would split
+  factory state and could address the owner's real settings store.
+- Dynamic host proxies, copied construction/geometry paths, or increasing mypy
+  allowances after extraction: rejected; they hide coupling or erase the ratchet.
+- Deleting historical skills/pickups or enlarging the citation window: rejected.
+  Shared repeated facts instead have one exact-AST record, while line citations
+  retain the original 20-line window.
+- Claiming a backup maintainer or private recovery setup: rejected without
+  explicit nomination and evidence. The runbook identifies owner-only actions.
+
+**Consequences**: No dependency, file-format, permission or release-right change.
+The public UI and MCP behavior retain their existing contracts. A9's opt-in
+`--benchmark-startup` exits after measurement using its own temporary settings
+identity; ordinary startup never takes that path. Evidence and all finding
+dispositions live in `audits/2026-10/audit-392-remaining.md`; the historical audit
+snapshot remains unchanged. Each package closes only through its complete,
+reviewed draft PR and owner acceptance.
+
+### ADR-056 addendum - exact soil-plane receiver exposure (#641, PR #645)
+
+The ground heatmap remains at z=0. Per-plant exposure receives the canonical
+`item_base_cm` soil elevation and evaluates caster slices above that plane,
+while retaining the existing self and soil-holder exclusions. Equal elevations
+share a sweep. Five-centimetre bands were rejected during review: a 38 cm
+receiver rounded to 40 cm lost a 39 cm obstacle and gained 210 false minutes
+of sun in the boundary regression. No approximation budget authorizes that
+change. Vertical-translation equivalence at sub-centimetre and bed-height
+boundaries is pinned in `tests/unit/test_sun_exposure_base.py`; the real-window
+workflow is in `tests/integration/test_sun_exposure_raised_soil.py`.
+
+### ADR-065 addendum - rounded gravel relief (#605, PR #645 owner pass)
+
+The earlier deferred gravel chord/square-end observation is resolved. The 2D
+gravel painter already paints a round stroke rim; changing its outline to
+match a chord would change the owner's plan picture. Gravel relief now follows
+the canonical `polyline_round_outline` boundary (also used for lawn cut-outs),
+with the existing bevelled rim section swept inward around outer and hole
+rings. Round joins and end caps are included. Width, height, tint and material
+semantics are unchanged; the analytical square/butt caster footprint remains
+unchanged too.
+
+Visible rim arcs use 0.01 cm tolerance; existing cut-out callers retain 0.5 cm.
+A preflight bounds angular subdivision work and a second guard bounds output
+to 4096 outline vertices. Beyond that budget, the accurate flat painted path
+remains without raised edging, as for other unbounded relief. Record stroke
+width is bounded at 1e6 cm; the maximum admitted width is safely rejected by
+the arc budget before outline allocation.
+
+The old nominal-footprint-plus-10-cm gravel gate was the wrong reference. It is
+replaced by a <=0.05 cm reach check against the painted round outline, plus
+independent Qt round-stroke coverage/exclusion tests for bends, caps, short
+legs, duplicates, self-crossings and loops in
+`tests/integration/test_gravel_rim_relief.py`. A chord can fit the nominal
+footprint while visibly crossing the gravel interior; both coverage and
+exclusion are required.
+
+## ADR-069: Native triangulation and off-the-GUI-thread 3D preparation (#452, #531, #598)
+
+**Status**: Accepted; shipped in v1.34.11 (PR #676) for #452: native triangulation, the
+cooperative sliced read and the geometry lane. The decision's #531 half — persistent
+Models with in-place geometry reload — was built, measured on both render tiers and
+WITHDRAWN: a new geometry object assigned to a live Model, and new data loaded into the
+object it already has, both render nothing while still picking. #598's sparse
+seasonal-parts index was built on the same engine files and withdrawn with it, with no
+measurement of its own. A changed part therefore gets a new Model, as before, and both
+issues stay open. #475 (raster lane, padded tiles) and #534 (wind memory)
+are NOT covered by this decision and stay open.
+
+**Date**: 2026-11-01.
+
+**Context.** The 3D view reads a whole plan on the GUI thread and builds every
+changed item's meshes there. Both halves cost the sum of the plan: the issue measured
+4.0 s, 5.4 s and 12.6 s for three deliberately huge plans, 33-40 s for two hundred
+items at the per-item work bound, and a plan of 160 beds of 1,000 vertices paid about
+two seconds in the builders alone. The shared pure-Python ear clipper priced a region
+at O(n²) and verified each triangle against every edge — 0.75 s for one 1,000-vertex
+bed cap — and its admission bound left a real 900-point drawn path out of 3D. The
+budget was per item; the plan had none. A plan-wide budget was rejected earlier
+because it would make one item's record depend on what else is on the plan.
+
+**Decision.**
+
+1. **One production triangulator: `mapbox-earcut` (ISC).** `polygon.cut_region` — the
+   region cutter the record layer proves a buildable region with — now cuts a region
+   with holes, or a hole-free ring of 256 vertices or more, in ONE native call. The
+   shared ear clipper remains the cut for small hole-free rings (its triangles are
+   pinned by the golden meshes and it is faster below that size) and, in
+   `polygon.triangulate_polygon`, as the test reference and the builders' fallback for
+   a ring the native cut refuses. The native answer is not trusted for being an answer:
+   flat triangles are dropped, every remaining triangle must face up, and areas must
+   add up before the cut is used.
+2. **`polygon_triangles` uses the same cutter for big caps.** A cap of 256 vertices or
+   more goes through `cut_region`, so the cut the record layer already proved is the
+   one the builder gets (the memory is shared). A 1,000-vertex bed's cap fell from
+   0.75 s to under a millisecond; 160 of them from 37 s to 2.1 s.
+3. **The work bound is repriced, not removed.** `MAX_REGION_WORK` stays 150 M units,
+   now priced from the measured native cost (`_earcut_work`: 2,000 units per vertex
+   plus 3 per vertex squared — the worst case measured on a 16,000-vertex spiral,
+   611 ms). `MAX_ITEM_VERTICES` stays 16,384. A 16,384-vertex circle is still refused;
+   a 4,096-vertex ring and a slab of 200 touching holes are now buildable.
+4. **The whole-plan read is cooperative.** `snapshot.snapshot_steps` is a generator
+   that yields before every item; `snapshot_records` is the loop that drives it to the
+   end (the synchronous API — exports, tests, the offscreen renderer).
+   `SceneSyncController` drives it in `CAPTURE_SLICE_MS` (4 ms) slices, one item
+   minimum per slice, between turns of the event loop, and applies the whole read once.
+   Ownership: only the GUI thread reads Qt items; the records are plain immutable data.
+   A change during the read does NOT restart it (a drag would starve it forever): the
+   pass applies the coherent earlier snapshot, an item deleted since is dropped, and
+   the read the change leaves owed follows at once. A document change, a reset, hiding
+   3D or shutdown DROP it — a new plan is never assembled from the old plan's items.
+5. **Heavy geometry goes to one worker lane.** When a pass's changed items hold
+   `PREPARE_OFF_THREAD_VERTICES` (20,000) outline vertices or more, the controller hands
+   those records to `SceneSync.prepare` on a single-worker `ThreadPoolExecutor` — the
+   same builder path, no sink — and applies its answer through
+   `SceneSync.apply(prepared=...)`, which uses the parts instead of building them.
+   One flight at a time; a newer pass waits in one slot and replaces the one waiting.
+   Below the threshold the pass builds its own items (a thread hop would only make an
+   edit later). The builder memories are `ring_keyed` (safe from several threads, like
+   `lru_cache`), and records are immutable.
+6. **No second implementation.** `apply` still diffs, transacts, contains builder and
+   sink failures, reports skips and recovers through the reset; the lane only moves the
+   build. A failure on the lane is left out of the prepared map and paid again — and
+   reported — by the apply.
+
+**Rejected.**
+- *A plan-wide work budget:* one item's record would depend on what else is on the plan
+  (the issue's own objection).
+- *Simplifying traced boundaries approximately:* the outline is the user's data.
+- *Smaller native triangulation for everything:* below 256 vertices the shared clipper
+  is faster (measured 2.3 ms against 4.0 ms at 100 vertices), and its triangles are
+  what the golden meshes pin.
+- *Moving the Qt reads off the GUI thread:* QGraphicsItem access is GUI-thread only.
+  The split is therefore records (GUI thread, sliced) and meshes (worker, whole).
+- *A signal per completed build:* a future's cross-thread signal needs a receiver in the
+  worker's affinity; one 10 ms poll of one flight costs nothing and keeps the state on
+  the GUI thread.
+- *A per-item incremental apply:* `SceneSync.apply` takes the whole snapshot and diffs
+  it; batching records would have meant a second apply path.
+
+**Consequences and limits.** The GUI heartbeat (a 1 ms precise timer on the main
+thread) while the three issue plans are read: p95 1.7-3.6 ms, max 8-20 ms, against
+4.0/5.4/12.6 s in one block before (`scripts/measure_capture_heartbeat.py`; engine not
+started — this is the pipeline's own GUI work). The read is still wall-clock slower than
+a single block in total (2.3 s against 4.0 s for the first plan only because the builder
+fix removed two minutes of the old cost). A plan whose builder is slow but whose
+outlines are small stays on the GUI thread by design: the threshold is vertices, not
+measured time. The cooperative read holds `snapshot_generation` open across event-loop
+turns, so a synchronous snapshot taken meanwhile advances the generation — correct, but
+it makes the next slice recompute more than it would alone. Ground tiles (#475) are
+still painted on the GUI thread by the controller's ground passes; they are already
+sliced by a 10 ms budget, and moving them to a raster lane is #475's remaining work.
+
+Slicing moved a net reconciliation's cost from one turn into the turns that follow it,
+and the preview-move gate noticed (`test_a_preview_mouse_move_costs_in_split_what_it_
+costs_in_plan`): on the hosted runner a whole-plan read of the 424-record bench plan
+takes 114 ms, and 16 of them landed inside 160 measured preview moves — ratios 4.61,
+5.83 and 4.78 against the 2.0 bound, while the same test on a quiet machine reads 1.00.
+The passes were not the preview's: each was the net reconciling after a quiet timer that
+fired LATE, because the 2D side had held the GUI thread for about a second and the
+preview's repaint was still queued. A timer that fires proves the loop is alive now, not
+that the scene was still for the quiet time. The net therefore waits `NET_SETTLE_MS`
+(50 ms) after its quiet timer, and a repaint inside that window restarts the whole quiet
+time (`_net_quiet`/`_arm_net`); the bounded `NET_MAX_WAIT_S` path still reconciles a
+scene that never quiets. On a probe with a 600 ms block inside every tenth preview turn,
+the mid-round reads fall from 4 to 1 (the one after the tool stops).
+
+**Verification.** `tests/integration/test_view3d_sync_controller.py` pins the slicing,
+the stale-read policy, deleted items, document replacement, hiding, `flush` and the
+lane, and the late-timer settle
+(`test_a_quiet_timer_that_fired_after_a_blocked_loop_waits_for_a_settle`);
+`tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
+and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
+The golden meshes still match below the threshold.
+
+## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
+
+**Status**: Accepted (issue #389, epic #383) — all four slices, the two optional ones included. Shipped in v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after the owner's manual acceptance (two rounds; 2026-11-02).
+
+**Context**: After L4 the 3D view showed the plan's garden in a mood that followed the sun's
+height alone (`core/scene3d/look.py`, ADR-059 addendum L1.4), with wind as a shader clock and a
+reduced-motion setting. Issue #389 asked for year and day playback through the shared
+`SimClock` (ADR-053), named moods (morning dew, golden hour, overcast, night), weather presets
+and particles (rain, snow, autumn leaves, butterflies at flowering plants, fireflies on summer
+evenings) with three gates — at most 5,000 particles, at most 15 % of the frame at Medium,
+and with reduced motion an idle frame counter of 0 — and, optionally, "today's weather" only
+when the plan date is today and garden lights as a new object type (2D sprite, §8.23
+registration, 3D light). The forces: truth before beauty (no weather may move a sun or a
+shadow), the engine rules L1–L4 paid for (a destroyed Model leaves graphics state behind —
+ADR-060; a light that comes and goes recompiles every lit material), the software adapter's
+cost (nothing animates there), and one canonical path per behaviour.
+
+**Decision**:
+1. **Playback is a writer of the one clock.** `core/playback.py` is the Qt-free arithmetic of
+   one step: the DAY mode advances the time of day and wraps at midnight onto the SAME date (no
+   `date_changed`); the YEAR mode advances the plan date at the same time and wraps inside the
+   plan's year. Three speeds (5 / 10 / 30 minutes, 1 / 2 / 7 days per 200 ms step; "normal"
+   day = Phase 14's Animate). The Plan & Sun toolbar's Animate button carries the choice
+   (`SunSimToolbar`, a menu on the button) and writes through its existing paths — the slider
+   (time) and `date_requested` (date) — so the 2D overlay, the hours-of-sun map, the 3D light
+   and the 3D growth follow on their own subscriptions; the 3D regrowth stays throttled by
+   `DATE_REGROW_MIN_MS`. Session state only, like the sim moment (FR-SUN-04).
+2. **Weather is a LOOK.** `core/scene3d/weather.py`: `living_look(sun, preset, weather) =
+   apply_weather(look_for(sun, preset), weather, sun)`. Overcast greys the sky towards a hue
+   whose horizon is as bright as the clear one (a cloudy night stays a night), hides the disc,
+   cuts the key light to 22 % and its shadows to 30 % darkness with a softer filter, raises the
+   probe and the exposure a little and lowers saturation; rain adds wetness, a nearer haze and
+   more wind; snow a snow cover. The sun's direction is not in a look and the moon is unchanged;
+   a clear look outside the morning is `look_for`'s field for field except the new
+   `LookSpec.atmosphere` (pinned). The 2D sun study, the hours-of-sun map and every truth gate
+   read clear geometry and are unaffected. A new weather's sky is built at once
+   (`look.sky_must_build_now`, `SkySpec.cloud`); `sky_phase` is now read from the sun's
+   elevation, not the disc's energy, so an overcast day is still day.
+3. **Moods are names of the look.** `weather.mood_of(look, sun)` — night, twilight, rain, snow,
+   overcast, morning dew, golden hour (a clear sun at or below 12°), day — read from the look so
+   the name can never disagree with the picture. Morning dew is east of the meridian (azimuth in
+   (0°, 180°) at every latitude) from the end of civil twilight until the sun is 18° up: a
+   nearer mist, a wet sheen on leaves and blades, a little less colour.
+4. **Particles are geometry a shader moves.** No CPU simulation and no Qt Quick 3D particle
+   module: `core/scene3d/particles.py` builds two buffers — the precipitation (3,600 seeded
+   quads, the same for every plan) and the ambient life (falling leaves under turned trees and
+   shrubs that are dropping them, butterflies at plants in flower up to 3.5 m tall, fireflies in
+   the hemisphere's midsummer, and the bulbs of the garden lights) — each loaded into ONE
+   declared Model for the scene's life (`ReloadableGeometry`, like the selection ring).
+   `precipitation.vert` / `ambient.vert` place every particle from its seeds and the WIND'S
+   CLOCK (`windTime`). So the L1.4 animation policy runs them: hidden, nothing ticks; reduced
+   motion rests the clock at 0 — every particle stands where its seed puts it, a photograph,
+   and an idle view presents no frame; the compatibility mode draws them still. Rain and snow
+   are world-anchored in a box around the camera's target (`precipitation_volume`), so an orbit
+   never drags them. WHICH plants have life is the buffer's (rebuilt with the plants'
+   phenology, i.e. at most twice a second during a date playback); WHEN it shows — by day, dry,
+   at dusk — is the look's (`AtmosphereSpec.leaves / butterflies / fireflies / lamps`), a
+   uniform, so a time-of-day step rebuilds nothing. Budget: precipitation 3,600 + leaves 560 +
+   butterflies 80 + fireflies 360 + bulbs 360 = 4,960 ≤ 5,000 (pinned).
+5. **Wind is a shader value the weather sets.** `LookSpec.wind_strength` (clear 2.5 — L1.4's —,
+   overcast 3.5, rain 5, snow 1.5) sways foliage and grass; `AtmosphereSpec.wind_drift_scene`
+   carries rain, snow and leaves (from the west-south-west). No meteorology is claimed.
+6. **Wet and snowy ground is ONE set of values.** The meadow, the bare plan and both tile
+   materials bind the same `groundRoughness` / `groundSpecular` / `groundTint` (and the tile
+   shader `snowCover`), so the plan meets the meadow without a step in every weather (the L1.4
+   plan-edge rule). Roofs and a bed's soil (principled `vc` parts) are not snow-covered — an
+   accepted limitation.
+7. **Today's weather follows the app's forecast, only on today.** The Planting Calendar's
+   weather widget already fetches Open-Meteo's daily forecast; `forecast_days_ready` fans its
+   `(ISO date, WMO code)` days out to the workspace (no second fetch, nothing from the 3D view to
+   the network). `weather.todays_weather` maps the plan date's code — only when the plan date is
+   today — onto a preset (`weather_from_wmo`: 0–2 clear, 3/45/48 overcast, drizzle/rain/showers/
+   storms rain, snow and snow showers snow); on any other date "Today's Weather" shows clear and
+   its tooltip says why.
+8. **Garden lights are objects, their light a fixed pool.** `GARDEN_LIGHT` (circle tool, a
+   lantern on a post) and `STRING_LIGHTS` (a LINE, drawn like a fence: a post at every point,
+   the wire hanging between them — the owner's addendum below) are registered on every §8.23
+   surface (default heights 110 / 250 cm; the lantern's sprite from
+   `scripts/generate_object_sprites.py`, the string drawn by the canvas) and built by
+   `builders/lights.py`. Where a bulb is is ONE function per kind (`lantern_bulb`,
+   `string_bulbs` — the string's from `core/string_lights.layout`, which the canvas draws
+   too), read by the builder that places the bulb and by `core/scene3d/lights.py` that makes
+   it glow (an ambient `bulb` particle) and light (`pose_points`, the Model's own pose). The scene declares `lampSlots` (6) point lights once;
+   the nearest six lamps to the camera's target light the garden after dusk
+   (`AtmosphereSpec.lamps` ramps in over twilight), the rest glow. No point-light shadows.
+   `foliage.frag`, `foliage_door.frag` and `lawn.frag` gain a `POINT_LIGHT` that lights leaves
+   the way their `DIRECTIONAL_LIGHT` does.
+
+**Alternatives considered**:
+- *Qt Quick 3D's `ParticleSystem3D`.* A CPU simulation per frame, a further QML module to
+  bundle and pin in the frozen exe, and particles that tick on their own clock — a second
+  animation policy to keep in step with reduced motion and with a hidden pane. The shader route
+  reuses the clock the policy already owns.
+- *Weather in the sun study.* Rejected by the truth principle: shading in 2D is a geometric
+  analysis of where the sun's direct light falls; a cloudy day does not move a shadow.
+- *A light per lamp.* Every visible light is computed for every lit pixel and changes the shader
+  of every lit material; a plan with dozens of lamps would recompile and slow the view. Six
+  nearest, the rest glowing, keeps the cost bounded.
+- *Persisting the weather.* The sim moment is not persisted (FR-SUN-04); the weather is part of
+  that simulated moment, so every session starts clear.
+
+**Consequences**: New modules `core/playback.py`, `core/scene3d/weather.py`, `particles.py`,
+`lights.py`, `builders/lights.py`, `ui/view3d/workspace_living.py`; shaders
+`precipitation.vert/.frag`, `ambient.vert/.frag`; two object types added to `ObjectType`
+(appended) and `ToolType` (beside the other furniture tools — `ToolType` values are never
+persisted; `ObjectType` NAMES are serialized — no `FILE_VERSION` bump: an older version loads
+a garden light as a generic shape, but a string as a fence, because its loader gives every line
+of an unknown type `ObjectType.FENCE` (`project.py`, `object_type or ObjectType.FENCE`) — a
+120 cm fence that casts a 2D shadow, builds as a fence in 3D, and stays one if saved
+there); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a line drawn by
+the canvas); `bench_built.ogp` gained one of each (appended last, every earlier id and seed
+kept; the string's middle post moved from y 1290 to y 1210 after the owner's manual test,
+where the old point stood inside the deck at y ≥ 1260). `LookSpec` gained `atmosphere`
+(`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
+1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
+frame; with reduced motion 0 frames over 2.5 s after the first build. A garden light's
+3D shadow is a small share of its solid 2D prism, as every open object's without a porosity
+model is — a pergola's about a quarter, a swing's about a sixth; #440 gave one to fences
+only, its roof projection to buildings; the open objects' is #698 — the shadow table of
+ADR-059's builders addendum. A string of lights casts no 2D shadow at all (the owner's
+addendum). Tests:
+`tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
+`tests/unit/test_string_lights.py`, `tests/integration/test_living_garden.py` (§8.10),
+`tests/integration/test_string_lights_line.py` (the string as a line: the tool, its 2D
+picture, no 2D shadow, Change Type and undo, 2D and 3D bulbs at one place however it is
+turned), the render tier
+`tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
+Beauty Board's `--living` shots, and the frozen `--selftest`: a second small frame — a rainy
+night with one garden light, in perspective — compiles the particle shaders and the point-light
+path from the bundle and must show the lamp's warm glow (`selftest.judge_living_frame`; a broken
+particle shader fails it, `test_quick3d_selftest.py`). Cross-refs: FR-3D-LIVE-01 … 09, §8.29.13, §8.10.16,
+PF-L3D-18.
+
+**Addendum (3D review of the L5 board, before the draft PR)**: The `ogp-3d-reviewer`'s first
+pass rejected the board: one P0 and three P1s. Truth was intact (38 truth frames bit-identical
+to the merge base but two pixels by 1 luma; no weather moved a shadow centroid by more than
+3.3 cm). The fixes:
+1. **A weather pauses under an Analyze drape (P0).** The drapes are alpha-blended over a
+   ground the weather recolours: under snow the hours-of-sun drape's saturation fell to 0.31
+   of the clear look's and its hue moved by up to 59° (p90), so its colour key no longer read
+   as its legend. Decision 2's "the drapes are untouched" must hold for their PIXELS: while a
+   drape lies on the ground (2D shadows or hours of sun; Sweep the Day included) the look is
+   `living_look(sun, preset, "clear", dew=False)` — the sun's own look (`LookController.
+   set_analysing`, told by the workspace on every drape change). The Weather button keeps the
+   chosen weather and adds "(paused while analysing)"; Nothing on the Ground brings it back
+   (FR-3D-LIVE-09). The drape frames are then the clear frames, so the review's hue gate (≤ 2.7°)
+   holds by construction. Rejected: opaque drapes under a weather (they would hide the ground
+   the analysis is about).
+2. **The fog under a cloud (P1).** `FOG_OF_HORIZON` was calibrated on the clear sky's texture;
+   an overcast sky draws its horizon row otherwise, so the fog drew 4 luma above the overcast
+   noon horizon and 3.6 under its night — a seam in every cloudy weather that the board's
+   distant-horizon gate raised. `weather.weather_fog` scales the fog by 1 + cloud × (−0.045 by
+   day … +0.23 at night, by `twilight`); the look controller's lagging-sky fog uses it with the
+   SHOWN sky's `cloud`. The board's `--living --horizon` now runs the horizon probe under
+   overcast, rain and snow too (`HORIZON_WEATHERS`). Measured (high, 1280 × 720): near steps at
+   most 1.86 luma in every cloudy mood (night 4.08 → 0.56), every distant row ≤ 2.87; clear
+   unchanged (max 3.0).
+3. **Lanterns and bulbs (P1).** The heads drew as neutral white boxes with dark cores: the
+   point light stood inside the bulb's ball (a culled sphere lit from within renders dark) and
+   lit the lantern's glossy pane at full strength. The light now stands `LIGHT_BELOW_CM` (3 cm)
+   under the lantern or a string's middle bulb (`builders.lights.lamp_light` — the one function
+   the light reads); `constantFade` 4 with brightness 9.4 keeps the 1.5-m pool of 1 / 3.5 / 7
+   while the near field drops to a third; the glow is drawn 6 cm towards the camera, in front of
+   its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder. The
+   pane went: the constant fade is a floor, so a pane round its lamp is lit at the near-field
+   strength wherever the light stands, and through Filmic at night exposure it drew cream
+   (hue ~50°) whatever its tint. Dark speckles in the lantern heads (luma < 40 inside a ring
+   > 110, the review's speckle probe) 41 → 1 — the board's `isolated_dark_px` reads 41 → 36,
+   the lantern's black post and bars against its own glow; clipped pixels in the heads 55 % →
+   6.6 % (round 2). The glow adds light of hue 12–31° (the head with the lamp-lit wall behind
+   it: hue 46–53°, saturation 0.27, was a neutral white).
+4. **Life is a count (P1).** The look's life shares were opacities; blended in linear HDR a
+   wing at 9 % still lifted a dark lawn by 39 luma (80 ghost butterflies under overcast, 67 at
+   dawn → 25 and 3, every one opaque). A share now collapses the particles whose seed lies
+   above it. Wings stand in a 0.9-rad V at rest (flat they read as slivers), the white wing
+   is a cream (0.70, 0.70, 0.64), and a leaf or butterfly near the camera is not drawn (the
+   1,278-px white blade; largest butterfly blob now 403 px) — round 2 made both a SIZE ramp.
+
+Smaller fixes of the same review: the dew rises over 4° from dawn instead of switching on;
+fireflies stay under 2.5 m and fade over the last 25° of azimuth before solar midnight (either
+hemisphere); falling leaves tumble well out of the horizontal; rain streaks are at least
+1.3 px wide (alpha 0.27, the same total brightness) and flakes at least 2.6 px. Deferred to
+#687: overcast contact shade, fading lamp pools, snow on roofs and bed soil, a dew ground mist,
+the leaf colour from the tree. Left to the owner (the PR): how far a weather may fade a shadow,
+the rain sky's brightness, whether snow may fall on any date.
+
+**Addendum (3D review, round 2)**: The round-1 fixes held (drape pause, cloudy horizon,
+lantern heads, ghost wings), and the round-2 review looked where round 1 had not — a cloudy
+sky facing the sun, a rainy low sun, a moving walk view, a winter noon:
+1. **No black sun.** The overcast sky set `sun_energy` × (1 − cloud); Qt's
+   `ProceduralSkyTextureData` blends the disc and its falloff towards sun colour × energy, so
+   energy 0 drew a BLACK disc with a dark halo (luma 0 at the sun, 150 around it, under
+   overcast and rain). The energy stays; the disc's COLOUR fades into the horizon by cloud.
+2. **No sun glint on wet ground.** At roughness 0.55 the dimmed key light still left a crisp
+   specular lobe on the wet meadow at a low sun — a cream glint carved by the shadows — and a
+   1.75-luma plan-edge step; the round-1 specular change (0.40 → 0.25) did not move it.
+   Roughness is the lever: 0.8 (specular 0.25) gives an edge step of 0.32, no glint, and rain
+   shadows of IoU 0.64 / 0.94 / 0.94 at 15 / 35 / 60° (overcast 0.77 / 0.95 / 0.94; rain
+   0.24 / 0.66 / 0.93 before: most of the "rain fades the shadow" was the glint).
+3. **A whole particle shrinks; none is cut.** Round 1 cut leaves and butterflies within 2 m
+   PER VERTEX: a wing straddling the line sent some corners beyond the far plane and tore
+   into a sliver (40 % of animated walk frames). The size now ramps to zero by the ANCHOR's
+   depth (`smoothstep(150, 250, depth)` — closer bands read a cabbage white as a 728-px
+   blade). The same for the life share: a particle whose seed lies above it shrinks away over
+   a narrow band instead of popping; and a firefly is no longer dimmed on top of its count
+   (its light faded as the share squared).
+4. **The dew fades before noon.** On a winter day whose sun never reaches 18° the dew lay until
+   solar noon and went out at once (0.33 at noon in Berlin on 21 December, 0.97 in Helsinki);
+   it now fades over the last 25° of azimuth before the meridian, in either hemisphere.
+
+**Addendum (senior review, round 1)**: The garden's life had no end-to-end path under test:
+the test bench builds no Plant Forge, so `season_sink` never ran, and the tooling assembles
+the life by hand. `test_living_garden.py` now drives a lavender in flower and an oak turning
+through the PRODUCTION Plant Forge to the engine (June butterflies, October leaves, January
+nothing; it fails when `season_sink` bypasses the coordinator), and the render tier reloads
+the ambient buffer into the same live host (glow A, nothing, glow B — on the GPU and on WARP:
+ADR-069's withdrawn reload drew a replaced geometry as nothing). The living-garden host calls
+(`set_plant_seasons`, `set_ambient`, `set_life_enabled`, `set_lamps`) are declared in
+`EngineHost` — no silent fallback for a host without them. Today's Weather now works in the
+default flow: the 3D view ASKS for the forecast (`Workspace.forecast_wanted` →
+`PlantingCalendarView.request_forecast`, the weather part of the calendar's refresh, so still
+one fetch path) when Today's Weather is chosen and for a new location (a new or opened document
+brings its own; the document itself only forgets the old forecast — round 2); the calendar
+emits an EMPTY forecast without a location or after a failed fetch; the tooltip names which of the plan date,
+the location or the forecast is missing. Smaller: a precipitation that cannot be loaded no
+longer skips the moon's handover and is logged once; the lights are read again only when a
+pass touched a light (500 lights cost ~40 ms per pass); the drape's callback is disconnected
+before the analysis shuts down. Left as stated: a string of lights casts the solid 2D prism
+of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question (#698),
+answered in the owner's addendum: it casts none. Measured
+for the review: a night frame with six lamps lit costs +2.3 % on the GPU and +11.9 % on WARP
+(bench_small, Medium, interleaved readbacks). Deferred to #689: the lamp pool's shader
+permutations at the first dusk, the wind clock's precision in long sessions, Today's Weather
+past midnight, the firefly season's date, one life assembly for the product and the tools.
+
+**Addendum (senior review, round 2; 3D review, round 3)**:
+1. **A new or opened plan never follows the old place's forecast.** `document_replaced`
+   comes while the old document's location is still set, so round 1's ask from that slot
+   fetched the OLD place; the result then reached Today's Weather, the calendar's strip
+   (with no location) and the new plan's frost alerts. The document now only forgets the
+   forecast; the ask waits for the new location's `location_changed`, which always follows.
+   `WeatherWidget.set_location` cancels and DISCONNECTS the old place's fetch and forgets
+   its forecast (the disconnect is what keeps a queued result from landing: PF-LIF-12 states
+   the rule and its limit). The widget follows EVERY location change, also while its tab is
+   hidden (`PlantingCalendarView.follow_location`; round 4 found the old place's late forecast
+   landing on a plan at another place when Today's Weather was not chosen), and the forecast
+   carries the place it was fetched for: the 3D view drops another place's instead of
+   guessing (`forecast_days_ready(place, days)`, one reader `solar.plan_place`).
+   An edit at the same coordinates (a frost date) keeps the forecast. No zero-timer: a fetch
+   for the same place already on its way is not started again (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
+   calendar's frost alerts, which keep the old plan's after a cleared location: #694.
+2. **Where noon stands is the place's.** The dew's noon fade and the fireflies' midnight
+   read the meridian from the plan's hemisphere (`noon_azimuth`; `LookController.set_southern`,
+   told by the workspace) — not from both: a summer dawn north of ~60° stands near due north,
+   and round 2's fade dimmed its dew ×0.04 as if it were noon.
+3. **A cloudy evening is an evening.** The low sun's exposure lift (+0.44 EV at a golden
+   hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
+   The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
+   `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
+   (rain 0.79, snow 0.68; a clear one 0.57; in luma 0.84 / 0.85 / 0.81, clear 0.67; the
+   high preset at 1280 × 720 — the render tier's medium run at 640 × 360 reads
+   0.76 / 0.78 / 0.67) — mean LINEAR
+   luminance of the board's mood
+   camera, `render_beauty_board.py --living --moods --dusk` (`moods_<weather>` /
+   `sunset_over_noon`), re-measured at the final head with the stop blend and the matched set
+   sun; every dusk monotone (`dusk_<weather>`).
+4. **Wet leaves are not glossier than 0.6.** At roughness 0.38 a low sun left cream glints
+   on the leaves in the rain; at 0.6 the golden hour's cream pixels fall 1,005 → 5, the sunset's
+   707 → 38, the sun-facing walk views 413–468 → 0–23 (`foliage.frag`, `foliage_door.frag`,
+   `lawn.frag`).
+5. **Smaller:** a particle's seed spans [0, 11/12), so at a full share every particle is
+   whole (a seed above 11/12 stayed undersized); the reload test adds a reload WHILE SHOWN and
+   stands on both of CI's render lines (OpenGL on llvmpipe, Direct3D 11 on WARP); the host
+   protocol carries the real types; the seasons' host call is contained like every living
+   call; the plan's latitude has ONE finite-checked reader (`phenology.plan_latitude`) for
+   the Forge, the garden's life and the hemisphere; the Weather button forgets the pause
+   with its engine. Filed: #692 (the
+   board's access violation at exit, also on the merge base). Owner questions (the PR): a
+   cloudy evening darker than a clear one, and a glossier dew than the rain.
+
+**Addendum (3D review, round 4; senior review, rounds 4–5)**:
+1. **A set sun MATCHES the sky.** `look_for` drew no sun below 0.5° by `sun_energy` 0 — master's
+   line, which Qt's procedural sky draws as a BLACK disc with a dark halo: luma 0 against a
+   170–182 sky at +0.4°, through all of twilight, in every weather. The board's dusk camera has
+   the sun behind the poplar, so three reviews missed it (#695: a sky-facing probe). A set sun
+   is now the horizon's colour at the sky's own energy (`look.py`; a weather keeps it matched):
+   dip ≤ 1.6 luma and no halo at +0.4 / 0 / −1 / −3°, clear, overcast and snow, and no glow at
+   night — the energy-1 alternative left 23 luma at −3°. Dusk sunset steps halved
+   (0.011 → 0.006).
+2. **The dew rises from solar midnight.** Round 2's symmetric fade had also been the dew's ramp
+   at the midnight meridian; the hemisphere fix removed it, and north of ~61° in June the dew
+   switched 0 → 1 in one frame. It now rises over 15° of azimuth after solar midnight
+   (Tromsø, 21 June, 2-minute steps: max 0.031, was 1.0).
+3. **The producer says where it fetched** (round 4): the weather widget follows every location
+   change, also with its tab hidden, and `forecast_days_ready(place, days)` carries the
+   coordinates; the 3D view drops another place's forecast (PF-LIF-12).
+4. **One validity rule for a place** (round 5): `solar.plan_place` — real numbers, finite,
+   in range — for the calendar's forecast, Today's Weather, the Forge's phenology, the
+   garden's life and the hemisphere (older readers: #697).
+5. **String Lights' 2D shadow, stated truly** (round 5): #440, merged from master, made fences
+   porous in 2D, so "a solid strip, as a picket fence's" no longer held. Like every open
+   object without a porosity model, a string casts a solid 2D prism; its 3D shadow is 2 % of
+   it. #440's transmittance hook could make all of them honest — an owner decision (#698;
+   for the string answered in the owner's addendum: no 2D shadow). Cloudy horizon steps at
+   the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
+   horizon unchanged (its low-preset sunset step of 3.13, over the 3.0 bound, is master's: #696).
+
+**Addendum (the owner's manual test of L5)**: The owner confirmed the day and year playback,
+the garden's life, a new plan's forecast and the 3D lights, and changed two things:
+1. **A string of lights is a LINE.** "A Lichterkette needs to be a 1D object like a fence or
+   wall … it doesn't have an actual width", and its 2D picture, a sprite stretched over the
+   rectangle, was distorted. `STRING_LIGHTS` is drawn with the line tool: every point is a
+   post, the wire hangs between two posts (`SAG_SHARE` of the span), and a bulb hangs every
+   40 cm along the WIRE, not per span — `core/string_lights.layout`, one layout for the
+   canvas's picture (`ui/canvas/items/string_lights_paint.py`: wire, glowing bulbs, a post per
+   point, sized by the line's width, 12 cm by default), the 3D builder and the night's lights.
+   At most 120 bulbs a string; its triangle budget grows with the line as a fence's does
+   (`lights.string_triangle_budget`). The string has no sprite (the gallery's picture is the
+   same painter's) and no path or fence style. Change Type, the smart-symbol member table and
+   the agent's `create_object` offer it with the lines. A string read from a file as a
+   rectangle (a hand-edited plan; no plan with one has shipped) is the line along its long
+   side: two posts.
+2. **A string of lights casts no 2D shadow** — the answer to the open question #698 asked for
+   strings: "Their shadow is not required in 2D sunlight studies, because the shadowed area
+   is basically irrelevant." `object_height.NO_2D_SHADOW_TYPE_NAMES` /
+   `casts_2d_shadow` is the one rule: the caster walk (`collect_identified_casters`, and
+   with it the overlay, the hours of sun and the plants' sun estimates) leaves the string
+   out, and its record says `has_2d_caster` False. Its 3D model keeps the thin shadow of its
+   posts and wire. ADR-059's table has no row for it. #698 stays open for the other open
+   objects.
+3. **The 3D strip's menu buttons read as buttons.** "Wetter: Klar" was not found: a
+   text-only `QToolButton` that only opens a menu has its arrow drawn under its last letter
+   by the app's style, and reads as a label. The Weather and the Analyze buttons carry the
+   `menuChevron` property; the theme's chevron rule gives the arrow room beside the text
+   (PF-UI-33).
+4. Found along the way: the forecast cards' weekday names and the task list's month names
+   are English in every language (`strftime`; #702).
+
+Its reviews then settled what the line left open. **A bulb keeps 6 cm from its span's posts**
+(`string_lights.POST_CLEAR_CM`): arc-length spacing put the middle bulb of every symmetric
+string with an odd count ON its middle post — a 2.6 cm ball inside a 4 cm post (3D review);
+no bulb moves further. The symbol's post is wider than 3D's 4 cm (a full stroke width), so
+the 2D painter draws the wire and posts UNDER the bulbs and caps the post's drawn side at
+`2 × POST_CLEAR_CM`: a clamped ball is visible on top of the post (59 % was buried at the
+default width, 96 % at 24 cm) and a widened stroke cannot swallow it (senior review round
+12). A string's point light stays under its middle bulb, which the clearance now keeps off
+the posts of its span: the bulbs' centroid, tried in round 11, stood inside the middle post
+of a straight string (senior review round 12); a bulb can still meet a foreign post on a
+line that doubles back, where the paint order keeps it visible. Where a loop's or an L's
+light should stand is a follow-up. The wire's radius is 0.5 cm
+(0.35 broke into dashes at 7 m on Low). **The line's width sizes the 2D symbol only**, as a
+fence's stroke does: the 3D model builds real 4 cm posts and 2.6 cm bulbs at the same places;
+a width of 0, which a file may hold, is drawn at 12 cm by the bounds and the paint alike
+(`string_lights_paint.drawn_width`). The string's style has no fill, as no line has one —
+Change Type from a fence kept the string's cream style fill from its rectangle days, out of
+step with the line's empty brush — and its Type-dropdown icon is the gallery's painted
+picture, not the warning triangle. A crafted line of any length stands on at most
+`MAX_POSTS` (512) posts, and a paint reads the layout the item keeps (security review;
+general vertex caps at load: #703).
+`NO_2D_SHADOW_TYPE_NAMES` is for a kind whose shade is negligible, never for an open frame
+that overstates its own: a pergola or a swing is cast honestly through #440's transmittance
+(#698). **Older versions**: no file-format change, but an older loader gives every line of an
+unknown type `ObjectType.FENCE` — a string opens there as a 120 cm fence that casts a 2D
+shadow, and stays one if saved there. A string drawn as a rectangle by this PR's first build
+(the owner's test plans only; none shipped) opens as the two-post line along its box in 3D
+and as a box on the canvas — draw it again.
+
+**Addendum L7 (#391, the owner's manual test, 2026-11-03): Partly cloudy.** A fifth weather
+between Clear and Overcast: `WEATHER_SPECS["partly_cloudy"]` is cloud 0.4, dry, wind 3.0 and
+haze 0.9. The cloud is the atmosphere sky's cover; the look takes smaller shares of decision
+2's overcast, 0.15 for the light (`WeatherSpec.light`: the key light × 0.88, the shadows' factor
+× 0.90) and 0.25 for the sky's grey (`WeatherSpec.grey`). At the full 0.4 the painted sky read as
+a dull clear day (3D review). The sun and its shadows stay where `core/solar` puts them, as in
+every weather. Every other weather has one share for all three, so no accepted look moved under
+the painted sky. Its mood stays day, golden hour
+or dew (`mood_of` names overcast from cloud 0.5). It exists because the atmosphere sky's
+volumetric clouds show as scattered clouds only at partial cover; Clear has none and Overcast
+closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2 (partly
+cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horizon, mood strip,
+dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
+`tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
+

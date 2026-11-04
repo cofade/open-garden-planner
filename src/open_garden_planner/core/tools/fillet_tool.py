@@ -1,4 +1,4 @@
-"""Fillet tool — round a corner with a tangent arc (Phase 13 Package B — US-B3)."""
+"""Fillet tool — round a corner by baking a tangent arc into the host (US-B3)."""
 
 from __future__ import annotations
 
@@ -6,15 +6,17 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QTimer
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication, QGraphicsItem, QInputDialog
+from PyQt6.QtWidgets import QApplication, QInputDialog
 
-from open_garden_planner.app.settings import get_settings
-from open_garden_planner.core.cad_geometry import fillet_corner
+from open_garden_planner.config.settings import get_settings
+from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
 from open_garden_planner.core.commands import FilletCornerCommand
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
+    CornerEditRefusal,
     CornerEditTool,
     CornerTarget,
+    corner_edit_refusal,
     rebuild_with_corner_replaced,
 )
 
@@ -24,6 +26,11 @@ if TYPE_CHECKING:
 
 class FilletTool(CornerEditTool):
     """Round one corner of a polyline / polygon / rectangle.
+
+    The tangent arc is sampled into the host item's own vertex list
+    (``cad_geometry.sample_arc_points``), so the rounded corner is part of the
+    shape: it moves, saves, groups and undoes as one object. The old tool added
+    a free-standing ``ArcItem`` that stayed behind when the host moved.
 
     Workflow:
         1. Activate (``Shift+F``) — a dialog asks for the fillet radius;
@@ -99,6 +106,11 @@ class FilletTool(CornerEditTool):
     # ── Apply the fillet ──────────────────────────────────────────────
 
     def apply_to_target(self, target: CornerTarget) -> None:
+        refusal = corner_edit_refusal(target)
+        if refusal is not None:
+            self._notify_refusal(refusal)
+            return
+
         result = fillet_corner(
             target.p_prev_scene,
             target.p_corner_scene,
@@ -110,44 +122,42 @@ class FilletTool(CornerEditTool):
             return
 
         tin_scene, tout_scene, arc_center, start_deg, span_deg = result
-
-        # Build the arc as a free-standing scene item — fillets always
-        # land in scene space because they need to align with the
-        # modified host item, which may be rotated.
-        from open_garden_planner.ui.canvas.items.arc_item import ArcItem
-
         radius = _radial_distance(arc_center, tin_scene)
-        if radius < 0.5:  # ArcItem minimum
-            self._notify_too_large()
-            return
+        replacement = [
+            tin_scene,
+            *sample_arc_points(arc_center, radius, start_deg, span_deg),
+            tout_scene,
+        ]
 
-        arc_item = ArcItem(
-            center=arc_center,
-            radius=radius,
-            start_deg=start_deg,
-            span_deg=span_deg,
-            layer_id=_layer_of(target.item),
-        )
-        # Match the host's pen so the rounded corner reads as one shape,
-        # not "chamfer cut + faint gray arc".
-        host_pen = getattr(target.item, "pen", lambda: None)()
-        if host_pen is not None:
-            arc_item.stroke_color = host_pen.color()
-            arc_item.stroke_width = host_pen.widthF()
-
-        new_host = rebuild_with_corner_replaced(
-            target, tin_scene, tout_scene
-        )
+        new_host = rebuild_with_corner_replaced(target, replacement)
         if new_host is None:
+            self._notify_refusal(CornerEditRefusal.CONSTRAINT)
             return
 
         cmd = FilletCornerCommand(
             scene=self._view.scene(),
             original_item=target.item,
             new_item=new_host,
-            arc_item=arc_item,
+            vertex_index=target.vertex_index,
+            inserted_count=len(replacement),
         )
-        self._view.command_manager.execute(cmd)
+        # A cut corner changes which plants the bed contains: reconcile the
+        # membership in the SAME undo step (#443/PF-CAN-32, round-5 review P1).
+        from open_garden_planner.core.commands import (
+            Command,
+            CompoundCommand,
+            ReconcileBedMembershipCommand,
+        )
+
+        command: Command = cmd
+        scene = self._view.scene()
+        item_id = getattr(target.item, "item_id", None)
+        if scene is not None and item_id is not None:
+            reconcile = ReconcileBedMembershipCommand(
+                scene, focus_parents={item_id}
+            )
+            command = CompoundCommand([cmd, reconcile], cmd.description)
+        self._view.command_manager.execute(command)
 
     def _notify_too_large(self) -> None:
         msg = QCoreApplication.translate(
@@ -156,15 +166,29 @@ class FilletTool(CornerEditTool):
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)
 
+    def _notify_refusal(self, refusal: CornerEditRefusal) -> None:
+        messages = {
+            CornerEditRefusal.GROUPED: QCoreApplication.translate(
+                "FilletTool",
+                "Cannot edit this corner: the object is inside a group",
+            ),
+            CornerEditRefusal.UNSUPPORTED_TYPE: QCoreApplication.translate(
+                "FilletTool",
+                "Cannot edit this corner: this object type has no polygonal form",
+            ),
+            CornerEditRefusal.CONSTRAINT: QCoreApplication.translate(
+                "FilletTool",
+                "Cannot edit this corner: a constraint is attached to it or to its edges",
+            ),
+        }
+        if hasattr(self._view, "set_status_message"):
+            self._view.set_status_message(messages[refusal])
+
 
 def _radial_distance(center: QPointF, p: QPointF) -> float:
     import math
 
     return math.hypot(p.x() - center.x(), p.y() - center.y())
-
-
-def _layer_of(item: QGraphicsItem) -> object:
-    return getattr(item, "layer_id", None)
 
 
 def _is_interactive_platform() -> bool:

@@ -7,7 +7,7 @@ from PyQt6.QtCore import QPointF
 from open_garden_planner.core.coordinate_input.buffer import CoordinateInputBuffer
 
 
-def test_text_change_emits_signal(qtbot) -> None:  # noqa: ARG001
+def test_text_change_emits_signal(qtbot) -> None:
     buf = CoordinateInputBuffer()
     seen: list[str] = []
     buf.text_changed.connect(seen.append)
@@ -19,7 +19,7 @@ def test_text_change_emits_signal(qtbot) -> None:  # noqa: ARG001
     assert seen == ["@1,2"]
 
 
-def test_anchor_change_emits_signal(qtbot) -> None:  # noqa: ARG001
+def test_anchor_change_emits_signal(qtbot) -> None:
     buf = CoordinateInputBuffer()
     seen: list[object] = []
     buf.anchor_changed.connect(seen.append)
@@ -34,7 +34,7 @@ def test_anchor_change_emits_signal(qtbot) -> None:  # noqa: ARG001
     assert seen[-1] is None
 
 
-def test_commit_emits_point_on_success(qtbot) -> None:  # noqa: ARG001
+def test_commit_emits_point_on_success(qtbot) -> None:
     buf = CoordinateInputBuffer()
     buf.set_anchor(QPointF(0, 0))
     buf.set_text("@500,0")
@@ -52,7 +52,7 @@ def test_commit_emits_point_on_success(qtbot) -> None:  # noqa: ARG001
     assert errors == []
 
 
-def test_commit_emits_error_on_invalid(qtbot) -> None:  # noqa: ARG001
+def test_commit_emits_error_on_invalid(qtbot) -> None:
     buf = CoordinateInputBuffer()
     buf.set_text("xyz")
     errors: list[str] = []
@@ -65,12 +65,12 @@ def test_commit_emits_error_on_invalid(qtbot) -> None:  # noqa: ARG001
     assert committed == []
 
 
-def test_commit_empty_returns_none(qtbot) -> None:  # noqa: ARG001
+def test_commit_empty_returns_none(qtbot) -> None:
     buf = CoordinateInputBuffer()
     assert buf.commit() is None
 
 
-def test_clear(qtbot) -> None:  # noqa: ARG001
+def test_clear(qtbot) -> None:
     buf = CoordinateInputBuffer()
     buf.set_text("@1,2")
     seen: list[str] = []

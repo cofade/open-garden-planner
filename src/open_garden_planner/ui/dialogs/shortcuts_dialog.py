@@ -1,6 +1,7 @@
 """Keyboard shortcuts reference dialog."""
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import (
     QDialog,
     QGroupBox,
@@ -26,24 +27,14 @@ class ShortcutsDialog(QDialog):
     def _localize_shortcut(self, shortcut: str) -> str:
         """Localize keyboard modifier and arrow-key names for display.
 
-        Translates standard English key names to localized equivalents
-        (e.g., Ctrl→Strg, Shift→Umschalt, Delete→Entf, Up→Auf, Down→Ab for
-        German — matching Qt's own native rendering of e.g.
-        "Ctrl+Shift+Up" as "Strg+Umschalt+Auf"). "Up"/"Down" cover the
-        issue #338 arrange shortcuts (``Ctrl+Up`` / ``Ctrl+Shift+Down``
-        etc.); no other shortcut string in this dialog contains those
-        tokens as a substring of something else, so a plain replace is safe
-        (review round 2, P2).
+        Delegates to :func:`open_garden_planner.ui.shortcut_text.translate_shortcut_tokens`
+        so the shortcuts dialog and the constraint toolbar use one set of
+        translations (PF-UI-32). The strings here are plain ("Ctrl+Shift+Up"),
+        not key sequences, so no Qt native conversion is applied.
         """
-        result = shortcut
-        result = result.replace("Ctrl", self.tr("Ctrl"))
-        result = result.replace("Shift", self.tr("Shift"))
-        result = result.replace("Delete", self.tr("Delete"))
-        result = result.replace("Escape", self.tr("Escape"))
-        result = result.replace("Alt", self.tr("Alt"))
-        result = result.replace("Up", self.tr("Up"))
-        result = result.replace("Down", self.tr("Down"))
-        return result
+        from open_garden_planner.ui.shortcut_text import translate_shortcut_tokens
+
+        return translate_shortcut_tokens(shortcut)
 
     def _setup_ui(self) -> None:
         """Set up the dialog UI."""
@@ -105,6 +96,37 @@ class ShortcutsDialog(QDialog):
             (self.tr("Middle Mouse Drag"), self.tr("Pan")),
         ])
         container_layout.addWidget(view_group)
+
+        # The 3D workspace (Phase 17, ADR-060) — the camera keys act while the 3D
+        # view has the keyboard (click into it first)
+        view3d_group = self._create_shortcut_group(self.tr("3D View"), [
+            (self._localize_shortcut("Alt+1"), self.tr("Plan only")),
+            (self._localize_shortcut("Alt+2"), self.tr("3D only")),
+            (self._localize_shortcut("Alt+3"), self.tr("Plan and 3D side by side (Split)")),
+            (self.tr("Left Mouse Drag"), self.tr("Pan the 3D view")),
+            (self.tr("Right Mouse Drag"), self.tr("Orbit the 3D view")),
+            (self.tr("Scroll Wheel"), self.tr("Zoom")),
+            (self.tr("Arrow Keys"), self.tr("Pan the 3D view")),
+            (self._localize_shortcut("Alt+") + self.tr("Arrow Keys"),
+             self.tr("Orbit the 3D view")),
+            (self.tr("Page Up / Page Down"), self.tr("Zoom")),
+            (
+                QKeySequence(Qt.Key.Key_Home).toString(
+                    QKeySequence.SequenceFormat.NativeText
+                ),
+                self.tr("Reset 3D View"),
+            ),
+            (self.tr("Click"), self.tr("Select the object under the pointer")),
+        ])
+        container_layout.addWidget(view3d_group)
+
+        walk_group = self._create_shortcut_group(self.tr("Walk Mode (3D)"), [
+            (self.tr("W A S D / Arrow Keys"), self.tr("Walk")),
+            (self._localize_shortcut("Shift"), self.tr("Run")),
+            (self.tr("Mouse Drag"), self.tr("Look around")),
+            (self._localize_shortcut("Escape"), self.tr("Leave walk mode")),
+        ])
+        container_layout.addWidget(walk_group)
 
         # Dashboard tabs (contiguous 1–5 since #310)
         tabs_group = self._create_shortcut_group(self.tr("Dashboard Tabs"), [

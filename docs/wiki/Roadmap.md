@@ -14,13 +14,15 @@ These improvements apply across the project.
 
 <!-- ogp:include roadmap-infrastructure -->
 
-The repository audit remains open under [#392](https://github.com/cofade/open-garden-planner/issues/392).
+The repository audit is complete: the remaining packages A4/A6/A7/A9/A12/A13
+shipped in v1.34.5 (PR #640).
 The [living debt register](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/README.md)
 records individual outcomes. The dated audit snapshot preserves the original findings.
-The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audit-2026-10-reconciliation.md)
+The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md)
 links the remaining work to thematic bundle issues.
 All 15 original standalone P0/P1 remediation issues are complete after #406 shipped in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2) via [PR #477](https://github.com/cofade/open-garden-planner/pull/477).
-The rotation/constraint interaction discovered during manual testing is a separate follow-up, [#485](https://github.com/cofade/open-garden-planner/issues/485).
+Bed membership reconciliation (#443) and atomic constrained rotations (#485) shipped in [v1.34.9](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.9) via [PR #649](https://github.com/cofade/open-garden-planner/pull/649) after full owner manual acceptance. The same release preserves FIXED locks when creating Parallel/Perpendicular relations and attaches indicators to the selected edge.
+The CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669, #670) shipped in [v1.34.10](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.10) via [PR #672](https://github.com/cofade/open-garden-planner/pull/672) after full owner manual acceptance: FIXED locks round-trip, grouped rotated shapes keep their frame, bed identity survives corner edits, the fillet arc is baked into its host, incidence has one resolver, a converted raised bed becomes a garden bed with its soil pattern, and offsetting an open fence/path creates a parallel line.
 Audit package A1 (#453: numeric input safety, verified release downloads, bounded image ingestion and owner-only Linux settings) shipped in [v1.30.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.3) via [PR #487](https://github.com/cofade/open-garden-planner/pull/487) after owner acceptance.
 Audit package A5 (#457: constraint descriptors, numerical solver assertions,
 fixed-state feasibility and German default object labels) shipped in
@@ -63,7 +65,7 @@ and companion, succession, task, and soil tools.
 It runs on loopback. Reads and exports do not require a token. Writes require editing to be enabled and a valid token.
 Geometry writes refuse constrained objects. Task-status writes remain unavailable because they are not undoable.
 
-## Package F: F1–F3 complete; F4/F5 planned
+## Package F: complete
 
 F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://github.com/cofade/open-garden-planner/pull/433).
 
@@ -72,8 +74,8 @@ F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://githu
 | F1 | Species traits, function filters and food-forest layers. | ✅ v1.30.0 | [#312](https://github.com/cofade/open-garden-planner/issues/312) |
 | F2 | Plant guilds, template editing, saved membership and diagnostics. | ✅ v1.30.0 | [#313](https://github.com/cofade/open-garden-planner/issues/313) |
 | F3 | Sun requirements compared with computed hours of sun. | ✅ v1.30.1 (with #428, PR #436) | [#314](https://github.com/cofade/open-garden-planner/issues/314) |
-| F4 | Plan timeline. | Planned | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
-| F5 | Example plans and templates. Last in the package. | Planned | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
+| F4 | Plan lifetimes and combined sun controls. | Shipped v1.30.17, PR #533 | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
+| F5 | Offline learning layouts and portable templates; owner accepted. | Shipped v1.33.0, PR #610 | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
 
 ## Package G: complete
 
@@ -87,9 +89,9 @@ F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://githu
 ## Phase 14: 3D and sun/shade complete
 
 All nine stories shipped across **v1.24.5–v1.24.12**.
-The product includes solar calculations, analytic 2D shadows, hours-of-sun heatmaps,
+Phase 14 delivered solar calculations, analytic 2D shadows, hours-of-sun heatmaps,
 a Qt 3D view, walkthrough, and plant growth over time.
-Ground remains flat. The shipped 3D renderer has lighting but no engine shadow maps.
+Ground remains flat. The Phase 14 renderer had lighting but no engine shadow maps; Phase 17 L1 replaced it in v1.30.14.
 These releases retained patch versioning. There was no v2.0 release.
 
 ## Phase 15: visual refresh complete
@@ -125,4 +127,38 @@ constraint-tool coverage [#406](https://github.com/cofade/open-garden-planner/is
 canvas performance [#409](https://github.com/cofade/open-garden-planner/issues/409),
 and harvest-data correction [#418](https://github.com/cofade/open-garden-planner/issues/418)
 are complete. Use [the canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
-and [audit epic #392](https://github.com/cofade/open-garden-planner/issues/392) for the remaining work.
+for the remaining work (audit epic [#392](https://github.com/cofade/open-garden-planner/issues/392) completed in v1.34.5 via [PR #640](https://github.com/cofade/open-garden-planner/pull/640)).
+
+L4 follow-up hardening shipped in v1.34.1 via PR #630 after owner executable acceptance;
+the included canonical Phase 17 section records its scope and evidence.
+
+The 2D sun study's geometry and estimates (#444, #481, #620), the plant stacking rule
+(#629) and a settable height for every footprint (#628) shipped in v1.34.3 via
+[PR #627](https://github.com/cofade/open-garden-planner/pull/627) after owner acceptance:
+a closed fence's shadow is its stroke and a self-crossing outline casts its lobes, a plant
+draws above the bed it stands in whether or not the link was made, any footprint can take a
+height while keeping its 2D fill on top (a raised lawn keeps its blades, a raised pool its
+water), and a plant dropped into a bed undoes in one step. The internal test-lifecycle and
+workspace work (#561, #515, #583, #580) shipped in v1.34.2 via
+[PR #632](https://github.com/cofade/open-garden-planner/pull/632).
+
+Elevated-plant sun exposure at the exact soil plane (#641), complete Properties
+dropdown icons (#643), self-test crash diagnostics that survive the fatal callback
+(#623), and corrected paved path corners, plus a gravel 3D rim that follows the
+rounded painted outline (#605), shipped in
+[v1.34.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.6)
+via [PR #645](https://github.com/cofade/open-garden-planner/pull/645).
+
+The 3D visual and engine hardening package (#535, #576, #578, #582, #589, #615, #619)
+shipped in v1.34.7 via [PR #647](https://github.com/cofade/open-garden-planner/pull/647):
+software-adapter detection, screen-constant sun-path arcs with the near-half fade,
+the lower ground slope clamp, the interior floor and bed plants under Cutaway, and the
+Cutaway shader pre-warm.
+
+Canvas pinch-to-zoom and two-finger pan (#321), the bridge search priced at what it
+costs (#451), and the default 3D workspace's close/compatibility rows in the render
+tier (#540) shipped in
+[v1.34.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.8)
+via [PR #650](https://github.com/cofade/open-garden-planner/pull/650). The touch path
+was accepted on its automated evidence (no physical touch device was available); the
+hardware checklist is in the PR.

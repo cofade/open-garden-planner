@@ -21,6 +21,53 @@ _URL = "http://127.0.0.1:8765/mcp"
 
 
 @pytest.fixture(autouse=True)
+def _isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Every client config path resolves under ``tmp_path`` — for EVERY test here.
+
+    ``detect_clients()`` asks every client in the registry, whichever one a test
+    is about. ``test_claude_desktop_detected_on_windows`` redirected ``APPDATA``
+    for the one it is about and nothing else, so the others were looked up — and
+    OPENED — in the developer's real home: ``~/.claude.json`` (OAuth and trust),
+    ``~/.codex/config.toml``, ``~/.config/opencode/opencode.jsonc`` and
+    ``~/.gemini/config/mcp_config.json`` (observed by the L1.1 review, 2026-10-11).
+    No test may read another tool's configuration. A test that needs a home of
+    its own still sets one; this is the floor under all of them.
+
+    Client CLIs are off by default for the same reason (``detect_clients`` asks
+    a CLI it finds on ``PATH`` what it can do — by running it); a test that
+    wants one stubs ``onboarding.shutil.which`` itself — and then also what would
+    RUN it: no test may start another tool. As a floor under that, the module's
+    ``subprocess.run`` raises here; a test that plays a CLI replaces it.
+    """
+    home = tmp_path_factory.mktemp("isolated-home")  # not in the test's own tmp_path: some list it
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: None)
+
+    def no_tool(args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(f"a test started another tool: {args!r}")
+
+    monkeypatch.setattr(onboarding.subprocess, "run", no_tool)
+    return home
+
+
+def _no_cli_probe(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """``cli_supported_flags`` answers "nothing" without running anything; returns
+    the executables it was asked about. (It stubs ``which`` to a path for EVERY
+    client, and ``detect_clients`` probes each CLI it finds: with a real
+    ``/usr/local/bin/claude`` on a developer's Mac, the review saw it started.)"""
+    asked: list[str] = []
+
+    def supported(exe: str, _probe: tuple[str, ...]) -> frozenset[str]:
+        asked.append(exe)
+        return frozenset()
+
+    supported.cache_clear = lambda: None  # type: ignore[attr-defined]  # as the real one has
+    monkeypatch.setattr(onboarding, "cli_supported_flags", supported)
+    return asked
+
+
+@pytest.fixture(autouse=True)
 def _neutralize_claude_config_dir(monkeypatch: pytest.MonkeyPatch) -> None:
     """``_claude_code_user_config_path`` honours ``$CLAUDE_CONFIG_DIR`` ahead of
     ``Path.home()``, so a real value set on the dev/CI machine (common for Claude
@@ -183,11 +230,18 @@ class TestDetectClients:
     def test_claude_code_detected_via_cli(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.setattr(onboarding.shutil, "which", lambda _cmd: "/usr/local/bin/claude")
+        probed = _no_cli_probe(monkeypatch)
 
         clients = {c.client_id: c for c in onboarding.detect_clients()}
 
         assert clients["claude_code"].detected is True
         assert clients["claude_code"].install_method == "cli"
+        # the clients whose CLI must be asked what it can do were "asked" — and nothing ran
+        assert probed and set(probed) == {"/usr/local/bin/claude"}
+
+    def test_no_test_of_this_module_can_start_a_tool(self) -> None:
+        with pytest.raises(AssertionError, match="started another tool"):
+            onboarding.subprocess.run(["claude", "--help"], check=False)
 
     def test_claude_code_detected_via_config_without_cli(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -214,7 +268,7 @@ class TestDetectClients:
         assert clients["claude_code"].detected is False
 
     def test_claude_desktop_detected_on_windows(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, _isolated_home: Path
     ) -> None:
         appdata = tmp_path / "AppData" / "Roaming"
         (appdata / "Claude").mkdir(parents=True)
@@ -226,6 +280,11 @@ class TestDetectClients:
         assert clients["claude_desktop"].detected is True
         assert clients["claude_desktop"].install_method == "manual"
         assert clients["claude_desktop"].config_path == appdata / "Claude" / "claude_desktop_config.json"
+        # … and no OTHER client was looked up in the real home while this one was detected
+        looked_up = [client.config_path for client in clients.values() if client.config_path]
+        assert len(looked_up) >= 4
+        assert all(tmp_path in path.parents or _isolated_home in path.parents
+                   for path in looked_up), looked_up
 
     def test_claude_desktop_not_available_on_linux(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

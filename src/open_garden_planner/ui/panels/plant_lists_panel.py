@@ -50,7 +50,7 @@ class _DraggablePlantListWidget(QListWidget):
         super().__init__(parent)
         self.setDragEnabled(True)
 
-    def startDrag(self, supportedActions: Qt.DropAction) -> None:  # noqa: ARG002, N802
+    def startDrag(self, supportedActions: Qt.DropAction) -> None:  # noqa: ARG002
         item = self.currentItem()
         if not item:
             return
@@ -60,7 +60,7 @@ class _DraggablePlantListWidget(QListWidget):
             return
 
         drag = QDrag(self)
-        from PyQt6.QtCore import QMimeData  # noqa: PLC0415
+        from PyQt6.QtCore import QMimeData
 
         mime_data = QMimeData()
         mime_data.setText(f"plant_list:{entry_id}")
@@ -114,7 +114,7 @@ class PlantListsPanel(QWidget):
         top_row.addWidget(self._list_combo, 1)
 
         self._menu_btn = QToolButton()
-        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_icon
 
         chevron = get_icon("chevron_down")
         if chevron is not None:
@@ -203,7 +203,7 @@ class PlantListsPanel(QWidget):
 
         all_lists = self._store.all_lists()
         select_index = 0
-        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_icon
 
         star_icon = get_icon("star")
         for idx, pl in enumerate(all_lists):
@@ -262,7 +262,7 @@ class PlantListsPanel(QWidget):
         # Fallback circle icon
         fallback = QPixmap(32, 32)
         fallback.fill(Qt.GlobalColor.transparent)
-        from PyQt6.QtGui import QColor, QPainter  # noqa: PLC0415
+        from PyQt6.QtGui import QColor, QPainter
         painter = QPainter(fallback)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(QColor("#4CAF50"))
@@ -394,7 +394,7 @@ class PlantListsPanel(QWidget):
                     self.tr("Export Successful"),
                     self.tr("List exported to {path}").format(path=file_path),
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 QMessageBox.warning(
                     self,
                     self.tr("Export Failed"),
@@ -423,7 +423,7 @@ class PlantListsPanel(QWidget):
                         name=imported.name, count=len(imported.entries)
                     ),
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 QMessageBox.warning(
                     self,
                     self.tr("Import Failed"),
@@ -456,7 +456,7 @@ class PlantListsPanel(QWidget):
         if other_lists:
             move_menu = menu.addMenu(self.tr("Move to List"))
             if move_menu is not None:
-                from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+                from open_garden_planner.ui.icons import get_icon
 
                 star_icon = get_icon("star")
                 for dest_list in other_lists:

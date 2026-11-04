@@ -233,7 +233,7 @@ class InsertGuildDialog(QDialog):
             self.reload()
             self.template_combo.setCurrentIndex(self.template_combo.findData(editor.saved_template.id if editor.saved_template is not None else ""))
 
-    def done(self, result: int) -> None:  # noqa: N802
+    def done(self, result: int) -> None:
         self._closed = True
         self.clear_preview()
         with contextlib.suppress(TypeError, RuntimeError):

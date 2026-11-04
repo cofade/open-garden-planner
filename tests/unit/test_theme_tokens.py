@@ -70,7 +70,7 @@ class TestSemanticTokens:
 
 
 class TestLivePaletteHelpers:
-    def test_theme_color_and_rgba_follow_apply_theme(self, qtbot) -> None:  # noqa: ARG002
+    def test_theme_color_and_rgba_follow_apply_theme(self, qtbot) -> None:
         app = QApplication.instance()
         try:
             theme.apply_theme(app, ThemeMode.DARK)
@@ -84,7 +84,7 @@ class TestLivePaletteHelpers:
             theme.apply_theme(app, ThemeMode.LIGHT)
             assert not theme.is_dark_theme()
 
-    def test_listener_fires_on_apply(self, qtbot) -> None:  # noqa: ARG002
+    def test_listener_fires_on_apply(self, qtbot) -> None:
         app = QApplication.instance()
         seen: list[dict[str, str]] = []
         theme.register_theme_listener(seen.append)
@@ -97,13 +97,13 @@ class TestLivePaletteHelpers:
 
 
 class TestSetTextRole:
-    def test_sets_properties_and_font_weight_applies(self, qtbot) -> None:  # noqa: ARG002
+    def test_sets_properties_and_font_weight_applies(self, qtbot) -> None:
         label = QLabel("heading")
         theme.set_text_role(label, "h2", "error")
         assert label.property("textRole") == "h2"
         assert label.property("colorRole") == "error"
 
-    def test_font_weight_600_is_supported(self, qtbot) -> None:  # noqa: ARG002
+    def test_font_weight_600_is_supported(self, qtbot) -> None:
         """The h1/h2 rules rely on ``font-weight: 600`` — assert Qt honours
         it on a polished label (fallback would be switching the QSS to
         ``bold``; see ADR-039)."""

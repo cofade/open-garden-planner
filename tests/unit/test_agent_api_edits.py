@@ -346,7 +346,7 @@ class TestRotationSignConvention:
     docstring makes to an agent.
     """
 
-    def test_positive_angle_turns_east_to_north(self, qtbot) -> None:  # noqa: ARG002
+    def test_positive_angle_turns_east_to_north(self, qtbot) -> None:
         from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
         from open_garden_planner.ui.canvas.items import RectangleItem
 
@@ -377,7 +377,7 @@ class TestRotationSignConvention:
         )
 
     def test_rotation_pivots_about_the_centre_which_does_not_move(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
         from open_garden_planner.ui.canvas.items import RectangleItem

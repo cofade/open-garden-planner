@@ -6,7 +6,6 @@ Exercises the full Qt-aware seam -- `CanvasView.arrange_selected` ->
 (covered by `tests/unit/test_stacking.py`) or `CanvasScene._normalized_layer_order`
 in isolation (covered by `tests/unit/test_plant_bed_zorder.py`).
 """
-# ruff: noqa: ARG002
 
 from open_garden_planner.core.commands import GroupCommand, MoveToLayerCommand, UngroupCommand
 from open_garden_planner.core.object_types import ObjectType
@@ -615,7 +614,7 @@ class TestGroupUngroupPreservesRank:
 
         group_cmd = GroupCommand(scene, [a, b])
         canvas.command_manager.execute(group_cmd)
-        group = group_cmd._group  # noqa: SLF001 -- test needs the live group item
+        group = group_cmd._group
 
         canvas.command_manager.execute(UngroupCommand(scene, group))
 

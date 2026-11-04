@@ -1,6 +1,5 @@
 """Integration tests for direct edge-length constraints (issue #140)."""
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock, patch
 

@@ -98,7 +98,7 @@ class TestMainThreadBridge:
         # normally before we abort it.
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
-            with bridge._lock:  # noqa: SLF001 - white-box check of pending state
+            with bridge._lock:
                 if bridge._pending:
                     break
             time.sleep(0.01)

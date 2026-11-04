@@ -85,7 +85,7 @@ def test_object_bbox_matches_real_serialiser(canvas: Any, qtbot: Any) -> None:
 
 
 def test_rotated_polygon_geometry_is_live_scene_space_and_round_trips_exactly(
-    canvas: Any, qtbot: Any  # noqa: ARG001
+    canvas: Any, qtbot: Any
 ) -> None:
     """US-D2.6: raw serialiser points are not the stable geometry read.
 
@@ -132,7 +132,7 @@ def test_rotated_polygon_geometry_is_live_scene_space_and_round_trips_exactly(
 
 
 def test_get_geometry_payload_covers_constraints_and_curve_families(
-    canvas: Any, qtbot: Any  # noqa: ARG001
+    canvas: Any, qtbot: Any
 ) -> None:
     """The stable read is curated, complete enough to explain a refusal."""
     from open_garden_planner.core.constraints import AnchorRef
@@ -205,7 +205,7 @@ def test_get_geometry_payload_covers_constraints_and_curve_families(
 
 
 def test_get_geometry_reports_native_extents_radius_and_leader(
-    canvas: Any, qtbot: Any  # noqa: ARG001
+    canvas: Any, qtbot: Any
 ) -> None:
     """The stable read covers the non-vertex families named by #330."""
     from open_garden_planner.ui.canvas.items import CalloutItem

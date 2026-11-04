@@ -68,7 +68,7 @@ def test_every_referenced_icon_name_exists(name: str) -> None:
     )
 
 
-def test_lookup_tables_name_existing_icons(qtbot) -> None:  # noqa: ARG001 — gallery thumbnails need Qt
+def test_lookup_tables_name_existing_icons(qtbot) -> None:
     """Every code-side icon table, including the big toolbar/gallery ones."""
     from open_garden_planner.services.weather_service import _WMO_CODE_MAP, wmo_to_icon
     from open_garden_planner.ui.constraint_presentation import CONSTRAINT_DESCRIPTORS

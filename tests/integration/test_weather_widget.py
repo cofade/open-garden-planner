@@ -62,6 +62,75 @@ class TestWeatherWidgetEmptyState:
         assert "Set a location" in widget._empty_lbl.text()
 
 
+class TestWeatherWidgetPlaceChange:
+    """Another place (or none) cancels the old place's fetch and forgets its forecast
+    (senior review of L5: after File › New the old plan's strip showed, and its frost
+    alerts were computed against it)."""
+
+    @pytest.mark.parametrize("new_place", [(48.1, 11.6), (None, None)], ids=["moved", "cleared"])
+    def test_another_place_cancels_and_forgets(self, qtbot: object, new_place: tuple) -> None:
+        widget = WeatherWidget()
+        qtbot.addWidget(widget)
+        widget.set_location(52.5, 13.4)
+        widget._on_fetch_success(_make_forecast(days=7))
+        in_flight = widget._worker = MagicMock()
+        widget.set_location(*new_place)
+        in_flight.shutdown.assert_called_once_with(0)   # cancelled, NOT waited for
+        assert widget._worker is None and widget.forecast() is None
+
+    def test_the_same_place_keeps_its_fetch_and_forecast(self, qtbot: object) -> None:
+        widget = WeatherWidget()
+        qtbot.addWidget(widget)
+        widget.set_location(52.5, 13.4)
+        forecast = _make_forecast(days=7)
+        widget._on_fetch_success(forecast)
+        in_flight = widget._worker = MagicMock()
+        widget.set_location(52.5, 13.4)
+        in_flight.shutdown.assert_not_called()
+        assert widget._worker is in_flight and widget.forecast() is forecast
+
+
+@pytest.mark.real_weather_worker
+@pytest.mark.parametrize("outcome", ["forecast", "failure"])
+def test_a_result_queued_before_the_place_changed_never_lands(qtbot: object,
+                                                               monkeypatch: pytest.MonkeyPatch,
+                                                               outcome: str) -> None:
+    """What keeps the old place's result off the new place — PF-LIF-12 states the rule.
+    The worker below has FINISHED — its forecast (or its failure) is queued, no event
+    loop has run — when the place changes; ``set_location`` disconnects it. The
+    control: left connected, the same queued result lands."""
+    from open_garden_planner.ui.widgets import weather_widget
+
+    class Service:
+        def fetch_forecast(self, _lat: float, _lon: float) -> WeatherForecast | None:
+            return _make_forecast(7) if outcome == "forecast" else None
+
+    monkeypatch.setattr(weather_widget, "get_weather_service", Service)
+
+    def queued(widget: WeatherWidget) -> list[int]:
+        ready: list[int] = []
+        signal = widget.forecast_ready if outcome == "forecast" else widget.forecast_failed
+        signal.connect(lambda *_: ready.append(1))
+        widget.set_location(52.5, 13.4)
+        widget.refresh()
+        assert widget._worker is not None and widget._worker.wait(5000), "finished, result queued"
+        assert ready == [] and widget.forecast() is None, "nothing delivered yet"
+        return ready
+
+    control = WeatherWidget()
+    qtbot.addWidget(control)
+    landed = queued(control)
+    qtbot.waitUntil(lambda: landed == [1], timeout=2000)
+    assert (control.forecast() is not None) == (outcome == "forecast")
+
+    widget = WeatherWidget()
+    qtbot.addWidget(widget)
+    ready = queued(widget)
+    widget.set_location(48.1, 11.6)                 # another place, the result still queued
+    qtbot.wait(100)                                 # the event loop runs the queue
+    assert ready == [] and widget.forecast() is None, "the old place's result never landed"
+
+
 class TestWeatherWidgetForecast:
     def test_set_location_then_inject_forecast_renders_strip(self, qtbot: object) -> None:
         widget = WeatherWidget()
@@ -206,7 +275,7 @@ class TestWeatherWidgetFetchTrigger:
 
 @pytest.mark.real_weather_worker
 class TestWeatherWidgetLifecycle:
-    def test_worker_cancel_suppresses_signals(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+    def test_worker_cancel_suppresses_signals(self, monkeypatch, qtbot) -> None:
         import time
 
         from open_garden_planner.ui.widgets.weather_widget import _WeatherFetchWorker
@@ -217,8 +286,9 @@ class TestWeatherWidgetLifecycle:
 
         import open_garden_planner.services.weather_service as ws
 
-        service = ws.get_weather_service()
-        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+        # on the CLASS: patching the singleton instance leaves an instance attribute
+        # behind on undo, which shadows every later class-level fake (found in L5)
+        monkeypatch.setattr(ws.WeatherService, "fetch_forecast", slow_fetch)
 
         worker = _WeatherFetchWorker(52.5, 13.4)
         successes, errors = [], []
@@ -242,8 +312,9 @@ class TestWeatherWidgetLifecycle:
             return None
 
         import open_garden_planner.services.weather_service as ws
-        service = ws.get_weather_service()
-        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+        # on the CLASS: patching the singleton instance leaves an instance attribute
+        # behind on undo, which shadows every later class-level fake (found in L5)
+        monkeypatch.setattr(ws.WeatherService, "fetch_forecast", slow_fetch)
 
         widget = WeatherWidget()
         widget.set_location(52.5, 13.4)
@@ -274,8 +345,9 @@ class TestWeatherWidgetLifecycle:
             return None
 
         import open_garden_planner.services.weather_service as ws
-        service = ws.get_weather_service()
-        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+        # on the CLASS: patching the singleton instance leaves an instance attribute
+        # behind on undo, which shadows every later class-level fake (found in L5)
+        monkeypatch.setattr(ws.WeatherService, "fetch_forecast", slow_fetch)
 
         widget = WeatherWidget()
         qtbot.addWidget(widget)

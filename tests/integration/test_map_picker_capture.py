@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import QWidget
 # fully-qualified attribute, which requires the submodule to be loaded.
 # (QtWebEngineWidgets is imported inside the dialog — same early-import
 # requirement as the other picker tests.)
-import open_garden_planner.ui.dialogs.map_picker_dialog as map_picker_dialog_mod  # noqa: F401, E402, I001
+import open_garden_planner.ui.dialogs.map_picker_dialog as map_picker_dialog_mod
 from open_garden_planner.services.google_maps_js_capture import (
     build_frame_layout,
     pick_capture_zoom_and_grid,
@@ -81,10 +81,10 @@ class _DummyWebView(QWidget):
         self._grab_blank = False
         self._grab_scale = 1.0
 
-    def page(self):  # noqa: D401
+    def page(self):
         return self._page
 
-    def settings(self):  # noqa: D401
+    def settings(self):
         return self._settings
 
     def setUrl(self, *_args, **_kwargs) -> None:
@@ -230,7 +230,7 @@ class TestCaptureSuccess:
             assert lng == pytest.approx(_BBOX.center[1], rel=1e-9)
         assert centers[0][0] > centers[1][0] > centers[2][0]
         assert centers[1][0] == pytest.approx(_BBOX.center[0], rel=1e-9)
-        assert abs((centers[0][0] - centers[2][0]) / 2 - (centers[1][0] - centers[2][0])) < 1e-7  # noqa: E501
+        assert abs((centers[0][0] - centers[2][0]) / 2 - (centers[1][0] - centers[2][0])) < 1e-7
         assert dialog.result() == dialog.DialogCode.Accepted
         result = dialog.fetch_result
         assert result is not None

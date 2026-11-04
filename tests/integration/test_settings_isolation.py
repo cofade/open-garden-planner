@@ -18,7 +18,6 @@ uses. Access from inside Qt's own C++ (a native dialog remembering its last
 directory, say) is neither visible here nor this project's to control.
 """
 
-# ruff: noqa: ARG002
 
 from __future__ import annotations
 

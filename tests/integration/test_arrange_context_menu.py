@@ -103,7 +103,7 @@ _EXPECTED_MODES = [
 
 
 @pytest.mark.parametrize("factory", ITEM_FACTORIES)
-def test_build_arrange_menu_has_four_actions_in_order(factory, qtbot) -> None:  # noqa: ARG001
+def test_build_arrange_menu_has_four_actions_in_order(factory, qtbot) -> None:
     item = factory()
     menu = QMenu()
 
@@ -125,7 +125,7 @@ def test_build_arrange_menu_has_four_actions_in_order(factory, qtbot) -> None:  
 
 
 @pytest.mark.parametrize("factory", ITEM_FACTORIES)
-def test_build_arrange_menu_is_added_to_parent(factory, qtbot) -> None:  # noqa: ARG001
+def test_build_arrange_menu_is_added_to_parent(factory, qtbot) -> None:
     """The submenu must actually be attached to the menu passed in."""
     item = factory()
     menu = QMenu()
@@ -194,12 +194,12 @@ def test_context_menu_event_offers_arrange_submenu(
 
     orig_build = garden_item_module.GardenItemMixin._build_arrange_menu
 
-    def spy_build(self, parent_menu):  # noqa: ANN001
+    def spy_build(self, parent_menu):
         result = orig_build(self, parent_menu)
         captured_submenus.append(result)
         return result
 
-    def fake_exec(self, *args, **kwargs):  # noqa: ANN001, ARG001
+    def fake_exec(self, *args, **kwargs):
         captured_menus.append(self)
         return None  # simulate the user dismissing the menu without a choice
 

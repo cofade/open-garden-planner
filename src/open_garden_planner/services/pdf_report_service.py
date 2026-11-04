@@ -339,7 +339,7 @@ def _render_plant_list(
 
     plant_items = [
         i for i in scene.items()
-        if hasattr(i, "object_type") and getattr(i, "object_type", None) in (
+        if scene.is_present(i) and hasattr(i, "object_type") and getattr(i, "object_type", None) in (
             ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL
         )
     ]
@@ -534,11 +534,11 @@ def _render_garden_notes(
     ``painter.device().newPage()`` and continues on a fresh page with the same
     "Garden Notes" header. No content is silently truncated.
     """
-    from pathlib import Path as _Path  # noqa: PLC0415
+    from pathlib import Path as _Path
 
-    from PyQt6.QtGui import QFontMetricsF  # noqa: PLC0415
+    from PyQt6.QtGui import QFontMetricsF
 
-    from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+    from open_garden_planner.models.journal_note import JournalNote
 
     notes_raw = opts.garden_journal_notes or {}
     notes: list[JournalNote] = []
@@ -934,6 +934,16 @@ class PdfReportService:
                     _render_harvest_summary(painter, page_rect, scene, opts)
                 elif page_type == "legend":
                     _render_legend(painter, page_rect, scene, opts)
+
+                day = getattr(scene, "plan_date", None)
+                if day is not None and day != date.today():
+                    painter.setFont(QFont("Arial", 8))
+                    painter.setPen(QColor("#333333"))
+                    painter.drawText(
+                        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), _pt(6)),
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                        _tr("Plan as of {date}").format(date=day.isoformat()),
+                    )
 
         finally:
             painter.end()

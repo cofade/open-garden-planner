@@ -128,10 +128,10 @@ class SeedTableModel(QAbstractTableModel):
         self._packets = self._store.all()
         self.endResetModel()
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: ARG002, B008
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: ARG002
         return len(self._packets)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: ARG002, B008
+    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: ARG002
         return _NUM_COLS
 
     def packet_at(self, row: int) -> SeedPacket | None:

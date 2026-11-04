@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -20,6 +20,14 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
+from open_garden_planner.ui.canvas.select_by_id import (
+    click_target,
+    is_selectable,
+    item_with_id,
+    replace_selection,
+    select_by_ids,
+)
+
 
 class FindReplacePanel(QWidget):
     """Floating panel for finding canvas items by name/type/layer/species and bulk-editing them."""
@@ -28,7 +36,12 @@ class FindReplacePanel(QWidget):
         super().__init__(parent, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self._canvas_view = canvas_view
         self._matched_items: list = []
+        self._selection_id = ""
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.timeout.connect(self._select_result)
         self._setup_ui()
+        self._canvas_view._canvas_scene.document_replaced.connect(self._clear_results)
         self.setVisible(False)
         self.setWindowTitle(self.tr("Find & Replace"))
         self.resize(320, 420)
@@ -168,6 +181,8 @@ class FindReplacePanel(QWidget):
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
                 continue
+            if not getattr(scene, "is_present", lambda _item: True)(item):
+                continue
 
             if name_filter:
                 item_name = (getattr(item, "name", None) or "").lower()
@@ -201,9 +216,9 @@ class FindReplacePanel(QWidget):
         scene = self._canvas_view.scene()
         if scene is None:
             return
-        scene.clearSelection()
-        for item in items:
-            item.setSelected(True)
+        targets = {id(target): target for item in items for target in (click_target(item),)
+                   if is_selectable(target)}
+        replace_selection(scene, list(targets.values()))
 
     # ------------------------------------------------------------------
     # Slots
@@ -217,23 +232,34 @@ class FindReplacePanel(QWidget):
             ot = getattr(item, "object_type", None)
             type_str = getattr(ot, "name", str(ot)) if ot is not None else "?"
             list_item = QListWidgetItem(f"{item_name}  [{type_str}]")
-            list_item.setData(Qt.ItemDataRole.UserRole, item)
+            # Stable UUIDs survive wrapper churn; a live item in QVariant can
+            # dereference a deleted C++ pointer before Python can validate it.
+            list_item.setData(Qt.ItemDataRole.UserRole, item.item_id_str)
             self._results_list.addItem(list_item)
         self._highlight(self._matched_items)
 
     def _on_select_all(self) -> None:
-        self._matched_items = self._search()
-        self._highlight(self._matched_items)
+        self._on_search()
 
     def _on_result_clicked(self, list_item: QListWidgetItem) -> None:
-        item = list_item.data(Qt.ItemDataRole.UserRole)
-        if item is None:
-            return
+        self._selection_id = str(list_item.data(Qt.ItemDataRole.UserRole) or "")
+        self._selection_timer.start(0)
+
+    def _select_result(self) -> None:
         scene = self._canvas_view.scene()
-        if scene:
-            scene.clearSelection()
-            item.setSelected(True)
+        if scene is None:
+            return
+        item = item_with_id(scene, self._selection_id)
+        if item is None or not getattr(scene, "is_present", lambda _item: True)(item):
+            return
+        select_by_ids(scene, [self._selection_id])
         self._canvas_view.ensureVisible(item)
+
+    def _clear_results(self) -> None:
+        self._selection_timer.stop()
+        self._selection_id = ""
+        self._matched_items.clear()
+        self._results_list.clear()
 
     def _on_apply_layer(self) -> None:
         target_layer_id = self._target_layer_combo.currentData()
@@ -246,7 +272,7 @@ class FindReplacePanel(QWidget):
             return
         target_layer = scene.get_layer_by_id(target_layer_id)
         layer_name = target_layer.name if target_layer else str(target_layer_id)
-        items = [i for i in self._matched_items if hasattr(i, "layer_id")]
+        items = [i for i in self._eligible_matches() if hasattr(i, "layer_id")]
         if not items:
             return
         cmd = MoveToLayerCommand(items, target_layer_id, scene, layer_name)
@@ -260,7 +286,7 @@ class FindReplacePanel(QWidget):
         new_species = self._replace_species_edit.text().strip()
         if not new_species or not self._matched_items:
             return
-        for item in self._matched_items:
+        for item in self._eligible_matches():
             meta = getattr(item, "metadata", None)
             if not isinstance(meta, dict):
                 continue
@@ -271,3 +297,13 @@ class FindReplacePanel(QWidget):
             elif species_data is not None:
                 meta["plant_species"] = {"common_name": new_species}
                 item.update()
+
+    def _eligible_matches(self) -> list[Any]:
+        """Revalidate date presence; matched wrappers keep these temporary ids
+        unique until the live-membership check. Rows themselves use UUIDs."""
+        scene = self._canvas_view.scene()
+        if scene is None:
+            return []
+        current = {id(item) for item in scene.items()}
+        present = getattr(scene, "is_present", lambda _item: True)
+        return [item for item in self._matched_items if id(item) in current and present(item)]

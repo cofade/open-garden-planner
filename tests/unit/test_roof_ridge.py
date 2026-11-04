@@ -40,7 +40,6 @@ is also why the module-level "21 of 26" is not the whole argument — the sync
 line ablation, not the master diff, is what pins `polygon_resize_apply`.
 """
 
-# ruff: noqa: ARG002
 
 import math
 

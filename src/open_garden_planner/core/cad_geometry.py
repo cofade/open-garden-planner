@@ -248,7 +248,7 @@ def arc_from_three_points(
     # numerical noise can push it just outside. We don't reject — the
     # arc still passes within micro-cm of p2 in practice. The unit
     # tests verify this.
-    _ = a2  # noqa: F841
+    _ = a2
 
     return center, radius, start_deg, span_deg
 
@@ -313,6 +313,60 @@ def arc_to_painter_path(
 # ---------------------------------------------------------------------------
 # Fillet / Chamfer corner geometry (Phase 13 Package B — US-B3)
 # ---------------------------------------------------------------------------
+
+#: Greatest allowed distance between a sampled fillet chord and the true arc,
+#: in cm.  A fillet is baked into its host item's vertex list (owner manual test
+#: 2026-10-31: the old free-standing ArcItem stayed behind when the host moved),
+#: so this is the geometric price of keeping one item.  0.2 mm is below the
+#: 1 mm display resolution and far below the 0.5 mm the solver treats as contact.
+FILLET_ARC_TOLERANCE_CM: float = 0.02
+
+
+def sample_arc_points(
+    center: QPointF,
+    radius: float,
+    start_deg: float,
+    span_deg: float,
+    tolerance_cm: float = FILLET_ARC_TOLERANCE_CM,
+) -> list[QPointF]:
+    """Interior points along a circular arc, endpoints excluded.
+
+    The points are exact on the circle (unlike Qt's ``arcTo`` conversion), so a
+    caller that already knows the two tangent endpoints can splice the result
+    between them and get a polyline whose greatest deviation from the arc is at
+    most ``tolerance_cm``.  Angles follow ``ArcItem``: degrees CCW from +X,
+    signed span.
+
+    The step is chosen from the chord-sagitta relation
+    ``deviation = radius * (1 - cos(step / 2))``; a tolerance at least as large
+    as the radius degenerates to one chord (the endpoints alone). The 512-segment
+    cap bounds the vertex count; it is only reached for radii above roughly
+    170 m at a 90° span, beyond any garden-scale fillet.
+    """
+    if radius <= 0.0 or abs(span_deg) < 1e-12:
+        return []
+    tolerance = max(float(tolerance_cm), 1e-9)
+    ratio = 1.0 - min(1.0, tolerance / radius)
+    step = 2.0 * math.acos(max(-1.0, min(1.0, ratio)))
+    segments = (
+        1
+        if step <= 1e-12
+        else max(1, math.ceil(abs(math.radians(span_deg)) / step))
+    )
+    # A tight tolerance on a large radius must not explode the vertex count.
+    segments = min(segments, 512)
+    start_rad = math.radians(start_deg)
+    span_rad = math.radians(span_deg)
+    points: list[QPointF] = []
+    for index in range(1, segments):
+        angle = start_rad + span_rad * (index / segments)
+        points.append(
+            QPointF(
+                center.x() + radius * math.cos(angle),
+                center.y() + radius * math.sin(angle),
+            )
+        )
+    return points
 
 
 def fillet_corner(

@@ -167,12 +167,17 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self._setup_flags()
         self.initialize_label()
 
+    @property
+    def paints_sprite(self) -> bool:
+        """A furniture rectangle is painted as an SVG sprite (``GardenItemMixin.paints_sprite``)."""
+        return is_furniture_type(self.object_type)
+
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_RECTANGLE)
 
         # Furniture types use SVG rendering — hide pen and brush
-        if is_furniture_type(self.object_type):
+        if self.paints_sprite:
             self.setPen(QPen(Qt.PenStyle.NoPen))
             self.setBrush(QBrush())
             return
@@ -364,7 +369,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         Exits vertex edit mode when deselected.
         Updates annotations when position changes.
         """
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 # Only show resize/rotation handles if not in vertex edit mode
@@ -465,7 +470,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         # Collect EQUAL-constraint partner resize undo data
         from open_garden_planner.core.tools.constraint_tool import (
-            _build_equal_resize_fn,  # noqa: PLC0415
+            _build_equal_resize_fn,
         )
         partner_resizes = []
         for p_item, old_size, apply_fn, p_anchor_type in getattr(self, '_equal_partner_pre_states', []):
@@ -481,43 +486,22 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             partner_resizes=partner_resizes or None,
         )
 
-        # Add to undo stack without executing (geometry already applied)
-        command_manager.register_applied(command)
+        # Add to undo stack without executing (geometry already applied). A bed
+        # resize also re-decides which plants it holds, in the SAME undo step (#443).
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         """Called when rotation operation completes. Registers undo command."""
-        scene = self.scene()
-        if scene is None or not hasattr(scene, 'get_command_manager'):
-            return
-
-        command_manager = scene.get_command_manager()
-        if command_manager is None:
-            return
-
-        # Get current angle
-        current_angle = self.rotation_angle
-
-        # Only register command if angle actually changed
-        if abs(initial_angle - current_angle) < 0.01:
-            return
-
-        from open_garden_planner.core.commands import RotateItemCommand
-
-        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
-        # shared with the Agent API's rotate_object. Every item class had an
-        # identical private copy of this one-liner; a shared name means the
-        # agent and the drag handles provably rotate the same way.
-        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
-
-        command = RotateItemCommand(
-            self,
-            initial_angle,
-            current_angle,
-            apply_rotation,
+        # One implementation for every item type (issue #485): the command also
+        # carries the partner corrections the live solver applied during the
+        # gesture, so undo/redo move the angle and the partner together.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
         )
 
-        # Add to undo stack without executing (rotation already applied)
-        command_manager.register_applied(command)
+        register_rotation_command(self, initial_angle)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to enter vertex edit mode and start label edit."""
@@ -603,43 +587,47 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction(_("RectangleItem", "Duplicate"))
+        from .common_menu import build_repeat_actions
 
-        # Linear array action
-        linear_array_action = menu.addAction(_("RectangleItem", "Create Linear Array..."))
+        repeat_actions = build_repeat_actions(menu, "RectangleItem")
 
-        # Grid array action
-        grid_array_action = menu.addAction(_("RectangleItem", "Create Grid Array..."))
-
-        # Circular array action
-        circular_array_action = menu.addAction(_("RectangleItem", "Create Circular Array..."))
-
-        # Boolean operations (requires exactly 2 selected closed shapes)
+        # Boolean operations (union supports two or more closed shapes; the
+        # other operations stay a two-shape relation)
         boolean_union_action = None
         boolean_intersect_action = None
         boolean_subtract_action = None
         array_along_path_action = None
         selected = self.scene().selectedItems()
-        if len(selected) == 2:
+        if len(selected) >= 2:
             from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+            from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
             from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
             from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
-            shape_types = (PolygonItem, RectangleItem, CircleItem)
+            shape_types = (PolygonItem, RectangleItem, CircleItem, EllipseItem)
             if all(isinstance(s, shape_types) for s in selected):
                 menu.addSeparator()
                 bool_menu = menu.addMenu(_("RectangleItem", "Boolean"))
                 boolean_union_action = bool_menu.addAction(_("RectangleItem", "Union"))
-                boolean_intersect_action = bool_menu.addAction(_("RectangleItem", "Intersect"))
-                boolean_subtract_action = bool_menu.addAction(_("RectangleItem", "Subtract"))
-            if any(isinstance(s, PolylineItem) for s in selected):
+                if len(selected) == 2:
+                    boolean_intersect_action = bool_menu.addAction(
+                        _("RectangleItem", "Intersect")
+                    )
+                    boolean_subtract_action = bool_menu.addAction(
+                        _("RectangleItem", "Subtract")
+                    )
+            if len(selected) == 2 and any(isinstance(s, PolylineItem) for s in selected):
                 array_along_path_action = menu.addAction(
                     QCoreApplication.translate("RectangleItem", "Array Along Path...")
                 )
 
         # Execute menu and handle result
+        menu.addSeparator()
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_lock_action(action, lock_action):
+            return
         # Dispatch bed-specific actions via the shared mixin handler.
         if self.dispatch_bed_action(action, bed_actions):
             return
@@ -668,39 +656,8 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
-        elif action == duplicate_action:
-            # Duplicate via canvas view
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "duplicate_selected"):
-                        view.duplicate_selected()
-        elif action == linear_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_linear_array"):
-                        view.create_linear_array()
-        elif action == grid_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_grid_array"):
-                        view.create_grid_array()
-        elif action == circular_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_circular_array"):
-                        view.create_circular_array()
+        elif repeat_actions.dispatch(action, self.scene()):
+            return
         elif action is not None and action in (
             boolean_union_action, boolean_intersect_action, boolean_subtract_action
         ):

@@ -5,8 +5,9 @@ executed, undone, and redone.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from contextlib import AbstractContextManager, nullcontext
+from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, nullcontext, suppress
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -27,6 +28,24 @@ if TYPE_CHECKING:
 
 class Command(ABC):
     """Abstract base class for all undoable commands."""
+
+    #: Whether executing or undoing this command can change an item's ground band
+    #: (``canvas_scene.on_ground``: its object type, height metadata, or group
+    #: membership). ``CanvasScene._restack_ground_changes`` skips its O(items)
+    #: scan for a command that says ``False``; a command that can reclassify
+    #: anything must leave this True (the default), or a lawn can stay in the
+    #: solid band (#592).
+    changes_ground_band: bool = True
+
+    #: Whether executing or undoing this command can change which plant-parent CONTAINS
+    #: a plant, or move a plant inside/outside one — the geometric half of the stacking
+    #: clamp (#629). ``CanvasScene._restack_plant_containment`` skips its O(items) scan
+    #: for a command that says ``False``. Adds and deletes are neutral: a plant-parent's
+    #: arrival is handled synchronously by ``addItem`` (``_needs_synchronous_z_refresh``),
+    #: a new plant already lands on top, and a deletion cannot hide anything. A command
+    #: that moves, resizes, rotates, vertex-edits, groups or re-types an item must leave
+    #: this True (the default), or a bed grown around a plant leaves it behind the bed.
+    changes_containment: bool = True
 
     @property
     @abstractmethod
@@ -61,12 +80,37 @@ class CommandManager(QObject):
     can_redo_changed = pyqtSignal(bool)
     command_executed = pyqtSignal(str)
     stack_changed = pyqtSignal()
+    before_history_navigation = pyqtSignal()
+    history_navigated = pyqtSignal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the command manager."""
         super().__init__(parent)
         self._undo_stack: list[Command] = []
         self._redo_stack: list[Command] = []
+        self._preparing_history = False
+        self._last_command: Command | None = None
+
+    @property
+    def last_command(self) -> Command | None:
+        """The command whose execute/undo/redo just emitted ``stack_changed``.
+
+        Set immediately before the signal, so a ``stack_changed`` slot can ask
+        what changed (``CanvasScene._restack_ground_changes`` does, #592).
+        ``None`` before the first command and after ``clear()``.
+        """
+        return self._last_command
+
+    def _prepare_history(self) -> bool:
+        """Commit active editors before selecting a history entry (#560)."""
+        if self._preparing_history:
+            return False
+        self._preparing_history = True
+        try:
+            self.before_history_navigation.emit()
+        finally:
+            self._preparing_history = False
+        return True
 
     def execute(self, command: Command) -> None:
         """Execute a command and add it to the undo stack.
@@ -80,6 +124,7 @@ class CommandManager(QObject):
         had_redo = len(self._redo_stack) > 0
         self._redo_stack.clear()
 
+        self._last_command = command
         self.can_undo_changed.emit(True)
         if had_redo:
             self.can_redo_changed.emit(False)
@@ -102,6 +147,7 @@ class CommandManager(QObject):
         had_redo = len(self._redo_stack) > 0
         self._redo_stack.clear()
 
+        self._last_command = command
         self.can_undo_changed.emit(True)
         if had_redo:
             self.can_redo_changed.emit(False)
@@ -110,6 +156,8 @@ class CommandManager(QObject):
 
     def undo(self) -> None:
         """Undo the last command."""
+        if not self._prepare_history():
+            return
         if not self._undo_stack:
             return
 
@@ -117,12 +165,16 @@ class CommandManager(QObject):
         command.undo()
         self._redo_stack.append(command)
 
+        self._last_command = command
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.can_redo_changed.emit(True)
         self.stack_changed.emit()
+        self.history_navigated.emit()  # an explicit history transition (#560)
 
     def redo(self) -> None:
         """Redo the last undone command."""
+        if not self._prepare_history():
+            return
         if not self._redo_stack:
             return
 
@@ -136,14 +188,17 @@ class CommandManager(QObject):
             raise
         self._undo_stack.append(command)
 
+        self._last_command = command
         self.can_undo_changed.emit(True)
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
         self.stack_changed.emit()
+        self.history_navigated.emit()  # redo is a history transition too (#560)
 
     def clear(self) -> None:
         """Clear all undo/redo history."""
         self._undo_stack.clear()
         self._redo_stack.clear()
+        self._last_command = None
         self.can_undo_changed.emit(False)
         self.can_redo_changed.emit(False)
 
@@ -173,6 +228,15 @@ class CommandManager(QObject):
         if self._undo_stack:
             return self._undo_stack[-1].description
         return None
+
+    def peek_undo(self) -> Command | None:
+        """Return the top of the undo stack without removing it (#559).
+
+        Panels use this to coalesce a numeric/spin gesture: consecutive
+        ``valueChanged`` steps of one spin drag merge into the pending command
+        instead of one undo entry per tick. Returns None when empty.
+        """
+        return self._undo_stack[-1] if self._undo_stack else None
 
     @property
     def redo_description(self) -> str | None:
@@ -235,7 +299,7 @@ def trigger_soil_mismatch_refresh(scene: QGraphicsScene) -> None:
 
 
 def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
-    """If *item* is a plant inside a bed, establish the parent-child link."""
+    """If *item* is a plant, point its bed link at the bed its centre is in."""
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
@@ -243,37 +307,340 @@ def _auto_parent_plant(scene: QGraphicsScene, item: QGraphicsItem) -> None:
         return
     if not is_plant_type(item.object_type):
         return
-    # Skip if already parented (e.g. paste with pre-set relationship)
-    if item.parent_bed_id is not None:
-        return
+    set_parent_link(scene, item, plant_membership_target(scene, item))
 
-    plant_center = item.mapToScene(item.boundingRect().center())
 
-    if hasattr(scene, "find_smallest_bed_containing"):
-        best_bed = scene.find_smallest_bed_containing(plant_center)
-    else:
-        return
+def scene_plants(scene: QGraphicsScene) -> list[QGraphicsItem]:
+    """Every plant in *scene* — the only items that carry a bed link.
 
-    if best_bed is not None and isinstance(best_bed, GardenItemMixin):
-        item.parent_bed_id = best_bed.item_id
-        best_bed.add_child_id(item.item_id)
-        _refresh_z_after_relink(scene, item)
+    A defensive ``TypeError`` catch: command doubles in unit tests answer
+    ``items()`` with a non-iterable. A real scene always yields items.
+    """
+    from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    try:
+        items = list(scene.items())
+    except TypeError:  # a command/scene double, not a real QGraphicsScene
+        return []
+    return [
+        item
+        for item in items
+        if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
+    ]
+
+
+def plant_membership_target(
+    scene: QGraphicsScene, item: QGraphicsItem
+) -> UUID | None:
+    """The plant-parent whose shape contains *item*'s link point, else None.
+
+    One predicate, one point: ``find_smallest_bed_containing`` over
+    ``footprints.bed_membership_point``. That point is the plant's stable
+    geometric centre (issue #443 (iii)), so link decisions and the L1 lift
+    (``item_base_cm``) can no longer disagree about which plants a bed holds.
+    """
+    from open_garden_planner.ui.canvas.footprints import bed_membership_point
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    find = getattr(scene, "find_smallest_bed_containing", None)
+    if not callable(find):
+        return None
+    best_bed = find(bed_membership_point(item))
+    if isinstance(best_bed, GardenItemMixin):
+        return best_bed.item_id
+    return None
+
+
+def set_parent_link(
+    scene: QGraphicsScene,
+    item: QGraphicsItem,
+    parent_id: UUID | None,
+    *,
+    refresh_soil: bool = True,
+) -> bool:
+    """Set *item*'s parent bed, keeping BOTH sides of the link in step.
+
+    The ONE geometry-driven mutator for the plant→bed relationship (issue #443):
+    every edit path — creation, a move, a bed edit, a copy, the panel's Link
+    action, the agent — calls it, so ``parent_bed_id``
+    and the parent's ``child_item_ids`` cannot drift apart. (A few deliberate
+    writers remain outside it and set the id directly: the loader's
+    ``_relink_parent_child_relationships`` and ``_deserialize_item``, delete
+    snapshots/restores, paste/duplicate's remap, and the mirror tool's
+    ``_remap_parent_links`` / ``_stamp_identity``.) Returns whether anything
+    changed. This docstring is the authoritative direct-writer list; prose
+    elsewhere points here.
+    """
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    if not isinstance(item, GardenItemMixin):
+        return False
+    current = item.parent_bed_id
+    if current == parent_id:
+        # A stale state can carry the right id with a child list that never got
+        # it (an array copy restored its source's link; a pre-#443 file). Heal
+        # that instead of treating the link as done.
+        finder = getattr(scene, "find_item_by_id", None)
+        if parent_id is not None and callable(finder):
+            parent = finder(parent_id)
+            if isinstance(parent, GardenItemMixin) and item.item_id not in parent.child_item_ids:
+                parent.add_child_id(item.item_id)
+                _refresh_z_after_relink(scene, item)
+                if refresh_soil:
+                    trigger_soil_mismatch_refresh(scene)
+                return True
+        return False
+
+    finder = getattr(scene, "find_item_by_id", None)
+    if current is not None and callable(finder):
+        old_parent = finder(current)
+        if isinstance(old_parent, GardenItemMixin):
+            old_parent.remove_child_id(item.item_id)
+    if parent_id is not None and callable(finder):
+        new_parent = finder(parent_id)
+        if isinstance(new_parent, GardenItemMixin):
+            new_parent.add_child_id(item.item_id)
+    item.parent_bed_id = parent_id
+    _refresh_z_after_relink(scene, item)
+    if refresh_soil:
+        trigger_soil_mismatch_refresh(scene)
+    return True
 
 
 def _detach_from_parent(scene: QGraphicsScene, item: QGraphicsItem) -> None:
     """Remove the parent-child link for *item* (if any)."""
+    set_parent_link(scene, item, None)
+
+
+class BedMembershipChange:
+    """Re-derive plant→bed links from geometry, with exact undo data.
+
+    Issue #443: the link is bookkeeping that several edit paths never
+    reconciled. One rule replaces the per-path guesses — a plant's link is the
+    smallest plant-parent that contains its standing point — applied by the
+    move/resize/rotate/vertex/copy commands themselves. ``before`` is captured
+    when the tracker is built (links are never touched by a geometry change),
+    so ``restore`` replays the recorded ids instead of re-solving.
+
+    ``focus_parents`` scopes a BED edit: only plants that link to the edited
+    parent, that are linked to it, or that are explicitly moved with it are
+    re-decided. A bed edit elsewhere must not overrule a plant's deliberate
+    link to a different bed (ADR-037 addendum decision 5).
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        plants: "Sequence[Any] | None" = None,
+        *,
+        focus_parents: "set[UUID] | None" = None,
+    ) -> None:
+        self._scene = scene
+        self._focus: set[UUID] = set(focus_parents or ())
+        self._always: set[QGraphicsItem] = set(plants or ())
+        if plants is not None:
+            self._plants = list(plants)
+        else:
+            self._plants = scene_plants(scene)
+        if self._focus:
+            # A focus edit also has to see plants it does not move yet.
+            known = {id(plant) for plant in self._plants}
+            self._plants.extend(
+                plant for plant in scene_plants(scene) if id(plant) not in known
+            )
+        self._before: dict[Any, UUID | None] = {
+            plant: plant.parent_bed_id
+            for plant in self._plants
+        }
+        self.changed = False
+
+    def _affects(self, plant: QGraphicsItem, target: UUID | None) -> bool:
+        """Whether this edit may re-decide *plant*'s link (#443 (a)/(b))."""
+        if not self._focus:
+            return True
+        return (
+            plant in self._always
+            or target in self._focus
+            or self._before.get(plant) in self._focus
+        )
+
+    def reconcile(self) -> bool:
+        """Point the affected plants at the bed their CURRENT position asks for."""
+        targets = {
+            plant: plant_membership_target(self._scene, plant)
+            for plant in self._plants
+        }
+        moved = False
+        for plant, target in targets.items():
+            if not self._affects(plant, target):
+                continue
+            if plant.scene() is not self._scene:
+                continue
+            if set_parent_link(self._scene, plant, target, refresh_soil=False):
+                moved = True
+        if moved:
+            trigger_soil_mismatch_refresh(self._scene)
+        self.changed = self.changed or moved
+        return moved
+
+    def restore(self) -> None:
+        """Restore every tracked plant's pre-change link (undo).
+
+        This is safe because undo is strictly LIFO: every command's ``before``
+        is its own pre-execute state, so no other command's edit can be older
+        than it. Deliberately not limited to the plants ``reconcile`` changed: a
+        Mirror-Move replaces the plant OBJECT while reusing its id, so the
+        object that carries the new link is not the one restored here — the
+        re-added original must get its parent's child id back (and the heal path
+        does exactly that).
+        """
+        moved = False
+        for plant, old_parent in self._before.items():
+            if plant.scene() is self._scene and set_parent_link(
+                self._scene, plant, old_parent, refresh_soil=False
+            ):
+                moved = True
+        if moved:
+            trigger_soil_mismatch_refresh(self._scene)
+
+
+class ReconcileBedMembershipCommand(Command):
+    """One undoable step that re-derives plant→bed links from geometry.
+
+    Used where a command was already applied live (a finished drag) and the
+    link changes must ride in the SAME undo entry as the geometry
+    (``register_applied_with_membership``).
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        plants: "Sequence[Any] | None" = None,
+        *,
+        focus_parents: "set[UUID] | None" = None,
+    ) -> None:
+        self._change = BedMembershipChange(
+            scene, plants, focus_parents=focus_parents
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Re-link plants to beds")
+
+    @property
+    def changed(self) -> bool:
+        """Whether the last ``execute`` actually moved a link."""
+        return self._change.changed
+
+    def execute(self) -> None:
+        self._change.reconcile()
+
+    def undo(self) -> None:
+        self._change.restore()
+
+
+def command_is(
+    command: Command,
+    types: tuple[type, ...],
+) -> bool:
+    """Whether *command* — or any step of a ``CompoundCommand`` it wraps — is one of *types*.
+
+    ``_finalize_drag_move`` uses this to keep a live-applied geometry edit from
+    also being recorded as a move. A bed edit that re-linked plants is now one
+    compound (issue #443), so the plain ``isinstance`` check would miss it and
+    add a duplicate position step.
+    """
+    stack: list[Command] = [command]
+    seen: set[int] = set()
+    while stack:
+        current = stack.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, types):
+            return True
+        stack.extend(getattr(current, "commands", ()))
+    return False
+
+
+def register_applied_with_membership(
+    scene: QGraphicsScene,
+    command_manager: CommandManager,
+    command: Command,
+    item: Any,
+) -> None:
+    """Register a live-applied geometry command WITH its membership corrections.
+
+    The drag-release paths (resize, corner edit, vertex edit) apply geometry
+    directly and then register one command. For a bed edit those same gestures
+    change which plants the bed holds, and issue #443 requires that to undo in
+    the same step: the reconciled links are one ``CompoundCommand`` with the
+    geometry. When nothing about membership changed — every non-bed edit — the
+    command is registered untouched, so its type stays visible to callers that
+    inspect the stack (``_finalize_drag_move``).
+
+    ``item`` is the edited item: only a plant or a plant-parent edit can move a
+    link. A fence or building edit therefore leaves explicitly linked plants
+    completely alone.
+    """
+    notify = getattr(command, "notify_applied", None)
+    if callable(notify):
+        # The command carries its own tracker and undoes the link with the
+        # geometry — one stack entry, no wrapper.
+        notify()
+        command_manager.register_applied(command)
+        return
+
+    from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-    if not isinstance(item, GardenItemMixin):
+    parent_ids = {p.item_id for p in iter_plant_parents([item])}
+    is_plant = isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
+    if not parent_ids and not is_plant:
+        command_manager.register_applied(command)
         return
-    parent_id = item.parent_bed_id
-    if parent_id is None:
-        return
-    item.parent_bed_id = None
-    if hasattr(scene, "find_item_by_id"):
-        parent = scene.find_item_by_id(parent_id)
-        if parent is not None and isinstance(parent, GardenItemMixin):
-            parent.remove_child_id(item.item_id)
+
+    if parent_ids:
+        reconcile = ReconcileBedMembershipCommand(
+            scene, focus_parents=parent_ids
+        )
+    else:
+        reconcile = ReconcileBedMembershipCommand(scene, [item])
+    reconcile.execute()
+    if reconcile.changed:
+        command_manager.register_applied(CompoundCommand([command, reconcile]))
+    else:
+        command_manager.register_applied(command)
+
+
+def iter_plant_parents(items: Sequence[QGraphicsItem]) -> list[Any]:
+    """Return all plant-parent items in *items*, descending into item groups.
+
+    A ``SmartSymbolItem`` or ``GroupItem`` may contain typed plant-parent child
+    shapes (e.g. the ``RAISED_BED`` outer frame of ``raised_bed_rows``, #599).
+    Descending into ``QGraphicsItemGroup`` lets creation, movement, rotation,
+    deletion, and parameter regeneration reconcile and carry linked plants
+    through the same command-owned path as a top-level bed.
+    """
+    from PyQt6.QtWidgets import QGraphicsItemGroup
+
+    from open_garden_planner.core.object_types import is_plant_parent_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    result: list[Any] = []
+    seen: set[int] = set()
+    stack = list(items)
+    while stack:
+        current = stack.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, GardenItemMixin) and is_plant_parent_type(current.object_type):
+            result.append(current)
+        if isinstance(current, QGraphicsItemGroup):
+            stack.extend(current.childItems())
+    return result
 
 
 class CreateItemCommand(Command):
@@ -295,6 +662,10 @@ class CreateItemCommand(Command):
         self._scene = scene
         self._item = item
         self._item_type = item_type
+        # Link bookkeeping for #443: a newly drawn BED can change the link of
+        # plants that were already standing inside it, and a new PLANT must be
+        # linked to the bed it lands in. Captured before the item is added.
+        self._membership: BedMembershipChange | None = None
 
     @property
     def description(self) -> str:
@@ -303,17 +674,38 @@ class CreateItemCommand(Command):
             item_type=self._item_type
         )
 
+    def _membership_change(self) -> BedMembershipChange | None:
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        parent_ids = {p.item_id for p in iter_plant_parents([self._item])}
+        if parent_ids:
+            return BedMembershipChange(
+                self._scene,
+                focus_parents=parent_ids,
+            )
+        if isinstance(self._item, GardenItemMixin) and is_plant_type(self._item.object_type):
+            return BedMembershipChange(self._scene, [self._item])
+        return None
+
     def execute(self) -> None:
-        """Add the item to the scene."""
+        """Add the item to the scene and reconcile the links its geometry decides."""
         if self._item.scene() is None:
+            if self._membership is None:
+                self._membership = self._membership_change()
             self._scene.addItem(self._item)
-        _auto_parent_plant(self._scene, self._item)
+        if self._membership is not None:
+            self._membership.reconcile()
+        else:
+            _auto_parent_plant(self._scene, self._item)
 
     def undo(self) -> None:
-        """Remove the item from the scene."""
+        """Remove the item from the scene and restore the links it displaced."""
         _detach_from_parent(self._scene, self._item)
         if self._item.scene() is not None:
             self._scene.removeItem(self._item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class CreateItemsCommand(Command):
@@ -335,6 +727,29 @@ class CreateItemsCommand(Command):
         self._scene = scene
         self._items = list(items)  # Copy the list
         self._item_type = item_type
+        # See CreateItemCommand: pasting/duplicating a bed can re-link plants
+        # that already stood where the copy lands (#443).
+        self._membership: BedMembershipChange | None = None
+
+    def _membership_change(self) -> BedMembershipChange | None:
+        from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        created_plants: list[QGraphicsItem] = [
+            item
+            for item in self._items
+            if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
+        ]
+        parents = {p.item_id for p in iter_plant_parents(self._items)}
+        if parents:
+            return BedMembershipChange(
+                self._scene,
+                created_plants,
+                focus_parents=parents,
+            )
+        if created_plants:
+            return BedMembershipChange(self._scene, created_plants)
+        return None
 
     @property
     def description(self) -> str:
@@ -349,21 +764,28 @@ class CreateItemsCommand(Command):
         )
 
     def execute(self) -> None:
-        """Add the items to the scene."""
+        """Add the items to the scene and reconcile every link the copy affects."""
+        if self._membership is None:
+            self._membership = self._membership_change()
         with _bulk_add_scope(self._scene):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
-        for item in self._items:
-            _auto_parent_plant(self._scene, item)
+        if self._membership is not None:
+            self._membership.reconcile()
+        else:
+            for item in self._items:
+                _auto_parent_plant(self._scene, item)
 
     def undo(self) -> None:
-        """Remove the items from the scene."""
+        """Remove the items and restore the links they displaced."""
         for item in self._items:
             _detach_from_parent(self._scene, item)
         for item in self._items:
             if item.scene() is not None:
                 self._scene.removeItem(item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class DeleteItemsCommand(Command):
@@ -386,14 +808,17 @@ class DeleteItemsCommand(Command):
         self._items = list(items)  # Copy the list
 
         # Snapshot parent-child relationships for undo restoration.
-        # bed UUID → list of child UUIDs
+        # bed UUID → list of child UUIDs (including plant-parent children inside groups)
         self._bed_children: dict[UUID, list[UUID]] = {}
         # plant UUID → parent bed UUID
         self._plant_parents: dict[UUID, UUID] = {}
+        for parent in iter_plant_parents(self._items):
+            if parent.has_children:
+                self._bed_children[parent.item_id] = list(parent._child_item_ids)
         for item in self._items:
             if not isinstance(item, GardenItemMixin):
                 continue
-            if item.has_children:
+            if item.has_children and item.item_id not in self._bed_children:
                 self._bed_children[item.item_id] = list(item._child_item_ids)
             if item.parent_bed_id is not None:
                 self._plant_parents[item.item_id] = item.parent_bed_id
@@ -436,15 +861,18 @@ class DeleteItemsCommand(Command):
         for item in self._items:
             _detach_from_parent(self._scene, item)
 
-        # Detach surviving children of beds being deleted
+        # Detach surviving children of beds being deleted (including group child beds)
         deleted_ids = {
             item.item_id for item in self._items if isinstance(item, GardenItemMixin)
         }
-        for item in self._items:
+        all_bed_candidates = list(self._items) + iter_plant_parents(self._items)
+        seen_bed_ids: set[UUID] = set()
+        for item in all_bed_candidates:
             if not isinstance(item, GardenItemMixin):
                 continue
-            if item.item_id not in self._bed_children:
+            if item.item_id in seen_bed_ids or item.item_id not in self._bed_children:
                 continue
+            seen_bed_ids.add(item.item_id)
             for child_id in self._bed_children[item.item_id]:
                 if child_id in deleted_ids:
                     continue  # child is also being deleted
@@ -469,10 +897,15 @@ class DeleteItemsCommand(Command):
                 if item.scene() is None:
                     self._scene.addItem(item)
         # Restore parent-child relationships from snapshot
-        for item in self._items:
+        all_restored = list(self._items) + iter_plant_parents(self._items)
+        seen_restored: set[UUID] = set()
+        for item in all_restored:
             if not isinstance(item, GardenItemMixin):
                 continue
             iid = item.item_id
+            if iid in seen_restored:
+                continue
+            seen_restored.add(iid)
             if iid in self._bed_children:
                 item._child_item_ids = list(self._bed_children[iid])
                 # Also restore parent_bed_id on surviving children
@@ -503,6 +936,168 @@ class DeleteItemsCommand(Command):
                 refresh_all()
 
 
+def _membership_change_for_move(
+    scene: QGraphicsScene | None,
+    items: list[QGraphicsItem],
+) -> BedMembershipChange | None:
+    """The plants whose bed link a move can change, or None when none can.
+
+    A moved PLANT may enter or leave a bed. A moved plant-PARENT may change
+    the link of plants that did not move (a bed drawn/moved over them), so
+    every plant is tracked then. Anything else leaves membership untouched.
+    """
+    if scene is None:
+        return None
+    from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    parents = iter_plant_parents(items)
+    plants: list[QGraphicsItem] = [
+        item
+        for item in items
+        if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
+    ]
+    if parents:
+        # The moved plants are ALWAYS re-decided (a moved plant's link follows
+        # it); the focus only widens the set to plants the moved beds can affect.
+        return BedMembershipChange(
+            scene,
+            plants,
+            focus_parents={item.item_id for item in parents},
+        )
+    if not plants:
+        return None
+    return BedMembershipChange(scene, plants)
+
+
+def _membership_for_added_items(
+    scene: QGraphicsScene,
+    items: list[QGraphicsItem],
+    *,
+    clear_inherited: bool,
+) -> BedMembershipChange | None:
+    """Link tracker for items that are about to be added as copies.
+
+    ``clear_inherited`` drops a link the copy was serialised with: a copy is a
+    NEW item, and issue #443 (v) gives it one rule — geometry decides, exactly
+    as ``CreateItemsCommand`` already does for a pasted plant. Without this an
+    array copy stayed linked to the source's bed wherever it landed, while the
+    bed's child list did not hold it.
+    """
+    from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    plants: list[QGraphicsItem] = []
+    parents = iter_plant_parents(items)
+    # Copies are not in the scene yet, so a copied bed cannot be found through
+    # the scene when its plant's inherited link is dropped.
+    by_id = {
+        item.item_id: item
+        for item in [*items, *parents]
+        if isinstance(item, GardenItemMixin)
+    }
+    for item in items:
+        if not isinstance(item, GardenItemMixin):
+            continue
+        if is_plant_type(item.object_type):
+            # A copy of a PLANT is a new plant: its source's link must not ride
+            # along. Non-plant children keep a deliberate remap (the mirror
+            # tool re-parents a copied bed's children onto the copy).
+            if clear_inherited and item.parent_bed_id is not None:
+                copied_parent = by_id.get(item.parent_bed_id)
+                if isinstance(copied_parent, GardenItemMixin):
+                    copied_parent.remove_child_id(item.item_id)
+                set_parent_link(scene, item, None, refresh_soil=False)
+            plants.append(item)
+    if parents:
+        # A new bed can change the link of plants that did not move — but only
+        # the plants that link to it, not a deliberate link to another bed.
+        return BedMembershipChange(
+            scene, plants, focus_parents={p.item_id for p in parents}
+        )
+    if plants:
+        return BedMembershipChange(scene, plants)
+    return None
+
+
+def _membership_change_for_geometry(
+    scene: QGraphicsScene | None,
+    item: QGraphicsItem,
+    partner_items: "list[QGraphicsItem] | tuple[QGraphicsItem, ...]" = (),
+) -> BedMembershipChange | None:
+    """Link tracker for a resize/rotate of *item* (and any partner it corrects).
+
+    A bed's boundary edit re-decides only the plants that link to it (see
+    ``BedMembershipChange.focus_parents``); a plant's own geometry change can
+    only move its own link (and usually does not even do that — its centre is
+    invariant). ``partner_items`` are the constraint-corrected items a rotation
+    moved: a partner PLANT may enter or leave a bed, and a partner BED takes its
+    own plants with it, so both are tracked. Any other shape leaves membership
+    alone, so explicitly linked plants are never overruled by an unrelated edit.
+    """
+    if scene is None:
+        return None
+    from open_garden_planner.core.plant_renderer import is_plant_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    candidates = [item, *partner_items]
+    parents = iter_plant_parents(candidates)
+    plants = [
+        candidate
+        for candidate in candidates
+        if isinstance(candidate, GardenItemMixin)
+        and is_plant_type(candidate.object_type)
+    ]
+    if parents:
+        return BedMembershipChange(
+            scene,
+            plants,
+            focus_parents={
+                parent.item_id for parent in parents
+            },
+        )
+    if plants:
+        return BedMembershipChange(scene, plants)
+    return None
+
+
+def bed_child_has_constraints(scene: QGraphicsScene, child_id: UUID) -> bool:
+    """Whether a linked plant has its own placement constraints.
+
+    Automatic bed carrying applies only to unconstrained children. A plant's
+    FIXED or other constraint must take priority over this implicit movement;
+    solver-controlled children keep their solver result, including zero delta.
+    """
+    graph = getattr(scene, "constraint_graph", None)
+    return graph is not None and bool(graph.get_item_constraints(child_id))
+
+
+def expand_with_bed_children(
+    scene: QGraphicsScene,
+    item_deltas: list[tuple[QGraphicsItem, QPointF]],
+) -> list[tuple[QGraphicsItem, QPointF]]:
+    """Add each moved plant-parent's plants, carrying the parent's delta.
+
+    Issue #443 (vi): a bed moved by a typed coordinate or by align/distribute
+    left its plants behind, unlike the drag, arrow-key and agent paths. A plant
+    that is itself in ``item_deltas`` keeps its own delta — the user moved it.
+    """
+    result = list(item_deltas)
+    moved = {item for item, _delta in result}
+    finder = getattr(scene, "find_item_by_id", None)
+    if not callable(finder):
+        return result
+    for item, delta in list(item_deltas):
+        for parent in iter_plant_parents([item]):
+            for child_id in parent.child_item_ids:
+                child = finder(child_id)
+                if child is None or child in moved or bed_child_has_constraints(scene, child_id):
+                    continue
+                moved.add(child)
+                result.append((child, QPointF(delta)))
+    return result
+
+
 class MoveItemsCommand(Command):
     """Command for moving one or more items."""
 
@@ -519,6 +1114,17 @@ class MoveItemsCommand(Command):
         """
         self._items = list(items)
         self._delta = delta
+        scene = self._items[0].scene() if self._items else None
+        if scene is not None:
+            # One rule: a moved bed takes its plants along (#443 (vi) — the typed
+            # coordinate and align/distribute used to leave them behind).
+            self._items = [
+                moved
+                for moved, _carried in expand_with_bed_children(
+                    scene, [(item, delta) for item in self._items]
+                )
+            ]
+        self._membership = _membership_change_for_move(scene, self._items)
 
     @property
     def description(self) -> str:
@@ -531,14 +1137,77 @@ class MoveItemsCommand(Command):
         )
 
     def execute(self) -> None:
-        """Move items by delta."""
+        """Move items by delta, then re-derive their bed links from where they are."""
         for item in self._items:
             item.moveBy(self._delta.x(), self._delta.y())
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Move items back by negative delta."""
+        """Restore the bed links, then move items back by negative delta."""
+        if self._membership is not None:
+            self._membership.restore()
         for item in self._items:
             item.moveBy(-self._delta.x(), -self._delta.y())
+
+
+
+class CompoundCommand(Command):
+    """Several commands that undo as ONE step.
+
+    The case it exists for: a plant dragged into a bed is moved AND linked, and
+    the link is decided after the move (positions, then containment). Two stack
+    entries made the first Ctrl+Z undo only the link and the second the move, so
+    the drag looked half-undoable (#627's manual pass). The commands run in
+    order here and undo in reverse, so one undo puts the plant back where it was
+    WITH its old parent.
+
+    ``description``: the step's own name; the first command's when omitted.
+    ``execute`` undoes the commands that RETURNED if a later one raises - a step
+    with no half-left work and no stack entry. (A command that raises in the middle
+    of its own mutations is that command's contract to keep clean, as before.)
+    """
+
+    def __init__(self, commands: Sequence[Command], description: str | None = None) -> None:
+        # a tuple: the two flags below are computed once, so the set of commands they
+        # describe must not be able to change afterwards
+        self._commands = tuple(commands)
+        if not self._commands:
+            raise ValueError("CompoundCommand needs at least one command")
+        self._description = description
+        # the scene's restack scans ask these of the ONE command it ran: a step that
+        # can move, link or re-type anything must keep asking for them
+        self.changes_ground_band = any(command.changes_ground_band for command in self._commands)
+        self.changes_containment = any(command.changes_containment for command in self._commands)
+
+    @property
+    def description(self) -> str:
+        return self._description or self._commands[0].description
+
+    @property
+    def commands(self) -> tuple[Command, ...]:
+        """The steps this compound runs, in order — read-only.
+
+        Exposed for callers that must recognise a step by what it CONTAINS
+        (``command_is``): a bed edit that also re-linked plants is one
+        ``CompoundCommand`` whose first step is still the resize/rotate.
+        """
+        return self._commands
+
+    def execute(self) -> None:
+        done: list[Command] = []
+        try:
+            for command in self._commands:
+                command.execute()
+                done.append(command)
+        except Exception:
+            for command in reversed(done):
+                command.undo()
+            raise
+
+    def undo(self) -> None:
+        for command in reversed(self._commands):
+            command.undo()
 
 
 class ChangePropertyCommand(Command):
@@ -596,6 +1265,54 @@ class ChangePropertyCommand(Command):
             setattr(self._item, self._property_name, self._old_value)
 
 
+class ChangeSmartSymbolParamCommand(Command):
+    """Command for changing a smart-symbol parameter and regenerating its children (#599).
+
+    Preserves deterministic child UUIDs across regeneration and reconciles bed
+    membership for any plant-parent child (e.g. ``raised_bed_rows``) in the same
+    undo step so plant ``parent_bed_id`` links stay synchronized.
+    """
+
+    changes_containment = True
+
+    def __init__(
+        self,
+        item: Any,
+        param_name: str,
+        old_value: Any,
+        new_value: Any,
+    ) -> None:
+        self._item = item
+        self._param_name = param_name
+        self._old_value = old_value
+        self._new_value = new_value
+        self._membership = _membership_change_for_geometry(item.scene(), item)
+
+    @property
+    def description(self) -> str:
+        prop = QCoreApplication.translate("Commands", "symbol parameter")
+        return QCoreApplication.translate("Commands", "Change {property}").format(
+            property=prop
+        )
+
+    def execute(self) -> None:
+        scene = self._item.scene()
+        if self._membership is None and scene is not None:
+            self._membership = _membership_change_for_geometry(scene, self._item)
+        self._item.params[self._param_name] = self._new_value
+        self._item.regenerate_geometry()
+        if self._membership is None and scene is not None:
+            self._membership = _membership_change_for_geometry(scene, self._item)
+        if self._membership is not None:
+            self._membership.reconcile()
+
+    def undo(self) -> None:
+        self._item.params[self._param_name] = self._old_value
+        self._item.regenerate_geometry()
+        if self._membership is not None:
+            self._membership.restore()
+
+
 class ApplySpeciesCommand(Command):
     """Command for assigning a database species to an existing plant item.
 
@@ -616,6 +1333,9 @@ class ApplySpeciesCommand(Command):
         new_spacing_override: float | None,
         old_radius: float | None = None,
         new_radius: float | None = None,
+        *,
+        old_species_name: str,
+        new_species_name: str,
     ) -> None:
         """Initialize the apply-species command.
 
@@ -630,16 +1350,24 @@ class ApplySpeciesCommand(Command):
                 footprint untouched.
             new_radius: Footprint radius (cm) after applying, or None to leave
                 the footprint untouched.
+            old_species_name: The item's own species STRING before the
+                assignment — what the sprite resolver reads (#445) — and
+                new_species_name the string after it. **Required, keyword-only:**
+                a command that carries a species but no name would assign the
+                data and leave the plant drawn as it was, which is the very
+                defect #445 is about.
         """
         self._item = item
         # Defensive copies so later mutations of the source dicts can't alias
         # the undo state.
-        self._old_species = dict(old_species) if old_species is not None else None
-        self._new_species = dict(new_species) if new_species is not None else None
+        self._old_species = deepcopy(old_species)
+        self._new_species = deepcopy(new_species)
         self._old_spacing_override = old_spacing_override
         self._new_spacing_override = new_spacing_override
         self._old_radius = old_radius
         self._new_radius = new_radius
+        self._old_species_name = old_species_name
+        self._new_species_name = new_species_name
 
     @property
     def description(self) -> str:
@@ -651,6 +1379,7 @@ class ApplySpeciesCommand(Command):
         species: dict[str, Any] | None,
         spacing_override: float | None,
         radius: float | None,
+        species_name: str,
     ) -> None:
         # ``metadata`` is a read-only property returning the item's live dict, so
         # mutate it in place (a plant item always has one; a non-plant item would
@@ -660,8 +1389,17 @@ class ApplySpeciesCommand(Command):
             metadata.pop("plant_species", None)
         else:
             metadata["plant_species"] = dict(species)
-        # The setter triggers prepareGeometryChange()/update(); set it last so
-        # the spacing circle repaints with the new metadata in place.
+        # The item's own species STRING is what the sprite resolver reads, so
+        # the assignment has to write it too (#445): without it the plant keeps
+        # the sprite it was drawn with, in 2D and in 3D alike. The setter
+        # triggers prepareGeometryChange()/update(); set it last so the
+        # spacing circle repaints with the new metadata in place.
+        if hasattr(self._item, "plant_species"):
+            # The assignment, not setattr: mypy narrows the item after the
+            # hasattr above, so the setter is reached without an ignore, and the
+            # setter is what repaints the item. A non-plant has no such
+            # attribute, and must not grow one.
+            self._item.plant_species = species_name
         self._item.spacing_radius_cm = spacing_override  # type: ignore[attr-defined]
         # Resize the drawn footprint so it reflects the species' real size
         # (no-op when radius is None or unchanged).
@@ -670,11 +1408,13 @@ class ApplySpeciesCommand(Command):
 
     def execute(self) -> None:
         """Apply the new species + spacing override + footprint radius."""
-        self._apply(self._new_species, self._new_spacing_override, self._new_radius)
+        self._apply(self._new_species, self._new_spacing_override, self._new_radius,
+                    self._new_species_name)
 
     def undo(self) -> None:
         """Restore the previous species + spacing override + footprint radius."""
-        self._apply(self._old_species, self._old_spacing_override, self._old_radius)
+        self._apply(self._old_species, self._old_spacing_override, self._old_radius,
+                    self._old_species_name)
 
 
 class ResizeItemCommand(Command):
@@ -708,27 +1448,53 @@ class ResizeItemCommand(Command):
         self._new_geometry = new_geometry
         self._apply_func = apply_func
         self._partner_resizes: list = partner_resizes or []
+        self._membership = _membership_change_for_geometry(
+            item.scene(),
+            item,
+            [
+                partner
+                for partner, _old_size, _new_size, _apply_fn in self._partner_resizes
+            ],
+        )
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Resize item")
 
+    def notify_applied(self) -> None:
+        """Reconcile bed membership for a resize that was already applied live."""
+        if self._membership is not None:
+            self._membership.reconcile()
+
     def execute(self) -> None:
-        """Apply the new geometry (and partner new sizes)."""
+        """Apply the new geometry (and partner new sizes), then the new links."""
         self._apply_func(self._item, self._new_geometry)
         for p_item, _old_size, new_size, p_apply_fn in self._partner_resizes:
             p_apply_fn(p_item, new_size)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Restore the old geometry (and partner old sizes)."""
+        """Restore the old links, geometry (and partner old sizes)."""
+        if self._membership is not None:
+            self._membership.restore()
         self._apply_func(self._item, self._old_geometry)
         for p_item, old_size, _new_size, p_apply_fn in self._partner_resizes:
             p_apply_fn(p_item, old_size)
 
 
 class RotateItemCommand(Command):
-    """Command for rotating an item."""
+    """Command for rotating an item, with any partner corrections it caused.
+
+    Issue #485: a rotation gesture can change the scene position of an anchor
+    (a corner of a rotated rectangle moves). For a DISTANCE constraint the
+    partner must follow, and every follow-up correction must be part of the
+    SAME undo entry, or undoing the gesture leaves the relation broken and a
+    later nudge's undo resurrects the violation. ``partner_moves`` records each
+    affected item's pre-gesture and post-gesture position, so execute/redo and
+    undo replay the angle and the corrections atomically.
+    """
 
     def __init__(
         self,
@@ -736,6 +1502,8 @@ class RotateItemCommand(Command):
         old_angle: float,
         new_angle: float,
         apply_func: Callable[[QGraphicsItem, float], None],
+        partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] | None = None,
+        partner_vertex_moves: "list[tuple[QGraphicsItem, int, QPointF, QPointF]] | None" = None,
     ) -> None:
         """Initialize the rotate command.
 
@@ -744,24 +1512,197 @@ class RotateItemCommand(Command):
             old_angle: Previous rotation angle in degrees
             new_angle: New rotation angle in degrees
             apply_func: Function to apply rotation to the item
+            partner_moves: Items the solver corrected, as
+                ``(item, position_before, position_after)`` — recorded, not
+                recomputed, so undo restores the exact pre-gesture geometry.
+            partner_vertex_moves: Deformable partners' corrected vertices, as
+                ``(item, vertex_index, local_before, local_after)`` — the solver's
+                vertex-level corrections, recorded the same way.
         """
         self._item = item
         self._old_angle = old_angle
         self._new_angle = new_angle
         self._apply_func = apply_func
+        self._partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = [
+            (moved_item, QPointF(before), QPointF(after))
+            for moved_item, before, after in (partner_moves or [])
+        ]
+        self._partner_vertex_moves: list[
+            tuple[QGraphicsItem, int, QPointF, QPointF]
+        ] = [
+            (moved_item, index, QPointF(before), QPointF(after))
+            for moved_item, index, before, after in (partner_vertex_moves or [])
+        ]
+        self._membership = _membership_change_for_geometry(
+            item.scene(),
+            item,
+            [moved_item for moved_item, _before, _after in self._partner_moves]
+            + [
+                moved_item
+                for moved_item, _index, _before, _after in self._partner_vertex_moves
+            ],
+        )
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Rotate item")
 
+    def notify_applied(self) -> None:
+        """Reconcile bed membership for a rotation that was already applied live."""
+        if self._membership is not None:
+            self._membership.reconcile()
+
     def execute(self) -> None:
-        """Apply the new rotation."""
+        """Apply the new rotation, every partner correction and the new links."""
         self._apply_func(self._item, self._new_angle)
+        for moved_item, _before, after in self._partner_moves:
+            moved_item.setPos(after)
+        for moved_item, index, _before, after in self._partner_vertex_moves:
+            if hasattr(moved_item, "_move_vertex_to"):
+                moved_item._move_vertex_to(index, after)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Restore the old rotation."""
+        """Restore the old rotation, every partner's pre-gesture position and links."""
+        if self._membership is not None:
+            self._membership.restore()
+        for moved_item, index, before, _after in reversed(self._partner_vertex_moves):
+            if hasattr(moved_item, "_move_vertex_to"):
+                moved_item._move_vertex_to(index, before)
+        for moved_item, before, _after in reversed(self._partner_moves):
+            moved_item.setPos(before)
         self._apply_func(self._item, self._old_angle)
+
+
+class PlantSpeciesEditCommand(Command):
+    """One committed Plant Details species edit as a single undo step (#559).
+
+    Captures the ``metadata['plant_species']`` dict, the user's
+    ``spacing_radius_cm`` override, and the drawn footprint radius so a
+    species-field edit — including a Max Spread change that resizes the
+    footprint (#558) — undoes/redoes together. Library writes
+    (``update_plant``/``add_plant``) are explicitly NOT part of undo: they
+    are shared-library side effects, documented in the panel.
+    """
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_species: dict[str, Any] | None,
+        new_species: dict[str, Any] | None,
+        old_radius: float | None = None,
+        new_radius: float | None = None,
+        old_spacing_override: float | None = None,
+        new_spacing_override: float | None = None,
+    ) -> None:
+        self._item = item
+        self._old_species = deepcopy(old_species)
+        self._new_species = deepcopy(new_species)
+        self._old_radius = old_radius
+        self._new_radius = new_radius
+        self._old_spacing_override = old_spacing_override
+        self._new_spacing_override = new_spacing_override
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Edit plant details")
+
+    def _apply(
+        self,
+        species: dict[str, Any] | None,
+        radius: float | None,
+        spacing_override: float | None,
+    ) -> None:
+        if radius is not None:
+            self._item.set_radius_centered(radius)  # type: ignore[attr-defined]
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        if species is None:
+            metadata.pop("plant_species", None)
+        else:
+            metadata["plant_species"] = deepcopy(species)
+        if hasattr(self._item, "spacing_radius_cm"):
+            self._item.spacing_radius_cm = spacing_override
+        with suppress(Exception):
+            if hasattr(self._item, "update"):
+                self._item.update()
+
+    def execute(self) -> None:
+        """Apply the new species dict + footprint radius."""
+        self._apply(self._new_species, self._new_radius, self._new_spacing_override)
+
+    def undo(self) -> None:
+        """Restore the old species dict + footprint radius."""
+        self._apply(self._old_species, self._old_radius, self._old_spacing_override)
+
+    def merge_from(self, edit: "PlantSpeciesEditCommand") -> None:
+        """Apply the next tick while preserving this gesture's original snapshot."""
+        if edit._item is not self._item:
+            raise ValueError("Cannot merge edits to different plants")
+        edit.execute()
+        self._new_species = deepcopy(edit._new_species)
+        self._new_radius = edit._new_radius
+        self._new_spacing_override = edit._new_spacing_override
+
+
+class PlantInstanceEditCommand(Command):
+    """One committed Plant Details instance edit as a single undo step (#559).
+
+    Captures the ``metadata['plant_instance']`` dict. Geometry-affecting keys
+    (``current_spread_cm``, ``current_height_cm``, ``planting_date``) trigger
+    ``prepareGeometryChange`` before the write so the scene index does not
+    keep the old rect.
+    """
+
+    _GEOMETRY_KEYS = frozenset(
+        {"current_spread_cm", "current_height_cm", "planting_date"}
+    )
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_instance: dict[str, Any],
+        new_instance: dict[str, Any],
+    ) -> None:
+        self._item = item
+        self._old_instance = deepcopy(old_instance)
+        self._new_instance = deepcopy(new_instance)
+
+    @property
+    def description(self) -> str:
+        """Human-readable description."""
+        return QCoreApplication.translate("Commands", "Edit plant details")
+
+    def _apply(self, instance: dict[str, Any]) -> None:
+        metadata = self._item.metadata  # type: ignore[attr-defined]
+        try:
+            if hasattr(self._item, "prepareGeometryChange"):
+                self._item.prepareGeometryChange()
+        except Exception:
+            pass
+        metadata["plant_instance"] = deepcopy(instance)
+        try:
+            if hasattr(self._item, "update"):
+                self._item.update()
+        except Exception:
+            pass
+
+    def execute(self) -> None:
+        """Apply the new instance dict."""
+        self._apply(self._new_instance)
+
+    def undo(self) -> None:
+        """Restore the old instance dict."""
+        self._apply(self._old_instance)
+
+    def merge_from(self, edit: "PlantInstanceEditCommand") -> None:
+        """Apply a tick without replacing the gesture's original snapshot."""
+        if edit._item is not self._item:
+            raise ValueError("Cannot merge edits to different plants")
+        edit.execute()
+        self._new_instance = deepcopy(edit._new_instance)
 
 
 class MoveVertexCommand(Command):
@@ -846,6 +1787,7 @@ class AddVertexCommand(Command):
         position: QPointF,
         apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
         apply_remove_func: Callable[[QGraphicsItem, int], None],
+        topology: tuple[object, bool, int] | None = None,
     ) -> None:
         """Initialize the add vertex command.
 
@@ -855,25 +1797,73 @@ class AddVertexCommand(Command):
             position: Position of the new vertex
             apply_add_func: Function to add a vertex to the item
             apply_remove_func: Function to remove a vertex from the item
+            topology: ``(before_snapshot, closed, vertex_count_before)`` captured
+                before the interactive mutation.  The command owns the
+                constraint renumbering so GUI undo, redo and the Agent API share
+                one invariant (round-4 review P1); when omitted it captures the
+                snapshot itself (the Agent API builds before executing).
         """
         self._item = item
         self._vertex_index = vertex_index
         self._position = position
         self._apply_add_func = apply_add_func
         self._apply_remove_func = apply_remove_func
+        self._topology = topology
+        self._before: object | None = topology[0] if topology else None
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Add vertex")
 
+    def _graph(self) -> object | None:
+        scene = self._item.scene()
+        return getattr(scene, "constraint_graph", None)
+
+    def _ensure_topology(self) -> tuple[object, bool, int] | None:
+        """The ``(before_snapshot, closed, count)`` this command applies."""
+        if self._topology is not None:
+            return self._topology
+        graph = self._graph()
+        item_id = getattr(self._item, "item_id", None)
+        if graph is None or item_id is None:
+            return None
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        count = int(self._item._get_vertex_count())  # type: ignore[attr-defined]
+        self._topology = (
+            graph.capture_topology_state(item_id),  # type: ignore[attr-defined]
+            isinstance(self._item, PolygonItem),
+            count,
+        )
+        self._before = self._topology[0]
+        return self._topology
+
     def execute(self) -> None:
         """Add the vertex."""
+        # Resolve the pre-mutation state BEFORE the geometry changes: the Agent
+        # API builds this command before executing, so this is the only place
+        # the old vertex count is still observable (#670 review).
+        graph = self._graph()
+        topology = self._ensure_topology()
         self._apply_add_func(self._item, self._vertex_index, self._position)
+        if graph is not None and topology is not None:
+            before, closed, count_before = topology
+            del before
+            graph.apply_vertex_insert(  # type: ignore[attr-defined]
+                self._item.item_id,  # type: ignore[attr-defined]
+                self._vertex_index,
+                closed=closed,
+                vertex_count_before=count_before,
+            )
 
     def undo(self) -> None:
-        """Remove the vertex."""
+        """Remove the vertex and restore the constraint anchors it renumbered."""
         self._apply_remove_func(self._item, self._vertex_index)
+        graph = self._graph()
+        self._ensure_topology()
+        if graph is not None and self._before is not None:
+            graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
 class AlignItemsCommand(Command):
@@ -898,6 +1888,13 @@ class AlignItemsCommand(Command):
         """
         self._item_deltas = list(item_deltas)
         self._description_text = description_text
+        scene = self._item_deltas[0][0].scene() if self._item_deltas else None
+        if scene is not None:
+            # A moved bed takes its plants along, one rule for every path (#443 (vi)).
+            self._item_deltas = expand_with_bed_children(scene, self._item_deltas)
+        self._membership = _membership_change_for_move(
+            scene, [item for item, _delta in self._item_deltas]
+        )
 
     @property
     def description(self) -> str:
@@ -907,12 +1904,16 @@ class AlignItemsCommand(Command):
         return QCoreApplication.translate("Commands", "Align items")
 
     def execute(self) -> None:
-        """Move each item by its individual delta."""
+        """Move each item by its individual delta, then re-derive bed links."""
         for item, delta in self._item_deltas:
             item.moveBy(delta.x(), delta.y())
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Move each item back by its individual delta."""
+        """Restore bed links, then move each item back by its individual delta."""
+        if self._membership is not None:
+            self._membership.restore()
         for item, delta in self._item_deltas:
             item.moveBy(-delta.x(), -delta.y())
 
@@ -927,6 +1928,7 @@ class DeleteVertexCommand(Command):
         position: QPointF,
         apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
         apply_remove_func: Callable[[QGraphicsItem, int], None],
+        topology: tuple[object, bool, int] | None = None,
     ) -> None:
         """Initialize the delete vertex command.
 
@@ -936,25 +1938,67 @@ class DeleteVertexCommand(Command):
             position: Position of the vertex (for undo)
             apply_add_func: Function to add a vertex to the item (for undo)
             apply_remove_func: Function to remove a vertex from the item
+            topology: ``(before_snapshot, closed, vertex_count_before)`` captured
+                before the interactive mutation (see ``AddVertexCommand``).
         """
         self._item = item
         self._vertex_index = vertex_index
         self._position = position
         self._apply_add_func = apply_add_func
         self._apply_remove_func = apply_remove_func
+        self._topology = topology
+        self._before: object | None = topology[0] if topology else None
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Delete vertex")
 
+    def _graph(self) -> object | None:
+        scene = self._item.scene()
+        return getattr(scene, "constraint_graph", None)
+
+    def _ensure_topology(self) -> tuple[object, bool, int] | None:
+        """The ``(before_snapshot, closed, count)`` this command applies."""
+        if self._topology is not None:
+            return self._topology
+        graph = self._graph()
+        item_id = getattr(self._item, "item_id", None)
+        if graph is None or item_id is None:
+            return None
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        count = int(self._item._get_vertex_count())  # type: ignore[attr-defined]
+        self._topology = (
+            graph.capture_topology_state(item_id),  # type: ignore[attr-defined]
+            isinstance(self._item, PolygonItem),
+            count,
+        )
+        self._before = self._topology[0]
+        return self._topology
+
     def execute(self) -> None:
         """Remove the vertex."""
+        graph = self._graph()
+        topology = self._ensure_topology()
         self._apply_remove_func(self._item, self._vertex_index)
+        if graph is not None and topology is not None:
+            before, closed, count_before = topology
+            del before
+            graph.apply_vertex_delete(  # type: ignore[attr-defined]
+                self._item.item_id,  # type: ignore[attr-defined]
+                self._vertex_index,
+                closed=closed,
+                vertex_count_before=count_before,
+            )
 
     def undo(self) -> None:
-        """Restore the vertex."""
+        """Restore the vertex and the constraint anchors it renumbered."""
         self._apply_add_func(self._item, self._vertex_index, self._position)
+        graph = self._graph()
+        self._ensure_topology()
+        if graph is not None and self._before is not None:
+            graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
 class MultiVertexMoveCommand(Command):
@@ -988,6 +2032,48 @@ class MultiVertexMoveCommand(Command):
         for item, idx, old, _new in reversed(self._vertex_moves):
             if hasattr(item, "_move_vertex_to"):
                 item._move_vertex_to(idx, old)
+
+
+def _capture_bed_child_moves(
+    item_moves: "list[tuple[QGraphicsItem, QPointF, QPointF]]",
+) -> "list[tuple[QGraphicsItem, QPointF, QPointF]]":
+    """Children a one-shot solver move must carry, as ``(child, before, after)``.
+
+    ``AddConstraintCommand`` / ``EditConstraintDistanceCommand`` move items to
+    satisfy a new relation directly (not through ``MoveItemsCommand``); a bed
+    among them must take its plants along, or the next reconcile unlinks them
+    while the panel still calls them contained (#443 (vi)).
+    """
+    from open_garden_planner.core.object_types import is_plant_parent_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+    moved_ids = {id(item) for item, _old, _new in item_moves}
+    for item, old, new in item_moves:
+        scene = item.scene()
+        if scene is None:
+            continue
+        finder = getattr(scene, "find_item_by_id", None)
+        if not callable(finder):
+            continue
+        if not isinstance(item, GardenItemMixin):
+            continue
+        if not is_plant_parent_type(item.object_type):
+            continue
+        delta = new - old
+        for child_id in item.child_item_ids:
+            child = finder(child_id)
+            if (
+                child is None
+                or id(child) in moved_ids
+                or bed_child_has_constraints(scene, child_id)
+            ):
+                # The solver already gave this child its own absolute move;
+                # adding the bed's delta would move it twice (review round 3).
+                continue
+            current = child.pos()
+            moves.append((child, current, current + delta))
+    return moves
 
 
 class AddConstraintCommand(Command):
@@ -1025,12 +2111,32 @@ class AddConstraintCommand(Command):
         self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
         self._target_x = target_x
         self._target_y = target_y
+        self._child_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+        self._children_captured = False
+        self._membership: BedMembershipChange | None = None
+
+    def _prepare_membership(self) -> None:
+        """Build the link tracker from the payload as it is NOW.
+
+        The constraint tools construct the command with an EMPTY payload, run a
+        trial ``execute()``/``undo()`` and only then inject ``_item_moves`` (the
+        shipped ``CanvasView._execute_constraint_with_solve`` path). Building the
+        tracker in ``__init__`` therefore missed the real moves — review round 3.
+        """
+        moved = (
+            [item for item, _old, _new in self._item_moves]
+            + [item for item, _old_angle, _new_angle, _fn in self._item_rotations]
+            + [item for item, _index, _old_local, _new_local in self._vertex_moves]
+        )
+        scene = moved[0].scene() if moved else None
+        self._membership = _membership_change_for_move(scene, moved)
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Add constraint")
 
     def execute(self) -> None:
+        self._prepare_membership()
         c = self._graph.add_constraint(
             self._anchor_a,
             self._anchor_b,
@@ -1049,10 +2155,22 @@ class AddConstraintCommand(Command):
         for item, idx, _old_local, new_local in self._vertex_moves:
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, new_local)
+        if not self._children_captured:
+            self._children_captured = True
+            self._child_moves = _capture_bed_child_moves(self._item_moves)
+        for child, _old, new in self._child_moves:
+            child.setPos(new)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
         if self._constraint_id is not None:
             self._graph.remove_constraint(self._constraint_id)
+        if self._membership is not None:
+            self._membership.restore()
+        # Revert the carried children's positions first.
+        for child, old, _new in self._child_moves:
+            child.setPos(old)
         # Revert vertex moves first (reverse order)
         for item, idx, old_local, _new_local in reversed(self._vertex_moves):
             if hasattr(item, '_move_vertex_to'):
@@ -1061,6 +2179,11 @@ class AddConstraintCommand(Command):
             item.setPos(old)
         for item, old_angle, _new_angle, apply_func in self._item_rotations:
             apply_func(item, old_angle)
+        # A later redo re-prepares from the payload and the restored links; the
+        # trial execute/undo of the constraint tool relies on this reset.
+        self._membership = None
+        self._children_captured = False
+        self._child_moves = []
 
 
 class RemoveConstraintCommand(Command):
@@ -1089,6 +2212,10 @@ class RemoveConstraintCommand(Command):
             visible=self._constraint.visible,
             constraint_id=self._constraint.constraint_id,
             constraint_type=self._constraint.constraint_type,
+            # #656: the third anchor is part of the removed constraint.  Dropping
+            # it left an ANGLE / POINT_ON_EDGE / TANGENT constraint structurally
+            # different after undo (a broken relation the panel cannot describe).
+            anchor_c=self._constraint.anchor_c,
             target_x=self._constraint.target_x,
             target_y=self._constraint.target_y,
         )
@@ -1122,6 +2249,7 @@ class LinearArrayCommand(Command):
         self._constraint_pairs = constraint_pairs or []
         self._graph = graph
         self._constraint_ids: list[UUID] = []
+        self._membership: BedMembershipChange | None = None
 
     @property
     def description(self) -> str:
@@ -1130,7 +2258,11 @@ class LinearArrayCommand(Command):
         )
 
     def execute(self) -> None:
-        """Add items and constraints to the scene."""
+        """Add items and constraints to the scene, then re-derive copy links."""
+        if self._membership is None:
+            self._membership = _membership_for_added_items(
+                self._scene, self._items, clear_inherited=True
+            )
         with _bulk_add_scope(self._scene):
             for item in self._items:
                 if item.scene() is None:
@@ -1140,16 +2272,21 @@ class LinearArrayCommand(Command):
             for anchor_a, anchor_b, dist in self._constraint_pairs:
                 c = self._graph.add_constraint(anchor_a, anchor_b, dist)
                 self._constraint_ids.append(c.constraint_id)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Remove constraints then items from the scene."""
+        """Remove constraints then items from the scene; restore displaced links."""
         if self._graph:
             for cid in reversed(self._constraint_ids):
                 self._graph.remove_constraint(cid)
         self._constraint_ids = []
         for item in self._items:
+            _detach_from_parent(self._scene, item)
             if item.scene() is not None:
                 self._scene.removeItem(item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class GridArrayCommand(Command):
@@ -1180,6 +2317,7 @@ class GridArrayCommand(Command):
         self._constraint_pairs = constraint_pairs or []
         self._graph = graph
         self._constraint_ids: list[UUID] = []
+        self._membership: BedMembershipChange | None = None
 
     @property
     def description(self) -> str:
@@ -1188,7 +2326,11 @@ class GridArrayCommand(Command):
         )
 
     def execute(self) -> None:
-        """Add items and constraints to the scene."""
+        """Add items and constraints to the scene, then re-derive copy links."""
+        if self._membership is None:
+            self._membership = _membership_for_added_items(
+                self._scene, self._items, clear_inherited=True
+            )
         with _bulk_add_scope(self._scene):
             for item in self._items:
                 if item.scene() is None:
@@ -1198,16 +2340,21 @@ class GridArrayCommand(Command):
             for anchor_a, anchor_b, dist in self._constraint_pairs:
                 c = self._graph.add_constraint(anchor_a, anchor_b, dist)
                 self._constraint_ids.append(c.constraint_id)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Remove constraints then items from the scene."""
+        """Remove constraints then items from the scene; restore displaced links."""
         if self._graph:
             for cid in reversed(self._constraint_ids):
                 self._graph.remove_constraint(cid)
         self._constraint_ids = []
         for item in self._items:
+            _detach_from_parent(self._scene, item)
             if item.scene() is not None:
                 self._scene.removeItem(item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class CircularArrayCommand(Command):
@@ -1229,6 +2376,7 @@ class CircularArrayCommand(Command):
         """
         self._scene = scene
         self._items = list(new_items)
+        self._membership: BedMembershipChange | None = None
 
     @property
     def description(self) -> str:
@@ -1237,17 +2385,26 @@ class CircularArrayCommand(Command):
         ).format(count=len(self._items) + 1)
 
     def execute(self) -> None:
-        """Add items to the scene."""
+        """Add items to the scene, then re-derive every copy's bed link."""
+        if self._membership is None:
+            self._membership = _membership_for_added_items(
+                self._scene, self._items, clear_inherited=True
+            )
         with _bulk_add_scope(self._scene):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
-        """Remove items from the scene."""
+        """Remove items from the scene; restore the links they displaced."""
         for item in self._items:
+            _detach_from_parent(self._scene, item)
             if item.scene() is not None:
                 self._scene.removeItem(item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class MirrorItemsCommand(Command):
@@ -1271,6 +2428,7 @@ class MirrorItemsCommand(Command):
         self._originals = list(originals)
         self._mirrored = list(mirrored)
         self._copy = copy
+        self._membership: BedMembershipChange | None = None
         if copy:
             from open_garden_planner.ui.guild_copy import remap_mirror_membership
 
@@ -1288,17 +2446,34 @@ class MirrorItemsCommand(Command):
         ).format(count=count)
 
     def execute(self) -> None:
+        if self._membership is None:
+            # In Move mode the originals are removed while their ids live on in
+            # the mirrored items; tracking them too lets undo heal the parent's
+            # child list for the re-added original object (#443 review).
+            tracked = list(self._mirrored)
+            if not self._copy:
+                tracked.extend(self._originals)
+            self._membership = _membership_for_added_items(
+                self._scene, tracked, clear_inherited=self._copy
+            )
         if not self._copy:
             for item in self._originals:
                 if item.scene() is self._scene:
+                    # Detach BEFORE removing: the mirrored replacement reuses the
+                    # id, so the bed's child list must not keep the id unless the
+                    # replacement is linked again (redo/undo stay two-sided).
+                    _detach_from_parent(self._scene, item)
                     self._scene.removeItem(item)
         with _bulk_add_scope(self._scene):
             for item in self._mirrored:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
         for item in self._mirrored:
+            _detach_from_parent(self._scene, item)
             if item.scene() is self._scene:
                 self._scene.removeItem(item)
         if not self._copy:
@@ -1306,6 +2481,8 @@ class MirrorItemsCommand(Command):
                 for item in self._originals:
                     if item.scene() is None:
                         self._scene.addItem(item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class EditConstraintDistanceCommand(Command):
@@ -1340,12 +2517,24 @@ class EditConstraintDistanceCommand(Command):
         self._new_distance = new_distance
         self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
         self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
+        self._child_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+        self._children_captured = False
+        self._membership: BedMembershipChange | None = None
+
+    def _prepare_membership(self) -> None:
+        moved = (
+            [item for item, _old, _new in self._item_moves]
+            + [item for item, _index, _old_local, _new_local in self._vertex_moves]
+        )
+        scene = moved[0].scene() if moved else None
+        self._membership = _membership_change_for_move(scene, moved)
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Edit constraint distance")
 
     def execute(self) -> None:
+        self._prepare_membership()
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._new_distance
@@ -1354,16 +2543,30 @@ class EditConstraintDistanceCommand(Command):
         for item, idx, _old_local, new_local in self._vertex_moves:
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, new_local)
+        if not self._children_captured:
+            self._children_captured = True
+            self._child_moves = _capture_bed_child_moves(self._item_moves)
+        for child, _old, new in self._child_moves:
+            child.setPos(new)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._old_distance
+        if self._membership is not None:
+            self._membership.restore()
+        for child, old, _new in self._child_moves:
+            child.setPos(old)
         for item, idx, old_local, _new_local in reversed(self._vertex_moves):
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, old_local)
         for item, old, _new in self._item_moves:
             item.setPos(old)
+        self._membership = None
+        self._children_captured = False
+        self._child_moves = []
 
 
 class SetParentBedCommand(Command):
@@ -1394,28 +2597,11 @@ class SetParentBedCommand(Command):
         self._set_parent(self._old_parent_id, self._new_parent_id)
 
     def _set_parent(self, attach_id: UUID | None, detach_id: UUID | None) -> None:
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        if not isinstance(self._plant, GardenItemMixin):
-            return
-        # Detach from old
-        if detach_id is not None and hasattr(self._scene, "find_item_by_id"):
-            old_bed = self._scene.find_item_by_id(detach_id)
-            if old_bed is not None and isinstance(old_bed, GardenItemMixin):
-                old_bed.remove_child_id(self._plant.item_id)
-        # Attach to new
-        if attach_id is not None and hasattr(self._scene, "find_item_by_id"):
-            new_bed = self._scene.find_item_by_id(attach_id)
-            if new_bed is not None and isinstance(new_bed, GardenItemMixin):
-                new_bed.add_child_id(self._plant.item_id)
-        self._plant.parent_bed_id = attach_id
-        # z is derived from the normalized stacking order (issue #338), so
-        # attaching/detaching only needs a refresh — no explicit elevation
-        # or z snapshot/restore is needed either way.
-        _refresh_z_after_relink(self._scene, self._plant)
-        # Parent-link mutations don't fire QGraphicsScene.changed; refresh now
-        # so callers (drag-and-drop, properties-panel Unlink, …) all stay in sync.
-        trigger_soil_mismatch_refresh(self._scene)
+        # One mutator for both sides of the link (issue #443). ``detach_id`` is
+        # kept in the signature for the command's own callers; the current
+        # parent is read from the plant, which is always the truth here.
+        del detach_id
+        set_parent_link(self._scene, self._plant, attach_id)
 
 
 class GroupCommand(Command):
@@ -1508,7 +2694,11 @@ class UngroupCommand(Command):
 
 
 class BooleanShapeCommand(Command):
-    """Apply a boolean operation (union/intersect/subtract) on two shapes."""
+    """Replace every source shape by one result in a single undo step.
+
+    The original two-shape constructor stays valid; a union over a larger
+    selection passes the rest as ``additional_items`` (#550).
+    """
 
     def __init__(
         self,
@@ -1517,10 +2707,11 @@ class BooleanShapeCommand(Command):
         item_b: QGraphicsItem,
         result_item: QGraphicsItem,
         operation: str,
+        *,
+        additional_items: list[QGraphicsItem] | None = None,
     ) -> None:
         self._scene = scene
-        self._item_a = item_a
-        self._item_b = item_b
+        self._original_items = [item_a, item_b, *(additional_items or [])]
         self._result_item = result_item
         self._operation = operation
 
@@ -1531,20 +2722,19 @@ class BooleanShapeCommand(Command):
         )
 
     def execute(self) -> None:
-        if self._item_a.scene() is not None:
-            self._scene.removeItem(self._item_a)
-        if self._item_b.scene() is not None:
-            self._scene.removeItem(self._item_b)
+        for item in self._original_items:
+            if item.scene() is self._scene:
+                self._scene.removeItem(item)
         if self._result_item.scene() is None:
             self._scene.addItem(self._result_item)
 
     def undo(self) -> None:
         if self._result_item.scene() is not None:
             self._scene.removeItem(self._result_item)
-        if self._item_a.scene() is None:
-            self._scene.addItem(self._item_a)
-        if self._item_b.scene() is None:
-            self._scene.addItem(self._item_b)
+        with _bulk_add_scope(self._scene):
+            for item in self._original_items:
+                if item.scene() is None:
+                    self._scene.addItem(item)
 
 
 class ArrayAlongPathCommand(Command):
@@ -1555,6 +2745,7 @@ class ArrayAlongPathCommand(Command):
     ) -> None:
         self._scene = scene
         self._items = list(new_items)
+        self._membership: BedMembershipChange | None = None
 
     @property
     def description(self) -> str:
@@ -1563,15 +2754,24 @@ class ArrayAlongPathCommand(Command):
         )
 
     def execute(self) -> None:
+        if self._membership is None:
+            self._membership = _membership_for_added_items(
+                self._scene, self._items, clear_inherited=True
+            )
         with _bulk_add_scope(self._scene):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
         for item in self._items:
+            _detach_from_parent(self._scene, item)
             if item.scene() is not None:
                 self._scene.removeItem(item)
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class MoveToLayerCommand(Command):
@@ -2166,19 +3366,16 @@ class ExtendPolylineCommand(Command):
 # ────────────────────────────────────────────────────────────────────────────
 
 
-class FilletCornerCommand(Command):
-    """Round one corner of a polyline / polygon / rectangle with a tangent arc.
+class _CornerReplacementCommand(Command):
+    """Swap a corner-edited item and keep indexed constraint anchors honest.
 
-    Execute:
-        - Polyline / polygon: replace the corner vertex with the two tangent
-          points; spawn a separate ``ArcItem`` for the rounded fillet.
-        - Rectangle: convert to a 5-vertex polygon (one corner becomes two
-          tangent points); spawn the arc. On undo the rectangle is restored
-          unchanged.
-
-    The arc itself is created externally and passed in already-built so the
-    command stays pure-Python and doesn't depend on Qt geometry calls during
-    undo/redo.
+    Both fillet and chamfer replace one vertex with several.  The replacement
+    keeps the source UUID (``inherit_item_identity``), so the graph still finds
+    its constraints; the later indexed anchors must shift by the inserted count.
+    Capturing the topology state before the first application makes undo an
+    exact restore, and redo re-applies the same shift (round-5/6 reviews of
+    #668/#670; the old item-wide refusal that avoided this shift is replaced by
+    the corner-scoped check in ``corner_edit_base``).
     """
 
     def __init__(
@@ -2186,78 +3383,76 @@ class FilletCornerCommand(Command):
         scene: QGraphicsScene,
         original_item: QGraphicsItem,
         new_item: QGraphicsItem,
-        arc_item: QGraphicsItem,
+        *,
+        vertex_index: int,
+        inserted_count: int,
     ) -> None:
-        """Initialize.
-
-        Args:
-            scene: Canvas scene.
-            original_item: The polyline / polygon / rectangle being modified.
-            new_item: Replacement item carrying the corner-split vertex list.
-                For polylines / polygons this is a fresh ``PolylineItem`` /
-                ``PolygonItem`` with the same styling. For rectangles it is
-                a ``PolygonItem`` (the destructive rect→polygon conversion).
-            arc_item: Pre-built ``ArcItem`` representing the fillet arc.
-        """
         self._scene = scene
         self._original = original_item
         self._new = new_item
-        self._arc = arc_item
+        self._vertex_index = vertex_index
+        self._inserted_count = inserted_count
+        from open_garden_planner.ui.canvas.items.rectangle_item import (
+            RectangleItem,
+        )
+
+        self._rectangle = isinstance(original_item, RectangleItem)
+        graph = getattr(scene, "constraint_graph", None)
+        item_id = getattr(original_item, "item_id", None)
+        self._graph = graph
+        self._item_id = item_id
+        self._topology = (
+            graph.capture_topology_state(item_id)
+            if graph is not None and item_id is not None
+            else None
+        )
+
+    def execute(self) -> None:
+        if self._original.scene() is not None:
+            self._scene.removeItem(self._original)
+        if self._new.scene() is None:
+            self._scene.addItem(self._new)
+        if self._graph is not None and self._topology is not None:
+            self._graph.apply_corner_edit(
+                self._item_id,
+                self._vertex_index,
+                self._inserted_count,
+                rectangle=self._rectangle,
+            )
+
+    def undo(self) -> None:
+        if self._new.scene() is not None:
+            self._scene.removeItem(self._new)
+        if self._original.scene() is None:
+            self._scene.addItem(self._original)
+        if self._graph is not None and self._topology is not None:
+            self._graph.restore_topology_state(self._topology)
+
+
+class FilletCornerCommand(_CornerReplacementCommand):
+    """Round one corner of a polyline / polygon / rectangle.
+
+    The arc is baked into the host's vertex list (sampled at
+    ``cad_geometry.FILLET_ARC_TOLERANCE_CM``); the host is replaced whole so a
+    rectangle can become a polygon, and undo restores the original object.
+    There is no second item to leave behind when the host moves (owner manual
+    test 2026-10-31).
+    """
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Fillet corner")
 
-    def execute(self) -> None:
-        if self._original.scene() is not None:
-            self._scene.removeItem(self._original)
-        if self._new.scene() is None:
-            self._scene.addItem(self._new)
-        if self._arc.scene() is None:
-            self._scene.addItem(self._arc)
 
-    def undo(self) -> None:
-        if self._arc.scene() is not None:
-            self._scene.removeItem(self._arc)
-        if self._new.scene() is not None:
-            self._scene.removeItem(self._new)
-        if self._original.scene() is None:
-            self._scene.addItem(self._original)
-
-
-class ChamferCornerCommand(Command):
+class ChamferCornerCommand(_CornerReplacementCommand):
     """Bevel one corner of a polyline / polygon / rectangle with a straight cut.
 
-    Like ``FilletCornerCommand`` but without an arc — the corner vertex is
-    simply replaced by two cut-points so the two adjacent edges keep their
-    direction and a new straight segment bridges them.
+    Like ``FilletCornerCommand`` with the two cut-points as the replacement.
     """
-
-    def __init__(
-        self,
-        scene: QGraphicsScene,
-        original_item: QGraphicsItem,
-        new_item: QGraphicsItem,
-    ) -> None:
-        self._scene = scene
-        self._original = original_item
-        self._new = new_item
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Chamfer corner")
-
-    def execute(self) -> None:
-        if self._original.scene() is not None:
-            self._scene.removeItem(self._original)
-        if self._new.scene() is None:
-            self._scene.addItem(self._new)
-
-    def undo(self) -> None:
-        if self._new.scene() is not None:
-            self._scene.removeItem(self._new)
-        if self._original.scene() is None:
-            self._scene.addItem(self._original)
 
 
 class AddSoilTestCommand(Command):
@@ -2920,3 +4115,43 @@ class DeleteManualTaskCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_manual_task(self._task_id, self._prior_dict)
+
+
+# Commands whose effect cannot change an item's ground band (#592). Every one of
+# them moves, resizes, rotates, edits vertices/curves, copies, links/reparents,
+# or changes constraints: ``canvas_scene.on_ground`` reads the item's object
+# type, height metadata and group membership, none of which these touch. The
+# base default stays True, so a future command is safe until it says otherwise.
+# Create is neutral because `addItem` derives a ground surface's band
+# synchronously and bulk adds end in `_update_items_z_order`; Delete/Group/
+# Ungroup/Boolean/ChangeProperty keep the scan.
+_GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
+    CreateItemCommand,
+    CreateItemsCommand,
+    MoveItemsCommand,
+    AlignItemsCommand,
+    ResizeItemCommand,
+    RotateItemCommand,
+    MoveVertexCommand,
+    SetCurveGeometryCommand,
+    AddVertexCommand,
+    DeleteVertexCommand,
+    MultiVertexMoveCommand,
+    LinearArrayCommand,
+    GridArrayCommand,
+    CircularArrayCommand,
+    ArrayAlongPathCommand,
+    MirrorItemsCommand,
+    SetParentBedCommand,
+    AddConstraintCommand,
+    RemoveConstraintCommand,
+    EditConstraintDistanceCommand,
+)
+for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
+    _ground_band_neutral.changes_ground_band = False
+
+#: Commands that cannot change which plant-parent contains a plant (#629): an add is
+#: derived synchronously by `addItem` and a delete cannot hide anything.
+CONTAINMENT_NEUTRAL_COMMANDS = (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand)
+for _containment_neutral in CONTAINMENT_NEUTRAL_COMMANDS:
+    _containment_neutral.changes_containment = False

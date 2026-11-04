@@ -5,15 +5,15 @@ Distance is now determined by cursor position, not a dialog.
 All coordinates are scene-space (Y-down, (0,0) = top-left).
 """
 
-# ruff: noqa: ARG002
 
+import math
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QColor, QMouseEvent
+from PyQt6.QtGui import QColor, QMouseEvent, QPen
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
@@ -483,3 +483,133 @@ class TestOffsetCopyLooksLikeItsSource:
         assert len(reloaded) == 2, "source and its offset copy must both persist"
         for item in reloaded:
             _assert_reloaded_look(source, item)
+
+
+def test_offset_polyline_result_is_a_parallel_line(qtbot) -> None:
+    """An open fence/wall/path offsets to a LINE on the cursor's side.
+
+    Review of the 2026-10-31 follow-up: the old code wrapped the open offset
+    contour in a filled polygon — a meaningless rounded band on the ground. A
+    line keeps its type and look and has no closing segment.
+    """
+    from open_garden_planner.core.item_look import adopt_pen
+    from open_garden_planner.core.object_types import PathFenceStyle
+    from open_garden_planner.core.tools.offset_tool import _offset_polyline
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    line = PolylineItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0)],
+        object_type=ObjectType.FENCE,
+    )
+    line.path_fence_style = PathFenceStyle.WOODEN_FENCE
+    adopt_pen(line, QPen(QColor(20, 140, 40), 3.5))
+
+    above = _offset_polyline(line, 20.0, QPointF(100.0, -50.0))
+    below = _offset_polyline(line, 20.0, QPointF(100.0, 50.0))
+    assert isinstance(above, PolylineItem)
+    assert isinstance(below, PolylineItem)
+    assert above.object_type == ObjectType.FENCE
+    assert above.path_fence_style == PathFenceStyle.WOODEN_FENCE, (
+        "the offset line must keep the fence/path preset, not just the pen"
+    )
+    assert above.item_id != line.item_id, "an offset is a new object"
+    assert all(point.y() == pytest.approx(-20.0) for point in above.points)
+    assert all(point.y() == pytest.approx(20.0) for point in below.points)
+    assert above.pen().color().rgba() == line.pen().color().rgba()
+    assert above.pen().widthF() == pytest.approx(line.pen().widthF())
+
+    # A moved source offsets in SCENE space, not around its local origin.
+    line.setPos(100.0, 50.0)
+    moved = _offset_polyline(line, 20.0, QPointF(200.0, 0.0))
+    assert isinstance(moved, PolylineItem)
+    assert all(point.y() == pytest.approx(30.0) for point in moved.points)
+    assert min(point.x() for point in moved.points) == pytest.approx(100.0, abs=1.0)
+    assert max(point.x() for point in moved.points) == pytest.approx(300.0, abs=1.0)
+
+
+def test_offset_polyline_miters_a_right_angle_corner(qtbot) -> None:
+    """The parallel line keeps the source's corner shape (miter, not a gap)."""
+    from open_garden_planner.core.tools.offset_tool import _offset_polyline
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    line = PolylineItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(200.0, 150.0)],
+        object_type=ObjectType.WALL,
+    )
+    # Cursor outside the L: below the first leg and right of the second.
+    result = _offset_polyline(line, 20.0, QPointF(300.0, -50.0))
+    assert isinstance(result, PolylineItem)
+    assert result.object_type == ObjectType.WALL
+    points = [(round(p.x(), 6), round(p.y(), 6)) for p in result.points]
+    assert (220.0, -20.0) in points, f"missing mitred corner: {points}"
+
+
+def test_offset_polyline_bevels_a_sharp_corner(qtbot) -> None:
+    """A very acute corner must not produce a metre-long miter spike."""
+    from open_garden_planner.core.tools.offset_tool import _offset_polyline
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    line = PolylineItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(0.0, 10.0)],
+        object_type=ObjectType.PATH,
+    )
+    result = _offset_polyline(line, 20.0, QPointF(200.0, -100.0))
+    assert isinstance(result, PolylineItem)
+    # A hairpin's miter would intersect far past the vertex; the bevel adds the
+    # two segment ends instead, both within the 4x limit of the corner.
+    assert len(result.points) == 4
+    vertex = QPointF(200.0, 0.0)
+    assert all(
+        math.hypot(p.x() - vertex.x(), p.y() - vertex.y()) <= 80.0 + 1e-6
+        for p in result.points[1:3]
+    )
+
+
+def test_the_offset_tool_creates_a_parallel_line_from_the_cursor_side(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """The interactive path must pass the cursor side through to the result.
+
+    The unit tests call ``_offset_polyline`` directly; this drives the real
+    tool (hover → preview → click) on both sides and undoes once.
+    """
+    from PyQt6.QtWidgets import QGraphicsPathItem
+
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    line = PolylineItem(
+        [QPointF(100.0, 300.0), QPointF(400.0, 300.0)],
+        object_type=ObjectType.FENCE,
+    )
+    canvas.scene().addItem(line)
+    line.setSelected(True)
+    event = _left_click()
+
+    for cursor, expected_y in ((QPointF(250.0, 250.0), 250.0),
+                               (QPointF(250.0, 350.0), 350.0)):
+        line.setSelected(True)
+        canvas.set_active_tool(ToolType.OFFSET)
+        tool = canvas.tool_manager.active_tool
+        tool.mouse_move(event, cursor)
+        preview = tool._preview
+        assert isinstance(preview, QGraphicsPathItem)
+        assert preview.brush().style() == Qt.BrushStyle.NoBrush
+        assert preview.path().elementCount() == 2, "the preview is a line"
+
+        tool.mouse_press(event, cursor)
+        created = [
+            item
+            for item in canvas.scene().items()
+            if isinstance(item, PolylineItem) and item is not line
+        ]
+        assert len(created) == 1, "exactly one parallel line"
+        assert all(
+            point.y() == pytest.approx(expected_y, abs=3.0)
+            for point in created[0].points
+        ), f"the line must be on the cursor's side ({cursor})"
+        assert created[0].object_type == ObjectType.FENCE
+
+        canvas.command_manager.undo()
+        assert len(
+            [i for i in canvas.scene().items() if isinstance(i, PolylineItem)]
+        ) == 1, "undo must remove the offset line"

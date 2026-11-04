@@ -3,7 +3,6 @@
 Each test exercises the primary UI workflow that exposed the bug.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock, patch
 
@@ -80,7 +79,7 @@ class TestIssue135RoofRidgeDeletion:
         assert len(houses) == 1
         houses[0].setSelected(True)
 
-        canvas._delete_selected_items()  # noqa: SLF001
+        canvas._delete_selected_items()
 
         ridges_after = [
             i for i in scene.items()
@@ -294,7 +293,7 @@ class TestAngleLabelCleanup:
 
         # Delete the rectangle
         rect.setSelected(True)
-        canvas._delete_selected_items()  # noqa: SLF001
+        canvas._delete_selected_items()
 
         displays_after = [i for i in scene.items() if isinstance(i, AngleDisplay)]
         assert len(displays_after) == 0, "AngleDisplay must be removed when item is deleted"

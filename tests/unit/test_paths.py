@@ -30,15 +30,19 @@ def test_get_projects_dir_is_created(monkeypatch: object, tmp_path: Path) -> Non
     assert projects.is_dir()
 
 
-def test_get_projects_dir_falls_back_to_home(monkeypatch: object) -> None:
+def test_get_projects_dir_falls_back_to_home(monkeypatch: object, tmp_path: Path) -> None:
     """When the OS reports no Documents location, fall back to ~/Documents."""
     monkeypatch.setattr(  # type: ignore[attr-defined]
         QStandardPaths, "writableLocation", lambda _loc: ""
     )
+    # ``get_projects_dir`` CREATES the folder: with the real home this test made
+    # ``~/Documents/Open Garden Planner`` on every machine it ran on.
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")  # type: ignore[attr-defined]
 
     projects = paths.get_projects_dir()
 
-    assert projects == Path.home() / "Documents" / "Open Garden Planner"
+    assert projects == tmp_path / "home" / "Documents" / "Open Garden Planner"
+    assert projects.is_dir()
 
 
 def test_default_dialog_dir_without_project(monkeypatch: object, tmp_path: Path) -> None:

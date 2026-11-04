@@ -1,6 +1,5 @@
 """UI tests for the Linear Array dialog (US-7.14)."""
 
-# ruff: noqa: ARG002
 from PyQt6.QtWidgets import QDialogButtonBox
 
 from open_garden_planner.ui.dialogs import LinearArrayDialog

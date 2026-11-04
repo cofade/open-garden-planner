@@ -175,6 +175,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         y = center_y - radius
         diameter = radius * 2
         QGraphicsEllipseItem.__init__(self, x, y, diameter, diameter)
+        self.setTransformOriginPoint(self.rect().center())
 
         self._center = QPointF(center_x, center_y)
         self._radius = radius
@@ -192,12 +193,17 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self._setup_flags()
         self.initialize_label()
 
+    @property
+    def paints_sprite(self) -> bool:
+        """A plant or furniture circle is painted as an SVG sprite (``GardenItemMixin.paints_sprite``)."""
+        return is_plant_type(self.object_type) or is_furniture_type(self.object_type)
+
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
         style = get_style(self.object_type) if self.object_type else get_style(ObjectType.GENERIC_CIRCLE)
 
         # Plant and furniture types use SVG rendering — hide pen and brush
-        if is_plant_type(self.object_type) or is_furniture_type(self.object_type):
+        if self.paints_sprite:
             self.setPen(QPen(Qt.PenStyle.NoPen))
             self.setBrush(QBrush())
             return
@@ -310,13 +316,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         return base
 
     def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
-        """The diameter (cm) the plant's SVG icon should render at today.
+        """The diameter (cm) the plant's SVG icon should render at the plan date.
 
         Deliberately distinct from ``footprint_diameter`` (this item's drawn
         rect, which stays at the mature ``max_spread_cm`` for spacing/overlap
         correctness -- see ``core/plant_sizing.py``'s "three legitimate sizes"
         note). When the plant has both a planting date and a measured current
-        size, the icon instead reflects today's growth-interpolated spread
+        size, the icon reflects the shared plan date's growth-interpolated spread
         (``core/growth_model.grown_spread_cm``), so a young sapling LOOKS
         smaller even though its reserved footprint doesn't shrink -- matching
         the shadow, which already did this. Falls back to the footprint
@@ -325,8 +331,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         species = self.metadata.get("plant_species")
         if not isinstance(species, dict):
             return footprint_diameter
+        day = getattr(self.scene(), "plan_date", None) or date.today()
         grown = grown_spread_cm(
-            species, self.metadata, date.today(), getattr(self.object_type, "name", "")
+            species, self.metadata, day, getattr(self.object_type, "name", "")
         )
         return grown if grown is not None else footprint_diameter
 
@@ -590,7 +597,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         Shows/hides resize and rotation handles based on selection state.
         """
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
             if value:  # Being selected
                 self.show_resize_handles()
@@ -702,7 +709,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         the dimension feedback, handles, labels and annotations.
         """
         r = self.rect()
-        self._center = QPointF(r.width() / 2.0, r.height() / 2.0)
+        # #657: the shared resize primitive keeps the rect's local origin (the
+        # handle path rebuilds QRectF(init_rect.x(), init_rect.y(), w, h)), and a
+        # circle's rect normally starts at ``center - radius``.  ``width / 2``
+        # assumed origin (0, 0), so an interactive resize stored a displaced
+        # centre that the visible drawing did not share: the serializer wrote it,
+        # the object jumped on reload, and shadows / 3D footprints read it.
+        self._center = r.center()
         self._radius = r.width() / 2.0
         # Single dimension readout: the circle annotates its own diameter ("Ø")
         # when annotations are visible, so only fall back to the handle's
@@ -787,7 +800,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         # Collect EQUAL-constraint partner resize undo data
         from open_garden_planner.core.tools.constraint_tool import (
-            _build_equal_resize_fn,  # noqa: PLC0415
+            _build_equal_resize_fn,
         )
         partner_resizes = []
         for p_item, old_size, apply_fn, p_anchor_type in getattr(self, '_equal_partner_pre_states', []):
@@ -803,43 +816,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             partner_resizes=partner_resizes or None,
         )
 
-        # Add to undo stack without executing (geometry already applied)
-        command_manager.register_applied(command)
+        # Add to undo stack without executing (geometry already applied). A bed
+        # resize also re-decides which plants it holds, in the SAME undo step (#443).
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         """Called when rotation operation completes. Registers undo command."""
-        scene = self.scene()
-        if scene is None or not hasattr(scene, 'get_command_manager'):
-            return
-
-        command_manager = scene.get_command_manager()
-        if command_manager is None:
-            return
-
-        # Get current angle
-        current_angle = self.rotation_angle
-
-        # Only register command if angle actually changed
-        if abs(initial_angle - current_angle) < 0.01:
-            return
-
-        from open_garden_planner.core.commands import RotateItemCommand
-
-        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
-        # shared with the Agent API's rotate_object. Every item class had an
-        # identical private copy of this one-liner; a shared name means the
-        # agent and the drag handles provably rotate the same way.
-        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
-
-        command = RotateItemCommand(
-            self,
-            initial_angle,
-            current_angle,
-            apply_rotation,
+        # One implementation for every item type (issue #485): the command also
+        # carries the partner corrections the live solver applied during the
+        # gesture, so undo/redo move the angle and the partner together.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
         )
 
-        # Add to undo stack without executing (rotation already applied)
-        command_manager.register_applied(command)
+        register_rotation_command(self, initial_angle)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to edit label inline."""
@@ -909,44 +901,48 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction(_("CircleItem", "Duplicate"))
+        from .common_menu import build_repeat_actions
 
-        # Linear array action
-        linear_array_action = menu.addAction(_("CircleItem", "Create Linear Array..."))
+        repeat_actions = build_repeat_actions(menu, "CircleItem")
 
-        # Grid array action
-        grid_array_action = menu.addAction(_("CircleItem", "Create Grid Array..."))
-
-        # Circular array action
-        circular_array_action = menu.addAction(_("CircleItem", "Create Circular Array..."))
-
-        # Boolean operations (requires exactly 2 selected closed shapes)
+        # Boolean operations (union supports two or more closed shapes; the
+        # other operations stay a two-shape relation)
         boolean_union_action = None
         boolean_intersect_action = None
         boolean_subtract_action = None
         array_along_path_action = None
         selected = self.scene().selectedItems()
-        if len(selected) == 2:
+        if len(selected) >= 2:
+            from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
             from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
             from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
             from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
-            shape_types = (PolygonItem, RectangleItem, CircleItem)
+            shape_types = (PolygonItem, RectangleItem, CircleItem, EllipseItem)
             if all(isinstance(s, shape_types) for s in selected):
                 menu.addSeparator()
                 _ = QCoreApplication.translate
                 bool_menu = menu.addMenu(_("CircleItem", "Boolean"))
                 boolean_union_action = bool_menu.addAction(_("CircleItem", "Union"))
-                boolean_intersect_action = bool_menu.addAction(_("CircleItem", "Intersect"))
-                boolean_subtract_action = bool_menu.addAction(_("CircleItem", "Subtract"))
-            if any(isinstance(s, PolylineItem) for s in selected):
+                if len(selected) == 2:
+                    boolean_intersect_action = bool_menu.addAction(
+                        _("CircleItem", "Intersect")
+                    )
+                    boolean_subtract_action = bool_menu.addAction(
+                        _("CircleItem", "Subtract")
+                    )
+            if len(selected) == 2 and any(isinstance(s, PolylineItem) for s in selected):
                 array_along_path_action = menu.addAction(
                     QCoreApplication.translate("CircleItem", "Array Along Path...")
                 )
 
         # Execute menu and handle result
+        menu.addSeparator()
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_lock_action(action, lock_action):
+            return
         # Dispatch bed-specific actions via the shared mixin handler.
         if self.dispatch_bed_action(action, bed_actions):
             return
@@ -967,39 +963,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
             self.scene().removeItem(self)
-        elif action == duplicate_action:
-            # Duplicate via canvas view
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "duplicate_selected"):
-                        view.duplicate_selected()
-        elif action == linear_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_linear_array"):
-                        view.create_linear_array()
-        elif action == grid_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_grid_array"):
-                        view.create_grid_array()
-        elif action == circular_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_circular_array"):
-                        view.create_circular_array()
+        elif repeat_actions.dispatch(action, self.scene()):
+            return
         elif action is not None and action in (
             boolean_union_action, boolean_intersect_action, boolean_subtract_action
         ):

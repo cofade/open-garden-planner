@@ -23,7 +23,10 @@ from open_garden_planner.core.shade_aggregation import (
     BAND_THRESHOLDS_MINUTES,
     SAMPLE_STEP_MINUTES,
     HeatmapGrid,
+    IdentifiedCaster,
+    SunReceiver,
     compute_heatmap,
+    compute_sun_exposure,
     daylight_samples,
     point_rasterizer_reference,
 )
@@ -167,3 +170,124 @@ class TestPlumbing:
         )
         assert calls
         assert calls[-1][0] == calls[-1][1] == len(calls)
+
+
+class TestPorousFenceAndPitchedRoofAggregation:
+    def test_porous_fence_fractional_sun_and_plant_exposure(self) -> None:
+        # Wooden fence along x-axis at y=0, height 150cm
+        fence_pts = ((-200_000.0, 0.0), (200_000.0, 0.0))
+        fence_footprint = (
+            (-200_000.0, -2.0),
+            (200_000.0, -2.0),
+            (200_000.0, 2.0),
+            (-200_000.0, 2.0),
+        )
+        caster = IdentifiedCaster(
+            item_id="fence",
+            footprints=(fence_footprint,),
+            height_cm=150.0,
+            fence_style="WOODEN_FENCE",
+            fence_points=fence_pts,
+            fence_width_cm=4.0,
+        )
+        receiver = SunReceiver(item_id="tomato", x_cm=0.0, y_cm=50.0)
+
+        # On winter solstice, opaque wall gets 0.0 min. Porous fence allows fractional sunlight through!
+        res = compute_sun_exposure(
+            [caster],
+            [receiver],
+            BERLIN_LAT,
+            BERLIN_LON,
+            date(2026, 12, 21),
+            POINT_GRID,
+            point_rasterizer_reference,
+            include_sample_masks=True,
+        )
+        assert res is not None
+        rec_dict = dict(res.receiver_minutes)
+        hours = rec_dict["tomato"]
+        assert hours > 0.0
+        # Heatmap grid should also record > 0 minutes
+        assert float(res.minutes[0, 0]) > 0.0
+        # Transmittance array is retained
+        assert res.sample_transmittance is not None
+        assert res.sample_transmittance.shape == (len(res.samples), 1, 1)
+
+    def test_elevated_receiver_behind_pitched_roof_slicing(self) -> None:
+        from open_garden_planner.core.scene3d.builders.buildings import (
+            pitched_roof_triangles,
+        )
+        from open_garden_planner.core.scene3d.record import (
+            PARAM_ROOF_PITCH,
+            PARAM_ROOF_STYLE,
+        )
+
+        rect_pts = (
+            (-500.0, -400.0),
+            (500.0, -400.0),
+            (500.0, 400.0),
+            (-500.0, 400.0),
+        )
+        tris = pitched_roof_triangles(
+            "HOUSE",
+            "rectangle",
+            rect_pts,
+            300.0,
+            params={
+                PARAM_ROOF_STYLE: "gable",
+                PARAM_ROOF_PITCH: 35.0,
+            },
+        )
+        caster = IdentifiedCaster(
+            item_id="house",
+            footprints=(rect_pts,),
+            height_cm=300.0,
+            roof_triangles=tris,
+        )
+
+        # Ground receiver at (0, 500)
+        rec_ground = SunReceiver(item_id="plant_ground", x_cm=0.0, y_cm=500.0, elevation_cm=0.0)
+        # Elevated receiver at (0, 500) raised to 250cm (above eaves ~212cm, so obstacle slice is small)
+        rec_elevated = SunReceiver(item_id="plant_elevated", x_cm=0.0, y_cm=500.0, elevation_cm=250.0)
+
+        grid = HeatmapGrid(x0_cm=-50.0, y0_cm=450.0, cell_cm=100.0, cols=1, rows=1)
+        res = compute_sun_exposure(
+            [caster],
+            [rec_ground, rec_elevated],
+            BERLIN_LAT,
+            BERLIN_LON,
+            date(2026, 6, 21),
+            grid,
+            point_rasterizer_reference,
+        )
+        assert res is not None
+        rec_dict = dict(res.receiver_minutes)
+        # Elevated receiver must get significantly more sun than ground receiver
+        assert rec_dict["plant_elevated"] > rec_dict["plant_ground"]
+
+    def test_sample_masks_drop_when_bytes_exceed_cap(self, monkeypatch) -> None:
+        import open_garden_planner.core.shade_aggregation as sa
+
+        caster = IdentifiedCaster(
+            item_id="fence",
+            footprints=(((-10.0, -10.0), (10.0, -10.0), (10.0, 10.0), (-10.0, 10.0)),),
+            height_cm=100.0,
+            fence_style="WOODEN_FENCE",
+            fence_points=((0.0, -10.0), (0.0, 10.0)),
+        )
+        monkeypatch.setattr(sa, "MAX_SAMPLE_SHADE_BYTES", 10)
+        res = compute_sun_exposure(
+            [caster],
+            [],
+            BERLIN_LAT,
+            BERLIN_LON,
+            date(2026, 6, 21),
+            POINT_GRID,
+            point_rasterizer_reference,
+            include_sample_masks=True,
+        )
+        assert res is not None
+        # Both sample_shade and sample_transmittance must be dropped to protect memory
+        assert res.sample_shade is None
+        assert res.sample_transmittance is None
+

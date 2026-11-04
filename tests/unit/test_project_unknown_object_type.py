@@ -7,7 +7,6 @@ raises. This test simulates the older app by feeding the loader an
 `object_type` name that no build knows.
 """
 
-# ruff: noqa: ARG002
 
 import json
 

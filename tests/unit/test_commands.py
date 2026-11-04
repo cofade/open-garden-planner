@@ -9,7 +9,9 @@ from open_garden_planner.core.commands import (
     AddVertexCommand,
     ApplySpeciesCommand,
     ChangePropertyCommand,
+    Command,
     CommandManager,
+    CompoundCommand,
     CreateItemCommand,
     DeleteItemsCommand,
     DeleteLayerCommand,
@@ -144,6 +146,51 @@ class TestCommandManager:
             manager.command_executed,
         ]):
             manager.execute(command)
+
+
+class TestCompoundCommand:
+    """Several commands undone as ONE step (a drag that also links a plant, #627)."""
+
+    class _Log(Command):
+        def __init__(self, log: list[str], name: str, *, fail: bool = False) -> None:
+            self._log, self._name, self._fail = log, name, fail
+
+        @property
+        def description(self) -> str:
+            return self._name
+
+        def execute(self) -> None:
+            if self._fail:
+                raise RuntimeError(f"{self._name} failed")
+            self._log.append(f"+{self._name}")
+
+        def undo(self) -> None:
+            self._log.append(f"-{self._name}")
+
+    def test_execute_runs_in_order_and_undo_in_reverse(self) -> None:
+        log: list[str] = []
+        compound = CompoundCommand([self._Log(log, "a"), self._Log(log, "b")], "move and link")
+        compound.execute()
+        assert log == ["+a", "+b"]
+        compound.undo()
+        assert log == ["+a", "+b", "-b", "-a"]
+        assert compound.description == "move and link"
+
+    def test_a_failing_step_rolls_the_ones_already_run_back(self) -> None:
+        """No half a step: the stack gets nothing, and the scene is where it was."""
+        log: list[str] = []
+        compound = CompoundCommand([self._Log(log, "a"), self._Log(log, "b", fail=True)])
+        with pytest.raises(RuntimeError, match="b failed"):
+            compound.execute()
+        assert log == ["+a", "-a"]
+
+    def test_it_asks_every_command_about_history_side_effects(self) -> None:
+        """A drag moves (both flags) and a link changes containment: the scene's
+        restack scans must run - a compound that answered False would skip them."""
+        compound = CompoundCommand([self._Log([], "a")])
+        assert compound.changes_ground_band is True and compound.changes_containment is True
+        with pytest.raises(ValueError, match="at least one command"):
+            CompoundCommand([])
 
 
 class TestCreateItemCommand:
@@ -758,12 +805,12 @@ class TestChangePropertyDescription:
     label ("Textinhalt ändern") instead of half of it ("text content ändern").
     """
 
-    def test_fragment_is_interpolated(self, qtbot) -> None:  # noqa: ARG002
+    def test_fragment_is_interpolated(self, qtbot) -> None:
         item = QGraphicsRectItem(0, 0, 10, 10)
         cmd = ChangePropertyCommand(item, "name", "old", "new", lambda *_: None)
         assert cmd.description == "Change name"
 
-    def test_each_fragment_distinct(self, qtbot) -> None:  # noqa: ARG002
+    def test_each_fragment_distinct(self, qtbot) -> None:
         item = QGraphicsRectItem(0, 0, 10, 10)
         width = ChangePropertyCommand(item, "stroke width", 1, 2, lambda *_: None)
         fill = ChangePropertyCommand(item, "fill color", "a", "b", lambda *_: None)
@@ -778,6 +825,8 @@ class _FakePlant:
         self.metadata: dict = {}
         self.spacing_radius_cm: float | None = None
         self.radius = radius
+        # The item's own species string (a plant item has one; #445 writes it).
+        self.plant_species: str = ""
 
     def set_radius_centered(self, new_radius: float) -> None:
         self.radius = new_radius
@@ -787,12 +836,13 @@ class TestApplySpeciesCommand:
     """Tests for ApplySpeciesCommand (issue #213)."""
 
     def test_assign_from_generic_sets_species_and_clears_on_undo(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         item = _FakePlant()
         new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
 
-        cmd = ApplySpeciesCommand(item, None, new, None, 45.0)
+        cmd = ApplySpeciesCommand(item, None, new, None, 45.0,
+                               old_species_name="", new_species_name="Tomato")
         cmd.execute()
         assert item.metadata["plant_species"]["scientific_name"] == "Solanum lycopersicum"
         assert item.spacing_radius_cm == 45.0
@@ -802,7 +852,7 @@ class TestApplySpeciesCommand:
         assert item.spacing_radius_cm is None
 
     def test_reassign_over_existing_species_restores_prior_on_undo(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         old = {"scientific_name": "Old species", "max_spread_cm": 20.0}
         item = _FakePlant()
@@ -810,7 +860,8 @@ class TestApplySpeciesCommand:
         item.spacing_radius_cm = 10.0
         new = {"scientific_name": "New species", "max_spread_cm": 90.0}
 
-        cmd = ApplySpeciesCommand(item, old, new, 10.0, None)
+        cmd = ApplySpeciesCommand(item, old, new, 10.0, None,
+                               old_species_name="", new_species_name="New")
         cmd.execute()
         assert item.metadata["plant_species"]["scientific_name"] == "New species"
         assert item.spacing_radius_cm is None
@@ -819,11 +870,12 @@ class TestApplySpeciesCommand:
         assert item.metadata["plant_species"]["scientific_name"] == "Old species"
         assert item.spacing_radius_cm == 10.0
 
-    def test_old_species_copy_is_not_aliased(self, qtbot) -> None:  # noqa: ARG002
+    def test_old_species_copy_is_not_aliased(self, qtbot) -> None:
         old = {"scientific_name": "Old", "max_spread_cm": 20.0}
         item = _FakePlant()
         item.metadata["plant_species"] = old
-        cmd = ApplySpeciesCommand(item, old, {"scientific_name": "New"}, None, None)
+        cmd = ApplySpeciesCommand(item, old, {"scientific_name": "New"}, None, None,
+                               old_species_name="", new_species_name="New")
         cmd.execute()
         # Mutating the live dict must not corrupt the captured undo state.
         item.metadata["plant_species"]["scientific_name"] = "Mutated"
@@ -831,13 +883,14 @@ class TestApplySpeciesCommand:
         assert item.metadata["plant_species"]["scientific_name"] == "Old"
 
     def test_resizes_footprint_and_restores_on_undo(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         item = _FakePlant(radius=20.0)
         new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
 
         # max_spread 90 → footprint radius 45.
-        cmd = ApplySpeciesCommand(item, None, new, None, None, 20.0, 45.0)
+        cmd = ApplySpeciesCommand(item, None, new, None, None, 20.0, 45.0,
+                               old_species_name="", new_species_name="Tomato")
         cmd.execute()
         assert item.radius == 45.0
 
@@ -845,13 +898,38 @@ class TestApplySpeciesCommand:
         assert item.radius == 20.0
 
     def test_footprint_unchanged_when_radius_none(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         item = _FakePlant(radius=20.0)
-        cmd = ApplySpeciesCommand(item, None, {"scientific_name": "X"}, None, None)
+        cmd = ApplySpeciesCommand(item, None, {"scientific_name": "X"}, None, None,
+                               old_species_name="", new_species_name="X")
         cmd.execute()
         assert item.radius == 20.0  # no resize requested
 
-    def test_description_localizable(self, qtbot) -> None:  # noqa: ARG002
-        cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None)
+    def test_description_localizable(self, qtbot) -> None:
+        cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None,
+                               old_species_name="", new_species_name="X")
         assert cmd.description == "Apply species data"
+
+    def test_the_species_string_is_written_and_restored(self, qtbot) -> None:
+        """#445: the item's own species STRING is what the sprite resolver reads,
+        so the assignment writes it - and the undo puts the old one back."""
+        item = _FakePlant()
+        item.plant_species = "pumpkin"
+        cmd = ApplySpeciesCommand(item, None, {"common_name": "Winter Squash"},
+                                  None, None, None, None,
+                                  old_species_name="pumpkin",
+                                  new_species_name="Winter Squash")
+        cmd.execute()
+        assert item.plant_species == "Winter Squash"
+
+        cmd.undo()
+        assert item.plant_species == "pumpkin"
+
+    def test_a_command_without_names_cannot_be_built(self, qtbot) -> None:
+        """The names are REQUIRED: a command that carries a species but no name
+        would assign the data and leave the plant drawn as it was - the very
+        defect #445 is about."""
+        item = _FakePlant()
+        with pytest.raises(TypeError):
+            ApplySpeciesCommand(item, None, {"common_name": "X"}, None, None)

@@ -5,6 +5,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QDialog,
     QFrame,
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -35,6 +37,7 @@ class WelcomeDialog(QDialog):
     new_project_requested = pyqtSignal()
     open_project_requested = pyqtSignal()
     recent_project_selected = pyqtSignal(str)
+    template_selected = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the Welcome dialog."""
@@ -42,6 +45,9 @@ class WelcomeDialog(QDialog):
 
         self.setWindowTitle(self.tr("Welcome to Open Garden Planner"))
         self.setModal(True)
+        app = QApplication.instance()
+        if isinstance(app, QApplication) and not app.windowIcon().isNull():
+            self.setWindowIcon(app.windowIcon())
         self.setMinimumSize(600, 500)
         self.setMaximumSize(800, 700)
 
@@ -67,7 +73,17 @@ class WelcomeDialog(QDialog):
         # Right side: Actions
         self._setup_actions(content_layout)
 
-        layout.addLayout(content_layout, stretch=1)
+        from open_garden_planner.ui.widgets.template_gallery import TemplateGallery
+
+        tabs = QTabWidget()
+        recent_tab = QWidget()
+        recent_tab.setLayout(content_layout)
+        tabs.addTab(recent_tab, self.tr("Recent Projects"))
+        self._gallery = TemplateGallery()
+        self._gallery.template_selected.connect(self._on_template_selected)
+        tabs.addTab(self._gallery, self.tr("Examples & templates"))
+        tabs.currentChanged.connect(lambda index: self._banner_label.setVisible(index == 0))
+        layout.addWidget(tabs, stretch=1)
 
         # Bottom: Don't show again checkbox
         self._setup_footer(layout)
@@ -75,6 +91,7 @@ class WelcomeDialog(QDialog):
     def _setup_banner(self, layout: QVBoxLayout) -> None:
         """Set up the banner image at the top."""
         banner_label = QLabel()
+        self._banner_label = banner_label
         banner_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Load banner image
@@ -115,6 +132,7 @@ class WelcomeDialog(QDialog):
 
         # List widget for recent files - use native styling
         self._recent_list = QListWidget()
+        self._recent_list.setObjectName("recent_projects_list")
         self._recent_list.setAlternatingRowColors(True)
         self._recent_list.itemDoubleClicked.connect(self._on_recent_double_clicked)
         self._recent_list.itemSelectionChanged.connect(self._on_selection_changed)
@@ -264,6 +282,10 @@ class WelcomeDialog(QDialog):
     def _on_new_project(self) -> None:
         """Handle New Project button click."""
         self.new_project_requested.emit()
+        self.accept()
+
+    def _on_template_selected(self, path: str) -> None:
+        self.template_selected.emit(path)
         self.accept()
 
     def _on_open_project(self) -> None:

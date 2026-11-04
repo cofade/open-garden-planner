@@ -1,6 +1,51 @@
 # 6. Runtime View
 
-## Explicit sun evaluation and document replacement (ADR-056)
+## Committed panel edits, persistence and history (PR #566)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant P as Properties / Plant Details
+    participant H as CommandManager
+    participant S as ProjectManager
+    U->>P: Edit numeric or text field
+    P->>H: Execute snapshot command / coalesce numeric tick
+    U->>H: Undo or Redo
+    H->>P: before_history_navigation
+    P->>H: Commit active text and end numeric gesture
+    H->>H: Select and apply current history entry
+    H->>P: history_navigated
+    P->>P: Refresh model values without committing
+    U->>S: Save
+    S->>P: before_save
+    P->>H: Flush active editors
+    S->>S: Serialize committed plan and atomically persist
+```
+
+The GUI discard guard and Agent API new/open dirty guards flush the same editors
+before checking dirty state. A typing pause or selection change also commits notes;
+opening 3D never commits estimated dimensions. `CanvasScene.update_dimension_lines`
+derives position-lock badges from FIXED constraints independently of panel selection.
+Pins: the two package integration files named in section 8.32.
+
+## Fixed toolbar startup (PR #556 manual acceptance, ADR-062)
+
+```mermaid
+sequenceDiagram
+    participant A as Application
+    participant S as UiStateStore
+    participant W as Main window
+    A->>W: Build drawing toolbars and dedicated Plan & Sun row
+    A->>S: restore_geometry(restore_window_state=False)
+    S->>W: Restore window bounds; retain application toolbar topology
+    A->>S: Restore main splitter proportions
+    A->>W: Apply permanent/feature toolbar visibility
+```
+
+Legacy toolbar layout bytes remain in settings for compatibility. They cannot
+replace the fixed rows or squeeze Plan & Sun beside the drawing tools.
+
+## Live sun evaluation and document replacement (ADR-056 / ADR-062)
 
 ```mermaid
 sequenceDiagram
@@ -10,16 +55,20 @@ sequenceDiagram
     participant W as Worker
     participant C as Sun coordinator
     participant D as Shared Diagnostics / MCP
-    U->>A: Optional 21 June shortcut
-    U->>H: Hours of Sun
-    H->>W: Immutable document snapshot + receivers
-    W-->>H: Grid and own-shadow-excluded receiver minutes
+    U->>A: Select the single calendar date
+    U->>H: Enable Hours of Sun
+    H->>W: Immutable casters + receivers at canonical soil elevations
+    W->>W: Slice casters above each exact receiver elevation
+    W-->>H: Ground grid + self/holder-excluded soil-plane receiver minutes
     H->>H: Check generation and complete signature
     H-->>C: Exposure changed
     C->>D: Cached mismatch / unavailable records
     U->>A: Move caster or edit geometry
     A-->>C: Scene or command change
-    C->>H: Invalidate within 60 ms (keep visual snapshot)
+    A->>H: Withdraw stale measurements immediately (keep dated preview)
+    A->>A: Debounce collection of the latest exposure snapshot
+    A->>H: Cancel obsolete work; request latest after worker retirement
+    H->>W: Compute latest exposure inputs
     C->>D: Clear warnings; publish unavailable state
     U->>A: New / validated Open / recovery / agent lifecycle
     A->>H: document_replaced before item teardown
@@ -29,7 +78,14 @@ sequenceDiagram
     H->>H: Reject unwanted / old-generation result
 ```
 
-Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes clear it. Diagnostics and canopy reads never launch a worker.
+Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes retain the labelled old preview while requesting the current map. Document replacement and location/grid changes clear old imagery. Diagnostics and canopy reads never launch a worker.
+
+Receiver elevation comes from `item_base_cm`, including its visible-parent and
+containment rules. Equal elevations share a shadow sweep; elevations are never
+rounded, because that can discard an obstacle still above the plant's soil plane
+(#641). The ground heatmap remains a ground measurement. For a caster solid
+`[base, top]`, discard it when `top <= elevation`; otherwise use base
+`max(0, base - elevation)` and height `top - max(base, elevation)`.
 
 ## 6.1 Drawing Workflow
 
@@ -54,7 +110,36 @@ flowchart TD
     C --> C1 --> C2 --> C3 --> C4 --> C5 --> C6
 ```
 
+### 6.1.1 Shift selection and editing handles (#522)
+
+```mermaid
+sequenceDiagram
+    participant V as CanvasView
+    participant T as SelectTool
+    participant Q as Qt scene / handle
+    V->>T: Left press with Shift and raw scene position
+    alt Topmost hit is an interactive drag handle
+        T-->>V: Unhandled
+        V->>Q: Deliver press normally
+        Q-->>V: Handle grabs mouse
+        V->>V: Track handle for dropped-grab recovery
+    else Topmost hit is a canvas object or passive overlay
+        T->>T: Find first selectable item under cursor
+        T->>Q: Toggle selection if a target exists
+    end
+```
+
+With no selectable target the tool returns unhandled and Qt applies its normal
+empty/locked-item behavior. Handle release registers the existing single edit
+command; selection toggles do not create history entries.
+
 ## 6.2 Save/Load Flow
+
+Species assignment uses one command for metadata, footprint and sprite identity.
+On undo/redo, the existing stack-change refresh updates Plant Details from the
+current item. Removing the last species record clears and hides the profile name,
+thumbnail, links, attribution and source tooltip along with the form; redo restores
+them. The selected plant remains available to Create Custom when it has no species.
 
 ### Save
 
@@ -321,9 +406,17 @@ changing project data or either undo/redo stack.
 
 ## 6.8 Sim clock fan-out (Phase 17 L1.0, ADR-053)
 
-One write path from the sun toolbar into the one `SimClock`, and one fan-out. A
+The sun toolbar's write path into the one `SimClock`, and one fan-out. A
 time-of-day change takes only the right-hand path; a date change takes both, the
-date path first.
+date path first. Since Phase 17 L2 (#386) the 3D view writes the clock in two more
+places, both the user's action: the day sweep (the time of day, sunrise → sunset,
+given back afterwards) and the growth jump (+1/+3/+10 years on the date, and "Back") —
+§6.10. Since Phase 17 L5 (#389, ADR-070) Animate plays either THE DAY — the time of day,
+through `datetime_changed` as below, wrapping at midnight onto the same date — or THE YEAR:
+the plan date, through the toolbar's `date_requested` → `SimClock.set_date` (the time of
+day kept), so the date path below runs on every step and the 3D regrowth keeps its
+throttle (`core/playback.py` is the arithmetic of one step; the toolbar writes nothing
+else).
 
 ```mermaid
 flowchart TD
@@ -335,10 +428,10 @@ flowchart TD
     D{"plan_date changed?"}
     DC["date_changed(plan_date)<br/>_on_sim_date_changed"]
     H["Heatmap for another day shown OR result pending<br/>→ clear(); button unchecked"]
-    R["3D view open → rebuild geometry<br/>(growth at plan_date)"]
+    R["3D shown → Scene3DController regrows the dated plants<br/>(growth at plan_date; at most once per 500 ms<br/>while the date keeps changing, L1.9)"]
     IC["instant_changed(SimChange)"]
     O["SunShadowController._on_clock_changed<br/>enabled → recompute (sun at utc, growth at plan_date)"]
-    M["_on_sim_instant_changed:<br/>toolbar mirrors wall time (signals blocked),<br/>3D light from utc"]
+    M["_on_sim_instant_changed:<br/>toolbar mirrors wall time (signals blocked);<br/>Scene3DController: a light-only pass (sun at utc)"]
 
     U --> T --> W --> N
     N -- no --> X
@@ -348,10 +441,266 @@ flowchart TD
     IC --> O --> M
 ```
 
+**The forecast fan-out (L5.3).** The Planting Calendar's weather widget is the app's one
+weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`, with
+the `(lat, lon)` they were fetched for:
+
+```mermaid
+flowchart LR
+    C([Weather → Today's Weather; while it is chosen,<br/>a new location — also the one a new or<br/>opened document brings (the same coordinates: nothing)])
+    W["Workspace.forecast_wanted"]
+    P["PlantingCalendarView.request_forecast<br/>(the weather part of refresh; tab may be hidden)"]
+    F["WeatherWidget fetch (Open-Meteo) — another place<br/>cancels and disconnects the old fetch"]
+    R["forecast_days_ready(place, days) — days EMPTY without a<br/>location or after a failed fetch"]
+    L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator (another place's: dropped)<br/>→ LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
+    C --> W --> P --> F --> R --> L
+```
+
+A replaced document only FORGETS the forecast (`CanvasScene.document_replaced` comes while the
+old document's location is still set: an ask there fetched the old place's forecast, which then
+landed on the new plan — its strip, its frost alerts and Today's Weather). The new document's
+`location_changed`, which always follows a new, opened or recovered document, asks. Every
+`location_changed` also moves the weather widget at once (`PlantingCalendarView.follow_location`)
+— visible or not, fetching nothing — so a fetch still on its way for the old place is cancelled
+and disconnected (PF-LIF-12).
+
 A write from inside any listener raises `RuntimeError`: the remaining listeners
 would otherwise receive a stale change. Every listener runs even when one raises,
 and `instant_changed` is delivered even when a `date_changed` listener failed; the
 first error is re-raised afterwards.
+
+## 6.9 The 3D workspace: an edit, the first open, a new document, the close (Phase 17 L1.3 / L1.9, ADR-060)
+
+The 3D view of every main window since L1.9 (there is no switch). Four flows. The GUI thread
+reads the canvas and owns the sink; since #452 the MESHES of changed items may be built on one
+worker lane (`SceneSync.prepare`), whose answer reaches the sink through `apply(prepared=...)` on
+the GUI thread. Qt renders the 3D window on its own thread.
+
+**An edit while 3D is visible** — one pass per turn of the event loop, whatever announced it:
+
+```mermaid
+sequenceDiagram
+    participant U as User / tool
+    participant C as CommandManager
+    participant S as CanvasScene
+    participant K as Scene3DController
+    participant Y as SceneSync
+    participant E as Quick3DSink → host
+    U->>C: execute(command)
+    C->>S: the command changes items
+    C-->>K: stack_changed → mark_dirty()
+    Note over K: posts ONE pass event (normal priority)
+    S-->>K: changed (queued by Qt) → mark_dirty(): rides with it
+    K->>K: pass event → snapshot_steps(scene, plan_date), 4 ms slices
+    Note over K: a heavy pass builds its changed geometry on the lane (#452)
+    Note over K: the snapshot ends with with_context(records):<br/>door wall, lawn cut-outs and blade share (L4)
+    K->>Y: apply(records, sun, ground)
+    Y->>E: begin · the minimal calls · commit
+    K-->>K: applied(TickReport: diff, times, retired)
+    Note over E: Qt draws the next frame on its render thread
+```
+
+A time-of-day change takes a shorter path: `instant_changed` → one `set_sun`, no snapshot. With
+the 3D pane hidden, `mark_dirty()` sets a flag and nothing else happens.
+
+Since L4 (#388, ADR-065) the snapshot's last step writes the params one record needs from
+the others (`core/scene3d/context.py`). A move of a house along its path keeps its door
+wall, so it stays one `update_transform`; a terrace moved across a lawn rebuilds the lawn's
+blades (its cut-outs changed) but re-bakes only the terrace's tiles, because the bake ignores
+these build-only params. During a drag the controller holds such a change back
+(`Scene3DController._hold_context`, `CONTEXT_REBUILD_MIN_MS` = 400 ms): the first step's
+cut-outs are applied at once, later steps move the terrace but keep the lawn's old
+cut-outs, and one trailing pass applies the last. A record that becomes or stops being a
+lawn is never held, and a held pass keeps the plan's blade budget (§8.29.12).
+
+**The first switch to 3D or Split** — nothing of 3D exists before it:
+
+```mermaid
+flowchart TD
+    A([View → 3D View (Plan → Split) / Alt+2 / Alt+3 /<br/>the mode buttons / View → Workspace])
+    B["Workspace.set_mode: build the 3D pane (strip + stacked body)"]
+    G["Init3DGuard.begin(): a marker of a dead process?<br/>→ compatibility flag on. Own marker written"]
+    F["engine_factory(prefer_software): import quick3d,<br/>Quick3DHost + Quick3DSink; container into the pane"]
+    X{"raised?"}
+    M1["message in place of the view + 'Try Again';<br/>marker removed; state FAILED"]
+    N["pane shown → 'Building the 3D view…'"]
+    P["the label PAINTS → controller.set_active(True)<br/>(fallback 250 ms)"]
+    T["catch-up pass: snapshot → apply;<br/>document_shown → the camera frames the plan"]
+    H{"health poll (200 ms)"}
+    R["first presented frame → marker removed;<br/>state RUNNING; poll every 2 s"]
+    D["scene_graph_error → host closed; message<br/>'unavailable on this graphics device'"]
+
+    A --> B --> G --> F --> X
+    X -- yes --> M1
+    X -- no --> N --> P --> T --> H
+    H -- frames_presented ≥ 1 --> R
+    H -- no graphics device --> D
+```
+
+A process that dies between "own marker written" and "first presented frame" leaves the marker:
+the next session that opens 3D starts in compatibility mode and says so.
+
+**A new or opened plan while 3D is visible:**
+
+```mermaid
+sequenceDiagram
+    participant A as GardenPlannerApp
+    participant S as CanvasScene
+    participant W as Workspace
+    participant K as Scene3DController
+    participant E as engine
+    A->>S: clear() / the committing phase of a load (never for an open that failed its validation)
+    S-->>A: document_replaced → hours-of-sun map cleared, button unchecked (#428, ADR-056)
+    S-->>W: document_replaced → document_changed()
+    W->>K: document_changed(): plant shapes and outline memories dropped, dirty
+    A->>S: the new document's items
+    W->>K: set_active(False) — the pass is HELD
+    W->>W: "Building the 3D view…" — the label paints
+    W->>K: set_active(True) → one pass: a plain apply (remove what is gone, add what is new)
+    K-->>W: document_shown → the camera frames the new plan, once
+    K-->>W: applied(retired = the old plan's items)
+    Note over W,E: the health poll, the pipeline quiet for 0.5 s:<br/>host.release_cached_resources()
+```
+
+**The ground of an edit** (L1.5, §8.29.5) — the bake rides the edit's pass; what its time
+budget leaves is painted in ground passes, one per turn of the event loop:
+
+```mermaid
+sequenceDiagram
+    participant K as Scene3DController
+    participant Y as SceneSync
+    participant B as GroundBaker
+    participant E as Quick3DSink → host
+    K->>Y: apply(records, sun, ground)
+    Y->>B: bake(records, the diff, solid ids, plan) — 10 ms, at least one tile
+    Y->>E: begin · the item calls · set_ground(tiles) · commit
+    Note over K: ground_pending → a GROUND pass is owed (posted, like any pass)
+    loop while tiles are pending (the view visible, no edit waiting)
+        K->>Y: continue_ground() — no snapshot, no diff
+        Y->>B: bake(records, no change) — the next tiles, nearest to the edit first
+        Y->>E: begin · set_ground(tiles) · commit
+        K-->>K: applied(TickReport: ground_pass, retired = replaced tile Models)
+    end
+```
+
+**Closing the app with 3D visible** (or hidden, or never opened — the same path; L1.9 made it
+the product's):
+
+```mermaid
+sequenceDiagram
+    participant A as GardenPlannerApp.closeEvent
+    participant W as Workspace
+    participant K as Scene3DController
+    participant L as LookController
+    participant H as Quick3DHost
+    A->>A: unsaved changes? (Discard / Save / Cancel) · Agent API stopped · heatmap worker joined
+    A->>W: shutdown() — while the main window still exists
+    W->>W: Split position saved · start marker removed (a clean close is not a crash)
+    W->>L: shutdown() (its timers stopped; the host is not touched)
+    W->>K: shutdown() — no pass, no timer, plan memories dropped, scene signals disconnected
+    W->>H: close() — every Model destroyed, the window closed
+    A->>A: UI state saved · autosave stopped and cleared · accept
+```
+
+Nothing of 3D is built on that path when 3D was never opened (no engine import at all), and it
+ends with no Qt warning and no ERROR line in `app.log` in all three cases, from source and frozen
+(`tests/integration/test_view3d_workspace_render.py`, G5).
+
+## 6.10 Analyze in 3D: the drapes, the sweep, the jump (Phase 17 L2, ADR-063)
+
+**The drapes fan in from the 2D side.** Nothing computes twice: the 3D view lays the 2D
+side's own results on its ground, and the shared Hours of Sun has one owner.
+
+```mermaid
+flowchart LR
+    SC["SunShadowController<br/>shadows_changed · drape_polygons()"] --> AC
+    HM["SunHeatmapController<br/>computed(map) · exposure_changed"] --> AC
+    LS["LiveSunMap<br/>enabled_changed · is_current()"] --> AC
+    AC["AnalysisController<br/>(one per engine; paused while hidden)"]
+    AC -- "SHADOWS: shadow_drape" --> SH["set_overlay('shade')<br/>multiplies the frame"]
+    AC -- "SUN_HOURS: sun_hours_drape" --> DR["set_overlay('drape')<br/>blends over it"]
+    AC -- "probe: minutes_at + band<br/>(only while is_current())" --> CARD["the card's place<br/>below the view"]
+    LS -. "on (toolbar) / off (toolbar, document replaced)" .-> AC
+    AC -. "on: drape → Hours of Sun on the Ground<br/>off: → what lay there before;<br/>menu follows" .-> MENU["Analyze menu"]
+```
+
+The 3D drape follows the shared Hours of Sun both ways (owner manual pass of PR
+#584): switched on in the toolbar it replaces what lay on the 3D ground, switched off
+what lay there before comes back, and a 3D view opened while it is on lays it as soon
+as the pane shows (`connect_sources`).
+
+**The day sweep** (the user's "Sweep the Day"):
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant AC as AnalysisController
+    participant C as SimClock
+    participant H as Quick3DHost
+    U->>AC: start_sweep() — remembers the time of day
+    loop every 100 ms, 10 min of wall time
+        AC->>C: set_time_of_day(t) (marked as its own write)
+        C-->>AC: instant_changed
+        AC->>H: set_overlay('drape', the map summed to t, ≤ 65,536 vertices)
+    end
+    alt the day ends / the user stops it / the engine goes
+        AC->>C: set_time_of_day(remembered)
+        AC->>H: set_overlay('drape', the whole map)
+    else the user sets a time
+        C-->>AC: instant_changed (not its own write)
+        AC->>AC: ends — the user's time stays
+    else the date changes
+        C-->>AC: date_changed
+        AC->>AC: timer stopped; a turn later set_time_of_day(remembered)
+    end
+```
+
+**The growth jump** (+N years) takes exactly two frames, the user's action like the
+click's pick: `jump` stops a running sweep, grabs the before-picture and moves the
+clock's date; the pipeline's first pass that read the new date (`applied`) grabs the
+after-picture and the wipe shows both in the view's place. A date the user moves
+away from the target first drops the owed comparison; "Back" returns to the date
+before the first jump.
+
+## 6.11 The sky model: painted or atmosphere (Phase 17 L7, #391, ADR-048 addendum L7)
+
+Choosing **Atmosphere with clouds** in Preferences never makes the GUI thread wait: the
+cloud noise volume (about a second of numpy) is made on the look controller's worker,
+and the painted sky shows until it is ready. A failure falls back to the painted sky
+for the session.
+
+```mermaid
+sequenceDiagram
+    participant P as Preferences (Save)
+    participant LC as LookController
+    participant W as worker "cloud-noise"
+    participant H as Quick3DHost
+    participant Q as Garden.qml
+    P->>LC: reload_settings() → set_sky_model("atmosphere")
+    alt software adapter, or an atmosphere failed before
+        LC->>H: set_sky(painted sky) — the stored model is kept
+    else the volume is not made yet
+        LC->>W: submit(cloud_noise_rgba16f)
+        LC->>H: set_sky(painted sky) — meanwhile
+        loop every 50 ms (poll timer)
+            LC->>W: done?
+        end
+        W-->>LC: the 64³ volume (or an exception → painted for the session)
+    end
+    LC->>H: set_sky(atmosphere sky) — the look's sky with model "atmosphere"
+    H->>Q: buildSky(painted properties) — the light probe under both models
+    H->>H: sky-view table for this sun (~0.1 s), gain, inputs
+    H->>Q: buildAtmosphere(inputs, volume, table) — same GUI-thread turn, no frame between
+    Note over Q: ONE AtmosphereSky per scene, made at the first call,<br/>then only written; drawn on screen (ScreenSpaceHalf),<br/>no light, no cube (PF-E3D-17); a painted sky only switches it off
+    Q-->>H: built (a refusal → painted sky for the session)
+```
+
+A sun change while the atmosphere shows rebuilds the painted sky (its light), refills the
+same sky-view table in place and writes the inputs, about 0.32 s of GUI thread in all
+(painted alone about 0.12 s), which a playing day feels (#722); a painted sky is a fresh Texture pair
+per build, and the environment re-binds its light
+probe when the previous one is deleted (PF-E3D-16). A shader that compiles to nothing is
+not seen at run time (PF-E3D-14; #720).
 
 ## Guild insertion and computed warning refresh
 
@@ -388,6 +737,14 @@ Feasibility runs the existing Gauss-Seidel/Newton sequence. If every positional
 variable is pinned, Newton evaluates the residual on that fixed state and returns
 its actual error; it cannot overwrite an incompatible warm-start error with zero.
 The probe preserves graph, input geometry and history. See ADR-012 and the A5 evidence.
+
+**Scope (round-2 review).** A trial is restricted to the connected component the
+proposed link joins, and it pins the same references the application will
+(construction geometry, FIXED items, and B for the "A moves, B stays" rule). The
+conflict dialog and the applied solve use that same scope, so an unrelated broken
+component neither refuses a compatible link nor moves when the link is applied.
+Reported satisfaction and the 0.1 cm coincidence/incidence band come from one
+residual function (`incidence_error`).
 
 ### Constraint edge-length creation (#406)
 
@@ -433,3 +790,262 @@ launch. Rejection and cancellation never reach process launch.
 Linux startup creates QApplication, secures the settings backend, loads preferences
 and constructs the main window. An ownership/permission failure exits with a visible
 error before the preference and window steps.
+
+## Viewing a plan at another date (US-F4)
+
+Stepping a Plan & Sun calendar/time section first commits any pending editor text,
+then computes a complete naive wall reading through SunSimToolbar's shared path
+(PR #565). Day/month/year and hour/minute steps carry or borrow across larger units;
+month/year steps retain the preferred day through short months. The toolbar mirrors
+both editors and its slider with signals blocked, then emits datetime_changed once.
+SimClock therefore receives the new date and time together. A minute crossing
+midnight delivers one date_changed and one instant_changed; existing presence,
+sunlight and 3D subscriptions consume the same state. Viewing does not alter plan
+revision or history. Only the clock's absolute range stops navigation.
+
+Global View -> 3D View selects the Garden Plan tab before showing Split from
+Plan mode (#539). Workspace actions also return to Garden Plan and select their
+requested mode: Alt+1 Plan, Alt+2 3D, Alt+3 Split. Existing 3D/Split views keep
+their mode and camera. Walk's action owns its theme-aware icon (#537); Reset
+and the shortcuts dialog obtain the Home key label from Qt's active translator
+(#541).
+
+The 3D controller receives the same date_changed signal as the 2D timeline.
+If the date-regrowth interval has elapsed, it marks records dirty immediately;
+otherwise it books one trailing timer. The trailing slot compares the current
+date with the last snapshot date and stamps the throttle only when another
+snapshot is owed (#542). A no-op preserves the earlier timestamp, so it cannot
+defer a subsequent deliberate date pick. Instant changes still relight on every
+step. See section 8.29.9 and ADR-060's L1 follow-up addendum.
+
+```mermaid
+sequenceDiagram
+    participant Timeline
+    participant SimClock
+    participant App
+    participant Scene
+    Timeline->>SimClock: set_date(preferred day in month / Today)
+    SimClock->>App: date_changed(local day)
+    App->>Scene: refresh_timeline()
+    Scene->>Scene: layer AND plant presence; invalidate sprite caches
+    Scene-->>Timeline: timeline_changed (read clock, update hidden count)
+    App->>App: date-present data diagnostics; request latest map if enabled
+    SimClock->>App: instant_changed (mirror exact date/time; 3D relights itself)
+```
+
+Plant Details validates planting/removal dates before executing one property command.
+Execute/undo/redo reapplies presence without deleting an item. A document load applies
+visibility after all items/layers exist. Save and Season Manager still serialize the
+whole plan, including date-absent plants; visual exports render the current state.
+
+
+With Hours of Sun checked, a changed exposure snapshot invalidates measurements and
+queues the newest request after a short pause. A previous map stays visible with its
+actual date and Updating label; the old worker is canceled, retained until finished,
+and its late success is rejected. Only an accepted current result replaces the map
+and feeds diagnostics. Daily animation changes lighting without scheduling this work.
+
+A visual export pauses animation, requests current exposure, and waits without
+blocking Qt event delivery. GUI cancellation or an API timeout abandons the export.
+After readiness, document/revision/time/exposure are checked on Qt immediately before
+rendering; the final counted export lease restores the prior animation state.
+
+Print enters the same readiness gate before opening its preview and retains the
+animation pause lease until the preview closes. Every paint revalidates the
+document/date/exposure before touching the printer; failure rejects the preview.
+Its legend names the shared plan date. Cancellation is a quiet return.
+
+## Line appearance changes and history (#524–#526)
+
+Properties or a context-menu action captures a `LineLook`, builds the selected
+type/preset state, applies it once and registers a ChangePropertyCommand. The
+command carries copied before/after values and the shared `apply_line_look`
+callback. Execute/undo/redo restore exact values through that callback; normal
+stack signals mark the plan dirty and invalidate the 3D snapshot. A preset is
+applied when selected, not while restoring history. Geometry notifications precede
+pen/preset mutation so Qt can retire the old scene/cache bounds. Panel destruction
+does not invalidate the command callback. See crosscutting section 8.30.
+
+## Plant Forge progressive upgrade and seasonal phenology (L3, #387, ADR-064)
+
+`Scene3DController` first applies the existing fast silhouettes. After an applied
+snapshot, `Workspace._on_applied` submits the current records, camera eye/forward,
+plan date, latitude and frost dates to `ForgeWorker.submit_snapshot`. Climber
+support is enriched from that same snapshot. The queue orders front-facing
+plants before those behind the camera, then by eye distance.
+
+The production worker synthesizes one plant on an executor thread; a GUI timer
+polls the result and alone writes the engine sink. A document epoch and current
+geometry/LOD checks reject superseded work. A replaced/reset silhouette
+invalidates the worker's remembered upgrade. Closing stops admission without
+waiting on synthesis in the GUI; hiding pauses application. Orbit and walk
+camera changes requeue distance LOD without requiring a plan edit.
+
+A date-only seasonal change sends foliage density/tint/snow and independent
+flower/fruit state to existing Models. Seasonal leaf removal also removes its
+shadow; X-ray fading retains its separate shadow-preservation policy. Growth
+changes still rebuild geometry through the shared controller. Harvest uses the
+instance snapshot's week offsets and the shared day-level calendar calculation,
+including frost anchors in other years. Southern latitude shifts illustrative
+seasonal months, never already-local recorded frost dates.
+
+
+## Opening an example or template (US-F5, ADR-066)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Gallery as Welcome / File gallery or picker
+    participant App as GardenPlannerApp
+    participant PM as ProjectManager
+    User->>Gallery: Open selected
+    Gallery->>App: _open_template_file(path)
+    App->>User: Existing unsaved-changes guard if needed
+    App->>PM: load(scene, path, as_template=True)
+    PM->>PM: Read / validate version / filter / prepare / apply
+    PM-->>App: current_file=None, dirty=True
+    App->>App: Clear old history/autosave; fit view; refresh panels
+    User->>App: Save
+    App->>User: Save As dialog
+```
+
+A failed preparation preserves the previous scene, history and autosave. Exporting
+a template flushes pending editors, snapshots without journal mutation, filters and
+atomically writes a separate file. It leaves the current file and dirty state intact.
+The public catalog resource reads only bundled sidecars and never opens a document.
+The catalog selects a shipped language-specific plan when available. Before normal
+preparation, `example_copy_plan` retains public location and fictional soil records
+only for known bundled paths; an external copy receives the ordinary portable
+filter. Neither opening a demonstration nor exporting a template changes SimClock.
+
+
+### L4 follow-up: lawn quality and complete render rest
+
+A LookController preset change updates Scene3DController's lawn admission flag.
+Its next snapshot adds or removes blade geometry through the existing SceneSync
+diff; Low and Medium do not synthesize hidden blades. Drag context holds retain
+only parameters supported by both old and new record kinds.
+
+```mermaid
+sequenceDiagram
+    participant Look as LookController
+    participant Controller as Scene3DController
+    participant Sync as SceneSync
+    participant Forge as ForgeWorker
+    participant Probe as Render measurement
+    Look->>Controller: preset_changed / lawn admission
+    Controller->>Sync: snapshot + applicable context
+    Sync->>Forge: invalidate changed geometry / submit current LOD
+    Forge->>Sync: admit matching completed meshes
+    Probe->>Controller: records + ground idle?
+    Probe->>Forge: pending_count 0, timer idle, camera stationary?
+    Probe->>Sync: read admitted parts for independent CPU oracle
+```
+
+The product remains asynchronous. Only measurement code waits for complete rest;
+see section 8.10.14 and ADR-065's hardening addendum.
+
+## Release download reporting (ADR-067)
+
+```mermaid
+sequenceDiagram
+    participant Runner as Scheduled/manual workflow
+    participant API as GitHub release counters
+    participant Data as download-stats branch
+    participant Report as Qt-free calendar report
+    participant Pages as GitHub Pages
+    Runner->>Data: prepare data worktree
+    opt normal measurement (not report_only)
+        Runner->>API: fetch validated counters
+    end
+    Runner->>Report: existing snapshots + new rows
+    Report->>Report: validate/freeze earliest baseline before replacement
+    Report->>Report: history fractions + later increments → daily series
+    Report->>Data: baseline, CSVs, summary, SVG and static website
+    Runner->>Data: commit/push durable data
+    Runner->>Pages: upload site artifact; separate deploy job
+```
+
+The viewer filters the daily series by range, then sums components into the selected
+calendar grain. A Pages failure leaves the pushed history intact. Report-only runs never
+contact the API or advance the observation time. See section 7.4 for UTC assignment,
+estimate labels and first-deployment setup; no runtime app dependency is involved.
+
+
+## Agent host and startup refresh after audit extraction (ADR-068)
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP client
+    participant Server as Agent API
+    participant Host as Application compatibility methods / AgentHost
+    participant Bridge as MainThreadBridge
+    participant Commands as Canonical commands
+    Client->>Server: authorized operation
+    Server->>Host: production provider
+    Host->>Bridge: run_on_main
+    Bridge->>Host: validated main-thread body
+    Host->>Commands: one existing operation path
+    Commands-->>Host: document / history result
+    Host-->>Client: existing transport schema
+```
+
+On close, the application calls the adapter: abort queued main-thread hops first,
+then stop/join the server, then clear the server reference. A queued aborted
+callable must never run after shutdown. The adapter owns no mirrored document or
+server state. Compatibility methods keep call signatures and test injection seams.
+
+Normal startup applies the application stylesheet and palette before constructing
+the window. After show, `refresh_window_theme` updates native frames and opt-in
+palette/icon hooks without reapplying the stylesheet or notifying listeners a
+second time. A later user theme change still uses the complete `apply_theme` path.
+
+## Gravel ground detail (#605, PR #645 owner pass)
+
+The snapshot retains the nominal analytical caster regions and path centreline.
+The ground baker paints the existing round gravel stroke. The Qt-free gravel
+builder uses that centreline and width to obtain the shared round outline,
+checks its subdivision/vertex budget, then sweeps the low bevelled rim inward
+around its boundaries. SceneSync publishes one unpickable, non-shadowing
+`ground_detail` part; the ground remains painted beneath it. Budget refusal
+publishes no raised rim and preserves the ground picture.
+
+## Bed membership and constrained rotation (#443, #485, PR #649)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant View as CanvasView
+    participant Solver as Constraint graph
+    participant Command as RotateItemCommand
+    participant Links as BedMembershipChange
+    User->>View: drag rotation handle
+    View->>Solver: solve with rotated item pinned
+    Solver-->>View: partner translations and vertex corrections
+    View->>View: carry only unconstrained bed children
+    User->>View: release
+    View->>Command: register angle and all partner corrections
+    Command->>Links: reconcile affected plant links
+    User->>Command: undo
+    Command->>Command: restore all recorded geometry
+    Command->>Links: restore recorded links
+```
+
+A returned-to-start angle still records partner changes. A gesture with no
+angle or partner changes adds no history entry. Explicit child constraints
+outrank automatic bed carrying; containment is evaluated after geometry settles.
+
+### Creating an orientation constraint beside a locked object
+
+The Parallel and Perpendicular tools resolve the clicked edges, then ask the
+shared rotation planner for a payload. The planner first checks the entire
+orientation component for FIXED members and for the reference object. It
+returns a free group's co-rotations, or refuses before any graph write.
+AddConstraintCommand applies a successful plan and its membership changes in
+one undo entry. Undo/redo replay the recorded payload; no fresh solve is needed.
+
+When a pinch takes over a live rotation handle (#649/#650 integration), the
+pointer cleanup discards ordinary move bookkeeping but retains the rotation's
+partner snapshots until the synthetic release commits the rotation command.
+Only after that release are the partner snapshots cleared. A normal item drag
+still rolls back before the pinch; resize/vertex handle behavior is unchanged.

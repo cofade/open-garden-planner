@@ -30,9 +30,24 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Layers**: Organize objects into manageable layers with visibility/lock controls
 - **Standard Formats**: JSON project files (.ogp), PNG/SVG/PDF/DXF export, CSV plant lists
 - **Garden Smart Features**: Harvest tracking, task management & reminders, succession planting, soil health tracking
+- **Plan Timeline**: One date controls plant presence, growth and sunlight; edit planting/removal dates, scrub months and keep an enabled 2D hours-of-sun map current. A location link guides solar setup when coordinates are missing
+- **Sun, Shade & 3D**: Analytic 2D shadows and hours-of-sun maps for your garden's location, date and time; a 3D view beside the plan (Plan / 3D / Split) lit by the same sun, with shadows, plant growth over the simulated dates and a walk mode — it follows every edit. Its Analyze menu lays the same 2D shadows or the hours-of-sun map on the 3D ground (click the map to read a spot), draws the sun's path with a compass, plays the day, jumps years ahead with a before/after view, and takes roofs off while fading what hides the selection. Flat ground only; frame rate depends on your graphics card (a software fallback exists)
 - **AI Agent Integration**: Embedded MCP server exposes the live plan for reading, visualization, export, and optional token-gated editing (including stable low-level geometry)
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
+- **Offline Examples & Templates**: Start from three illustrated garden layouts or reuse a plan with site/history data removed. Review names and free-form text before sharing.
 - **Auto-Save**: Periodic auto-save with crash recovery
+
+## Offline example plans
+
+Welcome's **Examples & templates** tab and **File > New from example** open an
+untitled copy. The gallery includes a food forest, a raised-bed polyculture and
+balcony herb containers. These are learning layouts: adapt plants, spacing and
+dates to your site. **File > Save as template** explains which personal/site data
+is removed; **New from template** reuses any `.ogp` as a copy.
+
+![Bundled raised-bed polyculture preview](src/open_garden_planner/resources/examples/raised-bed.png)
+
+[Example content and CC-BY-SA-4.0 attribution](src/open_garden_planner/resources/examples/PROVENANCE.md).
 
 ## Installation
 
@@ -145,7 +160,7 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 **Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling and garden
 smart features are complete; the embedded AI Agent Integration's read/export and
-token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is next. See the
+token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is complete through L5, with L7 too (package L1 replaced the Qt 3D window with the Qt Quick 3D view beside the plan in v1.30.14, L2 added Analyze in 3D in v1.31.0, L3 added the Plant Forge in v1.32.0, L4 completed the built world — objects, roofs, facades, surfaces and ground detail — in v1.34.0, and L5 brought the living garden — day and year playback, weather, falling rain, snow and leaves, butterflies and fireflies, Today's Weather and garden lights — in v1.35.0; L7 moved the app to Qt 6.12 and added an optional atmosphere sky with clouds in v1.36.0; L6 is next). Package F is complete: F5 offline examples and portable templates shipped in v1.33.0 after owner acceptance (PR #610). See the
 [Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
 table and current version.
 

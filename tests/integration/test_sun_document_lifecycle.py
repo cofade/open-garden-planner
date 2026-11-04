@@ -71,6 +71,7 @@ def test_failed_prevalidation_preserves_heatmap(qtbot, monkeypatch, tmp_path):
     win._project_manager.set_location(BERLIN)
     with qtbot.waitSignal(win._sun_heatmap.finished, timeout=5000):
         assert win._sun_heatmap.run_for_day(DAY, cell_cm=100)
+    win._sun_toolbar.set_heatmap_active(True)
     broken = tmp_path / "broken.ogp"
     broken.write_text("{broken", encoding="utf-8")
     with pytest.raises(ValueError):

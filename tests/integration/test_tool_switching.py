@@ -8,7 +8,6 @@ Verifies that:
   - Escape key cancels an active drawing gesture.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

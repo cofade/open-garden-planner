@@ -13,7 +13,6 @@ first manual-test round caught broken: the view must register
 grab that Qt silently drops on ``ItemIgnoresTransformations`` child items.
 """
 
-# ruff: noqa: ARG002
 
 import math
 

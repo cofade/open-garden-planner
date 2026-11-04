@@ -1,6 +1,6 @@
 {
   "id": "fence_panel",
-  "version": 1,
+  "version": 2,
   "name": "Fence Panel",
   "name_de": "Zaunfeld",
   "category": "structures",
@@ -12,6 +12,6 @@
   "elements": [
     {"kind": "line", "x1": 0, "y1": "H / 2", "x2": "L", "y2": "H / 2", "object_type": "FENCE"},
     {"repeat": {"var": "i", "from": 0, "to": "pickets - 1"},
-     "element": {"kind": "line", "x1": "L * i / (pickets - 1)", "y1": 0, "x2": "L * i / (pickets - 1)", "y2": "H"}}
+     "element": {"kind": "line", "x1": "L * i / (pickets - 1)", "y1": 0, "x2": "L * i / (pickets - 1)", "y2": "H", "guide": true}}
   ]
 }

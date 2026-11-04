@@ -359,7 +359,7 @@ class SoilTestDialog(QDialog):
         )
         if sub.exec() != QDialog.DialogCode.Accepted:
             return
-        from open_garden_planner.core import EditSoilTestCommand  # noqa: PLC0415
+        from open_garden_planner.core import EditSoilTestCommand
 
         new_record = sub.result_record()
         cmd = EditSoilTestCommand(self._project_manager, self._target_id, new_record)
@@ -380,7 +380,7 @@ class SoilTestDialog(QDialog):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        from open_garden_planner.core import DeleteSoilTestCommand  # noqa: PLC0415
+        from open_garden_planner.core import DeleteSoilTestCommand
 
         cmd = DeleteSoilTestCommand(self._project_manager, self._target_id, rec.id)
         self._command_manager.execute(cmd)
@@ -395,7 +395,7 @@ class SoilTestDialog(QDialog):
         """
         if self._project_manager is None:
             return
-        from open_garden_planner.models.soil_test import SoilTestHistory  # noqa: PLC0415
+        from open_garden_planner.models.soil_test import SoilTestHistory
 
         raw = self._project_manager.soil_tests.get(self._target_id)
         history = SoilTestHistory.from_dict(raw) if raw else SoilTestHistory(
@@ -717,7 +717,7 @@ def _amendment_display_lang() -> str:
     Delegates to the one shared resolver so the dialog and the task generator
     cannot disagree about the current UI language.
     """
-    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
+    from open_garden_planner.app.settings import active_language
 
     return active_language()
 

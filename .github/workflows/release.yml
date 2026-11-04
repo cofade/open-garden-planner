@@ -11,6 +11,9 @@ jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
+    # A release run takes 9-13 minutes (measured over the v1.29.x releases). Without
+    # a limit a hung step holds the job for GitHub's default of six hours.
+    timeout-minutes: 45
     permissions:
       contents: write
       id-token: write
@@ -22,54 +25,42 @@ jobs:
     # triggered a release).
     if: "!startsWith(github.event.head_commit.message, 'chore:') && !startsWith(github.event.head_commit.message, 'chore(')"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # Full history for git tags
+
+      - name: Verify release classification
+        shell: bash
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python scripts/check_release_classification.py --commit "${GITHUB_SHA}"
 
       - name: Determine version
         id: version
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PYTHONUTF8: "1"
         run: |
-          # Get latest tag version
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
-          VERSION=${LATEST_TAG#v}
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-          MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
-
-          # Get labels from the merged PR that triggered this push
-          PR_NUMBER=$(gh pr list --state merged --base master --limit 1 --json number --jq '.[0].number')
-          LABELS=""
-          if [ -n "$PR_NUMBER" ]; then
-            LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
-          fi
-
-          # Determine bump type
-          if echo "$LABELS" | grep -q "major"; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif echo "$LABELS" | grep -q "minor"; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-
-          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing version: $NEW_VERSION"
+          python scripts/resolve_release_pr.py --write-github-output
 
       - name: Check if tag already exists
         id: check_tag
         shell: bash
         run: |
-          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+          disposition="${{ steps.version.outputs.tag_disposition }}"
+          tag="${{ steps.version.outputs.tag }}"
+          if [ "$disposition" = "conflict" ]; then
+            echo "::error::Tag $tag already exists and points to a different commit. Conflicting tag detected (AUD-038)."
+            exit 1
+          elif [ "$disposition" = "idempotent_retry" ]; then
+            echo "Tag $tag already points to this commit. Skipping release as idempotent retry."
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
+            echo "Tag $tag does not exist. Proceeding with release."
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -79,7 +70,7 @@ jobs:
 
       - name: Set up Python 3.11
         if: steps.check_tag.outputs.exists == 'false'
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11.9"
 
@@ -109,7 +100,7 @@ jobs:
 
       - name: Upload build evidence
         if: steps.check_tag.outputs.exists == 'false'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-evidence-${{ github.run_id }}
           path: dist/build-evidence.json
@@ -118,29 +109,76 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         run: python installer/build_installer.py --version ${{ steps.version.outputs.version }}
 
-      # Exercise the lazily-imported 3D subsystem in the ACTUAL frozen build
-      # before release. The startup-only smoke test can't see it, so a Qt
-      # micro-version mismatch (issue #277) would otherwise ship and crash the
-      # 3D view for every user. `--selftest` imports the Qt3D bindings headless
-      # and starts the embedded Agent API server, exiting non-zero if either is
-      # dead. Start-Process gives the child NO INHERITED STDOUT HANDLE, which is
+      # Exercise the lazily-imported subsystems in the ACTUAL frozen build
+      # before release. The startup-only smoke test can't see them: a Qt
+      # micro-version mismatch in the 3D view of the time (issue #277, Qt 3D -
+      # removed in Phase 17 L1.10) shipped that way and crashed the 3D view for
+      # every user. `--selftest` starts the embedded Agent API server, runs the
+      # A1 checks and renders the 3D engine's frame, exiting non-zero if any of
+      # them is dead. Start-Process gives the child NO INHERITED STDOUT HANDLE, which is
       # the shipping condition (#291): a `console=False` exe has no console
       # allocated, but a shell-piped run still inherits a handle and would test
       # the wrong thing. The exit code is the channel either way -- hence
       # -Wait -PassThru rather than a plain call, which PowerShell would not
       # wait on at all for a GUI-subsystem process.
-      - name: Verify frozen subsystems (Qt3D #277, Agent API #291)
+      #
+      # Since Phase 17 L1.2 (ADR-048) `--selftest` RENDERS: it loads the
+      # Qt Quick 3D scene (Garden.qml + its shaders) from the bundle, draws one
+      # 160x120 frame without showing a window and checks its pixels. This
+      # runner has no GPU -- the frame is rendered by Direct3D 11 on WARP.
+      #
+      # It cannot hang the job. Inside the exe ONE watchdog bounds the whole
+      # self-test -- every block, not only the render: after 300 s it writes the
+      # reason and every thread's stack into the log and exits with code 1. A
+      # process deadlocked inside Qt was measured to survive that exit, so a
+      # second process (the same exe, `--selftest-supervisor`) terminates it from
+      # outside ten seconds later. Around it this step has its own limit, and the
+      # job has one too.
+      #
+      # The exit code ALONE decides. The log (the exe has no stdout;
+      # OGP_SELFTEST_LOG puts it where the next step can read it) is printed by
+      # a step of its own that ALWAYS runs -- also when this one was cut off by
+      # its time limit, which prints nothing after the cut -- and that can fail
+      # nothing: a log that cannot be read must not turn a passing build red,
+      # nor hide a failing one behind a different error. No Write-Error here:
+      # under GitHub's pwsh it ends the step at once.
+      #
+      # Both scripts are the SAME text in frozen-selftest.yml, which runs them on
+      # pull requests (pinned by tests/unit/test_quick3d_packaging.py).
+      - name: Verify frozen subsystems (Agent API #291, A1 checks, Qt Quick 3D render #277)
         if: steps.check_tag.outputs.exists == 'false'
         shell: pwsh
+        timeout-minutes: 10
+        env:
+          OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-3d.log
+          OGP_EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           $exe = "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
-          if (-not (Test-Path $exe)) { Write-Error "Frozen exe not found: $exe"; exit 1 }
+          if (-not (Test-Path $exe)) { Write-Host "::error::Frozen exe not found: $exe"; exit 1 }
           $p = Start-Process -FilePath $exe -ArgumentList "--selftest" -Wait -PassThru
           if ($p.ExitCode -ne 0) {
-            Write-Error "Frozen self-test failed (exit $($p.ExitCode)). It covers the Qt3D bindings + Qt version match (#277) AND the embedded Agent API server binding (#291) - one of those is dead in this build."
+            Write-Host "::error::Frozen self-test failed (exit $($p.ExitCode)). It covers the embedded Agent API server binding (#291), the A1 ingestion checks AND the Qt Quick 3D engine (Garden.qml and its shaders loaded from the bundle and rendered into one frame on this GPU-less runner, Direct3D 11 on WARP) - one of those is dead in this build, a lazily loaded part only the real artifact shows (the #277 class). The next step prints the self-test log: it names the failed 3D check, or shows the watchdog's reason and stack dump if any part hung."
             exit 1
           }
-          Write-Host "Frozen self-test passed (exit 0): Qt3D bindings + Agent API both alive."
+          Write-Host "Frozen self-test passed (exit 0): Agent API, A1 checks and the Qt Quick 3D render are all alive."
+
+      - name: Print the self-test log
+        if: always() && steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        env:
+          OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-3d.log
+        run: |
+          try {
+            if (Test-Path -LiteralPath $env:OGP_SELFTEST_LOG) {
+              Write-Host "--- self-test log ($env:OGP_SELFTEST_LOG) ---"
+              Get-Content -LiteralPath $env:OGP_SELFTEST_LOG -ErrorAction Stop | ForEach-Object { Write-Host $_ }
+            } else {
+              Write-Host "No self-test log was written: the self-test did not run, or the exe did not get as far as opening it."
+            }
+          } catch {
+            Write-Host "The self-test log could not be printed ($($_.Exception.Message)). The verdict of the self-test step stands."
+          }
+          exit 0
 
       - name: Generate checksum
         if: steps.check_tag.outputs.exists == 'false'

@@ -173,7 +173,7 @@ Rules:
 - Always surface a manual-testing checklist with the work (workflow step 8) — write it so a
   failure is *informative* (which claim died?), not just "looks wrong".
 - When manual testing kills something, the kill produces artifacts: an ADR addendum
-  (ADR-030), a roadmap note + compat guarantee (US-B7), or a §11.4 lesson (#213). See §5.
+  (ADR-030), a roadmap note + compat guarantee (US-B7), or a pitfall entry (#213). See §5.
 
 ---
 
@@ -195,7 +195,7 @@ Every accepted change in this project traversed this pipeline; use it as the map
 6. **Senior-review rounds** — until no outstanding P0/P1 (§3). Multiple rounds expected.
 7. **Draft PR** — every coding job ends with one; never a bare pushed branch.
 8. **Manual test (sovereign)** — may reject code, design, or the feature itself (§4).
-9. **Docs of record** — §11.4 pitfall entry (with "Rule:" / "Lesson:"), ADR or ADR addendum,
+9. **Docs of record** — pitfall entry in `pitfalls/` (Rule, Pinned by, Source, Status), ADR or ADR addendum,
    FR-* entry, roadmap completion note, debug-verbose case study. CLAUDE.md: "all lessons
    learned MUST be documented." A result that isn't in the docs of record is not yet
    accepted — it is merely merged.
@@ -295,7 +295,7 @@ CI does not prove the local full suite is clean (`QSettings.setDefaultFormat` le
    every P0/P1; re-run for a clean pass. Expect rounds. (§3)
 8. **Manual test** (sovereign): provide the checklist; be prepared for the design — or the
    feature — to die there. (§4)
-9. **Docs of record**: §11.4 lesson (ending in a Rule), ADR/addendum if a decision changed,
+9. **Docs of record**: a pitfall entry in `pitfalls/` (Rule, Pinned by, Source, Status), ADR/addendum if a decision changed,
    FR/roadmap update, debug-verbose case study for non-obvious bugs.
 10. **Adopt or retire on the record**: merged + documented, or dropped WITH rationale and
     any compat guarantee written down (US-B7 pattern). Remove all instrumentation either way.
@@ -325,7 +325,7 @@ CI does not prove the local full suite is clean (`QSettings.setDefaultFormat` le
 
 Volatile facts date-stamped 2026-07-05 (repo at v1.23.0, Phases 1–13 Packages A–D1.3
 complete). Re-verify the cited episodes before relying on them:
-`grep -n "Closed (#218)\|losing game\|#169" docs/11-risks-and-technical-debt/README.md` ·
+`grep -rn "Closed (#218)\|losing game\|#169" docs/11-risks-and-technical-debt/` ·
 `grep -n "US-B7 dropped\|planning session" docs/roadmap.md` ·
 `grep -in "refuted by reading\|senior-review rounds\|P0 caught" CLAUDE.md` ·
 `grep -rn "issue #229" .claude/skills/finalize-us/SKILL.md` ·

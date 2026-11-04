@@ -19,9 +19,16 @@ from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.app.settings import get_settings
-from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.item_look import restore_stored_look
+from open_garden_planner.config.settings import get_settings
+from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.item_look import (
+    adopt_pen,
+    fill_brush,
+    restore_stored_look,
+    saved_stroke_colour,
+    saved_stroke_width,
+    stroke_style_of,
+)
 from open_garden_planner.core.object_types import PathFenceStyle, StrokeStyle
 from open_garden_planner.core.plan_io import (
     PlanValidationError,
@@ -240,6 +247,7 @@ class ProjectManager(QObject):
 
     project_changed = pyqtSignal(object)  # str path or None
     dirty_changed = pyqtSignal(bool)
+    before_save = pyqtSignal()
     location_changed = pyqtSignal(object)  # dict or None
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
@@ -330,7 +338,7 @@ class ProjectManager(QObject):
         """
         if done:
             self.set_task_status(
-                task_id, "done", done_date=datetime.now().date().isoformat()  # noqa: DTZ005
+                task_id, "done", done_date=datetime.now().date().isoformat()
             )
         else:
             self.set_task_status(task_id, "open")
@@ -553,7 +561,7 @@ class ProjectManager(QObject):
 
     def get_pest_log_history(self, target_id: str) -> Any:
         """Return the ``PestLogHistory`` for ``target_id`` (empty when absent)."""
-        from open_garden_planner.models.pest_log import PestLogHistory  # noqa: PLC0415
+        from open_garden_planner.models.pest_log import PestLogHistory
 
         raw = self._pest_logs.get(target_id)
         if raw is None:
@@ -588,7 +596,7 @@ class ProjectManager(QObject):
 
     def get_harvest_history(self, target_id: str) -> Any:
         """Return the ``HarvestHistory`` for ``target_id`` (empty when absent)."""
-        from open_garden_planner.models.harvest_log import HarvestHistory  # noqa: PLC0415
+        from open_garden_planner.models.harvest_log import HarvestHistory
 
         raw = self._harvest_logs.get(target_id)
         if raw is None:
@@ -653,7 +661,7 @@ class ProjectManager(QObject):
 
     def get_journal_note(self, note_id: str) -> Any:
         """Return the ``JournalNote`` for ``note_id`` (``None`` when absent)."""
-        from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+        from open_garden_planner.models.journal_note import JournalNote
 
         raw = self._garden_journal_notes.get(note_id)
         if raw is None:
@@ -693,7 +701,7 @@ class ProjectManager(QObject):
 
     def get_manual_task(self, task_id: str) -> Any:
         """Return the ``ManualTask`` for ``task_id`` (``None`` when absent)."""
-        from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
+        from open_garden_planner.models.task import ManualTask
 
         raw = self._manual_tasks.get(task_id)
         if raw is None:
@@ -775,7 +783,7 @@ class ProjectManager(QObject):
         save-time reconciliation, a dragged pin's note would stay stuck at its
         original placement coordinates after save/reload.
         """
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -864,6 +872,7 @@ class ProjectManager(QObject):
             scene: The scene containing objects to save
             file_path: Path to save to
         """
+        self.before_save.emit()
         data = self._build_project_data(scene, sync_journal=True)
         file_path = file_path.with_suffix(".ogp")
 
@@ -936,13 +945,27 @@ class ProjectManager(QObject):
         # agent's curated Layer model reports it (US-D2.4) — agent_meta is the
         # designated home for runtime info the on-disk format doesn't store.
         active_layer = getattr(scene, "active_layer", None)
+        plan_date = getattr(scene, "plan_date", None)
         out["agent_meta"] = {
             "file_name": self._current_file.name if self._current_file else None,
             "is_dirty": self._dirty,
             "active_layer_id": (
                 str(active_layer.id) if active_layer is not None else None
             ),
+            "as_of_date": plan_date.isoformat() if plan_date is not None else None,
         }
+        from open_garden_planner.core.plan_timeline import plant_present
+
+        def annotate(objects: list[dict[str, Any]]) -> None:
+            for obj in objects:
+                obj["as_of_date"] = out["agent_meta"]["as_of_date"]
+                obj["present"] = not self._is_plant_object(obj) or plant_present(
+                    obj.get("metadata"), plan_date)
+                annotate(obj.get("children") or [])
+                if obj.get("type") == "group" and obj.get("children"):
+                    obj["present"] = any(child["present"] for child in obj["children"])
+
+        annotate(out.get("objects") or [])
         return out
 
     @staticmethod
@@ -965,6 +988,8 @@ class ProjectManager(QObject):
         records: list[dict[str, Any]] = []
         for item in scene.items():
             if not isinstance(item, GardenItemMixin):
+                continue
+            if not getattr(scene, "is_present", lambda _item: True)(item):
                 continue
             # Mirror _serialize_item: group children are not top-level objects, so
             # skip them — a diagnostic id must be resolvable via get_object/list_objects.
@@ -1018,7 +1043,30 @@ class ProjectManager(QObject):
             records.append({"diagnostics": deepcopy(getattr(scene, "_sun_diagnostics", []))})
         return records
 
-    def load(self, scene: QGraphicsScene, file_path: Path) -> None:
+    def save_template(self, scene: QGraphicsScene, file_path: Path) -> None:
+        """Export a portable snapshot without changing the current file or history."""
+        from PyQt6.QtCore import QCoreApplication
+
+        from open_garden_planner.core.templates import template_plan
+
+        destination = file_path.with_suffix(".ogp")
+        bundled = Path(__file__).resolve().parent.parent / "resources" / "examples"
+        same_project = self._current_file and (
+            destination.resolve() == self._current_file.resolve()
+            or (destination.exists() and self._current_file.exists()
+                and destination.samefile(self._current_file))
+        )
+        if same_project or destination.resolve().is_relative_to(bundled):
+            raise ValueError(QCoreApplication.translate(
+                "ProjectManager", "Choose a template filename outside the current project and bundled examples."
+            ))
+        self.before_save.emit()
+        data = self._build_project_data(scene, sync_journal=False)
+        write_plan(destination, template_plan(data.to_dict()))
+
+    def load(
+        self, scene: QGraphicsScene, file_path: Path, *, as_template: bool = False
+    ) -> None:
         """Load a project from a file.
 
         Args:
@@ -1050,6 +1098,10 @@ class ProjectManager(QObject):
                     f"before opening this project."
                 )
 
+            if as_template:
+                from open_garden_planner.core.templates import example_copy_plan
+
+                raw_data = example_copy_plan(raw_data, file_path)
             data = ProjectData.from_dict(raw_data)
             prep = self._prepare_scene_data(data)
 
@@ -1061,12 +1113,15 @@ class ProjectManager(QObject):
             # Sync custom plants from project to app library
             self._sync_custom_plants(scene)
 
-            self._current_file = file_path
-            self.mark_clean()
-            self.project_changed.emit(str(file_path))
+            self._current_file = None if as_template else file_path
+            if as_template:
+                self.mark_dirty()
+            else:
+                self.mark_clean()
+            self.project_changed.emit(None if as_template else str(file_path))
 
-            # Track in recent files
-            get_settings().add_recent_file(str(file_path))
+            if not as_template:
+                get_settings().add_recent_file(str(file_path))
         except Exception:
             if scene_mutated:
                 self._current_file = None
@@ -1150,7 +1205,7 @@ class ProjectManager(QObject):
         current_data.soil_tests = dict(self._soil_tests)
         # US-12.7: only carry unresolved pest/disease records to the new season
         # (resolved entries stay in the previous season as historical record).
-        from open_garden_planner.models.pest_log import PestLogHistory  # noqa: PLC0415
+        from open_garden_planner.models.pest_log import PestLogHistory
 
         carried_pests: dict[str, Any] = {}
         for tid, raw in self._pest_logs.items():
@@ -1167,7 +1222,7 @@ class ProjectManager(QObject):
         # so totals survive even when the plant objects are not kept). The new
         # season starts with a blank journal (cleared below), so sever each
         # carried record's journal_note_id to avoid a dangling reference.
-        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+        from open_garden_planner.models.harvest_log import (
             HarvestHistory,
         )
 
@@ -1197,7 +1252,7 @@ class ProjectManager(QObject):
         # US-C2: carry forward only still-relevant manual tasks (due today or in
         # the future, or undated); past-due manual tasks stay in the old season.
         # Local "today" to match the manual-task dates entered in the dialog.
-        today_iso = datetime.now().date().isoformat()  # noqa: DTZ005
+        today_iso = datetime.now().date().isoformat()
         current_data.manual_tasks = {
             tid: raw
             for tid, raw in self._manual_tasks.items()
@@ -1439,6 +1494,28 @@ class ProjectManager(QObject):
         return data
 
     @staticmethod
+    def _stored_shape_offset(item: QGraphicsItem, local_centre: QPointF) -> QPointF:
+        """Where the item's local origin sits in its parent's frame (#661).
+
+        A shape is saved by writing its geometry in the *parent* frame, because
+        the loader recreates the item in that frame. ``item.pos()`` is not that
+        frame once the item is a rotated child of a ``GroupItem``:
+        ``QGraphicsItemGroup.addToGroup()`` normalises the child's rotation to
+        rotate about the item origin and folds the old pivot into ``pos()`` (a
+        30-degree rectangle's ``pos`` becomes the scene position of its local
+        ``(0, 0)``), so ``pos() + local`` double-counts the compensation and the
+        shape jumps on reload.
+
+        ``mapToParent(local_centre)`` is the shape's own centre in the parent
+        frame.  It is the right anchor because the loader re-derives the rotation
+        pivot from the loaded geometry's centre: shifting every local point by
+        ``mapToParent(centre) - centre`` makes the re-created shape's centre
+        coincide with the old one, whatever Qt folded into ``pos()`` when the
+        child was grouped.
+        """
+        return item.mapToParent(local_centre) - local_centre
+
+    @staticmethod
     def _stored_fill_color(item: Any) -> QColor:
         """The fill colour to persist for ``item`` (issues #438/#469).
 
@@ -1493,11 +1570,12 @@ class ProjectManager(QObject):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
+            offset = ProjectManager._stored_shape_offset(item, rect.center())
             data = {
                 "type": "rectangle",
                 "item_id": str(item.item_id),
-                "x": item.pos().x() + rect.x(),
-                "y": item.pos().y() + rect.y(),
+                "x": offset.x() + rect.x(),
+                "y": offset.y() + rect.y(),
                 "width": rect.width(),
                 "height": rect.height(),
             }
@@ -1531,13 +1609,12 @@ class ProjectManager(QObject):
             return data
         elif isinstance(item, EllipseItem):
             rect = item.rect()
-            cx = item.pos().x() + rect.center().x()
-            cy = item.pos().y() + rect.center().y()
+            centre = item.mapToParent(rect.center())
             data = {
                 "type": "ellipse",
                 "item_id": str(item.item_id),
-                "center_x": cx,
-                "center_y": cy,
+                "center_x": centre.x(),
+                "center_y": centre.y(),
                 "semi_x": rect.width() / 2,
                 "semi_y": rect.height() / 2,
             }
@@ -1564,11 +1641,12 @@ class ProjectManager(QObject):
                 data["area_label_visible"] = True
             return data
         elif isinstance(item, CircleItem):
+            centre = item.mapToParent(item.center)
             data = {
                 "type": "circle",
                 "item_id": str(item.item_id),
-                "center_x": item.pos().x() + item.center.x(),
-                "center_y": item.pos().y() + item.center.y(),
+                "center_x": centre.x(),
+                "center_y": centre.y(),
                 "radius": item.radius,
             }
             if hasattr(item, "object_type") and item.object_type:
@@ -1611,10 +1689,14 @@ class ProjectManager(QObject):
                 data["area_label_visible"] = True
             return data
         elif isinstance(item, PolylineItem):
+            offset = ProjectManager._stored_shape_offset(item, item.boundingRect().center())
             data = {
                 "type": "polyline",
                 "item_id": str(item.item_id),
-                "points": [{"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()} for p in item.points],
+                "points": [
+                    {"x": offset.x() + p.x(), "y": offset.y() + p.y()}
+                    for p in item.points
+                ],
             }
             if hasattr(item, "object_type") and item.object_type:
                 data["object_type"] = item.object_type.name
@@ -1630,6 +1712,12 @@ class ProjectManager(QObject):
             stroke_color = item.pen().color()
             data["stroke_color"] = stroke_color.name(QColor.NameFormat.HexArgb)
             data["stroke_width"] = item.pen().widthF()
+            # … and its dash style when it has one (a dashed line came back solid).
+            # Read off the pen, like the colour and the width; a solid line writes
+            # nothing, as before.
+            dash = stroke_style_of(item.pen())
+            if dash is not None and dash is not StrokeStyle.SOLID:
+                data["stroke_style"] = dash.name
             # Save path/fence style preset
             if hasattr(item, "path_fence_style") and item.path_fence_style and item.path_fence_style.name != "NONE":
                 data["path_fence_style"] = item.path_fence_style.name
@@ -1639,12 +1727,13 @@ class ProjectManager(QObject):
             return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
+            offset = ProjectManager._stored_shape_offset(item, item.boundingRect().center())
             points = []
             for i in range(polygon.count()):
                 pt = polygon.at(i)
                 points.append({
-                    "x": item.pos().x() + pt.x(),
-                    "y": item.pos().y() + pt.y(),
+                    "x": offset.x() + pt.x(),
+                    "y": offset.y() + pt.y(),
                 })
             data = {
                 "type": "polygon",
@@ -1981,7 +2070,7 @@ class ProjectManager(QObject):
             scene.set_layers(parsed_layers)
 
         # Create items inside suspend_z_refresh() (issue #338) so the whole
-        # loop does one deferred z-refresh instead of one per add, and
+        # loop does one z derivation on exit instead of one per add, and
         # renumbers every layer's ranks from its normalized order.
         has_suspend_ctx = hasattr(scene, "suspend_z_refresh")
         suspend_ctx = (
@@ -1994,14 +2083,45 @@ class ProjectManager(QObject):
                 scene.addItem(item)
 
         # Apply layer visibility/opacity/lock/z-order to all items now that they exist
-        if hasattr(scene, "_update_items_visibility"):
+        if hasattr(scene, "refresh_timeline"):
+            scene.refresh_timeline()
+        elif hasattr(scene, "_update_items_visibility"):
             scene._update_items_visibility()
         if not has_suspend_ctx and hasattr(scene, "_update_items_z_order"):
             scene._update_items_z_order()
 
         # Load constraints if present
         if parsed_constraints is not None and hasattr(scene, "constraint_graph"):
+            # #655 + round-2 review: a FIXED lock's stored target is a
+            # ``pos()`` from the SAVING frame, and the shape serializers fold
+            # that translation into the geometry.  Re-target every FIXED
+            # constraint to the loaded item's own position BEFORE the graph
+            # becomes live, so neither a legacy record nor a moved lock makes
+            # the first drag jump (and the next save keeps the truth).
+            loaded_positions: dict[UUID, tuple[float, float]] = {}
+
+            def _collect_positions(item_list: list[QGraphicsItem]) -> None:
+                for loaded in item_list:
+                    item_id = getattr(loaded, "item_id", None)
+                    if isinstance(item_id, UUID):
+                        position = loaded.pos()
+                        loaded_positions[item_id] = (
+                            position.x(),
+                            position.y(),
+                        )
+                    if loaded.childItems():
+                        _collect_positions(list(loaded.childItems()))
+
+            _collect_positions(deserialized_items)
+            parsed_constraints.retarget_fixed_constraints(loaded_positions)
             scene.constraint_graph = parsed_constraints
+            # The FIXED-lock padlock badge is derived from the graph: re-derive
+            # it for every loaded item so a saved lock is visible without
+            # selecting each item first (#552).
+            for loaded_item in deserialized_items:
+                refresh_badge = getattr(loaded_item, "refresh_lock_badge", None)
+                if refresh_badge is not None:
+                    refresh_badge()
 
         # Load guide lines if present
         if hasattr(scene, "set_guide_lines"):
@@ -2104,7 +2224,9 @@ class ProjectManager(QObject):
                     for child_data in obj.get("children", []):
                         child = ProjectManager._deserialize_item_core(child_data)
                         if child is not None:
-                            symbol.addToGroup(child)
+                            child.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+                            child.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+                            child.setParentItem(symbol)
                 if "x" in obj and "y" in obj:
                     symbol.setPos(float(obj["x"]), float(obj["y"]))
                 if "rotation" in obj:
@@ -2204,13 +2326,13 @@ class ProjectManager(QObject):
             restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             # Restore custom colors if saved
             if "fill_color" in obj:
-                # If we have a pattern, recreate the brush with both color and pattern
-                if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, QColor(obj["fill_color"]))
-                else:
-                    brush = item.brush()
-                    brush.setColor(QColor(obj["fill_color"]))
-                item.setBrush(brush)
+                # The brush: the saved colour in the item's pattern — the saved
+                # pattern, or the type's for a file that names none (what the
+                # constructor gave the item and what the next save writes).
+                # Recolouring the brush the constructor made left a TEXTURED
+                # fill at the type's tint until the plan had been saved and
+                # opened once more.
+                item.setBrush(fill_brush(item, QColor(obj["fill_color"])))
             if "stroke_color" in obj:
                 pen = item.pen()
                 pen.setColor(QColor(obj["stroke_color"]))
@@ -2247,14 +2369,7 @@ class ProjectManager(QObject):
             # Restore custom colors if saved
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
-                # Store the base color in the item
-                # If we have a pattern, recreate the brush with both color and pattern
-                if fill_pattern:
-                    brush = create_pattern_brush(fill_pattern, color)
-                else:
-                    brush = item.brush()
-                    brush.setColor(color)
-                item.setBrush(brush)
+                item.setBrush(fill_brush(item, color))  # see the rectangle branch
             if "stroke_color" in obj:
                 pen = item.pen()
                 pen.setColor(QColor(obj["stroke_color"]))
@@ -2308,12 +2423,7 @@ class ProjectManager(QObject):
             restore_stored_look(item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style)
             if "fill_color" in obj:
                 color = QColor(obj["fill_color"])
-                if fill_pattern:
-                    item.setBrush(create_pattern_brush(fill_pattern, color))
-                else:
-                    brush = item.brush()
-                    brush.setColor(color)
-                    item.setBrush(brush)
+                item.setBrush(fill_brush(item, color))  # see the rectangle branch
             if "stroke_color" in obj:
                 pen = item.pen()
                 pen.setColor(QColor(obj["stroke_color"]))
@@ -2352,13 +2462,35 @@ class ProjectManager(QObject):
                     item._metadata = metadata
                 # Restore the STORED appearance (the panel reads these; #469)
                 restore_stored_look(item, obj)
-                # Restore custom stroke color if saved (only if no preset overrides it)
-                if "stroke_color" in obj and path_fence_style == PathFenceStyle.NONE:
+                # Restore the stroke that was saved — for a style preset too. The file
+                # holds the pen the line was painted with; until the 3D ground bake's
+                # review this was restored for style NONE only, so a gravel path
+                # widened in the properties panel came back at the preset's width.
+                #
+                # For a PRESET line that stroke is read with care: a file whose stroke
+                # the app could not have written (a width that is no finite number of
+                # at least the panel's minimum, a colour that is none) keeps the
+                # preset's value, as every such file did while the saved stroke was not
+                # read at all — and nothing here raises, which would skip the item. A
+                # plain line's stroke is applied as it always was. ``adopt_pen`` then
+                # states the pen the line paints with (a preset's value where the
+                # file's could not be used, and the dash style the saver writes).
+                if "stroke_color" in obj:
                     pen = item.pen()
-                    pen.setColor(QColor(obj["stroke_color"]))
-                    if "stroke_width" in obj:
-                        pen.setWidthF(obj["stroke_width"])
-                    item.setPen(pen)
+                    if path_fence_style == PathFenceStyle.NONE:
+                        pen.setColor(QColor(obj["stroke_color"]))
+                        if "stroke_width" in obj:
+                            pen.setWidthF(obj["stroke_width"])
+                    else:
+                        colour = saved_stroke_colour(obj["stroke_color"])
+                        if colour is not None:
+                            pen.setColor(colour)
+                        width = saved_stroke_width(obj.get("stroke_width"))
+                        if width is not None:
+                            pen.setWidthF(width)
+                    if stroke_style:
+                        pen.setStyle(stroke_style.to_qt_pen_style())
+                    adopt_pen(item, pen)  # the pen AND the stroke attributes
                 # Restore label visibility
                 if not label_visible:
                     item.label_visible = False
@@ -2383,6 +2515,17 @@ class ProjectManager(QObject):
                 )
                 return None
             if len(points) >= 3:
+                # Owner manual test 2026-10-31: an earlier corner edit turned a
+                # raised bed into a polygon that still claimed RAISED_BED, so the
+                # panel showed a Polygon with bed records while the wooden frame
+                # was gone.  Load such a plan as the garden bed it now is.
+                migrated_raised_bed = object_type == ObjectType.RAISED_BED
+                if migrated_raised_bed:
+                    logging.getLogger(__name__).warning(
+                        "Plan stores a raised bed as a polygon; loading it as a "
+                        "garden bed"
+                    )
+                    object_type = ObjectType.GARDEN_BED
                 item = PolygonItem(
                     points,
                     object_type=object_type or ObjectType.GENERIC_POLYGON,
@@ -2399,13 +2542,7 @@ class ProjectManager(QObject):
                 # Restore custom colors if saved
                 if "fill_color" in obj:
                     color = QColor(obj["fill_color"])
-                    # If we have a pattern, recreate the brush with both color and pattern
-                    if fill_pattern:
-                        brush = create_pattern_brush(fill_pattern, color)
-                    else:
-                        brush = item.brush()
-                        brush.setColor(color)
-                    item.setBrush(brush)
+                    item.setBrush(fill_brush(item, color))  # see the rectangle branch
                 if "stroke_color" in obj:
                     pen = item.pen()
                     pen.setColor(QColor(obj["stroke_color"]))
@@ -2422,6 +2559,12 @@ class ProjectManager(QObject):
                     item._apply_rotation(obj["rotation_angle"])
                 if obj.get("area_label_visible"):
                     item.area_label_visible = True
+                if migrated_raised_bed:
+                    from open_garden_planner.core.item_look import adopt_type_fill
+
+                    adopt_type_fill(
+                        item, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
+                    )
                 return item
         elif obj_type == "callout":
             from open_garden_planner.ui.canvas.items.callout_item import CalloutItem

@@ -147,7 +147,7 @@ class TestFamilyLookup:
 
 
 class TestCustomRules:
-    def test_add_custom_rule(self, svc: CompanionPlantingService, tmp_path, monkeypatch) -> None:  # noqa: ARG002
+    def test_add_custom_rule(self, svc: CompanionPlantingService, tmp_path, monkeypatch) -> None:
         monkeypatch.setattr(
             "open_garden_planner.services.companion_planting_service.get_app_data_dir",
             lambda: tmp_path,
@@ -168,7 +168,7 @@ class TestCustomRules:
         good2, _ = fresh_svc.get_companions("chive")
         assert any(r.plant_b == "apple" for r in good2)
 
-    def test_custom_rule_is_persisted(self, svc: CompanionPlantingService, tmp_path, monkeypatch) -> None:  # noqa: ARG002
+    def test_custom_rule_is_persisted(self, svc: CompanionPlantingService, tmp_path, monkeypatch) -> None:
         monkeypatch.setattr(
             "open_garden_planner.services.companion_planting_service.get_app_data_dir",
             lambda: tmp_path,

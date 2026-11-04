@@ -12,6 +12,7 @@ from open_garden_planner.core.commands import (
     MoveItemsCommand,
     SetParentBedCommand,
 )
+from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType, is_bed_type
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items import (
@@ -37,7 +38,10 @@ def manager(qtbot) -> CommandManager:
 
 
 def _make_bed(x: float = 100, y: float = 100, size: float = 400) -> PolygonItem:
-    """Create a GARDEN_BED polygon at (x, y) with given size."""
+    """Create a GARDEN_BED polygon at (x, y) with given size — EDGED (a 20 cm height):
+    an in-ground bed without one lies in the ground band under every plant, so the
+    stacking clamp these tests pin would never be what keeps a plant on top (senior
+    review of the PR #584 manual pass: they passed with the clamp deleted)."""
     vertices = [
         QPointF(x, y),
         QPointF(x + size, y),
@@ -45,6 +49,7 @@ def _make_bed(x: float = 100, y: float = 100, size: float = 400) -> PolygonItem:
         QPointF(x, y + size),
     ]
     bed = PolygonItem(vertices, object_type=ObjectType.GARDEN_BED)
+    bed.metadata[METADATA_KEY] = 20.0
     return bed
 
 
@@ -346,7 +351,12 @@ class TestSetParentBedCommand:
         layer_id = scene.active_layer.id
         bed = _make_bed()
         bed.layer_id = layer_id
-        plant = _make_plant()
+        # OUTSIDE the bed (which spans 100..500): since #629 a plant the bed's outline
+        # CONTAINS is clamped above it by geometry alone, so a contained plant would
+        # start elevated and the pre-attach assertion below would not be falsifiable.
+        # This test is about the LINK clamp and the rank it derives from; the geometric
+        # one has its own file (tests/integration/test_plant_above_parent_stacking.py).
+        plant = _make_plant(cx=700.0, cy=300.0)
         plant.layer_id = layer_id
         # Plant added first -> ranked (and rendered) below the bed before
         # any attach clamp is in effect.

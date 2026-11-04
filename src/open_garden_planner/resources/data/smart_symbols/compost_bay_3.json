@@ -1,6 +1,6 @@
 {
   "id": "compost_bay_3",
-  "version": 1,
+  "version": 2,
   "name": "Compost Bay (3-section)",
   "name_de": "Kompostplatz (3 Fächer)",
   "category": "structures",
@@ -11,6 +11,6 @@
   "elements": [
     {"kind": "rect", "x": 0, "y": 0, "w": "bay * 3", "h": "D", "object_type": "COMPOST_BIN"},
     {"repeat": {"var": "i", "from": 1, "to": 2},
-     "element": {"kind": "line", "x1": "bay * i", "y1": 0, "x2": "bay * i", "y2": "D"}}
+     "element": {"kind": "line", "x1": "bay * i", "y1": 0, "x2": "bay * i", "y2": "D", "object_type": "FENCE", "height_cm": 100, "plain_panel": true}}
   ]
 }

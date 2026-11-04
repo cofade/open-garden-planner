@@ -46,8 +46,8 @@ Memorize this ordering. In this project, **"works in tests" ≠ done.**
 | Level | Evidence | Status |
 |---|---|---|
 | 0 | Code compiles, app launches | Not evidence |
-| 1 | Green CI (all seven workflow jobs, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
-| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — the exe build is NOT in CI (verified: `ci.yml` has seven jobs — lint, test, security, agent-context, dependencies, types, coverage — and none of them builds the exe; PyInstaller runs only in `release.yml` after merge to master). |
+| 1 | Green CI (all ten workflow jobs, `ci.yml`) | **The floor, never the ceiling.** CI has stayed green while the local full suite was broken (see §4, "passes alone" mode). |
+| 2 | Full local gate battery incl. exe smoke (§2 below) | Required before every merge — `ci.yml` has ten jobs: lint, test, security, agent-context, dependencies, types, coverage, coverage-perf, coverage-floor and render3d. None builds the exe; the separate frozen-selftest workflow is path-filtered and release builds happen after merge. |
 | 3 | `senior-reviewer` agent pass (`.claude/agents/senior-reviewer.md`), fresh worktree, branch diff | **Mandatory before opening any PR.** All P0/P1 findings addressed, then re-run for a clean re-review. History shows it catches real P0s (e.g. #213: rotated-plant pivot drift found in review round 2). |
 | 4 | **User-confirmed manual testing** | **Sovereign.** The PR stays a *draft* until the user confirms manual testing passed. No agent, test suite, or review substitutes for it. |
 
@@ -67,7 +67,8 @@ Run all of these locally before any PR (commands verified against CLAUDE.md Quic
 
 | Gate | Command | Pass criterion | In CI? |
 |---|---|---|---|
-| Full test suite | `venv/Scripts/python.exe -m pytest tests/ -v` | 0 failures **in the full run**, not per-file | Yes (`ci.yml` `test` job, `QT_QPA_PLATFORM=offscreen`) |
+| Correctness battery | `venv/Scripts/python.exe -m pytest tests/ -v` | 0 failures **in the full run**, not per-file. **Excludes the `perf`-marked timing tests** (row below) | Yes (`ci.yml` `test` job, `QT_QPA_PLATFORM=offscreen`) |
+| Wall-clock budgets | `venv/Scripts/python.exe -m pytest tests/ -m perf -n 0` | green on a quiet runner. `addopts` deselects these from the battery so they never share a runner with workers (§8.10.4) | Yes (`ci.yml`, separate step) |
 | Lint | `venv/Scripts/python.exe -m ruff check src/ tests/ scripts/` | Clean | Yes (`lint` job) |
 | Security (SAST) | `venv/Scripts/python.exe -m bandit -r src/ --severity-level high` | No HIGH findings (MEDIUM/LOW findings are omitted at this reporting threshold — §8.11) | Yes (`security` job) |
 | i18n gate | `python scripts/check_translations.py` | Exact live keys, completed values and verified binaries in every registered locale. **Limit:** unwrapped display text remains invisible | Yes (part of full suite) |
@@ -163,7 +164,7 @@ Two documented instances (§11.4):
 - `QSettings.setDefaultFormat/setPath` are process-global statics Qt never reverts — one test poisoned every later `QSettings` in the session; **6 tests failed only in the full run while CI stayed green** (different collection order). Tell: every failing getter returns exactly the coded default.
 - A slot on an app-global signal (`QApplication.focusChanged`) outlived its widget; pytest-qt fails whichever *later* test the stray exception lands in.
 
-Rules: never touch Qt global statics in tests (monkeypatch a factory instead — `tests/conftest.py`'s `isolate_qsettings` is only a tripwire, not a license); make app-global-signal slots teardown-safe; and **the pass criterion is the full `pytest tests/ -v` run, never the changed file alone.** When you hit this mode, suspect shared global/singleton state before the code under test.
+Rules: never touch Qt global statics in tests (monkeypatch a factory instead — `tests/conftest.py`'s `isolate_qsettings` is only a tripwire, not a license); make app-global-signal slots teardown-safe; and **the pass criterion is the full run, never the changed file alone** — `pytest tests/ -v` *plus* `pytest tests/ -m perf -n 0`, because `addopts` deselects the timing tests from the first. When you hit this mode, suspect shared global/singleton state before the code under test.
 
 ---
 
@@ -244,7 +245,7 @@ Volatile facts date-stamped 2026-07-04 (v1.23.0): CI-vs-local gate split, BED_SH
 Use the locked Python 3.11 environment described in ogp-build-and-run. Run
 `scripts/check_dependency_lock.py`, `scripts/check_mypy_baseline.py` and Linux
 `scripts/check_coverage_floors.py --xml coverage.xml` before delivery. Strict mypy
-checks production source including spike_q3d, with separate Linux/Windows per-file
+checks all production source, with separate Linux/Windows per-file
 allowances. New files have zero allowance. Coverage floors compare exact covered-line
 counts; branch coverage is reported separately. CI uploads reports even on failure.
 Coverage is initially not required by protection, but a failed job must be investigated.

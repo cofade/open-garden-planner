@@ -17,7 +17,7 @@ from open_garden_planner.services.plant_api import PlantAPIManager
 from open_garden_planner.ui.dialogs.plant_search_dialog import PlantSearchDialog
 
 
-def test_debounce_timer_is_parented_and_stopped_on_done(qtbot, monkeypatch) -> None:  # noqa: ARG001
+def test_debounce_timer_is_parented_and_stopped_on_done(qtbot, monkeypatch) -> None:
     dlg = PlantSearchDialog(PlantAPIManager(trefle_api_token="fake-token"))
     qtbot.addWidget(dlg)
     assert dlg._search_timer.parent() is dlg, "timer must be owned by the dialog"
@@ -35,7 +35,7 @@ def test_debounce_timer_is_parented_and_stopped_on_done(qtbot, monkeypatch) -> N
     performed.assert_not_called()
 
 
-def test_direct_search_settles_the_pending_debounce(qtbot, monkeypatch) -> None:  # noqa: ARG001
+def test_direct_search_settles_the_pending_debounce(qtbot, monkeypatch) -> None:
     """The pattern every dialog test uses — type, then call `_perform_search()`
     directly — must not leave the 500 ms timer armed behind it (the probe on
     2026-08-18 showed all 17 such calls in the battery leaving it armed)."""

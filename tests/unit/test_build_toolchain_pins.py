@@ -125,7 +125,7 @@ def test_build_evidence_completeness_is_checked_from_the_data() -> None:
         "distribution_versions": {
             "pyinstaller": "6.22.3",
             "pyinstaller-hooks-contrib": "2026.8",
-            "setuptools": "82.0.0",
+            "setuptools": "84.1.0",
             "wheel": "0.48.0",
         },
         "uv": "0.12.23",
@@ -145,7 +145,7 @@ def test_emit_build_evidence_requires_complete_when_asked(tmp_path: Path, monkey
         "distribution_versions": {
             "pyinstaller": "6.22.3",
             "pyinstaller-hooks-contrib": "2026.8",
-            "setuptools": "82.0.0",
+            "setuptools": "84.1.0",
             "wheel": None,
         },
         "uv": None,

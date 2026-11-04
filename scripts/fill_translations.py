@@ -1,10 +1,10 @@
-"""Fill in German translations for the .ts file and add missing contexts.
+"""Fill in application translations for supported target locales (.ts files).
 
 This script:
-1. Reads the pylupdate6-generated .ts file
-2. Fills in all German translations
-3. Adds missing contexts (ObjectType, GalleryData, CategoryDropdown, GlobalSearchField)
-4. Writes the completed .ts file
+1. Reads the source-generated .ts files
+2. Fills in all German translations (including missing contexts)
+3. Invokes Spanish translation populator (fill_spanish_translations)
+4. Writes the completed .ts files
 """
 
 import sys
@@ -14,11 +14,16 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.a1_translations import TRANSLATIONS as _A1_TRANSLATIONS  # noqa: E402
-from scripts.i18n_catalog import Key  # noqa: E402
-from scripts.i18n_sources import inventory  # noqa: E402
-from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS  # noqa: E402
-from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS  # noqa: E402
+from scripts.a1_translations import TRANSLATIONS as _A1_TRANSLATIONS
+from scripts.i18n_catalog import Key
+from scripts.i18n_sources import inventory
+from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS
+from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS
+from scripts.translations_f4 import DE as _F4_TRANSLATIONS
+from scripts.translations_l2 import DE as _L2_TRANSLATIONS
+from scripts.translations_l4 import DE as _L4_TRANSLATIONS
+from scripts.translations_l5 import DE as _L5_TRANSLATIONS
+from scripts.translations_l7 import DE as _L7_TRANSLATIONS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -65,6 +70,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "frost protection": "Frostschutz",
         "spacing radius": "Pflanzabstand",
         "object height": "Objekthöhe",
+        "symbol parameter": "Symbolparameter",
+        # The seven Properties-panel edits that became undoable commands (#530).
+        "grid": "Raster",
+        "grid spacing": "Rasterabstand",
+        "soil depth": "Bodentiefe",
+        "container material": "Behältermaterial",
+        "container drainage": "Behälterentwässerung",
+        "container height": "Behälterhöhe",
+        "container soil volume": "Erdvolumen des Behälters",
         "text content": "Textinhalt",
         "font": "Schriftart",
         "font size": "Schriftgröße",
@@ -140,6 +154,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Lock Image": "Bild sperren",
         "Unlock Image": "Bild entsperren",
         "Remove Image": "Bild entfernen",
+        "Failed to load image: {path}": "Bild konnte nicht geladen werden: {path}",
+        "Failed to load image from embedded data": (
+            "Bild konnte nicht aus eingebetteten Daten geladen werden"
+        ),
+        "Failed to encode the background image as PNG": (
+            "Das Hintergrundbild konnte nicht als PNG gespeichert werden"
+        ),
+        "This image is {megapixels} megapixels and needs about {megabytes} MB "
+        "of memory. Background images are limited to {limit} megapixels.": (
+            "Dieses Bild hat {megapixels} Megapixel und benötigt etwa {megabytes} MB "
+            "Arbeitsspeicher. Hintergrundbilder sind auf {limit} Megapixel begrenzt."
+        ),
     },
 
     # ── CalibrationDialog ──
@@ -248,7 +274,43 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
+        "Created a parallel line at {dist:.1f} cm":
+            "Parallele Linie mit Abstand {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
+        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.":
+            "Diese Kantenlänge gehört zu einer starren Form. Entfernen Sie die "
+            "Randbedingung und ändern Sie dann die Größe der Form.",
+        # #550: boolean union over a selection.
+        "All shapes must be on the same layer": "Alle Formen müssen auf derselben Ebene liegen",
+        "Select at least two shapes (intersection and subtraction need exactly two)": (
+            "Mindestens zwei Formen auswählen "
+            "(Schnittmenge und Subtraktion benötigen genau zwei)"
+        ),
+        "Boolean operations refuse plants, linked objects, constraints, and locked layers": (
+            "Bool'sche Operationen lehnen Pflanzen, verknüpfte Objekte, "
+            "Randbedingungen und gesperrte Ebenen ab"
+        ),
+        "The shapes contain different data; keep them separate or make their data consistent": (
+            "Die Formen enthalten unterschiedliche Daten; getrennt lassen oder "
+            "die Daten angleichen"
+        ),
+        "Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)": (
+            "Bool'sche Operationen erfordern geschlossene Formen "
+            "(Polygon, Rechteck, Kreis oder Ellipse)"
+        ),
+        "Shapes must touch or overlap": "Formen müssen sich berühren oder überlappen",
+        "Shapes must overlap for this operation": (
+            "Für diese Operation müssen sich die Formen überlappen"
+        ),
+        "The merged outline would contain a hole; keep the shapes separate": (
+            "Die zusammengeführte Kontur würde ein Loch enthalten; "
+            "die Formen getrennt lassen"
+        ),
+        "The result would have {count} vertices; the plan supports at most {limit}. "
+        "Keep the shapes separate.": (
+            "Das Ergebnis hätte {count} Knoten; der Plan unterstützt höchstens "
+            "{limit}. Die Formen getrennt lassen."
+        ),
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",
         "Terrace/Patio": "Terrasse/Patio",
@@ -441,6 +503,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Abrundungsradius zu groß für diese Ecke",
         "Fillet radius: {radius:.1f} cm — press R to change":
             "Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern",
+        "Cannot edit this corner: the object is inside a group":
+            "Diese Ecke kann nicht bearbeitet werden: Das Objekt ist Teil einer Gruppe",
+        "Cannot edit this corner: this object type has no polygonal form":
+            "Diese Ecke kann nicht bearbeitet werden: Dieser Objekttyp hat keine Polygonform",
+        "Cannot edit this corner: a constraint is attached to it or to its edges":
+            "Diese Ecke kann nicht bearbeitet werden: An ihr oder ihren Kanten "
+            "hängt eine Randbedingung",
     },
     "ChamferTool": {
         "Chamfer": "Anfasen",
@@ -449,6 +518,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Anfasabstand zu groß für diese Ecke",
         "Chamfer distance: {distance:.1f} cm — press D to change":
             "Anfasabstand: {distance:.1f} cm — D drücken zum Ändern",
+        "Cannot edit this corner: the object is inside a group":
+            "Diese Ecke kann nicht bearbeitet werden: Das Objekt ist Teil einer Gruppe",
+        "Cannot edit this corner: this object type has no polygonal form":
+            "Diese Ecke kann nicht bearbeitet werden: Dieser Objekttyp hat keine Polygonform",
+        "Cannot edit this corner: a constraint is attached to it or to its edges":
+            "Diese Ecke kann nicht bearbeitet werden: An ihr oder ihren Kanten "
+            "hängt eine Randbedingung",
+    },
+    "TrimExtendTool": {
+        "Cannot trim this object: beds and group members cannot become an open "
+        "line, and a constrained object must be unconstrained first.":
+            "Dieses Objekt kann nicht gekürzt werden: Beete und Gruppenelemente "
+            "können keine offene Linie werden, und ein Objekt mit Randbedingungen "
+            "muss zuerst von ihnen befreit werden.",
     },
 
     # ── EdgeLengthConstraintTool ──
@@ -1639,6 +1722,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── PropertiesPanel ──
     "PropertiesPanel": {
+        # Short prefixes inside the width/height fields (#596).
+        "W: ": "B: ",
+        "H: ": "H: ",
         # US-E9 asset-forge pilot fill patterns (#264)
         "Decking": "Terrassendielen",
         "Corten steel": "Cortenstahl",
@@ -1646,6 +1732,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "{count} objects selected": "{count} Objekte ausgewählt",
         "Symbol definition not found — showing cached geometry.":
             "Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.",
+        "Symbol definition version mismatch — saved geometry is read-only.":
+            "Symboldefinitions-Version stimmt nicht überein — gespeicherte Geometrie ist schreibgeschützt.",
+        "Invalid symbol parameter value — geometry unchanged.":
+            "Ungültiger Symbolparameter-Wert — Geometrie unverändert.",
         "Multi-selection editing\nnot yet implemented":
             "Mehrfachauswahl-Bearbeitung\nnoch nicht implementiert",
         "Type:": "Typ:",
@@ -1704,7 +1794,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "From assigned species (max height)":
             "Aus zugewiesener Pflanzenart (max. Höhe)",
         "Default for this object type": "Standard für diesen Objekttyp",
-        "No height — casts no shadow": "Keine Höhe — wirft keinen Schatten",
+        "No height — no shadow on the 2D plan": "Keine Höhe — kein Schatten im 2D-Plan",
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
         "Spacing radius:": "Abstandsradius:",
@@ -1755,14 +1845,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── ConstraintToolbar (button tooltips for CAD-editing tools) ──
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
-        "Trim/Extend (I) — X toggles mode": "Trimmen/Erweitern (I) — X wechselt Modus",
-        "Offset (O) — parallel copy inward/outward":
-            "Versatz (O) — parallele Kopie nach innen/außen",
-        "Fillet (Shift+F) — round a corner": "Abrunden (Umschalt+F) — Ecke abrunden",
-        "Chamfer (Shift+C) — bevel a corner":
-            "Anfasen (Umschalt+C) — Ecke abschrägen",
-        "Mirror (Shift+M) — reflect selection across an axis":
-            "Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln",
+        "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
+        "Offset — parallel copy or parallel line":
+            "Versatz — parallele Kopie oder parallele Linie",
+        "Fillet — round a corner": "Abrunden — Ecke abrunden",
+        "Chamfer — bevel a corner": "Anfasen — Ecke abschrägen",
+        "Mirror — reflect selection across an axis":
+            "Spiegeln — Auswahl an einer Achse spiegeln",
     },
 
     # ── MirrorTool (US-B4) ──
@@ -2851,53 +2940,8 @@ for _ctx, _strings in _E4_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
-# ── US-E6: 3D view MVP (#261) ──
-_E6_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "GardenPlannerApp": {
-        "&3D View…": "&3D-Ansicht…",
-        "Open a 3D view of the plan with solar lighting":
-            "3D-Ansicht des Plans mit Sonnenlicht öffnen",
-    },
-    "View3DWindow": {
-        "3D View": "3D-Ansicht",
-        "&Refresh": "&Aktualisieren",
-        "Rebuild the 3D scene from the current plan":
-            "3D-Szene aus dem aktuellen Plan neu aufbauen",
-    },
-}
-
-for _ctx, _strings in _E6_TRANSLATIONS.items():
-    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
-
-
-# ── US-E7: first-person walkthrough (#262) ──
-_E7_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "View3DWindow": {
-        "&Walk": "&Rundgang",
-        "Walk the garden at eye level — WASD/arrow keys move, hold "
-        "the left mouse button to look around, Esc exits":
-            "Durch den Garten auf Augenhöhe gehen — WASD/Pfeiltasten bewegen, "
-            "linke Maustaste gedrückt halten zum Umschauen, Esc beendet",
-        "WASD/arrows move · hold left mouse to look · Esc exits":
-            "WASD/Pfeile bewegen · linke Maustaste zum Umschauen · Esc beendet",
-    },
-}
-
-for _ctx, _strings in _E7_TRANSLATIONS.items():
-    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
-
-
-# ── Issue #277: graceful 3D-view failure + uncaught-exception backstop ──
+# ── Issue #277: the uncaught-exception backstop (its 3D-view dialog left with the Qt 3D view, L1.10) ──
 _I277_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "GardenPlannerApp": {
-        "3D View Unavailable": "3D-Ansicht nicht verfügbar",
-        "The 3D view could not be loaded: the 3D graphics "
-        "components are missing or incompatible. The rest of the "
-        "application is unaffected.\n\nDetails: {error}":
-            "Die 3D-Ansicht konnte nicht geladen werden: Die 3D-Grafik"
-            "komponenten fehlen oder sind inkompatibel. Der Rest der "
-            "Anwendung ist nicht betroffen.\n\nDetails: {error}",
-    },
     "main": {
         "Unexpected Error": "Unerwarteter Fehler",
         "An unexpected error occurred. The application will keep "
@@ -3065,6 +3109,9 @@ _ARRANGE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bring Forward": "Weiter nach vorn",
         "Send Backward": "Weiter nach hinten",
         "Send to Back": "Ganz nach hinten",
+        "Cannot resize this shape: its edge length is constrained. Remove the constraint first.":
+            "Diese Form kann nicht skaliert werden: Ihre Kantenlänge ist durch "
+            "eine Randbedingung festgelegt. Entfernen Sie zuerst die Randbedingung.",
     },
 }
 
@@ -3192,6 +3239,255 @@ for _ctx, _strings in _PLANT_LISTS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Phase 17 L1.4: the 3D view's quality and reduced motion (#385, ADR-059) ──
+_L14_LOOK_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PreferencesDialog": {
+        "3D View": "3D-Ansicht",
+        "Automatic": "Automatisch",
+        "Low": "Niedrig",
+        "Medium": "Mittel",
+        "High": "Hoch",
+        "Ultra": "Ultra",
+        "How detailed the 3D view is drawn. Automatic picks a level from "
+        "the frame rate it measures on this computer.":
+            "Wie detailliert die 3D-Ansicht gezeichnet wird. „Automatisch“ wählt eine "
+            "Stufe anhand der Bildrate, die auf diesem Computer gemessen wird.",
+        "Quality:": "Qualität:",
+        "Reduce motion in the 3D view": "Bewegung in der 3D-Ansicht reduzieren",
+        "Keep leaves and grass still instead of swaying in the wind.":
+            "Blätter und Gras bleiben ruhig, statt sich im Wind zu wiegen.",
+    },
+}
+
+for _ctx, _strings in _L14_LOOK_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Canvas touch gestures (#321) ─────────────────────────────────────────────
+_TOUCH_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PreferencesDialog": {
+        "Canvas": "Zeichenfläche",
+        "Enable touch gestures (pinch to zoom, two-finger pan)":
+            "Touch-Gesten aktivieren (zum Zoomen zusammenziehen, mit zwei Fingern verschieben)",
+        "On a touch screen, pinch with two fingers to zoom the plan and "
+        "drag two fingers to move it. A single finger still selects and "
+        "moves objects as a mouse does.":
+            "Auf einem Touchscreen mit zwei Fingern zusammenziehen, um den Plan zu "
+            "zoomen, und mit zwei Fingern ziehen, um ihn zu verschieben. Ein einzelner "
+            "Finger wählt und bewegt Objekte weiterhin wie eine Maus.",
+    },
+}
+
+for _ctx, _strings in _TOUCH_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-060) ──
+_L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Plan": "&Plan",
+        "Show the plan only": "Nur den Plan anzeigen",
+        "&3D": "&3D",
+        "Show the garden in 3D": "Den Garten in 3D anzeigen",
+        "&Split": "&Geteilt",
+        "Show the plan and the 3D view side by side":
+            "Plan und 3D-Ansicht nebeneinander anzeigen",
+        "{tip} ({shortcut})": "{tip} ({shortcut})",
+        "&Reset 3D View": "3D-Ansicht &zurücksetzen",
+        "Show the whole garden in the 3D view again":
+            "Wieder den ganzen Garten in der 3D-Ansicht zeigen",
+        "Show the whole garden again ({key})": "Wieder den ganzen Garten zeigen ({key})",
+        "&Workspace": "&Arbeitsbereich",
+        "Show which objects are missing from the 3D view":
+            "Zeigen, welche Objekte in der 3D-Ansicht fehlen",
+        "The 3D view could not be started. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "Die 3D-Ansicht konnte nicht gestartet werden. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Try Again": "Erneut versuchen",
+        "Building the 3D view…": "3D-Ansicht wird aufgebaut…",
+        "The 3D view could not be updated. It will try again with the next change.":
+            "Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten "
+            "Änderung wird es erneut versucht.",
+        "1 object is not shown in 3D": "1 Objekt wird in 3D nicht angezeigt",
+        "{count} objects are not shown in 3D": "{count} Objekte werden in 3D nicht angezeigt",
+        "The 3D view reported a problem. Details are in the log file.":
+            "Die 3D-Ansicht hat ein Problem gemeldet. Details stehen in der Protokolldatei.",
+        "3D is unavailable on this graphics device. The rest of the application "
+        "is not affected.\n\nDetails: {error}":
+            "3D ist auf dieser Grafikhardware nicht verfügbar. Der Rest der Anwendung "
+            "ist nicht betroffen.\n\nDetails: {error}",
+        "Use Compatibility Mode Next Time": "Kompatibilitätsmodus verwenden",
+        "3D is running in compatibility mode (software rendering) because "
+        "it did not start properly last time.":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim "
+            "letzten Mal nicht richtig gestartet ist.",
+        "3D is running in compatibility mode (software rendering).":
+            "3D läuft im Kompatibilitätsmodus (Software-Rendering).",
+        "Try Hardware Next Time": "Hardware wieder versuchen",
+        "Show List": "Liste zeigen",
+        "Hardware rendering will be tried the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.",
+        "Compatibility mode will be used the next time the application starts.":
+            "Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.",
+        "Compatibility mode (software rendering) is switched on.":
+            "Der Kompatibilitätsmodus (Software-Rendering) ist eingeschaltet.",
+        "3D is switched off: it did not start in compatibility mode "
+        "(software rendering) either.":
+            "3D ist ausgeschaltet: Es ist auch im Kompatibilitätsmodus "
+            "(Software-Rendering) nicht gestartet.",
+        "3D is switched off on this computer: it did not start, not even in "
+        "compatibility mode (software rendering). The rest of the application is "
+        "not affected.":
+            "3D ist auf diesem Computer ausgeschaltet: Es ist nicht gestartet, auch nicht "
+            "im Kompatibilitätsmodus (Software-Rendering). Der Rest der Anwendung ist "
+            "nicht betroffen.",
+        "The setting could not be changed. Details are in the log file.":
+            "Die Einstellung konnte nicht geändert werden. Details stehen in der "
+            "Protokolldatei.",
+    },
+    "View3DProblemsDialog": {
+        "Not Shown in 3D": "In 3D nicht angezeigt",
+        "These objects are on the plan but cannot be shown in the 3D view. "
+        "Double-click an entry to select the object on the plan.":
+            "Diese Objekte sind im Plan, können aber in der 3D-Ansicht nicht gezeigt "
+            "werden. Ein Doppelklick auf einen Eintrag wählt das Objekt im Plan aus.",
+        "its shape could not be worked out": "die Form konnte nicht ermittelt werden",
+        "another object on the plan has the same internal id":
+            "ein anderes Objekt im Plan hat dieselbe interne Kennung",
+        "its outline cannot be turned into a solid":
+            "der Umriss lässt sich nicht in einen Körper umsetzen",
+        "its outline has too many points for the 3D view":
+            "der Umriss hat zu viele Punkte für die 3D-Ansicht",
+        "one of its sizes is outside what the 3D view can show":
+            "eine der Abmessungen liegt außerhalb dessen, was die 3D-Ansicht zeigen kann",
+        "its 3D model could not be built": "das 3D-Modell konnte nicht gebaut werden",
+        "it could not be shown": "die Anzeige ist nicht möglich",
+        "… and {count} more": "… und {count} weitere",
+        "{name} ({kind}): {reason}": "{name} ({kind}): {reason}",
+        "{kind}: {reason}": "{kind}: {reason}",
+    },
+}
+
+for _ctx, _strings in _L13_WORKSPACE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# Phase 17 L1.5 Part B (#385): what the 3D ground could not do, in the problems list
+_L15_GROUND_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "View3DProblemsDialog": {
+        'it could not be painted completely on the 3D ground':
+            'die Darstellung auf dem 3D-Boden ist unvollständig',
+        '3D ground: in one place the plan puts more surfaces than the ground can show; the smallest are left out':
+            '3D-Boden: an einer Stelle liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
+        '3D ground: in {count} places the plan puts more surfaces than the ground can show; the smallest are left out':
+            '3D-Boden: an {count} Stellen liegen mehr Flächen, als der Boden zeigen kann; die kleinsten werden weggelassen',
+        '3D ground: one piece could not be painted and shows an older picture':
+            '3D-Boden: ein Stück konnte nicht gemalt werden und zeigt ein älteres Bild',
+        '3D ground: {count} pieces could not be painted and show an older picture':
+            '3D-Boden: {count} Stücke konnten nicht gemalt werden und zeigen ein älteres Bild',
+        '3D ground: it could not be painted; it shows an older picture':
+            '3D-Boden: er konnte nicht gemalt werden; er zeigt ein älteres Bild',
+        '3D ground: it could not be finished; it is tried again with the next change':
+            '3D-Boden: er konnte nicht fertiggestellt werden; mit der nächsten Änderung wird es erneut versucht',
+    },
+    "Workspace": {
+        'The 3D ground does not show all of the plan':
+            'Der 3D-Boden zeigt nicht den ganzen Plan',
+        '1 object is not shown in 3D; the 3D ground does not show all of the plan':
+            '1 Objekt wird in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan',
+        '{count} objects are not shown in 3D; the 3D ground does not show all of the plan':
+            '{count} Objekte werden in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan',
+    },
+}
+
+for _ctx, _strings in _L15_GROUND_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.8: selection, the info card and walk mode (#385, ADR-060) ──
+_L18_SELECTION_WALK_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Workspace": {
+        "&Walk": "&Rundgang",
+        "Walk through the garden at eye height": "Auf Augenhöhe durch den Garten gehen",
+        "Walk through the garden at eye height (W A S D or the arrow keys walk, "
+        "drag to look around, Shift runs, Esc leaves)":
+            "Auf Augenhöhe durch den Garten gehen (W A S D oder die Pfeiltasten gehen, "
+            "Ziehen schaut sich um, Umschalt läuft, Esc beendet)",
+        "Eye height while walking": "Augenhöhe beim Rundgang",
+        "Adult": "Erwachsene Person",
+        "Smaller adult": "Kleinere erwachsene Person",
+        "Child": "Kind",
+        "{who} – {height}": "{who} – {height}",
+        "There is no free ground to walk on.": "Es gibt keinen freien Boden zum Begehen.",
+        "Click an object to see what the 3D view shows of it.":
+            "Ein Objekt anklicken, um zu sehen, was die 3D-Ansicht davon zeigt.",
+        "{count} objects selected.": "{count} Objekte ausgewählt.",
+    },
+    "View3DInfoCard": {
+        "Show in Plan": "Im Plan zeigen",
+        "Centre the plan on this object": "Den Plan auf dieses Objekt zentrieren",
+        "Type:": "Typ:",
+        "Species:": "Art:",
+        "Scientific name:": "Wissenschaftlicher Name:",
+        "Height:": "Höhe:",
+        "not known": "nicht bekannt",
+        "Canopy diameter:": "Kronendurchmesser:",
+        "Diameter:": "Durchmesser:",
+        "Length:": "Länge:",
+        "Size:": "Größe:",
+        "{width} × {depth}": "{width} × {depth}",
+        "Area:": "Fläche:",
+        "Bed:": "Beet:",
+        "Sizes on:": "Größen am:",
+        "Group": "Gruppe",
+        "Object": "Objekt",
+        "Not shown in 3D: {reason}.": "In 3D nicht angezeigt: {reason}.",
+        "Not shown in 3D: this kind of object has no 3D form.":
+            "In 3D nicht angezeigt: Diese Art von Objekt hat keine 3D-Form.",
+        "Drawn on the ground in 3D: the plan gives it no height.":
+            "In 3D auf dem Boden gezeichnet: Der Plan gibt keine Höhe an.",
+    },
+}
+
+for _ctx, _strings in _L18_SELECTION_WALK_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Phase 17 L1.9: the 3D workspace is the default (#385, ADR-060) ──
+_L19_DEFAULT_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "GardenPlannerApp": {
+        "&3D View": "&3D-Ansicht",
+        "Show the garden in 3D beside the plan, lit by the simulated sun":
+            "Den Garten in 3D neben dem Plan zeigen, beleuchtet von der simulierten Sonne",
+    },
+    "ShortcutsDialog": {
+        "3D View": "3D-Ansicht",
+        "Plan only": "Nur Plan",
+        "3D only": "Nur 3D",
+        "Plan and 3D side by side (Split)": "Plan und 3D nebeneinander (Geteilt)",
+        "Left Mouse Drag": "Ziehen mit linker Maustaste",
+        "Right Mouse Drag": "Ziehen mit rechter Maustaste",
+        "Pan the 3D view": "3D-Ansicht verschieben",
+        "Orbit the 3D view": "3D-Ansicht drehen",
+        "Page Up / Page Down": "Bild auf / Bild ab",
+        "Reset 3D View": "3D-Ansicht zurücksetzen",
+        "Click": "Klick",
+        "Select the object under the pointer": "Objekt unter dem Mauszeiger auswählen",
+        "Walk Mode (3D)": "Rundgang (3D)",
+        "W A S D / Arrow Keys": "W A S D / Pfeiltasten",
+        "Walk": "Gehen",
+        "Run": "Laufen",
+        "Mouse Drag": "Ziehen mit der Maus",
+        "Look around": "Umsehen",
+        "Leave walk mode": "Rundgang beenden",
+    },
+}
+
+for _ctx, _strings in _L19_DEFAULT_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 
 for _ctx, _strings in _F1_F2_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
@@ -3217,8 +3513,8 @@ _F3_TRANSLATIONS = {
         "too little sun": "zu wenig Sonne", "too much sun": "zu viel Sonne",
         "{name} needs {required}, but receives ~{hours} h direct sun on {date} ({direction}).":
             "{name} benötigt {required}, erhält aber am {date} etwa {hours} h direkte Sonne ({direction}).",
-        "Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.":
-            "Schätzung am Boden ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.",
+        "Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.":
+            "Schätzung auf Bodenhöhe ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.",
     },
     "SunSimToolbar": {
         "21 June": "21. Juni", "Use 21 June of the current simulation year": "21. Juni des aktuellen Simulationsjahres verwenden",
@@ -3239,6 +3535,26 @@ _F3_TRANSLATIONS = {
 for _ctx, _strings in _F3_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 for _ctx, _strings in _GATE_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+for _ctx, _strings in _F4_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L2: Analyze in 3D (#386) ──
+for _ctx, _strings in _L2_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L4: the built world (#388) ──
+for _ctx, _strings in _L4_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L5: the living garden (#389) ──
+for _ctx, _strings in _L5_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L7: the atmosphere sky (#391) ──
+for _ctx, _strings in _L7_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
@@ -3353,6 +3669,12 @@ def fill_translations() -> None:
 
     print(f"\nDone! Filled {filled} translations, {missing} missing, {added_contexts} new contexts added.")
 
+    # Also fill Spanish translations
+    from scripts.fill_spanish_translations import fill_spanish_translations
+
+    fill_spanish_translations()
+
 
 if __name__ == "__main__":
     fill_translations()
+

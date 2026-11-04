@@ -3,38 +3,48 @@ name: CI
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 on:
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
     branches: [master]
 
 jobs:
   agent-context:
     name: Agent context parity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11.9"
 
       - name: Check Claude/Codex context parity
         run: python scripts/check_agent_context.py
 
+      - name: Check import boundaries
+        run: python scripts/check_import_boundaries.py
+
       - name: Check external action pins
         run: python scripts/check_action_pins.py
 
+      - name: Check release classification
+        run: python scripts/check_release_classification.py --commit HEAD --enforce
+
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11.9"
 
@@ -48,12 +58,12 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11.9"
 
@@ -67,19 +77,61 @@ jobs:
       - name: Check all translation catalogs against current source
         run: python scripts/check_translations.py
 
+      # `--durations=0` records the per-test cost (#509). Nothing in the repo
+      # captured where the wall clock went, so every speed-up was a guess; this
+      # makes the measurement a byproduct of a run that has to happen anyway.
+      # `tee` keeps the live progress and failures in the log while also writing
+      # the report for the artifact below. `set -o pipefail` keeps a failing suite from
+      # reporting green; it is redundant with the `shell: bash` line further down, which
+      # runs `bash --noprofile --norc -eo pipefail {0}`, and is kept as a visible
+      # declaration of the fail-fast contract at the point of reading rather than as the
+      # mechanism that provides it.
+      #
+      # Parallelism is NOT spelled out here. `addopts` carries `-n auto --dist
+      # worksteal`, which resolves to 4 workers on ubuntu-24.04's 4 vCPUs. On this
+      # 20-core box the same flag gave 4.31x over serial at `-n 8` (673.6s ->
+      # 156.2s); at 4 workers the measured figure is 2.7x (245.2s), so 4.31x must not
+      # be quoted as this job's speed-up.
       - name: Run tests
+        shell: bash
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest tests/ -v
+        run: |
+          set -o pipefail
+          pytest tests/ -v --durations=0 2>&1 | tee test-durations.txt
+
+      # The wall-clock-sensitive tests, deselected from the default run by
+      # `addopts` (-m 'not perf') so they never share a runner with the parallel
+      # workers. They still run on every push, here, alone and serial.
+      #
+      # `tests/ -m perf`, NOT `tests/perf -m perf`: the marker means "wall-clock
+      # sensitive", so it is applied by measurement rather than by directory, and
+      # SEVEN of the fourteen marked tests live outside tests/perf/ — the two
+      # agent_api shutdown tests, the map-picker close bound (0.5 s), the shadow-overlay
+      # and sun-heatmap budgets, the point-snapper mean (16 ms) and the spatial-index
+      # medians (200 ms / 1 ms). The directory form collects the other seven and passes.
+      # `tests/unit/test_gate_commands.py` pins the command so it cannot be changed to
+      # the directory form.
+      - name: Run performance budgets on a quiet runner
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest tests/ -m perf -v -n 0
+
+      - name: Upload the per-test duration report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-durations-linux
+          path: test-durations.txt
 
   security:
     name: Security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11.9"
 
@@ -116,9 +168,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-locked-env
       - name: Verify lock and export
         run: python scripts/check_dependency_lock.py
@@ -134,17 +186,18 @@ jobs:
       # invisible to a Linux-only scan — measured, senior review round 3.
       # `shell: bash` keeps the redirection UTF-8 on the Windows runner.
       #
-      # The single recorded exception is the setuptools advisory
-      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c: it only affects publishing macOS
-      # source distributions, which this project never does. Setuptools code is
-      # bundled; the waiver concerns that unused operation — justified in
-      # docs/11-risks-and-technical-debt/README.md §11.2, and its fix (83.0.0)
-      # is tracked for a separately reviewed dependency PR.
+      # No advisory is waived. The one former exception (setuptools
+      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c, macOS sdist publishing only) ended
+      # on 2026-10-24 when the build group moved to setuptools 84.1.0 (#571, #572):
+      # a waiver that matches nothing in the lock would silently hide a widened
+      # advisory. A new waiver needs its justification in
+      # docs/11-risks-and-technical-debt/README.md §11.2 and in
+      # tests/unit/test_dependency_governance.py::WAIVERS.
       - name: Audit locked dependencies
         shell: bash
         run: |
           uv export --locked --all-extras --group build --no-emit-project --no-hashes > locked-requirements.txt
-          pip-audit -r locked-requirements.txt --progress-spinner off --ignore-vuln PYSEC-2026-3447
+          pip-audit -r locked-requirements.txt --progress-spinner off
 
   types:
     name: Types (${{ matrix.os }})
@@ -152,41 +205,195 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-locked-env
       - name: Enforce per-file type allowances
         run: python scripts/check_mypy_baseline.py --report type-report.json
       - name: Upload type diagnostics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: types-${{ matrix.os }}
           path: type-report.json
 
+  # Two disjoint non-perf slices plus one quiet serial perf run (#601).
+  # Keep branch coverage. The required Coverage context combines ALL THREE data
+  # files and fails if any measurement failed, skipped, or did not upload its data.
   coverage:
-    name: Coverage
-    runs-on: ubuntu-latest
+    name: Coverage partition (${{ matrix.shard }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install Qt system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
       - uses: ./.github/actions/setup-locked-env
-      - name: Measure full-suite line and branch coverage
+      - name: Prepare coverage directory
+        run: mkdir -p coverage-data
+      - name: Measure non-perf branch coverage
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest tests/ -v --cov=open_garden_planner --cov-branch --cov-report=xml --cov-report=term
+          COVERAGE_FILE: coverage-data/nonperf-${{ matrix.shard }}.coverage
+        run: >
+          python -m pytest tests/ -v -m 'not perf' --durations=0
+          -p scripts.ci_coverage_shard --coverage-shard=${{ matrix.shard }}/2
+          --cov=open_garden_planner --cov-branch --cov-report=
+      - name: Upload partition coverage
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-data-${{ matrix.shard }}
+          path: coverage-data/
+          if-no-files-found: error
+
+  coverage-perf:
+    name: Coverage performance
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+      - uses: ./.github/actions/setup-locked-env
+      - name: Prepare coverage directory
+        run: mkdir -p coverage-data
+      - name: Measure the perf tests serially
+        env:
+          QT_QPA_PLATFORM: offscreen
+          COVERAGE_FILE: coverage-data/perf.coverage
+        run: >
+          python -m pytest tests/ -m perf -n 0 -v --durations=0
+          --cov=open_garden_planner --cov-branch --cov-report=
+      - name: Upload performance coverage
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-data-perf
+          path: coverage-data/
+          if-no-files-found: error
+
+  coverage-floor:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    needs: [coverage, coverage-perf]
+    if: always()
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-locked-env
+      - name: Require every measurement
+        shell: bash
+        run: |
+          test "${{ needs.coverage.result }}" = success
+          test "${{ needs.coverage-perf.result }}" = success
+      - name: Download every coverage input
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+          path: coverage-data/
+      - name: Combine all coverage data
+        run: |
+          python -m coverage combine coverage-data/nonperf-0.coverage coverage-data/nonperf-1.coverage coverage-data/perf.coverage
+          python -m coverage xml -o coverage.xml
       - name: Enforce package line floors
         if: always()
         run: python scripts/check_coverage_floors.py --xml coverage.xml --report coverage-summary.json
       - name: Upload coverage diagnostics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-linux
           path: |
             coverage.xml
             coverage-summary.json
+
+  # The 3D render tier (Phase 17 L1.2, ADR-048): the engine package
+  # ui/view3d/quick3d/ on a real renderer.
+  #
+  # #540: the DEFAULT WORKSPACE's close (G5) and compatibility (G6) gates run here too —
+  # tests/integration/test_view3d_workspace_render.py, in a SEPARATE pytest invocation
+  # (a -k filter is session-wide; on the engine command it would deselect the engine files),
+  # filtered to "not perf and not soak". Before #540 no workflow started the real 3D
+  # workspace at all: the engine package was exercised, the view every user sees was not.
+  # The G7 memory soaks stay local (twenty app children per test) and the wall-clock bounds
+  # carry `perf`.
+  #
+  # The `Test` job runs QT_QPA_PLATFORM=offscreen, where Qt Quick falls back to
+  # the software scene graph, which draws no 3D at all -- so every render test
+  # skips there (OGP_RENDER3D unset). Here they run: each test module starts a
+  # driver process with a REAL Qt platform and judges the frames it saves with
+  # its own CPU projection (tests/integration/quick3d_render_support.py).
+  #   Linux:   xvfb + the xcb platform + OpenGL on Mesa llvmpipe. The test
+  #            helper selects xcb for the driver; the pytest process itself
+  #            stays offscreen, as in every other job.
+  #   Windows: the runner has no GPU -- Direct3D 11 renders on WARP, which is
+  #            exactly the condition release.yml's `--selftest` runs under.
+  # Kept lean for software rasterisers: 480x360 probe frames, no sky light
+  # probe, one driver process per module, per-test timeouts, and `-n 0`:
+  # addopts' `-n auto` would start several driver processes at once on the
+  # one software rasteriser (ADR-058).
+  #
+  # NOT a required check (quality/master-protection.json): a software
+  # rasteriser on a shared runner proves correctness, not speed, and the
+  # hardware-only budgets in these tests skip themselves on one.
+  render3d:
+    name: Render 3D (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    env:
+      OGP_RENDER3D: "1"
+      OGP_RENDER3D_ARTIFACTS: ${{ github.workspace }}/render3d-artifacts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Qt, X11 and Mesa libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libegl1 libgl1 libgl1-mesa-dri libglx-mesa0 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1
+      - uses: ./.github/actions/setup-locked-env
+      - name: Render tier (Linux -- xvfb, xcb, OpenGL on llvmpipe)
+        if: runner.os == 'Linux'
+        env:
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_plant_forge_workspace.py tests/integration/test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws -v -n 0
+      - name: Render tier (Windows -- Direct3D 11 on WARP)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_plant_forge_workspace.py tests/integration/test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws -v -n 0
+      - name: Default workspace lifecycle (Linux -- G5 close, G6 compatibility)
+        if: runner.os == 'Linux'
+        env:
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_view3d_workspace_render.py -m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or try_hardware" -v -n 0
+      - name: Default workspace lifecycle (Windows -- G5 close, G6 compatibility)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/integration/test_view3d_workspace_render.py -m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or try_hardware" -v -n 0
+      - name: Plant seasonal update budget (Linux)
+        if: runner.os == 'Linux'
+        env:
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_frame_budget -m perf -n 0
+      - name: Plant seasonal update budget (Windows)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_frame_budget -m perf -n 0
+      - name: Upload frames, results and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: render3d-${{ matrix.os }}
+          path: render3d-artifacts/
+          if-no-files-found: ignore

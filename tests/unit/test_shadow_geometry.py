@@ -15,10 +15,27 @@ import math
 
 import pytest
 
+from open_garden_planner.core.object_types import PathFenceStyle
+from open_garden_planner.core.scene3d.builders.buildings import (
+    pitched_roof_triangles,
+)
+from open_garden_planner.core.scene3d.builders.fences import (
+    NOMINAL_FENCE_OPEN_FRACTION,
+    POROUS_FENCE_STYLES,
+    fence_transmittance,
+)
+from open_garden_planner.core.scene3d.record import (
+    PARAM_ROOF_OVERHANG,
+    PARAM_ROOF_PITCH,
+    PARAM_ROOF_STYLE,
+)
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    GroupedCaster,
+    caster_transmittance,
     circle_footprint,
     compute_scene_shadows,
+    compute_weighted_shadows,
     polyline_footprint,
     shadow_direction_scene,
     shadow_length_cm,
@@ -232,3 +249,217 @@ class TestUnionAndScene:
         cw_square = list(reversed(SQUARE))
         polys = shadow_polygon(cw_square, 100.0, 45.0, 180.0)
         assert net_area(polys) == pytest.approx(40.0 * 140.0, rel=0.001)
+
+
+class TestFencePorosityAndTransmittance:
+    def test_nominal_open_fraction_defined_for_all_porous_styles(self) -> None:
+        for style in POROUS_FENCE_STYLES:
+            assert style in NOMINAL_FENCE_OPEN_FRACTION
+            val = NOMINAL_FENCE_OPEN_FRACTION[style]
+            assert 0.0 < val < 1.0
+
+        # Non-porous styles have 0.0 transmittance (opaque)
+        opaque_styles = [
+            s.name for s in PathFenceStyle if s.name not in POROUS_FENCE_STYLES
+        ]
+        assert opaque_styles
+        for s in opaque_styles:
+            t = fence_transmittance(s, 150.0, 3.0, 45.0, 180.0, [(0.0, 0.0), (100.0, 0.0)])
+            assert t == 0.0
+
+    def test_fence_transmittance_angle_and_elevation_dependence(self) -> None:
+        # East-west fence along x-axis from (0,0) to (500,0)
+        points = [(0.0, 0.0), (500.0, 0.0)]
+        style = "WOODEN_FENCE"
+        nom = NOMINAL_FENCE_OPEN_FRACTION[style]
+
+        # Perpendicular horizontal rays (sun due south Az=180, elevation ~ 0):
+        # Transmittance approaches nominal open fraction.
+        t_perp_low = fence_transmittance(style, 150.0, 3.0, 0.01, 180.0, points)
+        assert t_perp_low == pytest.approx(nom, rel=0.05)
+
+        # Glancing azimuth (sun approaching parallel to fence, e.g. Az=105):
+        t_glance = fence_transmittance(style, 150.0, 3.0, 15.0, 105.0, points)
+        t_perp_15 = fence_transmittance(style, 150.0, 3.0, 15.0, 180.0, points)
+        assert t_glance < t_perp_15
+
+        # Steeper solar elevations reduce open area compared to low elevation
+        t_steep_60 = fence_transmittance(style, 150.0, 3.0, 60.0, 180.0, points)
+        assert t_steep_60 < t_perp_15
+
+
+class TestPitchedRoofShadowGeometry:
+    def test_pitched_roof_triangles_and_projections(self) -> None:
+        # 1000x800 building with 300cm ridge height
+        # Gable roof with 30 deg pitch, 30cm overhang
+        rect_pts = (
+            (-500.0, -400.0),
+            (500.0, -400.0),
+            (500.0, 400.0),
+            (-500.0, 400.0),
+        )
+        tris = pitched_roof_triangles(
+            "HOUSE",
+            "rectangle",
+            rect_pts,
+            300.0,
+            params={
+                PARAM_ROOF_STYLE: "gable",
+                PARAM_ROOF_PITCH: 30.0,
+                PARAM_ROOF_OVERHANG: 30.0,
+            },
+        )
+        assert len(tris) > 0
+        # Peak of roof reaches ridge height (300cm), eaves slope down below 300cm
+        max_z = max(max(pt[2] for pt in tri) for tri in tris)
+        min_roof_z = min(
+            min(pt[2] for pt in tri)
+            for tri in tris
+            if any(pt[2] > 200.0 for pt in tri)
+        )
+        assert max_z == pytest.approx(300.0, abs=1e-2)
+        assert min_roof_z < 300.0
+
+        # Test hip and shed styles
+        hip_tris = pitched_roof_triangles(
+            "HOUSE",
+            "rectangle",
+            rect_pts,
+            300.0,
+            params={
+                PARAM_ROOF_STYLE: "hip",
+                PARAM_ROOF_PITCH: 30.0,
+                PARAM_ROOF_OVERHANG: 20.0,
+            },
+        )
+        assert len(hip_tris) > 0
+        assert max(max(pt[2] for pt in tri) for tri in hip_tris) == pytest.approx(300.0, abs=1e-2)
+
+        shed_tris = pitched_roof_triangles(
+            "TOOL_SHED",
+            "rectangle",
+            rect_pts,
+            300.0,
+            params={
+                PARAM_ROOF_STYLE: "shed",
+                PARAM_ROOF_PITCH: 20.0,
+                PARAM_ROOF_OVERHANG: 20.0,
+            },
+        )
+        assert len(shed_tris) > 0
+        assert max(max(pt[2] for pt in tri) for tri in shed_tris) == pytest.approx(300.0, abs=1e-2)
+
+    def test_pitched_roof_grouped_caster_shadows(self) -> None:
+        # Pitched roof grouped caster vs flat prism at 15°, 35°, 60°
+        footprint = (
+            (-500.0, -400.0),
+            (500.0, -400.0),
+            (500.0, 400.0),
+            (-500.0, 400.0),
+        )
+        tris = pitched_roof_triangles(
+            "HOUSE",
+            "rectangle",
+            footprint,
+            300.0,
+            params={
+                PARAM_ROOF_STYLE: "gable",
+                PARAM_ROOF_PITCH: 35.0,
+            },
+        )
+        caster = GroupedCaster(
+            footprints=(footprint,),
+            height_cm=300.0,
+            roof_triangles=tris,
+        )
+
+        for elev in (15.0, 35.0, 60.0):
+            res = compute_weighted_shadows([caster], elev, 180.0)
+            assert res is not None
+            assert len(res.weighted_regions) > 0
+            # Eaves slope down to north, so pitched roof reaches less north than a 300cm flat box
+            ys = [pt[1] for reg in res.weighted_regions for poly in reg.polygons for pt in poly]
+            max_y = max(ys)
+            flat_reach = 400.0 + shadow_length_cm(300.0, elev)
+            assert max_y < flat_reach
+
+
+class TestWeightedShadowsOverlapAndRules:
+    def test_multi_segment_porous_fence_same_owner_does_not_square(self) -> None:
+        # Two connected segments of a single wooden fence sharing the same owner GroupedCaster
+        seg1 = [(0.0, 0.0), (100.0, 0.0)]
+        seg2 = [(100.0, 0.0), (200.0, 0.0)]
+        poly1 = polyline_footprint(seg1, 10.0)[0]
+        poly2 = polyline_footprint(seg2, 10.0)[0]
+
+        caster = GroupedCaster(
+            footprints=[poly1, poly2],
+            height_cm=150.0,
+            fence_style="WOODEN_FENCE",
+            fence_points=tuple(seg1 + seg2),
+            fence_width_cm=10.0,
+        )
+
+        res = compute_weighted_shadows([caster], 35.0, 180.0)
+        assert res is not None
+        expected_t = caster_transmittance(caster, 35.0, 180.0)
+        assert expected_t > 0.0
+        for reg in res.weighted_regions:
+            assert reg.transmittance == pytest.approx(expected_t, abs=1e-4)
+
+    def test_two_independent_overlapping_porous_casters_multiply(self) -> None:
+        # Two independent fences crossing each other
+        f1_pts = [(0.0, 0.0), (100.0, 0.0)]
+        f2_pts = [(50.0, -50.0), (50.0, 50.0)]
+        p1 = polyline_footprint(f1_pts, 10.0)[0]
+        p2 = polyline_footprint(f2_pts, 10.0)[0]
+
+        c1 = GroupedCaster(
+            footprints=[p1],
+            height_cm=100.0,
+            fence_style="METAL_FENCE",
+            fence_points=tuple(f1_pts),
+            fence_width_cm=10.0,
+        )
+        c2 = GroupedCaster(
+            footprints=[p2],
+            height_cm=100.0,
+            fence_style="METAL_FENCE",
+            fence_points=tuple(f2_pts),
+            fence_width_cm=10.0,
+        )
+
+        res = compute_weighted_shadows([c1, c2], 45.0, 180.0)
+        assert res is not None
+        t1 = caster_transmittance(c1, 45.0, 180.0)
+        t2 = caster_transmittance(c2, 45.0, 180.0)
+        expected_combined_t = t1 * t2
+
+        transmittances = [reg.transmittance for reg in res.weighted_regions]
+        assert any(abs(t - expected_combined_t) < 1e-4 for t in transmittances)
+
+    def test_porous_over_opaque_stays_opaque(self) -> None:
+        # Opaque building wall under a porous fence
+        wall_footprint = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)]
+        c_opaque = GroupedCaster(
+            footprints=[wall_footprint],
+            height_cm=200.0,
+            transmittance=0.0,
+        )
+        f_pts = [(50.0, 0.0), (50.0, 100.0)]
+        f_footprint = polyline_footprint(f_pts, 10.0)[0]
+        c_porous = GroupedCaster(
+            footprints=[f_footprint],
+            height_cm=100.0,
+            fence_style="CHAIN_LINK",
+            fence_points=tuple(f_pts),
+            fence_width_cm=10.0,
+        )
+
+        res = compute_weighted_shadows([c_opaque, c_porous], 45.0, 180.0)
+        assert res is not None
+        # Wherever the opaque wall casts a shadow, transmittance must be 0.0 (occlusion 1.0)
+        opaque_regs = [r for r in res.weighted_regions if r.occlusion == pytest.approx(1.0, abs=1e-4)]
+        assert len(opaque_regs) >= 1
+
+

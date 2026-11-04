@@ -63,7 +63,7 @@ class _DownloadWorker(QThread):
             self.verified_ready.emit(result)
         except DownloadCancelled:
             pass
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if not self._cancelled.is_set():
                 self.failed.emit(str(exc) if isinstance(exc, VerificationError) else "network")
 
@@ -268,7 +268,7 @@ class UpdateBar(QFrame):
         """Launch the downloaded installer and quit the application."""
         try:
             result.check()
-            subprocess.Popen([str(result.path)], close_fds=True)  # noqa: S603
+            subprocess.Popen([str(result.path)], close_fds=True)
         except Exception as exc:
             QMessageBox.critical(
                 parent,

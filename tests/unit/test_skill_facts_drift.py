@@ -34,7 +34,11 @@ def _skill_text(rel: str) -> str:
     trees in lockstep (`scripts/check_agent_context.py`), so the content
     assertions below are made against both.
     """
-    return "\n".join((tree / rel).read_text(encoding="utf-8") for tree in SKILL_TREES)
+    return "\n".join(
+        (tree / rel).read_text(encoding="utf-8") + "\n" + "\n".join(
+            p.read_text(encoding="utf-8") for p in sorted((tree / rel).parent.glob("references/*.md"))
+        ) for tree in SKILL_TREES
+    )
 
 
 def _ci_job_names() -> set[str]:
@@ -237,7 +241,7 @@ class TestDependencyPinsMatchPyproject:
         pins = self._pyproject_pins()
         stale: list[str] = []
         for tree in SKILL_TREES:
-            for path in sorted(tree.rglob("SKILL.md")):
+            for path in sorted(tree.rglob("*.md")):
                 text = path.read_text(encoding="utf-8")
                 for name, actual in pins.items():
                     real_floor = re.search(r">=([\d][\d.]*)", actual)
@@ -262,7 +266,7 @@ class TestDependencyPinsMatchPyproject:
         pins = self._pyproject_pins()
         found = 0
         for tree in SKILL_TREES:
-            for path in sorted(tree.rglob("SKILL.md")):
+            for path in sorted(tree.rglob("*.md")):
                 text = path.read_text(encoding="utf-8")
                 for name in pins:
                     found += len(re.findall(rf"{re.escape(name)}\s*>=", text))

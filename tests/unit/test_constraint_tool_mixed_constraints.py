@@ -175,7 +175,11 @@ def test_refusal_modal_timer_serializes_original_geometry(qtbot, monkeypatch, ro
     payload = ProjectManager._serialize_item(items[0])
     observed = []
     def warning(*args):
+        from PyQt6.QtCore import Qt
         dialog = QDialog(view)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowDoesNotAcceptFocus)
+        dialog.move(-20000, -20000)
         def inspect():
             observed.append((geometry(items), ProjectManager._serialize_item(items[0])))
             dialog.accept()

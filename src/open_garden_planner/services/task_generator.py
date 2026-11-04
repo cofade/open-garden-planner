@@ -27,13 +27,16 @@ Urgency is *not* stored on a :class:`Task`; it is recomputed at render time via
 from __future__ import annotations
 
 import datetime
+import functools
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.calendar_windows import calendar_windows as calendar_windows
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
 from open_garden_planner.models.task import ManualTask
@@ -83,6 +86,7 @@ class PlantRowInput:
     transplant_end: int | None = None
     harvest_start: int | None = None
     harvest_end: int | None = None
+    removal_date: datetime.date | None = None
 
 
 @dataclass(frozen=True)
@@ -187,13 +191,6 @@ def _parse_iso(value: str) -> datetime.date | None:
         return None
 
 
-_CALENDAR_TASK_DEFS: tuple[tuple[str, str, str], ...] = (
-    ("indoor_sow", "indoor_sow_start", "indoor_sow_end"),
-    ("direct_sow", "direct_sow_start", "direct_sow_end"),
-    ("transplant", "transplant_start", "transplant_end"),
-    ("harvest", "harvest_start", "harvest_end"),
-)
-
 _PROPAGATION_STEP_IDS: tuple[str, ...] = ("prick_out", "harden_off")
 
 
@@ -218,14 +215,17 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
         return []
     last_frost = state.last_frost
     tasks: list[Task] = []
+    removals = species_removal_dates(state.plant_rows)
     for row in state.plant_rows:
-        for task_type, start_attr, end_attr in _CALENDAR_TASK_DEFS:
-            start_weeks = getattr(row, start_attr)
-            end_weeks = getattr(row, end_attr)
-            if start_weeks is None or end_weeks is None:
-                continue
-            start = last_frost + datetime.timedelta(weeks=start_weeks)
-            end = last_frost + datetime.timedelta(weeks=end_weeks)
+        removed = removals[row.species_key]
+        if state.actionable_only and removed is not None and state.today >= removed:
+            continue
+        for task_type, start, end in calendar_windows(
+                functools.partial(getattr, row), last_frost):
+            if removed is not None:
+                if start >= removed:
+                    continue
+                end = min(end, removed - datetime.timedelta(days=1))
             if state.actionable_only and classify_urgency(start, end, state.today) is None:
                 continue
             tasks.append(Task(
@@ -248,7 +248,11 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
     of the frost anchor being evaluated. Both GUI and period reads use this id.
     """
     tasks: list[Task] = []
+    removals = species_removal_dates(state.plant_rows)
     for row in state.plant_rows:
+        removed = removals[row.species_key]
+        if state.actionable_only and removed is not None and state.today >= removed:
+            continue
         plan = state.prop_plans.get(row.species_key)
         if plan is None:
             continue
@@ -256,7 +260,10 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
             step = plan.get_step(step_id)
             if step is None:
                 continue
-            if state.actionable_only and classify_urgency(step.start_date, step.end_date, state.today) is None:
+            if removed is not None and step.start_date >= removed:
+                continue
+            step_end = min(step.end_date, removed - datetime.timedelta(days=1)) if removed else step.end_date
+            if state.actionable_only and classify_urgency(step.start_date, step_end, state.today) is None:
                 continue
             tasks.append(Task(
                 task_id=make_calendar_task_id(
@@ -267,7 +274,7 @@ def generate_propagation_tasks(state: PlanState) -> list[Task]:
                 task_type=step_id,
                 title=row.display_name,
                 start_date=step.start_date,
-                end_date=step.end_date,
+                end_date=step_end,
                 species_key=row.species_key,
                 dismissible=False,
             ))
@@ -488,15 +495,15 @@ def build_plan_state(
     name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
     application side, which owns parsing and refusal of a malformed value.
     """
-    from open_garden_planner.core.object_types import (  # noqa: PLC0415
+    from open_garden_planner.core.object_types import (
         get_translated_display_name,
         is_bed_type,
     )
-    from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+    from open_garden_planner.models.plant_data import (
         PlantSpeciesData,
         species_key,
     )
-    from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
+    from open_garden_planner.models.task import ManualTask
 
     today = today or datetime.date.today()
     year = today.year if year is None else year
@@ -520,6 +527,7 @@ def build_plan_state(
     for item in all_items:
         object_type = getattr(item, "object_type", None)
         metadata = getattr(item, "metadata", None) or {}
+        removed = instance_date(metadata, "removal_date")
         ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
         if ps_dict:
             try:
@@ -553,6 +561,7 @@ def build_plan_state(
                         transplant_end=sp.transplant_end,
                         harvest_start=sp.harvest_start,
                         harvest_end=sp.harvest_end,
+                        removal_date=removed,
                     ))
         if is_bed_type(object_type):
             bed_id = str(getattr(item, "item_id", ""))
@@ -563,7 +572,7 @@ def build_plan_state(
                 bed_id=bed_id,
                 name=name,
                 amendment_recs=_bed_amendment_recs(bed_id, item, soil_service),
-                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service),
+                mismatch_plants=_bed_mismatch_plants(item, items_by_id, soil_service, today),
             ))
 
     manual_tasks = tuple(
@@ -572,7 +581,7 @@ def build_plan_state(
     overrides: dict[str, dict] = {}
     seed_packets: dict[str, Any] = {}
     if include_propagation:
-        from open_garden_planner.models.seed_inventory import get_seed_inventory  # noqa: PLC0415
+        from open_garden_planner.models.seed_inventory import get_seed_inventory
 
         overrides = dict(project_manager.propagation_overrides)
         store = get_seed_inventory()
@@ -670,7 +679,7 @@ def frost_anchor_years(
     propagation steps), never from a hand-written offset constant, so it stays
     correct when the bundled data changes.
     """
-    from dataclasses import replace  # noqa: PLC0415
+    from dataclasses import replace
 
     first_year, last_year = start.year, end.year
     if state.last_frost is None:
@@ -711,7 +720,7 @@ def generate_for_date_window(
     anchor-year ids, filter by date overlap, and leave urgency relative to
     state.today.
     """
-    from dataclasses import replace  # noqa: PLC0415
+    from dataclasses import replace
 
     if start > end:
         raise ValueError("from_date must be on or before to_date.")
@@ -780,7 +789,7 @@ def generate_actionable_for_surface(
         # frost alerts) are still worth listing, and they carry absolute dates.
         return generate_all(state)
 
-    from dataclasses import replace  # noqa: PLC0415
+    from dataclasses import replace
 
     # ``classify_urgency`` admits nothing beyond 30 days ahead or 14 behind, so
     # this span is the widest that can ever produce a listed task. It also bounds
@@ -808,7 +817,11 @@ def generate_actionable_for_surface(
     ]
 
     actionable: list[Task] = []
+    removals = species_removal_dates(state.plant_rows)
     for task in tasks:
+        removed = removals.get(task.species_key)
+        if task.source in {"calendar", "propagation"} and removed is not None and state.today >= removed:
+            continue
         if task.start_date is None or task.end_date is None:
             # Undated (manual, or defensively any future undated source):
             # cannot be classified, so keep it rather than crash or drop it.
@@ -821,6 +834,18 @@ def generate_actionable_for_surface(
         if classify_urgency(task.start_date, task.end_date, state.today) is not None:
             actionable.append(task)
     return actionable
+
+
+def species_removal_dates(rows: tuple[PlantRowInput, ...]) -> dict[str, datetime.date | None]:
+    """Species tasks persist while any instance remains; undated removal wins."""
+    result: dict[str, datetime.date | None] = {}
+    for row in rows:
+        if row.species_key not in result:
+            result[row.species_key] = row.removal_date
+        else:
+            old = result[row.species_key]
+            result[row.species_key] = max(old, row.removal_date) if old and row.removal_date else None
+    return result
 
 
 def propagate_plans_by_anchor(
@@ -866,11 +891,11 @@ def _bed_amendment_recs(
     record = soil_service.get_effective_record(bed_id)
     if record is None:
         return ()
-    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
-    from open_garden_planner.core.measurements import (  # noqa: PLC0415
+    from open_garden_planner.config.settings import active_language
+    from open_garden_planner.core.measurements import (
         calculate_area_and_perimeter,
     )
-    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+    from open_garden_planner.services.soil_service import SoilService
 
     result = calculate_area_and_perimeter(item)
     if result is None:
@@ -891,13 +916,13 @@ def _bed_amendment_recs(
 
 
 def _bed_mismatch_plants(
-    item: Any, items_by_id: dict[str, Any], soil_service: Any | None
+    item: Any, items_by_id: dict[str, Any], soil_service: Any | None, today: datetime.date
 ) -> tuple[str, ...]:
     """Names of a bed's child plants whose soil preference clashes (US-12.10d)."""
     if soil_service is None:
         return ()
-    from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
-    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+    from open_garden_planner.models.plant_data import PlantSpeciesData
+    from open_garden_planner.services.soil_service import SoilService
 
     bed_id = str(getattr(item, "item_id", ""))
     record = soil_service.get_effective_record(bed_id)
@@ -908,6 +933,8 @@ def _bed_mismatch_plants(
         if child is None:
             continue
         metadata = getattr(child, "metadata", None) or {}
+        if not plant_present(metadata, today):
+            continue
         ps_dict = metadata.get("plant_species") if isinstance(metadata, dict) else None
         if ps_dict and isinstance(ps_dict, dict):
             try:

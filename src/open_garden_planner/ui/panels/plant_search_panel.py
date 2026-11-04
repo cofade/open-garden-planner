@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import PlantSpeciesData
+from open_garden_planner.ui.canvas.select_by_id import select_by_ids
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import set_text_role
 
@@ -409,8 +410,9 @@ class PlantSearchPanel(QWidget):
                 self.refresh_plant_list()
                 return
 
-            scene.clearSelection()
-            graphics_item.setSelected(True)
+            # the app's ONE select-by-id path (ui/canvas/select_by_id.py): the
+            # same group and locked-layer rules as every other list and the 3D view
+            select_by_ids(scene, [str(item_id)])
 
             views = scene.views()
             if views:

@@ -344,7 +344,7 @@ class TasksView(QWidget):
         )
 
     def _snooze_menu(self, task: Task, anchor: QWidget) -> None:
-        from PyQt6.QtCore import Qt  # noqa: PLC0415
+        from PyQt6.QtCore import Qt
 
         menu = QMenu(self)
         menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -365,14 +365,14 @@ class TasksView(QWidget):
         menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
 
     def _on_add_task(self) -> None:
-        from open_garden_planner.ui.dialogs.task_dialog import TaskDialog  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.task_dialog import TaskDialog
 
         dialog = TaskDialog(self, scene=self._scene)
         if dialog.exec():
             self._commit_manual(dialog.result_task(), edit=False)
 
     def _edit_manual(self, task: Task) -> None:
-        from open_garden_planner.ui.dialogs.task_dialog import TaskDialog  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.task_dialog import TaskDialog
 
         existing = self._pm.get_manual_task(task.task_id)
         if existing is None:
@@ -382,7 +382,7 @@ class TasksView(QWidget):
             self._commit_manual(dialog.result_task(), edit=True)
 
     def _delete_manual(self, task: Task) -> None:
-        from open_garden_planner.core.commands import (  # noqa: PLC0415
+        from open_garden_planner.core.commands import (
             DeleteManualTaskCommand,
         )
 
@@ -393,7 +393,7 @@ class TasksView(QWidget):
             cmd.execute()
 
     def _commit_manual(self, task: Any, *, edit: bool) -> None:
-        from open_garden_planner.core.commands import (  # noqa: PLC0415
+        from open_garden_planner.core.commands import (
             AddManualTaskCommand,
             EditManualTaskCommand,
         )

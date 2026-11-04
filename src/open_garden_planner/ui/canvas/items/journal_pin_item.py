@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 
-from .garden_item import GardenItemMixin
+from .garden_item import GardenItemMixin, announce_plan_change
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import (
@@ -88,6 +88,18 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
     def note_id(self) -> str:
         return self._note_id
 
+    def itemChange(
+        self,
+        change: QGraphicsItem.GraphicsItemChange,
+        value: Any,
+    ) -> Any:
+        """A pin is part of the plan: placing, moving and removing one moves the
+        scene's plan revision. Only that half of the items' hook
+        (``garden_item.handle_item_change``): a pin is drawn at a constant pixel
+        size and takes no part in the paint cache that follows the selection."""
+        announce_plan_change(self, change, value)
+        return super().itemChange(change, value)
+
     # ── Geometry / painting ──────────────────────────────────────
 
     def _pin_path(self) -> QPainterPath:
@@ -120,7 +132,7 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
         path.closeSubpath()
         return path
 
-    def boundingRect(self) -> QRectF:  # noqa: N802
+    def boundingRect(self) -> QRectF:
         r = _PIN_BODY_RADIUS
         h = _PIN_HEIGHT
         # Include a small selection-border margin.
@@ -136,7 +148,7 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
         option: QStyleOptionGraphicsItem,
         _widget: QWidget | None = None,
     ) -> None:
-        from PyQt6.QtWidgets import QStyle  # noqa: PLC0415
+        from PyQt6.QtWidgets import QStyle
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -181,7 +193,7 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
         if callable(handler):
             handler(self._note_id)
 
-    def mouseDoubleClickEvent(  # noqa: N802 (Qt API)
+    def mouseDoubleClickEvent(
         self, event: QGraphicsSceneMouseEvent
     ) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -190,7 +202,7 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
             return
         super().mouseDoubleClickEvent(event)
 
-    def contextMenuEvent(  # noqa: N802 (Qt API)
+    def contextMenuEvent(
         self, event: QGraphicsSceneContextMenuEvent
     ) -> None:
         _ = QCoreApplication.translate
@@ -219,7 +231,7 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> JournalPinItem:
-        import contextlib  # noqa: PLC0415
+        import contextlib
 
         layer_id: uuid.UUID | None = None
         if "layer_id" in d:

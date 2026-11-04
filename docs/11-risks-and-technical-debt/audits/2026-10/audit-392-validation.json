@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-29",
+  "base_commit": "003c4bc4c1fba470a8159ce9078a2d3086bd66e4",
+  "independently_reviewed_tree": "ddda5558fadd1c0052f8fce2ec357c561ede50f9",
+  "review": "clean re-review, no outstanding P0/P1; final receipt is an appended documentation delta",
+  "pytest": {
+    "passed": 20181,
+    "skipped": 264,
+    "failed": 0
+  },
+  "serial_performance": {
+    "passed": 81,
+    "skipped": 12,
+    "failed": 0
+  },
+  "mypy_windows": {
+    "existing_errors": 1614,
+    "regressions": []
+  },
+  "mypy_linux_target_on_windows": {
+    "existing_errors": 1614,
+    "regressions": {},
+    "scope": "static --platform linux target, not a Linux-host run"
+  },
+  "security_high": 0,
+  "ruff": "passed",
+  "translations": {
+    "locales": [
+      "en",
+      "de",
+      "es"
+    ],
+    "source_catalog_compiled_gate": "passed"
+  },
+  "import_boundaries": "passed, zero exceptions",
+  "context_citations_and_wiki": "passed",
+  "strict_locked_environment": "passed",
+  "frozen_build": "passed after review corrections",
+  "frozen_smoke_exit": 124,
+  "frozen_selftest_exit": 0,
+  "frozen_inventory_distributions": 70,
+  "frozen_mcp_dogfood": {
+    "checks": 52,
+    "result": "PASS",
+    "settings_restored": true
+  },
+  "full_opt_in_render_board": "not run locally; no 3D look change; native frozen engine-frame selftest passed",
+  "owner_acceptance": "pending",
+  "wiki_publication": "pending approval and protected merge",
+  "hosted_ci": "reported in the draft PR on its verified head",
+  "coverage_followup": {
+    "reviewed_tree": "1a016921dbd529573c9d4b62ed80b9984ef1c583",
+    "review": "clean fresh-worktree re-review, no P0/P1/P2; later receipt updates are documentation only",
+    "initial_hosted_failure": "new config package lacked a registered floor",
+    "measured_config_statements": 471,
+    "measured_config_covered_statements": 449,
+    "registered_config_line_floor": 95,
+    "existing_floors": "unchanged",
+    "regression_observed_failing_before_fix": true
+  }
+}

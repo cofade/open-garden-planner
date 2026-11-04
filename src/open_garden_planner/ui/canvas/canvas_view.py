@@ -4,19 +4,31 @@ The view handles rendering, pan, zoom, and coordinate transformation.
 It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
+from __future__ import annotations
 
 import contextlib
 import json
 import logging
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
+    from open_garden_planner.core.commands import Command
     from open_garden_planner.core.plant_renderer import PlantCategory
     from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
-from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QObject,
+    QPoint,
+    QPointF,
+    QRectF,
+    Qt,
+    QTimer,
+    pyqtSignal,
+)
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -24,13 +36,23 @@ from PyQt6.QtGui import (
     QFont,
     QKeyEvent,
     QMouseEvent,
+    QNativeGestureEvent,
     QPainter,
     QPaintEvent,
     QPen,
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit, QMenu
+from PyQt6.QtWidgets import (
+    QApplication,
+    QGestureEvent,
+    QGraphicsItem,
+    QGraphicsView,
+    QInputDialog,
+    QLineEdit,
+    QMenu,
+    QPinchGesture,
+)
 
 from open_garden_planner.core import (
     AddConstraintCommand,
@@ -47,11 +69,14 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
+from open_garden_planner.core.commands import (
+    bed_child_has_constraints,
+    iter_plant_parents,
+)
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
 from open_garden_planner.core.object_types import (
     ObjectType,
     is_bed_type,
-    is_plant_parent_type,
 )
 from open_garden_planner.core.snap import (
     PointSnapper,
@@ -114,11 +139,18 @@ from open_garden_planner.services.soil_service import (
     SoilService,
 )
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene, GuideLine
+from open_garden_planner.ui.canvas.clipboard_operations import (
+    ClipboardOperations,
+)
+from open_garden_planner.ui.canvas.clipboard_operations import (
+    _offset_item_dict as _offset_item_dict,
+)
+from open_garden_planner.ui.canvas.clipboard_operations import (
+    _strip_item_ids as _strip_item_ids,
+)
+from open_garden_planner.ui.canvas.drag_constraints import DragConstraints
 from open_garden_planner.ui.canvas.items.resize_handle import (
-    CurveControlHandle,
-    MidpointHandle,
-    RectCornerHandle,
-    ResizeHandle,
+    DRAG_HANDLE_TYPES,
     RotationHandle,
     VertexHandle,
 )
@@ -126,61 +158,10 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
 _log = logging.getLogger(__name__)
 
 
-def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
-    """Recursively strip item_id from a serialized item dict so deserialization mints new UUIDs."""
-    copy_d = data.copy()
-    copy_d.pop("item_id", None)
-    if "children" in copy_d:
-        copy_d["children"] = [_strip_item_ids(child) for child in copy_d["children"]]
-    return copy_d
 
 
-def _offset_item_dict(data: dict[str, Any], dx: float, dy: float) -> dict[str, Any]:
-    """Apply an offset (dx, dy) to all supported geometry coordinates in an item dict."""
-    copy_d = data.copy()
-    if "position" in copy_d and isinstance(copy_d["position"], dict):
-        pos_copy = dict(copy_d["position"])
-        if "x" in pos_copy:
-            pos_copy["x"] += dx
-        if "y" in pos_copy:
-            pos_copy["y"] += dy
-        copy_d["position"] = pos_copy
-    if "x" in copy_d:
-        copy_d["x"] += dx
-    if "y" in copy_d:
-        copy_d["y"] += dy
-    if "center_x" in copy_d:
-        copy_d["center_x"] += dx
-    if "center_y" in copy_d:
-        copy_d["center_y"] += dy
-    if "target_x" in copy_d:
-        copy_d["target_x"] += dx
-    if "target_y" in copy_d:
-        copy_d["target_y"] += dy
-    if "through_x" in copy_d:
-        copy_d["through_x"] += dx
-    if "through_y" in copy_d:
-        copy_d["through_y"] += dy
-    if "x1" in copy_d:
-        copy_d["x1"] += dx
-    if "y1" in copy_d:
-        copy_d["y1"] += dy
-    if "x2" in copy_d:
-        copy_d["x2"] += dx
-    if "y2" in copy_d:
-        copy_d["y2"] += dy
-    if "points" in copy_d:
-        copy_d["points"] = [
-            {"x": p["x"] + dx, "y": p["y"] + dy}
-            for p in copy_d["points"]
-        ]
-    for key in ("anchors", "handles_in", "handles_out"):
-        if key in copy_d:
-            copy_d[key] = [
-                {"x": p["x"] + dx, "y": p["y"] + dy}
-                for p in copy_d[key]
-            ]
-    return copy_d
+
+
 
 
 class CanvasView(QGraphicsView):
@@ -256,6 +237,9 @@ class CanvasView(QGraphicsView):
             parent: Parent widget
         """
         super().__init__(scene, parent)
+        self._drag_constraints = DragConstraints(self)
+        self._clipboard_guild_members: dict[str, set[str]] = {}
+        self._clipboard_operations = ClipboardOperations(self)
 
         self._canvas_scene = scene
         self._zoom_factor = 1.0
@@ -276,6 +260,20 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+        # Touch gestures (#321): enabled by default, a sitting of the view; the app
+        # applies the saved preference after construction, as for the scale bar.
+        # ``_pinch_scale`` / ``_pinch_center`` carry the last values of Qt's own
+        # pinch gesture (cumulative scale, viewport centre) while it is active.
+        self._touch_gestures_enabled = True
+        self._pinch_scale: float | None = None
+        self._pinch_center: QPointF | None = None
+        #: The press Qt synthesised from the first finger (viewport point, button),
+        #: so a pinch that starts on an item can release it instead of dragging it.
+        self._touch_mouse_press: tuple[QPointF, Qt.MouseButton] | None = None
+        #: What was selected before that press, and whether it landed on an item:
+        #: a pinch over empty canvas restores the selection the press cleared.
+        self._touch_press_selection: list[QGraphicsItem] = []
+        self._touch_press_on_item = False
 
         # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
@@ -311,7 +309,8 @@ class CanvasView(QGraphicsView):
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
-        self._canvas_scene._command_manager = self._command_manager
+        # the scene's plan revision moves with every executed / undone / redone command
+        self._canvas_scene.set_command_manager(self._command_manager)
 
         # Update dimension lines after any command (constraint add/remove, item move, etc.)
         self._command_manager.command_executed.connect(
@@ -327,12 +326,31 @@ class CanvasView(QGraphicsView):
 
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
+        # Items whose ItemIsMovable this drag took away because they are FIXED
+        # (#662), with the flag value to restore.
+        self._fixed_drag_flag_restore: dict[QGraphicsItem, bool] = {}
         # Constraint-propagated items' start positions during drag
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
         # Child items moved during bed drag (original positions)
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
+        # The item a rotation gesture is turning (issue #485). During rotation
+        # only THIS item is pinned in the constraint solver; every other item —
+        # selected or not — may be moved by a constraint correction.
+        self._rotating_item: QGraphicsItem | None = None
+        # Angle the rotating item had when the gesture started. Kept here as a
+        # safety net: if a release never reaches the handle's own
+        # ``_on_rotation_end`` (a swallowed release, a handle destroyed
+        # mid-drag), the view still turns the gesture into one undo entry
+        # rather than leaving a rotation no Ctrl+Z can reverse (#485).
+        self._rotation_initial_angle: float = 0.0
+        # Vertex-level solver corrections applied to a deformable partner during
+        # a rotation, recorded once per vertex: (id(item), index) -> (item,
+        # index, local_before). Their final local position is read at release.
+        self._rotation_vertex_starts: dict[
+            tuple[int, int], tuple[QGraphicsItem, int, QPointF]
+        ] = {}
 
         # Clipboard for copy/paste
         self._clipboard: list[dict] = []
@@ -513,6 +531,12 @@ class CanvasView(QGraphicsView):
         path_tool.shortcut = "L"
         self._tool_manager.register_tool(path_tool)
 
+        # A string of lights is a line: a post at every click (L5.4, #389)
+        string_tool = PolylineTool(self, object_type=ObjectType.STRING_LIGHTS)
+        string_tool.tool_type = ToolType.STRING_LIGHTS
+        string_tool.display_name = self.tr("String Lights")
+        self._tool_manager.register_tool(string_tool)
+
         # Register plant tools (circle-based)
         tree_tool = CircleTool(self, object_type=ObjectType.TREE)
         tree_tool.tool_type = ToolType.TREE
@@ -568,6 +592,7 @@ class CanvasView(QGraphicsView):
             (ObjectType.FIRE_PIT, ToolType.FIRE_PIT, self.tr("Fire Pit")),
             (ObjectType.PLANTER_POT, ToolType.PLANTER_POT, self.tr("Planter/Pot")),
             (ObjectType.TRAMPOLINE, ToolType.TRAMPOLINE, self.tr("Trampoline")),
+            (ObjectType.GARDEN_LIGHT, ToolType.GARDEN_LIGHT, self.tr("Garden Light")),
         ]
         for obj_type, tool_type, display_name in circle_furniture:
             tool = CircleTool(self, object_type=obj_type)
@@ -660,6 +685,11 @@ class CanvasView(QGraphicsView):
         # Accept drops from gallery panel
         self.setAcceptDrops(True)
 
+        # Pinch-to-zoom and two-finger pan (#321): the viewport is the widget the
+        # touch points land on, so it is where touch events are accepted and where
+        # the gesture filter sits. Off means Qt keeps synthesising mouse events.
+        self.set_touch_gestures_enabled(self._touch_gestures_enabled)
+
     def apply_theme_colors(self, colors: dict[str, str]) -> None:
         """Update overlay colors from the theme palette.
 
@@ -695,6 +725,22 @@ class CanvasView(QGraphicsView):
         # Translate to put origin at bottom-left after flip
         transform.translate(0, -self._canvas_scene.height_cm)
         self.setTransform(transform)
+        self._refresh_dense_vertex_overlays()
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        """Keep a dense vertex-edit sample tied to the visible viewport pixels."""
+        super().scrollContentsBy(dx, dy)
+        self._refresh_dense_vertex_overlays()
+
+    def _refresh_dense_vertex_overlays(self) -> None:
+        """Ask every selected item with a bounded overlay to re-sample (#551)."""
+        scene = self.scene()
+        if scene is None:
+            return
+        for item in scene.selectedItems():
+            refresh = getattr(item, "refresh_vertex_edit_overlay", None)
+            if callable(refresh):
+                refresh()
 
     # Properties
 
@@ -805,7 +851,7 @@ class CanvasView(QGraphicsView):
 
     def focus_on_journal_pin(self, note_id: str) -> None:
         """Center the viewport on the pin matching ``note_id`` (US-12.9)."""
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -865,6 +911,260 @@ class CanvasView(QGraphicsView):
             factor: Zoom divisor (default 1.1 for smooth zooming)
         """
         self.set_zoom(self._zoom_factor / factor)
+
+    def _zoom_at(self, anchor: QPointF, factor: float) -> None:
+        """Zoom by ``factor``, keeping the scene point under ``anchor`` fixed.
+
+        THE one anchored-zoom path: the mouse wheel and the pinch gesture both
+        call it, so anchoring, clamping and the ``zoom_changed`` signal stay
+        identical (issue #321). ``anchor`` is in viewport pixels.
+
+        The body is the wheel's, with two differences stated here: a zoom that a
+        limit did not change returns early (nothing to re-apply or re-emit), and
+        the scrollbar compensation rounds rather than truncates its integer step.
+        """
+        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
+        if new_zoom == self._zoom_factor:
+            return
+        old_scene_pos = self.mapToScene(anchor.toPoint())
+        self._zoom_factor = new_zoom
+        self._apply_transform()
+        self.zoom_changed.emit(self.zoom_percent)
+        # Scroll so the point under the anchor stays in the same screen position.
+        new_scene_pos = self.mapToScene(anchor.toPoint())
+        scroll_delta = old_scene_pos - new_scene_pos
+        self.horizontalScrollBar().setValue(
+            self.horizontalScrollBar().value()
+            + round(scroll_delta.x() * self._zoom_factor)
+        )
+        self.verticalScrollBar().setValue(
+            self.verticalScrollBar().value()
+            - round(scroll_delta.y() * self._zoom_factor)
+        )
+
+    def _pan_by(self, delta: QPointF) -> None:
+        """Scroll the plan by a drag of ``delta`` viewport pixels.
+
+        THE one pan path: the middle mouse button and the two-finger gesture both
+        call it, so scrollbars (and the minimap that listens to them) move alike
+        (issue #321). Map two points to scene so any transform — zoom, Y-flip —
+        is handled, and move opposite the finger.
+        """
+        center = self.viewport().rect().center()
+        scene_before = self.mapToScene(center)
+        scene_after = self.mapToScene(
+            QPoint(round(center.x() + delta.x()), round(center.y() + delta.y()))
+        )
+        scene_delta = scene_before - scene_after
+        self.centerOn(self.mapToScene(center) + scene_delta)
+
+    # Touch gestures (issue #321)
+
+    def set_touch_gestures_enabled(self, enabled: bool) -> None:
+        """Accept pinch-to-zoom and two-finger pan on the canvas viewport.
+
+        Qt's **own pinch recognizer** does the arbitration a hand-written state
+        machine gets wrong: it starts only when a second finger arrives, so a
+        single-finger tap or drag is never claimed and keeps arriving as a
+        synthesised mouse event — the tools' own path. With the preference off
+        nothing is grabbed and the viewport is exactly as it was before #321.
+        """
+        self._touch_gestures_enabled = enabled
+        viewport = self.viewport()
+        if enabled:
+            viewport.grabGesture(Qt.GestureType.PinchGesture)
+            viewport.installEventFilter(self)
+        else:
+            viewport.ungrabGesture(Qt.GestureType.PinchGesture)
+            viewport.removeEventFilter(self)
+            self._end_pinch()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Route pinch gestures and native trackpad gestures to the handlers."""
+        if watched is self.viewport() and self._touch_gestures_enabled:
+            kind = event.type()
+            if kind == QEvent.Type.MouseButtonPress:
+                # The first finger of a pinch is Qt's synthesised mouse press; remember
+                # where it landed and what it is about to change, so the pinch can
+                # release it (and put back a move) instead of dragging. PyQt6 has no
+                # source() accessor, so a real mouse press is tracked too: a mouse
+                # button held while a pinch starts is an interaction the gesture owns.
+                mouse = cast(QMouseEvent, event)
+                self._touch_mouse_press = (mouse.position(), mouse.button())
+                scene = self.scene()
+                self._touch_press_selection = list(scene.selectedItems()) if scene else []
+                # The selection is cleared only when no SELECTABLE item is under the
+                # press (the SelectTool rule); labels, badges and locked items do not
+                # count, or a pinch over one would fail to restore the selection.
+                self._touch_press_on_item = bool(scene) and any(
+                    item.isVisible()
+                    and item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+                    for item in scene.items(self.mapToScene(mouse.position().toPoint()))
+                )
+                return False
+            if kind == QEvent.Type.MouseButtonRelease:
+                self._touch_mouse_press = None
+                return False
+            if kind == QEvent.Type.Gesture:
+                return self._gesture(cast(QGestureEvent, event))
+            if kind == QEvent.Type.NativeGesture:
+                return self._native_gesture(cast(QNativeGestureEvent, event))
+        return super().eventFilter(watched, event)
+
+    def _gesture(self, event: QGestureEvent) -> bool:
+        """Apply an active pinch: pan by the fingers' movement, then zoom about them.
+
+        ``totalScaleFactor`` is cumulative over the gesture, so the factor applied
+        per step is the ratio to the last one; the fingers' centre moves with a
+        plain two-finger drag, which is the pan. Pan first (the content follows
+        the fingers), then zoom about their new centre — the other order leaves
+        a ``(1 - ratio) * delta`` drift on a pinch that also moves.
+
+        Qt reports the centre in **global** coordinates (its recognizer averages
+        ``globalPosition``), so it is mapped to the viewport here, once, before
+        anything treats it as a viewport point.
+        """
+        handled = False
+        for gesture in event.gestures():
+            if gesture.gestureType() != Qt.GestureType.PinchGesture:
+                continue
+            if not isinstance(gesture, QPinchGesture):
+                # A garbage-collected synthetic Python gesture can come back as a
+                # bare QGesture; treating it as a pinch would abort the process.
+                event.accept(gesture)
+                handled = True
+                continue
+            pinch = gesture
+            state = pinch.state()
+            if state == Qt.GestureState.GestureStarted:
+                # A pinch must not drag what the first finger touched: release the
+                # press Qt synthesised for it, at the point it was made.
+                self._cancel_touch_press()
+                self._pinch_scale = pinch.totalScaleFactor()
+                self._pinch_center = self._viewport_point(pinch)
+            elif state in (
+                Qt.GestureState.GestureFinished,
+                Qt.GestureState.GestureCanceled,
+            ):
+                self._end_pinch()
+            else:
+                self._apply_pinch(pinch)
+            event.accept(pinch)
+            handled = True
+        return handled
+
+    def _apply_pinch(self, pinch: QPinchGesture) -> None:
+        """One update of an active pinch (or the first one seen after enabling)."""
+        center = self._viewport_point(pinch)
+        total = pinch.totalScaleFactor()
+        if self._pinch_scale is None or self._pinch_center is None:
+            # Enabled while the fingers were already down (or a GestureStarted was
+            # missed): adopt them, move nothing — but still cancel the first finger.
+            self._cancel_touch_press()
+            self._pinch_scale, self._pinch_center = total, center
+            return
+        delta = center - self._pinch_center
+        if not delta.isNull():
+            self._pan_by(delta)
+        if self._pinch_scale > 0.0 and total > 0.0:
+            factor = total / self._pinch_scale
+            if factor != 1.0:
+                self._zoom_at(center, factor)
+            self._pinch_scale = total
+        self._pinch_center = center
+
+    def _viewport_point(self, pinch: QPinchGesture) -> QPointF:
+        """The gesture's centre in viewport pixels (Qt reports it in global ones)."""
+        return QPointF(self.viewport().mapFromGlobal(pinch.centerPoint().toPoint()))
+
+    def _cancel_touch_press(self) -> None:
+        """Release the synthesised press of the first finger, at its own press point.
+
+        Qt synthesises a mouse press for the first touch point before a second
+        finger can start a pinch. Without this the whole pinch drags (or draws
+        with) whatever the first finger landed on. The live half is undone
+        first — a moved item is put back and its pending undo step never exists —
+        then the tool's own ``cancel()`` discards a half-made shape, and the
+        release ends the interaction where it began. A resize/rotate/vertex handle is
+        the one thing not reverted: its normal release finalizes the edit as one
+        undo step (§8.9.12).
+        """
+        press = self._touch_mouse_press
+        self._touch_mouse_press = None
+        if press is None:
+            return
+        self._cancel_pointer_interaction()
+        tool = self._tool_manager.active_tool
+        if tool is not None:
+            tool.cancel()
+        position, button = press
+        if button != Qt.MouseButton.NoButton:
+            QApplication.sendEvent(
+                self.viewport(),
+                QMouseEvent(
+                    QEvent.Type.MouseButtonRelease,
+                    position,
+                    QPointF(self.viewport().mapToGlobal(position.toPoint())),
+                    button,
+                    Qt.MouseButton.NoButton,
+                    Qt.KeyboardModifier.NoModifier,
+                ),
+            )
+        # A rotation handle's release has now recorded its partner corrections.
+        self._constraint_propagated_starts.clear()
+        scene = self.scene()
+        if not self._touch_press_on_item and scene is not None:
+            for item in self._touch_press_selection:
+                if item.scene() is scene:
+                    item.setSelected(True)
+        self._touch_press_selection = []
+        self._touch_press_on_item = False
+
+    def _cancel_pointer_interaction(self) -> None:
+        """Undo the live part of a drag the first finger began, before its release.
+
+        Items are put back where the drag started; the dictionaries are cleared so
+        the release's ``_finalize_drag_move`` sees no delta and pushes no undo step.
+        Constraint-propagated partners and plants moved with a parent are restored
+        too. A **handle** drag is the exception: its live edit (which may move the
+        parent's ``pos`` while resizing about the opposite corner) must keep the
+        geometry the handle applied, so only the move bookkeeping is cleared and
+        the handle's own release commits the anchored edit as one step.
+        """
+        if self._active_drag_handle is None:
+            for moved in (
+                self._drag_start_positions,
+                self._constraint_propagated_starts,
+                self._child_drag_origins,
+            ):
+                for item, start in moved.items():
+                    if item.scene() is not None:
+                        item.setPos(start)
+        self._drag_start_positions.clear()
+        # Rotation history collects these snapshots on the synthetic release.
+        # Keep them until the handle has committed angle and partners together.
+        if self._rotating_item is None:
+            self._constraint_propagated_starts.clear()
+        self._child_drag_origins.clear()
+        self._thaw_fixed_drag_items()
+
+    def _end_pinch(self) -> None:
+        """Forget the active pinch's last values (finished, cancelled or disabled)."""
+        self._pinch_scale = None
+        self._pinch_center = None
+        self._touch_mouse_press = None
+        self._touch_press_selection = []
+        self._touch_press_on_item = False
+
+    def _native_gesture(self, event: QNativeGestureEvent) -> bool:
+        """A trackpad pinch arrives as Qt's native zoom gesture, not as touch."""
+        if event.gestureType() == Qt.NativeGestureType.ZoomNativeGesture:
+            factor = 1.0 + event.value()
+            if factor > 0.0:
+                self._zoom_at(event.position(), factor)
+            event.accept()
+            return True
+        return False
 
     def reset_zoom(self) -> None:
         """Reset zoom to 100%."""
@@ -955,6 +1255,8 @@ class CanvasView(QGraphicsView):
             child_ids = {str(c) for c in getattr(item, "_child_item_ids", [])}
             specs: list[PlantSpeciesData] = []
             for child in all_items:
+                if not self._canvas_scene.is_present(child):
+                    continue
                 if str(getattr(child, "item_id", "")) not in child_ids:
                     continue
                 ps_dict = getattr(child, "metadata", {}).get("plant_species")
@@ -1176,7 +1478,7 @@ class CanvasView(QGraphicsView):
         return handled
 
     @property
-    def point_snapper(self) -> "PointSnapper":
+    def point_snapper(self) -> PointSnapper:
         """The shared click-time point snapper (Package A US-A3)."""
         return self._point_snapper
 
@@ -1240,7 +1542,7 @@ class CanvasView(QGraphicsView):
         """Trigger a rebuild of all constraint dimension lines."""
         self._canvas_scene.update_dimension_lines()
 
-    def apply_constraint_solver(self) -> None:
+    def apply_constraint_solver(self, item: object | None = None) -> None:
         """Run the constraint solver and move items to satisfy all constraints.
 
         Call this after adding a new constraint (or changing target distances)
@@ -1248,8 +1550,21 @@ class CanvasView(QGraphicsView):
         item moves are NOT recorded on the undo stack; they are folded into
         the subsequent drag or treated as the "initial state" for the newly
         created constraint.
+
+        Args:
+            item: When given, only the connected component that item belongs to
+                is solved.  A size edit must not move an unrelated, broken
+                component (round-2 review P2).
         """
-        moves, vertex_moves = self._compute_constraint_solve_moves()
+        scope_ids = None
+        item_id = getattr(item, "item_id", None)
+        if item_id is not None:
+            scope_ids = self._canvas_scene.constraint_graph.get_connected_component(
+                item_id
+            )
+        moves, vertex_moves = self._compute_constraint_solve_moves(
+            scope_ids=scope_ids
+        )
         for item, _old, new in moves:
             item.setPos(new)
         for item, idx, _old_local, new_local in vertex_moves:
@@ -1257,6 +1572,66 @@ class CanvasView(QGraphicsView):
                 item._move_vertex_to(idx, new_local)
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
+
+    def _constraint_reference_pins(
+        self, anchor_a: object, anchor_b: object
+    ) -> set:
+        """Item IDs a new constraint must treat as immovable (CAD convention).
+
+        "A is constrained to B" means A moves and B stays — unless A is always
+        pinned (construction geometry, or a FIXED constraint: the solver's
+        pre-pass pins it, so B must remain free) or both anchors share an item.
+        A same-item constraint may only leave the item free when the item is
+        VERTEX-DEFORMABLE (polygon/polyline); a rigid rectangle handed to the
+        positional solver as a free variable translates instead of changing its
+        own edge length (round-4 review P0).
+
+        ONE rule, used by every application surface.
+        """
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+        graph = self._canvas_scene.constraint_graph
+        anchor_a_id = anchor_a.item_id  # type: ignore[attr-defined]
+        anchor_b_id = anchor_b.item_id  # type: ignore[attr-defined]
+        a_item = self._find_any_item(anchor_a_id)
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        if isinstance(a_item, (ConstructionLineItem, ConstructionCircleItem)):
+            # Construction geometry is ALWAYS pinned by every solve; pinning B as
+            # well would make a satisfiable garden-to-construction link
+            # unsatisfiable (round-2 review).
+            return set()
+        a_is_fixed = any(
+            c.constraint_type == ConstraintType.FIXED
+            and c.anchor_a.item_id == anchor_a_id
+            for c in graph.constraints.values()
+        )
+        if a_is_fixed:
+            return set()
+        if anchor_a_id == anchor_b_id:
+            if a_item is None or not is_vertex_deformable(a_item):
+                return {anchor_a_id}
+            return set()
+        return {anchor_b_id}
+
+    def _find_any_item(self, item_id: object) -> object | None:
+        """Find any scene item (garden OR construction) by UUID.
+
+        ``CanvasScene.find_item_by_id`` only returns ``GardenItemMixin`` items,
+        so using it here made the construction branch above dead code
+        (round-3 review P1).
+        """
+        scene = self.scene()
+        if scene is None:
+            return None
+        for item in scene.items():
+            if getattr(item, "item_id", None) == item_id:
+                return item
+        return None
 
     def _execute_constraint_with_solve(
         self, command: AddConstraintCommand, *, conflicts_checked: bool = False
@@ -1287,28 +1662,24 @@ class CanvasView(QGraphicsView):
             return
 
         # CAD convention: A is constrained to B → A moves, B stays (reference).
-        # Exception: if A already has a FIXED constraint the FIXED pre-pass
-        # inside solve_anchored will pin A, so B must remain free to move.
-        graph = self._canvas_scene.constraint_graph
-        anchor_a_id = command._anchor_a.item_id
-        anchor_b_id = command._anchor_b.item_id
-        a_is_fixed = any(
-            c.constraint_type == _CT.FIXED and c.anchor_a.item_id == anchor_a_id
-            for c in graph.constraints.values()
+        # The same rule decides what the feasibility trial pins.
+        extra_pinned = (
+            self._constraint_reference_pins(command._anchor_a, command._anchor_b)
+            or None
         )
-        # Intra-object constraints (e.g. ANGLE on a polygon vertex) have both
-        # anchors on the same item.  Pinning B would pin the item itself and
-        # prevent the solver from deforming any of its vertices.
-        intra_object = anchor_a_id == anchor_b_id
-        extra_pinned: set | None = None if (a_is_fixed or intra_object) else {anchor_b_id}
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
+        # #670 review P0: the application solve must be scoped to the same
+        # component the feasibility trial answered for.  Solving the whole plan
+        # here let an accepted link move items in an unrelated, broken component.
+        graph = self._canvas_scene.constraint_graph
+        component = graph.get_connected_component(command._anchor_a.item_id)
         if command._constraint_type == _CT.EDGE_LENGTH:
             moves, vertex_moves = self._compute_edge_length_constraint_moves(command)
         else:
             moves, vertex_moves = self._compute_constraint_solve_moves(
-                extra_pinned=extra_pinned
+                extra_pinned=extra_pinned, scope_ids=component
             )
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
@@ -1329,21 +1700,21 @@ class CanvasView(QGraphicsView):
         constraints would be forced out of tolerance, shows a dialog letting
         the user delete conflicting constraints (Override) or back out.
         """
-        import uuid as _uuid  # noqa: PLC0415
+        import uuid as _uuid
 
-        from open_garden_planner.core.constraints import (  # noqa: PLC0415
+        from open_garden_planner.core.constraints import (
             Constraint,
             ConstraintType,
         )
-        from open_garden_planner.core.measure_snapper import (  # noqa: PLC0415
-            get_anchor_points,
+        from open_garden_planner.core.measure_snapper import (
+            anchor_offset_table,
         )
-        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items.construction_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
         )
-        from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
             ConstraintConflictDialog,
         )
 
@@ -1365,6 +1736,7 @@ class CanvasView(QGraphicsView):
         item_positions: dict = {}
         item_map: dict = {}
         anchor_offsets: dict = {}
+        construction_ids: set = set()
         for item in self.scene().items():
             is_garden = isinstance(item, GardenItemMixin)
             is_construction = isinstance(
@@ -1376,11 +1748,10 @@ class CanvasView(QGraphicsView):
             item_map[uid] = item
             pos = item.pos()
             item_positions[uid] = (pos.x(), pos.y())
-            for anchor in get_anchor_points(item):
-                anchor_offsets[(uid, anchor.anchor_type, anchor.anchor_index)] = (
-                    anchor.point.x() - pos.x(),
-                    anchor.point.y() - pos.y(),
-                )
+            for (anchor_type, anchor_index), offset in anchor_offset_table(item).items():
+                anchor_offsets[(uid, anchor_type, anchor_index)] = offset
+            if is_construction:
+                construction_ids.add(uid)
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
@@ -1392,6 +1763,10 @@ class CanvasView(QGraphicsView):
                 deformable_items=deformable_items,
                 deformable_vertices=deformable_vertices,
                 tolerance=1.0,
+                # #670 review P1: the scan must pin what the application pins,
+                # or it reports a conflict the applied solve would not create.
+                pinned_items=construction_ids
+                | self._constraint_reference_pins(command._anchor_a, command._anchor_b),
             )
         except Exception:
             return allow_override  # A non-interactive size probe fails closed.
@@ -1475,7 +1850,7 @@ class CanvasView(QGraphicsView):
             True  — the constraint is compatible with the existing system.
             False — adding it would create an irresolvable conflict.
         """
-        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.core.measure_snapper import anchor_offset_table
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -1509,17 +1884,12 @@ class CanvasView(QGraphicsView):
                 item_map[uid] = item
                 pos = item.pos()
                 item_positions[uid] = (pos.x(), pos.y())
-                for anchor in get_anchor_points(item):
-                    key = (uid, anchor.anchor_type, anchor.anchor_index)
-                    anchor_offsets[key] = (
-                        anchor.point.x() - pos.x(),
-                        anchor.point.y() - pos.y(),
-                    )
+                for (anchor_type, anchor_index), offset in anchor_offset_table(
+                    item
+                ).items():
+                    anchor_offsets[(uid, anchor_type, anchor_index)] = offset
                 if is_construction:
                     construction_ids.add(uid)
-
-        if len(item_positions) < 2:  # noqa: PLR2004
-            return True  # Not enough items to form a conflict — optimistically allow
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
@@ -1533,6 +1903,9 @@ class CanvasView(QGraphicsView):
             anchor_c=anchor_c,  # type: ignore[arg-type]
             deformable_items=deformable_items,
             deformable_vertices=deformable_vertices,
+            # #670 cause 2: the trial must pin what the application pins.
+            pinned_items=construction_ids
+            | self._constraint_reference_pins(anchor_a, anchor_b),
         )
 
     # Coordinate conversion
@@ -1695,7 +2068,7 @@ class CanvasView(QGraphicsView):
         self._snap_index_dirty = False
 
     @property
-    def current_snap_candidate(self) -> "SnapCandidate | None":
+    def current_snap_candidate(self) -> SnapCandidate | None:
         """The most recent snap result, or ``None`` if the cursor isn't snapped.
 
         Drawing tools read this in `mouse_press` to record *which* snap kind
@@ -1710,7 +2083,7 @@ class CanvasView(QGraphicsView):
         self,
         scene_pos: QPointF,
         threshold: float = 15.0,
-    ) -> tuple[QPointF, "SnapCandidate | None"]:
+    ) -> tuple[QPointF, SnapCandidate | None]:
         """Snap ``scene_pos`` to the closest enabled anchor candidate.
 
         Returns the (possibly unchanged) point and the snap candidate that
@@ -1732,7 +2105,7 @@ class CanvasView(QGraphicsView):
             return scene_pos, None
         return QPointF(hit.point), hit
 
-    def _active_tool_reference_point(self) -> "QPointF | None":
+    def _active_tool_reference_point(self) -> QPointF | None:
         """Return the active drawing tool's anchor for perpendicular/tangent.
 
         Reads ``last_point`` from the tool — ``None`` when no tool is
@@ -1747,7 +2120,7 @@ class CanvasView(QGraphicsView):
         return QPointF(last)
 
     @property
-    def coordinate_input_buffer(self) -> "CoordinateInputBuffer":
+    def coordinate_input_buffer(self) -> CoordinateInputBuffer:
         """The shared typed-coordinate buffer (Package A US-A1/A2/A4)."""
         return self._input_buffer
 
@@ -1790,7 +2163,7 @@ class CanvasView(QGraphicsView):
         self._set_current_snap(candidate)
         return snapped
 
-    def _set_current_snap(self, candidate: "SnapCandidate | None") -> None:
+    def _set_current_snap(self, candidate: SnapCandidate | None) -> None:
         """Update the current snap candidate; trigger redraw on change."""
         previous = self._current_snap
         self._current_snap = candidate
@@ -1828,9 +2201,9 @@ class CanvasView(QGraphicsView):
         obj_type: ObjectType,
         radius: float,
         species_name: str = "",
-        plant_category: "PlantCategory | None" = None,
+        plant_category: PlantCategory | None = None,
         species_dict: dict[str, Any] | None = None,
-    ) -> "CircleItem":
+    ) -> CircleItem:
         """Create a plant item directly at scene_pos with auto-parenting and undo support.
 
         Shared canonical drop path for gallery drops and Plant Lists panel drops.
@@ -1868,8 +2241,8 @@ class CanvasView(QGraphicsView):
         event.acceptProposedAction()
         scene_pos = self.mapToScene(event.position().toPoint())
 
-        from open_garden_planner.core.plant_renderer import PlantCategory  # noqa: PLC0415
-        from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
+        from open_garden_planner.core.plant_renderer import PlantCategory
+        from open_garden_planner.core.tools import ToolType as TT
 
         # Branch A: Drop from Plant Lists panel (US-G4, issue #320)
         if text.startswith("plant_list:"):
@@ -1881,7 +2254,7 @@ class CanvasView(QGraphicsView):
                     species_dict = None
 
             if species_dict is not None:
-                from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
+                from open_garden_planner.models.plant_data import PlantSpeciesData
                 species_obj = PlantSpeciesData.from_dict(species_dict)
             else:
                 parts = text.split(":")
@@ -1890,7 +2263,7 @@ class CanvasView(QGraphicsView):
                     return
 
                 from open_garden_planner.models.plant_lists import (
-                    get_plant_list_store,  # noqa: PLC0415
+                    get_plant_list_store,
                 )
                 store = get_plant_list_store()
                 _pl, entry = store.get_entry(entry_id)
@@ -1898,7 +2271,10 @@ class CanvasView(QGraphicsView):
                     return
                 species_obj = entry.species
 
-            from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+            from open_garden_planner.core.plant_sizing import (
+                species_drop_diameter_cm,
+            )
+            from open_garden_planner.services.bundled_species_db import (
                 merge_calendar_data,
             )
 
@@ -1918,11 +2294,7 @@ class CanvasView(QGraphicsView):
                 obj_type = ObjectType.PERENNIAL
                 cat = PlantCategory.FLOWERING_PERENNIAL
 
-            if species_obj.max_spread_cm and species_obj.max_spread_cm > 0:
-                diameter = species_obj.max_spread_cm
-            else:
-                size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
-                diameter = size_map.get(tool_type, 60.0)
+            diameter = species_drop_diameter_cm(species_obj.to_dict(), obj_type.name)
 
             merged_dict = merge_calendar_data(species_obj.to_dict())
             self._create_plant_item_at_scene_pos(
@@ -1960,9 +2332,6 @@ class CanvasView(QGraphicsView):
 
         # For plant tools (circle-based), create the item directly at the drop location
         if tool_type in (TT.TREE, TT.SHRUB, TT.PERENNIAL):
-            size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
-            default_diameter = size_map.get(tool_type, 100.0)
-
             obj_map = {
                 TT.TREE: ObjectType.TREE,
                 TT.SHRUB: ObjectType.SHRUB,
@@ -1970,11 +2339,22 @@ class CanvasView(QGraphicsView):
             }
             obj_type = obj_map.get(tool_type, ObjectType.TREE)
 
+            # A gallery entry that names a known species is planted at its real
+            # mature spread, exactly like a Plant Database or Plant Lists drop;
+            # the type default is only for an unknown/custom name. An 8 m apple
+            # tree dropped 2 m wide made the 3D tree unnaturally slim while its
+            # height came from the species (#596).
+            from open_garden_planner.core.plant_sizing import species_drop_diameter_cm
+            from open_garden_planner.services.bundled_species_db import lookup_species
+
+            record = lookup_species(species) if species else None
+            diameter = species_drop_diameter_cm(record, obj_type.name)
+
             self._create_plant_item_at_scene_pos(
                 scene_pos=scene_pos,
                 tool_type=tool_type,
                 obj_type=obj_type,
-                radius=default_diameter / 2,
+                radius=diameter / 2,
                 species_name=species,
                 plant_category=plant_category,
             )
@@ -1993,30 +2373,10 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Remember scene position under the mouse before zoom
-        old_scene_pos = self.mapToScene(event.position().toPoint())
-
-        # Apply immediate zoom: 1.15x per standard wheel notch (120 units)
-        zoom_per_notch = 1.15
-        notches = delta / 120.0
-        factor = zoom_per_notch**notches
-
-        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
-        self._zoom_factor = new_zoom
-        self._apply_transform()
-        self.zoom_changed.emit(self.zoom_percent)
-
-        # Scroll so the point under the mouse stays in the same screen position
-        new_scene_pos = self.mapToScene(event.position().toPoint())
-        scroll_delta = old_scene_pos - new_scene_pos
-        self.horizontalScrollBar().setValue(
-            self.horizontalScrollBar().value()
-            + int(scroll_delta.x() * self._zoom_factor)
-        )
-        self.verticalScrollBar().setValue(
-            self.verticalScrollBar().value() - int(scroll_delta.y() * self._zoom_factor)
-        )
-
+        # Apply immediate zoom: 1.15x per standard wheel notch (120 units). The
+        # anchor and clamp live in ``_zoom_at``, shared with the pinch gesture.
+        factor = 1.15 ** (delta / 120.0)
+        self._zoom_at(event.position(), factor)
         event.accept()
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -2109,7 +2469,7 @@ class CanvasView(QGraphicsView):
         # between event dispatches, so we re-establish it ourselves in mouseMoveEvent.
         if event.button() == Qt.MouseButton.LeftButton:
             grabber = self.scene().mouseGrabberItem()
-            if isinstance(grabber, (ResizeHandle, RotationHandle, VertexHandle, RectCornerHandle, MidpointHandle, CurveControlHandle)):
+            if isinstance(grabber, DRAG_HANDLE_TYPES):
                 self._active_drag_handle = grabber
                 # Block rotation for items that have an inter-object PARALLEL or
                 # PERPENDICULAR constraint — rotating would violate the constraint.
@@ -2121,8 +2481,21 @@ class CanvasView(QGraphicsView):
                                 .has_interobject_rotation_constraint(parent.item_id)):
                         grabber.ungrabMouse()
                         self._active_drag_handle = None
+                        self._rotating_item = None
+                    else:
+                        self._rotating_item = parent
+                        self._rotation_vertex_starts.clear()
+                        if parent is not None:
+                            self._rotation_initial_angle = float(
+                                parent.rotation_angle
+                                if hasattr(parent, "rotation_angle")
+                                else parent.rotation()
+                            )
+                else:
+                    self._rotating_item = None
             else:
                 self._active_drag_handle = None
+                self._rotating_item = None
 
         # Store positions of selected items for drag undo tracking
         # Must be AFTER super() so item selection is updated
@@ -2130,6 +2503,63 @@ class CanvasView(QGraphicsView):
             self._drag_start_positions = {
                 item: item.pos() for item in self.scene().selectedItems()
             }
+            self._freeze_fixed_drag_items()
+
+    def _freeze_fixed_drag_items(self) -> None:
+        """Take ``ItemIsMovable`` away from FIXED items for this drag (#662).
+
+        Qt's own drag handler moves every selected movable item *before* the view
+        gets a chance to reset a locked one, so every listener of
+        ``ItemPositionHasChanged`` — constraint propagation, snapping, the
+        shadow/3D refresh, bed membership, undo watchers — saw positions the
+        object never really had.  A locked datum must be inert, not merely
+        restored afterwards.
+
+        The flag is put back on release (and on a cancelled/pinched gesture), so
+        unlocking keeps working and layer-lock interplay is unchanged.
+        """
+        from PyQt6.QtWidgets import QGraphicsItem
+
+        from open_garden_planner.core.constraints import ConstraintType
+
+        self._thaw_fixed_drag_items()
+        graph = self._canvas_scene.constraint_graph
+        fixed_ids = {
+            c.anchor_a.item_id
+            for c in graph.constraints.values()
+            if c.constraint_type == ConstraintType.FIXED
+        }
+        if not fixed_ids:
+            return
+        movable = QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+        for item in self._drag_start_positions:
+            if getattr(item, "item_id", None) not in fixed_ids:
+                continue
+            if item.flags() & movable:
+                self._fixed_drag_flag_restore[item] = True
+                item.setFlag(movable, False)
+
+    def _thaw_fixed_drag_items(self) -> None:
+        """Give a drag-frozen FIXED item its ``ItemIsMovable`` flag back (#662)."""
+        from PyQt6.QtWidgets import QGraphicsItem
+
+        movable = QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+        for item, was_movable in self._fixed_drag_flag_restore.items():
+            # Restore the recorded value even when the item left the scene
+            # during the gesture (delete + undo must not come back frozen), but
+            # never overrule a layer that became locked in the meantime.
+            allowed = was_movable and not self._layer_is_locked_for(item)
+            item.setFlag(movable, allowed)
+        self._fixed_drag_flag_restore.clear()
+
+    def _layer_is_locked_for(self, item: QGraphicsItem) -> bool:
+        """Whether *item*'s current layer is locked (the scene's movable rule)."""
+        layer_id = getattr(item, "layer_id", None)
+        get_layer = getattr(self._canvas_scene, "get_layer_by_id", None)
+        if layer_id is None or not callable(get_layer):
+            return False
+        layer = get_layer(layer_id)
+        return bool(getattr(layer, "locked", False))
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move for panning, tool operations, and coordinate updates."""
@@ -2177,22 +2607,11 @@ class CanvasView(QGraphicsView):
                 self.viewport().update()
 
         if self._panning:
-            # Pan the view by translating
+            # Pan the view by translating (the one pan path, shared with #321's
+            # two-finger gesture).
             delta = event.position() - self._pan_start
             self._pan_start = event.position()
-
-            # Map two points to scene to get proper delta in scene coordinates
-            # This correctly handles any transform (zoom, Y-flip, etc.)
-            center = self.viewport().rect().center()
-            scene_before = self.mapToScene(center)
-            scene_after = self.mapToScene(
-                center.x() + int(delta.x()), center.y() + int(delta.y())
-            )
-
-            # Move in opposite direction of mouse drag
-            scene_delta = scene_before - scene_after
-            new_center = self.mapToScene(center) + scene_delta
-            self.centerOn(new_center)
+            self._pan_by(delta)
             event.accept()
             return
 
@@ -2225,14 +2644,22 @@ class CanvasView(QGraphicsView):
         # Clamp POINT_ON_EDGE-constrained items to their edge line during drag
         self._enforce_point_on_edge_positions()
 
-        # Apply object snapping and canvas boundary clamping during drag
-        self._apply_object_snap_during_drag()
-        self._clamp_dragged_items_to_canvas()
+        # Apply object snapping and canvas boundary clamping during drag.
+        # A rotation is not a translation: snapping/clamping the selection would
+        # move the turned item's pivot and record no undo for it (#485 review).
+        if self._rotating_item is None:
+            self._apply_object_snap_during_drag()
+            self._clamp_dragged_items_to_canvas()
+        else:
+            self._snap_guides = []
 
-        # Propagate constraints to connected items during drag.
-        # Skip during rotation — constraint solving doesn't apply while rotating.
-        if not isinstance(self._active_drag_handle, RotationHandle):
-            self._propagate_constraints_during_drag()
+        # Propagate constraints to connected items during drag AND rotation.
+        # A rotation moves an item's anchor points (a corner swings), so the
+        # partner of a DISTANCE constraint must follow the gesture — otherwise
+        # the relation stays red until some later move happens to solve it
+        # (#485). During rotation only the rotating item is pinned; see
+        # DragConstraints._propagate_constraints_during_drag.
+        self._propagate_constraints_during_drag()
 
         # Update dimension lines in real-time during drag
         if self._drag_start_positions:
@@ -2316,148 +2743,10 @@ class CanvasView(QGraphicsView):
         self.viewport().update()
 
     def _enforce_fixed_positions(self) -> None:
-        """Revert any FIXED-constrained items to their pinned (target) position.
-
-        Called immediately after super().mouseMoveEvent() so that Qt's own drag
-        logic cannot move items that have a FIXED constraint.
-        """
-        if not self._drag_start_positions:
-            return
-
-        from open_garden_planner.core.constraints import ConstraintType
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        graph = self._canvas_scene.constraint_graph
-        for c in graph.constraints.values():
-            if c.constraint_type != ConstraintType.FIXED:
-                continue
-            if c.target_x is None or c.target_y is None:
-                continue
-            item_id = c.anchor_a.item_id
-            for scene_item in self.scene().items():
-                if (
-                    isinstance(scene_item, GardenItemMixin)
-                    and scene_item.item_id == item_id
-                ):
-                    from PyQt6.QtCore import QPointF as _QPointF
-
-                    scene_item.setPos(_QPointF(c.target_x, c.target_y))
-                    break
+        return self._drag_constraints._enforce_fixed_positions()
 
     def _enforce_point_on_edge_positions(self) -> None:
-        """Project POINT_ON_EDGE-constrained anchors back onto their edge during drag.
-
-        Called immediately after _enforce_fixed_positions so that Qt's drag
-        cannot pull an anchor off its constrained edge line.  The anchor slides
-        freely along the edge but its perpendicular displacement is zeroed out.
-        """
-        if not self._drag_start_positions:
-            return
-
-        from open_garden_planner.core.constraints import ConstraintType
-        from open_garden_planner.core.measure_snapper import get_anchor_points
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        graph = self._canvas_scene.constraint_graph
-
-        import math as _math
-
-        for c in graph.constraints.values():
-            if c.constraint_type not in (
-                ConstraintType.POINT_ON_EDGE,
-                ConstraintType.POINT_ON_CIRCLE,
-            ):
-                continue
-
-            # Only enforce when anchor_a's item is being dragged
-            item_a = None
-            for scene_item in self.scene().items():
-                if (
-                    isinstance(scene_item, GardenItemMixin)
-                    and scene_item.item_id == c.anchor_a.item_id
-                ):
-                    item_a = scene_item
-                    break
-            if item_a is None or item_a not in self._drag_start_positions:
-                continue
-
-            # Get anchor_a's current scene position (post-drag)
-            anchor_a_scene = None
-            for anchor in get_anchor_points(item_a):
-                if (
-                    anchor.anchor_type == c.anchor_a.anchor_type
-                    and anchor.anchor_index == c.anchor_a.anchor_index
-                ):
-                    anchor_a_scene = anchor.point
-                    break
-            if anchor_a_scene is None:
-                continue
-
-            # Get item_b (the edge/circle owner)
-            item_b = None
-            for scene_item in self.scene().items():
-                if (
-                    isinstance(scene_item, GardenItemMixin)
-                    and scene_item.item_id == c.anchor_b.item_id
-                ):
-                    item_b = scene_item
-                    break
-            if item_b is None:
-                continue
-
-            # Resolve anchor_b position (always needed)
-            pos_b = None
-            for anchor in get_anchor_points(item_b):
-                if (
-                    anchor.anchor_type == c.anchor_b.anchor_type
-                    and anchor.anchor_index == c.anchor_b.anchor_index
-                ):
-                    pos_b = anchor.point
-                    break
-            if pos_b is None:
-                continue
-
-            if c.constraint_type == ConstraintType.POINT_ON_CIRCLE:
-                # Project anchor_a radially onto circle centred at pos_b with radius = target_distance
-                radius = c.target_distance
-                adx = anchor_a_scene.x() - pos_b.x()
-                ady = anchor_a_scene.y() - pos_b.y()
-                a_dist = _math.sqrt(adx * adx + ady * ady)
-                if a_dist < 1e-9:
-                    proj_x, proj_y = pos_b.x() + radius, pos_b.y()
-                else:
-                    proj_x = pos_b.x() + (adx / a_dist) * radius
-                    proj_y = pos_b.y() + (ady / a_dist) * radius
-            else:
-                # POINT_ON_EDGE: project onto infinite line through pos_b → pos_c
-                if c.anchor_c is None:
-                    continue
-                pos_c = None
-                for anchor in get_anchor_points(item_b):
-                    if (
-                        anchor.anchor_type == c.anchor_c.anchor_type
-                        and anchor.anchor_index == c.anchor_c.anchor_index
-                    ):
-                        pos_c = anchor.point
-                        break
-                if pos_c is None:
-                    continue
-                edx = pos_c.x() - pos_b.x()
-                edy = pos_c.y() - pos_b.y()
-                line_len_sq = edx * edx + edy * edy
-                if line_len_sq < 1e-12:
-                    continue
-                t = (
-                    (anchor_a_scene.x() - pos_b.x()) * edx
-                    + (anchor_a_scene.y() - pos_b.y()) * edy
-                ) / line_len_sq
-                proj_x = pos_b.x() + t * edx
-                proj_y = pos_b.y() + t * edy
-
-            # Reposition item_a so its constrained anchor lands exactly on the projection
-            local_x = anchor_a_scene.x() - item_a.pos().x()
-            local_y = anchor_a_scene.y() - item_a.pos().y()
-            item_a.setPos(QPointF(proj_x - local_x, proj_y - local_y))
+        return self._drag_constraints._enforce_point_on_edge_positions()
 
     def _clamp_dragged_items_to_canvas(self) -> None:
         """Clamp items to canvas boundaries during mouse drag.
@@ -2488,298 +2777,92 @@ class CanvasView(QGraphicsView):
         moved_items: list[QGraphicsItem],
         delta: QPointF,
     ) -> list[tuple[QGraphicsItem, QPointF]]:
-        """Compute constraint propagation deltas for non-selected items.
-
-        Simulates moving the given items by delta, runs the constraint solver,
-        and returns per-item deltas for connected (non-moved) items.
-
-        Args:
-            moved_items: Items being moved by the user.
-            delta: The movement applied to moved items.
-
-        Returns:
-            List of (item, delta) tuples for constraint-propagated items.
-            Empty list if no propagation needed.
-        """
-        from open_garden_planner.core.measure_snapper import get_anchor_points
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        graph = self._canvas_scene.constraint_graph
-
-        dragged_ids: set = set()
-        for item in moved_items:
-            if isinstance(item, GardenItemMixin):
-                dragged_ids.add(item.item_id)
-
-        if not dragged_ids:
-            return []
-
-        connected_ids: set = set()
-        for did in dragged_ids:
-            connected_ids.update(graph.get_connected_component(did))
-
-        propagated_ids = connected_ids - dragged_ids
-        if not propagated_ids:
-            return []
-
-        from open_garden_planner.ui.canvas.items.construction_item import (
-            ConstructionCircleItem,
-            ConstructionLineItem,
-        )
-
-        # Build item lookup (garden items + construction items in connected component)
-        item_map: dict = {}
-        construction_ids: set = set()
-        for item in self.scene().items():
-            if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
-                item_map[item.item_id] = item
-            elif (
-                isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
-                and item.item_id in connected_ids
-            ):
-                item_map[item.item_id] = item
-                construction_ids.add(item.item_id)
-
-        # Build positions (with delta applied to moved items)
-        item_positions: dict = {}
-        anchor_offsets: dict = {}
-
-        for uid, gitem in item_map.items():
-            pos = gitem.pos()
-            if uid in dragged_ids:
-                item_positions[uid] = (pos.x() + delta.x(), pos.y() + delta.y())
-            else:
-                item_positions[uid] = (pos.x(), pos.y())
-
-            anchors = get_anchor_points(gitem)
-            for anchor in anchors:
-                key = (uid, anchor.anchor_type, anchor.anchor_index)
-                anchor_offsets[key] = (
-                    anchor.point.x() - pos.x(),
-                    anchor.point.y() - pos.y(),
-                )
-
-        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
-
-        # Construction items are always pinned (they are fixed guides)
-        result = graph.solve_anchored(
-            item_positions=item_positions,
-            anchor_offsets=anchor_offsets,
-            pinned_items=dragged_ids | construction_ids,
-            max_iterations=20,
-            tolerance=1.0,
-            deformable_items=deformable_items,
-            deformable_vertices=deformable_vertices,
-        )
-
-        propagated_deltas: list[tuple[QGraphicsItem, QPointF]] = []
-        for uid, (pdx, pdy) in result.item_deltas.items():
-            if uid in construction_ids:
-                continue
-            gitem = item_map.get(uid)
-            if gitem is not None:
-                propagated_deltas.append((gitem, QPointF(pdx, pdy)))
-
-        return propagated_deltas
+        return self._drag_constraints._compute_constraint_propagation(moved_items, delta)
 
     def _propagate_constraints_during_drag(self) -> None:
-        """Run the constraint solver to propagate drag to connected items.
+        return self._drag_constraints._propagate_constraints_during_drag()
 
-        Called during mouseMoveEvent after the dragged items have been
-        repositioned by Qt. Pins the dragged items and moves connected
-        items to satisfy distance constraints.
+    def _rotation_partner_moves(
+        self, rotated_item: QGraphicsItem
+    ) -> list[tuple[QGraphicsItem, QPointF, QPointF]]:
+        """Partner corrections a rotation gesture applied, as ``(item, before, after)``.
+
+        ``_propagate_constraints_during_drag`` records every constraint-corrected
+        item's pre-gesture position the first time it moves it. A finished
+        rotation hands those records to ``RotateItemCommand`` so one Ctrl+Z
+        reverses the angle AND the corrections (#485). Items the solver left
+        where they started are omitted — they need no command entry.
         """
-        if not self._drag_start_positions:
-            return
-
-        graph = self._canvas_scene.constraint_graph
-        if not graph.constraints:
-            return
-
-        from open_garden_planner.core.measure_snapper import get_anchor_points
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-        from open_garden_planner.ui.canvas.items.construction_item import (
-            ConstructionCircleItem,
-            ConstructionLineItem,
-        )
-
-        selected = self.scene().selectedItems()
-        if not selected:
-            return
-
-        # Collect item IDs of dragged items (garden + construction)
-        dragged_ids: set = set()
-        for item in selected:
-            if isinstance(
-                item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
-            ):
-                dragged_ids.add(item.item_id)
-
-        if not dragged_ids:
-            return
-
-        # Find all items in connected components of dragged items
-        connected_ids: set = set()
-        for did in dragged_ids:
-            connected_ids.update(graph.get_connected_component(did))
-
-        # Identify all construction items in scene (needed for soft_dragged logic below)
-        scene_construction_ids: set = set()
-        for scene_item in self.scene().items():
-            if isinstance(scene_item, (ConstructionLineItem, ConstructionCircleItem)):
-                scene_construction_ids.add(scene_item.item_id)
-
-        # Collect FIXED item IDs — they act as pinned anchors just like construction items
-        from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
-
-        fixed_ids: set = {
-            c.anchor_a.item_id
-            for c in graph.constraints.values()
-            if c.constraint_type == ConstraintType.FIXED
-        }
-        # Items that are always pinned (construction geometry + FIXED items)
-        pinned_reference_ids = scene_construction_ids | fixed_ids
-
-        # "Soft-dragged": dragged garden items whose ALL constraints are exclusively
-        # to pinned reference items (construction or FIXED). These are NOT pinned in
-        # the solver — the solver enforces the constraint by snapping them to the
-        # correct position each frame (the cursor acts as a "desired" position, not a
-        # hard pin). This makes constraints bidirectional and lets items orbit around
-        # fixed partners.
-        soft_dragged: set = set()
-        for uid in dragged_ids:
-            if uid in scene_construction_ids:
-                continue  # Construction items are always hard-pinned
-            item_constraints = graph.get_item_constraints(uid)
-            if not item_constraints:
+        moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+        for item, before in self._constraint_propagated_starts.items():
+            if item is rotated_item:
                 continue
-            if all(
-                (
-                    c.anchor_a.item_id
-                    if c.anchor_b.item_id == uid
-                    else c.anchor_b.item_id
-                )
-                in pinned_reference_ids
-                for c in item_constraints
-            ):
-                soft_dragged.add(uid)
-
-        # truly_dragged: follow the cursor and pull their constraint partners
-        truly_dragged = dragged_ids - soft_dragged
-
-        # propagated_ids: items the solver may move (soft_dragged included)
-        propagated_ids = connected_ids - truly_dragged
-        if not propagated_ids:
-            return
-
-        # Build item lookup by UUID (garden + construction items)
-        item_map: dict = {}
-        construction_ids: set = set()
-        for item in self.scene().items():
-            if isinstance(item, GardenItemMixin) and item.item_id in connected_ids:
-                item_map[item.item_id] = item
-                if item.item_id in fixed_ids:
-                    # FIXED garden items are treated as pinned anchors like construction items
-                    construction_ids.add(item.item_id)
-            elif (
-                isinstance(item, (ConstructionLineItem, ConstructionCircleItem))
-                and item.item_id in connected_ids
-            ):
-                item_map[item.item_id] = item
-                construction_ids.add(item.item_id)
-
-        # Record start positions of propagated garden items (only once per drag).
-        # soft_dragged items are excluded — their "start" is the cursor position
-        # (reset by Qt each frame), so recording a stale start would be wrong.
-        for uid in propagated_ids:
-            if uid in soft_dragged:
+            after = item.pos()
+            if after.x() == before.x() and after.y() == before.y():
                 continue
-            gitem = item_map.get(uid)
-            if gitem and gitem not in self._constraint_propagated_starts:
-                self._constraint_propagated_starts[gitem] = gitem.pos()
+            moves.append((item, QPointF(before), QPointF(after)))
+        return moves
 
-        # Items participating in a TANGENT constraint must NOT be reverted to
-        # their drag-start position each frame: tangency to a circle has two
-        # solutions (one per side), so the solver needs the *previous frame's*
-        # position as a warm start to track continuously. Reverting to the
-        # original drawn position makes a large circle drag re-project the
-        # contact onto the wrong side, flipping the line through the centre and
-        # trapping it on the opposite tangent. Other constraint types have no
-        # such ambiguity, so they keep the clean-delta revert.
-        tangent_item_ids: set = set()
-        for c in graph.constraints.values():
-            if c.constraint_type == ConstraintType.TANGENT:
-                tangent_item_ids.add(c.anchor_a.item_id)
-                tangent_item_ids.add(c.anchor_b.item_id)
-                if c.anchor_c is not None:
-                    tangent_item_ids.add(c.anchor_c.item_id)
+    def _rotation_partner_vertex_moves(
+        self,
+    ) -> list[tuple[QGraphicsItem, int, QPointF, QPointF]]:
+        """Vertex-level solver corrections a rotation applied to a deformable partner.
 
-        # Revert non-soft propagated garden items to start positions so the solver
-        # computes deltas from a clean state each frame
-        for gitem, start_pos in self._constraint_propagated_starts.items():
+        A polygon with two or more constrained vertices is deformable, so the
+        solver can move individual vertices instead of translating it. Those
+        corrections are recorded per vertex during the gesture and replayed by
+        ``RotateItemCommand`` with the angle (#485).
+        """
+        moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
+        for item, index, before in self._rotation_vertex_starts.values():
+            if not hasattr(item, "_get_vertex_position"):
+                continue
+            after = item._get_vertex_position(index)  # type: ignore[attr-defined]
             if (
-                isinstance(gitem, GardenItemMixin)
-                and gitem.item_id in propagated_ids
-                and gitem.item_id not in soft_dragged
-                and gitem.item_id not in tangent_item_ids
+                abs(after.x() - before.x()) <= 1e-9
+                and abs(after.y() - before.y()) <= 1e-9
             ):
-                gitem.setPos(start_pos)
+                continue
+            moves.append((item, index, QPointF(before), QPointF(after)))
+        return moves
 
-        # Build item positions and anchor offsets
-        item_positions: dict = {}
-        anchor_offsets: dict = {}
+    def _ensure_rotation_undo(
+        self,
+        rotating_item: QGraphicsItem | None,
+        initial_angle: float,
+        undo_depth_before: int,
+    ) -> None:
+        """Guarantee a finished rotation gesture produced its one undo entry.
 
-        for uid, gitem in item_map.items():
-            pos = gitem.pos()
-            item_positions[uid] = (pos.x(), pos.y())
+        The item's own ``_on_rotation_end`` normally registers the command while
+        the handle handles the release. This safety net covers the paths where
+        that cannot happen — a tool consumes the release before Qt dispatches
+        it, or the handle was destroyed mid-drag — so the scene can never be
+        left with an angle change the undo stack does not know about (the
+        shape of the owner's skipped-undo report on #485). It registers only
+        when the stack did NOT grow during the release, so an ordinary rotation
+        still has exactly one entry.
+        """
+        if rotating_item is None:
+            return
+        if self._command_manager.undo_depth != undo_depth_before:
+            return
 
-            anchors = get_anchor_points(gitem)
-            for anchor in anchors:
-                key = (uid, anchor.anchor_type, anchor.anchor_index)
-                anchor_offsets[key] = (
-                    anchor.point.x() - pos.x(),
-                    anchor.point.y() - pos.y(),
-                )
-
-        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
-
-        # Run solver: truly_dragged and construction items are pinned.
-        # soft_dragged items are FREE so the solver enforces construction constraints.
-        result = graph.solve_anchored(
-            item_positions=item_positions,
-            anchor_offsets=anchor_offsets,
-            pinned_items=truly_dragged | construction_ids,
-            max_iterations=20,
-            tolerance=1.0,
-            deformable_items=deformable_items,
-            deformable_vertices=deformable_vertices,
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
         )
 
-        # Apply deltas (skip construction items — always pinned)
-        for uid, (dx, dy) in result.item_deltas.items():
-            if uid in construction_ids:
-                continue
-            gitem = item_map.get(uid)
-            if gitem is not None:
-                gitem.moveBy(dx, dy)
-
-        # Apply vertex deltas for deformable items
-        for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
-            if uid in construction_ids:
-                continue
-            gitem = item_map.get(uid)
-            if gitem is None or not hasattr(gitem, "_move_vertex_to"):
-                continue
-            old_local = self._get_vertex_local(gitem, vi)
-            if old_local is None:
-                continue
-            old_scene = gitem.mapToScene(old_local)
-            new_scene = QPointF(old_scene.x() + vdx, old_scene.y() + vdy)
-            new_local = gitem.mapFromScene(new_scene)
-            gitem._move_vertex_to(vi, new_local)
+        register_rotation_command(rotating_item, initial_angle)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
+        # Capture the rotation state before any path below can clear it (#485):
+        # a release that never reaches the handle must still become one undo
+        # entry, or a rotation would be left that no Ctrl+Z can reverse.
+        rotating_item = self._rotating_item
+        rotation_initial_angle = self._rotation_initial_angle
+        undo_depth_before = self._command_manager.undo_depth
+
         # Clear snap guides
         if self._snap_guides:
             self._snap_guides = []
@@ -2838,6 +2921,7 @@ class CanvasView(QGraphicsView):
 
         # Clear the handle tracking regardless of what handles the release
         self._active_drag_handle = None
+        self._rotating_item = None
 
         # Delegate to active tool
         tool = self._tool_manager.active_tool
@@ -2847,13 +2931,24 @@ class CanvasView(QGraphicsView):
             if tool.mouse_release(event, scene_pos):
                 self.refresh_input_anchor()
                 event.accept()
+                # Register BEFORE the tracking is cleared: a rotation that the
+                # handle never saw still needs its partner corrections (#485).
+                self._ensure_rotation_undo(
+                    rotating_item, rotation_initial_angle, undo_depth_before
+                )
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                self._rotation_vertex_starts.clear()
                 if was_vertex_drag:
                     self._deferring_vertex_undo = False
+                self._thaw_fixed_drag_items()
                 return
 
         super().mouseReleaseEvent(event)
+        self._ensure_rotation_undo(
+            rotating_item, rotation_initial_angle, undo_depth_before
+        )
+        self._rotation_vertex_starts.clear()
 
         if was_vertex_drag:
             self._deferring_vertex_undo = False
@@ -2862,119 +2957,13 @@ class CanvasView(QGraphicsView):
         # Check if items were dragged and create undo command
         if event.button() == Qt.MouseButton.LeftButton and self._drag_start_positions:
             self._finalize_drag_move()
+        self._thaw_fixed_drag_items()
 
     def _enforce_after_vertex_drag(self) -> None:
-        """Re-enforce constraints after a polygon vertex drag.
+        return self._drag_constraints._enforce_after_vertex_drag()
 
-        Runs the ANGLE constraint solver and re-aligns any intra-object PARALLEL
-        constraints, then bundles everything (original drag + all corrections) into
-        a single MultiVertexMoveCommand so Ctrl+Z reverts in one step.
-        """
-        from PyQt6.QtCore import QPointF
-
-        from open_garden_planner.core.commands import MultiVertexMoveCommand
-
-        deferred = getattr(self, '_deferred_vertex_move', None)
-        if deferred is None:
-            return
-        self._deferred_vertex_move = None
-
-        item, vertex_index, old_pos, new_pos = deferred
-
-        # Snapshot ALL current vertex positions (post-drag, pre-correction).
-        # Works for both PolygonItem (polygon().at(i)) and PolylineItem (._points).
-        snapshots: dict[int, QPointF] = {
-            i: QPointF(p) for i, p in enumerate(self._iter_item_vertices(item))
-        }
-
-        # Run the solver. We deliberately do NOT pin the moving item: for a
-        # deformable item the solver only varies its per-vertex DOFs (no
-        # item-translation DOF), and vertex_corrections is the channel that
-        # rebalances neighbour vertices to satisfy the constraint the drag
-        # just disturbed. _item_moves is intentionally discarded for the
-        # moving item below.
-        _item_moves, vertex_corrections = self._compute_constraint_solve_moves()
-        for gitem, idx, _old_local, new_local in vertex_corrections:
-            if hasattr(gitem, '_move_vertex_to'):
-                gitem._move_vertex_to(idx, new_local)
-
-        # Re-enforce intra-object PARALLEL constraints.
-        self._reenforce_parallel_after_vertex_move(item, vertex_index)
-
-        # Collect ALL vertex changes (original drag + solver + PARALLEL re-alignment).
-        all_moves: list = [(item, vertex_index, old_pos, new_pos)]
-        for i, new_v in enumerate(self._iter_item_vertices(item)):
-            if i == vertex_index:
-                continue
-            old_v = snapshots.get(i)
-            if old_v is not None and (
-                abs(new_v.x() - old_v.x()) > 0.01 or abs(new_v.y() - old_v.y()) > 0.01
-            ):
-                all_moves.append((item, i, old_v, QPointF(new_v)))
-
-        cmd = MultiVertexMoveCommand(all_moves)
-        self.command_manager.register_applied(cmd)
-
-        self._canvas_scene.update_dimension_lines()
-
-    def _reenforce_parallel_after_vertex_move(self, item: object, vertex_index: int) -> None:  # noqa: ARG002
-        """Re-align the target edge of every intra-object PARALLEL constraint on *item*."""
-        import math as _m
-
-        from PyQt6.QtCore import QPointF
-
-        from open_garden_planner.core.constraints import ConstraintType
-
-        uid = getattr(item, 'item_id', None)
-        if uid is None or not (hasattr(item, 'polygon') and callable(item.polygon)):
-            return
-
-        graph = self._canvas_scene.constraint_graph
-        pg = item.polygon()
-        n = pg.count()
-        if n < 4:  # noqa: PLR2004
-            return
-
-        def _scene(i: int) -> QPointF:
-            return item.mapToScene(pg.at(i))
-
-        for cid in list(graph._adjacency.get(uid, set())):
-            c = graph._constraints.get(cid)
-            if c is None or c.constraint_type != ConstraintType.PARALLEL:
-                continue
-            if c.anchor_a.item_id != uid or c.anchor_b.item_id != uid:
-                continue  # inter-object — skip
-
-            i_a = c.anchor_a.anchor_index  # reference edge start vertex
-            i_b = c.anchor_b.anchor_index  # target edge start vertex
-
-            p_a1, p_a2 = _scene(i_a), _scene((i_a + 1) % n)
-            p_b1, p_b2 = _scene(i_b), _scene((i_b + 1) % n)
-
-            da_x = p_a2.x() - p_a1.x()
-            da_y = p_a2.y() - p_a1.y()
-            db_x = p_b2.x() - p_b1.x()
-            db_y = p_b2.y() - p_b1.y()
-            if _m.hypot(da_x, da_y) < 1e-9 or _m.hypot(db_x, db_y) < 1e-9:
-                continue
-
-            delta = _m.atan2(da_y, da_x) - _m.atan2(db_y, db_x)
-            while delta > _m.pi / 2:
-                delta -= _m.pi
-            while delta <= -_m.pi / 2:
-                delta += _m.pi
-
-            if abs(delta) < 1e-6:
-                continue
-
-            cos_d, sin_d = _m.cos(delta), _m.sin(delta)
-            rel_x = p_b2.x() - p_b1.x()
-            rel_y = p_b2.y() - p_b1.y()
-            new_b2_scene = QPointF(
-                p_b1.x() + cos_d * rel_x - sin_d * rel_y,
-                p_b1.y() + sin_d * rel_x + cos_d * rel_y,
-            )
-            item._move_vertex_to((i_b + 1) % n, item.mapFromScene(new_b2_scene))
+    def _reenforce_parallel_after_vertex_move(self, item: object, vertex_index: int) -> None:
+        return self._drag_constraints._reenforce_parallel_after_vertex_move(item, vertex_index)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         """Handle mouse double click for tool operations and constraint editing."""
@@ -3190,6 +3179,22 @@ class CanvasView(QGraphicsView):
         constraint = graph.constraints.get(constraint_id)
         if constraint is None:
             return
+        if constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+            # A rigid shape cannot change its own edge length through the
+            # positional solver: moving one corner translates the whole item
+            # (round-4 review P0).  A rectangle's edge length is changed by
+            # resizing it, which the edge-length tool does through the canonical
+            # rect-resize command — this dialog would fight that path.
+            from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+            item = self._find_any_item(constraint.anchor_a.item_id)
+            if item is None or not is_vertex_deformable(item):
+                self.set_status_message(
+                    self.tr(
+                        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead."
+                    )
+                )
+                return
         if constraint.constraint_type not in {
             ConstraintType.DISTANCE,
             ConstraintType.EDGE_LENGTH,
@@ -3204,23 +3209,26 @@ class CanvasView(QGraphicsView):
             if abs(new_distance - constraint.target_distance) > 0.01:
                 old_distance = constraint.target_distance
 
-                # CAD convention: A moves, B stays.  If A is already FIXED the
-                # pre-pass in solve_anchored pins it, so B must remain free.
-                a_is_fixed = any(
-                    c.constraint_type == ConstraintType.FIXED
-                    and c.anchor_a.item_id == constraint.anchor_a.item_id
-                    for c in graph.constraints.values()
+                # #670 round-3 P1: this is an application surface too — scope it
+                # to the edited constraint's component and use the ONE pin rule.
+                extra_pinned = (
+                    self._constraint_reference_pins(
+                        constraint.anchor_a, constraint.anchor_b
+                    )
+                    or None
                 )
-                extra_pinned: set | None = (
-                    None if a_is_fixed else {constraint.anchor_b.item_id}
+                scope_ids = graph.get_connected_component(
+                    constraint.anchor_a.item_id
                 )
 
                 # Temporarily apply new distance so solver can compute moves
                 constraint.target_distance = new_distance
-                item_moves, vertex_moves = self._compute_constraint_solve_moves(
-                    extra_pinned=extra_pinned
-                )
-                constraint.target_distance = old_distance  # command will set it
+                try:
+                    item_moves, vertex_moves = self._compute_constraint_solve_moves(
+                        extra_pinned=extra_pinned, scope_ids=scope_ids
+                    )
+                finally:
+                    constraint.target_distance = old_distance  # command will set it
 
                 command = EditConstraintDistanceCommand(
                     graph=graph,
@@ -3233,7 +3241,7 @@ class CanvasView(QGraphicsView):
                 self._command_manager.execute(command)
 
     @staticmethod
-    def _get_vertex_local(item: QGraphicsItem, index: int) -> "QPointF | None":
+    def _get_vertex_local(item: QGraphicsItem, index: int) -> QPointF | None:
         """Get a vertex position in item-local coordinates."""
         from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
@@ -3248,7 +3256,7 @@ class CanvasView(QGraphicsView):
         return None
 
     @staticmethod
-    def _iter_item_vertices(item: QGraphicsItem) -> "list[QPointF]":
+    def _iter_item_vertices(item: QGraphicsItem) -> list[QPointF]:
         """Return current vertices of a deformable item in item-local coords.
 
         Dispatches on item type so callers don't have to special-case the
@@ -3266,281 +3274,22 @@ class CanvasView(QGraphicsView):
     @staticmethod
     def _gather_deformable_info(
         item_map: dict,
-    ) -> "tuple[set, dict[..., list[tuple[float, float]]]]":
-        """Build deformable_items set and deformable_vertices dict from item_map.
-
-        Returns:
-            (deformable_items, deformable_vertices) for items that support
-            per-vertex deformation (PolygonItem, PolylineItem).
-        """
-        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
-
-        deformable_items: set = set()
-        deformable_vertices: dict = {}
-
-        for uid, item in item_map.items():
-            if isinstance(item, PolygonItem):
-                deformable_items.add(uid)
-                polygon = item.polygon()
-                verts = []
-                for i in range(polygon.count()):
-                    sp = item.mapToScene(polygon.at(i))
-                    verts.append((sp.x(), sp.y()))
-                deformable_vertices[uid] = verts
-            elif isinstance(item, PolylineItem):
-                deformable_items.add(uid)
-                verts = []
-                for pt in item.points:
-                    sp = item.mapToScene(pt)
-                    verts.append((sp.x(), sp.y()))
-                deformable_vertices[uid] = verts
-
-        return deformable_items, deformable_vertices
+    ) -> tuple[set, dict[..., list[tuple[float, float]]]]:
+        return DragConstraints._gather_deformable_info(item_map)
 
     def _compute_edge_length_constraint_moves(
         self, command: AddConstraintCommand
-    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
-        """Compute direct endpoint movement for a newly created edge-length constraint."""
-        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
-
-        scene = self.scene()
-        anchor_a = command._anchor_a
-        anchor_b = command._anchor_b
-        target_distance = command._target_distance
-
-        item = next(
-            (
-                candidate
-                for candidate in scene.items()
-                if hasattr(candidate, "item_id")
-                and candidate.item_id == anchor_a.item_id
-            ),
-            None,
-        )
-        if item is None:
-            return [], []
-
-        if isinstance(item, PolygonItem):
-            polygon = item.polygon()
-            if not (0 <= anchor_a.anchor_index < polygon.count()):
-                return [], []
-            if not (0 <= anchor_b.anchor_index < polygon.count()):
-                return [], []
-        elif isinstance(item, PolylineItem):
-            points = item.points
-            if not (0 <= anchor_a.anchor_index < len(points)):
-                return [], []
-            if not (0 <= anchor_b.anchor_index < len(points)):
-                return [], []
-        else:
-            return self._compute_constraint_solve_moves(extra_pinned={anchor_b.item_id})
-
-        old_local = self._get_vertex_local(item, anchor_a.anchor_index)
-        ref_local = self._get_vertex_local(item, anchor_b.anchor_index)
-        if old_local is None or ref_local is None:
-            return [], []
-
-        old_scene = item.mapToScene(old_local)
-        ref_scene = item.mapToScene(ref_local)
-        dx = old_scene.x() - ref_scene.x()
-        dy = old_scene.y() - ref_scene.y()
-        current_dist = (dx * dx + dy * dy) ** 0.5
-        if current_dist < 1e-9:
-            direction = QPointF(1.0, 0.0)
-        else:
-            direction = QPointF(dx / current_dist, dy / current_dist)
-
-        new_scene = QPointF(
-            ref_scene.x() + direction.x() * target_distance,
-            ref_scene.y() + direction.y() * target_distance,
-        )
-        new_local = item.mapFromScene(new_scene)
-
-        # Direct single-endpoint move. If the moved vertex participates in any
-        # OTHER constraint, the direct move will violate it — run the hybrid
-        # solver to propagate. Apply the move, solve, then collect the final
-        # deltas before restoring the pre-move state (the caller re-applies via
-        # the command).
-        moved_vertex_idx = anchor_a.anchor_index
-        has_other_touching = any(
-            c
-            for c in self._canvas_scene.constraint_graph.constraints.values()
-            if (
-                c.anchor_a.item_id == anchor_a.item_id
-                and c.anchor_a.anchor_index == moved_vertex_idx
-            )
-            or (
-                c.anchor_b.item_id == anchor_a.item_id
-                and c.anchor_b.anchor_index == moved_vertex_idx
-            )
-        )
-        if not has_other_touching or len(self._canvas_scene.constraint_graph.constraints) <= 1:
-            return [], [(item, moved_vertex_idx, QPointF(old_local), new_local)]
-
-        # Apply the direct move temporarily, solve, capture final vertex positions.
-        original_polygon = None
-        original_points = None
-        if isinstance(item, PolygonItem):
-            from PyQt6.QtGui import QPolygonF
-            original_polygon = QPolygonF(item.polygon())
-            item._move_vertex_to(moved_vertex_idx, new_local)
-        elif isinstance(item, PolylineItem):
-            original_points = list(item.points)
-            item._move_vertex_to(moved_vertex_idx, new_local)
-
-        try:
-            # For intra-object self-constraints (common on polygon edges), pinning
-            # anchor_b would pin the entire polygon, making vertex moves impossible.
-            # Only pin the reference when it is a *different* item.
-            intra_object = anchor_a.item_id == anchor_b.item_id
-            extra_pinned = None if intra_object else {anchor_b.item_id}
-            _item_moves, vertex_moves = self._compute_constraint_solve_moves(
-                extra_pinned=extra_pinned
-            )
-        finally:
-            if original_polygon is not None and isinstance(item, PolygonItem):
-                item.setPolygon(original_polygon)
-                # The polyline branch below restores through `_move_vertex_to`,
-                # which re-derives a ROOF_RIDGE (ADR-046); a bare `setPolygon`
-                # does not, so a HOUSE whose solve raised would keep a ridge
-                # computed for the temporary trial geometry. Restoring the
-                # polygon must restore the derived ridge with it.
-                item._update_ridge_on_boundary()
-            elif original_points is not None and isinstance(item, PolylineItem):
-                for i, pt in enumerate(original_points):
-                    item._move_vertex_to(i, pt)
-
-        # Merge the primary endpoint move with any solver-produced vertex moves.
-        # Solver vertex_moves are tuples (item, idx, old_local, new_local).
-        final_vertex_moves: list = []
-        moved_indices: set = set()
-        for m_item, m_idx, m_old_local, m_new_local in vertex_moves:
-            if m_item is item and m_idx == moved_vertex_idx:
-                # Use the solver's result for the primary vertex too.
-                final_vertex_moves.append(
-                    (item, moved_vertex_idx, QPointF(old_local), m_new_local)
-                )
-                moved_indices.add(moved_vertex_idx)
-            else:
-                final_vertex_moves.append(
-                    (m_item, m_idx, m_old_local, m_new_local)
-                )
-                if m_item is item:
-                    moved_indices.add(m_idx)
-        if moved_vertex_idx not in moved_indices:
-            final_vertex_moves.append(
-                (item, moved_vertex_idx, QPointF(old_local), new_local)
-            )
-        return [], final_vertex_moves
+    ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
+        return self._drag_constraints._compute_edge_length_constraint_moves(command)
 
     def _compute_constraint_solve_moves(
         self,
-        extra_pinned: "set | None" = None,
-    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
-        """Run the constraint solver and return position changes.
-
-        Should be called while the constraint graph already has the desired
-        target distances set.  Returns a list of (item, old_pos, new_pos) for
-        every item that would move by more than 0.01 cm.
-
-        Args:
-            extra_pinned: Additional item IDs to treat as pinned (immovable)
-                during this solve pass, beyond the always-pinned construction
-                items.  Used to implement the CAD convention that item B (the
-                reference anchor) stays fixed while item A moves to satisfy the
-                new constraint.
-        """
-        from open_garden_planner.core.measure_snapper import get_anchor_points
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-        from open_garden_planner.ui.canvas.items.construction_item import (
-            ConstructionCircleItem,
-            ConstructionLineItem,
+        extra_pinned: set | None = None,
+        scope_ids: set | None = None,
+    ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
+        return self._drag_constraints._compute_constraint_solve_moves(
+            extra_pinned, scope_ids=scope_ids
         )
-
-        graph = self._canvas_scene.constraint_graph
-        if not graph.constraints:
-            return [], []
-
-        constrained_ids: set = set()
-        for c in graph.constraints.values():
-            constrained_ids.add(c.anchor_a.item_id)
-            constrained_ids.add(c.anchor_b.item_id)
-            if c.anchor_c is not None:
-                constrained_ids.add(c.anchor_c.item_id)
-
-        item_map: dict = {}
-        item_positions: dict = {}
-        anchor_offsets: dict = {}
-        construction_ids: set = set()
-
-        for item in self.scene().items():
-            is_garden = isinstance(item, GardenItemMixin)
-            is_construction = isinstance(
-                item, (ConstructionLineItem, ConstructionCircleItem)
-            )
-            if (is_garden or is_construction) and item.item_id in constrained_ids:
-                uid = item.item_id
-                item_map[uid] = item
-                pos = item.pos()
-                item_positions[uid] = (pos.x(), pos.y())
-                for anchor in get_anchor_points(item):
-                    key = (uid, anchor.anchor_type, anchor.anchor_index)
-                    anchor_offsets[key] = (
-                        anchor.point.x() - pos.x(),
-                        anchor.point.y() - pos.y(),
-                    )
-                if is_construction:
-                    construction_ids.add(uid)
-
-        if not item_positions:
-            return [], []
-
-        deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
-
-        # Construction items are always pinned — only garden items move.
-        # extra_pinned allows callers to additionally pin a reference item so
-        # that only the other item moves (CAD convention: A moves, B stays).
-        result = graph.solve_anchored(
-            item_positions=item_positions,
-            anchor_offsets=anchor_offsets,
-            pinned_items=construction_ids | (extra_pinned or set()),
-            max_iterations=20,
-            tolerance=1.0,
-            deformable_items=deformable_items,
-            deformable_vertices=deformable_vertices,
-        )
-
-        moves: list = []
-        for uid, (pdx, pdy) in result.item_deltas.items():
-            if uid in construction_ids:
-                continue
-            gitem = item_map.get(uid)
-            if gitem is not None and (abs(pdx) > 0.01 or abs(pdy) > 0.01):
-                old_pos = gitem.pos()
-                moves.append(
-                    (gitem, old_pos, QPointF(old_pos.x() + pdx, old_pos.y() + pdy))
-                )
-
-        vertex_moves: list = []
-        for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
-            if uid in construction_ids:
-                continue
-            gitem = item_map.get(uid)
-            if gitem is None:
-                continue
-            if abs(vdx) < 0.01 and abs(vdy) < 0.01:
-                continue
-            # Get current vertex in item-local coords
-            old_local = self._get_vertex_local(gitem, vi)
-            if old_local is None:
-                continue
-            # Compute new local pos: map scene delta to local coords
-            old_scene = gitem.mapToScene(old_local)
-            new_scene = QPointF(old_scene.x() + vdx, old_scene.y() + vdy)
-            new_local = gitem.mapFromScene(new_scene)
-            vertex_moves.append((gitem, vi, QPointF(old_local), new_local))
-
-        return moves, vertex_moves
 
     def _delete_selected_items(self) -> None:
         """Delete all selected items from the scene with undo support.
@@ -3561,10 +3310,8 @@ class CanvasView(QGraphicsView):
         # Check for plant-parents (beds/containers/trellises) with children
         beds_with_children = [
             item
-            for item in selected
-            if isinstance(item, GardenItemMixin)
-            and is_plant_parent_type(item.object_type)
-            and item.has_children
+            for item in iter_plant_parents(selected)
+            if item.has_children
         ]
 
         if beds_with_children:
@@ -3652,7 +3399,7 @@ class CanvasView(QGraphicsView):
         # which also prunes the matching note dict from ProjectData. Otherwise
         # the keyboard-Delete path would orphan the note (the right-click
         # "Delete" menu already routes correctly via the view signal).
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -3705,25 +3452,19 @@ class CanvasView(QGraphicsView):
         if not selected:
             return
 
-        # Include child plants of any selected beds
+        # Include child plants of any selected beds (including group child beds)
         selected_set = {id(i) for i in selected}
         extra_children: list[QGraphicsItem] = []
-        for item in selected:
-            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
-                item.object_type
-            ):
-                for child_id in item.child_item_ids:
-                    child = self._canvas_scene.find_item_by_id(child_id)
-                    if (
-                        child is not None
-                        and id(child) not in selected_set
-                        and not (
-                            isinstance(child, GardenItemMixin)
-                            and child.item_id in fixed_ids
-                        )
-                    ):
-                        extra_children.append(child)
-                        selected_set.add(id(child))
+        for parent in iter_plant_parents(selected):
+            for child_id in parent.child_item_ids:
+                child = self._canvas_scene.find_item_by_id(child_id)
+                if (
+                    child is not None
+                    and id(child) not in selected_set
+                    and not bed_child_has_constraints(self._canvas_scene, child_id)
+                ):
+                    extra_children.append(child)
+                    selected_set.add(id(child))
         selected.extend(extra_children)
 
         # Determine move distance: 1cm precision with Shift, otherwise grid size
@@ -3787,14 +3528,21 @@ class CanvasView(QGraphicsView):
         # If a resize or rotate command was just pushed to the undo stack, the
         # position/angle change is already captured by that command. Creating a
         # separate MoveItemsCommand would duplicate the delta and cause undo to
-        # only revert the position without restoring the size/angle.
-        from open_garden_planner.core.commands import ResizeItemCommand, RotateItemCommand
+        # only revert the position without restoring the size/angle. The check
+        # looks through a CompoundCommand: a bed edit that also re-linked plants
+        # is one compound whose first step is still the resize/rotate (#443).
+        from open_garden_planner.core.commands import (
+            ResizeItemCommand,
+            RotateItemCommand,
+            command_is,
+        )
 
         if self._command_manager.can_undo:
             last_cmd = self._command_manager._undo_stack[-1]
-            if isinstance(last_cmd, (ResizeItemCommand, RotateItemCommand)):
+            if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                self._thaw_fixed_drag_items()
                 return
 
         # Collect per-item deltas for both dragged and propagated items
@@ -3820,32 +3568,33 @@ class CanvasView(QGraphicsView):
                 item_deltas.append((item, delta))
 
         # Propagate parent (bed/container/trellis) movement to child plants
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
         child_start_positions: dict[QGraphicsItem, QPointF] = {}
         for item, delta in list(item_deltas):
-            if not isinstance(item, GardenItemMixin) or not is_plant_parent_type(
-                item.object_type
-            ):
-                continue
-            for child_id in item.child_item_ids:
-                child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None:
-                    continue
-                # Skip if child is already being dragged independently
-                if child in self._drag_start_positions:
-                    continue
-                if child in self._constraint_propagated_starts:
-                    continue
-                if child in child_start_positions:
-                    continue
-                # Use the original position tracked during drag, not
-                # child.pos() which already includes the visual offset.
-                child_start_pos = self._child_drag_origins.get(child, child.pos())
-                child_start_positions[child] = child_start_pos
-                item_deltas.append((child, delta))
+            for parent in iter_plant_parents([item]):
+                for child_id in parent.child_item_ids:
+                    child = self._canvas_scene.find_item_by_id(child_id)
+                    if child is None or bed_child_has_constraints(self._canvas_scene, child_id):
+                        continue
+                    # Skip if child is already being dragged independently
+                    if child in self._drag_start_positions:
+                        continue
+                    if child in self._constraint_propagated_starts:
+                        continue
+                    if child in child_start_positions:
+                        continue
+                    # Use the original position tracked during drag, not
+                    # child.pos() which already includes the visual offset.
+                    child_start_pos = self._child_drag_origins.get(child, child.pos())
+                    child_start_positions[child] = child_start_pos
+                    item_deltas.append((child, delta))
 
         if item_deltas:
+            # Ask the LINK question where the drag left everything - the FINAL
+            # positions: a bed dragged in the same gesture is at its new place, and
+            # a plant that went with it keeps its bed (the old path's answer). Only
+            # then reset for the move command, which re-applies the deltas.
+            links = self._plant_bed_link_commands()
+
             # Reset all items to their start positions
             for item, start_pos in self._drag_start_positions.items():
                 item.setPos(start_pos)
@@ -3863,59 +3612,87 @@ class CanvasView(QGraphicsView):
                 else QCoreApplication.translate("Commands", "Move item")
             )
             if len(item_deltas) == 1 and not has_propagated and not has_children:
-                # Single item, uniform delta — use simple MoveItemsCommand
+                # Single item, uniform delta - use simple MoveItemsCommand
                 command = MoveItemsCommand([item_deltas[0][0]], item_deltas[0][1])
             else:
                 command = AlignItemsCommand(item_deltas, desc)
-            self._command_manager.execute(command)
+            # A plant dragged into (or out of) a bed is linked in the SAME step:
+            # two stack entries made the first Ctrl+Z undo only the link (#627).
+            if links:
+                from open_garden_planner.core.commands import CompoundCommand
 
+                command = CompoundCommand([command, *links], desc)
+            self._command_manager.execute(command)
+        # A click (not a drag) used to re-evaluate the selection's links here.
+        # Since #443 every command that moves/reshapes an item reconciles its own
+        # links, so doing it on a bare click would overrule an explicit Link
+        # action the user made on purpose (ADR-037 addendum decision 5).
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
         if hasattr(self, "_child_drag_origins"):
             self._child_drag_origins.clear()
-
-        # Re-evaluate parent-child relationships after move
-        self._update_plant_bed_relationships()
 
     def _propagate_bed_children_during_drag(self) -> None:
         """Move child plants to follow their parent bed during a live drag."""
         if not self._drag_start_positions:
             return
 
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
         for item, start_pos in self._drag_start_positions.items():
-            if not isinstance(item, GardenItemMixin) or not is_plant_parent_type(
-                item.object_type
-            ):
+            parents = iter_plant_parents([item])
+            if not parents:
                 continue
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:
                 continue
-            for child_id in item.child_item_ids:
-                child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None or child in self._drag_start_positions:
-                    continue
-                # Track the child's original position only once
-                if child not in self._child_drag_origins:
-                    # First frame: child hasn't moved yet, so compute
-                    # its origin from the parent's start delta
-                    self._child_drag_origins[child] = child.pos() - delta
-                child.setPos(self._child_drag_origins[child] + delta)
+            for parent in parents:
+                for child_id in parent.child_item_ids:
+                    child = self._canvas_scene.find_item_by_id(child_id)
+                    if (
+                        child is None
+                        or child in self._drag_start_positions
+                        or bed_child_has_constraints(self._canvas_scene, child_id)
+                    ):
+                        continue
+                    # Track the child's original position only once. On the first sighting
+                    # it has NOT moved yet, so its position IS that origin - subtracting
+                    # the parent's cumulative delta made the child lag the bed by the
+                    # first frame's movement and put it back short on undo (#627 review).
+                    if child not in self._child_drag_origins:
+                        self._child_drag_origins[child] = child.pos()
+                    child.setPos(self._child_drag_origins[child] + delta)
 
     def _update_plant_bed_relationships(self) -> None:
-        """Re-evaluate parent-child links for all selected plants after a move."""
+        """Re-evaluate parent-child links for all selected plants at their CURRENT
+        positions — an EXPLICIT re-evaluation helper (used by tests).
+
+        Production edit paths now reconcile membership inside their own command
+        (issue #443), so a bare click no longer calls this: doing so would
+        overrule an explicit Link action the user made on purpose.
+        """
+        for command in self._plant_bed_link_commands():
+            self._command_manager.execute(command)
+
+    def _plant_bed_link_commands(self) -> list[Command]:
+        """The parent links the selection's positions ask for, as commands - NOT run.
+
+        Asked where the items ARE: a finished drag calls it before resetting them
+        for its move command, so the answer is the one the drag produced - a bed
+        dragged in the same gesture is at its new place, and the link commands ride
+        together with the move in ONE undoable step (``CompoundCommand``).
+        """
         from open_garden_planner.core.commands import SetParentBedCommand
         from open_garden_planner.core.plant_renderer import is_plant_type
+        from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
+        commands: list[Command] = []
         for item in self.scene().selectedItems():
             if not isinstance(item, GardenItemMixin):
                 continue
             if not is_plant_type(item.object_type):
                 continue
 
-            plant_center = item.mapToScene(item.boundingRect().center())
+            plant_center = bed_membership_point(item)
             current_parent_id = item.parent_bed_id
 
             new_bed = self._canvas_scene.find_smallest_bed_containing(plant_center)
@@ -3926,16 +3703,15 @@ class CanvasView(QGraphicsView):
             )
 
             if new_parent_id != current_parent_id:
-                cmd = SetParentBedCommand(
-                    self.scene(),
-                    item,
-                    current_parent_id,
-                    new_parent_id,
+                commands.append(
+                    SetParentBedCommand(
+                        self.scene(),
+                        item,
+                        current_parent_id,
+                        new_parent_id,
+                    )
                 )
-                # SetParentBedCommand triggers _update_soil_mismatches itself
-                # (issue #173) so all attach/detach call sites stay in sync —
-                # including the properties-panel Unlink button.
-                self._command_manager.execute(cmd)
+        return commands
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background."""
@@ -4586,7 +4362,7 @@ class CanvasView(QGraphicsView):
         for group in groups:
             self.ungroup_item(group)
 
-    def ungroup_item(self, group: "QGraphicsItem") -> None:
+    def ungroup_item(self, group: QGraphicsItem) -> None:
         """Ungroup a specific GroupItem."""
         from open_garden_planner.core.commands import UngroupCommand
 
@@ -4595,682 +4371,201 @@ class CanvasView(QGraphicsView):
         self.set_status_message(self.tr("Ungrouped"))
 
     def copy_selected(self) -> None:
-        """Copy selected items to clipboard (auto-includes plant-parent children)."""
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        selected = list(self.scene().selectedItems())
-        if not selected:
-            return
-
-        # Auto-include children of selected plant-parents (beds/containers/trellises)
-        selected_ids = {
-            item.item_id for item in selected if isinstance(item, GardenItemMixin)
-        }
-        for item in list(selected):
-            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
-                item.object_type
-            ):
-                for child_id in item.child_item_ids:
-                    if child_id not in selected_ids:
-                        child = self._canvas_scene.find_item_by_id(child_id)
-                        if child is not None:
-                            selected.append(child)
-                            selected_ids.add(child_id)
-
-        # Sort bottom-to-top by current z before serializing so paste
-        # recreates the same relative stacking order (issue #338) --
-        # CreateItemsCommand adds items in list order, and each addItem
-        # ranks a new item above whatever's already been added.
-        selected.sort(key=lambda item: item.zValue())
-
-        from open_garden_planner.ui.guild_copy import scene_guild_member_ids
-
-        self._clipboard_guild_members = scene_guild_member_ids(self.scene())
-        # Serialize selected items
-        self._clipboard = []
-        for item in selected:
-            obj_data = self._serialize_item(item)
-            if obj_data:
-                self._clipboard.append(obj_data)
-
-        # Show status message
-        if len(self._clipboard) > 0:
-            self.set_status_message(
-                self.tr("Copied {count} item(s)").format(count=len(self._clipboard))
-            )
+        return self._clipboard_operations.copy_selected()
 
     def cut_selected(self) -> None:
-        """Cut selected items (copy then delete)."""
-        selected = self.scene().selectedItems()
-        if not selected:
-            return
-
-        # Copy first
-        self.copy_selected()
-
-        # Then delete
-        if self._clipboard:
-            self._delete_selected_items()
-            self.set_status_message(
-                self.tr("Cut {count} item(s)").format(count=len(self._clipboard))
-            )
+        return self._clipboard_operations.cut_selected()
 
     def paste(self) -> None:
-        """Paste items from clipboard."""
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        if not self._clipboard:
-            self.set_status_message(self.tr("Nothing to paste"))
-            return
-
-        # Deselect all items
-        for item in self.scene().selectedItems():
-            item.setSelected(False)
-
-        # Create new items from clipboard
-        pasted_items: list[QGraphicsItem] = []
-        clipboard_data: list[dict] = []
-        from open_garden_planner.ui.guild_copy import copy_guild_records
-
-        records = copy_guild_records(self.scene(), self._clipboard, getattr(self, "_clipboard_guild_members", None))
-        for obj_data in records:
-            # Apply offset to position and strip item_ids so new UUIDs are minted (AUD-002)
-            obj_copy = _strip_item_ids(
-                _offset_item_dict(obj_data, self._paste_offset, self._paste_offset)
-            )
-
-            # Deserialize the item (gets a new UUID)
-            item = self._deserialize_item(obj_copy)
-            if item:
-                self._restore_layer_id(item, obj_copy)
-                pasted_items.append(item)
-                clipboard_data.append(obj_data)
-
-        # Rebuild parent-child relationships with new UUIDs
-        if pasted_items:
-            old_id_to_new: dict[str, QGraphicsItem] = {}
-            for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
-                old_id = obj_data.get("item_id")
-                if old_id:
-                    old_id_to_new[old_id] = item
-
-            for obj_data, item in zip(clipboard_data, pasted_items, strict=True):
-                if not isinstance(item, GardenItemMixin):
-                    continue
-                # Clear auto-detect fields so CreateItemsCommand doesn't double-parent
-                item._parent_bed_id = None
-                item._child_item_ids = []
-
-                # Remap parent — the scene derives z from the normalized
-                # stacking order (issue #338), so a plant renders above its
-                # bed automatically once CreateItemsCommand adds both items.
-                old_parent = obj_data.get("parent_bed_id")
-                if old_parent and old_parent in old_id_to_new:
-                    parent = old_id_to_new[old_parent]
-                    if isinstance(parent, GardenItemMixin):
-                        item.parent_bed_id = parent.item_id
-                        parent.add_child_id(item.item_id)
-
-            # Use command for undo support
-            from open_garden_planner.core import CreateItemsCommand
-
-            command = CreateItemsCommand(self.scene(), pasted_items, "pasted objects")
-            self._command_manager.execute(command)
-
-            # Select the pasted items
-            for item in pasted_items:
-                item.setSelected(True)
-
-            self.set_status_message(
-                self.tr("Pasted {count} item(s)").format(count=len(pasted_items))
-            )
+        return self._clipboard_operations.paste()
 
     def duplicate_selected(self) -> None:
-        """Duplicate selected items (copy and paste in one action)."""
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        selected = list(self.scene().selectedItems())
-        if not selected:
-            self.set_status_message(self.tr("Nothing to duplicate"))
-            return
-
-        # Auto-include children of selected plant-parents (beds/containers/trellises)
-        selected_ids = {
-            item.item_id for item in selected if isinstance(item, GardenItemMixin)
-        }
-        for item in list(selected):
-            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
-                item.object_type
-            ):
-                for child_id in item.child_item_ids:
-                    if child_id not in selected_ids:
-                        child = self._canvas_scene.find_item_by_id(child_id)
-                        if child is not None:
-                            selected.append(child)
-                            selected_ids.add(child_id)
-
-        # Sort bottom-to-top by current z before serializing so the
-        # duplicates keep the same relative stacking order (issue #338) --
-        # CreateItemsCommand adds items in list order, and each addItem
-        # ranks a new item above whatever's already been added.
-        selected.sort(key=lambda item: item.zValue())
-
-        # Serialize selected items directly (don't modify clipboard)
-        source_data: list[dict] = []
-        for item in selected:
-            obj_data = self._serialize_item(item)
-            if obj_data:
-                source_data.append(obj_data)
-
-        if not source_data:
-            return
-
-        # Deselect all items
-        for item in self.scene().selectedItems():
-            item.setSelected(False)
-
-        # Create new items with offset
-        duplicated_items: list[QGraphicsItem] = []
-        dup_source: list[dict] = []
-        from open_garden_planner.ui.guild_copy import copy_guild_records
-
-        source_data = copy_guild_records(self.scene(), source_data)
-        for obj_data in source_data:
-            obj_copy = _strip_item_ids(
-                _offset_item_dict(obj_data, self._paste_offset, self._paste_offset)
-            )
-
-            # Deserialize the item
-            item = self._deserialize_item(obj_copy)
-            if item:
-                self._restore_layer_id(item, obj_copy)
-                duplicated_items.append(item)
-                dup_source.append(obj_data)
-
-        # Rebuild parent-child relationships with new UUIDs
-        if duplicated_items:
-            old_id_to_new: dict[str, QGraphicsItem] = {}
-            for obj_data, item in zip(dup_source, duplicated_items, strict=True):
-                old_id = obj_data.get("item_id")
-                if old_id:
-                    old_id_to_new[old_id] = item
-
-            for obj_data, item in zip(dup_source, duplicated_items, strict=True):
-                if not isinstance(item, GardenItemMixin):
-                    continue
-                item._parent_bed_id = None
-                item._child_item_ids = []
-
-                old_parent = obj_data.get("parent_bed_id")
-                if old_parent and old_parent in old_id_to_new:
-                    parent = old_id_to_new[old_parent]
-                    if isinstance(parent, GardenItemMixin):
-                        item.parent_bed_id = parent.item_id
-                        parent.add_child_id(item.item_id)
-
-            from open_garden_planner.core import CreateItemsCommand
-
-            command = CreateItemsCommand(
-                self.scene(), duplicated_items, "duplicated objects"
-            )
-            self._command_manager.execute(command)
-
-            # Select the duplicated items
-            for item in duplicated_items:
-                item.setSelected(True)
-
-            self.set_status_message(
-                self.tr("Duplicated {count} item(s)").format(
-                    count=len(duplicated_items)
-                )
-            )
+        return self._clipboard_operations.duplicate_selected()
 
     def create_linear_array(self) -> None:
-        """Create a linear array from the single selected item."""
-        import math
-
-        selected = self.scene().selectedItems()
-        if len(selected) != 1:
-            self.set_status_message(
-                self.tr("Select exactly one item to create a linear array")
-            )
-            return
-
-        from PyQt6.QtWidgets import QDialog
-
-        from open_garden_planner.ui.dialogs.linear_array_dialog import LinearArrayDialog
-
-        dlg = LinearArrayDialog(self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        count = dlg.count
-        spacing = dlg.spacing_cm
-        angle_rad = math.radians(dlg.angle_deg)
-        # Negate dy: canvas has a Y-flip (origin bottom-left, Y-up in view),
-        # so +scene_y is visually upward. Negate to match screen-space intuition
-        # where 90° = downward and 270° = upward.
-        dx = spacing * math.cos(angle_rad)
-        dy = -spacing * math.sin(angle_rad)
-
-        source_item = selected[0]
-        obj_data = self._serialize_item(source_item)
-        if not obj_data:
-            return
-
-        canvas_w = self._canvas_scene.width_cm
-        canvas_h = self._canvas_scene.height_cm
-
-        new_items = []
-        for i in range(1, count):
-            obj_copy = obj_data.copy()
-            offset_x = dx * i
-            offset_y = dy * i
-
-            if "points" in obj_copy:
-                pts = [
-                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
-                    for p in obj_data["points"]
-                ]
-                # Clamp: shift all points so bbox stays within canvas
-                min_x = min(p["x"] for p in pts)
-                max_x = max(p["x"] for p in pts)
-                min_y = min(p["y"] for p in pts)
-                max_y = max(p["y"] for p in pts)
-                cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
-                cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
-                obj_copy["points"] = [{"x": p["x"] + cx, "y": p["y"] + cy} for p in pts]
-            elif "center_x" in obj_copy:
-                r = obj_data.get("radius", 0.0)
-                cx = obj_data["center_x"] + offset_x
-                cy = obj_data["center_y"] + offset_y
-                obj_copy["center_x"] = max(r, min(cx, canvas_w - r))
-                obj_copy["center_y"] = max(r, min(cy, canvas_h - r))
-            else:
-                item_w = obj_data.get("width", 0.0)
-                item_h = obj_data.get("height", 0.0)
-                nx = obj_data["x"] + offset_x
-                ny = obj_data["y"] + offset_y
-                obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
-                obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
-
-            item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
-            if item:
-                new_items.append(item)
-
-        if not new_items:
-            return
-
-        # Build optional constraint pairs (center-to-center between consecutive items)
-        constraint_pairs = None
-        if dlg.create_constraints:
-            from open_garden_planner.core.constraints import AnchorRef
-            from open_garden_planner.core.measure_snapper import AnchorType
-            from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-            if isinstance(source_item, GardenItemMixin):
-                all_items = [source_item, *new_items]
-                constraint_pairs = []
-                for j in range(len(all_items) - 1):
-                    a = all_items[j]
-                    b = all_items[j + 1]
-                    if isinstance(a, GardenItemMixin) and isinstance(
-                        b, GardenItemMixin
-                    ):
-                        ref_a = AnchorRef(
-                            item_id=a.item_id,
-                            anchor_type=AnchorType.CENTER,
-                        )
-                        ref_b = AnchorRef(
-                            item_id=b.item_id,
-                            anchor_type=AnchorType.CENTER,
-                        )
-                        constraint_pairs.append((ref_a, ref_b, spacing))
-
-        from open_garden_planner.core import LinearArrayCommand
-
-        command = LinearArrayCommand(
-            self.scene(),
-            new_items,
-            constraint_pairs=constraint_pairs,
-            graph=self._canvas_scene.constraint_graph if constraint_pairs else None,
-        )
-        self._command_manager.execute(command)
-
-        # Select original + all copies
-        self.scene().clearSelection()
-        source_item.setSelected(True)
-        for item in new_items:
-            item.setSelected(True)
-
-        self.set_status_message(
-            self.tr("Created linear array of {count} items").format(count=count)
-        )
+        return self._clipboard_operations.create_linear_array()
 
     def create_grid_array(self) -> None:
-        """Create a rectangular grid array from the single selected item."""
-        selected = self.scene().selectedItems()
-        if len(selected) != 1:
-            self.set_status_message(
-                self.tr("Select exactly one item to create a grid array")
-            )
-            return
-
-        from PyQt6.QtWidgets import QDialog
-
-        from open_garden_planner.ui.dialogs.grid_array_dialog import GridArrayDialog
-
-        dlg = GridArrayDialog(self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        rows = dlg.rows
-        cols = dlg.cols
-        row_spacing = dlg.row_spacing_cm
-        col_spacing = dlg.col_spacing_cm
-
-        # Canvas Y-axis is flipped: scale(zoom, -zoom) makes positive scene Y visually upward.
-        # Rows go downward on screen → -row_spacing per row in scene coords.
-        # Columns go rightward → +col_spacing per column in scene coords (X not flipped).
-
-        source_item = selected[0]
-        obj_data = self._serialize_item(source_item)
-        if not obj_data:
-            return
-
-        canvas_w = self._canvas_scene.width_cm
-        canvas_h = self._canvas_scene.height_cm
-
-        # Build a flat list of (row, col) positions skipping (0, 0) = original
-        new_items: list = []
-        grid: list = []  # list of (row, col, item) — includes original at (0,0)
-
-        # Add original at grid position (0,0)
-        grid.append((0, 0, source_item))
-
-        for r in range(rows):
-            for c in range(cols):
-                if r == 0 and c == 0:
-                    continue  # original
-                obj_copy = obj_data.copy()
-                # col → rightward = +x; row → downward on screen = -y (scene Y-flip)
-                offset_x = col_spacing * c
-                offset_y = -row_spacing * r
-
-                if "points" in obj_copy:
-                    pts = [
-                        {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
-                        for p in obj_data["points"]
-                    ]
-                    min_x = min(p["x"] for p in pts)
-                    max_x = max(p["x"] for p in pts)
-                    min_y = min(p["y"] for p in pts)
-                    max_y = max(p["y"] for p in pts)
-                    cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
-                    cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
-                    obj_copy["points"] = [
-                        {"x": p["x"] + cx, "y": p["y"] + cy} for p in pts
-                    ]
-                elif "center_x" in obj_copy:
-                    rad = obj_data.get("radius", 0.0)
-                    cx = obj_data["center_x"] + offset_x
-                    cy = obj_data["center_y"] + offset_y
-                    obj_copy["center_x"] = max(rad, min(cx, canvas_w - rad))
-                    obj_copy["center_y"] = max(rad, min(cy, canvas_h - rad))
-                else:
-                    item_w = obj_data.get("width", 0.0)
-                    item_h = obj_data.get("height", 0.0)
-                    nx = obj_data["x"] + offset_x
-                    ny = obj_data["y"] + offset_y
-                    obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
-                    obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
-
-                item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
-                if item:
-                    new_items.append(item)
-                    grid.append((r, c, item))
-
-        if not new_items:
-            return
-
-        # Build optional constraint pairs between adjacent items (same row/col)
-        constraint_pairs = None
-        if dlg.create_constraints:
-            from open_garden_planner.core.constraints import AnchorRef
-            from open_garden_planner.core.measure_snapper import AnchorType
-            from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-            if isinstance(source_item, GardenItemMixin):
-                # Index the grid by (row, col)
-                grid_map: dict = {(r, c): itm for r, c, itm in grid}
-                constraint_pairs = []
-                for r in range(rows):
-                    for c in range(cols):
-                        itm = grid_map.get((r, c))
-                        if itm is None or not isinstance(itm, GardenItemMixin):
-                            continue
-                        # Horizontal neighbour (same row, next col)
-                        right = grid_map.get((r, c + 1))
-                        if right is not None and isinstance(right, GardenItemMixin):
-                            constraint_pairs.append(
-                                (
-                                    AnchorRef(
-                                        item_id=itm.item_id,
-                                        anchor_type=AnchorType.CENTER,
-                                    ),
-                                    AnchorRef(
-                                        item_id=right.item_id,
-                                        anchor_type=AnchorType.CENTER,
-                                    ),
-                                    col_spacing,
-                                )
-                            )
-                        # Vertical neighbour (next row, same col)
-                        below = grid_map.get((r + 1, c))
-                        if below is not None and isinstance(below, GardenItemMixin):
-                            constraint_pairs.append(
-                                (
-                                    AnchorRef(
-                                        item_id=itm.item_id,
-                                        anchor_type=AnchorType.CENTER,
-                                    ),
-                                    AnchorRef(
-                                        item_id=below.item_id,
-                                        anchor_type=AnchorType.CENTER,
-                                    ),
-                                    row_spacing,
-                                )
-                            )
-
-        from open_garden_planner.core import GridArrayCommand
-
-        command = GridArrayCommand(
-            self.scene(),
-            new_items,
-            constraint_pairs=constraint_pairs,
-            graph=self._canvas_scene.constraint_graph if constraint_pairs else None,
-        )
-        self._command_manager.execute(command)
-
-        # Select original + all copies
-        self.scene().clearSelection()
-        source_item.setSelected(True)
-        for item in new_items:
-            item.setSelected(True)
-
-        total = rows * cols
-        self.set_status_message(
-            self.tr("Created grid array of {count} items ({rows}×{cols})").format(
-                count=total, rows=rows, cols=cols
-            )
-        )
+        return self._clipboard_operations.create_grid_array()
 
     def create_circular_array(self) -> None:
-        """Create a circular array from the single selected item."""
-        import math
-
-        selected = self.scene().selectedItems()
-        if len(selected) != 1:
-            self.set_status_message(
-                self.tr("Select exactly one item to create a circular array")
-            )
-            return
-
-        from PyQt6.QtWidgets import QDialog
-
-        from open_garden_planner.ui.dialogs.circular_array_dialog import (
-            CircularArrayDialog,
-        )
-
-        dlg = CircularArrayDialog(self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        count = dlg.count
-        radius = dlg.radius_cm
-        start_rad = math.radians(dlg.start_angle_deg)
-        sweep_rad = math.radians(dlg.sweep_angle_deg)
-
-        # Angular step between copies. When sweep == 360° divide evenly by count
-        # (no duplicated endpoint). When sweep < 360° include both endpoints by
-        # dividing by (count - 1).
-        if abs(sweep_rad - 2 * math.pi) < 1e-6:
-            step_rad = sweep_rad / count
-        else:
-            step_rad = sweep_rad / max(count - 1, 1)
-
-        source_item = selected[0]
-        obj_data = self._serialize_item(source_item)
-        if not obj_data:
-            return
-
-        # Determine the center of the source item to use as circle origin.
-        if "center_x" in obj_data:
-            origin_x = obj_data["center_x"]
-            origin_y = obj_data["center_y"]
-        elif "points" in obj_data:
-            xs = [p["x"] for p in obj_data["points"]]
-            ys = [p["y"] for p in obj_data["points"]]
-            origin_x = (min(xs) + max(xs)) / 2.0
-            origin_y = (min(ys) + max(ys)) / 2.0
-        else:
-            origin_x = obj_data["x"] + obj_data.get("width", 0.0) / 2.0
-            origin_y = obj_data["y"] + obj_data.get("height", 0.0) / 2.0
-
-        canvas_w = self._canvas_scene.width_cm
-        canvas_h = self._canvas_scene.height_cm
-
-        # The original sits at start_angle on the circle; each copy is offset
-        # relative to the original's position (not from an implicit center).
-        # Canvas Y-axis is flipped (scale(zoom, -zoom)), so negate sin for dy.
-        # offset_i = radius * (direction_i - direction_0), so at i=0 offset=(0,0).
-        base_cos = math.cos(start_rad)
-        base_sin = math.sin(start_rad)
-
-        new_items = []
-        for i in range(1, count):
-            angle = start_rad + i * step_rad
-            offset_x = radius * (math.cos(angle) - base_cos)
-            offset_y = -radius * (math.sin(angle) - base_sin)
-
-            obj_copy = obj_data.copy()
-
-            if "points" in obj_copy:
-                pts = [
-                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
-                    for p in obj_data["points"]
-                ]
-                min_x = min(p["x"] for p in pts)
-                max_x = max(p["x"] for p in pts)
-                min_y = min(p["y"] for p in pts)
-                max_y = max(p["y"] for p in pts)
-                cx = max(0.0, -min_x) - max(0.0, max_x - canvas_w)
-                cy = max(0.0, -min_y) - max(0.0, max_y - canvas_h)
-                obj_copy["points"] = [{"x": p["x"] + cx, "y": p["y"] + cy} for p in pts]
-            elif "center_x" in obj_copy:
-                r = obj_data.get("radius", 0.0)
-                cx = origin_x + offset_x
-                cy = origin_y + offset_y
-                obj_copy["center_x"] = max(r, min(cx, canvas_w - r))
-                obj_copy["center_y"] = max(r, min(cy, canvas_h - r))
-            else:
-                item_w = obj_data.get("width", 0.0)
-                item_h = obj_data.get("height", 0.0)
-                nx = origin_x - item_w / 2.0 + offset_x
-                ny = origin_y - item_h / 2.0 + offset_y
-                obj_copy["x"] = max(0.0, min(nx, canvas_w - item_w))
-                obj_copy["y"] = max(0.0, min(ny, canvas_h - item_h))
-
-            item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
-            if item:
-                new_items.append(item)
-
-        if not new_items:
-            return
-
-        from open_garden_planner.core import CircularArrayCommand
-
-        command = CircularArrayCommand(self.scene(), new_items)
-        self._command_manager.execute(command)
-
-        # Select original + all copies
-        self.scene().clearSelection()
-        source_item.setSelected(True)
-        for item in new_items:
-            item.setSelected(True)
-
-        self.set_status_message(
-            self.tr("Created circular array of {count} items").format(count=count)
-        )
+        return self._clipboard_operations.create_circular_array()
 
     def boolean_operation(self, operation: str) -> None:
-        """Apply a boolean operation (union/intersect/subtract) on two selected shapes."""
+        """Apply union (any count) or intersect/subtract (exactly two) shapes.
+
+        Union also accepts shapes that merely touch: a fence line of three beds
+        laid edge to edge is the ordinary case. Intersection and subtraction
+        keep requiring a real overlap because their result is ambiguous for a
+        contact-only pair (#550).
+        """
+        from copy import deepcopy
+
         from PyQt6.QtGui import QColor, QPen
         from PyQt6.QtWidgets import QMessageBox
 
+        from open_garden_planner.core.item_look import copy_visual_style
+        from open_garden_planner.core.object_types import (
+            get_valid_types_for_shape,
+            is_plant_type,
+        )
         from open_garden_planner.core.shape_boolean import (
+            all_paths_connected,
             boolean_intersect,
             boolean_subtract,
-            boolean_union,
             item_to_painter_path,
+            path_has_hole,
+            paths_overlap,
+            union_outline_many,
         )
         from open_garden_planner.ui.canvas.items import GardenItemMixin
-        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+        from open_garden_planner.ui.canvas.items.polygon_item import (
+            MAX_POLYGON_VERTICES,
+            PolygonItem,
+        )
 
-        selected = self.scene().selectedItems()
-        if len(selected) != 2:
-            self.set_status_message(
-                self.tr("Select exactly two shapes for boolean operation")
-            )
+        if operation not in ("union", "intersect", "subtract"):
             return
 
-        item_a, item_b = selected[0], selected[1]
-
-        path_a = item_to_painter_path(item_a)
-        path_b = item_to_painter_path(item_b)
-        if path_a is None or path_b is None:
+        selected = self.scene().selectedItems()
+        if len(selected) < 2 or (operation != "union" and len(selected) != 2):
             self.set_status_message(
                 self.tr(
-                    "Boolean operations require closed shapes (polygon, rectangle, or circle)"
+                    "Select at least two shapes "
+                    "(intersection and subtraction need exactly two)"
                 )
             )
             return
 
-        if not path_a.intersects(path_b):
+        # Refuse before anything is mutated. A linked subject would lose its
+        # botanical identity, a constrained one would silently break the
+        # relation, and a sprite's picture cannot survive flattening to a
+        # polygon.
+        for item in selected:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            layer = (
+                self._canvas_scene.get_layer_by_id(item.layer_id)
+                if item.layer_id
+                else None
+            )
+            constraints = (
+                self._canvas_scene.constraint_graph.get_item_constraints(item.item_id)
+                if item.item_id is not None
+                else []
+            )
+            if (
+                is_plant_type(item.object_type)
+                or item.paints_sprite
+                or item.parent_bed_id is not None
+                or item.has_children
+                or item.parentItem() is not None
+                or constraints
+                or (layer is not None and layer.locked)
+                or any(
+                    key in item.metadata
+                    for key in ("plant_species", "guild", "ridge_item_id")
+                )
+            ):
+                self.set_status_message(
+                    self.tr(
+                        "Boolean operations refuse plants, linked objects, "
+                        "constraints, and locked layers"
+                    )
+                )
+                return
+
+        # A union produces ONE item, so every subject must already agree on the
+        # layer it will live on. Picking one arbitrarily (Qt does not define
+        # selectedItems() order) would move objects across layers unannounced.
+        # After the per-item refusals, so a plant on another layer reports the
+        # more specific reason.
+        layer_ids = {
+            getattr(item, "layer_id", None)
+            for item in selected
+            if isinstance(item, GardenItemMixin)
+        }
+        if len(layer_ids) > 1:
             self.set_status_message(
-                self.tr("Shapes must overlap for boolean operations")
+                self.tr("All shapes must be on the same layer")
             )
             return
 
-        ops = {
-            "union": boolean_union,
-            "intersect": boolean_intersect,
-            "subtract": boolean_subtract,
-        }
-        result_poly = ops[operation](path_a, path_b)
+        # Whose opaque data wins when two subjects disagree is a product
+        # decision; refuse rather than silently pick one.
+        payloads = [
+            item.metadata
+            for item in selected
+            if isinstance(item, GardenItemMixin) and item.metadata
+        ]
+        if payloads and any(payload != payloads[0] for payload in payloads[1:]):
+            self.set_status_message(
+                self.tr(
+                    "The shapes contain different data; keep them separate or "
+                    "make their data consistent"
+                )
+            )
+            return
+
+        paths = [item_to_painter_path(item) for item in selected]
+        if any(path is None for path in paths):
+            self.set_status_message(
+                self.tr(
+                    "Boolean operations require closed shapes "
+                    "(polygon, rectangle, circle, or ellipse)"
+                )
+            )
+            return
+        checked_paths = [path for path in paths if path is not None]
+
+        if operation == "union":
+            if not all_paths_connected(checked_paths):
+                self.set_status_message(
+                    self.tr("Shapes must touch or overlap")
+                )
+                return
+            # ONE union pass: its contour answers the hole test and its
+            # flattened polygon is the result (#550 review).
+            union = union_outline_many(checked_paths)
+            if union is not None:
+                result_path, result_poly = union
+                if path_has_hole(result_path):
+                    self.set_status_message(
+                        self.tr(
+                            "The merged outline would contain a hole; "
+                            "keep the shapes separate"
+                        )
+                    )
+                    return
+            else:
+                result_poly = None
+        else:
+            if not paths_overlap(checked_paths[0], checked_paths[1]):
+                self.set_status_message(
+                    self.tr("Shapes must overlap for this operation")
+                )
+                return
+            if operation == "intersect":
+                result_poly = boolean_intersect(checked_paths[0], checked_paths[1])
+            else:
+                result_poly = boolean_subtract(checked_paths[0], checked_paths[1])
+
         if result_poly is None:
             self.set_status_message(
                 self.tr("Boolean {op} produced an empty result").format(op=operation)
+            )
+            return
+
+        # A flattening can multiply the vertex count of curved inputs; the plan
+        # loader refuses a polygon above MAX_POLYGON_VERTICES, so an over-cap
+        # result would be created, saved and then silently dropped on reopen.
+        # Refuse it here, where the user can still split the selection (#550).
+        if result_poly.count() > MAX_POLYGON_VERTICES:
+            self.set_status_message(
+                self.tr(
+                    "The result would have {count} vertices; the plan supports "
+                    "at most {limit}. Keep the shapes separate."
+                ).format(count=result_poly.count(), limit=MAX_POLYGON_VERTICES)
             )
             return
 
@@ -5295,17 +4590,35 @@ class CanvasView(QGraphicsView):
         if answer != QMessageBox.StandardButton.Ok:
             return
 
-        # Create result PolygonItem
+        # Carry the source's appearance through the one look-copy path and its
+        # opaque metadata through a copy, so the result survives save/reopen.
         result_item = PolygonItem.from_polygon(result_poly)
-
-        # Inherit layer from item_a
-        if isinstance(item_a, GardenItemMixin) and item_a.layer_id:
-            result_item.layer_id = item_a.layer_id
+        source = next(
+            (
+                item
+                for item in selected
+                if isinstance(item, GardenItemMixin) and item.metadata
+            ),
+            selected[0],
+        )
+        if isinstance(source, GardenItemMixin):
+            if source.object_type in get_valid_types_for_shape("polygon"):
+                result_item.object_type = source.object_type
+            result_item.name = source.name
+            result_item.layer_id = source.layer_id
+            result_item.metadata.update(deepcopy(source.metadata))
+            copy_visual_style(source, result_item)
+            result_item.update()
 
         from open_garden_planner.core import BooleanShapeCommand
 
         command = BooleanShapeCommand(
-            self.scene(), item_a, item_b, result_item, operation
+            self.scene(),
+            selected[0],
+            selected[1],
+            result_item,
+            operation,
+            additional_items=selected[2:],
         )
         self._command_manager.execute(command)
 
@@ -5313,198 +4626,22 @@ class CanvasView(QGraphicsView):
         self.set_status_message(self.tr("Applied boolean {op}").format(op=operation))
 
     def create_array_along_path(self) -> None:
-        """Create copies of an item distributed along a polyline path."""
-        from PyQt6.QtWidgets import QDialog
-
-        from open_garden_planner.core.path_sampling import sample_points_along_path
-        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
-        from open_garden_planner.ui.dialogs.array_along_path_dialog import (
-            ArrayAlongPathDialog,
-        )
-
-        selected = self.scene().selectedItems()
-        if len(selected) != 2:
-            self.set_status_message(
-                self.tr("Select one item and one polyline path for array along path")
-            )
-            return
-
-        # Identify the path and the source item
-        path_item = None
-        source_item = None
-        for item in selected:
-            if isinstance(item, PolylineItem):
-                path_item = item
-            else:
-                source_item = item
-
-        if path_item is None or source_item is None:
-            self.set_status_message(
-                self.tr("Select one item and one polyline path for array along path")
-            )
-            return
-
-        # Get the path in scene coordinates
-        from PyQt6.QtGui import QPainterPath
-
-        local_path = path_item.path()
-        # Map path to scene coordinates by sampling and rebuilding
-        scene_path = QPainterPath()
-        n_segments = 200
-        for i in range(n_segments + 1):
-            t = i / n_segments
-            local_pt = local_path.pointAtPercent(t)
-            scene_pt = path_item.mapToScene(local_pt)
-            if i == 0:
-                scene_path.moveTo(scene_pt)
-            else:
-                scene_path.lineTo(scene_pt)
-
-        dlg = ArrayAlongPathDialog(self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        # Determine count
-        total_length = scene_path.length()
-        start_pct = dlg.start_offset_pct / 100.0
-        end_pct = 1.0 - dlg.end_offset_pct / 100.0
-        usable_length = total_length * (end_pct - start_pct)
-
-        if dlg.use_spacing_mode:
-            count = max(2, int(usable_length / dlg.spacing_cm) + 1)
-        else:
-            count = dlg.count
-
-        points = sample_points_along_path(
-            scene_path, count, start_pct, end_pct, dlg.follow_tangent
-        )
-
-        obj_data = self._serialize_item(source_item)
-        if not obj_data:
-            return
-
-        # Determine the center of the source item
-        if "center_x" in obj_data:
-            src_cx = obj_data["center_x"]
-            src_cy = obj_data["center_y"]
-        elif "points" in obj_data:
-            xs = [p["x"] for p in obj_data["points"]]
-            ys = [p["y"] for p in obj_data["points"]]
-            src_cx = (min(xs) + max(xs)) / 2.0
-            src_cy = (min(ys) + max(ys)) / 2.0
-        else:
-            src_cx = obj_data["x"] + obj_data.get("width", 0.0) / 2.0
-            src_cy = obj_data["y"] + obj_data.get("height", 0.0) / 2.0
-
-        new_items = []
-        for pt, angle in points:
-            offset_x = pt.x() - src_cx
-            offset_y = pt.y() - src_cy
-
-            obj_copy = obj_data.copy()
-
-            if "points" in obj_copy:
-                pts = [
-                    {"x": p["x"] + offset_x, "y": p["y"] + offset_y}
-                    for p in obj_data["points"]
-                ]
-                obj_copy["points"] = pts
-            elif "center_x" in obj_copy:
-                obj_copy["center_x"] = pt.x()
-                obj_copy["center_y"] = pt.y()
-            else:
-                item_w = obj_data.get("width", 0.0)
-                item_h = obj_data.get("height", 0.0)
-                obj_copy["x"] = pt.x() - item_w / 2.0
-                obj_copy["y"] = pt.y() - item_h / 2.0
-
-            item = self._deserialize_item(_strip_item_ids(self._remap_guild_copy([obj_copy])[0]))
-            if item:
-                if dlg.follow_tangent:
-                    # Rotate around the item's visual center, not its local origin,
-                    # so the item stays centred on the path point after rotation.
-                    item.setTransformOriginPoint(item.boundingRect().center())
-                    item.setRotation(-angle)
-                new_items.append(item)
-
-        if not new_items:
-            return
-
-        from open_garden_planner.core import ArrayAlongPathCommand
-
-        command = ArrayAlongPathCommand(self.scene(), new_items)
-        self._command_manager.execute(command)
-
-        # Select original + all copies
-        self.scene().clearSelection()
-        source_item.setSelected(True)
-        for item in new_items:
-            item.setSelected(True)
-
-        self.set_status_message(
-            self.tr("Created array of {count} items along path").format(
-                count=len(new_items) + 1
-            )
-        )
+        return self._clipboard_operations.create_array_along_path()
 
     def _serialize_item(self, item: QGraphicsItem) -> dict | None:
-        """Serialize a single graphics item.
-
-        Delegates to ProjectManager._serialize_item (AUD-002, TD-018).
-        """
-        from open_garden_planner.core.project import ProjectManager
-
-        return ProjectManager._serialize_item(item)
+        return self._clipboard_operations._serialize_item(item)
 
     def _restore_layer_id(self, item: QGraphicsItem, obj: dict) -> None:
-        """Apply a clipboard dict's ``layer_id`` (if any) onto *item*.
-
-        The clipboard's ``layer_id`` can outlive its source: paste after a
-        File -> New Plan (fresh layer UUIDs), or paste into a different
-        scene, means the copied id no longer resolves. Applying it blindly
-        would give the pasted item a dangling ``layer_id`` -- invisible to
-        the layer's visibility/lock, filtered out of stacking/arrange, and
-        written to disk as an orphan reference. Only apply it when it still
-        resolves in the *target* scene; otherwise fall back to the active
-        layer (if any), else leave the item layer-less.
-        """
-        from uuid import UUID
-
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        if not isinstance(item, GardenItemMixin):
-            return
-        scene = self.scene()
-        layer_id_str = obj.get("layer_id")
-        resolved: UUID | None = None
-        if layer_id_str:
-            with contextlib.suppress(ValueError, TypeError):
-                candidate = UUID(layer_id_str)
-                if scene is not None and scene.get_layer_by_id(candidate) is not None:
-                    resolved = candidate
-        if resolved is None and scene is not None and scene.active_layer is not None:
-            resolved = scene.active_layer.id
-        item.layer_id = resolved
+        return self._clipboard_operations._restore_layer_id(item, obj)
 
     def _serialize_item_core(self, item: QGraphicsItem) -> dict | None:
-        """Core serialization delegating to ProjectManager._serialize_item_core."""
-        from open_garden_planner.core.project import ProjectManager
-
-        return ProjectManager._serialize_item_core(item)
+        return self._clipboard_operations._serialize_item_core(item)
 
     def _remap_guild_copy(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        from open_garden_planner.ui.guild_copy import copy_guild_records
-
-        return copy_guild_records(self.scene(), records)
+        return self._clipboard_operations._remap_guild_copy(records)
 
     def _deserialize_item(self, obj: dict) -> QGraphicsItem | None:
-        """Deserialize a single object to a graphics item.
-
-        Delegates to ProjectManager._deserialize_item (AUD-002, TD-018).
-        """
-        from open_garden_planner.core.project import ProjectManager
-
-        return ProjectManager._deserialize_item(obj)
+        return self._clipboard_operations._deserialize_item(obj)
 
     def show_calibration_input(self, scene_pos: QPointF) -> None:
         """Show calibration input widget near the given scene position.

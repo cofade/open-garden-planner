@@ -1,19 +1,22 @@
 """End-to-end tests for Fillet & Chamfer tools (Phase 13 Package B — US-B3).
 
-The two tools share picking + corner-rebuild plumbing but produce different
-results: fillet emits an extra ``ArcItem``; chamfer only mutates the host
-shape. Each test exercises one tool on one host kind so the cases are easy
-to read.
+The two tools share picking + corner-rebuild plumbing.  Fillet samples its
+tangent arc into the host item's own vertex list (one object, so the rounded
+corner moves/saves with the host); chamfer replaces the corner with one straight
+segment.  Neither creates a second scene item.
 """
 
 from __future__ import annotations
 
+import math
 from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
 
+from open_garden_planner.core.cad_geometry import FILLET_ARC_TOLERANCE_CM
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -63,10 +66,10 @@ def _activate_chamfer(canvas: CanvasView, distance_cm: float) -> object:
 
 
 class TestFilletWorkflow:
-    def test_fillet_polyline_replaces_corner_and_adds_arc(
+    def test_fillet_polyline_bakes_the_arc_into_the_host(
         self, canvas: CanvasView
     ) -> None:
-        """3-vertex polyline (right angle) → 4-vertex polyline + 1 arc."""
+        """3-vertex polyline → one polyline whose corner is rounded in place."""
         pl = PolylineItem(
             points=[QPointF(100, 0), QPointF(0, 0), QPointF(0, 100)],
         )
@@ -78,10 +81,18 @@ class TestFilletWorkflow:
         polylines = [i for i in canvas.scene().items() if isinstance(i, PolylineItem)]
         arcs = [i for i in canvas.scene().items() if isinstance(i, ArcItem)]
         assert len(polylines) == 1
-        assert len(arcs) == 1
-        # Original 3-vertex polyline is gone; the new one has 4 vertices
-        # (corner split into tangent_in/tangent_out).
-        assert len(polylines[0].points) == 4
+        assert len(arcs) == 0, "the arc must be part of the host, not a second item"
+        # The corner is replaced by its two tangent points plus the sampled arc.
+        assert len(polylines[0].points) > 4
+
+        # The whole rounded corner travels with the host when it moves: there
+        # is only one object to move (owner manual test 2026-10-31).
+        tangent = polylines[0].mapToScene(polylines[0].points[1])
+        polylines[0].moveBy(120.0, 80.0)
+        moved = polylines[0].mapToScene(polylines[0].points[1])
+        assert moved.x() == pytest.approx(tangent.x() + 120.0)
+        assert moved.y() == pytest.approx(tangent.y() + 80.0)
+        assert len([i for i in canvas.scene().items() if isinstance(i, ArcItem)]) == 0
 
     def test_fillet_polyline_undo_restores_original(
         self, canvas: CanvasView
@@ -116,12 +127,12 @@ class TestFilletWorkflow:
 
         polylines = [i for i in canvas.scene().items() if isinstance(i, PolylineItem)]
         arcs = [i for i in canvas.scene().items() if isinstance(i, ArcItem)]
-        # Nothing changes — the polyline stays 3-vertex and no arc spawns.
+        # Nothing changes — the polyline stays 3-vertex and no arc is created.
         assert len(polylines) == 1
         assert len(polylines[0].points) == 3
         assert len(arcs) == 0
 
-    def test_fillet_rectangle_converts_to_polygon_with_arc(
+    def test_fillet_rectangle_converts_to_polygon(
         self, canvas: CanvasView
     ) -> None:
         """Rectangles can't store per-corner geometry — fillet converts them."""
@@ -135,12 +146,14 @@ class TestFilletWorkflow:
         rects = [i for i in canvas.scene().items() if isinstance(i, RectangleItem)]
         polygons = [i for i in canvas.scene().items() if isinstance(i, PolygonItem)]
         arcs = [i for i in canvas.scene().items() if isinstance(i, ArcItem)]
-        # Rectangle replaced by a 5-vertex polygon + the fillet arc.
+        # Rectangle replaced by a polygon whose corner is rounded in place.
         assert len(rects) == 0
         assert len(polygons) == 1
-        assert len(arcs) == 1
+        assert len(arcs) == 0
+        assert polygons[0].polygon().count() > 5
+        assert polygons[0].object_type == ObjectType.GENERIC_POLYGON
 
-        # Undo restores the rectangle and clears the polygon + arc.
+        # Undo restores the rectangle and clears the polygon.
         canvas.command_manager.undo()
         rects_after = [
             i for i in canvas.scene().items() if isinstance(i, RectangleItem)
@@ -148,17 +161,44 @@ class TestFilletWorkflow:
         polygons_after = [
             i for i in canvas.scene().items() if isinstance(i, PolygonItem)
         ]
-        arcs_after = [
-            i for i in canvas.scene().items() if isinstance(i, ArcItem)
-        ]
         assert len(rects_after) == 1
         assert len(polygons_after) == 0
-        assert len(arcs_after) == 0
+
+    def test_a_rounded_bed_round_trips(self, canvas: CanvasView, tmp_path) -> None:
+        """The baked corner is part of the polygon, so a save keeps it."""
+        from open_garden_planner.core.project import ProjectManager
+
+        rect = RectangleItem(0, 0, 200, 100, object_type=ObjectType.RAISED_BED)
+        canvas.scene().addItem(rect)
+
+        tool = _activate_fillet(canvas, radius_cm=20.0)
+        tool.mouse_press(_left_click_event(), QPointF(0, 0))
+
+        rounded = next(
+            i for i in canvas.scene().items() if isinstance(i, PolygonItem)
+        )
+        before = [(p.x(), p.y()) for p in rounded.polygon()]
+        path = tmp_path / "rounded.ogp"
+        ProjectManager().save(canvas.scene(), path)
+
+        loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+        ProjectManager().load(loaded_scene, path)
+        loaded = loaded_scene.find_item_by_id(rounded.item_id)
+        assert loaded is not None
+        assert loaded.object_type == ObjectType.GARDEN_BED
+        after = [(p.x(), p.y()) for p in loaded.polygon()]
+        assert len(after) == len(before)
+        for (bx, by), (ax, ay) in zip(before, after, strict=True):
+            assert ax == pytest.approx(bx, abs=1e-6)
+            assert ay == pytest.approx(by, abs=1e-6)
+        assert not [
+            i for i in loaded_scene.items() if isinstance(i, ArcItem)
+        ], "no free-standing arc may be saved or loaded"
 
     def test_fillet_arc_is_tangent_to_both_edges(
         self, canvas: CanvasView
     ) -> None:
-        """The generated arc's tangent endpoints sit exactly on the original edges."""
+        """Every baked vertex sits on the tangent arc, within the stated tolerance."""
         pl = PolylineItem(
             points=[QPointF(100, 0), QPointF(0, 0), QPointF(0, 100)],
         )
@@ -167,39 +207,50 @@ class TestFilletWorkflow:
         tool = _activate_fillet(canvas, radius_cm=20.0)
         tool.mouse_press(_left_click_event(), QPointF(0, 0))
 
-        arcs = [i for i in canvas.scene().items() if isinstance(i, ArcItem)]
-        arc = arcs[0]
-        # Right-angle corner with r=20 → tangent points at (20,0) and (0,20).
-        sp = arc.start_point()
-        ep = arc.end_point()
-        # Either order is fine (depending on winding) — verify the set.
-        coord_set = {(round(sp.x(), 4), round(sp.y(), 4)),
-                     (round(ep.x(), 4), round(ep.y(), 4))}
-        assert (20.0, 0.0) in coord_set
-        assert (0.0, 20.0) in coord_set
+        polyline = next(
+            i for i in canvas.scene().items() if isinstance(i, PolylineItem)
+        )
+        # Right-angle corner with r=20 → tangent points at (20,0) and (0,20),
+        # arc centre (20,20).
+        first = polyline.points[1]
+        last = polyline.points[-2]
+        assert (round(first.x(), 4), round(first.y(), 4)) == (20.0, 0.0)
+        assert (round(last.x(), 4), round(last.y(), 4)) == (0.0, 20.0)
 
-    def test_fillet_arc_inherits_host_pen(self, canvas: CanvasView) -> None:
-        """Manual-test feedback: a fillet arc rendered in default gray over a
-        coloured polyline reads as 'chamfer cut + faint gray arc' rather than
-        a true rounded corner. The arc must adopt the host's pen colour
-        and width."""
+        centre = QPointF(20.0, 20.0)
+        arc_points = [first, *polyline.points[2:-2], last]
+        for point in arc_points:
+            assert math.hypot(
+                point.x() - centre.x(), point.y() - centre.y()
+            ) == pytest.approx(20.0, abs=1e-6)
+
+        # The sampled polyline's greatest chord deviation honours the contract.
+        for start, end in zip(arc_points, arc_points[1:], strict=False):
+            chord = math.hypot(end.x() - start.x(), end.y() - start.y())
+            sagitta = 20.0 - math.sqrt(max(0.0, 20.0**2 - (chord / 2.0) ** 2))
+            assert sagitta <= FILLET_ARC_TOLERANCE_CM + 1e-9
+
+    def test_fillet_host_keeps_its_pen(self, canvas: CanvasView) -> None:
+        """The rounded corner is the host's own outline; its pen is unchanged."""
         from PyQt6.QtGui import QColor, QPen
+
+        from open_garden_planner.core.item_look import adopt_pen
 
         pl = PolylineItem(
             points=[QPointF(100, 0), QPointF(0, 0), QPointF(0, 100)],
         )
         host_pen = QPen(QColor(20, 140, 40), 3.5)
-        pl.setPen(host_pen)
+        adopt_pen(pl, host_pen)
         canvas.scene().addItem(pl)
 
         tool = _activate_fillet(canvas, radius_cm=20.0)
         tool.mouse_press(_left_click_event(), QPointF(0, 0))
 
-        arc = next(
-            i for i in canvas.scene().items() if isinstance(i, ArcItem)
+        rounded = next(
+            i for i in canvas.scene().items() if isinstance(i, PolylineItem)
         )
-        assert arc.stroke_color.rgba() == host_pen.color().rgba()
-        assert arc.stroke_width == pytest.approx(host_pen.widthF())
+        assert rounded.pen().color().rgba() == host_pen.color().rgba()
+        assert rounded.pen().widthF() == pytest.approx(host_pen.widthF())
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -304,10 +355,14 @@ class TestCornerPicking:
         polylines = [i for i in canvas.scene().items() if isinstance(i, PolylineItem)]
         assert len(polylines[0].points) == 3
 
-        # Now click on the internal corner (100, 0) — should fillet.
+        # Now click on the internal corner (100, 0) — should fillet in place.
         tool.mouse_press(_left_click_event(), QPointF(100, 0))
-        arcs = [i for i in canvas.scene().items() if isinstance(i, ArcItem)]
-        assert len(arcs) == 1
+        rounded = [i for i in canvas.scene().items() if isinstance(i, PolylineItem)]
+        assert len(rounded) == 1
+        assert len(rounded[0].points) > 3
+        assert not [
+            i for i in canvas.scene().items() if isinstance(i, ArcItem)
+        ], "no free-standing arc may be left behind"
 
 
 if __name__ == "__main__":

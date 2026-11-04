@@ -72,7 +72,7 @@ def test_render_is_deterministic_preserves_other_files_and_tracks_source(source_
     assert "v99.123" in rendered
     assert "ogp:include" not in rendered
     assert "## Phase 17: Living Garden 3D" in rendered
-    assert "shipped 3D view still uses **Qt 3D**" in rendered
+    assert "the 3D view is the Qt Quick 3D workspace in the main window" in rendered
     assert "L0 is complete with a GO" in rendered
     assert "\u2705" in rendered
     assert b"\r\n" not in (output / "Roadmap.md").read_bytes()

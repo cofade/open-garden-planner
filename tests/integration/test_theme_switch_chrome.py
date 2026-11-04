@@ -6,7 +6,7 @@ notification banners, urgency colors — and that widget-level QSS no longer
 carries baked colors (the global stylesheet + dynamic properties style them).
 """
 
-# ruff: noqa: ARG001, ARG002, ARG005
+# ruff: noqa: ARG005
 
 import pytest
 from PyQt6.QtGui import QColor, QImage

@@ -68,7 +68,7 @@ All rows **production** unless noted.
 |---|---|---|---|---|
 | `appearance/theme_mode` | `theme_mode` | `ThemeMode` (`light`/`dark`/`system`; invalid → SYSTEM) | `"system"` | `ui/theme.py` + every color consumer — **see trap below** |
 | `appearance/language` | `language` | str | `"en"` | `core/i18n.py` |
-| `appearance/show_shadows` | `show_shadows` | bool | `True` | canvas / View menu |
+| `appearance/show_shadows` | `show_shadows` | bool | `True` | obsolete compatibility accessor; ignored by application, shadows always on (ADR-062) |
 | `appearance/show_scale_bar` | `show_scale_bar` | bool | `True` | canvas / View menu |
 | `appearance/show_labels` | `show_labels` | bool | `True` | canvas / View menu |
 | `appearance/show_constraints` | `show_constraints` | bool | `True` | canvas / View menu |
@@ -93,6 +93,7 @@ All rows **production** unless noted.
 | `canvas/perpendicular_snap_enabled` | `perpendicular_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B5) |
 | `canvas/tangent_snap_enabled` | `tangent_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B6) |
 | `canvas/dynamic_input_enabled` | `dynamic_input_enabled` | `True` | production (US-A4 cursor overlay + typed coordinates) |
+| `canvas/touch_gestures_enabled` | `touch_gestures_enabled` | `True` | production (#321 pinch zoom + two-finger pan; Preferences → Canvas; off leaves touch to Qt's synthesised mouse path) |
 
 All read by `ui/canvas/canvas_view.py` / the snap pipeline; toggled from the
 View menu. If a snap "doesn't work", check nearest/perpendicular/tangent first —
@@ -126,6 +127,18 @@ Startup path (verified in `application.py`): `_setup_agent_api()` →
 server when either value changes (compares before/after tuple around the
 dialog, ~line 3758).
 
+### 3D view (Phase 17 L1.4, ADR-059 addendum "looks, sky and the animation policy")
+
+| Key | Property | Default | Note |
+|---|---|---|---|
+| `view3d/quality` | `view3d_quality` | `"auto"` | One of `auto` / `low` / `medium` / `high` / `ultra` (`AppSettings.VIEW3D_QUALITY_CHOICES`, pinned against `core/scene3d/look.py` `QUALITY_CHOICES`); anything else reads as `auto`, so a hand-edited store never reaches the renderer with a name nobody knows. A preset changes what a frame costs, never the mood, the light's direction or the camera. |
+| `view3d/reduced_motion` | `view3d_reduced_motion` | `False` | True stops the wind for good: the shaders' clock rests at 0, so every vertex is where its mesh puts it. The wind also stops while the operating system asks for reduced motion (Qt 6.12 `QAccessibilityHints.motionPreference`; Windows: Settings → Accessibility → Visual effects → "Animation effects" off), followed live and not stored: the setting does not show it (FR-3D-LOOK-04, L7). A drift guard in `tests/unit/test_view3d_look_settings.py` pins that this is the one motion preference Qt exposes. |
+| `view3d/sky_model` | `view3d_sky_model` | `"painted"` | `painted` (Qt's procedural sky, every gate's reference) or `atmosphere` (Qt 6.12 `SkyMaterial`: physical atmosphere and volumetric clouds, L7 #391, FR-3D-LOOK-08); anything else reads as `painted` (`VIEW3D_SKY_MODELS`, pinned against `core/scene3d/look.py` `SKY_MODELS`). On a software adapter the painted sky shows whatever is stored. |
+| `view3d/auto_quality_level` | `view3d_auto_level` | `"medium"` | Not in the dialog: where `auto` settled last (`low` / `medium` / `high`, `VIEW3D_AUTO_LEVELS`), written by the look controller on every step of the automatic preset, read when the next 3D view is built. |
+| `view3d/auto_quality_bars` | `view3d_auto_bars` | `{}` (empty JSON) | Not in the dialog: the levels `auto` had to leave for being too slow, `{level: [until, next_retry_s]}` — `until` in seconds since the epoch, `next_retry_s` how long the next bar on that level lasts (300 s doubling to 3,600). Written with the level on every step, seeded into `AutoPreset` at the first poll of the next session, so a level that proved too slow is not retried in every session (L1.4 fix round 1). Anything that is not a level with two finite numbers is dropped on read. |
+
+Offered in Preferences → 3D View (every main window has the 3D workspace since L1.9). In the workspace's compatibility mode (software rendering) `auto` reads as `low` and nothing animates, whatever `view3d/reduced_motion` says; reduced motion also freezes `auto` (no animation, no presented frames to measure). On "Save" `application.py` `_on_preferences` calls `Workspace.apply_look_settings()` → `LookController.reload_settings()`: a quality change is ONE `set_look` call (no camera, no geometry, no sky), reduced motion one wind call. Reading a setting does not import the 3D core (`settings.py` writes the three tuples out — qualities, automatic levels, sky models; unit tests pin them). A sky-model change rebuilds the sky at once (`LookController.set_sky_model`).
+
 ### Plant-DB API keys (stored in QSettings, NOT .env)
 
 | Key | Property | Default |
@@ -153,7 +166,7 @@ colliding with §1. All production.
 | Key | Saved / restored |
 |---|---|
 | `UiState/geometry` | `QMainWindow.saveGeometry()` |
-| `UiState/window_state` | `QMainWindow.saveState()` (docks/toolbars) |
+| `UiState/window_state` | Saved layout blob retained for compatibility; GardenPlannerApp restores bounds/splitters without replaying toolbar topology (ADR-062 / PR #556). Generic UiStateStore callers still restore it by default. |
 | `UiState/splitter_<name>` | per-named `QSplitter.saveState()` |
 
 **Deliberately NOT persisted (ADR-030 / issue #226):** per-panel
@@ -169,8 +182,11 @@ persistence without revisiting ADR-030.
 | Variable | Status | Purpose | What breaks without it |
 |---|---|---|---|
 | `OGP_GOOGLE_MAPS_KEY` | production, **user-supplied, never bundled** | Google Maps satellite background picker fallback (ADR-019, docs/08 §8.15) | Preferences (`api_keys/google_maps_key`) takes precedence; this environment/`.env` value is the fallback. The "load satellite background" menu action is disabled with a tooltip when neither source is set; `GoogleMapsKeyMissingError` if reached anyway. Bundling either source in the installer would let it be reverse-engineered and abused (`services/google_maps_service.py` docstring). |
+| `QT_IMAGEIO_MAXALLOC` | production (**environment override, not ours**) | Qt's own cap on a decoded image, in MB, read once on first use and immutable afterwards. `QImageReader.allocationLimit()` prefers it over `setAllocationLimit()`, so it silently defeats the raised budget of #659: with `QT_IMAGEIO_MAXALLOC=4`, a 2000 x 2000 PNG stays `null` even after `setAllocationLimit(512)`. | Any user who sets it keeps their own (smaller) limit and sees the original "background image is missing" placeholder again; the refusal is logged by `BackgroundImageItem.from_dict` (PF-PER-03). Do not "fix" this in code — it is the user's explicit override. |
 | `QT_QPA_PLATFORM=offscreen` | production (test infra) | Headless Qt rendering | Set by `tests/conftest.py` via `os.environ.setdefault(...)` (line 11) AND by `ci.yml`'s test job env. Without it, tests need a display server. |
 | `PYTHONUTF8=1` | production (script infra) | Forces UTF-8 I/O for `scripts/fill_translations.py` / `compile_translations.py` (German umlauts) | Mojibake / encode errors on Windows. Per AGENTS.md, always run translation scripts with it. |
+| ~~`OGP_QUICK3D=1`~~ | **gone** (Phase 17 L1.3 – L1.9) | Was the internal switch of the Plan / 3D / Split workspace. L1.9 made the workspace the default and deleted the switch with `quick3d_workspace_enabled()`; nothing reads the variable any more (`tests/integration/test_view3d_workspace.py::test_the_workspace_is_always_there_and_no_switch_is_read`). No escape hatch replaces it: the safety net for a graphics device that fails is the start marker and compatibility mode (`ui/view3d/init_guard.py`, ADR-060 addendum "the default and the removal"). | Nothing. |
+| `OGP_RENDER3D=1`, `OGP_WORKSPACE_GATE`, `OGP_WORKSPACE_GATE_EXE` | test infra | The opt-in render tier (real windows on a real device); the scenario file of the workspace gate, read by `tests/integration/workspace_gate_hook.py` only; the frozen gate build's exe for `tests/integration/test_view3d_workspace_render.py -k frozen` (docs/08 §8.10.9). | The render tier skips; the gate's hook still moves the settings store and runs no scenario; the frozen tests skip. |
 
 **.env loading (verified in `main.py` lines 14–27):** `python-dotenv`'s
 `load_dotenv()` on the first existing candidate of, in order:
@@ -229,10 +245,11 @@ visibility calls.
 
 | Toggle | Where | Status |
 |---|---|---|
-| **Smart Symbols sidebar panel hidden** | `application.py:5299` `set_panel_visible("smart_symbols", False)` | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
+| **Smart Symbols sidebar panel hidden** | `fact:smart-symbol-panel-hidden` (exact source in `quality/skill-facts.json`) | **experimental / deferred UI** (US-C4). Engine, persistence, DXF export, and properties editing all ship and are tested; symbols in existing `.ogp` files still regenerate. Re-enable by deleting that one line (the comment says exactly this). |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
-| Satellite menu action disabled | `application.py:7941` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
+| Satellite menu action disabled | `application.py:5311` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
+| **3D view in compatibility mode (software rendering), or switched off** | `ui/view3d/init_guard.py`: the last start of 3D died before its first frame (a start marker was left), or the user chose "Use Compatibility Mode Next Time"; a start that died in compatibility mode too switches 3D off | production safety net (ADR-060; the default since L1.9 — there is no switch): the 3D pane says so and offers "Try Hardware Next Time" (FR-3D-WS-07). The flag file `view3d-compat.flag` and the markers `view3d-init-<pid>.marker` sit next to `app.log` |
 
 If "a feature seems disabled", check this table before debugging.
 
@@ -248,14 +265,14 @@ If "a feature seems disabled", check this table before debugging.
 | `[tool.ruff.lint]` | select `E, W, F, I, B, C4, UP, ARG, SIM`; ignore `E501`, `B008` |
 | per-file ignores | `tests/**/*.py` → `ARG001, ARG002` (unused-but-required `qtbot` fixtures) |
 | `[tool.mypy]` | `strict = true` (+ the usual disallow/warn set), `follow_imports = "silent"`, `ignore_missing_imports = true`; `tests.*` override relaxes `disallow_untyped_defs` |
-| `[tool.pytest.ini_options]` | `testpaths = ["tests"]`, `addopts = "-v --tb=short"`, `qt_api = "pyqt6"` |
+| `[tool.pytest.ini_options]` | `testpaths = ["tests"]`, `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"` |
 | `[tool.coverage]` | `source = src/open_garden_planner`, `branch = true`, standard exclude lines |
 
 ### Dependency pins worth knowing (pyproject `dependencies`)
 
 | Pin | Rationale (from the in-file comment, verified) |
 |---|---|
-| `PyQt6-WebEngine>=6.10.0,<6.11` | upper-bound pin (needed by the map picker's `QWebEngineView`; must be imported before `QApplication` — `main.py`) |
+| `PyQt6-WebEngine>=6.140.0,<6.141` | moves WITH the Qt pair — 6.140 is the Chromium-numbered release for Qt 6.12; an older WebEngine fails to load beside a newer core (PF-CI-17). Needed by the map picker's `QWebEngineView`; must be imported before `QApplication` — `main.py` |
 | `mcp>=1.23,<2.0` | "Pinned to mcp v1 — v2 renames `FastMCP` -> `MCPServer`." uvicorn/starlette/pydantic/anyio/sse-starlette come transitively but are listed where used. |
 | `uvicorn>=0.30`, `starlette>=0.37`, `pydantic>=2.11` | Agent API server stack |
 
@@ -299,7 +316,7 @@ ubuntu-latest: **lint** (`ruff check src/`), **test** (apt Qt libs, then
   `!startsWith(message, 'chore:') && !startsWith(message, 'chore(')` — the
   scoped form was added after `chore(finalize-us):` slipped through and
   wrongly cut a release.
-- Version bump from the **labels of the most recently merged master PR**:
+- Version bump from the **labels of the triggering commit's PR** (issue #543):
   label `major` → X+1.0.0, `minor` → Y+1, else **patch** (default). Skips
   cleanly if the computed tag already exists.
 - Builds on windows-latest via `installer/build_installer.py`, NSIS installer +

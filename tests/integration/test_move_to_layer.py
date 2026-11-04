@@ -7,7 +7,6 @@ Verifies that:
   - The 'Move to Layer' submenu is suppressed when only one layer exists.
 """
 
-# ruff: noqa: ARG002
 
 import uuid
 from unittest.mock import MagicMock

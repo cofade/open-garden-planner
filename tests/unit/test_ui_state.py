@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import QMainWindow, QSplitter
+from PyQt6.QtWidgets import QMainWindow, QSplitter, QToolBar
 
 from open_garden_planner.app.ui_state import UiStateStore
 
@@ -73,6 +73,31 @@ class TestUiStateStoreGeometry:
         qtbot.addWidget(dst)
         # A fresh store reads from the backing INI, not an in-memory cache.
         assert UiStateStore().restore_geometry(dst) is True
+
+    @pytest.mark.parametrize("restore_window_state", [True, False])
+    def test_fixed_layout_can_restore_bounds_without_replaying_toolbar_state(
+        self, isolated_settings, qtbot, restore_window_state,
+    ) -> None:
+        src = QMainWindow()
+        qtbot.addWidget(src)
+        src.resize(800, 600)
+        source_bar = QToolBar(src)
+        source_bar.setObjectName("FixedToolbar")
+        src.addToolBar(source_bar)
+        source_bar.hide()
+        store = UiStateStore()
+        store.save_geometry(src)
+        saved_state = store._settings.value("UiState/window_state")
+
+        dst = QMainWindow()
+        qtbot.addWidget(dst)
+        target_bar = QToolBar(dst)
+        target_bar.setObjectName("FixedToolbar")
+        dst.addToolBar(target_bar)
+        target_bar.show()
+        assert store.restore_geometry(dst, restore_window_state=restore_window_state)
+        assert target_bar.isHidden() is restore_window_state
+        assert store._settings.value("UiState/window_state") == saved_state
 
 
 class TestUiStateStoreSplitter:

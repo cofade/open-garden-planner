@@ -51,6 +51,14 @@ class BedMenuActions:
     plan_succession: QAction | None = None
 
 
+class LockBadgeItem(QGraphicsSimpleTextItem):
+    """Padlock badge shown on an item carrying a FIXED constraint (#552).
+
+    A dedicated type so overlay-hiding code (export) can recognise it and keep
+    the glyph out of PNG / SVG / PDF output.
+    """
+
+
 class SuccessionBadgeItem(QGraphicsItem):
     """Multi-line succession-plan badge that renders upright on the Y-flipped canvas.
 
@@ -179,14 +187,15 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
     those stay full detail, while the cached canvas degrades.
 
     The predicate classifies *which paint is this*; it never decides how much
-    detail to draw. It serves one caller, the #472 polygon paint bound. There is
-    no general level-of-detail pass any more: the #409 low-zoom flat fill was
-    removed in #503, measured to buy nothing.
+    detail to draw. It serves the #472 polygon paint bound and the #450
+    styled-path viewport clip. There is no general level-of-detail pass any
+    more: the #409 low-zoom flat fill was removed in #503, measured to buy
+    nothing.
 
     The ``widget is not None`` half stays as robustness for a cache-disabled item
     painted by a real widget; ``TestIsInteractivePaint`` pins both halves. The
     full reachability history — this idiom shipped wrong twice — is in
-    ``docs/11-risks-and-technical-debt/`` §11.4.11, not here.
+    ``docs/11-risks-and-technical-debt/`` PF-CAN-20, not here.
     """
     return widget is not None or (
         isinstance(item, QGraphicsItem)
@@ -213,7 +222,252 @@ def handle_selection_change_for_cache(
             enable_device_coordinate_cache(item)
 
 
-class GardenItemMixin:
+# ── The plan revision (ADR-060 decision 5; ``CanvasScene.note_plan_changed``) ──
+
+_CHANGE = QGraphicsItem.GraphicsItemChange
+#: What Qt tells an item AFTER the fact, and what makes it a different plan: where it
+#: is, how it is turned and scaled, whether it is shown, how it is stacked, whose child
+#: it is. (Position and transform notices need ``ItemSendsGeometryChanges``, which
+#: every garden item sets.) A selection, a hover, a flag, an opacity are not here: they
+#: repaint the canvas and leave the plan as it was.
+PLAN_CHANGES: frozenset[QGraphicsItem.GraphicsItemChange] = frozenset({
+    _CHANGE.ItemPositionHasChanged,
+    _CHANGE.ItemTransformHasChanged,
+    _CHANGE.ItemRotationHasChanged,
+    _CHANGE.ItemScaleHasChanged,
+    _CHANGE.ItemTransformOriginPointHasChanged,
+    _CHANGE.ItemVisibleHasChanged,
+    _CHANGE.ItemZValueHasChanged,
+    _CHANGE.ItemParentHasChanged,
+})
+#: Where an item keeps, between Qt's two visibility notices, whether it WAS visible.
+_VISIBLE_BEFORE = "_plan_visible_before_change"
+
+
+def note_plan_changed(scene: Any) -> None:
+    """Tell ``scene`` that its plan changed — if it is a scene that keeps a plan
+    revision (a plain ``QGraphicsScene``, or none at all, is told nothing)."""
+    note = getattr(scene, "note_plan_changed", None)
+    if note is not None:
+        note()
+
+
+def announce_plan_change(
+    item: QGraphicsItem, change: QGraphicsItem.GraphicsItemChange, value: Any
+) -> None:
+    """Move the scene's plan revision when ``change`` changed the plan.
+
+    An item that enters or leaves a scene is announced from ``ItemSceneChange`` —
+    the one notice in which Qt still knows BOTH scenes (``item.scene()`` is the old
+    one, ``value`` the new): each is told. Qt sends no notice for an item it
+    destroys with its scene; ``CanvasScene.clear()`` announces that itself.
+
+    "Shown" needs a second look. One turn of the event loop after an item was
+    added, Qt POLISHES it and tells it ``ItemVisibleChange`` / ``ItemVisibleHasChanged``
+    (true) although it was visible all along (``QGraphicsScene``'s ``_q_polishItems``)
+    — measured: every added item cost a second whole-plan pass, a turn late. Only the
+    pre-change notice can still say what the item WAS, so it is remembered there and
+    a "change" to what it was already is not announced.
+    """
+    if change == _CHANGE.ItemVisibleChange:
+        vars(item)[_VISIBLE_BEFORE] = item.isVisible()
+        return
+    if change == _CHANGE.ItemVisibleHasChanged:
+        before = vars(item).pop(_VISIBLE_BEFORE, None)
+        if before is bool(value):
+            return  # Qt's polish: shown, and it was
+        if getattr(item.scene(), "_applying_timeline_visibility", False):
+            return  # presence follows the clock; no plan content was edited
+    if change in PLAN_CHANGES:
+        note_plan_changed(item.scene())
+    elif change == _CHANGE.ItemSceneChange:
+        note_plan_changed(item.scene())
+        note_plan_changed(value)
+
+
+def handle_item_change(
+    item: QGraphicsItem, change: QGraphicsItem.GraphicsItemChange, value: Any
+) -> None:
+    """THE hook every garden item's ``itemChange`` calls first, with what Qt gave it.
+
+    Two things no item may forget, in one place so that a new item type cannot
+    forget one of them: the paint cache follows the selection, and the scene's plan
+    revision moves when the plan changed (pinned by a census of ``ui/canvas/items``).
+    """
+    handle_selection_change_for_cache(item, change, value)
+    announce_plan_change(item, change, value)
+
+
+class PositionLockMixin:
+    """Shared FIXED constraint actions and derived badge for every canvas item."""
+
+    # ── FIXED constraint lock (issue #552) ──────────────────────────
+
+    def is_position_locked(self) -> bool:
+        """Return True when this item carries a FIXED constraint."""
+        try:
+            from open_garden_planner.ui.canvas.items.resize_handle import (
+                _is_item_fixed,
+            )
+
+            return bool(_is_item_fixed(self))  # type: ignore[arg-type]
+        except Exception:
+            return False
+
+    def refresh_lock_badge(self) -> None:
+        """Show or hide the padlock badge for a FIXED constraint.
+
+        The badge is a child ``QGraphicsSimpleTextItem`` with
+        ``ItemIgnoresTransformations`` so it stays upright in the Y-flipped
+        canvas frame. Positioned at the item's top-left in scene coordinates.
+        """
+        try:
+            import contextlib
+
+            from PyQt6.QtWidgets import QGraphicsItem
+
+            locked = self.is_position_locked()
+            badge = getattr(self, "_lock_badge_item", None)
+            if not locked:
+                if badge is not None:
+                    with contextlib.suppress(Exception):
+                        # Remove scene ownership before detaching the child;
+                        # hiding alone retains one badge per lock cycle.
+                        with contextlib.suppress(Exception):
+                            badge.setVisible(False)
+                        scene = badge.scene()
+                        if scene is not None:
+                            scene.removeItem(badge)
+                        badge.setParentItem(None)
+                    self._lock_badge_item = None
+                    if hasattr(self, "update"):
+                        self.update()
+                return
+            if badge is None:
+                badge = LockBadgeItem("🔒", self)  # type: ignore[call-overload]
+                with contextlib.suppress(Exception):
+                    badge.setFlag(
+                        QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+                    )
+                with contextlib.suppress(Exception):
+                    badge.setZValue(60)
+                self._lock_badge_item = badge
+            with contextlib.suppress(Exception):
+                rect = self.boundingRect()  # type: ignore[attr-defined]
+                badge.setPos(rect.topLeft())
+            with contextlib.suppress(Exception):
+                badge.setVisible(True)
+                if hasattr(self, "update"):
+                    self.update()
+        except Exception:
+            pass
+
+    def build_lock_context_menu(self, menu: "QMenu") -> Any:
+        """Add Lock/Unlock position entry; returns the created action or None."""
+        try:
+            from PyQt6.QtWidgets import QGraphicsItem as _QGI
+
+            locked = self.is_position_locked()
+            label = (
+                QCoreApplication.translate("GardenItem", "Unlock position")
+                if locked
+                else QCoreApplication.translate("GardenItem", "Lock position")
+            )
+            action = menu.addAction(label)
+            try:
+                scene = self.scene() if isinstance(self, _QGI) else None
+                locked_layer = False
+                if scene is not None and hasattr(scene, "is_layer_locked"):
+                    try:
+                        layer_id = getattr(self, "layer_id", None)
+                        locked_layer = bool(scene.is_layer_locked(layer_id))
+                    except Exception:
+                        locked_layer = False
+                if action is not None:
+                    action.setEnabled(not locked_layer)
+            except Exception:
+                pass
+            return action
+        except Exception:
+            return None
+
+    def dispatch_lock_action(self, action: Any, lock_action: Any) -> bool:
+        """Execute the Lock/Unlock menu action via undoable constraint commands."""
+        if action is None or lock_action is None or action is not lock_action:
+            return False
+        try:
+            scene = getattr(self, "scene", lambda: None)()
+            if scene is None or not hasattr(scene, "constraint_graph"):
+                return False
+            views = scene.views()
+            view = views[0] if views else None
+            manager = getattr(view, "command_manager", None) if view else None
+            if manager is None:
+                manager = getattr(scene, "command_manager", None)
+            from open_garden_planner.core.commands import (
+                AddConstraintCommand,
+                RemoveConstraintCommand,
+            )
+            from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+            from open_garden_planner.core.measure_snapper import AnchorType
+
+            item_id = getattr(self, "item_id", None)
+            if item_id is None:
+                return False
+            if self.is_position_locked():
+                graph = scene.constraint_graph
+                target = None
+                for c in graph.constraints.values():
+                    if (
+                        c.constraint_type == ConstraintType.FIXED
+                        and c.anchor_a.item_id == item_id
+                    ):
+                        target = c
+                        break
+                if target is None:
+                    return True
+                cmd = RemoveConstraintCommand(graph, target)
+                manager.execute(cmd) if manager is not None else cmd.execute()
+            else:
+                try:
+                    pos = self.pos()  # type: ignore[attr-defined]
+                except Exception:
+                    pos = None
+                anchor = AnchorRef(
+                    item_id=item_id,
+                    anchor_type=AnchorType.CENTER,
+                    anchor_index=0,
+                )
+                add_cmd = AddConstraintCommand(
+                    graph=scene.constraint_graph,
+                    anchor_a=anchor,
+                    anchor_b=anchor,
+                    target_distance=0.0,
+                    constraint_type=ConstraintType.FIXED,
+                    target_x=float(pos.x()) if pos is not None else None,
+                    target_y=float(pos.y()) if pos is not None else None,
+                )
+                if view is not None and hasattr(view, "_execute_constraint_with_solve"):
+                    try:
+                        view._execute_constraint_with_solve(add_cmd)
+                    except Exception:
+                        manager.execute(add_cmd) if manager is not None else add_cmd.execute()
+                else:
+                    manager.execute(add_cmd) if manager is not None else add_cmd.execute()
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                self.refresh_lock_badge()
+            # No manual selectionChanged.emit: the lock/unlock command moves
+            # the undo stack, whose stack_changed already drives the deferred
+            # panel refresh (application.py). Hand-firing a Qt-owned signal
+            # would bypass that discipline.
+            return True
+        except Exception:
+            return False
+
+
+class GardenItemMixin(PositionLockMixin):
     """Mixin providing common functionality for garden items.
 
     Provides:
@@ -296,6 +550,7 @@ class GardenItemMixin:
         self._label_item: QGraphicsSimpleTextItem | None = None
         self._edit_label_item: QGraphicsTextItem | None = None
         self._label_edit_start_time: float = 0.0
+        self._lock_badge_item: QGraphicsSimpleTextItem | None = None
 
     # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
 
@@ -320,6 +575,15 @@ class GardenItemMixin:
         """
         if isinstance(self, QGraphicsItem):
             handle_selection_change_for_cache(self, change, value)
+
+    def handle_item_change(
+        self, change: QGraphicsItem.GraphicsItemChange, value: Any
+    ) -> None:
+        """What every garden item's ``itemChange`` does first (module function
+        ``handle_item_change``): the paint cache follows the selection, and the
+        scene's plan revision moves when the plan changed."""
+        if isinstance(self, QGraphicsItem):
+            handle_item_change(self, change, value)
 
     @property
     def item_id(self) -> uuid.UUID:
@@ -406,6 +670,17 @@ class GardenItemMixin:
     def stroke_style(self, value: StrokeStyle | None) -> None:
         """Set the stroke/outline style."""
         self._stroke_style = value
+
+    @property
+    def paints_sprite(self) -> bool:
+        """Whether the item's picture is a sprite and not its brush and pen.
+
+        False here; a furniture rectangle and a plant or furniture circle say
+        True. Such an item's pen says nothing about what is painted, so
+        ``core.item_look`` neither writes its stroke attributes from the pen
+        nor holds the two against each other.
+        """
+        return False
 
     @property
     def layer_id(self) -> uuid.UUID | None:
@@ -1478,7 +1753,14 @@ class GardenItemMixin:
         multi-selections).
         """
         from open_garden_planner.core.commands import ChangePropertyCommand
+        from open_garden_planner.core.item_look import (
+            apply_line_look,
+            capture_line_look,
+            line_look_for_type,
+        )
         from open_garden_planner.core.object_types import get_style
+
+        from .polyline_item import PolylineItem
 
         scene = self.scene()  # type: ignore[attr-defined]
         if not scene:
@@ -1500,6 +1782,16 @@ class GardenItemMixin:
                 itm.update()
 
         for item in items:
+            if isinstance(item, PolylineItem):
+                if item.object_type == new_type:
+                    continue
+                before = capture_line_look(item)
+                after = line_look_for_type(new_type)  # type: ignore[arg-type]
+                apply_line_look(item, after)
+                cmd = ChangePropertyCommand(item, "type", before, after, apply_line_look)
+                if hasattr(scene, "_command_manager") and scene._command_manager:
+                    scene._command_manager.register_applied(cmd)
+                continue
             old_state = {
                 "object_type": item.object_type,
                 "fill_color": getattr(item, "fill_color", None),

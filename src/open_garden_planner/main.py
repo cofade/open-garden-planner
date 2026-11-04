@@ -1,11 +1,30 @@
 """Main entry point for Open Garden Planner."""
 
 import logging
+import os
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from dotenv import load_dotenv
+
+WINDOWS_APP_ID = "cofade.opengardenplanner.app"
+
+# Windows-specific taskbar icon support: Tell Windows this is a distinct app
+# (not generic Python) for taskbar icon grouping. MUST be called before creating
+# any UI or importing GUI engines (like WebEngine) so the AUMID is established early.
+if sys.platform == "win32" and "--selftest-supervisor" not in sys.argv:
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
+    except (AttributeError, ImportError):
+        pass
+
+if TYPE_CHECKING:
+    from PyQt6.QtGui import QIcon
+
+    from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog
 
 # QtWebEngineWidgets (used by the satellite map picker) must be imported
 # before QApplication is created — Qt enforces this so it can configure
@@ -28,33 +47,53 @@ for _candidate in (_frozen_env, _dev_env):
         load_dotenv(_candidate)
         break
 
-# Windows-specific imports for taskbar icon support
-try:
-    import ctypes
-    # Tell Windows this is a distinct app (not Python) for taskbar icon grouping
-    myappid = 'cofade.opengarden.planner.1.0'
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-except (AttributeError, ImportError):
-    # Not on Windows or ctypes not available
-    pass
-
 
 def get_icon_path() -> Path:
     """Get the path to the application icon."""
     return Path(__file__).parent / "resources" / "icons" / "OGP_logo.png"
 
 
-def _run_selftest() -> int:
+def get_app_icon() -> "QIcon":
+    """Get the application QIcon with all available multi-resolution frames."""
+    from PyQt6.QtGui import QIcon
+
+    icon = QIcon()
+    icons_dir = Path(__file__).parent / "resources" / "icons"
+    ico_path = icons_dir / "ogp_app.ico"
+    if ico_path.exists():
+        icon.addFile(str(ico_path))
+    png_path = icons_dir / "OGP_logo.png"
+    if png_path.exists():
+        icon.addFile(str(png_path))
+    return icon
+
+
+#: A whole ``--selftest`` that has not finished after this many seconds is a hang:
+#: a watchdog ends the process with exit code 1. Measured (ADR-048 addendum L1.2):
+#: 3-7 s in the frozen exe on a GPU and on WARP.
+SELFTEST_WATCHDOG_S = 300.0
+
+#: The flag of the process that supervises a running ``--selftest`` (the same
+#: string as ``runlog.SUPERVISOR_FLAG``; pinned by a test — not imported here, so
+#: that a normal start loads nothing of the 3D package).
+_SUPERVISOR_FLAG = "--selftest-supervisor"
+
+
+def _run_selftest(log: "RenderLog | None" = None) -> int:
     """Headless self-test for lazily-imported subsystems (issue #277).
 
-    The pre-release exe smoke test only exercises startup; the 3D view's Qt3D
-    bindings are imported lazily (ADR-038), so a Qt micro-version mismatch
-    passes startup and only crashes when the user opens the 3D view. This
-    imports every Qt3D binding the view uses — the DLL load + symbol resolution
-    here is the EXACT failure surface of #277 — and checks the runtime Qt equals
-    the Qt version the Qt3D wheels were built for. No window and no GL context,
-    so it runs on a headless CI runner. Returns non-zero on any failure so a
-    broken frozen build fails the release instead of shipping.
+    The pre-release exe smoke test only exercises startup; a subsystem that is
+    imported lazily passes startup and only fails when the user reaches it. That
+    is how #277 shipped: the 3D view of the time (Qt 3D, ADR-038, removed in
+    Phase 17 L1.10) was built against another Qt micro than the bundled runtime
+    and killed the process when it was opened. The lesson stands for every
+    block below: exercise the REAL artifact's lazily-loaded parts — the Agent API
+    server binds a port, the A1 checks run, and the 3D engine (Qt Quick 3D) loads
+    its scene from the bundle and RENDERS a frame, which fails on a mismatched or
+    missing Qt Quick 3D library as the #277 import did. It also checks the version the
+    build reports against OGP_EXPECTED_VERSION when the workflow sets it (PF-CI-15).
+    Returns non-zero on any failure so a broken frozen build fails the release instead
+    of shipping.
 
     A windowed (console=False) frozen exe is given no CONSOLE, so when it is
     launched detached -- `Start-Process -Wait -PassThru`, what CI does -- it has
@@ -62,35 +101,30 @@ def _run_selftest() -> int:
     shell that redirects (a pipe), it *does* inherit a handle and the prints
     below are visible; that is the local/dev case.
     """
-    from importlib.metadata import PackageNotFoundError, version
-
-    from PyQt6.QtCore import qVersion
-
     ok = True
-    for mod in (
-        "PyQt6.Qt3DCore",
-        "PyQt6.Qt3DExtras",
-        "PyQt6.Qt3DRender",
-        "PyQt6.Qt3DInput",
-        "PyQt6.Qt3DLogic",
-        "PyQt6.Qt3DAnimation",
-    ):
-        try:
-            __import__(mod)
-            print(f"  OK   import {mod}")
-        except Exception as exc:  # noqa: BLE001 - report every failure, never abort
-            ok = False
-            print(f"  FAIL import {mod} -> {exc}")
 
-    runtime = qVersion()
+    # --- version (PF-CI-15, #596) -----------------------------------------
+    #
+    # About is read only by hand, so the frozen gate would pass a bundle whose
+    # About reports a tracked stale version (the #596 manual finding). A direct
+    # build checks the shape; the release and pull-request workflows also pass
+    # the version they are building in OGP_EXPECTED_VERSION.
     try:
-        qt3d_qt = version("PyQt6-3D-Qt6")
-    except PackageNotFoundError:
-        qt3d_qt = "?"
-    print(f"Qt runtime (Qt6Core.dll): {runtime}   Qt3D wheels built for: {qt3d_qt}")
-    if runtime != qt3d_qt:
+        from open_garden_planner.services.update_checker import get_current_version
+
+        version = get_current_version()
+        parts = version.split(".")
+        if len(parts) != 3 or not all(part.isascii() and part.isdigit() for part in parts):
+            raise AssertionError(f"version {version!r} is not X.Y.Z")
+        expected = os.environ.get("OGP_EXPECTED_VERSION", "").strip()
+        if expected and version != expected:
+            raise AssertionError(f"version {version!r} != OGP_EXPECTED_VERSION {expected!r}")
+        if log is not None:
+            log("selftest_version", version=version, expected=expected or "not set")
+        print(f"  OK   version {version}")
+    except Exception as exc:
         ok = False
-        print("  FAIL Qt runtime micro != Qt3D wheel micro (issue #277 mismatch)")
+        print(f"  FAIL version selftest -> {exc!r}")
 
     # --- Agent API embedded server (issue #291) ---------------------------
     #
@@ -101,10 +135,10 @@ def _run_selftest() -> int:
     # inherited stdout handle has sys.stdout is None.
     #
     # Starting a real server here exercises the real failure surface in the
-    # real artifact -- same reasoning as the Qt3D imports above (#277).
+    # real artifact -- the reasoning of #277 (the docstring above).
     #
     # But note WHICH launch reproduces #291, because this was stated wrongly for
-    # a while (see the dated correction in section 11.4): `console=False` means
+    # a while (see PF-CI-04): `console=False` means
     # no console is ALLOCATED, not that stdout is unconditionally None. Run this
     # exe through a shell pipe and it inherits a real handle -- measured, ~300
     # bytes of the prints below reached stdout -- so `isatty()` answers and a
@@ -154,7 +188,7 @@ def _run_selftest() -> int:
                 print("  FAIL Agent API server did not start (issue #291 class)")
         finally:
             server.stop()
-    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+    except Exception as exc:
         ok = False
         print(f"  FAIL Agent API server selftest -> {exc!r}")
 
@@ -164,8 +198,138 @@ def _run_selftest() -> int:
     except Exception as exc:
         ok = False
         print(f"  FAIL A1 ingestion selftest -> {exc!r}")
+
+    # --- Qt Quick 3D engine (Phase 17 L1.2, ADR-048) ----------------------
+    if not _selftest_quick3d(log):
+        ok = False
+
     print("SELFTEST:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def _name_application_for_selftest() -> None:
+    """Give Qt the application's identity when no application exists yet.
+
+    The self-test log lives in the app's per-user log directory, which hangs on
+    that identity (QStandardPaths.AppDataLocation). main() names the application
+    only after creating its QApplication; the self-test runs before that, so it
+    uses the same pair itself -- and leaves an existing application's alone.
+    """
+    from PyQt6.QtCore import QCoreApplication
+
+    from open_garden_planner.app.settings import APPLICATION_NAME, ORGANIZATION_NAME
+
+    if QCoreApplication.instance() is None:
+        QCoreApplication.setOrganizationName(ORGANIZATION_NAME)
+        QCoreApplication.setApplicationName(APPLICATION_NAME)
+
+
+def _run_selftest_bounded() -> int:
+    """``--selftest`` as the frozen exe runs it: EVERY block under one watchdog.
+
+    A self-test that hangs must fail, not hold a release job for six hours (the
+    GitHub default): after ``SELFTEST_WATCHDOG_S`` the watchdog writes the reason
+    and every thread's stack into the self-test log and ends the process with
+    exit code 1. It covers the Agent API block and the A1 ingestion checks too,
+    not only the 3D render. The log also records the overall exit code, so a log
+    whose 3D part passed and whose exit code is 1 points at the first two
+    blocks.
+
+    The watchdog is SUPERVISED: a second, tiny process (this exe with
+    ``--selftest-supervisor``) ends this one from outside when it is still alive
+    ten seconds after the deadline. The in-process exit alone was measured not
+    to end a process that is deadlocked inside Qt and the graphics driver
+    (``runlog.py``). That safety net is a subsystem like the three under test:
+    on Windows the self-test FAILS when its supervising process did not start,
+    refused, never found this block, or did not leave when it was released
+    (the #291 pattern - a dead subsystem that the gate itself would never have
+    noticed). Its line, "FAIL self-test supervisor -> ...", names which.
+
+    If the log cannot be opened the blocks still run, still under the watchdog
+    (it ends a hang without a file to dump into), and the result is FAIL: a
+    self-test that cannot say why it failed has failed.
+    """
+    try:
+        from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog, watchdog
+    except Exception as exc:
+        print(f"  FAIL the self-test's log and watchdog cannot be imported -> {exc!r}")
+        print("SELFTEST: FAIL")
+        return 1
+    log_error: Exception | None = None
+    try:
+        _name_application_for_selftest()
+        from open_garden_planner.ui.view3d.quick3d.selftest import default_log_path
+
+        log = RenderLog(default_log_path(), mirror=False)
+    except Exception as exc:
+        log_error = exc
+        log = RenderLog(None, mirror=False)  # writes nowhere; the watchdog still ends a hang
+    try:
+        log("selftest_start", frozen=bool(getattr(sys, "frozen", False)),
+            python=sys.version.split()[0])
+        with watchdog(SELFTEST_WATCHDOG_S, log, what="--selftest", supervised=True) as armed:
+            code = _run_selftest(log)
+        if sys.platform == "win32":
+            # "" only when a supervising process started, held this block's release
+            # event, and left when it was released (runlog.Armed.gap)
+            missing = armed.gap
+            log("selftest_supervisor", ok=not missing, detail=missing or "started, released, left")
+            if missing:
+                print(f"  FAIL self-test supervisor -> {missing}")
+                print("SELFTEST: FAIL (a hang would not have been ended)")
+                code = 1
+        if log_error is not None:
+            print(f"  FAIL self-test log -> {log_error!r}")
+            print("SELFTEST: FAIL (no log)")
+            code = 1
+        log("selftest_exit", code=code, result="PASS" if code == 0 else "FAIL",
+            note="covers the Agent API server, the A1 ingestion checks and the Qt Quick 3D "
+                 "frame")
+        return code
+    finally:
+        log.close()
+
+
+def _selftest_quick3d(log: "RenderLog | None" = None) -> bool:
+    """The Qt Quick 3D part of the self-test (Phase 17 L1.2, ADR-048); True for a pass.
+
+    The 3D engine is loaded lazily, so the reasoning of #277 applies (the
+    docstring of ``_run_selftest``) -- and importing its bindings is not enough: its scene is QML and
+    shader FILES in the bundle, and a shader that does not compile is only a
+    Qt warning. So this RENDERS: it loads Garden.qml from the bundle, draws one
+    160x120 frame WITHOUT showing a window (a lit box, its shadow, one swatch
+    per material kind) and checks the pixels. It needs no GPU: the release
+    runner renders it with Direct3D 11 on WARP. A hang is bounded by a
+    watchdog (stack dump into the log, exit code 1): the one around the whole
+    self-test when ``log`` is passed (``_run_selftest_bounded``), its own
+    around the render otherwise.
+
+    The engine imports stay inside ui/view3d/quick3d/ (the import rule). The
+    log path is printed because the exit code alone cannot say WHICH check
+    failed, and a detached windowed exe has no stdout.
+
+    The log goes into the app's ONE per-user log directory, beside app.log and
+    crash.log -- never under a predictable name in the temp directory, which
+    on Linux other users can write to (CWE-377). That directory hangs on the
+    application's identity (QStandardPaths.AppDataLocation), which main() gives
+    Qt only after it created its QApplication. The self-test runs before that,
+    so it names the application itself, with the same pair -- unless an
+    application already exists, whose identity is not ours to change.
+    """
+    try:
+        from open_garden_planner.ui.view3d.quick3d.selftest import run_selftest
+
+        _name_application_for_selftest()
+        # one faulthandler timer per process: with the caller's log comes the
+        # caller's watchdog, and run_selftest must not arm a second one
+        quick3d = run_selftest() if log is None else run_selftest(log=log, watchdog_s=None)
+        for line in quick3d.lines:
+            print(line)
+        print(f"  3D self-test log: {quick3d.log_path}")
+        return quick3d.ok
+    except Exception as exc:
+        print(f"  FAIL Qt Quick 3D selftest -> {exc!r}")
+        return False
 
 
 def _run_a1_selftest() -> None:
@@ -199,6 +363,8 @@ def _run_a1_selftest() -> None:
         installer = Path(directory) / "fixture.bin"
         installer.write_bytes(b"synthetic installer")
         VerifiedInstaller(installer, 19, hashlib.sha256(b"synthetic installer").hexdigest()).check()
+        assert get_icon_path().is_file()
+        assert (get_icon_path().parent / "ogp_app.ico").is_file()
 
 
 def _write_crash_log(message: str) -> None:
@@ -276,19 +442,33 @@ def _install_excepthook() -> None:
 
 def main() -> int:
     """Run the Open Garden Planner application."""
+    import time
+
+    startup_started = time.perf_counter()
+    # This is the product's own entry point, so it is allowed to open the owner's
+    # real settings store even when launched from an agent/tooling shell (#587,
+    # ADR-041 addendum). Keep the name in sync with
+    # app.settings.PRODUCT_PROCESS_ENV; tests/unit/test_settings_isolation_guard.py
+    # pins it. Set HERE, not at module import: a probe that imports `main` for a
+    # helper must not inherit the product's permission. A probe that builds an
+    # application directly is refused unless it calls script_isolation first.
+    os.environ["OGP_PRODUCT_PROCESS"] = "1"
+    # The process that supervises a running self-test (runlog.py). FIRST: its
+    # arguments name what it supervises, and nothing of them may start anything else.
+    if _SUPERVISOR_FLAG in sys.argv:
+        from open_garden_planner.ui.view3d.quick3d.runlog import supervisor_main
+
+        return supervisor_main(sys.argv[sys.argv.index(_SUPERVISOR_FLAG) + 1:])
+
     # Headless subsystem self-test (issue #277) — before any Qt UI is created.
     if "--selftest" in sys.argv:
-        return _run_selftest()
+        return _run_selftest_bounded()
 
-    # Dormant Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): evidence
-    # tooling only, imported lazily so a normal start never loads it.
-    if "--spike-q3d" in sys.argv:
-        from open_garden_planner.spike_q3d.runner import run_spike_cli
+    from open_garden_planner.core.startup_probe import start_probe
 
-        return run_spike_cli(sys.argv)
+    startup_probe = start_probe(sys.argv, startup_started)
 
     # Import here to avoid slow startup for --help, --version, etc.
-    from PyQt6.QtGui import QIcon
     from PyQt6.QtWidgets import QApplication
 
     from open_garden_planner.app.application import GardenPlannerApp
@@ -300,7 +480,10 @@ def main() -> int:
     )
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.core.logging_config import setup_logging
-    from open_garden_planner.ui.theme import apply_theme
+    from open_garden_planner.ui.theme import apply_theme, refresh_window_theme
+
+    if startup_probe:
+        startup_probe.mark("imports")
 
     app = QApplication(sys.argv)
     # Same pair the settings chokepoint builds every store from (ADR-041) — read
@@ -313,9 +496,9 @@ def main() -> int:
     setup_logging()
 
     # Set application icon (appears in taskbar, window title bar, etc.)
-    icon_path = get_icon_path()
-    if icon_path.exists():
-        app.setWindowIcon(QIcon(str(icon_path)))
+    app_icon = get_app_icon()
+    if not app_icon.isNull():
+        app.setWindowIcon(app_icon)
 
     # Apply saved preferences
     try:
@@ -334,7 +517,12 @@ def main() -> int:
         )
         return 1
     load_translator(app, settings.language)
+    if startup_probe:
+        settings.show_welcome_on_startup = False
     apply_theme(app, settings.theme_mode)
+
+    if startup_probe:
+        startup_probe.mark("first_theme")
 
     # Turn an uncaught slot exception into a recoverable dialog instead of a
     # silent process kill that discards unsaved work (issue #277).
@@ -342,9 +530,17 @@ def main() -> int:
 
     window = GardenPlannerApp()
     window.show()
+    if startup_probe:
+        startup_probe.mark("window_shown")
 
-    # Reapply theme after window is shown to update title bar
-    apply_theme(app, settings.theme_mode)
+    # The stylesheet already applies to new children; refresh the native frame
+    # and opt-in palette/icon hooks without a second application-wide re-polish.
+    refresh_window_theme(app, settings.theme_mode)
+    if startup_probe:
+        from PyQt6.QtCore import QTimer
+
+        startup_probe.mark("second_theme")
+        QTimer.singleShot(0, lambda: startup_probe.finish(window))
 
     # Open file passed as command-line argument (e.g. double-click .ogp file)
     args = app.arguments()

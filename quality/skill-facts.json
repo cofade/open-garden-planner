@@ -1,0 +1,7 @@
+{
+  "smart-symbol-panel-hidden": {
+    "path": "src/open_garden_planner/app/application.py",
+    "expression": "self._sidebar_controller.set_panel_visible('smart_symbols', False)",
+    "reason": "The shared statement cited by configuration, architecture and frontier skills."
+  }
+}

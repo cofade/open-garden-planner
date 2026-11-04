@@ -32,7 +32,7 @@ from open_garden_planner.ui.canvas.items import (
 
 
 @pytest.fixture
-def manager(qtbot) -> ProjectManager:  # noqa: ARG001 — qtbot for Qt init
+def manager(qtbot) -> ProjectManager:
     return ProjectManager()
 
 
@@ -79,7 +79,7 @@ def test_stacking_order_survives_save_load_roundtrip(manager, tmp_path) -> None:
 
     Before the #338 fix, `_serialize_scene` walked `scene.items()` (top-first)
     directly, and load re-inserted in file order -- so every same-layer
-    stacking order got reversed on every save/load cycle (docs/11.4).
+    stacking order got reversed on every save/load cycle (PF-PER-12).
     """
     scene = CanvasScene(5000, 3000)
     layer_id = scene.active_layer.id
@@ -161,7 +161,7 @@ def test_old_format_file_without_stack_order_loads_in_file_order(
     bottom-to-top INSERTION order on load, regardless of which app reads
     it. A file listing the topmost item first therefore loads back
     *inverted* from how it originally looked when saved -- that is the
-    historical bug (docs/11.4) baked permanently into any file an old app
+    historical bug (PF-PER-12) baked permanently into any file an old app
     already wrote, and it is self-consistent: reloading it in the OLD app
     would show the exact same inverted order, not a fresh corruption. This
     test pins that the current loader reproduces that same result (doesn't
@@ -400,6 +400,9 @@ class TestDeleteUndoRestoresPlantAboveBed:
             object_type=ObjectType.GARDEN_BED,
             layer_id=layer_id,
         )
+        # edged (a height): an in-ground bed lies in the ground band under every plant,
+        # so the clamp would not be what these tests pin (PR #584 manual pass review)
+        bed.metadata["object_height_cm"] = 20.0
         scene.addItem(plant)
         scene.addItem(bed)
         assert plant.stack_order is not None and bed.stack_order is not None

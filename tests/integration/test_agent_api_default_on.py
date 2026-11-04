@@ -665,13 +665,11 @@ def test_move_plant_into_bed_reconciles_parent(qtbot: Any, monkeypatch: Any) -> 
         assert result["new_parent_bed_id"] == str(bed.item_id)
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
-        # Two undo steps: the reparent (executed second) undoes first, then the move.
+        # Exactly one atomic undo step: undoes both the reparent and the move (#635).
         assert win.canvas_view.command_manager.can_undo
         win.canvas_view.command_manager.undo()
         assert plant.parent_bed_id is None
         assert plant.item_id not in bed.child_item_ids
-        assert win.canvas_view.command_manager.can_undo
-        win.canvas_view.command_manager.undo()
         assert win.canvas_view.command_manager.can_undo is False
     finally:
         win._stop_agent_api()
@@ -1722,8 +1720,8 @@ def test_arrange_bed_send_to_back_keeps_plant_block_and_is_one_undo_step(
     try:
         scene = win.canvas_scene
         layer_id = scene.active_layer.id
-        other = RectangleItem(
-            50, 50, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        other = RectangleItem(  # a solid: what has no height lies under every solid
+            50, 50, 100, 100, object_type=ObjectType.TABLE_RECTANGULAR, layer_id=layer_id
         )
         bed = RectangleItem(
             500, 500, 400, 300, object_type=ObjectType.RAISED_BED, layer_id=layer_id
@@ -1908,8 +1906,8 @@ def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
         layer_id = scene.active_layer.id
 
         # Bottom to top by add order: shape, bed(+2 plants as a block), pin, arc.
-        shape = RectangleItem(
-            400, 400, 100, 100, object_type=ObjectType.PATH, layer_id=layer_id
+        shape = RectangleItem(  # a solid: what has no height lies under every solid
+            400, 400, 100, 100, object_type=ObjectType.TABLE_RECTANGULAR, layer_id=layer_id
         )
         scene.addItem(shape)
 
@@ -1961,6 +1959,9 @@ def test_arrange_object_stack_index_matches_read_side_with_arc_and_pin_present(
         # position -- proving P0's ranking fix reaches the read side too.
         arc_detail = queries.get_object(snapshot, str(arc.item_id))
         assert arc_detail is not None
+        # rank order IS drawing order here because the layer holds no ground surface:
+        # those are drawn first whatever their rank (canvas_scene.GROUND_Z_RANGE), and
+        # stack_index follows the drawing (PR #584 manual pass)
         live_order = scene._normalized_layer_order(layer_id)
         assert arc_detail.stack_index == live_order.index(arc)
 
@@ -2570,8 +2571,7 @@ def test_set_object_position_shares_move_child_and_reparent_orchestration(
         assert outside["bed_membership_changed"] is True
         assert outside["new_parent_bed_id"] is None
         assert plant.parent_bed_id is None
-        assert len(win.canvas_view.command_manager._undo_stack) == 2
-        win.canvas_view.command_manager.undo()
+        assert len(win.canvas_view.command_manager._undo_stack) == 1
         win.canvas_view.command_manager.undo()
         assert plant.parent_bed_id == bed.item_id
         assert plant.scenePos() == plant_start

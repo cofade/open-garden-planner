@@ -1,0 +1,304 @@
+# Pitfalls: 3D look, ground and build
+
+One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry gives its rule, the test that pins it, its sources and its status. Index: [§11.4](../README.md#114-known-development-pitfalls).
+
+### PF-L3D-01
+
+- **Rule:** A gate that the repair itself makes true proves nothing, so measure before the repair, make the repair report what it changed, and never make a constraint hold by translating the result.
+- **Pinned by:** `tests/unit/test_scene3d_plants.py::test_every_recipe_fits_the_plan_s_numbers`; `tests/unit/test_scene3d_plants.py::test_every_recipe_at_every_proportion_step`; `tests/unit/test_scene3d_plants.py::test_extreme_sizes_and_proportions`; `tests/unit/test_scene3d_plants.py::TestFitReport`
+- **Source:** #385
+- **Status:** standing; narrative in [archive/09-l1-7-plant-builders.md](../archive/09-l1-7-plant-builders.md#11412-what-the-plant-builders-taught-phase-17-l17-385)
+- **Legacy:** b1faaa9 README L1153 (legacy 11.4.12)
+
+### PF-L3D-02
+
+- **Rule:** A plant in a raised bed casts from the bed's soil and is lifted only while its link holds and its stable geometric centre, not its `boundingRect()` centre, lies inside the bed's shape.
+- **Pinned by:** `tests/unit/test_shadow_caster_base.py::test_the_bed_casts_the_part_below`; `tests/integration/test_scene3d_base_stacking.py::TestMembershipIsReconciledAndTheLinkAloneNeverLifts`; `tests/integration/test_scene3d_base_stacking.py::TestLinkAndLiftAskTheSamePoint`
+- **Source:** #385
+- **Status:** standing; narrative in [archive/08-l1-6-world-stacking.md](../archive/08-l1-6-world-stacking.md#11413-what-the-built-world-and-base-stacking-taught-phase-17-l16-385)
+- **Legacy:** b1faaa9 README L1396 (legacy 11.4.13)
+
+### PF-L3D-03
+
+- **Rule:** A bound that keeps the topmost N records drops what everything stands on, so a tile loses its smallest records by how much of the tile their paint covers, not by count.
+- **Pinned by:** none — the paragraph names no test file; §8.29.5 describes the pins of the bake's lessons.
+- **Source:** #385
+- **Status:** standing; narrative in [archive/07-l1-5-ground-bake.md](../archive/07-l1-5-ground-bake.md#the-bake-itself)
+- **Legacy:** b1faaa9 README L2526 (legacy 11.4.17)
+
+### PF-L3D-04
+
+- **Rule:** A `Texture` element holds one texture for life, because destroying any texture it once held nulls its `textureData` and turns the tile white, so a re-baked tile is a new Model with a new texture.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_a_re_textured_tile_keeps_its_picture`
+- **Source:** #532
+- **Status:** standing; narrative in [archive/07-l1-5-ground-bake.md](../archive/07-l1-5-ground-bake.md#the-bake-itself)
+- **Legacy:** b1faaa9 README L2660 (legacy 11.4.17)
+
+### PF-L3D-05
+
+- **Rule:** Hand the engine every colour derived in linear light through `engine_srgb`, build each sky as a new `Texture` with its own data, and stop the wind clock whenever the pane is hidden.
+- **Pinned by:** none — the body names no test for this rule; the tests it names guard other items, a reduce-motion drift guard, a sky-only dusk check and a wind-memory xfail.
+- **Source:** #385, #476, #529, #534
+- **Status:** standing; narrative in [archive/06-l1-4-looks-sky-wind.md](../archive/06-l1-4-looks-sky-wind.md#11418-what-the-looks-the-sky-and-the-wind-taught-phase-17-l14-385)
+- **Legacy:** b1faaa9 README L2930 (legacy 11.4.18)
+
+### PF-L3D-06
+
+- **Rule:** A blended custom material must keep the frame's alpha (`sourceAlphaBlend: Zero`, `destinationAlphaBlend: One`): with the colour factors on alpha too, a translucent overlay brightens the view by `a(1 − a)` of the window's white instead of darkening it.
+- **Pinned by:** `tests/integration/test_view3d_analysis_render.py::test_the_shadow_drape_darkens_the_ground_towards_its_blue`; `tests/unit/test_quick3d_selftest.py::TestJudge`
+- **Source:** #386, ADR-063 decision 3
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first shadow drape (the canvas's shadow blue at alpha 0.43, `SrcAlpha` / `OneMinusSrcAlpha`) read rgb(79, 107, 75) over a meadow of rgb(25, 73, 11) — LIGHTER than the ground it should shade. Opaque colours passed through exactly, so the shader was not the cause. A sweep of known colours found the law: black at a = 0.25, 0.5 and 0.75 read 4·a(1 − a) × 64 grey levels above `(1 − a) · ground`, white at 0.5 the same 64 — a grey term ∝ a(1 − a), largest at a half. That is the destination alpha: blended with the colour factors it becomes `a·a + (1 − a)·1 = 1 − a(1 − a)`, and the View3D's texture, drawn over the window's white, lets `a(1 − a)·255` through. Separate alpha factors that leave the destination alpha at 1 fixed it on Direct3D 11 (GPU and WARP) and OpenGL: black at 0.5 reads exactly half the ground. The same rule went onto the foliage, grass and water materials, which blend only while X-ray fades them. A PrincipledMaterial's own blending (glass) keeps the alpha already. Lesson: measure a blend with several alphas and two source colours before trusting one translucent frame — a single sample cannot tell a wrong colour from a wrong equation.
+
+
+
+### PF-L3D-07
+
+- **Rule:** An unlit overlay passes through the mood's exposure, so a 3D shadow drape multiplies the frame and an overlay colour is divided by the exposure.
+- **Pinned by:** `tests/integration/test_view3d_analysis_render.py::test_the_shade_darkens_in_every_mood_and_brightens_no_pixel`; `tests/unit/test_quick3d_qml.py::test_the_overlays_blend_as_their_layer_says`
+- **Source:** #386, ADR-063 addendum "review round 1"
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+With PF-L3D-06's alpha fixed, the 3D review still found the shadow drape brightening the garden — at night by +17.6 / +24.1 luma (up to +43.7) on 98–100 % of the pixels it covered, at sunset on 89–97 %, at golden hour on 69 % over the engine's own shadow; GPU and WARP read the same. The wrong theory was the alpha bug again; the frame's alpha was 255 everywhere. The cause: the drape is UNSHADED, and an unshaded colour is emitted and then multiplied by the mood's exposure (2.4 at night, 1.15 at the golden anchor) and the filmic curve — wherever the lit ground is darker than that emission, a blended "shadow" lightens it. The canvas's colour-over-ground recipe has no 3D equivalent. The fix multiplies: a third overlay layer with `DstColor` / `Zero` blending and a linear multiplier (`drape.SHADE_MULTIPLIER`), measured darker in every mood (noon 0.83, golden 0.76, sunset 0.74, December noon 0.78, night 0.76 of the lawn's luma). The same exposure moved the other overlays' colours: the arcs drifted up to 14° off their legend by day and washed out to near white at night, until `overlay.frag` divided by `uExposure` and the arcs were built in pre-compensated colours (within 2.7° in five moods). Lesson: judge an overlay in EVERY mood, not under a 60° sun on lit ground — the first gates all measured noon.
+
+### PF-L3D-08
+
+- **Rule:** A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass.
+- **Pinned by:** `tests/integration/test_view3d_analysis_render.py::test_a_faded_occluder_keeps_its_shadow`; `tests/integration/test_view3d_analysis_render.py::test_cutaway_keeps_the_roofs_shadow`; `tests/integration/test_view3d_analysis_render.py::test_a_screen_door_part_leaves_no_ao_ghost_at_medium`; `tests/unit/test_quick3d_qml.py::test_a_faded_or_cut_part_is_a_screen_door_not_a_blend`
+- **Source:** #386, ADR-063 addendum "review round 1"
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Cutaway first hid the roofs (`visible: !roofsHidden`) and X-ray faded occluders by opacity (a PrincipledMaterial `opacity`, a blended CustomMaterial). Both dropped the parts from the shadow map: Cutaway frames had 16k–69k pixels more than 10 luma brighter per shot, the house's shadow gone from the lawn, and a faded tree's 30 m shadow vanished (61k pixels) — the selected plant then read as standing in sun. A screen door keeps the part opaque: `screen.frag` discards all but `uOpacity` of the pixels by a 4 × 4 ordered dither (`FRAGCOORD`), and the shadow pass does not run that discard — measured top-down, ground outside the footprints unchanged (max 0.0 for faded trees; about 10 edge pixels for cut roofs), on Direct3D 11 (GPU and WARP) and OpenGL. A cut roof is the same material at opacity 0. The dither also ended the sorting of a blended crown against its own leaves. The depth pass is the exception the second review round measured: the pass that fills ambient occlusion's depth texture does not run the discard either, so from the Medium preset (the AUTO start) a cut roof left a pale ghost of itself on lawn and sky (15,555 px at noon) and a faded occluder its whole silhouette as AO. Every screen-door material therefore collapses in that pass (`#if QSSG_ENABLE_DEPTH_PASS`: `screen.vert`, `foliage_door.vert`, `grass_door.vert`) — the shadow pass does not define it, so the shadow stays: the ghost is gone (what AO adds for a cut roof or a faded box: at most 1.5 luma, up to 26 without the collapse) on Direct3D 11 (GPU, WARP) and OpenGL. Two measured dead ends: `NeverDepthDraw` on the cut roof kept the ghost and LOST the shadow, and switching AO off during Cutaway changed every pixel the AO touches. The look materials carry no discard at all (the screen doors are separate materials and shader copies, drift-pinned), so nothing changes while nothing fades. Lesson: anything that must still shade the ground stays opaque — choose what to discard, not what to hide — and check every pass that reads depth, not only the shadow pass.
+
+### PF-L3D-09
+
+- **Rule:** The 3D drape follows the shared Hours of Sun both ways, also when 3D opens with it on.
+- **Pinned by:** `tests/integration/test_view3d_analysis.py::test_the_toolbar_switching_hours_of_sun_on_lays_the_3d_drape`; `tests/integration/test_view3d_analysis.py::test_3d_opened_with_hours_of_sun_already_on_shows_it_on_the_ground`
+- **Source:** PR #584 owner manual pass, ADR-063 addendum "owner manual pass"
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Review round 1 made the drape follow the shared Hours of Sun going OFF (a document replace had left it on with the 2D side off). The owner then switched Hours of Sun on in the toolbar: the canvas showed the map, the 3D ground nothing, and the report read "in 3D no hours of sun are shown on the ground". The pipeline was sound — reproduced in the real app on the real engine at the owner's settings, the drape loaded and drew on screen in every order when chosen in the menu — the state machine had one edge. Lesson: when a view mirrors a shared state, test the transition the user makes from the OTHER surface in both directions, and the view's start in each state.
+
+### PF-L3D-10
+
+- **Rule:** Render production plants and verify final seasonal bounds.
+- **Pinned by:** `tests/unit/test_plant_forge_review.py::test_winter_skeleton_keeps_ground_and_height`; `tests/unit/test_plant_forge_review.py::test_tall_crowns_retain_foliage_coverage_at_every_lod`; `tests/integration/test_plant_forge_workspace.py::test_workspace_render_flags_use_the_production_worker`; `tests/integration/test_plant_forge_calendar.py::test_instance_harvest_and_task_calendar_agree_across_years`
+- **Source:** #387, PR #593, ADR-064
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The original render flags disabled the new forge, so CI validated old silhouettes.
+Actual output exposed low summer leaf cover, short/floating winter skeletons
+and merged spring fruit/autumn blossom. Static bounds before leaf removal and
+an evaluator-only timing test missed each seam. The workspace now synthesizes
+off the GUI thread, invalidates upgrades on recovery and updates persistent
+seasonal Models. Independent wood bounds, area-based foliage and separate accent
+parts pin visible truth; harvest reuses exact shared calendar windows.
+Climber guides retain actual finite support geometry: orientation alone left a
+13.3945 cm gap to a reachable fence. Support discovery runs on the worker and
+reuses structural dependencies; the production workspace timing gate includes
+300 climbers and 100 supports, rather than bypassing admission with an evaluator.
+
+### PF-L3D-11
+
+- **Rule:** A `CustomMaterial`'s `TextureInput` ignores the `Texture`'s `flipV`, so a shader that samples a north-up ground tile flips `v` itself.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_the_engine_shows_the_bake_north_up`; `tests/unit/test_quick3d_qml.py::test_the_ground_detail_shader_flips_v_itself`
+- **Source:** #388, ADR-065 decision 8
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+L4.5 moved the ground tiles from a `PrincipledMaterial` to a custom material (`ground.frag`,
+detail normals from the tile's own luminance). The tiles still carried `flipV: true` on
+their `Texture`, and the plan drew mirrored north–south: the flat material honours the
+flag, a `TextureInput` does not. The fix samples at `vec2(UV0.x, 1.0 - UV0.y)`. The
+north-up gate runs at the High preset, so it judges the custom material, not the flat one.
+Mutation check (2026-10-26, RTX 4070): sampling at `UV0` again drops the gate's identity
+NCC to 0.47 against its bound of 0.9 (each tile mirrored in itself, so no whole-plan
+mirror matches either: north–south 0.13).
+
+### PF-L3D-12
+
+- **Rule:** Do not switch on scene-wide order-independent transparency: `OITWeightedBlended` re-blends L2's multiply drapes and brightens what a shadow drape covers.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_scene_uses_no_order_independent_transparency`; `tests/integration/test_view3d_analysis_render.py`
+- **Source:** #388, ADR-065 decision 9
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Issue #388 asked for greenhouse glass "with OIT". With `oitMethod: OITWeightedBlended` on the
+scene environment, four drape tests failed: pixels under the shade layer read up to 243
+levels LIGHTER, the PF-L3D-06/07 class of P0. Weighted-blended OIT accumulates every
+blended Model into its own buffers and composites them with its own equation, so the
+drape's multiply blend no longer multiplies. The greenhouse and cold-frame glass keep the
+existing sorted `glass` material.
+
+### PF-L3D-13
+
+- **Rule:** Never fill round the plan with a large surface just under it: a triangle kilometres wide is centimetres off in depth and wins against the plan. Keep one plane, cut the plan out, cells of at most 100 m.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`; `tests/unit/test_scene3d_meadow.py`; `tests/integration/test_view3d_looks_render.py::test_the_plan_ground_meets_the_meadow_without_a_step`
+- **Source:** #388, ADR-065 3D review rounds 1 and 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The endless meadow was one 4 × 4 km quad of two triangles, 1 cm under the plan. From 14 of 36
+orbit cameras on `bench_built` it drew over the pond, the terraces and the paths. Lowering it
+to 5 cm passed a 36-view orbit gate but not the workspace's own framing a few wheel notches
+out: 13 of 120 views lost up to 52 % of the plan.
+
+The wrong theory was depth-buffer resolution. A 24-bit buffer at a 5 cm near plane resolves
+about 0.3 cm at 50 m. The deciding control was the reviewer's: the same quad at −5 cm, cut
+into 100 m cells, lost no view. The error is in interpolating a triangle 2 km across.
+
+The 5 cm step had two costs of its own: an ambient-occlusion line of ±14 luma along every
+plan edge, and shadows that jumped where they crossed it. The fitted step probe read 0.45
+under that line, and `plan_edge_step` now also reports `line`.
+
+Fix: a frame in the plan's plane with the plan cut out (`core/scene3d/meadow.py`). Mutation
+check: the old quad, re-created at −5 cm, reads 27,726 key pixels; the gate's bound is 20.
+
+### PF-L3D-14
+
+- **Rule:** Do not feed changing geometry through QML's `ProceduralMesh`: replaced lists kept drawing the first data, and one created later drew nothing. Use a `ReloadableGeometry` on a declared Model.
+- **Pinned by:** `tests/ui/test_quick3d_meadow_host.py`; `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`
+- **Source:** #388, ADR-065 3D review round 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Measured on D3D11 (RTX 4070), building the meadow's frame in QML:
+- A declared `ProceduralMesh` bound to a computed frame drew its first frame (no hole: no
+  plan yet) after the plan arrived. Reading back its lists showed the new data; the engine
+  never drew it.
+- A new `ProceduralMesh` given to the live Model drew nothing, with its lists set either as
+  initial properties or afterwards.
+- So did a new Model holding a new `ProceduralMesh`.
+
+The selection ring's route works: a `ReloadableGeometry` parented to a Model that
+`Garden.qml` declares, set once as its geometry, then reloaded for the Model's life. The
+render gate asserts that the meadow is drawn round the plan. It is the same rule as `ogp-3d-renderer` §2's
+geometry-lifetime row.
+
+### PF-L3D-15
+
+- **Rule:** Keep `aoStrength` 0 wherever ambient occlusion is off: Qt's `setAoStrength` switches AO on whenever the strength is not 0, whatever `aoEnabled` says.
+- **Pinned by:** `tests/ui/test_quick3d_host.py::test_ambient_occlusion_runs_only_where_the_look_asks_for_it`; `tests/unit/test_quick3d_qml.py`
+- **Source:** #388, ADR-065 3D re-review of the owner's second pass
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+L4 faded the AO strength with the camera's distance (`aoStrength: 55 * root.aoFade`) and
+left `aoEnabled: !root.topDown && root.ambientOcclusion` as the switch. The Low preset, and
+so compatibility mode, then drew SSAO as soon as the camera stood 45-90 m from its target.
+Read back from the scene's `ExtendedSceneEnvironment` at Low: `aoEnabled` True with a
+strength of 42.8 at 55 m. The look depended on where the camera had been. On bench_large
+at noon, Low read 153.89 luma without AO and 150.43 with this bug at 67 m.
+
+The board could not see it: its cameras stand within 25 m, where the fade stays 1, and a
+strength that never changes is never written again after the scene loads.
+
+Fix: the strength is 0 unless AO is on (`55 * (!root.topDown && root.ambientOcclusion ?
+root.aoFade : 0)`), and `aoEnabled` also requires a fade above 0, so the pass does not run
+at strength 0. The host test reads `aoEnabled` and `aoStrength` off the environment at every
+preset and four distances, and in the top-down view.
+
+### PF-L3D-16
+
+- **Rule:** Derive held context from both records' consumers and admit lawn blades only where the active preset draws them; detail geometry must degrade to exact prisms below its dimensional floor.
+- **Pinned by:** `tests/integration/test_view3d_sync_controller.py`; `tests/unit/test_scene3d_l4_objects.py`; `tests/unit/test_scene3d_l4_surfaces.py`
+- **Source:** #611; #607; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Door targets and the heightless-lawn predicate determine which old parameters remain valid after a retype. A universal lawn-blade special case retained irrelevant door params. Nominal furniture joints can flip tiny faces; the verified 3 cm detail floor keeps exact dimensions. Y-batched masks preserve the even-odd rule with bounded temporary pair arrays.
+
+### PF-L3D-17
+
+- **Rule:** A solid that should keep its 2D fill shows it on its TOP only, through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position + paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Its SIDES are the item's tint (`walls_mesh`, no UVs): one fill-textured prism smears the picture down the edge. A raised flat item that also has relief (a lawn's blades) keeps it, lifted to the new top, and the height gates (`top_cm`/`fit_scale`) ignore `ground_detail` parts. A raised pond's water takes the same picture (`fill_texture` on a `water` part; `water.frag` samples `uFill`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: a `vc` part's screen door samples no picture (a faded lawn is its colour), while the water door samples `uFill` through the same branch, so a faded raised pool keeps its caustics.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py`; `tests/unit/test_fill_patterns.py`; `tests/unit/test_scene3d_mesh.py`; `tests/unit/test_scene3d_l4_surfaces.py`; `tests/integration/test_scene3d_fill_phase.py`; `tests/integration/test_quick3d_render.py`
+- **Source:** #628 follow-up (owner manual pass of #627), ADR-037 addendum
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The ground bake paints a lawn, path, terrace, generic shape or bed while it lies flat, and
+`lies_on_ground` stops the moment a height is typed. The item becomes a plain prism coloured
+by one tint — so the owner's raised lawn turned into a flat green slab and the soil bed into a
+plain brown one ("all the objects loose their texture when giving them height"). Nothing was
+broken: no 3D solid had ever shown a fill pattern, because a height on these kinds could not be
+set before #628. The picture is the canvas's, not an approximation:
+`core.fill_patterns.tinted_pattern_pixels` returns the same `_tint_texture` result the 2D brush
+uses (RGBA8, opaque, mean = the fill colour). A luminance map multiplied by a tint would have
+been simpler, but a byte texture has no value above white, so every highlight above the
+texture's mean would be clipped — for soil, the light specks that make it read as soil.
+`materials.part_tint` is the ONE tint rule the engine read-backs compare against; a recolour
+swaps the picture and uploads no geometry.
+
+**The phase was wrong twice.** Raw record coordinates ignore the anchor; the first fix
+subtracted it, and the sign was wrong: the record's footprint is CENTRED on the anchor, so
+the canvas's item coordinate is `position + paint_origin`. Measured on a real 300 x 200 cm
+rectangle at `paint_origin` (760, 480), against the bake: the plus sign reads NCC **0.995**
+with the mesh's own UVs; the minus sign **0.759** (MULCH) / **0.866** (BRICK).
+`tests/integration/test_scene3d_fill_phase.py` bakes the record and correlates the mesh's UVs,
+so the source of truth is the canvas's own painter, not a re-derived formula. Visible on
+DECKING, FLAGSTONE and BRICK; invisible on noise textures.
+
+**The picture is the TOP's, and a lawn is not a slab.** The owner's second pass: a raised lawn
+"still loses part of its appearance" and a bed its detail. Two separate mistakes. (1) The
+blades: `_lawn` returned the plain prism at a height, so the relief that makes a lawn read as
+grass was gone; it now builds the solid AND the sward lifted to the new top. Lifting by
+`positions[:, 2] += height` on a cached `(blades, 5, 3)` array instead of
+`positions[:, :, 2] += height` moved the third *vertex*, not z — the mesh came out sheared
+(measured z 0.3..24.4 instead of 20.3..29.4). (2) The sides: ONE fill prism wraps the picture
+down the walls (a lawn's grass smeared the full height of the edge), so a raised flat surface
+is two Models — tinted sides, fill cap. `top_cm`/`fit_scale` and `verify_builder`'s height gate
+must ignore `ground_detail`: a lawn's blades stand 0.3-9.4 cm above the requested height
+(swept h = 1..200; 20.3-29.4 for h = 20), and counting them failed G1 for every raised lawn.
+The gate's numbers are therefore "the SOLID's top", and `ogp-lush-cinematic` §1 says so.
+
+A raised pool had the same class of loss in a different material: `_raised_pool` drew its
+water with the water shader's tint only, so the plan's water texture vanished ("the water
+became unreflective"). The water part now takes `fill_texture=True`, and `water.frag` samples
+it through a `TextureInput` (`uFill`, gated by `uHasFill`), linearising it with the ground's
+polygon (`x(x(0.3053x + 0.6822) + 0.0125)`) while keeping the hue rule and the sky reflection.
+**The UVs are the picture too**: `_water` first took `flat_mesh`'s default, one UV per vertex,
+and `texture(uFill, UV0)` read a single texel for ever — a flat, darker blue that looked exactly
+like the bug it was meant to fix (the committed gate measures luma std **17.25** with the plan
+UVs against **0.000** without — one value over 194,304 pixels, on a 300 × 220 cm pond at
+40 cm). The flag alone is not the fix; the render gate
+(`test_a_raised_pool_shows_the_plans_water`) is.
+The screen-door copy `water_door.frag` must carry the same branch (a test pins the two files
+apart only by the dither block).
+
+**Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
+GRASS-patterned one reads luma std **26.0**, the SOLID one **0.0**, at the same mean
+(121.3 / 120.8) — the texture is there and the average brightness is the fill colour.
+
+Traps, all measured: `baseColorMap: patternMap` (a `var`) logs the `undefined` warning above;
+a `Texture` re-pointed at a second data object renders white (§5 of `ogp-3d-renderer`), so a
+shared picture is created with its data at birth and the sink refcounts it — the host drops it
+with the last Model, which kept a recolour of a raised lawn from leaving one texture per colour
+behind (`PatternTexture.uploads` 1 → 2, `textures_alive()` back to 0 after a remove). A
+`fill_texture` part is not `tinted`: the picture carries the colour, so a patterned part's Model
+tint is white — but its fade tint (`tintLinear`) must stay the fill colour, or the X-ray screen
+door of a `vc` part (which samples no picture) ghosts white: measured max 255 before the fix. A water part's door DOES sample the picture, so a faded raised pool keeps its caustics. The engine holds
+256 KB per picture plus the 256 KB tinted QPixmap it was made from (shared with the canvas's
+200-entry cache).
+
+### PF-L3D-18
+
+- **Rule:** Measure an idle 3D view only after its first build was PRESENTED (a frame after the request, then a quiet stretch), and measure a frame cost A/B interleaved round by round — never in blocks.
+- **Pinned by:** `tests/integration/test_living_garden_render.py::test_with_reduced_motion_the_idle_frame_counter_stays_at_zero`; `tests/integration/test_living_garden_render.py::test_the_particles_cost_at_most_fifteen_percent_of_a_frame_at_medium`
+- **Source:** #389, ADR-070
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the reduced-motion gate counted 2 "idle" frames under the render tier's environment
+and 0 by hand; the frame-cost gate read rain +24 % in one run and +3.7 % in the next. Root
+cause: the scene's update requests came at 1.8 s, their frames — the bench plan's pipelines and
+the sky's light probe — were presented at 4.8–5.0 s, so "a second without a frame" was reached
+before the first picture and the picture was counted as idle; and blocks of seconds per look
+measured the machine's drift (clocks, background load), not the look. Fix: `_settle` waits for
+a frame after the build was requested and then for a quiet second; `scenario_frame_cost`
+renders each look once per round and compares medians over 40 rounds.

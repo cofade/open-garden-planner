@@ -1,3 +1,5 @@
 # Generated dependency records must remain byte-identical on Windows checkouts.
 uv.lock text eol=lf
 pylock.toml text eol=lf
+# Shell scripts run on Linux runners: a CRLF checkout would break them.
+*.sh text eol=lf

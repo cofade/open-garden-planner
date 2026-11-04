@@ -113,7 +113,7 @@ class DynamicInputOverlay(QFrame):
         view.viewport().installEventFilter(self)
         self._last_anchor_pos: QPoint | None = None
 
-    def eventFilter(  # noqa: N802 (Qt)
+    def eventFilter(
         self, _watched: object, event: QEvent
     ) -> bool:
         if event.type() == QEvent.Type.Resize and self.isVisible():
@@ -303,18 +303,18 @@ class _DynamicLineEdit(QLineEdit):
         super().__init__(parent)
         self._overlay = parent
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt)
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Escape:
             self._overlay.hide_overlay()
-            view = self._overlay._view  # noqa: SLF001
+            view = self._overlay._view
             view.setFocus(Qt.FocusReason.OtherFocusReason)
             event.accept()
             return
         if event.key() == Qt.Key.Key_Tab:
             other = (
-                self._overlay._angle_edit  # noqa: SLF001
-                if self is self._overlay._distance_edit  # noqa: SLF001
-                else self._overlay._distance_edit  # noqa: SLF001
+                self._overlay._angle_edit
+                if self is self._overlay._distance_edit
+                else self._overlay._distance_edit
             )
             other.setFocus(Qt.FocusReason.TabFocusReason)
             other.selectAll()
@@ -326,11 +326,11 @@ class _DynamicLineEdit(QLineEdit):
             # calls event.ignore() for Return, which would propagate the Enter
             # to CanvasView.keyPressEvent and finalize the polyline tool right
             # after our typed vertex was committed.
-            self._overlay._on_return()  # noqa: SLF001
+            self._overlay._on_return()
             event.accept()
             return
         super().keyPressEvent(event)
 
-    def focusInEvent(self, event: QFocusEvent) -> None:  # noqa: N802 (Qt)
+    def focusInEvent(self, event: QFocusEvent) -> None:
         self.setStyleSheet("")
         super().focusInEvent(event)

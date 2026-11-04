@@ -6,10 +6,11 @@
       "Lint",
       "Test",
       "Security",
-      "Dependencies (ubuntu-latest)",
+      "Dependencies (ubuntu-24.04)",
       "Dependencies (windows-latest)",
-      "Types (ubuntu-latest)",
-      "Types (windows-latest)"
+      "Types (ubuntu-24.04)",
+      "Types (windows-latest)",
+      "Coverage"
     ]
   },
   "enforce_admins": true,

@@ -33,12 +33,12 @@ from open_garden_planner.ui.views.harvest_view import HarvestView
 
 
 @pytest.fixture()
-def project_manager(qtbot: object) -> ProjectManager:  # noqa: ARG001 — Qt init
+def project_manager(qtbot: object) -> ProjectManager:
     return ProjectManager()
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 

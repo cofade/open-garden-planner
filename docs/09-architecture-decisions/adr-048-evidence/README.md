@@ -85,3 +85,11 @@ Same code on different runner instances differs by up to 2× in timings; compare
 | `owner-gpu-warm-a.json` / `owner-gpu-warm-b.json` | warm runs 1 and 2 (`golden_hour`, low) | `open_ms` 1140.3 / 1149.2 (the second is the warm number) |
 
 The numbers are summarised in ADR-048 entry 19.
+
+**QTBUG-151940 (2026-10-30).** `qtbug-151940/texturedata_release_leak.qml` is the reproducer attached to [QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940), the upstream report of #532 (byte-identical to the attachment). It does not use this project: 16 quads, each with its own same-size `ProceduralTextureData`, and a cycle of `QQuickWindow::releaseResources()` plus a redraw. Each cycle prints `registeredTextures` (the rows of `renderStats.textureDetails`). It is the deterministic first step of the re-check in docs §8.29.5 known limit 11. Run it with Qt's `qml` tool, or with the project's PyQt6:
+
+```bash
+QT_FORCE_STDERR_LOGGING=1 QSG_RHI_PREFER_SOFTWARE_RENDERER=1 venv/Scripts/python.exe -c "import sys; from PyQt6.QtGui import QGuiApplication; from PyQt6.QtQml import QQmlApplicationEngine; app = QGuiApplication(sys.argv); engine = QQmlApplicationEngine(sys.argv[1]); sys.exit(app.exec())" docs/09-architecture-decisions/adr-048-evidence/qtbug-151940/texturedata_release_leak.qml
+```
+
+The leak is present when `registeredTextures` grows (16, 24, 32, … on Qt 6.11.0 and 6.12.0: 6 to 8 per cycle) and gone when it stays at 16 in all 10 cycles while `framesRendered` rises. WARP (`QSG_RHI_PREFER_SOFTWARE_RENDERER=1`) presents even with the display asleep; hardware Direct3D 11 does not (reference 6 of the `ogp-3d-renderer` skill), and the file then prints `LEAKTEST INVALID`.

@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
 
 from .garden_item import (
     enable_device_coordinate_cache,
-    handle_selection_change_for_cache,
+    handle_item_change,
 )
 from .resize_handle import (
     CURVE_KIND_ANCHOR,
@@ -217,7 +217,7 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
         change: QGraphicsItem.GraphicsItemChange,
         value: Any,
     ) -> Any:
-        handle_selection_change_for_cache(self, change, value)
+        handle_item_change(self, change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.sync_curve_edit_to_selection()
         elif (
@@ -304,7 +304,10 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
         _ = QCoreApplication.translate
         menu = QMenu()
         delete_action = menu.addAction(_("BezierItem", "Delete Bezier"))
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_lock_action(action, lock_action):
+            return
         if action == delete_action and self.scene():
             self.scene().removeItem(self)
 
@@ -319,8 +322,11 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
     # ------------------------------------------------------------------
 
     def _point_to_dict(self, p: QPointF, in_scene: bool = True) -> dict[str, float]:
+        # Parent frame, not scene frame (#661): a grouped curve must save into
+        # the frame the loader recreates it in.  For a top-level item
+        # mapToParent() == mapToScene().
         if in_scene:
-            sp = self.mapToScene(p)
+            sp = self.mapToParent(p)
             return {"x": sp.x(), "y": sp.y()}
         return {"x": p.x(), "y": p.y()}
 

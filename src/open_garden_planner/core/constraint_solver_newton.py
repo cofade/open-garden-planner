@@ -97,7 +97,7 @@ def newton_refine(
     Newton converges quickly near the feasible set but can diverge from a poor
     initial guess.
     """
-    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+    from open_garden_planner.core.constraints import ConstraintType
 
     # ── Variable layout ────────────────────────────────────────────────────
     # Each free rigid item contributes a single 2-DOF variable (item translation).

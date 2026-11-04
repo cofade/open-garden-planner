@@ -97,6 +97,30 @@ class TestGalleryDropAutopopulate:
         assert item.plant_species == "Imaginus plantus"
         assert "plant_species" not in item.metadata
 
+    def test_gallery_drop_uses_the_species_mature_spread(self, canvas: CanvasView) -> None:
+        """A known species is planted at its real size, not the gallery default (#596).
+
+        The fixed 200 cm TREE diameter made an 8 m apple tree 2 m wide in 3D
+        while its height came from the species maximum, so the tree was
+        unnaturally slim. The Plant Database and Plant Lists drops already size
+        by ``max_spread_cm``.
+        """
+        _drop(canvas, "gallery:TREE:species=apple tree:category=ROUND_DECIDUOUS")
+
+        item = _find_circle(canvas)
+        assert item is not None
+        species = item.metadata["plant_species"]
+        assert species["common_name"] == "Apple Tree"
+        assert species["max_spread_cm"] == pytest.approx(600.0)
+        assert item.radius == pytest.approx(300.0)
+
+    def test_unknown_species_keeps_the_gallery_default_size(self, canvas: CanvasView) -> None:
+        _drop(canvas, "gallery:TREE:species=Imaginus plantus:category=fruit")
+
+        item = _find_circle(canvas)
+        assert item is not None
+        assert item.radius == pytest.approx(100.0)
+
 
 # ---------------------------------------------------------------------------
 # Tool-draw path (CircleTool with set_plant_info)

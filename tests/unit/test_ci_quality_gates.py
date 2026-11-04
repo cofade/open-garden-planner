@@ -8,6 +8,7 @@ import pytest
 from scripts import prepare_version_sync
 from scripts.audit_metrics import coverage_section, parse_mypy
 from scripts.check_branch_protection import differences
+from scripts.check_coverage_floors import main as coverage_floor_main
 from scripts.check_coverage_floors import regressions as coverage_regressions
 from scripts.check_coverage_floors import validate_floors
 from scripts.check_mypy_baseline import regressions as type_regressions
@@ -112,6 +113,20 @@ def test_coverage_compares_exact_counts_and_names_every_package() -> None:
                                 {"core": 80}) == []
 
 
+def test_every_source_package_has_a_coverage_floor() -> None:
+    """Package extraction must register its floor before the hosted coverage run."""
+    root = Path(__file__).resolve().parents[2]
+    source = root / "src/open_garden_planner"
+    packages = set()
+    for path in source.rglob("*.py"):
+        parts = path.relative_to(source).parts
+        packages.add(parts[0] if len(parts) > 1 else "(root)")
+    floors = validate_floors(json.loads(
+        (root / "quality/coverage-floors.json").read_text(encoding="utf-8")
+    ))
+    assert set(floors) == packages
+
+
 @pytest.mark.parametrize("floor", [-1, 101, True, 80.1, "80"])
 def test_coverage_floor_metadata_is_strict(floor: object) -> None:
     with pytest.raises(ValueError):
@@ -140,6 +155,56 @@ def test_protection_requires_checks_for_admins_but_no_review() -> None:
     payload["enforce_admins"] = {"enabled": False}
     payload["required_pull_request_reviews"]["required_approving_review_count"] = 1
     assert len(differences(payload, payload)) == 2
+
+
+def test_coverage_floor_main_fails_closed_without_a_usable_report(tmp_path: Path, capsys) -> None:
+    """#514: the floor step runs `if: always()`, so it must never pass without a report.
+
+    ``main`` returns 2 when the XML is missing, malformed, or does not resolve into
+    ``src/open_garden_planner``: "unavailable" is a failure, not a pass. The Coverage job
+    depends on that — its floor step is the only step that decides the job, and it runs
+    even when an earlier coverage step died.
+    """
+    floors = Path(__file__).resolve().parents[2] / "quality" / "coverage-floors.json"
+    missing = tmp_path / "nope.xml"
+    assert coverage_floor_main(["--xml", str(missing), "--floors", str(floors)]) == 2
+
+    malformed = tmp_path / "bad.xml"
+    malformed.write_text("<not-closed", encoding="utf-8")
+    assert coverage_floor_main(["--xml", str(malformed), "--floors", str(floors)]) == 2
+
+    empty = tmp_path / "empty.xml"
+    empty.write_text(
+        "<coverage><sources><source>/w/src/open_garden_planner</source></sources></coverage>",
+        encoding="utf-8",
+    )
+    assert coverage_floor_main(["--xml", str(empty), "--floors", str(floors)]) == 2
+
+    # The failure is also recorded, so the uploaded diagnostic says why.
+    report = tmp_path / "summary.json"
+    assert (
+        coverage_floor_main(
+            ["--xml", str(missing), "--floors", str(floors), "--report", str(report)]
+        )
+        == 2
+    )
+    assert json.loads(report.read_text(encoding="utf-8"))["available"] is False
+    capsys.readouterr()  # the verdict JSON belongs in the CI log, not the test output
+
+
+def test_master_protection_requires_the_coverage_floor_too() -> None:
+    """#514: a floor breach blocks a merge, so the payload must name `Coverage`."""
+    payload = json.loads(
+        (
+            Path(__file__).resolve().parents[2] / "quality/master-protection.json"
+        ).read_text(encoding="utf-8")
+    )
+    contexts = set(payload["required_status_checks"]["contexts"])
+    assert "Coverage" in contexts, (
+        "the coverage floor is a merge gate (#514); leaving it out of the protection "
+        "payload means a floor breach is visible and unblocking, which is the state the "
+        "decision removed"
+    )
 
 
 def test_version_edit_preserves_comments_and_other_versions() -> None:
@@ -195,7 +260,7 @@ def test_documented_ci_inventory_matches_workflow_keys() -> None:
     docs = (root / "docs/07-deployment-view/README.md").read_text(encoding="utf-8")
     inventory = docs.split("| Job key |", 1)[1].split("\n\n", 1)[0]
     documented = set(re.findall(r"^\| `([\w-]+)` \|", inventory, re.MULTILINE))
-    assert documented == jobs and len(jobs) == 7
+    assert documented == jobs and len(jobs) == 10  # #601: partitions, serial coverage, aggregation
 
 
 def test_finalization_has_no_bypass_and_uses_version_sync_prs() -> None:
@@ -226,13 +291,24 @@ def test_current_head_verifier_refuses_absence_and_failed_checks(change: str) ->
     assert check_differences(pr, "abc", ["Test"])
 
 
-def test_agent_functional_requirements_ids_are_unique() -> None:
+def test_functional_requirement_ids_are_unique() -> None:
+    """Every FR id is DEFINED once — the whole file, not just the agent ids (#449).
+
+    One requirement pasted twice — the defect #449 closed for FR-AGENT-27, and the one
+    a merge conflict produced for FR-STACK-10 — is invisible to every other check: both
+    lines read correctly, and a reader has no way to know which is normative. Only
+    ``- **FR-...**`` LINES are definitions; a cross-reference ("see FR-STACK-08") is not.
+    """
     root = Path(__file__).resolve().parents[2]
     text = (root / "docs/functional-requirements.md").read_text(encoding="utf-8")
-    definitions = re.findall(r"^- \*\*(FR-AGENT-[0-9a-zA-Z_-]+)\*\*", text, re.MULTILINE)
-    assert len(definitions) >= 30
-    assert len(definitions) == len(set(definitions))
+    definitions = re.findall(
+        r"^- \*\*(FR-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\*\*", text, re.MULTILINE
+    )
+    assert len(definitions) >= 350
+    duplicates = sorted({value for value in definitions if definitions.count(value) > 1})
+    assert duplicates == [], f"defined more than once: {', '.join(duplicates)}"
     assert "FR-AGENT-12a" in definitions
     assert "FR-AGENT-27" in definitions
     assert "FR-AGENT-29" in definitions
+    assert "FR-STACK-10" in definitions
 

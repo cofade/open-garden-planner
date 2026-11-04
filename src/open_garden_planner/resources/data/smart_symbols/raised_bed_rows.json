@@ -1,6 +1,6 @@
 {
   "id": "raised_bed_rows",
-  "version": 1,
+  "version": 2,
   "name": "Raised Bed (rows)",
   "name_de": "Hochbeet (Reihen)",
   "category": "beds",
@@ -12,6 +12,6 @@
   "elements": [
     {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W", "object_type": "RAISED_BED"},
     {"repeat": {"var": "i", "from": 1, "to": "rows - 1"},
-     "element": {"kind": "line", "x1": 0, "y1": "W * i / rows", "x2": "L", "y2": "W * i / rows"}}
+     "element": {"kind": "line", "x1": 0, "y1": "W * i / rows", "x2": "L", "y2": "W * i / rows", "object_type": "FENCE", "height_cm": 40, "plain_panel": true}}
   ]
 }

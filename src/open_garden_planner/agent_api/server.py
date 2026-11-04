@@ -412,9 +412,13 @@ def build_server(
     ) -> list[dict[str, Any]] | list[ObjectRef]:
         """List the plan's top-level objects, newest filters applied.
 
-        Objects are listed bottom→top in stacking order (layer order first,
-        then position within the layer) — the same order ObjectRef.stack_index
-        is computed from. (get_diagnostics is NOT in this order.)
+        Objects are listed bottom→top as drawn — the same order
+        ObjectRef.stack_index is computed from: first the ground surfaces
+        without a height (lawns, paths, terraces, driveways, ponds, in-ground
+        beds) of every layer, then everything else; each part in layer order,
+        then position within the layer. The ground surfaces lie under every
+        other object and under the sun study's shadows. (get_diagnostics is
+        NOT in this order.)
 
         Args:
             type: Optional filter — an ObjectType name ('TREE', 'RAISED_BED'), a
@@ -1960,7 +1964,10 @@ def build_server(
             The plant does NOT have to be geometrically inside the bed -- the
             app's own Link action doesn't require it either. The result's
             link_is_geometric tells you whether the link and the geometry
-            agree, so you can point out a mismatch.
+            agree, so you can point out a mismatch. (At a bed's edge a
+            warning badge on the plant can tip it: the badge moves the tested
+            point by 1.8 cm along each axis, about 2.5 cm diagonally -- see
+            the field's description.)
 
             Pass bed_id=None to detach the plant from whatever bed it is in.
 
@@ -2000,12 +2007,22 @@ def build_server(
             single nearest object in its layer whose bounding box OVERLAPS it
             (a non-overlapping neighbour is skipped entirely).
 
+            A ground surface without a height (a lawn, path, terrace,
+            driveway, pond or in-ground bed) is always drawn below the other
+            objects, so it is arranged among the ground surfaces of its layer
+            only, and any other object among the rest only: at the edge of its
+            group an object is "already at front/back". The returned
+            stack_index says where it is drawn.
+
             A bed/container carries its contained plants along as one block
             (their relative order among themselves is kept), and a plant can
             never be arranged below its own bed — 'send_to_back'/
             'send_backward' on a lone plant stops just above its bed rather
             than reaching further down, which correctly reports as a refusal
-            ("already at back") when the plant is already there.
+            ("already at back") when the plant is already there. An
+            in-ground bed without a height moves alone, among the ground
+            surfaces: its plants are drawn in the other group and stay where
+            they are.
 
             Fails (raises, nothing changed) when the object is already at the
             front/back of its layer, or when bring_forward/send_backward finds
@@ -2305,6 +2322,14 @@ def build_server(
         """
         return await anyio.to_thread.run_sync(lambda: list(get_species_db().values()))
 
+    @mcp.resource("garden://examples", mime_type="application/json")
+    async def examples_resource() -> list[dict[str, Any]]:
+        """Bundled offline examples; opening remains a GUI action."""
+        from open_garden_planner.config.settings import active_language
+        from open_garden_planner.services.example_library import examples_resource as catalog
+
+        return catalog(active_language())
+
     @mcp.resource("garden://plant-lists", mime_type="application/json")
     async def plant_lists_resource() -> list[dict[str, Any]]:
         """User-defined plant lists and favorites catalog (US-G4)."""
@@ -2313,7 +2338,7 @@ def build_server(
             return await anyio.to_thread.run_sync(get_lists_fn)
 
         def _get_lists() -> list[dict[str, Any]]:
-            from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+            from open_garden_planner.models.plant_lists import (
                 get_plant_list_store,
             )
 
@@ -2690,7 +2715,7 @@ class AgentApiServer:
             # logged as one — but only when stop() actually forced it.
             if not self._forced_stop:
                 logger.exception("Agent API server crashed")
-        except Exception:  # noqa: BLE001 - log and let the thread end
+        except Exception:
             logger.exception("Agent API server crashed")
         finally:
             # Drain any tasks left pending by the ASGI stack (e.g. sse-starlette's

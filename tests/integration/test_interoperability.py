@@ -21,7 +21,7 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 
@@ -251,7 +251,7 @@ class TestDxfImport:
         finally:
             tmp.unlink(missing_ok=True)
 
-    def test_import_get_dxf_layers(self, scene: CanvasScene) -> None:  # noqa: ARG002
+    def test_import_get_dxf_layers(self, scene: CanvasScene) -> None:
         import ezdxf
 
         with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as f:
@@ -589,11 +589,12 @@ class TestExportOrientation:
         """
         # Black-filled rectangle in the bottom-left scene region: scene
         # coords x∈[0,200], y∈[0,50] (Y-up → visually low).
-        from PyQt6.QtGui import QBrush, QColor, QImage
+        from PyQt6.QtGui import QImage
 
         from open_garden_planner.services.export_service import ExportService
+        from tests.integration.conftest import recolour
         rect = RectangleItem(0, 0, 200, 50)
-        rect.setBrush(QBrush(QColor("#000000")))
+        recolour(rect, "#000000")  # the attribute AND the brush, as the panel sets them
         scene.addItem(rect)
 
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:

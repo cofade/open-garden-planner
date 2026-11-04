@@ -17,6 +17,14 @@ SRC = ROOT / "src"
 RESOURCES = SRC / "open_garden_planner" / "resources"
 INSTALLER = ROOT / "installer"
 
+# The frozen app's version module is written by build_installer.py (a release
+# version may lead pyproject.toml until the version-sync PR) and imported
+# DYNAMICALLY by services/update_checker.py, so a direct PyInstaller build has
+# no file to bundle and falls back to __version__. PyInstaller sees only static
+# imports: a release build must list the module when it exists, or the release
+# exe's About would report the previous synced version (PF-CI-15, #596).
+GENERATED_VERSION_MODULE = SRC / "open_garden_planner" / "_version.py"
+
 # Collect all resource files preserving directory structure
 datas = []
 
@@ -56,17 +64,24 @@ for f in (RESOURCES / "data").rglob("*"):
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# Offline example plans, localized sidecars, thumbnails and provenance (US-F5).
+for f in (RESOURCES / "examples").rglob("*"):
+    if f.is_file():
+        rel = f.relative_to(SRC)
+        datas.append((str(f), str(rel.parent)))
+
 # Web resources (Google Maps picker HTML loaded by QWebEngineView)
 for f in (RESOURCES / "web").rglob("*"):
     if f.is_file():
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
-# Qt Quick 3D renderer spike (ADR-048, Phase 17 L0): the QML scene + shader
-# snippets live next to the package (quick.py resolves them via __file__). The
-# spike is dormant (`--spike-q3d` only) and is deleted when L1.2 lands the
-# production engine package.
-for f in (SRC / "open_garden_planner" / "spike_q3d" / "qml").rglob("*"):
+# Qt Quick 3D engine package (ADR-048, Phase 17 L1.2): Garden.qml and its
+# shader files live next to the package (ui/view3d/quick3d/host.py resolves
+# them via __file__). The frozen exe's `--selftest` loads exactly these files
+# from the bundle and renders a frame with every shader — a file this loop
+# misses fails the release, not a user (ui/view3d/quick3d/selftest.py).
+for f in (SRC / "open_garden_planner" / "ui" / "view3d" / "quick3d" / "qml").rglob("*"):
     if f.is_file():
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
@@ -85,8 +100,14 @@ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 # hand-typed list, so a new dependency appears automatically.
 if str(SPECPATH) not in sys.path:
     sys.path.insert(0, str(SPECPATH))
+from build_environment import warn_if_unpinned  # noqa: E402
 from runtime_closure import runtime_distribution_names  # noqa: E402
 from frozen_inventory import MANIFEST_NAME, collected_metadata, write_manifest  # noqa: E402
+
+# #538: a local build must say when the venv holds a distribution the lock no
+# longer pins (the retired 3D wheels survived exactly this way after L1.10).
+# Advisory here; `python -m installer.build_environment --strict` is the gate form.
+warn_if_unpinned()
 
 # The project's own metadata and build-time-only helpers are not third-party.
 _EXCLUDED_METADATA = {"open-garden-planner", "pyinstaller-hooks-contrib"}
@@ -149,39 +170,111 @@ a = Analysis(
         "PyQt6.QtWebEngineCore",
         "PyQt6.QtWebEngineWidgets",
         "PyQt6.QtWebChannel",
-        # Qt3D — US-E6 3D view (ADR-038; engine imports live only in
-        # ui/view3d/qt3d_adapter.py, loaded lazily). PyInstaller's PyQt6 hook
-        # collects the Qt3D DLLs once these bindings are named. NOTE: all four
-        # Qt wheels (PyQt6, PyQt6-Qt6, PyQt6-3D, PyQt6-3D-Qt6) are pinned to the
-        # SAME micro in pyproject.toml — a drifting PyQt6-Qt6 micro makes these
-        # bindings fail at import with 'Die angegebene Prozedur wurde nicht
-        # gefunden' and crash the 3D view (issue #277, ADR-038). The frozen
-        # exe's `--selftest` (release.yml) imports them to catch that drift.
-        "PyQt6.Qt3DCore",
-        "PyQt6.Qt3DExtras",
-        "PyQt6.Qt3DRender",
-        "PyQt6.Qt3DInput",
-        "PyQt6.Qt3DLogic",
-        "PyQt6.Qt3DAnimation",
+        # The 3D view (Phase 17: the workspace's 3D pane, ADR-060). Its snapshot is
+        # imported with the first switch to 3D.
         "open_garden_planner.ui.view3d",
         "open_garden_planner.ui.view3d.snapshot",
-        "open_garden_planner.ui.view3d.qt3d_adapter",
-        "open_garden_planner.ui.view3d.view3d_window",
-        # Qt Quick 3D spike (ADR-048, L0) — dormant evidence tooling behind
-        # --spike-q3d; the QtQml hook collects the QtQuick3D QML modules.
+        "open_garden_planner.ui.view3d.ground_bake",
+        # Qt Quick 3D engine (ADR-048, L1.2): ui/view3d/quick3d/ is the ONE
+        # package that imports these bindings, and it is loaded lazily (the
+        # workspace opens 3D on demand; `--selftest` renders a frame). The
+        # QtQml hook collects the QtQuick3D QML modules (QtQuick3D,
+        # QtQuick3D.Helpers) once the bindings are named. They ship INSIDE the
+        # two pinned Qt wheels (PyQt6, PyQt6-Qt6), which move together
+        # (tests/unit/test_qt_runtime_pins.py).
         "PyQt6.QtQuick",
         "PyQt6.QtQml",
-        "PyQt6.QtQuickWidgets",
         "PyQt6.QtQuick3D",
-        "open_garden_planner.spike_q3d",
-        "open_garden_planner.spike_q3d.meshes",
-        "open_garden_planner.spike_q3d.quick",
-        "open_garden_planner.spike_q3d.runner",
-        "open_garden_planner.spike_q3d.probes",
+        "open_garden_planner.ui.view3d.quick3d",
+        "open_garden_planner.ui.view3d.quick3d.adapter",
+        "open_garden_planner.ui.view3d.quick3d.adapter_info",
+        "open_garden_planner.ui.view3d.quick3d.cloud_volume",
+        "open_garden_planner.ui.view3d.quick3d.geometry",
+        "open_garden_planner.ui.view3d.quick3d.ground_tiles",
+        "open_garden_planner.ui.view3d.quick3d.host",
+        "open_garden_planner.ui.view3d.quick3d.lifecycle",
+        "open_garden_planner.ui.view3d.quick3d.look",
+        "open_garden_planner.ui.view3d.quick3d.materials",
+        "open_garden_planner.ui.view3d.quick3d.offscreen",
+        "open_garden_planner.ui.view3d.quick3d.patterns",
+        "open_garden_planner.ui.view3d.quick3d.qt_messages",
+        "open_garden_planner.ui.view3d.quick3d.runlog",
+        "open_garden_planner.ui.view3d.quick3d.selftest",
+        "open_garden_planner.ui.view3d.quick3d.shots",
+        # The Plan / 3D / Split workspace (ADR-060, L1.3; the default since L1.9):
+        # the main window imports workspace.py at start-up; the pipeline, the orbit
+        # input and the list of what 3D could not show come with the first switch
+        # to 3D.
+        "open_garden_planner.ui.view3d.workspace",
+        "open_garden_planner.ui.view3d.workspace_analysis",
+        "open_garden_planner.ui.view3d.workspace_legend",
+        "open_garden_planner.ui.view3d.workspace_living",
+        "open_garden_planner.ui.view3d.workspace_protocols",
+        "open_garden_planner.ui.view3d.workspace_selection",
+        "open_garden_planner.ui.view3d.workspace_walk",
+        "open_garden_planner.ui.view3d.workspace_wipe",
+        "open_garden_planner.ui.view3d.sync_controller",
+        "open_garden_planner.ui.view3d.init_guard",
+        "open_garden_planner.ui.view3d.orbit_input",
+        "open_garden_planner.ui.view3d.problems_dialog",
+        "open_garden_planner.ui.sim_clock_subscription",
+        "open_garden_planner.core.scene3d.camera",
+        "open_garden_planner.core.plain_text",
+        # The look of the 3D view (L1.4): imported with the first switch to 3D.
+        "open_garden_planner.ui.view3d.look_controller",
+        "open_garden_planner.core.scene3d.look",
+        # The living garden (ADR-070, L5): the weather, the particles and the garden
+        # lights — imported with the workspace; the playback with the sun toolbar.
+        "open_garden_planner.core.scene3d.weather",
+        "open_garden_planner.core.scene3d.particles",
+        "open_garden_planner.core.scene3d.lights",
+        "open_garden_planner.core.scene3d.builders.lights",
+        "open_garden_planner.core.playback",
+        # Selection, the info card and walk mode (ADR-060 addendum, L1.8): the
+        # card and the bridge are imported when the 3D pane is first built, walk
+        # mode when it is first entered.
+        "open_garden_planner.ui.view3d.selection_bridge",
+        "open_garden_planner.ui.view3d.info_card",
+        "open_garden_planner.ui.view3d.walk_mode",
+        "open_garden_planner.core.scene3d.selection",
+        "open_garden_planner.core.scene3d.walk",
+        # Analyze in 3D (ADR-063, L2): the analysis controller, the growth jump and its
+        # wipe are imported when the 3D pane is first built; the compass letters and
+        # the Qt-free drape / sun path / X-ray cores come with them.
+        "open_garden_planner.ui.view3d.analysis_controller",
+        "open_garden_planner.ui.view3d.analysis_modes",
+        "open_garden_planner.ui.view3d.compass_glyphs",
+        "open_garden_planner.ui.view3d.growth_jump",
+        "open_garden_planner.ui.view3d.wipe",
+        "open_garden_planner.core.scene3d.drape",
+        "open_garden_planner.core.scene3d.sun_path",
+        "open_garden_planner.core.scene3d.xray",
+        # Plant Forge in 3D (ADR-064, L3): procedural species models, climber
+        # support, seasonal accents and phenology.
+        "open_garden_planner.ui.view3d.forge_worker",
+        "open_garden_planner.core.object_art",
+        "open_garden_planner.core.object_art.materials",
+        "open_garden_planner.core.plant_art.traits3d",
+        "open_garden_planner.core.plant_forge",
+        "open_garden_planner.core.plant_forge.accents",
+        "open_garden_planner.core.plant_forge.assemble",
+        "open_garden_planner.core.plant_forge.cache",
+        "open_garden_planner.core.plant_forge.climbers",
+        "open_garden_planner.core.plant_forge.foliage",
+        "open_garden_planner.core.plant_forge.herbaceous",
+        "open_garden_planner.core.plant_forge.lod",
+        "open_garden_planner.core.plant_forge.skeleton",
+        "open_garden_planner.core.plant_forge.trees",
+        "open_garden_planner.core.plant_forge.tube",
+        "open_garden_planner.core.plant_forge.woody",
+        "open_garden_planner.core.phenology",
+        "open_garden_planner.app.win32_taskbar",
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",
-    ] + _mcp_hiddenimports,
+    ]
+    + (["open_garden_planner._version"] if GENERATED_VERSION_MODULE.exists() else [])
+    + _mcp_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

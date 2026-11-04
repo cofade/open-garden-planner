@@ -50,7 +50,7 @@ from open_garden_planner.services.plant_api.trefle_client import TrefleClient
 class _StubLibrary:
     """Stand-in for the custom plant library -- always reports no matches."""
 
-    def search_plants(self, query: str) -> list:  # noqa: ARG002
+    def search_plants(self, query: str) -> list:
         return []
 
 
@@ -77,7 +77,7 @@ class _FakeClient:
     def name(self) -> str:
         return self._name
 
-    def search(self, query: str, limit: int) -> list:  # noqa: ARG002
+    def search(self, query: str, limit: int) -> list:
         if self._error is not None:
             raise self._error
         return self._results

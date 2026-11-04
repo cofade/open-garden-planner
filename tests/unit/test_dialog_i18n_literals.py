@@ -72,15 +72,9 @@ def _tr_literals(class_name: str) -> list[str]:
     raise AssertionError(f"class {class_name} not found in {PANEL}")
 
 
-def _de_messages() -> dict[tuple[str, str], str]:
-    """(context, source) -> German translation, read from the real .ts.
-
-    Keyed by context as well as source, and callers REQUIRE the class-name
-    context. Matching source text across every context let a literal registered
-    only under ``CompanionPanel`` satisfy a call from ``CompatibleSetDialog`` --
-    which renders untranslated, because Qt resolves a lookup by class name.
-    """
-    root = ET.parse(_TRANSLATIONS_DIR / "open_garden_planner_de.ts").getroot()
+def _locale_messages(locale: str) -> dict[tuple[str, str], str]:
+    """(context, source) -> translation for the given locale, read from the real .ts."""
+    root = ET.parse(_TRANSLATIONS_DIR / f"open_garden_planner_{locale}.ts").getroot()
     out: dict[tuple[str, str], str] = {}
     for ctx in root.findall("context"):
         name_node = ctx.find("name")
@@ -91,6 +85,10 @@ def _de_messages() -> dict[tuple[str, str], str]:
             if src is not None and tr_node is not None:
                 out[(ctx_name, src.text or "")] = tr_node.text or ""
     return out
+
+
+def _de_messages() -> dict[tuple[str, str], str]:
+    return _locale_messages("de")
 
 
 DIALOG_CONTEXT = "CompatibleSetDialog"  # Qt resolves a lookup by class name
@@ -145,26 +143,29 @@ class TestPlaceholderAndInterpolationPairing:
 class TestTrLiteralsAreRegistered:
     """Every dialog tr() literal must be a real, translated key in the .ts."""
 
+    @pytest.mark.parametrize("locale", ["de", "es"])
     @pytest.mark.parametrize("literal", DIALOG_LITERALS)
-    def test_dialog_literal_is_registered_and_translated(self, literal: str) -> None:
+    def test_dialog_literal_is_registered_and_translated(
+        self, locale: str, literal: str
+    ) -> None:
         """Must be registered under THIS class's context, not just somewhere."""
-        messages = _de_messages()
+        messages = _locale_messages(locale)
         elsewhere = sorted(
             ctx for (ctx, src) in messages if src == literal and ctx != DIALOG_CONTEXT
         )
         text = messages.get((DIALOG_CONTEXT, literal))
         assert text is not None, (
             f"{literal!r} is not registered under context {DIALOG_CONTEXT!r} in the "
-            f"German .ts, so it renders untranslated."
+            f"{locale} .ts, so it renders untranslated."
             + (f" It is only registered under {elsewhere!r}." if elsewhere else "")
             + " A tr() literal that is never registered is INVISIBLE to "
-            "test_german_ts_has_no_unfinished, which only inspects messages "
-            "already in the table -- that is the blind spot the %1 P1 hid in."
+            "translation completeness checks that only inspect messages "
+            "already in the table."
         )
-        assert text.strip(), f"{literal!r} in [{DIALOG_CONTEXT}] has an empty translation"
+        assert text.strip(), f"{literal!r} in [{DIALOG_CONTEXT}] has an empty translation in {locale}"
         assert text.strip() != literal, (
             f"{literal!r} in [{DIALOG_CONTEXT}] is registered with the ENGLISH text "
-            f"as its German translation, so it renders untranslated at runtime"
+            f"as its {locale} translation, so it renders untranslated at runtime"
         )
 
 

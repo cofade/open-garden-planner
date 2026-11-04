@@ -3,6 +3,7 @@
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import MISSING, fields, replace
+from html import escape
 from typing import Any
 
 from PyQt6.QtCore import Qt, QTimer
@@ -28,6 +29,7 @@ from open_garden_planner.services.plant_api import (
     PlantAPIManager,
     PlantDetailUnavailableError,
 )
+from open_garden_planner.ui.edible_parts import display_edible_parts
 from open_garden_planner.ui.plant_species_assignment import plant_source_label
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
@@ -80,7 +82,7 @@ class PlantSearchDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(700, 500)
 
-        from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
+        from open_garden_planner.models.plant_lists import get_plant_list_store
 
         self._list_store = get_plant_list_store()
         self._list_store.changed.connect(self._on_list_store_changed)
@@ -142,7 +144,7 @@ class PlantSearchDialog(QDialog):
         details_header.addWidget(details_label, 1)
 
         self.favorite_btn = QToolButton()
-        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_icon
 
         star_icon = get_icon("star")
         if star_icon is not None:
@@ -280,7 +282,7 @@ class PlantSearchDialog(QDialog):
         else:
             self.status_label.setText(self.tr("No matches."))
 
-    def done(self, result: int) -> None:  # noqa: N802 — Qt override
+    def done(self, result: int) -> None:
         """Settle the debounced search before the dialog goes away — a pending
         timer must never fire into a closed dialog (see __init__)."""
         self._search_timer.stop()
@@ -344,7 +346,7 @@ class PlantSearchDialog(QDialog):
     def _on_list_store_changed(self) -> None:
         """React to plant list store changes (update button and star icons in list)."""
         self._update_favorite_button()
-        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_icon
 
         s_icon = get_icon("star")
         for i in range(self.results_list.count()):
@@ -436,7 +438,7 @@ class PlantSearchDialog(QDialog):
             if plant.edible:
                 html += f"<li><b>{self.tr('Edible:')}</b> {self.tr('Yes')}"
                 if plant.edible_parts:
-                    html += f" ({', '.join(plant.edible_parts)})"
+                    html += f" ({escape(display_edible_parts(plant.edible_parts))})"
                 html += "</li>"
             if plant.flowering:
                 html += f"<li><b>{self.tr('Flowering:')}</b> {self.tr('Yes')}"
@@ -543,7 +545,7 @@ class PlantSearchDialog(QDialog):
             # search result already has everything there is to have. Quiet:
             # no user-facing warning for something that isn't an error.
             unavailable = True
-        except Exception as e:  # noqa: BLE001 -- external API trust boundary. Only
+        except Exception as e:
             # PlantAPIError is documented, but a 200 response with an unexpected
             # shape reaches _parse_species() uncaught here (unlike search(), which
             # already wraps per-item parsing in `except Exception` -- manager.py).

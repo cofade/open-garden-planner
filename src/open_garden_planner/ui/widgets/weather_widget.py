@@ -74,7 +74,7 @@ class _WeatherFetchWorker(QThread):
                 self.success.emit(forecast)
             else:
                 self.error.emit(self.tr("Forecast unavailable"))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if not self._is_cancelled:
                 self.error.emit(str(exc))
 
@@ -198,7 +198,15 @@ class WeatherWidget(QFrame):
     # ── public API ──────────────────────────────────────────────────────
 
     def set_location(self, lat: float | None, lon: float | None) -> None:
-        """Set (or clear) the GPS location; reset UI accordingly."""
+        """Set (or clear) the GPS location; reset UI accordingly. Another place (or
+        none): the fetch still on its way for the old one is cancelled and its forecast
+        forgotten — neither may land on the new place (senior review of L5: File › New
+        showed the old plan's strip and computed its frost alerts against it). The
+        DISCONNECT is what keeps a result already queued from landing — PF-LIF-12 says
+        why and for which slots."""
+        if (lat, lon) != (self._lat, self._lon):
+            self.shutdown(0)  # cancelled and disconnected; it is not waited for
+            self._forecast = None
         self._lat = lat
         self._lon = lon
         if lat is None or lon is None:
@@ -206,6 +214,12 @@ class WeatherWidget(QFrame):
         else:
             self._location_lbl.setText(f"{lat:.2f}°, {lon:.2f}°")
             self._show_loading()
+
+    def place(self) -> tuple[float, float] | None:
+        """The coordinates this widget fetches for (``set_location``), or None."""
+        if self._lat is None or self._lon is None:
+            return None
+        return (self._lat, self._lon)
 
     def refresh(self) -> None:
         """Start a background fetch for the current location."""
@@ -262,6 +276,8 @@ class WeatherWidget(QFrame):
 
     # ── slots ───────────────────────────────────────────────────────────
 
+    # Both slots stay UNDECORATED: a @pyqtSlot slot still receives a result queued before
+    # its worker was disconnected — the old place's forecast on the new place (PF-LIF-12).
     def _on_fetch_success(self, forecast: WeatherForecast) -> None:
         self._forecast = forecast
         self._render_forecast(forecast)
@@ -379,7 +395,7 @@ class WeatherWidget(QFrame):
                 return WeatherWidget.tr("Last updated %1 min ago").replace("%1", str(minutes))
             hours = int(delta.total_seconds() // 3600)
             return WeatherWidget.tr("Last updated %1 h ago").replace("%1", str(hours))
-        except Exception:  # noqa: BLE001
+        except Exception:
             return ""
 
 

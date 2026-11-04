@@ -199,8 +199,8 @@ GitHub releases are **the** source of truth for the version. After the merge tri
 ### 2.7 Bump size via PR labels, before merging
 
 CI defaults to a **patch** bump. For a minor or major release, add the `minor` or `major`
-**label to the PR before merging** — `release.yml` reads the labels of the most recently
-merged PR at run time; a label added after the workflow ran does nothing.
+**label to the PR before merging** — `release.yml` reads the labels of the PR whose merge
+commit triggered the push to master (issue #543); a label added after the workflow ran does nothing.
 
 ### 2.8 Build & verify the frozen exe before every merge
 
@@ -211,11 +211,18 @@ powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanne
 ```
 **Both checks, not just the smoke.** The 8-second smoke proves only that the process stays
 up; it cannot see a *silently dead subsystem*, which is how issue #291 (the Agent API never
-started in the frozen windowed exe) survived six releases, and how #277 (a Qt6Core/Qt3D micro
-mismatch behind a lazy import) shipped a crash. `--selftest` (`main.py`) imports the Qt3D
-bindings, checks the Qt runtime against the Qt3D wheel version, and starts a real
-`AgentApiServer` asserting it binds. `release.yml` runs it against the built exe *after*
-merge; running it here is what makes it a merge gate.
+started in the frozen windowed exe) survived six releases, and how #277 (a micro mismatch
+between the core Qt runtime and the old 3D view's wheels, behind a lazy import) shipped a
+crash. `--selftest` (`main.py`) has three blocks: it starts a real `AgentApiServer` and asserts
+it binds; it runs the A1 checks; and — since Phase 17 L1.2 — it loads the Qt
+Quick 3D scene and its shaders FROM THE BUNDLE, renders one hidden 160 × 120 frame and checks
+its pixels (no GPU needed). One watchdog bounds the whole command: after 300 s it writes the
+reason into the self-test log and exits with code 1 — and a second process (the exe itself,
+`--selftest-supervisor`) terminates the first ten seconds later if it is still there, because
+that exit does not end a Windows process deadlocked inside Qt. `release.yml` runs it against
+the built exe *after* merge; `frozen-selftest.yml` runs the smoke and the self-test on pull
+requests that change shipped code, but it is path-filtered and not a required check; running
+it here is what makes it a merge gate for every change.
 
 **The invocation form is load-bearing.** Use `Start-Process -Wait -PassThru` (what
 `release.yml` uses): PowerShell does **not** wait on a GUI-subsystem process, so a plain call
@@ -233,19 +240,22 @@ Details in `ogp-build-and-run`.
 
 ### `.github/workflows/ci.yml` — the merge gate (every push, every PR to master)
 
-Seven jobs using locked Python 3.11 environments (type/dependency matrices include Windows) (`agent-context` was added
-2026-08-09; the security job also runs the secrets scan — count the jobs, don't
+Ten jobs using locked Python 3.11 environments (type/dependency matrices include Windows) (`agent-context` was added
+2026-08-09, `render3d` with Phase 17 L1.2; the security job also runs the secrets scan — count the jobs, don't
 trust this table):
 
 | Job | Command | Notes |
 |-----|---------|-------|
 | Lint | `ruff check src/ tests/ scripts/` | Widened from `src/`-only in #411 |
-| Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen` | Installs Qt's xcb/EGL system libs first — this is the canonical headless-test recipe for Linux sessions too |
+| Test | `pytest tests/ -v` with `QT_QPA_PLATFORM: offscreen`, then `pytest tests/ -m perf -n 0` | Installs Qt's xcb/EGL system libs first - this is the canonical headless-test recipe for Linux sessions too. Two commands because `addopts` deselects the `perf`-marked timing tests from the first (§8.10.4) |
 | Security | `bandit -r src/ --severity-level high` + `scripts/check_no_secrets.py` | Bandit fails only on HIGH severity |
 | Agent context | `scripts/check_agent_context.py` | CLAUDE.md / AGENTS.md parity + skill-tree parity |
 | Dependencies | `scripts/check_dependency_lock.py`; `pip-audit` over the exported lock on both OSes (AUD-054) | Linux/Windows; lock freshness, PEP 751 export agreement and the dependency audit |
 | Types | `scripts/check_mypy_baseline.py` | Linux/Windows Python 3.11; per-file allowances, strict mypy |
-| Coverage | full-suite branch coverage + `scripts/check_coverage_floors.py` | Linux; package line floors; initially not a required GitHub check |
+| Coverage partition (0/1) | non-perf suite split by stable test-ID hash, branch tracing | Linux; two runners, xdist within each (#601) |
+| Coverage performance | entire perf set with branch tracing at `-n 0` | Linux; separate quiet runner (#601) |
+| Coverage | require every measurement, combine three explicit files, enforce `scripts/check_coverage_floors.py` | Linux; existing required check; no floor or branch reduction (#601) |
+| Render 3D | the 3D render tier (`OGP_RENDER3D=1`): `tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`, `test_quick3d_selftest.py`, `test_quick3d_lifecycle.py` | Linux under xvfb (xcb, OpenGL on llvmpipe) and Windows (Direct3D 11 on WARP); not a required GitHub check |
 
 Gate on green before merging: `gh pr checks <PR#> --watch --fail-fast` (Windows) or the
 GitHub MCP check-run tools in cloud sessions.
@@ -274,7 +284,25 @@ feature PR title must not start with `chore`); the *PR labels at merge time* are
 step 3 inspects; and after any merge you must wait for the tag **transition** (section
 2.2) before running the version sync.
 
-Those two are the only workflows in the repo. A third, `add-to-project.yml`, auto-added
+### `.github/workflows/frozen-selftest.yml` — the frozen gate before a merge (Phase 17 L1.2)
+
+`release.yml` tests the frozen exe only after the merge. This workflow builds the bundle with
+the SAME recipe (`python installer/build_installer.py --skip-nsis` — no second build recipe)
+on `windows-latest` and runs both checks of section 2.8: the 8-second smoke (exit code 124
+passes) and `--selftest`, with the same step scripts as `release.yml` (a test pins the texts
+as identical). Triggers: `workflow_dispatch`, and pull requests to `master` that change
+shipped code — `src/open_garden_planner/**`, `installer/**`, `pyproject.toml`, `uv.lock`,
+`pylock.toml`, either gate workflow or the shared setup action. It costs one Windows build per
+push to such a pull request. `permissions: contents: read`. **Not a required check** — a
+required check that a path filter skips never reports — so it does not replace section 2.8.
+The smoke only proves that the process starts: it also passes a process blocked in an error
+dialog, and the pull-request bundle, built without `--version`, runs as v1.0.0 and shows its
+update bar. In both gate workflows the self-test step only decides — the exit code alone —
+and the NEXT step prints the self-test log: it runs `always()`, also after a step that was cut
+off by its time limit, reads inside `try`/`catch` and cannot fail. Limits: build step 30
+minutes, smoke 5, self-test 10, the job 45. Unproven until its first run on a runner.
+
+Those three are the only workflows in the repo. Another, `add-to-project.yml`, auto-added
 newly opened issues to project board 1 and was **deleted in #293** — it had failed on all
 70 of its runs since 2026-04-18 (`unknown owner type`, a token-scope problem), so the
 board froze at issue #161 and `docs/roadmap.md` had long been the de-facto tracker. Do not
@@ -291,7 +319,7 @@ equivalents in parentheses.
 | 1 | Classify the change (section 1) and read the source of truth — US acceptance criteria in `docs/roadmap.md` or the GitHub issue | Do not code from the title alone |
 | 2 | `git checkout -b feature/US-X.X-short-description` | Never on master (2.1) |
 | 3 | Implement with type hints; wrap every user-visible string for translation as you go | 2.5; architecture invariants: `ogp-architecture-contract`; Qt/CAD theory: `ogp-qt-cad-reference` |
-| 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
+| 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` **and** `-m pytest tests/ -m perf -n 0` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
 | 5 | Translations: run `scripts/update_translations.py`; complete every registered target, compile, and run `scripts/check_translations.py` with `PYTHONUTF8=1` | 2.5 |
 | 6 | Write the integration test in `tests/integration/test_<feature>.py` | Mandatory (2.5); patterns in §8.10 |
 | 7 | Build the exe, then **both** checks — smoke *and* `--selftest` (§2.8) | Windows-only; declare if skipped in a cloud session |

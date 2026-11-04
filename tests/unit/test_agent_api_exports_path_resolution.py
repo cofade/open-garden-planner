@@ -23,7 +23,7 @@ from open_garden_planner.core.project import ProjectManager
 
 
 @pytest.fixture
-def project_manager(qtbot: object) -> ProjectManager:  # noqa: ARG001
+def project_manager(qtbot: object) -> ProjectManager:
     return ProjectManager()
 
 

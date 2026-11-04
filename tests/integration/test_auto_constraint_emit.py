@@ -344,7 +344,7 @@ class TestTangentDragHolds:
         assert abs(contact0 - 100.0) < 1.0  # contact on the rim
 
         delta = QPointF(-60.0, 0.0)
-        propagated = canvas._compute_constraint_propagation([circle], delta)  # noqa: SLF001
+        propagated = canvas._compute_constraint_propagation([circle], delta)
         circle.setPos(circle.pos() + delta)
         for item, d_item in propagated:
             item.moveBy(d_item.x(), d_item.y())
@@ -375,11 +375,11 @@ class TestTangentDragHolds:
         signed0, _, _ = _tangent_state(poly, circle)
 
         circle.setSelected(True)
-        canvas._drag_start_positions = {circle: circle.pos()}  # noqa: SLF001
-        canvas._constraint_propagated_starts = {}  # noqa: SLF001
+        canvas._drag_start_positions = {circle: circle.pos()}
+        canvas._constraint_propagated_starts = {}
         for frame in range(40):
             circle.moveBy(7.0, 0.0)  # drag right, like the user did
-            canvas._propagate_constraints_during_drag()  # noqa: SLF001
+            canvas._propagate_constraints_during_drag()
             signed, contact, _ = _tangent_state(poly, circle)
             assert abs(abs(signed) - r) < 2.0, (
                 f"frame {frame}: tangency lost, |dist|={abs(signed):.1f} r={r:.1f}"
@@ -412,7 +412,7 @@ class TestEmittedConstraintEnforcement:
 
         # Dragging the circle (the constraint's reference side) must drag the
         # constrained polyline along via _compute_constraint_propagation.
-        deltas = canvas._compute_constraint_propagation(  # noqa: SLF001
+        deltas = canvas._compute_constraint_propagation(
             [circle], QPointF(50.0, 0.0)
         )
         moved_ids = {
@@ -436,7 +436,7 @@ class TestEmittedConstraintEnforcement:
             canvas, snap, QPointF(500, 500), QPointF(50, 0)
         )
 
-        deltas = canvas._compute_constraint_propagation(  # noqa: SLF001
+        deltas = canvas._compute_constraint_propagation(
             [rect], QPointF(0.0, 40.0)
         )
         moved_ids = {

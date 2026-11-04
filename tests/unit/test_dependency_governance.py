@@ -30,10 +30,21 @@ def _job_block(name: str) -> str:
     return match.group("body")
 
 
+#: The advisories CI's pip-audit step may waive, each justified in §11.2. Empty since
+#: 2026-10-24: setuptools 84.1.0 (#571) ended the only one, PYSEC-2026-3447 (#572) — a
+#: waiver that matches nothing in the lock would hide a widened advisory unreviewed.
+WAIVERS: tuple[str, ...] = ()
+
+
 def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
-    assert "pip-audit" in CI
-    assert "--ignore-vuln PYSEC-2026-3447" in CI, (
-        "the one build-time exception must be named explicitly, not by disabling the scan"
+    # the WHOLE command line, so no abbreviated waiver (argparse takes `--ignore`), no
+    # `|| true` and no other flag can be added without changing this test
+    audit_lines = [line.strip() for line in CI.splitlines()
+                   if line.strip().startswith("pip-audit")]
+    expected = " ".join(["pip-audit -r locked-requirements.txt --progress-spinner off",
+                         *(f"--ignore-vuln {waiver}" for waiver in WAIVERS)])
+    assert audit_lines == [expected], (
+        "a pip-audit waiver is named in WAIVERS AND justified in §11.2, never added silently"
     )
     assert "uv export --locked --all-extras --group build" in CI, (
         "the audit must run against the committed lock export, not installed state"
@@ -44,14 +55,13 @@ def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
         "running platform, so a Linux-only scan never sees the Windows-only runtime "
         "dependency (pywin32)"
     )
-    assert "os: [ubuntu-latest, windows-latest]" in dependencies_job
+    assert "os: [ubuntu-24.04, windows-latest]" in dependencies_job
     assert "shell: bash" in dependencies_job, (
         "the Windows runner needs bash so the export redirection stays UTF-8"
     )
     docs = (ROOT / "docs/11-risks-and-technical-debt/README.md").read_text(encoding="utf-8")
-    assert "PYSEC-2026-3447" in docs or "GHSA-h35f-9h28-mq5c" in docs, (
-        "the exception must stay justified in the risk register"
-    )
+    for waiver in WAIVERS:
+        assert waiver in docs, f"the waiver {waiver} must be justified in the risk register"
 
 
 def test_pip_audit_is_part_of_the_locked_dev_environment() -> None:
@@ -59,14 +69,19 @@ def test_pip_audit_is_part_of_the_locked_dev_environment() -> None:
     assert any(Requirement(raw).name.lower() == "pip-audit" for raw in dev)
 
 
-def test_the_qt_four_pack_moves_as_one_and_mcp_stays_on_v1() -> None:
-    qt = {name: _requirement(name) for name in ("PyQt6", "PyQt6-Qt6", "PyQt6-3D", "PyQt6-3D-Qt6")}
+def test_the_qt_pair_moves_as_one_and_mcp_stays_on_v1() -> None:
+    """The two Qt pins that remain since Phase 17 L1.10 (the Qt 3D wheel pair left with
+    the old view; tests/unit/test_qt_runtime_pins.py holds the rest of the rule)."""
+    qt = {name: _requirement(name) for name in ("PyQt6", "PyQt6-Qt6")}
     versions = {str(r.specifier) for r in qt.values()}
-    assert len(versions) == 1 and versions.pop().startswith("==6.11.0"), (
-        "all four Qt wheels must pin the SAME micro or the frozen 3D import breaks (#277)"
+    assert len(versions) == 1 and versions.pop().startswith("==6.12.0"), (
+        "PyQt6 and PyQt6-Qt6 must pin the SAME micro (#277)"
     )
+    # Since Qt 6.12 WebEngine moves WITH the pair: the 6.10 wheel next to Qt 6.12
+    # failed to import ("procedure not found", Phase 17 L7, ADR-048 addendum). Its
+    # 6.12-era release is numbered 6.140; the cap keeps a 6.141 out until it is tried.
     webengine = _requirement("PyQt6-WebEngine")
-    assert "<6.11" in str(webengine.specifier)
+    assert ">=6.140.0" in str(webengine.specifier) and "<6.141" in str(webengine.specifier)
     mcp = _requirement("mcp")
     assert "<2.0" in str(mcp.specifier) and ">=1.23" in str(mcp.specifier)
 

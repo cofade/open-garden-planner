@@ -48,35 +48,40 @@ PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
         stroke_color=QColor(160, 82, 45),
         stroke_width=3.0,
     ),
+    # A path's stroke is its width on the ground, in cm (Phase 17 L4.2, #388: the presets
+    # drew 6-10 cm "paths" — a line, not a path one walks on; the owner asked for real
+    # widths). Plans keep the width they were saved with.
     PathFenceStyle.GRAVEL_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Gravel"),
         category="path",
         stroke_color=QColor(180, 170, 150),
-        stroke_width=8.0,
+        stroke_width=90.0,
     ),
     PathFenceStyle.STEPPING_STONES: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Stepping Stones"),
         category="path",
         stroke_color=QColor(160, 160, 155),
-        stroke_width=6.0,
+        stroke_width=70.0,
     ),
     PathFenceStyle.PAVED_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Paved"),
         category="path",
         stroke_color=QColor(140, 140, 140),
-        stroke_width=10.0,
+        stroke_width=100.0,
     ),
     PathFenceStyle.WOODEN_BOARDWALK: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Wooden Boardwalk"),
         category="path",
         stroke_color=QColor(160, 120, 70),
-        stroke_width=10.0,
+        stroke_width=100.0,
     ),
     PathFenceStyle.DIRT_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Dirt"),
         category="path",
-        stroke_color=QColor(150, 110, 60),
-        stroke_width=6.0,
+        # the sprites' light soil (MATERIALS["soil"]["light"]): over the soil texture
+        # (L4, #388) the former 150, 110, 60 read orange, not earth
+        stroke_color=QColor(125, 92, 62),
+        stroke_width=70.0,
     ),
     PathFenceStyle.WOODEN_FENCE: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Wooden Fence"),
@@ -228,6 +233,10 @@ class ObjectType(Enum):
     # Garden journal map-linked note pin (US-12.9)
     GARDEN_JOURNAL_PIN = auto()
 
+    # Garden lights (Phase 17 L5.4, #389): a lantern post (circle), a string of lights (rect)
+    GARDEN_LIGHT = auto()
+    STRING_LIGHTS = auto()
+
 
 @dataclass(frozen=True)
 class ObjectStyle:
@@ -244,7 +253,10 @@ class ObjectStyle:
 # Default styles for each object type
 OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
     ObjectType.HOUSE: ObjectStyle(
-        fill_color=QColor(210, 180, 140, 255),  # Tan
+        # the 3D roof's clay tiles (scene3d palette ROOF_TILE; owner, L4 #388): a
+        # house's 2D fill is its roof seen from above. Its 3D walls are rendered
+        # sandstone and do not follow this colour (builders/buildings.py)
+        fill_color=QColor(178, 90, 62, 255),  # Terracotta
         stroke_color=QColor(139, 90, 43),  # Brown
         stroke_width=2.5,
         display_name=QT_TR_NOOP("House"),
@@ -337,7 +349,7 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
     ObjectType.PATH: ObjectStyle(
         fill_color=QColor(210, 180, 140, 0),  # Tan (no fill for lines)
         stroke_color=QColor(160, 82, 45),  # Sienna
-        stroke_width=5.0,
+        stroke_width=80.0,  # cm on the ground: a garden path (L4.2, #388; was 5)
         display_name=QT_TR_NOOP("Path"),
         fill_pattern=FillPattern.SOLID,
     ),
@@ -524,6 +536,14 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name=QT_TR_NOOP("Bird Bath"),
         fill_pattern=FillPattern.SOLID,
     ),
+    ObjectType.GARDEN_LIGHT: ObjectStyle(  # black enamel (Phase 17 L5.4, #389)
+        QColor(49, 53, 56, 255), QColor(19, 21, 23), 1.5, QT_TR_NOOP("Garden Light")),
+    # a LINE (L5.4, owner's manual test of #389): the stroke is its dark wire, its width
+    # the size of its posts and bulbs (ui/canvas/items/string_lights_paint.py); no fill,
+    # as no line has one (a Change Type that kept the rectangle's cream fill left the
+    # item's fill attribute out of step with its brush)
+    ObjectType.STRING_LIGHTS: ObjectStyle(
+        QColor(238, 225, 198, 0), QColor(48, 51, 54), 12.0, QT_TR_NOOP("String Lights")),
     ObjectType.TOOL_SHED: ObjectStyle(
         fill_color=QColor(160, 130, 90, 255),  # Light wood
         stroke_color=QColor(100, 75, 45),  # Dark wood
@@ -711,6 +731,39 @@ def is_container_type(object_type: ObjectType | None) -> bool:
     return object_type in CONTAINER_TYPES
 
 
+def polygon_equivalent_object_type(
+    object_type: ObjectType | None,
+) -> ObjectType | None:
+    """The type a shape keeps when it is rebuilt as a polygon.
+
+    A ``PolygonItem`` may only carry one of the types the Properties panel
+    offers for polygons (``get_valid_types_for_shape``); copying a rectangle's
+    type blindly left a raised bed or a compost bin claiming to be that object
+    on a free-form outline (owner manual test 2026-10-31).
+
+    * a type that is already valid for a polygon is kept;
+    * ``GENERIC_RECTANGLE`` → ``GENERIC_POLYGON``;
+    * ``RAISED_BED`` → ``GARDEN_BED`` (a soil bed whose wooden frame cannot be
+      drawn on a free-form outline is a garden bed);
+    * ``HEDGE_SECTION`` → ``HEDGE_POLYGON`` (the loader already migrates this
+      pair for older plans);
+    * anything else (furniture, containers, trellis, …) has no polygonal form
+      and returns ``None`` — the caller refuses the edit or supplies its own
+      polygon type.
+    """
+    if object_type is None:
+        return ObjectType.GENERIC_POLYGON
+    if object_type in get_valid_types_for_shape("polygon"):
+        return object_type
+    if object_type == ObjectType.GENERIC_RECTANGLE:
+        return ObjectType.GENERIC_POLYGON
+    if object_type == ObjectType.RAISED_BED:
+        return ObjectType.GARDEN_BED
+    if object_type == ObjectType.HEDGE_SECTION:
+        return ObjectType.HEDGE_POLYGON
+    return None
+
+
 def get_valid_types_for_shape(
     shape: Literal["circle", "polygon", "rectangle", "polyline", "ellipse"],
 ) -> list[ObjectType]:
@@ -735,6 +788,7 @@ def get_valid_types_for_shape(
             ObjectType.WATER_TAP,
             ObjectType.TRAMPOLINE,
             ObjectType.BIRD_BATH,
+            ObjectType.GARDEN_LIGHT,
             ObjectType.POND_POOL,
             # F9: round in-ground beds (keyhole gardens, etc.). RAISED_BED is
             # intentionally excluded — its wooden-frame pixmap is rectangular
@@ -792,5 +846,5 @@ def get_valid_types_for_shape(
             ObjectType.GARDEN_BED,
         ]
     if shape == "polyline":
-        return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH]
+        return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH, ObjectType.STRING_LIGHTS]
     return list(ObjectType)

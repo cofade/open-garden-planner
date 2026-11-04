@@ -83,7 +83,7 @@ class TestShoppingListItem:
 
 
 class TestPlantAggregation:
-    def test_groups_plants_by_species_id(self, qtbot) -> None:  # noqa: ARG002
+    def test_groups_plants_by_species_id(self, qtbot) -> None:
         scene = _make_scene()
         for _ in range(3):
             _add_plant(scene, common_name="Tomato", source_id="solanum_lycopersicum")
@@ -95,7 +95,7 @@ class TestPlantAggregation:
         names = {i.name: i.quantity for i in plants}
         assert names == {"Tomato": 3.0, "Basil": 1.0}
 
-    def test_falls_back_to_scientific_name(self, qtbot) -> None:  # noqa: ARG002
+    def test_falls_back_to_scientific_name(self, qtbot) -> None:
         scene = _make_scene()
         plant = CircleItem(
             center_x=50, center_y=50, radius=20,
@@ -110,7 +110,7 @@ class TestPlantAggregation:
         assert len(plants) == 1
         assert plants[0].name == "Rosa rugosa"
 
-    def test_size_descriptor_averages_spread(self, qtbot) -> None:  # noqa: ARG002
+    def test_size_descriptor_averages_spread(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t", spread=20.0)
         _add_plant(scene, common_name="Tomato", source_id="t", spread=40.0)
@@ -120,7 +120,7 @@ class TestPlantAggregation:
         plants = [i for i in svc.build() if i.category is ShoppingListCategory.PLANTS]
         assert plants[0].size_descriptor == "~30 cm spread"
 
-    def test_non_plant_items_ignored(self, qtbot) -> None:  # noqa: ARG002
+    def test_non_plant_items_ignored(self, qtbot) -> None:
         scene = _make_scene()
         bed = RectangleItem(0, 0, 200, 100, object_type=ObjectType.GARDEN_BED)
         scene.addItem(bed)
@@ -136,7 +136,7 @@ class TestPlantAggregation:
 
 
 class TestSeedGaps:
-    def test_species_with_no_packet_becomes_gap(self, qtbot) -> None:  # noqa: ARG002
+    def test_species_with_no_packet_becomes_gap(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="solanum_lycopersicum")
         pm = ProjectManager()
@@ -146,7 +146,7 @@ class TestSeedGaps:
         assert seeds[0].name == "Tomato"
         assert seeds[0].unit == "packet"
 
-    def test_species_with_inventory_packet_no_gap(self, qtbot) -> None:  # noqa: ARG002
+    def test_species_with_inventory_packet_no_gap(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="solanum_lycopersicum")
         pm = ProjectManager()
@@ -162,7 +162,7 @@ class TestSeedGaps:
 
 
 class TestMaterialsAggregation:
-    def test_aggregates_amendments_across_beds(self, qtbot) -> None:  # noqa: ARG002
+    def test_aggregates_amendments_across_beds(self, qtbot) -> None:
         scene = _make_scene()
         # Two beds, both deficient with the same low pH so one amendment will
         # apply to both → aggregated quantity sums.
@@ -193,7 +193,7 @@ class TestMaterialsAggregation:
 class TestMaterialsKgAutoFormat:
     """Quantities below 1 kg stay in grams; ≥ 1000 g auto-promotes to kg."""
 
-    def test_materials_stay_in_g_below_threshold(self, qtbot) -> None:  # noqa: ARG002
+    def test_materials_stay_in_g_below_threshold(self, qtbot) -> None:
         scene = _make_scene()
         # Tiny bed → recommendation comfortably below 1 kg.
         bed = RectangleItem(0, 0, 200, 100, object_type=ObjectType.GARDEN_BED, name="Bed A")
@@ -212,7 +212,7 @@ class TestMaterialsKgAutoFormat:
             assert mat.unit == "g", f"{mat.name} should stay in g below 1 kg ({mat.quantity})"
             assert mat.quantity < 1000.0
 
-    def test_materials_auto_kg_above_threshold(self, qtbot) -> None:  # noqa: ARG002
+    def test_materials_auto_kg_above_threshold(self, qtbot) -> None:
         scene = _make_scene()
         # Large bed → at least one amendment crosses the 1 kg threshold.
         bed = RectangleItem(
@@ -242,7 +242,7 @@ class TestMaterialsKgAutoFormat:
 
 
 class TestPricePersistence:
-    def test_update_price_writes_to_project_manager(self, qtbot) -> None:  # noqa: ARG002
+    def test_update_price_writes_to_project_manager(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t")
         pm = ProjectManager()
@@ -258,7 +258,7 @@ class TestPricePersistence:
         plant2 = next(i for i in rebuilt if i.id == plant.id)
         assert plant2.price_each == pytest.approx(2.50)
 
-    def test_clearing_price_removes_entry(self, qtbot) -> None:  # noqa: ARG002
+    def test_clearing_price_removes_entry(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t")
         pm = ProjectManager()
@@ -268,7 +268,7 @@ class TestPricePersistence:
         svc.update_price(plant, None)
         assert pm.shopping_list_prices == {}
 
-    def test_zero_price_is_persisted_as_real_value(self, qtbot) -> None:  # noqa: ARG002
+    def test_zero_price_is_persisted_as_real_value(self, qtbot) -> None:
         """Zero is a valid price (free); only None clears the entry."""
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t")
@@ -286,7 +286,7 @@ class TestPricePersistence:
 
 
 class TestEdgeCases:
-    def test_plant_with_empty_metadata_does_not_crash(self, qtbot) -> None:  # noqa: ARG002
+    def test_plant_with_empty_metadata_does_not_crash(self, qtbot) -> None:
         scene = _make_scene()
         plant = CircleItem(
             center_x=50, center_y=50, radius=20,
@@ -300,7 +300,7 @@ class TestEdgeCases:
         assert len(plants) == 1
         assert plants[0].name == "orphan"
 
-    def test_seed_packet_with_no_keys_is_skipped(self, qtbot) -> None:  # noqa: ARG002
+    def test_seed_packet_with_no_keys_is_skipped(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t")
         pm = ProjectManager()
@@ -311,7 +311,7 @@ class TestEdgeCases:
         seeds = [i for i in svc.build() if i.category is ShoppingListCategory.SEEDS]
         assert len(seeds) == 1  # gap still present
 
-    def test_seed_gap_match_is_case_insensitive(self, qtbot) -> None:  # noqa: ARG002
+    def test_seed_gap_match_is_case_insensitive(self, qtbot) -> None:
         scene = _make_scene()
         plant = CircleItem(
             center_x=50, center_y=50, radius=20,
@@ -334,7 +334,7 @@ class TestEdgeCases:
 
 
 class TestPricePrune:
-    def test_prune_removes_stale_keys(self, qtbot) -> None:  # noqa: ARG002
+    def test_prune_removes_stale_keys(self, qtbot) -> None:
         scene = _make_scene()
         plant = _add_plant(scene, common_name="Tomato", source_id="t")
         pm = ProjectManager()
@@ -350,7 +350,7 @@ class TestPricePrune:
 
         assert pm.shopping_list_prices == {}
 
-    def test_prune_keeps_prices_for_current_items(self, qtbot) -> None:  # noqa: ARG002
+    def test_prune_keeps_prices_for_current_items(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t")
         pm = ProjectManager()
@@ -363,7 +363,7 @@ class TestPricePrune:
 
         assert pm.shopping_list_prices == {plant_item.id: 3.00}
 
-    def test_prune_does_not_mark_dirty_when_nothing_stale(self, qtbot) -> None:  # noqa: ARG002
+    def test_prune_does_not_mark_dirty_when_nothing_stale(self, qtbot) -> None:
         scene = _make_scene()
         _add_plant(scene, common_name="Tomato", source_id="t")
         pm = ProjectManager()
@@ -397,7 +397,7 @@ def _no_amendments_soil_service() -> MagicMock:
 
 
 class TestSoilFillMaterials:
-    def test_soil_fill_default_depth(self, qtbot) -> None:  # noqa: ARG002
+    def test_soil_fill_default_depth(self, qtbot) -> None:
         """100 cm × 100 cm bed with default 30 cm depth → 1 m² × 0.3 m = 0.3 m³."""
         scene = _make_scene()
         _add_bed(scene, 100, 100)  # 1 m²
@@ -409,7 +409,7 @@ class TestSoilFillMaterials:
         assert soil.unit == "m³"
         assert soil.quantity == pytest.approx(0.3, abs=0.001)
 
-    def test_soil_fill_custom_depth(self, qtbot) -> None:  # noqa: ARG002
+    def test_soil_fill_custom_depth(self, qtbot) -> None:
         """Per-bed soil_depth_cm=50 → 1 m² × 0.5 m = 0.5 m³."""
         scene = _make_scene()
         bed = _add_bed(scene, 100, 100)
@@ -422,7 +422,7 @@ class TestSoilFillMaterials:
         assert soil is not None
         assert soil.quantity == pytest.approx(0.5, abs=0.001)
 
-    def test_soil_fill_aggregates_multiple_beds(self, qtbot) -> None:  # noqa: ARG002
+    def test_soil_fill_aggregates_multiple_beds(self, qtbot) -> None:
         """Two 1 m² beds → combined 2 m² × 0.3 m = 0.6 m³ in one row."""
         scene = _make_scene()
         _add_bed(scene, 100, 100, "Bed A")
@@ -433,14 +433,14 @@ class TestSoilFillMaterials:
         assert len(soil_rows) == 1  # always one aggregate row
         assert soil_rows[0].quantity == pytest.approx(0.6, abs=0.001)
 
-    def test_no_soil_fill_when_no_beds(self, qtbot) -> None:  # noqa: ARG002
+    def test_no_soil_fill_when_no_beds(self, qtbot) -> None:
         scene = _make_scene()
         pm = ProjectManager()
         svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)
         soil_rows = [m for m in svc.build() if m.id == "soil_fill:m3"]
         assert soil_rows == []
 
-    def test_soil_fill_price_survives_rebuild(self, qtbot) -> None:  # noqa: ARG002
+    def test_soil_fill_price_survives_rebuild(self, qtbot) -> None:
         """Stable item ID means a saved price is reattached on subsequent builds."""
         scene = _make_scene()
         _add_bed(scene, 100, 100)
@@ -453,7 +453,7 @@ class TestSoilFillMaterials:
 
 
 class TestMulchMaterials:
-    def test_mulch_area_single_bed(self, qtbot) -> None:  # noqa: ARG002
+    def test_mulch_area_single_bed(self, qtbot) -> None:
         """100 cm × 100 cm bed → 1 m² mulch row."""
         scene = _make_scene()
         _add_bed(scene, 100, 100)
@@ -464,7 +464,7 @@ class TestMulchMaterials:
         assert mulch.unit == "m²"
         assert mulch.quantity == pytest.approx(1.0, abs=0.01)
 
-    def test_mulch_area_aggregates_beds(self, qtbot) -> None:  # noqa: ARG002
+    def test_mulch_area_aggregates_beds(self, qtbot) -> None:
         """Two 1 m² beds → 2 m² mulch in one row."""
         scene = _make_scene()
         _add_bed(scene, 100, 100, "A")
@@ -475,7 +475,7 @@ class TestMulchMaterials:
         assert len(mulch_rows) == 1
         assert mulch_rows[0].quantity == pytest.approx(2.0, abs=0.01)
 
-    def test_no_mulch_when_no_beds(self, qtbot) -> None:  # noqa: ARG002
+    def test_no_mulch_when_no_beds(self, qtbot) -> None:
         scene = _make_scene()
         pm = ProjectManager()
         svc = ShoppingListService(scene, _no_amendments_soil_service(), pm)

@@ -229,7 +229,7 @@ class WeatherService:
                 logger.debug("Weather cache stale (%.0f s old)", age_seconds)
                 return None
             return WeatherForecast.from_dict(raw)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Failed to load weather cache: %s", exc)
             return None
 
@@ -237,7 +237,7 @@ class WeatherService:
         path = self._cache_path(lat, lon)
         try:
             path.write_text(json.dumps(forecast.to_dict(), indent=2), encoding="utf-8")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Failed to save weather cache: %s", exc)
 
     # ------------------------------------------------------------------
@@ -271,8 +271,10 @@ class WeatherService:
             url,
             headers={"User-Agent": "OpenGardenPlanner-WeatherService/1.0"},
         )
+        if not req.full_url.startswith('https://'):
+            raise WeatherServiceError(f'Refusing non-HTTPS URL: {req.full_url}')
         try:
-            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ssl_ctx) as resp:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ssl_ctx) as resp:  # nosec: B310
                 raw_bytes = resp.read()
                 data: dict[str, Any] = json.loads(raw_bytes.decode("utf-8"))
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:

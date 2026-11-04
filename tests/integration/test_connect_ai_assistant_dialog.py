@@ -438,7 +438,7 @@ class TestRegistryDrivenRows:
         """
         calls: list[list[str]] = []
 
-        def fake_run(args, **_kwargs):  # noqa: ANN001, ANN003
+        def fake_run(args, **_kwargs):
             calls.append(list(args))
             if "--help" in args:
                 return subprocess.CompletedProcess(

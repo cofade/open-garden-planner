@@ -1,6 +1,7 @@
 """Print dialog for printing garden plans with scaling and page layout options."""
 
 import math
+from collections.abc import Callable
 from datetime import date
 
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF
@@ -191,6 +192,8 @@ class GardenPrintManager:
         self,
         scene: QGraphicsScene,
         project_name: str = "Garden Plan",
+        *,
+        snapshot_validator: Callable[[], None] | None = None,
     ) -> None:
         """Initialize the print manager.
 
@@ -200,6 +203,9 @@ class GardenPrintManager:
         """
         self._scene = scene
         self._project_name = project_name
+        self._snapshot_validator = snapshot_validator
+        self._preview: QPrintPreviewDialog | None = None
+        self._render_error: Exception | None = None
         self._scale_denom = 0
         self._include_grid = False
         self._include_labels = True
@@ -252,7 +258,13 @@ class GardenPrintManager:
             )
         )
         preview.paintRequested.connect(self._render_to_printer)
-        preview.exec()
+        self._preview, self._render_error = preview, None
+        try:
+            preview.exec()
+        finally:
+            self._preview = None
+        if self._render_error is not None:
+            raise self._render_error
 
     def _render_to_printer(self, printer: QPrinter) -> None:
         """Render the scene to the printer.
@@ -260,6 +272,15 @@ class GardenPrintManager:
         Args:
             printer: The QPrinter to render to
         """
+        if self._snapshot_validator is not None:
+            try:
+                self._snapshot_validator()
+            except Exception as error:
+                self._render_error = error
+                if self._preview is None:
+                    raise
+                self._preview.reject()
+                return
         scene = self._scene
         canvas_rect = scene.canvas_rect if hasattr(scene, "canvas_rect") else scene.sceneRect()
 
@@ -566,7 +587,7 @@ class GardenPrintManager:
         )
 
         # Right: date
-        date_text = date.today().strftime("%Y-%m-%d")
+        date_text = (getattr(self._scene, "plan_date", None) or date.today()).isoformat()
         date_w = fm.horizontalAdvance(date_text)
         painter.drawText(
             int(legend_w_px - date_w - 4), int(text_y),

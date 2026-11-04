@@ -21,6 +21,21 @@ footprint with the segment [(0,0) → D]). pyclipper computes the sweep and
 the cross-item union on an integer grid (``CLIPPER_SCALE``, the
 ``offset_tool`` precedent — pyclipper is integer-only).
 
+Base stacking (Phase 17 L1.6, ADR-037 addendum). A caster is a solid
+``footprint x [base, base + h]`` — a plant on the soil of a raised bed starts at
+the soil, not at the ground. Its ground shadow is
+
+    S(F, b, h) = { p + t·d : p ∈ F, t ∈ [b / tan α, (b + h) / tan α] }
+
+the footprint projected from the base, swept on to its projection from the top:
+the ground shadow ``S(F, 0, h)`` translated by ``(b / tan α)·d``. The tip lies
+``b / tan α`` further from the sun, and so does the near edge — what is below
+the base is the shadow of whatever the caster stands on (its bed is a caster of
+its own). ``base = 0`` takes the very same integer path as before L1.6: the
+footprint is translated by ``round(b / tan α · d)`` first, and for b = 0 that
+step does not run (pinned bit for bit by
+``tests/integration/test_shadow_caster_golden.py``).
+
 ``pyclipper.MinkowskiSum`` was probed on 2026-07-19 (pyclipper >= 1.3):
 ``MinkowskiSum([[0,0],[100,50]], [[0,0],[400,0],[400,300],[0,300]], True)``
 returns the swept-boundary annulus (outer hull + CW hole) as integer
@@ -28,17 +43,99 @@ polygons. The union of that annulus with the footprint and the translated
 footprint (all CCW, PFT_NONZERO) is the exact filled sweep for convex AND
 concave footprints; a translate-in-N-steps fallback covers builds where the
 binding misbehaves (visually identical at garden scale).
+
+One caster is one REGION, not one ring (issue #444). A fence or wall stroke
+that closes on itself is an outer ring plus a hole, and a self-crossing
+outline is two lobes: both are repaired once per walk by ``shadow_region``,
+which hands the sweep simple rings only. A hole swept as a solid would cast the
+enclosed garden as a slab (88.8 m² instead of 17.5 m² for a 10 m x 8 m loop),
+and a figure-eight swept as one ring loses a lobe.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Sequence
+from typing import Any, NamedTuple, cast
 
 import pyclipper
 
 Point = tuple[float, float]
 Polygon = list[Point]
+Point3D = tuple[float, float, float]
+Triangle3D = tuple[Point3D, Point3D, Point3D]
+
+
+class WeightedShadowRegion(NamedTuple):
+    """A shadow region with analytical occlusion and open transmittance (#440).
+
+    ``polygons``: outer (CCW) and hole (CW) rings bounding the region.
+    ``occlusion``: shade weight ``1.0 - transmittance`` in ``(0.0, 1.0]`` (``1.0``
+    for opaque casters).
+    ``transmittance``: open sunlight fraction in ``[0.0, 1.0)`` (``0.0`` for opaque
+    casters).
+    """
+
+    polygons: list[Polygon]
+    occlusion: float = 1.0
+    transmittance: float = 0.0
+
+
+class WeightedShadowsResult(NamedTuple):
+    """Result of ``compute_weighted_shadows`` (#440).
+
+    ``union_polygons``: full outer/hole union of all active shadow casters.
+    ``weighted_regions``: disjoint shadow regions with their ``occlusion`` and
+    ``transmittance`` weights.
+    ``owned_shadows``: per-caster ``(polygons, transmittance)`` in input order.
+    """
+
+    union_polygons: list[Polygon]
+    weighted_regions: list[WeightedShadowRegion]
+    owned_shadows: list[tuple[list[Polygon], float]]
+
+
+class ShadowCaster(NamedTuple):
+    """One shadow-casting solid: ``footprint x [base_cm, base_cm + height_cm]``.
+
+    The ONE caster shape of the sun & shade overlay, the hours-of-sun heatmap
+    and (through the same base rule) the 3D records. ``footprint``: scene cm.
+    ``height_cm``: the item's ``effective_height_cm``, measured from its own
+    ground. ``base_cm``: how high that ground is — 0.0 for everything on the
+    garden floor, the soil surface for a plant in a raised bed or container
+    (``core.object_height.standing_base_cm``). Plain data: safe to hand to the
+    heatmap worker thread.
+    """
+
+    footprint: Polygon
+    height_cm: float
+    base_cm: float = 0.0
+
+
+#: What the shadow functions accept as a caster: a ``ShadowCaster`` or the
+#: pre-L1.6 pair ``(footprint, height_cm)`` — a pair stands on the ground.
+#: Nothing else: ``caster_fields`` refuses any other shape, so a third element
+#: can only ever be a base when a ``ShadowCaster`` says so.
+CasterLike = ShadowCaster | tuple[Sequence[Point], float | None]
+
+
+def caster_fields(caster: CasterLike) -> tuple[Sequence[Point], float | None, float]:
+    """``(footprint, height_cm, base_cm)`` of a caster — by TYPE, never by length.
+
+    A ``ShadowCaster`` carries its base; an exact ``(footprint, height_cm)``
+    tuple stands on the ground. Anything else — a list, a longer or shorter
+    tuple, another named tuple — raises ``TypeError``: a caller that built a
+    3-tuple for some other reason must not have its third element read as a
+    height above ground.
+    """
+    if isinstance(caster, ShadowCaster):
+        return caster.footprint, caster.height_cm, caster.base_cm
+    if type(caster) is tuple and len(caster) == 2:
+        return caster[0], caster[1], 0.0
+    raise TypeError(
+        "a shadow caster is a ShadowCaster or a (footprint, height_cm) tuple, "
+        f"not {type(caster).__name__} of length {len(caster) if hasattr(caster, '__len__') else '?'}"
+    )
 
 # Integer grid for pyclipper: 1 unit = 1/1000 cm (offset_tool precedent).
 CLIPPER_SCALE = 1000
@@ -106,18 +203,143 @@ def polyline_footprint(points: Sequence[Point], width_cm: float) -> list[Polygon
     return [_from_int(path) for path in result]
 
 
+#: How far a rounded outline's arcs may stray from the true circle, cm.
+ROUND_ARC_TOLERANCE_CM = 0.5
+
+
+def polyline_round_outline(points: Sequence[Point], width_cm: float, *,
+                           arc_tolerance_cm: float = ROUND_ARC_TOLERANCE_CM) -> list[Polygon]:
+    """The ground an open polyline covers when it is stroked with round caps and round
+    joins — what the canvas paints for a gravel or a dirt path (``path_style_paint``),
+    half a width past each end. Not a caster: a fence's footprint is
+    ``polyline_footprint``."""
+    if len(points) < 2 or width_cm <= 0:
+        return []
+    pco = pyclipper.PyclipperOffset(arc_tolerance=arc_tolerance_cm * CLIPPER_SCALE)
+    pco.AddPath(_to_int(points), pyclipper.JT_ROUND, pyclipper.ET_OPENROUND)
+    result = pco.Execute(round(width_cm / 2.0 * CLIPPER_SCALE))
+    return [_from_int(path) for path in result]
+
+
+def grown_polygon(ring: Sequence[Point], distance_cm: float) -> list[Polygon]:
+    """``ring`` grown outwards by ``distance_cm``, its corners rounded."""
+    if len(ring) < 3 or distance_cm <= 0:
+        return [list(ring)] if len(ring) >= 3 else []
+    pco = pyclipper.PyclipperOffset(arc_tolerance=ROUND_ARC_TOLERANCE_CM * CLIPPER_SCALE)
+    pco.AddPath(_to_int(ring), pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+    result = pco.Execute(round(distance_cm * CLIPPER_SCALE))
+    return [_from_int(path) for path in result]
+
+
+def base_offset_cm(base_cm: float | None, elevation_deg: float) -> float:
+    """How far along the shadow direction a raised caster's shadow STARTS:
+    ``base / tan α``. 0.0 for a caster on the ground — and for a base that is
+    no height above ground (None, negative, not finite)."""
+    if base_cm is None or not math.isfinite(base_cm):
+        return 0.0
+    return shadow_length_cm(base_cm, elevation_deg) or 0.0
+
+
+#: How far a ring's printed area may differ from the area its own outline
+#: encloses before the ring is treated as a self-crossing one — one grid step
+#: of the 1/1000 cm grid, squared, with room for the integer rounding of a
+#: long outline (issue #444).
+_RING_AREA_SLACK = 0.5
+
+
+def shadow_region(footprints: Iterable[Sequence[Point]]) -> list[Polygon]:
+    """The ground ONE caster covers, as rings that are all simple (#444).
+
+    ``footprints`` is a caster's whole set for one item — ``item_footprints``
+    output, e.g. a fence's stroke: an outer ring and its hole. Two shapes the
+    sweep cannot take as they come are repaired here, once, where the item is
+    still known:
+
+    - **A stroke that closes on itself** comes back from an offset as an outer
+      ring and a hole ring. Swept as two solids the hole becomes a slab the
+      size of the enclosed garden: a 10 m x 8 m loop at a 60° sun drew 88.8 m²
+      instead of 17.5 m². The hole is cut open by a zero-width slit to the
+      nearest boundary above it, so the item is ONE simple ring whose region is
+      exactly the stroke's — the slit encloses no ground and the sweep of the
+      region is unchanged (measured against a ray oracle: no cell differs).
+    - **A self-crossing ring** (a polygon whose outline crosses itself) is
+      split by ``SimplifyPolygons`` into its lobes, which are then swept as the
+      separate solids they are: a bow-tie at a 60° sun drew 80,000 cm² where
+      its two lobes' prisms give 129,282 cm².
+
+    A ring that is already simple is returned **as it is** — the very same point
+    list, whatever its winding: that is the case of everything on the ground in
+    ``tests/fixtures/shadows/shadow_golden.json``, which stays bit-for-bit (the
+    golden's stated rule). Roles come from the sign of the enclosed area —
+    outers counter-clockwise, holes clockwise — which is what every
+    ``pyclipper`` offset hands out. A ring that touches itself (a pinched
+    outline) is rebuilt into its lobes; its ground is the same.
+
+    The self-crossing test and split are per RING and bounded by
+    ``MAX_REGION_VERTICES``: above it a ring is taken as it comes (measured, one
+    ``SimplifyPolygons`` call over a 16,384-vertex ring costs 257 ms, and over a
+    whole ring set of a crafted fence 2.4 s — per walk). The hole repair has no
+    such bound: a stroke's rings are grouped by winding and bridged, which is
+    linear in the ring and cheap next to that stroke's own sweep.
+
+    Callers: the caster walk (``collect_identified_casters``; the overlay's
+    ``collect_shadow_casters`` flattens it) asks this once per item per walk. The
+    sweep functions themselves take simple rings — one item's ring
+    set is not recoverable from a single ring, and a hole passed on its own
+    would be cast as a solid.
+    """
+    rings = [list(footprint) for footprint in footprints if len(footprint) >= 3]
+    if not rings:
+        return []
+    int_rings = [_to_int(ring) for ring in rings]
+    if not _region_needs_repair(int_rings):
+        return rings
+    pieces: list[list[tuple[int, int]]] = []
+    for ring in int_rings:
+        # Per ring, never over the whole set: one SimplifyPolygons call over a crafted
+        # fence's rings cost 2.4 s a walk. A ring above the bound is taken as it comes.
+        if len(ring) > MAX_REGION_VERTICES:
+            pieces.append(ring)
+            continue
+        lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
+        if len(lobes) == 1:
+            pieces.append(ring)  # simple: unchanged, point for point, either winding
+        elif abs(abs(sum(pyclipper.Area(lobe) for lobe in lobes))
+                 - abs(pyclipper.Area(ring))) <= _RING_AREA_SLACK:
+            # Self-TOUCHING, not crossing: the lobes add up to the ring's own ground,
+            # so the ring's role survives — a pinched hole stays a hole.
+            pieces.extend([list(reversed(lobe)) for lobe in lobes]
+                          if pyclipper.Area(ring) < 0 else lobes)
+        else:
+            # Self-CROSSING: the lobes are the solid the outline draws, and they are
+            # solid whichever way it was wound (a mirrored or clockwise star draws the
+            # same ground as a counter-clockwise one).
+            pieces.extend(lobes)
+    regions: list[Polygon] = []
+    for outer, holes in _group_holes_int(pieces):
+        regions.append(_from_int(_bridge_holes_int(outer, holes) if holes else outer))
+    return regions
+
+
 def shadow_polygon(
     footprint: Sequence[Point],
     height_cm: float | None,
     elevation_deg: float,
     azimuth_deg: float,
+    base_cm: float = 0.0,
 ) -> list[Polygon]:
-    """Ground shadow of one extruded footprint; [] when there is no shadow."""
+    """Ground shadow of one extruded footprint; [] when there is no shadow.
+
+    ``base_cm`` lifts the solid: it occupies ``[base_cm, base_cm + height_cm]``
+    and its shadow starts ``base_cm / tan α`` along the shadow direction
+    (module docstring).
+    """
     length = shadow_length_cm(height_cm, elevation_deg)
     if length is None:
         return []
     direction = shadow_direction_scene(azimuth_deg)
-    paths = _caster_paths_int(footprint, length, direction)
+    paths = _caster_paths_int(footprint, length, direction,
+                              base_offset_cm(base_cm, elevation_deg))
     return [_from_int(p) for p in _union_int(paths)]
 
 
@@ -127,8 +349,70 @@ def union_shadows(polygons: Iterable[Sequence[Point]]) -> list[Polygon]:
     return [_from_int(p) for p in _union_int(int_paths)]
 
 
+def clip_to_rect(
+    polygons: Iterable[Sequence[Point]], width_cm: float, depth_cm: float
+) -> list[Polygon]:
+    """Shadow polygons cut at the rectangle (0, 0) — (width, depth): what the canvas
+    shows of its overlay, which it clips to the canvas (Phase 17 L2.1: the 3D drape
+    lays exactly that on the ground). Even-odd, like the overlay paints them (a
+    union's holes stay sunny); outers come out CCW, holes CW. Nothing for an empty
+    rectangle or no polygons."""
+    paths = [_to_int(polygon) for polygon in polygons if len(polygon) >= 3]
+    if not paths or width_cm <= 0 or depth_cm <= 0:
+        return []
+    w, d = round(width_cm * CLIPPER_SCALE), round(depth_cm * CLIPPER_SCALE)
+    clipper = pyclipper.Pyclipper()
+    clipper.AddPaths(paths, pyclipper.PT_SUBJECT, True)
+    clipper.AddPath([(0, 0), (w, 0), (w, d), (0, d)], pyclipper.PT_CLIP, True)
+    result = clipper.Execute(pyclipper.CT_INTERSECTION, pyclipper.PFT_EVENODD,
+                             pyclipper.PFT_NONZERO)
+    return [_from_int(path) for path in result]
+
+
+class GroupedCaster(NamedTuple):
+    """All solid footprints of ONE owner with its height, base, and optional 3D
+    roof or fence porosity metadata (#440) — the caster shape of
+    ``compute_grouped_shadows`` and ``compute_weighted_shadows``."""
+
+    footprints: Sequence[Sequence[Point]]
+    height_cm: float
+    base_cm: float = 0.0
+    roof_triangles: tuple[Triangle3D, ...] = ()
+    fence_style: str | None = None
+    fence_points: tuple[Point, ...] = ()
+    fence_width_cm: float = 0.0
+    transmittance: float | None = None
+
+
+def caster_transmittance(
+    caster: Any,
+    elevation_deg: float,
+    azimuth_deg: float,
+) -> float:
+    """Open sunlight transmittance in ``[0.0, 1.0]`` for a caster (#440).
+
+    Returns ``0.0`` for opaque casters, ``caster.transmittance`` when explicitly
+    provided, or the angle-dependent structural fence transmittance when
+    ``caster.fence_style`` is set.
+    """
+    explicit = getattr(caster, "transmittance", None)
+    if explicit is not None:
+        return float(min(1.0, max(0.0, float(explicit))))
+    fence_style = getattr(caster, "fence_style", None)
+    if isinstance(fence_style, str) and fence_style:
+        from open_garden_planner.core.scene3d.builders.fences import fence_transmittance
+
+        height_cm = float(getattr(caster, "height_cm", 0.0) or 0.0)
+        stroke_cm = float(getattr(caster, "fence_width_cm", 0.0) or 3.0)
+        points = getattr(caster, "fence_points", ()) or ()
+        return fence_transmittance(
+            fence_style, height_cm, stroke_cm, elevation_deg, azimuth_deg, points
+        )
+    return 0.0
+
+
 def compute_grouped_shadows(
-    casters: Iterable[tuple[Sequence[Sequence[Point]], float]],
+    casters: Iterable[GroupedCaster | tuple[Sequence[Sequence[Point]], float]],
     elevation_deg: float,
     azimuth_deg: float,
     should_cancel: Callable[[], bool] | None = None,
@@ -137,29 +421,208 @@ def compute_grouped_shadows(
 
     Keep paths on the existing integer grid. Union each owner's footprints
     before sparse sampling, so overlapping footprints count as one caster.
+    A ``GroupedCaster`` carries its base — the same swept solid
+    ``compute_scene_shadows`` makes of a ``ShadowCaster``; an exact
+    ``(footprints, height_cm)`` pair stands on the ground. By TYPE, never by
+    length (``caster_fields``). When ``roof_triangles`` is present on a
+    ``GroupedCaster``, its 3D structural triangles are projected directly (#440).
     """
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
     owned = []
-    for footprints, height in casters:
+    for caster in casters:
         if should_cancel is not None and should_cancel():
             return None
+        if isinstance(caster, GroupedCaster):
+            footprints = caster.footprints
+            height = caster.height_cm
+            base = caster.base_cm
+            roof_tris = caster.roof_triangles
+        elif type(caster) is tuple and len(caster) == 2:
+            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+        else:
+            raise TypeError(
+                "a grouped caster is a GroupedCaster or a (footprints, height_cm) tuple, "
+                f"not {type(caster).__name__}")
         length = shadow_length_cm(height, elevation_deg)
-        paths = []
+        paths: list[list[tuple[int, int]]] = []
         if length is not None:
-            for footprint in footprints:
-                paths.extend(_caster_paths_int(footprint, length, direction))
+            if roof_tris:
+                paths = _roof_caster_paths_int(
+                    roof_tris, elevation_deg, direction, base_cm=base
+                )
+            else:
+                start = base_offset_cm(base, elevation_deg)
+                for footprint in footprints:
+                    paths.extend(_caster_paths_int(footprint, length, direction, start))
+        unioned = _union_int(paths)
         all_paths.extend(paths)
-        owned.append([_from_int(p) for p in _union_int(paths)])
+        owned.append([_from_int(p) for p in unioned])
     return [_from_int(p) for p in _union_int(all_paths)], owned
 
 
+def compute_weighted_shadows(
+    casters: Iterable[Any],
+    elevation_deg: float,
+    azimuth_deg: float,
+    should_cancel: Callable[[], bool] | None = None,
+    *,
+    receiver_elev_cm: float = 0.0,
+) -> WeightedShadowsResult | None:
+    """Enriched analytical shadow projection with pitched roofs and fence porosity (#440).
+
+    Accepts ``GroupedCaster``, ``IdentifiedCaster``, or ``(footprints, height_cm)``
+    pairs. Each owner's shadow components are unioned first so overlapping parts of
+    one object never double-count shade. When porous casters are present, overlapping
+    regions are partitioned on the integer grid with multiplied transmittance
+    ``T_total = prod(T_i)`` and ``occlusion = 1.0 - T_total``.
+    """
+    if elevation_deg < MIN_SUN_ELEVATION_DEG:
+        return WeightedShadowsResult([], [], [])
+    direction = shadow_direction_scene(azimuth_deg)
+    all_paths: list[list[tuple[int, int]]] = []
+    owner_int_paths: list[list[list[tuple[int, int]]]] = []
+    owner_transmittances: list[float] = []
+    owned_shadows: list[tuple[list[Polygon], float]] = []
+
+    for caster in casters:
+        if should_cancel is not None and should_cancel():
+            return None
+        if isinstance(caster, GroupedCaster) or hasattr(caster, "footprints"):
+            footprints = caster.footprints
+            height = caster.height_cm
+            base = float(getattr(caster, "base_cm", 0.0) or 0.0)
+            roof_tris = getattr(caster, "roof_triangles", ()) or ()
+        elif type(caster) is tuple and len(caster) == 2:
+            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+        else:
+            raise TypeError(
+                "a weighted caster must provide footprints and height_cm, "
+                f"not {type(caster).__name__}"
+            )
+        trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
+        if trans >= 1.0 or height is None or height <= 0.0:
+            owner_int_paths.append([])
+            owner_transmittances.append(1.0)
+            owned_shadows.append(([], 1.0))
+            continue
+
+        top = base + height
+        if top <= receiver_elev_cm:
+            owner_int_paths.append([])
+            owner_transmittances.append(trans)
+            owned_shadows.append(([], trans))
+            continue
+
+        paths: list[list[tuple[int, int]]] = []
+        if roof_tris:
+            paths = _roof_caster_paths_int(
+                roof_tris,
+                elevation_deg,
+                direction,
+                base_cm=base,
+                receiver_elev_cm=receiver_elev_cm,
+            )
+        else:
+            eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
+            eff_height = top - max(base, receiver_elev_cm)
+            length = shadow_length_cm(eff_height, elevation_deg)
+            if length is not None:
+                start = base_offset_cm(eff_base, elevation_deg)
+                for footprint in footprints:
+                    paths.extend(_caster_paths_int(footprint, length, direction, start))
+
+        all_paths.extend(paths)
+        unioned = _union_int(paths)
+        owner_int_paths.append(unioned)
+        owner_transmittances.append(trans)
+        owned_shadows.append(([_from_int(p) for p in unioned], trans))
+
+    union_int = _union_int(all_paths)
+    union_polygons = [_from_int(p) for p in union_int]
+    if not union_int:
+        return WeightedShadowsResult([], [], owned_shadows)
+
+    has_porous = any(
+        0.0 < t < 1.0 and bool(paths)
+        for paths, t in zip(owner_int_paths, owner_transmittances, strict=True)
+    )
+    if not has_porous:
+        return WeightedShadowsResult(
+            union_polygons,
+            [WeightedShadowRegion(union_polygons, occlusion=1.0, transmittance=0.0)],
+            owned_shadows,
+        )
+
+    opaque_paths = [
+        p
+        for paths, t in zip(owner_int_paths, owner_transmittances, strict=True)
+        if t <= 0.0
+        for p in paths
+    ]
+    opaque_union = _union_int(opaque_paths)
+    porous_regions: list[tuple[list[list[tuple[int, int]]], float]] = []
+
+    for p_paths, p_trans in zip(owner_int_paths, owner_transmittances, strict=True):
+        if not (0.0 < p_trans < 1.0 and p_paths):
+            continue
+        rem = _diff_int(p_paths, opaque_union) if opaque_union else p_paths
+        if not rem:
+            continue
+        next_regions: list[tuple[list[list[tuple[int, int]]], float]] = []
+        for r_paths, r_trans in porous_regions:
+            if not rem:
+                next_regions.append((r_paths, r_trans))
+                continue
+            overlap = _intersect_int(r_paths, rem)
+            if not overlap:
+                next_regions.append((r_paths, r_trans))
+                continue
+            r_only = _diff_int(r_paths, rem)
+            if r_only:
+                next_regions.append((r_only, r_trans))
+            next_regions.append((overlap, r_trans * p_trans))
+            rem = _diff_int(rem, r_paths)
+        if rem:
+            next_regions.append((rem, p_trans))
+        porous_regions = next_regions
+
+    weighted_regions: list[WeightedShadowRegion] = []
+    if opaque_union:
+        weighted_regions.append(
+            WeightedShadowRegion(
+                [_from_int(p) for p in opaque_union],
+                occlusion=1.0,
+                transmittance=0.0,
+            )
+        )
+    grouped_by_trans: dict[float, list[list[tuple[int, int]]]] = {}
+    for r_paths, r_trans in porous_regions:
+        if not r_paths:
+            continue
+        key_t = round(r_trans, 6)
+        grouped_by_trans.setdefault(key_t, []).extend(r_paths)
+    for key_t, r_paths in sorted(grouped_by_trans.items(), key=lambda kv: kv[0]):
+        merged = _union_int(r_paths)
+        if merged:
+            occ = round(min(1.0, max(0.0, 1.0 - key_t)), 6)
+            weighted_regions.append(
+                WeightedShadowRegion(
+                    [_from_int(p) for p in merged],
+                    occlusion=occ,
+                    transmittance=key_t,
+                )
+            )
+    return WeightedShadowsResult(union_polygons, weighted_regions, owned_shadows)
+
+
 def compute_scene_shadows(
-    casters: Iterable[tuple[Sequence[Point], float | None]],
+    casters: Iterable[CasterLike],
     elevation_deg: float,
     azimuth_deg: float,
 ) -> list[Polygon]:
-    """Unioned ground shadows for ``(footprint, height_cm)`` casters.
+    """Unioned ground shadows of ``ShadowCaster``s (or ``(footprint, height_cm)``
+    pairs, which stand on the ground).
 
     The whole pipeline stays on the integer grid until the single final
     union — one scale-out pass, one Execute — which is what keeps a
@@ -170,11 +633,13 @@ def compute_scene_shadows(
         return []
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
-    for footprint, height_cm in casters:
+    for caster in casters:
+        footprint, height_cm, base_cm = caster_fields(caster)
         length = shadow_length_cm(height_cm, elevation_deg)
         if length is None:
             continue
-        all_paths.extend(_caster_paths_int(footprint, length, direction))
+        all_paths.extend(_caster_paths_int(
+            footprint, length, direction, base_offset_cm(base_cm, elevation_deg)))
     return [_from_int(p) for p in _union_int(all_paths)]
 
 
@@ -192,14 +657,24 @@ def _from_int(path: Sequence[Sequence[int]]) -> Polygon:
 
 
 def _caster_paths_int(
-    footprint: Sequence[Point], length_cm: float, direction: Point
+    footprint: Sequence[Point], length_cm: float, direction: Point, start_cm: float = 0.0
 ) -> list[list[tuple[int, int]]]:
-    """Integer paths whose nonzero union is the swept (filled) shadow."""
+    """Integer paths whose nonzero union is the swept (filled) shadow.
+
+    ``start_cm`` is a raised caster's base offset (``base / tan α``): the
+    footprint is moved that far along ``direction`` before the sweep. For a
+    caster on the ground the step is skipped, so its paths are what they were
+    before base stacking existed.
+    """
     int_fp = _to_int(footprint)
     if len(int_fp) < 3:
         return []
     if not pyclipper.Orientation(int_fp):
         int_fp = list(reversed(int_fp))  # normalize CCW for stable winding
+    if start_cm > 0.0:
+        ox = round(direction[0] * start_cm * CLIPPER_SCALE)
+        oy = round(direction[1] * start_cm * CLIPPER_SCALE)
+        int_fp = [(x + ox, y + oy) for x, y in int_fp]
     dx = round(direction[0] * length_cm * CLIPPER_SCALE)
     dy = round(direction[1] * length_cm * CLIPPER_SCALE)
     if abs(dx) < _MIN_SWEEP_CM * CLIPPER_SCALE and abs(dy) < _MIN_SWEEP_CM * CLIPPER_SCALE:
@@ -240,6 +715,302 @@ def _union_int(
         return []
     clipper = pyclipper.Pyclipper()
     clipper.AddPaths(paths, pyclipper.PT_SUBJECT, True)
-    return clipper.Execute(
-        pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO
+    return cast(
+        list[list[tuple[int, int]]],
+        clipper.Execute(
+            pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO
+        ),
     )
+
+
+def _paths_bbox(
+    paths: list[list[tuple[int, int]]],
+) -> tuple[int, int, int, int] | None:
+    if not paths:
+        return None
+    xs = [pt[0] for p in paths for pt in p]
+    ys = [pt[1] for p in paths for pt in p]
+    if not xs:
+        return None
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _bboxes_overlap(
+    a: tuple[int, int, int, int] | None,
+    b: tuple[int, int, int, int] | None,
+) -> bool:
+    if a is None or b is None:
+        return False
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
+def _intersect_int(
+    subject: list[list[tuple[int, int]]],
+    clip: list[list[tuple[int, int]]],
+) -> list[list[tuple[int, int]]]:
+    subject = [p for p in subject if len(p) >= 3]
+    clip = [p for p in clip if len(p) >= 3]
+    if not subject or not clip:
+        return []
+    if not _bboxes_overlap(_paths_bbox(subject), _paths_bbox(clip)):
+        return []
+    clipper = pyclipper.Pyclipper()
+    clipper.AddPaths(subject, pyclipper.PT_SUBJECT, True)
+    clipper.AddPaths(clip, pyclipper.PT_CLIP, True)
+    return cast(
+        list[list[tuple[int, int]]],
+        clipper.Execute(
+            pyclipper.CT_INTERSECTION, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD
+        ),
+    )
+
+
+def _diff_int(
+    subject: list[list[tuple[int, int]]],
+    clip: list[list[tuple[int, int]]],
+) -> list[list[tuple[int, int]]]:
+    subject = [p for p in subject if len(p) >= 3]
+    clip = [p for p in clip if len(p) >= 3]
+    if not subject:
+        return []
+    if not clip or not _bboxes_overlap(_paths_bbox(subject), _paths_bbox(clip)):
+        return subject
+    clipper = pyclipper.Pyclipper()
+    clipper.AddPaths(subject, pyclipper.PT_SUBJECT, True)
+    clipper.AddPaths(clip, pyclipper.PT_CLIP, True)
+    return cast(
+        list[list[tuple[int, int]]],
+        clipper.Execute(
+            pyclipper.CT_DIFFERENCE, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD
+        ),
+    )
+
+
+def _clip_triangle_above_z(
+    tri: Triangle3D,
+    base_cm: float,
+    z_plane: float,
+) -> list[Point3D]:
+    """Clip a 3D triangle (shifted by ``base_cm``) to the half-space ``z >= z_plane``."""
+    verts: list[Point3D] = [
+        (tri[0][0], tri[0][1], tri[0][2] + base_cm),
+        (tri[1][0], tri[1][1], tri[1][2] + base_cm),
+        (tri[2][0], tri[2][1], tri[2][2] + base_cm),
+    ]
+    if z_plane <= 0.0 and min(v[2] for v in verts) >= 0.0:
+        return verts
+    if max(v[2] for v in verts) <= z_plane + 1e-9:
+        return []
+    out: list[Point3D] = []
+    for idx in range(3):
+        a = verts[idx]
+        b = verts[(idx + 1) % 3]
+        a_in = a[2] >= z_plane - 1e-9
+        b_in = b[2] >= z_plane - 1e-9
+        if a_in and b_in:
+            out.append(b)
+        elif a_in and not b_in:
+            denom = a[2] - b[2]
+            t = (a[2] - z_plane) / denom if abs(denom) > 1e-12 else 0.0
+            out.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z_plane))
+        elif not a_in and b_in:
+            denom = b[2] - a[2]
+            t = (z_plane - a[2]) / denom if abs(denom) > 1e-12 else 0.0
+            out.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z_plane))
+            out.append(b)
+    return out
+
+
+def _roof_caster_paths_int(
+    roof_triangles: Sequence[Triangle3D],
+    elevation_deg: float,
+    direction: Point,
+    base_cm: float = 0.0,
+    receiver_elev_cm: float = 0.0,
+) -> list[list[tuple[int, int]]]:
+    """Project 3D structural triangles (walls + pitched roof) onto ``z = receiver_elev_cm`` (#440)."""
+    if elevation_deg < MIN_SUN_ELEVATION_DEG or not roof_triangles:
+        return []
+    tan_a = math.tan(math.radians(elevation_deg))
+    dx, dy = direction
+    paths: list[list[tuple[int, int]]] = []
+    for tri in roof_triangles:
+        clipped = _clip_triangle_above_z(tri, base_cm, receiver_elev_cm)
+        if len(clipped) < 3:
+            continue
+        poly: list[tuple[int, int]] = []
+        for vx, vy, vz in clipped:
+            dz = max(0.0, vz - receiver_elev_cm)
+            s = dz / tan_a
+            poly.append(
+                (round((vx + s * dx) * CLIPPER_SCALE), round((vy + s * dy) * CLIPPER_SCALE))
+            )
+        area = pyclipper.Area(poly)
+        if abs(area) <= 0.0:
+            continue
+        if area < 0.0:
+            poly.reverse()
+        paths.append(poly)
+    return paths
+
+
+# ── one caster's ring set as simple rings (issue #444) ────────────
+
+#: Above this many vertices a ring is swept as it comes: the self-crossing test is a
+#: ``SimplifyPolygons`` call, and the loader accepts polygons up to
+#: ``MAX_POLYGON_VERTICES`` (16 384) — measured, that call costs 0.12 ms at 256
+#: vertices, 0.93 ms at 1 024, 20 ms at 4 096 and **257 ms at 16 384**, on every
+#: walk (the overlay recompute and every sun snapshot). The bound is ADR-057's
+#: painting bound, for the same class of crafted plan. Nothing regresses above it:
+#: such a ring is swept exactly as it was before this repair existed, and a
+#: user-drawn crossing outline stays far below it. The hole half of the repair has
+#: no such bound: a stroke's rings are grouped by winding and bridged, which is
+#: linear in the ring and cheap next to that stroke's own sweep (measured, a
+#: crafted 8 192-point closed fence: 13.2 ms here against 64.5 ms in the offset
+#: that built the rings, and 18.5 against 248.3 at 16 384 points).
+MAX_REGION_VERTICES = 256
+
+
+def _region_needs_repair(rings: list[list[tuple[int, int]]]) -> bool:
+    """Is this ring set already one simple ring per piece?
+
+    Two things need the repair: a ring set in which some ring encloses a NEGATIVE
+    area (a hole — the stroke of a fence that closes on itself), and a ring whose
+    own outline is not one simple ring (a self-crossing outline). A LONE ring is
+    never a hole, whatever its winding: a solid drawn clockwise is a solid, and the
+    sweep already normalises a ring's winding. Everything else is left alone, point
+    for point — the rule ``tests/fixtures/shadows/shadow_golden.json`` pins for the
+    ground.
+
+    "Not one simple ring" is decided by the decomposition, not by an area
+    difference: a self-crossing ring can decompose into an outer **plus a hole**
+    whose total area is SMALLER than the ring's printed area (a pentagram: printed
+    235,114 cm², five lobes 124,108 cm², a hole of 110,000 — the sign of a
+    difference test is not fixed), so any decomposition into more than one ring
+    means the outline crosses itself. Above ``MAX_REGION_VERTICES`` the test is
+    skipped (see that constant).
+    """
+    for ring in rings:
+        if len(ring) <= MAX_REGION_VERTICES:
+            lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
+            if len(lobes) != 1:
+                return True
+            area = pyclipper.Area(ring)
+            if abs(pyclipper.Area(lobes[0])) - abs(area) > _RING_AREA_SLACK:
+                return True
+    return len(rings) > 1 and any(pyclipper.Area(ring) < 0 for ring in rings)
+
+
+def _group_holes_int(
+    rings: list[list[tuple[int, int]]],
+) -> list[tuple[list[tuple[int, int]], list[list[tuple[int, int]]]]]:
+    """``[(outer, [its holes]), ...]`` — roles from the enclosed area's sign.
+
+    A ring with a negative area is a hole and is attached to the SMALLEST outer
+    ring that contains it — the innermost one, so an island in a hole (a hole
+    inside an island inside a hole) keeps its own hole instead of lending it to
+    the outermost ring, which would make a bridged ring cross itself. A negative
+    ring that is inside NO outer is not a hole of this region at all — a caller
+    passed it on its own — so it is kept as a piece of its own, reversed;
+    dropping it would lose ground, and the region it describes is the same ring.
+    """
+    outers: list[list[tuple[int, int]]] = []
+    holes: list[list[tuple[int, int]]] = []
+    for ring in rings:
+        if pyclipper.Area(ring) < 0:
+            holes.append(ring)
+        else:
+            outers.append(ring)
+    groups: list[tuple[list[tuple[int, int]], list[list[tuple[int, int]]]]] = [
+        (outer, []) for outer in outers
+    ]
+    for hole in holes:
+        innermost: tuple[list[tuple[int, int]], list[list[tuple[int, int]]]] | None = None
+        for group in groups:
+            if not _hole_is_inside(hole, group[0]):
+                continue
+            if innermost is None or abs(pyclipper.Area(group[0])) < abs(
+                    pyclipper.Area(innermost[0])):
+                innermost = group
+        if innermost is None:
+            groups.append((list(reversed(hole)), []))
+        else:
+            innermost[1].append(hole)
+    return groups
+
+
+def _hole_is_inside(hole: list[tuple[int, int]], outer: list[tuple[int, int]]) -> bool:
+    """Is ``hole`` inside ``outer``? One vertex normally, a majority on a tie.
+
+    An offset's hole lies strictly inside its outer, so the first vertex answers in
+    one ``PointInPolygon`` call — a full scan would be O(vertices × vertices) and cost
+    seconds on a crafted 16,384-point closed fence. A vertex exactly ON the outer's
+    boundary (``-1``) is the interesting case: two pieces of one pinched outline share
+    a vertex exactly, and treating that shared point as "inside" would make a hole of
+    a sibling lobe. Then, and only then, a MAJORITY of the ring's vertices must be
+    strictly inside (``== 1``), counted with an early exit.
+    """
+    first = int(pyclipper.PointInPolygon(hole[0], outer))
+    if first != -1:
+        return first == 1
+    needed = len(hole) // 2 + 1
+    inside = 0
+    for index, point in enumerate(hole):
+        if int(pyclipper.PointInPolygon(point, outer)) == 1:
+            inside += 1
+            if inside >= needed:
+                return True
+        elif inside + len(hole) - index - 1 < needed:
+            return False
+    return inside >= needed
+
+
+#: X offsets tried, in grid steps, to place a bridge's vertical ray off a
+#: vertex. 0 first (a straight bridge), then the nearest clear columns.
+_BRIDGE_RAY_OFFSETS = (0, 1, -1, 2, -2, 3, -3, 4, -4)
+
+
+def _bridge_holes_int(
+    outer: list[tuple[int, int]], holes: list[list[tuple[int, int]]]
+) -> list[tuple[int, int]]:
+    """One simple ring: each hole cut open along a zero-width slit (#444).
+
+    A vertical slit runs from the hole's topmost vertex to the nearest boundary
+    above it, and the ring visits it down and up again. The slit encloses no
+    area, so the ring's region is exactly ``outer - holes`` — the shadow of the
+    stroke, not of a slab. The nearest boundary above a hole's topmost vertex is
+    always there: the hole is strictly inside the outer ring. Holes are bridged
+    from the highest down, so a lower hole's slit meets the boundary above it
+    (the outer's or a higher hole's) and the result stays simple.
+    """
+    ring = list(outer)
+    for hole in sorted(holes, key=lambda h: max(y for _x, y in h), reverse=True):
+        v_index = max(range(len(hole)), key=lambda i: (hole[i][1], hole[i][0]))
+        vx, vy = hole[v_index]
+        bridge: tuple[int, tuple[int, int]] | None = None
+        for offset in _BRIDGE_RAY_OFFSETS:
+            ray_x = vx + offset
+            best: tuple[int, tuple[int, int]] | None = None
+            for index in range(len(ring)):
+                a, b = ring[index], ring[(index + 1) % len(ring)]
+                if a[0] == b[0]:  # vertical: a vertical ray cannot cross it
+                    continue
+                if min(a[0], b[0]) <= ray_x <= max(a[0], b[0]):
+                    t = (ray_x - a[0]) / (b[0] - a[0])
+                    y = a[1] + t * (b[1] - a[1])
+                    if y > vy and (best is None or y < best[1][1]):
+                        best = (index, (ray_x, round(y)))
+            if best is not None:
+                bridge = best
+                break
+        if bridge is None:  # pragma: no cover - malformed caller rings only
+            # A malformed ring set (a "hole" with no boundary above it) keeps the
+            # outer ring as it came - today's over-shading - rather than taking the
+            # window down in a paint-adjacent recompute. The extractor's holes always
+            # have a boundary above them; this is a hand-built set's fallback.
+            return list(outer)
+        index, cross = bridge
+        v = (vx, vy)
+        around_hole = hole[v_index + 1:] + hole[:v_index]
+        ring = ring[:index + 1] + [cross, v] + around_hole + [v, cross] + ring[index + 1:]
+    return ring

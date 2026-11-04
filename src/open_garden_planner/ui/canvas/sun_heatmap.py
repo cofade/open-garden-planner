@@ -63,6 +63,7 @@ from open_garden_planner.core.shade_aggregation import (
     HeatmapGrid,
     IdentifiedCaster,
     SunExposureResult,
+    SunHoursMap,
     SunReceiver,
     compute_sun_exposure,
     daylight_samples,
@@ -71,9 +72,10 @@ from open_garden_planner.core.shadow_geometry import Polygon
 
 from .sun_exposure_snapshot import ExposureSnapshot, collect_exposure_snapshot
 
-#: Above the background image (−1000) and the shadow overlay (−500), below
-#: every layer item (≥ 0). Contour lines and their hour labels sit just above
-#: the fill, still behind user content.
+#: Above the background image (−1000), the ground surfaces (a lawn, a path, an
+#: in-ground bed: ``canvas_scene.GROUND_Z_RANGE``) and the shadow overlay (−500),
+#: below every other layer item (≥ 0): the map lies ON the ground. Contour lines and
+#: their hour labels sit just above the fill, still behind what stands on it.
 _HEATMAP_Z = -450.0
 _CONTOUR_Z = -449.0
 _LABEL_Z = -448.0
@@ -125,6 +127,8 @@ def rasterize_polygons_qimage(
     finally:
         painter.end()
     pointer = image.bits()
+    if pointer is None:  # an image Qt could not allocate (typed Optional since PyQt6 6.12)
+        raise MemoryError("the heatmap mask could not be allocated")
     pointer.setsize(image.sizeInBytes())
     raw = np.frombuffer(pointer, np.uint8).reshape(
         grid.rows, image.bytesPerLine()
@@ -179,6 +183,7 @@ class HeatmapWorker(QThread):
         grid: HeatmapGrid,
         parent: QObject | None = None,
         *, receivers: tuple[SunReceiver, ...] = (),
+        include_sample_masks: bool = False,
     ) -> None:
         super().__init__(parent)
         self._casters = casters
@@ -187,6 +192,7 @@ class HeatmapWorker(QThread):
         self._lon = lon_deg
         self._day = day
         self._grid = grid
+        self._include_sample_masks = include_sample_masks
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -201,6 +207,7 @@ class HeatmapWorker(QThread):
             self._day,
             self._grid,
             rasterize_polygons_qimage,
+            include_sample_masks=self._include_sample_masks,
             progress=lambda done, total: self.progress.emit(done, total),
             should_cancel=lambda: self._cancelled,
         )
@@ -223,6 +230,10 @@ class SunHeatmapController(QObject):
     #: bool = success (False: cancelled / no location)
     finished = pyqtSignal(bool)
     exposure_changed = pyqtSignal()
+    #: The map the canvas shows changed (Phase 17 L2.1, #386): a ``SunHoursMap`` when
+    #: a computed map was published, None when the shown map went away (``clear``).
+    #: The 3D drape listens here; ``result()`` answers the same question at any time.
+    computed = pyqtSignal(object)
 
     def __init__(
         self,
@@ -233,6 +244,7 @@ class SunHeatmapController(QObject):
         super().__init__(parent)
         self._scene = scene
         self._location_provider = location_provider
+        self.include_sample_masks: bool = False
         self._overlay: SunHeatmapOverlayItem | None = None
         self._worker: HeatmapWorker | None = None
         self._grid: HeatmapGrid | None = None
@@ -241,6 +253,9 @@ class SunHeatmapController(QObject):
         self._result_wanted = False
         self._success_seen = False
         self.snapshot: ExposureSnapshot | None = None
+        # The published map can remain visible while a different snapshot runs.
+        self.displayed_snapshot: ExposureSnapshot | None = None
+        self.displayed_receiver_minutes: dict[str, float] = {}
         self.receiver_minutes: dict[str, float] = {}
         self.exposure_reason = "absent"
         #: Test instrument — number of worker launches.
@@ -253,6 +268,8 @@ class SunHeatmapController(QObject):
         self._contour_items: list[QGraphicsItem] = []
         #: Full daylight duration (min) of the last launched day — ramp scale.
         self._daylight_minutes: float = 0.0
+        #: The map the overlay shows, as plain data (``result()``); None: none shown.
+        self._shown: SunHoursMap | None = None
 
     # ── public API ─────────────────────────────────────────────
 
@@ -275,6 +292,13 @@ class SunHeatmapController(QObject):
     @property
     def computed_day(self) -> date | None:
         return self._computed_day
+
+    def result(self) -> SunHoursMap | None:
+        """The map the canvas shows, as plain data — None while none is shown (Phase 17
+        L2.1, #386). The SAME map: a stale one that ``invalidate_exposure`` leaves on
+        screen as a preview is still the result until it is cleared or replaced; the
+        3D drape lays exactly this on the ground, and the 3D probe reads its cells."""
+        return self._shown
 
     def heatmap_visible(self) -> bool:
         overlay = self._alive_overlay()
@@ -320,7 +344,10 @@ class SunHeatmapController(QObject):
         x0, y0, w, h = snapshot.bounds
         receivers = tuple(receiver for receiver in snapshot.receivers
                           if x0 <= receiver.x_cm < x0 + w and y0 <= receiver.y_cm < y0 + h)
-        worker = HeatmapWorker(list(snapshot.casters), latitude, longitude, day, grid, self, receivers=receivers)
+        worker = HeatmapWorker(
+            list(snapshot.casters), latitude, longitude, day, grid, self,
+            receivers=receivers, include_sample_masks=self.include_sample_masks,
+        )
         worker.progress.connect(self.progress)
         worker.success.connect(self._on_success)
         worker.finished.connect(self._on_worker_finished)
@@ -353,6 +380,8 @@ class SunHeatmapController(QObject):
         self.last_minutes = None
         self.last_grid = None
         self.snapshot = None
+        self.displayed_snapshot = None
+        self.displayed_receiver_minutes = {}
         self.receiver_minutes = {}
         self.exposure_reason = "absent"
         self.cancel()
@@ -361,22 +390,34 @@ class SunHeatmapController(QObject):
             overlay.setVisible(False)
         self._clear_contours()
         self.exposure_changed.emit()
+        if self._shown is not None:
+            self._shown = None
+            self.computed.emit(None)
 
     def set_exposure_hint(self, text: str) -> None:
         overlay = self._alive_overlay()
         if overlay is not None and overlay.toolTip() != text:
             overlay.setToolTip(text)
 
+    def suspend_measurements(self) -> None:
+        """Withdraw badges immediately while debounced inputs are unverified."""
+        if self.exposure_reason != "stale":
+            self.receiver_minutes = {}
+            self.exposure_reason = "stale"
+            self.exposure_changed.emit()
+
+    def restore_displayed_measurements(self) -> None:
+        """Reuse the completed result after an unchanged exposure snapshot."""
+        self.receiver_minutes = dict(self.displayed_receiver_minutes)
+        self.exposure_reason = "ready"
+        self.exposure_changed.emit()
+
     def invalidate_exposure(self) -> None:
         """Leave a shown overlay as a snapshot; stop publishing stale measurements."""
-        if self.exposure_reason == "stale":
-            return
         self._result_wanted = False
         self._success_seen = False
         self.cancel()
-        self.receiver_minutes = {}
-        self.exposure_reason = "stale"
-        self.exposure_changed.emit()
+        self.suspend_measurements()
 
     def cancel(self) -> None:
         if self._worker is not None:
@@ -406,6 +447,7 @@ class SunHeatmapController(QObject):
         # always emits a SunExposureResult.
         minutes = result.minutes if isinstance(result, SunExposureResult) else result
         self.receiver_minutes = dict(result.receiver_minutes) if isinstance(result, SunExposureResult) else {}
+        self.displayed_receiver_minutes = dict(self.receiver_minutes)
         self.last_minutes = minutes
         image = build_heatmap_image(minutes, self._daylight_minutes)
         overlay = self._ensure_overlay()
@@ -415,8 +457,21 @@ class SunHeatmapController(QObject):
         overlay.setVisible(True)
         self._rebuild_contours(minutes, grid)
         self._success_seen = True
+        self.displayed_snapshot = self.snapshot
         self.exposure_reason = "ready"
         self.exposure_changed.emit()
+        full = result if isinstance(result, SunExposureResult) else None
+        self._shown = SunHoursMap(
+            self._computed_day,
+            grid,
+            minutes,
+            self._daylight_minutes,
+            SAMPLE_STEP_MINUTES,
+            full.samples if full is not None else (),
+            full.sample_shade if full is not None else None,
+            full.sample_transmittance if full is not None else None,
+        )
+        self.computed.emit(self._shown)
 
     def _on_worker_finished(self) -> None:  # GUI thread
         worker = self._worker
@@ -478,7 +533,8 @@ class SunHeatmapController(QObject):
 
         Runtime-only ``QGraphicsPathItem`` / ``QGraphicsSimpleTextItem`` — not
         ``GardenItemMixin``, so ``project._serialize_item_core`` drops them, and
-        their negative z keeps them behind user content.
+        their negative z keeps them behind what stands on the ground (above the
+        ground surfaces, ``canvas_scene.GROUND_Z_RANGE``).
         """
         self._clear_contours()
         # Contour on a softened copy so the hour lines are smooth curves, not

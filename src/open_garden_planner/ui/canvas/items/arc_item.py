@@ -33,7 +33,7 @@ from open_garden_planner.core.cad_geometry import (
 
 from .garden_item import (
     enable_device_coordinate_cache,
-    handle_selection_change_for_cache,
+    handle_item_change,
 )
 from .resize_handle import (
     CURVE_KIND_ARC_END,
@@ -246,7 +246,7 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
         change: QGraphicsItem.GraphicsItemChange,
         value: Any,
     ) -> Any:
-        handle_selection_change_for_cache(self, change, value)
+        handle_item_change(self, change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.sync_curve_edit_to_selection()
         elif (
@@ -333,7 +333,10 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
         _ = QCoreApplication.translate
         menu = QMenu()
         delete_action = menu.addAction(_("ArcItem", "Delete Arc"))
+        lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_lock_action(action, lock_action):
+            return
 
         if action == delete_action and self.scene():
             self.scene().removeItem(self)
@@ -349,20 +352,23 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
-        scene_center = self.mapToScene(self._center)
-        scene_through = self.mapToScene(self._through)
+        # Parent frame, not scene frame (#661): a grouped curve saves into the
+        # frame the loader recreates it in.  Top-level items are unaffected
+        # because mapToParent() == mapToScene() when there is no parent.
+        parent_center = self.mapToParent(self._center)
+        parent_through = self.mapToParent(self._through)
         data: dict[str, Any] = {
             "type": "arc",
             "item_id": str(self._item_id),
-            "center_x": scene_center.x(),
-            "center_y": scene_center.y(),
+            "center_x": parent_center.x(),
+            "center_y": parent_center.y(),
             "radius": self._radius,
             "start_deg": self._start_deg,
             "span_deg": self._span_deg,
             # Through-point persists the 3rd DOF so reshape handles round-trip
             # (issue #193); older files without it derive the angular midpoint.
-            "through_x": scene_through.x(),
-            "through_y": scene_through.y(),
+            "through_x": parent_through.x(),
+            "through_y": parent_through.y(),
         }
         if self._name:
             data["name"] = self._name

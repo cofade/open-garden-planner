@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 SUPPORTED_LANGUAGES: dict[str, str] = {
     "en": "English",
     "de": "Deutsch",
+    "es": "Español",
     "ru": "Русский",
 }
 

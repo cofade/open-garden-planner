@@ -11,7 +11,6 @@ layout the canvas's parent is the `QSplitter` from `application.py`, which has n
 These tests pin the delivery route end to end: panel -> signal -> view ->
 status bar. A refusal that is only *stored* correctly is not refused *visibly*.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

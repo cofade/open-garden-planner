@@ -30,7 +30,7 @@ class TestRenderDiameterCap:
     into this allocator before this cap was added at the allocation site.
     """
 
-    def test_oversized_diameter_is_capped(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_oversized_diameter_is_capped(self, qtbot: object) -> None:
         clear_plant_cache()
         pixmap = render_plant_pixmap(object_type=ObjectType.TREE, diameter=11500.0)
 
@@ -38,7 +38,7 @@ class TestRenderDiameterCap:
         assert pixmap.width() == _MAX_RENDER_DIAMETER_PX
         assert pixmap.height() == _MAX_RENDER_DIAMETER_PX
 
-    def test_normal_diameter_is_unaffected(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_normal_diameter_is_unaffected(self, qtbot: object) -> None:
         clear_plant_cache()
         pixmap = render_plant_pixmap(object_type=ObjectType.TREE, diameter=200.0)
 
@@ -50,7 +50,7 @@ class TestRenderDiameterCap:
 class TestPlantCategoryEnum:
     """Tests for PlantCategory enum members."""
 
-    def test_all_15_categories_exist(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_all_15_categories_exist(self, qtbot: object) -> None:
         expected = [
             "ROUND_DECIDUOUS", "COLUMNAR_TREE", "WEEPING_TREE", "CONIFER",
             "SPREADING_SHRUB", "COMPACT_SHRUB", "ORNAMENTAL_GRASS",
@@ -60,7 +60,7 @@ class TestPlantCategoryEnum:
         for name in expected:
             assert hasattr(PlantCategory, name), f"Missing category: {name}"
 
-    def test_category_count(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_category_count(self, qtbot: object) -> None:
         assert len(PlantCategory) == 15
 
 
@@ -111,69 +111,69 @@ class TestPlantSVGFiles:
 class TestIsPlantType:
     """Tests for is_plant_type helper."""
 
-    def test_tree_is_plant(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_tree_is_plant(self, qtbot: object) -> None:
         assert is_plant_type(ObjectType.TREE) is True
 
-    def test_shrub_is_plant(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_shrub_is_plant(self, qtbot: object) -> None:
         assert is_plant_type(ObjectType.SHRUB) is True
 
-    def test_perennial_is_plant(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_perennial_is_plant(self, qtbot: object) -> None:
         assert is_plant_type(ObjectType.PERENNIAL) is True
 
-    def test_house_is_not_plant(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_house_is_not_plant(self, qtbot: object) -> None:
         assert is_plant_type(ObjectType.HOUSE) is False
 
-    def test_generic_circle_is_not_plant(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_generic_circle_is_not_plant(self, qtbot: object) -> None:
         assert is_plant_type(ObjectType.GENERIC_CIRCLE) is False
 
-    def test_none_is_not_plant(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_none_is_not_plant(self, qtbot: object) -> None:
         assert is_plant_type(None) is False
 
 
 class TestDefaultCategory:
     """Tests for ObjectType to PlantCategory mapping."""
 
-    def test_tree_default_is_round_deciduous(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_tree_default_is_round_deciduous(self, qtbot: object) -> None:
         assert get_default_category(ObjectType.TREE) == PlantCategory.ROUND_DECIDUOUS
 
-    def test_shrub_default_is_spreading_shrub(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_shrub_default_is_spreading_shrub(self, qtbot: object) -> None:
         assert get_default_category(ObjectType.SHRUB) == PlantCategory.SPREADING_SHRUB
 
-    def test_perennial_default_is_flowering_perennial(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_perennial_default_is_flowering_perennial(self, qtbot: object) -> None:
         assert get_default_category(ObjectType.PERENNIAL) == PlantCategory.FLOWERING_PERENNIAL
 
-    def test_non_plant_returns_none(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_non_plant_returns_none(self, qtbot: object) -> None:
         assert get_default_category(ObjectType.HOUSE) is None
 
 
 class TestResolveSvgPath:
     """Tests for SVG path resolution logic."""
 
-    def test_tree_default_resolves(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_tree_default_resolves(self, qtbot: object) -> None:
         path = _resolve_svg_path(ObjectType.TREE)
         assert path is not None
         assert path.name == "round_deciduous.svg"
 
-    def test_species_takes_priority(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_species_takes_priority(self, qtbot: object) -> None:
         path = _resolve_svg_path(ObjectType.SHRUB, species="rose")
         assert path is not None
         assert path.name == "rose.svg"
 
-    def test_category_takes_priority_over_default(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_category_takes_priority_over_default(self, qtbot: object) -> None:
         path = _resolve_svg_path(ObjectType.TREE, category=PlantCategory.CONIFER)
         assert path is not None
         assert path.name == "conifer.svg"
 
-    def test_species_partial_match(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_species_partial_match(self, qtbot: object) -> None:
         path = _resolve_svg_path(ObjectType.TREE, species="Cherry Blossom")
         assert path is not None
         assert path.name == "cherry_tree.svg"
 
-    def test_non_plant_returns_none(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_non_plant_returns_none(self, qtbot: object) -> None:
         path = _resolve_svg_path(ObjectType.HOUSE)
         assert path is None
 
-    def test_unknown_species_falls_back_to_category(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_unknown_species_falls_back_to_category(self, qtbot: object) -> None:
         path = _resolve_svg_path(
             ObjectType.TREE, species="Unknown Plant XYZ",
             category=PlantCategory.CONIFER,
@@ -181,7 +181,7 @@ class TestResolveSvgPath:
         assert path is not None
         assert path.name == "conifer.svg"
 
-    def test_unknown_species_falls_back_to_default(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_unknown_species_falls_back_to_default(self, qtbot: object) -> None:
         path = _resolve_svg_path(ObjectType.TREE, species="Unknown Plant XYZ")
         assert path is not None
         assert path.name == "round_deciduous.svg"
@@ -190,22 +190,22 @@ class TestResolveSvgPath:
 class TestStableRandom:
     """Tests for stable randomization."""
 
-    def test_same_id_gives_same_result(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_same_id_gives_same_result(self, qtbot: object) -> None:
         r1 = _stable_random_for_item("test-id-123")
         r2 = _stable_random_for_item("test-id-123")
         assert r1 == r2
 
-    def test_different_ids_give_different_results(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_different_ids_give_different_results(self, qtbot: object) -> None:
         r1 = _stable_random_for_item("id-a")
         r2 = _stable_random_for_item("id-b")
         assert r1 != r2
 
-    def test_different_offsets_give_different_results(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_different_offsets_give_different_results(self, qtbot: object) -> None:
         r1 = _stable_random_for_item("same-id", seed_offset=0)
         r2 = _stable_random_for_item("same-id", seed_offset=1)
         assert r1 != r2
 
-    def test_result_in_range(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_result_in_range(self, qtbot: object) -> None:
         r = _stable_random_for_item("any-id")
         assert 0.0 <= r <= 1.0
 
@@ -219,7 +219,7 @@ class TestRenderPlantPixmap:
         yield  # type: ignore[misc]
         clear_plant_cache()
 
-    def test_render_tree_returns_pixmap(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_tree_returns_pixmap(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(ObjectType.TREE, diameter=100.0)
         assert pixmap is not None
         assert isinstance(pixmap, QPixmap)
@@ -227,28 +227,28 @@ class TestRenderPlantPixmap:
         assert pixmap.width() == 100
         assert pixmap.height() == 100
 
-    def test_render_shrub_returns_pixmap(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_shrub_returns_pixmap(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(ObjectType.SHRUB, diameter=80.0)
         assert pixmap is not None
         assert not pixmap.isNull()
 
-    def test_render_perennial_returns_pixmap(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_perennial_returns_pixmap(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(ObjectType.PERENNIAL, diameter=60.0)
         assert pixmap is not None
         assert not pixmap.isNull()
 
-    def test_render_non_plant_returns_none(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_non_plant_returns_none(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(ObjectType.HOUSE, diameter=100.0)
         assert pixmap is None
 
-    def test_render_with_species(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_with_species(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(
             ObjectType.SHRUB, diameter=100.0, species="rose",
         )
         assert pixmap is not None
         assert not pixmap.isNull()
 
-    def test_render_with_category(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_with_category(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(
             ObjectType.TREE, diameter=100.0,
             category=PlantCategory.CONIFER,
@@ -256,7 +256,7 @@ class TestRenderPlantPixmap:
         assert pixmap is not None
         assert not pixmap.isNull()
 
-    def test_render_with_tint(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_with_tint(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(
             ObjectType.TREE, diameter=100.0,
             tint_color=QColor(200, 100, 50, 100),
@@ -264,7 +264,7 @@ class TestRenderPlantPixmap:
         assert pixmap is not None
         assert not pixmap.isNull()
 
-    def test_caching_returns_same_pixmap(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_caching_returns_same_pixmap(self, qtbot: object) -> None:
         p1 = render_plant_pixmap(
             ObjectType.TREE, diameter=100.0, item_id="test-cache",
         )
@@ -273,19 +273,19 @@ class TestRenderPlantPixmap:
         )
         assert p1 is p2  # Same object from cache
 
-    def test_different_sizes_different_pixmaps(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_different_sizes_different_pixmaps(self, qtbot: object) -> None:
         p1 = render_plant_pixmap(ObjectType.TREE, diameter=50.0, item_id="id1")
         p2 = render_plant_pixmap(ObjectType.TREE, diameter=100.0, item_id="id1")
         assert p1 is not None
         assert p2 is not None
         assert p1.width() != p2.width()
 
-    def test_minimum_size_clamped(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_minimum_size_clamped(self, qtbot: object) -> None:
         pixmap = render_plant_pixmap(ObjectType.TREE, diameter=1.0)
         assert pixmap is not None
         assert pixmap.width() >= 4
 
-    def test_render_all_categories(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_all_categories(self, qtbot: object) -> None:
         """Verify every category SVG renders without error."""
         for cat in PlantCategory:
             pixmap = render_plant_pixmap(
@@ -294,7 +294,7 @@ class TestRenderPlantPixmap:
             assert pixmap is not None, f"Failed to render category: {cat.name}"
             assert not pixmap.isNull()
 
-    def test_render_all_species(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_all_species(self, qtbot: object) -> None:
         """Verify all species SVGs render without error."""
         species_list = [
             "rose", "lavender", "apple", "cherry",
@@ -313,7 +313,7 @@ class TestRenderPlantPixmap:
 class TestSpeciesExpansion:
     """Tests for expanded species library (US-11.6)."""
 
-    def test_species_count(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_species_count(self, qtbot: object) -> None:
         """Verify at least 108 unique species SVG files are mapped."""
         from open_garden_planner.core.plant_renderer import _SPECIES_FILES
         unique_svgs = set(_SPECIES_FILES.values())
@@ -341,18 +341,18 @@ class TestSpeciesExpansion:
 class TestHelperFunctions:
     """Tests for utility functions."""
 
-    def test_get_all_categories(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_get_all_categories(self, qtbot: object) -> None:
         cats = get_all_categories()
         assert len(cats) == 15
         assert PlantCategory.ROUND_DECIDUOUS in cats
 
-    def test_get_species_names(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_get_species_names(self, qtbot: object) -> None:
         names = get_species_names()
         assert len(names) > 0
         assert "rose" in names
         assert "lavender" in names
 
-    def test_clear_plant_cache(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_clear_plant_cache(self, qtbot: object) -> None:
         # Load something into cache
         render_plant_pixmap(ObjectType.TREE, diameter=64.0)
         # Clear should not raise

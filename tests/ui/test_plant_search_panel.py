@@ -14,21 +14,21 @@ from open_garden_planner.ui.panels import PlantSearchPanel
 class TestPlantSearchPanel:
     """Tests for the PlantSearchPanel class."""
 
-    def test_creation(self, qtbot):  # noqa: ARG002
+    def test_creation(self, qtbot):
         """Test that a plant search panel can be created."""
         panel = PlantSearchPanel()
         assert panel is not None
         assert panel.search_input is not None
         assert panel.results_list is not None
 
-    def test_filter_checkboxes_default_checked(self, qtbot):  # noqa: ARG002
+    def test_filter_checkboxes_default_checked(self, qtbot):
         """Test that all filter checkboxes are checked by default."""
         panel = PlantSearchPanel()
         assert panel.tree_checkbox.isChecked()
         assert panel.shrub_checkbox.isChecked()
         assert panel.perennial_checkbox.isChecked()
 
-    def test_no_plants_message(self, qtbot):  # noqa: ARG002
+    def test_no_plants_message(self, qtbot):
         """Test panel shows 'no plants' when scene is empty."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -37,7 +37,7 @@ class TestPlantSearchPanel:
         assert panel.results_list.count() == 0
         assert "No plants" in panel.results_label.text()
 
-    def test_finds_tree_in_scene(self, qtbot):  # noqa: ARG002
+    def test_finds_tree_in_scene(self, qtbot):
         """Test that the panel finds a tree in the scene."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -52,7 +52,7 @@ class TestPlantSearchPanel:
         assert panel.results_list.count() == 1
         assert "1 plant" in panel.results_label.text()
 
-    def test_finds_multiple_plants(self, qtbot):  # noqa: ARG002
+    def test_finds_multiple_plants(self, qtbot):
         """Test that the panel finds multiple plants."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -75,7 +75,7 @@ class TestPlantSearchPanel:
         assert panel.results_list.count() == 3
         assert "3 plant" in panel.results_label.text()
 
-    def test_search_filters_by_name(self, qtbot):  # noqa: ARG002
+    def test_search_filters_by_name(self, qtbot):
         """Test that search input filters plants by name."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -103,7 +103,7 @@ class TestPlantSearchPanel:
         panel.search_input.clear()
         assert panel.results_list.count() == 2
 
-    def test_type_filter_trees_only(self, qtbot):  # noqa: ARG002
+    def test_type_filter_trees_only(self, qtbot):
         """Test filtering to show only trees."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -130,7 +130,7 @@ class TestPlantSearchPanel:
         # Should only show trees
         assert panel.results_list.count() == 1
 
-    def test_type_filter_shrubs_only(self, qtbot):  # noqa: ARG002
+    def test_type_filter_shrubs_only(self, qtbot):
         """Test filtering to show only shrubs."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -149,7 +149,7 @@ class TestPlantSearchPanel:
 
         assert panel.results_list.count() == 1
 
-    def test_search_by_scientific_name(self, qtbot):  # noqa: ARG002
+    def test_search_by_scientific_name(self, qtbot):
         """Test searching by scientific name in metadata."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -216,7 +216,7 @@ class TestPlantSearchPanel:
         panel._on_item_clicked(list_item)
         qtbot.waitUntil(lambda: panel.results_list.count() == 0)
 
-    def test_rows_store_item_id_not_graphics_item(self, qtbot):  # noqa: ARG002
+    def test_rows_store_item_id_not_graphics_item(self, qtbot):
         """Rows must store the stable item id (a UUID), never a live item reference.
 
         This pins the fix for #212: caching a QGraphicsItem in the row went stale
@@ -262,7 +262,7 @@ class TestPlantSearchPanel:
         qtbot.waitUntil(lambda: tree_b.isSelected())
         assert not tree_a.isSelected()
 
-    def test_noop_refresh_does_not_rebuild(self, qtbot):  # noqa: ARG002
+    def test_noop_refresh_does_not_rebuild(self, qtbot):
         """A refresh with an unchanged plant set must NOT clear/rebuild the list.
 
         The destructive rebuild on every chatty scene.changed reset the scroll
@@ -289,7 +289,7 @@ class TestPlantSearchPanel:
         after = [panel.results_list.item(i) for i in range(panel.results_list.count())]
         assert after == before  # same QListWidgetItem objects, not recreated
 
-    def test_selection_preserved_across_rebuild(self, qtbot):  # noqa: ARG002
+    def test_selection_preserved_across_rebuild(self, qtbot):
         """When the list IS rebuilt, the previously-selected row is re-selected."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -313,7 +313,7 @@ class TestPlantSearchPanel:
         assert current is not None
         assert current.data(Qt.ItemDataRole.UserRole) == selected_id
 
-    def test_row_widget_is_mouse_transparent(self, qtbot):  # noqa: ARG002
+    def test_row_widget_is_mouse_transparent(self, qtbot):
         """Row widgets must be transparent to the mouse so clicks reach the list.
 
         Otherwise a press on the row widget body is swallowed and itemClicked
@@ -330,7 +330,7 @@ class TestPlantSearchPanel:
         widget = panel.results_list.itemWidget(panel.results_list.item(0))
         assert widget.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-    def test_refresh_updates_list(self, qtbot):  # noqa: ARG002
+    def test_refresh_updates_list(self, qtbot):
         """Test that refresh_plant_list updates the list."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -346,7 +346,7 @@ class TestPlantSearchPanel:
         panel.refresh_plant_list()
         assert panel.results_list.count() == 1
 
-    def test_ignores_non_plant_items(self, qtbot):  # noqa: ARG002
+    def test_ignores_non_plant_items(self, qtbot):
         """Test that non-plant items are not shown."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -363,7 +363,7 @@ class TestPlantSearchPanel:
         # Should only show the tree, not the generic circle
         assert panel.results_list.count() == 1
 
-    def test_case_insensitive_search(self, qtbot):  # noqa: ARG002
+    def test_case_insensitive_search(self, qtbot):
         """Test that search is case insensitive."""
         panel = PlantSearchPanel()
         scene = CanvasScene()
@@ -384,7 +384,7 @@ class TestPlantSearchPanel:
         panel.search_input.setText("ApPlE")
         assert panel.results_list.count() == 1
 
-    def test_alphabetical_order(self, qtbot):  # noqa: ARG002
+    def test_alphabetical_order(self, qtbot):
         """Test that plants are listed in alphabetical order."""
         panel = PlantSearchPanel()
         scene = CanvasScene()

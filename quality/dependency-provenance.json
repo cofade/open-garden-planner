@@ -3,6 +3,7 @@
     "setuptools": "82.0.0",
     "wheel": "0.48.0"
   },
+  "added_build_backend_note": "the versions the backend was ADDED at (v1.29.5 snapshot); the build group's pins move with pyproject.toml - setuptools 82.0.0 -> 84.1.0 on 2026-10-24 (#571)",
   "commit": "db38aad7ab2e3a653c934613f3dfce962042282e",
   "license_review": {
     "pyinstaller": "GPL-2.0-or-later with bundling exception (preserved released version)",
@@ -59,8 +60,6 @@
     "pyjwt": "2.15.1",
     "pyparsing": "3.3.3",
     "pyqt6": "6.11.0",
-    "pyqt6-3d": "6.11.0",
-    "pyqt6-3d-qt6": "6.11.0",
     "pyqt6-qt6": "6.11.0",
     "pyqt6-sip": "13.13.0",
     "pyqt6-webengine": "6.10.0",
@@ -87,5 +86,6 @@
     "urllib3": "2.8.0",
     "uvicorn": "0.54.0"
   },
+  "removed_since_release": "Phase 17 L1.10 (#385): the two wheels of the retired Qt 3D view, released in v1.29.5 at 6.11.0, left the manifest and the lock (ADR-048 closing addendum); every other entry is the v1.29.5 record unchanged.",
   "workflow_run": 37690407471
 }

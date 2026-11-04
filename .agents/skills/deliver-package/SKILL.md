@@ -139,8 +139,8 @@ Beyond that, four habits that repeatedly find real defects here:
   scene *and the undo stack* untouched when it refuses. A tool that half-applies and then errors
   passes a happy-path test perfectly.
 - **Assert the undo-step count, not just that undo works.** "Exactly one undo step per agent
-  operation" is a contract, and `move_object`'s two-step reparent case is the documented
-  exception that proves nobody verifies this by accident.
+  operation" is a contract. `move_object`'s former two-step reparent case was fixed
+  by #635 (v1.34.4); move, membership and their undo must now stay atomic.
 - **Parametrise over the parameter a defect scales with.** A bug proportional to rotation is
   exactly 0 at rotation 0, so coverage of the default value proves nothing (#213 / PR #217 is
   the recorded case).
@@ -183,7 +183,8 @@ silently. pytest runs the source tree; users run the frozen exe, and the two hav
 real releases in three different ways: #291 (the embedded server never started in the frozen
 *windowed* exe, because uvicorn's log config dereferences `sys.stdout`, which is `None`
 when it is launched with no inherited stdout handle — see §11.4's dated correction),
-#277 (a Qt6Core/Qt3D micro mismatch that startup and the smoke both survived because Qt3D is
+#277 (a micro mismatch between the core Qt runtime and the Qt 3D wheels of the old 3D view —
+removed in Phase 17 L1.10 — that startup and the smoke both survived because that view was
 imported **lazily** — nothing to do with stdout; a `console=True` build reproduces it fine), and
 the `ogp.spec` `unittest` exclusion that silently broke DXF export in every built exe. Different
 root causes, one shared shape: a subsystem that is dead while the process is alive.

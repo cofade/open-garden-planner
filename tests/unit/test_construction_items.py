@@ -14,39 +14,39 @@ from open_garden_planner.ui.canvas.items.construction_item import (
 class TestConstructionLineItem:
     """Tests for ConstructionLineItem."""
 
-    def test_creation(self, qtbot) -> None:  # noqa: ARG002
+    def test_creation(self, qtbot) -> None:
         """Test ConstructionLineItem can be created."""
         item = ConstructionLineItem(QPointF(0, 0), QPointF(100, 100))
         assert item is not None
 
-    def test_is_construction_flag(self, qtbot) -> None:  # noqa: ARG002
+    def test_is_construction_flag(self, qtbot) -> None:
         """Test is_construction attribute is True."""
         item = ConstructionLineItem(QPointF(0, 0), QPointF(50, 50))
         assert item.is_construction is True
 
-    def test_has_uuid(self, qtbot) -> None:  # noqa: ARG002
+    def test_has_uuid(self, qtbot) -> None:
         """Test item has a unique UUID."""
         item = ConstructionLineItem(QPointF(0, 0), QPointF(10, 10))
         assert isinstance(item.item_id, uuid.UUID)
 
-    def test_unique_ids(self, qtbot) -> None:  # noqa: ARG002
+    def test_unique_ids(self, qtbot) -> None:
         """Test two items have different UUIDs."""
         item1 = ConstructionLineItem(QPointF(0, 0), QPointF(10, 10))
         item2 = ConstructionLineItem(QPointF(0, 0), QPointF(10, 10))
         assert item1.item_id != item2.item_id
 
-    def test_dashed_pen(self, qtbot) -> None:  # noqa: ARG002
+    def test_dashed_pen(self, qtbot) -> None:
         """Test pen is dashed."""
         item = ConstructionLineItem(QPointF(0, 0), QPointF(100, 0))
         assert item.pen().style() == Qt.PenStyle.DashLine
 
-    def test_selectable_flag(self, qtbot) -> None:  # noqa: ARG002
+    def test_selectable_flag(self, qtbot) -> None:
         """Test item is selectable."""
         from PyQt6.QtWidgets import QGraphicsItem
         item = ConstructionLineItem(QPointF(0, 0), QPointF(10, 10))
         assert item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
 
-    def test_serialization(self, qtbot) -> None:  # noqa: ARG002
+    def test_serialization(self, qtbot) -> None:
         """Test to_dict produces correct structure."""
         item = ConstructionLineItem(QPointF(10, 20), QPointF(30, 40))
         data = item.to_dict()
@@ -57,7 +57,7 @@ class TestConstructionLineItem:
         assert data["x2"] == pytest.approx(30.0)
         assert data["y2"] == pytest.approx(40.0)
 
-    def test_deserialization(self, qtbot) -> None:  # noqa: ARG002
+    def test_deserialization(self, qtbot) -> None:
         """Test from_dict creates equivalent item."""
         original = ConstructionLineItem(QPointF(5, 15), QPointF(25, 35))
         data = original.to_dict()
@@ -73,37 +73,37 @@ class TestConstructionLineItem:
 class TestConstructionCircleItem:
     """Tests for ConstructionCircleItem."""
 
-    def test_creation(self, qtbot) -> None:  # noqa: ARG002
+    def test_creation(self, qtbot) -> None:
         """Test ConstructionCircleItem can be created."""
         item = ConstructionCircleItem(100, 100, 50)
         assert item is not None
 
-    def test_is_construction_flag(self, qtbot) -> None:  # noqa: ARG002
+    def test_is_construction_flag(self, qtbot) -> None:
         """Test is_construction attribute is True."""
         item = ConstructionCircleItem(0, 0, 30)
         assert item.is_construction is True
 
-    def test_has_uuid(self, qtbot) -> None:  # noqa: ARG002
+    def test_has_uuid(self, qtbot) -> None:
         """Test item has a unique UUID."""
         item = ConstructionCircleItem(0, 0, 20)
         assert isinstance(item.item_id, uuid.UUID)
 
-    def test_dashed_pen(self, qtbot) -> None:  # noqa: ARG002
+    def test_dashed_pen(self, qtbot) -> None:
         """Test pen is dashed."""
         item = ConstructionCircleItem(0, 0, 30)
         assert item.pen().style() == Qt.PenStyle.DashLine
 
-    def test_no_fill(self, qtbot) -> None:  # noqa: ARG002
+    def test_no_fill(self, qtbot) -> None:
         """Test circle has no fill brush."""
         item = ConstructionCircleItem(0, 0, 30)
         assert item.brush().style() == Qt.BrushStyle.NoBrush
 
-    def test_radius(self, qtbot) -> None:  # noqa: ARG002
+    def test_radius(self, qtbot) -> None:
         """Test radius property returns correct value."""
         item = ConstructionCircleItem(0, 0, 42.5)
         assert item.radius == pytest.approx(42.5)
 
-    def test_serialization(self, qtbot) -> None:  # noqa: ARG002
+    def test_serialization(self, qtbot) -> None:
         """Test to_dict produces correct structure."""
         item = ConstructionCircleItem(10, 20, 15)
         data = item.to_dict()
@@ -113,7 +113,7 @@ class TestConstructionCircleItem:
         assert data["center_y"] == pytest.approx(20.0)
         assert data["radius"] == pytest.approx(15.0)
 
-    def test_deserialization(self, qtbot) -> None:  # noqa: ARG002
+    def test_deserialization(self, qtbot) -> None:
         """Test from_dict creates equivalent item."""
         original = ConstructionCircleItem(50, 60, 25)
         data = original.to_dict()

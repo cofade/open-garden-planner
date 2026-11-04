@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.solar import plan_place
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
@@ -1117,6 +1118,14 @@ class PlantingCalendarView(QWidget):
     #: Emitted with the full ``list[FrostAlert]`` after each weather fetch, so
     #: the US-C2 Tasks tab can reuse this single forecast (no second fetch).
     frost_alerts_ready = pyqtSignal(object)
+    #: Emitted as ``(place, days)`` after each weather fetch: the ``(lat, lon)`` the
+    #: widget fetched for (None without a location) and the forecast's days as
+    #: ``(ISO date, WMO code)`` — the 3D view's "Today's Weather" (Phase 17 L5.3) follows
+    #: this single forecast, fetches nothing itself, and drops one for another place than
+    #: the plan's (the producer says where; nobody guesses). Days EMPTY when there is no
+    #: forecast to follow: no location, or a fetch that failed (senior review of L5). The
+    #: frost alerts do not follow this rule yet: #694.
+    forecast_days_ready = pyqtSignal(object, object)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1303,20 +1312,41 @@ class PlantingCalendarView(QWidget):
 
     # ── refresh ────────────────────────────────────────────────────────────────
 
-    def refresh(self) -> None:
-        """Rebuild the chart and dashboard from current canvas + project state."""
-        # Trigger weather fetch if location is available (US-12.1)
-        location = self._project_manager.location if hasattr(self._project_manager, "location") else None
-        if location:
-            lat = location.get("latitude")
-            lon = location.get("longitude")
-            if lat is not None and lon is not None:
-                self._weather.set_location(float(lat), float(lon))
-                self._weather.refresh()
-            else:
-                self._weather.set_location(None, None)
+    def request_forecast(self) -> None:
+        """Fetch the weather forecast for the plan's location (US-12.1) — or, without a
+        location, clear it (``forecast_days_ready`` empty). The weather part of
+        ``refresh`` alone: the 3D view's Today's Weather asks for it while this tab may
+        be hidden (L5.3). ONE fetch path; a fetch for the same place already on its way
+        is not started again (``WeatherWidget.refresh``)."""
+        place = self._place()
+        if place is not None:
+            self._weather.set_location(*place)
+            self._weather.refresh()
         else:
             self._weather.set_location(None, None)
+            self.forecast_days_ready.emit(None, ())
+
+    def follow_location(self, *_arguments: object) -> None:
+        """The plan's location changed (``ProjectManager.location_changed``): the weather
+        widget moves to it at once — visible or not, fetching nothing — so a fetch still
+        on its way for the old place is cancelled and disconnected (PF-LIF-12). While
+        this tab is hidden its refresh is skipped; the move must not wait for it (senior
+        review of L5: the old place's late forecast landed on a plan at another place)."""
+        place = self._place()
+        if place == self._weather.place():
+            return
+        if place is None:
+            self._weather.set_location(None, None)
+        else:
+            self._weather.set_location(*place)
+
+    def _place(self) -> tuple[float, float] | None:
+        """The plan's ``(lat, lon)``, or None without one (``solar.plan_place``)."""
+        return plan_place(getattr(self._project_manager, "location", None))
+
+    def refresh(self) -> None:
+        """Rebuild the chart and dashboard from current canvas + project state."""
+        self.request_forecast()   # the weather fetch, if the plan has a location (US-12.1)
 
         rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
@@ -1396,7 +1426,7 @@ class PlantingCalendarView(QWidget):
         # actionable_only=False: the chart draws the whole displayed year, which is
         # not an urgency window. Leaving the dashboard's True in place would drop
         # every window that is not urgent *today* — i.e. most of the chart.
-        from dataclasses import replace  # noqa: PLC0415
+        from dataclasses import replace
 
         for task in generate_for_date_window(
             replace(state, actionable_only=False), year_start, year_end
@@ -1420,12 +1450,17 @@ class PlantingCalendarView(QWidget):
         for (species_key, anchor_year), plan in propagate_plans_by_anchor(
             state, frost_anchor_years(state, year_start, year_end)
         ).items():
+            from open_garden_planner.services.task_generator import species_removal_dates
+
+            removed = species_removal_dates(state.plant_rows).get(species_key)
             for step in plan.steps:
                 if step.end_date < year_start or step.start_date > year_end:
                     continue
+                if removed is not None and step.start_date >= removed:
+                    continue
                 prop_steps.setdefault(species_key, []).append(_PropStepWindow(
                     start=max(step.start_date, year_start),
-                    end=min(step.end_date, year_end),
+                    end=min(step.end_date, year_end, removed - datetime.timedelta(days=1)) if removed else min(step.end_date, year_end),
                     step_id=step.step_id,
                     anchor_year=anchor_year,
                 ))
@@ -1597,6 +1632,8 @@ class PlantingCalendarView(QWidget):
         forecast = self._weather.forecast()
         if forecast is None:
             return
+        self.forecast_days_ready.emit(
+            self._weather.place(), tuple((day.date, int(day.weathercode)) for day in forecast.days))
         settings = get_settings()
         orange_c = settings.frost_warning_orange_c
         red_c = settings.frost_warning_red_c
@@ -1748,7 +1785,7 @@ class PlantingCalendarView(QWidget):
 
     def _bed_name_map(self) -> dict[str, str]:
         """item_id → display name for every garden item (for succession rows)."""
-        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
         return {
             str(item.item_id): (item.name or str(item.item_id)[:8])
             for item in self._canvas_scene.items()
@@ -1805,8 +1842,10 @@ class PlantingCalendarView(QWidget):
         # verb). soil_mismatch / soil_amendment / manual: title is a full label.
         return task.title
 
-    def _on_weather_failed(self, message: str) -> None:
-        """Weather forecast fetch failed — no frost alerts shown."""
+    def _on_weather_failed(self, _message: str) -> None:
+        """Weather forecast fetch failed — no frost alerts shown, and no forecast for the
+        3D view's Today's Weather to follow (not the previous one)."""
+        self.forecast_days_ready.emit(self._weather.place(), ())
 
     def shutdown(self) -> None:
         """Shut down child background workers and services (#483)."""

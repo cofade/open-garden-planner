@@ -31,6 +31,13 @@ from uuid import UUID
 # needs immediate renumbering in practice.
 STACK_STEP = 1024
 
+#: The divisor that maps a normalized bottom-to-top position to a z offset
+#: inside the 100-unit layer band. A FIXED divisor (rather than ``n + 1``) is
+#: what lets an appended item receive its final, in-band z without re-deriving
+#: every existing item (#450); it supports about 16.7 million ranked items
+#: before a layer would fill its band.
+Z_POSITION_SCALE = 1 << 24
+
 
 class ArrangeMode(Enum):
     """The four user-facing arrange gestures."""

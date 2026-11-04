@@ -32,12 +32,12 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture()
-def project_manager(qtbot: object) -> ProjectManager:  # noqa: ARG001
+def project_manager(qtbot: object) -> ProjectManager:
     return ProjectManager()
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 

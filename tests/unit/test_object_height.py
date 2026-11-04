@@ -14,19 +14,22 @@ from datetime import date
 import pytest
 
 from open_garden_planner.core.object_height import (
-    _HEIGHT_FIELD_TYPES,
     DEFAULT_HEIGHTS_CM,
+    GROUND_SURFACE_TYPE_NAMES,
     METADATA_KEY,
     SOURCE_CONTAINER,
     SOURCE_CURRENT,
     SOURCE_CUSTOM,
     SOURCE_DEFAULT,
+    SOURCE_GROWN,
     SOURCE_NONE,
     SOURCE_SPECIES,
     effective_height_cm,
     explicit_height_cm,
     has_height_semantics,
     height_source,
+    height_source_at,
+    resolve_height,
 )
 
 
@@ -107,6 +110,69 @@ class TestDefaultTable:
 
         plant_names = {t.name for t in ObjectType if is_plant_type(t)}
         assert plant_names == _PLANT_TYPE_NAMES
+
+    def test_soil_parent_names_match_the_soil_predicate(self) -> None:
+        """L1.6: a plant stands on the soil of exactly the types ``is_bed_type``
+        calls soil-capable. The name set is a Qt-free mirror of the repo's ONE
+        predicate — a type added to (or dropped from) ``SOIL_CONTAINER_TYPES``
+        must break this test, not silently leave a plant on the ground."""
+        from open_garden_planner.core.object_height import (
+            _SOIL_PARENT_TYPE_NAMES,
+            standing_base_cm,
+        )
+        from open_garden_planner.core.object_types import (
+            SOIL_CONTAINER_TYPES,
+            ObjectType,
+            is_bed_type,
+            is_plant_parent_type,
+        )
+
+        assert {t.name for t in SOIL_CONTAINER_TYPES} == _SOIL_PARENT_TYPE_NAMES
+        assert {t.name for t in ObjectType if is_bed_type(t)} == _SOIL_PARENT_TYPE_NAMES
+        tall = {METADATA_KEY: 50.0}
+        for member in ObjectType:
+            raised = standing_base_cm(member, tall) > 0.0
+            assert raised is is_bed_type(member), member.name
+        # the one plant parent that holds no soil: climbers root in the ground
+        assert is_plant_parent_type(ObjectType.TRELLIS)
+        assert standing_base_cm(ObjectType.TRELLIS, tall) == 0.0
+
+
+class TestLiesOnGround:
+    """Manual pass of PR #584: a garden surface with no height lies UNDER the 2D sun
+    study's overlays (``canvas_scene.GROUND_Z_RANGE``)."""
+
+    def test_the_surface_names_are_real_types_without_a_default_height(self) -> None:
+        from open_garden_planner.core.object_height import GROUND_SURFACE_TYPE_NAMES
+        from open_garden_planner.core.object_types import ObjectType
+
+        enum_names = {member.name for member in ObjectType}
+        assert GROUND_SURFACE_TYPE_NAMES.issubset(enum_names)
+        for name in GROUND_SURFACE_TYPE_NAMES:
+            assert effective_height_cm(name, {}) is None, name
+
+    def test_a_surface_without_a_height_lies_on_the_ground(self) -> None:
+        from open_garden_planner.core.object_height import GROUND_SURFACE_TYPE_NAMES, lies_on_ground
+
+        for name in GROUND_SURFACE_TYPE_NAMES:
+            assert lies_on_ground(name, {}), name
+            assert lies_on_ground(name, None), name
+            assert not lies_on_ground(name, {METADATA_KEY: 30.0}), f"{name} with a height is a solid"
+
+    @pytest.mark.parametrize("name", ["TOOL_SHED", "RAISED_BED", "TREE", "PERENNIAL", "SHRUB",
+                                      "COLD_FRAME", "RAIN_BARREL", "PLANTER_POT", "PARASOL",
+                                      "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"])
+    def test_solids_standing_objects_shapes_and_notes_do_not(self, name: str) -> None:
+        """Senior review of the manual pass: a cold frame without a height sank under
+        the raised bed it stood on — standing objects stay put."""
+        from open_garden_planner.core.object_height import lies_on_ground
+
+        assert not lies_on_ground(name, {})
+
+    def test_no_type_does_not(self) -> None:
+        from open_garden_planner.core.object_height import lies_on_ground
+
+        assert not lies_on_ground(None, None)
 
 
 class TestValueGuards:
@@ -212,22 +278,90 @@ class TestCurrentHeightAnchor:
         assert height_source("TREE", meta) == SOURCE_SPECIES
 
 
-class TestOpenStructuresHeightField:
-    """Package 3a (#308): swing/pergola/hammock have NO default height (the
-    shadow model extrudes a solid footprint) but DO expose the Height field so
-    a user can opt in explicitly; until then they cast nothing."""
+class TestOneResolver:
+    """#581: the three public entry points are projections of one ladder."""
 
-    @pytest.mark.parametrize("name", sorted(_HEIGHT_FIELD_TYPES))
-    def test_field_offered_but_no_default(self, name: str) -> None:
-        assert name not in DEFAULT_HEIGHTS_CM
-        assert has_height_semantics(name, None) is True
-        assert effective_height_cm(name, None) is None
+    @pytest.mark.parametrize(
+        ("object_type", "metadata", "at_date"),
+        [
+            ("CONTAINER", {METADATA_KEY: 90.0, "container_height_cm": 30.0}, None),
+            ("CONTAINER", {"container_height_cm": 45.0}, None),
+            ("TREE", {"plant_species": {"max_height_cm": 180.0}}, None),
+            ("TREE", {"plant_instance": {"current_height_cm": 200.0}}, date(2031, 1, 1)),
+            (
+                "TREE",
+                {
+                    "plant_species": {"max_height_cm": 500.0},
+                    "plant_instance": {
+                        "planting_date": "2026-01-01",
+                        "current_height_cm": 100.0,
+                    },
+                },
+                date(2031, 1, 1),
+            ),
+            ("FENCE", {}, None),
+            ("GENERIC_RECTANGLE", {}, None),
+        ],
+    )
+    def test_the_public_entry_points_are_projections(
+        self, object_type: str, metadata: dict, at_date: date | None,
+    ) -> None:
+        height, source = resolve_height(object_type, metadata, at_date)
+        assert effective_height_cm(object_type, metadata, at_date) == height
+        assert height_source_at(object_type, metadata, at_date) == source
+        assert height_source(object_type, metadata) == resolve_height(object_type, metadata)[1]
 
-    @pytest.mark.parametrize("name", sorted(_HEIGHT_FIELD_TYPES))
-    def test_explicit_value_is_honoured(self, name: str) -> None:
-        assert effective_height_cm(name, {METADATA_KEY: 210.0}) == 210.0
+    def test_the_growth_branch_reports_grown(self) -> None:
+        metadata = {
+            "plant_species": {"max_height_cm": 500.0},
+            "plant_instance": {
+                "planting_date": "2026-01-01",
+                "current_height_cm": 100.0,
+            },
+        }
+        height, source = resolve_height("TREE", metadata, date(2031, 1, 1))
+        assert source == SOURCE_GROWN
+        assert height == pytest.approx(300.0, abs=2.0)
+        # Without a date the same metadata is the static CURRENT branch.
+        assert height_source("TREE", metadata) == SOURCE_CURRENT
 
-    def test_field_types_are_real_object_types(self) -> None:
+
+#: The kinds with no height of their own: the ground surfaces, the roof ridge (a line of
+#: its house), generic shapes, annotations, and plants (one without species data gets
+#: an illustrative 3D estimate, #557). Every other kind stands up and has a default.
+_NO_DEFAULT_KINDS = GROUND_SURFACE_TYPE_NAMES | {
+    "ROOF_RIDGE", "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN",
+    "TREE", "SHRUB", "PERENNIAL",
+}
+
+#: The kinds that had no height until L4's second owner pass (ADR-065), at the values
+#: the 3D view had shown them at.
+_FORMERLY_HEIGHT_LESS = {
+    "PARASOL": 250.0, "FIRE_PIT": 30.0, "PLANTER_POT": 50.0, "COLD_FRAME": 45.0,
+    "RAIN_BARREL": 100.0, "WATER_TAP": 80.0, "SWING": 220.0, "HAMMOCK": 110.0,
+    "PERGOLA": 250.0,
+}
+
+
+class TestEveryStandingObjectHasAHeight:
+    """L4's second owner pass (ADR-065): "Doesn't make sense for me e.g. that a parasol
+    doesn't have a height, while a trampoline has it." Every object that stands up has
+    a default height: the Height field shows it, and it casts in 2D and 3D."""
+
+    def test_every_standing_object_kind_has_a_default_height(self) -> None:
         from open_garden_planner.core.object_types import ObjectType
 
-        assert {m.name for m in ObjectType} >= _HEIGHT_FIELD_TYPES
+        names = {member.name for member in ObjectType}
+        assert names >= _NO_DEFAULT_KINDS
+        for name in sorted(names - _NO_DEFAULT_KINDS):
+            assert effective_height_cm(name, None) is not None, name
+            assert has_height_semantics(name, None), name
+        for name in sorted(_NO_DEFAULT_KINDS):
+            assert effective_height_cm(name, None) is None, name
+
+    @pytest.mark.parametrize(("name", "height"), sorted(_FORMERLY_HEIGHT_LESS.items()))
+    def test_the_formerly_height_less_kinds_have_their_default(
+            self, name: str, height: float) -> None:
+        assert DEFAULT_HEIGHTS_CM[name] == height
+        assert resolve_height(name, None) == (height, SOURCE_DEFAULT)
+        assert effective_height_cm(name, {METADATA_KEY: 210.0}) == 210.0

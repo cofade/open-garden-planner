@@ -6,16 +6,20 @@ import os
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -74,10 +78,27 @@ class PreferencesDialog(QDialog):
         self.setMinimumSize(550, 400)
         self._setup_ui()
         self._load_settings()
+        self._resize_to_content()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setSpacing(16)
+
+        # The settings form is taller than a 1080p screen. Put it in a scroll
+        # area instead of letting Qt squeeze every control below its minimum
+        # height, and keep Save / Cancel outside the viewport so they are always
+        # reachable (#569). Same pattern as the shortcuts dialog.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll, 1)
+        self._scroll_content = content
 
         # Info label
         info_label = QLabel(
@@ -230,6 +251,24 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(tasks_group)
 
+        # --- Canvas (#321): touch gestures ---
+        canvas_group = QGroupBox(self.tr("Canvas"))
+        canvas_layout = QFormLayout(canvas_group)
+
+        self._touch_gestures_check = QCheckBox(
+            self.tr("Enable touch gestures (pinch to zoom, two-finger pan)")
+        )
+        self._touch_gestures_check.setToolTip(
+            self.tr(
+                "On a touch screen, pinch with two fingers to zoom the plan and "
+                "drag two fingers to move it. A single finger still selects and "
+                "moves objects as a mouse does."
+            )
+        )
+        canvas_layout.addRow(self._touch_gestures_check)
+
+        layout.addWidget(canvas_group)
+
         # --- Agent API (US-D1.1) ---
         from open_garden_planner.app.settings import AppSettings
 
@@ -317,6 +356,53 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(agent_group)
 
+        # --- 3D view (Phase 17 L1.4): quality and the animation policy ---
+        view3d_group = QGroupBox(self.tr("3D View"))
+        view3d_layout = QFormLayout(view3d_group)
+
+        self._view3d_quality_combo = QComboBox()
+        for key, label in (
+            ("auto", self.tr("Automatic")),
+            ("low", self.tr("Low")),
+            ("medium", self.tr("Medium")),
+            ("high", self.tr("High")),
+            ("ultra", self.tr("Ultra")),
+        ):
+            self._view3d_quality_combo.addItem(label, key)
+        self._view3d_quality_combo.setToolTip(
+            self.tr(
+                "How detailed the 3D view is drawn. Automatic picks a level from "
+                "the frame rate it measures on this computer."
+            )
+        )
+        view3d_layout.addRow(self.tr("Quality:"), self._view3d_quality_combo)
+
+        # Phase 17 L7 (#391): the atmosphere sky (Qt 6.12's SkyMaterial) is an opt-in
+        self._view3d_sky_combo = QComboBox()
+        for key, label in (
+            ("painted", self.tr("Painted")),
+            ("atmosphere", self.tr("Atmosphere with clouds")),
+        ):
+            self._view3d_sky_combo.addItem(label, key)
+        self._view3d_sky_combo.setToolTip(
+            self.tr(
+                "Painted: the soft painted sky. Atmosphere with clouds: a physically "
+                "based sky with volumetric clouds by day, which costs more on the "
+                "graphics card. The sun, the shadows and the night are the same in both."
+            )
+        )
+        view3d_layout.addRow(self.tr("Sky:"), self._view3d_sky_combo)
+
+        self._view3d_reduced_motion_check = QCheckBox(
+            self.tr("Reduce motion in the 3D view")
+        )
+        self._view3d_reduced_motion_check.setToolTip(
+            self.tr("Keep leaves and grass still instead of swaying in the wind.")
+        )
+        view3d_layout.addRow(self._view3d_reduced_motion_check)
+
+        layout.addWidget(view3d_group)
+
         layout.addStretch()
 
         # --- Buttons ---
@@ -332,7 +418,38 @@ class PreferencesDialog(QDialog):
         save_btn.clicked.connect(self._save_and_accept)
         btn_layout.addWidget(save_btn)
 
-        layout.addLayout(btn_layout)
+        outer_layout.addLayout(btn_layout)
+        self._button_row = btn_layout
+
+    def _resize_to_content(self) -> None:
+        """Open at the form's natural height, capped to the available screen.
+
+        The scroll area alone would open at its small size hint (about 452 px)
+        on every monitor, forcing a scroll even where the whole form used to
+        fit. Size from the content instead, leaving room for the window frame
+        and the taskbar (#569).
+        """
+        self._scroll_content.adjustSize()
+        outer = self.layout()
+        margins = outer.contentsMargins() if outer is not None else None
+        spacing = outer.spacing() if outer is not None else 0
+        wanted = (
+            self._scroll_content.sizeHint().height()
+            + self._button_row.sizeHint().height()
+            + spacing
+            + 2
+            + ((margins.top() + margins.bottom()) if margins is not None else 0)
+        )
+        parent = self.parentWidget()
+        screen = (
+            (parent.screen() if parent is not None else None)
+            or self.screen()
+            or QApplication.primaryScreen()
+        )
+        if screen is not None:
+            available = screen.availableGeometry().height()
+            wanted = min(wanted, max(self.minimumHeight(), available - 40))
+        self.resize(550, max(self.minimumHeight(), wanted))
 
     def _load_settings(self) -> None:
         from open_garden_planner.app.settings import get_settings
@@ -351,12 +468,18 @@ class PreferencesDialog(QDialog):
         self._frost_orange_spin.setValue(settings.frost_warning_orange_c)
         self._frost_red_spin.setValue(settings.frost_warning_red_c)
         self._notify_overdue_check.setChecked(settings.notify_overdue_tasks_on_startup)
+        self._touch_gestures_check.setChecked(settings.touch_gestures_enabled)
         self._agent_api_check.setChecked(settings.agent_api_enabled)
         self._agent_api_port_spin.setValue(settings.agent_api_port)
         self._agent_api_writes_check.setChecked(settings.agent_api_writes_enabled)
         self._update_agent_api_url()
         self._refresh_agent_api_token_field()
         self._on_agent_api_toggled(settings.agent_api_enabled)
+        index = self._view3d_quality_combo.findData(settings.view3d_quality)
+        self._view3d_quality_combo.setCurrentIndex(max(index, 0))
+        self._view3d_reduced_motion_check.setChecked(settings.view3d_reduced_motion)
+        index = self._view3d_sky_combo.findData(settings.view3d_sky_model)
+        self._view3d_sky_combo.setCurrentIndex(max(index, 0))
 
     def _on_agent_api_toggled(self, enabled: bool) -> None:
         """Enable/disable the port + URL rows alongside the Agent API checkbox."""
@@ -468,9 +591,13 @@ class PreferencesDialog(QDialog):
         settings.frost_warning_orange_c = self._frost_orange_spin.value()
         settings.frost_warning_red_c = self._frost_red_spin.value()
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
+        settings.touch_gestures_enabled = self._touch_gestures_check.isChecked()
         settings.agent_api_enabled = self._agent_api_check.isChecked()
         settings.agent_api_port = self._agent_api_port_spin.value()
         settings.agent_api_writes_enabled = self._agent_api_writes_check.isChecked()
+        settings.view3d_quality = str(self._view3d_quality_combo.currentData())
+        settings.view3d_reduced_motion = self._view3d_reduced_motion_check.isChecked()
+        settings.view3d_sky_model = str(self._view3d_sky_combo.currentData())
         settings.sync()
         self.accept()
 

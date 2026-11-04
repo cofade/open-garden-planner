@@ -102,8 +102,22 @@ The helper stages both version declarations and only the editable lock-record ve
 validates/refreshes uv.lock offline without requiring a resolver cache, and regenerates
 pylock.toml. It refuses changed third-party package records and restores source files if
 applying fails. If it reports already_synced, verify the lock and skip the duplicate commit.
-Update both root instruction files and the canonical roadmap if completion status changed;
-update affected repository wiki sources in `docs/wiki/` as well. Run `scripts/sync_wiki.py --check`
+Update both root instruction files and the canonical roadmap if completion status changed.
+The release also makes two status statements stale unless this step updates them, and three
+syncs in a row left one of the two behind (ADR-063 and two v1.30.19 addenda still said
+"owner acceptance pending" after v1.31.0, and the README still said "L2 is next"):
+
+- the **Status line of the feature's ADR or addendum** — for example "Accepted for
+  implementation; owner acceptance pending" becomes the shipped version and the
+  acceptance record;
+- the **README "Status" paragraph**, when the release moves the roadmap's next phase
+  (for example "L2 is next" becomes "L3 is next").
+
+A grep for the feature's old status words (`owner acceptance pending`, `is next`,
+`in review`) across the files this chore touches is the cheap check; do not leave a
+"pending" line behind because the instruction listed only the roadmap.
+
+Update affected repository wiki sources in `docs/wiki/` as well. Run `scripts/sync_wiki.py --check`
 and render a preview outside the repository. Do not write to the published wiki before merge.
 Keep all added text English and context pairs synchronized (ADR-051).
 

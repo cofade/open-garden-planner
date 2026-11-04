@@ -243,7 +243,10 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         menu.addSeparator()
         delete_action = menu.addAction(_("TextItem", "Delete"))
 
+        lock_action = self.build_lock_context_menu(menu)
         chosen = menu.exec(event.screenPos())
+        if self.dispatch_lock_action(chosen, lock_action):
+            return
         if chosen == edit_action:
             self.start_editing()
         elif chosen == delete_action:
@@ -294,7 +297,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self, change: QGraphicsItem.GraphicsItemChange, value: Any
     ) -> Any:
         """Show/hide rotation handle on selection change."""
-        self.handle_selection_change_for_cache(change, value)
+        self.handle_item_change(change, value)
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             if value:
                 self.show_rotation_handle()

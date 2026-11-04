@@ -20,7 +20,6 @@ changed species mid-gesture and the two-file wiring was bypassed:
 The species key is now captured when the edit is *armed*, and ``show_species``
 flushes before it swaps state.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

@@ -126,10 +126,10 @@ class TestShortcutsDialogArrangeRows:
     def test_localize_shortcut_translates_up_and_down_tokens(self, qtbot: Any) -> None:
         """review round 2, P2: the arrange rows display "Ctrl+Up" /
         "Ctrl+Shift+Down" etc. -- ``_localize_shortcut`` must route "Up"/
-        "Down" through ``self.tr()`` (like it already does for "Ctrl" /
-        "Shift" / "Delete" / "Escape" / "Alt") so a German UI can render
-        Qt's own native "Strg+Umschalt+Auf" instead of leaking the English
-        arrow-key words. Source-level check (mirroring
+        "Down" through the shared translation helper (like it already does for
+        "Ctrl" / "Shift" / "Delete" / "Escape" / "Alt") so a German UI can
+        render Qt's own native "Strg+Umschalt+Auf" instead of leaking the
+        English arrow-key words. Source-level check (mirroring
         ``test_arrange_context_menu.py``'s shared-builder enforcement)
         since no German text is compiled into the .ts/.qm files by this
         change -- registering and compiling the actual translation is a
@@ -137,12 +137,14 @@ class TestShortcutsDialogArrangeRows:
         """
         import inspect
 
-        src = inspect.getsource(ShortcutsDialog._localize_shortcut)
-        assert 'self.tr("Up")' in src, (
-            '_localize_shortcut must translate the "Up" token.'
+        from open_garden_planner.ui import shortcut_text
+
+        src = inspect.getsource(shortcut_text)
+        assert 'QCoreApplication.translate("ShortcutsDialog", "Up")' in src, (
+            'the shared helper must translate the "Up" token.'
         )
-        assert 'self.tr("Down")' in src, (
-            '_localize_shortcut must translate the "Down" token.'
+        assert 'QCoreApplication.translate("ShortcutsDialog", "Down")' in src, (
+            'the shared helper must translate the "Down" token.'
         )
 
         dialog = ShortcutsDialog()

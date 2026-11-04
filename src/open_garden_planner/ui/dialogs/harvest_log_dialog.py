@@ -282,7 +282,7 @@ class HarvestLogDialog(QDialog):
         )
         if sub.exec() != QDialog.DialogCode.Accepted:
             return
-        from open_garden_planner.core import EditHarvestRecordCommand  # noqa: PLC0415
+        from open_garden_planner.core import EditHarvestRecordCommand
 
         new_record = sub.result_record()
         cmd = EditHarvestRecordCommand(
@@ -304,7 +304,7 @@ class HarvestLogDialog(QDialog):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        from open_garden_planner.core import DeleteHarvestRecordCommand  # noqa: PLC0415
+        from open_garden_planner.core import DeleteHarvestRecordCommand
 
         cmd = DeleteHarvestRecordCommand(
             self._project_manager, self._target_id, rec.id

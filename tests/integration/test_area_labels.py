@@ -4,7 +4,6 @@ Tests verify that area labels can be toggled and display correct values on
 Rectangle, Circle, Polygon, and Ellipse items.
 """
 
-# ruff: noqa: ARG002
 
 import math
 

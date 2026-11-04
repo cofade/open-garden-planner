@@ -8,7 +8,6 @@ Tests exercise the full click → drag → release gesture and verify that:
 - Serialization round-trip preserves target and content
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

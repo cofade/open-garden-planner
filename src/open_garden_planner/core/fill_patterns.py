@@ -223,3 +223,55 @@ def clear_texture_cache() -> None:
     """Clear all cached textures. Useful for testing or theme changes."""
     _texture_cache.clear()
     _tinted_cache.clear()
+
+
+def pattern_from_name(name: str | None) -> FillPattern | None:
+    """``"GRASS"`` -> ``FillPattern.GRASS``; ``None`` for SOLID or an unknown name.
+
+    The record carries a fill pattern's NAME (``Material.pattern``), never a Qt
+    enum: the 3D path is Qt-free above ``ui/view3d``.
+    """
+    if not name:
+        return None
+    pattern = FillPattern.__members__.get(name)
+    if pattern is None or pattern == FillPattern.SOLID:
+        return None
+    return pattern
+
+
+def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int, bytes] | None:
+    """A fill pattern exactly as the canvas paints it — RGBA8, top-down, opaque.
+
+    This is the picture a 3D solid's own faces carry when the plan gives it a
+    height (#628 follow-up): the ground bake paints the fill while the item lies
+    on the ground, and a raised item is no longer painted there, so its top (and
+    sides) show this instead. ``None`` for SOLID or a missing texture: the caller
+    shows the fill colour alone, which is what the canvas does for SOLID too.
+
+    Rows are the texture's own rows (row 0 is the image's top) and one tile is
+    256 cm wide in the plan's coordinates (``core.scene3d.PATTERN_TILE_CM``); the
+    mesh's UVs use that same ruler. Alpha is forced opaque: a 3D solid body does not show the 2D
+    fill's transparency (``Material.tint_rgba`` forces it too).
+    """
+    if pattern == FillPattern.SOLID:
+        return None
+    texture = _load_texture(pattern)
+    if texture is None:
+        return None
+    key = (pattern, _color_key(color))
+    tinted = _tinted_cache.get(key)
+    if tinted is None:
+        if len(_tinted_cache) >= _TINTED_CACHE_MAX:
+            _tinted_cache.clear()
+        tinted = _tint_texture(texture, color)
+        _tinted_cache[key] = tinted
+    image = tinted.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+    width, height = image.width(), image.height()
+    buffer: Any = image.bits()
+    buffer.setsize(image.sizeInBytes())
+    if image.bytesPerLine() != width * 4:  # RGBA8888 is packed; a padded row would shear it
+        raise ValueError(f"the {pattern.name} texture has {image.bytesPerLine()} bytes a row "
+                         f"for {width} pixels")
+    data = bytearray(buffer)
+    data[3::4] = b"\xff" * (width * height)   # one slice assignment, not a Python loop over pixels
+    return width, height, bytes(data)

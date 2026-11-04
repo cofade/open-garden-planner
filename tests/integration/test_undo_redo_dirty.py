@@ -10,7 +10,6 @@ execute/undo/redo, but NOT clear) that `GardenPlannerApp` wires to
 so we wire one here exactly as application.py does.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

@@ -10,7 +10,6 @@ Tool-specific interaction models (see arc42 §8.10):
   TextTool      : press(pos)                   [single click, item appears immediately]
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

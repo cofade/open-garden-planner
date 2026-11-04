@@ -58,7 +58,7 @@ class MainThreadBridge(QObject):
         self._pending: set[Future[Any]] = set()
         # QueuedConnection => the slot runs in the thread that owns this QObject
         # (the main thread), regardless of which thread emits the signal.
-        self._invoke.connect(  # type: ignore[call-arg]
+        self._invoke.connect(
             self._on_invoke, Qt.ConnectionType.QueuedConnection
         )
 
@@ -105,7 +105,7 @@ class MainThreadBridge(QObject):
             return  # aborted (abort_pending) before we got here
         try:
             result = fn()
-        except BaseException as exc:  # noqa: BLE001 - propagate to the caller thread
+        except BaseException as exc:
             # InvalidStateError: raced with abort_pending; the caller already saw
             # BridgeClosedError, so dropping this result is correct.
             with contextlib.suppress(InvalidStateError):

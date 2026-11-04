@@ -33,10 +33,11 @@ EMPTY_SEARCH_RESPONSE = {"data": []}
 class _StubLibrary:
     """Stand-in for the real custom-plant library -- see
     ``tests/integration/test_plant_search_enrichment.py`` for the rationale
-    (the real library reads/writes OS app-data and isn't test-isolated).
+    (the library reads/writes the app-data directory, which every test of one
+    run shares; ``tests/conftest.py`` keeps it out of the user's real one).
     """
 
-    def search_plants(self, query: str) -> list:  # noqa: ARG002
+    def search_plants(self, query: str) -> list:
         return []
 
     def get_all_plants(self) -> list:
@@ -60,7 +61,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         credentials-hint text.
         """
 
-        def _empty_get(url, params=None, timeout=None):  # noqa: ARG001
+        def _empty_get(url, params=None, timeout=None):
             response = MagicMock()
             response.status_code = 200
             response.raise_for_status = MagicMock()
@@ -94,7 +95,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         senior-review P2).
         """
 
-        def _get(url, params=None, timeout=None):  # noqa: ARG001
+        def _get(url, params=None, timeout=None):
             response = MagicMock()
             if "perenual" in url:
                 response.status_code = 500
@@ -136,7 +137,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         QMessageBox -- this path must remain intact after the #302 fix.
         """
 
-        def _failing_get(url, params=None, timeout=None):  # noqa: ARG001
+        def _failing_get(url, params=None, timeout=None):
             response = MagicMock()
             response.status_code = 500
             response.raise_for_status = MagicMock(

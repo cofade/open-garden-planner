@@ -7,7 +7,6 @@ band, stay legible at gallery-thumbnail size, letterbox correctly in the
 gallery, and be placeable through the real canvas tools (new roster).
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 
@@ -60,6 +59,9 @@ NEW_ROSTER: dict[ObjectType, tuple[ToolType, type]] = {
     ObjectType.WHEELBARROW: (ToolType.WHEELBARROW, RectangleItem),
     ObjectType.PERGOLA: (ToolType.PERGOLA, RectangleItem),
     ObjectType.BIRD_BATH: (ToolType.BIRD_BATH, CircleItem),
+    # garden lights (Phase 17 L5.4, #389); a string of lights is a line with no sprite
+    # (tests/integration/test_living_garden.py draws it)
+    ObjectType.GARDEN_LIGHT: (ToolType.GARDEN_LIGHT, CircleItem),
 }
 
 

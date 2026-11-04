@@ -32,7 +32,7 @@ from open_garden_planner.ui.canvas.items import RectangleItem
 
 
 @pytest.fixture
-def manager(qtbot) -> ProjectManager:  # noqa: ARG001 — qtbot for Qt init
+def manager(qtbot) -> ProjectManager:
     return ProjectManager()
 
 

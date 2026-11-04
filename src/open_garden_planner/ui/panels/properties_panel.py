@@ -1,9 +1,12 @@
 """Properties panel for live editing of selected objects."""
 
+import contextlib
 from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QFocusEvent, QIcon, QPen
+from PyQt6.QtGui import QColor, QFocusEvent, QIcon
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
@@ -16,6 +19,7 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -29,15 +33,19 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.commands import (
     ChangePropertyCommand,
     CommandManager,
-    MoveToLayerCommand,
 )
-from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
+from open_garden_planner.core.item_look import (
+    MAX_FENCE_WIDTH_CM,
+    MAX_LINE_WIDTH_CM,
+    MAX_STROKE_WIDTH,
+    MIN_STROKE_WIDTH,
+)
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
     StrokeStyle,
-    get_style,
     get_translated_display_name,
     get_translated_path_fence_style_name,
     is_bed_type,
@@ -50,6 +58,8 @@ from open_garden_planner.ui.canvas.items import (
     RectangleItem,
     TextItem,
 )
+from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
+from open_garden_planner.ui.panels.property_edits import PropertyEdits
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
@@ -62,6 +72,68 @@ _TEXT_PROPERTY_LABELS = {
     "bold": "bold",
     "italic": "italic",
 }
+
+_TOOL_ICONS: dict[ObjectType, str] = {
+    ObjectType.GENERIC_RECTANGLE: "rectangle",
+    ObjectType.GENERIC_POLYGON: "polygon",
+    ObjectType.GENERIC_CIRCLE: "circle",
+    ObjectType.GENERIC_ELLIPSE: "ellipse",
+    ObjectType.GENERIC_TEXT: "text_annotation",
+    ObjectType.GENERIC_CALLOUT: "callout_annotation",
+    ObjectType.GARDEN_JOURNAL_PIN: "journal_pin",
+    ObjectType.ROOF_RIDGE: "path",
+    ObjectType.WALL_PLANTER: "vertical_container",
+    ObjectType.HOUSE: "house",
+    ObjectType.GARAGE_SHED: "shed",
+    ObjectType.TOOL_SHED: "shed",
+    ObjectType.GREENHOUSE: "greenhouse",
+    ObjectType.TERRACE_PATIO: "terrace",
+    ObjectType.DRIVEWAY: "driveway",
+    ObjectType.POND_POOL: "pond",
+    ObjectType.GARDEN_BED: "garden_bed",
+    ObjectType.LAWN: "lawn",
+    ObjectType.FENCE: "fence",
+    ObjectType.WALL: "wall",
+    ObjectType.PATH: "path",
+    ObjectType.TREE: "tree",
+    ObjectType.SHRUB: "shrub",
+    ObjectType.PERENNIAL: "flower",
+}
+
+_EXTRA_SVG_FILES: dict[ObjectType, Path] = {
+    ObjectType.CONTAINER: Path(__file__).resolve().parent.parent.parent / "resources" / "objects" / "furniture" / "planter_pot.svg",
+    ObjectType.CONTAINER_ROUND: Path(__file__).resolve().parent.parent.parent / "resources" / "objects" / "furniture" / "planter_pot.svg",
+    ObjectType.TRELLIS: Path(__file__).resolve().parent.parent.parent / "resources" / "plants" / "categories" / "climbing_plant.svg",
+    ObjectType.HEDGE_POLYGON: Path(__file__).resolve().parent.parent.parent / "resources" / "plants" / "categories" / "hedge_section.svg",
+}
+
+FIELD_WIDTH = 120
+
+
+def _style_numeric_field(field: QAbstractSpinBox) -> None:
+    """Give a single-row numeric field the shared width and right alignment.
+
+    The #596 manual pass showed four widths and three alignments for adjacent
+    rows (grid spacing, stroke width, soil depth, object height); the
+    object-height field's shape is the reference. Composite widgets (the
+    position X/Y pair) keep their own layout.
+    """
+    field.setFixedWidth(FIELD_WIDTH)
+    field.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+
+def _style_combo(combo: QComboBox) -> None:
+    """Give a combo box the same width as every other short input (#596).
+
+    A fixed width clips a long selected value (Qt draws no ellipsis), so the
+    full text stays reachable as a tooltip; the popup already shows every item
+    in full.
+    """
+    combo.setFixedWidth(FIELD_WIDTH)
+    combo.setToolTip(combo.currentText())
+    combo.currentTextChanged.connect(combo.setToolTip)
+
+
 
 # Free-text fields (Name, Text Content) live-update the item on every keystroke
 # but only commit ONE undo command per typing burst. The command is committed
@@ -83,7 +155,7 @@ class FocusOutTextEdit(QTextEdit):
 
     editing_finished = pyqtSignal()
 
-    def focusOutEvent(self, event: QFocusEvent) -> None:  # noqa: N802 (Qt)
+    def focusOutEvent(self, event: QFocusEvent) -> None:
         """Emit ``editing_finished`` after the default focus-out handling."""
         super().focusOutEvent(event)
         self.editing_finished.emit()
@@ -101,6 +173,7 @@ class ColorButton(QPushButton):
         """
         super().__init__(parent)
         self._color = color
+        self.setFixedWidth(FIELD_WIDTH)
         self.setFixedHeight(30)
         self._update_style()
         self.clicked.connect(self._pick_color)
@@ -146,6 +219,8 @@ class ColorButton(QPushButton):
                 self.set_color(color)
 
 
+
+
 class PropertiesPanel(QWidget):
     """Panel for live editing of selected object properties.
 
@@ -168,9 +243,15 @@ class PropertiesPanel(QWidget):
             parent: Parent widget
         """
         super().__init__(parent)
+        self._property_edits = PropertyEdits(self)
         self._command_manager = command_manager
         self._current_items: list[QGraphicsItem] = []
         self._updating = False  # Prevent feedback loops
+        # True after an undo/redo (stack_changed): the next refresh is an
+        # explicit history transition and must update even a focused editor
+        # (#560). Ordinary notifications keep protecting uncommitted typing.
+        self._history_pending = False
+        self._history_refresh = False
         # Identity of the currently built form. set_selected_items rebuilds only
         # when this changes; an unchanged selection takes the in-place value
         # refresh path instead of tearing down and recreating every widget (#206).
@@ -184,6 +265,12 @@ class PropertiesPanel(QWidget):
         # edit is not destroyed with its widget and lost from undo (#210).
         self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
+        # Wire history_navigated at construction: the application hands the
+        # manager to the constructor and never calls set_command_manager(), so
+        # connecting only there left the #560 history refresh dead in production.
+        if command_manager is not None:
+            command_manager.before_history_navigation.connect(self.flush_pending_edits)
+            command_manager.history_navigated.connect(self._on_history_changed)
 
     def set_command_manager(self, command_manager: CommandManager) -> None:
         """Set the command manager for undo support.
@@ -191,7 +278,29 @@ class PropertiesPanel(QWidget):
         Args:
             command_manager: The command manager to use
         """
+        try:
+            if self._command_manager is not None:
+                self._command_manager.before_history_navigation.disconnect(self.flush_pending_edits)
+                with contextlib.suppress(Exception):
+                    self._command_manager.history_navigated.disconnect(
+                        self._on_history_changed
+                    )
+        except Exception:
+            pass
         self._command_manager = command_manager
+        if command_manager is not None:
+            command_manager.before_history_navigation.connect(self.flush_pending_edits)
+            with contextlib.suppress(Exception):
+                command_manager.history_navigated.connect(self._on_history_changed)
+
+    def _on_history_changed(self) -> None:
+        """Mark the next refresh as history-driven (#560).
+
+        Connected to ``history_navigated`` (undo/redo only), never to the
+        every-commit ``stack_changed`` — an own commit must not masquerade as
+        a history transition and clobber the focused editor.
+        """
+        self._history_pending = True
 
     def _setup_ui(self) -> None:
         """Set up the UI components."""
@@ -253,10 +362,40 @@ class PropertiesPanel(QWidget):
 
         Also drops the field refreshers: they reference the widgets being
         destroyed here, and the rebuild re-registers fresh ones (#206).
+
+        The widgets are **detached and deleted later**, never destroyed inside
+        ``QFormLayout.removeRow`` (#658).  A rebuild can be triggered from a
+        widget's own signal — the Layer combo moving its item to a hidden or
+        locked layer deselects the item, and the selection change rebuilds the
+        panel synchronously — and ``removeRow`` deleted the combo box while Qt
+        was still delivering its ``currentIndexChanged``.  On macOS that aborted
+        the process (exit 139); on Windows the signal was silently dropped.
         """
         self._field_refreshers = []
+        self._pending_text_commits = []
         while self._form_layout.rowCount() > 0:
-            self._form_layout.removeRow(0)
+            row = self._form_layout.takeRow(0)
+            for item in (row.labelItem, row.fieldItem):
+                self._dispose_form_item(item)
+
+    @staticmethod
+    def _dispose_form_item(item: object) -> None:
+        """Hide, detach and schedule deletion of one taken form row item."""
+        if item is None:
+            return
+        layout = item.layout() if hasattr(item, "layout") else None  # type: ignore[attr-defined]
+        if layout is not None:
+            while layout.count():
+                child = layout.takeAt(0)
+                PropertiesPanel._dispose_form_item(child)
+            layout.deleteLater()
+            return
+        widget = item.widget() if hasattr(item, "widget") else None  # type: ignore[attr-defined]
+        if widget is None:
+            return
+        widget.hide()
+        widget.setParent(None)
+        widget.deleteLater()
 
     def _show_no_selection(self) -> None:
         """Show message when nothing is selected."""
@@ -298,7 +437,7 @@ class PropertiesPanel(QWidget):
         """
         # Since #206 a pure property edit on the *same* selection no longer
         # tears down the form (it takes the in-place refresh path below, which
-        # skips the focused widget), so this focus guard is now a defensive
+        # skips a focused text editor), so this focus guard is now a defensive
         # backstop rather than the primary mechanism: it still protects the rare
         # case where the selection genuinely *changed* to a different item while
         # a panel field holds focus, where a full rebuild would delete the
@@ -308,10 +447,26 @@ class PropertiesPanel(QWidget):
         # briefly shows the previous item until the next trigger — keeping focus
         # is worth it; do NOT remove the guard to "fix" it.
         fw = QApplication.focusWidget()
+        new_identity = self._compute_identity(items)
+        same_form = new_identity == self._current_identity and bool(self._field_refreshers)
+        history = self._history_pending
+        self._history_pending = False
+        # Keep the FIXED padlock truthful across undo/redo and reloads: the
+        # badge is derived state, so re-derive it whenever the selection (or
+        # history) is re-presented (#552). Cheap and idempotent.
+        for _it in items:
+            try:
+                _refresh = getattr(_it, "refresh_lock_badge", None)
+                if callable(_refresh):
+                    _refresh()
+            except Exception:
+                pass
         if (
-            fw is not None
+            not history
+            and fw is not None
             and isinstance(fw, (QAbstractSpinBox, QLineEdit, QTextEdit))
             and self.isAncestorOf(fw)
+            and not same_form
         ):
             return
 
@@ -319,7 +474,8 @@ class PropertiesPanel(QWidget):
         # rebuild deletes the field and its debounce timer synchronously, so an
         # un-flushed edit would be applied to the model but never recorded as a
         # command (lost from undo history). The fields are still alive here.
-        self._flush_pending_text_commits()
+        if not history and not same_form:
+            self._flush_pending_text_commits()
 
         # Incremental update (#206): when the selection set and form structure
         # are unchanged (a pure scalar property edit, a canvas drag/resize, or
@@ -330,10 +486,13 @@ class PropertiesPanel(QWidget):
         # The refresh path applies only when refreshers exist (a single editable
         # item). Multi-selection and GroupItem register none, so they harmlessly
         # fall through to a (cheap, no editable fields) rebuild on every signal.
-        new_identity = self._compute_identity(items)
         if new_identity == self._current_identity and self._field_refreshers:
             self._current_items = items
-            self._refresh_field_values()
+            self._history_refresh = bool(history)
+            try:
+                self._refresh_field_values()
+            finally:
+                self._history_refresh = False
             return
 
         self._current_identity = new_identity
@@ -431,11 +590,15 @@ class PropertiesPanel(QWidget):
     def _refresh_widget(self, widget: QWidget, setter: Callable[[], object]) -> None:
         """Push a fresh model value into ``widget`` via ``setter`` in place.
 
-        Skips a focused widget so a refresh never stomps an active edit, and
-        blocks the widget's signals while writing so the value push cannot
-        register a command (#206).
+        Protects focused text editors so a refresh never stomps an active edit.
+        A checkbox, non-editable combo or color button has already committed
+        its choice: retaining focus must not keep its pre-undo value on screen.
+        Block signals while writing so the value push cannot register a command.
         """
-        if self._is_focused(widget):
+        edits_text = isinstance(widget, (QLineEdit, QAbstractSpinBox, QTextEdit)) or (
+            isinstance(widget, QComboBox) and widget.isEditable()
+        )
+        if edits_text and self._is_focused(widget) and not self._history_refresh:
             return
         widget.blockSignals(True)
         try:
@@ -446,6 +609,49 @@ class PropertiesPanel(QWidget):
     def _register_refresh(self, widget: QWidget, setter: Callable[[], object]) -> None:
         """Register an in-place value refresher for ``widget`` (see #206)."""
         self._field_refreshers.append(lambda: self._refresh_widget(widget, setter))
+
+    @staticmethod
+    def _announce_edit(item: QGraphicsItem) -> None:
+        """An edit of ``item`` has happened - tell the followers that a write
+        into ``metadata`` does not.
+
+        A write into ``metadata`` repaints nothing and moves no revision: without
+        this, a container's height or material typed here never reached the 3D
+        view, and its shadow kept the old height (measured: 30 → 70 cm and
+        plastic → metal through this panel, 0 engine calls after 400 ms). Two
+        things, for the two kinds of follower:
+
+        - the scene's plan revision moves (``CanvasScene.note_plan_changed``, ADR-060
+          decision 5) — what follows the PLAN, the 3D view, is told at once. A
+          command moves it by itself (the scene connects ``stack_changed`` to
+          the nudge), so this is the second nudge for a command and the only
+          one for a panel with no command manager; listeners coalesce, so it
+          costs nothing.
+        - the item is repainted — what follows the scene's REPAINTS, the sun's
+          shadow, sees it too (``plant_database_panel``'s rule, §11.4).
+
+        The undo stack is told by the command that carries the edit
+        (``_commit_edit``), not by this.
+        """
+        item.update()
+        note_plan_changed(item.scene())
+
+    def _commit_edit(self, item: QGraphicsItem, cmd: ChangePropertyCommand) -> None:
+        """Run one undoable property edit and announce it (#530).
+
+        The command carries the edit to the undo stack, which is what marks the
+        plan modified — a direct write marked nothing, so closing the app asked
+        nothing and the edit was lost. The two notices the edit still needs are
+        made by ``_announce_edit``.
+
+        The command is built by the caller, with its property name as a literal:
+        that name is the undo label, and it is what the i18n gate reads.
+        """
+        if self._command_manager is not None:
+            self._command_manager.execute(cmd)
+        else:
+            cmd.execute()
+        self._announce_edit(item)
 
     def _refresh_field_values(self) -> None:
         """Re-read the model and push fresh values into the live form widgets.
@@ -465,16 +671,25 @@ class PropertiesPanel(QWidget):
             self._updating = False
 
     def _flush_pending_text_commits(self) -> None:
-        """Commit any pending debounced free-text edits, then clear the queue.
+        """Commit active free-text edits; retain callbacks until form teardown.
 
         Each commit is idempotent (no-op when the value is unchanged) and stops
         its own debounce timer, so this is safe to call on every rebuild. New
         fields re-register their callbacks as they are built. See #210.
         """
-        pending = self._pending_text_commits
-        self._pending_text_commits = []
-        for commit in pending:
+        for commit in tuple(self._pending_text_commits):
             commit()
+
+    def flush_pending_edits(self) -> None:
+        """Commit active input before persistence or history navigation."""
+        focused = QApplication.focusWidget()
+        if focused is not None and self.isAncestorOf(focused):
+            parent = focused.parentWidget()
+            if isinstance(focused, QAbstractSpinBox):
+                focused.interpretText()
+            elif isinstance(parent, QAbstractSpinBox):
+                parent.interpretText()
+        self._flush_pending_text_commits()
 
     def _show_single_item(self, item: QGraphicsItem) -> None:
         """Show properties for a single selected item.
@@ -491,6 +706,7 @@ class PropertiesPanel(QWidget):
             # Layer
             if hasattr(item, 'layer_id'):
                 layer_combo = QComboBox()
+                _style_combo(layer_combo)
                 self._populate_layer_combo(layer_combo, item)
                 layer_combo.currentIndexChanged.connect(
                     lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
@@ -531,6 +747,7 @@ class PropertiesPanel(QWidget):
         # Object Type (if applicable)
         if hasattr(item, 'object_type'):
             type_combo = QComboBox()
+            _style_combo(type_combo)
             self._populate_object_type_combo(type_combo, item)
             type_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'object_type', type_combo.currentData())
@@ -584,6 +801,7 @@ class PropertiesPanel(QWidget):
         # Layer
         if hasattr(item, 'layer_id'):
             layer_combo = QComboBox()
+            _style_combo(layer_combo)
             self._populate_layer_combo(layer_combo, item)
             layer_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
@@ -608,6 +826,9 @@ class PropertiesPanel(QWidget):
 
         # Object height (sun/shade simulation) — US-E2
         self._add_object_height_properties(item)
+
+        # Roof style, pitch and overhang (3D view) — Phase 17 L4.1, #388
+        self._add_roof_properties(item)
 
         # Spacing radius section (for plant types only)
         self._add_spacing_properties(item)
@@ -661,40 +882,49 @@ class PropertiesPanel(QWidget):
         combo.setCurrentIndex(current_idx)
 
     @staticmethod
-    def _get_object_type_icon(obj_type: ObjectType) -> QIcon | None:
-        """Return a small QIcon from the SVG file for the given object type, or None."""
+    def _get_object_type_icon(obj_type: ObjectType) -> QIcon:
+        """Return a small QIcon from the SVG file for the given object type."""
+        from open_garden_planner.core.plant_renderer import _resolve_svg_path
         from open_garden_planner.ui.icons import get_icon
+
+        # 0. A type with no sprite (a string of lights is a line, L5.4): the gallery's
+        #    own painted picture — one seam, so the two views cannot diverge
+        from open_garden_planner.ui.widgets.gallery_data import thumbnail_for
+
+        thumbnail = thumbnail_for(obj_type)
+        if thumbnail is not None:
+            return QIcon(thumbnail)
 
         # 1. Furniture / infrastructure SVGs (objects/ directory — full-color art)
         svg_path = get_furniture_svg_path(obj_type)
         if svg_path is not None and svg_path.exists():
-            return QIcon(str(svg_path))
+            icon = QIcon(str(svg_path))
+            if not icon.isNull():
+                return icon
 
-        # 2. Themed UI icons (resources/icons/ui/ via the central provider)
-        _TOOL_ICON_FILES: dict[ObjectType, str] = {
-            ObjectType.GENERIC_RECTANGLE: "rectangle",
-            ObjectType.GENERIC_POLYGON: "polygon",
-            ObjectType.GENERIC_CIRCLE: "circle",
-            ObjectType.HOUSE: "house",
-            ObjectType.GARAGE_SHED: "shed",
-            ObjectType.GREENHOUSE: "greenhouse",
-            ObjectType.TERRACE_PATIO: "terrace",
-            ObjectType.DRIVEWAY: "driveway",
-            ObjectType.POND_POOL: "pond",
-            ObjectType.GARDEN_BED: "garden_bed",
-            ObjectType.LAWN: "lawn",
-            ObjectType.FENCE: "fence",
-            ObjectType.WALL: "wall",
-            ObjectType.PATH: "path",
-            ObjectType.TREE: "tree",
-            ObjectType.SHRUB: "shrub",
-            ObjectType.PERENNIAL: "flower",
-        }
-        tool_name = _TOOL_ICON_FILES.get(obj_type)
+        # 2. Plant categories (resources/plants/categories/)
+        plant_path = _resolve_svg_path(obj_type)
+        if plant_path is not None and plant_path.exists():
+            icon = QIcon(str(plant_path))
+            if not icon.isNull():
+                return icon
+
+        # 3. Extra SVGs (planters, trellises, hedge polygons)
+        extra_path = _EXTRA_SVG_FILES.get(obj_type)
+        if extra_path is not None and extra_path.exists():
+            icon = QIcon(str(extra_path))
+            if not icon.isNull():
+                return icon
+
+        # 4. Themed UI icons (resources/icons/ui/ via the central provider)
+        tool_name = _TOOL_ICONS.get(obj_type)
         if tool_name is not None:
-            return get_icon(tool_name)
+            icon = get_icon(tool_name)
+            if icon is not None and not icon.isNull():
+                return icon
 
-        return None
+        fallback = get_icon("warning")
+        return fallback if fallback is not None else QIcon()
 
     def _populate_layer_combo(self, combo: QComboBox, item: QGraphicsItem) -> None:
         """Populate layer combobox.
@@ -945,32 +1175,33 @@ class PropertiesPanel(QWidget):
 
         # Create horizontal layout for X and Y spin boxes
         pos_layout = QHBoxLayout()
-        pos_layout.setSpacing(4)
+        pos_layout.setSpacing(8)
         pos_layout.setContentsMargins(0, 0, 0, 0)
+        pos_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         # X coordinate
-        x_label = QLabel("X:")
         x_spin = QDoubleSpinBox()
         x_spin.setRange(-100000.0, 100000.0)
         x_spin.setDecimals(1)
         x_spin.setSingleStep(10.0)
         x_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        x_spin.setPrefix("X: ")
         x_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(x_spin)
         x_spin.setValue(bottom_left_x)
-        pos_layout.addWidget(x_label)
-        pos_layout.addWidget(x_spin, 1)
+        pos_layout.addWidget(x_spin)
 
         # Y coordinate
-        y_label = QLabel("Y:")
         y_spin = QDoubleSpinBox()
         y_spin.setRange(-100000.0, 100000.0)
         y_spin.setDecimals(1)
         y_spin.setSingleStep(10.0)
         y_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        y_spin.setPrefix("Y: ")
         y_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(y_spin)
         y_spin.setValue(bottom_left_y)
-        pos_layout.addWidget(y_label)
-        pos_layout.addWidget(y_spin, 1)
+        pos_layout.addWidget(y_spin)
 
         # Connect after both spin boxes are created
         x_spin.valueChanged.connect(
@@ -980,9 +1211,9 @@ class PropertiesPanel(QWidget):
             lambda _: self._on_position_changed(item, x_spin, y_spin)
         )
 
-        # Create a widget to hold the layout; Expanding so it fills the field column
+        # Hug the two 120 px fields rather than stretching across the column.
         pos_widget = QWidget()
-        pos_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        pos_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         pos_widget.setLayout(pos_layout)
         self._form_layout.addRow(self.tr("Position:"), pos_widget)
 
@@ -1001,7 +1232,7 @@ class PropertiesPanel(QWidget):
             diameter_spin.setDecimals(1)
             diameter_spin.setSingleStep(10.0)
             diameter_spin.setSuffix(" cm")
-            diameter_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            _style_numeric_field(diameter_spin)
             diameter_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             diameter_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
             diameter_spin.setValue(item.radius * 2)
@@ -1015,30 +1246,31 @@ class PropertiesPanel(QWidget):
         elif isinstance(item, RectangleItem):
             rect = item.rect()
             size_layout = QHBoxLayout()
-            size_layout.setSpacing(4)
+            size_layout.setSpacing(8)
             size_layout.setContentsMargins(0, 0, 0, 0)
+            size_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            w_label = QLabel("W:")
             w_spin = QDoubleSpinBox()
             w_spin.setRange(1.0, 100000.0)
             w_spin.setDecimals(1)
             w_spin.setSingleStep(10.0)
             w_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            w_spin.setPrefix(self.tr("W: "))
             w_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(w_spin)
             w_spin.setValue(rect.width())
-            size_layout.addWidget(w_label)
-            size_layout.addWidget(w_spin, 1)
+            size_layout.addWidget(w_spin)
 
-            h_label = QLabel("H:")
             h_spin = QDoubleSpinBox()
             h_spin.setRange(1.0, 100000.0)
             h_spin.setDecimals(1)
             h_spin.setSingleStep(10.0)
             h_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            h_spin.setPrefix(self.tr("H: "))
             h_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(h_spin)
             h_spin.setValue(rect.height())
-            size_layout.addWidget(h_label)
-            size_layout.addWidget(h_spin, 1)
+            size_layout.addWidget(h_spin)
 
             w_spin.valueChanged.connect(
                 lambda _: self._on_dimension_changed(item, 'rect_size', None, w_spin, h_spin)
@@ -1048,7 +1280,7 @@ class PropertiesPanel(QWidget):
             )
 
             size_widget = QWidget()
-            size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            size_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
             self._register_refresh(
@@ -1060,32 +1292,33 @@ class PropertiesPanel(QWidget):
         elif isinstance(item, EllipseItem):
             rect = item.rect()
             axes_layout = QHBoxLayout()
-            axes_layout.setSpacing(4)
+            axes_layout.setSpacing(8)
             axes_layout.setContentsMargins(0, 0, 0, 0)
+            axes_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            rx_label = QLabel("X:")
             rx_spin = QDoubleSpinBox()
             rx_spin.setRange(0.5, 100000.0)
             rx_spin.setDecimals(1)
             rx_spin.setSingleStep(5.0)
             rx_spin.setSuffix(" cm")
             rx_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            rx_spin.setPrefix("X: ")
             rx_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(rx_spin)
             rx_spin.setValue(rect.width() / 2)
-            axes_layout.addWidget(rx_label)
-            axes_layout.addWidget(rx_spin, 1)
+            axes_layout.addWidget(rx_spin)
 
-            ry_label = QLabel("Y:")
             ry_spin = QDoubleSpinBox()
             ry_spin.setRange(0.5, 100000.0)
             ry_spin.setDecimals(1)
             ry_spin.setSingleStep(5.0)
             ry_spin.setSuffix(" cm")
             ry_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            ry_spin.setPrefix("Y: ")
             ry_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(ry_spin)
             ry_spin.setValue(rect.height() / 2)
-            axes_layout.addWidget(ry_label)
-            axes_layout.addWidget(ry_spin, 1)
+            axes_layout.addWidget(ry_spin)
 
             rx_spin.valueChanged.connect(
                 lambda _: self._on_dimension_changed(item, 'ellipse_axes', None, rx_spin, ry_spin)
@@ -1095,7 +1328,7 @@ class PropertiesPanel(QWidget):
             )
 
             axes_widget = QWidget()
-            axes_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            axes_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             axes_widget.setLayout(axes_layout)
             self._form_layout.addRow(self.tr("Semi-axes:"), axes_widget)
             self._register_refresh(
@@ -1129,19 +1362,34 @@ class PropertiesPanel(QWidget):
         spacing_spin.setRange(1.0, 200.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setDecimals(1)
+        _style_numeric_field(spacing_spin)
         spacing_spin.setValue(item.grid_spacing)
 
         def on_grid_check(checked: bool) -> None:
             if self._updating:
                 return
-            item.grid_enabled = checked
+            old = item.grid_enabled
+            if old == checked:
+                return
+            cmd = ChangePropertyCommand(
+                item, "grid", old, checked,
+                apply_func=lambda itm, val: setattr(itm, "grid_enabled", val),
+            )
+            self._commit_edit(item, cmd)
             if cell_count_label is not None:
                 cell_count_label.setText(str(item.grid_cell_count()))
 
         def on_spacing_changed(val: float) -> None:
             if self._updating:
                 return
-            item.grid_spacing = val
+            old = item.grid_spacing
+            if old == val:
+                return
+            cmd = ChangePropertyCommand(
+                item, "grid spacing", old, float(val),
+                apply_func=lambda itm, value: setattr(itm, "grid_spacing", value),
+            )
+            self._commit_edit(item, cmd)
             if cell_count_label is not None:
                 cell_count_label.setText(str(item.grid_cell_count()))
 
@@ -1188,13 +1436,27 @@ class PropertiesPanel(QWidget):
         depth_spin = QSpinBox()
         depth_spin.setRange(1, 200)
         depth_spin.setSuffix(" cm")
+        _style_numeric_field(depth_spin)
         depth_spin.setValue(int(item.metadata.get("soil_depth_cm", 30)))
         depth_spin.setToolTip(self.tr("Fill depth used to calculate soil volume in the Shopping List"))
 
         def on_depth_changed(val: int) -> None:
             if self._updating:
                 return
-            item.metadata["soil_depth_cm"] = val
+            old = item.metadata.get("soil_depth_cm")
+            if old == val:
+                return
+
+            def apply_depth(itm: QGraphicsItem, value: int | None) -> None:
+                if value is None:
+                    itm.metadata.pop("soil_depth_cm", None)  # type: ignore[attr-defined]
+                else:
+                    itm.metadata["soil_depth_cm"] = int(value)  # type: ignore[attr-defined]
+
+            cmd = ChangePropertyCommand(
+                item, "soil depth", old, int(val), apply_func=apply_depth,
+            )
+            self._commit_edit(item, cmd)
 
         depth_spin.valueChanged.connect(on_depth_changed)
         self._form_layout.addRow(self.tr("Soil depth:"), depth_spin)
@@ -1208,8 +1470,8 @@ class PropertiesPanel(QWidget):
 
         Containers (pots, wall planters) measure their fill by height in litres
         and carry a material + drainage that drive a watering hint. Values live
-        in ``metadata`` (additive, like bed ``soil_depth_cm``); edits mutate the
-        item directly, mirroring :meth:`_add_soil_depth_properties`.
+        in ``metadata`` (additive, like bed ``soil_depth_cm``); each edit is one
+        undoable command, like :meth:`_add_soil_depth_properties` (#530).
         """
         from open_garden_planner.core import container_model as cm
         from open_garden_planner.core.object_types import is_container_type
@@ -1234,6 +1496,7 @@ class PropertiesPanel(QWidget):
             cm.METAL: self.tr("Metal"),
         }
         material_combo = QComboBox()
+        _style_combo(material_combo)
         for ident in cm.MATERIALS:
             material_combo.addItem(material_labels[ident], ident)
         material_combo.setCurrentIndex(cm.MATERIALS.index(cm.container_material(meta)))
@@ -1248,6 +1511,7 @@ class PropertiesPanel(QWidget):
         height_spin = QSpinBox()
         height_spin.setRange(1, 300)
         height_spin.setSuffix(" cm")
+        _style_numeric_field(height_spin)
         height_spin.setValue(int(cm.container_height_cm(meta)))
         self._form_layout.addRow(self.tr("Height:"), height_spin)
 
@@ -1256,6 +1520,7 @@ class PropertiesPanel(QWidget):
         volume_spin.setRange(0.0, 100000.0)
         volume_spin.setDecimals(1)
         volume_spin.setSuffix(" L")
+        _style_numeric_field(volume_spin)
         volume_spin.setSpecialValueText(self.tr("Auto"))
         override = meta.get("container_soil_volume_l")
         volume_spin.setValue(float(override) if override else 0.0)
@@ -1294,28 +1559,77 @@ class PropertiesPanel(QWidget):
                 )
             hint_label.setText(hint)
 
+        # These four write ``metadata`` - each through a command, so the edit is
+        # one undoable step and the plan is marked modified (#530), and each
+        # announces itself and repaints the item (``_commit_edit``). The
+        # material and the height are what the 3D view builds a container from,
+        # and the height is what its shadow is cast from.
+        def write_metadata(key: str) -> Callable[[QGraphicsItem, Any], None]:
+            """An apply function for one metadata key. None means the key is
+            ABSENT again - which is what an undo of a value that was never set
+            has to restore (the model's defaults answer for an absent key, not
+            for a key holding None)."""
+            def apply(itm: QGraphicsItem, value: Any) -> None:
+                if value is None:
+                    itm.metadata.pop(key, None)  # type: ignore[attr-defined]
+                else:
+                    itm.metadata[key] = value  # type: ignore[attr-defined]
+            return apply
+
         def on_material_changed(_index: int) -> None:
             if self._updating:
                 return
-            meta["container_material"] = material_combo.currentData()
+            old = meta.get("container_material")
+            new = material_combo.currentData()
+            if old == new:
+                return
+            cmd = ChangePropertyCommand(
+                item, "container material", old, new,
+                apply_func=write_metadata("container_material"),
+            )
+            self._commit_edit(item, cmd)
             update_feedback()
 
         def on_drainage_changed(checked: bool) -> None:
             if self._updating:
                 return
-            meta["container_drainage"] = bool(checked)
+            old = meta.get("container_drainage")
+            new = bool(checked)
+            if old == new:
+                return
+            cmd = ChangePropertyCommand(
+                item, "container drainage", old, new,
+                apply_func=write_metadata("container_drainage"),
+            )
+            self._commit_edit(item, cmd)
             update_feedback()
 
         def on_height_changed(val: int) -> None:
             if self._updating:
                 return
-            meta["container_height_cm"] = float(val)
+            old = meta.get("container_height_cm")
+            new = float(val)
+            if old == new:
+                return
+            cmd = ChangePropertyCommand(
+                item, "container height", old, new,
+                apply_func=write_metadata("container_height_cm"),
+            )
+            self._commit_edit(item, cmd)
             update_feedback()
 
         def on_volume_changed(val: float) -> None:
             if self._updating:
                 return
-            meta["container_soil_volume_l"] = None if val <= 0 else float(val)
+            old = meta.get("container_soil_volume_l")
+            new = None if val <= 0 else float(val)
+            if old == new:
+                return
+            cmd = ChangePropertyCommand(
+                item, "container soil volume", old, new,
+                apply_func=write_metadata("container_soil_volume_l"),
+            )
+            self._commit_edit(item, cmd)
             update_feedback()
 
         material_combo.currentIndexChanged.connect(on_material_changed)
@@ -1362,14 +1676,21 @@ class PropertiesPanel(QWidget):
         per-type default. Setting a value stores an explicit override;
         setting 0 clears it (back to automatic) — the same semantics as the
         spacing-radius field above. Edits go through ``ChangePropertyCommand``
-        (one undo step, #209); the container section's direct metadata writes
-        are documented debt, not the pattern.
+        (one undo step, #209); the container section's edits are the same shape
+        now (#530), so there is no direct metadata write left in this panel.
         """
         from open_garden_planner.core import object_height as oh
+        from open_garden_planner.ui.canvas.footprints import item_has_footprint
 
         if not hasattr(item, "object_type") or not hasattr(item, "metadata"):
             return
-        if not oh.has_height_semantics(item.object_type, item.metadata):
+        # Every item with a footprint can be GIVEN a height (#628): the field is the
+        # only way to set one, so gating it on "has a height semantic already" left a
+        # generic shape, an in-ground bed, a terrace or a pond unreachable. "Auto" (0)
+        # stays no height, so nothing changes until the user types one.
+        if not oh.shows_height_field(
+            item.object_type, item.metadata, has_footprint=item_has_footprint(item)
+        ):
             return
 
         height_spin = QDoubleSpinBox()
@@ -1380,8 +1701,7 @@ class PropertiesPanel(QWidget):
         # Non-empty special-value text — an empty string DISABLES the feature
         # (the #231/#232 Qt trap).
         height_spin.setSpecialValueText(self.tr("Auto"))
-        height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        height_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(height_spin)
 
         source_texts = {
             oh.SOURCE_CUSTOM: self.tr("Custom height (0 = back to automatic)"),
@@ -1389,7 +1709,8 @@ class PropertiesPanel(QWidget):
             oh.SOURCE_CURRENT: self.tr("From measured current height"),
             oh.SOURCE_SPECIES: self.tr("From assigned species (max height)"),
             oh.SOURCE_DEFAULT: self.tr("Default for this object type"),
-            oh.SOURCE_NONE: self.tr("No height — casts no shadow"),
+            # a plant without species data: 3D builds it at an estimated height (#557)
+            oh.SOURCE_NONE: self.tr("No height — no shadow on the 2D plan"),
         }
 
         def refresh_height(s: QDoubleSpinBox = height_spin, it: QGraphicsItem = item) -> None:
@@ -1397,10 +1718,17 @@ class PropertiesPanel(QWidget):
             s.setValue(effective if effective is not None else 0.0)
             s.setToolTip(source_texts[oh.height_source(it.object_type, it.metadata)])
 
+        def update_height_source() -> None:
+            height_spin.setToolTip(
+                source_texts[oh.height_source(item.object_type, item.metadata)]
+            )
+
+        def on_height_changed(val: float) -> None:
+            self._on_object_height_changed(item, val)
+            update_height_source()
+
         refresh_height()
-        height_spin.valueChanged.connect(
-            lambda val, it=item: self._on_object_height_changed(it, val)
-        )
+        height_spin.valueChanged.connect(on_height_changed)
         self._form_layout.addRow(self.tr("Object height:"), height_spin)
         self._register_refresh(height_spin, refresh_height)
 
@@ -1429,6 +1757,132 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             self._command_manager.execute(cmd)
 
+    def _add_roof_properties(self, item: QGraphicsItem) -> None:
+        """Add a building's roof style, pitch and overhang (Phase 17 L4.1, #388).
+
+        Three optional metadata keys (``core/roof_style``) the 3D view builds the
+        roof from; the 2D plan, its ridge line and its sun study do not read them.
+        "Automatic" (style) and "Auto" (pitch, overhang) remove the key, so the
+        building falls back to the style's own value. Each edit is one
+        ``ChangePropertyCommand`` (#530: ``_commit_edit``).
+        """
+        from open_garden_planner.core import roof_style as rs
+
+        object_type = getattr(item, "object_type", None)
+        if object_type is None or object_type.name not in rs.BUILDING_KINDS or not hasattr(item, "metadata"):
+            return
+        building: Any = item  # a building item: its ``metadata`` dict is the roof's home
+        hint = self.tr("Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.")
+
+        style_combo = QComboBox()
+        _style_combo(style_combo)
+        for value, text in ((None, self.tr("Automatic")), (rs.GABLE, self.tr("Gable")),
+                            (rs.HIP, self.tr("Hip")), (rs.SHED, self.tr("Single slope")),
+                            (rs.FLAT, self.tr("Flat"))):
+            style_combo.addItem(text, value)
+
+        def refresh_style(c: QComboBox = style_combo, it: Any = building) -> None:
+            index = c.findData(rs.roof_style(it.metadata))
+            c.setCurrentIndex(index if index >= 0 else 0)
+
+        refresh_style()
+        style_combo.currentIndexChanged.connect(
+            lambda _index, it=item, c=style_combo: self._on_roof_style_changed(it, c.currentData())
+        )
+        self._form_layout.addRow(self.tr("Roof style:"), style_combo)
+        self._explain_row(style_combo, hint)
+        self._register_refresh(style_combo, refresh_style)
+
+        pitch_spin = QDoubleSpinBox()
+        # one below the least pitch: "Auto" (the spin shows only pitches it stores — 1-4°
+        # read as themselves but were stored as 5°: senior review of #388)
+        pitch_spin.setRange(rs.MIN_PITCH_DEG - 1.0, rs.MAX_PITCH_DEG)
+        pitch_spin.setDecimals(0)
+        pitch_spin.setSingleStep(1.0)
+        pitch_spin.setSuffix("°")
+        # Non-empty special-value text — an empty string DISABLES the feature (#231/#232)
+        pitch_spin.setSpecialValueText(self.tr("Auto"))
+        pitch_spin.setToolTip(hint)
+        _style_numeric_field(pitch_spin)
+
+        def refresh_pitch(s: QDoubleSpinBox = pitch_spin, it: Any = building) -> None:
+            s.setValue(rs.roof_pitch_deg(it.metadata) or s.minimum())
+
+        refresh_pitch()
+        pitch_spin.valueChanged.connect(lambda value, it=item: self._on_roof_pitch_changed(it, value))
+        self._form_layout.addRow(self.tr("Roof pitch:"), pitch_spin)
+        self._explain_row(pitch_spin, hint)
+        self._register_refresh(pitch_spin, refresh_pitch)
+
+        overhang_spin = QDoubleSpinBox()
+        overhang_spin.setRange(-1.0, rs.MAX_OVERHANG_CM)  # -1: "Auto" (0 is a real overhang)
+        overhang_spin.setDecimals(0)
+        overhang_spin.setSingleStep(5.0)
+        overhang_spin.setSuffix(" cm")
+        overhang_spin.setSpecialValueText(self.tr("Auto"))
+        overhang_spin.setToolTip(hint)
+        _style_numeric_field(overhang_spin)
+
+        def refresh_overhang(s: QDoubleSpinBox = overhang_spin, it: Any = building) -> None:
+            overhang = rs.roof_overhang_cm(it.metadata)
+            s.setValue(-1.0 if overhang is None else overhang)
+
+        refresh_overhang()
+        overhang_spin.valueChanged.connect(lambda value, it=item: self._on_roof_overhang_changed(it, value))
+        self._form_layout.addRow(self.tr("Roof overhang:"), overhang_spin)
+        self._explain_row(overhang_spin, hint)
+        self._register_refresh(overhang_spin, refresh_overhang)
+
+    def _explain_row(self, field: QWidget, hint: str) -> None:
+        """Put ``hint`` on the row label Qt made for ``field`` (its buddy) and on the
+        field's accessible description: a combo's own tooltip is its current text (#596),
+        so the label carries what the row is for."""
+        label = self._form_layout.labelForField(field)
+        assert label is not None, "call after addRow(text, field)"
+        label.setToolTip(hint)
+        field.setAccessibleDescription(hint)
+
+    @staticmethod
+    def _roof_setter(key: str) -> Callable[[Any, object], None]:
+        """An ``apply_func`` that writes ``key`` into the item's metadata (None removes it)."""
+
+        def apply(itm: Any, value: object) -> None:
+            if value is None:
+                itm.metadata.pop(key, None)
+            else:
+                itm.metadata[key] = value
+
+        return apply
+
+    def _on_roof_style_changed(self, item: Any, value: object) -> None:
+        from open_garden_planner.core import roof_style as rs
+
+        old = rs.roof_style(item.metadata)
+        if self._updating or value == old:
+            return
+        self._commit_edit(item, ChangePropertyCommand(
+            item, "roof style", old, value, apply_func=self._roof_setter(rs.STYLE_KEY)))
+
+    def _on_roof_pitch_changed(self, item: Any, value: float) -> None:
+        from open_garden_planner.core import roof_style as rs
+
+        old = rs.roof_pitch_deg(item.metadata)
+        new = min(rs.MAX_PITCH_DEG, float(value)) if value >= rs.MIN_PITCH_DEG else None
+        if self._updating or new == old:
+            return
+        self._commit_edit(item, ChangePropertyCommand(
+            item, "roof pitch", old, new, apply_func=self._roof_setter(rs.PITCH_KEY)))
+
+    def _on_roof_overhang_changed(self, item: Any, value: float) -> None:
+        from open_garden_planner.core import roof_style as rs
+
+        old = rs.roof_overhang_cm(item.metadata)
+        new = float(value) if value >= 0.0 else None
+        if self._updating or new == old:
+            return
+        self._commit_edit(item, ChangePropertyCommand(
+            item, "roof overhang", old, new, apply_func=self._roof_setter(rs.OVERHANG_KEY)))
+
     def _add_smart_symbol_properties(self, item: QGraphicsItem) -> None:
         """Render typed parameter widgets for a selected smart symbol (US-C4).
 
@@ -1455,11 +1909,26 @@ class PropertiesPanel(QWidget):
             self._form_layout.addRow(note)
             return
 
+        version_mismatch = definition.version != getattr(
+            item, "symbol_version", definition.version
+        )
+        if version_mismatch:
+            note = QLabel(
+                self.tr(
+                    "Symbol definition version mismatch — saved geometry is read-only."
+                )
+            )
+            note.setWordWrap(True)
+            set_text_role(note, color_role="caution")
+            note.setStyleSheet("font-size: 11px;")
+            self._form_layout.addRow(note)
+
         for param in definition.parameters:
             current = item.params.get(param.name, param.default)
             widget: QWidget
             if param.type == "choice":
                 combo = QComboBox()
+                _style_combo(combo)
                 for choice in param.choices:
                     combo.addItem(choice, choice)
                 idx = combo.findData(current)
@@ -1491,6 +1960,7 @@ class PropertiesPanel(QWidget):
                     spin.setValue(float(current))
                     if param.unit:
                         spin.setSuffix(f" {param.unit}")
+                _style_numeric_field(spin)
                 spin.valueChanged.connect(
                     lambda val, it=item, p=param.name: self._on_symbol_param_changed(it, p, val)
                 )
@@ -1501,27 +1971,48 @@ class PropertiesPanel(QWidget):
                     ),
                 )
                 widget = spin
+            if version_mismatch:
+                widget.setEnabled(False)
             self._form_layout.addRow(param.display_label(lang) + ":", widget)
 
     def _on_symbol_param_changed(self, item: QGraphicsItem, name: str, value) -> None:
         """Commit an undoable smart-symbol parameter change + regenerate."""
         if self._updating:
             return
+        can_edit = getattr(item, "can_edit_parameters", None)
+        if callable(can_edit) and not can_edit():
+            self._history_refresh = True
+            try:
+                self._refresh_field_values()
+            finally:
+                self._history_refresh = False
+            return
         old = item.params.get(name)
         if old == value:
             return
 
-        def apply(it, val) -> None:
-            it.params[name] = val
-            it.regenerate_geometry()
+        candidate = dict(item.params)
+        candidate[name] = value
+        validate = getattr(item, "validate_params", None)
+        if callable(validate) and not validate(candidate):
+            self._show_status_message(
+                self.tr("Invalid symbol parameter value — geometry unchanged."),
+                item,
+            )
+            self._history_refresh = True
+            try:
+                self._refresh_field_values()
+            finally:
+                self._history_refresh = False
+            return
 
-        from open_garden_planner.core.commands import ChangePropertyCommand
+        from open_garden_planner.core.commands import ChangeSmartSymbolParamCommand
 
-        cmd = ChangePropertyCommand(item, f"param:{name}", old, value, apply_func=apply)
+        cmd = ChangeSmartSymbolParamCommand(item, name, old, value)
         if self._command_manager is not None:
             self._command_manager.execute(cmd)
         else:
-            apply(item, value)
+            cmd.execute()
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""
@@ -1538,8 +2029,7 @@ class PropertiesPanel(QWidget):
         spacing_spin.setSingleStep(5.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setSpecialValueText(self.tr("—"))  # Show dash when 0 (no data)
-        spacing_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        spacing_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(spacing_spin)
         effective = item.effective_spacing_radius()
         spacing_spin.setValue(effective if effective is not None else 0.0)
         spacing_spin.setToolTip(self.tr("Recommended spacing radius (half of plant spread)"))
@@ -1668,6 +2158,7 @@ class PropertiesPanel(QWidget):
 
         # Font family
         font_combo = QFontComboBox()
+        _style_combo(font_combo)
         font_combo.setCurrentFont(item.font())
         font_combo.currentFontChanged.connect(
             lambda f: self._on_text_property_changed(item, "font_family", f.family())
@@ -1683,6 +2174,7 @@ class PropertiesPanel(QWidget):
         size_spin.setSingleStep(0.5)
         size_spin.setDecimals(1)
         size_spin.setSuffix(" cm")
+        _style_numeric_field(size_spin)
         size_spin.setValue(item.font_size)
         size_spin.valueChanged.connect(
             lambda v: self._on_text_property_changed(item, "font_size", v)
@@ -1799,9 +2291,10 @@ class PropertiesPanel(QWidget):
         if not isinstance(item, (RectangleItem, EllipseItem, PolygonItem, CircleItem, PolylineItem)):
             return
 
-        # Path/fence style preset (only for polylines)
-        if isinstance(item, PolylineItem):
+        # Path/fence style preset (only for polylines; a string of lights has none, L5.4)
+        if isinstance(item, PolylineItem) and item.object_type != ObjectType.STRING_LIGHTS:
             style_combo = QComboBox()
+            _style_combo(style_combo)
             # Add "Paths" group
             style_combo.addItem(self.tr("── Paths ──"), None)
             idx = style_combo.count() - 1
@@ -1864,6 +2357,7 @@ class PropertiesPanel(QWidget):
 
             # Fill pattern
             pattern_combo = QComboBox()
+            _style_combo(pattern_combo)
             _pattern_names = {
                 FillPattern.SOLID: self.tr("Solid"),
                 FillPattern.GRASS: self.tr("Grass"),
@@ -1923,12 +2417,16 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(self.tr("Stroke Color:"), stroke_btn)
         self._register_refresh(stroke_btn, lambda b=stroke_btn: b.set_color(_read_stroke()))
 
-        # Stroke width
+        # Stroke width — a line's (a path's, a fence's) is its width on the ground, in cm
         width_spin = QDoubleSpinBox()
-        width_spin.setRange(0.5, 20.0)
-        width_spin.setSingleStep(0.5)
+        is_line = isinstance(item, PolylineItem)
+        is_path = is_line and getattr(item, "object_type", None) == ObjectType.PATH
+        width_spin.setRange(MIN_STROKE_WIDTH, MAX_LINE_WIDTH_CM if is_path
+                            else MAX_FENCE_WIDTH_CM if is_line else MAX_STROKE_WIDTH)
+        width_spin.setSingleStep(5.0 if is_line else 0.5)
         width_spin.setDecimals(1)
-        width_spin.setSuffix(" px")
+        width_spin.setSuffix(" cm" if is_line else " px")
+        _style_numeric_field(width_spin)
         width_spin.setValue(
             item.stroke_width if hasattr(item, 'stroke_width') and item.stroke_width else item.pen().widthF()
         )
@@ -1945,6 +2443,7 @@ class PropertiesPanel(QWidget):
 
         # Stroke style
         stroke_style_combo = QComboBox()
+        _style_combo(stroke_style_combo)
         _style_names = {
             StrokeStyle.SOLID: self.tr("Solid"),
             StrokeStyle.DASHED: self.tr("Dashed"),
@@ -1973,106 +2472,10 @@ class PropertiesPanel(QWidget):
         )
 
     def _capture_item_state(self, item: QGraphicsItem) -> dict:
-        """Capture the current state of an item for undo purposes.
-
-        Args:
-            item: The item to capture state from
-
-        Returns:
-            Dictionary with all relevant property values
-        """
-        state = {}
-        if hasattr(item, 'object_type'):
-            state['object_type'] = item.object_type
-        if hasattr(item, 'name'):
-            state['name'] = item.name
-        if hasattr(item, 'layer_id'):
-            state['layer_id'] = item.layer_id
-        if hasattr(item, 'fill_color'):
-            state['fill_color'] = QColor(item.fill_color) if item.fill_color else None
-        if hasattr(item, 'fill_pattern'):
-            state['fill_pattern'] = item.fill_pattern
-        if hasattr(item, 'stroke_color'):
-            state['stroke_color'] = QColor(item.stroke_color) if item.stroke_color else None
-        if hasattr(item, 'stroke_width'):
-            state['stroke_width'] = item.stroke_width
-        if hasattr(item, 'stroke_style'):
-            state['stroke_style'] = item.stroke_style
-        if hasattr(item, 'path_fence_style'):
-            state['path_fence_style'] = item.path_fence_style
-        return state
+        return self._property_edits._capture_item_state(item)
 
     def _apply_item_state(self, item: QGraphicsItem, state: dict) -> None:
-        """Apply a captured state to an item.
-
-        Args:
-            item: The item to apply state to
-            state: Dictionary with property values
-        """
-        if 'object_type' in state and hasattr(item, 'object_type'):
-            item.object_type = state['object_type']
-
-        if 'name' in state and hasattr(item, 'name'):
-            item.name = state['name']
-            if hasattr(item, '_update_label'):
-                item._update_label()
-
-        if 'layer_id' in state and hasattr(item, 'layer_id'):
-            # z is derived from the scene's normalized stacking order
-            # (issue #338), not set directly here -- but switching
-            # layer_id moves the item into a different layer's z-band, so
-            # both the old and new layer need an explicit refresh; nothing
-            # else triggers one for a bare attribute write (issue #338
-            # review P2: this write previously left the item's z stale
-            # until some unrelated refresh happened to run).
-            old_layer_id = item.layer_id
-            new_layer_id = state['layer_id']
-            item.layer_id = new_layer_id
-            if old_layer_id != new_layer_id:
-                scene = item.scene()
-                refresh_layer = getattr(scene, "_refresh_layer_z", None)
-                if callable(refresh_layer):
-                    refresh_layer(old_layer_id)
-                    refresh_layer(new_layer_id)
-                else:
-                    refresh_all = getattr(scene, "_update_items_z_order", None)
-                    if callable(refresh_all):
-                        refresh_all()
-
-        if 'fill_color' in state and hasattr(item, 'fill_color'):
-            item.fill_color = state['fill_color']
-        if 'fill_pattern' in state and hasattr(item, 'fill_pattern'):
-            item.fill_pattern = state['fill_pattern']
-        if 'stroke_color' in state and hasattr(item, 'stroke_color'):
-            item.stroke_color = state['stroke_color']
-        if 'stroke_width' in state and hasattr(item, 'stroke_width'):
-            item.stroke_width = state['stroke_width']
-        if 'stroke_style' in state and hasattr(item, 'stroke_style'):
-            item.stroke_style = state['stroke_style']
-        if 'path_fence_style' in state and hasattr(item, 'path_fence_style'):
-            item.path_fence_style = state['path_fence_style']
-            if hasattr(item, 'apply_style_preset'):
-                item.apply_style_preset()
-
-        # Update visual appearance
-        if not isinstance(item, PolylineItem):
-            pattern = state.get('fill_pattern', FillPattern.SOLID)
-            color = state.get('fill_color') or item.brush().color()
-            brush = create_pattern_brush(pattern, color)
-            item.setBrush(brush)
-
-        stroke_color = state.get('stroke_color') or item.pen().color()
-        stroke_width = state.get('stroke_width', item.pen().widthF())
-        stroke_style = state.get('stroke_style', StrokeStyle.SOLID)
-        pen = QPen(stroke_color)
-        pen.setWidthF(stroke_width)
-        pen.setStyle(stroke_style.to_qt_pen_style())
-        item.setPen(pen)
-
-        # Update scene
-        scene = item.scene()
-        if scene:
-            scene.update()
+        return self._property_edits._apply_item_state(item, state)
 
     def _on_position_changed(
         self, item: QGraphicsItem, x_spin: QDoubleSpinBox, y_spin: QDoubleSpinBox
@@ -2090,6 +2493,51 @@ class PropertiesPanel(QWidget):
         from PyQt6.QtCore import QPointF
 
         from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            _is_item_fixed as _panel_is_item_fixed,
+        )
+
+        # FIXED constraint (#552): a pinned object cannot be moved by the panel.
+        # The constraint solver path below only handles *propagated* moves; for a
+        # FIXED item the propagation set is empty and it fell through to a plain
+        # MoveItemsCommand. Refuse, restore the pinned values, and explain why.
+        try:
+            if _panel_is_item_fixed(item):
+                msg = QCoreApplication.translate(
+                    "PropertiesPanel",
+                    "Locked in place: unlock to move (Fix in place constraint).",
+                )
+                scene = item.scene()
+                if scene is not None:
+                    for view in scene.views():
+                        window = view.window()
+                        status_bar = getattr(window, "statusBar", None)
+                        if callable(status_bar):
+                            try:
+                                status_bar().showMessage(msg, 4000)
+                                break
+                            except Exception:
+                                continue
+                # Restore the pinned values without emitting a new command.
+                # Bypass the focus guard: the user is necessarily focused on
+                # the spin they just edited, and the refresher would refuse to
+                # touch it, leaving the refused value visible (P1-2).
+                self._history_refresh = True
+                try:
+                    self._refresh_field_values()
+                finally:
+                    self._history_refresh = False
+                with contextlib.suppress(Exception):
+                    pinned = item.mapToScene(item.boundingRect().topLeft())
+                    x_spin.blockSignals(True)
+                    x_spin.setValue(pinned.x())
+                    x_spin.blockSignals(False)
+                    y_spin.blockSignals(True)
+                    y_spin.setValue(pinned.y())
+                    y_spin.blockSignals(False)
+                return
+        except Exception:
+            pass
 
         # Get new position from spin boxes
         # View transform already flips Y, so scene coords = CAD coords (no conversion)
@@ -2169,6 +2617,101 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             self._command_manager.execute(command)
 
+    def _refuse_rigid_edge_length_resize(
+        self,
+        item: QGraphicsItem,
+        dimension_type: str,
+        value: float | None,  # noqa: ARG002 - part of the shared signature
+        width_spin: QDoubleSpinBox | None,
+        height_spin: QDoubleSpinBox | None,
+    ) -> bool:
+        """Refuse only a resize that would change a rigid self edge length.
+
+        The solver cannot enforce a rigid item's self edge length (its anchors
+        translate together), and silently moving the item outside the resize
+        command was the #670 round-5 P0.  A resize that leaves the constrained
+        edge's own length untouched is still allowed: a TOP/BOTTOM edge survives
+        a height-only change, a LEFT/RIGHT edge survives a width-only change, and
+        a circle's diameter edit is refused.  The edge's axis is classified in
+        the ITEM's local frame, because a rotated rectangle's scene-space edges
+        are not axis-aligned (round-7 review P1).
+        """
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+        scene = item.scene()
+        graph = getattr(scene, "constraint_graph", None)
+        item_id = getattr(item, "item_id", None)
+        if graph is None or item_id is None or is_vertex_deformable(item):
+            return False
+        constraints = [
+            constraint
+            for constraint in graph.get_item_constraints(item_id)
+            if constraint.constraint_type == ConstraintType.EDGE_LENGTH
+            and constraint.anchor_a.item_id == item_id
+            and constraint.anchor_b.item_id == item_id
+        ]
+        if not constraints:
+            return False
+
+        if dimension_type != "rect_size" or width_spin is None or height_spin is None:
+            changes_any = True
+        else:
+            current = item.rect()  # type: ignore[attr-defined]
+            changes_width = abs(float(width_spin.value()) - current.width()) > 1e-6
+            changes_height = abs(float(height_spin.value()) - current.height()) > 1e-6
+            changes_any = False
+            from open_garden_planner.core.measure_snapper import resolve_anchor_point
+
+            for constraint in constraints:
+                first = resolve_anchor_point(
+                    item,
+                    constraint.anchor_a.anchor_type,
+                    constraint.anchor_a.anchor_index,
+                )
+                second = resolve_anchor_point(
+                    item,
+                    constraint.anchor_b.anchor_type,
+                    constraint.anchor_b.anchor_index,
+                )
+                if first is None or second is None:
+                    changes_any = True  # unknown geometry → keep the refusal
+                    break
+                # Local frame: a rotated rectangle's scene-space edge is not
+                # axis-aligned, so width/height must be judged before the item
+                # transform (round-7 review P1).
+                first_local = item.mapFromScene(first)
+                second_local = item.mapFromScene(second)
+                edge_is_horizontal = abs(first_local.x() - second_local.x()) >= abs(
+                    first_local.y() - second_local.y()
+                )
+                if (changes_width if edge_is_horizontal else changes_height):
+                    changes_any = True
+                    break
+
+        if not changes_any:
+            return False
+        self._show_status_message(
+            self.tr(
+                "Cannot resize this shape: its edge length is constrained. "
+                "Remove the constraint first."
+            ),
+            item,
+        )
+        # The typed value was never applied; put the field back on the model.
+        self._refresh_field_values()
+        return True
+
+    def _show_status_message(self, message: str, item: QGraphicsItem) -> None:
+        """Show *message* in the canvas view's status bar, if one is attached."""
+        scene = item.scene()
+        if scene is None:
+            return
+        views = scene.views()
+        target = views[0] if views else None
+        if target is not None and hasattr(target, "set_status_message"):
+            target.set_status_message(message)
+
     def _on_dimension_changed(
         self,
         item: QGraphicsItem,
@@ -2187,6 +2730,10 @@ class PropertiesPanel(QWidget):
             height_spin: Height spin box (for rectangles)
         """
         if self._updating:
+            return
+        if self._refuse_rigid_edge_length_resize(
+            item, dimension_type, value, width_spin, height_spin
+        ):
             return
 
         from open_garden_planner.core.commands import ResizeItemCommand
@@ -2244,10 +2791,22 @@ class PropertiesPanel(QWidget):
         apply_rect_like_geometry(item, new_geometry)
 
         if self._command_manager:
+            from open_garden_planner.core.commands import (
+                register_applied_with_membership,
+            )
+
             cmd = ResizeItemCommand(
                 item, old_geometry, new_geometry, apply_rect_like_geometry
             )
-            self._command_manager.register_applied(cmd)
+            # A bed resized from the panel re-decides its plants too, in this
+            # ONE undo step (the live geometry is already applied) — #443.
+            scene_for_links = item.scene()
+            if scene_for_links is not None:
+                register_applied_with_membership(
+                    scene_for_links, self._command_manager, cmd, item
+                )
+            else:
+                self._command_manager.register_applied(cmd)
 
         # Update scene and run constraint solver
         scene = item.scene()
@@ -2255,7 +2814,7 @@ class PropertiesPanel(QWidget):
             scene.update()
             views = scene.views()
             if views and hasattr(views[0], 'apply_constraint_solver'):
-                views[0].apply_constraint_solver()
+                views[0].apply_constraint_solver(item)
 
     def _attach_commit_timer(self, edit: QWidget, on_commit: Callable[[], None]) -> None:
         """Attach a single-shot debounce timer that commits a free-text edit.
@@ -2320,212 +2879,7 @@ class PropertiesPanel(QWidget):
         edit._ogp_name_start = new_name  # type: ignore[attr-defined]
 
     def _on_property_changed(self, item: QGraphicsItem, property_name: str, value) -> None:
-        """Handle property change with undo support.
-
-        Args:
-            item: Item being edited
-            property_name: Name of the property
-            value: New value
-        """
-        if self._updating:
-            return
-
-        # Capture old state for undo
-        old_state = self._capture_item_state(item)
-
-        # Apply the change to the item
-        if property_name == 'object_type' and hasattr(item, 'object_type'):
-            # Object type change affects many properties
-            style = get_style(value)
-            new_state = {
-                'object_type': value,
-                'fill_color': style.fill_color,
-                'fill_pattern': style.fill_pattern,
-                'stroke_color': style.stroke_color,
-                'stroke_width': style.stroke_width,
-                'stroke_style': style.stroke_style,
-            }
-            self._apply_item_state(item, new_state)
-
-            # Create undo command if we have a command manager
-            if self._command_manager:
-                def apply_func(itm, state):
-                    self._apply_item_state(itm, state)
-                cmd = ChangePropertyCommand(item, "type", old_state, new_state, apply_func)
-                # Don't execute - already applied, just add to stack
-                self._command_manager.register_applied(cmd)
-
-            # Defer panel refresh to avoid destroying widgets while signal is processing
-            QTimer.singleShot(0, lambda: self.set_selected_items([item]))
-
-            # Notify other panels that the object type changed
-            QTimer.singleShot(0, self.object_type_changed.emit)
-
-
-        elif property_name == 'label_visible' and hasattr(item, 'label_visible'):
-            old_visible = item.label_visible
-            item.label_visible = value
-
-            if self._command_manager:
-                def apply_label_visible(itm, val):
-                    itm.label_visible = val
-                cmd = ChangePropertyCommand(item, "label visibility", old_visible, value, apply_label_visible)
-                self._command_manager.register_applied(cmd)
-
-        elif property_name == 'layer_id' and hasattr(item, 'layer_id'):
-            # Consolidated onto MoveToLayerCommand (issue #338) — z is
-            # derived from the scene's normalized stacking order, not set
-            # directly here, and rank handling (skip same-layer, rank fresh
-            # items on top of the target) lives in the command itself.
-            old_layer = item.layer_id
-            if old_layer == value:
-                return
-            scene = item.scene()
-            if scene is not None and self._command_manager:
-                target_layer = (
-                    scene.get_layer_by_id(value) if hasattr(scene, 'get_layer_by_id') else None
-                )
-                layer_name = target_layer.name if target_layer else str(value)
-                cmd = MoveToLayerCommand([item], value, scene, layer_name)
-                self._command_manager.execute(cmd)
-            else:
-                item.layer_id = value
-
-        elif property_name == 'fill_pattern':
-            old_pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
-            if hasattr(item, 'fill_pattern'):
-                item.fill_pattern = value
-            color = item.fill_color if hasattr(item, 'fill_color') and item.fill_color else item.brush().color()
-            brush = create_pattern_brush(value, color)
-            item.setBrush(brush)
-
-            if self._command_manager:
-                def apply_pattern(itm, val):
-                    if hasattr(itm, 'fill_pattern'):
-                        itm.fill_pattern = val
-                    c = itm.fill_color if hasattr(itm, 'fill_color') and itm.fill_color else itm.brush().color()
-                    itm.setBrush(create_pattern_brush(val, c))
-                cmd = ChangePropertyCommand(item, "fill pattern", old_pattern, value, apply_pattern)
-                self._command_manager.register_applied(cmd)
-
-        elif property_name == 'stroke_width':
-            old_width = item.stroke_width if hasattr(item, 'stroke_width') else item.pen().widthF()
-            if hasattr(item, 'stroke_width'):
-                item.stroke_width = value
-            pen = item.pen()
-            pen.setWidthF(value)
-            item.setPen(pen)
-
-            if self._command_manager:
-                def apply_width(itm, val):
-                    if hasattr(itm, 'stroke_width'):
-                        itm.stroke_width = val
-                    p = itm.pen()
-                    p.setWidthF(val)
-                    itm.setPen(p)
-                cmd = ChangePropertyCommand(item, "stroke width", old_width, value, apply_width)
-                self._command_manager.register_applied(cmd)
-
-        elif property_name == 'stroke_style':
-            old_style = item.stroke_style if hasattr(item, 'stroke_style') else StrokeStyle.SOLID
-            if hasattr(item, 'stroke_style'):
-                item.stroke_style = value
-            pen = item.pen()
-            pen.setStyle(value.to_qt_pen_style())
-            item.setPen(pen)
-
-            if self._command_manager:
-                def apply_stroke_style(itm, val):
-                    if hasattr(itm, 'stroke_style'):
-                        itm.stroke_style = val
-                    p = itm.pen()
-                    p.setStyle(val.to_qt_pen_style())
-                    itm.setPen(p)
-                cmd = ChangePropertyCommand(item, "stroke style", old_style, value, apply_stroke_style)
-                self._command_manager.register_applied(cmd)
-
-        elif property_name == 'path_fence_style':
-            old_pfs = item.path_fence_style if hasattr(item, 'path_fence_style') else PathFenceStyle.NONE
-            if hasattr(item, 'path_fence_style'):
-                item.path_fence_style = value
-            if hasattr(item, 'apply_style_preset'):
-                item.apply_style_preset()
-            item.update()
-
-            if self._command_manager:
-                def apply_pfs(itm, val):
-                    if hasattr(itm, 'path_fence_style'):
-                        itm.path_fence_style = val
-                    if hasattr(itm, 'apply_style_preset'):
-                        itm.apply_style_preset()
-                    itm.update()
-                cmd = ChangePropertyCommand(item, "path/fence style", old_pfs, value, apply_pfs)
-                self._command_manager.register_applied(cmd)
-
-        # Mark scene as modified
-        scene = item.scene()
-        if scene:
-            scene.update()
+        return self._property_edits._on_property_changed(item, property_name, value)
 
     def _on_color_changed(self, item: QGraphicsItem, property_name: str, button: ColorButton) -> None:
-        """Handle color button change with undo support.
-
-        Args:
-            item: Item being edited
-            property_name: Name of the color property ('fill_color' or 'stroke_color')
-            button: The color button that was changed
-        """
-        if self._updating:
-            return
-
-        color = button.color
-
-        if property_name == 'fill_color':
-            # Capture old value for undo
-            old_color = QColor(item.fill_color) if hasattr(item, 'fill_color') and item.fill_color else item.brush().color()
-
-            # Store the color
-            if hasattr(item, 'fill_color'):
-                item.fill_color = color
-            # Apply to brush
-            pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
-            brush = create_pattern_brush(pattern, color)
-            item.setBrush(brush)
-
-            # Create undo command
-            if self._command_manager:
-                def apply_fill_color(itm, val):
-                    if hasattr(itm, 'fill_color'):
-                        itm.fill_color = val
-                    p = itm.fill_pattern if hasattr(itm, 'fill_pattern') else FillPattern.SOLID
-                    itm.setBrush(create_pattern_brush(p, val))
-                cmd = ChangePropertyCommand(item, "fill color", old_color, color, apply_fill_color)
-                self._command_manager.register_applied(cmd)
-
-        elif property_name == 'stroke_color':
-            # Capture old value for undo
-            old_color = QColor(item.stroke_color) if hasattr(item, 'stroke_color') and item.stroke_color else item.pen().color()
-
-            # Store the color
-            if hasattr(item, 'stroke_color'):
-                item.stroke_color = color
-            # Apply to pen
-            pen = item.pen()
-            pen.setColor(color)
-            item.setPen(pen)
-
-            # Create undo command
-            if self._command_manager:
-                def apply_stroke_color(itm, val):
-                    if hasattr(itm, 'stroke_color'):
-                        itm.stroke_color = val
-                    p = itm.pen()
-                    p.setColor(val)
-                    itm.setPen(p)
-                cmd = ChangePropertyCommand(item, "stroke color", old_color, color, apply_stroke_color)
-                self._command_manager.register_applied(cmd)
-
-        # Mark scene as modified
-        scene = item.scene()
-        if scene:
-            scene.update()
+        return self._property_edits._on_color_changed(item, property_name, button)

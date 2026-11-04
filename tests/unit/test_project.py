@@ -125,7 +125,7 @@ class TestProjectManager:
     """Tests for ProjectManager class."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, qtbot):  # noqa: ARG002
+    def setup(self, qtbot):
         """Set up test fixtures - clean recent files."""
         from open_garden_planner.app.settings import get_settings
 

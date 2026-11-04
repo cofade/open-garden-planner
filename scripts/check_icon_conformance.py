@@ -67,7 +67,7 @@ def check_icon(path: Path, provenance_text: str | None) -> list[str]:
             problems.append(f"forbidden content {needle!r}")
 
     try:
-        root = ET.fromstring(text)  # noqa: S314 - repo-controlled input only
+        root = ET.fromstring(text)
     except ET.ParseError as exc:
         return [*problems, f"not well-formed XML: {exc}"]
 

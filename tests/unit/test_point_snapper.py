@@ -21,7 +21,7 @@ from open_garden_planner.ui.canvas.items import (
 
 
 @pytest.fixture
-def scene(qtbot) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot) -> CanvasScene:
     return CanvasScene(2000, 2000)
 
 
@@ -66,6 +66,7 @@ def test_far_query_returns_none(scene: CanvasScene) -> None:
     assert snapper.snap(QPointF(500, 500), threshold=10) is None
 
 
+@pytest.mark.perf
 def test_perf_end_to_end(scene: CanvasScene) -> None:
     """1000 items: typical snap query must be < 16ms (60fps budget)."""
     items: list[RectangleItem] = []

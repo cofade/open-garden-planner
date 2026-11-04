@@ -21,7 +21,7 @@ class TestSamplePointsAlongPath:
         p.lineTo(QPointF(x2, y2))
         return p
 
-    def test_straight_line_even_spacing(self, qtbot) -> None:  # noqa: ARG002
+    def test_straight_line_even_spacing(self, qtbot) -> None:
         path = self._straight_path(0, 0, 200, 0)
         points = sample_points_along_path(path, 5)
         assert len(points) == 5
@@ -33,7 +33,7 @@ class TestSamplePointsAlongPath:
             dx = points[i][0].x() - points[i - 1][0].x()
             assert abs(dx - 50.0) < 1.0
 
-    def test_start_end_offsets(self, qtbot) -> None:  # noqa: ARG002
+    def test_start_end_offsets(self, qtbot) -> None:
         path = self._straight_path(0, 0, 100, 0)
         points = sample_points_along_path(path, 3, start_pct=0.2, end_pct=0.8)
         assert len(points) == 3
@@ -41,32 +41,32 @@ class TestSamplePointsAlongPath:
         assert abs(points[0][0].x() - 20.0) < 1.0
         assert abs(points[-1][0].x() - 80.0) < 1.0
 
-    def test_tangent_angles_horizontal(self, qtbot) -> None:  # noqa: ARG002
+    def test_tangent_angles_horizontal(self, qtbot) -> None:
         path = self._straight_path(0, 0, 100, 0)
         points = sample_points_along_path(path, 3, follow_tangent=True)
         # Horizontal line: Qt reports angle as 0 degrees
         for _, angle in points:
             assert abs(angle) < 1.0 or abs(angle - 360.0) < 1.0
 
-    def test_no_tangent_returns_zero(self, qtbot) -> None:  # noqa: ARG002
+    def test_no_tangent_returns_zero(self, qtbot) -> None:
         path = self._straight_path(0, 0, 100, 0)
         points = sample_points_along_path(path, 3, follow_tangent=False)
         for _, angle in points:
             assert angle == 0.0
 
-    def test_single_count(self, qtbot) -> None:  # noqa: ARG002
+    def test_single_count(self, qtbot) -> None:
         path = self._straight_path(0, 0, 100, 0)
         points = sample_points_along_path(path, 1)
         assert len(points) == 1
         # Single point should be at midpoint
         assert abs(points[0][0].x() - 50.0) < 1.0
 
-    def test_empty_path(self, qtbot) -> None:  # noqa: ARG002
+    def test_empty_path(self, qtbot) -> None:
         path = QPainterPath()
         points = sample_points_along_path(path, 5)
         assert len(points) == 0
 
-    def test_right_angle_path(self, qtbot) -> None:  # noqa: ARG002
+    def test_right_angle_path(self, qtbot) -> None:
         path = QPainterPath()
         path.moveTo(QPointF(0, 0))
         path.lineTo(QPointF(100, 0))
@@ -84,21 +84,21 @@ class TestArrayAlongPathCommand:
     """Tests for ArrayAlongPathCommand undo/redo."""
 
     @pytest.fixture()
-    def scene(self, qtbot) -> QGraphicsScene:  # noqa: ARG002
+    def scene(self, qtbot) -> QGraphicsScene:
         return QGraphicsScene()
 
     @pytest.fixture()
-    def manager(self, qtbot) -> CommandManager:  # noqa: ARG002
+    def manager(self, qtbot) -> CommandManager:
         return CommandManager()
 
-    def test_execute_adds_items(self, scene, manager, qtbot) -> None:  # noqa: ARG002
+    def test_execute_adds_items(self, scene, manager, qtbot) -> None:
         items = [QGraphicsRectItem(i * 50, 0, 30, 30) for i in range(3)]
         cmd = ArrayAlongPathCommand(scene, items)
         manager.execute(cmd)
         for item in items:
             assert item.scene() is scene
 
-    def test_undo_removes_items(self, scene, manager, qtbot) -> None:  # noqa: ARG002
+    def test_undo_removes_items(self, scene, manager, qtbot) -> None:
         items = [QGraphicsRectItem(i * 50, 0, 30, 30) for i in range(3)]
         cmd = ArrayAlongPathCommand(scene, items)
         manager.execute(cmd)
@@ -106,7 +106,7 @@ class TestArrayAlongPathCommand:
         for item in items:
             assert item.scene() is None
 
-    def test_redo_restores_items(self, scene, manager, qtbot) -> None:  # noqa: ARG002
+    def test_redo_restores_items(self, scene, manager, qtbot) -> None:
         items = [QGraphicsRectItem(i * 50, 0, 30, 30) for i in range(3)]
         cmd = ArrayAlongPathCommand(scene, items)
         manager.execute(cmd)
@@ -115,7 +115,7 @@ class TestArrayAlongPathCommand:
         for item in items:
             assert item.scene() is scene
 
-    def test_description(self, qtbot) -> None:  # noqa: ARG002
+    def test_description(self, qtbot) -> None:
         items = [QGraphicsRectItem(0, 0, 10, 10) for _ in range(5)]
         cmd = ArrayAlongPathCommand(QGraphicsScene(), items)
         assert "5" in cmd.description

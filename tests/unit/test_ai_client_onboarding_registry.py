@@ -1421,7 +1421,7 @@ class TestDottedContainerPaths:
             onboarding.shutil, "which", lambda cmd: "/usr/bin/opencode" if cmd == "opencode" else None
         )
 
-        def fake_run(args, **_kwargs):  # noqa: ANN001, ANN003
+        def fake_run(args, **_kwargs):
             # Answer the capability probe with a CLI that DOES support --global,
             # so this test still reaches the self-heal it is about. A bare
             # "server already exists" for the probe would make the gate refuse

@@ -1,5 +1,4 @@
 """Tests for SeedTableModel and SeedPacketEditDialog (US-9.3)."""
-# ruff: noqa: ARG002
 from __future__ import annotations
 
 import datetime

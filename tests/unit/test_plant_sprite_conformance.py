@@ -67,13 +67,13 @@ class TestFileCoverage:
     def test_category_table_matches_files(self) -> None:
         assert {p.stem for p in CATEGORIES_DIR.glob("*.svg")} == set(_GEN.CATEGORIES)
 
-    def test_renderer_species_map_covered(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_renderer_species_map_covered(self, qtbot: object) -> None:
         from open_garden_planner.core.plant_renderer import _SPECIES_FILES
 
         missing = {f for f in set(_SPECIES_FILES.values()) if not (SPECIES_DIR / f"{f}.svg").exists()}
         assert not missing, f"renderer maps species with no SVG: {sorted(missing)}"
 
-    def test_renderer_category_map_covered(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_renderer_category_map_covered(self, qtbot: object) -> None:
         from open_garden_planner.core.plant_renderer import _CATEGORY_FILES
 
         missing = {f for f in _CATEGORY_FILES.values() if not (CATEGORIES_DIR / f"{f}.svg").exists()}
@@ -109,7 +109,7 @@ class TestPerFileContract:
         expected = '10 25 80 50' if svg_path.stem == "hedge_section" else '0 0 100 100'
         assert f'viewBox="{expected}"' in text
 
-    def test_qtsvg_accepts(self, svg_path: Path, qtbot: object) -> None:  # noqa: ARG002
+    def test_qtsvg_accepts(self, svg_path: Path, qtbot: object) -> None:
         assert QSvgRenderer(str(svg_path)).isValid(), f"QtSvg rejects {svg_path.name}"
 
 

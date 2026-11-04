@@ -1,0 +1,346 @@
+"""A string of lights is a LINE (Phase 17 L5.4, #389; ADR-070 addendum).
+
+The owner's manual test of L5: "A Lichterkette needs to be a 1D object like a fence or
+wall, while it is a 2D rectangle, which doesn't really make sense — it doesn't have an
+actual width. By giving it a width, this also leads to distorted 2D representations …
+Their shadow is not required in 2D sunlight studies." So:
+
+- the String Lights tool draws a LINE — a post at every click — offered with the other
+  lines in Change Type, never on a rectangle;
+- its 2D picture is drawn ALONG the line (wire, bulbs, posts) from the same layout the
+  3D builder builds — nothing is stretched across a box;
+- the 2D sun study casts no shadow for it (``object_height.casts_2d_shadow``); its 3D
+  model keeps its own thin shadow;
+- it has no path or fence style, and it survives save and load as a line.
+"""
+
+from __future__ import annotations
+
+import math
+import tempfile
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter
+from PyQt6.QtWidgets import QComboBox, QGraphicsScene
+
+from open_garden_planner.core.object_height import (
+    NO_2D_SHADOW_TYPE_NAMES,
+    casts_2d_shadow,
+    effective_height_cm,
+)
+from open_garden_planner.core.object_types import ObjectType, get_valid_types_for_shape
+from open_garden_planner.core.project import ProjectManager
+from open_garden_planner.core.string_lights import BULB_SPACING_CM, layout
+from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items import PolylineItem
+from open_garden_planner.ui.canvas.sun_shadow_controller import collect_identified_casters
+from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
+from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+#: Three posts in a shallow V, 1.6 m and 1.3 m apart (item-local cm).
+LINE: tuple[tuple[float, float], ...] = ((0.0, 0.0), (160.0, 40.0), (300.0, 0.0))
+
+
+def _event() -> MagicMock:
+    event = MagicMock(spec=QMouseEvent)
+    event.button.return_value = Qt.MouseButton.LeftButton
+    event.buttons.return_value = Qt.MouseButton.LeftButton
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    return event
+
+
+def _string(points=LINE) -> PolylineItem:
+    return PolylineItem([QPointF(x, y) for x, y in points], object_type=ObjectType.STRING_LIGHTS)
+
+
+def test_the_tool_draws_a_line_with_a_post_at_every_click(canvas: CanvasView) -> None:
+    """Pick String Lights, click three times, double-click: one line item of the type,
+    with the three points clicked, the type's 12 cm wire width and its 2.5 m height."""
+    canvas.set_active_tool(ToolType.STRING_LIGHTS)
+    tool = canvas.tool_manager.active_tool
+    assert tool is not None and tool._object_type is ObjectType.STRING_LIGHTS
+    event = _event()
+    for x, y in ((100.0, 100.0), (300.0, 160.0), (500.0, 100.0)):
+        tool.mouse_press(event, QPointF(x, y))
+    tool.mouse_double_click(event, QPointF(500.0, 100.0))
+    (item,) = [i for i in canvas.scene().items()
+               if getattr(i, "object_type", None) is ObjectType.STRING_LIGHTS]
+    assert isinstance(item, PolylineItem) and item.point_count == 3
+    assert item.pen().widthF() == pytest.approx(12.0)
+    assert effective_height_cm(item.object_type, item.metadata) == pytest.approx(250.0)
+
+
+def test_change_type_offers_it_with_the_lines_only() -> None:
+    assert ObjectType.STRING_LIGHTS in get_valid_types_for_shape("polyline")
+    for shape in ("rectangle", "circle", "polygon", "ellipse"):
+        assert ObjectType.STRING_LIGHTS not in get_valid_types_for_shape(shape), shape
+
+
+# ── the 2D picture ───────────────────────────────────────────────────────────
+
+
+def _render(item: PolylineItem) -> tuple[QImage, QRectF]:
+    """The item alone through its real ``paint`` at 1 px per cm, item-local = scene."""
+    scene = QGraphicsScene()
+    scene.addItem(item)
+    source = item.sceneBoundingRect()
+    image = QImage(math.ceil(source.width()), math.ceil(source.height()),
+                   QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    scene.render(painter, QRectF(0, 0, image.width(), image.height()),
+                 QRectF(source.left(), source.top(), image.width(), image.height()))
+    painter.end()
+    scene.removeItem(item)
+    return image, source
+
+
+def _pixel(image: QImage, source: QRectF, x: float, y: float) -> QColor:
+    return image.pixelColor(int(round(x - source.left())), int(round(y - source.top())))
+
+
+def test_the_2d_picture_is_drawn_along_the_line_not_across_a_box(qtbot) -> None:
+    """The owner's screenshot: a string drawn as a 3 m deep rectangle showed its bulbs as
+    stretched ellipses across the whole box. Now a cream bulb sits on every point the
+    layout hangs one, a grey post on every point of the line, and 20 cm off the line —
+    beyond the glow — nothing is painted at all."""
+    item = _string()
+    image, source = _render(item)
+    lay = layout(LINE)
+    assert len(lay.bulbs) == round(lay.length_cm / BULB_SPACING_CM)
+    for x, y in lay.bulbs_xy():
+        bulb = _pixel(image, source, x, y)
+        assert bulb.alpha() == 255 and bulb.red() > 200 and bulb.green() > 190, (x, y, bulb.name())
+    for x, y in LINE:
+        post = _pixel(image, source, x, y)
+        assert post.alpha() == 255 and abs(post.red() - 0x91) < 25 and post.blue() < 0x91, post.name()
+    # beside the middle of each span, 20 cm out along its normal: empty
+    for (ax, ay), (bx, by) in zip(LINE, LINE[1:], strict=False):
+        length = math.hypot(bx - ax, by - ay)
+        nx, ny = -(by - ay) / length, (bx - ax) / length
+        for side in (1.0, -1.0):
+            mx, my = (ax + bx) / 2.0 + side * 20.0 * nx, (ay + by) / 2.0 + side * 20.0 * ny
+            assert _pixel(image, source, mx, my).alpha() == 0, (mx, my)
+
+
+def test_the_picture_follows_the_line_s_width(qtbot) -> None:
+    """The width is the line's stroke width (the Properties panel's): a wider stroke
+    grows the glow, the bulbs and the wire, and the item's bounds grow with it, so
+    nothing is clipped. The post's drawn side stops at twice the clearance (senior
+    review round 12), so it is no longer the width that reaches furthest."""
+    narrow, wide = _string(), _string()
+    pen = wide.pen()
+    pen.setWidthF(24.0)
+    wide.setPen(pen)
+    assert wide.boundingRect().height() > narrow.boundingRect().height() + 20.0
+    image, source = _render(wide)
+    assert _pixel(image, source, 0.0 + 10.0, 0.0).alpha() > 0, "the picture reaches 10 cm out"
+
+
+def test_the_middle_bulb_of_an_odd_string_is_painted_above_its_post(qtbot) -> None:
+    """Senior review round 12, P1: the layout keeps a clamped bulb 6 cm from a post's
+    centre, but the symbol's post is a full stroke width (a 12 cm half-side at 24 cm)
+    and was painted last — 59 % of the ball was buried at the default width, 96 % at
+    24 cm. The posts are now painted under the bulbs, and their drawn side is capped at
+    twice the clearance, so a widened stroke cannot swallow the ball again."""
+    from open_garden_planner.core.string_lights import POST_CLEAR_CM
+    from open_garden_planner.ui.canvas.items.string_lights_paint import drawn_post_side
+
+    v = ((0.0, 0.0), (100.0, 20.0), (200.0, 0.0))   # three posts, five bulbs
+    assert drawn_post_side(12.0) == pytest.approx(12.0)
+    assert drawn_post_side(24.0) == pytest.approx(2.0 * POST_CLEAR_CM)
+    item = _string(v)
+    pen = item.pen()
+    pen.setWidthF(24.0)
+    item.setPen(pen)
+    image, source = _render(item)
+    lay = layout(v)
+    middle = lay.posts[1]
+    bulb_x, bulb_y = min(lay.bulbs_xy(),
+                         key=lambda p: math.hypot(p[0] - middle[0], p[1] - middle[1]))
+    colour = _pixel(image, source, bulb_x, bulb_y)
+    # cream (238, 225, 198) — not the post's grey wood (145, 138, 122) and not the
+    # glow's orange (255, 206, 120) that sits under the ball
+    assert colour.green() > 210 and colour.blue() > 170, (colour.red(), colour.green(), colour.blue())
+
+
+def test_a_string_of_lights_casts_no_2d_shadow(qtbot) -> None:
+    """The owner: "Their shadow is not required in 2D sunlight studies, because the
+    shadowed area is basically irrelevant." The one caster walk leaves it out (a fence of
+    the same line and height casts); the 3D record says so too, and its 3D model still
+    casts its own thin shadow."""
+    assert frozenset({"STRING_LIGHTS"}) == NO_2D_SHADOW_TYPE_NAMES
+    assert not casts_2d_shadow(ObjectType.STRING_LIGHTS) and casts_2d_shadow(ObjectType.FENCE)
+    scene = CanvasScene(width_cm=2000, height_cm=2000)
+    string = _string()
+    fence = PolylineItem([QPointF(x, y + 500.0) for x, y in LINE], object_type=ObjectType.FENCE)
+    fence.metadata["object_height_cm"] = 250.0
+    scene.addItem(string)
+    scene.addItem(fence)
+    casters = {caster.item_id for caster in collect_identified_casters(scene)}
+    assert str(fence.item_id) in casters and str(string.item_id) not in casters
+    records = snapshot_records(scene)
+    record = records[str(string.item_id)]
+    assert record.height_cm == pytest.approx(250.0), "it keeps its height: the posts' tops"
+    assert not record.has_2d_caster and records[str(fence.item_id)].has_2d_caster
+    from open_garden_planner.core.scene3d.builders import production_registry
+
+    parts = production_registry().build(record)
+    assert any(part.casts_shadow and part.name == "string lights" for part in parts)
+
+
+def test_it_has_no_path_or_fence_style(canvas: CanvasView, qtbot) -> None:
+    """A path or fence style has no meaning for a string: the Properties panel offers
+    none (a fence still gets its style menu)."""
+    panel = PropertiesPanel(command_manager=canvas.command_manager)
+    qtbot.addWidget(panel)
+
+    def style_menus(item: Any) -> list[QComboBox]:
+        canvas.scene().addItem(item)
+        panel.set_selected_items([item])
+        return [combo for combo in panel.findChildren(QComboBox)
+                if any("──" in combo.itemText(i) for i in range(combo.count()))]
+
+    assert style_menus(PolylineItem([QPointF(0, 0), QPointF(200, 0)], object_type=ObjectType.FENCE))
+    assert not style_menus(_string())
+
+
+def test_it_survives_save_and_load_as_a_line(qtbot) -> None:
+    scene = CanvasScene(width_cm=2000, height_cm=2000)
+    scene.addItem(_string())
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "string.ogp"
+        ProjectManager().save(scene, path)
+        loaded = CanvasScene(width_cm=2000, height_cm=2000)
+        ProjectManager().load(loaded, path)
+    (item,) = [i for i in loaded.items() if getattr(i, "object_type", None) is ObjectType.STRING_LIGHTS]
+    assert isinstance(item, PolylineItem)
+    assert [(round(p.x(), 3), round(p.y(), 3)) for p in item.points] == list(LINE)
+    assert item.pen().widthF() == pytest.approx(12.0)
+
+
+def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch) -> None:
+    """Security review of #389: a plan file can hold a string with any number of points.
+    The layout stands it on ``MAX_POSTS`` posts, a paint draws that layout from the
+    item's cache (the line is walked once, not on every paint), and its 3D model stays
+    inside its budget."""
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.core.scene3d.builders.lights import string_triangle_budget
+    from open_garden_planner.core.string_lights import MAX_BULBS_PER_STRING, MAX_POSTS
+    from open_garden_planner.ui.canvas.items import polyline_item
+
+    points = [(float(i) * 10.0, 30.0 * (i % 2)) for i in range(20_000)]
+    item = _string(points)
+    walks: list[int] = []
+    real = polyline_item.string_layout
+    monkeypatch.setattr(polyline_item, "string_layout",
+                        lambda pts: (walks.append(len(pts)), real(pts))[1])
+    _render(item)
+    _render(item)
+    assert walks == [20_000], "one walk of the line for two paints"
+    lay = item._lights_layout()
+    assert len(lay.posts) == MAX_POSTS and len(lay.bulbs) == MAX_BULBS_PER_STRING
+    item._move_vertex_to(0, QPointF(-50.0, 0.0))
+    item._lights_layout()
+    assert len(walks) == 2, "a moved point lays the string out again"
+    from tests.unit.scene3d_builder_cases import line_record
+
+    record = line_record("STRING_LIGHTS", tuple(points[:4_000]), 250.0, width=12.0)
+    triangles = sum(part.mesh.triangle_count for part in production_registry().build(record))
+    assert triangles <= string_triangle_budget(record) <= 38 * MAX_POSTS + 96 * MAX_POSTS + 72 * MAX_BULBS_PER_STRING
+
+
+def test_the_gallery_shows_a_painted_string(qtbot) -> None:
+    """A string has no sprite: the gallery's picture is painted by the canvas's painter."""
+    from open_garden_planner.ui.widgets.gallery_data import _furniture_items
+
+    (entry,) = [item for item in _furniture_items() if item.object_type is ObjectType.STRING_LIGHTS]
+    assert entry.tool_type is ToolType.STRING_LIGHTS
+    image = entry.thumbnail.toImage()
+    cream = sum(1 for y in range(image.height()) for x in range(image.width())
+                if (c := image.pixelColor(x, y)).alpha() > 200 and c.red() > 220 and c.green() > 200)
+    assert cream >= 4, "its bulbs show"
+
+
+def test_a_line_saved_with_no_width_is_drawn_inside_its_bounds(qtbot) -> None:
+    """A file may hold a string with a stroke width of 0. Its bounds and its paint must
+    agree on the width it is drawn at (``drawn_width``): bounds of width 0 clipped the
+    glow, and a move left trails under the item cache (senior review round 11)."""
+    from open_garden_planner.ui.canvas.items.string_lights_paint import (
+        DEFAULT_WIDTH,
+        drawn_width,
+        reach,
+    )
+
+    for width in (0.0, -3.0, math.nan, math.inf):
+        assert drawn_width(width) == DEFAULT_WIDTH and reach(width) == reach(DEFAULT_WIDTH)
+    item = _string()
+    pen = item.pen()
+    pen.setWidthF(0.0)
+    item.setPen(pen)
+    bounds = item.boundingRect()
+    glow = reach(DEFAULT_WIDTH)
+    for x, y in layout(LINE).bulbs_xy():
+        assert bounds.contains(QRectF(x - glow, y - glow, 2.0 * glow, 2.0 * glow)), (x, y)
+
+
+def test_change_type_turns_a_fence_into_a_string_and_undo_turns_it_back(canvas: CanvasView, qtbot) -> None:
+    """Change Type on a fence line: it becomes a string — the string's 12 cm width, no
+    fence style, out of the 2D caster walk, drawn with its posts and bulbs — and one
+    undo makes it the fence again, casting again; redo repeats it."""
+    from open_garden_planner.core.object_types import PathFenceStyle
+
+    fence = PolylineItem([QPointF(x + 100.0, y + 100.0) for x, y in LINE],
+                         object_type=ObjectType.FENCE,
+                         path_fence_style=PathFenceStyle.WOODEN_FENCE)
+    canvas.scene().addItem(fence)
+    width = fence.pen().widthF()
+    fence.setSelected(True)
+
+    def casts() -> bool:
+        return str(fence.item_id) in {c.item_id for c in collect_identified_casters(canvas.scene())}
+
+    assert casts()
+    fence._dispatch_change_type(ObjectType.STRING_LIGHTS)
+    assert fence.object_type is ObjectType.STRING_LIGHTS
+    assert fence.pen().widthF() == pytest.approx(12.0)
+    assert fence.path_fence_style is PathFenceStyle.NONE
+    assert not casts()
+    image, source = _render(fence)
+    x, y = layout([(p.x(), p.y()) for p in fence.points]).bulbs_xy()[0]
+    assert _pixel(image, source, x, y).red() > 200, "its bulbs are drawn"
+    canvas.scene().addItem(fence)
+    canvas.command_manager.undo()
+    assert fence.object_type is ObjectType.FENCE
+    assert fence.pen().widthF() == pytest.approx(width)
+    assert fence.path_fence_style is PathFenceStyle.WOODEN_FENCE
+    assert casts()
+    canvas.command_manager.redo()
+    assert fence.object_type is ObjectType.STRING_LIGHTS and not casts()
+
+
+@pytest.mark.parametrize("rotation", [0.0, 30.0, -115.0])
+def test_a_moved_and_turned_string_hangs_its_3d_bulbs_where_2d_draws_them(qtbot, rotation: float) -> None:
+    """The 2D bulbs are the layout's points mapped by the item's own transform; the 3D
+    bulbs (``lights.lamp_sources``, what glows at night) are the same layout posed by the
+    record's transform. Seen from above they coincide, wherever the string is moved or
+    turned to — a defect that scales with the turn is invisible at 0°."""
+    from open_garden_planner.core.scene3d.lights import lamp_sources
+
+    scene = CanvasScene(width_cm=4000, height_cm=4000)
+    item = _string()
+    scene.addItem(item)
+    item.setPos(700.0, 450.0)
+    item.setTransformOriginPoint(QPointF(150.0, 20.0))
+    item.setRotation(rotation)
+    drawn = [item.mapToScene(QPointF(x, y)) for x, y in item._lights_layout().bulbs_xy()]
+    (source,) = lamp_sources(snapshot_records(scene).values())
+    assert len(source.bulb_points) == len(drawn)
+    for point, (east, north, _up) in zip(drawn, source.bulb_points, strict=True):
+        assert (east, north) == pytest.approx((point.x(), point.y()), abs=0.01)

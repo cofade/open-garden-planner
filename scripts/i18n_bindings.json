@@ -144,6 +144,13 @@
       "selector": "argument:change_trait:1",
       "scope": ""
     },
+    "lifetime_properties": {
+      "file": "ui/plant_lifetime.py",
+      "context": "Commands",
+      "symbol": "_DATE_LABELS",
+      "selector": "values",
+      "scope": ""
+    },
     "tree": {
       "file": "ui/widgets/gallery_data.py",
       "context": "GalleryData",
@@ -215,7 +222,8 @@
       "sources": [
         "properties",
         "text_properties",
-        "trait_properties"
+        "trait_properties",
+        "lifetime_properties"
       ],
       "note": "Custom smart-symbol param names remain user data; literal command fragments and bounded trait/text labels are extracted from their actual callers."
     },

@@ -4,6 +4,8 @@ import os
 import time
 from datetime import date
 
+import pytest
+
 from open_garden_planner.core.shade_aggregation import (
     HeatmapGrid,
     IdentifiedCaster,
@@ -14,6 +16,13 @@ from open_garden_planner.ui.canvas.sun_heatmap import rasterize_polygons_qimage
 from tests.unit.test_sparse_sun_exposure import circle
 
 
+# The marker is what moves this test out of the parallel default run and onto a
+# quiet runner of its own (`addopts` carries `-m 'not perf'`, CI runs it in a
+# separate step). It is a wall-clock budget, so it belongs to that group in exactly
+# the way test_nfr_budgets.py's classes do — it previously had no marker at all,
+# which left it running beside eight workers while every other budget test had been
+# moved out (#509).
+@pytest.mark.perf
 def test_two_hundred_receivers_budget(qtbot):
     casters, receivers = [], []
     for i in range(200):

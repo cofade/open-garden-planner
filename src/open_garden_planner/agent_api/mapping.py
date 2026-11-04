@@ -92,6 +92,7 @@ def plan_summary_from_snapshot(snapshot: dict[str, Any]) -> PlanSummary:
             shape_count += 1
 
     return PlanSummary(
+        as_of_date=meta.get("as_of_date"),
         file_name=meta.get("file_name"),
         is_dirty=bool(meta.get("is_dirty", False)),
         canvas_width_cm=float(canvas.get("width", 0.0)),

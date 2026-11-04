@@ -102,7 +102,8 @@ Command anatomy only — what counts as acceptable results/evidence is
 
 | What | Command (swap `venv/Scripts/python.exe` → `venv/bin/python` on Linux) | Expected outcome |
 |---|---|---|
-| Full suite | `venv/Scripts/python.exe -m pytest tests/ -v` | All pass. `pyproject.toml` sets `addopts = "-v --tb=short"`, `qt_api = "pyqt6"`, `testpaths = ["tests"]` |
+| Correctness battery | `venv/Scripts/python.exe -m pytest tests/ -v` | All pass. Parallel by default (`addopts`), and **excludes the `perf`-marked timing tests** - the next row |
+| Wall-clock budgets | `venv/Scripts/python.exe -m pytest tests/ -m perf -n 0` | All pass, on a quiet runner. `pyproject.toml` sets `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"`, `testpaths = ["tests"]`. `-n 0` because running the timing tests across workers is the thing the split exists to prevent (§8.10.4) |
 | Unit layer only | `venv/Scripts/python.exe -m pytest tests/unit -v` | ~106 files (Qt-free-ish fast tests) |
 | Integration layer | `venv/Scripts/python.exe -m pytest tests/integration -v` | ~74 files (end-to-end UI workflows) |
 | UI layer | `venv/Scripts/python.exe -m pytest tests/ui -v` | ~19 files (widget-level) |
@@ -141,9 +142,18 @@ venv/Scripts/python.exe scripts/check_translations.py
 ## Building the frozen exe (PyInstaller)
 
 ```bash
-# Windows — prerequisite: pip install pyinstaller (not in [dev])
+# Windows — sync the lock first; a removed pin is not uninstalled (#538).
+# Keep --all-extras --group build: a plain sync uninstalls PyInstaller/pytest.
+# UV_PROJECT_ENVIRONMENT targets the venv this recipe builds from (uv defaults to .venv).
+UV_PROJECT_ENVIRONMENT=venv uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+venv/Scripts/python.exe -m installer.build_environment --strict
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 ```
+
+`build_environment` compares the venv with `pylock.toml`; `ogp.spec` repeats the
+warning for a direct PyInstaller run, and `build_installer.py` before either.
+A stale runtime wheel can contribute DLLs even when the app never imports it, so
+`--strict` is the local gate form.
 
 Expected outcome: bundle at **`dist/OpenGardenPlanner/`** (~611 MiB in the local v1.29.6 build measured 2026-10-09; not a fixed limit)
 containing `OpenGardenPlanner.exe`. Intermediate files in `build/`.
@@ -169,11 +179,50 @@ after ANY dependency change (see traps below).
 The smoke test proves the process **stays up**. It cannot see a subsystem that
 died silently behind an `except`, which is exactly how issue **#291** (the Agent
 API never started in any released exe) survived six releases, and how **#277** (a
-`Qt6Core`/Qt3D micro mismatch) shipped a crash — Qt3D is imported lazily, so
-startup and the 8 s smoke both passed. `main.py --selftest` closes both: it
-imports all six Qt3D bindings, asserts `qVersion()` matches the `PyQt6-3D-Qt6`
-wheel version, then binds an ephemeral port and starts a real `AgentApiServer`
-with poisoned providers, asserting `is_running`.
+micro mismatch between the core Qt runtime and the old 3D view's Qt 3D wheels) shipped
+a crash — that view was imported lazily, so startup and the 8 s smoke both passed.
+`main.py --selftest` binds an ephemeral port and starts a real `AgentApiServer` with
+poisoned providers, asserting `is_running`, and runs the A1 checks. (Until Phase 17
+L1.10 it also imported the six Qt 3D bindings and compared the runtime with their
+wheel's micro; that view and its two wheels are gone, and the two remaining Qt pins
+are guarded by `tests/unit/test_qt_runtime_pins.py`. When bumping them, run the
+QTBUG-151940 re-check in docs §8.29.5 known limit 11 (TD-040).)
+
+Since Phase 17 L1.2 it **renders**: the Qt Quick 3D engine package
+(`ui/view3d/quick3d/`) is lazily loaded too, and its scene is QML and shader
+*files* in the bundle. `--selftest` loads them from the bundle, draws one
+hidden 160 × 120 frame with every material kind and checks the pixels
+(`ui/view3d/quick3d/selftest.py`). It needs no GPU — Direct3D 11 on WARP will
+do, which is what the release runner has. **It cannot hang:** ONE watchdog
+bounds the whole self-test — all three blocks, not only the render — and after
+300 s writes the reason and every thread's stack into the log and exits with
+code 1 (`main._run_selftest_bounded`). That exit was measured NOT to end a
+Windows process deadlocked inside Qt, so the watchdog is supervised: the exe
+starts itself a second time (`--selftest-supervisor`), and that process
+terminates the first at 310 s, exit code 1. Four things to know when it fails:
+
+- The exit code cannot say which check failed; the self-test writes a log to
+  `%APPDATA%\cofade\Open Garden Planner\OpenGardenPlanner-selftest-3d.log`
+  (beside `app.log`), or to the path in `OGP_SELFTEST_LOG`. It names the
+  graphics adapter that rendered, every 3D check, and ends with
+  `[selftest_exit] code=…`. A log whose 3D part passed and whose exit code is
+  1 points at the first two blocks.
+- `[watchdog] fired=True … did not finish within 300 s`, then `Timeout` and
+  stack traces: a hang. The frame at the top of the main thread's stack is
+  where.
+- `[supervisor] fired=True … terminated from outside`: the process survived
+  its own watchdog — a deadlock inside Qt; the stack dump above that line
+  shows the threads waiting for each other. (`[watchdog] armed=True …
+  supervisor=process <pid>` only says the second process was started.)
+- Under `QT_QPA_PLATFORM=offscreen` nothing renders 3D, so the 3D block
+  FAILS there by design (`RenderError: Qt Quick runs on the Software backend`).
+  Run `--selftest` with the real platform. To check the GPU-less path locally,
+  set `QSG_RHI_PREFER_SOFTWARE_RENDERER=1` (the log then says
+  `Microsoft Basic Render Driver`).
+
+Measured 2026-10-11 (three runs each, the whole `--selftest`): frozen exe
+3.0–4.1 s on an RTX 4070 and 3.0–3.1 s on WARP on a quiet machine; 6.1–7.2 s on either
+while other test suites were running.
 
 ```bash
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
@@ -206,7 +255,17 @@ child exiting 3 propagates 3).
    state the claim without the no-inherited-handle condition).
 
 `release.yml` runs `--selftest` against the built exe, but only *after* merge.
-Running it locally is what makes it a merge gate rather than a post-mortem.
+`frozen-selftest.yml` (Phase 17 L1.2) builds the bundle with the release recipe
+— `python installer/build_installer.py --skip-nsis` — and runs the smoke and
+the self-test on every pull request that changes shipped code
+(`src/open_garden_planner/**`), the installer, the dependency files or the gate
+workflows; it is path-filtered and not a required check. Two things about that
+bundle: built without `--version` it calls itself v1.0.0 (the script's
+default), so during the smoke its update check finds a newer release and shows
+the update bar — the app has no switch for that check, and the verdict does not
+depend on it; and the smoke also passes a process that is blocked in an error
+dialog — the self-test is the gate. Running the gate locally is still what
+makes it a merge gate rather than a post-mortem.
 
 ### Known build traps (all encoded in `installer/ogp.spec`; verified 2026-07-04)
 
@@ -216,9 +275,10 @@ Running it locally is what makes it a merge gate rather than a post-mortem.
 | Never walk top-level `mcp` | Collect the concrete subpackages, NOT `collect_submodules("mcp")` | Walking `mcp` imports `mcp.cli`, which `sys.exit(1)`s without the unbundled `typer` extra and aborts the build; the spec wraps collection in `_safe_collect_submodules` |
 | Never exclude `multiprocessing` | It is deliberately absent from the spec `excludes` (comment in spec) | uvicorn imports it eagerly (`uvicorn.supervisors → basereload → _subprocess`) even single-process; excluding it → GUI runs, embedded server silently dies with `ModuleNotFoundError` |
 | UPX vs pydantic_core | `upx_exclude=["pydantic_core*.pyd"]` | UPX can corrupt that compiled extension, killing the Agent API at runtime |
-| PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
+| PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.140.0,<6.141` in `pyproject.toml` | Moves WITH the Qt pair (`PyQt6`/`PyQt6-Qt6` 6.12.0): a WebEngine built for an older Qt fails to load beside a newer core ("procedure not found") and the app dies at start. Since Qt 6.12 its wheels are Chromium-numbered (6.140 = Qt 6.12). The satellite map picker uses `QWebEngineView`. PF-CI-17 |
 | mcp major pin | `mcp>=1.23,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
 | Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (AGENTS.md Quick Reference) |
+| A dependency REMOVED from the lock | Re-sync the venv (`UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build`, the from-scratch checklist) before building locally | Removing a pin does not uninstall its wheel; PyInstaller's Qt hooks collect the QML modules (and the DLLs their plugins need) of every Qt wheel installed. Measured in Phase 17 L1.10: a dev-venv build after dropping the old 3D view's runtime wheel still carried its eleven DLLs and its QML module; a locked-env build did not (ADR-048 closing addendum, PF-E3D-09) |
 | WebEngine import order | `PyQt6.QtWebEngineCore/Widgets/WebChannel` are explicit hiddenimports; the import must run before `QApplication` is created (handled in `main.py`) | Spec comment |
 
 ## Building the NSIS installer
@@ -257,7 +317,7 @@ uninstaller copies any top-level `$INSTDIR\*.ogp` to
 | Default save/open/export dir | `<Documents>/Open Garden Planner` — or the open project's folder. EVERY file dialog must route through `app/paths.py` (`default_dialog_dir()` / `default_save_path()`), the single chokepoint; it never returns the CWD/install dir | `src/open_garden_planner/app/paths.py` (issue #199) |
 | Autosave (saved project) | Same directory as the project: `~autosave_{name}.ogp` | `src/open_garden_planner/services/autosave_service.py` |
 | Autosave (untitled) | System temp dir: `~autosave_untitled.ogp` | same |
-| QSettings | `QSettings("cofade", "Open Garden Planner")` → Windows registry `HKCU\Software\cofade\Open Garden Planner`; Linux `~/.config/cofade/Open Garden Planner.conf` (tests redirect to org `cofade_test`) | `app/settings.py:26` `create_qsettings`, `tests/conftest.py` |
+| QSettings | `QSettings("cofade", "Open Garden Planner")` → Windows registry `HKCU\Software\cofade\Open Garden Planner`; Linux `~/.config/cofade/Open Garden Planner.conf` (tests redirect to org `cofade_test`) | `config/settings.py:22` `create_qsettings`, `tests/conftest.py` |
 | App-data dir | Windows `%APPDATA%\OpenGardenPlanner`; Linux `$XDG_DATA_HOME`-or-`~/.local/share` `/OpenGardenPlanner`; macOS `~/Library/Application Support/OpenGardenPlanner` | `services/plant_library.py::get_app_data_dir()` |
 | User smart symbols | `<app-data>/smart_symbols/*.json` (drop-a-file extensible; bundled ones in `resources/data/smart_symbols/`) | `services/smart_symbol_library.py` |
 | Translations | `src/open_garden_planner/resources/translations/*.ts|.qm` | dir listing |
@@ -290,7 +350,7 @@ Volatile facts stamped 2026-07-04 (v1.23.0). Re-verify with:
 
 | Fact | One-line re-check |
 |---|---|
-| Version + deps + pins (WebEngine <6.11, mcp <2.0) | `grep -A20 'dependencies = \[' pyproject.toml` |
+| Version + deps + pins (Qt 6.12.0, WebEngine 6.140 with it, mcp <2.0) | `grep -A20 'dependencies = \[' pyproject.toml` |
 | Dev extra contents (pytest/ruff/mypy/bandit; no PyInstaller) | `sed -n '/\[project.optional-dependencies\]/,/^\[/p' pyproject.toml` |
 | CI apt package list + offscreen env | `grep -A2 'apt-get install' .github/workflows/ci.yml; grep QT_QPA .github/workflows/ci.yml` |
 | Spec traps (safe-collect, no-multiprocessing-exclude, upx_exclude) | `grep -n 'collect_submodules\|multiprocessing\|upx_exclude' installer/ogp.spec` |
@@ -311,3 +371,41 @@ A clean build with PATH restricted to the locked venv, Windows system directorie
 Python and Git passed detached --selftest (0) and the eight-second smoke (124).
 The package's self-test also checks strict plan persistence, supported image codecs
 and verified-installer hashing. No dependency or spec change was required.
+
+
+### Controlled PATH for a local frozen build
+
+An agent host can add native-tool DLL directories to PATH. PyInstaller may collect
+an incompatible DLL from one of them even when the Python environment is locked.
+During line-package validation, a Poppler ICU78 DLL caused QtWebEngineWidgets to
+fail before self-test began; the windowed process stayed alive on an error dialog.
+Rebuilding with this controlled PATH removed the foreign dependency. Do not repair
+the final bundle by copying or deleting DLLs after collection.
+
+Run from the checkout with its prepared locked environment:
+
+```powershell
+$taskOriginalPath = $env:PATH
+try {
+    $taskBasePython = & '.venv/Scripts/python.exe' -c 'import sys; print(sys.base_prefix)'
+    $env:PATH = [string]::Join(';', @(
+        "$env:SystemRoot/System32", "$env:SystemRoot", $taskBasePython,
+        (Join-Path (Get-Location) '.venv/Scripts')
+    ))
+    .venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --clean --noconfirm
+    if ($LASTEXITCODE -ne 0) { throw 'Frozen build failed' }
+} finally {
+    $env:PATH = $taskOriginalPath
+}
+```
+
+Verify inventory and both frozen gates on the rebuilt artifact. A process waiting
+on an unhandled-exception dialog satisfies the survival smoke and has not passed
+startup or self-test. When diagnosis needs a console build, keep it separate and
+repeat the final checks with the windowed executable.
+
+Do not rebuild while the test suite reads this checkout's existing frozen bundle.
+The inventory tests decide whether to skip at collection, then inspect the exe
+and manifest later. PyInstaller COLLECT replaces that directory; concurrent runs
+can therefore produce a missing-exe or missing-manifest failure. Finish the build
+and inventory generation before running the suite against the stable artifact.

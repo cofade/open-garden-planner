@@ -1,0 +1,357 @@
+"""The walk along a styled path, and its bound (Phase 17 L1.5, #385 — security add-on).
+
+``PathStylePaint`` paints a path or fence style for two callers: the canvas item
+(the whole line) and the 3D ground bake (one tile at a time). These tests are
+about the WALK that places a style's elements — what it hands out, and what it
+costs to find them. They count: elements handed out, steps charged, loop turns
+taken. No clock is read.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any
+
+import pytest
+from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtGui import QColor, QImage, QPainter, QPen
+
+from open_garden_planner.core.object_types import PathFenceStyle
+from open_garden_planner.ui.canvas.items import path_style_paint
+from open_garden_planner.ui.canvas.items.path_style_paint import (
+    MAX_SPACING_CM,
+    MIN_SPACING_CM,
+    PathStylePaint,
+    WalkBudget,
+    segment_inside,
+)
+
+ZIGZAG = [QPointF(0.0, 0.0), QPointF(400.5, 30.25), QPointF(380.0, 300.0), QPointF(900.0, 310.75),
+          QPointF(905.0, 20.0)]
+Clip = tuple[float, float, float, float]
+
+
+def pen(width: float = 30.0) -> QPen:
+    made = QPen(QColor(120, 90, 60))
+    made.setWidthF(width)
+    return made
+
+
+def legacy_walk(points: list[QPointF], spacing: float) -> list[tuple[int, float, float]]:
+    """The walk as ``PolylineItem`` did it before it was shared: one running sum."""
+    out: list[tuple[int, float, float]] = []
+    remaining = 0.0
+    for first, second in zip(points, points[1:], strict=False):
+        dx, dy = second.x() - first.x(), second.y() - first.y()
+        length = math.hypot(dx, dy)
+        if length < 0.001:
+            continue
+        t = remaining
+        while t <= length:
+            out.append((len(out), first.x() + dx / length * t, first.y() + dy / length * t))
+            t += spacing
+        remaining = t - length
+    return out
+
+
+def walked(painter: PathStylePaint, spacing: float) -> list[tuple[int, float, float]]:
+    return [(index, element[0].x(), element[0].y())
+            for index, element in painter._walk_indexed(spacing)]
+
+
+def inside(clip: Clip, x: float, y: float) -> bool:
+    return clip[0] <= x <= clip[2] and clip[1] <= y <= clip[3]
+
+
+class TestTheUnclippedWalkIsTheCanvass:
+    @pytest.mark.parametrize("spacing", [4.0, 10.5, 54.00000000000001, 240.0, 5000.0])
+    def test_every_element_at_the_old_place_with_the_old_index(self, spacing: float) -> None:
+        assert walked(PathStylePaint(ZIGZAG, pen()), spacing) == legacy_walk(ZIGZAG, spacing)
+
+    def test_the_plain_walk_is_the_indexed_one_without_its_indices(self) -> None:
+        painter = PathStylePaint(ZIGZAG, pen())
+        assert [(e[0].x(), e[0].y()) for e in painter._walk_path(10.5)] == [
+            (x, y) for _i, x, y in legacy_walk(ZIGZAG, 10.5)]
+
+
+CLIPS: list[Clip] = [(-50.0, -50.0, 200.0, 200.0), (350.0, 0.0, 420.0, 320.0),
+                     (600.0, 250.0, 2000.0, 2000.0), (-1e6, -1e6, 1e6, 1e6), (5000.0, 5000.0, 6000.0, 6000.0)]
+
+
+class TestTheClippedWalk:
+    @pytest.mark.parametrize("clip", CLIPS)
+    @pytest.mark.parametrize("spacing", [4.0, 10.5, 54.00000000000001])
+    def test_it_hands_out_exactly_the_elements_inside_with_their_global_indices(
+            self, clip: Clip, spacing: float) -> None:
+        """With steps to spare the clipped walk IS the canvas's walk — the same
+        floats — less what lies outside: nothing added, nothing renumbered."""
+        budget = WalkBudget(10**6, 10**6)
+        got = walked(PathStylePaint(ZIGZAG, pen(), clip=clip, budget=budget), spacing)
+        assert got == [e for e in legacy_walk(ZIGZAG, spacing) if inside(clip, e[1], e[2])]
+        assert budget.elements_spent == len(got) and not budget.truncated
+
+    @pytest.mark.parametrize("clip", CLIPS)
+    @pytest.mark.parametrize("spacing", [4.0, 10.5, 54.00000000000001])
+    def test_without_steps_it_finds_the_same_elements_by_arithmetic(
+            self, clip: Clip, spacing: float) -> None:
+        """No exact step allowed: every segment is entered by multiplication. The
+        same elements, the same indices, the same places to within a nanometre."""
+        budget = WalkBudget(10**6, 0)
+        got = walked(PathStylePaint(ZIGZAG, pen(), clip=clip, budget=budget), spacing)
+        expected = [e for e in legacy_walk(ZIGZAG, spacing) if inside(clip, e[1], e[2])]
+        assert budget.steps_spent == 0
+        assert [index for index, _x, _y in got] == [index for index, _x, _y in expected]
+        for (_i, x, y), (_j, ex, ey) in zip(got, expected, strict=True):
+            assert math.hypot(x - ex, y - ey) < 1e-7
+
+    def test_the_steps_walked_are_charged_not_the_elements_handed_out(self) -> None:
+        """The finding: a segment that clips the window by a hair is walked from its
+        start. Every one of those steps is paid for BEFORE it is taken — and when
+        the window's budget does not cover them, none is taken."""
+        line = [QPointF(0.0, 0.0), QPointF(64_000.0, 0.0)]  # 16,001 dots at 4 cm
+        clip: Clip = (63_990.0, -5.0, 64_100.0, 5.0)        # … 3 of them inside
+        rich = WalkBudget(10**6, 10**6)
+        assert len(walked(PathStylePaint(line, pen(), clip=clip, budget=rich), 4.0)) == 3
+        assert rich.steps_spent == 16_001 and rich.elements_spent == 3
+        poor = WalkBudget(10**6, 16_000)
+        assert len(walked(PathStylePaint(line, pen(), clip=clip, budget=poor), 4.0)) == 3
+        assert poor.steps_spent == 0 and poor.elements_spent == 3
+
+    def test_one_budget_bounds_all_the_paths_of_a_window(self) -> None:
+        """256 paths that each clip one window by a hair: the exact walk is taken
+        while the window's steps last and not once more — whatever the number of
+        paths. (It was an allowance per path: 256 x 16,001 steps for one tile.)"""
+        clip: Clip = (63_990.0, -5.0, 64_100.0, 300.0)
+        budget = WalkBudget(16_384, 16_384)
+        handed_out = 0
+        for k in range(256):
+            line = [QPointF(0.0, float(k)), QPointF(64_000.0, float(k))]
+            handed_out += len(walked(PathStylePaint(line, pen(), clip=clip, budget=budget), 4.0))
+        assert handed_out == 256 * 3
+        assert budget.steps_spent == 16_001  # ONE path's exact walk; the rest by arithmetic
+        assert budget.steps == 383 and budget.elements_spent == 768
+
+    def test_the_loop_turns_of_a_walk_are_bounded_by_the_budget_and_the_vertices(
+            self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Counted at the source: every element handed out or stepped over in the
+        exact walk makes one ``QPointF`` or one comparison — here the points made
+        are counted, for a line of 19 km."""
+        made = []
+        real = path_style_paint.QPointF
+
+        def counting(*args: Any) -> Any:
+            made.append(1)
+            return real(*args)
+
+        line = [real(-950_000.0, 0.0), real(950_000.0, 0.0)]
+        clip: Clip = (0.0, -50.0, 512.0, 50.0)
+        budget = WalkBudget(16_384, 16_384)
+        painter = PathStylePaint(line, pen(), clip=clip, budget=budget)
+        monkeypatch.setattr(path_style_paint, "QPointF", counting)
+        got = walked(painter, 4.0)
+        assert len(got) == 129 == len(made)  # the dots of 512 cm, and not one point more
+        assert budget.steps_spent == 0  # 475,001 steps were never affordable: arithmetic
+
+    def test_zero_is_a_budget(self) -> None:
+        """A spent budget means "no more elements", never "no bound"."""
+        clip: Clip = (-1e6, -1e6, 1e6, 1e6)
+        spent = WalkBudget(0, 0)
+        painter = PathStylePaint(ZIGZAG, pen(), clip=clip, budget=spent)
+        assert walked(painter, 10.5) == [] and spent.truncated and spent.elements_spent == 0
+        exactly = len(legacy_walk(ZIGZAG, 10.5))
+        shared = WalkBudget(exactly, 10**6)  # spent to the last element by the first path
+        assert len(walked(PathStylePaint(ZIGZAG, pen(), clip=clip, budget=shared), 10.5)) == exactly
+        assert shared.elements == 0 and not shared.truncated
+        assert walked(PathStylePaint(ZIGZAG, pen(), clip=clip, budget=shared), 10.5) == []
+        assert shared.truncated and shared.elements_spent == exactly
+
+    def test_dashes_are_charged_all_or_none_and_zero_is_a_budget(self) -> None:
+        """The dashes of dashed pens (the ground bake charges them): a stroke is
+        covered whole or not at all, and a budget without dashes covers none."""
+        budget = WalkBudget(10, 10, 100)
+        assert budget.take_dashes(60) and budget.dashes == 40 and not budget.truncated
+        assert not budget.take_dashes(41)  # not covered: nothing charged, and it says so
+        assert budget.dashes == 40 and budget.dashes_spent == 60 and budget.truncated
+        assert budget.take_dashes(40) and budget.dashes == 0
+        assert not budget.take_dashes(1)
+        none = WalkBudget(10, 10)  # as the walks' own callers make it
+        assert none.dashes == 0 and not none.take_dashes(1) and none.truncated
+        with pytest.raises(ValueError, match="not negative"):
+            WalkBudget(1, 1, -1)
+
+    def test_a_clip_and_a_budget_come_together(self) -> None:
+        with pytest.raises(ValueError, match="needs a budget"):
+            PathStylePaint(ZIGZAG, pen(), clip=(0.0, 0.0, 1.0, 1.0))
+        with pytest.raises(ValueError, match="needs a budget"):
+            PathStylePaint(ZIGZAG, pen(), budget=WalkBudget(1, 1))
+        with pytest.raises(ValueError, match="not negative"):
+            WalkBudget(-1, 0)
+
+
+class TestSpacingsNoStyleDrawsAt:
+    @pytest.mark.parametrize("spacing", [0.0, -4.0, 1e-300, 5e-324, MIN_SPACING_CM / 2, float("nan"),
+                                         float("inf"), 1e300, MAX_SPACING_CM * 2])
+    def test_no_elements_no_loop_no_overflow(self, spacing: float) -> None:
+        """Zero and a negative spacing never returned; a denormal one made an
+        integer no float can hold. None of them is a pattern: no elements."""
+        assert walked(PathStylePaint(ZIGZAG, pen()), spacing) == []
+        budget = WalkBudget(100, 100)
+        clip: Clip = (-1e6, -1e6, 1e6, 1e6)
+        assert walked(PathStylePaint(ZIGZAG, pen(), clip=clip, budget=budget), spacing) == []
+        assert budget.elements_spent == 0 and budget.steps_spent == 0
+
+    def test_the_floor_is_below_every_preset_pen(self) -> None:
+        assert MIN_SPACING_CM == 0.05 and MAX_SPACING_CM == 1e7
+        assert len(walked(PathStylePaint(ZIGZAG, pen()), MIN_SPACING_CM * 100)) > 100
+
+    @pytest.mark.parametrize("width", [0.0, 1e-300, 5e-324, 1e-3, float("inf")])
+    @pytest.mark.parametrize("style", [s for s in PathFenceStyle if s is not PathFenceStyle.NONE],
+                             ids=lambda s: s.name)
+    def test_every_style_returns_for_a_pen_width_that_is_no_width(
+            self, qtbot: Any, style: PathFenceStyle, width: float) -> None:
+        """Through the painters themselves — on the canvas's path (no clip) too."""
+        image = QImage(64, 64, QImage.Format.Format_RGBA8888_Premultiplied)
+        image.fill(QColor(255, 255, 255))
+        painter = QPainter(image)
+        try:
+            assert PathStylePaint([QPointF(5.0, 5.0), QPointF(60.0, 50.0)], pen(width)).paint(
+                painter, style) is True
+        finally:
+            painter.end()
+
+
+class TestSegmentInside:
+    @pytest.mark.parametrize(("start", "direction", "length", "expected"), [
+        ((0.0, 5.0), (1.0, 0.0), 100.0, (10.0, 20.0)),     # crosses
+        ((12.0, 5.0), (1.0, 0.0), 5.0, (0.0, 5.0)),        # inside
+        ((0.0, 50.0), (1.0, 0.0), 100.0, None),            # beside, parallel
+        ((0.0, 0.0), (0.0, 1.0), 100.0, None),             # beside, the other axis
+        ((30.0, 5.0), (-1.0, 0.0), 100.0, (10.0, 20.0)),   # backwards
+        ((0.0, 5.0), (1.0, 0.0), 8.0, None),               # stops short
+    ])
+    def test_the_part_of_a_segment_inside_a_box(
+            self, start: tuple[float, float], direction: tuple[float, float], length: float,
+            expected: tuple[float, float] | None) -> None:
+        assert segment_inside(*start, *direction, length, (10.0, 0.0, 20.0, 10.0)) == expected
+
+
+class TestOffsetPathCorners:
+    """Tests for path corner joins and inner bend spike elimination (#605)."""
+
+    @pytest.mark.parametrize("angle_deg", [175.0, -175.0, 179.9, -179.9])
+    def test_long_hairpin_trims_at_the_real_intersection(self, angle_deg: float) -> None:
+        """A nearly reversed turn can still have an intersection inside both legs."""
+        length, offset = 100000.0, math.copysign(10.0, angle_deg)
+        radians = math.radians(angle_deg)
+        points = [QPointF(0.0, 0.0), QPointF(length, 0.0),
+                  QPointF(length + length * math.cos(radians), length * math.sin(radians))]
+        path = PathStylePaint(points, pen())._offset_path(offset)
+        assert path is not None and path.elementCount() == 3
+        corner = path.elementAt(1)
+        assert corner.x == pytest.approx(length - offset * math.tan(radians / 2.0))
+        assert corner.y == pytest.approx(offset)
+
+    @pytest.mark.parametrize("duplicate_at", [0, 1, 2])
+    def test_a_duplicate_vertex_does_not_change_the_border(self, duplicate_at: int) -> None:
+        points = [QPointF(0.0, 0.0), QPointF(100.0, 0.0), QPointF(100.0, 100.0)]
+        original = PathStylePaint(points, pen())._offset_path(10.0)
+        points.insert(duplicate_at, QPointF(points[duplicate_at]))
+        duplicated = PathStylePaint(points, pen())._offset_path(10.0)
+        assert original is not None and duplicated is not None
+        assert duplicated == original
+
+    @pytest.mark.parametrize("angle_deg", [-179.9, -175.0, -90.0, -15.0, 15.0, 90.0, 175.0, 179.9])
+    @pytest.mark.parametrize("offset", [-10.0, 10.0])
+    def test_canvas_border_and_relief_offset_keep_the_same_corner_contract(
+            self, angle_deg: float, offset: float) -> None:
+        """The separate Qt painter and Qt-free relief must not drift at bends."""
+        import numpy as np
+
+        from open_garden_planner.core.scene3d.builders.surfaces import _offset_line
+
+        length = 100000.0
+        radians = math.radians(angle_deg)
+        coordinates = [(0.0, 0.0), (length, 0.0),
+                       (length + length * math.cos(radians), length * math.sin(radians))]
+        path = PathStylePaint([QPointF(*point) for point in coordinates], pen())._offset_path(offset)
+        assert path is not None
+        painted = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+        relief = _offset_line(np.asarray(coordinates), False, offset)
+        assert np.asarray(painted) == pytest.approx(relief, abs=1e-7)
+
+    def test_inner_bend_trims_crossing_segments_without_v_spike(self) -> None:
+        """At an inner bend, offset lines intersect cleanly without a reverse spike."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        # L-turn from (0,0) -> (100,0) -> (100, 100) (left turn, so +10 is inner bend)
+        pts = [QPointF(0.0, 0.0), QPointF(100.0, 0.0), QPointF(100.0, 100.0)]
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 20.0))
+        inner_path = painter_helper._offset_path(10.0)
+        assert inner_path is not None
+        # Inner path should have exactly 3 points (start, trimmed corner, end)
+        assert inner_path.elementCount() == 3
+        p0 = inner_path.elementAt(0)
+        p1 = inner_path.elementAt(1)
+        p2 = inner_path.elementAt(2)
+        assert (p0.x, p0.y) == (0.0, 10.0)
+        assert (p1.x, p1.y) == (90.0, 10.0)  # Cleanly trimmed intersection, not a spike at (100, 10)
+        assert (p2.x, p2.y) == (90.0, 100.0)
+
+    def test_outer_bend_chords_to_agree_with_bevel(self) -> None:
+        """At an outer bend, offset path forms a chord agreeing with BevelJoin."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        # Outer bend for offset -10: chords from (100, -10) to (110, 0)
+        pts = [QPointF(0.0, 0.0), QPointF(100.0, 0.0), QPointF(100.0, 100.0)]
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 20.0))
+        outer_path = painter_helper._offset_path(-10.0)
+        assert outer_path is not None
+        assert outer_path.elementCount() == 4
+        p0 = outer_path.elementAt(0)
+        p1 = outer_path.elementAt(1)
+        p2 = outer_path.elementAt(2)
+        p3 = outer_path.elementAt(3)
+        assert (p0.x, p0.y) == (0.0, -10.0)
+        assert (p1.x, p1.y) == (100.0, -10.0)
+        assert (p2.x, p2.y) == (110.0, 0.0)
+        assert (p3.x, p3.y) == (110.0, 100.0)
+
+    @pytest.mark.parametrize("angle_deg", [30.0, 45.0, 60.0, 120.0])
+    def test_acute_and_obtuse_inner_bends_trim_cleanly(self, angle_deg: float) -> None:
+        """Acute and obtuse inner bends trim cleanly to one intersection without spikes."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        rad = math.radians(angle_deg)
+        corner = QPointF(200.0, 200.0)
+        # First leg: (0, 200) -> (200, 200)
+        p0 = QPointF(0.0, 200.0)
+        # Second leg turning left by angle_deg: dx = 200*cos(rad), dy = 200*sin(rad)
+        p2 = QPointF(corner.x() + 200.0 * math.cos(rad), corner.y() + 200.0 * math.sin(rad))
+        pts = [p0, corner, p2]
+
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 20.0))
+        # Positive offset is to the left (inner bend)
+        inner_path = painter_helper._offset_path(10.0)
+        assert inner_path is not None
+        # With trimming, should be start -> intersection -> end (3 points)
+        assert inner_path.elementCount() == 3
+        mid = inner_path.elementAt(1)
+        assert math.isfinite(mid.x) and math.isfinite(mid.y)
+
+    def test_short_segment_shorter_than_projection_falls_back_gracefully(self) -> None:
+        """When segment length is shorter than corner projection, fallback connects cleanly."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        # Very sharp 30 deg corner with a tiny 5 cm segment and large 20 cm offset
+        p0 = QPointF(0.0, 0.0)
+        p1 = QPointF(5.0, 0.0)
+        rad = math.radians(150.0)
+        p2 = QPointF(5.0 + 5.0 * math.cos(rad), 5.0 * math.sin(rad))
+        pts = [p0, p1, p2]
+
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 40.0))
+        offset_path = painter_helper._offset_path(20.0)
+        assert offset_path is not None
+        for i in range(offset_path.elementCount()):
+            pt = offset_path.elementAt(i)
+            assert math.isfinite(pt.x) and math.isfinite(pt.y)

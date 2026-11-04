@@ -6,7 +6,6 @@ ConstraintToolbar (CAD constraints). It holds:
   - a global search field that searches across every gallery item
 """
 
-# ruff: noqa: ARG002
 
 import pytest
 from PyQt6.QtWidgets import QApplication

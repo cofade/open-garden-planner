@@ -1,9 +1,10 @@
 # Maintaining complete application translations
 
-Every language registered in `SUPPORTED_LANGUAGES` must cover the current UI source
-inventory. Adding a language requires all existing keys; adding a wrapped UI string
+Every language registered in `SUPPORTED_LANGUAGES` (currently English `en`, German `de`, and Spanish `es`)
+must cover the current UI source inventory. Adding a language requires all existing keys; adding a wrapped UI string
 requires translations in every registered target language in the same PR. Compare
 Qt context/source/disambiguation keys, never word counts or catalog counts.
+For a step-by-step walkthrough aimed at new contributors, see [CONTRIBUTING.md](../CONTRIBUTING.md#contributing-translations-and-adding-languages).
 
 Use the locked Python environment from the development setup. From the repository root:
 
@@ -20,8 +21,9 @@ $env:PYTHONUTF8 = "1"
 Qt extraction with audited helper/table declarations, preserves existing translations,
 adds new target entries as unfinished, and marks removed keys vanished. English is the
 source language: its template contains source identities. Do not copy the old English
-catalog as an inventory. `fill_translations.py` is a German convenience mapping, not
-a translator for other languages and not the definition of which strings exist.
+catalog as an inventory. `fill_translations.py` invokes language populator helpers (such as
+German mappings and `scripts/fill_spanish_translations.py`), but is not the definition of
+which strings exist.
 
 For a new locale, register its native display name in
 `src/open_garden_planner/core/i18n.py`, run the update command, and complete its generated

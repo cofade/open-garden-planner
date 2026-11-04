@@ -106,7 +106,7 @@ class TestRectangleTypedInput:
         assert tool.last_point is None
 
     def test_typed_first_corner_then_shift_click_constrains_to_square(
-        self, view: CanvasView, qtbot  # noqa: ARG002
+        self, view: CanvasView, qtbot
     ) -> None:
         """Shift modifier on the closing click must produce a square."""
         from PyQt6.QtCore import Qt
@@ -143,7 +143,7 @@ class TestEllipseTypedInput:
         assert tool.last_point is None
 
     def test_typed_first_corner_then_shift_click_constrains_to_circle(
-        self, view: CanvasView, qtbot  # noqa: ARG002
+        self, view: CanvasView, qtbot
     ) -> None:
         """Shift modifier on the closing click must produce a circle (1:1)."""
         from PyQt6.QtCore import Qt

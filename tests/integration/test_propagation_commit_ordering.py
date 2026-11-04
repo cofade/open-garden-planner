@@ -19,7 +19,6 @@
    returns. Reversing either reintroduces a cross-species misattribution. Pinned
    here so the ordering cannot be "tidied".
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

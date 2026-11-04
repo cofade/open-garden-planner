@@ -21,17 +21,24 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from typing import NamedTuple
 
 import numpy as np
 
 from .shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    CasterLike,
+    GroupedCaster,
     Polygon,
+    Triangle3D,
+    _clip_triangle_above_z,
+    caster_transmittance,
     compute_grouped_shadows,
     compute_scene_shadows,
+    compute_weighted_shadows,
 )
+from .sim_clock import SimInstant
 from .solar import solar_position
 
 #: Daylight sampling step. 15 min × ≤64 daylight samples covers the perf
@@ -103,26 +110,164 @@ Rasterizer = Callable[[list[Polygon], HeatmapGrid], np.ndarray]
 
 @dataclass(frozen=True)
 class IdentifiedCaster:
-    """All solid footprints belonging to one object (plain worker input)."""
+    """All solid footprints belonging to one object (plain worker input).
+
+    ``base_cm`` is where the object stands (Phase 17 L1.6, ADR-037 addendum): 0.0
+    on the garden floor, the soil surface for a plant on raised soil. Its solid is
+    ``footprint x [base_cm, base_cm + height_cm]`` everywhere it shades — the
+    overlay, the heatmap grid and the per-plant estimates.
+
+    ``holds_plants``: this solid is a SOIL container a plant can stand in
+    (``core.object_height.is_solid_soil_parent`` — a bed, raised bed, container
+    or wall planter with a resolved height), not a wall. A plant inside its
+    outline is inside its soil, so the estimate must not count it as shade
+    whether or not the plant is LINKED to it (#481, the ``spared`` map in
+    ``_aggregate_day``).
+    """
 
     item_id: str
     footprints: tuple[tuple[tuple[float, float], ...], ...]
     height_cm: float
+    base_cm: float = 0.0
+    holds_plants: bool = False
+    roof_triangles: tuple[Triangle3D, ...] = ()
+    fence_style: str | None = None
+    fence_points: tuple[tuple[float, float], ...] = ()
+    fence_width_cm: float = 0.0
+    transmittance: float | None = None
 
 
 @dataclass(frozen=True)
 class SunReceiver:
+    """A plant whose direct sun is estimated, at its centre and soil elevation.
+
+    ``stands_on``: the id of the soil parent whose solid the plant stands in (the
+    membership half of the base rule: linked to a visible bed, raised bed or
+    container that has a height AND its centre inside it —
+    ``ui/canvas/footprints.standing_parent``), else None. That parent is under
+    the plant, not between it and the sun: it is left out for this receiver
+    exactly like the receiver's own solid. Without it every plant in a raised
+    bed reads 0 hours — the bed's footprint covers the point all day.
+
+    A soil solid the plant stands in WITHOUT that link is left out too (#481):
+    ``_aggregate_day`` spares every caster whose ``holds_plants`` is set and
+    whose outline contains this receiver's point.
+
+    ``elevation_cm`` (issue #641): the soil elevation where the plant stands
+    (``ui/canvas/footprints.item_base_cm``, 0.0 on ground). When evaluating an
+    elevated receiver, shadow casting from obstacles is evaluated against the
+    obstacle slice strictly above ``elevation_cm``, preventing false shade warnings
+    for plants raised above fences, walls, or edgings.
+    """
+
     item_id: str
     x_cm: float
     y_cm: float
+    stands_on: str | None = None
+    elevation_cm: float = 0.0
 
 
 @dataclass(frozen=True)
 class SunExposureResult:
-    """Ground heatmap plus sparse ground exposure excluding each receiver itself."""
+    """Ground heatmap plus sparse soil-plane exposure excluding each receiver itself.
+
+    ``samples`` / ``sample_shade`` (Phase 17 L2.2, #386): every daylight sample's
+    instant and its shade mask — ``np.packbits`` of the rasterised mask along the
+    columns, shape ``(len(samples), rows, ceil(cols / 8))``, True = shaded — so
+    that a day sweep can show the map filling up sample by sample
+    (``SunHoursMap.minutes_until``) without a second computation. Kept while the
+    masks fit ``MAX_SAMPLE_SHADE_BYTES``; beyond it ``sample_shade`` is None and
+    the map is only ever shown whole.
+    """
 
     minutes: np.ndarray
     receiver_minutes: tuple[tuple[str, float], ...]
+    samples: tuple[datetime, ...] = ()
+    sample_shade: np.ndarray | None = None
+    sample_transmittance: np.ndarray | None = None
+
+
+#: The per-sample shade masks of one day are kept up to this size (bytes): 1 bit a
+#: cell a sample — a 10 cm map of a 30 x 20 m garden over 64 samples is 480 kB, and
+#: this bound is a map of eight million cells.
+MAX_SAMPLE_SHADE_BYTES = 64 * 1024 * 1024
+
+
+@dataclass(frozen=True, eq=False)
+class SunHoursMap:
+    """A finished hours-of-sun map as plain data — what the canvas shows (L2.1, #386).
+
+    The heatmap controller's public ``result()``: the day, the grid (row 0 = SOUTH),
+    the minutes of direct sun per cell, the day's full daylight (the ramp's top),
+    the sampling step and, when they were kept, the per-sample shade masks
+    (``SunExposureResult``). Consumers read it; nobody recomputes it.
+    """
+
+    day: date
+    grid: HeatmapGrid
+    minutes: np.ndarray
+    daylight_minutes: float
+    step_minutes: int = SAMPLE_STEP_MINUTES
+    samples: tuple[datetime, ...] = ()
+    sample_shade: np.ndarray | None = None
+    sample_transmittance: np.ndarray | None = None
+
+    def minutes_at(self, x_cm: float, y_cm: float) -> float | None:
+        """The minutes of the cell a scene point lies in — the cell the canvas draws
+        there — or None outside the grid (and for a point that is not finite)."""
+        if not (math.isfinite(x_cm) and math.isfinite(y_cm)):
+            return None
+        row, col = self.grid.cell_at(x_cm, y_cm)
+        if not (0 <= row < self.grid.rows and 0 <= col < self.grid.cols):
+            return None
+        return float(self.minutes[row, col])
+
+    @property
+    def progressive(self) -> bool:
+        """True when the per-sample masks or transmittances were kept: ``minutes_through`` can answer."""
+        if self.sample_transmittance is not None and len(self.samples) == len(self.sample_transmittance):
+            return True
+        return self.sample_shade is not None and len(self.samples) == len(self.sample_shade)
+
+    def sample_minutes_of_day(self, tz: tzinfo | None) -> tuple[int, ...]:
+        """Each sample's wall minute of the day in ``tz`` (the clock's zone).
+
+        The map samples a UTC civil day (``daylight_samples``) — one whole diurnal arc,
+        but, far from Greenwich, not the LOCAL day: in Sydney it runs from 10:00 one
+        day to 10:00 the next. A day sweep goes through the local day, so it takes
+        the samples by their time of day, not by their instant: at local sunset every
+        daylight sample is in, and the sweep ends on the whole map."""
+        return tuple(SimInstant.from_datetime(sample, tz).minute_of_day for sample in self.samples)
+
+    def sample_sunlit(self, index: int) -> np.ndarray:
+        """Sample ``index``'s sunlit cells, ``(rows, cols)`` bool (True = in the sun)."""
+        if self.sample_transmittance is not None:
+            sunlit_f: np.ndarray = self.sample_transmittance[index] > 0.0
+            return sunlit_f
+        if self.sample_shade is None:
+            raise ValueError("this map kept no per-sample masks")
+        shaded = np.unpackbits(self.sample_shade[index], axis=1, count=self.grid.cols)
+        sunlit: np.ndarray = shaded == 0
+        return sunlit
+
+    def sample_sun_factor(self, index: int) -> np.ndarray:
+        """Sample ``index``'s sunlight transmittance factor ``(rows, cols)`` float32 in ``[0, 1]`` (#440)."""
+        if self.sample_transmittance is not None:
+            return np.asarray(self.sample_transmittance[index], dtype=np.float32)
+        return np.where(self.sample_sunlit(index), 1.0, 0.0).astype(np.float32)
+
+    def minutes_through(self, minute_of_day: int, tz: tzinfo | None) -> np.ndarray | None:
+        """The minutes of direct sun each cell collected from the morning up to the wall
+        time ``minute_of_day`` in ``tz`` (inclusive) — the map half-way through a day
+        sweep. None when the masks were not kept. Through the last minute of the day it
+        equals ``minutes`` (pinned)."""
+        if not self.progressive:
+            return None
+        total = np.zeros((self.grid.rows, self.grid.cols), dtype=np.float32)
+        for index, minute in enumerate(self.sample_minutes_of_day(tz)):
+            if minute <= minute_of_day:
+                total += float(self.step_minutes) * self.sample_sun_factor(index)
+        return total
 
 
 def points_in_polygons(polygons: Sequence[Sequence[tuple[float, float]]], points: np.ndarray) -> np.ndarray:
@@ -154,6 +299,7 @@ def daylight_samples(
     lon_deg: float,
     day: date,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+
 ) -> list[SunSample]:
     """Sun-up sample instants across the UTC civil day, at ``step_minutes``.
 
@@ -208,7 +354,7 @@ def point_rasterizer_reference(
 
 
 def compute_heatmap(
-    casters: Sequence[tuple[Sequence[tuple[float, float]], float | None]],
+    casters: Sequence[CasterLike],
     lat_deg: float,
     lon_deg: float,
     day: date,
@@ -216,6 +362,7 @@ def compute_heatmap(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> np.ndarray | None:
@@ -224,6 +371,8 @@ def compute_heatmap(
     For each daylight sample: shadow polygons via the US-E3 machinery →
     injected rasterizer → unshaded cells collect ``step_minutes``. Cells
     under no shadow all day accumulate the full daylight duration.
+    ``casters`` are the overlay's own (``ShadowCaster``, base included — a
+    plant in a raised bed casts from its soil here exactly as it does there).
 
     Grazing samples (0 < α < 0.5°) are counted as daylight but their
     shadows are computed at a clamped 0.5° elevation — the shadow module
@@ -248,6 +397,7 @@ def compute_sun_exposure(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> SunExposureResult | None:
@@ -256,17 +406,40 @@ def compute_sun_exposure(
     Receivers use heatmap cell centres. Out-of-grid receivers are omitted,
     never returned as zero sun. No leaf-height or transparent-canopy model.
     """
-    anonymous = [(footprint, caster.height_cm) for caster in casters for footprint in caster.footprints]
-    return _aggregate_day(anonymous, lat_deg, lon_deg, day, grid, rasterize,
+    # The grid and the receivers both come from the identified casters' grouped
+    # sweeps (base included); the anonymous list is only for a caller without ids.
+    return _aggregate_day((), lat_deg, lon_deg, day, grid, rasterize,
                           identified=casters, receivers=receivers, step_minutes=step_minutes,
+                          include_sample_masks=include_sample_masks,
                           progress=progress, should_cancel=should_cancel)
 
 
+def _slice_roof_triangles_for_elevation(
+    roof_triangles: tuple[Triangle3D, ...],
+    base_cm: float,
+    elev_cm: float,
+) -> tuple[Triangle3D, ...]:
+    """Slice 3D roof/wall triangles at ``z >= elev_cm`` and shift down by ``elev_cm`` (#440)."""
+    if not roof_triangles or elev_cm <= 0.0:
+        return roof_triangles
+    sliced: list[Triangle3D] = []
+    for tri in roof_triangles:
+        clipped = _clip_triangle_above_z(tri, base_cm, elev_cm)
+        if len(clipped) < 3:
+            continue
+        shifted = [(x, y, max(0.0, z - elev_cm)) for x, y, z in clipped]
+        sliced.append((shifted[0], shifted[1], shifted[2]))
+        if len(shifted) == 4:
+            sliced.append((shifted[0], shifted[2], shifted[3]))
+    return tuple(sliced)
+
+
 def _aggregate_day(
-    casters: Sequence[tuple[Sequence[tuple[float, float]], float | None]],
+    casters: Sequence[CasterLike],
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
     *, identified: Sequence[IdentifiedCaster] = (), receivers: Sequence[SunReceiver] = (),
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> SunExposureResult | None:
@@ -274,49 +447,191 @@ def _aggregate_day(
     minutes = np.zeros((grid.rows, grid.cols), dtype=np.float32)
     valid = [receiver for receiver in receivers
              if math.isfinite(receiver.x_cm) and math.isfinite(receiver.y_cm)
+             and math.isfinite(receiver.elevation_cm)
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[0] < grid.rows
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[1] < grid.cols]
     points = np.asarray([grid.cell_center(*grid.cell_at(receiver.x_cm, receiver.y_cm))
                          for receiver in valid], dtype=float).reshape(-1, 2)
-    own_indices: dict[str, list[int]] = {}
+    # caster id -> the receivers it never shades: itself, the plants standing
+    # on its soil (``SunReceiver.stands_on``), and — #481 — every plant whose
+    # point lies inside a soil container's own outline, linked or not. The
+    # containment test is static for a run (casters do not move between
+    # samples), so it is answered once here, on the same points the estimate
+    # reports, with the caster walk's own footprints.
+    spared: dict[str, list[int]] = {}
     for index, receiver in enumerate(valid):
-        own_indices.setdefault(receiver.item_id, []).append(index)
+        spared.setdefault(receiver.item_id, []).append(index)
+        if receiver.stands_on is not None and receiver.stands_on != receiver.item_id:
+            spared.setdefault(receiver.stands_on, []).append(index)
+    if len(valid) and any(caster.holds_plants for caster in identified):
+        for caster in identified:
+            if not caster.holds_plants:
+                continue
+            inside = np.flatnonzero(points_in_polygons(caster.footprints, points))
+            if len(inside):
+                spared.setdefault(caster.item_id, []).extend(int(index) for index in inside)
+    # Share a sweep only at identical elevations. Rounding can remove an obstacle
+    # whose top is above the real receiver but below the rounded elevation.
+    elevations: dict[float, list[int]] = {}
+    for idx, receiver in enumerate(valid):
+        elev = receiver.elevation_cm
+        key = max(0.0, elev)
+        elevations.setdefault(key, []).append(idx)
+
+    # Slice and index once per distinct elevation, outside the daylight loop.
+    receiver_groups = []
+    for elev, indices in elevations.items():
+        if should_cancel is not None and should_cancel():
+            return None
+        group_indices = np.asarray(indices, dtype=int)
+        slice_casters: list[tuple[IdentifiedCaster, GroupedCaster]] = []
+        for caster in identified:
+            if elev == 0.0:
+                slice_casters.append((caster, GroupedCaster(
+                    caster.footprints,
+                    caster.height_cm,
+                    caster.base_cm,
+                    caster.roof_triangles,
+                    caster.fence_style,
+                    caster.fence_points,
+                    caster.fence_width_cm,
+                    caster.transmittance,
+                )))
+                continue
+            top_cm = caster.base_cm + caster.height_cm
+            if top_cm > elev:
+                eff_base = max(0.0, caster.base_cm - elev)
+                eff_height = top_cm - max(caster.base_cm, elev)
+                sliced_roof = _slice_roof_triangles_for_elevation(
+                    caster.roof_triangles, caster.base_cm, elev
+                )
+                slice_casters.append((caster, GroupedCaster(
+                    caster.footprints,
+                    eff_height,
+                    0.0 if sliced_roof else eff_base,
+                    sliced_roof,
+                    caster.fence_style,
+                    caster.fence_points,
+                    caster.fence_width_cm,
+                    caster.transmittance,
+                )))
+        exclusions = {caster.item_id: np.isin(group_indices, spared.get(caster.item_id, []))
+                      for caster, _ in slice_casters}
+        receiver_groups.append((elev, group_indices, points[group_indices], slice_casters, exclusions))
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
+    has_porous = any(
+        caster.fence_style is not None
+        or (caster.transmittance is not None and 0.0 < caster.transmittance < 1.0)
+        for caster in identified
+    )
+    packed_cols = (grid.cols + 7) // 8
+    keep_masks = (
+        include_sample_masks
+        and not has_porous
+        and (total * grid.rows * packed_cols <= MAX_SAMPLE_SHADE_BYTES)
+    )
+    masks = np.zeros((total, grid.rows, packed_cols), dtype=np.uint8) if keep_masks else None
+    keep_trans = (
+        include_sample_masks
+        and has_porous
+        and (total * grid.rows * grid.cols * 4 <= MAX_SAMPLE_SHADE_BYTES)
+    )
+    sample_trans = (
+        np.ones((total, grid.rows, grid.cols), dtype=np.float32) if keep_trans else None
+    )
+    ground_grouped = [
+        GroupedCaster(
+            caster.footprints,
+            caster.height_cm,
+            caster.base_cm,
+            caster.roof_triangles,
+            caster.fence_style,
+            caster.fence_points,
+            caster.fence_width_cm,
+            caster.transmittance,
+        )
+        for caster in identified
+    ]
     for index, sample in enumerate(samples):
         if should_cancel is not None and should_cancel():
             return None
+        sample_elev = max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG)
         owned_polygons: list[list[Polygon]] = []
         if identified:
             shadows = compute_grouped_shadows(
-                [(caster.footprints, caster.height_cm) for caster in identified],
-                max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg, should_cancel)
+                ground_grouped,
+                sample_elev, sample.azimuth_deg, should_cancel)
             if shadows is None:
                 return None
             polygons, owned_polygons = shadows
         else:
             polygons = compute_scene_shadows(
-                casters, max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg)
-        if polygons:
+                casters, sample_elev, sample.azimuth_deg)
+        if has_porous and identified:
+            weighted = compute_weighted_shadows(
+                ground_grouped, sample_elev, sample.azimuth_deg, should_cancel
+            )
+            if weighted is None:
+                return None
+            sun_factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
+            for region in weighted.weighted_regions:
+                if region.polygons:
+                    reg_shaded = np.asarray(rasterize(region.polygons, grid), dtype=bool)
+                    sun_factor = np.where(
+                        reg_shaded,
+                        np.minimum(sun_factor, np.float32(region.transmittance)),
+                        sun_factor,
+                    )
+            minutes += float(step_minutes) * sun_factor
+            if sample_trans is not None:
+                sample_trans[index] = sun_factor
+        elif polygons:
             shaded = rasterize(polygons, grid)
             minutes += np.where(shaded, 0.0, float(step_minutes))
+            if masks is not None:
+                masks[index] = np.packbits(np.asarray(shaded, dtype=bool), axis=1)
         else:
             minutes += float(step_minutes)
         if len(valid):
-            coverage = np.zeros(len(valid), dtype=np.int32)
-            own = np.zeros(len(valid), dtype=bool)
-            for caster, caster_polygons in zip(identified, owned_polygons, strict=True):
-                if should_cancel is not None and should_cancel():
-                    return None
-                mask = points_in_polygons(caster_polygons, points)
-                coverage += mask
-                indices = own_indices.get(caster.item_id, [])
-                own[indices] = mask[indices]
-            exposure += np.where(coverage - own == 0, float(step_minutes), 0.0)
+            rx_trans = np.ones(len(valid), dtype=np.float32)
+            for elev, group_indices, group_points, slice_casters, exclusions in receiver_groups:
+                if elev == 0.0:
+                    group_owned = owned_polygons
+                else:
+                    elevated = compute_grouped_shadows(
+                        [gc for _, gc in slice_casters],
+                        sample_elev,
+                        sample.azimuth_deg, should_cancel,
+                    )
+                    if elevated is None:
+                        return None
+                    _, group_owned = elevated
+                for (caster, _), caster_polygons in zip(slice_casters, group_owned, strict=True):
+                    if should_cancel is not None and should_cancel():
+                        return None
+                    if not caster_polygons:
+                        continue
+                    mask = points_in_polygons(caster_polygons, group_points)
+                    mask[exclusions[caster.item_id]] = False
+                    if np.any(mask):
+                        t_c = (
+                            caster_transmittance(caster, sample_elev, sample.azimuth_deg)
+                            if has_porous
+                            else 0.0
+                        )
+                        rx_trans[group_indices[mask]] *= np.float32(t_c)
+
+            exposure += float(step_minutes) * rx_trans
         if progress is not None:
             progress(index + 1, total)
     if should_cancel is not None and should_cancel():
         return None
-    return SunExposureResult(minutes, tuple((receiver.item_id, float(value))
-                                           for receiver, value in zip(valid, exposure, strict=True)))
+    return SunExposureResult(
+        minutes,
+        tuple((receiver.item_id, float(value)) for receiver, value in zip(valid, exposure, strict=True)),
+        tuple(sample.dt_utc for sample in samples),
+        masks,
+        sample_trans,
+    )
 

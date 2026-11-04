@@ -61,7 +61,7 @@ read, not run, and is labeled). Paths are repo-relative from
 
 ## 1. The test suite as an instrument
 
-Layout (counts verified 2026-07-04): `tests/unit/` (105 files), `tests/integration/` (72 files — end-to-end UI workflows, one per feature, mandatory per §8.10), `tests/ui/` (18 files — widget-level). `tests/conftest.py` sets `QT_QPA_PLATFORM=offscreen` itself, adds `src/` to `sys.path`, and isolates `QSettings` to a `cofade_test` store per session. `pyproject.toml` `addopts = "-v --tb=short"`, `qt_api = "pyqt6"`.
+Layout (counts verified 2026-07-04): `tests/unit/` (105 files), `tests/integration/` (72 files — end-to-end UI workflows, one per feature, mandatory per §8.10), `tests/ui/` (18 files — widget-level). `tests/conftest.py` sets `QT_QPA_PLATFORM=offscreen` itself, adds `src/` to `sys.path`, and isolates `QSettings` to a `cofade_test` store per session. `pyproject.toml` `addopts = "-v --tb=short -n auto --dist worksteal -m 'not perf'"`, `qt_api = "pyqt6"` - parallel by default, with the `perf`-marked timing tests deselected (§8.10.4).
 
 ```bash
 # Windows (the project's canonical form):
@@ -271,9 +271,14 @@ venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 ```
 
 Then the two gate commands from `ogp-change-control` §2.8 — the 8-second smoke (exit
-124 = survived) and `--selftest` (exit 0 = Qt3D bindings, Qt-version match and the
-Agent API server all alive). The smoke alone cannot see any of the three dying;
-`ogp-build-and-run` documents the invocation traps.
+124 = survived) and `--selftest` (exit 0 = the Agent API server, the A1 checks AND the
+Qt Quick 3D engine all alive: since Phase 17 L1.2 it renders one
+hidden frame from the bundle's QML and shaders and checks its pixels). The smoke alone
+cannot see any of them dying; `ogp-build-and-run` documents the invocation traps, and
+where the self-test's log is. A hang is bounded: one watchdog around the whole command
+ends it after 300 s with exit code 1 and the reason in that log; if the process survives
+that (a deadlock inside Qt does, on Windows), a second process terminates it at 310 s and
+adds a `[supervisor] fired=True` line.
 
 Exit **124** (killed by `timeout` after 8 s) = the frozen app was still alive
 and running = **healthy**. Any prompt exit is unhealthy: nonzero-fast = crash

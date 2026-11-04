@@ -22,7 +22,7 @@ from open_garden_planner.ui.dialogs.succession_plan_dialog import _SEGMENT_LABEL
 
 
 @pytest.fixture
-def german(qtbot: Any):  # noqa: ARG001 - qtbot initialises QApplication
+def german(qtbot: Any):
     """Install the compiled German translator for the duration of one test."""
     from open_garden_planner.core.i18n import _TRANSLATIONS_DIR
 

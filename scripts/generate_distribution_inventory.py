@@ -39,6 +39,8 @@ from datetime import UTC, datetime
 from email.parser import Parser
 from pathlib import Path
 
+from packaging.markers import Marker
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 1
 
@@ -47,12 +49,47 @@ SCHEMA_VERSION = 1
 #: project's own LICENSE file); an optional ``text`` replaces the license text
 #: taken from the wheel. Do not add one without checking upstream.
 LICENSE_OVERRIDES: dict[str, dict[str, str]] = {
-    # The Qt runtime wheels (PyQt6-Qt6, PyQt6-3D-Qt6, PyQt6-WebEngine-Qt6)
-    # declare the prose "LGPL v3" in their metadata; LGPL-3.0-only is that
-    # license's SPDX identifier. The notices carry each wheel's own LICENSE text.
+    # The Qt runtime wheels (PyQt6-Qt6, PyQt6-WebEngine-Qt6) declare the prose
+    # "LGPL v3" in their metadata; LGPL-3.0-only is that license's SPDX
+    # identifier. The notices carry each wheel's own LICENSE text.
     "pyqt6-qt6": {"spdx": "LGPL-3.0-only"},
-    "pyqt6-3d-qt6": {"spdx": "LGPL-3.0-only"},
     "pyqt6-webengine-qt6": {"spdx": "LGPL-3.0-only"},
+    "mapbox-earcut": {
+        "spdx": "ISC",
+        "text": """ISC License (bindings)
+
+Copyright (c) 2018, Samuel Kogler
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+
+---
+
+ISC License (bundled earcut library)
+
+Copyright (c) 2016, Mapbox
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.""",
+    },
 }
 
 #: SPDX ids the raw ``License:`` field may be trusted to name directly (used only
@@ -359,12 +396,17 @@ def render_sbom(records: list[dict[str, object]], app_version: str) -> dict[str,
     }
 
 
-def _lock_versions(lock: Path) -> dict[str, str]:
+def _lock_versions(
+    lock: Path, environment: dict[str, str] | None = None
+) -> dict[str, str]:
     data = tomllib.loads(lock.read_text(encoding="utf-8"))
-    return {
-        runtime_closure.canonicalize(package["name"]): package["version"]
-        for package in data.get("packages", [])
-    }
+    versions: dict[str, str] = {}
+    for package in data.get("packages", []):
+        marker = package.get("marker")
+        if marker and not Marker(marker).evaluate(environment):
+            continue
+        versions[runtime_closure.canonicalize(package["name"])] = package["version"]
+    return versions
 
 
 def _app_version() -> str:

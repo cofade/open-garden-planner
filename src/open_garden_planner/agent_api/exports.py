@@ -24,7 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from open_garden_planner.app.paths import default_dialog_dir, default_save_path
+from open_garden_planner.config.paths import default_dialog_dir, default_save_path
 from open_garden_planner.core.plan_io import validate_canvas_size
 from open_garden_planner.services.dxf_service import DxfExportService
 from open_garden_planner.services.export_service import ExportService

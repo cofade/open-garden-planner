@@ -210,7 +210,7 @@ def main() -> int:
         glyph = MAPPING[name]
         url = _RAW_URL.format(tag=TABLER_TAG, glyph=glyph)
         try:
-            with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310 - pinned https URL
+            with urllib.request.urlopen(url, timeout=30) as response:
                 raw = response.read().decode("utf-8")
         except OSError as exc:
             print(f"{name:26s} FETCH FAILED  {glyph}: {exc}")
@@ -222,7 +222,7 @@ def main() -> int:
             continue
         try:
             normalized = normalize_svg_text(raw, strict=True)
-        except Exception as exc:  # noqa: BLE001 - report and continue
+        except Exception as exc:
             print(f"{name:26s} NORMALIZE FAILED  {glyph}: {exc}")
             failures += 1
             continue

@@ -287,7 +287,7 @@ class PestLogDialog(QDialog):
         )
         if sub.exec() != QDialog.DialogCode.Accepted:
             return
-        from open_garden_planner.core import EditPestLogCommand  # noqa: PLC0415
+        from open_garden_planner.core import EditPestLogCommand
 
         new_record = sub.result_record()
         cmd = EditPestLogCommand(self._project_manager, self._target_id, new_record)
@@ -307,7 +307,7 @@ class PestLogDialog(QDialog):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        from open_garden_planner.core import DeletePestLogCommand  # noqa: PLC0415
+        from open_garden_planner.core import DeletePestLogCommand
 
         cmd = DeletePestLogCommand(
             self._project_manager, self._target_id, rec.id

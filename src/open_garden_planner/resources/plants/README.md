@@ -2,8 +2,17 @@
 
 All SVGs in `species/` (108) and `categories/` (15) are **generated** by
 `scripts/generate_plant_sprites.py`. **Do not hand-edit** — edit the recipe
-table in the script and regenerate; `--check` (and the unit gate
+table and regenerate; `--check` (and the unit gate
 `tests/unit/test_plant_sprite_conformance.py`) fails on any drift.
+
+The recipe tables (`PALETTES`, `FRUITS`, `FLOWERS`, `SPECIES`, `CATEGORIES`)
+live in `src/open_garden_planner/core/plant_art/recipes.py` since Phase 17
+L1.7: the 3D plant builder reads the same recipes, so a species' archetype and
+palette are the same on the plan and in the 3D view. The script holds the
+drawing code and loads the tables from that file by its path — it needs
+nothing but the standard library, as before. Two of a recipe's numbers,
+`leaf_scale` and `n_out`, are read by the 3D builder as well: retuning a sprite
+changes that species' leaf size and count in 3D.
 
 ## The "Lush Sprite" style (user-approved 2026-07-26, issue #281)
 
@@ -41,7 +50,7 @@ table in the script and regenerate; `--check` (and the unit gate
    are exempt from the foreshortening. Independent of archetype, small
    leaves (< 12 units long) render with smooth occlusion and no veins — a
    byte-budget simplification, visually identical at canvas scale.
-9. **Palette lives in the generator**: colors come exclusively from the
+9. **Palette lives in the recipe tables**: colors come exclusively from the
    `PALETTES`/`FRUITS`/`FLOWERS` anchor tables and per-recipe feature colors,
    derived via `mix()`/`lighten()` — never from hand-edited SVG. Enforcement
    is transitive: byte-determinism pins every color to the tables, and the
@@ -50,9 +59,12 @@ table in the script and regenerate; `--check` (and the unit gate
 
 ## Changing or adding a sprite
 
-1. Edit `SPECIES` / `CATEGORIES` in `scripts/generate_plant_sprites.py`
-   (archetype + palette + feature recipe; new species also need a
-   `_SPECIES_FILES` alias in `core/plant_renderer.py`).
+1. Edit `SPECIES` / `CATEGORIES` in `core/plant_art/recipes.py` (archetype +
+   palette + feature recipe; a new species also needs its names in
+   `SPECIES_SPRITES` in `core/plant_art/resolve.py`). The same edit changes the
+   plant in the 3D view: its archetype picks the 3D silhouette, its palette the
+   foliage colours. A NEW archetype needs a 3D builder as well
+   (`core/scene3d/builders/plants.py`; a test fails until it has one).
 2. `venv/Scripts/python.exe scripts/generate_plant_sprites.py`
 3. Visually review with the app's real engine (see the `ogp-asset-forge`
    skill, "SVG sprite forge": render grids offscreen, view, iterate — never
