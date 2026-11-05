@@ -130,8 +130,9 @@ def build_copy_ridges(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
     for item in selection_tree(items):
         if getattr(item, "object_type", None) is not ObjectType.HOUSE:
             continue
-        if isinstance(getattr(item, "metadata", None), dict):
-            item.metadata.pop("ridge_item_id", None)
+        meta = getattr(item, "metadata", None)
+        if isinstance(meta, dict):
+            meta.pop("ridge_item_id", None)
         ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
         if ridge is not None:
             new_ridges.append(ridge)
