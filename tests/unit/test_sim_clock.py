@@ -277,8 +277,7 @@ class TestTransitions:
         """The year-tour writer (#732): a UTC time of day on a LOCAL date, derived through
         the zone, not an instant that may read back on another day."""
         clock = SimClock(datetime(2026, 6, 21, 12, 0), tz=TOKYO_FIXED)
-        change = clock.set_utc_time_on(date(2026, 6, 22), time(3, 0))
-        assert change is not None
+        assert clock.set_utc_time_on(date(2026, 6, 22), time(3, 0)) is True
         assert clock.plan_date == date(2026, 6, 22)
         assert clock.time_of_day == time(12, 0)
         assert clock.utc == datetime(2026, 6, 22, 3, 0, tzinfo=UTC)

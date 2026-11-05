@@ -300,7 +300,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   a tour holds the clock only when it moves it, and agents use the owner's date during
   a time-lapse (ADR-072 addendum); a kept `.part.mp4` survives, Esc/X ask after 10 s, and
   app close waits for the writer (PF-E3D-22); a year's tour holds UTC across DST (1.53
-  vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); photo blur always has a focus point,
+  vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); applied blur always has a point,
   using the ground under the view's centre while walking (PF-E3D-23).
 - Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
   `calendar_series` resolves `current_release` per snapshot (`"version": 2`,

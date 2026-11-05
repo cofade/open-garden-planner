@@ -375,15 +375,20 @@ class SimClock:
         """Move within the plan date - never fires ``date_changed``."""
         return self._commit(SimInstant(self._instant.plan_date, t, self._tz))
 
-    def set_utc_time_on(self, day: date, utc_time: time) -> SimChange | None:
+    def set_utc_time_on(self, day: date, utc_time: time) -> bool:
         """Move to the instant whose **local date** is ``day`` and whose **UTC time of
         day** is ``utc_time`` - the clock-side operation a year's camera tour needs
         (ADR-053 addendum L6, ADR-072 addendum, issue #732).
 
         The wall reading is derived through the zone, so the repeated autumn hour gets
         the occurrence whose UTC time matches (``fold`` is part of the reading, not an
-        afterthought). ``None`` when no instant on that local date has that UTC time
-        of day - within an hour of midnight across a DST change - and the caller clamps.
+        afterthought).
+
+        Returns **True** when the clock holds that instant - including when it already
+        did, which is not a failure - and **False** only when no instant on that local
+        date has that UTC time of day (within an hour of midnight across a DST change);
+        the caller then clamps. The two outcomes are distinct because the tour must not
+        mistake "unchanged" for "no such moment" and fall back to offset arithmetic.
         """
         for shift in (-1, 0, 1):
             try:
@@ -393,8 +398,9 @@ class SimClock:
             except ValueError:   # a date outside the supported range at an edge
                 continue
             if candidate.plan_date == day and candidate.utc == moment:
-                return self._commit(candidate)
-        return None
+                self._commit(candidate)
+                return True
+        return False
 
     def _commit(self, new: SimInstant) -> SimChange | None:
         if self._notifying:

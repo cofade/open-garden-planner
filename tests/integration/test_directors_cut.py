@@ -1151,14 +1151,40 @@ def test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour(rig: Rig)
         is_walking=lambda: False, parent=rig.window)
     capture._tour_holds_utc = True
     moments = []
-    for day in (date(2026, 10, 24), date(2026, 10, 25), date(2026, 10, 26)):
+    for day in (date(2026, 10, 24), date(2026, 10, 25), date(2026, 10, 25),
+                date(2026, 10, 26)):
         capture._tour_clock(day, None)
         moments.append((clock.plan_date, clock.utc.time(), clock.time_of_day))
     assert [moment[0] for moment in moments] == [
-        date(2026, 10, 24), date(2026, 10, 25), date(2026, 10, 26)]
+        date(2026, 10, 24), date(2026, 10, 25), date(2026, 10, 25), date(2026, 10, 26)]
     assert {moment[1] for moment in moments} == {time(1, 30)}, moments
     assert moments[0][2] == time(3, 30)
     assert moments[1][2] == time(2, 30), "the repeated hour's second occurrence"
+    assert moments[2][2] == time(2, 30), "a repeated date must not flip the occurrence"
+
+
+def test_a_year_time_lapse_repeating_a_change_day_keeps_the_instant(rig: Rig) -> None:
+    """A real tour has several frames on one date (8 date steps per second of video). The
+    fold must hold for every one of them, not only the first (#732, senior review)."""
+    from open_garden_planner.core.camera_path import tour_frames
+
+    clock = SimClock(datetime(2026, 10, 1, 3, 30), tz=EU_DST)
+    capture = WorkspaceCaptureCoordinator(
+        get_host=lambda: None, get_controller=lambda: None, get_look=lambda: None,
+        get_clock=lambda: clock, get_camera=lambda: None,
+        get_camera_now=lambda: ((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0),
+        forge_pending=lambda: 0, is_pane_showing=lambda: True, view_state=lambda: "running",
+        ground_point=lambda _x, _y: None, default_path=str, fly_path=lambda _eyes: None,
+        is_walking=lambda: False, parent=rig.window)
+    capture._tour_holds_utc = True
+    spec = TourSpec(HeldCamera(CameraKey((0.0, 0.0, 500.0), (0.0, 0.0, 0.0))),
+                    12.0, 24, date_range=(date(2026, 10, 1), date(2026, 10, 31)))
+    moments = []
+    for frame in tour_frames(spec):
+        assert frame.plan_date is not None
+        capture._tour_clock(frame.plan_date, frame.time_of_day)
+        moments.append(clock.utc.time())
+    assert len(moments) == 288 and len(set(moments)) == 1, sorted(set(moments))
 
 
 class _FakeRecorder:
@@ -1258,6 +1284,20 @@ def test_an_agent_uses_the_owners_date_while_a_tour_moves_the_clock(
 
         item = app.canvas_scene.find_item_by_id(UUID(created["item_id"]))
         assert item.metadata["plant_instance"]["planting_date"] == "2026-05-01"
+        # the same held date decides `present`: this plant is not planted yet on 1 May,
+        # but it is on the frame the tour is rendering (9 September)
+        item.metadata["plant_instance"]["planting_date"] = "2026-06-01"
+        from open_garden_planner.agent_api import queries
+
+        held = app._agent_host._agent_snapshot()
+        tree = next(obj for obj in queries.list_objects(held)
+                    if obj.item_id == created["item_id"])
+        assert tree.present is False and tree.as_of_date == "2026-05-01"
+        capture._clock_hold = None
+        later = app._agent_host._agent_snapshot()
+        tree = next(obj for obj in queries.list_objects(later)
+                    if obj.item_id == created["item_id"])
+        assert tree.present is True and tree.as_of_date == "2026-09-09"
     finally:
         app._workspace.capture._clock_hold = None
         app._stop_agent_api()
@@ -1345,3 +1385,72 @@ def test_the_app_close_hands_the_capture_its_shutdown(
         assert event.isAccepted()
     finally:
         app._stop_agent_api()
+
+
+def test_a_preview_never_asks_before_cancelling(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    recorder = _FakeRecorder()
+    dialog._recorder = recorder
+    dialog._recording = False
+    asked: list[str] = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *_a, **_k: asked.append("asked")
+                        or QMessageBox.StandardButton.Cancel)
+    dialog.reject()
+    assert not asked and recorder.cancelled == 1
+    dialog._recorder = None
+    dialog.close()
+
+
+def test_a_finishing_recording_cannot_be_asked_to_discard(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    recorder = _FakeRecorder()
+    recorder.running = False
+    dialog._recorder = recorder
+    dialog._recording = True
+    dialog._run_started_at = monotonic() - ASK_DISCARD_AFTER_S - 1.0
+    asked: list[str] = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *_a, **_k: asked.append("asked")
+                        or QMessageBox.StandardButton.Cancel)
+    dialog.reject()
+    assert not asked, "the file is already closing; a question cannot stop it"
+    dialog._recorder = None
+    dialog._recording = False
+    dialog.close()
+
+
+def test_a_png_sequence_says_its_frames_stay(rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    recorder = _FakeRecorder()
+    dialog._recorder = recorder
+    dialog._recording = True
+    dialog._sink_kind = "png"
+    dialog._output = Path("C:/tmp/tour-frames")
+    dialog._run_started_at = monotonic() - ASK_DISCARD_AFTER_S - 1.0
+    asked: list[str] = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda _parent, _title, text, *_a, **_k: asked.append(text)
+                        or QMessageBox.StandardButton.Yes)
+    dialog.reject()
+    assert asked and "frames already written" in asked[0]
+    assert "video is not saved" not in asked[0]
+    assert recorder.cancelled == 1
+    dialog._recorder = None
+    dialog._recording = False
+    dialog.close()
+
+
+def test_the_engine_going_closes_the_dialog_without_a_question(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    capture = rig.workspace.capture
+    capture._dialog = dialog
+    closed: list[bool] = []
+    monkeypatch.setattr(dialog, "close_for_shutdown", lambda: closed.append(True))
+    capture.set_enabled(False)
+    assert closed == [True]
+    capture._dialog = None
+    dialog.close()

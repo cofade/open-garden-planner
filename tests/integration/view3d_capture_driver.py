@@ -525,6 +525,8 @@ def scenario_timelapse(out: Path) -> dict[str, Any]:
         result: dict[str, Any] = {"settled_s": settled(workspace)}
         # A DST zone without tzdata, so the clock-change rows behave the same on every
         # test machine. The wall reading is what the user sees; the sun is read from UTC.
+        # Test-only private swap: the app builds its clock in the system zone and nothing
+        # but its own conversions reads `_tz`; there is no public seam for a test's zone.
         window._sim_clock._tz = EU_DST
         window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
         settled(workspace)

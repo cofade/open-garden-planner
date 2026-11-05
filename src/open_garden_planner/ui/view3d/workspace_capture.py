@@ -265,6 +265,8 @@ class WorkspaceCaptureCoordinator(QObject):
 
     def set_enabled(self, enabled: bool) -> None:
         """The engine is there (or gone): the actions follow."""
+        # if the settings wait for the new plan's framing, they must not outlive the engine
+        self._focus_pending = False
         self.photo_action.setEnabled(enabled)
         self.tour_action.setEnabled(enabled)
         if not enabled:
@@ -607,8 +609,10 @@ class WorkspaceCaptureCoordinator(QObject):
         The sun is computed from ``SimClock.utc``: holding the wall time across a DST
         change moves the sun by an hour, which read as a 24-level brightness step in the
         video. The wall reading is still what is written (ADR-053: user-facing writers
-        hand wall readings), derived from the day's offset; a reading that would cross
-        midnight is clamped to that day so the date range the dialog promised holds."""
+        hand wall readings); it is derived through the zone from the held UTC instant by
+        ``SimClock.set_utc_time_on``, so the repeated autumn hour's ``fold`` is right. A
+        local date with no such instant is clamped to that day so the date range the
+        dialog promised holds."""
         clock = self._get_clock()
         if clock is None:
             return
@@ -619,7 +623,7 @@ class WorkspaceCaptureCoordinator(QObject):
                     # The first frame shows the date the dialog says at the time the owner's
                     # clock had; THAT instant is what the rest of the year holds.
                     self._tour_utc_time = clock.utc.time()
-                elif clock.set_utc_time_on(day, self._tour_utc_time) is None:
+                elif not clock.set_utc_time_on(day, self._tour_utc_time):
                     # Within an hour of midnight the local date has no reading at the held
                     # UTC time (a 23-hour day): keep the frame's date and clamp the clock.
                     offset = clock.wall - clock.utc.replace(tzinfo=None)
@@ -685,6 +689,10 @@ class WorkspaceCaptureCoordinator(QObject):
             return
         from PyQt6.QtCore import QEventLoop, QTimer
 
+        # A modal dialog would sit in front of the close and could not be answered.
+        dialog, self._dialog = self._dialog, None
+        if dialog is not None:
+            dialog.close_for_shutdown()
         recorder.abort_now()
         if self._recorder is None:   # a preview's writer finished synchronously
             return

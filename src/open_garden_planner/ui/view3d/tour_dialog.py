@@ -438,9 +438,11 @@ class TourDialog(QDialog):
 
     def _on_finished(self, result: TourResult) -> None:
         recording = self._recording
+        programmatic = self._programmatic_close
         self._recorder = None
         self._recording = False
         self._run_started_at = None
+        self._programmatic_close = False
         self._progress.hide()
         self.cancel_button.hide()
         self.cancel_button.setEnabled(True)
@@ -453,8 +455,8 @@ class TourDialog(QDialog):
         self._status.setText(self._say(result, recording))
         self._sync_controls()
         closing, self._close_when_stopped = self._close_when_stopped, False
-        if closing and (result.cancelled or result.ok):   # a failure's reason stays to be read
-            self.close()
+        if closing and (result.cancelled or result.ok or programmatic):
+            self.close()   # a programmatic teardown cannot wait for a failure's reason
 
     def _say(self, result: TourResult, recording: bool) -> str:
         if result.cancelled:
@@ -488,15 +490,17 @@ class TourDialog(QDialog):
             question = self.tr(
                 "Stop the render? The frames already written to {path} stay.").format(
                     path=self._output)
+            stop = QMessageBox.StandardButton.Yes
         else:
             question = self.tr(
                 "Stop the recording? It has been running for {seconds:.0f} s, and the "
                 "video is not saved yet.").format(seconds=elapsed)
+            stop = QMessageBox.StandardButton.Discard
         answer = QMessageBox.question(
             self, self.tr("Camera Tour"), question,
-            QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            stop | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel)
-        return answer == QMessageBox.StandardButton.Discard
+        return answer == stop
 
     def close_for_shutdown(self) -> None:
         """The engine is going: close without asking, and stop what this dialog started."""

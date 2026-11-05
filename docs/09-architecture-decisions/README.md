@@ -4686,11 +4686,12 @@ The tour therefore holds the **UTC time of day** for a date range:
   flight preview writes the clock not at all, so a date set while one runs survives it (ADR-072
   addendum, #730).
 
-Pinned by `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`
-and `::test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour` (an EU DST zone without
-tzdata: constant UTC time-of-day across both changes, the dialog's dates kept, and a 03:30 start on
-the change day that the wall-offset version turned into a one-hour jump) and the render tier's
-two-week clock-change luma gate
+Pinned by `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`,
+`::test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour` and
+`::test_a_year_time_lapse_repeating_a_change_day_keeps_the_instant` (an EU DST zone without
+tzdata: constant UTC time-of-day across both changes, the dialog's dates kept, a 03:30 start on
+the change day that the wall-offset version turned into a one-hour jump, and a real tour's repeated
+date steps) and the render tier's two-week clock-change luma gate
 (`tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`:
 largest step 1.53 levels after the fix against 18.07 before it).
 
@@ -10600,7 +10601,8 @@ anything the owner did not ask it to change - not the clock, not a kept file, no
    `ProjectManager.snapshot_dict(scene, as_of_date=...)` derives `as_of_date` and every object's
    `present` from that one date. A plant an agent creates during a time-lapse is stamped with the
    owner's planting date, not the frame being rendered. A document change still ends a tour (the
-   scene it was rendering is gone); the dialog says so. Diagnostics and the 2D render describe
+   scene it was rendering is gone); the dialog's status says "Cancelled." Diagnostics and the 2D
+   render describe
    the frame the tour is currently showing; they are not date claims.
 3. **A year's tour holds UTC, not the wall time.** The sun is `SimClock.utc`'s function; a wall
    time held across a DST change moved the sun by an hour (measured: an 18.07-level step between
@@ -10620,6 +10622,8 @@ anything the owner did not ask it to change - not the clock, not a kept file, no
    `WorkspaceCaptureCoordinator.shutdown`, which aborts the recorder and waits (bounded,
    2.5 s) for its file to close; if the encoder is still closing then, it names the unfinished
    output in a warning, so the user can find it instead of the part disappearing unreported.
+   Numbered parts are deliberately kept: the app never deletes a finished render, and the user
+   can remove one.
 5. **The focus invariant lives in one place.** `set_settings` enforces "blur above 0 in photo mode
    implies a focused point": with no clicked point it focuses the camera target, or, while
    walking, the ground point under the view's centre (the 100 cm mid-air target is behind the

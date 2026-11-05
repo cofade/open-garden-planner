@@ -332,7 +332,7 @@ Symptom: a long render finished while the earlier `tour.mp4` was open in a playe
 
 ### PF-E3D-23
 
-- **Rule:** While a camera tour moves the shared sim clock, the owner's held moment - not `SimClock.plan_date` - is what every agent-facing **date claim** must use: `get_plan_summary`'s `as_of_date` and each object's `present`, and a newly created plant's planting date. Only a tour with a `date_range` or `time_range` holds the clock; diagnostics and a 2D render describe the frame the tour is showing and are not date claims.
+- **Rule:** While a camera tour moves the shared sim clock, the owner's held moment - not `SimClock.plan_date` - is what every agent-facing date claim must use: `get_plan_summary`'s `as_of_date` and each object's `present`, and a newly created plant's planting date. Only a tour with a `date_range` or `time_range` holds the clock; diagnostics and a 2D render describe the frame the tour is showing and are not date claims.
 - **Pinned by:** `tests/integration/test_directors_cut.py::test_a_time_lapse_holds_the_owners_date_for_agent_reads`; `tests/integration/test_directors_cut.py::test_an_agent_uses_the_owners_date_while_a_tour_moves_the_clock`; `tests/integration/test_directors_cut.py::test_a_flight_preview_leaves_a_date_set_during_it_alone`
 - **Source:** #730, found by the senior review of PR #729; ADR-072 addendum.
 - **Status:** standing
@@ -343,7 +343,7 @@ Symptom: an agent creating a tree during a year time-lapse planted it on the dat
 ### PF-E3D-24
 
 - **Rule:** A clock writer that sweeps DATES holds the UTC time of day, not the wall time: the sun is computed from `SimClock.utc`, so a wall time held across a DST change moves the sun by an hour. Use `SimClock.set_utc_time_on(day, utc_time)`, which derives the wall reading through the zone (the repeated hour's `fold` included); a local date with no such instant (within an hour of midnight) is clamped to that date.
-- **Pinned by:** `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`; `tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`
+- **Pinned by:** `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`; `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour`; `tests/integration/test_directors_cut.py::test_a_year_time_lapse_repeating_a_change_day_keeps_the_instant`; `tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`
 - **Source:** #732, found by the 3D review of PR #729; ADR-053 addendum L6, ADR-072 addendum.
 - **Status:** standing
 - **Legacy:** none (new entry).
