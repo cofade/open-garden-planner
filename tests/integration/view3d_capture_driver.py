@@ -385,7 +385,7 @@ def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
     GardenPlannerApp._confirm_discard_changes = lambda _self: True  # type: ignore[method-assign]
     window = GardenPlannerApp()
     if clock_zone is not None:
-        assert window._sim_clock.zone is clock_zone, "the test clock zone did not reach the app"
+        assert window._sim_clock.tz is clock_zone, "the test clock zone did not reach the app"
     window.resize(1100, 700)
     window.show()
     window._project_manager.load(window.canvas_scene, PLAN)

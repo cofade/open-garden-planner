@@ -1443,16 +1443,12 @@ def test_a_png_sequence_says_its_frames_stay(rig: Rig, monkeypatch: pytest.Monke
     dialog.close()
 
 
-def test_the_engine_going_closes_the_dialog_without_a_question(
-        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_engine_going_closes_the_dialog_without_a_question(rig: Rig) -> None:
     dialog = dialog_of(rig)
     capture = rig.workspace.capture
     capture._dialog = dialog
-    closed: list[bool] = []
-    monkeypatch.setattr(dialog, "close_for_shutdown", lambda: closed.append(True))
     capture.set_enabled(False)
-    assert closed == [True]
-    capture._dialog = None
+    assert capture._dialog is None and not dialog.isVisible()
     dialog.close()
 
 
@@ -1550,3 +1546,63 @@ def test_a_tour_started_at_half_past_midnight_keeps_its_exact_instants(rig: Rig)
         date(2026, 6, 21), date(2026, 6, 22), date(2026, 6, 23)]
     assert {moment[1] for moment in moments} == {time(22, 30)}, moments
     assert [moment[2] for moment in moments] == [time(0, 30)] * 3
+
+
+def test_a_tour_started_in_the_spring_gap_holds_utc(rig: Rig) -> None:
+    """A wall reading inside the skipped 02:00-03:00 hour resolves by PEP 495 to the
+    pre-gap offset; the tour holds that UTC instant and the next day reads 03:30."""
+    clock = SimClock(datetime(2026, 3, 29, 2, 30), tz=EU_DST)
+    capture = WorkspaceCaptureCoordinator(
+        get_host=lambda: None, get_controller=lambda: None, get_look=lambda: None,
+        get_clock=lambda: clock, get_camera=lambda: None,
+        get_camera_now=lambda: ((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0),
+        forge_pending=lambda: 0, is_pane_showing=lambda: True, view_state=lambda: "running",
+        ground_point=lambda _x, _y: None, default_path=str, fly_path=lambda _eyes: None,
+        is_walking=lambda: False, parent=rig.window)
+    capture._tour_holds_utc = True
+    moments = []
+    for day in (date(2026, 3, 29), date(2026, 3, 30)):
+        capture._tour_clock(day, None)
+        moments.append((clock.plan_date, clock.utc.time(), clock.time_of_day))
+    assert [moment[0] for moment in moments] == [date(2026, 3, 29), date(2026, 3, 30)]
+    assert {moment[1] for moment in moments} == {time(1, 30)}, moments
+    assert moments[0][2] == time(2, 30) and moments[1][2] == time(3, 30)
+
+
+def test_the_window_close_of_a_preview_does_not_ask(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    recorder = _FakeRecorder()
+    dialog._recorder = recorder
+    dialog._recording = False
+    asked: list[str] = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *_a, **_k: asked.append("asked")
+                        or QMessageBox.StandardButton.Cancel)
+    event = QCloseEvent()
+    dialog.closeEvent(event)
+    assert not asked and recorder.cancelled == 1
+    assert not event.isAccepted()
+    dialog._recorder = None
+    dialog.close()
+
+
+def test_the_window_close_of_a_png_sequence_says_frames_stay(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    recorder = _FakeRecorder()
+    dialog._recorder = recorder
+    dialog._recording = True
+    dialog._sink_kind = "png"
+    dialog._output = Path("C:/tmp/tour-frames")
+    dialog._run_started_at = monotonic() - ASK_DISCARD_AFTER_S - 1.0
+    asked: list[str] = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda _parent, _title, text, *_a, **_k: asked.append(text)
+                        or QMessageBox.StandardButton.Yes)
+    event = QCloseEvent()
+    dialog.closeEvent(event)
+    assert asked and "frames already written" in asked[0]
+    assert recorder.cancelled == 1 and not event.isAccepted()
+    dialog._recorder = None
+    dialog.close()

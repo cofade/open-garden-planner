@@ -336,6 +336,8 @@ class SimClock:
 
     @property
     def tz(self) -> tzinfo | None:
+        """The clock's zone (``None``: the system zone), read-only. Not a local-date
+        read: use ``plan_date`` for that (the module note explains the difference)."""
         return self._tz
 
     @property
@@ -359,12 +361,6 @@ class SimClock:
     def utc(self) -> datetime:
         """The instant for the solar math."""
         return self._instant.utc
-
-    @property
-    def zone(self) -> tzinfo | None:
-        """The clock's zone (``None``: the system zone), read-only. Not a local-date
-        read: use ``plan_date`` for that (the module note explains the difference)."""
-        return self._tz
 
     # ── writes ───────────────────────────────────────────────────────────
 
