@@ -7191,7 +7191,7 @@ collections (150 per collection; 600 of them repeats), and `_union_int` spent
 on a slow runner — a 150-shed plan blocked the GUI thread for seconds on every sun or
 heatmap refresh.
 
-**Decision.** `_cached_roof_triangles` (a 128-entry `lru_cache`) keys the **local**
+**Decision.** `_cached_roof_triangles` (a 64-entry `lru_cache`) keys the **local**
 triangles by kind, outline shape, ring (rounded to 10 nm), height, roof style, pitch,
 overhang and ridge. A changed roof is a new key, never a stale hit; the caller poses the
 same local triangles for every identical building. Measured: one mesh build for 150
