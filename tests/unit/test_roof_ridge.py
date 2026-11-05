@@ -405,3 +405,70 @@ class TestHandMovedRidgeEndpoint:
         assert deviation <= RIDGE_EPS_CM, (
             f"ridge should be canonical after a polygon edit, was {deviation:.2f} cm off"
         )
+
+
+class TestAngledHousePolygonRidge:
+    """Issue #748: drawing a house polygon at an angle (with item rotation 0)
+    must align the ridge with the polygon's dominant axis rather than forcing
+    an axis-aligned (horizontal or vertical) ridge."""
+
+    @pytest.mark.parametrize("angle_deg", [15.0, 30.0, 45.0, 60.0, 75.0])
+    def test_angled_polygon_ridge_aligns_with_longest_edge(self, angle_deg: float) -> None:
+        rad = math.radians(angle_deg)
+        c, s = math.cos(rad), math.sin(rad)
+        w, h = 800.0, 400.0
+        poly = QPolygonF([
+            QPointF(0.0, 0.0),
+            QPointF(w * c, w * s),
+            QPointF(w * c - h * s, w * s + h * c),
+            QPointF(-h * s, h * c),
+        ])
+        p1, p2 = compute_roof_ridge_endpoints(poly, QPointF(0.0, 0.0))
+
+        expected_p1 = QPointF(-h * s / 2.0, h * c / 2.0)
+        expected_p2 = QPointF(w * c - h * s / 2.0, w * s + h * c / 2.0)
+
+        assert abs(p1.x() - expected_p1.x()) < 1e-3
+        assert abs(p1.y() - expected_p1.y()) < 1e-3
+        assert abs(p2.x() - expected_p2.x()) < 1e-3
+        assert abs(p2.y() - expected_p2.y()) < 1e-3
+
+        dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
+        computed_angle = math.degrees(math.atan2(dy, dx))
+        assert abs(computed_angle - angle_deg) < 1e-3
+
+    def test_subdivided_wall_aligns_with_house_axis(self) -> None:
+        """Subdividing a long wall (e.g. 800 cm split into 400 + 400 with 500 cm end wall)
+        must still identify the long axis via MABB / PCA, not raw edge length."""
+        rad = math.radians(35.0)
+        c, s = math.cos(rad), math.sin(rad)
+        raw = [(0.0, 0.0), (400.0, 0.0), (800.0, 0.0), (800.0, 500.0), (0.0, 500.0)]
+        poly = QPolygonF([QPointF(x * c - y * s, x * s + y * c) for x, y in raw])
+        p1, p2 = compute_roof_ridge_endpoints(poly, QPointF(0.0, 0.0))
+        dx, dy = p2.x() - p1.x(), p2.y() - p1.y()
+        computed_angle = math.degrees(math.atan2(dy, dx))
+        assert abs(computed_angle - 35.0) < 1e-2
+
+    def test_corner_tangent_grazing_line_deduplication(self) -> None:
+        """A line grazing a corner vertex must not return duplicate identical points."""
+        from open_garden_planner.core.roof_ridge import intersect_line_polygon
+
+        poly = QPolygonF([QPointF(0, 0), QPointF(100, 0), QPointF(100, 100), QPointF(0, 100)])
+        # Grazing corner (100, 100) tangent at -1, 1
+        res = intersect_line_polygon(poly, QPointF(100, 100), QPointF(-1, 1))
+        assert res is None
+
+    def test_fallback_clipping_stays_within_bounding_box(self) -> None:
+        """Fallback clipping must strictly stay within the bounding box boundaries."""
+        from PyQt6.QtCore import QRectF
+
+        from open_garden_planner.core.roof_ridge import _clip_line_to_bbox
+
+        bbox = QRectF(0, 0, 200, 100)
+        center = QPointF(100, 50)
+        direction = QPointF(math.cos(math.radians(45)), math.sin(math.radians(45)))
+        p1, p2 = _clip_line_to_bbox(bbox, center, direction)
+        assert bbox.left() - 1e-6 <= p1.x() <= bbox.right() + 1e-6
+        assert bbox.top() - 1e-6 <= p1.y() <= bbox.bottom() + 1e-6
+        assert bbox.left() - 1e-6 <= p2.x() <= bbox.right() + 1e-6
+        assert bbox.top() - 1e-6 <= p2.y() <= bbox.bottom() + 1e-6

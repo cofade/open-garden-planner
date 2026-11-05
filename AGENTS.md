@@ -254,21 +254,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
-- 3D Visual & Engine Hardening (#535, #578, #576, #619, #589, #582, #615) shipped
-  in v1.34.7 (PR #647): Software adapter detection (`adapter_info.py`), sun-path
-  arc 25% near-half fade & constant width, ground slope clamp 0.22, interior wood
-  floor & solid bed plants & generic ground shapes under Cutaway, Cutaway shader
-  pre-warming (`shaderWarmer`), and ground-bake benchmark contract alignment.
-- #443/#485 shipped in v1.34.9 (PR #649) after full owner manual acceptance:
-  command-owned bed membership reconciliation (ADR-037 addendum; PF-CAN-32),
-  atomic constrained rotations including partner corrections and touch takeover
-  (PF-DOM-30), and FIXED-aware Parallel/Perpendicular creation with indicators
-  attached to the selected edge. Child constraints outrank implicit bed carrying.
-- Touch/region/CI package (#321, #451, #540) shipped in v1.34.8 (PR #650): pinch and
-  two-finger pan behind `canvas/touch_gestures_enabled`, the bridge search re-priced
-  (`_BRIDGE_UNITS` 600; 110 touching holes refused in ~0.07 s, dearest work row 1.3–1.5),
-  and the `render3d` job's G5 close + G6 compatibility workspace rows. The owner accepted
-  the touch evidence without a physical device; the hardware checklist stays in PR #650.
+- Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
+  #685, #706, #707, #708, #710, #700): Angled house polygon roof ridge aligns with
+  dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast
+  card weekdays (`current_locale`); location readers outside L5 route through `plan_place`
+  (safe on hostile plan numbers); stale frost alerts cleared on File > New, load, and failed fetch;
+  PID collision mock in `Init3DGuard` tests; 2D string lights paint order (glow, wire, posts, bulbs);
+  string lights thumbnail moved to `string_lights_paint.py`; 3D string lights wire segments doubled
+  and bulbs tessellated (12 segments, 5 rings); and shadow agreement prose pruned to defer to ADR-059.
+- 3D hardening, touch/region/CI, and bed/constraint reconciliation (#535/#578/#619, #443/#485, #321/#451) shipped in v1.34.7–v1.34.9 (PRs #647, #649, #650); details in [history](docs/agent-pickup-history.md).
 - CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669,
   #670) shipped in **v1.34.10 (PR #672)** after owner manual acceptance on
   2026-11-01. FIXED locks round-trip and are inert during a drag; a grouped

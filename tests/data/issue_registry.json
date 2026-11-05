@@ -494,11 +494,6 @@
     "state": "CLOSED",
     "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
   },
-  "383": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Phase 17 epic: Living Garden 3D — Qt Quick 3D renderer, procedural world, honest beauty"
-  },
   "385": {
     "is_pr": false,
     "state": "CLOSED",
@@ -814,11 +809,6 @@
     "state": "CLOSED",
     "title": "3D View and Alt+1/2/3 do nothing visible from any tab other than Garden Plan"
   },
-  "540": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "CI never runs the default 3D workspace on a real host; local WARP failures in the workspace/selection/default render files"
-  },
   "542": {
     "is_pr": false,
     "state": "CLOSED",
@@ -879,20 +869,10 @@
     "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
-  "576": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L2 3D: sun-path arcs should have a screen-constant width"
-  },
   "578": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "L2 3D: the near half of the sun-path dome crosses in front of the garden"
-  },
-  "582": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L2 3D: time the first Cutaway fade's shader compile (warm the door materials if > 100 ms)"
   },
   "584": {
     "is_pr": true,
@@ -908,11 +888,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Probes outside scripts/ bypass script_isolation - nothing stops one writing the owner's real settings (it switched off the Welcome dialog)"
-  },
-  "589": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Phase 17 L2 follow-up: X-ray look, bed plants in Cutaway, flat sun map, building floor, generic shapes under the sun study"
   },
   "592": {
     "is_pr": false,
@@ -1179,45 +1154,40 @@
     "state": "MERGED",
     "title": "fix(#659, #660): decode site-plan-sized backgrounds and encode them once"
   },
+  "685": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky: test_a_death_in_software_mode_switches_3d_off_and_says_so depends on which real PIDs are alive"
+  },
   "686": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
-  },
-  "687": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
   },
   "688": {
     "is_pr": false,
     "state": "OPEN",
     "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
   },
-  "689": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
-  },
   "690": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
   },
-  "692": {
+  "694": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
+    "title": "Stale frost alerts survive File > New, a cleared location and a failed fetch (badge, dashboard, Tasks tab, agent)"
   },
   "695": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
   },
-  "698": {
+  "697": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "2D shadow: give open objects (string lights, pergola, swing, hammock, trellis, garden light) a transmittance via #440's hook"
+    "title": "Location readers outside L5 raise on a hostile plan (OverflowError, NaN, text): route them through plan_place"
   },
   "699": {
     "is_pr": true,
@@ -1239,6 +1209,21 @@
     "state": "CLOSED",
     "title": "The plan loader caps a polygon's vertices but not a polyline's"
   },
+  "706": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D: a string's post symbol hides the bulb kept 6 cm from it (paint the posts before the bulbs)"
+  },
+  "707": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "String lights: stale text and three test gaps after PR #699's reviews"
+  },
+  "708": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Layering: the string's type icon lives in the gallery's data module; Record.has_2d_caster has only test readers"
+  },
   "710": {
     "is_pr": false,
     "state": "OPEN",
@@ -1254,11 +1239,6 @@
     "state": "MERGED",
     "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
   },
-  "714": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Render tier: distant-horizon gate fails on master (403 m / 15° rows 3.44–3.48 > 3.0 luma)"
-  },
   "716": {
     "is_pr": false,
     "state": "OPEN",
@@ -1268,11 +1248,6 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
-  },
-  "718": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Render tier: the flood-release soak never settles its initial forge/LOD work (pre-existing on master)"
   },
   "719": {
     "is_pr": false,
@@ -1293,16 +1268,6 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
-  },
-  "723": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
-  },
-  "724": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
   },
   "726": {
     "is_pr": false,
@@ -1363,6 +1328,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#741, #740, #727, #726, #703, #712): 2D drawing & CAD integrity follow-ups"
+  },
+  "748": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Drawing house polygon at an angle forces axis-aligned roof ridge and distorted roof pitch"
   },
   "750": {
     "is_pr": true,

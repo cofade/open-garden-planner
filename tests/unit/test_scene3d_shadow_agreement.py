@@ -501,3 +501,18 @@ def test_the_stroke_widths_are_the_2d_presets() -> None:
     cases = {case.name: case for case in script.cases()}
     assert cases["wall"].record.path_width_cm == 4.0
     assert cases["wall"].record.height_cm == 200.0 and cases["picket fence"].record.height_cm == 120.0
+
+
+def test_shadow_agreement_narrative_is_not_duplicated_outside_adr059() -> None:
+    """Issue #700: the detailed narrative of reach differences, pre-#440 gable geometry
+    and fence porosity belongs solely in ADR-059's builders addendum. Neither §8.29.6
+    nor the script's docstring duplicates drifting figures or unverified ratios."""
+    concepts_text = CONCEPTS.read_text(encoding="utf-8")
+    assert 'see ADR-059 addendum "builders v0"' in concepts_text
+    # §8.29.6 should not carry the duplicate narrative prose with hardcoded driftable numbers
+    assert "2.7 m on the bench house" not in concepts_text
+    assert "agrees within 2.5 cm for the prisms" not in concepts_text
+
+    script_text = SCRIPT.read_text(encoding="utf-8")
+    assert 'ADR-059 addendum "builders v0"' in script_text
+    assert "IoU against the unweighted strip" not in script_text

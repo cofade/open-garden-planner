@@ -47,8 +47,8 @@ KINDS: Final[tuple[str, ...]] = ("GARDEN_LIGHT", "STRING_LIGHTS")
 SAG_SHARE: Final = 0.08
 #: The wire of one span is at most this many straight pieces of its parabola — one per
 #: ``WIRE_PIECE_CM`` of span, at least two.
-WIRE_PIECES: Final = 12
-WIRE_PIECE_CM: Final = 50.0
+WIRE_PIECES: Final = 24
+WIRE_PIECE_CM: Final = 25.0
 #: The side of a string's square wooden post, cm.
 STRING_POST_CM: Final = 4.0
 #: The radius of a string's wire, cm — 0.35 broke into dashes at 7 m on Low (3D review
@@ -224,7 +224,7 @@ def _string_lights(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
             bulbs.append(rod([(x, y, bz + BULB_RADIUS_CM)], [(x, y, bz + BULB_RADIUS_CM + 1.2)],
                              0.5, palette.RUBBER.linear, sides=4))
             bulbs.append(ball(x, y, bz, BULB_RADIUS_CM, palette.CANVAS_CREAM.linear,
-                              squash=BULB_SQUASH, rings=4, segments=8))
+                              squash=BULB_SQUASH, rings=5, segments=12))
     parts = [MeshPart(Mesh.merge(meshes), "vc", name="string lights")]
     if bulbs:
         parts.append(MeshPart(Mesh.merge(bulbs), "vc", casts_shadow=False, name="bulbs"))
@@ -246,10 +246,10 @@ def register(registry: BuilderRegistry) -> None:
 
 
 #: What one part of a string costs, in triangles (measured: a bevelled post 38, a wire
-#: piece of 4 sides 8, a bulb's ball 64 and its cap 8).
+#: piece of 4 sides 8, a bulb's ball 120 and its cap 8; #710).
 _POST_TRIANGLES: Final = 38
 _WIRE_PIECE_TRIANGLES: Final = 8
-_BULB_TRIANGLES: Final = 64 + 8
+_BULB_TRIANGLES: Final = 120 + 8
 
 
 def string_triangle_budget(record: Record) -> int:

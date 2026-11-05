@@ -85,6 +85,18 @@ def test_change_type_offers_it_with_the_lines_only() -> None:
 # ── the 2D picture ───────────────────────────────────────────────────────────
 
 
+def _render_in_scene(item: PolylineItem) -> tuple[QImage, QRectF]:
+    scene = item.scene()
+    source = item.sceneBoundingRect()
+    image = QImage(math.ceil(source.width()), math.ceil(source.height()),
+                   QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    scene.render(painter, QRectF(0, 0, image.width(), image.height()),
+                 QRectF(source.left(), source.top(), image.width(), image.height()))
+    painter.end()
+    return image, source
+
 def _render(item: PolylineItem) -> tuple[QImage, QRectF]:
     """The item alone through its real ``paint`` at 1 px per cm, item-local = scene."""
     scene = QGraphicsScene()
@@ -228,8 +240,9 @@ def test_it_survives_save_and_load_as_a_line(qtbot) -> None:
 def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch) -> None:
     """Security review of #389: a plan file can hold a string with any number of points.
     The layout stands it on ``MAX_POSTS`` posts, a paint draws that layout from the
-    item's cache (the line is walked once, not on every paint), and its 3D model stays
-    inside its budget."""
+    item's cache (the line is walked once, not on every paint). In the app, the 3D snapshot
+    refuses lines beyond MAX_ITEM_VERTICES (16,384); this test builds points[:4_000] and
+    asserts its 3D model stays inside its budget (#707)."""
     from open_garden_planner.core.scene3d.builders import production_registry
     from open_garden_planner.core.scene3d.builders.lights import string_triangle_budget
     from open_garden_planner.core.string_lights import MAX_BULBS_PER_STRING, MAX_POSTS
@@ -253,7 +266,7 @@ def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch)
 
     record = line_record("STRING_LIGHTS", tuple(points[:4_000]), 250.0, width=12.0)
     triangles = sum(part.mesh.triangle_count for part in production_registry().build(record))
-    assert triangles <= string_triangle_budget(record) <= 38 * MAX_POSTS + 96 * MAX_POSTS + 72 * MAX_BULBS_PER_STRING
+    assert triangles <= string_triangle_budget(record) <= 38 * MAX_POSTS + 192 * MAX_POSTS + 128 * MAX_BULBS_PER_STRING
 
 
 def test_the_gallery_shows_a_painted_string(qtbot) -> None:
@@ -312,10 +325,9 @@ def test_change_type_turns_a_fence_into_a_string_and_undo_turns_it_back(canvas: 
     assert fence.pen().widthF() == pytest.approx(12.0)
     assert fence.path_fence_style is PathFenceStyle.NONE
     assert not casts()
-    image, source = _render(fence)
+    image, source = _render_in_scene(fence)
     x, y = layout([(p.x(), p.y()) for p in fence.points]).bulbs_xy()[0]
     assert _pixel(image, source, x, y).red() > 200, "its bulbs are drawn"
-    canvas.scene().addItem(fence)
     canvas.command_manager.undo()
     assert fence.object_type is ObjectType.FENCE
     assert fence.pen().widthF() == pytest.approx(width)
@@ -344,3 +356,20 @@ def test_a_moved_and_turned_string_hangs_its_3d_bulbs_where_2d_draws_them(qtbot,
     assert len(source.bulb_points) == len(drawn)
     for point, (east, north, _up) in zip(drawn, source.bulb_points, strict=True):
         assert (east, north) == pytest.approx((point.x(), point.y()), abs=0.01)
+
+
+def test_straight_symmetric_string_bulb_near_middle_post_shows_cream_at_centre(qtbot) -> None:
+    """Issue #706: A straight string with posts at 0 / 220 / 440 cm hangs a bulb at x = 214,
+    overlapping the middle post's 12 cm symbol. Painted in order glow, wire, posts, bulbs,
+    the bulb centre must show cream, not post grey or wire dark."""
+    line = ((0.0, 0.0), (220.0, 0.0), (440.0, 0.0))
+    item = _string(line)
+    image, source = _render(item)
+    lay = layout(line)
+    middle = lay.posts[1]  # (220.0, 0.0)
+    bulb_x, bulb_y = min(lay.bulbs_xy(),
+                         key=lambda p: math.hypot(p[0] - middle[0], p[1] - middle[1]))
+    assert bulb_x == pytest.approx(214.0)
+    colour = _pixel(image, source, bulb_x, bulb_y)
+    # The bulb's centre must show cream (R>220, G>200), not grey wood (R~145, G~138)
+    assert colour.red() > 220 and colour.green() > 200, (colour.red(), colour.green(), colour.blue())

@@ -399,3 +399,45 @@ def _phrase_is_in_string_literal(line: str, phrase: str) -> bool:
     has_quote_before = any(q in before for q in ('"', "'"))
     has_quote_after = any(q in after for q in ('"', "'"))
     return has_quote_before and has_quote_after
+
+
+class TestWeatherForecastWeekdayTranslation:
+    """Issue #702: weather forecast cards must show weekday names in the UI language."""
+
+    def test_forecast_cell_weekday_name_follows_language(self, qtbot) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        from open_garden_planner.core.i18n import load_translator
+        from open_garden_planner.services.weather_service import DayForecast
+        from open_garden_planner.ui.widgets.weather_widget import _DayCell
+
+        app = QApplication.instance()
+        cell = _DayCell()
+        qtbot.addWidget(cell)
+
+        # 2026-11-02 is Monday (isoweekday 1)
+        mock_day = DayForecast(
+            date="2026-11-02",
+            weathercode=0,
+            max_c=18.0,
+            min_c=8.0,
+            precipitation_mm=0.0,
+        )
+
+        try:
+            # German: "Mo."
+            load_translator(app, "de")
+            cell.set_day(mock_day)
+            assert cell._day_lbl.text() == "Mo."
+
+            # Spanish: starts with "lun"
+            load_translator(app, "es")
+            cell.set_day(mock_day)
+            assert cell._day_lbl.text().lower().startswith("lun")
+
+            # English: "Mon"
+            load_translator(app, "en")
+            cell.set_day(mock_day)
+            assert cell._day_lbl.text() == "Mon"
+        finally:
+            load_translator(app, "en")

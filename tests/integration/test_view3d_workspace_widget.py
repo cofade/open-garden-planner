@@ -1063,7 +1063,7 @@ def test_3d_hidden_before_its_first_frame_leaves_no_marker_a_second_instance_cou
 
 def test_a_death_last_time_means_software_mode_with_one_notice_and_a_way_back(
         canvas: CanvasView, qtbot, tmp_path: Path) -> None:
-    Init3DGuard(tmp_path, pid=7777).begin()        # a process that never came back
+    Init3DGuard(tmp_path, pid=7777, is_running=lambda _pid: False).begin()        # a process that never came back
     bench = Bench(canvas, qtbot, tmp_path)
     workspace = bench.workspace
     workspace.set_mode(VIEW3D)
@@ -1221,8 +1221,8 @@ def test_a_death_in_software_mode_switches_3d_off_and_says_so(
         canvas: CanvasView, qtbot, tmp_path: Path) -> None:
     """The third outcome: nothing is built, nothing is marked, the pane says why, and
     the one way back is there. Before, this machine died at every 3D open."""
-    Init3DGuard(tmp_path, pid=7777).begin()        # died on the graphics card …
-    Init3DGuard(tmp_path, pid=7778).begin()        # … and the software start after it died too
+    Init3DGuard(tmp_path, pid=7777, is_running=lambda _pid: False).begin()        # died on the graphics card …
+    Init3DGuard(tmp_path, pid=7778, is_running=lambda _pid: False).begin()        # … and the software start after it died too
     bench = Bench(canvas, qtbot, tmp_path)
     workspace = bench.workspace
     workspace.set_mode(VIEW3D)
@@ -1244,7 +1244,7 @@ def test_a_death_in_software_mode_switches_3d_off_and_says_so(
     button.click()
     assert bench.files() == [] and not button.isVisible()
     # the next session starts on the graphics card again
-    assert Init3DGuard(tmp_path, pid=ME + 1).begin() is RenderMode.HARDWARE
+    assert Init3DGuard(tmp_path, pid=ME + 1, is_running=lambda _pid: False).begin() is RenderMode.HARDWARE
 
 
 def test_an_engine_that_cannot_be_built_is_a_message_and_can_be_tried_again(

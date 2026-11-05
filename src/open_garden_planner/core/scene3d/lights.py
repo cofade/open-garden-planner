@@ -13,7 +13,7 @@ WHERE: the bulbs are the builder's own (``builders.lights.lantern_bulb`` /
 ``string_bulbs``), placed into the scene by the record's pose — the same pose the
 engine gives the item's Model (``Transform``: east, north, rotation counter-clockwise
 seen from above, base). A glow can never hang beside its bulb; the point light stands
-just below the glass (``builders.lights.lamp_light``).
+just below the lantern (``builders.lights.lamp_light``).
 """
 
 from __future__ import annotations

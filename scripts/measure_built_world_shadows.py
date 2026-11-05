@@ -24,21 +24,11 @@ union (IoU) of the two, and the REACH difference — how much further (+) or les
 far (-) the 3D shadow extends along the shadow direction than the 2D one, in cm:
 where the shadow's TIP is. The truth gate "Shadows" (``ogp-lush-cinematic`` §1,
 IoU >= 0.85) is defined on a solid box caster, where both models are the same
-solid. The built world's 3D bodies differ from the 2D model in these stated ways,
-and this table is what each costs today (the history before #440: ADR-059):
-
-* a LINE has no thickness in the plan (its stroke is a line weight), so the 3D
-  body has a nominal section: wider than the stroke for a wall, a stone-wall or
-  hedge fence — a wider shadow, more so at a high sun;
-* a PICKET, METAL or CHAIN-LINK fence is mostly air: its 3D shadow is the bars'
-  and wires', a fraction of the strip — the 2D model weights the strip by that
-  transmittance (ratio 0.98–1.09; IoU against the unweighted strip 0.12–0.68);
-* a HOUSE or shed with a pitched roof is projected as its roof and walls in both
-  models (reach 0.0); a FLAT roof is still the prism;
-* a POT tapers and a hedge is a leaf shell drawn in from its outline.
-
-A raised bed and a box are prisms in both: IoU 1.00, reach equal. A plain panel
-(a line in a style no builder knows) is the stroke strip itself: IoU 1.00.
+solid. The built world's 3D bodies differ from the 2D model in four stated ways
+(nominal sections, fence porosity, pitched roofs, and taper/leaf shells).
+Prisms and plain panels agree in both models (IoU 1.00, reach equal). See
+ADR-059 addendum "builders v0" ("Where the tip is") for the detailed per-kind
+narrative, derivations, and pre-#440 history.
 
 **Measuring conditions.** One item on flat ground, the sun square to a straight
 10 m line (or to / along the ridge, as the case says), the mesh projected

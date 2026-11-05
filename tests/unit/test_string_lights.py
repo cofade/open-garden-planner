@@ -41,7 +41,8 @@ def test_the_bulbs_are_evenly_spaced_along_the_wire() -> None:
     [(float(60 * i), 80.0 * (i % 2)) for i in range(30)],             # a zig-zag of 30 posts
     [(0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0)],  # a closed square
     [(0.0, 0.0), (20.0, 0.0), (40.0, 0.0), (300.0, 0.0)],             # spans shorter than 2x
-], ids=["v-odd", "v", "zigzag", "loop", "short-spans"])
+    [(0.0, 0.0), (5.0, 0.0), (15.0, 0.0), (300.0, 0.0)],              # spans <= 12 cm covering share=0.5
+], ids=["v-odd", "v", "zigzag", "loop", "short-spans", "tiny-spans"])
 def test_no_bulb_hangs_inside_a_post(points) -> None:
     """3D review of the line: an arc length on a post put a 2.6 cm ball inside the 4 cm
     post — the middle post of every symmetric string with an odd bulb count. Every bulb
@@ -96,3 +97,12 @@ def test_a_line_of_twenty_thousand_points_stands_on_max_posts() -> None:
     assert len(lay.bulbs) == MAX_BULBS_PER_STRING
     xs = [x for x, _y in lay.posts]
     assert xs == sorted(xs), "thinned in order"
+
+
+def test_post_clearance_exceeds_post_diagonal_plus_bulb_radius() -> None:
+    """Issue #707: POST_CLEAR_CM = 6 is safe only while
+    STRING_POST_CM / 2 * sqrt(2) + BULB_RADIUS_CM stays below it."""
+    from open_garden_planner.core.scene3d.builders.lights import BULB_RADIUS_CM, STRING_POST_CM
+
+    worst_post_reach = (STRING_POST_CM / 2.0) * math.sqrt(2.0) + BULB_RADIUS_CM
+    assert worst_post_reach < POST_CLEAR_CM

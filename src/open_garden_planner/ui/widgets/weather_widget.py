@@ -10,7 +10,7 @@ import contextlib
 import datetime
 from typing import Any
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QLocale, Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.i18n import current_locale
 from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.services.weather_service import (
     WeatherForecast,
@@ -441,7 +442,7 @@ class _DayCell(QFrame):
     def set_day(self, day: Any) -> None:
         """Populate the cell with forecast data."""
         date = datetime.date.fromisoformat(day.date)
-        day_name = date.strftime("%a")
+        day_name = current_locale().dayName(date.isoweekday(), QLocale.FormatType.ShortFormat)
         self._day_lbl.setText(day_name)
         pixmap = get_pixmap(wmo_to_icon(day.weathercode), 36)
         if pixmap is not None:
