@@ -1358,5 +1358,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#730, #731, #732, #745): capture-session integrity - clock, files, focus"
+  },
+  "752": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#748, #702, #697, #694, #685, #706, #707, #708, #710, #700): CAD geometry, weather resilience, lighting & test hygiene"
   }
 }

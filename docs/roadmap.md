@@ -4132,7 +4132,7 @@ Follow-up hardening and consistency slice across 2D CAD items, grouped houses, a
 
 Docs: FR-EDIT-25.
 
-### Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694, #685, #706, #707, #708, #710, #700)
+### Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694, #685, #706, #707, #708, #710, #700) — shipped in v1.37.3 (PR #752)
 
 Comprehensive quality, geometry, weather, and lighting hygiene package addressing 10 roadmap issues:
 
@@ -4147,6 +4147,8 @@ Comprehensive quality, geometry, weather, and lighting hygiene package addressin
 - **#710 — 3D string lights wire segmentation & bulb tessellation**: Doubles wire segments (`WIRE_PIECES = 24`, `WIRE_PIECE_CM = 25.0`) and refines bulb spheres to `rings=5, segments=12`, eliminating visible chord sagitta and polygonal bulb artifacts at close walk distance.
 - **#700 — Shadow agreement single source of truth**: Streamlines redundant narrative and driftable reach/ratio figures in §8.29.6 and `scripts/measure_built_world_shadows.py`, pointing directly to the authoritative ADR-059 builders addendum, and pins this invariant with automated regression checks.
 
+Docs: ADR-059 addendum, §8.29.6.
+
 ### Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722)
 
 Seven follow-ups from the L7 atmosphere-sky reviews, the Beauty Board and the render tier, in one package:
@@ -4160,5 +4162,6 @@ Seven follow-ups from the L7 atmosphere-sky reviews, the Beauty Board and the re
 - **#704 — the analysis board's probe pin is sized for its camera**: `--analysis` requires the whole pin (base and ball) to be clear and raises the product's dome share until it shows at least 60 px (the board's gate is 50), capped at 4×. On `bench_built`'s noon camera the old search's point read 38 px and the board raised before writing a sun-hours row; the whole-pin search's point, with the pin raised to 207 cm, reads 250 px (RTX 4070, 1280 × 720). A render-tier test now runs that plan and preset.
 
 Docs: ADR-059 addendum, §8.29.4, `ogp-lush-cinematic` §11, `debug-verbose` case study 204.
+
 
 
