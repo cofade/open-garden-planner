@@ -7870,7 +7870,9 @@ gets Qt's half-resolution blur in full whatever the amount, which is capped at i
 shows the three taps as copies). At 40 % the whole garden lay inside the band and the owner saw no
 difference between a high and a low blur (manual test); a 4K photo is sharper than its preview (ADR-072,
 consequences). There is no depth of field without a focused point, so the first blur above 0 focuses what
-the camera looks at (a click moves it), and while the blur is drawn the Ultra preset's screen-space
+the camera looks at (a click moves it; while walking, the ground under the view's centre), and a new
+plan gives the kept blur its point once the new camera is framed. While the blur is drawn the Ultra
+preset's screen-space
 reflections stand down: reflections, blur and glow in one chain killed the render thread in `d3d11.dll`
 (PF-E3D-21). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
@@ -7880,21 +7882,32 @@ life, and re-chosen when the look's adjustments change.
 `TourRecorder` runs them one per event-loop pass: move the clock, wait until `_tour_settled`
 (the controller idle, no forge pending, the sky of this moment built), capture, offer to the
 writer. `start_tour` stops whoever else plays the clock (`clock_wanted` → the toolbar's Animate),
-holds the automatic preset, and restores the owner's date and time afterwards. While it records,
-`ForgeWorker.fly_path` gives each plant the finest detail the flight asks for (`path_eyes`), so a
-frame shows what the view would from there and no plant changes its leaves in mid-flight; the first
-frame waits for that, up to `SETTLE_LIMIT_S × FIRST_FRAME_SETTLE_FACTOR`. A recording is
+holds the automatic preset, and restores the owner's date and time afterwards **only if the tour
+moved the clock**: a flight preview holds nothing, so a date set while it runs survives it. A year
+tour holds the **UTC time of day**, not the wall time (the sun is `SimClock.utc`'s function), and
+writes the wall reading derived from each date's offset, so the sun moves evenly through both DST
+changes. While it records, `ForgeWorker.fly_path` gives each plant the finest detail the flight asks
+for (`path_eyes`), so a frame shows what the view would from there and no plant changes its leaves
+in mid-flight; the first frame waits for that, up to
+`SETTLE_LIMIT_S × FIRST_FRAME_SETTLE_FACTOR`. A recording is
 modal, and so is a preview that moves the clock (a time-lapse): the plan behind it must not take that
 date for its own. A preview of a flight (small, in real time, skipping what it is late for) is not
-modal. Esc cancels and leaves the dialog open; the window's X cancels and closes once the recording
-has stopped. `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
+modal. While the clock is held, agent reads report the **owner's** date as `as_of_date` and an
+agent-created plant is stamped with it (`AgentHost._agent_plan_date`), not with the frame's.
+Esc cancels and leaves the dialog
+open; after 10 s it asks first, unless the engine is closing the dialog itself. The window's X
+asks the same way and closes once a cancelled or saved recording has stopped; a failure
+stays to be read. Closing the app aborts the recording and waits (bounded) for its file to
+close, naming the unfinished output if it cannot.
+`HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
 shown pauses it the same way.
 
 **Where the frames go** (`video_writer.py`, the only module that imports Qt Multimedia, on first
-use): `Mp4Writer` writes `<stem>.part.mp4` and renames it on success, so a cancelled or failed
-tour never replaces a good video; `PngSequenceWriter` writes `frame_000001.png` on two workers
-and refuses a folder that holds another tour's frames; `NullWriter` is a preview's. `best_codec`
-picks from `CODECS`.
+use): `Mp4Writer` writes the first free `<stem>.part[<n>].mp4` and renames it on success, so a
+cancelled or failed tour never replaces a good video and a render kept because its target was held
+open is never deleted by a later recording; `PngSequenceWriter` writes `frame_000001.png` on two
+workers and refuses a folder that holds another tour's frames; `NullWriter` is a preview's.
+`best_codec` picks from `CODECS`.
 
 **The agent's picture.** `capture_blocker()` decides without waiting; `agent_picture` renders with
 `photo=NO_PHOTO` and reports what the picture shows. See §8.19.
@@ -7902,7 +7915,9 @@ picks from `CODECS`.
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
 detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
-colour tag.
+colour tag; a year tour started within an hour of midnight uses the nearest reading within the
+missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
+sun moves by at most that hour).
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

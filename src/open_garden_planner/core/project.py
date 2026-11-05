@@ -935,20 +935,25 @@ class ProjectManager(QObject):
         data.harvest_logs = dict(self._harvest_logs)
         return data
 
-    def snapshot_dict(self, scene: QGraphicsScene) -> dict[str, Any]:
+    def snapshot_dict(self, scene: QGraphicsScene, *,
+                      as_of_date: date | None = None) -> dict[str, Any]:
         """Return a read-only ``.ogp``-shaped dict of the current plan.
 
         Lets the Agent API expose the live plan without writing a file. Unlike
         :meth:`save`, it does NOT reconcile journal-pin positions, so reading
         the plan never mutates scene or project state. An extra ``agent_meta``
         key carries runtime info the on-disk format doesn't store.
-        """
+
+        ``as_of_date`` overrides the scene's plan date for this read only (a camera
+        tour moving the clock frame by frame reports the owner's held day instead,
+        issue #730); everything a caller sees - ``as_of_date`` and each object's
+        ``present`` - is derived from that one date."""
         out = self._build_project_data(scene, sync_journal=False).to_dict()
         # The active layer is session state (never persisted to .ogp), but the
         # agent's curated Layer model reports it (US-D2.4) — agent_meta is the
         # designated home for runtime info the on-disk format doesn't store.
         active_layer = getattr(scene, "active_layer", None)
-        plan_date = getattr(scene, "plan_date", None)
+        plan_date = as_of_date if as_of_date is not None else getattr(scene, "plan_date", None)
         out["agent_meta"] = {
             "file_name": self._current_file.name if self._current_file else None,
             "is_dirty": self._dirty,

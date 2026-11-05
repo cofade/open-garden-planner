@@ -241,6 +241,28 @@ def test_a_target_someone_holds_keeps_the_finished_render_and_says_where(
     assert path.read_bytes().startswith(b"the user's earlier video")
 
 
+def test_a_kept_render_is_not_deleted_by_the_next_recording(
+        qtbot: Any, tmp_path: Path) -> None:
+    """The earlier render whose target was held open is kept as ``.part.mp4``; a new
+    recording of the same name must take a free part name, not delete it (issue #731)."""
+    needs_an_encoder()
+    path = tmp_path / "tour.mp4"
+    kept = path.with_name("tour.part.mp4")
+    kept.write_bytes(b"the render the user was told about")
+    writer = Mp4Writer(path, SIZE, FPS)
+    assert writer.part_path.name == "tour.part2.mp4"
+    writer.start()
+    outcome: list[tuple[bool, str]] = []
+    writer.finished.connect(lambda ok, message: outcome.append((ok, message)))
+    for index in range(3):
+        image = frame(index, 3)
+        qtbot.waitUntil(lambda image=image: writer.write(image), timeout=20000)
+    writer.abort()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=60000)
+    assert kept.read_bytes() == b"the render the user was told about"
+    assert not writer.part_path.exists()
+
+
 def test_a_part_file_that_cannot_be_removed_is_a_sentence_before_anything_moved(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     needs_an_encoder()

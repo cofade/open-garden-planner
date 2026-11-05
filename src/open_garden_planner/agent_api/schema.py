@@ -60,7 +60,9 @@ class Layer(BaseModel):
 class PlanSummary(BaseModel):
     """A high-level overview of the garden plan currently open in the app."""
 
-    as_of_date: str | None = Field(default=None, description="Shared local plan date (ISO), session state.")
+    as_of_date: str | None = Field(default=None, description=(
+        "Shared local plan date (ISO), session state. During a camera tour that moves the "
+        "clock, this is the owner's held date, not the frame the tour is rendering."))
 
     file_name: str | None = Field(
         default=None,

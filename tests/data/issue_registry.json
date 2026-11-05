@@ -1324,6 +1324,21 @@
     "state": "MERGED",
     "title": "feat(#390): L6 Director's cut - photo mode, camera tours, video and render_3d_view"
   },
+  "730": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Camera tours: nobody owns the clock during a recording (agent writes take the tour's date; a flight preview reverts the user's clock)"
+  },
+  "731": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Camera tours: a kept video can be lost (the next recording deletes .part.mp4; one Esc discards a long render)"
+  },
+  "732": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Year time-lapse jumps in brightness at the clock change (24 luma on 31 October)"
+  },
   "740": {
     "is_pr": false,
     "state": "CLOSED",

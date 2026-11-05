@@ -319,3 +319,34 @@ fine. Taking away reflections or glow let it survive; taking away occlusion, MSA
 quality did not. With the same slider, "no blur visible" was a second, separate cause: there is no
 depth of field without a focused point, so the slider did nothing before the first click (the first
 blur now focuses what the camera looks at).
+
+### PF-E3D-22
+
+- **Rule:** A kept render is never at a name a later run may choose to write: `Mp4Writer` takes the first free `<stem>.part[<n>].mp4`, because the finished video whose target a player held open is kept as a part file and the next recording of that name used to unlink it.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_a_kept_render_is_not_deleted_by_the_next_recording`
+- **Source:** #731, found by the senior review of PR #729; ADR-072 addendum.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: a long render finished while the earlier `tour.mp4` was open in a player, so the writer said "The video is saved as tour.part.mp4". Recording to the same name again removed that part before the first frame, and cancelling the new run lost the kept render. The part name is a promise to the user ("the file is here"); a later run must treat it as data, not as debris.
+
+### PF-E3D-23
+
+- **Rule:** While a camera tour moves the shared sim clock, the owner's held moment - not `SimClock.plan_date` - is what every agent-facing date claim must use: `get_plan_summary`'s `as_of_date` and each object's `present`, and a newly created plant's planting date. Only a tour with a `date_range` or `time_range` holds the clock; diagnostics and a 2D render describe the frame the tour is showing and are not date claims.
+- **Pinned by:** `tests/integration/test_directors_cut.py::test_a_time_lapse_holds_the_owners_date_for_agent_reads`; `tests/integration/test_directors_cut.py::test_an_agent_uses_the_owners_date_while_a_tour_moves_the_clock`; `tests/integration/test_directors_cut.py::test_a_flight_preview_leaves_a_date_set_during_it_alone`
+- **Source:** #730, found by the senior review of PR #729; ADR-072 addendum.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: an agent creating a tree during a year time-lapse planted it on the date of the frame being rendered, and `get_plan_summary` reported that date as the plan's. The clock is genuinely the frame's while a clock-moving tour runs; the bug is that another subsystem read it as the owner's. The capture coordinator therefore holds the owner's wall reading and exposes `owner_plan_date()`, which `AgentHost` consults before the clock. The second half of the same finding: a *flight* preview used to snapshot and restore the clock without ever moving it, undoing a date the owner set during the preview - hold and restore only what the tour actually writes.
+
+### PF-E3D-24
+
+- **Rule:** A clock writer that sweeps DATES holds the UTC time of day, not the wall time: the sun is computed from `SimClock.utc`, so a wall time held across a DST change moves the sun by an hour. Use `SimClock.set_utc_time_on(day, utc_time)`, which derives the wall reading through the zone (the repeated hour's `fold` included); a local date with no exact instant (a 23-hour spring day) gets the nearest reading on that date, within the missing hour.
+- **Pinned by:** `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`; `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour`; `tests/integration/test_directors_cut.py::test_a_year_time_lapse_repeating_a_change_day_keeps_the_instant`; `tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`
+- **Source:** #732, found by the 3D review of PR #729; ADR-053 addendum L6, ADR-072 addendum.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: a year's time-lapse jumped in brightness at each clock change (24 levels in the
+owner's video). The tour held the wall time (`clock.set_date` keeps it), which is right for a day tour but not for a year: Berlin's 15:00 is 13:00 UTC in summer and 14:00 UTC in winter. Measured on a two-week tour across the autumn change: an 18.07-level step between neighbouring frames before, 1.53 levels as the largest step after. The first frame still starts at the date the dialog names at the owner's time of day; a local date with no exact instant gets the nearest reading on that date (within the missing hour), so the promised date range holds.

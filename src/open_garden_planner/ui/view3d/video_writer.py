@@ -15,8 +15,9 @@ asked for: the module costs the app's start nothing. The verified path (ADR-072)
 A writer takes frames as they come and says when it has had enough: ``write`` returns
 False while its queue is full, and the caller offers the same frame again. ``finish`` ends
 the file; ``finished(ok, message)`` says how it went. Until then the file has a name of its
-own (``<stem>.part.mp4``), so a cancelled or failed tour never replaces a good video and
-never leaves half of one under the name the user chose.
+own (``<stem>.part.mp4``, or a numbered one when that name is kept from an earlier render),
+so a cancelled or failed tour never replaces a good video and never leaves half of one under
+the name the user chose.
 """
 
 from __future__ import annotations
@@ -126,7 +127,10 @@ class Mp4Writer(_Sink):
         if size[0] % 2 or size[1] % 2:
             raise ValueError(f"a video's sides must be even, got {size}")
         self.path = Path(path)
-        self.part_path = self.path.with_name(f"{self.path.stem}.part{self.path.suffix}")
+        #: The render's own name. A kept render (its target was held open by a player)
+        #: must not be deleted by the NEXT recording of the same name, so a part that is
+        #: already there is given a fresh number (issue #731).
+        self.part_path = self._free_part_path(self.path)
         self.size = (int(size[0]), int(size[1]))
         self.fps = int(fps)
         self.codec: str | None = None
@@ -141,6 +145,18 @@ class Mp4Writer(_Sink):
         self._poll = QTimer(self)
         self._poll.setInterval(_POLL_MS)
         self._poll.timeout.connect(self._look_if_stopped)
+
+    @staticmethod
+    def _free_part_path(path: Path) -> Path:
+        """``<stem>.part<suffix>``, or a numbered one when that name is taken: a finished
+        render whose target could not be replaced is kept, and this is how the next
+        recording leaves it alone."""
+        candidate = path.with_name(f"{path.stem}.part{path.suffix}")
+        index = 2
+        while candidate.exists():
+            candidate = path.with_name(f"{path.stem}.part{index}{path.suffix}")
+            index += 1
+        return candidate
 
     def start(self) -> None:
         media = _multimedia()
@@ -273,7 +289,8 @@ class Mp4Writer(_Sink):
 
     def _discard_part(self) -> None:
         """The part file goes, if it can: whoever holds it (a thumbnailer, a scanner) must not
-        stop ``finished``, and the next recording of this name starts by removing it."""
+        stop ``finished``. A kept render is never deleted by a later run; each run takes a
+        free part name of its own (``_free_part_path``)."""
         try:
             self.part_path.unlink(missing_ok=True)
         except OSError as error:

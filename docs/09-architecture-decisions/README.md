@@ -4660,6 +4660,40 @@ the signal is either never delivered (the hook ran 0 times) or delivered into wh
 access violation). The helper therefore hangs nothing on `destroyed`; a test pins that
 (`::test_the_helper_hangs_nothing_on_the_destroyed_signal`). PF-E3D-07, item 1 of archive/05-l1-3-workspace.md, has the reproduction.
 
+### Addendum L6: a year's camera tour is an instant-holding clock writer (#732)
+
+A camera tour is the second kind of writer this ADR did not have in view. A **day** tour holds
+the wall time and sweeps the time of day, exactly like the toolbar. A **year** tour used to hold
+the *wall* time across dates, which is not the same as holding the sun: `utc` is derived from the
+wall reading, so both daylight-saving changes moved the sun by an hour inside the video - the owner
+saw a 24-level brightness step between neighbouring frames (#732; a two-week reproduction measured
+18.07 levels).
+
+The tour therefore holds the **UTC time of day** for a date range:
+
+- The first frame is written as the dialog promises it - its date at the owner's current wall time
+  - and its `utc` time-of-day becomes the held value.
+- Every later frame calls `SimClock.set_utc_time_on(frame_date, held_utc_time)`: the clock finds
+  the instant whose **local date** is the frame's and whose **UTC time-of-day** matches, and stores
+  its wall reading. The derivation goes through the zone, so the repeated autumn hour gets the
+  occurrence whose instant actually matches (`fold` included) and the spring gap gets the real
+  local hour (03:30, not the nonexistent 02:30). This is a clock-side operation, not a user-facing
+  writer handing an instant: decision 3's rule is unchanged for the UI.
+- A local date with no such instant - a 23-hour spring day - gets the nearest reading on
+  that date (within the missing hour), so the dates the dialog names are kept.
+- Only a tour with a `date_range` or a `time_range` holds and restores the owner's moment; a
+  flight preview writes the clock not at all, so a date set while one runs survives it (ADR-072
+  addendum, #730).
+
+Pinned by `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`,
+`::test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour` and
+`::test_a_year_time_lapse_repeating_a_change_day_keeps_the_instant` (an EU DST zone without
+tzdata: constant UTC time-of-day across both changes, the dialog's dates kept, a 03:30 start on
+the change day that the wall-offset version turned into a one-hour jump, and a real tour's repeated
+date steps) and the render tier's two-week clock-change luma gate
+(`tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`:
+largest step 1.53 levels after the fix against 18.07 before it).
+
 ## ADR-054: Recorded species traits and semantic food-forest layers (#312)
 
 **Status:** Accepted for Package F1, October 2026. Additive `.ogp` version 1.4.
@@ -8230,7 +8264,8 @@ could disagree with the existing date-projected 3D canopy.
   set independently of drawing-layer visibility. Solar receivers and casters also
   honor layer visibility. Hidden plants remain saved. API summary counts retain their existing counting
   rule, and object lists retain absent plants with `present=false`; `as_of_date`
-  names the shared plan date. Runtime annotations live only in the API snapshot.
+  names the shared plan date (or, while a camera tour moves that clock, the owner's held
+  date - ADR-072 addendum, #730). Runtime annotations live only in the API snapshot.
 - PNG/SVG/PDF/DXF render the current visible state. The PDF plant table excludes
   date-absent plants while retaining hidden-layer data; every report page identifies a non-today plan date. An API layer
   override may reveal a hidden layer but cannot reveal a date-absent plant.
@@ -10549,3 +10584,63 @@ view on any steady path.
   the first click on the view (owner's manual test: "no difference between a high and a low blur").
   Three edges of that first focus (another plan, walk mode, one invariant) are #745.
 - No `FILE_VERSION` change; nothing new in the `.ogp`.
+
+### Addendum: capture-session integrity (#730, #731, #732, #745)
+
+Four follow-ups from the reviews of this PR share one rule: a capture session must not change
+anything the owner did not ask it to change - not the clock, not a kept file, not the focus.
+
+1. **One clock hold, taken only by a tour that moves the clock.** `start_tour` stores the owner's
+   `clock.wall` only when `date_range` or `time_range` is set (`WorkspaceCaptureCoordinator._clock_hold`);
+   a flight preview stores nothing and restores nothing, so a date the user sets while a preview
+   runs survives it (#730). The held moment is what `owner_plan_date()` reports while the
+   tour runs; the normal clock write path is unchanged.
+2. **Agent reads and writes use the owner's held date.** `AgentHost._agent_plan_date()` resolves
+   `WorkspaceCaptureCoordinator.owner_plan_date()` first and the sim clock second;
+   `ProjectManager.snapshot_dict(scene, as_of_date=...)` derives `as_of_date` and every object's
+   `present` from that one date. A plant an agent creates during a time-lapse is stamped with the
+   owner's planting date, not the frame being rendered. A document change still ends a tour (the
+   scene it was rendering is gone); the dialog's status says "Cancelled." Diagnostics and the 2D
+   render describe
+   the frame the tour is currently showing; they are not date claims.
+3. **A year's tour holds UTC, not the wall time.** The sun is `SimClock.utc`'s function; a wall
+   time held across a DST change moved the sun by an hour (measured: an 18.07-level step between
+   neighbouring frames of a two-week clock-change tour; the owner read 24 in the year video,
+   #732). The first frame records its UTC time-of-day and every later frame asks
+   `SimClock.set_utc_time_on(day, held)` for the instant whose local date is the frame's and
+   whose UTC time-of-day matches: the wall reading is derived through the zone, so the repeated
+   autumn hour gets the occurrence whose instant matches (`fold` included) and the spring gap
+   gets the real local hour. A local date with no instant at the held UTC time (a 23-hour spring
+   day) gets the nearest reading on that date, within the missing hour. The dates the dialog
+   promised hold. See ADR-053's addendum for the clock-side statement.
+4. **A finished render is never deleted without the user's word.** `Mp4Writer` takes the first
+   free `<stem>.part[<n>].mp4`, so a render kept because its target was held open by a player is
+   never removed by the next recording of the same name (#731). Esc or X on a recording that has
+   run for `ASK_DISCARD_AFTER_S` (10 s) asks first; Cancel keeps it running; a programmatic
+   engine teardown does not ask. `Workspace.shutdown` calls
+   `WorkspaceCaptureCoordinator.shutdown`, which aborts the recorder and waits (bounded,
+   2.5 s) for its file to close; if the encoder is still closing then, it names the unfinished
+   output in a warning, so the user can find it instead of the part disappearing unreported.
+   Numbered parts are kept: a kept render is never deleted by a later run, and the user can
+   remove one. (A successful save to the target does replace that target, as any save does.)
+5. **The focus invariant lives in one place.** `set_settings` enforces "blur above 0 in photo mode
+   implies a focused point": with no clicked point it focuses the camera target, or, while
+   walking, the ground point under the view's centre (the 100 cm mid-air target is behind the
+   walker after a few steps). `document_changed` clears the old point and records that the new
+   plan's framing is pending; a setting changed meanwhile is stored and applied then, never
+   focused on the plan that is going away; `document_shown` re-establishes the point once the
+   camera is framed (#745).
+
+**Alternatives considered**: refusing agent writes during any recording (rejected: a read is
+harmless and a write can use the owner's date, which is what the user expects); holding the wall
+time and compensating the sun only (rejected: two sources of truth); deleting a stale `.part.mp4`
+at startup (rejected: it may be the only copy of a long render); clearing the blur when a plan
+opens (rejected: the owner asked for the same blur with a new point, and the label now says the
+focus is moving until it has one).
+
+**Consequences**: no `.ogp` change and no `FILE_VERSION` bump; two new UI strings in every
+registered locale. Pinned by `tests/integration/test_directors_cut.py` (the invariant, the walk
+fallback, a second plan, the flight preview, the owner's date, the UTC hold, the discard question,
+the app-close file) and `tests/integration/test_video_writer.py` (a kept render); the render tier's
+`timelapse` scenario carries the two-week clock-change luma gate. Measured after the fix: largest
+neighbouring-frame step 1.53 levels, against 18.07 before it.

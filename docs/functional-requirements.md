@@ -1029,34 +1029,49 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   again, pixel for pixel.
 - **FR-3D-PHOTO-02** (L6.1): In photo mode a **click sets the focus** on what is under it (or on the
   ground) instead of selecting, and the line says how far away it is. The focus is a point: it stays
-  on the plant when the camera moves.
+  on the plant when the camera moves. **Blur above 0 always has a point**: setting the blur without a
+  click focuses what the camera looks at (while walking, the ground under the view's centre, not the
+  mid-air point 100 cm ahead), so the slider always does something and the line never says "Click"
+  beside a blur. Opening another plan keeps the blur and gives it the new plan's point once that
+  plan's camera is framed; until then the line says the focus is moving.
 - **FR-3D-PHOTO-03** (L6.1): **Save Photo** writes a PNG or JPEG at the view's size, Full HD, QHD or
   4K, whatever the window's size, without moving the view. No selection highlight is in the picture.
   The file says what date it shows.
 - **FR-3D-TOUR-01** (L6.2): **Camera Tour** moves the camera as a **drone orbit** from where the
   view is, along **keyframes** (each the current view, on a smooth path at constant speed), or not
   at all; and the clock not at all, through **a day**, or **through the year**. Duration 1 to 600 s, 24
-  to 60 frames per second, 720p to 4K.
+  to 60 frames per second, 720p to 4K. A **year** tour holds the UTC time, not the wall time: the sun
+  moves evenly through both daylight-saving changes, the local clock shifts by the offset, and the
+  dates the dialog names are the dates of the first and last frame.
 - **FR-3D-TOUR-02** (L6.2): A tour is saved as an **MP4 video** (H.264 where the system has an encoder,
   else MPEG-4) or a **PNG sequence**. It is rendered frame by frame, so a slower computer takes
   longer and writes the same video. A progress bar shows each frame, Cancel stops it, and a cancelled
   or failed video leaves nothing behind and never replaces an earlier file. When an earlier file is
-  held open (a player has it), the finished video stays beside it and the message says where. If
+  held open (a player has it), the finished video stays beside it and the message says where; a later
+  recording of the same name takes a free part name and never deletes that kept render. **Esc or the
+  window's X asks before throwing away a recording that has already run for 10 s**; Cancel keeps it
+  running. Closing the app ends a running recording and waits (bounded) for its file to close; if
+  the encoder cannot close in time, it names the unfinished output so the user can find it. If
   the 3D view stops being visible, the recording waits and goes on.
 - **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
-  time-lapse changes no plan data and leaves nothing to undo.
+  time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the
+  clock holds and restores it: a date the user sets during a **flight preview** survives its end.
 - **FR-AGENT-31** (L6.3, #390, ADR-072): **`render_3d_view`** renders a PNG of the 3D view for an
   agent, from the owner's camera or one of its own, and reports what it shows (plan date, time, sun,
   weather, quality, roofs, overlays). It is read-only and needs no token; it never moves the
   owner's camera or date. When the view is closed, still warming up or recording, it says so at once
-  in a clean sentence, and nothing has changed.
+  in a clean sentence, and nothing has changed. While a camera tour is moving the clock, **agent
+  reads report the owner's held date** (not the frame's) as `as_of_date`, and **a plant an agent
+  creates is stamped with that date**, so a recording cannot plant next week's crop in a video.
 
 Acceptance (L6): `tests/integration/test_directors_cut.py` (§8.10 — photo mode, the click, Save Photo,
-the dialog, a recording end to end, every refusal), `test_agent_api_render_3d.py` (the real MCP
-transport), `test_video_writer.py` (a real encode, read back), the unit suites `test_camera_path.py`,
-`test_video_yuv.py` and `test_scene3d_photo.py`, the render tier `test_directors_cut_render.py`, and
-`--selftest`, which captures and encodes from the bundle.
+the dialog, a recording end to end, every refusal, the blur/point invariant, the owner's date during
+a tour, the clock-change hold), `test_agent_api_render_3d.py` (the real MCP transport),
+`test_video_writer.py` (a real encode, read back; a kept render survives the next recording), the
+unit suites `test_camera_path.py`, `test_video_yuv.py` and `test_scene3d_photo.py`, the render tier
+`test_directors_cut_render.py` (including the two-week clock-change luma gate), and `--selftest`,
+which captures and encodes from the bundle.
 
 Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
 year playback through the real app and its clock; the Weather menu, the life switch and

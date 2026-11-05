@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from datetime import date, time
 from pathlib import Path
+from time import monotonic
 from typing import TYPE_CHECKING, Final
 
 from PyQt6.QtCore import QDate, Qt, QTime
@@ -33,6 +34,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSpinBox,
@@ -78,6 +80,8 @@ DEFAULT_DURATION_S: Final = 12.0
 #: from the first leaves to the last harvest.
 DEFAULT_DAY: Final = (time(6, 0), time(21, 0))
 DEFAULT_SEASON: Final = ((3, 1), (10, 31))
+#: A recording that has run this long is worth a question before Esc or X throws it away.
+ASK_DISCARD_AFTER_S: Final = 10.0
 
 
 class TourDialog(QDialog):
@@ -92,6 +96,9 @@ class TourDialog(QDialog):
         self._modal = False
         self._close_when_stopped = False
         self._output: Path | None = None
+        self._run_started_at: float | None = None
+        self._sink_kind = "preview"
+        self._programmatic_close = False
         self.setWindowTitle(self.tr("Camera Tour"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         root = QVBoxLayout(self)
@@ -324,6 +331,7 @@ class TourDialog(QDialog):
 
     def showEvent(self, event: object) -> None:  # noqa: N802 - Qt's name
         """The year the plan date is in, whenever the dialog opens and no year was chosen."""
+        self._programmatic_close = False
         if not self._recording and not self.date_from.property("chosen"):
             year = self._capture.plan_date().year
             self.date_from.setDate(QDate(year, *DEFAULT_SEASON[0]))
@@ -378,6 +386,9 @@ class TourDialog(QDialog):
             return
         self._recorder = recorder
         self._recording = not realtime
+        self._run_started_at = monotonic()
+        self._sink_kind = ("preview" if isinstance(writer, NullWriter)
+                           else "mp4" if isinstance(writer, Mp4Writer) else "png")
         self._modal = self._recording or spec.date_range is not None or spec.time_range is not None
         recorder.progress.connect(self._on_progress)
         recorder.paused_changed.connect(self._on_paused)
@@ -427,8 +438,11 @@ class TourDialog(QDialog):
 
     def _on_finished(self, result: TourResult) -> None:
         recording = self._recording
+        programmatic = self._programmatic_close
         self._recorder = None
         self._recording = False
+        self._run_started_at = None
+        self._programmatic_close = False
         self._progress.hide()
         self.cancel_button.hide()
         self.cancel_button.setEnabled(True)
@@ -437,12 +451,13 @@ class TourDialog(QDialog):
             self._modal = False
             self.hide()
             self.setWindowModality(Qt.WindowModality.NonModal)
-            self.show()
+            if not programmatic:   # a shutdown hid it: do not flash it back
+                self.show()
         self._status.setText(self._say(result, recording))
         self._sync_controls()
         closing, self._close_when_stopped = self._close_when_stopped, False
-        if closing and result.cancelled:   # a finished file's outcome stays to be read
-            self.close()
+        if closing and (result.cancelled or result.ok or programmatic):
+            self.close()   # a programmatic teardown cannot wait for a failure's reason
 
     def _say(self, result: TourResult, recording: bool) -> str:
         if result.cancelled:
@@ -459,10 +474,46 @@ class TourDialog(QDialog):
                                   "up with their date.").format(count=result.unsettled)
         return done
 
+    def _confirm_discard(self) -> bool:
+        """True when a running recording may be thrown away.
+
+        Esc or X used to discard an MP4 at once, however long it had been rendering
+        (issue #731). A short run is not worth a question; a long one is. A programmatic
+        close (the engine is going) cannot ask; a file already being closed cannot be
+        stopped; and a PNG sequence's written frames stay, so its question says that."""
+        if (self._programmatic_close or not self._recording or self._recorder is None
+                or not self._recorder.running):
+            return True
+        elapsed = monotonic() - self._run_started_at if self._run_started_at else 0.0
+        if elapsed < ASK_DISCARD_AFTER_S:
+            return True
+        if self._sink_kind == "png":
+            question = self.tr(
+                "Stop the render? The frames already written to {path} stay.").format(
+                    path=self._output)
+            stop = QMessageBox.StandardButton.Yes
+        else:
+            question = self.tr(
+                "Stop the recording? It has been running for {seconds:.0f} s, and the "
+                "video is not saved yet.").format(seconds=elapsed)
+            stop = QMessageBox.StandardButton.Discard
+        answer = QMessageBox.question(
+            self, self.tr("Camera Tour"), question,
+            stop | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        return answer == stop
+
+    def close_for_shutdown(self) -> None:
+        """The engine is going: close without asking, and stop what this dialog started."""
+        self._programmatic_close = True
+        self.close()
+
     def reject(self) -> None:
         """Esc: a running preview or recording stops, and the dialog stays to say how that
         ended. Hiding it would leave a modal recording running behind nothing at all."""
         if self._recorder is not None:
+            if not self._confirm_discard():
+                return
             self._cancel()
             return
         super().reject()
@@ -470,6 +521,10 @@ class TourDialog(QDialog):
     def closeEvent(self, event: QCloseEvent | None) -> None:  # noqa: N802 - Qt's name
         """A running preview or recording stops first, and then the dialog closes."""
         if self._recorder is not None:
+            if not self._confirm_discard():
+                if event is not None:
+                    event.ignore()
+                return
             self._close_when_stopped = True
             self._cancel()
             if event is not None:

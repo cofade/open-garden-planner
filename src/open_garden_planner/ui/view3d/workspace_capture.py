@@ -137,7 +137,7 @@ class WorkspaceCaptureCoordinator(QObject):
                  forge_pending: Callable[[], int], is_pane_showing: Callable[[], bool],
                  view_state: Callable[[], str], ground_point: Callable[[float, float], Any],
                  default_path: Callable[[str], str], fly_path: Callable[[Any], None],
-                 parent: QWidget) -> None:
+                 is_walking: Callable[[], bool], parent: QWidget) -> None:
         super().__init__(parent)
         self._get_host = get_host
         self._get_controller = get_controller
@@ -149,13 +149,17 @@ class WorkspaceCaptureCoordinator(QObject):
         self._is_pane_showing = is_pane_showing
         self._view_state = view_state
         self._ground_point = ground_point
+        self._is_walking = is_walking
         self.default_path = default_path
         self._fly_path = fly_path
         self._parent = parent
         self._settings: PhotoSettings = NO_PHOTO
         self._photo_on = False
+        self._focus_pending = False
         self._recorder: TourRecorder | None = None
-        self._recording_clock: datetime | None = None
+        self._clock_hold: datetime | None = None
+        self._tour_holds_utc = False
+        self._tour_utc_time: day_time | None = None
         self._tour_size: tuple[int, int] = (16, 16)
         self._dialog: TourDialog | None = None
         self._row: QWidget | None = None
@@ -261,6 +265,8 @@ class WorkspaceCaptureCoordinator(QObject):
 
     def set_enabled(self, enabled: bool) -> None:
         """The engine is there (or gone): the actions follow."""
+        # if the settings wait for the new plan's framing, they must not outlive the engine
+        self._focus_pending = False
         self.photo_action.setEnabled(enabled)
         self.tour_action.setEnabled(enabled)
         if not enabled:
@@ -268,14 +274,30 @@ class WorkspaceCaptureCoordinator(QObject):
             self.set_photo_mode(False)
             dialog, self._dialog = self._dialog, None
             if dialog is not None:
-                dialog.close()
+                dialog.close_for_shutdown()
 
     def document_changed(self) -> None:
-        """Another plan: a recording stops, and the focused point was a point of the old one."""
+        """Another plan: a recording stops, and the focused point was a point of the old one.
+
+        The new plan's camera is not framed until its first pass reaches the engine, so the
+        focus is not re-established here. ``document_shown`` does that, once the camera is in
+        place; until then the view is the view, and the label says what is happening."""
         self.cancel_recording()
-        if self._settings.focus_scene is not None:
-            self.set_settings(replace(self._settings, focus_scene=None))
+        if self._photo_on or self._settings.focus_scene is not None:
+            self._settings = replace(self._settings, focus_scene=None)
+            self._focus_pending = True
+            if self._photo_on:
+                self._apply(NO_PHOTO)
             self._say_focus()
+
+    def document_shown(self) -> None:
+        """The new document's first pass is in the engine and its camera is framed: give the
+        blur kept from the old plan the point of the new one (or keep no point with no blur)."""
+        if not self._focus_pending:
+            return
+        self._focus_pending = False
+        self.set_settings(self._settings)
+        self._say_focus()   # with photo mode off the label was still the pending sentence
 
     # ── photo mode ───────────────────────────────────────────────────────────
 
@@ -306,19 +328,44 @@ class WorkspaceCaptureCoordinator(QObject):
         if not on:
             self._settings = replace(self._settings, focus_scene=None)
             self._say_focus()
-        if on:
-            focused = self._with_a_focus(self._settings)
-            if focused is not self._settings:   # the blur kept from last time has a point again
-                self._settings = focused
-                self._say_focus()
-        self._apply(self._settings if on else NO_PHOTO)
+            self._apply(NO_PHOTO)
+        else:
+            self.set_settings(self._settings)   # the blur kept from last time gets a point again
         self.photo_mode_changed.emit(on)
 
     def set_settings(self, settings: PhotoSettings) -> None:
-        """What the controls do; a test's way in. Applied at once when photo mode is on."""
+        """What the controls do; a test's way in.
+
+        THE one place the invariant "blur above 0 in photo mode implies a focused point"
+        is enforced: ``_on_controls_changed``, ``set_photo_mode``, ``_focus_on`` and the
+        new plan's ``document_shown`` all come through here. Without a point Qt has no
+        depth to measure from, so the blur slider did nothing until the view was clicked
+        (manual test of #390).
+
+        While a new plan's framing is pending, settings are stored and applied later:
+        focusing them on the old camera now would pin the blur to the plan that is going
+        away."""
         self._settings = settings
+        self._sync_blur_slider(settings.blur)
+        if self._focus_pending:
+            return
         if self._photo_on:
+            settings = self._with_a_focus(settings)
+            self._settings = settings
             self._apply(settings)
+            self._say_focus()
+
+    def _sync_blur_slider(self, blur: float) -> None:
+        """The slider says what the settings say, when one changed the other."""
+        slider = self._blur
+        if slider is None:
+            return
+        value = round(blur * _SLIDER_STEPS)
+        if slider.value() == value:
+            return
+        slider.blockSignals(True)
+        slider.setValue(value)
+        slider.blockSignals(False)
 
     def _apply(self, settings: PhotoSettings) -> None:
         host = self._get_host()
@@ -340,23 +387,41 @@ class WorkspaceCaptureCoordinator(QObject):
             vignette=self._vignette.value() / _SLIDER_STEPS,
             blur=self._blur.value() / _SLIDER_STEPS,
             grade=str(grade or NO_GRADE))
-        focused = self._with_a_focus(settings) if self._photo_on else settings
-        self.set_settings(focused)
-        if focused is not settings:
-            self._say_focus()
+        self.set_settings(settings)   # it adds the focus a blur needs, applies it and says so
 
     def _with_a_focus(self, settings: PhotoSettings) -> PhotoSettings:
-        """``settings``, with the point the camera looks at in focus if there is blur and no
-        point. There is no depth of field without a focused point (``core/scene3d/photo.py``),
-        so the blur slider did nothing until the view was clicked (manual test of #390); a
-        click on the view moves the focus from here."""
-        if settings.blur > 0.0 and settings.focus_scene is None:
-            return replace(settings, focus_scene=_point(self._get_camera_now()[1]))
-        return settings
+        """``settings``, with a point in focus if there is blur and none was picked.
+
+        Walking aims 100 cm ahead of the eye, into mid-air (``walk.py``
+        ``LOOK_DISTANCE_CM``): that point is behind the walker after a few steps, so the
+        ground point under the view's centre is used instead. A camera that cannot answer
+        at all gives up the blur rather than a setting that cannot be applied."""
+        if settings.blur <= 0.0 or settings.focus_scene is not None:
+            return settings
+        point = self._focus_default()
+        if point is None:
+            return replace(settings, blur=0.0)
+        return replace(settings, focus_scene=point)
+
+    def _focus_default(self) -> tuple[float, float, float] | None:
+        """Where a blur focuses when nothing was clicked: the ground under the walker, or
+        what the camera looks at."""
+        if self._is_walking():
+            host = self._get_host()
+            size = host.view_size() if host is not None else None
+            if size is not None:
+                ground = self._ground_point(size[0] / 2.0, size[1] / 2.0)
+                if ground is not None:
+                    return (float(ground[0]), float(ground[1]), 0.0)
+        target = self._get_camera_now()[1]
+        return _point(target)
 
     def _say_focus(self) -> None:
         label = self._focus_label
         if label is None:
+            return
+        if self._focus_pending:
+            label.setText(_tr("The focus moves to the new plan when it is shown"))
             return
         point = self._settings.focus_scene
         if point is None:
@@ -387,6 +452,7 @@ class WorkspaceCaptureCoordinator(QObject):
         return True
 
     def _focus_on(self, point: tuple[float, float, float]) -> None:
+        self._focus_pending = False   # a click is the user's own point, valid now
         settings = replace(self._settings, focus_scene=point)
         if settings.blur <= 0.0 and self._blur is not None:
             # a focus with nothing out of focus would do nothing: give it a blur to start with
@@ -485,6 +551,12 @@ class WorkspaceCaptureCoordinator(QObject):
         clock = self._get_clock()
         return clock.plan_date if clock is not None else date.today()
 
+    def owner_plan_date(self) -> date | None:
+        """The plan date an agent must see while a tour is moving the clock: the owner's,
+        not the frame's."""
+        moment = self._clock_hold
+        return moment.date() if moment is not None else None
+
     def start_tour(self, spec: TourSpec, size: tuple[int, int], writer: FrameSink, *,
                    realtime: bool = False) -> TourRecorder:
         """Render ``spec`` at ``size`` into ``writer``. The caller connects the recorder's
@@ -504,7 +576,14 @@ class WorkspaceCaptureCoordinator(QObject):
         recorder.start()   # raises before anything moved
         host.begin_captures()
         self.clock_wanted.emit()
-        self._recording_clock = clock.wall if clock is not None else None
+        # ONE hold, and only a tour that moves the clock takes it (issue #730). A tour
+        # with no date and no time range is a flight: it never writes the clock, so it
+        # must never put a snapshot back over a change the owner made meanwhile.
+        self._clock_hold = None
+        self._tour_utc_time = None
+        self._tour_holds_utc = spec.date_range is not None and spec.time_range is None
+        if spec.date_range is not None or spec.time_range is not None:
+            self._clock_hold = clock.wall if clock is not None else None
         if look is not None:
             look.hold_preset(True)   # a recording view presents little: not a slow machine
         recorder.finished.connect(self._on_tour_finished)
@@ -524,11 +603,28 @@ class WorkspaceCaptureCoordinator(QObject):
         return image
 
     def _tour_clock(self, day: date | None, moment: day_time | None) -> None:
+        """Move the clock for one frame.
+
+        A tour that sweeps the year holds the UTC time, not the wall time (issue #732).
+        The sun is computed from ``SimClock.utc``: holding the wall time across a DST
+        change moves the sun by an hour, which read as a 24-level brightness step in the
+        video. The wall reading is still what is written (ADR-053: user-facing writers
+        hand wall readings); it is derived through the zone from the held UTC instant by
+        ``SimClock.set_utc_time_on``, so the repeated autumn hour's ``fold`` is right; a
+        local date with no exact instant gets the nearest reading on that date, at most a
+        minute away, so the date range the dialog promised holds."""
         clock = self._get_clock()
         if clock is None:
             return
         if day is not None:
             clock.set_date(day)
+            if self._tour_holds_utc:
+                if self._tour_utc_time is None:
+                    # The first frame shows the date the dialog says at the time the owner's
+                    # clock had; THAT instant is what the rest of the year holds.
+                    self._tour_utc_time = clock.utc.time()
+                else:
+                    clock.set_utc_time_on(day, self._tour_utc_time)
         if moment is not None:
             clock.set_time_of_day(moment)
 
@@ -552,7 +648,9 @@ class WorkspaceCaptureCoordinator(QObject):
         recorder, self._recorder = self._recorder, None
         if recorder is not None:
             recorder.deleteLater()
-        moment, self._recording_clock = self._recording_clock, None
+        moment = self._clock_hold
+        self._tour_utc_time = None
+        self._tour_holds_utc = False
         try:
             self._fly_path(None)
             host = self._get_host()
@@ -564,11 +662,49 @@ class WorkspaceCaptureCoordinator(QObject):
         clock = self._get_clock()
         if clock is not None and moment is not None:
             clock.set_datetime(moment)   # the owner's date and time, as they were
+        self._clock_hold = None   # . only after the clock is the owner's again
         look = self._get_look()
         if look is not None:
             look.hold_preset(False)
         _LOG.info("Camera tour: ok=%s cancelled=%s frames=%d unsettled=%d", result.ok,
                   result.cancelled, result.frames, result.unsettled)
+
+    def shutdown(self, timeout_s: float = 2.5) -> None:
+        """The window is closing: end a recording and wait for its file to close.
+
+        ``closeEvent`` runs while Qt's event loop can still deliver the writer's finish,
+        so a bounded nested loop here is what turns "the app went away" into a closed
+        file instead of a ``.part.mp4`` left beside the user's video (issue #731). If the
+        encoder does not close in time, the path is reported: the file may stay, and the
+        user is told where."""
+        recorder = self._recorder
+        if recorder is None:
+            return
+        from PyQt6.QtCore import QEventLoop, QTimer
+
+        # A modal dialog would sit in front of the close and could not be answered.
+        dialog, self._dialog = self._dialog, None
+        if dialog is not None:
+            dialog.close_for_shutdown()
+            dialog.hide()   # a visible modal dialog would sit under the warning below
+        recorder.abort_now()
+        if self._recorder is None:   # a preview's writer finished synchronously
+            return
+        loop = QEventLoop()
+        recorder.finished.connect(lambda _result: loop.quit())
+        limit = QTimer(loop)
+        limit.setSingleShot(True)
+        limit.timeout.connect(loop.quit)
+        limit.start(max(1, int(timeout_s * 1000.0)))
+        loop.exec()
+        if self._recorder is not None:
+            path = recorder.output_path()
+            _LOG.warning("Camera tour: the file had not closed when the window went; "
+                         "its unfinished output may stay at %s", path)
+            QMessageBox.warning(
+                self._parent, _tr("Camera Tour"),
+                _tr("The recording could not be closed before the window went. "
+                    "Its unfinished output may stay at {path}.").format(path=path))
 
     # ── pictures for an agent ────────────────────────────────────────────────
 

@@ -203,3 +203,4 @@
 | Case study: leaves that turned red under a neutral grade (#390) | [Read](200-case-study-leaves-that-turned-red-under-a-neutral-grade-390.md) |
 | Case study: opening a plan crashed because the date had moved (#390) | [Read](201-case-study-opening-a-plan-crashed-because-the-date-had-moved-390.md) |
 | Case study: a crash only the owner's settings could reach (#390) | [Read](202-case-study-a-crash-only-the-owners-settings-could-reach-390.md) |
+| Case study: a year's time-lapse that jumped at the clock change (#732) | [Read](203-case-study-a-year-time-lapse-that-jumped-at-the-clock-change-732.md) |

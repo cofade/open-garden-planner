@@ -118,11 +118,27 @@ class AgentHost:
     def __init__(self, host: GardenPlannerApp) -> None:
         self._host = host
 
+    def _agent_plan_date(self) -> datetime.date:
+        """The plan date an agent writes and reads must see.
+
+        The canvas reads the one SimClock, but a tour that sweeps the year moves that
+        clock frame by frame (ADR-072). While it does, the owner's date is the held one:
+        a plant an agent creates then is planted on the owner's day, and ``as_of_date``
+        reports it, not the video's current frame (issue #730)."""
+        host = self._host
+        workspace = getattr(host, "_workspace", None)
+        capture = getattr(workspace, "capture", None)
+        held = capture.owner_plan_date() if capture is not None else None
+        if held is not None:
+            return cast("datetime.date", held)
+        return host._sim_clock.plan_date
+
     def _agent_snapshot(self) -> dict[str, Any]:
         """Read a snapshot of the live plan ON the Qt main thread (for the server)."""
         host = self._host
         return host._agent_bridge.run_on_main(
-            lambda: host._project_manager.snapshot_dict(host.canvas_scene)
+            lambda: host._project_manager.snapshot_dict(
+                host.canvas_scene, as_of_date=self._agent_plan_date())
         )
 
 
@@ -392,10 +408,11 @@ class AgentHost:
         build the item, apply the species, auto-populate its species metadata
         from the bundled DB (so the plant-detail panel and US-12.10d
         soil-mismatch warnings light up without a manual "Suchen"), stamp
-        the active plan date as planting date (US-E8/F4 — OUTSIDE the species guard,
+        the plan date as planting date (US-E8/F4 — OUTSIDE the species guard,
         so a placeholder that gains a species later is not left permanently
         undated, which would break the growth model), and assign the active
-        layer.
+        layer. While a camera tour moves the clock, the stamp is the OWNER's
+        held date, not the frame being rendered (issue #730, ``_agent_plan_date``).
 
         The item itself is built by ``_deserialize_item_core`` — the file
         loader's own factory — so an agent-created object is constructed by
@@ -462,7 +479,7 @@ class AgentHost:
                 cast(Any, item).plant_species = species
                 populate_item_species_metadata(item, species)
             # US-E8: every new plant is dated, species or not (see docstring).
-            stamp_default_planting_date(cast(Any, item).metadata, host._sim_clock.plan_date)
+            stamp_default_planting_date(cast(Any, item).metadata, self._agent_plan_date())
 
         linked_items: list[Any] = []
         if object_type == "HOUSE":
@@ -3027,7 +3044,8 @@ class AgentHost:
         # agent_api.queries.get_object / _stack_indices.
         from open_garden_planner.agent_api import queries
 
-        snapshot = host._project_manager.snapshot_dict(host.canvas_scene)
+        snapshot = host._project_manager.snapshot_dict(
+            host.canvas_scene, as_of_date=self._agent_plan_date())
         detail = queries.get_object(snapshot, item_id)
         stack_index = cast(Any, detail).stack_index if detail is not None else None
         return {

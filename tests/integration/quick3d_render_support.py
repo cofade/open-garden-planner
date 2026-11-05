@@ -56,6 +56,7 @@ import pytest
 from open_garden_planner.core.scene3d import Record, pose_ring
 from open_garden_planner.ui.view3d.quick3d.qt_messages import CLASSES, classify, graphics_adapter
 from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot, top_down_pixel
+from tests.eu_dst_zone import EU_DST as EU_DST  # re-exported for the DST tests
 
 REPO = Path(__file__).resolve().parents[2]
 DRIVER = Path(__file__).resolve().with_name("quick3d_render_driver.py")

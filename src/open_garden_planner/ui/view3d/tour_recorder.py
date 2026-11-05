@@ -30,6 +30,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date
 from datetime import time as day_time
+from pathlib import Path
 from typing import Final
 
 from PyQt6.QtCore import QCoreApplication, QObject, QTimer, pyqtSignal
@@ -133,6 +134,22 @@ class TourRecorder(QObject):
             return False
         self._cancelled = True
         return True
+
+    def output_path(self) -> Path | None:
+        """Where this run's own output lives while it is open (a part file or a frame
+        folder), for the report on a close that cannot wait for it."""
+        part = getattr(self._writer, "part_path", None)
+        if part is not None:
+            return Path(part)
+        folder = getattr(self._writer, "folder", None)
+        return Path(folder) if folder is not None else None
+
+    def abort_now(self) -> None:
+        """End it this instant. The window is closing and no timer step will come."""
+        if self._ending:
+            return
+        self._cancelled = True
+        self._end(abort=True)
 
     # ── the steps ────────────────────────────────────────────────────────────
 
