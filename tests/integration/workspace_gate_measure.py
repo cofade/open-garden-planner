@@ -641,15 +641,14 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     # destroyed Model releases inside that pass and the LOD queue re-queues its own
     # work: `pending_count` was still 34 after 60 s, so the soak never measured anything.
     # What these variants measure is churn under the threshold, not the startup.
+    # The product's own thresholds, captured BEFORE any variant changes them: a
+    # ``flood`` rebuild restores exactly these, and ``off`` must not capture its own
+    # 1e9 here (the next writer would restore the sentinel as if it were the product).
+    product_release = (workspace_module.RELEASE_AFTER_RETIRED,
+                       workspace_module.RELEASE_NOW_RETIRED)
     if release == "off":
         workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
         workspace_module.RELEASE_NOW_RETIRED = 10**9  # type: ignore[misc]
-    # The product's own thresholds, restored after a flood rebuild's pass: the flood is
-    # the REBUILD's "at once" rule (the Models the reset destroyed), not the Plant
-    # Forge's upgrade queue — under the flood threshold every forged plant costs a
-    # release, so the 41-plant settle took over three minutes and the soak never did.
-    product_release = (workspace_module.RELEASE_AFTER_RETIRED,
-                       workspace_module.RELEASE_NOW_RETIRED)
     parts_before = host.part_count()
     from open_garden_planner.core.plant_art import PLANT_KINDS
     from open_garden_planner.core.scene3d.builders import production_registry

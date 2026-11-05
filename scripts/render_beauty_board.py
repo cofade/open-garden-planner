@@ -35,7 +35,10 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
                night: how dark the night is against the noon of the same shot
 ``--dusk``     the evening of the golden-hour shot from a 6° sun to a −7° one, one camera:
                the light must fade (luminance never rises) and crossing sunset (0.6° →
-               0.4°) is no larger a step than a half degree of the day ramp
+               0.4°) is no larger a step than a half degree of the day ramp. It also
+               renders a SKY-ONLY camera at the sun's own bearing at +1.0° … −3.0°: no
+               pixel within 10° of that bearing and 1.5° of the sun's elevation may dip
+               more than 10 luma under its own elevation's rows (#695)
                (with ``--living``, ``--horizon``, ``--moods`` and ``--dusk`` run again under
                each cloudy weather — ADR-070's cloudy evening: ``moods_<weather>`` /
                ``sunset_over_noon``)
@@ -364,17 +367,19 @@ _PLANT_KINDS: frozenset[str] = frozenset({"TREE", "SHRUB", "PERENNIAL", "VEGETAB
                                           "FLOWER", "GRASS", "GROUND_COVER", "CLIMBER"})
 
 
-#: The probe pin must show in this many pixels of the frame: the board's magenta gate is
-#: 50 (#704), with margin for antialiasing and a partly hidden ball.
-PROBE_PIN_MIN_PX = 60.0
+#: The probe pin's STEM must be this tall in the frame. The board's separate magenta-area
+#: gate is 50 px (#704): the ball adds its own area above the stem, so 60 px of stem is a
+#: conservative way to keep the marker findable.
+PROBE_PIN_MIN_HEIGHT_PX = 60.0
 #: The pin is sized from the camera, but never more than this many times its share of the
 #: dome: a camera that far has no pin that is both honest and 60 px tall.
 PROBE_PIN_MAX_SCALE = 4.0
 
 
 def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float) -> float:
-    """How tall a pin of ``height_cm`` at ``point`` shows in the frame, in pixels: only
-    when the base AND the ball are inside it, so a clipped pin is not a visible one."""
+    """How tall the pin's STEM is in the frame, in pixels: only when its base and top are
+    inside the frame, so a clipped pin is not a visible one. The ball sits above the stem;
+    the separate magenta-area gate is what sees it."""
     px, py, front = camera.project([(point[0], point[1], 0.0),
                                     (point[0], point[1], height_cm)])
     if not front.all():
@@ -388,7 +393,7 @@ def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float)
 
 
 def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> float:
-    """The pin height that shows at least ``PROBE_PIN_MIN_PX`` at ``point`` (#704).
+    """The pin height that shows at least ``PROBE_PIN_MIN_HEIGHT_PX`` at ``point`` (#704).
 
     The product's pin is a share of the sun-path dome (``probe_pin_mesh``), which is
     right in the view but too short for the board's distant noon camera: 52 cm at 27 m
@@ -398,7 +403,7 @@ def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> f
     shown = _pin_projected_px(camera, point, default_cm)
     if shown <= 0.0:
         return default_cm
-    scale = min(max(PROBE_PIN_MIN_PX / shown, 1.0), PROBE_PIN_MAX_SCALE)
+    scale = min(max(PROBE_PIN_MIN_HEIGHT_PX / shown, 1.0), PROBE_PIN_MAX_SCALE)
     return default_cm * scale
 
 
@@ -434,7 +439,7 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
         if cast_segment(world.pick, shot.eye, (point[0], point[1], height)):
             continue                      # the ball is under a canopy: not a probe point
         shown = _pin_projected_px(camera, point, height)
-        if shown >= PROBE_PIN_MIN_PX:
+        if shown >= PROBE_PIN_MIN_HEIGHT_PX:
             return point, height
         if fallback is None or shown > fallback[0]:
             fallback = (shown, point, height)
@@ -1155,6 +1160,9 @@ class Board:
                              "sun_elev": round(sun.elevation_deg, 3), "twilight": round(look.mood.twilight, 4),
                              "night": look.night, "exposure": round(look.mood.exposure, 4),
                              "key_brightness": round(look.mood.sun_brightness, 4),
+                             "camera_eye": [round(v, 1) for v in camera.eye],
+                             "camera_target": [round(v, 1) for v in camera.target],
+                             "camera_fov_deg": camera.fov_deg,
                              "file": info["file"], **probes.frame_stats(rgb)})
             lums = [row["mean_luminance"] for row in rows]
             # a rise beyond the frames' own noise (two renders of one light differ by
@@ -1176,19 +1184,24 @@ class Board:
             # the poplar, so a black disc at twilight went unseen for three reviews. A
             # sky-only frame at the sun's own bearing measures it on every weather.
             azimuth = found[0.0][1].azimuth_deg if 0.0 in found else found[min(found)][1].azimuth_deg
-            eye = (self.width / 2.0, self.depth / 2.0, 160.0)
-            target = (eye[0] + math.sin(math.radians(azimuth)) * 1000.0,
-                      eye[1] + math.cos(math.radians(azimuth)) * 1000.0,
-                      eye[2] + 1000.0 * math.tan(math.radians(3.0)))
+            # A camera of the SKY PROBE's own: naming it `camera` rebound the golden-hour
+            # BoardShot above, and every preset after the first measured the dusk rows
+            # from this sky camera (P0, 2026-11-06 review).
+            sky_eye = (self.width / 2.0, self.depth / 2.0, 160.0)
+            sky_target = (sky_eye[0] + math.sin(math.radians(azimuth)) * 1000.0,
+                          sky_eye[1] + math.cos(math.radians(azimuth)) * 1000.0,
+                          sky_eye[2] + 1000.0 * math.tan(math.radians(3.0)))
             sky_rows = []
             for sun_elevation in SKY_DUSK_ELEVATIONS:
                 sun = SunState(sun_elevation, azimuth)
                 look = weather_look(sun, preset, weather)
-                camera = probes.Pinhole(eye=eye, target=target, fov_deg=70.0, size=self.size)
+                sky_camera = probes.Pinhole(eye=sky_eye, target=sky_target, fov_deg=70.0,
+                                            size=self.size)
                 rgb, _frame, info = self.frame(
                     f"skydusk{tag}_{sun_elevation:+.1f}_{preset}", {}, sun=sun, look=look,
-                    ground=None, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                measured = probes.sun_dip(rgb, camera, azimuth,
+                    ground=None, shot=PerspectiveShot(sky_camera.eye, sky_camera.target,
+                                                      sky_camera.fov_deg))
+                measured = probes.sun_dip(rgb, sky_camera, azimuth,
                                           sun_elevation_deg=sun_elevation)
                 measured.update(target=sun_elevation,
                                 ok=(measured["measured"]

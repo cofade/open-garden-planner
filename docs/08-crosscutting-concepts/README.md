@@ -5838,7 +5838,7 @@ probe Qt filters once per Texture (on WARP: 9–13 s on the dev box, 40–85 s o
 the sky is rebuilt only when the sun moved at least 1° (great circle) from where the SHOWN sky
 draws it (`sky_is_stale`), and while the time slider is dragged only once the sun has rested
 300 ms, with a 1 s ceiling so a playing day (a step every 200 ms) still follows the sun —
-the old 150 ms timer fired between every two steps (#722); a change of the sky's PHASE
+the old 150 ms timer fired before nearly every step (#722); a change of the sky's PHASE
 (`sky_phase`: day with a sun disc, twilight, night) is
 built at once — sunset at 0.5°, nightfall at −6°, dawn; through twilight the sky follows the sun
 by the degree (its colours do); a night sky is never rebuilt for the sun's position (it draws no

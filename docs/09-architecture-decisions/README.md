@@ -6632,7 +6632,7 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
    sun is dragged the sky is built once it has rested 300 ms (`SKY_SETTLE_MS`), and a sky
    that has been stale for 1 s is built at that pass whatever the timer says
    (`SKY_MAX_STALENESS_MS`): playback steps every 200 ms, so the old 150 ms timer fired
-   between every two steps and a playing day rebuilt the atmosphere on almost every step
+   before nearly every step and a playing day rebuilt the atmosphere on almost every step
    (3.5 steps/s, #722); now the steps keep restarting the timer and the ceiling makes the
    sky follow the sun about once a second. Light, exposure and fog follow every instant;
    while the sky lags, the fog is computed for the sky ON SCREEN.

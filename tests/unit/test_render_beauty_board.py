@@ -119,7 +119,7 @@ def test_a_distant_camera_gets_a_pin_that_shows_in_the_gate() -> None:
     point, height = board._open_ground(world, shot, {}, lambda *_args: False, size, radius)
     camera = board.probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
     assert height > 0.03 * radius, "the dome share was too short for this camera"
-    assert board._pin_projected_px(camera, point, height) >= board.PROBE_PIN_MIN_PX - 1e-6
+    assert board._pin_projected_px(camera, point, height) >= board.PROBE_PIN_MIN_HEIGHT_PX - 1e-6
 
 
 def test_a_pin_whose_ball_is_hidden_is_not_the_probe_point() -> None:
@@ -143,7 +143,7 @@ def test_a_pin_whose_ball_is_hidden_is_not_the_probe_point() -> None:
     other, other_height = board._open_ground(world, shot, {}, canopy, size, radius)
     assert other != point, "the hidden pin was chosen again"
     camera = board.probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
-    assert board._pin_projected_px(camera, other, other_height) >= board.PROBE_PIN_MIN_PX - 1e-6
+    assert board._pin_projected_px(camera, other, other_height) >= board.PROBE_PIN_MIN_HEIGHT_PX - 1e-6
 
 
 def test_a_mistyped_argument_is_an_error_not_another_experiment(capsys) -> None:

@@ -351,13 +351,12 @@ class ForgeWorker:
         return [j.item_id for j in ordered]
 
     def _sink_holds(self, item_id: str) -> bool:
-        """Whether the sink still holds ``item_id`` — asked where it can answer.
+        """Whether the sink still holds ``item_id``.
 
         A sink reset (a fresh engine, a recovery, a document switch) forgets every
         item; a forge completion that was in flight then has nothing to replace and
         must be dropped, not raised on (#718: the retry livelocked the workspace)."""
-        known = getattr(self._sink, "item_ids", None)
-        return known is None or item_id in known()
+        return self._sink is None or item_id in self._sink.item_ids()
 
     def apply_completed(
         self,

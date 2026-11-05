@@ -37,6 +37,7 @@ from typing import Any
 import numpy as np
 import pytest
 from scripts import board_probes as probes
+from scripts import render_beauty_board as beauty_board
 
 from open_garden_planner.core.scene3d import SunState
 from open_garden_planner.core.scene3d.look import (
@@ -229,6 +230,23 @@ def test_distant_horizon_rows_reach_the_real_fog_distances(board) -> None:
         # the render tier does not carry a second copy of the number.
         assert all(row["ok"] for row in rows), rows
         assert max(row["step"] for row in rows) <= MAX_FAR_HORIZON_STEP, rows
+
+
+def test_every_dusk_row_uses_the_golden_hour_camera(tmp_path) -> None:
+    """#695 P0: the sky probe's own camera must never become the dusk camera for the
+    next preset. Two presets are enough — the old code rebound `camera` after the first
+    preset's sky probe, so `high` rows were shot from the sky camera."""
+    out = tmp_path / "dusk-camera"
+    metrics = _ok_board(run_board(out, "--presets", "low,high", "--shots=", "--dusk"), out)
+    golden = next(shot for shot in beauty_board.default_shots(*metrics["plan_size_cm"])
+                  if shot.name == "golden_hour")
+    for preset in ("low", "high"):
+        rows = metrics["dusk"][preset]["rows"]
+        assert rows, preset
+        for row in rows:   # the rows round the camera to 0.1 cm for metrics.json
+            assert row["camera_eye"] == pytest.approx(golden.eye, abs=0.1), (preset, row)
+            assert row["camera_target"] == pytest.approx(golden.target, abs=0.1), (preset, row)
+            assert row["camera_fov_deg"] == golden.fov_deg
 
 
 def test_the_analysis_board_finds_its_probe_pin_on_the_built_world(tmp_path) -> None:

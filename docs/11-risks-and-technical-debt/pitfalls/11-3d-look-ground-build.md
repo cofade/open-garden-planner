@@ -305,13 +305,13 @@ renders each look once per round and compares medians over 40 rounds.
 
 ### PF-L3D-19
 
-- **Rule:** A probe that compares "near" and "away" pixels of a perspective frame must bin them by the world quantity it cares about (elevation, bearing, distance) — an image row is a plane, not a cone.
+- **Rule:** A probe that compares "near" and "away" pixels of a perspective frame must bin them by the world quantity it cares about (elevation, bearing, distance) — an image row is a plane, not a cone — and must window the near pixels to that quantity's own value (the sun's elevation within 1.5°), or a legitimately dark cumulus elsewhere reads as the black sun.
 - **Pinned by:** `tests/unit/test_board_probes.py::test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not`
 - **Source:** #695, #717
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-Symptom: the new set-sun probe failed the **painted** sky on every frame with a 19.7–24.2 luma dip, always at the same reported elevation (−1.12°), while the images looked clean. Root cause: `sun_dip` compared pixels in the same image row; with a 70° field and a +3° pitch the away columns in the horizon rows sit several degrees higher in the sky, and the sky's vertical gradient read as a dip. Fix: compare near (±10° of the sun's bearing) and away (15–45°) pixels in the same 0.25° world-elevation band. The first synthetic positive control passed because its disc and band shared rows; the real camera exposed the difference.
+Symptom: the new set-sun probe failed the **painted** sky on every frame with a 19.7–24.2 luma dip, always at the same reported elevation (−1.12°), while the images looked clean. Root cause: `sun_dip` compared pixels in the same image row; with a 70° field and a +3° pitch the away columns in the horizon rows sit several degrees higher in the sky, and the sky's vertical gradient read as a dip. Fix: compare near (±10° of the sun's bearing) and away (15-45°) pixels in the same 0.25° world-elevation band, and keep only bands within 1.5° of the sun's own elevation (an isolated cumulus 6° above a 0.4° sun read 48 luma). The first synthetic positive control passed because its disc and band shared rows; the real camera exposed the difference.
 
 ### PF-L3D-20
 

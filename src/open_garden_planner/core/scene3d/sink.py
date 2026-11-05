@@ -149,6 +149,11 @@ class EngineSink(Protocol):
     def replace_geometry(self, item_id: str, parts: Sequence[MeshPart]) -> None:
         """New mesh parts for an item; pose and material stay as they are."""
 
+    def item_ids(self) -> tuple[str, ...]:
+        """The items the sink holds now (a reset sink holds none): the forge asks this
+        before replacing geometry, so a completion that outlived its scene is dropped
+        (#718)."""
+
     def set_sun(self, sun: SunState) -> None:
         """The sun moved (or rose, or set)."""
 
