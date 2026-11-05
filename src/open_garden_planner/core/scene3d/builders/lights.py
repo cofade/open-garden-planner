@@ -104,7 +104,8 @@ def lantern_bulb(record: Record, height_cm: float) -> tuple[float, float, float]
 
 
 def lamp_light(record: Record, height_cm: float,
-               bulbs: np.ndarray | None = None) -> tuple[float, float, float] | None:
+               bulbs: np.ndarray | None = None,
+               laid_out: Layout | None = None) -> tuple[float, float, float] | None:
     """Where the point light of a garden light or a string stands, item-local (cm; z up
     from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor, or under a string's
     chosen bulb — which ``POST_CLEAR_CM`` keeps off the posts of its span (before it,
@@ -116,8 +117,9 @@ def lamp_light(record: Record, height_cm: float,
     wire's middle, and clear of every post by #709's cross-post rule); a CLOSED line
     takes the bulbs' centroid — the middle of the space it hangs round, not a corner.
     If a concave loop's centroid lands on a post, the nearest bulb is the fallback, so
-    the light can never stand in a post. ``bulbs`` may be passed by a caller that has
-    already laid the string out once (``core/scene3d/lights.py``); None lays it out."""
+    the light can never stand in a post. ``bulbs`` and ``laid_out`` may be passed by a
+    caller that has already laid the string out once (``core/scene3d/lights.py``); None
+    lays it out. ``lamp_sources`` therefore lays each string out once per light pass."""
     if record.kind == "GARDEN_LIGHT":
         box = _box_of(record)
         if box is None:
@@ -125,10 +127,10 @@ def lamp_light(record: Record, height_cm: float,
         _post, bottom, _top, _half = _lantern(box, height_cm)
         return (box.cx, box.cy, bottom - LIGHT_BELOW_CM)
     if bulbs is None:
-        bulbs = string_bulbs(record, height_cm)
+        bulbs = string_bulbs(record, height_cm, laid_out)
     if bulbs is None or not len(bulbs):
         return None
-    lay = string_layout(record)
+    lay = laid_out if laid_out is not None else string_layout(record)
     centroid = bulbs[:, :2].mean(axis=0)
     if lay is not None and lay.is_closed:
         x, y = float(centroid[0]), float(centroid[1])
@@ -179,11 +181,12 @@ def _wire_z(length_cm: float, height_cm: float, share: np.ndarray) -> np.ndarray
     return (height_cm - 2.0) - 4.0 * sag * share * (1.0 - share)
 
 
-def string_bulbs(record: Record, height_cm: float) -> np.ndarray | None:
+def string_bulbs(record: Record, height_cm: float,
+                 laid_out: Layout | None = None) -> np.ndarray | None:
     """The bulbs of a string of lights, item-local (n, 3) in cm — hanging under the
     wire where ``string_layout`` puts them. None for a record the builder builds as a
-    plain block."""
-    lay = string_layout(record)
+    plain block. ``laid_out`` passes an already-computed layout (one per light pass)."""
+    lay = laid_out if laid_out is not None else string_layout(record)
     if lay is None:
         return None
     out = np.empty((len(lay.bulbs), 3))

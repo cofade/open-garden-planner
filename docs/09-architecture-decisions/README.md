@@ -10433,17 +10433,21 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
   2 cm chords; a post at every point put 21 posts in a 39 cm arc (r 25) and 41 in a
   157 cm arc (r 100), and the bulbs sank into them. `MIN_POST_GAP_CM = 40` keeps the
   first point, the drawn last point and every point at least the gap further along the
-  line; a closed loop also checks the closing span. The wire runs straight between
-  posts (a 2 cm sagitta for a 40 cm chord at r 100). A bulb moves along its own span
-  until it clears every **foreign** post by `OTHER_POST_CLEAR_CM` (8.6 cm, the 6 cm
-  span clearance plus the 2.6 cm ball), so a self-crossing line cannot hide one in a
-  post.
+  line; a closed loop also checks the closing span. A span shorter than the gap is
+  allowed where its chord would cut the drawn line by more than
+  `MAX_CHORD_DEVIATION_CM = 2.5`: a 40 cm chord at r 100 deviates ~2 cm, while the r 25
+  fillet is followed by 17–19 cm spans (a 39 cm chord at r 25 would cut 9.5 cm; the
+  first cut let a 2.2 m chord run 22 cm off the plan — 3D review). A bulb moves along
+  its own span until it clears every **foreign** post by `OTHER_POST_CLEAR_CM` (8.6 cm,
+  the 6 cm span clearance plus the 2.6 cm ball), so a self-crossing line cannot hide one
+  in a post.
 - **Where a string's light stands (#705).** An open line takes the bulb nearest the
   bulbs' centroid (linked to the line's middle, clear of every post), a closed loop
   takes the centroid itself — the middle of the space it hangs round — and falls back
   to that nearest bulb if a concave loop's centroid lands in a post. The light is laid
-  out once per pass: `lamp_sources` passes its bulbs into `lamp_light` instead of
-  calling `string_bulbs` twice (9 ms per string at the 16,384-vertex cap).
+  out once per pass: `lamp_sources` computes the layout once and passes it to both
+  `string_bulbs` and `lamp_light` (measured 13 ms per 16,384-vertex string, was
+  29.5 ms with the second layout).
 
 Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
 clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).

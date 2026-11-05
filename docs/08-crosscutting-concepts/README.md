@@ -7741,7 +7741,8 @@ or date change — at most twice a second during the year playback) and when a p
 garden lights; never for a time of day. Equal emitters are not sent again.
 
 **A string of lights is a line.** Drawn like a fence — a post at least 40 cm apart along
-the line (at most 512), the wire hanging between two posts, a bulb every 40 cm along the
+the line (at most 512; shorter where a straight wire would cut a drawn arc by more than
+`MAX_CHORD_DEVIATION_CM = 2.5`), the wire hanging between two posts, a bulb every 40 cm along the
 wire (at most 120), each kept 6 cm clear of the posts of its span and 8.6 cm clear of
 every other post (a line that doubles back can put a foreign post in a bulb's way) — from
 ONE layout, `core/string_lights.layout`: the canvas paints its posts and bulbs from it

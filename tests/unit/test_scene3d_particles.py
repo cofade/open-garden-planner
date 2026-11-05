@@ -329,6 +329,25 @@ def test_a_strings_point_light_stands_outside_every_post(path) -> None:
             "under a bulb")
 
 
+def test_a_string_is_laid_out_once_per_light_pass(monkeypatch) -> None:
+    """#705: `lamp_sources` used to call `string_bulbs` (one layout) and then
+    `lamp_light` (a second). It passes its layout now — measured 29.5 ms vs 12.8 ms
+    per 16,384-vertex string before the fix."""
+    import open_garden_planner.core.scene3d.lights as lights_module
+
+    calls: list[int] = []
+    original = lights_module.string_layout
+
+    def counted(record):
+        calls.append(1)
+        return original(record)
+
+    monkeypatch.setattr(lights_module, "string_layout", counted)
+    sources = lights_module.lamp_sources([string(length=440.0, rotation=0.0)])
+    assert len(sources) == 1 and sources[0].bulb_points
+    assert len(calls) == 1, calls
+
+
 def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:
     record = string(length=440.0, rotation=0.0)
     bulbs = string_bulbs(record, 250.0)

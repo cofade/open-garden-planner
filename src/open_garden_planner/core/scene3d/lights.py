@@ -31,6 +31,7 @@ from .builders.lights import (
     lantern_bulb,
     light_height_cm,
     string_bulbs,
+    string_layout,
 )
 from .frame import pose_points
 from .particles import MAX_BULBS, Emitter
@@ -86,10 +87,12 @@ def lamp_sources(records: Iterable[Record]) -> tuple[LampSource, ...]:
             bulb = lantern_bulb(record, height)
             points = None if bulb is None else np.array([bulb], dtype=np.float64)
             glow, strength = _LANTERN_GLOW_CM, _LANTERN_STRENGTH
+            laid_out = None
         else:
-            points = string_bulbs(record, height)
+            laid_out = string_layout(record)
+            points = string_bulbs(record, height, laid_out)
             glow, strength = _STRING_GLOW_CM, _STRING_STRENGTH
-        anchor = lamp_light(record, height, points)
+        anchor = lamp_light(record, height, points, laid_out)
         if points is None or not len(points) or anchor is None:
             continue
         scene = pose_points(record.transform, points)   # the pose the Model gets

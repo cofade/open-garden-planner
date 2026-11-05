@@ -10,6 +10,7 @@ import pytest
 from open_garden_planner.core.string_lights import (
     BULB_SPACING_CM,
     MAX_BULBS_PER_STRING,
+    MAX_CHORD_DEVIATION_CM,
     MAX_POSTS,
     MERGE_CM,
     MIN_POST_GAP_CM,
@@ -54,12 +55,44 @@ def test_a_filleted_string_is_not_a_wall_of_posts(radius: float) -> None:
     few straight chords and the bulbs keep clear of every post."""
     lay = layout(_filleted(((0.0, 0.0), (400.0, 0.0), (400.0, 400.0)), radius))
     assert lay.posts
-    assert len(lay.posts) <= math.ceil(lay.length_cm / MIN_POST_GAP_CM) + 2
-    # the span is the CHORD between two posts: a 40 cm chord at r 100 is ~2 cm shorter
-    # than its arc, the sagitta the issue accepts
-    assert all(span.length_cm >= MIN_POST_GAP_CM - 2.5 for span in lay.spans), (
+    assert len(lay.posts) <= math.ceil(lay.length_cm / MIN_POST_GAP_CM) + 4
+    # a short fillet keeps as many posts as its chord deviation needs (r 25: 17-19 cm
+    # spans; the 25 cm arc cannot be followed by a 40 cm chord within 2.5 cm), never
+    # the 21-41-post caterpillar the issue measured
+    assert all(span.length_cm >= 15.0 for span in lay.spans), (
         [round(span.length_cm, 2) for span in lay.spans])
     _clear_of_every_post(lay)
+
+
+def test_a_short_fillet_arc_is_not_replaced_by_a_chord() -> None:
+    """#709's 3D review: the r 25 fillet's far tangent is 39.27 cm from the near one,
+    so a strict 40 cm gap dropped it and stretched the wire 2.2 m across the corner
+    (22.16 cm off the drawn line). A span whose chord cuts more than
+    ``MAX_CHORD_DEVIATION_CM`` keeps the arc's own point."""
+    for radius in (25.0, 100.0):
+        path = _filleted(((0.0, 0.0), (400.0, 0.0), (400.0, 400.0)), radius)
+        lay = layout(path)
+        worst = 0.0
+        for point in path:
+            nearest = min(_segment_distance(point, lay.posts[span.a], lay.posts[span.b])
+                          for span in lay.spans)
+            worst = max(worst, nearest)
+        assert worst <= MAX_CHORD_DEVIATION_CM + 1e-6, (radius, worst, lay.posts)
+    # the r 25 corner is followed by 17-19 cm spans, not by a 2.2 m chord across it
+    short = layout(_filleted(((0.0, 0.0), (400.0, 0.0), (400.0, 400.0)), 25.0))
+    assert min(span.length_cm for span in short.spans) < MIN_POST_GAP_CM
+    assert min(span.length_cm for span in short.spans) >= 15.0
+
+
+def _segment_distance(point: tuple[float, float], start: tuple[float, float],
+                      end: tuple[float, float]) -> float:
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length_sq = dx * dx + dy * dy
+    if length_sq <= 1e-12:
+        return math.hypot(point[0] - start[0], point[1] - start[1])
+    share = max(0.0, min(1.0, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy)
+                       / length_sq))
+    return math.hypot(point[0] - (start[0] + dx * share), point[1] - (start[1] + dy * share))
 
 
 def test_a_dense_line_stands_its_posts_at_least_the_gap_apart() -> None:

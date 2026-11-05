@@ -42,6 +42,11 @@ MERGE_CM: Final = 1.0
 #: runs straight between posts, so an arc becomes chords (a 2 cm sagitta for a 40 cm
 #: chord at r 100 cm). The line's last point always stays.
 MIN_POST_GAP_CM: Final = 40.0
+#: A span may be shorter than the gap when its chord would otherwise deviate from the
+#: drawn line by more than this: the terminal point of a short fillet arc stays a post
+#: (a 39.27 cm span at r 25) instead of being replaced by a 2.2 m chord across the
+#: corner (#709, 3D review). A 40 cm chord at r 100 deviates ~2 cm, inside this.
+MAX_CHORD_DEVIATION_CM: Final = 2.5
 #: A bulb hangs at least this far from either post of its span (a 2.6 cm ball beside a
 #: 4 cm post) — at the middle of a span shorter than twice it.
 POST_CLEAR_CM: Final = 6.0
@@ -107,6 +112,50 @@ class Layout:
 EMPTY: Final = Layout((), (), ())
 
 
+def _chord_distance(point: Point, start: Point, end: Point) -> float:
+    """Distance from ``point`` to the segment ``start``–``end``."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length_sq = dx * dx + dy * dy
+    if length_sq <= 1e-12:
+        return math.hypot(point[0] - start[0], point[1] - start[1])
+    share = max(0.0, min(1.0, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy)
+                       / length_sq))
+    return math.hypot(point[0] - (start[0] + dx * share), point[1] - (start[1] + dy * share))
+
+
+def _refine_chords(posts: list[Point], kept: list[int], closed: bool) -> list[Point]:
+    """Add the point of a span whose chord would cut the drawn line by too much (#709).
+
+    The gap is a straight wire between posts. A short fillet arc has its far tangent
+    only 39 cm after the near one, so the strict gap would drop it and stretch the wire
+    2.2 m across the corner; the 3D reviewer measured the chord 22 cm off the plan.
+    Recursively split any span whose intermediate points deviate more than
+    ``MAX_CHORD_DEVIATION_CM``, so every wire follows the drawn line within it."""
+    count = len(posts)
+    order = [*kept, kept[0] + count] if closed else kept
+    out = [order[0]]
+
+    def emit(start: int, end: int) -> None:
+        worst = 0.0
+        at = -1
+        for index in range(start + 1, end):
+            distance = _chord_distance(posts[index % count], posts[start % count],
+                                       posts[end % count])
+            if distance > worst:
+                worst, at = distance, index
+        if at >= 0 and worst > MAX_CHORD_DEVIATION_CM:
+            emit(start, at)
+            emit(at, end)
+        else:
+            out.append(end)
+
+    for start, end in zip(order, order[1:], strict=False):
+        emit(start, end)
+    if closed:
+        out.pop()                       # the closing span repeats the first post
+    return [posts[index % count] for index in out]
+
+
 def _keep_post_gap(posts: list[Point], closed: bool) -> list[Point]:
     """The points that stand a post apart by ``MIN_POST_GAP_CM`` *along the line*.
 
@@ -116,7 +165,9 @@ def _keep_post_gap(posts: list[Point], closed: bool) -> list[Point]:
     it is nearer than the gap to the previous post, it replaces that post (unless that
     post is the first). For a CLOSED line the closing span counts too: a last post
     nearer than the gap to the first is dropped, never the first. A line shorter than
-    the gap keeps its first and last point — no placement can honour the gap on it."""
+    the gap keeps its first and last point — no placement can honour the gap on it.
+    Every kept span is then refined by ``_refine_chords``: a wire never cuts a drawn
+    arc by more than ``MAX_CHORD_DEVIATION_CM``, even when that needs a shorter span."""
     if len(posts) < 3:
         return posts
     steps = [0.0]
@@ -139,7 +190,7 @@ def _keep_post_gap(posts: list[Point], closed: bool) -> list[Point]:
                 kept.append(last)
             else:
                 kept[-1] = last
-    return [posts[index] for index in kept]
+    return _refine_chords(posts, kept, closed)
 
 
 def _posts(points: Sequence[Point]) -> tuple[list[Point], bool]:
