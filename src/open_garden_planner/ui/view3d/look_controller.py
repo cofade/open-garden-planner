@@ -545,7 +545,7 @@ class LookController(QObject):
                 self._build_sky(look.sky)       # the first sky; sunset, nightfall, a weather: at once
             elif sky_is_stale(shown, look.sky):
                 if self._showing:
-                    now = time.monotonic()
+                    now = self._clock()
                     if self._sky_stale_since is None:
                         self._sky_stale_since = now
                     if (now - self._sky_stale_since) * 1000.0 >= SKY_MAX_STALENESS_MS:

@@ -305,8 +305,8 @@ renders each look once per round and compares medians over 40 rounds.
 
 ### PF-L3D-19
 
-- **Rule:** A probe that compares "near" and "away" pixels of a perspective frame must bin them by the world quantity it cares about (elevation, bearing, distance) — an image row is a plane, not a cone.
-- **Pinned by:** `tests/unit/test_board_probes.py::test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not`; `scripts/render_beauty_board.py` `sun_dip`
+- **Rule:** A probe that compares "near" and "away" pixels of a perspective frame must bin them by the world quantity it cares about (elevation, bearing, distance) — an image row is a plane, not a cone. (`scripts/render_beauty_board.py` `sun_dip`.)
+- **Pinned by:** `tests/unit/test_board_probes.py::test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not`
 - **Source:** #695, #717
 - **Status:** standing
 - **Legacy:** none (new entry)
