@@ -285,16 +285,52 @@ def shadow_iou(rgb: Any, camera: Pinhole, footprint: Polygon, height: float,
 # ── gate G4: where the sky draws its sun ─────────────────────────────────────
 
 
+def _largest_blob(mask: Any) -> tuple[Any, int]:
+    """The largest 4-connected component of a boolean mask, and its pixel count.
+
+    A sun disc is one compact plateau. The centroid of every white pixel in the sky
+    merges two separate blobs into a point between them (a false sun at 180° from two
+    blobs at 160° and 200°); the component is what makes "plateau" true."""
+    white = np.asarray(mask, dtype=bool)
+    seen = np.zeros_like(white, dtype=bool)
+    best = np.zeros_like(white, dtype=bool)
+    best_count = 0
+    rows, cols = white.shape
+    for row, col in zip(*np.nonzero(white), strict=False):
+        if seen[row, col]:
+            continue
+        stack = [(int(row), int(col))]
+        seen[row, col] = True
+        cells: list[tuple[int, int]] = []
+        while stack:
+            current_row, current_col = stack.pop()
+            cells.append((current_row, current_col))
+            for delta_row, delta_col in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                next_row, next_col = current_row + delta_row, current_col + delta_col
+                if (0 <= next_row < rows and 0 <= next_col < cols
+                        and white[next_row, next_col] and not seen[next_row, next_col]):
+                    seen[next_row, next_col] = True
+                    stack.append((next_row, next_col))
+        if len(cells) > best_count:
+            best_count = len(cells)
+            best = np.zeros_like(white, dtype=bool)
+            for cell_row, cell_col in cells:
+                best[cell_row, cell_col] = True
+    return best, best_count
+
+
 def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     """The compass bearing and the elevation of the sky's sun disc in a frame that
     looks at the sky.
 
     A disc at a low sun can be dimmer than the warm horizon band around it, so the
-    finder first looks for the disc's own signature — a plateau of at least 20 pixels
-    with every channel at least 250 — and takes its centroid (#717; measured within
-    0.04 degrees). When no such plateau exists it falls back to the peak of "bright
-    AND warm" above the horizon. ``found`` is False when nothing stands out (contrast
-    of the peak over the median at most 40) — a sky without a disc, a night sky.
+    finder first looks for the disc's own signature — the largest 4-connected plateau
+    of at least 20 pixels with every channel at least 250 — and takes its centroid
+    (#717; worst measured error 0.13°). A compactness test (bounding box at most 4:1,
+    at least 40 % filled) keeps a thin white streak from reading as a disc. When no
+    such plateau exists it falls back to the peak of "bright AND warm" above the
+    horizon. ``found`` is False when nothing stands out (contrast of the peak over the
+    median at most 40) — a sky without a disc, a night sky.
     """
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
     rows, cols = frame.shape[:2]
@@ -304,20 +340,25 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     score = luma(sky) + 0.8 * (sky[:, :, 0] - sky[:, :, 2])
     median = float(np.median(score))
     white = np.all(sky >= 250.0, axis=2)
-    if int(white.sum()) >= 20:
-        peak_rows, peak_cols = np.nonzero(white)
-        contrast = float(np.median(score[peak_rows, peak_cols])) - median
-        if contrast > 40.0:
-            x, y = float(peak_cols.mean()) + 0.5, float(peak_rows.mean()) + 0.5
+    plateau, count = _largest_blob(white)
+    if count >= 20:
+        plateau_rows, plateau_cols = np.nonzero(plateau)
+        height = int(plateau_rows.max() - plateau_rows.min() + 1)
+        width = int(plateau_cols.max() - plateau_cols.min() + 1)
+        compact = (max(width, height) <= 4 * max(1, min(width, height))
+                   and count >= 0.4 * width * height)
+        contrast = float(np.median(score[plateau_rows, plateau_cols])) - median
+        if compact and contrast > 40.0:
+            x, y = float(plateau_cols.mean()) + 0.5, float(plateau_rows.mean()) + 0.5
             return {"found": True, "contrast": round(contrast, 1),
-                    "pixel": [round(x, 1), round(y, 1)],
+                    "pixel": [round(x, 1), round(y, 1)], "plateau_px": count,
                     "bearing_deg": round(view.bearing_deg(x, y), 2),
                     "elevation_deg": round(view.elevation_deg(x, y), 2)}
     row, col = np.unravel_index(int(np.argmax(score)), score.shape)
     contrast = float(score[row, col] - median)
     if contrast <= 40.0:
         return {"found": False, "contrast": round(contrast, 1)}
-    # the disc is a plateau: take the centre of everything within 2 % of the peak
+    # the warm peak is a plateau too: take the centre of everything within 2 % of it
     peak = score >= score[row, col] - 0.02 * abs(float(score[row, col]))
     peak_rows, peak_cols = np.nonzero(peak)
     x, y = float(peak_cols.mean()) + 0.5, float(peak_rows.mean()) + 0.5
@@ -330,7 +371,8 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
             sun_elevation_deg: float | None = None, near_deg: float = 10.0,
             away_deg: tuple[float, float] = (15.0, 45.0),
             near_elevation_deg: float = 1.5) -> dict[str, Any]:
-    """The darkest sky row near the sun's bearing against the same rows away from it.
+    """The darkest sky pixel near the sun's bearing against the same WORLD ELEVATION
+    away from it.
 
     The set-sun gate's instrument (#695): a black disc or a dark halo shows as the
     darkest pixel within ``near_deg`` of ``sun_azimuth_deg`` against the median luma
@@ -344,7 +386,9 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
     elevation count: under partial cloud an isolated cumulus elsewhere in the sky is
     legitimately dark (it read a 48-luma "dip" 6.6° above a 0.4° sun), but the disc's
     own rows are where a black sun hides. Used on a sky-only frame (``ground=None``),
-    so a sun below the geometric horizon is still measured.
+    so a sun below the geometric horizon is still measured. ``measured`` is False when
+    no band had both a near and an away sample: a gate must fail closed, not read that
+    as a clean sky.
     """
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
     rows, cols = frame.shape[:2]
@@ -379,7 +423,8 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
         delta = float(values.min() - reference[int(band)])
         if at_band is None or delta < dip:
             dip, at_band = delta, int(band)
-    out: dict[str, Any] = {"dip_luma": round(dip, 2), "band": at_band}
+    out: dict[str, Any] = {"dip_luma": round(dip, 2), "band": at_band,
+                           "measured": at_band is not None}
     if at_band is not None:
         out["elevation_deg"] = round((at_band + 0.5) * band_deg, 2)
     return out

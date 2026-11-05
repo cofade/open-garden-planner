@@ -390,8 +390,8 @@ def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> f
 
     The product's pin is a share of the sun-path dome (``probe_pin_mesh``), which is
     right in the view but too short for the board's distant noon camera: 52 cm at 27 m
-    read 38 px. A taller pin at the same point keeps the marker findable without moving
-    the measurement; the share is the floor, never the ceiling.
+    read 38 px. A taller pin keeps the marker findable without moving the measurement
+    off the ground; the share is the floor, never the ceiling.
     """
     shown = _pin_projected_px(camera, point, default_cm)
     if shown <= 0.0:
@@ -404,18 +404,18 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
                  size: tuple[int, int], radius_cm: float) -> tuple[tuple[float, float], float]:
     """A lawn point near the shot's target that the camera sees, and the pin's height.
 
-    The point is the nearest one no item covers whose whole pin (base, not just the
-    first 30 cm, and its ball) is in the clear, so a partly hidden pin cannot pass the
-    gate by being close to the target. The height comes from ``_pin_height``: a distant
-    camera gets a taller pin at the same point rather than a marker too small to find
-    (#704).
+    The point is the nearest one no item covers whose pin is in the clear from the
+    ground through its ball, so a partly hidden pin cannot pass the gate by being close
+    to the target. The height comes from ``_pin_height``: a distant camera gets a taller
+    pin rather than a marker too small to find (#704).
     """
     from open_garden_planner.core.scene3d.frame import pose_ring
+    from open_garden_planner.core.scene3d.sun_path import pin_height_cm
     from open_garden_planner.core.shade_aggregation import points_in_polygons
 
     tx, ty = float(shot.target[0]), float(shot.target[1])
     camera = probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
-    default_cm = max(0.03 * radius_cm, 30.0)
+    default_cm = pin_height_cm(radius_cm)
     tries = sorted(((tx + dx, ty + dy) for dx in range(-600, 601, 50)
                     for dy in range(-600, 601, 50)),
                    key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
@@ -426,8 +426,8 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
             covered |= points_in_polygons([pose_ring(record.transform, outer)], points)
     fallback: tuple[float, tuple[float, float], float] | None = None
     for index, point in enumerate(tries):
-        if covered[index] or cast_segment(world.pick, shot.eye, (point[0], point[1], 30.0)):
-            continue
+        if covered[index] or cast_segment(world.pick, shot.eye, (point[0], point[1], 0.0)):
+            continue                       # the base is under something: not a probe point
         height = _pin_height(camera, point, default_cm)
         if cast_segment(world.pick, shot.eye, (point[0], point[1], height)):
             continue                      # the ball is under a canopy: not a probe point
@@ -991,8 +991,13 @@ class Board:
             "max_abs_error_deg": round(max(known), 2) if known else None,
             "max_abs_elevation_error_deg": (round(max(known_elevation), 2)
                                             if known_elevation else None),
-            "ok": len(known) == len(errors) and bool(known) and max(known) < SKY_MAX_ERROR_DEG}
-        self.log("sky", ok=self.metrics["sky"]["ok"], max_error=self.metrics["sky"]["max_abs_error_deg"])
+            "elevation_ok": (len(known_elevation) == len(errors) and bool(known_elevation)
+                             and max(known_elevation) < SKY_DISC_ERROR_BOUND_DEG),
+            "ok": (len(known) == len(errors) and bool(known) and max(known) < SKY_MAX_ERROR_DEG
+                   and len(known_elevation) == len(errors) and bool(known_elevation)
+                   and max(known_elevation) < SKY_DISC_ERROR_BOUND_DEG)}
+        self.log("sky", ok=self.metrics["sky"]["ok"], max_error=self.metrics["sky"]["max_abs_error_deg"],
+                 max_elevation_error=self.metrics["sky"]["max_abs_elevation_error_deg"])
         self.write()
 
     def horizon(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
@@ -1179,7 +1184,8 @@ class Board:
                 measured = probes.sun_dip(rgb, camera, azimuth,
                                           sun_elevation_deg=sun_elevation)
                 measured.update(target=sun_elevation,
-                                ok=measured["dip_luma"] >= -SKY_DUSK_DIP_BOUND,
+                                ok=(measured["measured"]
+                                    and measured["dip_luma"] >= -SKY_DUSK_DIP_BOUND),
                                 file=info["file"])
                 sky_rows.append(measured)
             out[preset]["sky_dusk"] = sky_rows

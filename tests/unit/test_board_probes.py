@@ -301,6 +301,43 @@ def test_a_low_suns_disc_beats_a_brighter_warm_horizon_band() -> None:
     assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
 
 
+def test_two_white_blobs_do_not_make_a_sun_between_them() -> None:
+    """#717 review: the white path took the centroid of EVERY white pixel, so two
+    clouds at 160° and 200° read as a sun at 180°. It takes the largest connected
+    plateau instead; two equal blobs report one of them, never their midpoint."""
+    azimuth, elevation = 180.0, 12.0
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(elevation))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    frame[rays[..., 2] < 0.0] = (70.0, 110.0, 60.0)
+    for blob_bearing in (160.0, 200.0):
+        blob = np.asarray(sun_direction_scene(elevation, blob_bearing))
+        frame[np.degrees(np.arccos(np.clip(rays @ blob, -1.0, 1.0))) < 1.2] = 255.0
+    found = P.sun_disc(frame, camera)
+    assert found["found"]
+    assert min(abs(P.bearing_error_deg(found["bearing_deg"], bearing))
+               for bearing in (160.0, 200.0)) < 5.0, found
+    assert abs(P.bearing_error_deg(found["bearing_deg"], 180.0)) > 10.0, found
+
+
+def test_a_sky_without_an_away_band_is_not_measured() -> None:
+    """#695 review: "no measurement" and "a clean sky" must not be the same value; the
+    gate fails closed."""
+    camera = P.Pinhole(eye=(0.0, 0.0, 160.0), target=(0.0, 1000.0, 400.0),
+                       fov_deg=70.0, size=SIZE)
+    result = P.sun_dip(_sky(camera, 180.0, 0.4), camera, 180.0, away_deg=(80.0, 90.0))
+    assert result["measured"] is False
+
+
 def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
     """#695: the board's dusk camera had the sun behind a poplar, so a black sun with a
     dark halo survived three reviews. A sky-only frame near the sun's bearing measures it;
@@ -324,10 +361,12 @@ def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
     frame += glow * (np.array([255.0, 235.0, 190.0]) - frame)
     control = P.sun_dip(frame, camera, azimuth, sun_elevation_deg=elevation)
     assert control["dip_luma"] > -10.0, control          # a glow is not a dip
+    assert control["measured"] is True, control
     black = frame.copy()
     black[angle < 1.0] = 0.0
     found = P.sun_dip(black, camera, azimuth, sun_elevation_deg=elevation)
     assert found["dip_luma"] < -50.0, found
+    assert found["measured"] is True, found
     assert found["elevation_deg"] == pytest.approx(elevation, abs=1.0), found
     # a dark cumulus 6 degrees above the sun is weather, not a black sun
     sky_elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))

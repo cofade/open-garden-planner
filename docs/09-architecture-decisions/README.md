@@ -3956,9 +3956,9 @@ only — facing a low sun, the atmosphere's sun and its halo enter the frame and
 frame read up to 1.9 % above its golden hour while the garden below darkened 23–25 %, as
 under the painted sky. (Before the 3D review the tier allowed that swap within 3 %; the
 review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
-sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
-3.44 / 3.48; 67 m / 31.6° high: 3.11) — a pre-existing failure filed as #714, not this
-package's.
+sky's and failed its then-3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
+3.44 / 3.48; 67 m / 31.6° high: 3.11) — #714, closed by re-measuring the smooth fog ramp
+at the render tier's 640 × 360 and re-deriving the bound to 3.6 (ADR-059's addendum).
 
 **Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
 clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
@@ -6698,7 +6698,8 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
 
 - Truth and look are separable by construction: no look value can move a shadow, and a stale
   look aims nothing.
-- The sky lags the sun by less than 1° and 150 ms of rest; the light, the exposure and the fog
+- The sky lags the sun by less than 1° and 0.3 s of rest, or at most 1 s while the sun keeps
+  moving (`SKY_MAX_STALENESS_MS`); the light, the exposure and the fog
   never lag.
 - On the dev box's display (60 Hz, vsync) every preset presents about 60 frames a second on both
   bench plans; what a frame COSTS is the readback number in the table below. An integrated GPU
@@ -7186,7 +7187,7 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   spacing overrides, measured spreads and custom footprints win; a cleared
   maximum preserves geometry.
 
-**Addendum (atmosphere-sky and render-tier integrity, #695/#696/#704/#714/#717/#718/#722).**
+### Addendum (atmosphere-sky and render-tier integrity, #695/#696/#704/#714/#717/#718/#722)
 - **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
   (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
   disc finder first takes a white plateau of at least 20 pixels (every channel ≥ 250) and
@@ -7200,7 +7201,9 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   same world elevation 15–45° away, over the bands within 1.5° of the sun's own elevation
   (an image row is not a world elevation under a pitched camera: comparing rows read a
   false 20-luma dip; and an isolated cumulus 6° above the sun is weather, not a black
-  sun — it read 48 luma). A dip over 10 luma fails the board (#695).
+  sun — it read 48 luma). A dip over 10 luma fails the board (#695); `measured=False`
+  when no band had both a near and an away sample, so "nothing measured" cannot pass as
+  a clean sky.
 - **The playback stall (#722).** `SKY_SETTLE_MS` is 300 ms — longer than playback's
   200 ms step, so the steps keep restarting the settle timer — and a sky stale for 1 s is
   built at that pass (`SKY_MAX_STALENESS_MS`), so a playing day still follows the sun
@@ -7217,7 +7220,8 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   with the flood threshold active from the first pass, the LOD queue re-queued its own
   startup work (`pending` 34 after 60 s), so the soak never measured. The startup is the
   state opening a plan gives the workspace. The livelock it hid was real: a sink reset (a
-  fresh engine, a recovery, a document switch) forgets every Model, and an in-flight forge
+  fresh engine or a recovery after a sink failure; the document path clears the queue
+  itself) forgets every Model, and an in-flight forge
   completion then called `replace_geometry` for an item the sink no longer held — it raised,
   the workspace re-queued it, and the cycle repeated (clear, reset, queue again, fail
   again). `Scene3DController` now emits `scene_reset` on every reset, the workspace clears
@@ -7231,9 +7235,10 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 - **The probe pin is sized for its camera (#704).** `--analysis` places its magenta pin
   on the nearest open ground whose WHOLE height is clear; the height is the product's
   dome share raised until the pin shows at least 60 px (the board's gate is 50), capped
-  at 4×. On `bench_built`'s noon camera the share read 38 px and the board raised before
-  writing any sun-hours row; the sized pin reads 249 px at the same point (RTX 4070,
-  1280 × 720). The pin's position is still a measurement of the ground, not of the pin.
+  at 4×. On `bench_built`'s noon camera the old search's point read 38 px and the board
+  raised before writing any sun-hours row; the whole-pin search's point, with the pin
+  raised to 207 cm (4× the 52 cm share), reads 250 px (RTX 4070, 1280 × 720). The pin's
+  position is still a measurement of the ground, not of the pin.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
@@ -10359,7 +10364,8 @@ past midnight, the firefly season's date, one life assembly for the product and 
    it. #440's transmittance hook could make all of them honest — an owner decision (#698;
    for the string answered in the owner's addendum: no 2D shadow). Cloudy horizon steps at
    the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
-   horizon unchanged (its low-preset sunset step of 3.13, over the 3.0 bound, is master's: #696).
+   horizon unchanged (its low-preset sunset step of 3.13 was over the then-3.0 bound: #696;
+   the bound is 3.6 since the re-measurement in ADR-059's addendum).
 
 **Addendum (the owner's manual test of L5)**: The owner confirmed the day and year playback,
 the garden's life, a new plan's forecast and the 3D lights, and changed two things:
