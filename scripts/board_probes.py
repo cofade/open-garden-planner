@@ -380,8 +380,11 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
     stays near 0. (An image row is not a world elevation with a pitched pinhole camera:
     off-axis pixels in one row sit higher in the sky, which read a false 20-luma dip.)
     A mean would drown a small disc in the glow around it — a 36-pixel black disc left
-    the row mean 16 luma above the away rows. ``dip_luma`` is the most negative
-    difference and ``elevation_deg`` its 0.25-degree band. With
+    the row mean 16 luma above the away rows. The statistic is the band's 2nd percentile,
+    not its minimum: one stray dark pixel read −155 luma against a 10-luma bound whose
+    legitimate baseline is 6–8, while a disc covering a fifth of the band still reads 0.
+    ``dip_luma`` is the most negative difference and ``elevation_deg`` its 0.25-degree
+    band. With
     ``sun_elevation_deg``, only bands within ``near_elevation_deg`` of the sun's own
     elevation count: under partial cloud an isolated cumulus elsewhere in the sky is
     legitimately dark (it read a 48-luma "dip" 6.6° above a 0.4° sun), but the disc's
@@ -420,7 +423,7 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
         values = lum[near & (bands == band)]
         if values.size < 3:
             continue
-        delta = float(values.min() - reference[int(band)])
+        delta = float(np.percentile(values, 2.0) - reference[int(band)])
         if at_band is None or delta < dip:
             dip, at_band = delta, int(band)
     out: dict[str, Any] = {"dip_luma": round(dip, 2), "band": at_band,

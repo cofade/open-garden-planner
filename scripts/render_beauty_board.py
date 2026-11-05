@@ -1130,6 +1130,11 @@ class Board:
                 if target not in found and sun.elevation_deg <= target:
                     found[target] = (moment, sun)
             moment += timedelta(seconds=20)
+        if not found:
+            # no garden location (the stand-in sun never moves) or a polar day that never
+            # reaches 6°: there is no evening to walk, and the set-sun probe has no sun
+            # bearing to face. Before, this reached `min(found)` and raised.
+            return
         tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
         self.metrics[f"dusk{tag}"] = out

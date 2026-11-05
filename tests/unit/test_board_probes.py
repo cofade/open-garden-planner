@@ -362,6 +362,11 @@ def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
     control = P.sun_dip(frame, camera, azimuth, sun_elevation_deg=elevation)
     assert control["dip_luma"] > -10.0, control          # a glow is not a dip
     assert control["measured"] is True, control
+    # one stray dark pixel is not a black sun: the 2nd percentile ignores it
+    speck = frame.copy()
+    speck[135, 240] = 0.0
+    stray = P.sun_dip(speck, camera, azimuth, sun_elevation_deg=elevation)
+    assert stray["dip_luma"] > -10.0, stray
     black = frame.copy()
     black[angle < 1.0] = 0.0
     found = P.sun_dip(black, camera, azimuth, sun_elevation_deg=elevation)

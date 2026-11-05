@@ -338,6 +338,9 @@ def test_the_sky_draws_its_sun_at_the_solar_azimuth(board) -> None:
     assert sky["max_abs_elevation_error_deg"] < MAX_DISC_ERROR_DEG, sky
     for view in sky["views"].values():
         assert view["found"], view
+        # the disc finder's own accuracy, bearing AND elevation (#717): the 6° above is
+        # the sky's direction gate and would let a 3° finder regression pass
+        assert abs(view["error_deg"]) < MAX_DISC_ERROR_DEG, view
         assert abs(view["elevation_deg"] - view["sun_elev"]) < MAX_DISC_ERROR_DEG, view
 
 
@@ -450,6 +453,7 @@ def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: 
     for metrics in (painted, atmosphere):   # the sky's sun where the solar position puts it
         assert metrics["sky"]["ok"] and metrics["sky"]["max_abs_error_deg"] < MAX_SKY_ERROR_DEG
         for view in metrics["sky"]["views"].values():
+            assert abs(view["error_deg"]) < MAX_DISC_ERROR_DEG, view
             assert abs(view["elevation_deg"] - view["sun_elev"]) < MAX_DISC_ERROR_DEG, view
     assert (painted["sky_model"], atmosphere["sky_model"]) == ("painted", "atmosphere")
     nights = {model: {row["preset"]: row["mean_luma"] for row in metrics["shots"] if row["shot"] == "night"}

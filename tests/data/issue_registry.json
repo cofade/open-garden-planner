@@ -1184,6 +1184,11 @@
     "state": "OPEN",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
   },
+  "696": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Clear horizon step 3.13 at the low-preset sunset exceeds HORIZON_STEP_BOUND 3.0 (pre-existing, ungated)"
+  },
   "697": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1199,11 +1204,6 @@
     "state": "CLOSED",
     "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
   },
-  "701": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Shadow casters rebuild every shed's 3D roof mesh on the main thread; 150 sheds time out a sun-controls test (#440)"
-  },
   "702": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1213,6 +1213,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "The plan loader caps a polygon's vertices but not a polyline's"
+  },
+  "704": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board --analysis fails on bench_built: the probe pin shows in 38 px (< 50) at noon"
   },
   "706": {
     "is_pr": false,
@@ -1229,11 +1234,6 @@
     "state": "CLOSED",
     "title": "Layering: the string's type icon lives in the gallery's data module; Record.has_2d_caster has only test readers"
   },
-  "709": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "A string of lights cannot be filleted (owner decision); open earlier filleted strings without a wall of posts"
-  },
   "710": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1249,6 +1249,11 @@
     "state": "MERGED",
     "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
   },
+  "714": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: distant-horizon gate fails on master (403 m / 15° rows 3.44–3.48 > 3.0 luma)"
+  },
   "716": {
     "is_pr": false,
     "state": "OPEN",
@@ -1258,6 +1263,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
+  },
+  "718": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the flood-release soak never settles its initial forge/LOD work (pre-existing on master)"
   },
   "719": {
     "is_pr": false,
