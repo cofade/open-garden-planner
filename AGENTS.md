@@ -1,4 +1,4 @@
-﻿# Open Garden Planner - Instructions for Coding Agents
+# Open Garden Planner - Instructions for Coding Agents
 
 PyQt6 desktop app for precision garden planning with CAD-like metric accuracy.
 
@@ -28,14 +28,14 @@ venv/Scripts/python.exe -m ruff check src/
 # Security scan
 venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 
-# Build & verify exe (before every merge) â€” BOTH checks.
+# Build & verify exe (before every merge) — BOTH checks.
 # Sync the lock first: removing a pin does not uninstall a package, and
 # PyInstaller can still bundle it (#538).
 $env:UV_PROJECT_ENVIRONMENT='venv'  # PowerShell (Git Bash: UV_PROJECT_ENVIRONMENT=venv)
 uv sync --locked --python 3.11 --all-extras --group build --no-install-project
 # Reinstall the project editable, or `python -m open_garden_planner` dies with
 # "No module named open_garden_planner": `--no-install-project` leaves the
-# project itself out of the exact sync set, so uv removes it (docs/07 Â§7.6).
+# project itself out of the exact sync set, so uv removes it (docs/07 §7.6).
 uv pip install --python venv/Scripts/python.exe --no-deps --no-build-isolation --editable .
 venv/Scripts/python.exe -m installer.build_environment --strict
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
@@ -44,7 +44,7 @@ powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanne
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -ArgumentList "--selftest" -Wait -PassThru; exit $p.ExitCode'
 # Exit code 0 = the Agent API server binds, the A1 checks pass, AND the
 # Qt Quick 3D engine renders one hidden frame from the bundle's own QML and
-# shaders with the right pixels â€” #277's lesson: a lazily loaded part is
+# shaders with the right pixels — #277's lesson: a lazily loaded part is
 # exercised in the real artifact (no GPU needed; its log lands beside app.log,
 # or where OGP_SELFTEST_LOG says). It FAILS under QT_QPA_PLATFORM=offscreen.
 # The 8-s smoke only proves the process stays up; --selftest is what sees a
@@ -67,19 +67,19 @@ Use context7 as required for up-to-date library documentation.
 
 ## Debugging
 
-**Use `/debug-verbose` at the first sign of any non-obvious bug â€” before theorising.**
+**Use `/debug-verbose` at the first sign of any non-obvious bug — before theorising.**
 
 The skill instruments the relevant code with `print`-based logging (stdout, no config needed), then the bug is reproduced manually and the output is read. Fix from evidence, not assumptions.
 
 Key rules:
-- Always include `traceback.format_stack()` at "unexpected call" sites â€” this is what reveals external callers (e.g. the minimap hiding the label editor).
+- Always include `traceback.format_stack()` at "unexpected call" sites — this is what reveals external callers (e.g. the minimap hiding the label editor).
 - Prefix every print with `[TAG]` so output is grep-able.
 - Remove all instrumentation before committing; the fix stays, the prints don't.
 - After each fix, add a **Case study** entry to the `debug-verbose` skill in both agent skill libraries (symptom, wrong theories, key log line, root cause, lesson). The skill grows with the project.
 
 ## Documentation & Knowledge Base
 
-Architecture documentation follows arc42 in `docs/`. This project uses **continuous documentation** â€” every feature and fix should leave the docs better than found.
+Architecture documentation follows arc42 in `docs/`. This project uses **continuous documentation** — every feature and fix should leave the docs better than found.
 
 ### Finding Information
 
@@ -93,8 +93,8 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 | Integration test policy (MANDATORY)  | `docs/08-crosscutting-concepts/` section 8.10         |
 | Security scanning / SAST (Bandit)    | `docs/08-crosscutting-concepts/` section 8.11         |
 | Known pitfalls                       | `docs/11-risks-and-technical-debt/pitfalls/` (index in pitfalls/index/; ADR-061) |
-| Debt register, latest repo audit     | `docs/11-risks-and-technical-debt/` Â§11.3 + `audits/2026-10/audit-2026-10.md` (ADR-047) |
-| **Bed-only features (menu, badge, â€¦) â€” READ FIRST before adding any bed feature** | `docs/08-crosscutting-concepts/` Â§ 8.14 + ADR-017     |
+| Debt register, latest repo audit     | `docs/11-risks-and-technical-debt/` §11.3 + `audits/2026-10/audit-2026-10.md` (ADR-047) |
+| **Bed-only features (menu, badge, …) — READ FIRST before adding any bed feature** | `docs/08-crosscutting-concepts/` § 8.14 + ADR-017     |
 | Functional requirements (FR-*)       | `docs/functional-requirements.md`                     |
 | Architecture decisions (ADRs)        | `docs/09-architecture-decisions/`                     |
 | Glossary                             | `docs/12-glossary/README.md`                          |
@@ -104,40 +104,40 @@ Architecture documentation follows arc42 in `docs/`. This project uses **continu
 
 Claude Code or Codex auto-loads each skill's `name` + `description` and invokes it via the
 Skill tool when a task matches. **The authoritative trigger for each skill is its
-frontmatter `description`** â€” this table is a routing map, not a substitute. Reach
+frontmatter `description`** — this table is a routing map, not a substitute. Reach
 for a skill *before* acting, not after. Three pre-existing skills (`debug-verbose`,
 `finalize-us`, `analyze-pr`) plus the `senior-reviewer` agent are documented elsewhere
 in this file; the `deliver-package` workflow skill and the 19 `ogp-*` skills below cover
 the rest. The 3D agents `ogp-3d-creator` (builds) and `ogp-3d-reviewer` (judges) serve step 7.
 
-| Skill | Reach for it whenâ€¦ |
+| Skill | Reach for it when… |
 | ----- | ------------------ |
-| `deliver-package` | taking on a whole cluster of issues at once ("take the next package", "pick the next issues and implement them", "deliver package N") â€” ground truth â†’ choose â†’ implement â†’ gates â†’ senior-review â†’ draft PR |
+| `deliver-package` | taking on a whole cluster of issues at once ("take the next package", "pick the next issues and implement them", "deliver package N") — ground truth → choose → implement → gates → senior-review → draft PR |
 | `ogp-change-control` | starting any change, branching, opening/merging a PR, versioning, or unsure whether an action is allowed |
-| `ogp-architecture-contract` | designing a feature, adding a module, or touching serialization / undo / layers / beds / agent_api â€” "is this allowed architecturally?" |
+| `ogp-architecture-contract` | designing a feature, adding a module, or touching serialization / undo / layers / beds / agent_api — "is this allowed architecturally?" |
 | `ogp-failure-archaeology` | about to change a subsystem with history, or tempted to "fix" code that looks wrong (it may be a scar) |
 | `ogp-debugging-playbook` | a bug is reported, a test fails unexpectedly, CI is red while local is green, or a canvas/export glitch appears |
 | `ogp-qt-cad-reference` | touching canvas items, coordinates/Y-flip, rendering/export, rotation/resize, snapping/constraints, handles, or Qt tests |
 | `ogp-garden-domain-reference` | touching species / beds / soil / tasks / calendar / harvest / companion logic, or decoding a diagnostic or domain term |
 | `ogp-config-and-flags` | adding/changing a setting or flag, configuring env, or a feature seems mysteriously disabled |
 | `ogp-build-and-run` | setting up the env, running the app or tests, building the exe/installer, or an import/build error appears |
-| `ogp-diagnostics-and-tooling` | you need to MEASURE instead of eyeball â€” quality gates, live-plan inspection, mojibake, git archaeology |
+| `ogp-diagnostics-and-tooling` | you need to MEASURE instead of eyeball — quality gates, live-plan inspection, mojibake, git archaeology |
 | `ogp-validation-and-qa` | writing tests, deciding if work is "done", preparing a PR, or judging whether evidence suffices |
 | `ogp-docs-and-writing` | finishing any feature/fix and owing doc updates, writing an ADR/FR/pitfall entry, or unsure where knowledge lives |
 | `ogp-external-positioning` | writing README/release notes, adding a dependency/service, licensing questions, or any public capability claim |
 | `ogp-3d-sunshade-campaign` | maintaining shipped 3D/sun/shade, shadows, growth, height or solar math |
-| `ogp-proof-and-analysis-toolkit` | about to assert a library/geometry/tolerance/coordinate-frame fact â€” "prove it, don't just install it" |
+| `ogp-proof-and-analysis-toolkit` | about to assert a library/geometry/tolerance/coordinate-frame fact — "prove it, don't just install it" |
 | `ogp-research-frontier` | picking the next big direction, or scoping D2/D3 / Phase-14+ ambitions |
 | `ogp-research-methodology` | starting an investigation, forming a hypothesis, or deciding whether evidence suffices to adopt a change |
-| `ogp-asset-forge` | adding/regenerating a texture or 2D art asset â€” house style, tileability gate, provenance rules (US-E9) |
-| `ogp-lush-cinematic` | building or judging anything visible in 3D (Phase 17) â€” truth gates, style values, light rigs, Beauty Board, rubric, owner taste log |
-| `ogp-3d-renderer` | touching Qt Quick 3D code, hosts, picking, screenshots, CI rendering or packaging â€” measured engine facts and traps |
+| `ogp-asset-forge` | adding/regenerating a texture or 2D art asset — house style, tileability gate, provenance rules (US-E9) |
+| `ogp-lush-cinematic` | building or judging anything visible in 3D (Phase 17) — truth gates, style values, light rigs, Beauty Board, rubric, owner taste log |
+| `ogp-3d-renderer` | touching Qt Quick 3D code, hosts, picking, screenshots, CI rendering or packaging — measured engine facts and traps |
 
 **Maintaining this table:** add a one-line row when a new skill lands; keep the real
 trigger in the skill's `description`. If a row and a `description` disagree, the
-`description` wins â€” fix the row.
+`description` wins — fix the row.
 
-References inside skill files are gated (Â§8.10) â€” keep them resolvable:
+References inside skill files are gated (§8.10) — keep them resolvable:
 
 ```bash
 venv/Scripts/python.exe scripts/check_skill_citations.py
@@ -163,17 +163,17 @@ drift instead of overwriting either agent's native file format.
 **After implementing a feature:**
 | Change Type | Update Target |
 |-------------|---------------|
-| New component/module | `docs/05-building-block-view/` â€” add black box description |
+| New component/module | `docs/05-building-block-view/` — add black box description |
 | New UI pattern | `docs/08-crosscutting-concepts/` section 8.9 |
-| Changed runtime behavior | `docs/06-runtime-view/` â€” update sequence diagrams |
-| New user-facing capability | `docs/functional-requirements.md` â€” add FR-* entry |
-| Architecture decision | `docs/09-architecture-decisions/` â€” create ADR |
-| New domain term | `docs/12-glossary/` â€” add definition |
+| Changed runtime behavior | `docs/06-runtime-view/` — update sequence diagrams |
+| New user-facing capability | `docs/functional-requirements.md` — add FR-* entry |
+| Architecture decision | `docs/09-architecture-decisions/` — create ADR |
+| New domain term | `docs/12-glossary/` — add definition |
 
 **After solving issues, all lessons learned MUST be documented:**
 | Issue Category | Document In | Capture |
 |----------------|-------------|---------|
-| PyQt6 quirks | `docs/11-risks-and-technical-debt/pitfalls/` (area file; index row in pitfalls/index/) | Rule â†’ Pinned by â†’ Fix |
+| PyQt6 quirks | `docs/11-risks-and-technical-debt/pitfalls/` (area file; index row in pitfalls/index/) | Rule → Pinned by → Fix |
 | Performance issues | `docs/08-crosscutting-concepts/` | Optimization technique |
 | Testing patterns | `docs/08-crosscutting-concepts/` 8.10 | How to test this pattern |
 | Security fixes | `docs/08-crosscutting-concepts/` 8.11 | Vulnerability + mitigation |
@@ -202,15 +202,15 @@ drift instead of overwriting either agent's native file format.
 
 **Avoid the recurring "File has not been read yet" Write failure on the plan file.**
 Plan mode pre-creates the plan file, so `Write` (and `Edit`) reject it until it's been read this
-session. Build the plan with the **`Edit`** tool (incremental edits â€” what plan mode tells you to
+session. Build the plan with the **`Edit`** tool (incremental edits — what plan mode tells you to
 do). If you must overwrite it wholesale, **`Read` the plan file once first, then `Write`.** Never
-`Write`/`Edit` a pre-existing file blind â€” the same rule applies to any file you didn't create this session.
+`Write`/`Edit` a pre-existing file blind — the same rule applies to any file you didn't create this session.
 
 ## Workflow
 
-**CRITICAL: Always use feature branches â€” NEVER commit directly to master.**
+**CRITICAL: Always use feature branches — NEVER commit directly to master.**
 
-> **MUST â€” every coding job ends with a draft PR.** Any task that changes code (feature, bug fix, refactor, doc-in-code, chore) finishes by pushing the branch and opening a **draft** pull request â€” never leave the work as just a pushed branch. Open the draft only **after** the `senior-reviewer` pass is fully satisfied (no outstanding P0/P1) â€” or, if the pass genuinely cannot be run, with the unmet gate stated in the PR body and no move toward merge (`ogp-change-control` Â§2.4). The PR stays a **draft** until the user confirms manual testing passed; only then mark it ready and merge. Do NOT open a non-draft PR or merge without explicit user confirmation.
+> **MUST — every coding job ends with a draft PR.** Any task that changes code (feature, bug fix, refactor, doc-in-code, chore) finishes by pushing the branch and opening a **draft** pull request — never leave the work as just a pushed branch. Open the draft only **after** the `senior-reviewer` pass is fully satisfied (no outstanding P0/P1) — or, if the pass genuinely cannot be run, with the unmet gate stated in the PR body and no move toward merge (`ogp-change-control` §2.4). The PR stays a **draft** until the user confirms manual testing passed; only then mark it ready and merge. Do NOT open a non-draft PR or merge without explicit user confirmation.
 
 | Step | Action | Notes |
 |------|--------|-------|
@@ -219,25 +219,25 @@ do). If you must overwrite it wholesale, **`Read` the plan file once first, then
 | 3 | Implement with type hints & translation | Use `self.tr()` for all UI strings |
 | 4 | Run quality checks | `pytest tests/ -v`, `ruff check src/`, `bandit -r src/ --severity-level high` |
 | 4a | Update translations | Run `scripts/update_translations.py`, complete every registered target locale, compile, then pass `scripts/check_translations.py`; new source and new locale additions use the same gate (#496) |
-| 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** â€” end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
+| 5 | **Write integration test** in `tests/integration/test_<feature>.py` | **Mandatory** — end-to-end UI workflow. See `docs/08-crosscutting-concepts/` 8.10 |
 | 6 | Build & verify exe | See Quick Reference |
-| 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. A change visible in 3D first passes `ogp-3d-creator` â†’ `ogp-3d-reviewer` with no P0/P1. |
+| 7 | **Run senior-reviewer pass** | Launch the `senior-reviewer` agent in a fresh worktree against the branch diff. Address any P0/P1 findings before proceeding. Re-run after fixes for a clean re-review. The `finalize-us` skill repeats this step pre-PR. A change visible in 3D first passes `ogp-3d-creator` → `ogp-3d-reviewer` with no P0/P1. |
 | 8 | Provide testing checklist | Surface a manual-testing checklist alongside the work |
 | 9 | Commit: `feat(US-X.X): Description` | Conventional commit format |
-| 10 | Push & **open DRAFT PR** | After a clean senior-reviewer pass, push and open a **draft** PR automatically (`pr create --draft`). **Every coding job ends here â€” never stop at just a pushed branch.** Keep it a draft and **do NOT merge** until the user confirms manual testing passed â€” only then mark ready (`pr ready`) and `pr merge --squash --delete-branch --match-head-commit <verified-head-sha>` |
+| 10 | Push & **open DRAFT PR** | After a clean senior-reviewer pass, push and open a **draft** PR automatically (`pr create --draft`). **Every coding job ends here — never stop at just a pushed branch.** Keep it a draft and **do NOT merge** until the user confirms manual testing passed — only then mark ready (`pr ready`) and `pr merge --squash --delete-branch --match-head-commit <verified-head-sha>` |
 | 11 | Sync version on master | See Versioning Protocol (after merge) |
 | 12 | `/clear` context | Clear Agent context
 
 ## Translation (i18n)
 
-> **MUST â€” every feature, no exceptions.** Every user-visible string added in any file MUST be wrapped for translation. Skipping this is a bug.
+> **MUST — every feature, no exceptions.** Every user-visible string added in any file MUST be wrapped for translation. Skipping this is a bug.
 
-- `QWidget`/`QDialog` subclasses â†’ `self.tr("string")`
-- `QGraphicsItem` context menus (non-QObject) â†’ `QCoreApplication.translate("ClassName", "string")`
-- Module-level dicts â†’ `QT_TR_NOOP("string")`, translate later with `QCoreApplication.translate()`
-- `CollapsiblePanel(title)` â†’ wrap at the **call site**, not inside the panel
-- **Hardcoded English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and never reach Qt Linguist** â€” use `self.tr("{a} overlaps {b}").format(a=â€¦, b=â€¦)`. The required `scripts/check_translations.py` gate derives wrapped keys from source and checks every registered locale; truly unwrapped display text still requires review. The legacy German unfinished-string test is retained as an additional regression check. Pattern: if it's user-visible text, it MUST go through `tr()` / `QT_TR_NOOP` / `QCoreApplication.translate()` â€” registering it in `scripts/fill_translations.py` alone is insufficient.
-- **NEVER use PowerShell `Set-Content -Encoding UTF8`** for files with non-ASCII (umlauts etc.) â€” double-encodes UTF-8 into mojibake. Use the `Edit` tool or Python `open(..., encoding="utf-8")`.
+- `QWidget`/`QDialog` subclasses → `self.tr("string")`
+- `QGraphicsItem` context menus (non-QObject) → `QCoreApplication.translate("ClassName", "string")`
+- Module-level dicts → `QT_TR_NOOP("string")`, translate later with `QCoreApplication.translate()`
+- `CollapsiblePanel(title)` → wrap at the **call site**, not inside the panel
+- **Hardcoded English f-strings (`f"{a} overlaps {b}"`) bypass `tr()` and never reach Qt Linguist** — use `self.tr("{a} overlaps {b}").format(a=…, b=…)`. The required `scripts/check_translations.py` gate derives wrapped keys from source and checks every registered locale; truly unwrapped display text still requires review. The legacy German unfinished-string test is retained as an additional regression check. Pattern: if it's user-visible text, it MUST go through `tr()` / `QT_TR_NOOP` / `QCoreApplication.translate()` — registering it in `scripts/fill_translations.py` alone is insufficient.
+- **NEVER use PowerShell `Set-Content -Encoding UTF8`** for files with non-ASCII (umlauts etc.) — double-encodes UTF-8 into mojibake. Use the `Edit` tool or Python `open(..., encoding="utf-8")`.
 
 Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crosscutting-concepts/` section 8.3.
 
@@ -255,10 +255,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
 - Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722): the disc
-  finder takes the largest connected white plateau (24 sky views, 0.25Â° gate); a
+  finder takes the largest connected white plateau (24 sky views, 0.25° gate); a
   sky-facing set-sun probe compares the same world-elevation bands (10-luma gate, and
   `measured=False` fails closed); the distant-horizon bound is re-derived to 4.0 at
-  640 Ã— 360 and the clear per-mood step is gated; `scenario_soak` floods only the
+  640 × 360 and the clear per-mood step is gated; `scenario_soak` floods only the
   rebuild pass; `Scene3DController.scene_reset` clears the forge queue and a completion
   for an item the sink no longer holds is dropped; `SKY_SETTLE_MS` 300 ms plus a 1 s
   staleness ceiling stops a playing day rebuilding the sky every step. Draft package
@@ -271,7 +271,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   PID collision mock in `Init3DGuard` tests; 2D string lights paint order (glow, wire, posts, bulbs);
   string lights thumbnail moved to `string_lights_paint.py`; 3D string lights wire segments doubled
   and bulbs tessellated (12 segments, 5 rings); and shadow agreement prose pruned to defer to ADR-059.
-- 3D hardening, touch/region/CI, and bed/constraint reconciliation (#535/#578/#619, #443/#485, #321/#451) shipped in v1.34.7â€“v1.34.9 (PRs #647, #649, #650); details in [history](docs/agent-pickup-history.md).
+- 3D hardening, touch/region/CI, and bed/constraint reconciliation (#535/#578/#619, #443/#485, #321/#451) shipped in v1.34.7–v1.34.9 (PRs #647, #649, #650); details in [history](docs/agent-pickup-history.md).
 - CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669,
   #670) shipped in **v1.34.10 (PR #672)** after owner manual acceptance on
   2026-11-01. FIXED locks round-trip and are inert during a drag; a grouped
@@ -281,14 +281,14 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   PF-UI-31, PF-DOM-31/32). The owner's acceptance pass then found a fillet that left
   its arc behind on a move, a raised bed converted into a polygon that still claimed
   its type, and an item-wide constraint refusal; the arc is now baked into the host
-  (0.02 cm), rectangle types map to their polygonal equivalent (raised bed â†’ garden
+  (0.02 cm), rectangle types map to their polygonal equivalent (raised bed → garden
   bed), the refusal is corner-scoped with in-command renumbering, and the toolbar
   tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
   PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
   is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
 - 3D performance and stability, Slice A (ADR-069): #452 shipped in v1.34.11 (PR #676)
-  â€” a whole-plan read is sliced at 4 ms with heavy builders on one worker lane
-  (heartbeat p95 1.7â€“3.6 ms on the issue's plans, was 4.0â€“12.6 s in one block). #531
+  — a whole-plan read is sliced at 4 ms with heavy builders on one worker lane
+  (heartbeat p95 1.7–3.6 ms on the issue's plans, was 4.0–12.6 s in one block). #531
   (in-place Model reuse) and #598 (sparse seasonal index) were built and WITHDRAWN:
   both render tiers draw a replaced geometry as nothing while still picking it. #475
   (raster lane, padded tiles) and #534 (wind memory) are open.
@@ -318,7 +318,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); applied blur always has a point,
   using the ground under the view's centre while walking (PF-E3D-23).
 - Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722) is prepared on
-  `feature/l7-sky-integrity`: probe/disc fixes, 3.6 horizon bounds, a camera-sized analysis
+  `feature/l7-sky-integrity`: probe/disc fixes, 4.0 horizon bounds, a camera-sized analysis
   pin, the flood soak's post-startup policy and the forge-sink-reset livelock fix, and a
   300 ms sky settle with a 1 s ceiling. Draft PR pending.
 - Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
@@ -327,8 +327,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   when `new` deltas explain the window, and `chart.js` removes duplicate SVG `<title>`
   tooltips and formats `>3` windows via localized `windowCount`.
 - Site-plan-sized backgrounds (#659, #660) shipped in v1.34.12 (PR #683): Qt's allocation
-  limit is a **process-wide static** (256 MB, measured on the decoded image), so a 9000Ã—8000
-  PNG â€” 294 kB on disk, 275 MiB decoded â€” failed to import and reopened as a placeholder;
+  limit is a **process-wide static** (256 MB, measured on the decoded image), so a 9000×8000
+  PNG — 294 kB on disk, 275 MiB decoded — failed to import and reopened as a placeholder;
   `BackgroundImageItem` now raises it for one decode only (restored in `finally`) and refuses
   >120 MP from the header. The embedded base64 PNG is encoded once per pixmap revision, not
   1.2 s per Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
