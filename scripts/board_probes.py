@@ -382,8 +382,8 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
             sun_elevation_deg: float | None = None, near_deg: float = 10.0,
             away_deg: tuple[float, float] = (15.0, 45.0),
             near_elevation_deg: float = 1.5) -> dict[str, Any]:
-    """The darkest sky pixel near the sun's bearing against the same WORLD ELEVATION
-    away from it.
+    """The 2nd percentile of the sky's luminance near the sun's bearing against the same
+    WORLD ELEVATION away from it.
 
     The set-sun gate's instrument (#695): a black disc or a dark halo shows as the 2nd
     percentile of the luminance within ``near_deg`` of ``sun_azimuth_deg`` against the
