@@ -308,6 +308,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   app close waits for the writer (PF-E3D-22); a year's tour holds UTC across DST (1.53
   vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); applied blur always has a point,
   using the ground under the view's centre while walking (PF-E3D-23).
+- Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722) is prepared on
+  `feature/l7-sky-integrity`: probe/disc fixes, 3.6 horizon bounds, a camera-sized analysis
+  pin, the flood soak's post-startup policy and the forge-sink-reset livelock fix, and a
+  300 ms sky settle with a 1 s ceiling. Draft PR pending.
 - Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
   `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
   `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
