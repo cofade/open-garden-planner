@@ -134,6 +134,11 @@ class TourRecorder(QObject):
         self._cancelled = True
         return True
 
+    def abort_now(self) -> None:
+        """End it this instant. The window is closing and no timer step will come."""
+        self._cancelled = True
+        self._end(abort=True)
+
     # ── the steps ────────────────────────────────────────────────────────────
 
     def _step(self) -> None:

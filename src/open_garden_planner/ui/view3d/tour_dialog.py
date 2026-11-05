@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from datetime import date, time
 from pathlib import Path
+from time import monotonic
 from typing import TYPE_CHECKING, Final
 
 from PyQt6.QtCore import QDate, Qt, QTime
@@ -33,6 +34,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSpinBox,
@@ -78,6 +80,8 @@ DEFAULT_DURATION_S: Final = 12.0
 #: from the first leaves to the last harvest.
 DEFAULT_DAY: Final = (time(6, 0), time(21, 0))
 DEFAULT_SEASON: Final = ((3, 1), (10, 31))
+#: A recording that has run this long is worth a question before Esc or X throws it away.
+ASK_DISCARD_AFTER_S: Final = 10.0
 
 
 class TourDialog(QDialog):
@@ -92,6 +96,7 @@ class TourDialog(QDialog):
         self._modal = False
         self._close_when_stopped = False
         self._output: Path | None = None
+        self._run_started_at: float | None = None
         self.setWindowTitle(self.tr("Camera Tour"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         root = QVBoxLayout(self)
@@ -378,6 +383,7 @@ class TourDialog(QDialog):
             return
         self._recorder = recorder
         self._recording = not realtime
+        self._run_started_at = monotonic()
         self._modal = self._recording or spec.date_range is not None or spec.time_range is not None
         recorder.progress.connect(self._on_progress)
         recorder.paused_changed.connect(self._on_paused)
@@ -429,6 +435,7 @@ class TourDialog(QDialog):
         recording = self._recording
         self._recorder = None
         self._recording = False
+        self._run_started_at = None
         self._progress.hide()
         self.cancel_button.hide()
         self.cancel_button.setEnabled(True)
@@ -459,10 +466,30 @@ class TourDialog(QDialog):
                                   "up with their date.").format(count=result.unsettled)
         return done
 
+    def _confirm_discard(self) -> bool:
+        """True when a running recording may be thrown away.
+
+        Esc or X used to discard an MP4 at once, however long it had been rendering
+        (issue #731). A short run is not worth a question; a long one is."""
+        if not self._recording or self._recorder is None or self._run_started_at is None:
+            return True
+        elapsed = monotonic() - self._run_started_at
+        if elapsed < ASK_DISCARD_AFTER_S:
+            return True
+        answer = QMessageBox.question(
+            self, self.tr("Camera Tour"),
+            self.tr("Discard the recording? {seconds:.0f} seconds have been rendered, "
+                    "and the file is not saved yet.").format(seconds=elapsed),
+            QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        return answer == QMessageBox.StandardButton.Discard
+
     def reject(self) -> None:
         """Esc: a running preview or recording stops, and the dialog stays to say how that
         ended. Hiding it would leave a modal recording running behind nothing at all."""
         if self._recorder is not None:
+            if not self._confirm_discard():
+                return
             self._cancel()
             return
         super().reject()
@@ -470,6 +497,10 @@ class TourDialog(QDialog):
     def closeEvent(self, event: QCloseEvent | None) -> None:  # noqa: N802 - Qt's name
         """A running preview or recording stops first, and then the dialog closes."""
         if self._recorder is not None:
+            if not self._confirm_discard():
+                if event is not None:
+                    event.ignore()
+                return
             self._close_when_stopped = True
             self._cancel()
             if event is not None:

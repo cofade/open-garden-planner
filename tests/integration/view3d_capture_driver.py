@@ -518,10 +518,16 @@ def scenario_detail(out: Path) -> dict[str, Any]:
 def scenario_timelapse(out: Path) -> dict[str, Any]:
     from open_garden_planner.core.camera_path import HeldCamera, TourSpec
     from open_garden_planner.ui.view3d.video_writer import PngSequenceWriter
+    from tests.integration.quick3d_render_support import EU_DST, load_rgb, luma
 
     window, workspace = main_window_on_plan()
     try:
         result: dict[str, Any] = {"settled_s": settled(workspace)}
+        # A DST zone without tzdata, so the clock-change rows behave the same on every
+        # test machine. The wall reading is what the user sees; the sun is read from UTC.
+        window._sim_clock._tz = EU_DST
+        window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
+        settled(workspace)
         capture = workspace.capture
         clock_before = window._sim_clock.wall
         rows = {}
@@ -529,30 +535,43 @@ def scenario_timelapse(out: Path) -> dict[str, Any]:
                 ("day", TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
                                  time_range=(day_time(8, 0), day_time(20, 0)))),
                 ("year", TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
-                                  date_range=(date(2026, 3, 1), date(2026, 10, 31))))):
+                                  date_range=(date(2026, 3, 1), date(2026, 10, 31)))),
+                # Two weeks either side of the autumn clock change: the frame pair that
+                # straddles it is the one the owner saw jump by 24 levels (#732).
+                ("dst", TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
+                                 date_range=(date(2026, 10, 18), date(2026, 11, 1))))):
             outcome: list[Any] = []
             seen: list[tuple[str, str]] = []
+            utc_seen: list[str] = []
             clock = window._sim_clock
             folder = out / name
             before = committed_mb()
             recorder = capture.start_tour(spec, (640, 360), PngSequenceWriter(folder))
 
-            def moment(*_arguments: Any, seen: list[tuple[str, str]] = seen, clock: Any = clock) -> None:
+            def moment(*_arguments: Any, seen: list[tuple[str, str]] = seen,
+                       utc_seen: list[str] = utc_seen, clock: Any = clock) -> None:
                 seen.append((clock.plan_date.isoformat(), clock.time_of_day.isoformat("minutes")))
+                utc_seen.append(clock.utc.time().isoformat(timespec="minutes"))
 
             recorder.progress.connect(moment)
             recorder.finished.connect(outcome.append)
             started = time.monotonic()
             wait_until(outcome.__len__, 300.0)
             tour = outcome[0] if outcome else None
+            files = sorted(folder.glob("frame_*.png"))
+            means = [round(float(luma(load_rgb(path)).mean()), 3) for path in files]
+            steps = [round(abs(after - before), 3)
+                     for before, after in zip(means, means[1:], strict=False)]
             rows[name] = {"ok": tour.ok if tour else None, "frames": tour.frames if tour else None,
                           "message": tour.message if tour else "no end",
                           "unsettled": tour.unsettled if tour else None,
                           "wall_s": round(time.monotonic() - started, 1),
                           "growth_mb": round(committed_mb() - before, 1),
-                          "files": len(list(folder.glob("frame_*.png"))),
+                          "files": len(files),
                           "first_moment": seen[0] if seen else None,
                           "last_moment": seen[-1] if seen else None,
+                          "utc_times": utc_seen,
+                          "luma_steps": steps,
                           "clock_back": clock.wall == clock_before}
             settled(workspace)
         result["runs"] = rows

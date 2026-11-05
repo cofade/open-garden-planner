@@ -1133,6 +1133,7 @@ class Workspace(QWidget):
             return
         self._camera.frame(controller.plan_bounds(), self._aspect(), snap=True)
         self._apply_camera()
+        self._capture.document_shown()  # the new camera gives photo mode's blur its point
 
     # ── the pipeline's reports ───────────────────────────────────────────────
 
@@ -1532,6 +1533,7 @@ class Workspace(QWidget):
         dialog, self._problems_dialog = self._problems_dialog, None
         if dialog is not None:
             dialog.close()
+        self._capture.shutdown()   # a recording closes its file while the loop still runs
         self._stop_engine()
         if self._window_watched is not None:
             self._window_watched.removeEventFilter(self)
@@ -1604,6 +1606,7 @@ class Workspace(QWidget):
             view_state=lambda: self._state.value,
             ground_point=self._ground_point,
             fly_path=self._fly_path,
+            is_walking=lambda: self.walking,
             default_path=lambda name: self.default_save_path(name),
             parent=self,
         )

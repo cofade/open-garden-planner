@@ -1370,7 +1370,8 @@ def build_server(
             shifted back so the whole object lies inside. An object cannot be
             created fully off-plan (where it would be invisible).
 
-            A new plant is stamped with today's planting date (which drives the
+            A new plant is stamped with the plan's current date (the owner's
+            date, even while a camera tour is moving the clock; which drives the
             growth, shadow and sun-hours views) and, when 'species' matches the
             bundled species database, is auto-populated with that species' data.
             A plant created inside a bed is automatically linked to that bed,

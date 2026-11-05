@@ -4058,3 +4058,48 @@ Docs: FR-EDIT-22/23/24, FR-LAYER-07, FR-JOURNAL-01/06, ADR-071 (the display tran
 addendum (type change owns the ridge), ADR-043 addendum (a group is one layered unit),
 PF-CAN-40/41/42 and PF-PER-27.
 
+
+### Capture-session integrity package (#730, #731, #732, #745) — **delivered for manual acceptance**
+
+Four follow-ups from the reviews of the Director's cut (#390, v1.37.0, ADR-072), all one
+rule: a capture session must not change anything the owner did not ask it to change.
+
+- **#730 — one clock hold, and agents see the owner's date.** A tour holds and restores the
+  owner's moment only when it actually moves the clock (`date_range`/`time_range`); a flight
+  preview no longer reverts a date set while it runs. During a time-lapse, agent reads report
+  the held date as `as_of_date` (`ProjectManager.snapshot_dict(as_of_date=...)`) and an
+  agent-created plant is stamped with it, not with the frame being rendered.
+- **#731 — a kept render is never deleted, and leaving the app closes the file.**
+  `Mp4Writer` takes the first free `<stem>.part[<n>].mp4`, so the finished video kept because
+  a player held its target open survives the next recording of the same name. Esc/X on a
+  recording that has run 10 s asks before discarding it; `Workspace.shutdown` aborts the
+  recorder and waits (bounded) for the writer to close, so no part file is left behind.
+- **#732 — a year's tour holds UTC, not the wall time.** The sun is calculated from
+  `SimClock.utc`; holding 15:00 local across a DST change moved the sun by an hour (18.07
+  levels between neighbouring frames in a two-week reproduction; the owner read 24). The
+  first frame records its UTC time-of-day and every later frame writes the wall reading that
+  matches it, so the local clock shifts by the DST offset and the sun runs evenly. Measured
+  after the fix: largest step 1.53 levels. ADR-053 addendum L6.
+- **#745 — one focus invariant.** `set_settings` is the single place "blur above 0 in photo
+  mode implies a focused point" is enforced; with no clicked point it focuses the camera
+  target, or the ground under the view's centre while walking. A new plan clears the old
+  point, says the focus is moving, and re-establishes it from the new camera once the plan is
+  framed (`document_shown`).
+
+Docs: ADR-072 addendum, ADR-053 addendum L6, FR-3D-PHOTO-02, FR-3D-TOUR-01/02/03,
+FR-AGENT-31, PF-E3D-22/23/24. Pinned by `tests/integration/test_directors_cut.py`
+(the invariant, the walk fallback, a second plan, the flight preview, the owner's date, the
+UTC hold, the discard question, the app-close file), `test_video_writer.py` (a kept render),
+and the render tier's two-week clock-change luma gate. No `.ogp` change, no
+`FILE_VERSION` bump.
+
+### Docs updated on completion
+
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-072 addendum (capture-session integrity), ADR-053 addendum L6 |
+| `docs/functional-requirements.md` | FR-3D-PHOTO-02, FR-3D-TOUR-01/02/03, FR-AGENT-31 |
+| `docs/11-risks-and-technical-debt/pitfalls/` | PF-E3D-22/23/24 + index rows |
+| `docs/roadmap.md` | this section |
+| `AGENTS.md` / `CLAUDE.md` | "Where to Pick Up After Restart" |
+| `.agents/skills/debug-verbose/` | case study 203 (and the `.claude` mirror) |

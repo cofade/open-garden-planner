@@ -47,6 +47,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Sequence
+from datetime import date, datetime, timedelta, tzinfo
 from pathlib import Path
 from typing import Any
 
@@ -310,6 +311,44 @@ def failure_report(proc: subprocess.CompletedProcess[str], out: Path) -> str:
     log = out / "render.log"
     tail = log.read_text(encoding="utf-8", errors="replace")[-3000:] if log.is_file() else "<no log>"
     return f"exit {proc.returncode}\n--- stderr ---\n{proc.stderr[-2000:]}\n--- render.log ---\n{tail}"
+
+
+# ── a DST zone without tzdata ────────────────────────────────────────────────
+
+
+def _last_sunday(year: int, month: int) -> date:
+    day = 31
+    while date(year, month, day).weekday() != 6:   # Sunday
+        day -= 1
+    return date(year, month, day)
+
+
+class EuDstZone(tzinfo):
+    """Europe/Berlin's offset rule, for tests on a platform without IANA tz data.
+
+    +1 h, and +2 h from the last Sunday of March to the last Sunday of October. The
+    switch is placed at the day's start, not at 02:00/03:00: the render tier's shots are
+    at 15:00, hours away from either gap. ``SimClock`` may be handed this zone; on CI
+    Linux ``ZoneInfo`` is available and the product's own zone is used.
+    """
+
+    def _summer(self, value: datetime | None) -> bool:
+        if value is None:
+            return False
+        year = value.year
+        return (_last_sunday(year, 3) <= value.date() < _last_sunday(year, 10))
+
+    def utcoffset(self, value: datetime | None) -> timedelta:
+        return timedelta(hours=2 if self._summer(value) else 1)
+
+    def dst(self, value: datetime | None) -> timedelta:
+        return timedelta(hours=1 if self._summer(value) else 0)
+
+    def tzname(self, value: datetime | None) -> str:
+        return "CEST" if self._summer(value) else "CET"
+
+
+EU_DST = EuDstZone()
 
 
 # ── pixels ───────────────────────────────────────────────────────────────────

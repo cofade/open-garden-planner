@@ -42,6 +42,10 @@ SAME = 1
 #: A grade's identity table against the view: rounding through a 16-level table, measured
 #: at mean 0.13, p99 1, at most 5.
 TABLE_MEAN, TABLE_MAX = 0.5, 8
+#: The largest luma step between neighbouring frames of the two-week clock-change tour.
+#: Measured on the dev box: 1.53 after the tour held UTC; 18.07 at the change before it
+#: (the owner read 24 in the year video, #732). Every other step stays below 2.
+DST_STEP_BOUND = 4.0
 
 
 def drive(tmp_path: Path, scenario: str, **env: str) -> dict[str, Any]:
@@ -169,8 +173,15 @@ def test_a_tours_frames_show_the_plants_as_the_view_would_from_there(tmp_path: P
     assert result["after_it_the_camera_decides"]
 
 
-def test_a_time_lapse_follows_the_clock_and_puts_it_back(tmp_path: Path) -> None:
-    runs = drive(tmp_path, "timelapse")["runs"]
+@pytest.fixture(scope="module")
+def timelapse_runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    """The day, the year and the clock-change tours from ONE driver run."""
+    return drive(tmp_path_factory.mktemp("timelapse"), "timelapse")["runs"]
+
+
+def test_a_time_lapse_follows_the_clock_and_puts_it_back(
+        timelapse_runs: dict[str, Any]) -> None:
+    runs = timelapse_runs
     day, year = runs["day"], runs["year"]
     assert day["ok"] and year["ok"], runs
     assert day["files"] == year["files"] == 24
@@ -178,6 +189,20 @@ def test_a_time_lapse_follows_the_clock_and_puts_it_back(tmp_path: Path) -> None
     assert year["first_moment"][0] == "2026-03-01" and year["last_moment"][0] == "2026-10-31"
     assert day["unsettled"] == year["unsettled"] == 0
     assert day["clock_back"] and year["clock_back"]
+
+
+def test_a_year_time_lapse_does_not_jump_at_the_clock_change(
+        timelapse_runs: dict[str, Any]) -> None:
+    """A wall time held across a DST change moves the sun by an hour: the owner saw a
+    24-level step between neighbouring frames of the year video (#732). The tour holds
+    UTC instead, so the sun moves evenly and the local clock shifts by the DST offset."""
+    dst = timelapse_runs["dst"]
+    assert dst["ok"] and dst["files"] == 24, dst
+    assert dst["first_moment"][0] == "2026-10-18" and dst["last_moment"][0] == "2026-11-01"
+    assert len(set(dst["utc_times"])) == 1, dst["utc_times"]
+    steps = dst["luma_steps"]
+    assert max(steps) <= DST_STEP_BOUND, dst
+    assert dst["clock_back"]
 
 
 def test_the_agents_picture_refuses_cleanly_and_changes_nothing(tmp_path: Path) -> None:

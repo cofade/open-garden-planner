@@ -24,6 +24,10 @@ DE = {
         "Cancelled.": "Abgebrochen.",
         "Clockwise": "Im Uhrzeigersinn",
         "Close": "Schließen",
+        "Discard the recording? {seconds:.0f} seconds have been rendered, and the file is not "
+        "saved yet.":
+            "Aufnahme verwerfen? {seconds:.0f} Sekunden wurden bereits gerendert, und die Datei "
+            "ist noch nicht gespeichert.",
         "Drone Orbit Around the Plan": "Drohnenflug um den Plan",
         "Duration:": "Dauer:",
         "Fly Through My Keyframes": "Durch meine Schlüsselansichten fliegen",
@@ -99,6 +103,8 @@ DE = {
         "Fly a camera through the garden and save it as a video or a PNG sequence":
             "Eine Kamera durch den Garten fliegen und als Video oder PNG-Sequenz speichern",
         "Focus {distance:.1f} m away": "Fokus {distance:.1f} m entfernt",
+        "The focus moves to the new plan when it is shown":
+            "Der Fokus wandert zum neuen Plan, sobald er angezeigt wird",
         "Full HD (1920 x 1080)": "Full HD (1920 x 1080)",
         "Golden Hour": "Goldene Stunde",
         "How far out of focus everything else goes. Click the view to choose what stays sharp.":
@@ -148,6 +154,10 @@ ES = {
         "Cancelled.": "Cancelado.",
         "Clockwise": "En el sentido de las agujas del reloj",
         "Close": "Cerrar",
+        "Discard the recording? {seconds:.0f} seconds have been rendered, and the file is not "
+        "saved yet.":
+            "¿Descartar la grabación? Ya se han renderizado {seconds:.0f} segundos y el archivo "
+            "aún no está guardado.",
         "Drone Orbit Around the Plan": "Vuelo de dron alrededor del plano",
         "Duration:": "Duración:",
         "Fly Through My Keyframes": "Volar por mis vistas clave",
@@ -220,6 +230,8 @@ ES = {
         "Fly a camera through the garden and save it as a video or a PNG sequence":
             "Volar una cámara por el jardín y guardarla como vídeo o secuencia PNG",
         "Focus {distance:.1f} m away": "Foco a {distance:.1f} m",
+        "The focus moves to the new plan when it is shown":
+            "El foco pasa al nuevo plano cuando se muestre",
         "Full HD (1920 x 1080)": "Full HD (1920 x 1080)",
         "Golden Hour": "Hora dorada",
         "How far out of focus everything else goes. Click the view to choose what stays sharp.":
