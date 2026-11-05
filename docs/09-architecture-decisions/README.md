@@ -7225,9 +7225,9 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   holds. Pinned by `test_a_reset_tells_the_forge_that_the_sink_is_stale`,
   `test_a_completion_that_crosses_a_sink_reset_is_dropped` and the existing sink-recovery
   test. Measured on the RTX 4070 (2026-11-05): the flood-release soak with the ground bake
-  on read 3.03 MB/reload over 20 releases (1,396 frames presented, 20 releases); the churn
-  variant with the bake off read 1.70 MB/reload (GPU slope 2.24 MB, 20 releases). Both
-  were `['step EXCEPTION']` with `pending` 34 before.
+  on read 1.14 MB/reload (GPU slope 0.0) and the churn variant with the bake off 0.91
+  MB/reload (GPU slope 0.0), 20 releases each. Both were `['step EXCEPTION']` with
+  `pending` 34 before.
 - **The probe pin is sized for its camera (#704).** `--analysis` places its magenta pin
   on the nearest open ground whose WHOLE height is clear; the height is the product's
   dome share raised until the pin shows at least 60 px (the board's gate is 50), capped
