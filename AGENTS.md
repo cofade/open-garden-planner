@@ -254,15 +254,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
-- Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722): the disc
-  finder takes the largest connected white plateau (24 sky views, 0.25° gate); a
-  sky-facing set-sun probe compares the same world-elevation bands (10-luma gate, and
-  `measured=False` fails closed); the distant-horizon bound is re-derived to 4.0 at
-  640 × 360 and the clear per-mood step is gated; `scenario_soak` floods only the
-  rebuild pass; `Scene3DController.scene_reset` clears the forge queue and a completion
-  for an item the sink no longer holds is dropped; `SKY_SETTLE_MS` 300 ms plus a 1 s
-  staleness ceiling stops a playing day rebuilding the sky every step. Draft package
-  PR; owner acceptance pending.
+- Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722): prepared on
+  `feature/l7-sky-integrity`; the probe, bound, pin, soak, forge-reset and sky-settle
+  details live in PR #754 and ADR-059's addendum. Draft, owner acceptance pending.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
   #685, #706, #707, #708, #710, #700) shipped in **v1.37.3 (PR #752)**: Angled house polygon roof ridge aligns with
   dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast
@@ -317,10 +311,6 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   app close waits for the writer (PF-E3D-22); a year's tour holds UTC across DST (1.53
   vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); applied blur always has a point,
   using the ground under the view's centre while walking (PF-E3D-23).
-- Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722) is prepared on
-  `feature/l7-sky-integrity`: probe/disc fixes, 4.0 horizon bounds, a camera-sized analysis
-  pin, the flood soak's post-startup policy and the forge-sink-reset livelock fix, and a
-  300 ms sky settle with a 1 s ceiling. Draft PR pending.
 - Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
   `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
   `"basis": "current_release"`), `_summary_row` notes `new release or asset` only

@@ -5901,9 +5901,10 @@ within 10° of that bearing and 1.5° of the sun's elevation is more than 10 lum
 median at its own elevation 15–45° away (#695: the meadow camera had the sun behind the
 poplar; the elevation window keeps an isolated cumulus from reading as a black sun).
 The far-row bound is
-3.6 luma at 640 × 360, re-derived from the current scene's 3.44 / 3.48 / 3.11 (#714), and
-the clear look's per-mood step is gated at the same bound (covering #696's 3.13 low
-sunset). The atmosphere sky's own low band and cloudy deck band remain #716 and #719.
+4.0 luma at 640 × 360, re-derived from the current scene's 3.44 / 3.48 / 3.11 (#714), and
+the clear look's per-mood step is gated at the same bound (covering #696's low sunset;
+the verified worst is 3.55 on the atmosphere sunset, so 4.0 keeps 12 % headroom). The
+atmosphere sky's own low band and cloudy deck band remain #716 and #719.
 `--analysis` places its probe pin on open ground whose whole height is clear and sizes it
 from the shot's camera (the dome share raised to at least 60 px, capped at 4×), because
 `bench_built`'s distant noon camera showed the product's 52 cm pin in 38 px under the

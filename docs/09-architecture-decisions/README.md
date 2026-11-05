@@ -3958,7 +3958,8 @@ under the painted sky. (Before the 3D review the tier allowed that swap within 3
 review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
 sky's and failed its then-3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
 3.44 / 3.48; 67 m / 31.6° high: 3.11) — #714, closed by re-measuring the smooth fog ramp
-at the render tier's 640 × 360 and re-deriving the bound to 3.6 (ADR-059's addendum).
+at the render tier's 640 × 360 and re-deriving the bound to 4.0 (12 % over the scene's
+worst 3.55; ADR-059's addendum).
 
 **Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
 clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
@@ -7209,12 +7210,13 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   built at that pass (`SKY_MAX_STALENESS_MS`), so a playing day still follows the sun
   about once a second instead of rebuilding on almost every step (3.5 steps/s under the
   atmosphere before).
-- **The far-row bound is re-derived.** The distant-horizon gate measures 3.44 / 3.48 luma
-  at 403 m / 15° and 3.11 at 67 m / 31.6° on the current scene (the issue #714 numbers),
-  so `HORIZON_STEP_BOUND` goes from 3.0 to 3.6, and the render tier gates the per-mood
-  step at the same 3.6 (covering #696's 3.13 low-sunset row). The scene was not shown to
-  have regressed since L4: the with- and without-L7 readings are identical, so 3.0 was a
-  bound from the earlier scene, not a defect this package hides.
+- **The far-row bound is re-derived, with headroom.** The distant-horizon gate measures
+  3.44 / 3.48 luma at 403 m / 15° and 3.11 at 67 m / 31.6° on the current scene (the issue
+  #714 numbers), and the clear look's per-mood step reaches 3.55 on the atmosphere sunset,
+  so `HORIZON_STEP_BOUND` goes from 3.0 to 4.0 (12 % over 3.55) and the render tier gates
+  the per-mood step at the same 4.0 with its own literal (covering #696's low-sunset row).
+  The scene was not shown to have regressed since L4: the with- and without-L7 readings are
+  identical, so 3.0 was a bound from the earlier scene, not a defect this package hides.
 - **The flood soak settles first, and a forge completion cannot outlive its sink (#718).**
   `scenario_soak` applies its `off` / `flood` release policy only after the initial settle:
   with the flood threshold active from the first pass, the LOD queue re-queued its own
@@ -10365,7 +10367,7 @@ past midnight, the firefly season's date, one life assembly for the product and 
    for the string answered in the owner's addendum: no 2D shadow). Cloudy horizon steps at
    the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
    horizon unchanged (its low-preset sunset step of 3.13 was over the then-3.0 bound: #696;
-   the bound is 3.6 since the re-measurement in ADR-059's addendum).
+   the bound is 4.0 since the re-measurement in ADR-059's addendum).
 
 **Addendum (the owner's manual test of L5)**: The owner confirmed the day and year playback,
 the garden's life, a new plan's forecast and the 3D lights, and changed two things:
