@@ -138,7 +138,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   `tests/integration/test_trim_extend_tool.py`, `tests/integration/test_fillet_chamfer.py`,
   `tests/integration/test_mirror_tool.py` and the grouped-house case in
   `tests/integration/test_agent_api_default_on.py`.
-- **FR-EDIT-25** *(issues #741, #740, #727, #726, #703, #712)*: 2D drawing & CAD integrity follow-ups:
+- **FR-EDIT-25** *(issues #741, #740, #727, #726, #703, #712; shipped in v1.37.1 via PR #747)*: 2D drawing & CAD integrity follow-ups:
   - *Derived ridge follow-ups (#712)*: `ROOF_RIDGE` is excluded from `groupable_selection()`, preventing accidental independent grouping. Array commands (`LinearArrayCommand`, `GridArrayCommand`, `CircularArrayCommand`, `ArrayAlongPathCommand`), `OffsetTool`, and mirror copy of a group containing a `HOUSE` build fresh linked ridges in the same undo step. Project load drops invalid/stale `ridge_item_id` and orphan `owner_polygon_id` links. Context menu and Delete key on `ArcItem`, `BezierItem`, `ConstructionLineItem`, `ConstructionCircleItem`, `CalloutItem`, and `TextItem` route through `dispatch_delete_selection`, ensuring full undo/redo.
   - *Multi-layer grouped houses (#741)*: Grouping houses from different layers normalises members and linked ridges to the group layer; undo restores original layers; ungrouping leaves them on the group layer; canvas visibility falls back to the owner's group layer.
   - *Agent API group note pruning (#740)*: `delete_object` on a group deletes nested `JournalPinItem` notes in the same `CompoundCommand` undo step.

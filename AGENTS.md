@@ -296,7 +296,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   by a type change in the same undo step (FR-EDIT-24, ADR-046 addendum). #664 (split
   along line) and #688 (smart-symbol texture stretch) were deliberately left for a
   follow-up slice.
-- 2D drawing & CAD integrity follow-ups (#741, #740, #727, #726, #703, #712; FR-EDIT-25):
+- 2D drawing & CAD integrity follow-ups (#741, #740, #727, #726, #703, #712; FR-EDIT-25)
+  shipped in **v1.37.1 (PR #747)** after owner manual acceptance on 2026-11-05:
   `ROOF_RIDGE` excluded from `groupable_selection()`; fresh linked ridges created on
   array (`LinearArrayCommand`, `GridArrayCommand`, `CircularArrayCommand`, `ArrayAlongPathCommand`),
   offset, and mirror copy of groups containing a `HOUSE`; project load sanitises legacy/stale
