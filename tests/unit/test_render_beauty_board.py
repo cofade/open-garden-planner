@@ -108,8 +108,8 @@ def test_the_shadow_camera_sees_the_caster_and_the_whole_shadow(
 
 def test_a_distant_camera_gets_a_pin_that_shows_in_the_gate() -> None:
     """#704: the noon camera's 52 cm pin read 38 px on bench_built, under the board's
-    50 px gate. The pin is sized from the camera at the same point, so the measurement
-    does not move and the gate still holds."""
+    50 px gate. The pin is sized from the camera at the point the whole-pin search
+    chooses, so the gate holds without moving the measurement off the ground."""
     from open_garden_planner.core.scene3d.sun_path import dome_radius
 
     width, depth, size = 2600.0, 1800.0, (1280, 720)
@@ -136,7 +136,9 @@ def test_a_pin_whose_ball_is_hidden_is_not_the_probe_point() -> None:
 
     def canopy(_pick: object, _eye: tuple[float, float, float],
                target: tuple[float, float, float]) -> bool:
-        return round(target[0], 6) == round(point[0], 6) and round(target[1], 6) == round(point[1], 6)
+        return (round(target[0], 6) == round(point[0], 6)
+                and round(target[1], 6) == round(point[1], 6)
+                and target[2] > 100.0)      # only the ball is under the canopy
 
     other, other_height = board._open_ground(world, shot, {}, canopy, size, radius)
     assert other != point, "the hidden pin was chosen again"

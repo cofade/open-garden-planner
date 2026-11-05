@@ -703,7 +703,8 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
             controller.reset()
         if release == "flood":
             # the rebuild's own "at once" release, before the forge starts upgrading
-            _pump_until(lambda seen=releases_before_reload: host.cache_releases > seen, 30.0)
+            assert _pump_until(lambda seen=releases_before_reload: host.cache_releases > seen,
+                               30.0), "the flood rebuild released nothing"
             workspace_module.RELEASE_AFTER_RETIRED = product_release[0]  # type: ignore[misc]
             workspace_module.RELEASE_NOW_RETIRED = product_release[1]  # type: ignore[misc]
         assert _pump_until(lambda: settled() and len(controller.sync.records) > 0, 120.0), (

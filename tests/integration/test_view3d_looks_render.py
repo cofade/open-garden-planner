@@ -37,7 +37,6 @@ from typing import Any
 import numpy as np
 import pytest
 from scripts import board_probes as probes
-from scripts import render_beauty_board as beauty_board
 
 from open_garden_planner.core.scene3d import SunState
 from open_garden_planner.core.scene3d.look import (
@@ -93,9 +92,13 @@ MAX_SKY_DUSK_DIP = 10.0
 #: The CLEAR look's per-mood step, gated where the board reports it (#696: the low-preset
 #: sunset read 3.13, above the 3.0 that only `--horizon`'s far rows used): 3.6, the same
 #: re-derived bound as `HORIZON_STEP_BOUND` at 640 x 360 (#714; ADR-059's addendum).
-#: The cloudy weathers keep the 6.0 above — this package measured the clear look's rows,
-#: not theirs.
+#: The cloudy near-field steps are NOT gated here: this tier runs no `--living --horizon`,
+#: so the existing 6.0 above describes only the clear board's own max (and nothing runs it
+#: for the cloudy weathers).
 MAX_CLEAR_HORIZON_STEP = 3.6
+#: The FAR rows' bound, independent of the production constant so raising
+#: `beauty_board.HORIZON_STEP_BOUND` cannot silently raise the test with it.
+MAX_FAR_HORIZON_STEP = 3.6
 MAX_HORIZON_STEP, MAX_HORIZON_DIP, MAX_HORIZON_RIDGE = 6.0, 4.5, 2.5
 #: G4. Committed memory per sun change, second half of twenty (Theil-Sen) — the bound was
 #: registered before the first run (the driver says how it moved with the sky's size).
@@ -224,7 +227,7 @@ def test_distant_horizon_rows_reach_the_real_fog_distances(board) -> None:
         # #714: the bound is the board's own, re-derived from this scene's rows (3.6);
         # the render tier does not carry a second copy of the number.
         assert all(row["ok"] for row in rows), rows
-        assert max(row["step"] for row in rows) <= beauty_board.HORIZON_STEP_BOUND, rows
+        assert max(row["step"] for row in rows) <= MAX_FAR_HORIZON_STEP, rows
 
 
 def test_the_analysis_board_finds_its_probe_pin_on_the_built_world(tmp_path) -> None:
@@ -335,6 +338,9 @@ def test_the_sky_draws_its_sun_at_the_solar_azimuth(board) -> None:
     assert sky["max_abs_elevation_error_deg"] < MAX_DISC_ERROR_DEG, sky
     for view in sky["views"].values():
         assert view["found"], view
+        # the disc finder's own accuracy, bearing AND elevation (#717): the 6° above is
+        # the sky's direction gate and would let a 3° finder regression pass
+        assert abs(view["error_deg"]) < MAX_DISC_ERROR_DEG, view
         assert abs(view["elevation_deg"] - view["sun_elev"]) < MAX_DISC_ERROR_DEG, view
 
 
@@ -374,6 +380,7 @@ def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
         # poplar; a black disc in this window went unseen for three reviews.
         assert dusk["sky_dusk_ok"], (preset, dusk["sky_dusk"])
         assert len(dusk["sky_dusk"]) == 5, dusk["sky_dusk"]
+        assert all(row["measured"] for row in dusk["sky_dusk"]), (preset, dusk["sky_dusk"])
         assert min(row["dip_luma"] for row in dusk["sky_dusk"]) >= -MAX_SKY_DUSK_DIP, dusk["sky_dusk"]
 
 
@@ -446,6 +453,7 @@ def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: 
     for metrics in (painted, atmosphere):   # the sky's sun where the solar position puts it
         assert metrics["sky"]["ok"] and metrics["sky"]["max_abs_error_deg"] < MAX_SKY_ERROR_DEG
         for view in metrics["sky"]["views"].values():
+            assert abs(view["error_deg"]) < MAX_DISC_ERROR_DEG, view
             assert abs(view["elevation_deg"] - view["sun_elev"]) < MAX_DISC_ERROR_DEG, view
     assert (painted["sky_model"], atmosphere["sky_model"]) == ("painted", "atmosphere")
     nights = {model: {row["preset"]: row["mean_luma"] for row in metrics["shots"] if row["shot"] == "night"}

@@ -876,7 +876,10 @@ plants before those behind the camera, then by eye distance.
 
 The production worker synthesizes one plant on an executor thread; a GUI timer
 polls the result and alone writes the engine sink. A document epoch and current
-geometry/LOD checks reject superseded work. A replaced/reset silhouette
+geometry/LOD checks reject superseded work. A scene reset (a fresh engine or a
+recovery after a sink failure) also clears the queue through
+`Scene3DController.scene_reset`, and a completion whose item the sink no longer
+holds is dropped rather than applied (#718). A replaced/reset silhouette
 invalidates the worker's remembered upgrade. Closing stops admission without
 waiting on synthesis in the GUI; hiding pauses application. Orbit and walk
 camera changes requeue distance LOD without requiring a plan edit.

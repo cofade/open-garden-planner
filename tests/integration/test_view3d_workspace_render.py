@@ -547,8 +547,10 @@ def test_what_the_soak_reads_without_the_release_is_reported(scratch: Path) -> N
 @pytest.mark.soak
 def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> None:
     """The "at once" rule — what an animated date runs into — releases from INSIDE the
-    pipeline's pass, right after Models were destroyed and created. Here every
-    rebuild is such a flood (the threshold set to 1): no poll, no quiet moment."""
+    pipeline's pass, right after Models were destroyed and created. The REBUILD's pass is
+    such a flood (the threshold set to 1); the Plant Forge's upgrades then run at the
+    product's threshold, or every forged plant would pay a release and the soak would
+    never settle."""
     soak = _soak(scratch, "rebuild_on", release="flood", ground="on")
     _the_product(soak)
     _took_no_frame(soak)

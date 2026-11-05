@@ -328,6 +328,28 @@ def test_entering_3d_builds_the_engine_once_and_frames_the_plan(bench: Bench) ->
     assert len(bench.host.filters) == 1, "the orbit input listens on the engine's window"
 
 
+def test_a_scene_reset_clears_the_forge_queue(bench: Bench) -> None:
+    """#718: the controller's reset signal must clear the workspace's forge queue — a
+    completion from the old sink cannot be applied to the new one."""
+    workspace = bench.workspace
+    workspace.set_mode(VIEW3D)
+    bench.settle()
+
+    class Forge:
+        cleared = 0
+
+        def clear(self) -> None:
+            self.cleared += 1
+
+    forge = Forge()
+    workspace._forge_worker = forge  # type: ignore[assignment]
+    workspace._forge_timer.start(10)
+    workspace.controller.scene_reset.emit()
+    assert forge.cleared == 1
+    assert not workspace._forge_timer.isActive()
+    workspace._forge_worker = None
+
+
 def test_the_one_host_is_kept_and_only_hidden_and_shown(bench: Bench) -> None:
     workspace = bench.workspace
     for mode in (VIEW3D, PLAN, SPLIT, PLAN, VIEW3D, SPLIT, VIEW3D, PLAN):

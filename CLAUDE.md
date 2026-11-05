@@ -254,6 +254,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
+- Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722): the disc
+  finder takes the largest connected white plateau (24 sky views, 0.25° gate); a
+  sky-facing set-sun probe compares the same world-elevation bands (10-luma gate, and
+  `measured=False` fails closed); the distant-horizon bound is re-derived to 3.6 at
+  640 × 360 and the clear per-mood step is gated; `scenario_soak` floods only the
+  rebuild pass; `Scene3DController.scene_reset` clears the forge queue and a completion
+  for an item the sink no longer holds is dropped; `SKY_SETTLE_MS` 300 ms plus a 1 s
+  staleness ceiling stops a playing day rebuilding the sky every step. Draft package
+  PR; owner acceptance pending.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
   #685, #706, #707, #708, #710, #700): Angled house polygon roof ridge aligns with
   dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast
