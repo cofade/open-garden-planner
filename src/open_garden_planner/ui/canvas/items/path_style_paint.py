@@ -433,6 +433,8 @@ class PathStylePaint:
         # Border lines
         border_pen = QPen(color.darker(140))
         border_pen.setWidthF(0.8)
+        border_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        border_pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
         painter.setPen(border_pen)
         for offset_sign in (-1, 1):
             offset_path = self._offset_path(width / 2.0 * offset_sign)

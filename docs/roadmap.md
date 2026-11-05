@@ -4104,3 +4104,31 @@ and the render tier's two-week clock-change luma gate. No `.ogp` change, no
 | `docs/roadmap.md` | this section |
 | `AGENTS.md` / `CLAUDE.md` | "Where to Pick Up After Restart" |
 | `.agents/skills/debug-verbose/` | case study 203 (and the `.claude` mirror) |
+### 2D drawing & CAD integrity follow-ups (#741, #740, #727, #726, #703, #712) — shipped in v1.37.1 (PR #747)
+
+Follow-up hardening and consistency slice across 2D CAD items, grouped houses, and path rendering:
+
+- **#741 — multi-layer grouped houses**: Grouping houses from different layers normalises member
+  and linked ridge layers to the group layer upon grouping, restores original layer IDs on undo,
+  and leaves them on the group layer on ungroup. `CanvasScene._apply_item_visibility` falls back to
+  the owner group's layer, and `_update_items_visibility()` ensures immediate canvas synchronization.
+- **#740 — agent delete_object on group with journal notes**: Walks `selection_tree` for
+  `JournalPinItem`, executing `DeleteJournalNoteCommand(..., remove_pin=False)` alongside item
+  deletion in a single `CompoundCommand` undo step.
+- **#727 — path width preservation and unified 80 cm default**: Preserves user-set stroke widths
+  when switching between path styles, and unifies default widths for `GRAVEL_PATH`, `STEPPING_STONES`,
+  `PAVED_PATH`, `WOODEN_BOARDWALK`, and `DIRT_PATH` to 80 cm.
+- **#726 — paved path geometry flat caps and bevel joins**: Paved paths use `FlatCap` and `BevelJoin`
+  for shadow and stroke painting, eliminating rounded grey lobes at segment endpoints and corners;
+  3D selection footprint uses `polyline_bevel_footprint` to agree with 3D kerb mesh.
+- **#703 — polyline vertex ceiling**: Enforces `MAX_POLYLINE_VERTICES` (16,384) in plan loader and
+  Agent API `add_vertex`, preventing unbudgeted memory and render exhaustion.
+- **#712 — derived roof ridge follow-ups & CAD item delete routing**: Excludes `ROOF_RIDGE` from
+  `groupable_selection()`; builds fresh linked ridges on linear, grid, circular, path array and offset
+  operations; sanitises stale or orphan ridge links at plan load; and routes context menu Delete and
+  Delete key for `ArcItem`, `BezierItem`, `ConstructionLineItem`, `ConstructionCircleItem`, `CalloutItem`,
+  and `TextItem` through `dispatch_delete_selection` with complete undo/redo.
+
+Docs: FR-EDIT-25.
+
+

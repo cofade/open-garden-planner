@@ -55,25 +55,25 @@ PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
         display_name=QT_TR_NOOP("Gravel"),
         category="path",
         stroke_color=QColor(180, 170, 150),
-        stroke_width=90.0,
+        stroke_width=80.0,
     ),
     PathFenceStyle.STEPPING_STONES: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Stepping Stones"),
         category="path",
         stroke_color=QColor(160, 160, 155),
-        stroke_width=70.0,
+        stroke_width=80.0,
     ),
     PathFenceStyle.PAVED_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Paved"),
         category="path",
         stroke_color=QColor(140, 140, 140),
-        stroke_width=100.0,
+        stroke_width=80.0,
     ),
     PathFenceStyle.WOODEN_BOARDWALK: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Wooden Boardwalk"),
         category="path",
         stroke_color=QColor(160, 120, 70),
-        stroke_width=100.0,
+        stroke_width=80.0,
     ),
     PathFenceStyle.DIRT_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Dirt"),
@@ -81,7 +81,7 @@ PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
         # the sprites' light soil (MATERIALS["soil"]["light"]): over the soil texture
         # (L4, #388) the former 150, 110, 60 read orange, not earth
         stroke_color=QColor(125, 92, 62),
-        stroke_width=70.0,
+        stroke_width=80.0,
     ),
     PathFenceStyle.WOODEN_FENCE: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Wooden Fence"),

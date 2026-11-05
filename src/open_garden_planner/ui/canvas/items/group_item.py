@@ -29,13 +29,20 @@ def groupable_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
     grouping would empty the first (PF-CAN-36). The background image is a
     backdrop, not a plan object: grouping it re-bands it above ground surfaces
     and breaks the z-order, so it is deliberately not groupable.
+
+    A derived ``ROOF_RIDGE`` is owned by its HOUSE and cannot be grouped
+    independently (issue #712).
     """
+    from open_garden_planner.core.object_types import ObjectType
+
     from .background_image_item import BackgroundImageItem
 
     return [
         item
         for item in items
-        if item.parentItem() is None and not isinstance(item, BackgroundImageItem)
+        if item.parentItem() is None
+        and not isinstance(item, BackgroundImageItem)
+        and getattr(item, "object_type", None) is not ObjectType.ROOF_RIDGE
     ]
 
 

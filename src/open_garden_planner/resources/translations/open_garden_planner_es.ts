@@ -651,7 +651,7 @@
             <translation>Copiado(s) {count} elemento(s)</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="454" />
+            <location filename="../../core/tools/offset_tool.py" line="467" />
             <source>Created a parallel line at {dist:.1f} cm</source>
             <translation>Línea paralela creada a {dist:.1f} cm</translation>
         </message>
@@ -676,7 +676,7 @@
             <translation>Creada matriz lineal de {count} elementos</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="461" />
+            <location filename="../../core/tools/offset_tool.py" line="474" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
             <translation>Creado desplazamiento {dir} de {dist:.1f} cm</translation>
         </message>
@@ -1162,12 +1162,12 @@
             <translation>Y</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="459" />
+            <location filename="../../core/tools/offset_tool.py" line="472" />
             <source>inward</source>
             <translation>hacia dentro</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="459" />
+            <location filename="../../core/tools/offset_tool.py" line="472" />
             <source>outward</source>
             <translation>hacia fuera</translation>
         </message>
@@ -1449,32 +1449,32 @@
             <translation>Añadir restricción</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4329" />
+            <location filename="../../core/commands.py" line="4411" />
             <source>Add garden journal note</source>
             <translation>Añadir nota al diario del jardín</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4127" />
+            <location filename="../../core/commands.py" line="4209" />
             <source>Add harvest entry</source>
             <translation>Añadir registro de cosecha</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3237" />
+            <location filename="../../core/commands.py" line="3319" />
             <source>Add layer '{name}'</source>
             <translation>Añadir capa '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3980" />
+            <location filename="../../core/commands.py" line="4062" />
             <source>Add pest/disease log</source>
             <translation>Añadir registro de plaga/enfermedad</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3852" />
+            <location filename="../../core/commands.py" line="3934" />
             <source>Add soil test</source>
             <translation>Añadir análisis de suelo</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4436" />
+            <location filename="../../core/commands.py" line="4518" />
             <source>Add task</source>
             <translation>Añadir tarea</translation>
         </message>
@@ -1520,23 +1520,23 @@
             <translation>Alinear arriba</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2847" />
+            <location filename="../../app/agent_host.py" line="2876" />
             <location filename="../../core/commands.py" line="1587" />
             <source>Apply species data</source>
             <translation>Aplicar datos de la especie</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3044" />
+            <location filename="../../core/commands.py" line="3114" />
             <source>Array along path ({count} copies)</source>
             <translation>Matriz a lo largo de trayectoria ({count} copias)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2858" />
+            <location filename="../../core/commands.py" line="2894" />
             <source>Attach plant to bed</source>
             <translation>Vincular planta al bancal</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3012" />
+            <location filename="../../core/commands.py" line="3080" />
             <source>Boolean {operation}</source>
             <translation>{operation} booleana</translation>
         </message>
@@ -1551,7 +1551,7 @@
             <translation>Traer {count} elemento(s) al frente</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3814" />
+            <location filename="../../core/commands.py" line="3896" />
             <source>Chamfer corner</source>
             <translation>Achaflanar esquina</translation>
         </message>
@@ -1577,7 +1577,7 @@
             <translation>Cambiar {property}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2595" />
+            <location filename="../../core/commands.py" line="2625" />
             <source>Create circular array ({count} items)</source>
             <translation>Crear matriz circular ({count} elementos)</translation>
         </message>
@@ -1587,12 +1587,12 @@
             <translation>Crear conjunto de capas de bosque de alimentos</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2536" />
+            <location filename="../../core/commands.py" line="2552" />
             <source>Create grid array ({count} items)</source>
             <translation>Crear matriz en cuadrícula ({count} elementos)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2468" />
+            <location filename="../../core/commands.py" line="2470" />
             <source>Create linear array ({count} items)</source>
             <translation>Crear matriz lineal ({count} elementos)</translation>
         </message>
@@ -1608,12 +1608,12 @@
             <translation>Crear {item_type}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4405" />
+            <location filename="../../core/commands.py" line="4487" />
             <source>Delete garden journal note</source>
             <translation>Eliminar nota del diario del jardín</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4247" />
+            <location filename="../../core/commands.py" line="4329" />
             <source>Delete harvest entry</source>
             <translation>Eliminar registro de cosecha</translation>
         </message>
@@ -1623,22 +1623,22 @@
             <translation>Eliminar elemento</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3309" />
+            <location filename="../../core/commands.py" line="3391" />
             <source>Delete layer '{name}'</source>
             <translation>Eliminar capa '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4060" />
+            <location filename="../../core/commands.py" line="4142" />
             <source>Delete pest/disease log</source>
             <translation>Eliminar registro de plaga/enfermedad</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3940" />
+            <location filename="../../core/commands.py" line="4022" />
             <source>Delete soil test</source>
             <translation>Eliminar análisis de suelo</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4480" />
+            <location filename="../../core/commands.py" line="4562" />
             <source>Delete task</source>
             <translation>Eliminar tarea</translation>
         </message>
@@ -1653,7 +1653,7 @@
             <translation>Eliminar {count} elementos</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2857" />
+            <location filename="../../core/commands.py" line="2893" />
             <source>Detach plant from bed</source>
             <translation>Desvincular planta del bancal</translation>
         </message>
@@ -1673,22 +1673,22 @@
             <translation>Distribuir verticalmente</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2801" />
+            <location filename="../../core/commands.py" line="2837" />
             <source>Edit constraint distance</source>
             <translation>Editar distancia de restricción</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4364" />
+            <location filename="../../core/commands.py" line="4446" />
             <source>Edit garden journal note</source>
             <translation>Editar nota del diario del jardín</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4181" />
+            <location filename="../../core/commands.py" line="4263" />
             <source>Edit harvest entry</source>
             <translation>Editar registro de cosecha</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4020" />
+            <location filename="../../core/commands.py" line="4102" />
             <source>Edit pest/disease log</source>
             <translation>Editar registro de plaga/enfermedad</translation>
         </message>
@@ -1699,32 +1699,32 @@
             <translation>Editar detalles de la planta</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3896" />
+            <location filename="../../core/commands.py" line="3978" />
             <source>Edit soil test</source>
             <translation>Editar análisis de suelo</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4458" />
+            <location filename="../../core/commands.py" line="4540" />
             <source>Edit task</source>
             <translation>Editar tarea</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3691" />
+            <location filename="../../core/commands.py" line="3773" />
             <source>Extend polyline</source>
             <translation>Prolongar polilínea</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3803" />
+            <location filename="../../core/commands.py" line="3885" />
             <source>Fillet corner</source>
             <translation>Redondear esquina</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2884" />
+            <location filename="../../core/commands.py" line="2921" />
             <source>Group {count} items</source>
             <translation>Agrupar {count} elementos</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3541" />
+            <location filename="../../core/commands.py" line="3623" />
             <source>Hide layer '{name}'</source>
             <translation>Ocultar capa '{name}'</translation>
         </message>
@@ -1734,17 +1734,17 @@
             <translation>Insertar gremio</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3546" />
+            <location filename="../../core/commands.py" line="3628" />
             <source>Lock layer '{name}'</source>
             <translation>Bloquear capa '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2664" />
+            <location filename="../../core/commands.py" line="2706" />
             <source>Mirror {count} item(s) (copy)</source>
             <translation>Reflejar {count} elemento(s) (copia)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2667" />
+            <location filename="../../core/commands.py" line="2709" />
             <source>Mirror {count} item(s) (move)</source>
             <translation>Reflejar {count} elemento(s) (mover)</translation>
         </message>
@@ -1773,7 +1773,7 @@
             <translation>Mover vértice</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3143" />
+            <location filename="../../core/commands.py" line="3225" />
             <source>Move {count} item(s) to layer '{name}'</source>
             <translation>Mover {count} elemento(s) a la capa '{name}'</translation>
         </message>
@@ -1793,12 +1793,12 @@
             <translation>Quitar restricción</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3372" />
+            <location filename="../../core/commands.py" line="3454" />
             <source>Rename layer to '{name}'</source>
             <translation>Renombrar capa a '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3409" />
+            <location filename="../../core/commands.py" line="3491" />
             <source>Reorder layers</source>
             <translation>Reordenar capas</translation>
         </message>
@@ -1828,42 +1828,42 @@
             <translation>Enviar {count} elemento(s) al fondo</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3552" />
+            <location filename="../../core/commands.py" line="3634" />
             <source>Set opacity of layer '{name}' to {pct}%</source>
             <translation>Establecer opacidad de capa '{name}' en {pct}%</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4294" />
+            <location filename="../../core/commands.py" line="4376" />
             <source>Set succession plan</source>
             <translation>Establecer plan de siembra escalonada</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3538" />
+            <location filename="../../core/commands.py" line="3620" />
             <source>Show layer '{name}'</source>
             <translation>Mostrar capa '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3637" />
+            <location filename="../../core/commands.py" line="3719" />
             <source>Trim polygon edge</source>
             <translation>Recortar arista del polígono</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3591" />
+            <location filename="../../core/commands.py" line="3673" />
             <source>Trim polyline</source>
             <translation>Recortar polilínea</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3665" />
+            <location filename="../../core/commands.py" line="3747" />
             <source>Trim rectangle edge</source>
             <translation>Recortar arista del rectángulo</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2951" />
+            <location filename="../../core/commands.py" line="3012" />
             <source>Ungroup</source>
             <translation>Desagrupar</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3549" />
+            <location filename="../../core/commands.py" line="3631" />
             <source>Unlock layer '{name}'</source>
             <translation>Desbloquear capa '{name}'</translation>
         </message>
@@ -2898,7 +2898,7 @@ Use la herramienta de restricción (K) para añadir una.</translation>
     <context>
         <name>ConstructionCircleItem</name>
         <message>
-            <location filename="../../ui/canvas/items/construction_item.py" line="224" />
+            <location filename="../../ui/canvas/items/construction_item.py" line="230" />
             <source>Delete Construction Circle</source>
             <translation>Eliminar círculo auxiliar</translation>
         </message>
@@ -5298,17 +5298,17 @@ Proyecto original: {original_file}
             <translation>Herramienta activa</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3645" />
+            <location filename="../../app/agent_host.py" line="3675" />
             <source>Agent API failed to start (see log)</source>
             <translation>Error al iniciar la API del agente (consulte el registro)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3650" />
+            <location filename="../../app/agent_host.py" line="3680" />
             <source>Agent API running at {url}</source>
             <translation>API del agente ejecutándose en {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3637" />
+            <location filename="../../app/agent_host.py" line="3667" />
             <source>Agent API: port {port} is already in use</source>
             <translation>API del agente: el puerto {port} ya está en uso</translation>
         </message>
@@ -6179,7 +6179,7 @@ Por favor, reinicie la aplicación para aplicar el cambio.</translation>
             <translation>Seleccione un área en Google Maps y cárguela como fondo satelital a escala real</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="1913" />
+            <location filename="../../app/agent_host.py" line="1936" />
             <source>Plan-wide default</source>
             <translation>Predeterminado de todo el plano</translation>
         </message>
@@ -6269,7 +6269,7 @@ Por favor, reinicie la aplicación para aplicar el cambio.</translation>
             <translation>Registrar el servidor MCP de este plano con su asistente de IA</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2201" />
+            <location filename="../../app/agent_host.py" line="2224" />
             <source>Remove soil test</source>
             <translation>Eliminar análisis de suelo</translation>
         </message>
@@ -7348,12 +7348,12 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="4080" />
+            <location filename="../../core/commands.py" line="4162" />
             <source>Harvested {qty} {unit}</source>
             <translation>Cosechado {qty} {unit}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4077" />
+            <location filename="../../core/commands.py" line="4159" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>Cosechado {qty} {unit} de {name}</translation>
         </message>
@@ -10919,7 +10919,7 @@ para asignar datos de especie.</translation>
     <context>
         <name>PolylineItem</name>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="575" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="584" />
             <source>Array Along Path...</source>
             <translation>Matriz a lo largo de trayectoria...</translation>
         </message>
@@ -10939,7 +10939,7 @@ para asignar datos de especie.</translation>
             <translation>Crear matriz lineal...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="562" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="571" />
             <source>Delete</source>
             <translation>Eliminar</translation>
         </message>
@@ -10949,17 +10949,17 @@ para asignar datos de especie.</translation>
             <translation>Duplicar</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="545" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="554" />
             <source>Edit Label</source>
             <translation>Editar etiqueta</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="541" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="550" />
             <source>Edit Vertices</source>
             <translation>Editar vértices</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="538" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="547" />
             <source>Exit Vertex Edit Mode</source>
             <translation>Salir del modo edición de vértices</translation>
         </message>
@@ -14459,7 +14459,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
         </message>
         <message>
             <location filename="../../ui/view3d/tour_dialog.py" line="102" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="496" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="501" />
             <source>Camera Tour</source>
             <translation>Recorrido de cámara</translation>
         </message>
@@ -14469,7 +14469,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Cancelar</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="461" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="464" />
             <source>Cancelled.</source>
             <translation>Cancelado.</translation>
         </message>
@@ -14482,10 +14482,6 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <location filename="../../ui/view3d/tour_dialog.py" line="254" />
             <source>Close</source>
             <translation>Cerrar</translation>
-        </message>
-        <message>
-            <source>Discard the recording? {seconds:.0f} seconds have been rendered, and the file is not saved yet.</source>
-            <translation type="vanished">¿Descartar la grabación? Ya se han renderizado {seconds:.0f} segundos y el archivo aún no está guardado.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/tour_dialog.py" line="128" />
@@ -14594,7 +14590,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Guardar vídeo...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="467" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="470" />
             <source>Saved {frames} frames to {path}.</source>
             <translation>Se guardaron {frames} fotogramas en {path}.</translation>
         </message>
@@ -14614,12 +14610,12 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Mantener la fecha y la hora del plano</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="492" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="496" />
             <source>Stop the recording? It has been running for {seconds:.0f} s, and the video is not saved yet.</source>
             <translation>¿Detener la grabación? Lleva {seconds:.0f} s en marcha y el vídeo aún no está guardado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="488" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="491" />
             <source>Stop the render? The frames already written to {path} stay.</source>
             <translation>¿Detener el renderizado? Los fotogramas ya escritos en {path} se conservan.</translation>
         </message>
@@ -14639,7 +14635,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>La cámara se queda en la vista actual. Ideal para un time-lapse.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_recorder.py" line="269" />
+            <location filename="../../ui/view3d/tour_recorder.py" line="265" />
             <source>The recording failed: {message}</source>
             <translation>La grabación ha fallado: {message}</translation>
         </message>
@@ -14705,7 +14701,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>En espera: la vista 3D no está visible. La grabación continuará cuando vuelva.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="470" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="473" />
             <source>{count} frames were rendered before the 3D view had caught up with their date.</source>
             <translation>{count} fotogramas se renderizaron antes de que la vista 3D alcanzara su fecha.</translation>
         </message>
@@ -15569,13 +15565,13 @@ Detalles: {error}</translation>
             <translation>Recorrido de &amp;cámara...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="703" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="705" />
             <source>Camera Tour</source>
             <translation>Recorrido de cámara</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="192" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="517" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="519" />
             <source>Capture</source>
             <translation>Captura</translation>
         </message>
@@ -15601,7 +15597,7 @@ Detalles: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="244" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="426" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="428" />
             <source>Click the view to set the focus</source>
             <translation>Haga clic en la vista para fijar el foco</translation>
         </message>
@@ -15666,7 +15662,7 @@ Detalles: {error}</translation>
             <translation>Volar una cámara por el jardín y guardarla como vídeo o secuencia PNG</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="429" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="431" />
             <source>Focus {distance:.1f} m away</source>
             <translation>Foco a {distance:.1f} m</translation>
         </message>
@@ -15767,7 +15763,7 @@ Detalles: {error}</translation>
             <translation>Modo &amp;foto</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="475" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="477" />
             <source>PNG image (*.png);;JPEG image (*.jpg)</source>
             <translation>Imagen PNG (*.png);;Imagen JPEG (*.jpg)</translation>
         </message>
@@ -15803,7 +15799,7 @@ Detalles: {error}</translation>
             <translation>Lluvia: cielo gris, hojas y suelo mojados, lluvia que cae</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="474" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="476" />
             <source>Save Photo</source>
             <translation>Guardar foto</translation>
         </message>
@@ -15942,7 +15938,7 @@ Detalles: {error}</translation>
             <translation>No se pudo actualizar la vista 3D. Se volverá a intentar con el próximo cambio.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="483" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="485" />
             <source>The 3D view is not visible right now. Bring it back and try again.</source>
             <translation>La vista 3D no está visible ahora. Vuelva a mostrarla e inténtelo de nuevo.</translation>
         </message>
@@ -15957,7 +15953,7 @@ Detalles: {error}</translation>
             <translation>El análisis sobre el suelo muestra los colores del sol despejado; el tiempo vuelve cuando el suelo no muestra nada.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="422" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="424" />
             <source>The focus moves to the new plan when it is shown</source>
             <translation>El foco pasa al nuevo plano cuando se muestre</translation>
         </message>
@@ -15987,17 +15983,17 @@ Detalles: {error}</translation>
             <translation>No se pudieron calcular las horas de sol para el plano modificado.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="488" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="490" />
             <source>The picture could not be made: {error}</source>
             <translation>No se pudo crear la imagen: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="493" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="495" />
             <source>The picture could not be saved to {path}.</source>
             <translation>No se pudo guardar la imagen en {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="704" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="706" />
             <source>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</source>
             <translation>La grabación no pudo cerrarse antes de que se cerrara la ventana. La salida inacabada puede quedar en {path}.</translation>
         </message>

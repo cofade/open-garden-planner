@@ -1234,10 +1234,20 @@
     "state": "OPEN",
     "title": "Weather forecast cards show English weekday names in every UI language"
   },
+  "703": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The plan loader caps a polygon's vertices but not a polyline's"
+  },
   "710": {
     "is_pr": false,
     "state": "OPEN",
     "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
+  },
+  "712": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Derived ridge follow-ups: groupable ridges, copy ridges, legacy link sanitising, remaining menu undo"
   },
   "713": {
     "is_pr": true,
@@ -1294,6 +1304,16 @@
     "state": "OPEN",
     "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
   },
+  "726": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "fix(paths): paved path ends/bends grow rounded grey lobes; 3D selection edge misses the mesh"
+  },
+  "727": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "fix(paths): switching path style resets the user-set width; unify path default widths"
+  },
   "728": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1319,6 +1339,16 @@
     "state": "OPEN",
     "title": "Year time-lapse jumps in brightness at the clock change (24 luma on 31 October)"
   },
+  "740": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "fix(agent-api): delete_object on a group leaves nested journal notes behind"
+  },
+  "741": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "fix(#690): grouping houses from different layers leaves a nested ridge on its old layer"
+  },
   "744": {
     "is_pr": false,
     "state": "OPEN",
@@ -1328,5 +1358,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Photo mode: blur without a focus after opening a plan, and an auto-focus in mid-air while walking"
+  },
+  "747": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#741, #740, #727, #726, #703, #712): 2D drawing & CAD integrity follow-ups"
   }
 }

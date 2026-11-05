@@ -1664,6 +1664,18 @@ class CanvasScene(QGraphicsScene):
             if parent_layer:
                 layer_id = parent_layer
             parent = parent.parentItem()
+        # Fallback for ROOF_RIDGE: if the owning house is grouped, resolve through the group (issue #741)
+        if getattr(getattr(item, "object_type", None), "name", None) == "ROOF_RIDGE":
+            owner = None
+            if hasattr(item, "_find_owner_polygon"):
+                owner = item._find_owner_polygon()
+            if owner is not None:
+                owner_parent = owner.parentItem()
+                while owner_parent is not None:
+                    pl = getattr(owner_parent, "layer_id", None)
+                    if pl:
+                        layer_id = pl
+                    owner_parent = owner_parent.parentItem()
         layer = self.get_layer_by_id(layer_id) if layer_id else None
         present = self.is_present(item)
         if layer is not None or isinstance(item, QGraphicsItemGroup) or is_plant_type(getattr(item, "object_type", None)):

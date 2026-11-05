@@ -296,6 +296,18 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   by a type change in the same undo step (FR-EDIT-24, ADR-046 addendum). #664 (split
   along line) and #688 (smart-symbol texture stretch) were deliberately left for a
   follow-up slice.
+- 2D drawing & CAD integrity follow-ups (#741, #740, #727, #726, #703, #712; FR-EDIT-25)
+  shipped in **v1.37.1 (PR #747)** after owner manual acceptance on 2026-11-05:
+  `ROOF_RIDGE` excluded from `groupable_selection()`; fresh linked ridges created on
+  array (`LinearArrayCommand`, `GridArrayCommand`, `CircularArrayCommand`, `ArrayAlongPathCommand`),
+  offset, and mirror copy of groups containing a `HOUSE`; project load sanitises legacy/stale
+  `ridge_item_id` and orphan `owner_polygon_id` links; `ArcItem`, `BezierItem`, `ConstructionLineItem`,
+  `ConstructionCircleItem`, `CalloutItem`, and `TextItem` route context menu and Delete key through
+  `dispatch_delete_selection`; grouping houses across layers normalises member and ridge layers to
+  the group layer with undo restoration and canvas visibility fallback; `delete_object` on groups
+  prunes nested journal notes in the same compound undo step; path presets default to 80 cm and
+  preserve user-set widths on style switch; paved paths use flat caps and bevel joins eliminating
+  rounded lobes in 2D and agreeing with 3D kerb mesh; and plan loader enforces `MAX_POLYLINE_VERTICES` (16,384).
 - Capture-session integrity package (#730, #731, #732, #745) delivered for acceptance:
   a tour holds the clock only when it moves it, and agents use the owner's date during
   a time-lapse (ADR-072 addendum); a kept `.part.mp4` survives, Esc/X ask after 10 s, and

@@ -942,8 +942,14 @@ class AgentHost:
         single-object programmatic delete, which can't prompt.
         """
         host = self._host
-        from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
+        from open_garden_planner.core.commands import (
+            CompoundCommand,
+            DeleteItemsCommand,
+            DeleteJournalNoteCommand,
+            RemoveConstraintCommand,
+        )
         from open_garden_planner.ui.canvas.items.group_item import selection_tree
+        from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
 
         item = host._resolve_agent_item(item_id)
         linked_ridge = host._agent_linked_roof_ridge(item)
@@ -953,10 +959,11 @@ class AgentHost:
             host._agent_item_uuid(candidate) for candidate in targets
         }
 
+        all_members = selection_tree([item, *linked_ridge])
         # A group's children can own constraints too; the GUI delete walks the
         # same subtree, so the two receipts cannot disagree (round-7 review P1).
         constraints: list[Any] = []
-        for member in selection_tree([item, *linked_ridge]):
+        for member in all_members:
             if getattr(member, "item_id", None) is None:
                 continue
             for constraint in host._agent_item_constraints(member):
@@ -967,7 +974,23 @@ class AgentHost:
                 RemoveConstraintCommand(host.canvas_scene.constraint_graph, constraint)
             )
 
-        cmd = DeleteItemsCommand(host.canvas_scene, targets)
+        # A group containing journal pins must prune their note records in the same
+        # undo step as the items themselves (issue #740), matching CanvasView.
+        note_commands: list[Any] = []
+        for member in all_members:
+            if isinstance(member, JournalPinItem):
+                note_commands.append(
+                    DeleteJournalNoteCommand(
+                        host._project_manager,
+                        host.canvas_scene,
+                        member,
+                        remove_pin=member.parentItem() is None,
+                    )
+                )
+
+        cmd: Any = DeleteItemsCommand(host.canvas_scene, targets)
+        if note_commands:
+            cmd = CompoundCommand([cmd, *note_commands])
         host.canvas_view.command_manager.execute(cmd)
         # The response is a completion receipt, not merely a command queued on
         # the main thread.  Check every serialized UUID, not just the Python
@@ -2651,6 +2674,12 @@ class AgentHost:
 
         item = host._agent_resolve_vertex_item(item_id, "add_vertex")
         count = int(item._get_vertex_count())
+        from open_garden_planner.ui.canvas.items.polygon_item import MAX_POLYGON_VERTICES
+
+        if count >= MAX_POLYGON_VERTICES:
+            raise ValueError(
+                f"Cannot add vertex to {item_id}: item already has {count} vertices (limit is {MAX_POLYGON_VERTICES})."
+            )
         edits.validate_vertex_index(index, vertex_count=count, operation="add")
         target_x, target_y = host._agent_validate_vertex_point(x, y)
         local = item.mapFromScene(QPointF(target_x, target_y))
