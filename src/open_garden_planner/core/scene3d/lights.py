@@ -89,7 +89,7 @@ def lamp_sources(records: Iterable[Record]) -> tuple[LampSource, ...]:
         else:
             points = string_bulbs(record, height)
             glow, strength = _STRING_GLOW_CM, _STRING_STRENGTH
-        anchor = lamp_light(record, height)
+        anchor = lamp_light(record, height, points)
         if points is None or not len(points) or anchor is None:
             continue
         scene = pose_points(record.transform, points)   # the pose the Model gets

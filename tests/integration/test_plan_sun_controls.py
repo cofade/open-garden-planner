@@ -731,6 +731,30 @@ def test_time_animation_does_not_request_full_day_work(win, qtbot, jobs):
     assert len(jobs) == 1 and win._live_sun_map.is_current()
 
 
+def test_identical_buildings_build_their_roof_mesh_once(win, qtbot):
+    """#701: 150 identical sheds asked the 3D roof builder for the same mesh 750 times
+    in one walk. The cache is keyed by the complete local geometry, so every identical
+    shed is a hit and an edited roof is a new key (never a stale one)."""
+    from open_garden_planner.ui.canvas.sun_shadow_controller import (
+        _cached_roof_triangles,
+        collect_identified_casters,
+    )
+
+    layer = win.canvas_scene.layers[0]
+    for number in range(150):
+        item = RectangleItem(number, 100, 20, 20, object_type=ObjectType.TOOL_SHED)
+        item.layer_id = layer.id
+        win.canvas_scene.addItem(item)
+    _cached_roof_triangles.cache_clear()
+    casters = collect_identified_casters(win.canvas_scene)
+    info = _cached_roof_triangles.cache_info()
+    assert sum(1 for caster in casters if caster.roof_triangles) == 150
+    assert info.misses == 1, info
+    assert info.hits >= 149, info
+    collect_identified_casters(win.canvas_scene)
+    assert _cached_roof_triangles.cache_info().misses == 1, "a second walk rebuilt a roof"
+
+
 def test_bulk_layer_changes_debounce_scene_collection_itself(win, qtbot, jobs, monkeypatch):
     from open_garden_planner.core.commands import SetLayerPropertyCommand
 

@@ -7740,13 +7740,16 @@ top-down truth view no particle is drawn.
 or date change — at most twice a second during the year playback) and when a pass changed the
 garden lights; never for a time of day. Equal emitters are not sent again.
 
-**A string of lights is a line.** Drawn like a fence — a post at every point (at most 512),
-the wire hanging between two posts, a bulb every 40 cm along the wire (at most 120), each
-kept 6 cm clear of the posts of its span — from ONE layout, `core/string_lights.layout`: the
-canvas paints its posts and bulbs from it (sized by the line's width — the 2D symbol only;
-the wire and posts go under the bulbs, and the post's drawn side is capped at 12 cm, so a
-clamped ball is never buried and a widened stroke cannot swallow it), the 3D builder builds
-them, the lamps glow where it hangs them. It casts no 2D shadow
+**A string of lights is a line.** Drawn like a fence — a post at least 40 cm apart along
+the line (at most 512), the wire hanging between two posts, a bulb every 40 cm along the
+wire (at most 120), each kept 6 cm clear of the posts of its span and 8.6 cm clear of
+every other post (a line that doubles back can put a foreign post in a bulb's way) — from
+ONE layout, `core/string_lights.layout`: the canvas paints its posts and bulbs from it
+(sized by the line's width — the 2D symbol only; the wire and posts go under the bulbs,
+and the post's drawn side is capped at 12 cm, so a clamped ball is never buried and a
+widened stroke cannot swallow it), the 3D builder builds them, the lamps glow where it
+hangs them. A filleted corner is a dense run of 2 cm points; the 40 cm gap is what keeps
+it from becoming a wall of overlapping posts (#709). It casts no 2D shadow
 (`object_height.casts_2d_shadow`, read by the one caster walk); its 3D model keeps its own
 thin shadow (ADR-070's owner addendum).
 
@@ -7757,9 +7760,10 @@ looks. The foliage and lawn shaders light leaves from a point light as from the 
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
 1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light
-stands 3 cm under the lantern or a string's middle bulb (`builders.lights.lamp_light`), which
-the 6 cm clearance keeps off the posts of its span: inside the bulb it lit the ball from
-within. A bulb's glow is drawn 6 cm towards the camera, in front of its own ball, as a small
+stands 3 cm under the lantern or, for a string, under the bulb nearest the bulbs' centroid on
+an open line and at the centroid itself inside a closed loop (`builders.lights.lamp_light`,
+#705): inside the bulb it lit the ball from within. A bulb's glow is drawn 6 cm towards the
+camera, in front of its own ball, as a small
 hot centre in a warm halo kept under the tone curve's shoulder; the
 lantern has no glass pane — lit by its own lamp at the near-field strength, a pane drew a
 cream-white box at night exposure whatever its tint.

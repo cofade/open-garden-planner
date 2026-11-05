@@ -1,10 +1,10 @@
 """The 2D picture of a string of lights (Phase 17 L5.4, #389; ADR-070 addendum).
 
 Seen from above: a dark wire along the line, a warm glowing bulb wherever
-``core/string_lights.layout`` hangs one, and a slim wooden post at every point of the
-line — the same posts and bulbs the 3D builder builds (``core/scene3d/builders/
-lights.py``). One painter: the canvas item (``PolylineItem``) and the gallery's
-picture both draw with it.
+``core/string_lights.layout`` hangs one, and a slim wooden post at least
+``MIN_POST_GAP_CM`` apart along the line — the same posts and bulbs the 3D builder
+builds (``core/scene3d/builders/lights.py``). One painter: the canvas item
+(``PolylineItem``) and the gallery's picture both draw with it.
 
 A string is a line, not an area: nothing here is stretched to fit a box. The sizes
 follow the line's stroke width ``w`` (``STRING_LIGHTS``' style: 12 cm, the post's

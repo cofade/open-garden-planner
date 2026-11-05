@@ -12,10 +12,11 @@ of ``furniture`` (its module docstring). What the height is:
   head as a cream-white box at night exposure (3D review of L5) — at night the
   bulb's glow (``ambient.frag``) is the lit lantern, by day a 28 % pane hardly showed;
 - **string lights**: the tops of its posts. A string is a LINE (owner's manual test of
-  L5): a post at every point of it, the wire hanging between two posts with a sag of
-  ``SAG_SHARE`` of the span, the bulbs where ``core/string_lights.layout`` hangs them —
-  the layout the canvas draws too. A string read from a file as a rectangle (a
-  hand-edited plan) is the line along its long side: two posts.
+  L5): a post at least ``MIN_POST_GAP_CM`` apart along it, the wire hanging between two
+  posts with a sag of ``SAG_SHARE`` of the span, the bulbs where
+  ``core/string_lights.layout`` hangs them — the layout the canvas draws too. A string
+  read from a file as a rectangle (a hand-edited plan) is the line along its long side:
+  two posts.
 
 WHERE THE LIGHT IS — the bulb of a lantern, the bulbs of a string — is ONE function
 each (``lantern_bulb``, ``string_bulbs``), read by the builder that puts a bulb there
@@ -102,24 +103,49 @@ def lantern_bulb(record: Record, height_cm: float) -> tuple[float, float, float]
     return (box.cx, box.cy, (bottom + top) / 2.0)
 
 
-def lamp_light(record: Record, height_cm: float) -> tuple[float, float, float] | None:
+def lamp_light(record: Record, height_cm: float,
+               bulbs: np.ndarray | None = None) -> tuple[float, float, float] | None:
     """Where the point light of a garden light or a string stands, item-local (cm; z up
-    from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor, or under the middle
-    bulb of a string — which ``POST_CLEAR_CM`` keeps off the posts of its span (before it,
-    that bulb hung on the middle post of a symmetric string; the bulbs' centroid, tried in
-    review, stood inside the middle post of a straight one). None for a record the builder
-    builds as a plain block."""
+    from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor, or under a string's
+    chosen bulb — which ``POST_CLEAR_CM`` keeps off the posts of its span (before it,
+    that bulb hung on the middle post of a symmetric string; the bulbs' centroid, tried
+    in review, stood inside the middle post of a straight one).
+
+    A string of lights is lit where its shape wants it (#705): an OPEN line takes the
+    bulb nearest the bulbs' centroid (which is also within ``BULB_SPACING_CM`` of the
+    wire's middle, and clear of every post by #709's cross-post rule); a CLOSED line
+    takes the bulbs' centroid — the middle of the space it hangs round, not a corner.
+    If a concave loop's centroid lands on a post, the nearest bulb is the fallback, so
+    the light can never stand in a post. ``bulbs`` may be passed by a caller that has
+    already laid the string out once (``core/scene3d/lights.py``); None lays it out."""
     if record.kind == "GARDEN_LIGHT":
         box = _box_of(record)
         if box is None:
             return None
         _post, bottom, _top, _half = _lantern(box, height_cm)
         return (box.cx, box.cy, bottom - LIGHT_BELOW_CM)
-    bulbs = string_bulbs(record, height_cm)
+    if bulbs is None:
+        bulbs = string_bulbs(record, height_cm)
     if bulbs is None or not len(bulbs):
         return None
-    x, y, z = bulbs[len(bulbs) // 2]
-    return (float(x), float(y), float(z) - BULB_RADIUS_CM * BULB_SQUASH - LIGHT_BELOW_CM)
+    lay = string_layout(record)
+    centroid = bulbs[:, :2].mean(axis=0)
+    if lay is not None and lay.is_closed:
+        x, y = float(centroid[0]), float(centroid[1])
+        nearest_post = min(math.dist((x, y), post) for post in lay.posts)
+        if nearest_post < STRING_POST_CM / 2.0 * math.sqrt(2.0) + 2.0:
+            return _under_bulb(bulbs, centroid)
+        z = float(bulbs[:, 2].mean()) - BULB_RADIUS_CM * BULB_SQUASH - LIGHT_BELOW_CM
+        return (x, y, z)
+    return _under_bulb(bulbs, centroid)
+
+
+def _under_bulb(bulbs: np.ndarray, centroid: np.ndarray) -> tuple[float, float, float]:
+    """The bulb nearest ``centroid`` (xy) and the point light just under it."""
+    index = int(np.argmin(np.hypot(bulbs[:, 0] - centroid[0], bulbs[:, 1] - centroid[1])))
+    x, y, z = bulbs[index]
+    return (float(x), float(y),
+            float(z) - BULB_RADIUS_CM * BULB_SQUASH - LIGHT_BELOW_CM)
 
 
 def string_layout(record: Record) -> Layout | None:
@@ -196,7 +222,7 @@ def _garden_light(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
 
 
 def _string_lights(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
-    """A slim wooden post at every point of the line, a dark wire hanging between two
+    """A slim wooden post at every kept point of the line, a dark wire hanging between two
     posts, a warm bulb wherever the layout hangs one (``string_layout``)."""
     lay = string_layout(record)
     if lay is None:

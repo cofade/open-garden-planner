@@ -296,8 +296,10 @@ def test_the_point_light_stands_below_the_lamp(kind: str) -> None:
     ((0.0, 0.0), (220.0, 0.0), (440.0, 0.0)),                         # straight, 3 posts, 11 bulbs
     tuple((200.0 * i, 0.0) for i in range(5)),                        # straight, 5 posts
     ((0.0, 0.0), (210.0, 40.0), (420.0, 0.0)),                        # a symmetric V, 11 bulbs
+    ((0.0, 0.0), (400.0, 0.0), (400.0, 400.0)),                       # an L: lit on its middle
+    ((0.0, 0.0), (0.0, 400.0), (400.0, 400.0), (400.0, 0.0)),         # a U
     ((0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0)),  # a closed square
-], ids=["straight-3-even", "straight-3-odd", "straight-5", "v", "loop"])
+], ids=["straight-3-even", "straight-3-odd", "straight-5", "v", "l", "u", "loop"])
 def test_a_strings_point_light_stands_outside_every_post(path) -> None:
     """Senior review round 12: the bulbs' centroid put the light INSIDE the middle post
     of a straight string, and before ``POST_CLEAR_CM`` the middle bulb hung on the
@@ -319,7 +321,12 @@ def test_a_strings_point_light_stands_outside_every_post(path) -> None:
             (px, py, local)
     bulbs = string_bulbs(record, 250.0)
     assert bulbs is not None
-    assert np.hypot(bulbs[:, 0] - local[0], bulbs[:, 1] - local[1]).min() < 1e-6, "under a bulb"
+    if lay.is_closed:
+        # #705: a loop is lit in the middle of the space it hangs round, not at a bulb
+        assert np.allclose(local[:2], bulbs[:, :2].mean(axis=0), atol=1e-6)
+    else:
+        assert np.hypot(bulbs[:, 0] - local[0], bulbs[:, 1] - local[1]).min() < 1e-6, (
+            "under a bulb")
 
 
 def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:

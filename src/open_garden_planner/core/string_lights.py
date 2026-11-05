@@ -1,10 +1,10 @@
 """A string of lights is a LINE (Phase 17 L5.4, #389; ADR-070 addendum after the
 owner's manual test).
 
-It is drawn like a fence: every point of the line is a post, and between two posts
-the wire hangs with a bulb every ``BULB_SPACING_CM`` along the whole string. A
-string has no width — the rectangle it was first drawn as gave it one, and its 2D
-picture was stretched across it.
+It is drawn like a fence: a post at least ``MIN_POST_GAP_CM`` apart along the line,
+and between two posts the wire hangs with a bulb every ``BULB_SPACING_CM`` along the
+whole string. A string has no width — the rectangle it was first drawn as gave it one,
+and its 2D picture was stretched across it.
 
 This is the ONE layout of a string. The canvas draws its posts and bulbs from it
 (``ui/canvas/items/polyline_item.py``), the 3D builder builds them from it
@@ -36,9 +36,20 @@ BULB_SPACING_CM: Final = 40.0
 MAX_BULBS_PER_STRING: Final = 120
 #: Two points of the line closer than this are one post.
 MERGE_CM: Final = 1.0
+#: A point becomes a post only this far along the line from the last kept post
+#: (#709): a filleted corner bakes its arc as a dense run of 2 cm points, and a post
+#: at every one turned the corner into a 2.5 m wall of overlapping posts. The wire
+#: runs straight between posts, so an arc becomes chords (a 2 cm sagitta for a 40 cm
+#: chord at r 100 cm). The line's last point always stays.
+MIN_POST_GAP_CM: Final = 40.0
 #: A bulb hangs at least this far from either post of its span (a 2.6 cm ball beside a
 #: 4 cm post) — at the middle of a span shorter than twice it.
 POST_CLEAR_CM: Final = 6.0
+#: A bulb also keeps this far from every post of ANOTHER span: a self-crossing line
+#: can land a bulb on a foreign post (#709). It is ``POST_CLEAR_CM`` plus the 3D
+#: bulb's radius (2.6 cm, ``builders.lights.BULB_RADIUS_CM``) — a drift guard pins
+#: the two (``test_post_clearance_exceeds_post_diagonal_plus_bulb_radius``).
+OTHER_POST_CLEAR_CM: Final = 8.6
 #: The most posts one string stands on. A line with more points (a real string has a
 #: few dozen; a crafted plan can hold millions — the security review of #389) keeps
 #: ``MAX_POSTS`` of them, evenly chosen, its first and last among them, and the wire runs
@@ -78,6 +89,11 @@ class Layout:
     def length_cm(self) -> float:
         return sum(span.length_cm for span in self.spans)
 
+    @property
+    def is_closed(self) -> bool:
+        """Whether the line closes on itself (its last post spans back to the first)."""
+        return bool(self.posts) and len(self.spans) == len(self.posts)
+
     def bulb_xy(self, bulb: Bulb) -> Point:
         """Where ``bulb`` hangs, seen from above."""
         span = self.spans[bulb.span]
@@ -91,10 +107,46 @@ class Layout:
 EMPTY: Final = Layout((), (), ())
 
 
+def _keep_post_gap(posts: list[Point], closed: bool) -> list[Point]:
+    """The points that stand a post apart by ``MIN_POST_GAP_CM`` *along the line*.
+
+    ``_posts`` has already merged near-duplicates and thinned a huge line to
+    ``MAX_POSTS``; this keeps the first point, then every point at least the gap
+    further along the wire. For an OPEN line the drawn last point always stays: when
+    it is nearer than the gap to the previous post, it replaces that post (unless that
+    post is the first). For a CLOSED line the closing span counts too: a last post
+    nearer than the gap to the first is dropped, never the first. A line shorter than
+    the gap keeps its first and last point — no placement can honour the gap on it."""
+    if len(posts) < 3:
+        return posts
+    steps = [0.0]
+    for (ax, ay), (bx, by) in zip(posts, posts[1:], strict=False):
+        steps.append(steps[-1] + math.hypot(bx - ax, by - ay))
+    total = steps[-1]
+    if closed:
+        total += math.hypot(posts[0][0] - posts[-1][0], posts[0][1] - posts[-1][1])
+    kept = [0]
+    for index in range(1, len(posts)):
+        if steps[index] - steps[kept[-1]] >= MIN_POST_GAP_CM:
+            kept.append(index)
+    if closed:
+        while len(kept) > 2 and total - steps[kept[-1]] < MIN_POST_GAP_CM:
+            kept.pop()
+    else:
+        last = len(posts) - 1
+        if kept[-1] != last:
+            if len(kept) == 1:
+                kept.append(last)
+            else:
+                kept[-1] = last
+    return [posts[index] for index in kept]
+
+
 def _posts(points: Sequence[Point]) -> tuple[list[Point], bool]:
     """The posts of a line: its finite points, a point within ``MERGE_CM`` of the
-    previous one merged into it, at most ``MAX_POSTS`` of them; and whether the line
-    closes on itself (its last point is its first — that post is then not repeated)."""
+    previous one merged into it, at most ``MAX_POSTS`` of them and at least
+    ``MIN_POST_GAP_CM`` apart along the line; and whether the line closes on itself
+    (its last point is its first — that post is then not repeated)."""
     posts: list[Point] = []
     for x, y in points:
         x, y = float(x), float(y)
@@ -110,7 +162,7 @@ def _posts(points: Sequence[Point]) -> tuple[list[Point], bool]:
     if len(posts) > MAX_POSTS:
         last = len(posts) - 1
         posts = [posts[round(i * last / (MAX_POSTS - 1))] for i in range(MAX_POSTS)]
-    return posts, closed
+    return _keep_post_gap(posts, closed), closed
 
 
 def bulb_count(length_cm: float) -> int:
@@ -119,6 +171,62 @@ def bulb_count(length_cm: float) -> int:
     if not math.isfinite(length_cm) or length_cm <= 0.0:
         return 0
     return max(1, min(MAX_BULBS_PER_STRING, round(length_cm / BULB_SPACING_CM)))
+
+
+def _clear_share(span: Span, posts: Sequence[Point], share: float) -> float:
+    """``share`` moved along ``span`` until it is clear of every FOREIGN post (#709).
+
+    The base share already keeps ``POST_CLEAR_CM`` from the span's own posts. A line
+    that doubles back or crosses itself can stand another span's post in the bulb's
+    way; the forbidden shares are the intervals where that post lies within
+    ``OTHER_POST_CLEAR_CM``, and the nearest allowed share to the base is taken. When
+    no share is clear (a very short span boxed in by foreign posts) the base stays:
+    the layout cannot do better, and the picture still draws the bulb above the post.
+    """
+    if len(posts) < 3 or span.length_cm <= 0.0:
+        return share
+    (ax, ay), (bx, by) = posts[span.a], posts[span.b]
+    length = span.length_cm
+    ux, uy = (bx - ax) / length, (by - ay) / length
+    low = POST_CLEAR_CM / length if length > 2.0 * POST_CLEAR_CM else 0.0
+    high = 1.0 - low
+    forbidden: list[tuple[float, float]] = []
+    for index, (px, py) in enumerate(posts):
+        if index in (span.a, span.b):
+            continue
+        along = (px - ax) * ux + (py - ay) * uy
+        across = abs((px - ax) * uy - (py - ay) * ux)
+        if across >= OTHER_POST_CLEAR_CM:
+            continue
+        reach = math.sqrt(OTHER_POST_CLEAR_CM * OTHER_POST_CLEAR_CM - across * across)
+        start = max(low, (along - reach) / length)
+        stop = min(high, (along + reach) / length)
+        if stop > start:
+            forbidden.append((start, stop))
+    if not forbidden:
+        return min(high, max(low, share))
+    forbidden.sort()
+    merged: list[tuple[float, float]] = []
+    for start, stop in forbidden:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], stop))
+        else:
+            merged.append((start, stop))
+    allowed: list[tuple[float, float]] = []
+    cursor = low
+    for start, stop in merged:
+        if start > cursor:
+            allowed.append((cursor, start))
+        cursor = max(cursor, stop)
+    if cursor < high:
+        allowed.append((cursor, high))
+    if not allowed:
+        return min(high, max(low, share))
+    for start, stop in allowed:
+        if start <= share <= stop:
+            return share
+    return min((start if abs(start - share) <= abs(stop - share) else stop
+                for start, stop in allowed), key=lambda value: abs(value - share))
 
 
 def layout(points: Sequence[Point]) -> Layout:
@@ -149,4 +257,6 @@ def layout(points: Sequence[Point]) -> Layout:
         else:
             share = 0.5
         bulbs.append(Bulb(index, share))
-    return Layout(tuple(posts), spans, tuple(bulbs))
+    cleared = tuple(Bulb(bulb.span, _clear_share(spans[bulb.span], posts, bulb.share))
+                    for bulb in bulbs)
+    return Layout(tuple(posts), spans, cleared)

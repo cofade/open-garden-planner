@@ -4147,4 +4147,16 @@ Comprehensive quality, geometry, weather, and lighting hygiene package addressin
 - **#710 — 3D string lights wire segmentation & bulb tessellation**: Doubles wire segments (`WIRE_PIECES = 24`, `WIRE_PIECE_CM = 25.0`) and refines bulb spheres to `rings=5, segments=12`, eliminating visible chord sagitta and polygonal bulb artifacts at close walk distance.
 - **#700 — Shadow agreement single source of truth**: Streamlines redundant narrative and driftable reach/ratio figures in §8.29.6 and `scripts/measure_built_world_shadows.py`, pointing directly to the authoritative ADR-059 builders addendum, and pins this invariant with automated regression checks.
 
+### Curved geometry, strings and shadow cost (#675, #709, #705, #701)
+
+Four follow-ups around the 3D builders and the 2D shadow walk's cost:
+
+- **#675 — a filleted fence is no longer a solid curved block**: a fillet is baked as a dense run of 2–4 cm chords; the fence/wall builder spaced posts and pickets **per segment**, so a rounded corner got two posts per chord and merged into a wall of planks. A vertex turning less than `CORNER_DEG = 20°` now belongs to one smooth span, and posts, pickets, bars and chain-link wires are spaced by **arc length** at the straight runs' pitch; rails stay per segment and follow the arc. A filleted L (r 25 / 100) stands 5–6 posts, not 21–41; 2D geometry, hit-testing, undo and constraints are untouched (ADR-065 addendum).
+- **#709 — a string of lights can be filleted**: `MIN_POST_GAP_CM = 40` along the line (the first and drawn last point stay, a closed loop checks the closing span) turns a 39 cm arc from 21 posts into 2; `OTHER_POST_CLEAR_CM = 8.6` moves a bulb along its own span until it clears every foreign post, so a self-crossing line cannot hide one in a post (ADR-070 addendum).
+- **#705 — a string's light follows its shape**: an open line takes the bulb nearest the bulbs' centroid, a closed loop takes the centroid itself (the middle of the space it hangs round) with the nearest bulb as the concave fallback; `lamp_sources` passes its bulbs into `lamp_light` so each string is laid out once per light pass (ADR-070 addendum).
+- **#701 — the shadow walk builds each roof mesh once**: `_cached_roof_triangles` keys the local triangles by the complete geometry (128 entries), so 150 identical sheds build one roof instead of 750; the per-owner pyclipper union was measured and **kept** — removing it made the final union of unmerged triangle paths 3.25 s instead of the whole 153-union 1.48 s (ADR-059 addendum).
+
+Docs: ADR-059/065/070 addenda, §8.29.12/§8.29.13, `debug-verbose` case study 205.
+
+
 

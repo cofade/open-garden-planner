@@ -37,6 +37,7 @@ import contextlib
 import math
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
@@ -344,6 +345,37 @@ def _fence_porosity_info(
     return raw_style, tuple(pts), float(outline.width_cm or 1.0)
 
 
+@lru_cache(maxsize=128)
+def _cached_roof_triangles(
+    kind: str,
+    shape: str,
+    local_ring: tuple[tuple[float, float], ...],
+    height: float,
+    style: str | None,
+    pitch: float | None,
+    overhang: float | None,
+    ridge: tuple[tuple[float, float], tuple[float, float]] | None,
+) -> tuple[Triangle3D, ...]:
+    """The pitched roof's LOCAL triangles for one geometry, built once (#701).
+
+    A 150-shed plan asked the 3D roof builder for the same shed's mesh 750 times in one
+    walk (1.37 s of a 5.7 s profile, all but 150 of them repeats); the cache key is the
+    complete geometry, so an edited roof is a new key and never a stale hit. The
+    triangles stay in the record's local frame — the caller poses them, so the same
+    mesh serves every identical shed wherever it stands. 128 entries cover the distinct
+    roof shapes of a hand-built plan; each holds one building's triangles."""
+    params: dict[str, Any] = {}
+    if style is not None:
+        params[PARAM_ROOF_STYLE] = style
+    if pitch is not None:
+        params[PARAM_ROOF_PITCH] = pitch
+    if overhang is not None:
+        params[PARAM_ROOF_OVERHANG] = overhang
+    if ridge is not None:
+        params[PARAM_RIDGE] = ridge
+    return pitched_roof_triangles(kind, shape, local_ring, height, params=params)
+
+
 def _building_roof_triangles(
     item: Any,
     kind: str,
@@ -379,28 +411,30 @@ def _building_roof_triangles(
         return ()
     if footprints_can_self_cross(item) and not is_buildable_region(local_ring):
         return ()
-    params: dict[str, Any] = {}
     style = roof_style(metadata)
-    if style is not None:
-        params[PARAM_ROOF_STYLE] = style
     pitch = roof_pitch_deg(metadata)
-    if pitch is not None:
-        params[PARAM_ROOF_PITCH] = pitch
     overhang = roof_overhang_cm(metadata)
-    if overhang is not None:
-        params[PARAM_ROOF_OVERHANG] = quantize_cm(overhang)
+    ridge: tuple[tuple[float, float], tuple[float, float]] | None = None
     if kind == "HOUSE" and isinstance(ridge_item, PolylineItem) and len(ridge_item.points) >= 2:
         p0 = ridge_item.mapToScene(ridge_item.points[0])
         p1 = ridge_item.mapToScene(ridge_item.points[-1])
         e0 = frame.local_from_scene(p0.x(), p0.y())
         e1 = frame.local_from_scene(p1.x(), p1.y())
         if math.isfinite(e0[0] + e0[1] + e1[0] + e1[1]):
-            params[PARAM_RIDGE] = (e0, e1)
+            ridge = (e0, e1)
     try:
-        local_tris = pitched_roof_triangles(
-            kind, outline.shape, local_ring, height, params=params
+        local_tris = _cached_roof_triangles(
+            kind,
+            outline.shape,
+            tuple((round(x, 6), round(y, 6)) for x, y in local_ring),
+            round(float(height), 6),
+            style,
+            None if pitch is None else round(float(pitch), 6),
+            None if overhang is None else round(float(quantize_cm(overhang)), 6),
+            None if ridge is None else ((round(ridge[0][0], 6), round(ridge[0][1], 6)),
+                                        (round(ridge[1][0], 6), round(ridge[1][1], 6))),
         )
-    except Exception:
+    except Exception:  # a hostile outline must not take the overlay down (as before)
         return ()
     if not local_tris:
         return ()
