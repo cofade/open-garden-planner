@@ -116,8 +116,13 @@ _LOG: Final = logging.getLogger(__name__)
 #: A sky that went stale is rebuilt once the sun has rested this long: a time slider
 #: being dragged moves the sun many times a second, and one build costs about 0.12 s
 #: of the GUI thread (0.32 s under the atmosphere, which builds both skies). The light,
-#: the exposure and the fog never wait. Shorter than a playback step: #722.
-SKY_SETTLE_MS: Final = 150
+#: the exposure and the fog never wait. Longer than a playback step (200 ms): at 150 ms
+#: the timer fired between every two steps and a playing day rebuilt the sky on almost
+#: every step (#722).
+SKY_SETTLE_MS: Final = 300
+#: A playing day still follows the sun: a sky this stale is built at the next pass, even
+#: though its settle timer keeps being restarted by the steps (#722).
+SKY_MAX_STALENESS_MS: Final = 1000
 #: How often the automatic preset reads the host's frame count while the wind runs.
 AUTO_SAMPLE_MS: Final = 500
 #: How often the cloud volume's worker is looked at while it runs (L7; the geometry
@@ -225,6 +230,10 @@ class LookController(QObject):
         self._sky_timer.setSingleShot(True)
         self._sky_timer.setInterval(SKY_SETTLE_MS)
         self._sky_timer.timeout.connect(self._settle_sky)
+        #: When the sky on show first became stale, on ``time.monotonic`` (None: not
+        #: stale). The settle timer restarts on every playback step, so this is what
+        #: keeps a playing sky following the sun (#722).
+        self._sky_stale_since: float | None = None
         self._auto_timer = QTimer(self)
         self._auto_timer.setInterval(AUTO_SAMPLE_MS)
         self._auto_timer.timeout.connect(self._sample_frames)
@@ -532,12 +541,21 @@ class LookController(QObject):
         if self._sky_light:
             shown = self._sky_shown
             if sky_must_build_now(shown, look.sky):
+                self._sky_stale_since = None
                 self._build_sky(look.sky)       # the first sky; sunset, nightfall, a weather: at once
             elif sky_is_stale(shown, look.sky):
                 if self._showing:
-                    self._sky_timer.start()     # (re)started: built when the sun rests
+                    now = time.monotonic()
+                    if self._sky_stale_since is None:
+                        self._sky_stale_since = now
+                    if (now - self._sky_stale_since) * 1000.0 >= SKY_MAX_STALENESS_MS:
+                        self._sky_stale_since = None
+                        self._build_sky(look.sky)   # too long stale: follow the sun now
+                    else:
+                        self._sky_timer.start()     # (re)started: built when the sun rests
             else:
                 self._sky_timer.stop()          # back within the threshold: nothing owed
+                self._sky_stale_since = None
             shown = self._sky_shown
             if shown is not None and shown.horizon != look.sky.horizon:
                 # the sky on screen is an older one: the fog must meet THAT horizon
@@ -574,6 +592,7 @@ class LookController(QObject):
         """Build ``sky`` — or, when the engine cannot, log it ONCE and go on for the rest
         of the session with the plain sky and the flat fill (``sky_light`` False)."""
         self._sky_timer.stop()
+        self._sky_stale_since = None
         if sky.model == ATMOSPHERE:
             try:
                 self._host.set_sky(sky)

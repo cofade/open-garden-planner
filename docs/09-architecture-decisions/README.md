@@ -6629,8 +6629,13 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
    per degree through twilight, and never for the sun's position at night (a night sky draws no
    disc); the sky's sun is floored at −6°. A sky the engine cannot build is logged once and the
    session goes on with the plain sky; the look is sent separately and always. While the
-   sun is dragged the sky is built once it has rested 150 ms (`SKY_SETTLE_MS`). Light, exposure
-   and fog follow every instant; while the sky lags, the fog is computed for the sky ON SCREEN.
+   sun is dragged the sky is built once it has rested 300 ms (`SKY_SETTLE_MS`), and a sky
+   that has been stale for 1 s is built at that pass whatever the timer says
+   (`SKY_MAX_STALENESS_MS`): playback steps every 200 ms, so the old 150 ms timer fired
+   between every two steps and a playing day rebuilt the atmosphere on almost every step
+   (3.5 steps/s, #722); now the steps keep restarting the timer and the ceiling makes the
+   sky follow the sun about once a second. Light, exposure and fog follow every instant;
+   while the sky lags, the fog is computed for the sky ON SCREEN.
    Each build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child, every
    input set at the cheapest quality and Medium quality set last; the old pair is destroyed after
    the scene shows the new one (#476). `sunLongitude = azimuth + 90°`; the ground hemisphere takes
@@ -7180,6 +7185,36 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   `set_radius_centered`), as one undo step with the metadata edit. Explicit
   spacing overrides, measured spreads and custom footprints win; a cleared
   maximum preserves geometry.
+
+**Addendum (atmosphere-sky and render-tier integrity, #695/#696/#714/#717/#718/#722).**
+- **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
+  (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
+  disc finder first takes a white plateau of at least 20 pixels (every channel ≥ 250) and
+  its centroid, falling back to the old bright-and-warm peak: at a low sun the warm
+  horizon band outscored the disc (#717). Measured on the RTX 4070 at 640 × 360: worst
+  bearing error 0.08° / 0.09° and worst elevation error 0.13° / 0.07° (painted /
+  atmosphere), inside the 0.25° acceptance.
+- **The set sun is measured.** `--dusk` now renders a sky-only camera at the sun's own
+  bearing at +1.0, +0.4, 0.0, −1.0 and −3°, for clear and every cloudy weather;
+  `sun_dip` compares the darkest pixel within 10° of that bearing with the median at the
+  same world elevation 15–45° away (an image row is not a world elevation under a pitched
+  camera: comparing rows read a false 20-luma dip). A dip over 10 luma fails the board
+  (#695).
+- **The playback stall (#722).** `SKY_SETTLE_MS` is 300 ms — longer than playback's
+  200 ms step, so the steps keep restarting the settle timer — and a sky stale for 1 s is
+  built at that pass (`SKY_MAX_STALENESS_MS`), so a playing day still follows the sun
+  about once a second instead of rebuilding on almost every step (3.5 steps/s under the
+  atmosphere before).
+- **The far-row bound is re-derived.** The distant-horizon gate measures 3.44 / 3.48 luma
+  at 403 m / 15° and 3.11 at 67 m / 31.6° on the current scene (the issue #714 numbers),
+  so `HORIZON_STEP_BOUND` goes from 3.0 to 3.6, and the render tier gates the per-mood
+  step at the same 3.6 (covering #696's 3.13 low-sunset row). The scene was not shown to
+  have regressed since L4: the with- and without-L7 readings are identical, so 3.0 was a
+  bound from the earlier scene, not a defect this package hides.
+- **The flood soak settles first (#718).** `scenario_soak` applies its `off` / `flood`
+  release policy only after the initial settle: with the flood threshold active from the
+  first pass, the LOD queue re-queued its own startup work (`pending` 34 after 60 s), so
+  the soak never measured. The startup is the state opening a plan gives the workspace.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 

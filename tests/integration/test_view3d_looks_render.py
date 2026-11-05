@@ -75,6 +75,13 @@ MIN_IOU = 0.85
 MAX_NIGHT_OVER_NOON = 0.25
 #: G4. The spike's bound for the sky probe; measured here 0.03 degrees.
 MAX_SKY_ERROR_DEG = 6.0
+#: G4's instrument (#717): the disc finder must place the disc within this of the solar
+#: position at 6, 12, 30 and 60 degrees, on both skies (the white-plateau path).
+MAX_DISC_ERROR_DEG = 0.25
+#: 4 sun elevations x 3 azimuths x 2 offsets (#717).
+SKY_VIEW_COUNT = 24
+#: The set-sun probe's bound (#695): a sky row may not dip more than this under its rows.
+MAX_SKY_DUSK_DIP = 10.0
 #: G5. The largest change of the row-mean luma across 0.15 degrees at the horizon, the
 #: depth of a thin dark line there, the height of a thin bright one — at eye height, per
 #: mood and preset, within 0.4 degrees of the horizon. Measured: step <= 3.5 at 640 x 360
@@ -82,6 +89,12 @@ MAX_SKY_ERROR_DEG = 6.0
 #: where the plain sky IS the fog's colour, 0.15 / 0.03 / 0.02. The spike measured a
 #: step of 3.6 at most, by day. Before L1.4's round 1 the night step was 10.5 (high)
 #: and 21.2 (low).
+#: The CLEAR look's per-mood step, gated where the board reports it (#696: the low-preset
+#: sunset read 3.13, above the 3.0 that only `--horizon`'s far rows used): 3.6, the same
+#: re-derived bound as `HORIZON_STEP_BOUND` at 640 x 360 (#714; ADR-059's addendum).
+#: The cloudy weathers keep the 6.0 above — this package measured the clear look's rows,
+#: not theirs.
+MAX_CLEAR_HORIZON_STEP = 3.6
 MAX_HORIZON_STEP, MAX_HORIZON_DIP, MAX_HORIZON_RIDGE = 6.0, 4.5, 2.5
 #: G4. Committed memory per sun change, second half of twenty (Theil-Sen) — the bound was
 #: registered before the first run (the driver says how it moved with the sky's size).
@@ -298,10 +311,12 @@ def test_the_sky_draws_its_sun_at_the_solar_azimuth(board) -> None:
     the east, the south and the west."""
     metrics, _out = board
     sky = metrics["sky"]
-    assert sky["ok"] is True and len(sky["views"]) == 6, sky
+    assert sky["ok"] is True and len(sky["views"]) == SKY_VIEW_COUNT, sky
     assert sky["max_abs_error_deg"] < MAX_SKY_ERROR_DEG
+    assert sky["max_abs_elevation_error_deg"] < MAX_DISC_ERROR_DEG, sky
     for view in sky["views"].values():
-        assert view["found"] and abs(view["elevation_deg"] - 12.0) < 3.0, view
+        assert view["found"], view
+        assert abs(view["elevation_deg"] - view["sun_elev"]) < MAX_DISC_ERROR_DEG, view
 
 
 def test_fog_meets_the_sky_at_every_preset_and_in_every_mood(board) -> None:
@@ -313,8 +328,12 @@ def test_fog_meets_the_sky_at_every_preset_and_in_every_mood(board) -> None:
     assert worst["dip"] <= MAX_HORIZON_DIP and worst["ridge"] <= MAX_HORIZON_RIDGE, horizon
     for preset in PRESETS:
         assert set(horizon[preset]) == {"noon", "golden_hour", "sunset", "night"}
-        for mood in horizon[preset].values():
+        for mood_name, mood in horizon[preset].items():
             assert mood["away"]["judged_rows"] >= 5 and mood["across"]["judged_rows"] >= 5
+            # #696: the per-mood step was ungated while the low-preset sunset read 3.13
+            for label in ("away", "across"):
+                assert mood[label]["step"] <= MAX_CLEAR_HORIZON_STEP, (
+                    preset, mood_name, label, mood[label])
 
 
 def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
@@ -332,6 +351,11 @@ def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
         night = [row for row in dusk["rows"] if row["target"] <= -6.0]
         assert all(row["night"] for row in night) and not any(
             row["night"] for row in dusk["rows"] if row["target"] > -5.9)
+        # The sky-facing set-sun probe (#695): the meadow camera hid the sun behind the
+        # poplar; a black disc in this window went unseen for three reviews.
+        assert dusk["sky_dusk_ok"], (preset, dusk["sky_dusk"])
+        assert len(dusk["sky_dusk"]) == 5, dusk["sky_dusk"]
+        assert min(row["dip_luma"] for row in dusk["sky_dusk"]) >= -MAX_SKY_DUSK_DIP, dusk["sky_dusk"]
 
 
 #: Review P1 (#529): the picket moiré at low. ``alias_error`` (``board_probes.
@@ -403,13 +427,13 @@ def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: 
     for metrics in (painted, atmosphere):   # the sky's sun where the solar position puts it
         assert metrics["sky"]["ok"] and metrics["sky"]["max_abs_error_deg"] < MAX_SKY_ERROR_DEG
         for view in metrics["sky"]["views"].values():
-            assert abs(view["elevation_deg"] - 12.0) < 3.0, view
+            assert abs(view["elevation_deg"] - view["sun_elev"]) < MAX_DISC_ERROR_DEG, view
     assert (painted["sky_model"], atmosphere["sky_model"]) == ("painted", "atmosphere")
     nights = {model: {row["preset"]: row["mean_luma"] for row in metrics["shots"] if row["shot"] == "night"}
               for model, metrics in (("painted", painted), ("atmosphere", atmosphere))}
     for preset in PRESETS:
         assert abs(nights["painted"][preset] - nights["atmosphere"][preset]) <= MAX_NIGHT_LUMA_DIFFERENCE, nights
-    view = "sky_180_-25.png"
+    view = "sky_12_180_-25.png"
     day_painted, day_atmosphere = load_rgb(painted_out / view), load_rgb(atmosphere_out / view)
     rows = day_painted.shape[0] // 3
     difference = float(np.abs(day_painted[:rows].astype(np.float64) - day_atmosphere[:rows]).mean())

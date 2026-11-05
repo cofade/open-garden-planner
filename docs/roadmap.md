@@ -4147,4 +4147,17 @@ Comprehensive quality, geometry, weather, and lighting hygiene package addressin
 - **#710 — 3D string lights wire segmentation & bulb tessellation**: Doubles wire segments (`WIRE_PIECES = 24`, `WIRE_PIECE_CM = 25.0`) and refines bulb spheres to `rings=5, segments=12`, eliminating visible chord sagitta and polygonal bulb artifacts at close walk distance.
 - **#700 — Shadow agreement single source of truth**: Streamlines redundant narrative and driftable reach/ratio figures in §8.29.6 and `scripts/measure_built_world_shadows.py`, pointing directly to the authoritative ADR-059 builders addendum, and pins this invariant with automated regression checks.
 
+### Sky and render-tier integrity (#695, #696, #714, #717, #718, #722)
+
+Six follow-ups from the L7 atmosphere-sky reviews and the render tier, in one package:
+
+- **#717 — the disc finder sees a low sun**: `board_probes.sun_disc` first takes a white plateau of at least 20 pixels (every channel ≥ 250) and its centroid, then falls back to the old bright-and-warm peak. The sky probe now covers 6°, 12°, 30° and 60° suns × three azimuths × two offsets on both sky models (24 views), and the render tier gates the disc's own accuracy at 0.25° separately from the 6° direction gate.
+- **#695 — a sky-facing set-sun probe**: `--dusk` renders a sky-only camera at the sun's own bearing at +1.0, +0.4, 0.0, −1.0 and −3°, under clear and every cloudy weather. `board_probes.sun_dip` compares the darkest pixel within 10° of that bearing with the median at the **same world elevation** 15–45° away (an image row is not a world elevation under a pitched camera; comparing rows read a false 20-luma dip). A dip over 10 luma fails the board.
+- **#714 — the far-row bound is re-derived**: the distant-horizon gate measures 3.44 / 3.48 luma at 403 m / 15° and 3.11 at 67 m / 31.6° at the render tier's 640 × 360, a smooth fog ramp across ~30 rows, not a cliff. The old 3.0 came from the earlier 960 × 540 measurement (the same ramp reads ~2.3 there); `HORIZON_STEP_BOUND` is 3.6, with the reason recorded in ADR-059's addendum. The gate still catches a real cliff (10–18 luma or 84.5 luma in one row).
+- **#696 — the clear horizon step is gated**: the per-mood plan-edge step was ungated while the low-preset sunset read 3.13; the render tier now asserts the clear look's step against the same 3.6 bound. The cloudy weathers keep the existing 6.0.
+- **#718 — the flood-release soak settles first**: `scenario_soak` applies its `off` / `flood` release policy only after the initial settle. With the flood threshold active from the first pass the LOD queue re-queued its own startup work (`pending` 34 after 60 s), so the soak never measured. The startup is the state opening a plan gives the workspace.
+- **#722 — a playing day stops rebuilding the sky every step**: `SKY_SETTLE_MS` is 300 ms — longer than playback's 200 ms step, so the steps keep restarting the settle timer — and a sky stale for 1 s is built at that pass (`SKY_MAX_STALENESS_MS`). The atmosphere previously rebuilt on almost every daylight step (3.5 steps/s, 318–324 ms a build); the painted sky rebuilt too. Light, exposure and fog still follow every instant, and the fog uses the sky on screen while a rebuild lags.
+
+Docs: ADR-059 addendum, §8.29.4, `ogp-lush-cinematic` §11, `debug-verbose` case study 204.
+
 

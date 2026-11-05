@@ -5837,7 +5837,9 @@ generated on the GUI thread (Medium quality: about 0.1 s on the dev box's GPU) p
 probe Qt filters once per Texture (on WARP: 9–13 s on the dev box, 40–85 s on a CI runner). So
 the sky is rebuilt only when the sun moved at least 1° (great circle) from where the SHOWN sky
 draws it (`sky_is_stale`), and while the time slider is dragged only once the sun has rested
-150 ms; a change of the sky's PHASE (`sky_phase`: day with a sun disc, twilight, night) is
+300 ms, with a 1 s ceiling so a playing day (a step every 200 ms) still follows the sun —
+the old 150 ms timer fired between every two steps (#722); a change of the sky's PHASE
+(`sky_phase`: day with a sun disc, twilight, night) is
 built at once — sunset at 0.5°, nightfall at −6°, dawn; through twilight the sky follows the sun
 by the degree (its colours do); a night sky is never rebuilt for the sun's position (it draws no
 disc). A sky the engine cannot build is logged once and the session goes on with the plain sky
@@ -5889,6 +5891,17 @@ shot's models were built for, read back from the records rendered) and the look 
 fences' aliasing against a supersampled render, the plan's edge, the horizon's hue) and the
 frame rate. Procedure:
 `ogp-lush-cinematic` §5.
+
+The sky probe (G4) spans the day: four sun elevations (6°, 12°, 30°, 60°) × three
+azimuths × two offsets on both sky models, its disc found by a white plateau of at least
+20 pixels first — at a low sun the warm horizon band outscored the disc (#717) — with the
+0.25° accuracy gated. The dusk probe also renders a sky-only camera at the sun's own
+bearing at +1.0, +0.4, 0.0, −1.0 and −3° under every weather and fails when a pixel
+within 10° of that bearing is more than 10 luma under the median at its own elevation
+15–45° away (#695: the meadow camera had the sun behind the poplar). The far-row bound is
+3.6 luma at 640 × 360, re-derived from the current scene's 3.44 / 3.48 / 3.11 (#714), and
+the clear look's per-mood step is gated at the same bound (covering #696's 3.13 low
+sunset). The atmosphere sky's own low band and cloudy deck band remain #716 and #719.
 
 ### 8.29.5 The ground bake — flat surfaces as ground tiles (L1.5)
 

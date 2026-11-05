@@ -597,12 +597,6 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
 
         ground_bake_module.GroundBaker = lambda: None  # type: ignore[assignment,misc]
     assert frames_mode in ("presented", "withheld") and grabs in ("none", "every"), (frames_mode, grabs)
-    if release == "off":
-        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
-        workspace_module.RELEASE_NOW_RETIRED = 10**9  # type: ignore[misc]
-    elif release == "flood":
-        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
-        workspace_module.RELEASE_NOW_RETIRED = 1  # type: ignore[misc]
     plan = str(window._project_manager.current_file)  # the plan main() was started on
     yield from _enter_and_wait(window, "split")
     workspace = window._workspace
@@ -641,6 +635,18 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     present()
     present()
     _pump(200)
+    # The measured loop's release policy, applied only after the initial settle (#718).
+    # The initial build is the state opening a plan gives the workspace — the product's
+    # own thresholds. With the flood threshold active from the first pass, every
+    # destroyed Model releases inside that pass and the LOD queue re-queues its own
+    # work: `pending_count` was still 34 after 60 s, so the soak never measured anything.
+    # What these variants measure is churn under the threshold, not the startup.
+    if release == "off":
+        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
+        workspace_module.RELEASE_NOW_RETIRED = 10**9  # type: ignore[misc]
+    elif release == "flood":
+        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
+        workspace_module.RELEASE_NOW_RETIRED = 1  # type: ignore[misc]
     parts_before = host.part_count()
     from open_garden_planner.core.plant_art import PLANT_KINDS
     from open_garden_planner.core.scene3d.builders import production_registry

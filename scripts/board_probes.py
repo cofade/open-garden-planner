@@ -287,18 +287,34 @@ def shadow_iou(rgb: Any, camera: Pinhole, footprint: Polygon, height: float,
 
 def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     """The compass bearing and the elevation of the sky's sun disc in a frame that
-    looks at the sky: the peak of "bright AND warm" above the horizon.
+    looks at the sky.
 
-    ``found`` is False when nothing stands out (contrast of the peak over the
-    median at most 40) — a sky without a disc, a night sky.
+    A disc at a low sun can be dimmer than the warm horizon band around it, so the
+    finder first looks for the disc's own signature — a plateau of at least 20 pixels
+    with every channel at least 250 — and takes its centroid (#717; measured within
+    0.04 degrees). When no such plateau exists it falls back to the peak of "bright
+    AND warm" above the horizon. ``found`` is False when nothing stands out (contrast
+    of the peak over the median at most 40) — a sky without a disc, a night sky.
     """
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
     rows, cols = frame.shape[:2]
     view = camera.scaled((cols, rows))
     band = max(1, min(rows, int(math.floor(view.horizon_row()))))
-    score = luma(frame[:band]) + 0.8 * (frame[:band, :, 0] - frame[:band, :, 2])
+    sky = frame[:band]
+    score = luma(sky) + 0.8 * (sky[:, :, 0] - sky[:, :, 2])
+    median = float(np.median(score))
+    white = np.all(sky >= 250.0, axis=2)
+    if int(white.sum()) >= 20:
+        peak_rows, peak_cols = np.nonzero(white)
+        contrast = float(np.median(score[peak_rows, peak_cols])) - median
+        if contrast > 40.0:
+            x, y = float(peak_cols.mean()) + 0.5, float(peak_rows.mean()) + 0.5
+            return {"found": True, "contrast": round(contrast, 1),
+                    "pixel": [round(x, 1), round(y, 1)],
+                    "bearing_deg": round(view.bearing_deg(x, y), 2),
+                    "elevation_deg": round(view.elevation_deg(x, y), 2)}
     row, col = np.unravel_index(int(np.argmax(score)), score.shape)
-    contrast = float(score[row, col] - np.median(score))
+    contrast = float(score[row, col] - median)
     if contrast <= 40.0:
         return {"found": False, "contrast": round(contrast, 1)}
     # the disc is a plateau: take the centre of everything within 2 % of the peak
@@ -308,6 +324,55 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     return {"found": True, "contrast": round(contrast, 1), "pixel": [round(x, 1), round(y, 1)],
             "bearing_deg": round(view.bearing_deg(x, y), 2),
             "elevation_deg": round(view.elevation_deg(x, y), 2)}
+
+
+def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *, near_deg: float = 10.0,
+            away_deg: tuple[float, float] = (15.0, 45.0)) -> dict[str, Any]:
+    """The darkest sky row near the sun's bearing against the same rows away from it.
+
+    The set-sun gate's instrument (#695): a black disc or a dark halo shows as the
+    darkest pixel within ``near_deg`` of ``sun_azimuth_deg`` against the median luma
+    ``away_deg`` to either side AT THE SAME WORLD ELEVATION; a sky that matches itself
+    stays near 0. (An image row is not a world elevation with a pitched pinhole camera:
+    off-axis pixels in one row sit higher in the sky, which read a false 20-luma dip.)
+    A mean would drown a small disc in the glow around it — a 36-pixel black disc left
+    the row mean 16 luma above the away rows. ``dip_luma`` is the most negative
+    difference and ``elevation_deg`` its 0.25-degree band. Used on a sky-only frame
+    (``ground=None``), so a sun below the geometric horizon is still measured.
+    """
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
+    rays = view.rays(xs, ys)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    bearing = (np.degrees(np.arctan2(rays[..., 0], rays[..., 1])) + 360.0) % 360.0
+    off = np.abs(((bearing - sun_azimuth_deg + 180.0) % 360.0) - 180.0)
+    near = off <= near_deg
+    away = (off >= away_deg[0]) & (off <= away_deg[1])
+    lum = luma(frame)
+    elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    band_deg = 0.25
+    bands = np.floor(elevation / band_deg).astype(np.int64)
+    reference: dict[int, float] = {}
+    for band in np.unique(bands[away]):
+        values = lum[away & (bands == band)]
+        if values.size >= 10:
+            reference[int(band)] = float(np.median(values))
+    dip, at_band = 0.0, None
+    for band in np.unique(bands[near]):
+        if int(band) not in reference:
+            continue
+        values = lum[near & (bands == band)]
+        if values.size < 3:
+            continue
+        delta = float(values.min() - reference[int(band)])
+        if at_band is None or delta < dip:
+            dip, at_band = delta, int(band)
+    out: dict[str, Any] = {"dip_luma": round(dip, 2), "band": at_band}
+    if at_band is not None:
+        out["elevation_deg"] = round((at_band + 0.5) * band_deg, 2)
+    return out
 
 
 def bearing_error_deg(measured: float, expected: float) -> float:

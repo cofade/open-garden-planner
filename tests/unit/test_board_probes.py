@@ -269,6 +269,68 @@ def test_the_ground_luminance_reads_only_below_the_horizon() -> None:
     assert P.ground_luminance(darker_ground, camera) < 0.75 * base
 
 
+def test_a_low_suns_disc_beats_a_brighter_warm_horizon_band() -> None:
+    """#717: the old "bright AND warm" score locked onto the horizon band at an 8 degree
+    sun. A plateau of at least 20 white pixels is the disc's own signature; the band is
+    deliberately brighter-scored than the disc here, so only the plateau can find it."""
+    azimuth, elevation = 180.0, 8.0
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(elevation))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    frame[rays[..., 2] < 0.0] = (70.0, 110.0, 60.0)
+    elevation_deg = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    band = (elevation_deg > 0.2) & (elevation_deg < 1.2)
+    frame[band] = (255.0, 200.0, 120.0)          # brighter-scored than the disc
+    sun = np.asarray(sun_direction_scene(elevation, azimuth))
+    angle = np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0)))
+    disc = angle < 1.0
+    frame[disc] = (255.0, 255.0, 255.0)
+    assert int(disc.sum()) >= 20
+    found = P.sun_disc(frame, camera)
+    assert found["found"]
+    assert abs(P.bearing_error_deg(found["bearing_deg"], azimuth)) < 0.25, found
+    assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
+
+
+def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
+    """#695: the board's dusk camera had the sun behind a poplar, so a black sun with a
+    dark halo survived three reviews. A sky-only frame near the sun's bearing measures it;
+    the same sky without the disc does not."""
+    azimuth, elevation = 270.0, 0.4
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(3.0))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    sun = np.asarray(sun_direction_scene(elevation, azimuth))
+    angle = np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0)))
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    glow = np.clip(1.0 - angle / 6.0, 0.0, 1.0)[..., None]
+    frame += glow * (np.array([255.0, 235.0, 190.0]) - frame)
+    control = P.sun_dip(frame, camera, azimuth)
+    assert control["dip_luma"] > -10.0, control          # a glow is not a dip
+    black = frame.copy()
+    black[angle < 1.0] = 0.0
+    found = P.sun_dip(black, camera, azimuth)
+    assert found["dip_luma"] < -50.0, found
+    assert found["elevation_deg"] == pytest.approx(elevation, abs=1.0), found
+
+
 def test_a_sky_without_a_disc_is_not_a_measurement() -> None:
     camera = P.Pinhole(eye=(0.0, 0.0, 160.0), target=(0.0, 1000.0, 400.0), fov_deg=70.0, size=SIZE)
     assert P.sun_disc(_sky(camera, 180.0, 12.0), camera)["found"] is False
