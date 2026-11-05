@@ -1202,6 +1202,11 @@ class Board:
                      day_ramp_max_step=out[preset]["day_ramp_max_step"])
             self.write()
             if not out[preset]["sky_dusk_ok"]:
+                unmeasured = [row for row in sky_rows if not row["measured"]]
+                if unmeasured:
+                    raise RuntimeError(
+                        f"the set-sun probe measured nothing at {len(unmeasured)} of "
+                        f"{len(sky_rows)} elevations ({weather}, {preset}); see metrics.json")
                 raise RuntimeError(
                     f"the set sun dips more than {SKY_DUSK_DIP_BOUND:g} luma under its rows "
                     f"({weather}, {preset}); see metrics.json")

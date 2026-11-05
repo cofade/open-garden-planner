@@ -7190,9 +7190,11 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 ### Addendum (atmosphere-sky and render-tier integrity, #695/#696/#704/#714/#717/#718/#722)
 - **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
   (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
-  disc finder first takes a white plateau of at least 20 pixels (every channel ≥ 250) and
-  its centroid, falling back to the old bright-and-warm peak: at a low sun the warm
-  horizon band outscored the disc (#717). Measured on the RTX 4070 at 640 × 360: worst
+  disc finder first takes the largest connected, compact white plateau (at least 20
+  pixels, every channel ≥ 250, bounding box at most 4:1, at least 40 % filled) and its
+  centroid, falling back to the old bright-and-warm peak: at a low sun the warm
+  horizon band outscored the disc (#717), and the centroid of every white pixel merged
+  two blobs into a false sun between them. Measured on the RTX 4070 at 640 × 360: worst
   bearing error 0.08° / 0.09° and worst elevation error 0.13° / 0.07° (painted /
   atmosphere), inside the 0.25° acceptance.
 - **The set sun is measured.** `--dusk` now renders a sky-only camera at the sun's own

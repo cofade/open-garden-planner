@@ -285,12 +285,15 @@ def shadow_iou(rgb: Any, camera: Pinhole, footprint: Polygon, height: float,
 # ── gate G4: where the sky draws its sun ─────────────────────────────────────
 
 
-def _largest_blob(mask: Any) -> tuple[Any, int]:
+def _largest_blob(mask: Any, *, compact_only: bool = False) -> tuple[Any, int]:
     """The largest 4-connected component of a boolean mask, and its pixel count.
 
     A sun disc is one compact plateau. The centroid of every white pixel in the sky
     merges two separate blobs into a point between them (a false sun at 180° from two
-    blobs at 160° and 200°); the component is what makes "plateau" true."""
+    blobs at 160° and 200°); the component is what makes "plateau" true. With
+    ``compact_only`` a component must also be at most 4:1 in bounding box and at least
+    40 % filled — a clipped white band is not a disc, and taking the largest component
+    first would let it hide the real one."""
     white = np.asarray(mask, dtype=bool)
     seen = np.zeros_like(white, dtype=bool)
     best = np.zeros_like(white, dtype=bool)
@@ -311,6 +314,14 @@ def _largest_blob(mask: Any) -> tuple[Any, int]:
                         and white[next_row, next_col] and not seen[next_row, next_col]):
                     seen[next_row, next_col] = True
                     stack.append((next_row, next_col))
+        if compact_only:
+            cell_rows = [cell[0] for cell in cells]
+            cell_cols = [cell[1] for cell in cells]
+            height = max(cell_rows) - min(cell_rows) + 1
+            width = max(cell_cols) - min(cell_cols) + 1
+            if (max(width, height) > 4 * max(1, min(width, height))
+                    or len(cells) < 0.4 * width * height):
+                continue
         if len(cells) > best_count:
             best_count = len(cells)
             best = np.zeros_like(white, dtype=bool)
@@ -340,15 +351,11 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     score = luma(sky) + 0.8 * (sky[:, :, 0] - sky[:, :, 2])
     median = float(np.median(score))
     white = np.all(sky >= 250.0, axis=2)
-    plateau, count = _largest_blob(white)
+    plateau, count = _largest_blob(white, compact_only=True)
     if count >= 20:
         plateau_rows, plateau_cols = np.nonzero(plateau)
-        height = int(plateau_rows.max() - plateau_rows.min() + 1)
-        width = int(plateau_cols.max() - plateau_cols.min() + 1)
-        compact = (max(width, height) <= 4 * max(1, min(width, height))
-                   and count >= 0.4 * width * height)
         contrast = float(np.median(score[plateau_rows, plateau_cols])) - median
-        if compact and contrast > 40.0:
+        if contrast > 40.0:
             x, y = float(plateau_cols.mean()) + 0.5, float(plateau_rows.mean()) + 0.5
             return {"found": True, "contrast": round(contrast, 1),
                     "pixel": [round(x, 1), round(y, 1)], "plateau_px": count,

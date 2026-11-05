@@ -329,6 +329,33 @@ def test_two_white_blobs_do_not_make_a_sun_between_them() -> None:
     assert abs(P.bearing_error_deg(found["bearing_deg"], 180.0)) > 10.0, found
 
 
+def test_a_white_streak_does_not_hide_the_disc() -> None:
+    """#717 review: a clipped white band is the largest component but not a disc. The
+    finder takes the largest COMPACT component, so the band cannot hide the sun."""
+    azimuth, elevation = 180.0, 12.0
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(elevation))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    frame[rays[..., 2] < 0.0] = (70.0, 110.0, 60.0)
+    frame[10:470, 20:50] = 255.0                      # a clipped white band
+    sun = np.asarray(sun_direction_scene(elevation, azimuth))
+    disc = np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0))) < 1.2
+    frame[disc] = 255.0
+    assert int(disc.sum()) >= 20
+    found = P.sun_disc(frame, camera)
+    assert found["found"]
+    assert abs(P.bearing_error_deg(found["bearing_deg"], azimuth)) < 5.0, found
+
+
 def test_a_sky_without_an_away_band_is_not_measured() -> None:
     """#695 review: "no measurement" and "a clean sky" must not be the same value; the
     gate fails closed."""
