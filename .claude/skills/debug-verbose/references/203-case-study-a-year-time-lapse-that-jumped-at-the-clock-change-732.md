@@ -34,8 +34,9 @@ zone offset changes under the fixed wall reading.
 ADR-053 addendum L6): the first frame records its UTC time-of-day; every later frame asks the
 clock for the **instant** whose local date is the frame's and whose UTC time-of-day matches, so
 the wall reading is derived through the zone with the repeated autumn hour's `fold` included. A
-local date with no exact instant (a 23-hour spring day) gets the nearest reading on that date, at
-most a minute away. The local clock shifts by the DST offset, the sun moves evenly, and the dates
+local date with no exact instant (a 23-hour spring day) gets the nearest reading on that date,
+within the missing hour. The local clock shifts by the DST offset, the sun moves evenly away
+from midnight, and the dates
 the dialog names are kept.
 
 **Lesson**: "same wall time" is not "same sun". Any clock writer that sweeps dates must

@@ -360,6 +360,12 @@ class SimClock:
         """The instant for the solar math."""
         return self._instant.utc
 
+    @property
+    def zone(self) -> tzinfo | None:
+        """The clock's zone (``None``: the system zone), read-only. Not a local-date
+        read: use ``plan_date`` for that (the module note explains the difference)."""
+        return self._tz
+
     # ── writes ───────────────────────────────────────────────────────────
 
     def set_datetime(self, dt: datetime) -> SimChange | None:
@@ -387,14 +393,17 @@ class SimClock:
         Returns **True** when the clock holds an instant on that local date (committed,
         possibly already current). If the exact UTC time does not exist on that local
         date - a 23-hour spring day, within an hour of midnight - the nearest instant on
-        that date is used (at most a minute away), so the date the tour promised holds.
-        ``False`` only when the date itself is outside the clock's supported range.
+        that date is used, so the date the tour promised holds. ``False`` only when the
+        date itself is outside the clock's supported range.
         """
         base = datetime.combine(day, utc_time, tzinfo=UTC)
-        candidate = self._utc_on_local_date(base, day)
-        if candidate is not None:
-            self._commit(candidate)
-            return True
+        # A local date's first hours map to the PREVIOUS UTC date (and its last to the
+        # next), so an exact instant can be a whole day from `base`.
+        for moment in (base, base - timedelta(days=1), base + timedelta(days=1)):
+            candidate = self._utc_on_local_date(moment, day)
+            if candidate is not None:
+                self._commit(candidate)
+                return True
         # a 23-hour local day: the exact UTC time of day has no reading on it. Walk
         # outwards a minute at a time and take the nearest that does.
         for minutes in range(1, 24 * 60):

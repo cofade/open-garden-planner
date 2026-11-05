@@ -1497,7 +1497,8 @@ def test_a_tour_started_near_midnight_keeps_its_dates(rig: Rig) -> None:
     assert [moment[0] for moment in moments] == [
         date(2026, 3, 1), date(2026, 3, 28), date(2026, 3, 29), date(2026, 3, 30)]
     assert {moment[1] for moment in moments} <= {time(22, 0), time(21, 59)}, moments
-    assert moments[2][2] == time(23, 59) and moments[3][2] == time(23, 59)
+    assert moments[2][2] == time(23, 59), "the 23-hour day's nearest reading"
+    assert moments[3][2] == time(0, 0), "an exact instant on the adjacent UTC date"
 
 
 def test_the_window_close_asks_then_stops_and_waits(
@@ -1527,3 +1528,25 @@ def test_a_programmatic_close_that_failed_does_not_keep_the_dialog(rig: Rig) -> 
     dialog._on_finished(TourResult(ok=False, cancelled=False, frames=1,
                                    message="the writer failed", unsettled=0))
     assert not dialog.isVisible(), "the engine is gone; nothing is left to explain to"
+
+
+def test_a_tour_started_at_half_past_midnight_keeps_its_exact_instants(rig: Rig) -> None:
+    """A local 00:30 is the previous UTC date's 22:30; the exact instant must be used,
+    not the nearest sweep (senior review round 4)."""
+    clock = SimClock(datetime(2026, 6, 21, 0, 30), tz=EU_DST)
+    capture = WorkspaceCaptureCoordinator(
+        get_host=lambda: None, get_controller=lambda: None, get_look=lambda: None,
+        get_clock=lambda: clock, get_camera=lambda: None,
+        get_camera_now=lambda: ((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0),
+        forge_pending=lambda: 0, is_pane_showing=lambda: True, view_state=lambda: "running",
+        ground_point=lambda _x, _y: None, default_path=str, fly_path=lambda _eyes: None,
+        is_walking=lambda: False, parent=rig.window)
+    capture._tour_holds_utc = True
+    moments = []
+    for day in (date(2026, 6, 21), date(2026, 6, 22), date(2026, 6, 23)):
+        capture._tour_clock(day, None)
+        moments.append((clock.plan_date, clock.utc.time(), clock.time_of_day))
+    assert [moment[0] for moment in moments] == [
+        date(2026, 6, 21), date(2026, 6, 22), date(2026, 6, 23)]
+    assert {moment[1] for moment in moments} == {time(22, 30)}, moments
+    assert [moment[2] for moment in moments] == [time(0, 30)] * 3

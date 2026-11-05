@@ -451,7 +451,8 @@ class TourDialog(QDialog):
             self._modal = False
             self.hide()
             self.setWindowModality(Qt.WindowModality.NonModal)
-            self.show()
+            if not programmatic:   # a shutdown hid it: do not flash it back
+                self.show()
         self._status.setText(self._say(result, recording))
         self._sync_controls()
         closing, self._close_when_stopped = self._close_when_stopped, False

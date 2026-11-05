@@ -373,16 +373,19 @@ def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
     from open_garden_planner.ui.view3d.workspace import WorkspaceMode
 
     if clock_zone is not None:
-        import open_garden_planner.app.application as application
+        import open_garden_planner.core.sim_clock as sim_clock_module
         from open_garden_planner.core.sim_clock import SimClock
 
-        application.SimClock = lambda: SimClock(tz=clock_zone)  # type: ignore[assignment]
+        # application.py imports SimClock INSIDE __init__, so patch the module it reads
+        sim_clock_module.SimClock = lambda: SimClock(tz=clock_zone)  # type: ignore[assignment]
 
     # nobody clicks here: as in tests/conftest.py, no modal Welcome dialog over the plan, and no
     # Unsaved Changes on close (a dirty plan held a probe for ever, in front of the owner)
     GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
     GardenPlannerApp._confirm_discard_changes = lambda _self: True  # type: ignore[method-assign]
     window = GardenPlannerApp()
+    if clock_zone is not None:
+        assert window._sim_clock.zone is clock_zone, "the test clock zone did not reach the app"
     window.resize(1100, 700)
     window.show()
     window._project_manager.load(window.canvas_scene, PLAN)

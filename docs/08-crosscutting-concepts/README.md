@@ -7915,7 +7915,7 @@ workers and refuses a folder that holds another tour's frames; `NullWriter` is a
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
 detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
-colour tag; a year tour started within an hour of midnight uses the nearest minute on the
+colour tag; a year tour started within an hour of midnight uses the nearest reading within the missing hour on the
 frame's date at a DST change (the dates the dialog names are kept, and the sun moves by at most
 that minute).
 

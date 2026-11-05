@@ -4680,7 +4680,7 @@ The tour therefore holds the **UTC time of day** for a date range:
   local hour (03:30, not the nonexistent 02:30). This is a clock-side operation, not a user-facing
   writer handing an instant: decision 3's rule is unchanged for the UI.
 - A local date with no such instant - a 23-hour spring day - gets the nearest reading on
-  that date (at most a minute away), so the dates the dialog names are kept.
+  that date (within the missing hour), so the dates the dialog names are kept.
 - Only a tour with a `date_range` or a `time_range` holds and restores the owner's moment; a
   flight preview writes the clock not at all, so a date set while one runs survives it (ADR-072
   addendum, #730).
@@ -10611,7 +10611,7 @@ anything the owner did not ask it to change - not the clock, not a kept file, no
    whose UTC time-of-day matches: the wall reading is derived through the zone, so the repeated
    autumn hour gets the occurrence whose instant matches (`fold` included) and the spring gap
    gets the real local hour. A local date with no instant at the held UTC time (a 23-hour spring
-   day) gets the nearest reading on that date, at most a minute away. The dates the dialog
+   day) gets the nearest reading on that date, within the missing hour. The dates the dialog
    promised hold. See ADR-053's addendum for the clock-side statement.
 4. **A finished render is never deleted without the user's word.** `Mp4Writer` takes the first
    free `<stem>.part[<n>].mp4`, so a render kept because its target was held open by a player is

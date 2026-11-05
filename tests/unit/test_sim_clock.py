@@ -275,13 +275,27 @@ class TestTransitions:
         assert spy.calls == []
 
     def test_set_utc_time_on_uses_the_nearest_reading_on_a_23_hour_day(self) -> None:
-        """The spring day has no 22:00 UTC reading on its local date; the clock takes the
+        """The spring day has no 22:30 UTC reading on its local date; the clock takes the
         nearest one on that date (23:59 local = 21:59 UTC), not another day."""
         clock = SimClock(datetime(2026, 6, 21, 12, 0), tz=EU_DST)
-        assert clock.set_utc_time_on(date(2026, 3, 29), time(22, 0)) is True
+        assert clock.set_utc_time_on(date(2026, 3, 29), time(22, 30)) is True
         assert clock.plan_date == date(2026, 3, 29)
         assert clock.time_of_day == time(23, 59)
         assert clock.utc == datetime(2026, 3, 29, 21, 59, tzinfo=UTC)
+
+    def test_set_utc_time_on_finds_an_exact_instant_on_the_adjacent_utc_date(self) -> None:
+        """A local 00:30 is 22:30 UTC on the PREVIOUS date; that exact instant must win
+        over the nearest sweep (senior review round 4)."""
+        clock = SimClock(datetime(2026, 6, 21, 12, 0), tz=EU_DST)
+        assert clock.set_utc_time_on(date(2026, 6, 22), time(22, 30)) is True
+        assert clock.plan_date == date(2026, 6, 22)
+        assert clock.time_of_day == time(0, 30)
+        assert clock.utc == datetime(2026, 6, 21, 22, 30, tzinfo=UTC)
+
+    def test_set_utc_time_on_refuses_a_date_outside_its_range(self) -> None:
+        clock = SimClock(datetime(2026, 6, 21, 12, 0), tz=TOKYO_FIXED)
+        assert clock.set_utc_time_on(date(3000, 1, 1), time(12, 0)) is False
+        assert clock.plan_date == date(2026, 6, 21)
 
     def test_set_utc_time_on_keeps_the_local_date_and_the_utc_time(self) -> None:
         """The year-tour writer (#732): a UTC time of day on a LOCAL date, derived through
