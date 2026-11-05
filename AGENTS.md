@@ -338,26 +338,14 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Phase 17 L5 (#389) shipped in v1.35.0 (PR #699); details in
   [history](docs/agent-pickup-history.md). Load `ogp-lush-cinematic`/`ogp-3d-renderer` before a
   visible 3D change; `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
-- L6 (#390, closes epic #383; ADR-072) is the Director's cut: every picture beside a shown view
-  comes through `Quick3DHost.capture`, a second `View3D` of the same scene (0 levels from the view,
-  nothing moves; PF-E3D-18), called only from `workspace_capture.py`: photo mode (`core/scene3d/photo.py`,
-  grades carry the look's adjustments, PF-E3D-19), camera tours (`core/camera_path.py`,
-  `tour_recorder.py`), video (`video_writer.py`, the only Qt Multimedia importer, BT.709 frames,
-  PF-E3D-20) and the read-only `render_3d_view`, which refuses at once instead of timing out. The
-  Beauty Board's plan ships as the `family-garden` example. A plant's rect follows
-  `CanvasScene.drawn_plan_date` (PF-CAN-43). Shipped in v1.37.0 (PR #729); Ultra's
-  reflections + blur + glow crashed Qt (PF-E3D-21, #744), and first-blur edges are #745.
-- L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt pins 6.12.0, WebEngine 6.140 moves
-  with them (PF-CI-17), the 6.12 pick honours cull mode (PF-E3D-13), the OS reduce-motion
-  is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose
-  LUTs and cloud volume are CPU texture data (PF-E3D-14). It only DRAWS the sky (no cube:
-  Qt 6.12.0's pre-filter crashed the owner's exe, PF-E3D-17); the painted sky lights under
-  both, and Partly cloudy (cover 0.4) shows its clouds. On 6.12 deleting an earlier sky Texture nulls
-  the DEFAULT sky's probe: `Garden.qml` re-binds it (PF-E3D-16, local GPU tier only). #714:
-  horizon gate red on master; follow-ups #716, #717, #719, #722 (sky), #720 (hygiene, Qt report),
-  #718 (flood soak, red on master too), #692 (board exit crash), #723 (intermittent tests),
-  #724 (plan-my-week date). `scripts/probe_sky_crash.py` soaks the sky; a clean run says nothing
-  about the crash while the cube stays off, and PF-E3D-17 says how to ask a new Qt.
+- L6 (#390, ADR-072) is the Director's cut: one capture path (`Quick3DHost.capture`),
+  photo mode, camera tours, video (`video_writer.py`) and the read-only `render_3d_view`;
+  shipped in v1.37.0 (PR #729). A plant's rect follows `CanvasScene.drawn_plan_date`
+  (PF-CAN-43); Ultra's reflections + blur + glow crashed Qt (PF-E3D-21, #744); its
+  follow-ups are PF-E3D-18/19/20 and #745. Details: [history](docs/agent-pickup-history.md).
+- L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt 6.12 pins and an opt-in
+  atmosphere sky that only DRAWS (PF-E3D-14/17); details and follow-up numbers in
+  [history](docs/agent-pickup-history.md).
 - Russian localization (#492, FR-I18N-09) shipped in v1.36.1 (PR #495):
   full Russian UI; details in [history](docs/agent-pickup-history.md).
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
