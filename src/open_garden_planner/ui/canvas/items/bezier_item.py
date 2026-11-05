@@ -313,11 +313,17 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
         if self.dispatch_lock_action(action, lock_action):
             return
         if action == delete_action and self.scene():
-            self.scene().removeItem(self)
+            self.setSelected(True)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Delete and self.scene():
-            self.scene().removeItem(self)
+            self.setSelected(True)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         else:
             super().keyPressEvent(event)
 

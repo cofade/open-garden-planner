@@ -444,7 +444,20 @@ class OffsetTool(BaseTool):
             )
             return True
 
-        self._view.add_item(result, "offset")
+        scene = self._view.scene()
+        if scene is None:
+            return True
+
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_copy_ridges
+
+        ridges = build_copy_ridges([result])
+        if ridges:
+            from open_garden_planner.core.commands import CreateItemsCommand
+
+            cmd = CreateItemsCommand(scene, [result, *ridges], "offset")
+            self._view.command_manager.execute(cmd)
+        else:
+            self._view.add_item(result, "offset")
         from open_garden_planner.ui.canvas.items.polyline_item import (
             PolylineItem,
         )

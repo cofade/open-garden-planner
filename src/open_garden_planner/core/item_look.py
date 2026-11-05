@@ -142,13 +142,24 @@ def line_look_for_type(object_type: ObjectType) -> LineLook:
 
 
 def line_look_for_preset(item: Any, preset: PathFenceStyle) -> LineLook:
-    """Selecting NONE retains the stroke; another preset replaces color and width."""
+    """Selecting NONE retains the stroke; switching path styles preserves user-set width."""
     state = capture_line_look(item)
     pen = QPen(state.pen)
     if preset is not PathFenceStyle.NONE:
         style = get_path_fence_style_info(preset)
         pen.setColor(style.stroke_color)
-        pen.setWidthF(style.stroke_width)
+        current_preset = getattr(state, "preset", PathFenceStyle.NONE)
+        current_info = (
+            get_path_fence_style_info(current_preset)
+            if current_preset is not PathFenceStyle.NONE
+            else None
+        )
+        # When switching between path styles, keep the path's current width so a
+        # user-set stroke width is not reset to the preset default (issue #727).
+        if current_info is not None and current_info.category == "path" and style.category == "path":
+            pen.setWidthF(state.pen.widthF())
+        else:
+            pen.setWidthF(style.stroke_width)
     return replace(state, preset=preset, pen=pen)
 
 

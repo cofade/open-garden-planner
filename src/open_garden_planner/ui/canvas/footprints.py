@@ -67,6 +67,7 @@ from open_garden_planner.core.shadow_geometry import (
     Point,
     Polygon,
     circle_footprint,
+    polyline_bevel_footprint,
     polyline_footprint,
 )
 
@@ -110,6 +111,7 @@ class ItemOutline:
     points: tuple[Point, ...] = ()
     radius_cm: float | None = None
     width_cm: float | None = None
+    style: str = ""
 
 
 def plant_canopy_radius_cm(item: Any, at_date: date | None) -> float | None:
@@ -454,7 +456,8 @@ def item_outline(item: Any, at_date: date | None = None) -> ItemOutline | None:
         width = item.pen().widthF()
         if width <= 0:
             width = 1.0
-        return ItemOutline(OUTLINE_POLYLINE, _bounding_center(line), line, width_cm=width)
+        style_name = getattr(getattr(item, "path_fence_style", None), "name", "")
+        return ItemOutline(OUTLINE_POLYLINE, _bounding_center(line), line, width_cm=width, style=style_name)
     return None
 
 
@@ -478,6 +481,8 @@ def item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     points = [item.mapToScene(QPointF(x, y)) for x, y in outline.points]
     scene_points = [(p.x(), p.y()) for p in points]
     if outline.shape == OUTLINE_POLYLINE:
+        if outline.style == "PAVED_PATH":
+            return polyline_bevel_footprint(scene_points, outline.width_cm or 1.0)
         return polyline_footprint(scene_points, outline.width_cm or 1.0)
     return [scene_points]
 

@@ -189,6 +189,83 @@ def circle_footprint(
     ]
 
 
+def _offset_line(line: Any, closed: bool, offset: float) -> Any:
+    """line moved offset cm to the left of travel, its joints kept inside the
+    path's own outline. The outline squares a bend off at half the path's width
+    from the joint; on the outside of a bend the two segments' offset ends are joined
+    by a chord — no point further than |offset| from the joint — and on the inside
+    the two offset lines meet where they cross (the two ends where they do not)."""
+    import numpy as np
+
+    points = np.asarray(line, dtype=np.float64)
+    if closed and len(points) > 1 and np.allclose(points[0], points[-1]):
+        points = points[:-1]
+    keep = np.ones(len(points), dtype=bool)
+    keep[1:] = np.linalg.norm(np.diff(points, axis=0), axis=1) > 1e-6
+    points = points[keep]
+    if len(points) < 2:
+        return points
+    starts = points if closed else points[:-1]
+    ends = np.roll(points, -1, axis=0) if closed else points[1:]
+    lengths = np.linalg.norm(ends - starts, axis=1)
+    if closed and lengths[-1] <= 1e-6:
+        starts, ends, lengths = starts[:-1], ends[:-1], lengths[:-1]
+    along = (ends - starts) / np.maximum(lengths, 1e-12)[:, None]
+    left = np.stack([-along[:, 1], along[:, 0]], axis=1)
+    out: list[Any] = [] if closed else [starts[0] + left[0] * offset]
+    for joint in (range(len(along)) if closed else range(1, len(along))):
+        before, after = joint - 1, joint
+        corner = starts[after]
+        first, second = corner + left[before] * offset, corner + left[after] * offset
+        turn = float(along[before, 0] * along[after, 1] - along[before, 1] * along[after, 0])
+        if abs(turn) < 1e-9:
+            out.append(first)
+            continue
+        if offset * turn > 0.0:  # the inside of the bend: where the two offset lines cross
+            gap = second - first
+            back = float(gap[0] * along[after, 1] - gap[1] * along[after, 0]) / turn
+            crossing = first + along[before] * back
+            forward = float(np.dot(crossing - second, along[after]))
+            if -lengths[before] <= back <= 0.0 and 0.0 <= forward <= lengths[after]:
+                out.append(crossing)
+                continue
+        out.extend((first, second))
+    if not closed:
+        out.append(ends[-1] + left[-1] * offset)
+    return np.asarray(out)
+
+
+def polyline_bevel_footprint(points: Sequence[Point], width_cm: float) -> list[Polygon]:
+    """Closed footprint polygon(s) of an open polyline with bevelled joins and butt ends.
+
+    Matches what 2D paints for a paved path (BevelJoin + FlatCap) and what 3D
+    builds for paved path kerbs (_offset_line; issue #726).
+    """
+    if len(points) < 2 or width_cm <= 0:
+        return []
+    import numpy as np
+
+    pts = np.asarray(points, dtype=np.float64)
+    if len(pts) > 1 and np.allclose(pts[0], pts[-1]):
+        pts = pts[:-1]
+    keep = np.ones(len(pts), dtype=bool)
+    keep[1:] = np.linalg.norm(np.diff(pts, axis=0), axis=1) > 1e-6
+    pts = pts[keep]
+    if len(pts) < 2:
+        return []
+
+    half_w = width_cm / 2.0
+    left = _offset_line(pts, False, -half_w)
+    right = _offset_line(pts, False, half_w)
+    if len(left) < 2 or len(right) < 2:
+        return []
+    ring = np.concatenate([left, right[::-1]])
+    pco = pyclipper.Pyclipper()
+    pco.AddPath(_to_int([tuple(p) for p in ring]), pyclipper.PT_SUBJECT, True)
+    result = pco.Execute(pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
+    return [_from_int(path) for path in result]
+
+
 def polyline_footprint(points: Sequence[Point], width_cm: float) -> list[Polygon]:
     """Closed footprint polygon(s) of an open polyline (fence/wall stroke).
 

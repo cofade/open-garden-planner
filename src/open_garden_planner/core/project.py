@@ -1952,6 +1952,9 @@ class ProjectManager(QObject):
         # Synchronize bidirectional parent-bed and child-item references (FIND-03)
         self._relink_parent_child_relationships(deserialized_items)
 
+        # Sanitise legacy/stale roof ridge links (issue #712)
+        self._sanitise_roof_ridge_links(deserialized_items)
+
         # Parse and validate layers
         parsed_layers: list[Layer] | None = None
         if data.layers:
@@ -2018,6 +2021,74 @@ class ProjectManager(QObject):
                 ProjectManager._deduplicate_item_uuids(
                     item.childItems(), seen_uuids, reminted_map, logger
                 )
+
+    @staticmethod
+    def _sanitise_roof_ridge_links(items: list[QGraphicsItem]) -> None:
+        """Sanitise legacy/stale roof ridge links (issue #712).
+
+        Plans written before type-change lifecycles can leave ``ridge_item_id``
+        on items that are no longer a HOUSE, or point to missing or dead items.
+        Drop ``ridge_item_id`` when the item is not a HOUSE, or the named item
+        is missing, not a ROOF_RIDGE, or owned by someone else. Also clear
+        stale ``owner_polygon_id`` on ROOF_RIDGE items whose owner is dead or
+        not a HOUSE.
+        """
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
+        flat = selection_tree(items)
+        items_by_id: dict[UUID, QGraphicsItem] = {
+            it.item_id: it
+            for it in flat
+            if hasattr(it, "item_id") and isinstance(it.item_id, UUID)
+        }
+
+        for it in flat:
+            metadata = getattr(it, "metadata", None)
+            if not isinstance(metadata, dict):
+                continue
+
+            obj_type = getattr(it, "object_type", None)
+
+            # Check ridge_item_id on items
+            ridge_id_raw = metadata.get("ridge_item_id")
+            if ridge_id_raw is not None:
+                drop = False
+                if obj_type is not ObjectType.HOUSE:
+                    drop = True
+                else:
+                    try:
+                        target_uuid = UUID(str(ridge_id_raw))
+                    except (TypeError, ValueError):
+                        drop = True
+                    else:
+                        target = items_by_id.get(target_uuid)
+                        if target is None or getattr(target, "object_type", None) is not ObjectType.ROOF_RIDGE:
+                            drop = True
+                        else:
+                            target_meta = getattr(target, "metadata", None)
+                            owner_raw = target_meta.get("owner_polygon_id") if isinstance(target_meta, dict) else None
+                            if owner_raw and str(owner_raw) != str(getattr(it, "item_id", "")):
+                                drop = True
+
+                if drop:
+                    metadata.pop("ridge_item_id", None)
+
+            # Check owner_polygon_id on ROOF_RIDGE items
+            if obj_type is ObjectType.ROOF_RIDGE:
+                owner_raw = metadata.get("owner_polygon_id")
+                if owner_raw is not None:
+                    drop_owner = False
+                    try:
+                        owner_uuid = UUID(str(owner_raw))
+                    except (TypeError, ValueError):
+                        drop_owner = True
+                    else:
+                        owner = items_by_id.get(owner_uuid)
+                        if owner is None or getattr(owner, "object_type", None) is not ObjectType.HOUSE:
+                            drop_owner = True
+                    if drop_owner:
+                        metadata.pop("owner_polygon_id", None)
 
     @staticmethod
     def _relink_parent_child_relationships(
@@ -2491,6 +2562,18 @@ class ProjectManager(QObject):
             return item
         elif obj_type == "polyline":
             points = [QPointF(p["x"], p["y"]) for p in obj.get("points", [])]
+            from open_garden_planner.ui.canvas.items.polyline_item import (
+                MAX_POLYLINE_VERTICES,
+            )
+
+            # Refuse a crafted/hostile polyline above the vertex limit (#703)
+            if len(points) > MAX_POLYLINE_VERTICES:
+                logging.getLogger(__name__).warning(
+                    "Refusing polyline with %d vertices (limit %d) from plan file",
+                    len(points),
+                    MAX_POLYLINE_VERTICES,
+                )
+                return None
             if len(points) >= 2:
                 # Parse path_fence_style
                 path_fence_style = PathFenceStyle.NONE

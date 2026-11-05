@@ -138,6 +138,13 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   `tests/integration/test_trim_extend_tool.py`, `tests/integration/test_fillet_chamfer.py`,
   `tests/integration/test_mirror_tool.py` and the grouped-house case in
   `tests/integration/test_agent_api_default_on.py`.
+- **FR-EDIT-25** *(issues #741, #740, #727, #726, #703, #712)*: 2D drawing & CAD integrity follow-ups:
+  - *Derived ridge follow-ups (#712)*: `ROOF_RIDGE` is excluded from `groupable_selection()`, preventing accidental independent grouping. Array commands (`LinearArrayCommand`, `GridArrayCommand`, `CircularArrayCommand`, `ArrayAlongPathCommand`), `OffsetTool`, and mirror copy of a group containing a `HOUSE` build fresh linked ridges in the same undo step. Project load drops invalid/stale `ridge_item_id` and orphan `owner_polygon_id` links. Context menu and Delete key on `ArcItem`, `BezierItem`, `ConstructionLineItem`, `ConstructionCircleItem`, `CalloutItem`, and `TextItem` route through `dispatch_delete_selection`, ensuring full undo/redo.
+  - *Multi-layer grouped houses (#741)*: Grouping houses from different layers normalises members and linked ridges to the group layer; undo restores original layers; ungrouping leaves them on the group layer; canvas visibility falls back to the owner's group layer.
+  - *Agent API group note pruning (#740)*: `delete_object` on a group deletes nested `JournalPinItem` notes in the same `CompoundCommand` undo step.
+  - *Path width consistency (#727)*: Switching path styles preserves user-set widths across path presets; default widths for path styles (`GRAVEL_PATH`, `STEPPING_STONES`, `PAVED_PATH`, `WOODEN_BOARDWALK`, `DIRT_PATH`) are unified to 80 cm.
+  - *Paved path geometry (#726)*: Paved paths use `FlatCap` and `BevelJoin` for shadow and border passes, eliminating rounded lobes; 3D selection outline uses `polyline_bevel_footprint` to align with the 3D kerb mesh contour.
+  - *Polyline vertex bounds (#703)*: Plan loader and Agent API enforce `MAX_POLYLINE_VERTICES` (16,384), refusing hostile polylines at load and mutation boundaries.
 
 
 ## FR-3: Layers

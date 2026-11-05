@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-11-02T20:27:49.938106+00:00"
+    "modified": "2026-11-04T23:00:43.371349+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -186,7 +186,7 @@
       "object_type": "PATH",
       "name": "Stepping stones",
       "stroke_color": "#ffa0a09b",
-      "stroke_width": 70.0,
+      "stroke_width": 80.0,
       "path_fence_style": "STEPPING_STONES",
       "stack_order": 16384
     },
@@ -210,7 +210,7 @@
       "object_type": "PATH",
       "name": "Paved path",
       "stroke_color": "#ff8c8c8c",
-      "stroke_width": 100.0,
+      "stroke_width": 80.0,
       "path_fence_style": "PAVED_PATH",
       "stack_order": 17408
     },
@@ -230,7 +230,7 @@
       "object_type": "PATH",
       "name": "Boardwalk",
       "stroke_color": "#ffa07846",
-      "stroke_width": 100.0,
+      "stroke_width": 80.0,
       "path_fence_style": "WOODEN_BOARDWALK",
       "stack_order": 18432
     },
@@ -258,7 +258,7 @@
       "object_type": "PATH",
       "name": "Gravel path",
       "stroke_color": "#ffb4aa96",
-      "stroke_width": 90.0,
+      "stroke_width": 80.0,
       "path_fence_style": "GRAVEL_PATH",
       "stack_order": 19456
     },
@@ -282,7 +282,7 @@
       "object_type": "PATH",
       "name": "Dirt path",
       "stroke_color": "#ff7d5c3e",
-      "stroke_width": 70.0,
+      "stroke_width": 80.0,
       "path_fence_style": "DIRT_PATH",
       "stack_order": 20480
     },
