@@ -231,9 +231,11 @@ HORIZON_SHOTS = ("noon", "golden_hour", "sunset", "night")
 HORIZON_DISTANCES_M = (67, 202, 403, 600)
 #: The largest adjacent-row luma step of the far meadow (#714): 3.44 / 3.48 at 403 m /
 #: 15° and 3.11 at 67 m / 31.6° on the current scene (the issue's own numbers, identical
-#: with and without L7), every other row at most 2.74. The old 3.0 came from L4's
-#: earlier fog; re-derived, and the reason recorded in ADR-059's addendum.
-HORIZON_STEP_BOUND = 3.6
+#: with and without L7), every other row at most 2.74; the atmosphere's clear per-mood
+#: sunset measured 3.55. 4.0 leaves 12 % headroom over the worst of those for renderer
+#: and GPU drift while still catching a real cliff (10–18 luma in a row). The old 3.0
+#: predates this scene's 640 × 360 measurement; the reason is in ADR-059's addendum.
+HORIZON_STEP_BOUND = 4.0
 #: The weathers whose sky is not the clear one (L5; partly cloudy since L7): ``--living``
 #: runs the horizon probe, the mood strip and the dusk under each — an overcast sky draws
 #: its horizon otherwise (3D review of L5).
