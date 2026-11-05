@@ -384,23 +384,35 @@ class SimClock:
         the occurrence whose UTC time matches (``fold`` is part of the reading, not an
         afterthought).
 
-        Returns **True** when the clock holds that instant - including when it already
-        did, which is not a failure - and **False** only when no instant on that local
-        date has that UTC time of day (within an hour of midnight across a DST change);
-        the caller then clamps. The two outcomes are distinct because the tour must not
-        mistake "unchanged" for "no such moment" and fall back to offset arithmetic.
+        Returns **True** when the clock holds an instant on that local date (committed,
+        possibly already current). If the exact UTC time does not exist on that local
+        date - a 23-hour spring day, within an hour of midnight - the nearest instant on
+        that date is used (at most a minute away), so the date the tour promised holds.
+        ``False`` only when the date itself is outside the clock's supported range.
         """
-        for shift in (-1, 0, 1):
-            try:
-                moment = datetime.combine(
-                    day + timedelta(days=shift), utc_time, tzinfo=UTC)
-                candidate = SimInstant.from_datetime(moment, self._tz)
-            except ValueError:   # a date outside the supported range at an edge
-                continue
-            if candidate.plan_date == day and candidate.utc == moment:
-                self._commit(candidate)
-                return True
+        base = datetime.combine(day, utc_time, tzinfo=UTC)
+        candidate = self._utc_on_local_date(base, day)
+        if candidate is not None:
+            self._commit(candidate)
+            return True
+        # a 23-hour local day: the exact UTC time of day has no reading on it. Walk
+        # outwards a minute at a time and take the nearest that does.
+        for minutes in range(1, 24 * 60):
+            for signed in (-minutes, minutes):
+                candidate = self._utc_on_local_date(
+                    base + timedelta(minutes=signed), day)
+                if candidate is not None:
+                    self._commit(candidate)
+                    return True
         return False
+
+    def _utc_on_local_date(self, moment: datetime, day: date) -> SimInstant | None:
+        """The wall reading of UTC ``moment`` if its local date is ``day``."""
+        try:
+            candidate = SimInstant.from_datetime(moment, self._tz)
+        except ValueError:   # a date outside the supported range at an edge
+            return None
+        return candidate if candidate.plan_date == day and candidate.utc == moment else None
 
     def _commit(self, new: SimInstant) -> SimChange | None:
         if self._notifying:

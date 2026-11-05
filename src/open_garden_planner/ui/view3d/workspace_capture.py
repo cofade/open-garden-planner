@@ -610,9 +610,9 @@ class WorkspaceCaptureCoordinator(QObject):
         change moves the sun by an hour, which read as a 24-level brightness step in the
         video. The wall reading is still what is written (ADR-053: user-facing writers
         hand wall readings); it is derived through the zone from the held UTC instant by
-        ``SimClock.set_utc_time_on``, so the repeated autumn hour's ``fold`` is right. A
-        local date with no such instant is clamped to that day so the date range the
-        dialog promised holds."""
+        ``SimClock.set_utc_time_on``, so the repeated autumn hour's ``fold`` is right; a
+        local date with no exact instant gets the nearest reading on that date, at most a
+        minute away, so the date range the dialog promised holds."""
         clock = self._get_clock()
         if clock is None:
             return
@@ -623,15 +623,8 @@ class WorkspaceCaptureCoordinator(QObject):
                     # The first frame shows the date the dialog says at the time the owner's
                     # clock had; THAT instant is what the rest of the year holds.
                     self._tour_utc_time = clock.utc.time()
-                elif not clock.set_utc_time_on(day, self._tour_utc_time):
-                    # Within an hour of midnight the local date has no reading at the held
-                    # UTC time (a 23-hour day): keep the frame's date and clamp the clock.
-                    offset = clock.wall - clock.utc.replace(tzinfo=None)
-                    target = datetime.combine(day, self._tour_utc_time) + offset
-                    if target.date() != day:
-                        target = datetime.combine(
-                            day, day_time(0, 0) if target.date() > day else day_time(23, 59))
-                    clock.set_datetime(target)
+                else:
+                    clock.set_utc_time_on(day, self._tour_utc_time)
         if moment is not None:
             clock.set_time_of_day(moment)
 
@@ -693,6 +686,7 @@ class WorkspaceCaptureCoordinator(QObject):
         dialog, self._dialog = self._dialog, None
         if dialog is not None:
             dialog.close_for_shutdown()
+            dialog.hide()   # a visible modal dialog would sit under the warning below
         recorder.abort_now()
         if self._recorder is None:   # a preview's writer finished synchronously
             return

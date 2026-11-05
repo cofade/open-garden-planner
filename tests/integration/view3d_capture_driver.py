@@ -364,10 +364,19 @@ def committed_mb() -> float:
     return counters.private / 1e6
 
 
-def main_window_on_plan() -> tuple[Any, Any]:
-    """The app's real window on the plan, in 3D (the settings store is this process's)."""
+def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
+    """The app's real window on the plan, in 3D (the settings store is this process's).
+
+    ``clock_zone`` builds the one SimClock through its public ``tz`` constructor instead of
+    the system zone - a test seam, not a private attribute write."""
     from open_garden_planner.app.application import GardenPlannerApp
     from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+
+    if clock_zone is not None:
+        import open_garden_planner.app.application as application
+        from open_garden_planner.core.sim_clock import SimClock
+
+        application.SimClock = lambda: SimClock(tz=clock_zone)  # type: ignore[assignment]
 
     # nobody clicks here: as in tests/conftest.py, no modal Welcome dialog over the plan, and no
     # Unsaved Changes on close (a dirty plan held a probe for ever, in front of the owner)
@@ -520,14 +529,11 @@ def scenario_timelapse(out: Path) -> dict[str, Any]:
     from open_garden_planner.ui.view3d.video_writer import PngSequenceWriter
     from tests.integration.quick3d_render_support import EU_DST, load_rgb, luma
 
-    window, workspace = main_window_on_plan()
+    window, workspace = main_window_on_plan(EU_DST)
     try:
         result: dict[str, Any] = {"settled_s": settled(workspace)}
         # A DST zone without tzdata, so the clock-change rows behave the same on every
         # test machine. The wall reading is what the user sees; the sun is read from UTC.
-        # Test-only private swap: the app builds its clock in the system zone and nothing
-        # but its own conversions reads `_tz`; there is no public seam for a test's zone.
-        window._sim_clock._tz = EU_DST
         window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
         settled(workspace)
         capture = workspace.capture

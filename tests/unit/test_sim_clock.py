@@ -26,6 +26,7 @@ from open_garden_planner.core.sim_clock import (
     SimClock,
     SimInstant,
 )
+from tests.eu_dst_zone import EU_DST
 
 TOKYO_FIXED = timezone(timedelta(hours=9))
 LA_FIXED = timezone(timedelta(hours=-7))
@@ -272,6 +273,15 @@ class TestTransitions:
             clock.set_time_of_day(datetime(2026, 6, 21, 15, 0))  # type: ignore[arg-type]
         assert clock.time_of_day == time(12, 0)
         assert spy.calls == []
+
+    def test_set_utc_time_on_uses_the_nearest_reading_on_a_23_hour_day(self) -> None:
+        """The spring day has no 22:00 UTC reading on its local date; the clock takes the
+        nearest one on that date (23:59 local = 21:59 UTC), not another day."""
+        clock = SimClock(datetime(2026, 6, 21, 12, 0), tz=EU_DST)
+        assert clock.set_utc_time_on(date(2026, 3, 29), time(22, 0)) is True
+        assert clock.plan_date == date(2026, 3, 29)
+        assert clock.time_of_day == time(23, 59)
+        assert clock.utc == datetime(2026, 3, 29, 21, 59, tzinfo=UTC)
 
     def test_set_utc_time_on_keeps_the_local_date_and_the_utc_time(self) -> None:
         """The year-tour writer (#732): a UTC time of day on a LOCAL date, derived through

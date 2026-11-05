@@ -7896,8 +7896,9 @@ modal. While the clock is held, agent reads report the **owner's** date as `as_o
 agent-created plant is stamped with it (`AgentHost._agent_plan_date`), not with the frame's.
 Esc cancels and leaves the dialog
 open; after 10 s it asks first, unless the engine is closing the dialog itself. The window's X
-asks the same way and closes once the recording has stopped; closing the app aborts the recording
-and waits (bounded) for its file to close, naming the unfinished output if it cannot.
+asks the same way and closes once a cancelled or saved recording has stopped; a failure
+stays to be read. Closing the app aborts the recording and waits (bounded) for its file to
+close, naming the unfinished output if it cannot.
 `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
 shown pauses it the same way.
 
@@ -7914,8 +7915,9 @@ workers and refuses a folder that holds another tour's frames; `NullWriter` is a
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
 detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
-colour tag; a year tour started within an hour of midnight clamps the local reading at a DST change
-(the dates the dialog names are kept, and the sun stays within that hour).
+colour tag; a year tour started within an hour of midnight uses the nearest minute on the
+frame's date at a DST change (the dates the dialog names are kept, and the sun moves by at most
+that minute).
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

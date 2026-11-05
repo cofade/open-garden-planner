@@ -4679,9 +4679,8 @@ The tour therefore holds the **UTC time of day** for a date range:
   occurrence whose instant actually matches (`fold` included) and the spring gap gets the real
   local hour (03:30, not the nonexistent 02:30). This is a clock-side operation, not a user-facing
   writer handing an instant: decision 3's rule is unchanged for the UI.
-- A local date with no such instant - within an hour of midnight across a change - is clamped to
-  `00:00` or `23:59` of the frame's date. The sun stays within that hour of the held instant and
-  the dates the dialog names are kept.
+- A local date with no such instant - a 23-hour spring day - gets the nearest reading on
+  that date (at most a minute away), so the dates the dialog names are kept.
 - Only a tour with a `date_range` or a `time_range` holds and restores the owner's moment; a
   flight preview writes the clock not at all, so a date set while one runs survives it (ADR-072
   addendum, #730).
@@ -10611,9 +10610,9 @@ anything the owner did not ask it to change - not the clock, not a kept file, no
    `SimClock.set_utc_time_on(day, held)` for the instant whose local date is the frame's and
    whose UTC time-of-day matches: the wall reading is derived through the zone, so the repeated
    autumn hour gets the occurrence whose instant matches (`fold` included) and the spring gap
-   gets the real local hour. A day with no such instant (within an hour of midnight across a
-   change) is clamped to the frame's date. The dates the dialog promised hold. See ADR-053's
-   addendum for the clock-side statement.
+   gets the real local hour. A local date with no instant at the held UTC time (a 23-hour spring
+   day) gets the nearest reading on that date, at most a minute away. The dates the dialog
+   promised hold. See ADR-053's addendum for the clock-side statement.
 4. **A finished render is never deleted without the user's word.** `Mp4Writer` takes the first
    free `<stem>.part[<n>].mp4`, so a render kept because its target was held open by a player is
    never removed by the next recording of the same name (#731). Esc or X on a recording that has
@@ -10622,8 +10621,8 @@ anything the owner did not ask it to change - not the clock, not a kept file, no
    `WorkspaceCaptureCoordinator.shutdown`, which aborts the recorder and waits (bounded,
    2.5 s) for its file to close; if the encoder is still closing then, it names the unfinished
    output in a warning, so the user can find it instead of the part disappearing unreported.
-   Numbered parts are deliberately kept: the app never deletes a finished render, and the user
-   can remove one.
+   Numbered parts are kept: a kept render is never deleted by a later run, and the user can
+   remove one. (A successful save to the target does replace that target, as any save does.)
 5. **The focus invariant lives in one place.** `set_settings` enforces "blur above 0 in photo mode
    implies a focused point": with no clicked point it focuses the camera target, or, while
    walking, the ground point under the view's centre (the 100 cm mid-air target is behind the

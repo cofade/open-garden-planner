@@ -47,8 +47,6 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Sequence
-from datetime import date, datetime, timedelta, tzinfo
-from datetime import time as _time
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +56,7 @@ import pytest
 from open_garden_planner.core.scene3d import Record, pose_ring
 from open_garden_planner.ui.view3d.quick3d.qt_messages import CLASSES, classify, graphics_adapter
 from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot, top_down_pixel
+from tests.eu_dst_zone import EU_DST as EU_DST  # re-exported for the DST tests
 
 REPO = Path(__file__).resolve().parents[2]
 DRIVER = Path(__file__).resolve().with_name("quick3d_render_driver.py")
@@ -312,71 +311,6 @@ def failure_report(proc: subprocess.CompletedProcess[str], out: Path) -> str:
     log = out / "render.log"
     tail = log.read_text(encoding="utf-8", errors="replace")[-3000:] if log.is_file() else "<no log>"
     return f"exit {proc.returncode}\n--- stderr ---\n{proc.stderr[-2000:]}\n--- render.log ---\n{tail}"
-
-
-# ── a DST zone without tzdata ────────────────────────────────────────────────
-
-
-def _last_sunday(year: int, month: int) -> date:
-    day = 31
-    while date(year, month, day).weekday() != 6:   # Sunday
-        day -= 1
-    return date(year, month, day)
-
-
-class EuDstZone(tzinfo):
-    """Europe/Berlin's offset rule, for tests on a platform without IANA tz data.
-
-    +1 h, and +2 h from 02:00 on the last Sunday of March to 03:00 on the last Sunday
-    of October (local wall time). On the autumn day the 02:00-03:00 hour is repeated, so
-    ``fold`` selects the occurrence - exactly the band a "wall time held across the year"
-    gets wrong and a UTC hold must get right (issue #732). On the spring day the
-    02:00-03:00 hour does not exist and PEP 495's pre-gap offset is used.
-    """
-
-    def _offset(self, wall: datetime, fold: int) -> timedelta:
-        day, at = wall.date(), wall.time()
-        spring, autumn = _last_sunday(day.year, 3), _last_sunday(day.year, 10)
-        if day < spring or day > autumn:
-            return timedelta(hours=1)
-        if day == spring:
-            return timedelta(hours=2 if at >= _time(3, 0) else 1)
-        if day == autumn:
-            if at < _time(2, 0):
-                return timedelta(hours=2)
-            if at < _time(3, 0):   # the repeated hour
-                return timedelta(hours=2 if fold == 0 else 1)
-            return timedelta(hours=1)
-        return timedelta(hours=2)
-
-    def utcoffset(self, value: datetime | None) -> timedelta:
-        if value is None:
-            return timedelta(hours=1)
-        return self._offset(value.replace(tzinfo=None), value.fold)
-
-    def dst(self, value: datetime | None) -> timedelta:
-        return self.utcoffset(value) - timedelta(hours=1)
-
-    def tzname(self, value: datetime | None) -> str:
-        return "CEST" if self.utcoffset(value) >= timedelta(hours=2) else "CET"
-
-    def fromutc(self, value: datetime) -> datetime:
-        """UTC -> local for a two-offset rule, with the repeated hour's ``fold``.
-
-        The default ``tzinfo.fromutc`` adds ``dst()`` to the candidate and turns
-        01:30 UTC on the autumn day into 03:30 CEST, one hour past the instant; it has no
-        notion of which occurrence of a repeated wall time an instant belongs to."""
-        utc = value.replace(tzinfo=None)
-        for hours in (2, 1):   # the summer offset first: the spring gap prefers it
-            offset = timedelta(hours=hours)
-            for fold in (0, 1):
-                local = (utc + offset).replace(tzinfo=self, fold=fold)
-                if self.utcoffset(local) == offset:
-                    return local
-        return (utc + timedelta(hours=1)).replace(tzinfo=self)
-
-
-EU_DST = EuDstZone()
 
 
 # ── pixels ───────────────────────────────────────────────────────────────────

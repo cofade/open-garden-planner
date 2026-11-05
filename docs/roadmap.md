@@ -4073,7 +4073,8 @@ rule: a capture session must not change anything the owner did not ask it to cha
   `Mp4Writer` takes the first free `<stem>.part[<n>].mp4`, so the finished video kept because
   a player held its target open survives the next recording of the same name. Esc/X on a
   recording that has run 10 s asks before discarding it; `Workspace.shutdown` aborts the
-  recorder and waits (bounded) for the writer to close, so no part file is left behind.
+  recorder and waits (bounded) for the writer to close, naming the unfinished output if the
+  encoder cannot close in time.
 - **#732 — a year's tour holds UTC, not the wall time.** The sun is calculated from
   `SimClock.utc`; holding 15:00 local across a DST change moved the sun by an hour (18.07
   levels between neighbouring frames in a two-week reproduction; the owner read 24). The
