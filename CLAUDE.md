@@ -264,7 +264,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   staleness ceiling stops a playing day rebuilding the sky every step. Draft package
   PR; owner acceptance pending.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
-  #685, #706, #707, #708, #710, #700): Angled house polygon roof ridge aligns with
+  #685, #706, #707, #708, #710, #700) shipped in **v1.37.3 (PR #752)**: Angled house polygon roof ridge aligns with
   dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast
   card weekdays (`current_locale`); location readers outside L5 route through `plan_place`
   (safe on hostile plan numbers); stale frost alerts cleared on File > New, load, and failed fetch;
