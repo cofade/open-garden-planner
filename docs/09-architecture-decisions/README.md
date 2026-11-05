@@ -7185,14 +7185,14 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 
 **Context.** `collect_identified_casters` projects every caster's pitched roof from its
 3D structural triangles (#440). `_building_roof_triangles` built that mesh per item, per
-walk: a 150-shed plan asked `roofs.gable_roof` for the same shed 750 times in one
-collection (1.37 s of a 5.7 s profile, 600 of them repeats), and `_union_int` spent
+walk: a 150-shed plan asked `roofs.gable_roof` for the same shed 750 times across five
+collections (150 per collection; 600 of them repeats), and `_union_int` spent
 1.48 s on 153 pyclipper unions. The sun-overlay test's first `waitUntil` then timed out
 on a slow runner — a 150-shed plan blocked the GUI thread for seconds on every sun or
 heatmap refresh.
 
 **Decision.** `_cached_roof_triangles` (a 128-entry `lru_cache`) keys the **local**
-triangles by kind, outline shape, ring (rounded to 1 µm), height, roof style, pitch,
+triangles by kind, outline shape, ring (rounded to 10 nm), height, roof style, pitch,
 overhang and ridge. A changed roof is a new key, never a stale hit; the caller poses the
 same local triangles for every identical building. Measured: one mesh build for 150
 identical sheds (`test_identical_buildings_build_their_roof_mesh_once`), and no second
@@ -9546,20 +9546,23 @@ is unchanged. Evidence: `audits/2026-10/3d-hardening-611.md` in the risk chapter
 **Context:** PR #672 baked a fillet's tangent arc into its host polyline as a dense run
 of chords sampled at `FILLET_ARC_TOLERANCE_CM = 0.02` (2–4 cm each). The 3D fence and
 wall builders spaced posts, pickets and chain-link wires **per drawn segment**: every
-2 cm chord got two posts and its own pickets, so a rounded corner rendered as a solid
-curved block of planks. A chamfer was fine (one straight chord); a wall's swept solid
-was always smooth (it has no posts).
+2 cm chord got its own posts (a shared corner once) and its own pickets, so a rounded
+corner rendered as a solid curved block of planks. A chamfer was fine (one straight
+chord); a wall's swept solid was always smooth (it has no posts).
 
 **Decision:** a polyline vertex turning less than `CORNER_DEG = 20°` belongs to a
 smooth span; the builder spaces posts, pickets, bars and chain-link wires by **arc
 length across the span**, at the same pitch as a straight run, and breaks only at real
 corners (90°, a chamfer's 45°). Rails stay one box per drawn segment — together they
 follow the arc. The 2D geometry, hit-testing, undo and constraints are untouched: the
-path is unchanged and only its 3D presentation differs. A filleted L (r 25 / 100 cm)
-now stands 5–6 posts, not 21–41; a smooth closed loop spaces its posts around the
-whole perimeter. Pinned by `test_scene3d_builders.py` (post pitch and count, no
-wall-of-planks, chamfer unchanged, smooth loop) and `test_string_lights.py` (#709's
-40 cm gap on the same sampled arc).
+path is unchanged. The 2D **shadow** model does change: `fence_transmittance` groups the
+same smooth spans and passes the builder's post count, so a curved fence no longer reads
+as nearly opaque (wooden circle 0.21 against 0.33 straight; it read 0.00 before). A
+filleted L (r 25 / 100 cm) now stands 5–6 posts, not 21–41; a smooth closed loop spaces
+its posts around the whole perimeter. Pinned by `test_scene3d_builders.py` (post pitch
+and count, no wall-of-planks, chamfer unchanged, smooth loop, dense/curved shadow
+transmittance) and `test_string_lights.py` (#709's 40 cm gap and 2.5 cm chord rule on
+the same sampled arc).
 
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 

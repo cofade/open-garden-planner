@@ -345,7 +345,7 @@ def _fence_porosity_info(
     return raw_style, tuple(pts), float(outline.width_cm or 1.0)
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=64)
 def _cached_roof_triangles(
     kind: str,
     shape: str,
@@ -362,8 +362,9 @@ def _cached_roof_triangles(
     walk (1.37 s of a 5.7 s profile, all but 150 of them repeats); the cache key is the
     complete geometry, so an edited roof is a new key and never a stale hit. The
     triangles stay in the record's local frame — the caller poses them, so the same
-    mesh serves every identical shed wherever it stands. 128 entries cover the distinct
-    roof shapes of a hand-built plan; each holds one building's triangles."""
+    mesh serves every identical shed wherever it stands. 64 entries cover the distinct
+    roof shapes of a hand-built plan; each holds one building's triangles (a 16k-vertex
+    ring is the most a plan can hold, so the cache is bounded by entries and that cap)."""
     params: dict[str, Any] = {}
     if style is not None:
         params[PARAM_ROOF_STYLE] = style

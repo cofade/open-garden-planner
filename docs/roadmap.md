@@ -4156,7 +4156,7 @@ Four follow-ups around the 3D builders and the 2D shadow walk's cost:
 - **#705 — a string's light follows its shape**: an open line takes the bulb nearest the bulbs' centroid, a closed loop takes the centroid itself (the middle of the space it hangs round) with the nearest bulb as the concave fallback; `lamp_sources` computes the layout once and passes it to `string_bulbs` and `lamp_light`, so each string is laid out once per light pass (ADR-070 addendum).
 - **#701 — the shadow walk builds each roof mesh once**: `_cached_roof_triangles` keys the local triangles by the complete geometry (128 entries), so 150 identical sheds build one roof instead of 750; the per-owner pyclipper union was measured and **kept** — removing it made the final union of unmerged triangle paths 3.25 s instead of the whole 153-union 1.48 s (ADR-059 addendum).
 
-Docs: ADR-059/065/070 addenda, §8.29.12/§8.29.13, `debug-verbose` case study 205.
+Docs: ADR-059/065/070 addenda, §8.29.12/§8.29.13, `debug-verbose` case studies 205 and 206.
 
 
 

@@ -19,7 +19,7 @@ chamfer on the same corner was fine.
 
 - `FILLET_ARC_TOLERANCE_CM = 0.02` bakes a fillet as a dense run of 2–4 cm chords.
 - `_Run.posts()` computed `max(2, ceil(segment_length / spacing) + 1)` **per segment**, so
-  every 2 cm chord got two posts: measured 21 posts in a 39 cm arc (r 25) and 41 in a
+  every 2 cm chord got its own posts (a shared corner once): measured 21 posts in a 39 cm arc (r 25) and 41 in a
   157 cm arc (r 100).
 - The string's `_posts()` kept every point more than 1 cm from the previous one: the same
   21 / 41 posts, with bulbs sinking into them.

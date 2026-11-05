@@ -1188,6 +1188,21 @@ class TestPolylinesAreBuiltFromTheCentreLine:
         assert min(gaps) >= 0.5 * fences.POST_SPACING_CM, gaps
 
     @pytest.mark.parametrize("style", ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"])
+    def test_a_dense_sampled_fence_keeps_the_straight_runs_shadow(self, style: str) -> None:
+        """#675's shadow side: a fillet's 2 cm chords made the 2D model count two posts
+        per chord (transmittance 0.0000 for a wooden circle against 0.3261 straight).
+        The analytical model groups smooth spans the same way the builder does."""
+        straight = [(0.0, 0.0), (1884.96, 0.0)]
+        dense = [(index * 1884.96 / 360.0, 0.0) for index in range(361)]
+        circle = [(300.0 * math.cos(2.0 * math.pi * index / 360.0),
+                   300.0 * math.sin(2.0 * math.pi * index / 360.0)) for index in range(361)]
+        open_straight = fences.fence_transmittance(style, 150.0, 3.0, 45.0, 180.0, straight)
+        dense_line = fences.fence_transmittance(style, 150.0, 3.0, 45.0, 180.0, dense)
+        curved = fences.fence_transmittance(style, 150.0, 3.0, 45.0, 180.0, circle)
+        assert dense_line == pytest.approx(open_straight, abs=1e-6)
+        assert curved > 0.5 * open_straight, (style, curved, open_straight)
+
+    @pytest.mark.parametrize("style", ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"])
     def test_fifty_metres_of_fence_do_not_explode(self, style: str) -> None:
         record = line_record("FENCE", ((-2500.0, 0.0), (2500.0, 0.0)), 120.0, style=style)
         count = triangle_count(built(record))

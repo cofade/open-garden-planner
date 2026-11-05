@@ -333,16 +333,23 @@ def test_a_string_is_laid_out_once_per_light_pass(monkeypatch) -> None:
     """#705: `lamp_sources` used to call `string_bulbs` (one layout) and then
     `lamp_light` (a second). It passes its layout now — measured 29.5 ms vs 12.8 ms
     per 16,384-vertex string before the fix."""
+    import open_garden_planner.core.scene3d.builders.lights as builder_module
     import open_garden_planner.core.scene3d.lights as lights_module
 
-    calls: list[int] = []
-    original = lights_module.string_layout
+    calls: list[str] = []
+    original_lights = lights_module.string_layout
+    original_builder = builder_module.string_layout
 
-    def counted(record):
-        calls.append(1)
-        return original(record)
+    def counted_lights(record):
+        calls.append("lights")
+        return original_lights(record)
 
-    monkeypatch.setattr(lights_module, "string_layout", counted)
+    def counted_builder(record):
+        calls.append("builder")
+        return original_builder(record)
+
+    monkeypatch.setattr(lights_module, "string_layout", counted_lights)
+    monkeypatch.setattr(builder_module, "string_layout", counted_builder)
     sources = lights_module.lamp_sources([string(length=440.0, rotation=0.0)])
     assert len(sources) == 1 and sources[0].bulb_points
     assert len(calls) == 1, calls

@@ -1214,6 +1214,11 @@
     "state": "CLOSED",
     "title": "The plan loader caps a polygon's vertices but not a polyline's"
   },
+  "705": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: where a string of lights' point light stands on a loop or an L/U string, and lay each string out once per light pass"
+  },
   "706": {
     "is_pr": false,
     "state": "CLOSED",

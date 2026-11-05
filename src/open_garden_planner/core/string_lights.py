@@ -18,7 +18,15 @@ lengths ``(k + ½) · L / n`` of a string of length ``L`` — never more than
 ``MAX_BULBS_PER_STRING``, however long the string (a 60 m string would otherwise hang 150).
 A bulb is kept ``POST_CLEAR_CM`` from the posts of its span: an arc length that falls on
 a post (the middle post of every symmetric string with an odd count) hung the ball inside
-the post (3D review of the line). It moves at most that far.
+the post (3D review of the line). It moves at most that far, and along its own span it
+keeps ``OTHER_POST_CLEAR_CM`` from every FOREIGN post (a line that doubles back can put
+one in its way). A span shorter than two clearances keeps its middle: no share can clear
+both of its own posts, so moving it would only make it worse.
+
+A span whose straight chord would cut the drawn line by more than
+``MAX_CHORD_DEVIATION_CM`` keeps the arc's own points, even where that means a span
+shorter than the gap. The deviation promise applies to the kept points: a line above
+``MAX_POSTS`` is thinned first, and the wire follows those points.
 
 Pure: floats in, floats out. No Qt, no numpy.
 """
@@ -227,19 +235,28 @@ def bulb_count(length_cm: float) -> int:
 def _clear_share(span: Span, posts: Sequence[Point], share: float) -> float:
     """``share`` moved along ``span`` until it is clear of every FOREIGN post (#709).
 
-    The base share already keeps ``POST_CLEAR_CM`` from the span's own posts. A line
-    that doubles back or crosses itself can stand another span's post in the bulb's
-    way; the forbidden shares are the intervals where that post lies within
-    ``OTHER_POST_CLEAR_CM``, and the nearest allowed share to the base is taken. When
-    no share is clear (a very short span boxed in by foreign posts) the base stays:
-    the layout cannot do better, and the picture still draws the bulb above the post.
+    The base share keeps ``POST_CLEAR_CM`` from the span's own posts when the span is
+    long enough to allow it. A line that doubles back or crosses itself can stand
+    another span's post in the bulb's way; the forbidden shares are the intervals where
+    that post lies within ``OTHER_POST_CLEAR_CM``, and the nearest allowed share to the
+    base is taken. A span shorter than two clearances keeps the base: moving it to
+    clear a foreign post would push it into its own post. When no share is clear the
+    base also stays: the layout cannot do better, and the picture still draws the bulb
+    above the post.
     """
     if len(posts) < 3 or span.length_cm <= 0.0:
         return share
-    (ax, ay), (bx, by) = posts[span.a], posts[span.b]
     length = span.length_cm
+    # A span this short has no share that clears both its own posts: the ball and a
+    # post cannot fit (a 7 cm span leaves at most 3.5 cm, under the 5.4 cm reach).
+    # Moving it to clear a foreign post would only push it into its own post
+    # (#709 review); keep the base, which is the best available, and let the 2D
+    # painter's bulb-over-post order keep it visible.
+    if length <= 2.0 * POST_CLEAR_CM:
+        return share
+    (ax, ay), (bx, by) = posts[span.a], posts[span.b]
     ux, uy = (bx - ax) / length, (by - ay) / length
-    low = POST_CLEAR_CM / length if length > 2.0 * POST_CLEAR_CM else 0.0
+    low = POST_CLEAR_CM / length
     high = 1.0 - low
     forbidden: list[tuple[float, float]] = []
     for index, (px, py) in enumerate(posts):

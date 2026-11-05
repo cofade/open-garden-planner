@@ -95,6 +95,45 @@ def _segment_distance(point: tuple[float, float], start: tuple[float, float],
     return math.hypot(point[0] - (start[0] + dx * share), point[1] - (start[1] + dy * share))
 
 
+def _rounded_rectangle(width: float, height: float, radius: float) -> list[tuple[float, float]]:
+    """A closed 80 × 60-style string with all four corners filleted (the #709 review)."""
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
+
+    corners = [(0.0, 0.0), (width, 0.0), (width, height), (0.0, height)]
+    points: list[tuple[float, float]] = []
+    for index, corner in enumerate(corners):
+        previous = QPointF(*corners[index - 1])
+        current = QPointF(*corner)
+        following = QPointF(*corners[(index + 1) % 4])
+        result = fillet_corner(previous, current, following, radius)
+        assert result is not None
+        tangent_in, tangent_out, centre, start, span = result
+        points.append((tangent_in.x(), tangent_in.y()))
+        points.extend((point.x(), point.y())
+                      for point in sample_arc_points(centre, radius, start, span))
+        points.append((tangent_out.x(), tangent_out.y()))
+    points.append(points[0])
+    return points
+
+
+def test_a_short_filleted_loop_keeps_its_own_spans_clearance() -> None:
+    """#709 review: a 80 × 60 cm loop with r 10 corners has 7-8 cm spans. Moving a bulb
+    to clear a foreign post pushed it to 0.22 cm from its OWN post; a span shorter than
+    two clearances has no share that clears both, so it keeps the base (the best
+    available) instead of making it worse."""
+    lay = layout(_rounded_rectangle(80.0, 60.0, 10.0))
+    assert lay.is_closed and lay.bulbs
+    for bulb in lay.bulbs:
+        span = lay.spans[bulb.span]
+        x, y = lay.bulb_xy(bulb)
+        for post in (span.a, span.b):
+            px, py = lay.posts[post]
+            assert math.hypot(x - px, y - py) >= min(POST_CLEAR_CM, span.length_cm / 2.0) - 1e-9, (
+                bulb, span, (x, y), (px, py))
+
+
 def test_a_dense_line_stands_its_posts_at_least_the_gap_apart() -> None:
     """A polyline drawn with a point every centimetre (a freehand curve, a file) is not
     a post every centimetre: the first and the drawn last point stay, the rest follow."""
@@ -167,9 +206,9 @@ def test_no_bulb_hangs_inside_a_post(points) -> None:
 
 
 @pytest.mark.parametrize("points", [
-    [(0.0, 0.0), (20.0, 0.0), (40.0, 0.0), (300.0, 0.0)],             # own spans under 40
-    [(0.0, 0.0), (5.0, 0.0), (15.0, 0.0), (300.0, 0.0)],              # a line shorter than the gap
-], ids=["short-spans", "tiny-spans"])
+    [(0.0, 0.0), (30.0, 0.0)],                                        # shorter than the gap
+    [(0.0, 0.0), (20.0, 0.0)],
+], ids=["30cm", "20cm"])
 def test_a_line_shorter_than_the_gap_cannot_clear_every_post(points) -> None:
     """A line with no room for a 40 cm span keeps its first and last point (the gap is a
     promise the geometry cannot keep); its bulbs still keep ``POST_CLEAR_CM`` from its

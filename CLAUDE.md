@@ -254,6 +254,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
+- 3D curved geometry and strings (#675, #709, #705, #701): arc-length fence spacing,
+  40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights, roof cache.
+  Draft PR; acceptance pending.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
   #685, #706, #707, #708, #710, #700): Angled house polygon roof ridge aligns with
   dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast

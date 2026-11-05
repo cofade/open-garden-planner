@@ -383,6 +383,7 @@ def fence_segment_occlusion(
     run_len_cm: float = 1000.0,
     *,
     shared_start_post: bool = False,
+    post_count: float | None = None,
 ) -> float:
     """Analytical shadow occlusion fraction ``[0.0, 1.0]`` for one fence segment (#440).
 
@@ -395,6 +396,11 @@ def fence_segment_occlusion(
       (pitch * c_perp)``, closing the gaps at oblique angles.
     - Steeper elevations widen the vertical shadow cast by horizontal rails
       ``rail_tall + rail_across * tan(elevation) * c_perp``.
+
+    ``post_count`` overrides the post count for this piece (a smooth span distributes
+    its posts by arc length; a caller passes the piece's share of them). It is the
+    builder's own count — a dense sampled curve must not read one post per 2 cm chord
+    (#675's shadow side).
     """
     if style not in POROUS_FENCE_STYLES or height_cm <= 0.0:
         return 1.0
@@ -407,7 +413,8 @@ def fence_segment_occlusion(
     if style == "WOODEN_FENCE":
         post_w = max(POST_CM, stroke_cm)
         per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
-        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        n_posts = (post_count if post_count is not None
+                   else per_seg - (1.0 if shared_start_post else 0.0))
         o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
         rail_h = min(RAIL_TALL_CM, 0.2 * height_cm)
         o_rail = min(1.0, 2.0 * (rail_h + RAIL_ACROSS_CM * tan_a * cp) / height_cm)
@@ -417,7 +424,8 @@ def fence_segment_occlusion(
     elif style == "METAL_FENCE":
         post_w = max(METAL_POST_CM, stroke_cm)
         per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
-        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        n_posts = (post_count if post_count is not None
+                   else per_seg - (1.0 if shared_start_post else 0.0))
         o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
         o_rail = min(1.0, 2.0 * (METAL_RAIL_CM * k + METAL_RAIL_CM * tan_a * cp) / height_cm)
         h_bar = max(0.0, height_cm - 12.0 * k) / height_cm
@@ -426,7 +434,8 @@ def fence_segment_occlusion(
     else:  # CHAIN_LINK
         post_w = max(CHAIN_POST_CM, stroke_cm)
         per_seg = max(2.0, math.ceil(run / CHAIN_POST_SPACING_CM) + 1.0)
-        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        n_posts = (post_count if post_count is not None
+                   else per_seg - (1.0 if shared_start_post else 0.0))
         o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
         o_rail = min(1.0, (CHAIN_RAIL_CM * k + CHAIN_RAIL_CM * tan_a * cp) / height_cm)
         h_wire = max(0.0, height_cm - 8.0 * k) / height_cm
@@ -472,33 +481,46 @@ def fence_transmittance(
         len(points) >= 3
         and math.hypot(points[0][0] - points[-1][0], points[0][1] - points[-1][1]) <= 1e-6
     )
+    spacing = {"WOODEN_FENCE": POST_SPACING_CM,
+               "METAL_FENCE": POST_SPACING_CM,
+               "CHAIN_LINK": CHAIN_POST_SPACING_CM}[style]
 
     weighted_occ = 0.0
     total_weight = 0.0
-    for idx in range(len(points) - 1):
-        ax, ay = points[idx]
-        bx, by = points[idx + 1]
-        seg_len = math.hypot(bx - ax, by - ay)
-        if seg_len <= 1e-6:
+    line = np.asarray(points[:-1] if closed else points, dtype=np.float64)
+    for arc_index, arc in enumerate(_Run(line, closed).arcs()):
+        span_len = arc.total
+        if span_len <= 1e-6:
             continue
-        ux = (bx - ax) / seg_len
-        uy = (by - ay) / seg_len
-        c_par = abs(ux * dx + uy * dy)
-        c_perp = abs(ux * dy - uy * dx)
-        shared_start = closed or idx > 0
-        occ = fence_segment_occlusion(
-            style,
-            height_cm,
-            stroke_cm,
-            elevation_deg,
-            c_perp=c_perp,
-            c_par=c_par,
-            run_len_cm=seg_len,
-            shared_start_post=shared_start,
-        )
-        weight = seg_len * max(c_perp, 0.05)
-        weighted_occ += weight * occ
-        total_weight += weight
+        # The posts the 3D builder stands on this smooth span (``_Run.posts``): every
+        # ``spacing`` cm at most, a shared corner only once. A dense sampled curve must
+        # not read a post per 2 cm chord (#675's shadow side).
+        per_span = max(2.0, math.ceil(span_len / spacing) + 1.0)
+        shared_start = closed or arc_index > 0
+        n_posts = per_span - (1.0 if shared_start else 0.0)
+        for segment in range(len(arc.length)):
+            seg_len = float(arc.length[segment])
+            if seg_len <= 1e-6:
+                continue
+            ax, ay = arc.points[segment]
+            bx, by = arc.points[segment + 1]
+            ux = (bx - ax) / seg_len
+            uy = (by - ay) / seg_len
+            c_par = abs(ux * dx + uy * dy)
+            c_perp = abs(ux * dy - uy * dx)
+            occ = fence_segment_occlusion(
+                style,
+                height_cm,
+                stroke_cm,
+                elevation_deg,
+                c_perp=c_perp,
+                c_par=c_par,
+                run_len_cm=seg_len,
+                post_count=n_posts * seg_len / span_len,
+            )
+            weight = seg_len * max(c_perp, 0.05)
+            weighted_occ += weight * occ
+            total_weight += weight
 
     if total_weight <= 0.0:
         return 1.0 - fence_segment_occlusion(
