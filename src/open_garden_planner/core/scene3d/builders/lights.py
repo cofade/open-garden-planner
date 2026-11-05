@@ -247,7 +247,7 @@ def _string_lights(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
         meshes.append(rod(np.concatenate(starts), np.concatenate(ends), WIRE_RADIUS_CM,
                           palette.RUBBER.linear, sides=4))
     bulbs: list[Mesh] = []
-    bulbs_at = string_bulbs(record, h)
+    bulbs_at = string_bulbs(record, h, lay)
     if bulbs_at is not None:
         for x, y, bz in bulbs_at:
             bulbs.append(rod([(x, y, bz + BULB_RADIUS_CM)], [(x, y, bz + BULB_RADIUS_CM + 1.2)],
