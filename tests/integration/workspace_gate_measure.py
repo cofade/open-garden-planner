@@ -697,15 +697,21 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
         if release == "flood":
             workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
             workspace_module.RELEASE_NOW_RETIRED = 1  # type: ignore[misc]
-        window._load_project_file(plan)
-        if variant in ("rebuild_on", "control"):
-            controller.reset()
-        if release == "flood":
-            # the rebuild's own "at once" release, before the forge starts upgrading
-            assert _pump_until(lambda seen=releases_before_reload: host.cache_releases > seen,
-                               30.0), "the flood rebuild released nothing"
-            workspace_module.RELEASE_AFTER_RETIRED = product_release[0]  # type: ignore[misc]
-            workspace_module.RELEASE_NOW_RETIRED = product_release[1]  # type: ignore[misc]
+        try:
+            window._load_project_file(plan)
+            if variant in ("rebuild_on", "control"):
+                controller.reset()
+            if release == "flood":
+                # the rebuild's own "at once" release, before the forge starts upgrading
+                assert _pump_until(
+                    lambda seen=releases_before_reload: host.cache_releases > seen, 30.0,
+                ), "the flood rebuild released nothing"
+        finally:
+            # an assertion above must not leave the module's globals at the flood
+            # threshold for every later measurement in this process
+            if release == "flood":
+                workspace_module.RELEASE_AFTER_RETIRED = product_release[0]  # type: ignore[misc]
+                workspace_module.RELEASE_NOW_RETIRED = product_release[1]  # type: ignore[misc]
         assert _pump_until(lambda: settled() and len(controller.sync.records) > 0, 120.0), (
             f"reload {_index} ground/forge/LOD did not settle: {rest_state()}")
         if variant == "control":

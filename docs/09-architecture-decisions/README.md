@@ -7191,15 +7191,17 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 ### Addendum (atmosphere-sky and render-tier integrity, #695/#696/#704/#714/#717/#718/#722)
 - **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
   (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
-  disc finder first takes a white plateau of at least 20 pixels (every channel ≥ 250) and
-  its centroid, falling back to the old bright-and-warm peak: at a low sun the warm
-  horizon band outscored the disc (#717). Measured on the RTX 4070 at 640 × 360: worst
+  disc finder first takes the largest connected white plateau of at least 20 pixels
+  (every channel ≥ 250) that passes a compactness test, and its centroid; it falls back
+  to the old bright-and-warm peak when none does: at a low sun the warm horizon band
+  outscored the disc (#717). Measured on the RTX 4070 at 640 × 360: worst
   bearing error 0.08° / 0.09° and worst elevation error 0.13° / 0.07° (painted /
   atmosphere), inside the 0.25° acceptance.
 - **The set sun is measured.** `--dusk` now renders a sky-only camera at the sun's own
   bearing at +1.0, +0.4, 0.0, −1.0 and −3°, for clear and every cloudy weather;
-  `sun_dip` compares the darkest pixel within 10° of that bearing with the median at the
-  same world elevation 15–45° away, over the bands within 1.5° of the sun's own elevation
+  `sun_dip` compares the 2nd percentile of the near band within 10° of that bearing with
+  the median at the same world elevation 15–45° away, over the bands within 1.5° of the
+  sun's own elevation
   (an image row is not a world elevation under a pitched camera: comparing rows read a
   false 20-luma dip; and an isolated cumulus 6° above the sun is weather, not a black
   sun — it read 48 luma). A dip over 10 luma fails the board (#695); `measured=False`
@@ -7236,8 +7238,8 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   `pending` 34 before.
 - **The probe pin is sized for its camera (#704).** `--analysis` places its magenta pin
   on the nearest open ground whose WHOLE height is clear; the height is the product's
-  dome share raised until the pin shows at least 60 px (the board's gate is 50), capped
-  at 4×. On `bench_built`'s noon camera the old search's point read 38 px and the board
+  dome share raised until the pin's STEM shows at least 60 projected pixels (the
+  separate magenta-area gate is 50), capped at 4×. On `bench_built`'s noon camera the old search's point read 38 px and the board
   raised before writing any sun-hours row; the whole-pin search's point, with the pin
   raised to 207 cm (4× the 52 cm share), reads 250 px (RTX 4070, 1280 × 720). The pin's
   position is still a measurement of the ground, not of the pin.

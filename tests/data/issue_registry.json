@@ -1363,5 +1363,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#748, #702, #697, #694, #685, #706, #707, #708, #710, #700): CAD geometry, weather resilience, lighting & test hygiene"
+  },
+  "754": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#695, #696, #704, #714, #717, #718, #722): sky and render-tier integrity"
   }
 }

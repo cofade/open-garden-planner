@@ -503,6 +503,11 @@ def pin_height_cm(radius_cm: float) -> float:
     return max(0.03 * float(radius_cm), 30.0)
 
 
+def pin_ball_radius_cm(radius_cm: float) -> float:
+    """The probe pin's ball radius: 1.26 % of the dome's radius, at least 4 cm."""
+    return max(BEAD_SHARE * float(radius_cm) * 1.4, 4.0)
+
+
 def probe_pin_mesh(point: tuple[float, float], radius_cm: float,
                    height_cm: float | None = None) -> Mesh:
     """A pin where the ground was probed: a thin stem with a ball on top, as tall as a
@@ -516,5 +521,5 @@ def probe_pin_mesh(point: tuple[float, float], radius_cm: float,
     height = pin_height_cm(radius_cm) if height_cm is None else max(float(height_cm), 1.0)
     stem = np.array([[point[0], point[1], 0.0], [point[0], point[1], height]])
     _tube(builder, stem, max(TUBE_SHARE * radius_cm * 0.6, 1.0), PIN_RGBA, is_arc=False)
-    _ball(builder, (point[0], point[1], height), max(BEAD_SHARE * radius_cm * 1.4, 4.0), PIN_RGBA)
+    _ball(builder, (point[0], point[1], height), pin_ball_radius_cm(radius_cm), PIN_RGBA)
     return builder.mesh()

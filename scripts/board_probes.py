@@ -285,12 +285,24 @@ def shadow_iou(rgb: Any, camera: Pinhole, footprint: Polygon, height: float,
 # ── gate G4: where the sky draws its sun ─────────────────────────────────────
 
 
+def _plateau_is_compact(mask: Any, count: int) -> bool:
+    """Whether a blob looks like a disc: a bounding box at most 2:1 and at least 40 %
+    filled. A thin streak (a cloud edge, a horizon band) is neither."""
+    rows, cols = np.nonzero(mask)
+    height = int(rows.max() - rows.min() + 1)
+    width = int(cols.max() - cols.min() + 1)
+    return (max(width, height) <= 2 * max(1, min(width, height))
+            and count >= 0.4 * width * height)
+
+
 def _largest_blob(mask: Any) -> tuple[Any, int]:
-    """The largest 4-connected component of a boolean mask, and its pixel count.
+    """The largest 4-connected COMPACT component of a boolean mask, and its pixel count.
 
     A sun disc is one compact plateau. The centroid of every white pixel in the sky
     merges two separate blobs into a point between them (a false sun at 180° from two
-    blobs at 160° and 200°); the component is what makes "plateau" true."""
+    blobs at 160° and 200°); the component is what makes "plateau" true. A larger thin
+    streak must not win over a smaller disc, so each blob is tested and the largest
+    compact one is returned."""
     white = np.asarray(mask, dtype=bool)
     seen = np.zeros_like(white, dtype=bool)
     best = np.zeros_like(white, dtype=bool)
@@ -311,11 +323,13 @@ def _largest_blob(mask: Any) -> tuple[Any, int]:
                         and white[next_row, next_col] and not seen[next_row, next_col]):
                     seen[next_row, next_col] = True
                     stack.append((next_row, next_col))
-        if len(cells) > best_count:
-            best_count = len(cells)
-            best = np.zeros_like(white, dtype=bool)
-            for cell_row, cell_col in cells:
-                best[cell_row, cell_col] = True
+        if len(cells) <= best_count or len(cells) < 20:
+            continue
+        found = np.zeros_like(white, dtype=bool)
+        for cell_row, cell_col in cells:
+            found[cell_row, cell_col] = True
+        if _plateau_is_compact(found, len(cells)):
+            best, best_count = found, len(cells)
     return best, best_count
 
 
@@ -324,10 +338,11 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     looks at the sky.
 
     A disc at a low sun can be dimmer than the warm horizon band around it, so the
-    finder first looks for the disc's own signature — the largest 4-connected plateau
-    of at least 20 pixels with every channel at least 250 — and takes its centroid
-    (#717; worst measured error 0.13°). A compactness test (bounding box at most 4:1,
-    at least 40 % filled) keeps a thin white streak from reading as a disc. When no
+    finder first looks for the disc's own signature — the largest compact 4-connected
+    plateau of at least 20 pixels with every channel at least 250 — and takes its
+    centroid (#717; worst measured error 0.13°). A compactness test (bounding box at
+    most 2:1, at least 40 % filled) keeps a thin white streak from reading as a disc,
+    even when the streak is the largest white blob in the frame. When no
     such plateau exists it falls back to the peak of "bright AND warm" above the
     horizon. ``found`` is False when nothing stands out (contrast of the peak over the
     median at most 40) — a sky without a disc, a night sky.
@@ -341,14 +356,10 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     median = float(np.median(score))
     white = np.all(sky >= 250.0, axis=2)
     plateau, count = _largest_blob(white)
-    if count >= 20:
+    if count:
         plateau_rows, plateau_cols = np.nonzero(plateau)
-        height = int(plateau_rows.max() - plateau_rows.min() + 1)
-        width = int(plateau_cols.max() - plateau_cols.min() + 1)
-        compact = (max(width, height) <= 4 * max(1, min(width, height))
-                   and count >= 0.4 * width * height)
         contrast = float(np.median(score[plateau_rows, plateau_cols])) - median
-        if compact and contrast > 40.0:
+        if contrast > 40.0:
             x, y = float(plateau_cols.mean()) + 0.5, float(plateau_rows.mean()) + 0.5
             return {"found": True, "contrast": round(contrast, 1),
                     "pixel": [round(x, 1), round(y, 1)], "plateau_px": count,
@@ -374,10 +385,11 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
     """The darkest sky pixel near the sun's bearing against the same WORLD ELEVATION
     away from it.
 
-    The set-sun gate's instrument (#695): a black disc or a dark halo shows as the
-    darkest pixel within ``near_deg`` of ``sun_azimuth_deg`` against the median luma
-    ``away_deg`` to either side AT THE SAME WORLD ELEVATION; a sky that matches itself
-    stays near 0. (An image row is not a world elevation with a pitched pinhole camera:
+    The set-sun gate's instrument (#695): a black disc or a dark halo shows as the 2nd
+    percentile of the luminance within ``near_deg`` of ``sun_azimuth_deg`` against the
+    median luma ``away_deg`` to either side AT THE SAME WORLD ELEVATION; a sky that
+    matches itself stays near 0. The percentile keeps one stray dark pixel from reading
+    as a black sun (it read -155 luma against a 10-luma bound). (An image row is not a world elevation with a pitched pinhole camera:
     off-axis pixels in one row sit higher in the sky, which read a false 20-luma dip.)
     A mean would drown a small disc in the glow around it — a 36-pixel black disc left
     the row mean 16 luma above the away rows. The statistic is the band's 2nd percentile,

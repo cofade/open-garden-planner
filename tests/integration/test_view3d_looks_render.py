@@ -226,8 +226,8 @@ def test_distant_horizon_rows_reach_the_real_fog_distances(board) -> None:
         assert len(rows) == 8
         assert {row["distance_m"] for row in rows} == {67, 202, 403, 600}
         assert {row["pitch_deg"] for row in rows} == {15.0, DEFAULT_PITCH_DEG}
-        # #714: the bound is the board's own, re-derived from this scene's rows (3.6);
-        # the render tier does not carry a second copy of the number.
+        # #714: the render tier carries its own literal (4.0, 12 % over the scene's worst
+        # 3.55), so raising the board's HORIZON_STEP_BOUND cannot raise this gate with it.
         assert all(row["ok"] for row in rows), rows
         assert max(row["step"] for row in rows) <= MAX_FAR_HORIZON_STEP, rows
 

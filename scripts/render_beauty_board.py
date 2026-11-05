@@ -376,12 +376,15 @@ PROBE_PIN_MIN_HEIGHT_PX = 60.0
 PROBE_PIN_MAX_SCALE = 4.0
 
 
-def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float) -> float:
-    """How tall the pin's STEM is in the frame, in pixels: only when its base and top are
-    inside the frame, so a clipped pin is not a visible one. The ball sits above the stem;
-    the separate magenta-area gate is what sees it."""
+def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float,
+                      ball_radius_cm: float = 0.0) -> float:
+    """How tall the pin's STEM is in the frame, in pixels: only when its base, stem top
+    and ball top are inside the frame, so a clipped pin is not a visible one. The ball's
+    radius is above the stem; the separate magenta-area gate sees that area."""
+    ball_top = height_cm + max(float(ball_radius_cm), 0.0)
     px, py, front = camera.project([(point[0], point[1], 0.0),
-                                    (point[0], point[1], height_cm)])
+                                    (point[0], point[1], height_cm),
+                                    (point[0], point[1], ball_top)])
     if not front.all():
         return 0.0
     width, height = camera.size
@@ -392,7 +395,8 @@ def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float)
     return shown if math.isfinite(shown) and shown > 0.0 else 0.0
 
 
-def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> float:
+def _pin_height(camera: Any, point: tuple[float, float], default_cm: float,
+                ball_radius_cm: float = 0.0) -> float:
     """The pin height that shows at least ``PROBE_PIN_MIN_HEIGHT_PX`` at ``point`` (#704).
 
     The product's pin is a share of the sun-path dome (``probe_pin_mesh``), which is
@@ -400,7 +404,7 @@ def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> f
     read 38 px. A taller pin keeps the marker findable without moving the measurement
     off the ground; the share is the floor, never the ceiling.
     """
-    shown = _pin_projected_px(camera, point, default_cm)
+    shown = _pin_projected_px(camera, point, default_cm, ball_radius_cm)
     if shown <= 0.0:
         return default_cm
     scale = min(max(PROBE_PIN_MIN_HEIGHT_PX / shown, 1.0), PROBE_PIN_MAX_SCALE)
@@ -417,12 +421,13 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
     pin rather than a marker too small to find (#704).
     """
     from open_garden_planner.core.scene3d.frame import pose_ring
-    from open_garden_planner.core.scene3d.sun_path import pin_height_cm
+    from open_garden_planner.core.scene3d.sun_path import pin_ball_radius_cm, pin_height_cm
     from open_garden_planner.core.shade_aggregation import points_in_polygons
 
     tx, ty = float(shot.target[0]), float(shot.target[1])
     camera = probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
     default_cm = pin_height_cm(radius_cm)
+    ball_cm = pin_ball_radius_cm(radius_cm)
     tries = sorted(((tx + dx, ty + dy) for dx in range(-600, 601, 50)
                     for dy in range(-600, 601, 50)),
                    key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
@@ -435,10 +440,10 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
     for index, point in enumerate(tries):
         if covered[index] or cast_segment(world.pick, shot.eye, (point[0], point[1], 0.0)):
             continue                       # the base is under something: not a probe point
-        height = _pin_height(camera, point, default_cm)
-        if cast_segment(world.pick, shot.eye, (point[0], point[1], height)):
-            continue                      # the ball is under a canopy: not a probe point
-        shown = _pin_projected_px(camera, point, height)
+        height = _pin_height(camera, point, default_cm, ball_cm)
+        if cast_segment(world.pick, shot.eye, (point[0], point[1], height + ball_cm)):
+            continue                      # the ball's top is under a canopy
+        shown = _pin_projected_px(camera, point, height, ball_cm)
         if shown >= PROBE_PIN_MIN_HEIGHT_PX:
             return point, height
         if fallback is None or shown > fallback[0]:
@@ -1137,14 +1142,17 @@ class Board:
                 if target not in found and sun.elevation_deg <= target:
                     found[target] = (moment, sun)
             moment += timedelta(seconds=20)
-        if not found:
-            # no garden location (the stand-in sun never moves) or a polar day that never
-            # reaches 6°: there is no evening to walk, and the set-sun probe has no sun
-            # bearing to face. Before, this reached `min(found)` and raised.
-            return
         tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
         self.metrics[f"dusk{tag}"] = out
+        if not found:
+            # no garden location (the stand-in sun never moves) or a polar day that never
+            # reaches 6°: there is no evening to walk, and the set-sun probe has no sun
+            # bearing to face. The empty block keeps the metrics' contract (a reader can
+            # still ask for this weather's dusk without a KeyError).
+            self.log("dusk", weather=weather, skipped="no evening on this plan")
+            self.write()
+            return
         for preset in presets:
             rows = []
             for target in DUSK_ELEVATIONS:

@@ -5893,20 +5893,22 @@ frame rate. Procedure:
 `ogp-lush-cinematic` §5.
 
 The sky probe (G4) spans the day: four sun elevations (6°, 12°, 30°, 60°) × three
-azimuths × two offsets on both sky models, its disc found by a white plateau of at least
-20 pixels first — at a low sun the warm horizon band outscored the disc (#717) — with the
-0.25° accuracy gated. The dusk probe also renders a sky-only camera at the sun's own
-bearing at +1.0, +0.4, 0.0, −1.0 and −3° under every weather and fails when a pixel
-within 10° of that bearing and 1.5° of the sun's elevation is more than 10 luma under the
-median at its own elevation 15–45° away (#695: the meadow camera had the sun behind the
-poplar; the elevation window keeps an isolated cumulus from reading as a black sun).
+azimuths × two offsets on both sky models, its disc found by the largest connected white
+plateau of at least 20 pixels that passes a compactness test — at a low sun the warm
+horizon band outscored the disc (#717) — with the 0.25° accuracy gated. The dusk probe also renders a sky-only camera at the sun's own
+bearing at +1.0, +0.4, 0.0, −1.0 and −3° under every weather and fails when the 2nd
+percentile of the near band within 10° of that bearing and 1.5° of the sun's elevation is
+more than 10 luma under the median at its own elevation 15–45° away (#695: the meadow
+camera had the sun behind the poplar; the elevation window keeps an isolated cumulus from
+reading as a black sun, and the percentile keeps one stray dark pixel from doing it).
 The far-row bound is
 4.0 luma at 640 × 360, re-derived from the current scene's 3.44 / 3.48 / 3.11 (#714), and
 the clear look's per-mood step is gated at the same bound (covering #696's low sunset;
 the verified worst is 3.55 on the atmosphere sunset, so 4.0 keeps 12 % headroom). The
 atmosphere sky's own low band and cloudy deck band remain #716 and #719.
 `--analysis` places its probe pin on open ground whose whole height is clear and sizes it
-from the shot's camera (the dome share raised to at least 60 px, capped at 4×), because
+from the shot's camera (the dome share raised until the stem shows at least 60 projected
+pixels; the separate magenta-area gate is 50, capped at 4×), because
 `bench_built`'s distant noon camera showed the product's 52 cm pin in 38 px under the
 50 px gate (#704).
 
