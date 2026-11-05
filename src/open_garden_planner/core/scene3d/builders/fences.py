@@ -186,7 +186,8 @@ class _Run:
                 continue
             number = max(1, int(math.ceil(total / spacing - 1e-9)))
             first = 0 if (not self.closed and index == 0) else 1
-            points, angle = arc.at(np.arange(first, number + 1) * (total / number))
+            distances = np.arange(first, number + 1, dtype=np.float64) * (total / number)
+            points, angle = arc.at(distances)
             out.append(points)
             angles.append(angle)
         if not out:
@@ -202,7 +203,7 @@ class _Run:
             count = int(math.floor(arc.total / pitch + 1e-9))
             if count <= 0:
                 continue
-            points, angle = arc.at((np.arange(count) + 0.5) * pitch)
+            points, angle = arc.at(np.arange(count, dtype=np.float64) * pitch + 0.5 * pitch)
             out.append(points)
             angles.append(angle)
             indices.append(np.arange(count, dtype=np.float64))
