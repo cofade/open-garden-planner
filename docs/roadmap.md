@@ -4132,7 +4132,7 @@ Follow-up hardening and consistency slice across 2D CAD items, grouped houses, a
 
 Docs: FR-EDIT-25.
 
-### Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694, #685, #706, #707, #708, #710, #700)
+### Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694, #685, #706, #707, #708, #710, #700) — shipped in v1.37.3 (PR #752)
 
 Comprehensive quality, geometry, weather, and lighting hygiene package addressing 10 roadmap issues:
 
@@ -4146,5 +4146,8 @@ Comprehensive quality, geometry, weather, and lighting hygiene package addressin
 - **#708 — Architectural layering cleanup**: Moves `render_string_lights_thumbnail` into `ui/canvas/items/string_lights_paint.py`, decoupling properties panel from gallery data module; documents `Record.has_2d_caster`.
 - **#710 — 3D string lights wire segmentation & bulb tessellation**: Doubles wire segments (`WIRE_PIECES = 24`, `WIRE_PIECE_CM = 25.0`) and refines bulb spheres to `rings=5, segments=12`, eliminating visible chord sagitta and polygonal bulb artifacts at close walk distance.
 - **#700 — Shadow agreement single source of truth**: Streamlines redundant narrative and driftable reach/ratio figures in §8.29.6 and `scripts/measure_built_world_shadows.py`, pointing directly to the authoritative ADR-059 builders addendum, and pins this invariant with automated regression checks.
+
+Docs: ADR-059 addendum, §8.29.6.
+
 
 
