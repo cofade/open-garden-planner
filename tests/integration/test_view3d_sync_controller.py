@@ -1402,10 +1402,26 @@ class FailingSink:
         return call
 
 
+def test_a_reset_tells_the_forge_that_the_sink_is_stale(qtbot) -> None:
+    """#718: a reset forgets every Model; a forge completion still in flight must be
+    dropped, so the workspace is told to clear its queue."""
+    scene = QGraphicsScene()
+    scene.setSceneRect(QRectF(0.0, 0.0, 5000.0, 3000.0))
+    sink = RecordingSink()
+    controller = Scene3DController(scene, SimClock(NOON), lambda: None, sink, quiet_ms=QUIET)
+    resets: list[int] = []
+    controller.scene_reset.connect(lambda: resets.append(1))
+    controller.reset()
+    assert resets == [1]
+    controller.shutdown()
+
+
 def test_a_sink_that_fails_is_reset_and_reapplied_and_nothing_reaches_the_event_loop(
         canvas: CanvasView, qtbot, caplog: pytest.LogCaptureFixture) -> None:
     sink = FailingSink()
     rig = Rig(canvas, qtbot, sink=sink)
+    resets: list[int] = []
+    rig.controller.scene_reset.connect(lambda: resets.append(1))
     bed = rig.bed()
     rig.controller.set_active(True)
     rig.settle()
@@ -1415,6 +1431,7 @@ def test_a_sink_that_fails_is_reset_and_reapplied_and_nothing_reaches_the_event_
         rig.commands.execute(MoveItemsCommand([bed], QPointF(50.0, 0.0)))
         calls = rig.settle()
     assert rig.controller.recovery_count == 1
+    assert resets == [1], "the forge queue belongs to the old scene"
     assert ("clear", None) in calls                       # the recovery goes through the protocol
     assert calls[-4:] == [("add", str(bed.item_id)), GROUND, SUN, COMMIT]
     assert rig.reports[-1].recovered is True

@@ -322,13 +322,19 @@ def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
     frame[:] = (120.0, 160.0, 215.0)
     glow = np.clip(1.0 - angle / 6.0, 0.0, 1.0)[..., None]
     frame += glow * (np.array([255.0, 235.0, 190.0]) - frame)
-    control = P.sun_dip(frame, camera, azimuth)
+    control = P.sun_dip(frame, camera, azimuth, sun_elevation_deg=elevation)
     assert control["dip_luma"] > -10.0, control          # a glow is not a dip
     black = frame.copy()
     black[angle < 1.0] = 0.0
-    found = P.sun_dip(black, camera, azimuth)
+    found = P.sun_dip(black, camera, azimuth, sun_elevation_deg=elevation)
     assert found["dip_luma"] < -50.0, found
     assert found["elevation_deg"] == pytest.approx(elevation, abs=1.0), found
+    # a dark cumulus 6 degrees above the sun is weather, not a black sun
+    sky_elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    cloudy = frame.copy()
+    cloudy[(sky_elevation > 5.5) & (sky_elevation < 7.5)] = 20.0
+    ignored = P.sun_dip(cloudy, camera, azimuth, sun_elevation_deg=elevation)
+    assert ignored["dip_luma"] > -10.0, ignored
 
 
 def test_a_sky_without_a_disc_is_not_a_measurement() -> None:

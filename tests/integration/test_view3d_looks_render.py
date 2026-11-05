@@ -37,6 +37,7 @@ from typing import Any
 import numpy as np
 import pytest
 from scripts import board_probes as probes
+from scripts import render_beauty_board as beauty_board
 
 from open_garden_planner.core.scene3d import SunState
 from open_garden_planner.core.scene3d.look import (
@@ -220,7 +221,25 @@ def test_distant_horizon_rows_reach_the_real_fog_distances(board) -> None:
         assert len(rows) == 8
         assert {row["distance_m"] for row in rows} == {67, 202, 403, 600}
         assert {row["pitch_deg"] for row in rows} == {15.0, DEFAULT_PITCH_DEG}
-        assert all(row["step"] <= 3.0 and row["ok"] for row in rows), rows
+        # #714: the bound is the board's own, re-derived from this scene's rows (3.6);
+        # the render tier does not carry a second copy of the number.
+        assert all(row["ok"] for row in rows), rows
+        assert max(row["step"] for row in rows) <= beauty_board.HORIZON_STEP_BOUND, rows
+
+
+def test_the_analysis_board_finds_its_probe_pin_on_the_built_world(tmp_path) -> None:
+    """#704: the built-world plan's noon camera is far enough that the product's
+    52 cm pin read 38 magenta pixels, under the board's 50 px gate, so ``--analysis``
+    raised before writing any sun-hours row. The pin is sized from that camera."""
+    out = tmp_path / "analysis-built"
+    metrics = _ok_board(run_board(out, "--plan", str(REPO / "tests/fixtures/plans/bench_built.ogp"),
+                                  "--presets", "high", "--shots", "noon", "--analysis"), out)
+    rows = [row for row in metrics["analysis"] if row["variant"] == "sunhours"]
+    assert len(rows) == 1, metrics["analysis"]
+    row = rows[0]
+    assert row["pin_px"] >= 50, row
+    assert row["pin_height_cm"] > 52.0, "the pin was not sized for this camera"
+    assert (out / row["file"]).is_file()
 
 
 def test_far_plan_preserves_shadows_and_has_no_ao_line(tmp_path) -> None:

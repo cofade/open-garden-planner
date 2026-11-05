@@ -37,7 +37,10 @@ gradient there is ~20 luma — read as a "dip".
 Bin both the near (±10° of the sun's bearing) and away (15–45°) pixels by **world
 elevation** (0.25° bands) and compare each near pixel's darkest value with the median of
 the away pixels in the same band. The painted sky then reads 6.1–7.1 luma (its sun's own
-soft edge, inside the 10 bound) on both sky models.
+soft edge, inside the 10 bound) on both sky models. A second run added the sun's own
+elevation: only bands within 1.5° of it count, because an isolated cumulus 6° above a
+0.4° sun is legitimately dark and read a 48-luma "dip" — the black sun hides in the
+disc's own rows, not anywhere in the sky.
 
 ## Lesson
 

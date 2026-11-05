@@ -67,7 +67,10 @@ def test_the_probes_scene_is_the_spikes_caster() -> None:
         caster["side"], caster["height"], caster["azimuth"]) == (100.0, 200.0, 225.0)
     assert list(board.IOU_ELEVATIONS) == caster["elevations"] == [15.0, 35.0, 60.0]
     assert list(board.SKY_OFFSETS_DEG) == spike["sky_look_offsets_deg"]
-    assert spike["sky_pitch_deg"] == board.SKY_PITCH_DEG and board.SKY_MAX_ERROR_DEG == 6.0
+    # the spike's 14° camera was 2° above its 12° sun; the probe now pitches every sun
+    # by the same offset (#717)
+    assert spike["sky_pitch_deg"] == 12.0 + board.SKY_PITCH_OFFSET_DEG
+    assert board.SKY_MAX_ERROR_DEG == 6.0
     record = board.caster_record()
     ring = pose_ring(record.transform, record.footprints[0])
     assert sorted(ring) == sorted(board.caster_footprint()) and record.height_cm == 200.0
@@ -101,6 +104,44 @@ def test_the_shadow_camera_sees_the_caster_and_the_whole_shadow(
     # reaches as far as the fog begins once that is further (Garden.qml, ADR-065)
     (shadow_far,) = SPIKE["qml"]["environment"]["shadowMapFar"]
     assert fog_depth_cm(math.dist(camera.eye, camera.target))[0] <= shadow_far
+
+
+def test_a_distant_camera_gets_a_pin_that_shows_in_the_gate() -> None:
+    """#704: the noon camera's 52 cm pin read 38 px on bench_built, under the board's
+    50 px gate. The pin is sized from the camera at the same point, so the measurement
+    does not move and the gate still holds."""
+    from open_garden_planner.core.scene3d.sun_path import dome_radius
+
+    width, depth, size = 2600.0, 1800.0, (1280, 720)
+    shot = next(shot for shot in board.default_shots(width, depth) if shot.name == "noon")
+    world = type("World", (), {"pick": object()})()
+    radius = dome_radius(width, depth)
+    point, height = board._open_ground(world, shot, {}, lambda *_args: False, size, radius)
+    camera = board.probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
+    assert height > 0.03 * radius, "the dome share was too short for this camera"
+    assert board._pin_projected_px(camera, point, height) >= board.PROBE_PIN_MIN_PX - 1e-6
+
+
+def test_a_pin_whose_ball_is_hidden_is_not_the_probe_point() -> None:
+    """#704's other half: the old search only checked the first 30 cm, so a point under
+    a canopy could win. The candidate seen without blocking is blocked at its top and
+    a different, clear point is chosen."""
+    from open_garden_planner.core.scene3d.sun_path import dome_radius
+
+    width, depth, size = 2600.0, 1800.0, (1280, 720)
+    shot = next(shot for shot in board.default_shots(width, depth) if shot.name == "noon")
+    world = type("World", (), {"pick": object()})()
+    radius = dome_radius(width, depth)
+    point, height = board._open_ground(world, shot, {}, lambda *_args: False, size, radius)
+
+    def canopy(_pick: object, _eye: tuple[float, float, float],
+               target: tuple[float, float, float]) -> bool:
+        return round(target[0], 6) == round(point[0], 6) and round(target[1], 6) == round(point[1], 6)
+
+    other, other_height = board._open_ground(world, shot, {}, canopy, size, radius)
+    assert other != point, "the hidden pin was chosen again"
+    camera = board.probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
+    assert board._pin_projected_px(camera, other, other_height) >= board.PROBE_PIN_MIN_PX - 1e-6
 
 
 def test_a_mistyped_argument_is_an_error_not_another_experiment(capsys) -> None:

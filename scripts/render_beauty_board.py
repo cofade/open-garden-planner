@@ -219,7 +219,7 @@ CASTER_TINT = (208, 16, 16, 255)
 #: of the frame only proves the direction), pitched 2° above the sun. At a low sun the
 #: disc finder needs its white-plateau path (#717): the warm horizon band outscored it.
 SKY_SUN_ELEVATIONS = (6.0, 12.0, 30.0, 60.0)
-SKY_PITCH_DEG, SKY_PITCH_OFFSET_DEG, SKY_FOV_DEG = 14.0, 2.0, 70.0
+SKY_PITCH_OFFSET_DEG, SKY_FOV_DEG = 2.0, 70.0
 SKY_OFFSETS_DEG = (-25.0, 25.0)
 SKY_AZIMUTHS = (90.0, 180.0, 270.0)
 SKY_MAX_ERROR_DEG = 6.0
@@ -362,14 +362,60 @@ _PLANT_KINDS: frozenset[str] = frozenset({"TREE", "SHRUB", "PERENNIAL", "VEGETAB
                                           "FLOWER", "GRASS", "GROUND_COVER", "CLIMBER"})
 
 
-def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment: Any
-                 ) -> tuple[float, float]:
-    """A lawn point near the shot's target that the camera sees: no item covers it and
-    the view of it passes through nothing (the probe's pin must be in the frame)."""
+#: The probe pin must show in this many pixels of the frame: the board's magenta gate is
+#: 50 (#704), with margin for antialiasing and a partly hidden ball.
+PROBE_PIN_MIN_PX = 60.0
+#: The pin is sized from the camera, but never more than this many times its share of the
+#: dome: a camera that far has no pin that is both honest and 60 px tall.
+PROBE_PIN_MAX_SCALE = 4.0
+
+
+def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float) -> float:
+    """How tall a pin of ``height_cm`` at ``point`` shows in the frame, in pixels: only
+    when the base AND the ball are inside it, so a clipped pin is not a visible one."""
+    px, py, front = camera.project([(point[0], point[1], 0.0),
+                                    (point[0], point[1], height_cm)])
+    if not front.all():
+        return 0.0
+    width, height = camera.size
+    if not (0.0 <= px.min() < width and 0.0 <= px.max() < width
+            and 0.0 <= py.min() < height and 0.0 <= py.max() < height):
+        return 0.0
+    shown = float(py[0] - py[1])
+    return shown if math.isfinite(shown) and shown > 0.0 else 0.0
+
+
+def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> float:
+    """The pin height that shows at least ``PROBE_PIN_MIN_PX`` at ``point`` (#704).
+
+    The product's pin is a share of the sun-path dome (``probe_pin_mesh``), which is
+    right in the view but too short for the board's distant noon camera: 52 cm at 27 m
+    read 38 px. A taller pin at the same point keeps the marker findable without moving
+    the measurement; the share is the floor, never the ceiling.
+    """
+    shown = _pin_projected_px(camera, point, default_cm)
+    if shown <= 0.0:
+        return default_cm
+    scale = min(max(PROBE_PIN_MIN_PX / shown, 1.0), PROBE_PIN_MAX_SCALE)
+    return default_cm * scale
+
+
+def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment: Any,
+                 size: tuple[int, int], radius_cm: float) -> tuple[tuple[float, float], float]:
+    """A lawn point near the shot's target that the camera sees, and the pin's height.
+
+    The point is the nearest one no item covers whose whole pin (base, not just the
+    first 30 cm, and its ball) is in the clear, so a partly hidden pin cannot pass the
+    gate by being close to the target. The height comes from ``_pin_height``: a distant
+    camera gets a taller pin at the same point rather than a marker too small to find
+    (#704).
+    """
     from open_garden_planner.core.scene3d.frame import pose_ring
     from open_garden_planner.core.shade_aggregation import points_in_polygons
 
     tx, ty = float(shot.target[0]), float(shot.target[1])
+    camera = probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
+    default_cm = max(0.03 * radius_cm, 30.0)
     tries = sorted(((tx + dx, ty + dy) for dx in range(-600, 601, 50)
                     for dy in range(-600, 601, 50)),
                    key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
@@ -378,10 +424,21 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
     for record in records.values():   # one ring at a time: even-odd must not cancel overlaps
         for outer, _holes in record.regions:
             covered |= points_in_polygons([pose_ring(record.transform, outer)], points)
+    fallback: tuple[float, tuple[float, float], float] | None = None
     for index, point in enumerate(tries):
-        if not covered[index] and not cast_segment(world.pick, shot.eye, (point[0], point[1], 30.0)):
-            return point
-    return (tx, ty)
+        if covered[index] or cast_segment(world.pick, shot.eye, (point[0], point[1], 30.0)):
+            continue
+        height = _pin_height(camera, point, default_cm)
+        if cast_segment(world.pick, shot.eye, (point[0], point[1], height)):
+            continue                      # the ball is under a canopy: not a probe point
+        shown = _pin_projected_px(camera, point, height)
+        if shown >= PROBE_PIN_MIN_PX:
+            return point, height
+        if fallback is None or shown > fallback[0]:
+            fallback = (shown, point, height)
+    if fallback is not None:
+        return fallback[1], fallback[2]
+    return (tx, ty), default_cm
 
 
 def _pin_pixels(rgb: np.ndarray) -> int:
@@ -694,9 +751,12 @@ class Board:
                                                   lon, at, grid, rasterize_polygons_qimage)
                     daylight = float(len(daylight_samples(lat, lon, at)) * SAMPLE_STEP_MINUTES)
                     drape = sun_hours_drape(result.minutes, grid, daylight, lut)
-                    pin = _open_ground(world, shot, records, cast_segment)
-                    variants.append(("sunhours", {"overlays": {
-                        "drape": drape, "lines": probe_pin_mesh(pin, radius)}, "pin": pin}))
+                    pin, pin_height = _open_ground(world, shot, records, cast_segment,
+                                                   self.size, radius)
+                    variants.append(("sunhours", {
+                        "overlays": {"drape": drape,
+                                     "lines": probe_pin_mesh(pin, radius, height_cm=pin_height)},
+                        "pin": pin, "pin_height_cm": pin_height}))
                     days = key_days(at)
                     arcs = [day_arc(lat, lon, days[kind], None, kind) for kind in ARC_KINDS]
                     path = sun_path_mesh(arcs, center, radius, hour_marks=hour_marks(arcs[0], None),
@@ -730,6 +790,7 @@ class Board:
                         row["isolated_dark_px"] = None
                     if variant == "sunhours":
                         row["pin"] = [round(v, 1) for v in options["pin"]]
+                        row["pin_height_cm"] = round(options["pin_height_cm"], 1)
                         row["pin_px"] = _pin_pixels(rgb)
                         if row["pin_px"] < 50:
                             raise RuntimeError(f"{shot.name}: the probe pin shows in "
@@ -1115,7 +1176,8 @@ class Board:
                 rgb, _frame, info = self.frame(
                     f"skydusk{tag}_{sun_elevation:+.1f}_{preset}", {}, sun=sun, look=look,
                     ground=None, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                measured = probes.sun_dip(rgb, camera, azimuth)
+                measured = probes.sun_dip(rgb, camera, azimuth,
+                                          sun_elevation_deg=sun_elevation)
                 measured.update(target=sun_elevation,
                                 ok=measured["dip_luma"] >= -SKY_DUSK_DIP_BOUND,
                                 file=info["file"])

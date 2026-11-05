@@ -7186,7 +7186,7 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   spacing overrides, measured spreads and custom footprints win; a cleared
   maximum preserves geometry.
 
-**Addendum (atmosphere-sky and render-tier integrity, #695/#696/#714/#717/#718/#722).**
+**Addendum (atmosphere-sky and render-tier integrity, #695/#696/#704/#714/#717/#718/#722).**
 - **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
   (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
   disc finder first takes a white plateau of at least 20 pixels (every channel ≥ 250) and
@@ -7197,9 +7197,10 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 - **The set sun is measured.** `--dusk` now renders a sky-only camera at the sun's own
   bearing at +1.0, +0.4, 0.0, −1.0 and −3°, for clear and every cloudy weather;
   `sun_dip` compares the darkest pixel within 10° of that bearing with the median at the
-  same world elevation 15–45° away (an image row is not a world elevation under a pitched
-  camera: comparing rows read a false 20-luma dip). A dip over 10 luma fails the board
-  (#695).
+  same world elevation 15–45° away, over the bands within 1.5° of the sun's own elevation
+  (an image row is not a world elevation under a pitched camera: comparing rows read a
+  false 20-luma dip; and an isolated cumulus 6° above the sun is weather, not a black
+  sun — it read 48 luma). A dip over 10 luma fails the board (#695).
 - **The playback stall (#722).** `SKY_SETTLE_MS` is 300 ms — longer than playback's
   200 ms step, so the steps keep restarting the settle timer — and a sky stale for 1 s is
   built at that pass (`SKY_MAX_STALENESS_MS`), so a playing day still follows the sun
@@ -7211,10 +7212,28 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   step at the same 3.6 (covering #696's 3.13 low-sunset row). The scene was not shown to
   have regressed since L4: the with- and without-L7 readings are identical, so 3.0 was a
   bound from the earlier scene, not a defect this package hides.
-- **The flood soak settles first (#718).** `scenario_soak` applies its `off` / `flood`
-  release policy only after the initial settle: with the flood threshold active from the
-  first pass, the LOD queue re-queued its own startup work (`pending` 34 after 60 s), so
-  the soak never measured. The startup is the state opening a plan gives the workspace.
+- **The flood soak settles first, and a forge completion cannot outlive its sink (#718).**
+  `scenario_soak` applies its `off` / `flood` release policy only after the initial settle:
+  with the flood threshold active from the first pass, the LOD queue re-queued its own
+  startup work (`pending` 34 after 60 s), so the soak never measured. The startup is the
+  state opening a plan gives the workspace. The livelock it hid was real: a sink reset (a
+  fresh engine, a recovery, a document switch) forgets every Model, and an in-flight forge
+  completion then called `replace_geometry` for an item the sink no longer held — it raised,
+  the workspace re-queued it, and the cycle repeated (clear, reset, queue again, fail
+  again). `Scene3DController` now emits `scene_reset` on every reset, the workspace clears
+  the Plant Forge queue, and `ForgeWorker` drops a completion whose item the sink no longer
+  holds. Pinned by `test_a_reset_tells_the_forge_that_the_sink_is_stale`,
+  `test_a_completion_that_crosses_a_sink_reset_is_dropped` and the existing sink-recovery
+  test. Measured on the RTX 4070 (2026-11-05): the flood-release soak with the ground bake
+  on read 3.03 MB/reload over 20 releases (1,396 frames presented, 20 releases); the churn
+  variant with the bake off read 1.70 MB/reload (GPU slope 2.24 MB, 20 releases). Both
+  were `['step EXCEPTION']` with `pending` 34 before.
+- **The probe pin is sized for its camera (#704).** `--analysis` places its magenta pin
+  on the nearest open ground whose WHOLE height is clear; the height is the product's
+  dome share raised until the pin shows at least 60 px (the board's gate is 50), capped
+  at 4×. On `bench_built`'s noon camera the share read 38 px and the board raised before
+  writing any sun-hours row; the sized pin reads 249 px at the same point (RTX 4070,
+  1280 × 720). The pin's position is still a measurement of the ground, not of the pin.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 

@@ -326,8 +326,10 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
             "elevation_deg": round(view.elevation_deg(x, y), 2)}
 
 
-def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *, near_deg: float = 10.0,
-            away_deg: tuple[float, float] = (15.0, 45.0)) -> dict[str, Any]:
+def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
+            sun_elevation_deg: float | None = None, near_deg: float = 10.0,
+            away_deg: tuple[float, float] = (15.0, 45.0),
+            near_elevation_deg: float = 1.5) -> dict[str, Any]:
     """The darkest sky row near the sun's bearing against the same rows away from it.
 
     The set-sun gate's instrument (#695): a black disc or a dark halo shows as the
@@ -337,8 +339,12 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *, near_deg: floa
     off-axis pixels in one row sit higher in the sky, which read a false 20-luma dip.)
     A mean would drown a small disc in the glow around it — a 36-pixel black disc left
     the row mean 16 luma above the away rows. ``dip_luma`` is the most negative
-    difference and ``elevation_deg`` its 0.25-degree band. Used on a sky-only frame
-    (``ground=None``), so a sun below the geometric horizon is still measured.
+    difference and ``elevation_deg`` its 0.25-degree band. With
+    ``sun_elevation_deg``, only bands within ``near_elevation_deg`` of the sun's own
+    elevation count: under partial cloud an isolated cumulus elsewhere in the sky is
+    legitimately dark (it read a 48-luma "dip" 6.6° above a 0.4° sun), but the disc's
+    own rows are where a black sun hides. Used on a sky-only frame (``ground=None``),
+    so a sun below the geometric horizon is still measured.
     """
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
     rows, cols = frame.shape[:2]
@@ -359,9 +365,13 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *, near_deg: floa
         values = lum[away & (bands == band)]
         if values.size >= 10:
             reference[int(band)] = float(np.median(values))
+    centre_band = (None if sun_elevation_deg is None
+                   else int(np.floor(sun_elevation_deg / band_deg)))
     dip, at_band = 0.0, None
     for band in np.unique(bands[near]):
         if int(band) not in reference:
+            continue
+        if centre_band is not None and abs(int(band) - centre_band) * band_deg > near_elevation_deg:
             continue
         values = lum[near & (bands == band)]
         if values.size < 3:

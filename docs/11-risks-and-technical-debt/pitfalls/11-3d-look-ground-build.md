@@ -302,3 +302,23 @@ before the first picture and the picture was counted as idle; and blocks of seco
 measured the machine's drift (clocks, background load), not the look. Fix: `_settle` waits for
 a frame after the build was requested and then for a quiet second; `scenario_frame_cost`
 renders each look once per round and compares medians over 40 rounds.
+
+### PF-L3D-19
+
+- **Rule:** A probe that compares "near" and "away" pixels of a perspective frame must bin them by the world quantity it cares about (elevation, bearing, distance) — an image row is a plane, not a cone.
+- **Pinned by:** `tests/unit/test_board_probes.py::test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not`; `scripts/render_beauty_board.py` `sun_dip`
+- **Source:** #695, #717
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the new set-sun probe failed the **painted** sky on every frame with a 19.7–24.2 luma dip, always at the same reported elevation (−1.12°), while the images looked clean. Root cause: `sun_dip` compared pixels in the same image row; with a 70° field and a +3° pitch the away columns in the horizon rows sit several degrees higher in the sky, and the sky's vertical gradient read as a dip. Fix: compare near (±10° of the sun's bearing) and away (15–45°) pixels in the same 0.25° world-elevation band. The first synthetic positive control passed because its disc and band shared rows; the real camera exposed the difference.
+
+### PF-L3D-20
+
+- **Rule:** A probe marker sized in world units has no guaranteed screen size: before a pixel gate judges it, check that the whole marker is clear and size it from the camera, then pin the measured pixels.
+- **Pinned by:** `tests/unit/test_render_beauty_board.py::test_a_distant_camera_gets_a_pin_that_shows_in_the_gate`; `tests/integration/test_view3d_looks_render.py::test_the_analysis_board_finds_its_probe_pin_on_the_built_world`
+- **Source:** #704
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: `--analysis` on `bench_built` raised "the probe pin shows in 38 pixels only" before writing a sun-hours row, while the same board passed on `bench_small`. Root cause: the pin's height is a share of the sun-path dome (52 cm on that plan), and the built-world noon camera stands 27 m away; the old search also checked only the first 30 cm, so a point whose ball was under a canopy could win. Fix: require the whole pin to be clear, raise its height from the camera until it shows 60 px (gate 50, cap 4×), and record `pin_height_cm` beside `pin_px`.
