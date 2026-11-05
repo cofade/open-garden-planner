@@ -28,6 +28,16 @@ DE = {
         "saved yet.":
             "Aufnahme verwerfen? {seconds:.0f} Sekunden wurden bereits gerendert, und die Datei "
             "ist noch nicht gespeichert.",
+        "Stop the recording? It has been running for {seconds:.0f} s, and the video is not "
+        "saved yet.":
+            "Aufnahme stoppen? Sie läuft seit {seconds:.0f} s, und das Video ist noch nicht "
+            "gespeichert.",
+        "Stop the render? The frames already written to {path} stay.":
+            "Rendering stoppen? Die bereits in {path} geschriebenen Einzelbilder bleiben erhalten.",
+        "The recording could not be closed before the window went. Its unfinished output may "
+        "stay at {path}.":
+            "Die Aufnahme konnte vor dem Schließen des Fensters nicht abgeschlossen werden. "
+            "Die unfertige Ausgabe bleibt möglicherweise unter {path}.",
         "Drone Orbit Around the Plan": "Drohnenflug um den Plan",
         "Duration:": "Dauer:",
         "Fly Through My Keyframes": "Durch meine Schlüsselansichten fliegen",
@@ -81,6 +91,11 @@ DE = {
         "{rate} frames per second": "{rate} Bilder pro Sekunde",
     },
     "Workspace": {
+        "Camera Tour": "Kamerafahrt",
+        "The recording could not be closed before the window went. Its unfinished output may "
+        "stay at {path}.":
+            "Die Aufnahme konnte vor dem Schließen des Fensters nicht abgeschlossen werden. "
+            "Die unfertige Ausgabe bleibt möglicherweise unter {path}.",
         "P&hoto Mode": "&Fotomodus",
         "4K (3840 x 2160)": "4K (3840 x 2160)",
         "A colour grade for the whole picture": "Eine Farbstimmung für das ganze Bild",
@@ -158,6 +173,16 @@ ES = {
         "saved yet.":
             "¿Descartar la grabación? Ya se han renderizado {seconds:.0f} segundos y el archivo "
             "aún no está guardado.",
+        "Stop the recording? It has been running for {seconds:.0f} s, and the video is not "
+        "saved yet.":
+            "¿Detener la grabación? Lleva {seconds:.0f} s en marcha y el vídeo aún no está "
+            "guardado.",
+        "Stop the render? The frames already written to {path} stay.":
+            "¿Detener el renderizado? Los fotogramas ya escritos en {path} se conservan.",
+        "The recording could not be closed before the window went. Its unfinished output may "
+        "stay at {path}.":
+            "La grabación no pudo cerrarse antes de que se cerrara la ventana. La salida "
+            "inacabada puede quedar en {path}.",
         "Drone Orbit Around the Plan": "Vuelo de dron alrededor del plano",
         "Duration:": "Duración:",
         "Fly Through My Keyframes": "Volar por mis vistas clave",
@@ -208,6 +233,11 @@ ES = {
         "{rate} frames per second": "{rate} fotogramas por segundo",
     },
     "Workspace": {
+        "Camera Tour": "Recorrido de cámara",
+        "The recording could not be closed before the window went. Its unfinished output may "
+        "stay at {path}.":
+            "La grabación no pudo cerrarse antes de que se cerrara la ventana. La salida "
+            "inacabada puede quedar en {path}.",
         "P&hoto Mode": "Modo &foto",
         "4K (3840 x 2160)": "4K (3840 x 2160)",
         "A colour grade for the whole picture": "Un etalonaje de color para toda la imagen",

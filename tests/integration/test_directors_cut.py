@@ -1054,7 +1054,7 @@ def test_a_new_plan_gives_the_kept_blur_the_new_cameras_focus(
     moved = (1500.0, 1200.0, 0.0)
     monkeypatch.setattr(capture, "_get_camera_now",
                         lambda: ((0.0, 0.0, 500.0), moved, 40.0))
-    capture.document_shown()
+    rig.workspace._controller.document_shown.emit()   # the engine's first pass: the real seam
     assert capture.settings.blur == 0.6 and capture.settings.focus_scene == moved
     assert capture._blur.value() == 60
     assert rig.host.photos[-1].focus_scene == moved
@@ -1137,9 +1137,34 @@ def test_a_years_time_lapse_holds_utc_across_both_clock_changes(rig: Rig) -> Non
         time(15, 0), time(15, 0), time(16, 0), time(16, 0), time(15, 0), time(15, 0)]
 
 
+def test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour(rig: Rig) -> None:
+    """A 03:30 start on the autumn change day used to land in the repeated hour and be
+    resolved as the summer occurrence: a one-hour sun jump. The fold is part of the
+    reading, not an afterthought (issue #732, senior review)."""
+    clock = SimClock(datetime(2026, 10, 24, 3, 30), tz=EU_DST)
+    capture = WorkspaceCaptureCoordinator(
+        get_host=lambda: None, get_controller=lambda: None, get_look=lambda: None,
+        get_clock=lambda: clock, get_camera=lambda: None,
+        get_camera_now=lambda: ((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0),
+        forge_pending=lambda: 0, is_pane_showing=lambda: True, view_state=lambda: "running",
+        ground_point=lambda _x, _y: None, default_path=str, fly_path=lambda _eyes: None,
+        is_walking=lambda: False, parent=rig.window)
+    capture._tour_holds_utc = True
+    moments = []
+    for day in (date(2026, 10, 24), date(2026, 10, 25), date(2026, 10, 26)):
+        capture._tour_clock(day, None)
+        moments.append((clock.plan_date, clock.utc.time(), clock.time_of_day))
+    assert [moment[0] for moment in moments] == [
+        date(2026, 10, 24), date(2026, 10, 25), date(2026, 10, 26)]
+    assert {moment[1] for moment in moments} == {time(1, 30)}, moments
+    assert moments[0][2] == time(3, 30)
+    assert moments[1][2] == time(2, 30), "the repeated hour's second occurrence"
+
+
 class _FakeRecorder:
     def __init__(self) -> None:
         self.cancelled = 0
+        self.running = True
 
     def cancel(self) -> bool:
         self.cancelled += 1
@@ -1237,3 +1262,86 @@ def test_an_agent_uses_the_owners_date_while_a_tour_moves_the_clock(
         app._workspace.capture._clock_hold = None
         app._stop_agent_api()
         app.close()
+
+
+def test_a_setting_change_while_the_new_plan_is_framing_waits_for_the_camera(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    capture.set_photo_mode(True)
+    capture.set_settings(PhotoSettings(blur=0.6, focus_scene=(1.0, 2.0, 3.0)))
+    rig.workspace.document_changed()
+    monkeypatch.setattr(capture, "_get_camera_now",
+                        lambda: ((0.0, 0.0, 500.0), (900.0, 800.0, 0.0), 40.0))
+    capture.set_settings(PhotoSettings(blur=0.7))   # the user moves the slider meanwhile
+    assert capture.settings.blur == 0.7 and capture.settings.focus_scene is None
+    rig.workspace._controller.document_shown.emit()
+    assert capture.settings.focus_scene == (900.0, 800.0, 0.0)
+    assert rig.host.photos[-1].focus_scene == capture.settings.focus_scene
+
+
+def test_an_engine_teardown_closes_the_dialog_without_asking(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    recorder = _FakeRecorder()
+    dialog._recorder = recorder
+    dialog._recording = True
+    dialog._run_started_at = monotonic() - ASK_DISCARD_AFTER_S - 1.0
+    asked: list[str] = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda _parent, _title, text, *_a, **_k: asked.append(text)
+                        or QMessageBox.StandardButton.Cancel)
+    dialog.close_for_shutdown()
+    assert not asked, "the engine is going: no question can be answered usefully"
+    assert recorder.cancelled == 1
+    dialog._recorder = None
+    dialog._recording = False
+    dialog.close()
+
+
+def test_a_writer_that_never_closes_is_named_on_exit(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    class Stuck(QObject):
+        finished = pyqtSignal(object)
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.path = Path("C:/tmp/tour.part.mp4")
+
+        def abort_now(self) -> None:
+            pass
+
+        def output_path(self) -> Path:
+            return self.path
+
+    capture = rig.workspace.capture
+    stuck = Stuck()
+    capture._recorder = stuck
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning",
+                        lambda _parent, _title, text, *_a, **_k: warned.append(text))
+    capture.shutdown(timeout_s=0.05)
+    assert warned and str(stuck.path) in warned[0]
+    assert capture._recorder is stuck
+    capture._recorder = None
+
+
+def test_the_app_close_hands_the_capture_its_shutdown(
+        qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda *_a, **_k: None)
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *_a, **_k: QMessageBox.StandardButton.Discard)
+    app = GardenPlannerApp()
+    qtbot.addWidget(app)
+    calls: list[str] = []
+    monkeypatch.setattr(app._workspace.capture, "shutdown",
+                        lambda *_a, **_k: calls.append("capture"))
+    try:
+        event = QCloseEvent()
+        app.closeEvent(event)
+        assert "capture" in calls, "the main window's close waits for a recording's file"
+        assert event.isAccepted()
+    finally:
+        app._stop_agent_api()

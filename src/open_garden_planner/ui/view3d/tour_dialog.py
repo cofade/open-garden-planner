@@ -97,6 +97,8 @@ class TourDialog(QDialog):
         self._close_when_stopped = False
         self._output: Path | None = None
         self._run_started_at: float | None = None
+        self._sink_kind = "preview"
+        self._programmatic_close = False
         self.setWindowTitle(self.tr("Camera Tour"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         root = QVBoxLayout(self)
@@ -329,6 +331,7 @@ class TourDialog(QDialog):
 
     def showEvent(self, event: object) -> None:  # noqa: N802 - Qt's name
         """The year the plan date is in, whenever the dialog opens and no year was chosen."""
+        self._programmatic_close = False
         if not self._recording and not self.date_from.property("chosen"):
             year = self._capture.plan_date().year
             self.date_from.setDate(QDate(year, *DEFAULT_SEASON[0]))
@@ -384,6 +387,8 @@ class TourDialog(QDialog):
         self._recorder = recorder
         self._recording = not realtime
         self._run_started_at = monotonic()
+        self._sink_kind = ("preview" if isinstance(writer, NullWriter)
+                           else "mp4" if isinstance(writer, Mp4Writer) else "png")
         self._modal = self._recording or spec.date_range is not None or spec.time_range is not None
         recorder.progress.connect(self._on_progress)
         recorder.paused_changed.connect(self._on_paused)
@@ -448,7 +453,7 @@ class TourDialog(QDialog):
         self._status.setText(self._say(result, recording))
         self._sync_controls()
         closing, self._close_when_stopped = self._close_when_stopped, False
-        if closing and result.cancelled:   # a finished file's outcome stays to be read
+        if closing and (result.cancelled or result.ok):   # a failure's reason stays to be read
             self.close()
 
     def _say(self, result: TourResult, recording: bool) -> str:
@@ -470,19 +475,33 @@ class TourDialog(QDialog):
         """True when a running recording may be thrown away.
 
         Esc or X used to discard an MP4 at once, however long it had been rendering
-        (issue #731). A short run is not worth a question; a long one is."""
-        if not self._recording or self._recorder is None or self._run_started_at is None:
+        (issue #731). A short run is not worth a question; a long one is. A programmatic
+        close (the engine is going) cannot ask; a file already being closed cannot be
+        stopped; and a PNG sequence's written frames stay, so its question says that."""
+        if (self._programmatic_close or not self._recording or self._recorder is None
+                or not self._recorder.running):
             return True
-        elapsed = monotonic() - self._run_started_at
+        elapsed = monotonic() - self._run_started_at if self._run_started_at else 0.0
         if elapsed < ASK_DISCARD_AFTER_S:
             return True
+        if self._sink_kind == "png":
+            question = self.tr(
+                "Stop the render? The frames already written to {path} stay.").format(
+                    path=self._output)
+        else:
+            question = self.tr(
+                "Stop the recording? It has been running for {seconds:.0f} s, and the "
+                "video is not saved yet.").format(seconds=elapsed)
         answer = QMessageBox.question(
-            self, self.tr("Camera Tour"),
-            self.tr("Discard the recording? {seconds:.0f} seconds have been rendered, "
-                    "and the file is not saved yet.").format(seconds=elapsed),
+            self, self.tr("Camera Tour"), question,
             QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel)
         return answer == QMessageBox.StandardButton.Discard
+
+    def close_for_shutdown(self) -> None:
+        """The engine is going: close without asking, and stop what this dialog started."""
+        self._programmatic_close = True
+        self.close()
 
     def reject(self) -> None:
         """Esc: a running preview or recording stops, and the dialog stays to say how that

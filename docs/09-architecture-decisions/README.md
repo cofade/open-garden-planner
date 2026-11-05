@@ -4673,19 +4673,24 @@ The tour therefore holds the **UTC time of day** for a date range:
 
 - The first frame is written as the dialog promises it - its date at the owner's current wall time
   - and its `utc` time-of-day becomes the held value.
-- Every later frame is a **naive wall reading** (decision 3 still holds: no user-facing path hands
-  the clock an instant), computed as the frame's date at the held UTC time plus that date's offset.
-  The local clock therefore shifts by the DST offset, and the sun moves evenly.
-- A computed reading that would land on another date is clamped to `00:00` or `23:59` of the
-  frame's date. That only happens when the owner starts a year tour within an hour of midnight;
-  the sun stays within the offset of the held instant and the dates the dialog names are kept.
+- Every later frame calls `SimClock.set_utc_time_on(frame_date, held_utc_time)`: the clock finds
+  the instant whose **local date** is the frame's and whose **UTC time-of-day** matches, and stores
+  its wall reading. The derivation goes through the zone, so the repeated autumn hour gets the
+  occurrence whose instant actually matches (`fold` included) and the spring gap gets the real
+  local hour (03:30, not the nonexistent 02:30). This is a clock-side operation, not a user-facing
+  writer handing an instant: decision 3's rule is unchanged for the UI.
+- A local date with no such instant - within an hour of midnight across a change - is clamped to
+  `00:00` or `23:59` of the frame's date. The sun stays within that hour of the held instant and
+  the dates the dialog names are kept.
 - Only a tour with a `date_range` or a `time_range` holds and restores the owner's moment; a
   flight preview writes the clock not at all, so a date set while one runs survives it (ADR-072
   addendum, #730).
 
 Pinned by `tests/integration/test_directors_cut.py::test_a_years_time_lapse_holds_utc_across_both_clock_changes`
-(an EU DST zone without tzdata, constant UTC time-of-day across both changes, the dialog's dates
-kept) and the render tier's two-week clock-change luma gate
+and `::test_a_years_time_lapse_holds_utc_through_the_repeated_autumn_hour` (an EU DST zone without
+tzdata: constant UTC time-of-day across both changes, the dialog's dates kept, and a 03:30 start on
+the change day that the wall-offset version turned into a one-hour jump) and the render tier's
+two-week clock-change luma gate
 (`tests/integration/test_directors_cut_render.py::test_a_year_time_lapse_does_not_jump_at_the_clock_change`:
 largest step 1.53 levels after the fix against 18.07 before it).
 
@@ -8259,7 +8264,8 @@ could disagree with the existing date-projected 3D canopy.
   set independently of drawing-layer visibility. Solar receivers and casters also
   honor layer visibility. Hidden plants remain saved. API summary counts retain their existing counting
   rule, and object lists retain absent plants with `present=false`; `as_of_date`
-  names the shared plan date. Runtime annotations live only in the API snapshot.
+  names the shared plan date (or, while a camera tour moves that clock, the owner's held
+  date - ADR-072 addendum, #730). Runtime annotations live only in the API snapshot.
 - PNG/SVG/PDF/DXF render the current visible state. The PDF plant table excludes
   date-absent plants while retaining hidden-layer data; every report page identifies a non-today plan date. An API layer
   override may reveal a hidden layer but cannot reveal a date-absent plant.
@@ -10587,34 +10593,40 @@ anything the owner did not ask it to change - not the clock, not a kept file, no
 1. **One clock hold, taken only by a tour that moves the clock.** `start_tour` stores the owner's
    `clock.wall` only when `date_range` or `time_range` is set (`WorkspaceCaptureCoordinator._clock_hold`);
    a flight preview stores nothing and restores nothing, so a date the user sets while a preview
-   runs survives it (#730). The held wall reading is what `owner_wall()`/`owner_plan_date()` report
-   while the tour runs; the normal clock write path is unchanged.
+   runs survives it (#730). The held moment is what `owner_plan_date()` reports while the
+   tour runs; the normal clock write path is unchanged.
 2. **Agent reads and writes use the owner's held date.** `AgentHost._agent_plan_date()` resolves
    `WorkspaceCaptureCoordinator.owner_plan_date()` first and the sim clock second;
    `ProjectManager.snapshot_dict(scene, as_of_date=...)` derives `as_of_date` and every object's
    `present` from that one date. A plant an agent creates during a time-lapse is stamped with the
    owner's planting date, not the frame being rendered. A document change still ends a tour (the
-   scene it was rendering is gone); the dialog says so.
+   scene it was rendering is gone); the dialog says so. Diagnostics and the 2D render describe
+   the frame the tour is currently showing; they are not date claims.
 3. **A year's tour holds UTC, not the wall time.** The sun is `SimClock.utc`'s function; a wall
    time held across a DST change moved the sun by an hour (measured: an 18.07-level step between
    neighbouring frames of a two-week clock-change tour; the owner read 24 in the year video,
-   #732). `_tour_clock` records the first frame's UTC time-of-day and, for every later date,
-   writes the wall reading whose UTC time matches it, through the day's offset. The first frame
-   still shows the date the dialog names at the owner's time of day, and a reading within an hour
-   of midnight is clamped to the frame's date (the sun stays within that hour; the date range the
-   dialog promised holds). See ADR-053's addendum for the clock-side statement.
+   #732). The first frame records its UTC time-of-day and every later frame asks
+   `SimClock.set_utc_time_on(day, held)` for the instant whose local date is the frame's and
+   whose UTC time-of-day matches: the wall reading is derived through the zone, so the repeated
+   autumn hour gets the occurrence whose instant matches (`fold` included) and the spring gap
+   gets the real local hour. A day with no such instant (within an hour of midnight across a
+   change) is clamped to the frame's date. The dates the dialog promised hold. See ADR-053's
+   addendum for the clock-side statement.
 4. **A finished render is never deleted without the user's word.** `Mp4Writer` takes the first
    free `<stem>.part[<n>].mp4`, so a render kept because its target was held open by a player is
    never removed by the next recording of the same name (#731). Esc or X on a recording that has
-   run for `ASK_DISCARD_AFTER_S` (10 s) asks first; Cancel keeps it running. `Workspace.shutdown`
-   calls `WorkspaceCaptureCoordinator.shutdown`, which aborts the recorder and waits (bounded,
-   2.5 s) for its file to close, so leaving the app does not leave a `.part.mp4` behind.
+   run for `ASK_DISCARD_AFTER_S` (10 s) asks first; Cancel keeps it running; a programmatic
+   engine teardown does not ask. `Workspace.shutdown` calls
+   `WorkspaceCaptureCoordinator.shutdown`, which aborts the recorder and waits (bounded,
+   2.5 s) for its file to close; if the encoder is still closing then, it names the unfinished
+   output in a warning, so the user can find it instead of the part disappearing unreported.
 5. **The focus invariant lives in one place.** `set_settings` enforces "blur above 0 in photo mode
    implies a focused point": with no clicked point it focuses the camera target, or, while
    walking, the ground point under the view's centre (the 100 cm mid-air target is behind the
    walker after a few steps). `document_changed` clears the old point and records that the new
-   plan's framing is pending; `document_shown` re-establishes it once the camera is framed, so
-   opening a plan cannot leave a blur slider that does nothing (#745).
+   plan's framing is pending; a setting changed meanwhile is stored and applied then, never
+   focused on the plan that is going away; `document_shown` re-establishes the point once the
+   camera is framed (#745).
 
 **Alternatives considered**: refusing agent writes during any recording (rejected: a read is
 harmless and a write can use the owner's date, which is what the user expects); holding the wall

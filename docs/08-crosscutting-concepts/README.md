@@ -7892,10 +7892,12 @@ in mid-flight; the first frame waits for that, up to
 `SETTLE_LIMIT_S × FIRST_FRAME_SETTLE_FACTOR`. A recording is
 modal, and so is a preview that moves the clock (a time-lapse): the plan behind it must not take that
 date for its own. A preview of a flight (small, in real time, skipping what it is late for) is not
-modal. While the clock is held, agent reads report the **owner's** date as `as_of_date` and agent
-writes stamp it (`AgentHost._agent_plan_date`), not the frame's. Esc cancels and leaves the dialog
-open; after 10 s it asks first. The window's X asks the same way and closes once the recording has
-stopped; closing the app aborts the recording and waits (bounded) for its file to close.
+modal. While the clock is held, agent reads report the **owner's** date as `as_of_date` and an
+agent-created plant is stamped with it (`AgentHost._agent_plan_date`), not with the frame's.
+Esc cancels and leaves the dialog
+open; after 10 s it asks first, unless the engine is closing the dialog itself. The window's X
+asks the same way and closes once the recording has stopped; closing the app aborts the recording
+and waits (bounded) for its file to close, naming the unfinished output if it cannot.
 `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
 shown pauses it the same way.
 

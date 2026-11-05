@@ -273,6 +273,16 @@ class TestTransitions:
         assert clock.time_of_day == time(12, 0)
         assert spy.calls == []
 
+    def test_set_utc_time_on_keeps_the_local_date_and_the_utc_time(self) -> None:
+        """The year-tour writer (#732): a UTC time of day on a LOCAL date, derived through
+        the zone, not an instant that may read back on another day."""
+        clock = SimClock(datetime(2026, 6, 21, 12, 0), tz=TOKYO_FIXED)
+        change = clock.set_utc_time_on(date(2026, 6, 22), time(3, 0))
+        assert change is not None
+        assert clock.plan_date == date(2026, 6, 22)
+        assert clock.time_of_day == time(12, 0)
+        assert clock.utc == datetime(2026, 6, 22, 3, 0, tzinfo=UTC)
+
     def test_set_time_of_day_rejects_an_aware_time(self) -> None:
         clock = SimClock(datetime(2026, 6, 21, 12, 0))
         with pytest.raises(ValueError, match="naive"):

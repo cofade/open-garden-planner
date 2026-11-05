@@ -3015,7 +3015,8 @@ class AgentHost:
         # agent_api.queries.get_object / _stack_indices.
         from open_garden_planner.agent_api import queries
 
-        snapshot = host._project_manager.snapshot_dict(host.canvas_scene)
+        snapshot = host._project_manager.snapshot_dict(
+            host.canvas_scene, as_of_date=self._agent_plan_date())
         detail = queries.get_object(snapshot, item_id)
         stack_index = cast(Any, detail).stack_index if detail is not None else None
         return {

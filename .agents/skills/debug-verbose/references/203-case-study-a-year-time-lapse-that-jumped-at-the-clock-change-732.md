@@ -30,12 +30,13 @@ an hour - the "jump" was a real solar hour, not a rendering fault.
 day tour, whose time range is the variable, but wrong for a year tour, whose date is: the
 zone offset changes under the fixed wall reading.
 
-**Fix** (`ui/view3d/workspace_capture.py`, `_tour_clock`; ADR-053 addendum L6): the first
-frame records its UTC time-of-day; every later frame is written as the **naive wall
-reading** whose UTC time matches it, through that date's offset. The local clock shifts by
-the DST offset, the sun moves evenly, and the dates the dialog names are kept. A reading
-that would cross midnight (a year tour started within an hour of midnight) is clamped to
-the frame's date.
+**Fix** (`ui/view3d/workspace_capture.py`, `_tour_clock`; `SimClock.set_utc_time_on`;
+ADR-053 addendum L6): the first frame records its UTC time-of-day; every later frame asks the
+clock for the **instant** whose local date is the frame's and whose UTC time-of-day matches, so
+the wall reading is derived through the zone with the repeated autumn hour's `fold` included. A
+local date with no such instant (within an hour of midnight across a change) is clamped to the
+frame's date. The local clock shifts by the DST offset, the sun moves evenly, and the dates the
+dialog names are kept.
 
 **Lesson**: "same wall time" is not "same sun". Any clock writer that sweeps dates must
 hold the UTC instant and derive the wall reading - and the proof is a per-frame measurement

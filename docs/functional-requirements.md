@@ -1043,8 +1043,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   held open (a player has it), the finished video stays beside it and the message says where; a later
   recording of the same name takes a free part name and never deletes that kept render. **Esc or the
   window's X asks before throwing away a recording that has already run for 10 s**; Cancel keeps it
-  running. Closing the app ends a running recording and waits for its file to close, so it does not
-  leave a part file behind. If the 3D view stops being visible, the recording waits and goes on.
+  running. Closing the app ends a running recording and waits (bounded) for its file to close; if
+  the encoder cannot close in time, it names the unfinished output so the user can find it. If
+  the 3D view stops being visible, the recording waits and goes on.
 - **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the

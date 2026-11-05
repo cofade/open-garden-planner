@@ -1371,9 +1371,9 @@ def build_server(
             created fully off-plan (where it would be invisible).
 
             A new plant is stamped with the plan's current date (the owner's
-            date, even while a camera tour is moving the clock; which drives the
-            growth, shadow and sun-hours views) and, when 'species' matches the
-            bundled species database, is auto-populated with that species' data.
+            date - not a camera tour's current frame - which drives growth,
+            shadow and sun-hours) and, when 'species' matches the bundled
+            species database, is auto-populated with that species' data.
             A plant created inside a bed is automatically linked to that bed,
             within this same single undo step -- the bed's id comes back as
             new_parent_bed_id.

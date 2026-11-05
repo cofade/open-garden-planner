@@ -272,7 +272,7 @@ class WorkspaceCaptureCoordinator(QObject):
             self.set_photo_mode(False)
             dialog, self._dialog = self._dialog, None
             if dialog is not None:
-                dialog.close()
+                dialog.close_for_shutdown()
 
     def document_changed(self) -> None:
         """Another plan: a recording stops, and the focused point was a point of the old one.
@@ -335,15 +335,21 @@ class WorkspaceCaptureCoordinator(QObject):
         """What the controls do; a test's way in.
 
         THE one place the invariant "blur above 0 in photo mode implies a focused point"
-        is enforced: ``_on_controls_changed``, ``set_photo_mode``, ``_focus_on`` and a
-        document change all come through here. Without a point Qt has no depth to measure
-        from, so the blur slider did nothing until the view was clicked (manual test of
-        #390)."""
-        if self._photo_on:
-            settings = self._with_a_focus(settings)
+        is enforced: ``_on_controls_changed``, ``set_photo_mode``, ``_focus_on`` and the
+        new plan's ``document_shown`` all come through here. Without a point Qt has no
+        depth to measure from, so the blur slider did nothing until the view was clicked
+        (manual test of #390).
+
+        While a new plan's framing is pending, settings are stored and applied later:
+        focusing them on the old camera now would pin the blur to the plan that is going
+        away."""
         self._settings = settings
         self._sync_blur_slider(settings.blur)
+        if self._focus_pending:
+            return
         if self._photo_on:
+            settings = self._with_a_focus(settings)
+            self._settings = settings
             self._apply(settings)
             self._say_focus()
 
@@ -444,6 +450,7 @@ class WorkspaceCaptureCoordinator(QObject):
         return True
 
     def _focus_on(self, point: tuple[float, float, float]) -> None:
+        self._focus_pending = False   # a click is the user's own point, valid now
         settings = replace(self._settings, focus_scene=point)
         if settings.blur <= 0.0 and self._blur is not None:
             # a focus with nothing out of focus would do nothing: give it a blur to start with
@@ -542,14 +549,6 @@ class WorkspaceCaptureCoordinator(QObject):
         clock = self._get_clock()
         return clock.plan_date if clock is not None else date.today()
 
-    def owner_wall(self) -> datetime | None:
-        """The owner's moment while a tour is moving the clock; None otherwise.
-
-        Only a tour that changes the date or the time holds the clock (``start_tour``).
-        A flight preview leaves it alone by construction, so a date the user sets while a
-        preview runs survives it (issue #730)."""
-        return self._clock_hold
-
     def owner_plan_date(self) -> date | None:
         """The plan date an agent must see while a tour is moving the clock: the owner's,
         not the frame's."""
@@ -620,10 +619,12 @@ class WorkspaceCaptureCoordinator(QObject):
                     # The first frame shows the date the dialog says at the time the owner's
                     # clock had; THAT instant is what the rest of the year holds.
                     self._tour_utc_time = clock.utc.time()
-                else:
+                elif clock.set_utc_time_on(day, self._tour_utc_time) is None:
+                    # Within an hour of midnight the local date has no reading at the held
+                    # UTC time (a 23-hour day): keep the frame's date and clamp the clock.
                     offset = clock.wall - clock.utc.replace(tzinfo=None)
                     target = datetime.combine(day, self._tour_utc_time) + offset
-                    if target.date() != day:   # within an hour of midnight on a DST day
+                    if target.date() != day:
                         target = datetime.combine(
                             day, day_time(0, 0) if target.date() > day else day_time(23, 59))
                     clock.set_datetime(target)
@@ -650,7 +651,7 @@ class WorkspaceCaptureCoordinator(QObject):
         recorder, self._recorder = self._recorder, None
         if recorder is not None:
             recorder.deleteLater()
-        moment, self._clock_hold = self._clock_hold, None
+        moment = self._clock_hold
         self._tour_utc_time = None
         self._tour_holds_utc = False
         try:
@@ -664,6 +665,7 @@ class WorkspaceCaptureCoordinator(QObject):
         clock = self._get_clock()
         if clock is not None and moment is not None:
             clock.set_datetime(moment)   # the owner's date and time, as they were
+        self._clock_hold = None   # . only after the clock is the owner's again
         look = self._get_look()
         if look is not None:
             look.hold_preset(False)
@@ -675,23 +677,32 @@ class WorkspaceCaptureCoordinator(QObject):
 
         ``closeEvent`` runs while Qt's event loop can still deliver the writer's finish,
         so a bounded nested loop here is what turns "the app went away" into a closed
-        file instead of a ``.part.mp4`` left beside the user's video (issue #731)."""
+        file instead of a ``.part.mp4`` left beside the user's video (issue #731). If the
+        encoder does not close in time, the path is reported: the file may stay, and the
+        user is told where."""
         recorder = self._recorder
         if recorder is None:
             return
         from PyQt6.QtCore import QEventLoop, QTimer
 
+        recorder.abort_now()
+        if self._recorder is None:   # a preview's writer finished synchronously
+            return
         loop = QEventLoop()
         recorder.finished.connect(lambda _result: loop.quit())
-        recorder.abort_now()
         limit = QTimer(loop)
         limit.setSingleShot(True)
         limit.timeout.connect(loop.quit)
         limit.start(max(1, int(timeout_s * 1000.0)))
         loop.exec()
         if self._recorder is not None:
+            path = recorder.output_path()
             _LOG.warning("Camera tour: the file had not closed when the window went; "
-                         "its part file may stay behind")
+                         "its unfinished output may stay at %s", path)
+            QMessageBox.warning(
+                self._parent, _tr("Camera Tour"),
+                _tr("The recording could not be closed before the window went. "
+                    "Its unfinished output may stay at {path}.").format(path=path))
 
     # ── pictures for an agent ────────────────────────────────────────────────
 

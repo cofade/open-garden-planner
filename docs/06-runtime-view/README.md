@@ -1074,5 +1074,9 @@ sequenceDiagram
 
 A tour repeats the capture once per pass of the event loop, after moving the sim clock and
 waiting for the pipeline, the forge and the sky to follow; the capture view keeps its render
-targets between frames (`begin_captures`), and the owner's date and time return at the end.
+targets between frames (`begin_captures`). A tour that moves the clock (a day or a year)
+restores the owner's date and time at the end; a flight preview never writes the clock and
+therefore restores nothing, so a date set while it runs survives it. During a clock-moving
+tour, agent reads report the owner's held date (`as_of_date`) and agent-created plants are
+stamped with it, not with the frame being rendered (ADR-072 addendum, issue #730).
 
