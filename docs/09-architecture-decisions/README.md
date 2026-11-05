@@ -10587,6 +10587,8 @@ view on any steady path.
 
 ### Addendum: capture-session integrity (#730, #731, #732, #745)
 
+Delivered in **v1.37.2** (PR #750) after the owner's manual acceptance on 5 November 2026.
+
 Four follow-ups from the reviews of this PR share one rule: a capture session must not change
 anything the owner did not ask it to change - not the clock, not a kept file, not the focus.
 

@@ -4059,10 +4059,11 @@ addendum (type change owns the ridge), ADR-043 addendum (a group is one layered 
 PF-CAN-40/41/42 and PF-PER-27.
 
 
-### Capture-session integrity package (#730, #731, #732, #745) — **delivered for manual acceptance**
+### Capture-session integrity package (#730, #731, #732, #745) - shipped in v1.37.2 (PR #750)
 
-Four follow-ups from the reviews of the Director's cut (#390, v1.37.0, ADR-072), all one
-rule: a capture session must not change anything the owner did not ask it to change.
+Four follow-ups from the reviews of the Director's cut (#390, v1.37.0, ADR-072), accepted by
+the owner on 5 November 2026. All one rule: a capture session must not change anything the
+owner did not ask it to change.
 
 - **#730 — one clock hold, and agents see the owner's date.** A tour holds and restores the
   owner's moment only when it actually moves the clock (`date_range`/`time_range`); a flight

@@ -308,7 +308,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   prunes nested journal notes in the same compound undo step; path presets default to 80 cm and
   preserve user-set widths on style switch; paved paths use flat caps and bevel joins eliminating
   rounded lobes in 2D and agreeing with 3D kerb mesh; and plan loader enforces `MAX_POLYLINE_VERTICES` (16,384).
-- Capture-session integrity package (#730, #731, #732, #745) delivered for acceptance:
+- Capture-session integrity package (#730, #731, #732, #745) shipped in v1.37.2 (PR #750):
   a tour holds the clock only when it moves it, and agents use the owner's date during
   a time-lapse (ADR-072 addendum); a kept `.part.mp4` survives, Esc/X ask after 10 s, and
   app close waits for the writer (PF-E3D-22); a year's tour holds UTC across DST (1.53
