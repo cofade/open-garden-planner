@@ -3,6 +3,8 @@
 Manages loading Qt translator files (.qm) for the selected UI language.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from PyQt6.QtCore import QLibraryInfo, QLocale, QTranslator
@@ -20,6 +22,24 @@ _TRANSLATIONS_DIR = Path(__file__).parent.parent / "resources" / "translations"
 
 # Keep references so translators aren't garbage-collected
 _active_translators: list[QTranslator] = []
+_current_language: str = "en"
+
+
+def current_language() -> str:
+    """Return the currently loaded language code (e.g. 'en', 'de', 'es', 'ru')."""
+    return _current_language
+
+
+def set_current_language(lang_code: str) -> None:
+    """Set the active language code."""
+    global _current_language
+    if lang_code in SUPPORTED_LANGUAGES:
+        _current_language = lang_code
+
+
+def current_locale() -> QLocale:
+    """Return a QLocale for the currently loaded language."""
+    return QLocale(_current_language)
 
 
 def load_translator(app: QApplication, lang_code: str) -> bool:
@@ -40,6 +60,8 @@ def load_translator(app: QApplication, lang_code: str) -> bool:
         True if the translator was loaded (or not needed for English),
         False if loading failed.
     """
+    global _current_language
+
     # Clear any previously installed translators
     for translator in _active_translators:
         app.removeTranslator(translator)
@@ -47,6 +69,7 @@ def load_translator(app: QApplication, lang_code: str) -> bool:
 
     # English is the source language — no translation needed
     if lang_code == "en":
+        _current_language = "en"
         return True
 
     # Load Qt's own translations (OK, Cancel, About Qt dialog, etc.)
@@ -70,6 +93,7 @@ def load_translator(app: QApplication, lang_code: str) -> bool:
     if qm_file.exists() and app_translator.load(str(qm_file)):
         app.installTranslator(app_translator)
         _active_translators.append(app_translator)
+        _current_language = lang_code
         return True
 
     return False

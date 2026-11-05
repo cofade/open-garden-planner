@@ -224,3 +224,42 @@ def test_one_validity_rule_for_a_plans_place(location: object, expected: object)
     1000 went to Open-Meteo). One rule now: real numbers, finite, in range — else no
     place, never an exception in a ``location_changed`` slot."""
     assert plan_place(location) == expected   # plan_latitude's default: test_phenology.py
+
+
+@pytest.mark.parametrize("hostile_location", [
+    {"latitude": "52.5", "longitude": "13.4"},
+    {"latitude": True, "longitude": 13.4},
+    {"latitude": float("nan"), "longitude": 13.4},
+    {"latitude": 10 ** 400, "longitude": 13.4},
+    {"latitude": 1000.0, "longitude": 13.4},
+    {"latitude": 52.5, "longitude": 181.0},
+    "not a location",
+    None,
+])
+def test_location_readers_outside_l5_never_raise_on_hostile_location(hostile_location: object, qtbot) -> None:
+    """Issue #697: location readers outside L5 (analysis_controller._latlon,
+    sync_controller._sun logic, application._on_location_changed) must not raise
+    on hostile inputs (overflow, NaN, text, bool, out-of-range)."""
+    from datetime import datetime
+
+    from PyQt6.QtWidgets import QLabel
+
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.ui.view3d.analysis_controller import _latlon
+    from open_garden_planner.ui.view3d.sync_controller import NO_LOCATION_SUN, Scene3DController
+
+    assert _latlon(hostile_location) is None
+
+    class DummySync:
+        def _location(self):
+            return hostile_location
+        _clock = type("Clock", (), {"utc": datetime.now(UTC)})()
+    assert Scene3DController._sun(DummySync()) == NO_LOCATION_SUN
+
+    label = QLabel()
+    class DummyApp:
+        location_label = label
+        def tr(self, s):
+            return s
+    GardenPlannerApp._on_location_changed(DummyApp(), hostile_location)
+    assert label.text() == "No location set"

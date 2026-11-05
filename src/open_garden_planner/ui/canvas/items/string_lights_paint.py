@@ -18,7 +18,7 @@ The symbol's post is much wider than the 3D one (a full stroke width against 4 c
 the layout's 6 cm clearance is not enough to keep a bulb off the picture's post. Two
 rules keep the bulb visible: the drawn post's side is capped at twice the clearance, and
 the wire and posts are painted BEFORE the bulbs, so a clamped bulb reads on top of the
-post instead of being bitten in half (senior review round 12).
+post instead of being bitten in half (senior review round 12; issue #706).
 """
 
 from __future__ import annotations
@@ -28,7 +28,16 @@ from collections.abc import Sequence
 from typing import Final
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QRadialGradient
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QRadialGradient,
+)
 
 from open_garden_planner.core.scene3d.builders import palette
 from open_garden_planner.core.string_lights import POST_CLEAR_CM, Layout, layout
@@ -45,6 +54,8 @@ _GLOW: Final = QColor(255, 206, 120, 180)
 #: The width a string is drawn at when its line has none (a stroke width of 0, which a
 #: file may hold): ``STRING_LIGHTS``' style.
 DEFAULT_WIDTH: Final = 12.0
+#: Gallery and property panel thumbnail size
+THUMB_SIZE: Final = 64
 
 
 def _colour(swatch: palette.PaletteColor) -> QColor:
@@ -85,9 +96,19 @@ def paint_string_lights(painter: QPainter, lay: Layout, width: float, wire: QCol
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     bulbs = lay.bulbs_xy()
-    # 1. the wire, 2. the posts — both UNDER the bulbs. A bulb kept 6 cm from a post's
-    #    centre still overlaps the symbol's much wider post; painted last it read as
-    #    buried (59 % of the ball at the default width, 96 % at 24 cm).
+
+    # Paint order (issue #706): glow, wire, posts, bulbs.
+    # 1. the glow
+    glow = GLOW_SHARE * w
+    painter.setPen(Qt.PenStyle.NoPen)
+    for x, y in bulbs:
+        gradient = QRadialGradient(QPointF(x, y), glow)
+        gradient.setColorAt(0.0, _GLOW)
+        gradient.setColorAt(1.0, QColor(_GLOW.red(), _GLOW.green(), _GLOW.blue(), 0))
+        painter.setBrush(QBrush(gradient))
+        painter.drawEllipse(QPointF(x, y), glow, glow)
+
+    # 2. the wire
     if lay.spans:
         pen = QPen(wire, WIRE_SHARE * w)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -100,24 +121,39 @@ def paint_string_lights(painter: QPainter, lay: Layout, width: float, wire: QCol
             path.moveTo(ax, ay)
             path.lineTo(bx, by)
         painter.drawPath(path)
+
+    # 3. the posts
     side = drawn_post_side(width)
     painter.setPen(QPen(_colour(palette.GREY_WOOD_DARK), 0.1 * side))
     painter.setBrush(_colour(palette.GREY_WOOD))
     for x, y in lay.posts:
         rect = QRectF(x - side / 2.0, y - side / 2.0, side, side)
         painter.drawRoundedRect(rect, POST_ROUND * side, POST_ROUND * side)
-    # 3. the glow and the bulbs, on top of the post
-    glow = GLOW_SHARE * w
-    painter.setPen(Qt.PenStyle.NoPen)
-    for x, y in bulbs:
-        gradient = QRadialGradient(QPointF(x, y), glow)
-        gradient.setColorAt(0.0, _GLOW)
-        gradient.setColorAt(1.0, QColor(_GLOW.red(), _GLOW.green(), _GLOW.blue(), 0))
-        painter.setBrush(QBrush(gradient))
-        painter.drawEllipse(QPointF(x, y), glow, glow)
+
+    # 4. the bulbs, on top of the post
     bulb = BULB_SHARE * w
     painter.setPen(QPen(_colour(palette.CANVAS_CREAM_DARK), 0.12 * bulb))
     painter.setBrush(_colour(palette.CANVAS_CREAM))
     for x, y in bulbs:
         painter.drawEllipse(QPointF(x, y), bulb, bulb)
+
     painter.restore()
+
+
+def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
+    """A string of lights for the gallery and properties panel: three posts in a shallow V,
+    painted by the canvas's own painter (``string_lights_paint`` — a string has no sprite, L5.4; #708).
+    The picture is 160 cm across, drawn at twice the line's width so its bulbs read at
+    thumbnail size."""
+    from open_garden_planner.core.object_types import OBJECT_STYLES, ObjectType
+
+    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.scale(size / 160.0, size / 160.0)
+    style = OBJECT_STYLES[ObjectType.STRING_LIGHTS]
+    points = [QPointF(14.0, 104.0), QPointF(80.0, 60.0), QPointF(146.0, 104.0)]
+    paint_string_lights(painter, string_layout(points), 2.0 * style.stroke_width,
+                        style.stroke_color)
+    painter.end()
+    return QPixmap.fromImage(image)

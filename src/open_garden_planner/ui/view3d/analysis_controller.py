@@ -74,7 +74,7 @@ from open_garden_planner.core.scene3d.sun_path import (
 from open_garden_planner.core.scene3d.xray import XRAY_OPACITY, XrayScene, occluders, xray_scene
 from open_garden_planner.core.shade_aggregation import SunHoursMap
 from open_garden_planner.core.sim_clock import SimChange, SimClock, SimInstant
-from open_garden_planner.core.solar import solar_position
+from open_garden_planner.core.solar import plan_place, solar_position
 from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.sun_mismatch_service import band_of
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
@@ -142,14 +142,8 @@ class ProbeResult:
     day: date | None = None
 
 
-def _latlon(location: Mapping[str, Any] | None) -> tuple[float, float] | None:
-    if not isinstance(location, Mapping):
-        return None
-    latitude, longitude = location.get("latitude"), location.get("longitude")
-    try:
-        return (float(latitude), float(longitude)) if latitude is not None and longitude is not None else None
-    except (TypeError, ValueError):
-        return None
+def _latlon(location: object) -> tuple[float, float] | None:
+    return plan_place(location)
 
 
 class AnalysisController(QObject):

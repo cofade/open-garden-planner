@@ -4132,4 +4132,19 @@ Follow-up hardening and consistency slice across 2D CAD items, grouped houses, a
 
 Docs: FR-EDIT-25.
 
+### Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694, #685, #706, #707, #708, #710, #700)
+
+Comprehensive quality, geometry, weather, and lighting hygiene package addressing 10 roadmap issues:
+
+- **#748 — Angled house polygon roof ridge**: `roof_ridge.py` aligns derived roof ridge long axis with the polygon's dominant orientation using Minimum Area Bounding Box (MABB) and PCA, eliminating axis-aligned distortion on angled houses in both 2D and 3D, and deduplicates boundary intersection parameters.
+- **#702 — Localized weather forecast cards**: `i18n.py` adds `current_locale()`, `current_language()`, and `set_current_language()`; `weather_widget.py` and `planting_calendar_view.py` format weekday and month names in the active UI language.
+- **#697 — Safe location readers on hostile plans**: Routes `analysis_controller._latlon`, `sync_controller._sun`, and `application._on_location_changed` through `core.solar.plan_place`, safely handling `OverflowError`, `NaN`, text strings, and out-of-range coordinates from hand-edited plans without raising in Qt slots.
+- **#694 — Clear stale frost alerts**: `planting_calendar_view.clear_frost_alerts()` resets cached frost alerts on `File > New`, plan load, cleared location, and failed weather forecast fetches across badge, dashboard, Tasks tab, and agent state.
+- **#685 — Deterministic software-mode supervisor test**: In `test_view3d_workspace_widget.py`, mocks PID liveness check with `is_running=lambda _pid: False`, preventing intermittent test failures from PID collisions on Windows.
+- **#706 — 2D string lights paint order**: Reorders drawing passes to glow → wire → posts → bulbs, ensuring bulb disks are never obscured by post symbols.
+- **#707 — String lights text and test gaps**: Updates `core/scene3d/lights.py` docstring, adds tiny-span post clearance unit tests, and adds visual integration test verifying middle bulb cream highlight paint.
+- **#708 — Architectural layering cleanup**: Moves `render_string_lights_thumbnail` into `ui/canvas/items/string_lights_paint.py`, decoupling properties panel from gallery data module; documents `Record.has_2d_caster`.
+- **#710 — 3D string lights wire segmentation & bulb tessellation**: Doubles wire segments (`WIRE_PIECES = 24`, `WIRE_PIECE_CM = 25.0`) and refines bulb spheres to `rings=5, segments=12`, eliminating visible chord sagitta and polygonal bulb artifacts at close walk distance.
+- **#700 — Shadow agreement single source of truth**: Streamlines redundant narrative and driftable reach/ratio figures in §8.29.6 and `scripts/measure_built_world_shadows.py`, pointing directly to the authoritative ADR-059 builders addendum, and pins this invariant with automated regression checks.
+
 

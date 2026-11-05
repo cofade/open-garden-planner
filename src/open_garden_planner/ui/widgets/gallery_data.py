@@ -124,27 +124,11 @@ def render_svg_thumbnail(svg_path: Path, size: int = THUMB_SIZE) -> QPixmap | No
 
 
 def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
-    """A string of lights for the gallery: three posts in a shallow V, painted by the
-    canvas's own painter (``string_lights_paint`` — a string has no sprite, L5.4). The
-    picture is 160 cm across, drawn at twice the line's width so its bulbs read at
-    thumbnail size."""
-    from PyQt6.QtCore import QPointF
-
     from open_garden_planner.ui.canvas.items.string_lights_paint import (
-        paint_string_lights,
-        string_layout,
+        render_string_lights_thumbnail as _render,
     )
 
-    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
-    image.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(image)
-    painter.scale(size / 160.0, size / 160.0)
-    style = OBJECT_STYLES[ObjectType.STRING_LIGHTS]
-    points = [QPointF(14.0, 104.0), QPointF(80.0, 60.0), QPointF(146.0, 104.0)]
-    paint_string_lights(painter, string_layout(points), 2.0 * style.stroke_width,
-                        style.stroke_color)
-    painter.end()
-    return QPixmap.fromImage(image)
+    return _render(size)
 
 
 def thumbnail_for(obj_type: ObjectType) -> QPixmap | None:

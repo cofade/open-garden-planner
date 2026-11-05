@@ -638,7 +638,12 @@ class Record:
         """True when the 2D sun study casts the item: the plan gives it a height, and
         it is no kind the study never casts (``object_height.casts_2d_shadow``: a string
         of lights). Not a 3D rule — a 3D solid casts whenever it is built (L4's owner
-        pass)."""
+        pass).
+
+        Maintained on Record as an inspection and verification property for shadow
+        agreement tests (ADR-059; #708) to assert 2D vs 3D caster parity without
+        coupling test suites to the 2D sun_shadow_controller pipeline.
+        """
         return self.height_cm is not None and casts_2d_shadow(self.kind)
 
     @property

@@ -176,7 +176,7 @@ from open_garden_planner.core.scene3d.mesh import MeshPart
 from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES, lawn_blade_share
 from open_garden_planner.core.scene3d.scene_diff import diff
 from open_garden_planner.core.sim_clock import SimChange, SimClock
-from open_garden_planner.core.solar import solar_position
+from open_garden_planner.core.solar import plan_place, solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .snapshot import SkippedItem, snapshot_steps
@@ -1510,14 +1510,18 @@ class Scene3DController(QObject):
 
     def _sun(self) -> SunState:
         location = self._location()
-        latitude = location.get("latitude") if isinstance(location, Mapping) else None
-        longitude = location.get("longitude") if isinstance(location, Mapping) else None
-        if latitude is None or longitude is None:
+        if not isinstance(location, Mapping) or not location:
             return NO_LOCATION_SUN
+        place = plan_place(location)
+        if place is None:
+            _LOG.warning("3D sync: no sun for location %s; using the default light",
+                         log_text(repr(location)))
+            return NO_LOCATION_SUN
+        latitude, longitude = place
         try:
             return SunState.from_solar_position(
-                solar_position(float(latitude), float(longitude), self._clock.utc))
-        except (TypeError, ValueError):
+                solar_position(latitude, longitude, self._clock.utc))
+        except (TypeError, ValueError, OverflowError):
             _LOG.warning("3D sync: no sun for location %s; using the default light",
                          log_text(repr(location)))
             return NO_LOCATION_SUN

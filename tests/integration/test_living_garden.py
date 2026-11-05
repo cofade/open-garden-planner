@@ -557,3 +557,82 @@ def test_garden_lights_are_drawn_with_their_tools_and_light_the_3d_garden(
     assert sorted(lit) == pytest.approx(expected), "they light from under their lamps"
     assert len(lit) <= LAMP_SLOTS
     assert bench.host.ambient and not bench.host.ambient[-1].is_empty, "their bulbs glow"
+
+
+@pytest.mark.real_weather_worker
+def test_stale_frost_alerts_cleared_on_new_plan_cleared_location_and_failed_fetch(win, monkeypatch, qtbot) -> None:
+    """Issue #694: stale frost alerts must not survive File > New, a cleared location,
+    or a failed fetch across the 4 places (badge, dashboard, Tasks tab, agent)."""
+    from datetime import date
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.services.weather_service import DayForecast, WeatherForecast
+    from open_garden_planner.ui.canvas.items import CircleItem
+    from open_garden_planner.ui.widgets import weather_widget
+
+    def add_tender_plant():
+        plant = CircleItem(100, 100, 20, object_type=ObjectType.PERENNIAL)
+        plant.frost_protection_needed = True
+        win.canvas_scene.addItem(plant)
+        return plant
+
+    add_tender_plant()
+
+    weather_holder = {"fail": False, "min_c": -2.0}
+
+    def fetch(lat: float, lon: float) -> WeatherForecast | None:
+        if weather_holder["fail"]:
+            return None
+        return WeatherForecast([DayForecast(date.today().isoformat(), 5.0, weather_holder["min_c"], 0.0, 0)],
+                               "2026-11-02T08:00:00+00:00")
+
+    service = type("Service", (), {"fetch_forecast": staticmethod(fetch)})()
+    monkeypatch.setattr(weather_widget, "get_weather_service", lambda: service)
+
+    # 1. Fetch with location -> frost alerts populate
+    win._project_manager.set_location(dict(BERLIN))
+    win.calendar_view.refresh()
+    qtbot.waitUntil(lambda: len(win.calendar_view.current_frost_alerts) > 0, timeout=5000)
+
+    assert len(win.calendar_view.current_frost_alerts) > 0
+    assert win._frost_badge_state[0] > 0
+    assert len(win.tasks_view._frost_alerts) > 0
+    assert len(win._agent_frost_alerts) > 0
+
+    # 2. Clear location -> all 4 cleared
+    win._project_manager.set_location(None)
+    qtbot.wait(100)
+    assert win.calendar_view.current_frost_alerts == []
+    assert win._frost_badge_state == (0, "")
+    assert not win._frost_badge.isVisible()
+    assert win.tasks_view._frost_alerts == []
+    assert win._agent_frost_alerts == []
+
+    # 3. Restore alerts, then File > New -> all 4 cleared
+    win._project_manager.set_location(dict(BERLIN))
+    win.calendar_view.refresh()
+    qtbot.waitUntil(lambda: len(win.calendar_view.current_frost_alerts) > 0, timeout=5000)
+    assert len(win.calendar_view.current_frost_alerts) > 0
+
+    win._new_project_document(width_cm=1000, height_cm=1000)
+    qtbot.wait(100)
+    assert win.calendar_view.current_frost_alerts == []
+    assert win._frost_badge_state == (0, "")
+    assert not win._frost_badge.isVisible()
+    assert win.tasks_view._frost_alerts == []
+    assert win._agent_frost_alerts == []
+
+    # 4. Plant and set location again, but fetch fails -> all 4 cleared
+    add_tender_plant()
+    win._project_manager.set_location(dict(BERLIN))
+    win.calendar_view.refresh()
+    qtbot.waitUntil(lambda: len(win.calendar_view.current_frost_alerts) > 0, timeout=5000)
+
+    weather_holder["fail"] = True
+    win.calendar_view.refresh()
+    qtbot.waitUntil(lambda: len(win.calendar_view.current_frost_alerts) == 0, timeout=5000)
+    assert win.calendar_view.current_frost_alerts == []
+    assert win._frost_badge_state == (0, "")
+    assert not win._frost_badge.isVisible()
+    assert win.tasks_view._frost_alerts == []
+    assert win._agent_frost_alerts == []

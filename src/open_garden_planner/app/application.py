@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn
 from uuid import UUID
@@ -47,6 +48,7 @@ from open_garden_planner.core import (
     format_length,
 )
 from open_garden_planner.core.plant_renderer import is_plant_type
+from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.services.companion_planting_service import (
     ANTAGONISTIC,
@@ -2168,8 +2170,7 @@ class GardenPlannerApp(QMainWindow):
         self._sun_toolbar.date_requested.connect(self._sim_clock.set_date)
         self._sun_toolbar.location_requested.connect(self._on_set_location)
         location = self._project_manager.location or {}
-        self._sun_toolbar.set_location_available(
-            location.get("latitude") is not None and location.get("longitude") is not None)
+        self._sun_toolbar.set_location_available(plan_place(location) is not None)
         # The sim instant is deliberately NOT persisted: the clock starts at the
         # current date/time on every app start, so a fresh simulation always
         # reflects today (FR-SUN-04).
@@ -3138,6 +3139,9 @@ class GardenPlannerApp(QMainWindow):
         # Fit the new canvas in view
         self.canvas_view.fit_in_view()
 
+        if hasattr(self, 'calendar_view') and self.calendar_view is not None:
+            self.calendar_view.clear_frost_alerts()
+
         # Clear undo history and reset project state
         self.canvas_view.command_manager.clear()
         self.constraints_panel.refresh()
@@ -3277,6 +3281,9 @@ class GardenPlannerApp(QMainWindow):
             if hasattr(self, "_update_window_title"):
                 self._update_window_title()
             raise
+
+        if hasattr(self, 'calendar_view') and self.calendar_view is not None:
+            self.calendar_view.clear_frost_alerts()
 
         # Clear any existing auto-save only after the new project loads successfully (AUD-040, TD-017)
         self._autosave_manager.clear_autosave()
@@ -4086,8 +4093,7 @@ class GardenPlannerApp(QMainWindow):
     def _on_location_changed_for_sun(self, _location: object) -> None:
         """Location edits re-solve the sun position immediately (no debounce)."""
         location = self._project_manager.location or {}
-        self._sun_toolbar.set_location_available(
-            location.get("latitude") is not None and location.get("longitude") is not None)
+        self._sun_toolbar.set_location_available(plan_place(location) is not None)
         self._sun_controller.recompute_now()
 
     # ── 3D view (US-E6) ──────────────────────────────────────────
@@ -6460,25 +6466,27 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_location_changed(self, location: object) -> None:
         """Update the location label in the status bar."""
-        if location is None:
+        place = plan_place(location)
+        if place is None:
             self.location_label.setText(self.tr("No location set"))
             self.location_label.setToolTip(
                 self.tr("Garden GPS location — use File > Set Garden Location to configure")
             )
         else:
-            loc = location
-            lat = loc.get("latitude", 0.0)
-            lon = loc.get("longitude", 0.0)
-            lat_str = f"{abs(lat):.4f}°{'N' if lat >= 0 else 'S'}"
-            lon_str = f"{abs(lon):.4f}°{'E' if lon >= 0 else 'W'}"
+            lat, lon = place
+            lat_dir = "N" if lat >= 0 else "S"
+            lon_dir = "E" if lon >= 0 else "W"
+            lat_str = f"{abs(lat):.4f}°{lat_dir}"
+            lon_str = f"{abs(lon):.4f}°{lon_dir}"
             self.location_label.setText(f"{lat_str}, {lon_str}")
+            loc = location if isinstance(location, Mapping) else {}
             frost = loc.get("frost_dates", {}) or {}
-            zone = frost.get("hardiness_zone", "")
+            zone = frost.get("hardiness_zone", "") if isinstance(frost, Mapping) else ""
             tip = self.tr("Latitude: {lat}, Longitude: {lon}").format(lat=lat, lon=lon)
             if zone:
                 tip += f"\n{self.tr('Zone')}: {zone}"
-            spring = frost.get("last_spring_frost", "")
-            fall = frost.get("first_fall_frost", "")
+            spring = frost.get("last_spring_frost", "") if isinstance(frost, Mapping) else ""
+            fall = frost.get("first_fall_frost", "") if isinstance(frost, Mapping) else ""
             if spring:
                 tip += f"\n{self.tr('Last spring frost')}: {spring}"
             if fall:

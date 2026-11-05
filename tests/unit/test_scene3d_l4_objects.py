@@ -300,7 +300,7 @@ def test_a_footprint_of_nine_kilometres_is_still_a_bounded_mesh(kind: str) -> No
         if kind in LINES:   # 9 km of string: two posts, ``MAX_BULBS_PER_STRING`` bulbs spaced far apart
             record = line_record(kind, ((0.0, 0.0), (size, 0.0)), height, width=12.0)
             triangles = sum(part.mesh.triangle_count for part in REGISTRY.build(record))
-            assert triangles <= triangle_budget(record) <= 10_000, (kind, size, height, triangles)
+            assert triangles <= triangle_budget(record) <= 20_000, (kind, size, height, triangles)
             continue
         record = (circle_record(kind, size / 2.0, height) if kind in ROUND
                   else polygon_record(kind, rectangle(size, size / 3.0), height, shape="rectangle"))

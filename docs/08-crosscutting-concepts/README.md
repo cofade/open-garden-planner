@@ -6629,12 +6629,9 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
-fence by that transmittance (the table's ratio column). **Where the tip is** agrees within 2.5 cm
-for the prisms, the pots and the post fences. A gabled building with the sun square to its ridge
-did not agree until #440: the 2D model extruded the footprint to the ridge height, so its tip was
-cast from the far wall while the gable's is cast from the middle of the house — half the depth
-short at a low sun (2.7 m on the bench house); #440 projects the roof and walls, and the
-pitched houses now read a reach of 0.0.
+fence by that transmittance (the table's ratio column). For the complete per-kind narrative of
+reach differences, nominal sections and pre-#440 gable geometry, see ADR-059 addendum "builders v0"
+("Where the tip is").
 
 **What the numbers are for.** They are analytic references for the builders: one item, the sun
 square to a straight 10 m line (a building: square to or along its ridge), the mesh projected

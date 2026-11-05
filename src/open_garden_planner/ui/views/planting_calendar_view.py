@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.i18n import current_locale
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
@@ -380,7 +381,8 @@ class _DashboardPanel(QFrame):
         lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout.addWidget(lbl)
 
-        date_lbl = QLabel(task.task_date.strftime("%b %d"))
+        m_name = current_locale().monthName(task.task_date.month, QLocale.FormatType.ShortFormat)
+        date_lbl = QLabel(f"{m_name} {task.task_date.day}")
         date_lbl.setStyleSheet("font-size: 8pt;")
         date_lbl.setProperty("hint", True)
         date_lbl.setFixedWidth(44)
@@ -1312,6 +1314,15 @@ class PlantingCalendarView(QWidget):
 
     # ── refresh ────────────────────────────────────────────────────────────────
 
+    def clear_frost_alerts(self) -> None:
+        """Clear all frost alerts across the app (new document, cleared location, failed fetch)."""
+        if not self._current_frost_alerts:
+            return
+        self._current_frost_alerts = []
+        self.frost_alert_ready.emit(0, "")
+        self.frost_alerts_ready.emit([])
+        self._rebuild_dashboard()
+
     def request_forecast(self) -> None:
         """Fetch the weather forecast for the plan's location (US-12.1) — or, without a
         location, clear it (``forecast_days_ready`` empty). The weather part of
@@ -1325,6 +1336,7 @@ class PlantingCalendarView(QWidget):
         else:
             self._weather.set_location(None, None)
             self.forecast_days_ready.emit(None, ())
+            self.clear_frost_alerts()
 
     def follow_location(self, *_arguments: object) -> None:
         """The plan's location changed (``ProjectManager.location_changed``): the weather
@@ -1335,8 +1347,10 @@ class PlantingCalendarView(QWidget):
         place = self._place()
         if place == self._weather.place():
             return
+        self.clear_frost_alerts()
         if place is None:
             self._weather.set_location(None, None)
+            self.forecast_days_ready.emit(None, ())
         else:
             self._weather.set_location(*place)
 
@@ -1846,6 +1860,7 @@ class PlantingCalendarView(QWidget):
         """Weather forecast fetch failed — no frost alerts shown, and no forecast for the
         3D view's Today's Weather to follow (not the previous one)."""
         self.forecast_days_ready.emit(self._weather.place(), ())
+        self.clear_frost_alerts()
 
     def shutdown(self) -> None:
         """Shut down child background workers and services (#483)."""
