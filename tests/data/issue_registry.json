@@ -1156,7 +1156,7 @@
   },
   "685": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Flaky: test_a_death_in_software_mode_switches_3d_off_and_says_so depends on which real PIDs are alive"
   },
   "686": {
@@ -1176,7 +1176,7 @@
   },
   "694": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Stale frost alerts survive File > New, a cleared location and a failed fetch (badge, dashboard, Tasks tab, agent)"
   },
   "695": {
@@ -1186,7 +1186,7 @@
   },
   "697": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Location readers outside L5 raise on a hostile plan (OverflowError, NaN, text): route them through plan_place"
   },
   "699": {
@@ -1196,12 +1196,12 @@
   },
   "700": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
   },
   "702": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Weather forecast cards show English weekday names in every UI language"
   },
   "703": {
@@ -1211,22 +1211,22 @@
   },
   "706": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D: a string's post symbol hides the bulb kept 6 cm from it (paint the posts before the bulbs)"
   },
   "707": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "String lights: stale text and three test gaps after PR #699's reviews"
   },
   "708": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Layering: the string's type icon lives in the gallery's data module; Record.has_2d_caster has only test readers"
   },
   "710": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
   },
   "712": {
@@ -1331,12 +1331,17 @@
   },
   "748": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Drawing house polygon at an angle forces axis-aligned roof ridge and distorted roof pitch"
   },
   "750": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#730, #731, #732, #745): capture-session integrity - clock, files, focus"
+  },
+  "752": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#748, #702, #697, #694, #685, #706, #707, #708, #710, #700): CAD geometry, weather resilience, lighting & test hygiene"
   }
 }
