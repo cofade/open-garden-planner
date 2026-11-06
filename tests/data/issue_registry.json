@@ -1064,16 +1064,6 @@
     "state": "CLOSED",
     "title": "FIXED position lock loses its target coordinates on save/reload - the badge stays but the object can be dragged"
   },
-  "656": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "RemoveConstraintCommand.undo drops anchor_c - undoing a removed three-anchor constraint leaves it broken"
-  },
-  "657": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Circle handle resize corrupts the stored centre - the circle jumps on save/reload and its shadow/3D footprint is displaced"
-  },
   "658": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1094,11 +1084,6 @@
     "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
-  "662": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "FIXED items still move transiently during a drag - Qt moves them before the view resets them"
-  },
   "664": {
     "is_pr": false,
     "state": "OPEN",
@@ -1109,25 +1094,10 @@
     "state": "CLOSED",
     "title": "Fill patterns: angle, scale and X/Y offset controls"
   },
-  "668": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Chamfer/fillet on a named bed replaces it with a new UUID and loses its name, metadata, plant links and garden records"
-  },
-  "669": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "POINT_ON_EDGE and TANGENT constraints are shown as violated in the Constraints panel when they are satisfied"
-  },
   "670": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Incidence consistency: compatible POINT_ON_EDGE/COINCIDENT links are rejected or left broken (six reproduced cases)"
-  },
-  "672": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#655, #656, #657, #658, #661, #662, #668, #669, #670): CAD-precision and data-integrity package"
   },
   "674": {
     "is_pr": false,
@@ -1341,17 +1311,17 @@
   },
   "733": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "4K pictures: the horizon band is 9 levels darker than at 1080p (glow is pixel-sized)"
   },
   "735": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Capture quality: a picture uses the view's quality preset, and the MP4 carries no colour tag"
   },
   "738": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L6 hygiene: the smaller findings of the #390 reviews"
   },
   "740": {
@@ -1403,5 +1373,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#675, #709, #705, #701): curved geometry, string lights and shadow cost"
+  },
+  "759": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#733, #735, #738): capture quality and L6 hygiene"
   }
 }

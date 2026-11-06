@@ -10786,6 +10786,8 @@ neighbouring-frame step 1.53 levels, against 18.07 before it.
 
 ### ADR-072 addendum: what a saved picture is made of (#733, #735, #738)
 
+Delivered in **v1.37.6** (PR #759) after the owner's manual acceptance on 6 November 2026.
+
 Two decisions #729 left open, and the measured cause of a look that differed by size.
 
 1. **A picture uses the view's quality preset.** A photo or a video frame is the second
