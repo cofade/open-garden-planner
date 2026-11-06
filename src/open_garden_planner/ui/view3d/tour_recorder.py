@@ -178,7 +178,9 @@ class TourRecorder(QObject):
         frame = self._frame
         assert frame is not None
         if not self._view_showing():
-            self._wait_for_the_view()   # nothing settles behind a hidden view: say so at once
+            # Nothing settles behind a hidden view (its controller stays paused, its
+            # records dirty): say so at once instead of waiting out the settle limit.
+            self._wait_for_the_view()
             return
         settled = self._settled()
         if not settled:

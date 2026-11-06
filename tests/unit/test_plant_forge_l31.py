@@ -334,6 +334,39 @@ class TestForgeCacheAndWorker:
         worker.drain()
         assert worker._applied_state["a"][1] == LOD2
 
+    def test_ending_a_flight_drops_that_flights_in_flight_build(self) -> None:
+        """A build the flight started must not land after the camera is back: nothing would
+        re-queue that plant, so it stayed at the flight's fine detail until the camera moved
+        (#738)."""
+        from concurrent.futures import Future
+        from typing import Any, cast
+
+        sink = RecordingSink()
+        worker = ForgeWorker(sink, cache=ForgeCache(max_entries=16))
+        ref = SpriteRef("species", "apple_tree")
+        record = _tree_record(ref, item_id="a", east_cm=9000.0, north_cm=0.0)
+        sink.begin()
+        sink.add(record.item_id, (), record.transform, record.material)
+        sink.commit()
+        camera = (20000.0, 20000.0, 170.0)
+        worker.submit_snapshot([record], camera_pos=camera)
+        worker.drain()
+        assert worker._applied_state["a"][1] == LOD2
+
+        worker.fly_path([(9000.0, -500.0, 100.0)])
+        job = worker._pending.pop("a")          # the step that starts this build
+        assert job.lod == LOD0
+        done: Future[tuple[object, ...]] = Future()
+        done.set_result(())
+        worker._flight = (job, worker._epoch, done)   # type: ignore[assignment]
+        worker._executor = cast(Any, object())        # only to reach the background path
+
+        worker.fly_path(None)
+        assert len(worker._pending) == 0, "the camera already has this plant at LOD2"
+        worker.step()
+        assert worker._flight is None
+        assert worker._applied_state["a"][1] == LOD2, "the flight's fine build did not land"
+
     def test_forge_worker_orders_visible_plants_first(self) -> None:
         sink = RecordingSink()
         worker = ForgeWorker(sink, cache=ForgeCache(max_entries=16))

@@ -16,7 +16,7 @@ from time import monotonic
 from typing import Any
 
 import pytest
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtCore import QDate, QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QCloseEvent, QImage
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QMessageBox, QPushButton
@@ -269,6 +269,25 @@ def test_a_saved_photo_says_what_date_it_shows(rig: Rig, tmp_path: Path) -> None
     path = tmp_path / "photo.png"
     rig.workspace.capture.write_photo(path, "1080p")
     assert QImage(str(path)).text("Creation Time") == "2026-06-21T15:00"
+
+
+def test_a_picture_is_taken_at_the_views_preset_and_never_changes_it(rig: Rig, tmp_path: Path,
+                                                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-072 addendum (#735): a saved picture uses the view's preset. Raising it for the
+    capture's own frame would preview one thing and save another, and the machine that
+    dropped to Low is exactly the one that cannot afford the raise. The quality setting is
+    the user's lever."""
+    rig.open_3d()
+    workspace, capture, host = rig.workspace, rig.workspace.capture, rig.host
+    look = workspace._look
+    assert look is not None
+    before = look.preset
+    holds: list[bool] = []
+    monkeypatch.setattr(look, "hold_preset", holds.append)
+    assert capture.write_photo(tmp_path / "picture.png", "4k")
+    assert look.preset == before, "the preset the view runs is the preset the picture uses"
+    assert holds == [], "a still is one frame: it holds nothing and raises nothing"
+    assert host.pictures[-1]["size"] == (3840, 2160)
 
 
 def test_the_window_size_follows_the_display_scale() -> None:
@@ -644,16 +663,24 @@ def test_cancel_while_the_file_closes_changes_nothing_and_the_truth_is_reported(
     assert outcome[0].ok and not outcome[0].cancelled
 
 
-def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any) -> None:
     """Every retry behind a hidden view counted one frame as rendered too early, and nothing was
-    said until the limit had passed: 3 minutes on the first frame."""
-    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    said until the limit had passed: 3 minutes on the first frame. The guard is NOT dead (#738
+    said it could go): a hidden pane's controller stays paused with its records dirty, so
+    ``settled`` never becomes true and, without it, the first sentence waits out
+    ``SETTLE_LIMIT_S``."""
+    from open_garden_planner.ui.view3d.tour_recorder import SETTLE_LIMIT_S
+
+    assert SETTLE_LIMIT_S >= 20.0, "the premise: a wait that must not happen"
     showing = {"now": False}
-    made, outcome = recorder(Sink(), settled=lambda: showing["now"], view_showing=lambda: showing["now"])
+    made, outcome = recorder(Sink(), settled=lambda: showing["now"],
+                             view_showing=lambda: showing["now"])
     paused: list[bool] = []
     made.paused_changed.connect(paused.append)
     made.start()
-    qtbot.waitUntil(lambda: paused == [True], timeout=2000)
+    # The settle limit is 20 s: a pause inside this wait cannot be a settle timeout, so
+    # the hidden-view guard is what said it.
+    qtbot.waitUntil(lambda: paused == [True], timeout=1000)
     qtbot.wait(600)
     showing["now"] = True
     qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
@@ -821,6 +848,139 @@ def test_the_year_of_the_time_lapse_is_the_plans(rig: Rig) -> None:
     dialog = dialog_of(rig)
     dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
     assert dialog.spec().date_range == (date(2031, 3, 1), date(2031, 10, 31))
+    dialog.close()
+
+
+def test_the_default_year_follows_the_plan_until_the_user_chooses_one(rig: Rig) -> None:
+    """#738: the year was stamped "chosen" on the first show, so a later plan date never
+    reached the dialog's defaults again."""
+    rig.clock.set_date(date(2031, 7, 1))
+    dialog = dialog_of(rig)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
+    assert dialog.date_from.date().year() == 2031
+    dialog.hide()
+    rig.clock.set_date(date(2033, 7, 1))
+    dialog.show()
+    assert dialog.date_from.date().year() == 2033, "the plan's year, while the user chose none"
+    dialog.date_from.setDate(QDate(2032, 3, 1))
+    dialog.hide()
+    rig.clock.set_date(date(2035, 7, 1))
+    dialog.show()
+    assert dialog.date_from.date().year() == 2032, "a year the user chose is theirs"
+    dialog.close()
+
+
+def test_a_paused_preview_stops_saying_it_waits_when_the_view_comes_back(rig: Rig) -> None:
+    """#738: only a recording overwrote the paused sentence, so a preview kept saying
+    "Waiting: the 3D view is not visible." after the view was back."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.preview()
+    dialog._on_paused(True)
+    assert "Waiting" in dialog._status.text()
+    dialog._on_paused(False)
+    assert dialog._status.text() == "", "a preview has nothing to say once it is moving again"
+    dialog.close()
+
+
+def test_a_clock_that_refuses_at_the_end_of_a_tour_still_lets_the_preset_go(rig: Rig) -> None:
+    """#738: a raising clock listener used to skip ``hold_preset(False)``, and automatic
+    quality stayed paused for the rest of the session."""
+    from open_garden_planner.ui.view3d.tour_recorder import TourResult
+
+    class Clock:
+        def set_datetime(self, _moment: Any) -> None:
+            raise RuntimeError("a listener refused the write")
+
+    class Look:
+        def __init__(self) -> None:
+            self.holds: list[bool] = []
+
+        def hold_preset(self, held: bool) -> None:
+            self.holds.append(held)
+
+    look = Look()
+    capture = WorkspaceCaptureCoordinator(
+        get_host=lambda: None, get_controller=lambda: None, get_look=lambda: look,
+        get_clock=Clock, get_camera=lambda: None,
+        get_camera_now=lambda: ((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0),
+        forge_pending=lambda: 0, is_pane_showing=lambda: True, view_state=lambda: "running",
+        ground_point=lambda _x, _y: None, default_path=str, fly_path=lambda _eyes: None,
+        is_walking=lambda: False, parent=rig.window)
+    capture._clock_hold = datetime(2026, 6, 21, 12, 0)
+    capture._on_tour_finished(TourResult(ok=True, cancelled=False, frames=3))
+    assert capture._clock_hold is None, "the hold is not left behind for the next picture"
+    assert look.holds == [False], "the automatic preset measures again"
+
+
+def test_stopping_the_engine_forgets_the_tour_dialog_once_it_really_closed(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    """#738: the coordinator dropped its reference before the dialog had closed, so a Tour
+    action after an engine restart opened a second dialog while the first was still
+    finishing its file. Only an engine stop forgets it: a user's Close keeps the keys."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    assert capture.dialog is dialog and capture.recording
+    capture.set_enabled(False)   # the engine is going
+    assert not capture.tour_action.isEnabled()
+    assert capture.dialog is None, "the old engine's dialog is not the session's any more"
+    qtbot.waitUntil(lambda: capture._dialog_closing is None, timeout=30000)
+    assert not dialog.isVisible(), "and no hidden dialog is left behind"
+
+
+def test_a_tour_says_at_once_when_the_pane_goes_hidden(rig: Rig, qtbot: Any) -> None:
+    """#738 review: the hidden-view guard is only as good as the workspace's wiring of it.
+    Delete ``view_showing=`` from ``start_tour`` and a hidden pane's tour waits out the
+    settle limit (180 s on the first frame) before it says anything."""
+    rig.open_3d()
+    capture = rig.workspace.capture
+    key = CameraKey((0.0, 0.0, 500.0), (10.0, 10.0, 0.0))
+    recorder = capture.start_tour(TourSpec(HeldCamera(key), 60.0, 24), (64, 36), NullWriter())
+    paused: list[bool] = []
+    recorder.paused_changed.connect(paused.append)
+    try:
+        rig.workspace.set_mode(WorkspaceMode.PLAN)
+        qtbot.waitUntil(lambda: paused == [True], timeout=1000)
+    finally:
+        capture.cancel_recording()
+        qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+
+
+def test_the_tour_action_waits_for_an_engine_stopped_dialog_to_close(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    """#738 review: while the engine-stopped dialog finishes its file the Tour action must
+    not be a dead click, and it must not open a twin either."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    capture.set_enabled(False)   # the engine is going; its file is still closing
+    assert capture._dialog_closing is not None, "a recording closes its file asynchronously"
+    capture.set_enabled(True)    # a new engine, the old dialog is not done yet
+    assert not capture.tour_action.isEnabled(), "a click would do nothing: say so by the action"
+    capture.tour_action.trigger()
+    assert capture.dialog is None, "no twin beside the closing dialog"
+    qtbot.waitUntil(lambda: capture._dialog_closing is None, timeout=30000)
+    assert capture.tour_action.isEnabled()
+    capture.tour_action.trigger()
+    assert capture.dialog is not None and capture.dialog is not dialog
+    capture.dialog.close()
+
+
+def test_closing_the_tour_dialog_keeps_the_keys_for_the_next_open(rig: Rig) -> None:
+    """#738: the module's contract is that closing the dialog keeps its keys (only closing
+    the app loses them). Forgetting every closed dialog broke that on Close and X while Esc
+    kept them."""
+    dialog = dialog_of(rig)
+    dialog.add_key()
+    dialog.add_key()
+    dialog.close()
+    assert not dialog.isVisible()
+    rig.workspace.capture.tour_action.trigger()
+    assert rig.workspace.capture.dialog is dialog, "the same dialog, not a fresh one"
+    assert len(dialog.keys) == 2, "the user's keyframes are the session's"
     dialog.close()
 
 
@@ -1112,6 +1272,47 @@ def test_a_time_lapse_holds_the_owners_date_for_agent_reads(rig: Rig) -> None:
     assert outcome[0].ok
     assert set(seen) == {date(2026, 6, 21)}, "the owner's day, not each frame's"
 
+
+def test_a_frame_waits_for_the_pipeline_before_it_is_captured(rig: Rig) -> None:
+    """``_tour_settled`` is what a recording's frame waits for: an idle controller that is
+    not capturing, and an empty forge. A predicate that always says True would render
+    every frame before its date had reached the engine (#738)."""
+
+    class Controller:
+        idle = False
+        capturing = False
+
+    class Look:
+        def __init__(self) -> None:
+            self.settled = 0
+
+        def settle_sky(self) -> None:
+            self.settled += 1
+
+    controller, look = Controller(), Look()
+
+    def make(pending: Any, ctrl: Any) -> WorkspaceCaptureCoordinator:
+        return WorkspaceCaptureCoordinator(
+            get_host=lambda: None, get_controller=lambda: ctrl, get_look=lambda: look,
+            get_clock=lambda: None, get_camera=lambda: None,
+            get_camera_now=lambda: ((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0),
+            forge_pending=pending, is_pane_showing=lambda: True, view_state=lambda: "running",
+            ground_point=lambda _x, _y: None, default_path=str, fly_path=lambda _eyes: None,
+            is_walking=lambda: False, parent=rig.window)
+
+    pending = {"n": 0}
+    capture = make(lambda: pending["n"], controller)
+    assert capture._tour_settled() is False, "the controller is not idle yet"
+    controller.idle = True
+    pending["n"] = 1
+    assert capture._tour_settled() is False, "the forge is still building"
+    pending["n"] = 0
+    controller.capturing = True
+    assert capture._tour_settled() is False, "a capture is in flight"
+    controller.capturing = False
+    assert capture._tour_settled() is True
+    assert look.settled == 1, "the frame's own sky is built, not one the sun left behind"
+    assert make(lambda: 0, None)._tour_settled() is True, "no controller: nothing to wait for"
 
 def test_a_years_time_lapse_holds_utc_across_both_clock_changes(rig: Rig) -> None:
     """The sun is a function of UTC: a wall time held across a DST change moves it by an

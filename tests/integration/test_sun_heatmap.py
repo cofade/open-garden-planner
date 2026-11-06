@@ -429,6 +429,31 @@ class TestAppGlue:
         assert not win._sun_toolbar._heatmap_button.isChecked()
 
 
+    def test_a_tours_clock_does_not_throw_the_owners_heatmap_away(self, qtbot) -> None:
+        """#738: a tour moves the date for its frames and puts the owner's moment back. The
+        map it would clear is the map for that restored date, so the frames keep it."""
+        from datetime import datetime
+
+        from open_garden_planner.app.application import GardenPlannerApp
+
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        win._on_sun_sim_datetime(datetime(2026, 6, 21, 12, 0))
+        heatmap = win._sun_heatmap
+        heatmap._ensure_overlay().setVisible(True)
+        heatmap._computed_day = SUMMER
+        win._sun_toolbar.set_heatmap_active(True)
+        capture = win._workspace.capture
+        capture._clock_hold = datetime(2026, 6, 21, 12, 0)   # a tour that moves the clock
+        try:
+            win._on_sun_sim_datetime(datetime(2026, 7, 1, 12, 0))
+            assert heatmap.heatmap_visible(), "a tour's frame is not the owner changing the day"
+        finally:
+            capture._clock_hold = None
+        win._on_sun_sim_datetime(datetime(2026, 6, 22, 15, 0))
+        assert not heatmap.heatmap_visible(), "and a real date change still clears it"
+
+
 @pytest.mark.perf
 class TestPerf:
     def test_60k_cells_full_day_budget(self, qtbot) -> None:

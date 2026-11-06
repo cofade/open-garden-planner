@@ -2634,3 +2634,39 @@ class TestFillPictures:
         finally:
             sink.clear()
             made.close()
+
+def test_a_capture_from_a_shot_with_no_camera_to_put_back_refuses(host) -> None:
+    """#738: a live host that was never given a camera has nothing to restore. Moving the
+    view to the shot and leaving it there is the one thing a capture must never do, so it
+    refuses instead."""
+    from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+    _force(host)
+    assert host.state.value == "live"
+    assert host._camera_scene is None  # noqa: SLF001
+    with pytest.raises(EngineError, match="no camera has been placed"):
+        host.capture((64, 48), PerspectiveShot((0.0, 0.0, 500.0), (0.0, 0.0, 0.0)))
+    assert host._camera_scene is None, "nothing moved"  # noqa: SLF001
+
+def test_a_capture_restores_the_view_when_its_resting_frame_raises(host) -> None:
+    """#738: the capture's ``finally`` used to be one flat list, so a raising
+    ``_drop_capture_view`` skipped the selection, wind, photo and AO restores."""
+    from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+    _force(host)
+    host.set_camera((0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0)
+    assert host._root.setProperty("selectionVisible", True)  # noqa: SLF001
+    wind_before = host.scene_property("windTime")
+
+    def refuse(*_arguments: Any) -> None:
+        raise RuntimeError("the resting frame failed")
+
+    host._drop_capture_view = refuse  # type: ignore[method-assign]
+    with pytest.raises((RuntimeError, EngineError), match="resting frame|no picture|refused"):
+        host.capture((64, 48), PerspectiveShot((10.0, 10.0, 500.0), (10.0, 10.0, 0.0)),
+                     wind_time_s=3.0)
+    assert host.scene_property("captureAoDistanceScale") == 1.0, "the view's own occlusion"
+    assert host.scene_property("selectionVisible") is True, "the ring is the view's again"
+    assert host.scene_property("windTime") == wind_before
+    assert host._camera_scene == PerspectiveShot(  # noqa: SLF001
+        (0.0, 0.0, 500.0), (0.0, 0.0, 0.0), 40.0)

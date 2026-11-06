@@ -844,3 +844,25 @@ class TestFogDepth:
     def test_a_distance_that_is_none_is_refused(self, bad: float) -> None:
         with pytest.raises(ValueError, match="camera distance"):
             L.fog_depth_cm(bad)
+
+
+class TestTheCapturesOcclusionScale:
+    """#733: Qt samples screen-space ambient occlusion's scene-unit radius on a PIXEL grid,
+    so a picture twice as high covered by the same radius darkens its horizon band by
+    several levels. A capture shrinks the radius with the height; the pane is the look."""
+
+    def test_1080_and_below_are_the_reference(self) -> None:
+        for height in (16, 360, 720, 1080):
+            assert L.ao_distance_scale(height) == 1.0
+
+    @pytest.mark.parametrize(("height", "scale"), [(1440, 0.75), (2160, 0.5), (4320, 0.25)])
+    def test_the_radius_follows_the_picture_height(self, height: float, scale: float) -> None:
+        assert L.ao_distance_scale(height) == pytest.approx(scale)
+
+    def test_an_8k_picture_keeps_a_usable_radius(self) -> None:
+        assert L.AO_MIN_SCALE == 0.25
+        assert L.ao_distance_scale(8192) == L.AO_MIN_SCALE
+
+    @pytest.mark.parametrize("bad", [-100.0, math.inf, math.nan])
+    def test_a_height_that_is_none_is_the_reference(self, bad: float) -> None:
+        assert L.ao_distance_scale(bad) == 1.0

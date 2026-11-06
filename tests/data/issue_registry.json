@@ -1339,6 +1339,21 @@
     "state": "CLOSED",
     "title": "Year time-lapse jumps in brightness at the clock change (24 luma on 31 October)"
   },
+  "733": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "4K pictures: the horizon band is 9 levels darker than at 1080p (glow is pixel-sized)"
+  },
+  "735": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Capture quality: a picture uses the view's quality preset, and the MP4 carries no colour tag"
+  },
+  "738": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L6 hygiene: the smaller findings of the #390 reviews"
+  },
   "740": {
     "is_pr": false,
     "state": "CLOSED",

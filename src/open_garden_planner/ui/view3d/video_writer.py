@@ -142,6 +142,9 @@ class Mp4Writer(_Sink):
         self._error = ""
         self._aborted = False
         self._waited_ms = 0
+        #: The frame a full queue refused, with the picture it came from: a retry offers
+        #: the very same frame instead of computing its YUV planes again (#738).
+        self._retry: tuple[int, Any] | None = None
         self._poll = QTimer(self)
         self._poll.setInterval(_POLL_MS)
         self._poll.timeout.connect(self._look_if_stopped)
@@ -211,18 +214,26 @@ class Mp4Writer(_Sink):
         if self._error:
             raise VideoError(self._error)
         media = _multimedia()
-        frame = media.QVideoFrame(self._format)
-        if not frame.map(media.QVideoFrame.MapMode.WriteOnly):
-            raise VideoError(_tr("A video frame could not be prepared."))
-        try:
-            self._fill(frame, image)
-        finally:
-            frame.unmap()
-        step = 1_000_000 / self.fps
-        frame.setStartTime(round(self.frames_sent * step))
-        frame.setEndTime(round((self.frames_sent + 1) * step))
+        key = image.cacheKey()
+        retry = self._retry
+        if retry is not None and retry[0] == key:
+            frame = retry[1]   # the same frame, not its YUV planes a second time
+        else:
+            self._retry = None
+            frame = media.QVideoFrame(self._format)
+            if not frame.map(media.QVideoFrame.MapMode.WriteOnly):
+                raise VideoError(_tr("A video frame could not be prepared."))
+            try:
+                self._fill(frame, image)
+            finally:
+                frame.unmap()
+            step = 1_000_000 / self.fps
+            frame.setStartTime(round(self.frames_sent * step))
+            frame.setEndTime(round((self.frames_sent + 1) * step))
         if not self._input.sendVideoFrame(frame):
+            self._retry = (key, frame)
             return False
+        self._retry = None
         self.frames_sent += 1
         return True
 
@@ -297,6 +308,7 @@ class Mp4Writer(_Sink):
             _LOG.warning("Video: %s stays behind (%s)", log_text(self.part_path), log_text(error))
 
     def _release(self) -> None:
+        self._retry = None
         self._input = self._session = self._recorder = self._format = None
 
 

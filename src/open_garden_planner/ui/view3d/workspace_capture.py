@@ -162,6 +162,11 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_utc_time: day_time | None = None
         self._tour_size: tuple[int, int] = (16, 16)
         self._dialog: TourDialog | None = None
+        #: A dialog whose engine stopped while its file was still closing. It is not the
+        #: session's any more; it is forgotten when it really closes.
+        self._dialog_closing: TourDialog | None = None
+        #: The engine is there: the Tour action follows it and the closing-dialog latch.
+        self._engine_enabled = False
         self._row: QWidget | None = None
         self._size_combo: QComboBox | None = None
         self._grade_combo: QComboBox | None = None
@@ -267,14 +272,23 @@ class WorkspaceCaptureCoordinator(QObject):
         """The engine is there (or gone): the actions follow."""
         # if the settings wait for the new plan's framing, they must not outlive the engine
         self._focus_pending = False
+        self._engine_enabled = bool(enabled)
         self.photo_action.setEnabled(enabled)
-        self.tour_action.setEnabled(enabled)
+        self.tour_action.setEnabled(enabled and self._dialog_closing is None)
         if not enabled:
             self.cancel_recording()
             self.set_photo_mode(False)
-            dialog, self._dialog = self._dialog, None
+            dialog = self._dialog
             if dialog is not None:
+                # A dialog the user closed stays for the session (its keys live in it);
+                # one the engine stops is the old engine's and is forgotten when it has
+                # really closed. Otherwise a Tour action could open a twin beside it.
                 dialog.close_for_shutdown()
+                still_open = dialog.isVisible()
+                dialog.hide()
+                self._dialog = None
+                if still_open:
+                    self._dialog_closing = dialog
 
     def document_changed(self) -> None:
         """Another plan: a recording stops, and the focused point was a point of the old one.
@@ -521,13 +535,25 @@ class WorkspaceCaptureCoordinator(QObject):
     # ── camera tours ─────────────────────────────────────────────────────────
 
     def open_tour_dialog(self) -> None:
+        if self._dialog_closing is not None:
+            return   # the engine stopped; that dialog is closing its file, not a session
         if self._dialog is None:
             from .tour_dialog import TourDialog
 
             self._dialog = TourDialog(self, self._parent)
+            dialog = self._dialog
+            dialog.closed.connect(lambda dialog=dialog: self._on_dialog_closed(dialog))
         self._dialog.show()
         self._dialog.raise_()
         self._dialog.activateWindow()
+
+    def _on_dialog_closed(self, dialog: Any) -> None:
+        """The engine stopped this dialog: forget it once it has really closed. A dialog the
+        user closed is kept - the tour's keys live in the session, which is the dialog."""
+        if self._dialog_closing is dialog:
+            self._dialog_closing = None
+            if self._engine_enabled:
+                self.tour_action.setEnabled(True)
 
     @property
     def dialog(self) -> TourDialog | None:
@@ -550,6 +576,11 @@ class WorkspaceCaptureCoordinator(QObject):
     def plan_date(self) -> date:
         clock = self._get_clock()
         return clock.plan_date if clock is not None else date.today()
+
+    def reduced_motion(self) -> bool:
+        """Whether the look asks for reduced motion (the system setting or Preferences)."""
+        look = self._get_look()
+        return bool(look is not None and look.reduced_motion)
 
     def owner_plan_date(self) -> date | None:
         """The plan date an agent must see while a tour is moving the clock: the owner's,
@@ -652,20 +683,25 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_utc_time = None
         self._tour_holds_utc = False
         try:
-            self._fly_path(None)
-            host = self._get_host()
-            if host is not None:
-                host.end_captures()   # its render targets go; a 4K tour holds about 600 MB
-        except Exception as error:  # noqa: BLE001 - a dead engine must not keep the owner's clock
-            _LOG.error("Camera tour: could not let go of the engine (%s: %s)",
+            try:
+                self._fly_path(None)
+                host = self._get_host()
+                if host is not None:
+                    host.end_captures()   # its render targets go; a 4K tour holds about 600 MB
+            except Exception as error:  # noqa: BLE001 - a dead engine must not keep the owner's clock
+                _LOG.error("Camera tour: could not let go of the engine (%s: %s)",
+                           type(error).__name__, log_text(error))
+            clock = self._get_clock()
+            if clock is not None and moment is not None:
+                clock.set_datetime(moment)   # the owner's date and time, as they were
+        except Exception as error:  # noqa: BLE001 - one listener must not skip the rest
+            _LOG.error("Camera tour: could not put the clock back (%s: %s)",
                        type(error).__name__, log_text(error))
-        clock = self._get_clock()
-        if clock is not None and moment is not None:
-            clock.set_datetime(moment)   # the owner's date and time, as they were
-        self._clock_hold = None   # . only after the clock is the owner's again
-        look = self._get_look()
-        if look is not None:
-            look.hold_preset(False)
+        finally:
+            self._clock_hold = None   # only after the clock is the owner's again
+            look = self._get_look()
+            if look is not None:
+                look.hold_preset(False)
         _LOG.info("Camera tour: ok=%s cancelled=%s frames=%d unsettled=%d", result.ok,
                   result.cancelled, result.frames, result.unsettled)
 
@@ -684,6 +720,7 @@ class WorkspaceCaptureCoordinator(QObject):
 
         # A modal dialog would sit in front of the close and could not be answered.
         dialog, self._dialog = self._dialog, None
+        self._dialog_closing = None
         if dialog is not None:
             dialog.close_for_shutdown()
             dialog.hide()   # a visible modal dialog would sit under the warning below

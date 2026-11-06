@@ -4052,8 +4052,14 @@ class GardenPlannerApp(QMainWindow):
         self._update_companion_highlights()
         self._update_spacing_overlaps()
         self.canvas_view.refresh_soil_mismatches()
+        # A tour moves the clock for its frames and puts the owner's moment back. The
+        # heatmap the owner computed is the heatmap for that restored date, so the
+        # frames must not throw it away (#738).
+        capture = getattr(getattr(self, "_workspace", None), "capture", None)
+        tour_moves_the_clock = capture is not None and capture.owner_plan_date() is not None
         # A direct controller computation has no live refresh intent.
-        if not self._live_sun_map.enabled and self._sun_heatmap.computed_day != _day:
+        if (not tour_moves_the_clock and not self._live_sun_map.enabled
+                and self._sun_heatmap.computed_day != _day):
             self._sun_heatmap.clear()
             self._sun_toolbar.set_heatmap_active(False)
 

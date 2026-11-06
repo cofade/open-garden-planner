@@ -258,6 +258,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   **v1.37.5 (PR #756)** after owner manual acceptance on 2026-11-06: arc-length fence
   spacing, 40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights,
   and cached shadow-walk roof meshes.
+- Capture quality and L6 hygiene (#733, #735, #738), **draft PR awaiting the owner's manual
+  acceptance**: a 4K picture's horizon band keeps 1080p's look by scaling SSAO's radius with
+  the capture height (the review's glow suspicion was measured and rejected; PF-E3D-25); a
+  picture uses the view's preset, the MP4 keeps its pinned BT.709 HD convention, and the
+  smaller L6 findings are closed (PF-E3D-26). See the roadmap.
 - Sky/render-tier integrity (#695, #696, #704, #714, #717, #718, #722) shipped in
   **v1.37.4 (PR #755)** after owner manual acceptance on 2026-11-06: connected
   white-plateau disc finder, world-elevation set-sun probe (`measured=False` fails
@@ -272,20 +277,6 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   string lights thumbnail moved to `string_lights_paint.py`; 3D string lights wire segments doubled
   and bulbs tessellated (12 segments, 5 rings); and shadow agreement prose pruned to defer to ADR-059.
 - 3D hardening, touch/region/CI, and bed/constraint reconciliation (#535/#578/#619, #443/#485, #321/#451) shipped in v1.34.7–v1.34.9 (PRs #647, #649, #650); details in [history](docs/agent-pickup-history.md).
-- CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669,
-  #670) shipped in **v1.34.10 (PR #672)** after owner manual acceptance on
-  2026-11-01. FIXED locks round-trip and are inert during a drag; a grouped
-  rotated shape serializes in its parent frame; a replaced bed keeps its UUID and
-  records; the Properties panel detaches rather than destroys form rows; incidence has
-  one residual and one anchor resolver (ADR-012 addendum; PF-CAN-33, PF-PER-20/21,
-  PF-UI-31, PF-DOM-31/32). The owner's acceptance pass then found a fillet that left
-  its arc behind on a move, a raised bed converted into a polygon that still claimed
-  its type, and an item-wide constraint refusal; the arc is now baked into the host
-  (0.02 cm), rectangle types map to their polygonal equivalent (raised bed → garden
-  bed), the refusal is corner-scoped with in-command renumbering, and the toolbar
-  tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
-  PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
-  is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
 - 3D performance and stability, Slice A (ADR-069): #452 shipped in v1.34.11 (PR #676)
   — a whole-plan read is sliced at 4 ms with heavy builders on one worker lane
   (heartbeat p95 1.7–3.6 ms on the issue's plans, was 4.0–12.6 s in one block). #531

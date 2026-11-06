@@ -10783,3 +10783,55 @@ fallback, a second plan, the flight preview, the owner's date, the UTC hold, the
 the app-close file) and `tests/integration/test_video_writer.py` (a kept render); the render tier's
 `timelapse` scenario carries the two-week clock-change luma gate. Measured after the fix: largest
 neighbouring-frame step 1.53 levels, against 18.07 before it.
+
+### ADR-072 addendum: what a saved picture is made of (#733, #735, #738)
+
+Two decisions #729 left open, and the measured cause of a look that differed by size.
+
+1. **A picture uses the view's quality preset.** A photo or a video frame is the second
+   `View3D` of the same scene (decision 1), so it is made at whatever preset the view runs.
+   Raising it for the capture's own frames was rejected: the pane would preview one look and
+   the file would hold another (the parity decision 5 rests on), every raised frame rebuilds
+   the render targets and the preset's geometry, and the machine that dropped to Low is the
+   one that cannot afford the raise. The quality setting is the user's lever; `AutoPreset`
+   already treats a capture's stall as no data rather than a slow machine. Pinned by
+   `test_a_picture_is_taken_at_the_views_preset_and_never_changes_it`.
+2. **The MP4 keeps relying on the HD convention, and its frames state BT.709.** Qt's
+   recorder writes no colour tag in the container, and it offers no API to add one.
+   `Mp4Writer` computes limited-range BT.709 YUV itself and tags the `QVideoFrameFormat`
+   with that space, range and transfer; every offered tour size is HD, and a player that
+   reads an untagged HD stream as BT.709 reads what the frames are (decision 9). The
+   assumption is now pinned: `test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd`.
+   A player that gets it wrong is a bug report with a named player, not a reason to invent
+   a second colour path.
+3. **A bigger picture keeps 1080p's look by scaling the occlusion, not the glow.** #733
+   read a 4K picture's horizon band as about 9 levels darker than 1080p and suspected Qt's
+   pixel-sized glow. Measured on the family garden at the sunset anchor, the glow is not the
+   cause: with glow off the band still differs by the same amount, and with ambient
+   occlusion off it differs by 0.0. Qt samples SSAO's scene-unit radius on a PIXEL grid, so
+   the same radius covers twice the pixels at twice the height and darkens the far meadow
+   more. `Quick3DHost.capture` therefore sets `captureAoDistanceScale =
+   look.ao_distance_scale(height)` (1080p and smaller: 1.0; 2x the height: 0.5; floored at
+   0.25) for the captured frame and restores 1.0 after it. Measured on that shot: the band
+   (36-44 % of the picture's height) read -1.75 luma mean / -2.82 worst bucket before and
+   -0.41 / -0.53 after; the sky is the control and moves by 0.03. The render tier pins it
+   (`test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look`, band <= 1.0,
+   bucket <= 1.6, sky <= 0.5). The garden *below* the horizon still differs by up to ~3
+   levels at 4K: that is texture minification resolving more detail, not the reported band,
+   and it is left alone rather than tuned away with a second fudge factor.
+4. **A capture that raises nothing leaves nothing behind** (#738): a capture from another
+   camera refuses when the host has no camera to put back, rather than leave the view on the
+   shot; the capture's `finally` restores the photo, selection, wind and AO scale even when
+   the resting frame raises; a video frame the queue refused is offered again from the same
+   `QVideoFrame` instead of converting its YUV planes twice; and a tour's clock hold is
+   released in a `finally`, so a raising clock listener cannot leave automatic quality
+   paused. The tour recorder keeps its hidden-view guard: a hidden pane's controller stays
+   paused and dirty, so `settled()` never becomes true and without the guard the first
+   "Waiting" sentence arrived only after the 180 s first-frame limit (measured by the gate
+   review; the issue's suggestion to drop it was wrong).
+
+**Consequences**: no `.ogp` change and no `FILE_VERSION` bump. The capture AO scale is a
+render-only input (the view's own 1.0 is untouched). Pinned by the tests named above, the unit
+row for `look.ao_distance_scale`, `tests/ui/test_quick3d_host.py`'s no-camera and
+raising-resting-frame rows, and the tour-hygiene tests of #738 (including the workspace-level
+hidden-view guard and the closing-dialog twin).

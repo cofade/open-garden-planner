@@ -337,8 +337,15 @@ class ForgeWorker:
     def fly_path(self, eyes: Sequence[tuple[float, float, float]] | None) -> None:
         """A recording is about to fly past ``eyes`` (L6, ADR-072): each plant takes the finest
         detail any of them asks for and keeps it, so that a frame shows what the view would from
-        there and no plant changes its leaves in mid-flight. ``None``: the camera decides again."""
+        there and no plant changes its leaves in mid-flight. ``None``: the camera decides again.
+
+        Ending a flight also drops the flight's own in-flight build (``_epoch``): its LOD came
+        from a camera that has gone, and applying it would leave that one plant fine until the
+        camera next moved (#738)."""
+        ending = not eyes
         self._path_eyes = np.asarray(eyes, dtype=np.float64) if eyes else None
+        if ending:
+            self._epoch += 1   # an in-flight flight job no longer belongs to this scene
         for record in list(self._latest_records.values()):
             self.submit_record(record, lod=self._force_lod)
 

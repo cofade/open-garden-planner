@@ -41,3 +41,20 @@ change.
 - **3D Visual & Engine Hardening (#535, #578, #576, #619, #589, #582, #615) shipped in v1.34.7 (PR #647).** Software adapter detection (`adapter_info.py`), sun-path arc 25% near-half fade & constant width, ground slope clamp 0.22, interior wood floor & solid bed plants & generic ground shapes under Cutaway, Cutaway shader pre-warming (`shaderWarmer`), and ground-bake benchmark contract alignment.
 - **#443/#485 shipped in v1.34.9 (PR #649) after full owner manual acceptance.** Command-owned bed membership reconciliation (ADR-037 addendum; PF-CAN-32), atomic constrained rotations including partner corrections and touch takeover (PF-DOM-30), and FIXED-aware Parallel/Perpendicular creation with indicators attached to the selected edge. Child constraints outrank implicit bed carrying.
 - **Touch/region/CI package (#321, #451, #540) shipped in v1.34.8 (PR #650).** Pinch and two-finger pan behind `canvas/touch_gestures_enabled`, the bridge search re-priced (`_BRIDGE_UNITS` 600; 110 touching holes refused in ~0.07 s, dearest work row 1.3–1.5), and the `render3d` job's G5 close + G6 compatibility workspace rows.
+
+## Pickups moved 2026-11-06 (root budget)
+
+- CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669,
+  #670) shipped in **v1.34.10 (PR #672)** after owner manual acceptance on
+  2026-11-01. FIXED locks round-trip and are inert during a drag; a grouped
+  rotated shape serializes in its parent frame; a replaced bed keeps its UUID and
+  records; the Properties panel detaches rather than destroys form rows; incidence has
+  one residual and one anchor resolver (ADR-012 addendum; PF-CAN-33, PF-PER-20/21,
+  PF-UI-31, PF-DOM-31/32). The owner's acceptance pass then found a fillet that left
+  its arc behind on a move, a raised bed converted into a polygon that still claimed
+  its type, and an item-wide constraint refusal; the arc is now baked into the host
+  (0.02 cm), rectangle types map to their polygonal equivalent (raised bed → garden
+  bed), the refusal is corner-scoped with in-command renumbering, and the toolbar
+  tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
+  PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
+  is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
