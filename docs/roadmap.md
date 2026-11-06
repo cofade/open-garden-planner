@@ -4149,7 +4149,7 @@ Comprehensive quality, geometry, weather, and lighting hygiene package addressin
 
 Docs: ADR-059 addendum, §8.29.6.
 
-### Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722)
+### Sky and render-tier integrity (#695, #696, #704, #714, #717, #718, #722) — shipped in v1.37.4 (PR #755)
 
 Seven follow-ups from the L7 atmosphere-sky reviews, the Beauty Board and the render tier, in one package:
 
