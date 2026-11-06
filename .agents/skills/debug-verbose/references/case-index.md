@@ -204,5 +204,6 @@
 | Case study: opening a plan crashed because the date had moved (#390) | [Read](201-case-study-opening-a-plan-crashed-because-the-date-had-moved-390.md) |
 | Case study: a crash only the owner's settings could reach (#390) | [Read](202-case-study-a-crash-only-the-owners-settings-could-reach-390.md) |
 | Case study: a year's time-lapse that jumped at the clock change (#732) | [Read](203-case-study-a-year-time-lapse-that-jumped-at-the-clock-change-732.md) |
+| Case study: a sky probe that read a false dip because a row is not the sky (#695) | [Read](204-case-study-a-sky-probe-that-read-a-false-dip-695.md) |
 | Case study: a filleted fence became a wall of planks (#675/#709) | [Read](205-case-study-a-filleted-fence-became-a-wall-of-planks-675-709.md) |
 | Case study: the cheaper shadow walk got slower (#701) | [Read](206-case-study-the-cheaper-shadow-walk-got-slower-701.md) |

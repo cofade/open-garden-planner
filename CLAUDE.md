@@ -257,6 +257,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - 3D curved geometry and strings (#675, #709, #705, #701): arc-length fence spacing,
   40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights, roof cache.
   Draft PR; acceptance pending.
+- Sky/render-tier integrity (#695, #696, #704, #714, #717, #718, #722) shipped in
+  **v1.37.4 (PR #755)** after owner manual acceptance on 2026-11-06: connected
+  white-plateau disc finder, world-elevation set-sun probe (`measured=False` fails
+  closed), 3.6 far-row bound at 640 × 360, flood scoped to the rebuild, `scene_reset`
+  clears the forge queue, 300 ms settle + 1 s ceiling.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
   #685, #706, #707, #708, #710, #700) shipped in **v1.37.3 (PR #752)**: Angled house polygon roof ridge aligns with
   dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast

@@ -228,6 +228,33 @@ def test_a_dragged_sun_costs_one_sky_not_one_per_step(qtbot) -> None:
     assert host.named("sky") == [living_look(sun(40.0, 160.0), "high").sky]
 
 
+def test_a_playing_day_does_not_rebuild_the_sky_on_every_step(qtbot) -> None:
+    """#722: the settle timer (300 ms) is longer than a playback step (200 ms), so the
+    steps keep restarting it; a 1 s staleness ceiling still makes the sky follow the
+    sun. Before, the 150 ms timer fired between every two steps and the atmosphere
+    rebuilt on almost every daylight step (3.5 steps/s). The controller's own clock is
+    injected, so the test reads no wall time (the perf-marker guard)."""
+    from open_garden_planner.core.playback import STEP_MS
+
+    assert SKY_SETTLE_MS > STEP_MS, (SKY_SETTLE_MS, STEP_MS)
+    now = [1000.0]
+    host = Host()
+    look = make(qtbot, host, clock=lambda: now[0])
+    look.set_showing(True)
+    look.set_sun(sun(30.0, 180.0))
+    assert look.sky_rebuilds == 1
+    host.take()
+    for step in range(1, 5):            # four 200 ms steps: 0.8 s, under the ceiling
+        now[0] += 0.2
+        look.set_sun(sun(30.0 + 2.5 * step, 180.0))
+    assert look.sky_rebuilds == 1, "no build while the steps keep the sun moving"
+    assert host.named("sky") == []
+    now[0] += 0.5                       # 1.1 s after the sky first went stale
+    look.set_sun(sun(50.0, 180.0))
+    assert look.sky_rebuilds == 2, "past a second stale: the sky follows the sun"
+    assert host.named("sky") == [living_look(sun(50.0, 180.0), "high").sky]
+
+
 def test_a_sun_that_comes_back_owes_no_sky(qtbot) -> None:
     host = Host()
     look = make(qtbot, host)

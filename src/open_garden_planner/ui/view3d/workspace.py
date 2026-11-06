@@ -909,6 +909,7 @@ class Workspace(QWidget):
         self._wire_analysis(host, orbit, controller)   # L2: drapes, sun path, probe, jumps
         self._capture.set_enabled(True)                # L6: pictures can be taken now
         controller.applied.connect(self._on_applied)
+        controller.scene_reset.connect(self._on_scene_reset)
         controller.capturing_changed.connect(self._on_capturing_changed)
         controller.problems_changed.connect(self._update_problems)
         controller.document_shown.connect(self._on_document_shown)
@@ -1230,6 +1231,12 @@ class Workspace(QWidget):
         )
         if worker.pending_count and self._pane_is_showing():
             self._forge_timer.start(10)
+
+    def _on_scene_reset(self) -> None:
+        """The sink was rebuilt under the forge: its queue belongs to the old scene."""
+        self._forge_timer.stop()
+        if self._forge_worker is not None:
+            self._forge_worker.clear()
 
     def _step_forge(self) -> None:
         """Upgrade up to a small slice of visible plants to forged 3D models per event-loop turn."""

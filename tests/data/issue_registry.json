@@ -1181,8 +1181,13 @@
   },
   "695": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
+  },
+  "696": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Clear horizon step 3.13 at the low-preset sunset exceeds HORIZON_STEP_BOUND 3.0 (pre-existing, ungated)"
   },
   "697": {
     "is_pr": false,
@@ -1213,6 +1218,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "The plan loader caps a polygon's vertices but not a polyline's"
+  },
+  "704": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Beauty Board --analysis fails on bench_built: the probe pin shows in 38 px (< 50) at noon"
   },
   "705": {
     "is_pr": false,
@@ -1254,6 +1264,11 @@
     "state": "MERGED",
     "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
   },
+  "714": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Render tier: distant-horizon gate fails on master (403 m / 15° rows 3.44–3.48 > 3.0 luma)"
+  },
   "716": {
     "is_pr": false,
     "state": "OPEN",
@@ -1261,8 +1276,13 @@
   },
   "717": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
+  },
+  "718": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Render tier: the flood-release soak never settles its initial forge/LOD work (pre-existing on master)"
   },
   "719": {
     "is_pr": false,
@@ -1281,7 +1301,7 @@
   },
   "722": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
   },
   "726": {
@@ -1358,5 +1378,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#748, #702, #697, #694, #685, #706, #707, #708, #710, #700): CAD geometry, weather resilience, lighting & test hygiene"
+  },
+  "755": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#695, #696, #704, #714, #717, #718, #722): sky probes, horizon bounds, pin sizing and forge-reset safety"
   }
 }

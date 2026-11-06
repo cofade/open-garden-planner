@@ -422,6 +422,11 @@ class Scene3DController(QObject):
     #: workspace shows its translated "updating" note only while a read outlasts the
     #: notice's wait: a capture of a small plan must not flicker the status line.
     capturing_changed = pyqtSignal(bool)
+    #: The sink was reset — a fresh engine, a recovery after a sink failure, or a
+    #: document switch. Whatever was built for the old scene is stale: the workspace
+    #: drops the Plant Forge queue here, or a completion lands on a cleared sink
+    #: (``replace_geometry(): unknown item``) and its retry livelocks (#718).
+    scene_reset = pyqtSignal()
 
     _lawn_blades = True
 
@@ -752,6 +757,7 @@ class Scene3DController(QObject):
         self._records_dirty = self._sun_dirty = True
         self._change_came(plan=True)
         self._schedule(self._tick_ms)
+        self.scene_reset.emit()
 
     def flush(self) -> None:
         """Run a pending pass now (tests, and a caller that needs the scene current).
@@ -1391,6 +1397,7 @@ class Scene3DController(QObject):
             self._retired_by_reset += len(self._sync.records)
             try:
                 self._sync.reset()
+                self.scene_reset.emit()
                 # a rebuild from scratch applies the plan as it is: nothing held back
                 changes = self._sync.apply(
                     snapshot, sun=sun, ground=self._ground({}, snapshot, width, depth))
