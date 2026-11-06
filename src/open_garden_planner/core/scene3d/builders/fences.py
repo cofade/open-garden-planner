@@ -496,7 +496,7 @@ def fence_transmittance(
         # The posts the 3D builder stands on this smooth span (``_Run.posts``): every
         # ``spacing`` cm at most, a shared corner only once. A dense sampled curve must
         # not read a post per 2 cm chord (#675's shadow side).
-        per_span = max(2.0, math.ceil(span_len / spacing) + 1.0)
+        per_span = max(2.0, math.ceil(span_len / spacing - 1e-9) + 1.0)
         shared_start = closed or arc_index > 0
         n_posts = per_span - (1.0 if shared_start else 0.0)
         for segment in range(len(arc.length)):

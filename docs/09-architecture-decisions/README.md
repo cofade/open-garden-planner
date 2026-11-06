@@ -10443,7 +10443,8 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
   first cut let a 2.2 m chord run 22 cm off the plan — 3D review). A bulb moves along
   its own span until it clears every **foreign** post by `OTHER_POST_CLEAR_CM` (8.6 cm,
   the 6 cm span clearance plus the 2.6 cm ball), so a self-crossing line cannot hide one
-  in a post.
+  in a post. A span shorter than two clearances keeps its middle: no share can clear both
+  of its own posts, so moving it would only push it into one.
 - **Where a string's light stands (#705).** An open line takes the bulb nearest the
   bulbs' centroid (linked to the line's middle, clear of every post), a closed loop
   takes the centroid itself — the middle of the space it hangs round — and falls back

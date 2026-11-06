@@ -733,8 +733,9 @@ def test_time_animation_does_not_request_full_day_work(win, qtbot, jobs):
 
 def test_identical_buildings_build_their_roof_mesh_once(win, qtbot):
     """#701: 150 identical sheds asked the 3D roof builder for the same mesh 750 times
-    in one walk. The cache is keyed by the complete local geometry, so every identical
-    shed is a hit and an edited roof is a new key (never a stale one)."""
+    across five collections in one walk (150 per collection). The cache is keyed by the
+    complete local geometry, so every identical shed is a hit and an edited roof is a
+    new key (never a stale one)."""
     from open_garden_planner.ui.canvas.sun_shadow_controller import (
         _cached_roof_triangles,
         collect_identified_casters,

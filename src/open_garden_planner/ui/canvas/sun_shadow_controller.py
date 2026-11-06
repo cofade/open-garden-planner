@@ -358,9 +358,10 @@ def _cached_roof_triangles(
 ) -> tuple[Triangle3D, ...]:
     """The pitched roof's LOCAL triangles for one geometry, built once (#701).
 
-    A 150-shed plan asked the 3D roof builder for the same shed's mesh 750 times in one
-    walk (1.37 s of a 5.7 s profile, all but 150 of them repeats); the cache key is the
-    complete geometry, so an edited roof is a new key and never a stale hit. The
+    A 150-shed plan asked the 3D roof builder for the same shed's mesh 750 times across
+    five collections (150 per collection; 600 repeats; 1.37 s of a 5.7 s profile); the
+    cache key is the complete geometry, so an edited roof is a new key and never a
+    stale hit. The
     triangles stay in the record's local frame — the caller poses them, so the same
     mesh serves every identical shed wherever it stands. 64 entries cover the distinct
     roof shapes of a hand-built plan; each holds one building's triangles (a 16k-vertex

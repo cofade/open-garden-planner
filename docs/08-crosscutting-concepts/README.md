@@ -7683,6 +7683,15 @@ Context params change at most once per `CONTEXT_REBUILD_MIN_MS` during a drag (�
 A document change and a pause end the hold, and a recovery from scratch applies the plan
 unheld.
 
+**A smooth span is one caster too (#675/#701).** A centreline sampled densely (a filleted
+fence, a hand-drawn curve) is grouped into the same `CORNER_DEG` smooth spans the 3D
+builder uses: `fence_transmittance` passes the builder's post count for the span, so a
+dense straight line reads the same 0.326 / 0.790 / 0.865 as its two-point version and a
+360-point wooden circle 0.21 instead of 0.00. The shadow walk caches each building's
+local pitched-roof triangles (64 entries, keyed by the complete geometry), so 150
+identical sheds build one roof; the per-owner pyclipper union stays, because removing it
+made the global union of unmerged triangle paths slower (3.25 s against 1.48 s).
+
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on
 hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → snapshot →
@@ -7744,7 +7753,8 @@ garden lights; never for a time of day. Equal emitters are not sent again.
 the line (at most 512; shorter where a straight wire would cut a drawn arc by more than
 `MAX_CHORD_DEVIATION_CM = 2.5`), the wire hanging between two posts, a bulb every 40 cm along the
 wire (at most 120), each kept 6 cm clear of the posts of its span and 8.6 cm clear of
-every other post (a line that doubles back can put a foreign post in a bulb's way) — from
+every other post (a line that doubles back can put a foreign post in a bulb's way; a span
+shorter than two clearances keeps its middle, where no share can clear both), from
 ONE layout, `core/string_lights.layout`: the canvas paints its posts and bulbs from it
 (sized by the line's width — the 2D symbol only; the wire and posts go under the bulbs,
 and the post's drawn side is capped at 12 cm, so a clamped ball is never buried and a

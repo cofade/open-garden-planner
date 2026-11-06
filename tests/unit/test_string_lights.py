@@ -134,6 +134,22 @@ def test_a_short_filleted_loop_keeps_its_own_spans_clearance() -> None:
                 bulb, span, (x, y), (px, py))
 
 
+def test_a_short_span_with_a_foreign_post_keeps_its_own_clearance() -> None:
+    """#709 review's exact failure: a 7.09 cm span with a foreign post 5 cm across its
+    end. The old `_clear_share` moved the bulb to a share of 0.013 (0.09 cm from its
+    own post, inside the 4 cm post); a span shorter than two clearances keeps its
+    middle (3.55 cm, the best available)."""
+    from open_garden_planner.core.string_lights import Span, _clear_share
+
+    span = Span(0, 1, 7.09)
+    posts = [(0.0, 0.0), (7.09, 0.0), (7.09, 5.0)]
+    share = _clear_share(span, posts, 0.5)
+    assert share == 0.5
+    x = share * span.length_cm
+    assert min(math.hypot(x - 0.0, 0.0), math.hypot(x - 7.09, 0.0)) >= (
+        min(POST_CLEAR_CM, span.length_cm / 2.0) - 1e-9)
+
+
 def test_a_dense_line_stands_its_posts_at_least_the_gap_apart() -> None:
     """A polyline drawn with a point every centimetre (a freehand curve, a file) is not
     a post every centimetre: the first and the drawn last point stay, the rest follow."""
