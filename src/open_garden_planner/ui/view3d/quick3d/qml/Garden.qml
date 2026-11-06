@@ -208,6 +208,11 @@ Item {
     property int captureWidth: 16           // device pixels of the picture
     property int captureHeight: 16
     property real capturePixelRatio: 1.0
+    // Qt's screen-space ambient occlusion is sampled in PIXELS: at a bigger picture the
+    // same world radius covers more of them and the garden darkens by several levels
+    // (measured, #733 - not the glow the review suspected). A capture shrinks the radius
+    // in proportion to its height, so the occlusion's footprint stays the pane's.
+    property real captureAoDistanceScale: 1.0
     // the height the screen-sized measures go by (a particle's and the ring's minimum size)
     readonly property real pictureHeight: captureWanted ? captureHeight / capturePixelRatio
                                                         : view.height
@@ -991,7 +996,7 @@ Item {
             // is not 0, whatever aoEnabled says (3D review of L4's second owner pass: Low
             // drew SSAO once the fade had changed it)
             aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
-            aoDistance: 14
+            aoDistance: 14 * root.captureAoDistanceScale
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
             glowEnabled: !root.topDown && root.glow

@@ -272,9 +272,13 @@ class WorkspaceCaptureCoordinator(QObject):
         if not enabled:
             self.cancel_recording()
             self.set_photo_mode(False)
-            dialog, self._dialog = self._dialog, None
+            dialog = self._dialog
             if dialog is not None:
+                # The dialog forgets itself when it really closes (``closed`` below): a
+                # recording that is still closing keeps it alive for a moment, and a
+                # second Tour action reuses it instead of opening a twin on top of it.
                 dialog.close_for_shutdown()
+                dialog.hide()
 
     def document_changed(self) -> None:
         """Another plan: a recording stops, and the focused point was a point of the old one.
@@ -525,9 +529,16 @@ class WorkspaceCaptureCoordinator(QObject):
             from .tour_dialog import TourDialog
 
             self._dialog = TourDialog(self, self._parent)
+            dialog = self._dialog
+            self._dialog.closed.connect(lambda dialog=dialog: self._forget_dialog(dialog))
         self._dialog.show()
         self._dialog.raise_()
         self._dialog.activateWindow()
+
+    def _forget_dialog(self, dialog: Any) -> None:
+        """The dialog closed for good; one still closing is forgotten when it is done."""
+        if self._dialog is dialog:
+            self._dialog = None
 
     @property
     def dialog(self) -> TourDialog | None:
@@ -551,6 +562,11 @@ class WorkspaceCaptureCoordinator(QObject):
         clock = self._get_clock()
         return clock.plan_date if clock is not None else date.today()
 
+    def reduced_motion(self) -> bool:
+        """Whether the look asks for reduced motion (the system setting or Preferences)."""
+        look = self._get_look()
+        return bool(look is not None and look.reduced_motion)
+
     def owner_plan_date(self) -> date | None:
         """The plan date an agent must see while a tour is moving the clock: the owner's,
         not the frame's."""
@@ -572,7 +588,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_size = size
         recorder = TourRecorder(spec, writer, self._tour_frame, self._tour_clock,
                                 self._tour_settled, realtime=realtime,
-                                view_showing=self._is_pane_showing, parent=self)
+                                parent=self)
         recorder.start()   # raises before anything moved
         host.begin_captures()
         self.clock_wanted.emit()
@@ -652,20 +668,25 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_utc_time = None
         self._tour_holds_utc = False
         try:
-            self._fly_path(None)
-            host = self._get_host()
-            if host is not None:
-                host.end_captures()   # its render targets go; a 4K tour holds about 600 MB
-        except Exception as error:  # noqa: BLE001 - a dead engine must not keep the owner's clock
-            _LOG.error("Camera tour: could not let go of the engine (%s: %s)",
+            try:
+                self._fly_path(None)
+                host = self._get_host()
+                if host is not None:
+                    host.end_captures()   # its render targets go; a 4K tour holds about 600 MB
+            except Exception as error:  # noqa: BLE001 - a dead engine must not keep the owner's clock
+                _LOG.error("Camera tour: could not let go of the engine (%s: %s)",
+                           type(error).__name__, log_text(error))
+            clock = self._get_clock()
+            if clock is not None and moment is not None:
+                clock.set_datetime(moment)   # the owner's date and time, as they were
+        except Exception as error:  # noqa: BLE001 - one listener must not skip the rest
+            _LOG.error("Camera tour: could not put the clock back (%s: %s)",
                        type(error).__name__, log_text(error))
-        clock = self._get_clock()
-        if clock is not None and moment is not None:
-            clock.set_datetime(moment)   # the owner's date and time, as they were
-        self._clock_hold = None   # . only after the clock is the owner's again
-        look = self._get_look()
-        if look is not None:
-            look.hold_preset(False)
+        finally:
+            self._clock_hold = None   # only after the clock is the owner's again
+            look = self._get_look()
+            if look is not None:
+                look.hold_preset(False)
         _LOG.info("Camera tour: ok=%s cancelled=%s frames=%d unsettled=%d", result.ok,
                   result.cancelled, result.frames, result.unsettled)
 

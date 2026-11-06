@@ -12,6 +12,7 @@ Scenarios:
 
 ``host``      A plan on a shown host. A capture at the view's size against the view; 4K; a
               camera of its own, and the view afterwards; photo settings, each off again.
+``picture``   The family garden at a low sun: a 4K picture against 1080p (the band, #733).
 ``grades``    Every grade against the view; the identity table against the view.
 ``tour``      The workspace's own recording: a drone orbit into an MP4, read back with Qt.
 ``detail``    A recording close to the plants: its frames have the flight's plant detail.
@@ -48,10 +49,21 @@ if __name__ == "__main__":  # run as a script: make this checkout's code importa
     script_isolation.isolate_profile()  # with scripts/quiet_windows.keep_windows_behind
 
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
+#: The packaged example the L6 promotion shoots: larger, denser, and the shot the 4K look
+#: was reported on (#733).
+FAMILY_GARDEN = REPO / "src" / "open_garden_planner" / "resources" / "examples" / "family-garden.ogp"
 DAY = date(2026, 6, 21)
 VIEW = (640, 360)
 HERO = ((2520.0, -448.0, 490.0), (1008.0, 960.0, 160.0), 46.0)
 OTHER = ((1000.0, -900.0, 700.0), (1000.0, 800.0, 100.0), 40.0)
+#: The board's sunset anchor on the bench plan (5.9°); a low sun shows the horizon band.
+PHOTO_SUN = (5.9, 250.0)
+#: The picture band #733 measures: the far meadow where the ground meets the sky, as a
+#: share of the picture's height (the sky above it is the control). The garden below it
+#: differs by up to 3 levels for a different reason (texture minification) and is not the
+#: reported horizon band.
+PICTURE_BAND = (0.36, 0.44)
+PICTURE_SKY = 0.18
 
 
 def pump(ms: float) -> None:
@@ -83,7 +95,8 @@ def difference(first: Any, second: Any) -> dict[str, float]:
             "max": int(delta.max())}
 
 
-def shown_host(out: Path, preset: str = "medium") -> tuple[Any, Any]:
+def shown_host(out: Path, preset: str = "medium", *,
+               plan: Path = PLAN, sun: tuple[float, float] = (38.0, 250.0)) -> tuple[Any, Any]:
     """The plan on a shown host of its own, with its forged plants and a sky."""
     from open_garden_planner.core import ProjectManager
     from open_garden_planner.core.phenology import evaluate_phenology_for_records
@@ -99,7 +112,11 @@ def shown_host(out: Path, preset: str = "medium") -> tuple[Any, Any]:
 
     scene = CanvasScene()
     manager = ProjectManager()
-    manager.load(scene, PLAN)
+    manager.load(scene, plan)
+    rect = scene.sceneRect()
+    width, depth = float(rect.width()), float(rect.height())
+    cx, cy = width / 2.0, depth / 2.0
+    diag = math.hypot(width, depth)
     records = snapshot_records(scene, DAY)
     seasons = evaluate_phenology_for_records(tuple(records.values()), DAY, latitude_deg=52.52)
     host = Quick3DHost(VIEW)
@@ -108,18 +125,23 @@ def shown_host(out: Path, preset: str = "medium") -> tuple[Any, Any]:
         raise RuntimeError(f"the shown host did not become live ({host.state.value})")
     sink = Quick3DSink(host)
     sync = SceneSync(sink, production_registry())
-    sun = SunState(38.0, 250.0)
-    sync.apply(records, sun=sun, ground=GroundSpec(2400.0, 1600.0))
+    state_of_the_sky = SunState(*sun)
+    sync.apply(records, sun=state_of_the_sky, ground=GroundSpec(width, depth))
     host.set_plant_seasons(seasons)
     worker = ForgeWorker(sink, cache=ForgeCache(), season_sink=host.set_plant_seasons)
     worker.submit_snapshot(records.values(), plan_date=DAY, latitude_deg=52.52)
     worker.drain()
     worker.shutdown()
-    look = look_for(sun, preset)
+    look = look_for(state_of_the_sky, preset)
     host.set_look(look)
     if not host.is_software_adapter():
         host.set_sky(look.sky)
-    host.set_camera(*HERO)
+    # the board's hero framing of this plan (the bench plan's is HERO, exactly)
+    if plan == PLAN:
+        host.set_camera(*HERO)
+    else:
+        host.set_camera((cx + 0.55 * width, cy - 0.78 * depth, 0.17 * diag),
+                        (cx - 0.08 * width, cy + 0.1 * depth, 160.0), 46.0)
     return host, sync
 
 
@@ -219,6 +241,44 @@ def scenario_host(out: Path) -> dict[str, Any]:
     finally:
         host.close()
         pump(100)
+
+
+def scenario_picture(out: Path) -> dict[str, Any]:
+    """A 4K picture against 1080p of the shot the 4K look was reported on (#733): a low sun
+    over the family garden. The ENGINE answers whether a picture keeps the pane's look at a
+    size the pane has never been measured at."""
+    from open_garden_planner.core.scene3d.look import ao_distance_scale
+
+    host, _sync = shown_host(out, sun=PHOTO_SUN, plan=FAMILY_GARDEN)
+    try:
+        host.wait_ready(5.0)
+        profiles: dict[str, Any] = {}
+        for label, size in (("1080", (1920, 1080)), ("2160", (3840, 2160))):
+            image = host.capture(size, label=label)
+            image.save(str(out / f"picture_{label}.png"))
+            pixels = rgb(image)
+            luma = 0.2126 * pixels[..., 0] + 0.7152 * pixels[..., 1] + 0.0722 * pixels[..., 2]
+            profiles[label] = luma.mean(axis=1)
+        full, small = profiles["2160"], profiles["1080"]
+        index = np.linspace(0, len(full) - 1, len(small))
+        delta = np.interp(index, np.arange(len(full)), full) - small
+        low = round(len(small) * PICTURE_BAND[0])
+        high = round(len(small) * PICTURE_BAND[1])
+        buckets = [round(float(delta[row:row + 40].mean()), 3)
+                   for row in range(low, max(low + 1, high - 39), 40)]
+        return {
+            "band": [low, high],
+            "band_delta": round(float(delta[low:high].mean()), 3),
+            "worst_bucket": max(buckets, key=abs),
+            "sky_delta": round(float(delta[:round(len(small) * PICTURE_SKY)].mean()), 3),
+            "ao_scale_at_2160": round(ao_distance_scale(2160.0), 3),
+            "sizes": {label: list(size) for label, size in (("1080", (1920, 1080)),
+                                                            ("2160", (3840, 2160)))},
+        }
+    finally:
+        host.close()
+        pump(100)
+
 
 
 def scenario_grades(out: Path) -> dict[str, Any]:
@@ -696,6 +756,7 @@ SCENARIOS: dict[str, Callable[[Path], dict[str, Any]]] = {
     "detail": scenario_detail,
     "timelapse": scenario_timelapse, "agent": scenario_agent, "soak": scenario_soak,
     "daysoak": scenario_daysoak, "ultra_blur": scenario_ultra_blur,
+    "picture": scenario_picture,
 }
 
 

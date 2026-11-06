@@ -207,3 +207,4 @@
 | Case study: a sky probe that read a false dip because a row is not the sky (#695) | [Read](204-case-study-a-sky-probe-that-read-a-false-dip-695.md) |
 | Case study: a filleted fence became a wall of planks (#675/#709) | [Read](205-case-study-a-filleted-fence-became-a-wall-of-planks-675-709.md) |
 | Case study: the cheaper shadow walk got slower (#701) | [Read](206-case-study-the-cheaper-shadow-walk-got-slower-701.md) |
+| Case study: a 4K picture's dark band that was blamed on the glow (#733) | [Read](207-case-study-a-4k-picture-that-was-blamed-on-the-glow-733.md) |

@@ -258,6 +258,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   **v1.37.5 (PR #756)** after owner manual acceptance on 2026-11-06: arc-length fence
   spacing, 40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights,
   and cached shadow-walk roof meshes.
+- Capture quality and L6 hygiene (#733, #735, #738), **draft PR awaiting the owner's manual
+  acceptance**: a 4K picture's horizon band keeps 1080p's look by scaling SSAO's radius with
+  the capture height (the review's glow suspicion was measured and rejected; PF-E3D-25); a
+  picture uses the view's preset, the MP4 keeps its pinned BT.709 HD convention, and the
+  smaller L6 findings are closed (PF-E3D-26). See the roadmap.
 - Sky/render-tier integrity (#695, #696, #704, #714, #717, #718, #722) shipped in
   **v1.37.4 (PR #755)** after owner manual acceptance on 2026-11-06: connected
   white-plateau disc finder, world-elevation set-sun probe (`measured=False` fails

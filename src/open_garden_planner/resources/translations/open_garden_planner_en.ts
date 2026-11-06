@@ -5289,13 +5289,13 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation>&amp;View</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5680" />
-            <location filename="../../app/application.py" line="5682" />
+            <location filename="../../app/application.py" line="5686" />
+            <location filename="../../app/application.py" line="5688" />
             <source>1 object selected</source>
             <translation>1 object selected</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5675" />
+            <location filename="../../app/application.py" line="5681" />
             <source>1 object | Area: {area} | Perimeter: {perimeter}</source>
             <translation>1 object | Area: {area} | Perimeter: {perimeter}</translation>
         </message>
@@ -5304,87 +5304,87 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation type="vanished">3D View Unavailable</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5583" />
+            <location filename="../../app/application.py" line="5589" />
             <source>&lt;h3&gt;Data Sources &amp; Licenses&lt;/h3&gt;</source>
             <translation>&lt;h3&gt;Data Sources &amp; Licenses&lt;/h3&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5605" />
+            <location filename="../../app/application.py" line="5611" />
             <source>&lt;h4&gt;Bundled data&lt;/h4&gt;</source>
             <translation>&lt;h4&gt;Bundled data&lt;/h4&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5625" />
+            <location filename="../../app/application.py" line="5631" />
             <source>&lt;h4&gt;Icons&lt;/h4&gt;</source>
             <translation>&lt;h4&gt;Icons&lt;/h4&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5585" />
+            <location filename="../../app/application.py" line="5591" />
             <source>&lt;h4&gt;Online plant databases&lt;/h4&gt;</source>
             <translation>&lt;h4&gt;Online plant databases&lt;/h4&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5612" />
+            <location filename="../../app/application.py" line="5618" />
             <source>&lt;li&gt;&lt;b&gt;Companion planting&lt;/b&gt; — RHS Companion Planting guide, Louise Riotte 'Carrots Love Tomatoes', Rodale's 'Companion Planting for Vegetables'&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Companion planting&lt;/b&gt; — RHS Companion Planting guide, Louise Riotte 'Carrots Love Tomatoes', Rodale's 'Companion Planting for Vegetables'&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5599" />
+            <location filename="../../app/application.py" line="5605" />
             <source>&lt;li&gt;&lt;b&gt;Perenual&lt;/b&gt; — &lt;a href='https://perenual.com'&gt;perenual.com&lt;/a&gt;&lt;br&gt;Free for personal and commercial use.&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Perenual&lt;/b&gt; — &lt;a href='https://perenual.com'&gt;perenual.com&lt;/a&gt;&lt;br&gt;Free for personal and commercial use.&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5587" />
+            <location filename="../../app/application.py" line="5593" />
             <source>&lt;li&gt;&lt;b&gt;Permapeople&lt;/b&gt; — &lt;a href='https://permapeople.org'&gt;permapeople.org&lt;/a&gt;&lt;br&gt;License: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)&lt;br&gt;Data is curated from public horticultural sources and available under a share-alike license.&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Permapeople&lt;/b&gt; — &lt;a href='https://permapeople.org'&gt;permapeople.org&lt;/a&gt;&lt;br&gt;License: CC BY-SA 4.0 (Creative Commons Attribution-ShareAlike 4.0)&lt;br&gt;Data is curated from public horticultural sources and available under a share-alike license.&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5617" />
+            <location filename="../../app/application.py" line="5623" />
             <source>&lt;li&gt;&lt;b&gt;Seed viability&lt;/b&gt; — Oregon State University Extension, Johnny's Selected Seeds, Mother Earth News, RHS&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Seed viability&lt;/b&gt; — Oregon State University Extension, Johnny's Selected Seeds, Mother Earth News, RHS&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5621" />
+            <location filename="../../app/application.py" line="5627" />
             <source>&lt;li&gt;&lt;b&gt;Soil amendments&lt;/b&gt; — Rodale, RHS, USDA Extension&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Soil amendments&lt;/b&gt; — Rodale, RHS, USDA Extension&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5607" />
+            <location filename="../../app/application.py" line="5613" />
             <source>&lt;li&gt;&lt;b&gt;Species database&lt;/b&gt; — RHS, Cornell University, Royal Botanic Gardens Kew, USDA/GRIN-Global, University of Minnesota, Oregon State University&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Species database&lt;/b&gt; — RHS, Cornell University, Royal Botanic Gardens Kew, USDA/GRIN-Global, University of Minnesota, Oregon State University&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5627" />
+            <location filename="../../app/application.py" line="5633" />
             <source>&lt;li&gt;&lt;b&gt;Tabler Icons&lt;/b&gt; — MIT License&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Tabler Icons&lt;/b&gt; — MIT License&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5594" />
+            <location filename="../../app/application.py" line="5600" />
             <source>&lt;li&gt;&lt;b&gt;Trefle&lt;/b&gt; — &lt;a href='https://trefle.io'&gt;trefle.io&lt;/a&gt;&lt;br&gt;Attribution required per their API terms of service.&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;Trefle&lt;/b&gt; — &lt;a href='https://trefle.io'&gt;trefle.io&lt;/a&gt;&lt;br&gt;Attribution required per their API terms of service.&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5628" />
+            <location filename="../../app/application.py" line="5634" />
             <source>&lt;li&gt;&lt;b&gt;UI icons&lt;/b&gt; — GPLv3 (original work)&lt;/li&gt;</source>
             <translation>&lt;li&gt;&lt;b&gt;UI icons&lt;/b&gt; — GPLv3 (original work)&lt;/li&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5630" />
+            <location filename="../../app/application.py" line="5636" />
             <source>&lt;p&gt;All bundled data files are licensed under CC BY-SA 4.0. See &lt;code&gt;resources/data/PROVENANCE.md&lt;/code&gt; for details.&lt;/p&gt;</source>
             <translation>&lt;p&gt;All bundled data files are licensed under CC BY-SA 4.0. See &lt;code&gt;resources/data/PROVENANCE.md&lt;/code&gt; for details.&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5584" />
+            <location filename="../../app/application.py" line="5590" />
             <source>&lt;p&gt;Open Garden Planner uses data from the following sources:&lt;/p&gt;</source>
             <translation>&lt;p&gt;Open Garden Planner uses data from the following sources:&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5538" />
+            <location filename="../../app/application.py" line="5544" />
             <source>&lt;p&gt;Precision garden planning for passionate gardeners.&lt;/p&gt;&lt;p&gt;Free and open source under GPLv3.&lt;/p&gt;</source>
             <translation>&lt;p&gt;Precision garden planning for passionate gardeners.&lt;/p&gt;&lt;p&gt;Free and open source under GPLv3.&lt;/p&gt;</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5534" />
+            <location filename="../../app/application.py" line="5540" />
             <source>&lt;p&gt;Version {v}&lt;/p&gt;</source>
             <translation>&lt;p&gt;Version {v}&lt;/p&gt;</translation>
         </message>
@@ -5411,7 +5411,7 @@ Original project: {original_file}
 Would you like to recover this file?</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5761" />
+            <location filename="../../app/application.py" line="5767" />
             <source>API key missing</source>
             <translation>API key missing</translation>
         </message>
@@ -5421,7 +5421,7 @@ Would you like to recover this file?</translation>
             <translation>About &amp;Qt</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5504" />
+            <location filename="../../app/application.py" line="5510" />
             <source>About Open Garden Planner</source>
             <translation>About Open Garden Planner</translation>
         </message>
@@ -5591,7 +5591,7 @@ Would you like to recover this file?</translation>
             <translation>Cancel</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5136" />
+            <location filename="../../app/application.py" line="5142" />
             <source>Cannot delete the layer because its replacement layer is locked.</source>
             <translation>Cannot delete the layer because its replacement layer is locked.</translation>
         </message>
@@ -5671,7 +5671,7 @@ Would you like to recover this file?</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1947" />
-            <location filename="../../app/application.py" line="6530" />
+            <location filename="../../app/application.py" line="6536" />
             <source>Current season year — use File &gt; Manage Seasons to configure</source>
             <translation>Current season year — use File &gt; Manage Seasons to configure</translation>
         </message>
@@ -5701,8 +5701,8 @@ Would you like to recover this file?</translation>
             <translation>DXF Files (*.dxf);;All Files (*)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5557" />
-            <location filename="../../app/application.py" line="5568" />
+            <location filename="../../app/application.py" line="5563" />
+            <location filename="../../app/application.py" line="5574" />
             <source>Data Sources &amp;&amp; Licenses</source>
             <translation>Data Sources &amp;&amp; Licenses</translation>
         </message>
@@ -5712,7 +5712,7 @@ Would you like to recover this file?</translation>
             <translation>Delete all constraints</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6267" />
+            <location filename="../../app/application.py" line="6273" />
             <source>Delete journal note</source>
             <translation>Delete journal note</translation>
         </message>
@@ -5722,7 +5722,7 @@ Would you like to recover this file?</translation>
             <translation>Delete selected objects</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6268" />
+            <location filename="../../app/application.py" line="6274" />
             <source>Delete this journal note?</source>
             <translation>Delete this journal note?</translation>
         </message>
@@ -5784,8 +5784,8 @@ Would you like to recover this file?</translation>
             <location filename="../../app/application.py" line="3390" />
             <location filename="../../app/application.py" line="3444" />
             <location filename="../../app/application.py" line="3476" />
-            <location filename="../../app/application.py" line="5745" />
-            <location filename="../../app/application.py" line="6568" />
+            <location filename="../../app/application.py" line="5751" />
+            <location filename="../../app/application.py" line="6574" />
             <source>Error</source>
             <translation>Error</translation>
         </message>
@@ -5892,7 +5892,7 @@ Would you like to recover this file?</translation>
             <translation>Exported: {path}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6569" />
+            <location filename="../../app/application.py" line="6575" />
             <source>Failed to create season file:
 {error}</source>
             <translation>Failed to create season file:
@@ -5941,7 +5941,7 @@ Would you like to recover this file?</translation>
 {error}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5745" />
+            <location filename="../../app/application.py" line="5751" />
             <source>Failed to import image:
 {error}</source>
             <translation>Failed to import image:
@@ -5993,7 +5993,7 @@ Would you like to recover this file?</translation>
             <translation>Find and replace objects by name, type, layer or species</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6493" />
+            <location filename="../../app/application.py" line="6499" />
             <source>First fall frost</source>
             <translation>First fall frost</translation>
         </message>
@@ -6019,7 +6019,7 @@ Would you like to recover this file?</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1940" />
-            <location filename="../../app/application.py" line="6473" />
+            <location filename="../../app/application.py" line="6479" />
             <source>Garden GPS location — use File &gt; Set Garden Location to configure</source>
             <translation>Garden GPS location — use File &gt; Set Garden Location to configure</translation>
         </message>
@@ -6039,7 +6039,7 @@ Would you like to recover this file?</translation>
             <translation>Garden location</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5866" />
+            <location filename="../../app/application.py" line="5872" />
             <source>Garden location updated</source>
             <translation>Garden location updated</translation>
         </message>
@@ -6064,7 +6064,7 @@ Would you like to recover this file?</translation>
             <translation>Harvest</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6078" />
+            <location filename="../../app/application.py" line="6084" />
             <source>Harvest recorded</source>
             <translation>Harvest recorded</translation>
         </message>
@@ -6074,7 +6074,7 @@ Would you like to recover this file?</translation>
             <translation>Highlight compatible and incompatible plants near the selected plant</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5725" />
+            <location filename="../../app/application.py" line="5731" />
             <source>Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)</source>
             <translation>Images (*.png *.jpg *.jpeg *.tiff *.bmp);;All Files (*)</translation>
         </message>
@@ -6084,7 +6084,7 @@ Would you like to recover this file?</translation>
             <translation>Import &amp;DXF...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5723" />
+            <location filename="../../app/application.py" line="5729" />
             <source>Import Background Image</source>
             <translation>Import Background Image</translation>
         </message>
@@ -6114,7 +6114,7 @@ Would you like to recover this file?</translation>
             <translation>Imported {n} item(s) from DXF.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5743" />
+            <location filename="../../app/application.py" line="5749" />
             <source>Imported: {path}</source>
             <translation>Imported: {path}</translation>
         </message>
@@ -6124,17 +6124,17 @@ Would you like to recover this file?</translation>
             <translation>Insert guild…</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6230" />
+            <location filename="../../app/application.py" line="6236" />
             <source>Journal note added</source>
             <translation>Journal note added</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4982" />
+            <location filename="../../app/application.py" line="4988" />
             <source>Language Changed</source>
             <translation>Language Changed</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4983" />
+            <location filename="../../app/application.py" line="4989" />
             <source>Language has been set to {language}.
 
 Please restart the application for the change to take effect.</source>
@@ -6143,12 +6143,12 @@ Please restart the application for the change to take effect.</source>
 Please restart the application for the change to take effect.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6491" />
+            <location filename="../../app/application.py" line="6497" />
             <source>Last spring frost</source>
             <translation>Last spring frost</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6485" />
+            <location filename="../../app/application.py" line="6491" />
             <source>Latitude: {lat}, Longitude: {lon}</source>
             <translation>Latitude: {lat}, Longitude: {lon}</translation>
         </message>
@@ -6163,12 +6163,12 @@ Please restart the application for the change to take effect.</translation>
             <translation>Load Sa&amp;tellite Background...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5834" />
+            <location filename="../../app/application.py" line="5840" />
             <source>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
             <translation>Loaded satellite background (captured map view, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5845" />
+            <location filename="../../app/application.py" line="5851" />
             <source>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</source>
             <translation>Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — canvas resized to {w_m:.0f}m x {h_m:.0f}m</translation>
         </message>
@@ -6177,7 +6177,7 @@ Please restart the application for the change to take effect.</translation>
             <translation type="vanished">Manage &amp;Seasons...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6577" />
+            <location filename="../../app/application.py" line="6583" />
             <source>New Season Created</source>
             <translation>New Season Created</translation>
         </message>
@@ -6198,12 +6198,12 @@ Please restart the application for the change to take effect.</translation>
             <translation>New project created: {width}m x {height}m</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4078" />
+            <location filename="../../app/application.py" line="4084" />
             <source>Night — the sun is below the horizon</source>
             <translation>Night — the sun is below the horizon</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4229" />
+            <location filename="../../app/application.py" line="4235" />
             <source>Nitrogen (N)</source>
             <translation>Nitrogen (N)</translation>
         </message>
@@ -6213,13 +6213,13 @@ Please restart the application for the change to take effect.</translation>
             <translation>No Plants Found</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5935" />
+            <location filename="../../app/application.py" line="5941" />
             <source>No changes</source>
             <translation>No changes</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1938" />
-            <location filename="../../app/application.py" line="6471" />
+            <location filename="../../app/application.py" line="6477" />
             <source>No location set</source>
             <translation>No location set</translation>
         </message>
@@ -6235,7 +6235,7 @@ Please restart the application for the change to take effect.</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1926" />
-            <location filename="../../app/application.py" line="5664" />
+            <location filename="../../app/application.py" line="5670" />
             <source>No selection</source>
             <translation>No selection</translation>
         </message>
@@ -6297,7 +6297,7 @@ Please restart the application for the change to take effect.</translation>
             <translation>Opened: {path}</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4227" />
+            <location filename="../../app/application.py" line="4233" />
             <source>Overall</source>
             <translation>Overall</translation>
         </message>
@@ -6307,7 +6307,7 @@ Please restart the application for the change to take effect.</translation>
             <translation>Overlay ghosted plant positions from the previous season</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6627" />
+            <location filename="../../app/application.py" line="6633" />
             <source>Overlay {year} season plants (ghosted)</source>
             <translation>Overlay {year} season plants (ghosted)</translation>
         </message>
@@ -6327,17 +6327,17 @@ Please restart the application for the change to take effect.</translation>
             <translation>Paste objects from clipboard</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5986" />
+            <location filename="../../app/application.py" line="5992" />
             <source>Pest/disease log recorded</source>
             <translation>Pest/disease log recorded</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4230" />
+            <location filename="../../app/application.py" line="4236" />
             <source>Phosphorus (P)</source>
             <translation>Phosphorus (P)</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5318" />
+            <location filename="../../app/application.py" line="5324" />
             <source>Pick an area on Google Maps and load it as a true-to-scale satellite background</source>
             <translation>Pick an area on Google Maps and load it as a true-to-scale satellite background</translation>
         </message>
@@ -6362,7 +6362,7 @@ Please restart the application for the change to take effect.</translation>
             <translation>Planting Calendar</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4231" />
+            <location filename="../../app/application.py" line="4237" />
             <source>Potassium (K)</source>
             <translation>Potassium (K)</translation>
         </message>
@@ -6502,7 +6502,7 @@ Please restart the application for the change to take effect.</translation>
             <translation>Season</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6578" />
+            <location filename="../../app/application.py" line="6584" />
             <source>Season {year} has been created.
 
 Open the new season now?</source>
@@ -6511,18 +6511,18 @@ Open the new season now?</source>
 Open the new season now?</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6535" />
+            <location filename="../../app/application.py" line="6541" />
             <source>Season {year} — use File &gt; Manage Seasons to manage seasons</source>
             <translation>Season {year} — use File &gt; Manage Seasons to manage seasons</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6533" />
+            <location filename="../../app/application.py" line="6539" />
             <source>Season: {year}</source>
             <translation>Season: {year}</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="1945" />
-            <location filename="../../app/application.py" line="6528" />
+            <location filename="../../app/application.py" line="6534" />
             <source>Season: —</source>
             <translation>Season: —</translation>
         </message>
@@ -6542,7 +6542,7 @@ Open the new season now?</translation>
             <translation>Select &amp;All</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5444" />
+            <location filename="../../app/application.py" line="5450" />
             <source>Select a plant object (tree, shrub, or perennial) to assign species data</source>
             <translation>Select a plant object (tree, shrub, or perennial) to assign species data</translation>
         </message>
@@ -6592,12 +6592,12 @@ Open the new season now?</translation>
             <translation>Set Garden &amp;Location...</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5323" />
+            <location filename="../../app/application.py" line="5329" />
             <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading</source>
             <translation>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5762" />
+            <location filename="../../app/application.py" line="5768" />
             <source>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</source>
             <translation>Set a Google Maps API key in Preferences or OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading.</translation>
         </message>
@@ -6607,7 +6607,7 @@ Open the new season now?</translation>
             <translation>Set a project-wide soil test used when individual beds have none</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4074" />
+            <location filename="../../app/application.py" line="4080" />
             <source>Set garden location first: File → Set Garden Location…</source>
             <translation>Set garden location first: File → Set Garden Location…</translation>
         </message>
@@ -6739,27 +6739,27 @@ Open the new season now?</translation>
             <translation>Soil &amp;Health Overlay</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4222" />
+            <location filename="../../app/application.py" line="4228" />
             <source>Soil Health Overlay</source>
             <translation>Soil Health Overlay</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4219" />
+            <location filename="../../app/application.py" line="4225" />
             <source>Soil Overlay</source>
             <translation>Soil Overlay</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4223" />
+            <location filename="../../app/application.py" line="4229" />
             <source>Soil parameter:</source>
             <translation>Soil parameter:</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5939" />
+            <location filename="../../app/application.py" line="5945" />
             <source>Soil test recorded</source>
             <translation>Soil test recorded</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6120" />
+            <location filename="../../app/application.py" line="6126" />
             <source>Succession plan saved</source>
             <translation>Succession plan saved</translation>
         </message>
@@ -6802,7 +6802,7 @@ Details: {error}</translation>
             <translation>The plan value at {field} must be positive.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4946" />
+            <location filename="../../app/application.py" line="4952" />
             <source>Theme changed to {theme}</source>
             <translation>Theme changed to {theme}</translation>
         </message>
@@ -6911,7 +6911,7 @@ Details: {error}</translation>
             <translation>Unsaved Changes</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5436" />
+            <location filename="../../app/application.py" line="5442" />
             <source>Updated plant with species: {name}</source>
             <translation>Updated plant with species: {name}</translation>
         </message>
@@ -6946,7 +6946,7 @@ Details: {error}</translation>
             <translation>X: 0.00 cm  Y: 0.00 cm</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5646" />
+            <location filename="../../app/application.py" line="5652" />
             <source>X: {x} cm  Y: {y} cm</source>
             <translation>X: {x} cm  Y: {y} cm</translation>
         </message>
@@ -6960,7 +6960,7 @@ Please save your project to a permanent location.</source>
 Please save your project to a permanent location.</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6487" />
+            <location filename="../../app/application.py" line="6493" />
             <source>Zone</source>
             <translation>Zone</translation>
         </message>
@@ -6990,28 +6990,28 @@ Please save your project to a permanent location.</translation>
             <translation>Zoom out on the canvas</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6672" />
+            <location filename="../../app/application.py" line="6678" />
             <source>frost alert</source>
             <translation>frost alert</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="6672" />
+            <location filename="../../app/application.py" line="6678" />
             <source>frost alerts</source>
             <translation>frost alerts</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="4228" />
+            <location filename="../../app/application.py" line="4234" />
             <source>pH</source>
             <translation>pH</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5707" />
-            <location filename="../../app/application.py" line="5709" />
+            <location filename="../../app/application.py" line="5713" />
+            <location filename="../../app/application.py" line="5715" />
             <source>{count} objects selected</source>
             <translation>{count} objects selected</translation>
         </message>
         <message>
-            <location filename="../../app/application.py" line="5702" />
+            <location filename="../../app/application.py" line="5708" />
             <source>{count} objects | Total Area: {area} | Total Perimeter: {perimeter}</source>
             <translation>{count} objects | Total Area: {area} | Total Perimeter: {perimeter}</translation>
         </message>
@@ -14641,266 +14641,267 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>TourDialog</name>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="221" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="234" />
             <source> s</source>
             <translation> s</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="421" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="437" />
             <source>3D is not available on this computer.</source>
             <translation>3D is not available on this computer.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="341" />
+            <location filename="../../ui/view3d/video_writer.py" line="353" />
             <source>A frame could not be saved. Is the disk full?</source>
             <translation>A frame could not be saved. Is the disk full?</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="420" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="436" />
             <source>A recording is already running.</source>
             <translation>A recording is already running.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="216" />
-            <location filename="../../ui/view3d/video_writer.py" line="237" />
+            <location filename="../../ui/view3d/video_writer.py" line="225" />
+            <location filename="../../ui/view3d/video_writer.py" line="248" />
             <source>A video frame could not be prepared.</source>
             <translation>A video frame could not be prepared.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="156" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="163" />
             <source>Add Current View</source>
             <translation>Add Current View</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="125" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="132" />
             <source>Camera</source>
             <translation>Camera</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="102" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="501" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="109" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="525" />
             <source>Camera Tour</source>
             <translation>Camera Tour</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="250" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="263" />
             <source>Cancel</source>
             <translation>Cancel</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="464" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="488" />
             <source>Cancelled.</source>
             <translation>Cancelled.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="141" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="148" />
             <source>Clockwise</source>
             <translation>Clockwise</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="254" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="267" />
             <source>Close</source>
             <translation>Close</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="128" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="135" />
             <source>Drone Orbit Around the Plan</source>
             <translation>Drone Orbit Around the Plan</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="223" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="236" />
             <source>Duration:</source>
             <translation>Duration:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="427" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="444" />
             <source>Finishing the file…</source>
             <translation>Finishing the file…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="129" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="136" />
             <source>Fly Through My Keyframes</source>
             <translation>Fly Through My Keyframes</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="162" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="169" />
             <source>Fly back to the start</source>
             <translation>Fly back to the start</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="358" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="373" />
             <source>Folder for the frames (*)</source>
             <translation>Folder for the frames (*)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="228" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="241" />
             <source>Frame rate:</source>
             <translation>Frame rate:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="414" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="430" />
             <source>Frame {done} of {total}</source>
             <translation>Frame {done} of {total}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="189" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="202" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="196" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="209" />
             <source>From:</source>
             <translation>From:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="130" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="137" />
             <source>Keep the Current View</source>
             <translation>Keep the Current View</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="351" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="366" />
             <source>MP4 video (*.mp4)</source>
             <translation>MP4 video (*.mp4)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="419" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="435" />
             <source>Open the 3D view first: switch to 3D or Split.</source>
             <translation>Open the 3D view first: switch to 3D or Split.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="216" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="229" />
             <source>Picture</source>
             <translation>Picture</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="239" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="252" />
             <source>Play the tour small and in real time, here in this window. Saves nothing.</source>
             <translation>Play the tour small and in real time, here in this window. Saves nothing.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="238" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="251" />
             <source>Preview</source>
             <translation>Preview</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="159" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="166" />
             <source>Remove</source>
             <translation>Remove</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="400" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="416" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="455" />
             <source>Rendering…</source>
             <translation>Rendering…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="357" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="372" />
             <source>Save PNG Sequence</source>
             <translation>Save PNG Sequence</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="247" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="260" />
             <source>Save PNG Sequence...</source>
             <translation>Save PNG Sequence...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="350" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="365" />
             <source>Save Video</source>
             <translation>Save Video</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="244" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="257" />
             <source>Save Video...</source>
             <translation>Save Video...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="470" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="494" />
             <source>Saved {frames} frames to {path}.</source>
             <translation>Saved {frames} frames to {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="233" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="246" />
             <source>Size:</source>
             <translation>Size:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="144" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="151" />
             <source>Starts where the view is now, at the same distance and height.</source>
             <translation>Starts where the view is now, at the same distance and height.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="177" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="184" />
             <source>Stay at the Plan's Date and Time</source>
             <translation>Stay at the Plan's Date and Time</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="496" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="520" />
             <source>Stop the recording? It has been running for {seconds:.0f} s, and the video is not saved yet.</source>
             <translation>Stop the recording? It has been running for {seconds:.0f} s, and the video is not saved yet.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="491" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="515" />
             <source>Stop the render? The frames already written to {path} stay.</source>
             <translation>Stop the render? The frames already written to {path} stay.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="437" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="460" />
             <source>Stopping…</source>
             <translation>Stopping…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="422" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="438" />
             <source>The 3D view is still building. Try again in a moment.</source>
             <translation>The 3D view is still building. Try again in a moment.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="166" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="173" />
             <source>The camera stays where the view is now. Good for a time-lapse.</source>
             <translation>The camera stays where the view is now. Good for a time-lapse.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_recorder.py" line="265" />
+            <location filename="../../ui/view3d/tour_recorder.py" line="260" />
             <source>The recording failed: {message}</source>
             <translation>The recording failed: {message}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="271" />
+            <location filename="../../ui/view3d/video_writer.py" line="282" />
             <source>The video file could not be closed.</source>
             <translation>The video file could not be closed.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="194" />
+            <location filename="../../ui/view3d/video_writer.py" line="197" />
             <source>The video file {path} cannot be written: {error}</source>
             <translation>The video file {path} cannot be written: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="165" />
+            <location filename="../../ui/view3d/video_writer.py" line="168" />
             <source>This computer has no video encoder for MP4 files. Save a PNG sequence instead.</source>
             <translation>This computer has no video encoder for MP4 files. Save a PNG sequence instead.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="330" />
+            <location filename="../../ui/view3d/video_writer.py" line="342" />
             <source>This folder already holds the frames of another tour. Choose an empty one.</source>
             <translation>This folder already holds the frames of another tour. Choose an empty one.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="174" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="181" />
             <source>Time</source>
             <translation>Time</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="179" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="186" />
             <source>Time-Lapse Through the Year</source>
             <translation>Time-Lapse Through the Year</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="178" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="185" />
             <source>Time-Lapse of a Day</source>
             <translation>Time-Lapse of a Day</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="191" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="204" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="198" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="211" />
             <source>To:</source>
             <translation>To:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="140" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="147" />
             <source>Turns:</source>
             <translation>Turns:</translation>
         </message>
@@ -14910,27 +14911,27 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Video is not available in this build of the app.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="269" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="282" />
             <source>View {number}: from {east:.1f} / {north:.1f} m, {height:.1f} m high</source>
             <translation>View {number}: from {east:.1f} / {north:.1f} m, {height:.1f} m high</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="431" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="448" />
             <source>Waiting: the 3D view is not visible. The recording goes on when it is back.</source>
             <translation>Waiting: the 3D view is not visible. The recording goes on when it is back.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="473" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="497" />
             <source>{count} frames were rendered before the 3D view had caught up with their date.</source>
             <translation>{count} frames were rendered before the 3D view had caught up with their date.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="284" />
+            <location filename="../../ui/view3d/video_writer.py" line="295" />
             <source>{path} could not be replaced ({error}). The video is saved as {part}.</source>
             <translation>{path} could not be replaced ({error}). The video is saved as {part}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="226" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="239" />
             <source>{rate} frames per second</source>
             <translation>{rate} frames per second</translation>
         </message>
@@ -15636,7 +15637,7 @@ Use File › Set Garden Location to configure GPS coordinates.</translation>
             <translation>&amp;Split</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1633" />
+            <location filename="../../ui/view3d/workspace.py" line="1640" />
             <source>&amp;Walk</source>
             <translation>&amp;Walk</translation>
         </message>
@@ -15661,12 +15662,12 @@ Use File › Set Garden Location to configure GPS coordinates.</translation>
             <translation>+3 Years</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1283" />
+            <location filename="../../ui/view3d/workspace.py" line="1290" />
             <source>1 object is not shown in 3D</source>
             <translation>1 object is not shown in 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1281" />
+            <location filename="../../ui/view3d/workspace.py" line="1288" />
             <source>1 object is not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>1 object is not shown in 3D; the 3D ground does not show all of the plan</translation>
         </message>
@@ -15691,12 +15692,12 @@ Use File › Set Garden Location to configure GPS coordinates.</translation>
             <translation>2D Shadows on the Ground</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1424" />
+            <location filename="../../ui/view3d/workspace.py" line="1431" />
             <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
             <translation>3D is running in compatibility mode (software rendering) because it did not start properly last time.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1426" />
+            <location filename="../../ui/view3d/workspace.py" line="1433" />
             <source>3D is running in compatibility mode (software rendering).</source>
             <translation>3D is running in compatibility mode (software rendering).</translation>
         </message>
@@ -15706,12 +15707,12 @@ Use File › Set Garden Location to configure GPS coordinates.</translation>
             <translation>3D is switched off on this computer: it did not start, not even in compatibility mode (software rendering). The rest of the application is not affected.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1430" />
+            <location filename="../../ui/view3d/workspace.py" line="1437" />
             <source>3D is switched off: it did not start in compatibility mode (software rendering) either.</source>
             <translation>3D is switched off: it did not start in compatibility mode (software rendering) either.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1403" />
+            <location filename="../../ui/view3d/workspace.py" line="1410" />
             <source>3D is unavailable on this graphics device. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -15740,7 +15741,7 @@ Details: {error}</translation>
             <translation>A grey sky: soft, faint shadows; the sun stays where it is</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1804" />
+            <location filename="../../ui/view3d/workspace.py" line="1811" />
             <source>Adult</source>
             <translation>Adult</translation>
         </message>
@@ -15786,7 +15787,7 @@ Details: {error}</translation>
             <translation>Brighter or darker, in photographers' stops</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="982" />
+            <location filename="../../ui/view3d/workspace.py" line="983" />
             <source>Building the 3D view…</source>
             <translation>Building the 3D view…</translation>
         </message>
@@ -15796,18 +15797,18 @@ Details: {error}</translation>
             <translation>Camera &amp;Tour...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="705" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="726" />
             <source>Camera Tour</source>
             <translation>Camera Tour</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="192" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="519" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="523" />
             <source>Capture</source>
             <translation>Capture</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1804" />
+            <location filename="../../ui/view3d/workspace.py" line="1811" />
             <source>Child</source>
             <translation>Child</translation>
         </message>
@@ -15828,17 +15829,17 @@ Details: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="244" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="428" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="432" />
             <source>Click the view to set the focus</source>
             <translation>Click the view to set the focus</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1428" />
+            <location filename="../../ui/view3d/workspace.py" line="1435" />
             <source>Compatibility mode (software rendering) is switched on.</source>
             <translation>Compatibility mode (software rendering) is switched on.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1433" />
+            <location filename="../../ui/view3d/workspace.py" line="1440" />
             <source>Compatibility mode will be used the next time the application starts.</source>
             <translation>Compatibility mode will be used the next time the application starts.</translation>
         </message>
@@ -15883,7 +15884,7 @@ Details: {error}</translation>
             <translation>Exposure, colour grade, vignette and a click to set the focus. Changes how the picture looks, never what stands in the garden.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1801" />
+            <location filename="../../ui/view3d/workspace.py" line="1808" />
             <source>Eye height while walking</source>
             <translation>Eye height while walking</translation>
         </message>
@@ -15893,7 +15894,7 @@ Details: {error}</translation>
             <translation>Fly a camera through the garden and save it as a video or a PNG sequence</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="431" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="435" />
             <source>Focus {distance:.1f} m away</source>
             <translation>Focus {distance:.1f} m away</translation>
         </message>
@@ -15923,7 +15924,7 @@ Details: {error}</translation>
             <translation>Growth</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1452" />
+            <location filename="../../ui/view3d/workspace.py" line="1459" />
             <source>Hardware rendering will be tried the next time the application starts.</source>
             <translation>Hardware rendering will be tried the next time the application starts.</translation>
         </message>
@@ -15994,7 +15995,7 @@ Details: {error}</translation>
             <translation>P&amp;hoto Mode</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="477" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="481" />
             <source>PNG image (*.png);;JPEG image (*.jpg)</source>
             <translation>PNG image (*.png);;JPEG image (*.jpg)</translation>
         </message>
@@ -16030,7 +16031,7 @@ Details: {error}</translation>
             <translation>Rain: a grey sky, wet leaves and ground, falling rain</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="476" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="480" />
             <source>Save Photo</source>
             <translation>Save Photo</translation>
         </message>
@@ -16099,7 +16100,7 @@ Details: {error}</translation>
             <translation>Show which objects are missing from the 3D view</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1804" />
+            <location filename="../../ui/view3d/workspace.py" line="1811" />
             <source>Smaller adult</source>
             <translation>Smaller adult</translation>
         </message>
@@ -16150,7 +16151,7 @@ Details: {error}</translation>
             <translation>That spot lies outside the hours-of-sun map.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1279" />
+            <location filename="../../ui/view3d/workspace.py" line="1286" />
             <source>The 3D ground does not show all of the plan</source>
             <translation>The 3D ground does not show all of the plan</translation>
         </message>
@@ -16164,17 +16165,17 @@ Details: {error}</source>
 Details: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1268" />
+            <location filename="../../ui/view3d/workspace.py" line="1275" />
             <source>The 3D view could not be updated. It will try again with the next change.</source>
             <translation>The 3D view could not be updated. It will try again with the next change.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="485" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="489" />
             <source>The 3D view is not visible right now. Bring it back and try again.</source>
             <translation>The 3D view is not visible right now. Bring it back and try again.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1385" />
+            <location filename="../../ui/view3d/workspace.py" line="1392" />
             <source>The 3D view reported a problem. Details are in the log file.</source>
             <translation>The 3D view reported a problem. Details are in the log file.</translation>
         </message>
@@ -16184,7 +16185,7 @@ Details: {error}</translation>
             <translation>The analysis on the ground shows the clear sun's colours; the weather returns when the ground shows nothing.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="424" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="428" />
             <source>The focus moves to the new plan when it is shown</source>
             <translation>The focus moves to the new plan when it is shown</translation>
         </message>
@@ -16214,22 +16215,22 @@ Details: {error}</translation>
             <translation>The hours of sun could not be computed for the changed plan.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="490" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="494" />
             <source>The picture could not be made: {error}</source>
             <translation>The picture could not be made: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="495" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="499" />
             <source>The picture could not be saved to {path}.</source>
             <translation>The picture could not be saved to {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="706" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="727" />
             <source>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</source>
             <translation>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1462" />
+            <location filename="../../ui/view3d/workspace.py" line="1469" />
             <source>The setting could not be changed. Details are in the log file.</source>
             <translation>The setting could not be changed. Details are in the log file.</translation>
         </message>
@@ -16269,7 +16270,7 @@ Details: {error}</translation>
             <translation>Try Again</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1439" />
+            <location filename="../../ui/view3d/workspace.py" line="1446" />
             <source>Try Hardware Next Time</source>
             <translation>Try Hardware Next Time</translation>
         </message>
@@ -16279,12 +16280,12 @@ Details: {error}</translation>
             <translation>Twilight</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1018" />
+            <location filename="../../ui/view3d/workspace.py" line="1019" />
             <source>Updating the 3D view…</source>
             <translation>Updating the 3D view…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1405" />
+            <location filename="../../ui/view3d/workspace.py" line="1412" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Use Compatibility Mode Next Time</translation>
         </message>
@@ -16299,12 +16300,12 @@ Details: {error}</translation>
             <translation>Vignette</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1635" />
+            <location filename="../../ui/view3d/workspace.py" line="1642" />
             <source>Walk through the garden at eye height</source>
             <translation>Walk through the garden at eye height</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1636" />
+            <location filename="../../ui/view3d/workspace.py" line="1643" />
             <source>Walk through the garden at eye height (W A S D or the arrow keys walk, drag to look around, Shift runs, Esc leaves)</source>
             <translation>Walk through the garden at eye height (W A S D or the arrow keys walk, drag to look around, Shift runs, Esc leaves)</translation>
         </message>
@@ -16329,12 +16330,12 @@ Details: {error}</translation>
             <translation>Wildlife and Falling Leaves</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1288" />
+            <location filename="../../ui/view3d/workspace.py" line="1295" />
             <source>{count} objects are not shown in 3D</source>
             <translation>{count} objects are not shown in 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1285" />
+            <location filename="../../ui/view3d/workspace.py" line="1292" />
             <source>{count} objects are not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>{count} objects are not shown in 3D; the 3D ground does not show all of the plan</translation>
         </message>
@@ -16359,7 +16360,7 @@ Details: {error}</translation>
             <translation>{weather} (paused while analysing)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1807" />
+            <location filename="../../ui/view3d/workspace.py" line="1814" />
             <source>{who} – {height}</source>
             <translation>{who} – {height}</translation>
         </message>

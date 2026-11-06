@@ -19,7 +19,7 @@ from pathlib import Path
 from time import monotonic
 from typing import TYPE_CHECKING, Final
 
-from PyQt6.QtCore import QDate, Qt, QTime
+from PyQt6.QtCore import QDate, Qt, QTime, pyqtSignal
 from PyQt6.QtGui import QCloseEvent, QImage, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -87,18 +87,25 @@ ASK_DISCARD_AFTER_S: Final = 10.0
 class TourDialog(QDialog):
     """Set up a tour, preview it, record it (module docstring)."""
 
+    #: The dialog closed for good: the coordinator may forget it (engine stop, the X).
+    closed = pyqtSignal()
+
     def __init__(self, capture: WorkspaceCaptureCoordinator, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._capture = capture
         self._keys: list[CameraKey] = []
         self._recorder: TourRecorder | None = None
         self._recording = False
+        self._finishing = False
         self._modal = False
         self._close_when_stopped = False
         self._output: Path | None = None
         self._run_started_at: float | None = None
         self._sink_kind = "preview"
         self._programmatic_close = False
+        #: True once the user edited the year: the defaults follow the plan date until then.
+        self._dates_chosen = False
+        self._setting_dates = False
         self.setWindowTitle(self.tr("Camera Tour"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         root = QVBoxLayout(self)
@@ -208,9 +215,15 @@ class TourDialog(QDialog):
         layout.addWidget(self._time_pages)
         self.time_from.timeChanged.connect(self._sync_controls)
         self.time_to.timeChanged.connect(self._sync_controls)
-        self.date_from.dateChanged.connect(self._sync_controls)
-        self.date_to.dateChanged.connect(self._sync_controls)
+        self.date_from.dateChanged.connect(self._dates_changed)
+        self.date_to.dateChanged.connect(self._dates_changed)
         return group
+
+    def _dates_changed(self, *_arguments: object) -> None:
+        """The year is the user's from now on: a later plan date must not overwrite it."""
+        if not self._setting_dates:
+            self._dates_chosen = True
+        self._sync_controls()
 
     def _build_output(self) -> QWidget:
         group = QGroupBox(self.tr("Picture"), self)
@@ -318,8 +331,7 @@ class TourDialog(QDialog):
             return None
 
     def _reduced_motion(self) -> bool:
-        look = self._capture._get_look()
-        return bool(look is not None and look.reduced_motion)
+        return self._capture.reduced_motion()
 
     def _sync_controls(self, *_arguments: object) -> None:
         self._motion_pages.setCurrentIndex(self.motion_combo.currentIndex())
@@ -330,13 +342,16 @@ class TourDialog(QDialog):
             button.setEnabled(ready)
 
     def showEvent(self, event: object) -> None:  # noqa: N802 - Qt's name
-        """The year the plan date is in, whenever the dialog opens and no year was chosen."""
+        """The year the plan date is in, whenever the dialog opens and the user chose none."""
         self._programmatic_close = False
-        if not self._recording and not self.date_from.property("chosen"):
+        if not self._recording and not self._dates_chosen:
             year = self._capture.plan_date().year
-            self.date_from.setDate(QDate(year, *DEFAULT_SEASON[0]))
-            self.date_to.setDate(QDate(year, *DEFAULT_SEASON[1]))
-            self.date_from.setProperty("chosen", True)
+            self._setting_dates = True
+            try:
+                self.date_from.setDate(QDate(year, *DEFAULT_SEASON[0]))
+                self.date_to.setDate(QDate(year, *DEFAULT_SEASON[1]))
+            finally:
+                self._setting_dates = False
         self._sync_controls()
         super().showEvent(event)  # type: ignore[arg-type]
 
@@ -386,6 +401,7 @@ class TourDialog(QDialog):
             return
         self._recorder = recorder
         self._recording = not realtime
+        self._finishing = False
         self._run_started_at = monotonic()
         self._sink_kind = ("preview" if isinstance(writer, NullWriter)
                            else "mp4" if isinstance(writer, Mp4Writer) else "png")
@@ -422,6 +438,7 @@ class TourDialog(QDialog):
         }.get(code, self.tr("The 3D view is still building. Try again in a moment."))
 
     def _on_finishing(self) -> None:
+        self._finishing = True
         self.cancel_button.setEnabled(False)
         if self._recording:
             self._status.setText(self.tr("Finishing the file…"))
@@ -430,6 +447,12 @@ class TourDialog(QDialog):
         if paused:
             self._status.setText(self.tr(
                 "Waiting: the 3D view is not visible. The recording goes on when it is back."))
+            return
+        # Back: the wait is over, so the wait's sentence must go. Only a running
+        # recording has a status of its own (its frame count); a preview has none.
+        if self._recorder is None or self._finishing:
+            return
+        self._status.setText(self.tr("Rendering…") if self._recording else "")
 
     def _cancel(self) -> None:
         if self._recorder is not None and self._recorder.cancel():
@@ -441,6 +464,7 @@ class TourDialog(QDialog):
         programmatic = self._programmatic_close
         self._recorder = None
         self._recording = False
+        self._finishing = False
         self._run_started_at = None
         self._programmatic_close = False
         self._progress.hide()
@@ -531,3 +555,5 @@ class TourDialog(QDialog):
                 event.ignore()
             return
         super().closeEvent(event)
+        if event is None or event.isAccepted():
+            self.closed.emit()

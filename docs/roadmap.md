@@ -4176,3 +4176,11 @@ Docs: ADR-059/065/070 addenda, §8.29.12/§8.29.13, `debug-verbose` case studies
 
 
 
+
+### Capture quality and L6 hygiene (#733, #735, #738) - shipped in v1.37.6 (PR #@@PR@@)
+
+- **#733 - a 4K picture keeps the pane's look**: the L6 review read a 4K horizon band about 9 levels darker than 1080p and named Qt's pixel-sized glow. Measured on the family garden's sunset, the glow changes nothing; the difference is screen-space ambient occlusion, whose scene-unit radius is sampled on a pixel grid. `look.ao_distance_scale` (1080p 1.0, 2x height 0.5, floor 0.25) scales the capture's `aoDistance` for its frame and restores the view's 1.0. The render tier's `picture` scenario pins the horizon band at <= 1.0 luma, its worst bucket at <= 1.6 and the sky at <= 0.5: -1.75 / -2.82 before, -0.41 / -0.53 after. The garden below the band still differs by up to ~3 levels from texture minification - a different, ungated phenomenon.
+- **#735 - what a saved picture is made of**: a picture uses the view's quality preset (raising it for the capture would preview one look and save another, and cost the machine that dropped to Low the most); the MP4 keeps its pinned BT.709 limited-range HD convention, with the frame format's own colour space/range/transfer tags. Each is recorded in ADR-072's addendum and pinned by a test.
+- **#738 - the L6 hygiene sweep**: a paused preview stops saying it waits when the view returns; a raising clock listener cannot skip `hold_preset(False)`; the tour dialog is forgotten only when it really closed, so an engine stop leaves no twin; a cancelled flight drops its in-flight fine forge build (`ForgeWorker.fly_path(None)` bumps `_epoch`); a tour's date no longer clears the owner's heatmap; a capture restores a host's pre-camera state and survives a raising resting frame; a refused video frame is offered again without a second YUV conversion; the dialog's default year follows the plan until the user chooses; the recorder's dead `view_showing` predicate is gone and `_tour_settled` is pinned against an always-True mutant.
+
+Docs: ADR-072 addendum, FR-3D-PHOTO-03 / FR-3D-TOUR-02, PF-E3D-25/26, `debug-verbose` case study 207.

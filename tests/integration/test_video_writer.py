@@ -283,6 +283,71 @@ def test_a_finished_video_replaces_the_one_the_user_chose_to_overwrite(qtbot: An
     assert path.read_bytes() != b"old"
 
 
+def test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd(tmp_path: Path, qtbot: Any) -> None:
+    """ADR-072 addendum (#735): Qt's recorder writes no colour tag in the MP4, so the writer
+    relies on the HD convention - every tour size is HD, and every frame is BT.709 limited
+    range computed by the app. A player that reads the stream's own format gets the truth;
+    one that guesses from the size guesses the same."""
+    from open_garden_planner.ui.view3d.tour_dialog import TOUR_SIZES
+
+    needs_an_encoder()
+    from PyQt6 import QtMultimedia
+
+    assert all(width >= 1280 and height >= 720 for width, height in TOUR_SIZES), TOUR_SIZES
+    writer = Mp4Writer(tmp_path / "tag.mp4", SIZE, FPS)
+    outcome: list[tuple[bool, str]] = []
+    writer.finished.connect(lambda ok, message: outcome.append((ok, message)))
+    writer.start()
+    try:
+        frames = writer._format
+        assert frames.colorSpace() == QtMultimedia.QVideoFrameFormat.ColorSpace.ColorSpace_BT709
+        assert frames.colorRange() == QtMultimedia.QVideoFrameFormat.ColorRange.ColorRange_Video
+        assert frames.colorTransfer() == (
+            QtMultimedia.QVideoFrameFormat.ColorTransfer.ColorTransfer_BT709)
+    finally:
+        writer.abort()
+        qtbot.waitUntil(lambda: bool(outcome), timeout=60000)
+
+
+def test_a_full_queue_costs_no_second_yuv_conversion(tmp_path: Path, qtbot: Any) -> None:
+    """#738: ``write`` computed the 4K YUV planes, then learned the queue was full; the
+    retry computed them again (142 ms at 4K). The refused frame is offered once more."""
+    needs_an_encoder()
+    writer = Mp4Writer(tmp_path / "retry.mp4", SIZE, FPS)
+    fills: list[int] = []
+    real_fill = writer._fill
+
+    def counted(frame: Any, image: QImage) -> None:
+        fills.append(1)
+        real_fill(frame, image)
+
+    class Refusing:
+        """The real input, refusing the first frame the way a full queue does."""
+
+        def __init__(self, real: Any) -> None:
+            self.real = real
+            self.refused = False
+
+        def sendVideoFrame(self, frame: Any) -> bool:
+            if not self.refused:
+                self.refused = True
+                return False
+            return bool(self.real.sendVideoFrame(frame))
+
+    writer.start()
+    try:
+        writer._input = Refusing(writer._input)
+        writer._fill = counted
+        picture = frame(0, 1)
+        assert writer.write(picture) is False, "the queue was full"
+        qtbot.waitUntil(lambda: writer.write(picture), timeout=20000)
+        assert len(fills) == 1, "its planes were computed once, not twice"
+        assert writer.frames_sent == 1
+    finally:
+        writer.abort()
+        qtbot.waitUntil(lambda: writer._recorder is None, timeout=30000)
+
+
 def test_a_frame_of_the_wrong_size_is_refused_not_stretched(qtbot: Any, tmp_path: Path) -> None:
     needs_an_encoder()
     writer = Mp4Writer(tmp_path / "x.mp4", SIZE, FPS)

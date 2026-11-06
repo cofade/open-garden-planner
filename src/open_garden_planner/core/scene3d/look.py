@@ -65,7 +65,8 @@ __all__ = [
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
     "PAINTED", "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_MODELS", "SKY_REBUILD_DEG",
     "TWILIGHT_DEG", "AutoPolicy",
-    "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig",
+    "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec",
+    "ao_distance_scale", "day_rig",
     "fill_linear", "fog_color", "fog_depth_cm", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
     "mix_rig", "moon_travel_scene", "normalise_quality", "normalise_sky_model", "scale_linear",
     "sky_is_stale",
@@ -199,6 +200,31 @@ def mix_linear(first: str, second: str, t: float) -> str:
         return second
     low, high = _linear(first), _linear(second)
     return linear_to_srgb_hex(low + (high - low) * t)
+
+
+#: The picture height whose screen-space ambient occlusion is the LOOK: every other size
+#: scales the occlusion's world radius to keep that footprint (#733).
+AO_REFERENCE_HEIGHT_PX: Final = 1080.0
+#: The smallest scale a capture may ask for: an 8K picture would otherwise ask for a
+#: 1.7 cm radius, below what the occlusion can resolve.
+AO_MIN_SCALE: Final = 0.25
+
+
+def ao_distance_scale(picture_height_px: float) -> float:
+    """The scale of ``SceneEnvironment.aoDistance`` for a picture this many pixels high.
+
+    Qt's screen-space ambient occlusion samples a radius of scene units on a PIXEL grid,
+    so the same radius covers more pixels - and darkens the garden more - the bigger the
+    picture. Measured on the family garden at sunset (#733): a 4K capture's garden band
+    read 4.3 luma darker than 1080p with AO on, 0.0 with it off, and a glow change moved
+    nothing (the review's suspicion). Shrinking the world radius in proportion to the
+    height keeps the occlusion's screen footprint - and so the look - the same. 1080p and
+    smaller: 1.0 (the pane's own look is the reference).
+    """
+    height = float(picture_height_px)
+    if not math.isfinite(height) or height <= AO_REFERENCE_HEIGHT_PX:
+        return 1.0
+    return max(AO_MIN_SCALE, AO_REFERENCE_HEIGHT_PX / height)
 
 
 def scale_linear(color: str, factor: float) -> str:

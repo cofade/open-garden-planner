@@ -46,6 +46,12 @@ TABLE_MEAN, TABLE_MAX = 0.5, 8
 #: Measured on the dev box: 1.53 after the tour held UTC; 18.07 at the change before it
 #: (the owner read 24 in the year video, #732). Every other step stays below 2.
 DST_STEP_BOUND = 4.0
+#: #733, the family garden at sunset: a 4K picture's horizon band against 1080p's, in
+#: luma. Measured -0.41 mean / -0.53 worst 40-row bucket with the capture's AO radius
+#: scaled; -1.75 / -2.82 without it. The band's sky control stays within 0.5.
+PICTURE_BAND_DELTA = 1.0
+PICTURE_BUCKET_DELTA = 1.6
+PICTURE_SKY_DELTA = 0.5
 
 
 def drive(tmp_path: Path, scenario: str, **env: str) -> dict[str, Any]:
@@ -203,6 +209,21 @@ def test_a_year_time_lapse_does_not_jump_at_the_clock_change(
     steps = dst["luma_steps"]
     assert max(steps) <= DST_STEP_BOUND, dst
     assert dst["clock_back"]
+
+
+def test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look(
+        tmp_path: Path) -> None:
+    """#733: the review read the horizon band about 9 levels darker at 4K and blamed Qt's
+    pixel-sized glow. Measured on this shot, the glow changes nothing; the difference is
+    screen-space ambient occlusion, whose scene-unit radius covers more pixels at a bigger
+    picture. A capture scales that radius by its height: the band read -1.75 / -2.82 (mean
+    / worst bucket) before and -0.41 / -0.53 after, at the family garden's sunset."""
+    result = drive(tmp_path, "picture")
+    assert result["sizes"] == {"1080": [1920, 1080], "2160": [3840, 2160]}
+    assert abs(result["band_delta"]) <= PICTURE_BAND_DELTA, result
+    assert abs(result["worst_bucket"]) <= PICTURE_BUCKET_DELTA, result
+    assert abs(result["sky_delta"]) <= PICTURE_SKY_DELTA, result
+    assert result["ao_scale_at_2160"] == 0.5, "the radius is halved for twice the height"
 
 
 def test_the_agents_picture_refuses_cleanly_and_changes_nothing(tmp_path: Path) -> None:

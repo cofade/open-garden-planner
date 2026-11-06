@@ -350,3 +350,25 @@ Symptom: an agent creating a tree during a year time-lapse planted it on the dat
 
 Symptom: a year's time-lapse jumped in brightness at each clock change (24 levels in the
 owner's video). The tour held the wall time (`clock.set_date` keeps it), which is right for a day tour but not for a year: Berlin's 15:00 is 13:00 UTC in summer and 14:00 UTC in winter. Measured on a two-week tour across the autumn change: an 18.07-level step between neighbouring frames before, 1.53 levels as the largest step after. The first frame still starts at the date the dialog names at the owner's time of day; a local date with no exact instant gets the nearest reading on that date (within the missing hour), so the promised date range holds.
+
+### PF-E3D-25
+
+- **Rule:** A capture's look must be scaled for its PICTURE HEIGHT where Qt's effect is sized in pixels: Qt samples SSAO's scene-unit radius on a pixel grid, so a 4K picture's horizon band read 4.3 luma darker than 1080p with AO on and 0.0 with it off (glow changed nothing). `Quick3DHost.capture` sets `captureAoDistanceScale = ao_distance_scale(height)` (1080p and smaller 1.0, 2x height 0.5, floor 0.25) for its frame and restores 1.0; tune the radius, not the strength.
+- **Pinned by:** `tests/unit/test_scene3d_look.py::TestTheCapturesOcclusionScale`; `tests/integration/test_directors_cut_render.py::test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look`
+- **Source:** #733, found by the 3D review of PR #729; ADR-072 addendum. #735 records the preset and colour-tag decisions beside it.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+The render gate bounds the band at 1.0, its worst 40-row bucket at 1.6 and the sky at 0.5; measured -1.75 / -2.82 before the scale and -0.41 / -0.53 after.
+
+Symptom: the same photo looked darker at 4K than at 1080p, and the difference was blamed on Qt's pixel-sized glow. A before/after matrix (glow off, AO off) showed AO is the resolution-dependent term; the residual ~3-level difference in the garden *below* the horizon is texture minification and is not gated. The capture's own resting frame and the on-screen view keep scale 1.0, so the pane's look is untouched.
+
+### PF-E3D-26
+
+- **Rule:** Ending a camera tour's flight must invalidate the flight's IN-FLIGHT forge build, not merely re-submit the plants: if a plant's applied LOD already equals the camera's, `submit_record` queues nothing, and the flight's finer result then lands with no pending job to reject it (`pending is None`). `ForgeWorker.fly_path(None)` bumps `_epoch`, so `_step_background` drops a completion that started under the flight.
+- **Pinned by:** `tests/unit/test_plant_forge_l31.py::test_ending_a_flight_drops_that_flights_in_flight_build`
+- **Source:** #738, the L6 review of PR #729.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: after a cancelled flight one plant stayed at its finest detail until the camera next moved.

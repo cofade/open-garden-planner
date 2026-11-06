@@ -144,7 +144,7 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
-from open_garden_planner.core.scene3d.look import ATMOSPHERE, fog_depth_cm
+from open_garden_planner.core.scene3d.look import ATMOSPHERE, ao_distance_scale, fog_depth_cm
 from open_garden_planner.core.scene3d.meadow import meadow_frame
 from open_garden_planner.core.scene3d.particles import (
     precipitation_buffers,
@@ -1611,6 +1611,11 @@ class Quick3DHost:
         root = self._root
         ratio = float(self._view.effectiveDevicePixelRatio())
         shot_before = self._camera_scene
+        # A host that has never been given a camera has no shot to put back; remember the
+        # frame's own camera properties so the picture does not leave its camera behind.
+        camera_before = None if shot is None or shot_before is not None else (
+            _get(root, "camPos"), _get(root, "camTarget"), _get(root, "camFov"),
+            _get(root, "camVersion"))
         wind_before = _get(root, "windTime")
         ring_before = _get(root, "selectionVisible")
         photo_before = self._photo
@@ -1627,6 +1632,7 @@ class Quick3DHost:
             _set(root, "capturePixelRatio", ratio)
             _set(root, "captureWidth", width)
             _set(root, "captureHeight", height)
+            _set(root, "captureAoDistanceScale", ao_distance_scale(float(height)))
             _set(root, "captureWanted", True)
             self._apply_photo(float(height))
             item = cast("QQuickItem", self._call("captureItem"))
@@ -1638,16 +1644,25 @@ class Quick3DHost:
             QCoreApplication.sendPostedEvents(result, 0)
             image = result.image()
         finally:
-            if not self._capture_session:
-                self._drop_capture_view()
-            _set(root, "selectionVisible", ring_before)
-            _set(root, "windTime", wind_before)
-            self._photo = photo_before
-            if photo is not None:
-                self._apply_grade(photo_before.grade)
-            if shot is not None and shot_before is not None:
-                self.set_camera(shot_before.eye, shot_before.target, shot_before.fov_deg)
-            self._apply_photo(self._view_height_px())
+            try:
+                if not self._capture_session:
+                    self._drop_capture_view()
+            finally:
+                _set(root, "captureAoDistanceScale", 1.0)
+                _set(root, "selectionVisible", ring_before)
+                _set(root, "windTime", wind_before)
+                self._photo = photo_before
+                if photo is not None:
+                    self._apply_grade(photo_before.grade)
+                if shot is not None and shot_before is not None:
+                    self.set_camera(shot_before.eye, shot_before.target, shot_before.fov_deg)
+                elif shot is not None and camera_before is not None:
+                    for name, value in zip(
+                            ("camPos", "camTarget", "camFov", "camVersion"), camera_before,
+                            strict=True):
+                        _set(root, name, value)
+                    self._camera_scene = None
+                self._apply_photo(self._view_height_px())
         if image.isNull() or image.width() == 0 or image.height() == 0:
             raise EngineError(f"capture({label!r}): Qt delivered no picture")
         if (image.width(), image.height()) != (width, height):

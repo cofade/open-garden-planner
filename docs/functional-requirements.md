@@ -1036,7 +1036,10 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   plan's camera is framed; until then the line says the focus is moving.
 - **FR-3D-PHOTO-03** (L6.1): **Save Photo** writes a PNG or JPEG at the view's size, Full HD, QHD or
   4K, whatever the window's size, without moving the view. No selection highlight is in the picture.
-  The file says what date it shows.
+  The file says what date it shows. The picture uses the view's **quality preset** (`AutoPreset`'s
+  current level, or the user's fixed choice) and keeps the pane's look at every size: the ambient
+  occlusion's radius follows the picture's height, so a 4K picture's horizon band lies within 1 luma
+  of 1080p's (ADR-072 addendum; the render tier's `picture` gate).
 - **FR-3D-TOUR-01** (L6.2): **Camera Tour** moves the camera as a **drone orbit** from where the
   view is, along **keyframes** (each the current view, on a smooth path at constant speed), or not
   at all; and the clock not at all, through **a day**, or **through the year**. Duration 1 to 600 s, 24
@@ -1052,7 +1055,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   window's X asks before throwing away a recording that has already run for 10 s**; Cancel keeps it
   running. Closing the app ends a running recording and waits (bounded) for its file to close; if
   the encoder cannot close in time, it names the unfinished output so the user can find it. If
-  the 3D view stops being visible, the recording waits and goes on.
+  the 3D view stops being visible, the recording waits and goes on. Frames are limited-range
+  BT.709 YUV computed by the app, and every offered size is HD; Qt's MP4 writer adds no colour
+  tag, so players follow the HD convention (ADR-072 addendum), pinned by a test.
 - **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the
