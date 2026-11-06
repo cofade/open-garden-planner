@@ -930,6 +930,45 @@ def test_stopping_the_engine_forgets_the_tour_dialog_once_it_really_closed(
     assert not dialog.isVisible(), "and no hidden dialog is left behind"
 
 
+def test_a_tour_says_at_once_when_the_pane_goes_hidden(rig: Rig, qtbot: Any) -> None:
+    """#738 review: the hidden-view guard is only as good as the workspace's wiring of it.
+    Delete ``view_showing=`` from ``start_tour`` and a hidden pane's tour waits out the
+    settle limit (180 s on the first frame) before it says anything."""
+    rig.open_3d()
+    capture = rig.workspace.capture
+    key = CameraKey((0.0, 0.0, 500.0), (10.0, 10.0, 0.0))
+    recorder = capture.start_tour(TourSpec(HeldCamera(key), 60.0, 24), (64, 36), NullWriter())
+    paused: list[bool] = []
+    recorder.paused_changed.connect(paused.append)
+    try:
+        rig.workspace.set_mode(WorkspaceMode.PLAN)
+        qtbot.waitUntil(lambda: paused == [True], timeout=1000)
+    finally:
+        capture.cancel_recording()
+        qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+
+
+def test_the_tour_action_waits_for_an_engine_stopped_dialog_to_close(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    """#738 review: while the engine-stopped dialog finishes its file the Tour action must
+    not be a dead click, and it must not open a twin either."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    capture.set_enabled(False)   # the engine is going; its file is still closing
+    assert capture._dialog_closing is not None, "a recording closes its file asynchronously"
+    capture.set_enabled(True)    # a new engine, the old dialog is not done yet
+    assert not capture.tour_action.isEnabled(), "a click would do nothing: say so by the action"
+    capture.tour_action.trigger()
+    assert capture.dialog is None, "no twin beside the closing dialog"
+    qtbot.waitUntil(lambda: capture._dialog_closing is None, timeout=30000)
+    assert capture.tour_action.isEnabled()
+    capture.tour_action.trigger()
+    assert capture.dialog is not None and capture.dialog is not dialog
+    capture.dialog.close()
+
+
 def test_closing_the_tour_dialog_keeps_the_keys_for_the_next_open(rig: Rig) -> None:
     """#738: the module's contract is that closing the dialog keeps its keys (only closing
     the app loses them). Forgetting every closed dialog broke that on Close and X while Esc

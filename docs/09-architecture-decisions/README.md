@@ -10831,5 +10831,7 @@ Two decisions #729 left open, and the measured cause of a look that differed by 
    review; the issue's suggestion to drop it was wrong).
 
 **Consequences**: no `.ogp` change and no `FILE_VERSION` bump. The capture AO scale is a
-render-only input (the view's own 1.0 is untouched). Pinned by the tests named above plus the
-unit row for `look.ao_distance_scale` and the tour-hygiene tests of #738.
+render-only input (the view's own 1.0 is untouched). Pinned by the tests named above, the unit
+row for `look.ao_distance_scale`, `tests/ui/test_quick3d_host.py`'s no-camera and
+raising-resting-frame rows, and the tour-hygiene tests of #738 (including the workspace-level
+hidden-view guard and the closing-dialog twin).

@@ -165,6 +165,8 @@ class WorkspaceCaptureCoordinator(QObject):
         #: A dialog whose engine stopped while its file was still closing. It is not the
         #: session's any more; it is forgotten when it really closes.
         self._dialog_closing: TourDialog | None = None
+        #: The engine is there: the Tour action follows it and the closing-dialog latch.
+        self._engine_enabled = False
         self._row: QWidget | None = None
         self._size_combo: QComboBox | None = None
         self._grade_combo: QComboBox | None = None
@@ -270,8 +272,9 @@ class WorkspaceCaptureCoordinator(QObject):
         """The engine is there (or gone): the actions follow."""
         # if the settings wait for the new plan's framing, they must not outlive the engine
         self._focus_pending = False
+        self._engine_enabled = bool(enabled)
         self.photo_action.setEnabled(enabled)
-        self.tour_action.setEnabled(enabled)
+        self.tour_action.setEnabled(enabled and self._dialog_closing is None)
         if not enabled:
             self.cancel_recording()
             self.set_photo_mode(False)
@@ -549,6 +552,8 @@ class WorkspaceCaptureCoordinator(QObject):
         user closed is kept - the tour's keys live in the session, which is the dialog."""
         if self._dialog_closing is dialog:
             self._dialog_closing = None
+            if self._engine_enabled:
+                self.tour_action.setEnabled(True)
 
     @property
     def dialog(self) -> TourDialog | None:

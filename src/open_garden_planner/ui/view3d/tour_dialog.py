@@ -87,7 +87,8 @@ ASK_DISCARD_AFTER_S: Final = 10.0
 class TourDialog(QDialog):
     """Set up a tour, preview it, record it (module docstring)."""
 
-    #: The dialog closed for good: the coordinator may forget it (engine stop, the X).
+    #: The dialog closed for good: the coordinator drops it when the ENGINE stopped it;
+    #: a user's Close keeps it, because the tour's keys live here for the session.
     closed = pyqtSignal()
 
     def __init__(self, capture: WorkspaceCaptureCoordinator, parent: QWidget | None = None) -> None:
