@@ -30,11 +30,14 @@ void MAIN()
     float fall = snow ? mix(80.0, 130.0, NORMAL.y) : mix(650.0, 900.0, NORMAL.y);   // cm/s
     vec2 drift = uDrift.xz * (snow ? 1.0 : 0.35);
     vec2 origin = uCenter.xz - 0.5 * size;
-    vec2 travel = VERTEX.xz * size + drift * uTime;
-    vec2 xz = origin + mod(travel - origin, vec2(size));
-    float y = height - mod(VERTEX.y * height + fall * uTime, height);
-    if (snow) {   // a flake sways as it falls
-        xz += vec2(sin(uTime * 1.3 + NORMAL.x * 6.2832), cos(uTime * 1.1 + NORMAL.x * 5.0)) * 16.0;
+    vec2 driftDist = mod(drift * uTime, vec2(size));
+    vec2 xz = origin + mod(VERTEX.xz * size + driftDist, vec2(size));
+    float fallDist = mod(fall * uTime, height);
+    float y = height - mod(VERTEX.y * height + fallDist, height);
+    if (snow) {   // a flake sways as it falls (#689: wrap time to avoid float precision loss)
+        float phase1 = mod(uTime * 1.3, 6.2831853);
+        float phase2 = mod(uTime * 1.1, 6.2831853);
+        xz += vec2(sin(phase1 + NORMAL.x * 6.2832), cos(phase2 + NORMAL.x * 5.0)) * 16.0;
     }
     vec3 center = vec3(xz.x, y, xz.y);
     // fade in at the box's sides and top, so its window never shows a line

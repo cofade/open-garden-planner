@@ -543,7 +543,12 @@ class TestObjectHeightField:
         panel.set_selected_items([item])
         panel.resize(450, 900)
         panel.show()
-        qtbot.wait(30)
+        qtbot.waitUntil(
+            lambda: all(b.width() == 120 for b in panel.findChildren(ColorButton))
+            and all(s.width() == 120 for s in panel.findChildren(QAbstractSpinBox))
+            and all(c.width() == 120 for c in panel.findChildren(QComboBox)),
+            timeout=5000,
+        )
 
         fields = self._fields(panel)
         # The owner's screenshot (#596) showed four widths and three alignments
@@ -576,12 +581,17 @@ class TestObjectHeightField:
         assert pair[1].x() - pair[0].x() == FIELD_WIDTH + 8
 
         fields["Object height:"].setValue(70.0)
-        qtbot.wait(30)
+        qtbot.waitUntil(
+            lambda: "Custom height" in self._fields(panel)["Object height:"].toolTip()
+        )
         height = self._fields(panel)["Object height:"]
         assert "Custom height" in height.toolTip()
 
         height.setValue(0.0)
-        qtbot.wait(30)
+        qtbot.waitUntil(
+            lambda: "Default for this object type" in self._fields(panel)["Object height:"].toolTip()
+            or "No height" in self._fields(panel)["Object height:"].toolTip()
+        )
         height = self._fields(panel)["Object height:"]
         assert (
             "Default for this object type" in height.toolTip()
@@ -601,7 +611,10 @@ class TestObjectHeightField:
         panel.set_selected_items([item])
         panel.resize(450, 900)
         panel.show()
-        qtbot.wait(30)
+        qtbot.waitUntil(
+            lambda: self._fields(panel).get("Spacing radius:") is not None
+            and self._fields(panel)["Spacing radius:"].width() == 120
+        )
 
         spacing = self._fields(panel)["Spacing radius:"]
         assert spacing.width() == 120
@@ -637,7 +650,13 @@ class TestRoofRows:
         panel.set_selected_items([_building(kind, shape)])
         panel.resize(450, 900)
         panel.show()
-        qtbot.wait(30)
+        qtbot.waitUntil(
+            lambda: all(
+                label in TestObjectHeightField._fields(panel)
+                and TestObjectHeightField._fields(panel)[label].width() == FIELD_WIDTH
+                for label in ("Roof style:", "Roof pitch:", "Roof overhang:")
+            )
+        )
 
         fields = TestObjectHeightField._fields(panel)
         roof = [fields[label] for label in ("Roof style:", "Roof pitch:", "Roof overhang:")]

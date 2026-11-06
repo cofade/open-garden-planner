@@ -36,6 +36,19 @@ from open_garden_planner.core.scene3d import (
     pattern_texture_name,
     srgb8_to_linear,
 )
+from open_garden_planner.core.scene3d.materials import (
+    TWO_SIDED_KINDS,
+    two_sided_kinds,
+)
+
+__all__ = [
+    "PART_COMPONENTS",
+    "TWO_SIDED_KINDS",
+    "WHITE",
+    "part_tint",
+    "tint_uniform",
+    "two_sided_kinds",
+]
 
 #: ``MeshPart.material_kind`` → id of the part ``Component`` in ``Garden.qml``. Its keys
 #: are exactly ``core.scene3d.MATERIAL_KINDS`` (pinned, with the QML, by a test).
@@ -47,15 +60,6 @@ PART_COMPONENTS: Final = MappingProxyType({
     "glass": "glassPart",
     "water": "waterPart",
 })
-
-#: The kinds whose look draws BOTH sides of a triangle (``cullMode: Material.NoCulling``
-#: in their part component, whatever the scene's state). Since Qt 6.12 the engine's
-#: pick honours a material's cull mode (``qssgrenderray.cpp``: a ``Disabled`` cull
-#: mode accepts either determinant sign), so a ray picks these from behind too; the
-#: other kinds cull back faces and pick front faces only — as every kind did on Qt
-#: 6.11, whose ray test accepted positive determinants alone (Phase 17 L7, #391).
-#: Pinned against the QML by ``tests/unit/test_quick3d_qml.py``.
-TWO_SIDED_KINDS: Final = frozenset({"foliage", "grass", "glass"})
 
 #: The tint of a part that is not tinted: the identity of the multiplication.
 WHITE: Final[Rgba] = (255, 255, 255, 255)

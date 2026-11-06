@@ -40,24 +40,6 @@ SkyMaterial {
     enableIBL: false
     skyboxMode: SkyMaterial.ScreenSpaceHalf
 
-    property int lutSize: 128
-    property int lutSizeTransmit: 128
-
-    // the atmosphere's composition (the example's values). Not read by atmosphere.frag's
-    // MAIN(): the sky-view table that carries it is computed on the CPU, from
-    // core/scene3d/atmosphere_lut.py's EARTH_ATMOSPHERE (turbidity 0.5 there)
-    property real aerosolBaseDensity: 1.3681e20
-    property real aerosolBackgroundDensity: 2e6
-    property real aerosolHeightScale: 0.73
-    property real aerosolBackgroundDividedByBaseDensity: aerosolBackgroundDensity / aerosolBaseDensity
-    property real ozoneMeanMonthlyDobson: 347
-    property real aerosolTurbidity: 1
-
-    property vector4d aerosolAbsorptionCrossSection: Qt.vector4d(2.8722e-24, 4.6168e-24, 7.9706e-24, 1.3578e-23)
-    property vector4d aerosolScatteringCrossSection: Qt.vector4d(1.5908e-22, 1.7711e-22, 2.0942e-22, 2.4033e-22)
-    property vector4d groundAlbedo: Qt.vector4d(0.3, 0.3, 0.3, 0.3)
-
-    property int aerosolType: 8
     property real eyeAltitude: 0.05
     // the clouds' sunlight (the example's)
     property real sunEnergy: 1.0

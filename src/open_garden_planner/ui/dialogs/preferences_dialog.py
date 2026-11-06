@@ -397,7 +397,10 @@ class PreferencesDialog(QDialog):
             self.tr("Reduce motion in the 3D view")
         )
         self._view3d_reduced_motion_check.setToolTip(
-            self.tr("Keep leaves and grass still instead of swaying in the wind.")
+            self.tr(
+                "Keep leaves and grass still instead of swaying in the wind. "
+                "The operating system's animation-effects setting also stops the wind."
+            )
         )
         view3d_layout.addRow(self._view3d_reduced_motion_check)
 

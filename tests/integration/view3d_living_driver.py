@@ -113,16 +113,16 @@ def _host(ctx: Context, size: tuple[int, int] = VIEW) -> Any:
 
 def _scene(host: Any, records: dict[str, Any], seasons: Any, latitude: float) -> tuple[Any, Any]:
     """The plan on the host, its life loaded; the camera on the board's hero shot."""
-    from open_garden_planner.core.scene3d import GroundSpec, SceneSync, SunState
+    from open_garden_planner.core.scene3d import GroundSpec, SceneSync, SunState, living_buffers
     from open_garden_planner.core.scene3d.builders import production_registry
-    from open_garden_planner.core.scene3d.particles import ambient_buffers, ambient_emitters
     from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
 
     sync = SceneSync(Quick3DSink(host), production_registry())
     sun = SunState(60.9, 176.1)
     sync.apply(records, sun=sun, ground=GroundSpec(2400.0, 1600.0))
     host.set_plant_seasons(seasons)
-    host.set_ambient(ambient_buffers(ambient_emitters(records.values(), seasons, DAY, latitude)))
+    living = living_buffers(records, seasons, DAY, latitude)
+    host.set_ambient(living.buffers)
     host.set_camera((2520.0, -448.0, 490.0), (1008.0, 960.0, 160.0), 46.0)   # the board's hero
     return sync, sun
 

@@ -224,9 +224,15 @@ Item {
     // The wind's clock. A FrameAnimation advances with the frames Qt draws, holds its
     // value when it stops (hidden is "stopped", not "at rest": showing the view again
     // goes on where it was) and has no timer of its own while it is not running.
+    // Wrap periodically at 1 hour above 2 s (the foliage/grass rest-ramp threshold)
+    // so single-precision float uniforms in shaders preserve precision indefinitely (#689).
     FrameAnimation {
         running: root.windRunning
-        onTriggered: root.windTime += frameTime
+        onTriggered: {
+            root.windTime += frameTime
+            if (root.windTime > 3602.0)
+                root.windTime -= 3600.0
+        }
     }
 
     // ---- sky (Quick3DHost.set_sky) ----

@@ -438,7 +438,7 @@ class Quick3DHost:
 
     def __init__(self, size: tuple[int, int] = (1280, 720), *, qml_dir: Path | None = None,
                  look: LookSpec = NEUTRAL_DAY, log: Callable[..., None] | None = None,
-                 prefer_software: bool = False) -> None:
+                 prefer_software: bool = False, sky_probe: bool = True) -> None:
         self._log: Callable[..., None] = log if log is not None else (lambda *_a, **_k: None)
         self._parts: set[_Part] = set()  # THE owner of every Model and geometry
         #: The analysis overlays' geometries by layer (L2, ``set_overlay``), and the
@@ -479,7 +479,7 @@ class Quick3DHost:
         #: False: an atmosphere sky backs the view WITHOUT the painted sky's light probe
         #: (``set_sky``) — what the self-test renders on a machine without a GPU, where
         #: filtering a probe costs seconds. The product leaves it True.
-        self.sky_probe = True
+        self.sky_probe = sky_probe
         self._container: QWidget | None = None
         self._spent = False   # the one offscreen frame was taken (Qt cannot tell us)
         self._closed = False  # close() ran to its end (Qt deletes the view only later)

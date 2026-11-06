@@ -2217,9 +2217,9 @@ def test_a_lawn_resized_inside_a_hold_leaves_the_other_lawns_alone(
                                      keep_center=False)
         rig.commands.execute(ResizeItemCommand(grown, old, new, apply_rect_like_geometry))
         rig.settle()
+    qtbot.waitUntil(lambda: other_id in _held(rig), timeout=5000)
     assert _rebuilds(rig, other_id) <= 1, "the first step at once, then left alone"
     assert sum(_applied_shares(rig)) <= MAX_PLAN_BLADES
-    assert other_id in _held(rig)
     _trailing_pass(rig, now)
     rig.assert_equals_a_from_scratch_apply()
 

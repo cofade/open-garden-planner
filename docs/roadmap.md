@@ -4184,3 +4184,13 @@ Docs: ADR-059/065/070 addenda, §8.29.12/§8.29.13, `debug-verbose` case studies
 - **#738 - the L6 hygiene sweep**: a paused preview stops saying it waits when the view returns; a raising clock listener cannot skip `hold_preset(False)`; the tour dialog is forgotten only when it really closed, so an engine stop leaves no twin; a cancelled flight drops its in-flight fine forge build (`ForgeWorker.fly_path(None)` bumps `_epoch`); a tour's date no longer clears the owner's heatmap; a capture refuses a shot when the host has no camera to put back and survives a raising resting frame; a refused video frame is offered again without a second YUV conversion; the dialog's default year follows the plan until the user chooses; the recorder's hidden-view guard is KEPT - a hidden pane never settles, so without it the first "waiting" sentence arrives after the 180 s first-frame limit - and `_tour_settled` is pinned against an always-True mutant.
 
 Docs: ADR-072 addendum, FR-3D-PHOTO-03 / FR-3D-TOUR-02, PF-E3D-25/26, `debug-verbose` case study 207.
+
+
+
+### Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689)
+
+- **#688 - smart symbol texture stretching**: composite smart symbols like `compost_bay_3` stretched SVG textures when stretched across wide aspect ratios. Fixed by modular repeating bays of 1:1 aspect ratio (`bay * i`, width `bay`, height `D`) in `compost_bay_3.json` with redundant fence lines removed to eliminate 3D coplanar z-fighting.
+- **#720 - L7 atmosphere sky hygiene**: stripped dead GLSL example functions and unused uniforms from `atmosphere.frag` and `AtmosphereSky.qml`; moved `TWO_SIDED_KINDS` and `two_sided_kinds` into `core.scene3d.materials` so core tests don't touch UI; retained `INV_4PI` for the cloud Henyey-Greenstein dual lobe.
+- **#723 - intermittent test timing on Qt 6.12**: replaced arbitrary sleep durations with `qtbot.waitUntil` polling on explicit field widths in `tests/ui/test_properties_panel.py` and held lawn tracking in `tests/integration/test_view3d_sync_controller.py`.
+- **#692 - Beauty Board and offscreen exit access violation**: flushed deferred deletion events (`QEvent.Type.DeferredDelete`) and event loop in offscreen teardown and `scripts/render_beauty_board.py` to prevent unreleased D3D11 swapchains during DLL shutdown.
+- **#689 - living garden engine follow-ups**: bounded `root.windTime` in `Garden.qml` to 1 hour and wrapped precipitation shader time in modulo arithmetic for long-running float precision; added midnight timer and automatic transition for Today's Weather; unified ambient buffer assembly into `core/scene3d/living.py` (`living_buffers`).

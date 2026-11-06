@@ -24,7 +24,11 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     VECTOR_PROPERTIES,
     scene_properties,
 )
-from open_garden_planner.ui.view3d.quick3d.materials import PART_COMPONENTS, TWO_SIDED_KINDS
+from open_garden_planner.ui.view3d.quick3d.materials import (
+    PART_COMPONENTS,
+    TWO_SIDED_KINDS,
+    two_sided_kinds,
+)
 
 #: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
 SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
@@ -182,6 +186,8 @@ def test_the_two_sided_kinds_are_the_components_that_never_cull() -> None:
         if modes and all(mode.strip() == "Material.NoCulling" for mode in modes):
             two_sided.add(kind)
     assert two_sided == TWO_SIDED_KINDS
+    assert two_sided_kinds(cutaway=False) == TWO_SIDED_KINDS
+    assert two_sided_kinds(cutaway=True) == TWO_SIDED_KINDS | {"vc"}
 
 
 def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:

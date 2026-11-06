@@ -26,13 +26,13 @@ def save_held_oracle(workspace: Any, path: Path) -> dict[str, int]:
     A registry rebuild would silently substitute the v0 plants for forged LODs.
     The CPU oracle keeps its own ray math and poses the admitted meshes itself.
     Each triangle also carries whether its part's material draws both sides
-    (``materials.TWO_SIDED_KINDS``): what Qt 6.12's cull-aware pick needs.
+    (``materials.TWO_SIDED_KINDS`` / ``two_sided_kinds``): what Qt 6.12's cull-aware pick needs.
     """
-    # here, not at the top: the startup gate imports this module and must find no engine
-    # module loaded before the first switch to 3D (test_view3d_default_render)
-    from open_garden_planner.ui.view3d.quick3d.materials import TWO_SIDED_KINDS
+    from open_garden_planner.core.scene3d.materials import two_sided_kinds
 
     sync = workspace.controller.sync
+    cutaway = bool(getattr(workspace.controller, "roofs_hidden", False))
+    active_two_sided = two_sided_kinds(cutaway=cutaway)
     visible = {(part.item_id, part.part_index) for part in workspace.host.engine_parts()
                if part.visible and part.has_geometry and part.fade >= 1.0 and part.drawn > 0.0}
     held = {key: tuple(part if (key, index) in visible else replace(part, ground_detail=True, casts_shadow=False)
@@ -40,7 +40,7 @@ def save_held_oracle(workspace: Any, path: Path) -> dict[str, int]:
             for key in sync.sink.item_ids()}
     scene = pick_scene(sync.records, lambda record: held[record.item_id])
     two_sided = np.fromiter(
-        (held[scene.item_ids[item]][part].material_kind in TWO_SIDED_KINDS
+        (held[scene.item_ids[item]][part].material_kind in active_two_sided
          for item, part in zip(scene.item.tolist(), scene.part.tolist(), strict=True)),
         dtype=bool, count=scene.triangle_count)
     np.savez_compressed(path, item_ids=np.asarray(scene.item_ids), corner=scene.corner,

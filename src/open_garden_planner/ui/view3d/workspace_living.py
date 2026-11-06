@@ -33,27 +33,24 @@ asked for a picture.
 
 from __future__ import annotations
 
+import datetime
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
-from PyQt6.QtCore import QCoreApplication, QObject, Qt, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
 
 from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import log_text
+from open_garden_planner.core.scene3d import living_buffers
 from open_garden_planner.core.scene3d.lights import (
     LIGHT_KINDS,
     LampSource,
     lamp_sources,
     nearest_lamps,
-)
-from open_garden_planner.core.scene3d.particles import (
-    Emitter,
-    ambient_buffers,
-    ambient_emitters,
 )
 from open_garden_planner.core.scene3d.weather import TODAY, WEATHER_CHOICES, todays_weather
 from open_garden_planner.core.solar import plan_place
@@ -118,6 +115,11 @@ class WorkspaceLivingCoordinator(QObject):
         self._ambient_key: object = None
         self._target: tuple[float, float, float] = (0.0, 0.0, 0.0)
         self._button: QToolButton | None = None
+        self._pass_date: date | None = None
+        self._midnight_timer = QTimer(self)
+        self._midnight_timer.setSingleShot(True)
+        self._midnight_timer.timeout.connect(self._on_midnight)
+        self._arm_midnight_timer()
         #: Instruments (tests): how often the host was given an ambient buffer / lamps.
         self.ambient_sent = 0
         self.lamps_sent = 0
@@ -222,6 +224,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._sources_read = False
         self._lit = None
         self._ambient_key = None
+        self._pass_date = None
         self._refresh_button()  # no "(paused while analysing)" left from the old engine
 
     @property
@@ -306,15 +309,17 @@ class WorkspaceLivingCoordinator(QObject):
         self._forecast_place = where
         self._update_todays()
 
-    def season_sink(self, host: EngineHost) -> Callable[[Mapping[str, PhenologyState]], None]:
+    def season_sink(self, host: EngineHost) -> Callable[..., None]:
         """What the Plant Forge hands its phenology to: the host's plant seasons, then the
         garden's life (which plants flower, which drop their leaves)."""
 
-        def sink(states: Mapping[str, PhenologyState]) -> None:
+        def sink(states: Mapping[str, PhenologyState], plan_date: date | None = None) -> None:
             # contained like every living-garden call: the Forge's own error path calls
             # this again (``ForgeWorker.clear``), and a second raise there skipped its reset
             self._send("set_plant_seasons", lambda: host.set_plant_seasons(states))
             self._seasons = dict(states)
+            if plan_date is not None:
+                self._pass_date = plan_date
             self._refresh_ambient()
 
         return sink
@@ -398,21 +403,37 @@ class WorkspaceLivingCoordinator(QObject):
             return
         try:
             records = self._get_records()
-            emitters: tuple[Emitter, ...] = ()
-            if self._seasons:
-                emitters = ambient_emitters(records.values(), self._seasons, clock.plan_date,
-                                            self._latitude())
-            bulbs = tuple(bulb for source in self._sources for bulb in source.bulbs())
-            key = (emitters, bulbs)
+            ambient_date = self._pass_date or clock.plan_date
+            living = living_buffers(
+                records, self._seasons, ambient_date, self._latitude(), self._target
+            )
+            key = (living.emitters, living.bulbs)
             if key == self._ambient_key:
                 return
             self._ambient_key = key
-            buffers = ambient_buffers((*emitters, *bulbs))
-            self._send("set_ambient", lambda: host.set_ambient(buffers))
+            self._send("set_ambient", lambda: host.set_ambient(living.buffers))
             self.ambient_sent += 1
         except Exception as error:  # noqa: BLE001 - the garden's life never takes 3D down
             _LOG.warning("3D living garden: the garden's life could not be updated (%s)",
                          log_text(error))
+
+    def _arm_midnight_timer(self) -> None:
+        """Schedule a single-shot trigger at the next local midnight (#689)."""
+        now = datetime.datetime.now()
+        tomorrow = now.date() + datetime.timedelta(days=1)
+        midnight = datetime.datetime.combine(tomorrow, datetime.time.min)
+        ms = max(1000, int((midnight - now).total_seconds() * 1000.0) + 100)
+        self._midnight_timer.start(ms)
+
+    def _on_midnight(self) -> None:
+        """Local midnight crossed: re-evaluate Today's Weather and re-arm (#689)."""
+        clock = self._clock
+        if self._weather == TODAY:
+            if clock is not None and clock.plan_date == date.today() - datetime.timedelta(days=1):
+                clock.set_date(date.today())
+            self.forecast_wanted.emit()
+        self._update_todays()
+        self._arm_midnight_timer()
 
     def _send_lamps(self) -> None:
         host = self._get_host()

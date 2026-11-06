@@ -122,7 +122,10 @@ class ForgeWorker:
         )
         self._phenology = dict(states)
         if self._season_sink is not None:
-            self._season_sink(states)
+            try:
+                self._season_sink(states, plan_date=plan_date)
+            except TypeError:
+                self._season_sink(states)
         return states
 
     def clear(self) -> None:
@@ -294,7 +297,10 @@ class ForgeWorker:
         else:
             self._phenology.clear()
         if self._season_sink is not None:
-            self._season_sink(self._phenology)
+            try:
+                self._season_sink(self._phenology, plan_date=plan_date)
+            except TypeError:
+                self._season_sink(self._phenology)
 
         # Prune removed items
         for stale_id in list(self._latest_records):

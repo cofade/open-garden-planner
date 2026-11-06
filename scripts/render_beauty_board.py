@@ -626,12 +626,10 @@ class Board:
         their phenology on the shot's date). Still frames: the wind's clock at rest, so
         every particle stands where its seed puts it."""
         from open_garden_planner.core.phenology import evaluate_phenology_for_records
+        from open_garden_planner.core.scene3d import living_buffers
         from open_garden_planner.core.scene3d.builders import production_registry
-        from open_garden_planner.core.scene3d.lights import lamp_sources, nearest_lamps
         from open_garden_planner.core.scene3d.particles import (
             PRECIP_COUNT,
-            ambient_buffers,
-            ambient_emitters,
             ambient_particle_count,
         )
         from open_garden_planner.core.scene3d.weather import living_look, mood_of
@@ -652,18 +650,14 @@ class Board:
                 look = living_look(sun, preset, weather)
                 seasons = evaluate_phenology_for_records(tuple(records.values()), at,
                                                          latitude_deg=latitude)
-                emitters = ambient_emitters(records.values(), seasons, at, latitude)
-                sources = lamp_sources(records.values())
-                lamps = nearest_lamps(sources, shot.target)
-                buffers = ambient_buffers((*emitters, *(bulb for source in sources
-                                                         for bulb in source.bulbs())))
+                living = living_buffers(records, seasons, at, latitude, shot.target)
                 rgb, _frame, info = self.frame(
                     f"living_{shot.name}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry, baked=True,
                     shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
-                    ambient=buffers, lamps=[lamp.light for lamp in lamps])
+                    ambient=living.buffers, lamps=[lamp.light for lamp in living.lamps])
                 atmosphere = look.atmosphere
-                counts = {kind: sum(e.count for e in emitters if e.kind == kind)
+                counts = {kind: sum(e.count for e in living.emitters if e.kind == kind)
                           for kind in ("leaf", "butterfly", "firefly")}
                 row = {"shot": shot.name, "preset": preset, "weather": weather,
                        "mood": mood_of(look, sun), "sun_elev": round(sun.elevation_deg, 2),
@@ -671,8 +665,8 @@ class Board:
                        "build_date": self.snapshot_day(records).isoformat(),
                        "precip_particles": (round(PRECIP_COUNT * atmosphere.precip_density)
                                             if atmosphere.precipitation != "none" else 0),
-                       "ambient_particles": ambient_particle_count(emitters),
-                       "ambient_by_kind": counts, "lamps": len(sources), "lamp_lights": len(lamps),
+                       "ambient_particles": ambient_particle_count(living.emitters),
+                       "ambient_by_kind": counts, "lamps": len(living.sources), "lamp_lights": len(living.lamps),
                        "life": {"leaves": round(atmosphere.leaves, 3),
                                 "butterflies": round(atmosphere.butterflies, 3),
                                 "fireflies": round(atmosphere.fireflies, 3),
@@ -1591,6 +1585,15 @@ def main(argv: list[str] | None = None) -> int:
                                               encoding="utf-8")
         log("done", status=metrics["status"], total_s=metrics.get("total_s"))
         log.close()
+        # Clean teardown order: flush deferred deletions before process exit (#692)
+        try:
+            from PyQt6.QtCore import QCoreApplication, QEvent
+            app = QCoreApplication.instance()
+            if app is not None:
+                app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+                app.processEvents()
+        except Exception:
+            pass
     return code
 
 
