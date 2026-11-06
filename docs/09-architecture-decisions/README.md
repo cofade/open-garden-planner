@@ -7242,6 +7242,30 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   raised to 207 cm (4× the 52 cm share), reads 250 px (RTX 4070, 1280 × 720). The pin's
   position is still a measurement of the ground, not of the pin.
 
+### Addendum (#701 — the shadow walk's roof meshes are cached; the per-owner union stays)
+
+**Context.** `collect_identified_casters` projects every caster's pitched roof from its
+3D structural triangles (#440). `_building_roof_triangles` built that mesh per item, per
+walk: a 150-shed plan asked `roofs.gable_roof` for the same shed 750 times across five
+collections (150 per collection; 600 of them repeats), and `_union_int` spent
+1.48 s on 153 pyclipper unions. The sun-overlay test's first `waitUntil` then timed out
+on a slow runner — a 150-shed plan blocked the GUI thread for seconds on every sun or
+heatmap refresh.
+
+**Decision.** `_cached_roof_triangles` (a 64-entry `lru_cache`) keys the **local**
+triangles by kind, outline shape, ring (rounded to 10 nm), height, roof style, pitch,
+overhang and ridge. A changed roof is a new key, never a stale hit; the caller poses the
+same local triangles for every identical building. Measured: one mesh build for 150
+identical sheds (`test_identical_buildings_build_their_roof_mesh_once`), and no second
+build on a repeated walk.
+
+The walk's per-owner `_union_int` was investigated as the other half and **kept**: with
+the per-owner unions removed, the final union of all 3,750 unmerged roof-triangle paths
+cost 3.25 s against 1.48 s for the whole 153-union profile — the per-owner union is what
+keeps the global union small. `owned_shadows` has no production reader, but removing its
+unions is a pessimisation, not an optimisation. Recorded so the next attempt starts from
+the measurement.
+
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
 **Status**: Accepted (2026-10-12, #385 story L1.3, epic #383). Behind the internal switch
@@ -9578,6 +9602,29 @@ is unchanged. Evidence: `audits/2026-10/3d-hardening-611.md` in the risk chapter
 
 **Decision:** The caster walk (`ui.canvas.footprints.holds_plants`) now marks casters of type `COLD_FRAME`, `PLANTER_POT`, and `GREENHOUSE` with a positive finite height as `holds_plants=True`. `core.shade_aggregation._aggregate_day` automatically spares casters with `holds_plants=True` for any receiver point inside their footprints via static polygon containment. Plants growing inside a cold frame, planter pot, or greenhouse read open-ground sun (~16.5 h in Berlin summer solstice), while plants outside on the shadow side remain properly shaded. A drift guard pins the exhaustive set of placeable kinds with a default height that hold plants.
 
+### ADR-065 addendum: a fillet is one smooth span, not a segment per vertex (#675)
+
+**Context:** PR #672 baked a fillet's tangent arc into its host polyline as a dense run
+of chords sampled at `FILLET_ARC_TOLERANCE_CM = 0.02` (2–4 cm each). The 3D fence and
+wall builders spaced posts, pickets and chain-link wires **per drawn segment**: every
+2 cm chord got its own posts (a shared corner once) and its own pickets, so a rounded
+corner rendered as a solid curved block of planks. A chamfer was fine (one straight
+chord); a wall's swept solid was always smooth (it has no posts).
+
+**Decision:** a polyline vertex turning less than `CORNER_DEG = 20°` belongs to a
+smooth span; the builder spaces posts, pickets, bars and chain-link wires by **arc
+length across the span**, at the same pitch as a straight run, and breaks only at real
+corners (90°, a chamfer's 45°). Rails stay one box per drawn segment — together they
+follow the arc. The 2D geometry, hit-testing, undo and constraints are untouched: the
+path is unchanged. The 2D **shadow** model does change: `fence_transmittance` groups the
+same smooth spans and passes the builder's post count, so a curved fence no longer reads
+as nearly opaque (wooden circle 0.21 against 0.33 straight; it read 0.00 before). A
+filleted L (r 25 / 100 cm) now stands 5–6 posts, not 21–41; a smooth closed loop spaces
+its posts around the whole perimeter. Pinned by `test_scene3d_builders.py` (post pitch
+and count, no wall-of-planks, chamfer unchanged, smooth loop, dense/curved shadow
+transmittance) and `test_string_lights.py` (#709's 40 cm gap and 2.5 cm chord rule on
+the same sampled arc).
+
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 
 **Status:** Accepted; owner executable acceptance confirmed on 27 October 2026; shipped in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) via [PR #610](https://github.com/cofade/open-garden-planner/pull/610).
@@ -10443,6 +10490,34 @@ closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2
 cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horizon, mood strip,
 dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
 `tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
+
+**Addendum (#709/#705, the filleted string and its light).** Two follow-ups of the line
+contract above, both in `core/string_lights.layout` and `builders.lights`:
+
+- **A post every 40 cm, not every point (#709).** A fillet bakes its arc into the line at
+  2 cm chords; a post at every point put 21 posts in a 39 cm arc (r 25) and 41 in a
+  157 cm arc (r 100), and the bulbs sank into them. `MIN_POST_GAP_CM = 40` keeps the
+  first point, the drawn last point and every point at least the gap further along the
+  line; a closed loop also checks the closing span. A span shorter than the gap is
+  allowed where its chord would cut the drawn line by more than
+  `MAX_CHORD_DEVIATION_CM = 2.5`: a 40 cm chord at r 100 deviates ~2 cm, while the r 25
+  fillet is followed by 17–19 cm spans (a 39 cm chord at r 25 would cut 9.5 cm; the
+  first cut let a 2.2 m chord run 22 cm off the plan — 3D review). A bulb moves along
+  its own span until it clears every **foreign** post by `OTHER_POST_CLEAR_CM` (8.6 cm,
+  the 6 cm span clearance plus the 2.6 cm ball), so a self-crossing line cannot hide one
+  in a post. A span shorter than two clearances keeps its middle: no share can clear both
+  of its own posts, so moving it would only push it into one.
+- **Where a string's light stands (#705).** An open line takes the bulb nearest the
+  bulbs' centroid (linked to the line's middle, clear of every post), a closed loop
+  takes the centroid itself — the middle of the space it hangs round — and falls back
+  to that nearest bulb if a concave loop's centroid lands in a post. The light is laid
+  out once per pass: `lamp_sources` computes the layout once and passes it to both
+  `string_bulbs` and `lamp_light` (measured 13 ms per 16,384-vertex string, was
+  29.5 ms with the second layout).
+
+Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
+clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).
+
 
 
 ## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)

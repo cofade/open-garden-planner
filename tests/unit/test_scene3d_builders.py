@@ -1076,6 +1076,132 @@ class TestPolylinesAreBuiltFromTheCentreLine:
         # 4 corners + 3 along each 8 m side + 2 along each 6 m side: one every 2 m, none twice
         assert len(posts) == 4 + 3 + 2 + 3 + 2
 
+    @staticmethod
+    def _posts_at(record, height: float) -> list[tuple[float, float]]:
+        """Post centres: the clusters of vertices at the fence's own height (rails and
+        pickets stop below it, so only posts reach it)."""
+        points = np.concatenate([part.mesh.positions for part in built(record)])
+        top = points[np.isclose(points[:, 2], height, atol=1e-6)][:, :2].astype(np.float64)
+        clusters: list[list[np.ndarray]] = []
+        for point in top:
+            for cluster in clusters:
+                if float(np.hypot(*(point - cluster[0]))) < 15.0:
+                    cluster.append(point)
+                    break
+            else:
+                clusters.append([point])
+        return [(float(np.mean([p[0] for p in cluster])), float(np.mean([p[1] for p in cluster])))
+                for cluster in clusters]
+
+    @staticmethod
+    def _along(path: tuple[tuple[float, float], ...], point: tuple[float, float]) -> float:
+        """Arc length of the nearest place on ``path`` to ``point``."""
+        best = math.inf
+        travelled = 0.0
+        for (ax, ay), (bx, by) in zip(path, path[1:], strict=False):
+            dx, dy = bx - ax, by - ay
+            length = math.hypot(dx, dy)
+            if length <= 0.0:
+                continue
+            t = max(0.0, min(1.0, ((point[0] - ax) * dx + (point[1] - ay) * dy) / (length * length)))
+            gap = math.hypot(point[0] - (ax + dx * t), point[1] - (ay + dy * t))
+            if gap < best:
+                best = gap
+                nearest = travelled + t * length
+            travelled += length
+        return nearest
+
+    @pytest.mark.parametrize("kind", ["FENCE", "WALL"])
+    @pytest.mark.parametrize("style", ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"])
+    @pytest.mark.parametrize("radius", [25.0, 100.0])
+    def test_a_filleted_fence_keeps_the_straight_runs_spacing(self, kind: str, style: str,
+                                                               radius: float) -> None:
+        """#675: a filleted corner is a dense run of 2-4 cm segments. Per segment the
+        builder stood a post at every endpoint (hundreds of them, merged into a solid
+        curved block); posts are now spaced by ARC LENGTH at the straight runs' pitch."""
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
+
+        previous, corner, following = (QPointF(0.0, 0.0), QPointF(400.0, 0.0),
+                                       QPointF(400.0, 400.0))
+        result = fillet_corner(previous, corner, following, radius)
+        assert result is not None
+        tangent_in, tangent_out, centre, start, span = result
+        path = ((previous.x(), previous.y()), (tangent_in.x(), tangent_in.y()),
+                *((point.x(), point.y()) for point in sample_arc_points(centre, radius, start, span)),
+                (tangent_out.x(), tangent_out.y()), (following.x(), following.y()))
+        record = line_record(kind, path, 120.0, style=style)
+        posts = self._posts_at(record, 120.0)
+        spacing = {"WOODEN_FENCE": fences.POST_SPACING_CM,
+                   "METAL_FENCE": fences.POST_SPACING_CM,
+                   "CHAIN_LINK": fences.CHAIN_POST_SPACING_CM}[style]
+        total = sum(math.dist(a, b) for a, b in zip(path, path[1:], strict=False))
+        assert len(posts) <= math.ceil(total / spacing) + 2, (len(posts), total, spacing)
+        positions = sorted(self._along(path, post) for post in posts)
+        gaps = [b - a for a, b in zip(positions, positions[1:], strict=False)]
+        assert min(gaps) >= 0.5 * spacing, (radius, style, gaps)
+        assert max(gaps) <= spacing + 1e-3, (radius, style, gaps)
+
+    def test_a_filleted_fence_is_not_a_wall_of_planks(self) -> None:
+        """The measured symptom: 40 posts in a 39 cm arc. The sharp corner has 3 posts;
+        the filleted one has the same pitch, not one post per sampled vertex."""
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
+
+        sharp = ((0.0, 0.0), (400.0, 0.0), (400.0, 400.0))
+        sharp_posts = self._posts_at(line_record("FENCE", sharp, 120.0), 120.0)
+        result = fillet_corner(QPointF(0.0, 0.0), QPointF(400.0, 0.0), QPointF(400.0, 400.0), 100.0)
+        assert result is not None
+        tangent_in, tangent_out, centre, start, span = result
+        filleted = ((0.0, 0.0), (tangent_in.x(), tangent_in.y()),
+                    *((point.x(), point.y()) for point in sample_arc_points(centre, 100.0, start, span)),
+                    (tangent_out.x(), tangent_out.y()), (400.0, 400.0))
+        filleted_posts = self._posts_at(line_record("FENCE", filleted, 120.0), 120.0)
+        assert len(sharp_posts) == 5, "0 / 200 / 400 on the first run, 200 / 400 on the second"
+        assert len(filleted_posts) <= 6, filleted_posts
+
+    def test_a_chamfer_keeps_the_posts_it_had(self) -> None:
+        """A chamfer is two real 45° corners, each its own smooth span: the posts stay at
+        the cut points and the runs' pitch, as before #675."""
+        chamfered = ((0.0, 0.0), (375.0, 0.0), (400.0, 25.0), (400.0, 400.0))
+        posts = self._posts_at(line_record("FENCE", chamfered, 120.0), 120.0)
+        positions = sorted(self._along(chamfered, post) for post in posts)
+        assert len(posts) == 6
+        gaps = [b - a for a, b in zip(positions, positions[1:], strict=False)]
+        # the chamfer's own 35.4 cm cut is a real corner pair, as it was before #675;
+        # every other gap is the straight runs' 187.5 / 200 cm pitch
+        assert min(gaps) == pytest.approx(math.hypot(25.0, 25.0), abs=0.1), gaps
+
+    def test_a_smooth_closed_loop_spaces_posts_by_arc_length(self) -> None:
+        """A hand-drawn circle has no real corner: the whole loop is one smooth span, so
+        the posts stand every ``POST_SPACING_CM`` around it, not at every vertex."""
+        radius = 300.0
+        loop = tuple((radius * math.cos(2.0 * math.pi * index / 180.0),
+                      radius * math.sin(2.0 * math.pi * index / 180.0)) for index in range(181))
+        record = line_record("FENCE", loop, 120.0)
+        posts = self._posts_at(record, 120.0)
+        assert 9 <= len(posts) <= 11, len(posts)
+        positions = sorted(self._along(loop, post) for post in posts)
+        gaps = [b - a for a, b in zip(positions, positions[1:], strict=False)]
+        assert min(gaps) >= 0.5 * fences.POST_SPACING_CM, gaps
+
+    @pytest.mark.parametrize("style", ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"])
+    def test_a_dense_sampled_fence_keeps_the_straight_runs_shadow(self, style: str) -> None:
+        """#675's shadow side: a fillet's 2 cm chords made the 2D model count two posts
+        per chord (transmittance 0.0000 for a wooden circle against 0.3261 straight).
+        The analytical model groups smooth spans the same way the builder does."""
+        straight = [(0.0, 0.0), (1884.96, 0.0)]
+        dense = [(index * 1884.96 / 360.0, 0.0) for index in range(361)]
+        circle = [(300.0 * math.cos(2.0 * math.pi * index / 360.0),
+                   300.0 * math.sin(2.0 * math.pi * index / 360.0)) for index in range(361)]
+        open_straight = fences.fence_transmittance(style, 150.0, 3.0, 45.0, 180.0, straight)
+        dense_line = fences.fence_transmittance(style, 150.0, 3.0, 45.0, 180.0, dense)
+        curved = fences.fence_transmittance(style, 150.0, 3.0, 45.0, 180.0, circle)
+        assert dense_line == pytest.approx(open_straight, abs=1e-6)
+        assert curved > 0.5 * open_straight, (style, curved, open_straight)
+
     @pytest.mark.parametrize("style", ["WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"])
     def test_fifty_metres_of_fence_do_not_explode(self, style: str) -> None:
         record = line_record("FENCE", ((-2500.0, 0.0), (2500.0, 0.0)), 120.0, style=style)

@@ -14,9 +14,12 @@ Geometry only: which polyline becomes which fence is decided in ``lines.py``.
 
 (The fifth fence style, ``STONE_WALL``, is the wall of ``walls.py``.)
 
-Everything is built from the polyline's centre line, segment by segment, never
-from the stroke outline in ``record.footprints``: a fence round a garden is a
-closed loop — one outer ring with the garden as its hole (``record.holes``) —
+Everything is built from the polyline's centre line, along its smooth spans (a vertex
+turning less than ``CORNER_DEG`` is part of a span): posts, pickets and bars are spaced
+by ARC LENGTH, so a filleted corner keeps the straight runs' spacing instead of one post
+per 2 cm sampled step (#675). The rails stay one box per drawn segment — together they
+follow the arc. Never from the stroke outline in ``record.footprints``: a fence round a
+garden is a closed loop — one outer ring with the garden as its hole (``record.holes``) —
 and nothing may stand over that hole (``build.verify_builder`` refuses it).
 
 Colour: in 2D every style paints from the item's own stroke colour (the style
@@ -91,11 +94,44 @@ def is_fence_style(style: ParamValue | None) -> bool:
     return isinstance(style, str) and style in FENCE_STYLES
 
 
+#: A vertex whose turn is at least this many degrees is a corner. Short of it the
+#: polyline is a smooth span (a filleted corner is a dense run of 2-5 degree turns),
+#: and posts/pickets are spaced by ARC LENGTH across the whole span, not per segment —
+#: otherwise every 2 cm arc segment gets its own two posts and the corner becomes a
+#: solid block of planks (#675). A real corner (90 degrees, a chamfer's 45) exceeds it.
+CORNER_DEG: Final = 20.0
+
+
+class _Arc:
+    """A smooth span of a ``_Run``: its points and the angle of each segment."""
+
+    def __init__(self, points: F64, angle: F64) -> None:
+        self.points = points
+        step = points[1:] - points[:-1]
+        self.length = np.linalg.norm(step, axis=1)
+        self.cum = np.concatenate([[0.0], np.cumsum(self.length)])
+        self.angle = angle
+
+    @property
+    def total(self) -> float:
+        return float(self.cum[-1])
+
+    def at(self, distance: F64) -> tuple[F64, F64]:
+        """Plan points ``distance`` cm along the arc, and their segment angles."""
+        values = np.asarray(distance, dtype=np.float64)
+        index = np.clip(np.searchsorted(self.cum, values, side="left") - 1,
+                        0, len(self.length) - 1)
+        fraction = (values - self.cum[index]) / np.maximum(self.length[index], 1e-12)
+        points = self.points[index] + (self.points[index + 1] - self.points[index]) * fraction[:, None]
+        return points, self.angle[index]
+
+
 class _Run:
-    """A centre line as per-segment arrays (starts, unit directions, lengths, angles)."""
+    """A centre line as its smooth arcs (``CORNER_DEG`` splits them)."""
 
     def __init__(self, line: F64, closed: bool) -> None:
         self.closed = closed
+        self.line = line
         self.start = line if closed else line[:-1]
         end = np.roll(line, -1, axis=0) if closed else line[1:]
         step = end - self.start
@@ -104,35 +140,106 @@ class _Run:
         self.angle = np.degrees(np.arctan2(self.along[:, 1], self.along[:, 0]))
         self.count = len(self.start)
 
-    def at(self, segment: F64, distance: F64) -> F64:
-        """Plan points ``distance`` cm along the given segments."""
-        index = segment.astype(np.int64)
-        points: F64 = self.start[index] + self.along[index] * distance[:, None]
-        return points
+    def _turn(self, vertex: int) -> float:
+        """The turn at a vertex, degrees (0 = straight on, 180 = doubled back)."""
+        incoming = vertex - 1 if vertex > 0 else self.count - 1
+        cosine = float(np.clip(np.dot(self.along[incoming], self.along[vertex]), -1.0, 1.0))
+        return math.degrees(math.acos(cosine))
 
-    def spread(self, counts: F64) -> tuple[F64, F64]:
-        """For ``counts[k]`` things on segment k: (segment index, running index) per thing."""
-        number = counts.astype(np.int64)
-        segment = np.repeat(np.arange(self.count), number)
-        first = np.repeat(np.cumsum(number) - number, number)
-        return segment.astype(np.float64), (np.arange(int(number.sum())) - first).astype(np.float64)
+    def arcs(self) -> list[_Arc]:
+        """The smooth spans between real corners, in line order."""
+        if self.count == 0:
+            return []
+        if not self.closed:
+            corners = [index for index in range(1, self.count)
+                       if self._turn(index) >= CORNER_DEG]
+            breaks = [0, *corners, self.count]
+            return [self._arc(breaks[index], breaks[index + 1] - breaks[index], False)
+                    for index in range(len(breaks) - 1)]
+        corners = [index for index in range(self.count) if self._turn(index) >= CORNER_DEG]
+        if not corners:
+            return [self._arc(0, self.count, True)]
+        arcs: list[_Arc] = []
+        for index, start in enumerate(corners):
+            end = corners[(index + 1) % len(corners)]
+            count = (end - start) % self.count or self.count
+            arcs.append(self._arc(start, count, True))
+        return arcs
+
+    def _arc(self, start: int, count: int, wrap: bool) -> _Arc:
+        if wrap:
+            points = self.line[(start + np.arange(count + 1)) % self.count]
+            angles = self.angle[(start + np.arange(count)) % self.count]
+        else:
+            points = self.line[start:start + count + 1]
+            angles = self.angle[start:start + count]
+        return _Arc(points, angles)
 
     def posts(self, spacing: float) -> tuple[F64, F64]:
-        """Post centres and their segments' angles: one at every corner and every
-        ``spacing`` cm at most, a shared corner only once."""
-        per_segment = np.maximum(2, np.ceil(self.length / spacing) + 1)
-        segment, index = self.spread(per_segment)
-        seg = segment.astype(np.int64)
-        distance = self.length[seg] * index / (per_segment[seg] - 1)
-        first_of_line = (seg == 0) & (not self.closed)
-        keep = (index > 0) | first_of_line
-        return self.at(segment[keep], distance[keep]), self.angle[seg[keep]]
+        """Post centres and their segments' angles: one at every real corner and every
+        ``spacing`` cm at most ALONG each smooth span, a shared corner only once."""
+        out: list[F64] = []
+        angles: list[F64] = []
+        for index, arc in enumerate(self.arcs()):
+            total = arc.total
+            if total <= 0.0:
+                continue
+            number = max(1, int(math.ceil(total / spacing - 1e-9)))
+            first = 0 if (not self.closed and index == 0) else 1
+            distances = np.arange(first, number + 1, dtype=np.float64) * (total / number)
+            points, angle = arc.at(distances)
+            out.append(points)
+            angles.append(angle)
+        if not out:
+            return np.zeros((0, 2)), np.zeros(0)
+        return np.concatenate(out), np.concatenate(angles)
 
     def every(self, pitch: float) -> tuple[F64, F64, F64]:
-        """Things centred every ``pitch`` cm along each segment: (centres, angles, index)."""
-        segment, index = self.spread(np.floor(self.length / pitch))
-        seg = segment.astype(np.int64)
-        return self.at(segment, (index + 0.5) * pitch), self.angle[seg], index
+        """Things centred every ``pitch`` cm along each smooth span: (centres, angles, index)."""
+        out: list[F64] = []
+        angles: list[F64] = []
+        indices: list[F64] = []
+        for arc in self.arcs():
+            count = int(math.floor(arc.total / pitch + 1e-9))
+            if count <= 0:
+                continue
+            points, angle = arc.at(np.arange(count, dtype=np.float64) * pitch + 0.5 * pitch)
+            out.append(points)
+            angles.append(angle)
+            indices.append(np.arange(count, dtype=np.float64))
+        if not out:
+            return np.zeros((0, 2)), np.zeros(0), np.zeros(0)
+        return np.concatenate(out), np.concatenate(angles), np.concatenate(indices)
+
+    def wire_runs(self, rise: float, pitch: float) -> tuple[F64, F64, F64, F64]:
+        """Diagonal chain-link wire ends across each smooth span.
+
+        For every wire: its two plan points, its distance from the panel's starting
+        edge at each end (``near`` / ``far`` minus the wire's origin)."""
+        near_points: list[F64] = []
+        far_points: list[F64] = []
+        near_offsets: list[F64] = []
+        far_offsets: list[F64] = []
+        for arc in self.arcs():
+            total = arc.total
+            if total <= 0.0:
+                continue
+            count = max(1, int(math.ceil((total + rise) / pitch - 1e-9)))
+            origin = np.arange(count) * pitch - rise
+            near = np.maximum(origin, 0.0)
+            far = np.minimum(origin + rise, total)
+            keep = far - near > 0.5
+            if not keep.any():
+                continue
+            near, far, origin = near[keep], far[keep], origin[keep]
+            near_points.append(arc.at(near)[0])
+            far_points.append(arc.at(far)[0])
+            near_offsets.append(near - origin)
+            far_offsets.append(far - origin)
+        if not near_points:
+            return np.zeros((0, 2)), np.zeros((0, 2)), np.zeros(0), np.zeros(0)
+        return (np.concatenate(near_points), np.concatenate(far_points),
+                np.concatenate(near_offsets), np.concatenate(far_offsets))
 
     def mid(self) -> F64:
         centres: F64 = self.start + self.along * (self.length / 2.0)[:, None]
@@ -182,19 +289,15 @@ def chain_link_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
     rail = boxes(run.mid(), rail_size, top, top + CHAIN_RAIL_CM * k, run.angle, TINT)
     # two families of 45° wires across each panel, clipped to it
     rise = top - bottom
-    segment, index = run.spread(np.ceil((run.length + rise) / CHAIN_WIRE_PITCH_CM))
-    seg = segment.astype(np.int64)
-    origin = index * CHAIN_WIRE_PITCH_CM - rise  # where the wire meets its starting edge
-    near = np.maximum(origin, 0.0)
-    far = np.minimum(origin + rise, run.length[seg])
-    keep = far - near > 0.5
-    segment, near, far, origin = segment[keep], near[keep], far[keep], origin[keep]
+    near_points, far_points, near_offsets, far_offsets = run.wire_runs(
+        rise, CHAIN_WIRE_PITCH_CM)
     wires = []
-    for z_near, z_far in ((bottom + (near - origin), bottom + (far - origin)),   # rising
-                          (top - (near - origin), top - (far - origin))):        # falling
-        a = np.concatenate([run.at(segment, near), z_near[:, None]], axis=1)
-        b = np.concatenate([run.at(segment, far), z_far[:, None]], axis=1)
-        wires.append(tubes(a, b, CHAIN_WIRE_RADIUS_CM * k, CHAIN_WIRE_RADIUS_CM * k, TINT, sides=3))
+    if len(near_points):
+        for sign, base in ((1.0, bottom), (-1.0, top)):
+            a = np.concatenate([near_points, (base + sign * near_offsets)[:, None]], axis=1)
+            b = np.concatenate([far_points, (base + sign * far_offsets)[:, None]], axis=1)
+            wires.append(tubes(a, b, CHAIN_WIRE_RADIUS_CM * k, CHAIN_WIRE_RADIUS_CM * k,
+                               TINT, sides=3))
     return Mesh.merge([posts, rail, *wires])
 
 
@@ -281,6 +384,7 @@ def fence_segment_occlusion(
     run_len_cm: float = 1000.0,
     *,
     shared_start_post: bool = False,
+    post_count: float | None = None,
 ) -> float:
     """Analytical shadow occlusion fraction ``[0.0, 1.0]`` for one fence segment (#440).
 
@@ -293,6 +397,11 @@ def fence_segment_occlusion(
       (pitch * c_perp)``, closing the gaps at oblique angles.
     - Steeper elevations widen the vertical shadow cast by horizontal rails
       ``rail_tall + rail_across * tan(elevation) * c_perp``.
+
+    ``post_count`` overrides the post count for this piece (a smooth span distributes
+    its posts by arc length; a caller passes the piece's share of them). It is the
+    builder's own count — a dense sampled curve must not read one post per 2 cm chord
+    (#675's shadow side).
     """
     if style not in POROUS_FENCE_STYLES or height_cm <= 0.0:
         return 1.0
@@ -305,7 +414,8 @@ def fence_segment_occlusion(
     if style == "WOODEN_FENCE":
         post_w = max(POST_CM, stroke_cm)
         per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
-        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        n_posts = (post_count if post_count is not None
+                   else per_seg - (1.0 if shared_start_post else 0.0))
         o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
         rail_h = min(RAIL_TALL_CM, 0.2 * height_cm)
         o_rail = min(1.0, 2.0 * (rail_h + RAIL_ACROSS_CM * tan_a * cp) / height_cm)
@@ -315,7 +425,8 @@ def fence_segment_occlusion(
     elif style == "METAL_FENCE":
         post_w = max(METAL_POST_CM, stroke_cm)
         per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
-        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        n_posts = (post_count if post_count is not None
+                   else per_seg - (1.0 if shared_start_post else 0.0))
         o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
         o_rail = min(1.0, 2.0 * (METAL_RAIL_CM * k + METAL_RAIL_CM * tan_a * cp) / height_cm)
         h_bar = max(0.0, height_cm - 12.0 * k) / height_cm
@@ -324,7 +435,8 @@ def fence_segment_occlusion(
     else:  # CHAIN_LINK
         post_w = max(CHAIN_POST_CM, stroke_cm)
         per_seg = max(2.0, math.ceil(run / CHAIN_POST_SPACING_CM) + 1.0)
-        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        n_posts = (post_count if post_count is not None
+                   else per_seg - (1.0 if shared_start_post else 0.0))
         o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
         o_rail = min(1.0, (CHAIN_RAIL_CM * k + CHAIN_RAIL_CM * tan_a * cp) / height_cm)
         h_wire = max(0.0, height_cm - 8.0 * k) / height_cm
@@ -370,33 +482,46 @@ def fence_transmittance(
         len(points) >= 3
         and math.hypot(points[0][0] - points[-1][0], points[0][1] - points[-1][1]) <= 1e-6
     )
+    spacing = {"WOODEN_FENCE": POST_SPACING_CM,
+               "METAL_FENCE": POST_SPACING_CM,
+               "CHAIN_LINK": CHAIN_POST_SPACING_CM}[style]
 
     weighted_occ = 0.0
     total_weight = 0.0
-    for idx in range(len(points) - 1):
-        ax, ay = points[idx]
-        bx, by = points[idx + 1]
-        seg_len = math.hypot(bx - ax, by - ay)
-        if seg_len <= 1e-6:
+    line = np.asarray(points[:-1] if closed else points, dtype=np.float64)
+    for arc_index, arc in enumerate(_Run(line, closed).arcs()):
+        span_len = arc.total
+        if span_len <= 1e-6:
             continue
-        ux = (bx - ax) / seg_len
-        uy = (by - ay) / seg_len
-        c_par = abs(ux * dx + uy * dy)
-        c_perp = abs(ux * dy - uy * dx)
-        shared_start = closed or idx > 0
-        occ = fence_segment_occlusion(
-            style,
-            height_cm,
-            stroke_cm,
-            elevation_deg,
-            c_perp=c_perp,
-            c_par=c_par,
-            run_len_cm=seg_len,
-            shared_start_post=shared_start,
-        )
-        weight = seg_len * max(c_perp, 0.05)
-        weighted_occ += weight * occ
-        total_weight += weight
+        # The posts the 3D builder stands on this smooth span (``_Run.posts``): every
+        # ``spacing`` cm at most, a shared corner only once. A dense sampled curve must
+        # not read a post per 2 cm chord (#675's shadow side).
+        per_span = max(2.0, math.ceil(span_len / spacing - 1e-9) + 1.0)
+        shared_start = closed or arc_index > 0
+        n_posts = per_span - (1.0 if shared_start else 0.0)
+        for segment in range(len(arc.length)):
+            seg_len = float(arc.length[segment])
+            if seg_len <= 1e-6:
+                continue
+            ax, ay = arc.points[segment]
+            bx, by = arc.points[segment + 1]
+            ux = (bx - ax) / seg_len
+            uy = (by - ay) / seg_len
+            c_par = abs(ux * dx + uy * dy)
+            c_perp = abs(ux * dy - uy * dx)
+            occ = fence_segment_occlusion(
+                style,
+                height_cm,
+                stroke_cm,
+                elevation_deg,
+                c_perp=c_perp,
+                c_par=c_par,
+                run_len_cm=seg_len,
+                post_count=n_posts * seg_len / span_len,
+            )
+            weight = seg_len * max(c_perp, 0.05)
+            weighted_occ += weight * occ
+            total_weight += weight
 
     if total_weight <= 0.0:
         return 1.0 - fence_segment_occlusion(

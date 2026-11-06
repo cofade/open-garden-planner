@@ -1204,6 +1204,11 @@
     "state": "CLOSED",
     "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
   },
+  "701": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Shadow casters rebuild every shed's 3D roof mesh on the main thread; 150 sheds time out a sun-controls test (#440)"
+  },
   "702": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1219,6 +1224,11 @@
     "state": "CLOSED",
     "title": "Beauty Board --analysis fails on bench_built: the probe pin shows in 38 px (< 50) at noon"
   },
+  "705": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: where a string of lights' point light stands on a loop or an L/U string, and lay each string out once per light pass"
+  },
   "706": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1233,6 +1243,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Layering: the string's type icon lives in the gallery's data module; Record.has_2d_caster has only test readers"
+  },
+  "709": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A string of lights cannot be filleted (owner decision); open earlier filleted strings without a wall of posts"
   },
   "710": {
     "is_pr": false,
