@@ -241,3 +241,30 @@ app." The list came from the wheels' ELF headers, not from trial and error: Qt M
 `libpulse.so.0`, `libGL`, `libEGL` and `libxkbcommon`; its FFmpeg plugin `libX11`, `libXrandr` and
 `libXext`; the bundled FFmpeg `libdrm`, `libbz2` and `libz`. Without H.264 on Linux, the MP4 tests
 walk the MPEG-4 path there.
+
+### PF-CI-19
+
+- **Rule:** An MSIX installs only when its signing certificate chains to a store the MACHINE trusts: a test certificate imported into `Cert:\CurrentUser\TrustedPeople` still fails `Add-AppxPackage` with `0x800B0109`, so a local install test needs `Cert:\LocalMachine\TrustedPeople` and administrator rights, and the Store package's install measurement runs on the CI runner (`msix-store-verify.yml`), never silently skipped on the developer machine. A Store submission itself is uploaded unsigned; Microsoft signs it.
+- **Pinned by:** `tests/unit/test_build_msix.py::test_the_store_verify_workflow_installs_and_selftests_the_package`
+- **Source:** #375, ADR-073, measured on the developer machine on 2026-11-06
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The unattended developer session has no administrator token, and a UAC prompt is not an
+option in an autonomous run. The failure is deterministic and documented by Microsoft; the
+per-user store is honoured for ordinary Authenticode checks, not for package deployment. The pinned
+test asserts that the workflow trusts the certificate machine-wide.
+
+### PF-CI-20
+
+- **Rule:** The Windows SDK packaging tools (`makeappx.exe`, `makepri.exe`, `signtool.exe`) run only from their complete `bin/<version>/x64` folder: each ships `*.dll.manifest` side-by-side files, and the executables copied alone fail with `WinError 14001` (side-by-side configuration is invalid). `makeappx pack` validates `AppxManifest.xml` against Microsoft's schema, a check no Python test can imitate, and it is strict about namespaces: `ExecutionAlias` is `uap5:` (or `uap8:`), not `desktop:`.
+- **Pinned by:** `tests/integration/test_msix_packaging.py::test_makeappx_packs_the_stage_and_the_package_reads_back`
+- **Source:** #375, ADR-073, 2026-11-06 (the NuGet `Microsoft.Windows.SDK.BuildTools` 10.0.26100.9457 package, extracted without an SDK install)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first run extracted only the three executables and the DLLs; the manifests
+(`Microsoft.Windows.Build.Appx.AppxPackaging.dll.manifest` and siblings) are what the
+loader needs. The second run, with the whole folder, packed; the schema error then named
+the exact XPath of the wrong element, which is the message to read before guessing.
+`installer/build_msix.py::_run` turns the `OSError` into a named error that says which folder to use.

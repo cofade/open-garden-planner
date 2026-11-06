@@ -275,6 +275,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   white-plateau disc finder, world-elevation set-sun probe (`measured=False` fails
   closed), 3.6 far-row bound at 640 × 360, flood scoped to the rebuild, `scene_reset`
   clears the forge queue, 300 ms settle + 1 s ceiling.
+- Distribution trust (#375, ADR-073) decided 2026-11-06: Authenticode for the GitHub installer
+  stays deferred (Azure Artifact Signing is unavailable to an individual outside USA/Canada;
+  SignPath signs in its own name; Certum Open Source at EUR 49-69/year is trigger 3's concrete
+  shape), and the **Microsoft Store is a second channel**: `installer/build_msix.py` packages the
+  same bundle as an MSIX, `release.yml` builds it after the attestation (`continue-on-error`,
+  workflow artifact `store-package-v<version>`), `msix-store-verify.yml` installs and self-tests
+  it on a runner (PF-CI-19/20). The listing is **pending** the owner's Partner Center registration
+  and the three `OGP_MSIX_*` repository variables (docs/07 §7.2a). Never claim Store availability
+  before the first certified version is live.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
   #685, #706, #707, #708, #710, #700) shipped in **v1.37.3 (PR #752)**: Angled house polygon roof ridge aligns with
   dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast
@@ -315,27 +324,6 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   app close waits for the writer (PF-E3D-22); a year's tour holds UTC across DST (1.53
   vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); applied blur always has a point,
   using the ground under the view's centre while walking (PF-E3D-23).
-- Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
-  `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
-  `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
-  when `new` deltas explain the window, and `chart.js` removes duplicate SVG `<title>`
-  tooltips and formats `>3` windows via localized `windowCount`.
-- Site-plan-sized backgrounds (#659, #660) shipped in v1.34.12 (PR #683): Qt's allocation
-  limit is a **process-wide static** (256 MB, measured on the decoded image), so a 9000×8000
-  PNG — 294 kB on disk, 275 MiB decoded — failed to import and reopened as a placeholder;
-  `BackgroundImageItem` now raises it for one decode only (restored in `finally`) and refuses
-  >120 MP from the header. The embedded base64 PNG is encoded once per pixmap revision, not
-  1.2 s per Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
-- Symbol and shadow correctness, Slice B (#599, #440) shipped in v1.34.13 (PR #686): typed member instantiation
-  (`ObjectType.RAISED_BED`, `ObjectType.GREENHOUSE`, `ObjectType.COMPOST`,
-  `ObjectType.FENCE`) in smart symbols via `_spec_to_item` with `uuid5` stable keys,
-  guide role exclusion from 3D/shadows, single-command undo parameter edits
-  reconciling bed membership, and versioned definition fallback; one unified
-  geometry-aware caster representation across 2D overlay, heatmap, plant exposure,
-  and 3D drape with structural roof/wall triangles for ridged buildings (`gable`,
-  `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
-  `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
-  overlap ($T_1 \times T_2$), and bounded 64 MiB fractional sample allocation.
 - Phase 17 L5 (#389) shipped in v1.35.0 (PR #699); details in
   [history](docs/agent-pickup-history.md). Load `ogp-lush-cinematic`/`ogp-3d-renderer` before a
   visible 3D change; `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

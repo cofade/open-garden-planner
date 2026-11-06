@@ -93,11 +93,13 @@ The provenance step runs after release publication. If no attestation is found, 
 The same command works against the **installed app exe** too — `C:\Program Files (x86)\Open Garden Planner\OpenGardenPlanner.exe` — which is the exact file Windows Defender has been reported flagging (issue #356); it is attested separately from the installer, not just implied by it. `--signer-workflow` pins the check to *this repo's own* release workflow, not merely "any workflow in this repository" (the plain `-R` form is still valid, just slightly less specific).
 
 **Why Windows may warn anyway:** the installer is not Authenticode-signed
-(see `docs/11-risks-and-technical-debt` §11.1/§11.2). Signing options, including
-no-cost proposals, are being evaluated in [#375](https://github.com/cofade/open-garden-planner/issues/375);
-no option has been adopted, and whether signing reduces these detections remains
-unproven for this project. Today's compensating controls are the checksum and
-build provenance attestation above. An
+(see `docs/11-risks-and-technical-debt` §11.1/§11.2). Signing options were
+evaluated in [#375](https://github.com/cofade/open-garden-planner/issues/375)
+(decision record: ADR-073): an Authenticode signature for this installer stays
+deferred, and a **Microsoft Store listing is in preparation** — a Store install
+is signed by Microsoft and shows no SmartScreen download warning. Until that
+listing is live, this installer is the only download, and today's compensating
+controls are the checksum and build provenance attestation above. An
 unsigned, low-download-volume executable is exactly the profile Windows
 SmartScreen, Defender's ML heuristics (e.g. `Wacatac.B/C!ml`), and Norton's
 file-reputation engine (e.g. `FileRepMalware[Misc]`, issue #358) are prone to

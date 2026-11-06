@@ -58,3 +58,25 @@ change.
   tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
   PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
   is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
+
+- Site-plan-sized backgrounds (#659, #660) shipped in v1.34.12 (PR #683): Qt's allocation
+  limit is a **process-wide static** (256 MB, measured on the decoded image), so a 9000×8000
+  PNG — 294 kB on disk, 275 MiB decoded — failed to import and reopened as a placeholder;
+  `BackgroundImageItem` now raises it for one decode only (restored in `finally`) and refuses
+  >120 MP from the header. The embedded base64 PNG is encoded once per pixmap revision, not
+  1.2 s per Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
+- Symbol and shadow correctness, Slice B (#599, #440) shipped in v1.34.13 (PR #686): typed member instantiation
+  (`ObjectType.RAISED_BED`, `ObjectType.GREENHOUSE`, `ObjectType.COMPOST`,
+  `ObjectType.FENCE`) in smart symbols via `_spec_to_item` with `uuid5` stable keys,
+  guide role exclusion from 3D/shadows, single-command undo parameter edits
+  reconciling bed membership, and versioned definition fallback; one unified
+  geometry-aware caster representation across 2D overlay, heatmap, plant exposure,
+  and 3D drape with structural roof/wall triangles for ridged buildings (`gable`,
+  `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
+  `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
+  overlap ($T_1 \times T_2$), and bounded 64 MiB fractional sample allocation.
+- Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
+  `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
+  `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
+  when `new` deltas explain the window, and `chart.js` removes duplicate SVG `<title>`
+  tooltips and formats `>3` windows via localized `windowCount`.
