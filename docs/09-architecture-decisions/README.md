@@ -10944,7 +10944,7 @@ detections, (10) reversibility.
    with a throw-away certificate, trusts that certificate in the runner's machine store,
    installs the package, runs the 8-second smoke (with a probe of the Agent API port from
    outside the package) and `--selftest` through the alias, reports where the per-user
-   files landed, and removes the package. Its first run on PR #754's branch is the
+   files landed, and removes the package. Its first run on PR #761's branch is the
    measurement this ADR's item 5 and item 9 of the table refer to; see "Measurements".
 8. **Authenticode for the GitHub installer stays deferred** with the same four triggers;
    trigger 3 is now concrete: the Certum Open Source certificate at €49–69 a year, with a
