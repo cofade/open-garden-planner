@@ -10969,8 +10969,9 @@ detections, (10) reversibility.
 - The package holds the bundle plus 52 entries of its own (manifest, 46 logo files,
   `resources.pri`, block map, content types, signature and the signature's catalog). On the
   runner the v1.37.6 bundle of 3,802 files became 3,854 entries and 285,322,016 bytes
-  (272.1 MB; run 42260902878); the developer machine's older bundle of 3,714 files gave
-  268.5 MB. The NSIS installer of the same bundle is about 171 MiB because NSIS uses solid
+  (272.1 MB; run 42260902878 - the log prints the size, the entry and byte counts are in
+  the run's artifact `store-package-verify-42260902878`, the package's `.msix.json`); the
+  developer machine's older bundle of 3,714 files gave 268.5 MB. The NSIS installer of the same bundle is about 171 MiB because NSIS uses solid
   LZMA where MSIX uses per-file deflate.
 - `makepri` indexes the scale (100–400) and target-size (16–256) logo variants; the
   manifest declares one resource language (`en-US`) because the images are language-neutral

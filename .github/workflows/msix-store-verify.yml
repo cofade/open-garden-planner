@@ -88,9 +88,9 @@ jobs:
         timeout-minutes: 5
         run: |
           $ErrorActionPreference = 'Stop'
-          # On the 26100 image pwsh imports Appx natively (measured, run 42260902878); this
-          # no-cost fallback is for an image whose Appx module is Desktop-edition only.
-          if (-not (Get-Command Add-AppxPackage -ErrorAction SilentlyContinue)) { Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
+          # A no-cost fallback for an image whose Appx module is Desktop-edition only.
+          # Whether it is taken is logged, so a run answers the question instead of a comment.
+          if (-not (Get-Command Add-AppxPackage -ErrorAction SilentlyContinue)) { Write-Host "Appx fallback: importing the module through Windows PowerShell"; Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
           $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
           $msix = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.msix" | Select-Object -First 1
           if (-not $cer -or -not $msix) { Write-Host "::error::package or certificate missing in dist/"; exit 1 }
@@ -187,7 +187,7 @@ jobs:
         timeout-minutes: 5
         run: |
           try {
-            if (-not (Get-Command Remove-AppxPackage -ErrorAction SilentlyContinue)) { Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
+            if (-not (Get-Command Remove-AppxPackage -ErrorAction SilentlyContinue)) { Write-Host "Appx fallback: importing the module through Windows PowerShell"; Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
             if ($env:OGP_PFN) { Remove-AppxPackage -Package $env:OGP_PFN }
             $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
             if ($cer) {

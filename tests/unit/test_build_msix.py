@@ -233,6 +233,21 @@ def test_build_refuses_a_missing_bundle(tmp_path: Path) -> None:
                          stage_dir=tmp_path / "stage", dry_run=True)
 
 
+def test_a_dry_run_never_consults_the_sdk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """docs/07 advertises --dry-run as SDK-free; a misconfigured OGP_WINDOWS_SDK_BIN (which makes
+    find_sdk_tool raise) must not reach it. Review round 2 moved the lookups under `if not dry_run`."""
+    def boom(name: str, env: dict[str, str] | None = None) -> Path | None:
+        raise build_msix.MsixError(f"{build_msix.ENV_SDK_BIN} is broken ({name})")
+
+    monkeypatch.setattr(build_msix, "find_sdk_tool", boom)
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "OpenGardenPlanner.exe").write_bytes(b"MZ")
+    mapping = build_msix.build("1.2.3", bundle, tmp_path / "out", identity=_dev_identity(),
+                               stage_dir=tmp_path / "stage", dry_run=True)
+    assert mapping == tmp_path / "stage" / "mapping.txt" and mapping.is_file()
+
+
 def test_verify_package_rejects_a_container_without_the_app(tmp_path: Path) -> None:
     fake = tmp_path / "x.msix"
     with zipfile.ZipFile(fake, "w") as archive:

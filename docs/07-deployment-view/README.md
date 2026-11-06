@@ -206,7 +206,8 @@ Store link to the README and the wiki's Installation page (ADR-073 "What the own
 Report the listing as pending until the first version is live.
 
 Measured on 2026-11-06: the package holds the bundle plus 52 entries of its own; the runner's
-v1.37.6 bundle (3,802 files) became 3,854 entries and 272.1 MB (run 42260902878), the
+v1.37.6 bundle (3,802 files) became 3,854 entries and 272.1 MB (run 42260902878; the counts
+are in its artifact `store-package-verify-42260902878`), the
 developer machine's older bundle (3,714 files) 268.5 MB. The MSIX is larger than the
 171 MiB installer because MSIX compresses per file (deflate) and NSIS uses a solid LZMA
 stream — dated measurements, re-measure on a release build. The same run installed the
