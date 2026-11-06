@@ -228,6 +228,25 @@ class TestPlantForgeEndToEndIntegration:
         assert len([c for c in sink.calls if c.op == "replace_geometry"]) == uploads_before
         assert PART_FOLIAGE in ever_winter_parts
 
+    def test_a_completion_that_crosses_a_sink_reset_is_dropped(self, qtbot: object) -> None:
+        """#718: a reset forgets every Model; an in-flight forge completion then has
+        nothing to replace. It must be dropped, not raised on — raising it livelocked
+        the workspace (clear the queue, reset, queue again, fail again)."""
+        _ = qtbot
+        scene = CanvasScene(2000, 2000)
+        plant = _add_plant_circle(scene, ObjectType.TREE, 200.0, 250.0, 150.0, 380.0, "cherry_tree")
+        records = snapshot_records(scene, datetime.date(2026, 7, 1))
+        sink = RecordingSink()
+        sync = SceneSync(sink, production_registry())
+        sync.apply(records)
+        worker = ForgeWorker(sink, cache=ForgeCache(max_entries=32))
+        worker.submit_snapshot(records.values())
+        item_id = str(plant.item_id)
+        job = worker._pending[item_id]
+        sync.reset()                                  # a document switch, a recovery
+        assert worker.apply_completed(item_id, job.geometry_sig, job.lod, ()) is False
+        assert sink.item_ids() == (), "nothing was replaced on the cleared sink"
+
     def test_l36_all_13_archetypes_and_cache_hits(self) -> None:
         """L3.6 gate: verify all 13 archetypes build cleanly and populate/hit the LRU cache."""
         cache = ForgeCache(max_entries=256)

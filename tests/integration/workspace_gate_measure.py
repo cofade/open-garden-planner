@@ -597,12 +597,6 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
 
         ground_bake_module.GroundBaker = lambda: None  # type: ignore[assignment,misc]
     assert frames_mode in ("presented", "withheld") and grabs in ("none", "every"), (frames_mode, grabs)
-    if release == "off":
-        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
-        workspace_module.RELEASE_NOW_RETIRED = 10**9  # type: ignore[misc]
-    elif release == "flood":
-        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
-        workspace_module.RELEASE_NOW_RETIRED = 1  # type: ignore[misc]
     plan = str(window._project_manager.current_file)  # the plan main() was started on
     yield from _enter_and_wait(window, "split")
     workspace = window._workspace
@@ -641,6 +635,21 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     present()
     present()
     _pump(200)
+    # The measured loop's release policy, applied only after the initial settle (#718).
+    # The initial build is the state opening a plan gives the workspace — the product's
+    # own thresholds. With the flood threshold active from the first pass, every
+    # destroyed Model releases inside that pass and the LOD queue re-queues its own
+    # work: `pending_count` was still 34 after 60 s, so the soak never measured anything.
+    # What these variants measure is churn under the threshold, not the startup.
+    if release == "off":
+        workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
+        workspace_module.RELEASE_NOW_RETIRED = 10**9  # type: ignore[misc]
+    # The product's own thresholds, restored after a flood rebuild's pass: the flood is
+    # the REBUILD's "at once" rule (the Models the reset destroyed), not the Plant
+    # Forge's upgrade queue — under the flood threshold every forged plant costs a
+    # release, so the 41-plant settle took over three minutes and the soak never did.
+    product_release = (workspace_module.RELEASE_AFTER_RETIRED,
+                       workspace_module.RELEASE_NOW_RETIRED)
     parts_before = host.part_count()
     from open_garden_planner.core.plant_art import PLANT_KINDS
     from open_garden_planner.core.scene3d.builders import production_registry
@@ -685,10 +694,20 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
             gc.collect()
             traced[str(_index)] = tracemalloc.take_snapshot()
         frames = host.health().frames_presented
+        releases_before_reload = host.cache_releases
+        if release == "flood":
+            workspace_module.RELEASE_AFTER_RETIRED = 10**9  # type: ignore[misc]
+            workspace_module.RELEASE_NOW_RETIRED = 1  # type: ignore[misc]
         window._load_project_file(plan)
         if variant in ("rebuild_on", "control"):
             controller.reset()
-        assert _pump_until(lambda: settled() and len(controller.sync.records) > 0, 60.0), (
+        if release == "flood":
+            # the rebuild's own "at once" release, before the forge starts upgrading
+            assert _pump_until(lambda seen=releases_before_reload: host.cache_releases > seen,
+                               30.0), "the flood rebuild released nothing"
+            workspace_module.RELEASE_AFTER_RETIRED = product_release[0]  # type: ignore[misc]
+            workspace_module.RELEASE_NOW_RETIRED = product_release[1]  # type: ignore[misc]
+        assert _pump_until(lambda: settled() and len(controller.sync.records) > 0, 120.0), (
             f"reload {_index} ground/forge/LOD did not settle: {rest_state()}")
         if variant == "control":
             kept.append(b"\x01" * (keep_mb * 1024 * 1024))

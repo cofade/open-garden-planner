@@ -162,6 +162,12 @@ def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
         dusk = metrics[f"dusk_{weather}"]["medium"]
         assert dusk["monotone"], (weather, dusk["rises"])
         assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (weather, dusk)
+        # #695: the sky-facing set-sun probe under this weather — the meadow camera hid
+        # the sun behind the poplar, and a black disc went unseen for three reviews
+        assert dusk["sky_dusk_ok"], (weather, dusk["sky_dusk"])
+        assert all(row["measured"] for row in dusk["sky_dusk"]), (weather, dusk["sky_dusk"])
+        assert min(row["dip_luma"] for row in dusk["sky_dusk"]) >= -10.0, (
+            weather, dusk["sky_dusk"])
         evening = metrics[f"moods_{weather}"]["medium"]["sunset_over_noon"]
         # measured at medium: 0.761 / 0.781 / 0.674 (ADR-070's high-preset figures: 0.77 /
         # 0.79 / 0.68); 0.98 before the round-3 fix

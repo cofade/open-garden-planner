@@ -498,11 +498,22 @@ def _letter(builder: _Builder, center: tuple[float, float], radius_cm: float, be
                      type(error).__name__)
 
 
-def probe_pin_mesh(point: tuple[float, float], radius_cm: float) -> Mesh:
+def pin_height_cm(radius_cm: float) -> float:
+    """The probe pin's default height: 3 % of the dome's radius, at least 30 cm."""
+    return max(0.03 * float(radius_cm), 30.0)
+
+
+def probe_pin_mesh(point: tuple[float, float], radius_cm: float,
+                   height_cm: float | None = None) -> Mesh:
     """A pin where the ground was probed: a thin stem with a ball on top, as tall as a
-    share of the dome so it is found at any zoom."""
+    share of the dome so it is found at any zoom.
+
+    ``height_cm`` overrides that share for a caller whose camera is far enough that the
+    share reads too small (the Beauty Board's noon camera: 38 px, #704); the view keeps
+    the share as its default.
+    """
     builder = _Builder.new()
-    height = max(0.03 * radius_cm, 30.0)
+    height = pin_height_cm(radius_cm) if height_cm is None else max(float(height_cm), 1.0)
     stem = np.array([[point[0], point[1], 0.0], [point[0], point[1], height]])
     _tube(builder, stem, max(TUBE_SHARE * radius_cm * 0.6, 1.0), PIN_RGBA, is_arc=False)
     _ball(builder, (point[0], point[1], height), max(BEAD_SHARE * radius_cm * 1.4, 4.0), PIN_RGBA)

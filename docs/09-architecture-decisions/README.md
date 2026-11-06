@@ -3956,9 +3956,9 @@ only — facing a low sun, the atmosphere's sun and its halo enter the frame and
 frame read up to 1.9 % above its golden hour while the garden below darkened 23–25 %, as
 under the painted sky. (Before the 3D review the tier allowed that swap within 3 %; the
 review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
-sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
-3.44 / 3.48; 67 m / 31.6° high: 3.11) — a pre-existing failure filed as #714, not this
-package's.
+sky's and failed its then-3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
+3.44 / 3.48; 67 m / 31.6° high: 3.11) — #714, closed by re-measuring the smooth fog ramp
+at the render tier's 640 × 360 and re-deriving the bound to 3.6 (ADR-059's addendum).
 
 **Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
 clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
@@ -6629,8 +6629,13 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
    per degree through twilight, and never for the sun's position at night (a night sky draws no
    disc); the sky's sun is floored at −6°. A sky the engine cannot build is logged once and the
    session goes on with the plain sky; the look is sent separately and always. While the
-   sun is dragged the sky is built once it has rested 150 ms (`SKY_SETTLE_MS`). Light, exposure
-   and fog follow every instant; while the sky lags, the fog is computed for the sky ON SCREEN.
+   sun is dragged the sky is built once it has rested 300 ms (`SKY_SETTLE_MS`), and a sky
+   that has been stale for 1 s is built at that pass whatever the timer says
+   (`SKY_MAX_STALENESS_MS`): playback steps every 200 ms, so the old 150 ms timer fired
+   between every two steps and a playing day rebuilt the atmosphere on almost every step
+   (3.5 steps/s, #722); now the steps keep restarting the timer and the ceiling makes the
+   sky follow the sun about once a second. Light, exposure and fog follow every instant;
+   while the sky lags, the fog is computed for the sky ON SCREEN.
    Each build is a fresh `Texture` with its own `ProceduralSkyTextureData` as its child, every
    input set at the cheapest quality and Medium quality set last; the old pair is destroyed after
    the scene shows the new one (#476). `sunLongitude = azimuth + 90°`; the ground hemisphere takes
@@ -6693,7 +6698,8 @@ L1.4: "look presets + auto with hysteresis, sky from the sun, animation policy. 
 
 - Truth and look are separable by construction: no look value can move a shadow, and a stale
   look aims nothing.
-- The sky lags the sun by less than 1° and 150 ms of rest; the light, the exposure and the fog
+- The sky lags the sun by less than 1° and 0.3 s of rest, or at most 1 s while the sun keeps
+  moving (`SKY_MAX_STALENESS_MS`); the light, the exposure and the fog
   never lag.
 - On the dev box's display (60 Hz, vsync) every preset presents about 60 frames a second on both
   bench plans; what a frame COSTS is the readback number in the table below. An integrated GPU
@@ -7180,6 +7186,61 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
   `set_radius_centered`), as one undo step with the metadata edit. Explicit
   spacing overrides, measured spreads and custom footprints win; a cleared
   maximum preserves geometry.
+
+### Addendum (atmosphere-sky and render-tier integrity, #695/#696/#704/#714/#717/#718/#722)
+- **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
+  (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
+  disc finder first takes the largest connected, compact white plateau (at least 20
+  pixels, every channel ≥ 250, bounding box at most 4:1, at least 40 % filled) and its
+  centroid, falling back to the old bright-and-warm peak: at a low sun the warm
+  horizon band outscored the disc (#717), and the centroid of every white pixel merged
+  two blobs into a false sun between them. Measured on the RTX 4070 at 640 × 360: worst
+  bearing error 0.08° / 0.09° and worst elevation error 0.13° / 0.07° (painted /
+  atmosphere), inside the 0.25° acceptance.
+- **The set sun is measured.** `--dusk` now renders a sky-only camera at the sun's own
+  bearing at +1.0, +0.4, 0.0, −1.0 and −3°, for clear and every cloudy weather;
+  `sun_dip` compares the darkest pixel within 10° of that bearing with the median at the
+  same world elevation 15–45° away, over the bands within 1.5° of the sun's own elevation
+  (an image row is not a world elevation under a pitched camera: comparing rows read a
+  false 20-luma dip; and an isolated cumulus 6° above the sun is weather, not a black
+  sun — it read 48 luma). A dip over 10 luma fails the board (#695); `measured=False`
+  when no band had both a near and an away sample, so "nothing measured" cannot pass as
+  a clean sky.
+- **The playback stall (#722).** `SKY_SETTLE_MS` is 300 ms — longer than playback's
+  200 ms step, so the steps keep restarting the settle timer — and a sky stale for 1 s is
+  built at that pass (`SKY_MAX_STALENESS_MS`), so a playing day still follows the sun
+  about once a second instead of rebuilding on almost every step (3.5 steps/s under the
+  atmosphere before).
+- **The far-row bound is re-derived.** The distant-horizon gate measures 3.44 / 3.48 luma
+  at 403 m / 15° and 3.11 at 67 m / 31.6° on the current scene (the issue #714 numbers),
+  so `HORIZON_STEP_BOUND` goes from 3.0 to 3.6, and the render tier gates the per-mood
+  step at the same 3.6 (covering #696's 3.13 low-sunset row). The scene was not shown to
+  have regressed since L4: the with- and without-L7 readings are identical, so 3.0 was a
+  bound from the earlier scene, not a defect this package hides.
+- **The flood soak settles first, and a forge completion cannot outlive its sink (#718).**
+  `scenario_soak` applies its `off` / `flood` release policy only after the initial settle:
+  with the flood threshold active from the first pass, the LOD queue re-queued its own
+  startup work (`pending` 34 after 60 s), so the soak never measured. The startup is the
+  state opening a plan gives the workspace. The livelock it hid was real: a sink reset (a
+  fresh engine or a recovery after a sink failure; the document path clears the queue
+  itself) forgets every Model, and an in-flight forge
+  completion then called `replace_geometry` for an item the sink no longer held — it raised,
+  the workspace re-queued it, and the cycle repeated (clear, reset, queue again, fail
+  again). `Scene3DController` now emits `scene_reset` on every reset, the workspace clears
+  the Plant Forge queue, and `ForgeWorker` drops a completion whose item the sink no longer
+  holds. Pinned by `test_a_reset_tells_the_forge_that_the_sink_is_stale`,
+  `test_a_completion_that_crosses_a_sink_reset_is_dropped` and the existing sink-recovery
+  test. Measured on the RTX 4070 (2026-11-05): the flood-release soak with the ground bake
+  on read 3.03 MB/reload over 20 releases (1,396 frames presented, 20 releases); the churn
+  variant with the bake off read 1.70 MB/reload (GPU slope 2.24 MB, 20 releases). Both
+  were `['step EXCEPTION']` with `pending` 34 before.
+- **The probe pin is sized for its camera (#704).** `--analysis` places its magenta pin
+  on the nearest open ground whose WHOLE height is clear; the height is the product's
+  dome share raised until the pin shows at least 60 px (the board's gate is 50), capped
+  at 4×. On `bench_built`'s noon camera the old search's point read 38 px and the board
+  raised before writing any sun-hours row; the whole-pin search's point, with the pin
+  raised to 207 cm (4× the 52 cm share), reads 250 px (RTX 4070, 1280 × 720). The pin's
+  position is still a measurement of the ground, not of the pin.
 
 ## ADR-060: The 3D workspace — Plan / 3D / Split in the main window, one kept engine host (Phase 17, L1.3)
 
@@ -10305,7 +10366,8 @@ past midnight, the firefly season's date, one life assembly for the product and 
    it. #440's transmittance hook could make all of them honest — an owner decision (#698;
    for the string answered in the owner's addendum: no 2D shadow). Cloudy horizon steps at
    the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
-   horizon unchanged (its low-preset sunset step of 3.13, over the 3.0 bound, is master's: #696).
+   horizon unchanged (its low-preset sunset step of 3.13 was over the then-3.0 bound: #696;
+   the bound is 3.6 since the re-measurement in ADR-059's addendum).
 
 **Addendum (the owner's manual test of L5)**: The owner confirmed the day and year playback,
 the garden's life, a new plan's forecast and the 3D lights, and changed two things:

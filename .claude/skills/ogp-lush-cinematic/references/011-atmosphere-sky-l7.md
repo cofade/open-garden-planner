@@ -32,8 +32,12 @@ cover (Partly cloudy, 0.4), a grey deck at full cover.
 **The mood order is read on the garden.** Facing a low sun, the atmosphere's whole frame reads its sunset brighter than its golden hour (the sun and its halo enter the frame) while the garden below darkens about a quarter, as under the painted sky. The render tier gates the order on `ground_luminance` (the rows below the horizon) on both skies, and on the whole frame on the painted sky only — no tolerance, no exemption.
 
 **Known gaps** (filed): the low band reads 1.43–1.83× the painted sky's luminance — a cream
-wash and a horizon that darkens toward 0.5° (#716); the sky probe's disc finder misses an 8° sun
-(#717); under a cloud deck at a low sun the painted haze band reads brighter than the deck — 30–55 luma at a 0.5° sun, painted 6 (#719).
+wash and a horizon that darkens toward 0.5° (#716); under a cloud deck at a low sun the
+painted haze band reads brighter than the deck — 30–55 luma at a 0.5° sun, painted 6
+(#719). The probes now see both classes: the disc finder takes a white plateau of at least
+20 pixels first (6°, 12°, 30° and 60° suns on both skies, worst 0.13° elevation error;
+#717), and `--dusk` measures a sky-only camera at +1.0…−3° against its own elevation rows
+(a dip over 10 luma fails; #695).
 
 **Decided by the owner** (2026-11-03): keep the atmosphere, fix its crash, add Partly cloudy.
 That also settles the cloudy-sunset question: the garden is lit the same under both skies.

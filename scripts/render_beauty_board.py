@@ -214,16 +214,26 @@ IOU_ELEVATIONS = (15.0, 35.0, 60.0)
 IOU_GROUND = GroundSpec(4000.0, 4000.0)
 IOU_CENTRE = (1600.0, 1600.0)
 CASTER_TINT = (208, 16, 16, 255)
-#: The sky views of the azimuth probe: the sun 12° up, looked at 25° to its left and
-#: right (a disc in the middle of the frame only proves the direction), pitched up 14°.
-SKY_SUN_ELEVATION, SKY_PITCH_DEG, SKY_FOV_DEG = 12.0, 14.0, 70.0
+#: The sky views of the azimuth probe: a low, a normal and a high sun (#717 added 6°, 30°
+#: and 60° to the original 12°), looked at 25° to its left and right (a disc in the middle
+#: of the frame only proves the direction), pitched 2° above the sun. At a low sun the
+#: disc finder needs its white-plateau path (#717): the warm horizon band outscored it.
+SKY_SUN_ELEVATIONS = (6.0, 12.0, 30.0, 60.0)
+SKY_PITCH_OFFSET_DEG, SKY_FOV_DEG = 2.0, 70.0
 SKY_OFFSETS_DEG = (-25.0, 25.0)
 SKY_AZIMUTHS = (90.0, 180.0, 270.0)
 SKY_MAX_ERROR_DEG = 6.0
+#: The disc-finder's own accuracy, the #717 acceptance: 0.25° at every added sun. Kept
+#: apart from the direction gate (6°), which judges the sky, not the instrument.
+SKY_DISC_ERROR_BOUND_DEG = 0.25
 #: The moods the horizon probe looks at, by the name of the shot whose sun it uses.
 HORIZON_SHOTS = ("noon", "golden_hour", "sunset", "night")
 HORIZON_DISTANCES_M = (67, 202, 403, 600)
-HORIZON_STEP_BOUND = 3.0
+#: The largest adjacent-row luma step of the far meadow (#714): 3.44 / 3.48 at 403 m /
+#: 15° and 3.11 at 67 m / 31.6° on the current scene (the issue's own numbers, identical
+#: with and without L7), every other row at most 2.74. The old 3.0 came from L4's
+#: earlier fog; re-derived, and the reason recorded in ADR-059's addendum.
+HORIZON_STEP_BOUND = 3.6
 #: The weathers whose sky is not the clear one (L5; partly cloudy since L7): ``--living``
 #: runs the horizon probe, the mood strip and the dusk under each — an overcast sky draws
 #: its horizon otherwise (3D review of L5).
@@ -333,6 +343,10 @@ def records_digest(records: dict[str, Record]) -> str:
 #: 0.6°, sunset's crossing to 0.4°, then civil twilight to past its end.
 DUSK_ELEVATIONS = (6.0, 3.1, 2.6, 2.1, 1.6, 1.1, 0.6, 0.4, 0.0, -1.0, -2.0, -3.0, -4.0, -5.0,
                    -6.0, -7.0)
+#: The set-sun probe (#695): the L5 black-sun window, from just above the horizon to
+#: below it, and how far a sky row may dip under the rows beside it.
+SKY_DUSK_ELEVATIONS = (1.0, 0.4, 0.0, -1.0, -3.0)
+SKY_DUSK_DIP_BOUND = 10.0
 #: The edge probe's cameras stand on the edge's line this far from the middle of the
 #: judged stretch, at eye height — the grazing view under which a sheen shows — and judge
 #: a band this wide on each side of the edge, starting this far from it, this long.
@@ -348,14 +362,60 @@ _PLANT_KINDS: frozenset[str] = frozenset({"TREE", "SHRUB", "PERENNIAL", "VEGETAB
                                           "FLOWER", "GRASS", "GROUND_COVER", "CLIMBER"})
 
 
-def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment: Any
-                 ) -> tuple[float, float]:
-    """A lawn point near the shot's target that the camera sees: no item covers it and
-    the view of it passes through nothing (the probe's pin must be in the frame)."""
+#: The probe pin must show in this many pixels of the frame: the board's magenta gate is
+#: 50 (#704), with margin for antialiasing and a partly hidden ball.
+PROBE_PIN_MIN_PX = 60.0
+#: The pin is sized from the camera, but never more than this many times its share of the
+#: dome: a camera that far has no pin that is both honest and 60 px tall.
+PROBE_PIN_MAX_SCALE = 4.0
+
+
+def _pin_projected_px(camera: Any, point: tuple[float, float], height_cm: float) -> float:
+    """How tall a pin of ``height_cm`` at ``point`` shows in the frame, in pixels: only
+    when the base AND the ball are inside it, so a clipped pin is not a visible one."""
+    px, py, front = camera.project([(point[0], point[1], 0.0),
+                                    (point[0], point[1], height_cm)])
+    if not front.all():
+        return 0.0
+    width, height = camera.size
+    if not (0.0 <= px.min() < width and 0.0 <= px.max() < width
+            and 0.0 <= py.min() < height and 0.0 <= py.max() < height):
+        return 0.0
+    shown = float(py[0] - py[1])
+    return shown if math.isfinite(shown) and shown > 0.0 else 0.0
+
+
+def _pin_height(camera: Any, point: tuple[float, float], default_cm: float) -> float:
+    """The pin height that shows at least ``PROBE_PIN_MIN_PX`` at ``point`` (#704).
+
+    The product's pin is a share of the sun-path dome (``probe_pin_mesh``), which is
+    right in the view but too short for the board's distant noon camera: 52 cm at 27 m
+    read 38 px. A taller pin keeps the marker findable without moving the measurement
+    off the ground; the share is the floor, never the ceiling.
+    """
+    shown = _pin_projected_px(camera, point, default_cm)
+    if shown <= 0.0:
+        return default_cm
+    scale = min(max(PROBE_PIN_MIN_PX / shown, 1.0), PROBE_PIN_MAX_SCALE)
+    return default_cm * scale
+
+
+def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment: Any,
+                 size: tuple[int, int], radius_cm: float) -> tuple[tuple[float, float], float]:
+    """A lawn point near the shot's target that the camera sees, and the pin's height.
+
+    The point is the nearest one no item covers whose pin is in the clear from the
+    ground through its ball, so a partly hidden pin cannot pass the gate by being close
+    to the target. The height comes from ``_pin_height``: a distant camera gets a taller
+    pin rather than a marker too small to find (#704).
+    """
     from open_garden_planner.core.scene3d.frame import pose_ring
+    from open_garden_planner.core.scene3d.sun_path import pin_height_cm
     from open_garden_planner.core.shade_aggregation import points_in_polygons
 
     tx, ty = float(shot.target[0]), float(shot.target[1])
+    camera = probes.Pinhole(shot.eye, shot.target, shot.fov_deg, size)
+    default_cm = pin_height_cm(radius_cm)
     tries = sorted(((tx + dx, ty + dy) for dx in range(-600, 601, 50)
                     for dy in range(-600, 601, 50)),
                    key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
@@ -364,10 +424,21 @@ def _open_ground(world: Any, shot: Any, records: dict[str, Record], cast_segment
     for record in records.values():   # one ring at a time: even-odd must not cancel overlaps
         for outer, _holes in record.regions:
             covered |= points_in_polygons([pose_ring(record.transform, outer)], points)
+    fallback: tuple[float, tuple[float, float], float] | None = None
     for index, point in enumerate(tries):
-        if not covered[index] and not cast_segment(world.pick, shot.eye, (point[0], point[1], 30.0)):
-            return point
-    return (tx, ty)
+        if covered[index] or cast_segment(world.pick, shot.eye, (point[0], point[1], 0.0)):
+            continue                       # the base is under something: not a probe point
+        height = _pin_height(camera, point, default_cm)
+        if cast_segment(world.pick, shot.eye, (point[0], point[1], height)):
+            continue                      # the ball is under a canopy: not a probe point
+        shown = _pin_projected_px(camera, point, height)
+        if shown >= PROBE_PIN_MIN_PX:
+            return point, height
+        if fallback is None or shown > fallback[0]:
+            fallback = (shown, point, height)
+    if fallback is not None:
+        return fallback[1], fallback[2]
+    return (tx, ty), default_cm
 
 
 def _pin_pixels(rgb: np.ndarray) -> int:
@@ -680,9 +751,12 @@ class Board:
                                                   lon, at, grid, rasterize_polygons_qimage)
                     daylight = float(len(daylight_samples(lat, lon, at)) * SAMPLE_STEP_MINUTES)
                     drape = sun_hours_drape(result.minutes, grid, daylight, lut)
-                    pin = _open_ground(world, shot, records, cast_segment)
-                    variants.append(("sunhours", {"overlays": {
-                        "drape": drape, "lines": probe_pin_mesh(pin, radius)}, "pin": pin}))
+                    pin, pin_height = _open_ground(world, shot, records, cast_segment,
+                                                   self.size, radius)
+                    variants.append(("sunhours", {
+                        "overlays": {"drape": drape,
+                                     "lines": probe_pin_mesh(pin, radius, height_cm=pin_height)},
+                        "pin": pin, "pin_height_cm": pin_height}))
                     days = key_days(at)
                     arcs = [day_arc(lat, lon, days[kind], None, kind) for kind in ARC_KINDS]
                     path = sun_path_mesh(arcs, center, radius, hour_marks=hour_marks(arcs[0], None),
@@ -716,6 +790,7 @@ class Board:
                         row["isolated_dark_px"] = None
                     if variant == "sunhours":
                         row["pin"] = [round(v, 1) for v in options["pin"]]
+                        row["pin_height_cm"] = round(options["pin_height_cm"], 1)
                         row["pin_px"] = _pin_pixels(rgb)
                         if row["pin_px"] < 50:
                             raise RuntimeError(f"{shot.name}: the probe pin shows in "
@@ -882,30 +957,47 @@ class Board:
             return
         views: dict[str, Any] = {}
         errors: list[float | None] = []
-        for azimuth in SKY_AZIMUTHS:
-            sun = SunState(SKY_SUN_ELEVATION, azimuth)
-            for offset in SKY_OFFSETS_DEG:
-                bearing = math.radians(azimuth + offset)
-                camera = probes.Pinhole(
-                    eye=(0.0, 0.0, 160.0),
-                    target=(math.sin(bearing) * 1000.0, math.cos(bearing) * 1000.0,
-                            160.0 + 1000.0 * math.tan(math.radians(SKY_PITCH_DEG))),
-                    fov_deg=SKY_FOV_DEG, size=self.size)
-                name = f"sky_{int(azimuth)}_{offset:+.0f}"
-                rgb, _frame, _info = self.frame(
-                    name, {}, sun=sun, look=look_for(sun, "low"), ground=None,
-                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                found = probes.sun_disc(rgb, camera)
-                if found["found"]:
-                    found["error_deg"] = round(probes.bearing_error_deg(found["bearing_deg"], azimuth), 2)
-                errors.append(found.get("error_deg"))
-                views[name] = found
+        elevation_errors: list[float | None] = []
+        for elevation in SKY_SUN_ELEVATIONS:
+            pitch = elevation + SKY_PITCH_OFFSET_DEG
+            for azimuth in SKY_AZIMUTHS:
+                sun = SunState(elevation, azimuth)
+                for offset in SKY_OFFSETS_DEG:
+                    bearing = math.radians(azimuth + offset)
+                    camera = probes.Pinhole(
+                        eye=(0.0, 0.0, 160.0),
+                        target=(math.sin(bearing) * 1000.0, math.cos(bearing) * 1000.0,
+                                160.0 + 1000.0 * math.tan(math.radians(pitch))),
+                        fov_deg=SKY_FOV_DEG, size=self.size)
+                    name = f"sky_{elevation:g}_{int(azimuth)}_{offset:+.0f}"
+                    rgb, _frame, _info = self.frame(
+                        name, {}, sun=sun, look=look_for(sun, "low"), ground=None,
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    found = probes.sun_disc(rgb, camera)
+                    found["sun_elev"] = elevation
+                    if found["found"]:
+                        found["error_deg"] = round(
+                            probes.bearing_error_deg(found["bearing_deg"], azimuth), 2)
+                        found["elevation_error_deg"] = round(
+                            found["elevation_deg"] - elevation, 2)
+                    errors.append(found.get("error_deg"))
+                    elevation_errors.append(found.get("elevation_error_deg"))
+                    views[name] = found
         known = [abs(error) for error in errors if error is not None]
+        known_elevation = [abs(error) for error in elevation_errors if error is not None]
         self.metrics["sky"] = {
             "views": views, "offsets_deg": list(SKY_OFFSETS_DEG),
+            "elevations_deg": list(SKY_SUN_ELEVATIONS),
             "max_abs_error_deg": round(max(known), 2) if known else None,
-            "ok": len(known) == len(errors) and bool(known) and max(known) < SKY_MAX_ERROR_DEG}
-        self.log("sky", ok=self.metrics["sky"]["ok"], max_error=self.metrics["sky"]["max_abs_error_deg"])
+            "max_abs_elevation_error_deg": (round(max(known_elevation), 2)
+                                            if known_elevation else None),
+            "elevation_ok": (len(known_elevation) == len(errors) and bool(known_elevation)
+                             and max(known_elevation) < SKY_DISC_ERROR_BOUND_DEG),
+            "ok": (len(known) == len(errors) and bool(known) and max(known) < SKY_MAX_ERROR_DEG
+                   and len(known_elevation) == len(errors) and bool(known_elevation)
+                   and max(known_elevation) < SKY_DISC_ERROR_BOUND_DEG)}
+        self.log("sky", ok=self.metrics["sky"]["ok"], max_error=self.metrics["sky"]["max_abs_error_deg"],
+                 max_elevation_error=self.metrics["sky"]["max_abs_elevation_error_deg"])
         self.write()
 
     def horizon(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
@@ -1038,6 +1130,11 @@ class Board:
                 if target not in found and sun.elevation_deg <= target:
                     found[target] = (moment, sun)
             moment += timedelta(seconds=20)
+        if not found:
+            # no garden location (the stand-in sun never moves) or a polar day that never
+            # reaches 6°: there is no evening to walk, and the set-sun probe has no sun
+            # bearing to face. Before, this reached `min(found)` and raised.
+            return
         tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
         self.metrics[f"dusk{tag}"] = out
@@ -1073,10 +1170,46 @@ class Board:
                            "monotone": not rises,
                            "day_ramp_max_step": round(max(day_steps), 5) if day_steps else None,
                            "sunset_step": None if crossing is None else round(crossing, 5)}
+            # The sky-facing set-sun probe (#695): the meadow camera hides the sun behind
+            # the poplar, so a black disc at twilight went unseen for three reviews. A
+            # sky-only frame at the sun's own bearing measures it on every weather.
+            azimuth = found[0.0][1].azimuth_deg if 0.0 in found else found[min(found)][1].azimuth_deg
+            eye = (self.width / 2.0, self.depth / 2.0, 160.0)
+            target = (eye[0] + math.sin(math.radians(azimuth)) * 1000.0,
+                      eye[1] + math.cos(math.radians(azimuth)) * 1000.0,
+                      eye[2] + 1000.0 * math.tan(math.radians(3.0)))
+            sky_rows = []
+            for sun_elevation in SKY_DUSK_ELEVATIONS:
+                sun = SunState(sun_elevation, azimuth)
+                look = weather_look(sun, preset, weather)
+                camera = probes.Pinhole(eye=eye, target=target, fov_deg=70.0, size=self.size)
+                rgb, _frame, info = self.frame(
+                    f"skydusk{tag}_{sun_elevation:+.1f}_{preset}", {}, sun=sun, look=look,
+                    ground=None, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                measured = probes.sun_dip(rgb, camera, azimuth,
+                                          sun_elevation_deg=sun_elevation)
+                measured.update(target=sun_elevation,
+                                ok=(measured["measured"]
+                                    and measured["dip_luma"] >= -SKY_DUSK_DIP_BOUND),
+                                file=info["file"])
+                sky_rows.append(measured)
+            out[preset]["sky_dusk"] = sky_rows
+            out[preset]["sky_dusk_ok"] = all(row["ok"] for row in sky_rows)
+            self.log("sky_dusk", weather=weather, preset=preset, ok=out[preset]["sky_dusk_ok"],
+                     worst=min(row["dip_luma"] for row in sky_rows))
             self.log("dusk", weather=weather, preset=preset, monotone=not rises,
                      sunset_step=out[preset]["sunset_step"],
                      day_ramp_max_step=out[preset]["day_ramp_max_step"])
             self.write()
+            if not out[preset]["sky_dusk_ok"]:
+                unmeasured = [row for row in sky_rows if not row["measured"]]
+                if unmeasured:
+                    raise RuntimeError(
+                        f"the set-sun probe measured nothing at {len(unmeasured)} of "
+                        f"{len(sky_rows)} elevations ({weather}, {preset}); see metrics.json")
+                raise RuntimeError(
+                    f"the set sun dips more than {SKY_DUSK_DIP_BOUND:g} luma under its rows "
+                    f"({weather}, {preset}); see metrics.json")
 
     def fence_moire(self, shots: list[BoardShot], presets: list[str]) -> None:
         """How the plan's fences alias, per preset: the fences alone at the noon camera

@@ -251,3 +251,12 @@ class TestTheMeshes:
         assert abs(np.median(mesh.positions[:, 0]) - 300.0) < 20.0
         assert abs(np.median(mesh.positions[:, 1]) - 400.0) < 20.0
         assert np.all(mesh.uvs[:, 0] == 0.0), "probe pin must not be flagged as an arc in uvs"
+
+    def test_an_explicit_pin_height_is_honoured(self) -> None:
+        """#704: the Beauty Board's distant camera raises the pin above its dome share."""
+        default = probe_pin_mesh((300.0, 400.0), RADIUS)
+        raised = probe_pin_mesh((300.0, 400.0), RADIUS, height_cm=175.0)
+        raised.validate()
+        share = max(0.03 * RADIUS, 30.0)
+        assert (raised.positions[:, 2].max() - default.positions[:, 2].max()
+                == pytest.approx(175.0 - share, abs=0.5))
