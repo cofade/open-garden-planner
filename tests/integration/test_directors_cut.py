@@ -677,10 +677,10 @@ def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any) -> Non
                              view_showing=lambda: showing["now"])
     paused: list[bool] = []
     made.paused_changed.connect(paused.append)
-    started = monotonic()
     made.start()
-    qtbot.waitUntil(lambda: paused == [True], timeout=2000)
-    assert monotonic() - started < 1.0, "said at once, not after the settle limit"
+    # The settle limit is 20 s: a pause inside this wait cannot be a settle timeout, so
+    # the hidden-view guard is what said it.
+    qtbot.waitUntil(lambda: paused == [True], timeout=1000)
     qtbot.wait(600)
     showing["now"] = True
     qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
