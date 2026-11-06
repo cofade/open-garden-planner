@@ -254,9 +254,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
-- 3D curved geometry and strings (#675, #709, #705, #701): arc-length fence spacing,
-  40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights, roof cache.
-  Draft PR; acceptance pending.
+- 3D curved geometry and strings (#675, #709, #705, #701) shipped in
+  **v1.37.5 (PR #756)** after owner manual acceptance on 2026-11-06: arc-length fence
+  spacing, 40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights,
+  and cached shadow-walk roof meshes.
 - Sky/render-tier integrity (#695, #696, #704, #714, #717, #718, #722) shipped in
   **v1.37.4 (PR #755)** after owner manual acceptance on 2026-11-06: connected
   white-plateau disc finder, world-elevation set-sun probe (`measured=False` fails

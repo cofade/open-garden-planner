@@ -4163,7 +4163,7 @@ Seven follow-ups from the L7 atmosphere-sky reviews, the Beauty Board and the re
 
 Docs: ADR-059 addendum, §8.29.4, `ogp-lush-cinematic` §11, `debug-verbose` case study 204.
 
-### Curved geometry, strings and shadow cost (#675, #709, #705, #701)
+### Curved geometry, strings and shadow cost (#675, #709, #705, #701) — shipped in v1.37.5 (PR #756)
 
 Four follow-ups around the 3D builders and the 2D shadow walk's cost:
 
