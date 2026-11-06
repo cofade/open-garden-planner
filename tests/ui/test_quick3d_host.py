@@ -2634,3 +2634,16 @@ class TestFillPictures:
         finally:
             sink.clear()
             made.close()
+
+def test_a_capture_from_a_shot_with_no_camera_to_put_back_refuses(host) -> None:
+    """#738: a live host that was never given a camera has nothing to restore. Moving the
+    view to the shot and leaving it there is the one thing a capture must never do, so it
+    refuses instead."""
+    from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+    _force(host)
+    assert host.state.value == "live"
+    assert host._camera_scene is None  # noqa: SLF001
+    with pytest.raises(EngineError, match="no camera has been placed"):
+        host.capture((64, 48), PerspectiveShot((0.0, 0.0, 500.0), (0.0, 0.0, 0.0)))
+    assert host._camera_scene is None, "nothing moved"  # noqa: SLF001

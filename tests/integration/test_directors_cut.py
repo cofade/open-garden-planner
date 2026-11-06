@@ -663,24 +663,24 @@ def test_cancel_while_the_file_closes_changes_nothing_and_the_truth_is_reported(
     assert outcome[0].ok and not outcome[0].cancelled
 
 
-def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any) -> None:
     """Every retry behind a hidden view counted one frame as rendered too early, and nothing was
-    said until the limit had passed: 3 minutes on the first frame. The host's own capture is
-    what says a hidden view gives no frame; no second view-state predicate is needed."""
-    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    said until the limit had passed: 3 minutes on the first frame. The guard is NOT dead (#738
+    said it could go): a hidden pane's controller stays paused with its records dirty, so
+    ``settled`` never becomes true and, without it, the first sentence waits out
+    ``SETTLE_LIMIT_S``."""
+    from open_garden_planner.ui.view3d.tour_recorder import SETTLE_LIMIT_S
+
+    assert SETTLE_LIMIT_S >= 20.0, "the premise: a wait that must not happen"
     showing = {"now": False}
-    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
-
-    def capture(_frame: Any) -> QImage:
-        if not showing["now"]:
-            raise HostStateError("a hidden view gives no frame")
-        return image
-
-    made, outcome = recorder(Sink(), capture=capture, settled=lambda: showing["now"])
+    made, outcome = recorder(Sink(), settled=lambda: showing["now"],
+                             view_showing=lambda: showing["now"])
     paused: list[bool] = []
     made.paused_changed.connect(paused.append)
+    started = monotonic()
     made.start()
     qtbot.waitUntil(lambda: paused == [True], timeout=2000)
+    assert monotonic() - started < 1.0, "said at once, not after the settle limit"
     qtbot.wait(600)
     showing["now"] = True
     qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
@@ -917,7 +917,7 @@ def test_stopping_the_engine_forgets_the_tour_dialog_once_it_really_closed(
         rig: Rig, qtbot: Any, tmp_path: Path) -> None:
     """#738: the coordinator dropped its reference before the dialog had closed, so a Tour
     action after an engine restart opened a second dialog while the first was still
-    finishing its file."""
+    finishing its file. Only an engine stop forgets it: a user's Close keeps the keys."""
     dialog = dialog_of(rig)
     dialog.duration_spin.setValue(60.0)
     dialog.record_png(tmp_path / "tour")
@@ -925,8 +925,24 @@ def test_stopping_the_engine_forgets_the_tour_dialog_once_it_really_closed(
     assert capture.dialog is dialog and capture.recording
     capture.set_enabled(False)   # the engine is going
     assert not capture.tour_action.isEnabled()
-    qtbot.waitUntil(lambda: capture.dialog is None, timeout=30000)
+    assert capture.dialog is None, "the old engine's dialog is not the session's any more"
+    qtbot.waitUntil(lambda: capture._dialog_closing is None, timeout=30000)
     assert not dialog.isVisible(), "and no hidden dialog is left behind"
+
+
+def test_closing_the_tour_dialog_keeps_the_keys_for_the_next_open(rig: Rig) -> None:
+    """#738: the module's contract is that closing the dialog keeps its keys (only closing
+    the app loses them). Forgetting every closed dialog broke that on Close and X while Esc
+    kept them."""
+    dialog = dialog_of(rig)
+    dialog.add_key()
+    dialog.add_key()
+    dialog.close()
+    assert not dialog.isVisible()
+    rig.workspace.capture.tour_action.trigger()
+    assert rig.workspace.capture.dialog is dialog, "the same dialog, not a fresh one"
+    assert len(dialog.keys) == 2, "the user's keyframes are the session's"
+    dialog.close()
 
 
 def test_reduced_motion_holds_the_wind_in_a_tour(rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:

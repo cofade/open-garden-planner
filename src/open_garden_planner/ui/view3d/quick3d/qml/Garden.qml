@@ -211,7 +211,7 @@ Item {
     // Qt's screen-space ambient occlusion is sampled in PIXELS: at a bigger picture the
     // same world radius covers more of them and the garden darkens by several levels
     // (measured, #733 - not the glow the review suspected). A capture shrinks the radius
-    // in proportion to its height, so the occlusion's footprint stays the pane's.
+    // in proportion to its height, so the occlusion's footprint stays 1080p's.
     property real captureAoDistanceScale: 1.0
     // the height the screen-sized measures go by (a particle's and the ring's minimum size)
     readonly property real pictureHeight: captureWanted ? captureHeight / capturePixelRatio

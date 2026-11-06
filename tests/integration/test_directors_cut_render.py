@@ -224,6 +224,7 @@ def test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look(
     assert abs(result["worst_bucket"]) <= PICTURE_BUCKET_DELTA, result
     assert abs(result["sky_delta"]) <= PICTURE_SKY_DELTA, result
     assert result["ao_scale_at_2160"] == 0.5, "the radius is halved for twice the height"
+    assert result["ao_scale_after_4k"] == 1.0, "and the view's own look is back"
 
 
 def test_the_agents_picture_refuses_cleanly_and_changes_nothing(tmp_path: Path) -> None:

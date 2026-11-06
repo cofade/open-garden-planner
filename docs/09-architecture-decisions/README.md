@@ -10804,7 +10804,7 @@ Two decisions #729 left open, and the measured cause of a look that differed by 
    assumption is now pinned: `test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd`.
    A player that gets it wrong is a bug report with a named player, not a reason to invent
    a second colour path.
-3. **A bigger picture keeps the pane's look by scaling the occlusion, not the glow.** #733
+3. **A bigger picture keeps 1080p's look by scaling the occlusion, not the glow.** #733
    read a 4K picture's horizon band as about 9 levels darker than 1080p and suspected Qt's
    pixel-sized glow. Measured on the family garden at the sunset anchor, the glow is not the
    cause: with glow off the band still differs by the same amount, and with ambient
@@ -10819,13 +10819,16 @@ Two decisions #729 left open, and the measured cause of a look that differed by 
    bucket <= 1.6, sky <= 0.5). The garden *below* the horizon still differs by up to ~3
    levels at 4K: that is texture minification resolving more detail, not the reported band,
    and it is left alone rather than tuned away with a second fudge factor.
-4. **A capture that raises nothing leaves nothing behind** (#738): the camera properties a
-   host had before it was ever given a camera are saved and put back when a capture with its
-   own shot cannot restore a `shot_before`; the capture's `finally` restores the photo,
-   selection, wind and AO scale even when the resting frame raises; a video frame the queue
-   refused is offered again from the same `QVideoFrame` instead of converting its YUV planes
-   twice; and a tour's clock hold is released in a `finally`, so a raising clock listener
-   cannot leave automatic quality paused.
+4. **A capture that raises nothing leaves nothing behind** (#738): a capture from another
+   camera refuses when the host has no camera to put back, rather than leave the view on the
+   shot; the capture's `finally` restores the photo, selection, wind and AO scale even when
+   the resting frame raises; a video frame the queue refused is offered again from the same
+   `QVideoFrame` instead of converting its YUV planes twice; and a tour's clock hold is
+   released in a `finally`, so a raising clock listener cannot leave automatic quality
+   paused. The tour recorder keeps its hidden-view guard: a hidden pane's controller stays
+   paused and dirty, so `settled()` never becomes true and without the guard the first
+   "Waiting" sentence arrived only after the 180 s first-frame limit (measured by the gate
+   review; the issue's suggestion to drop it was wrong).
 
 **Consequences**: no `.ogp` change and no `FILE_VERSION` bump. The capture AO scale is a
 render-only input (the view's own 1.0 is untouched). Pinned by the tests named above plus the

@@ -245,17 +245,18 @@ def scenario_host(out: Path) -> dict[str, Any]:
 
 def scenario_picture(out: Path) -> dict[str, Any]:
     """A 4K picture against 1080p of the shot the 4K look was reported on (#733): a low sun
-    over the family garden. The ENGINE answers whether a picture keeps the pane's look at a
-    size the pane has never been measured at."""
+    over the family garden. The ENGINE answers whether a bigger picture keeps 1080p's look."""
     from open_garden_planner.core.scene3d.look import ao_distance_scale
 
     host, _sync = shown_host(out, sun=PHOTO_SUN, plan=FAMILY_GARDEN)
     try:
         host.wait_ready(5.0)
         profiles: dict[str, Any] = {}
+        sizes: dict[str, list[int]] = {}
         for label, size in (("1080", (1920, 1080)), ("2160", (3840, 2160))):
             image = host.capture(size, label=label)
             image.save(str(out / f"picture_{label}.png"))
+            sizes[label] = [image.width(), image.height()]
             pixels = rgb(image)
             luma = 0.2126 * pixels[..., 0] + 0.7152 * pixels[..., 1] + 0.0722 * pixels[..., 2]
             profiles[label] = luma.mean(axis=1)
@@ -272,8 +273,8 @@ def scenario_picture(out: Path) -> dict[str, Any]:
             "worst_bucket": max(buckets, key=abs),
             "sky_delta": round(float(delta[:round(len(small) * PICTURE_SKY)].mean()), 3),
             "ao_scale_at_2160": round(ao_distance_scale(2160.0), 3),
-            "sizes": {label: list(size) for label, size in (("1080", (1920, 1080)),
-                                                            ("2160", (3840, 2160)))},
+            "ao_scale_after_4k": host.scene_property("captureAoDistanceScale"),
+            "sizes": sizes,
         }
     finally:
         host.close()

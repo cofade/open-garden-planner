@@ -89,6 +89,7 @@ class TourRecorder(QObject):
 
     def __init__(self, spec: TourSpec, writer: FrameSink, capture: CaptureFrame,
                  set_clock: SetClock, settled: Settled, *, realtime: bool = False,
+                 view_showing: Callable[[], bool] = lambda: True,
                  parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._spec = spec
@@ -96,6 +97,7 @@ class TourRecorder(QObject):
         self._capture = capture
         self._set_clock = set_clock
         self._settled = settled
+        self._view_showing = view_showing
         self._realtime = realtime
         self.total = frame_count(spec)
         self._frames: Iterator[TourFrame] = tour_frames(spec)
@@ -175,6 +177,11 @@ class TourRecorder(QObject):
             return
         frame = self._frame
         assert frame is not None
+        if not self._view_showing():
+            # Nothing settles behind a hidden view (its controller stays paused, its
+            # records dirty): say so at once instead of waiting out the settle limit.
+            self._wait_for_the_view()
+            return
         settled = self._settled()
         if not settled:
             limit = SETTLE_LIMIT_S if self._done else SETTLE_LIMIT_S * FIRST_FRAME_SETTLE_FACTOR

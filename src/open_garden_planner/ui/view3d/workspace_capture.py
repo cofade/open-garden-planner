@@ -162,6 +162,9 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_utc_time: day_time | None = None
         self._tour_size: tuple[int, int] = (16, 16)
         self._dialog: TourDialog | None = None
+        #: A dialog whose engine stopped while its file was still closing. It is not the
+        #: session's any more; it is forgotten when it really closes.
+        self._dialog_closing: TourDialog | None = None
         self._row: QWidget | None = None
         self._size_combo: QComboBox | None = None
         self._grade_combo: QComboBox | None = None
@@ -274,11 +277,15 @@ class WorkspaceCaptureCoordinator(QObject):
             self.set_photo_mode(False)
             dialog = self._dialog
             if dialog is not None:
-                # The dialog forgets itself when it really closes (``closed`` below): a
-                # recording that is still closing keeps it alive for a moment, and a
-                # second Tour action reuses it instead of opening a twin on top of it.
+                # A dialog the user closed stays for the session (its keys live in it);
+                # one the engine stops is the old engine's and is forgotten when it has
+                # really closed. Otherwise a Tour action could open a twin beside it.
                 dialog.close_for_shutdown()
+                still_open = dialog.isVisible()
                 dialog.hide()
+                self._dialog = None
+                if still_open:
+                    self._dialog_closing = dialog
 
     def document_changed(self) -> None:
         """Another plan: a recording stops, and the focused point was a point of the old one.
@@ -525,20 +532,23 @@ class WorkspaceCaptureCoordinator(QObject):
     # ── camera tours ─────────────────────────────────────────────────────────
 
     def open_tour_dialog(self) -> None:
+        if self._dialog_closing is not None:
+            return   # the engine stopped; that dialog is closing its file, not a session
         if self._dialog is None:
             from .tour_dialog import TourDialog
 
             self._dialog = TourDialog(self, self._parent)
             dialog = self._dialog
-            self._dialog.closed.connect(lambda dialog=dialog: self._forget_dialog(dialog))
+            dialog.closed.connect(lambda dialog=dialog: self._on_dialog_closed(dialog))
         self._dialog.show()
         self._dialog.raise_()
         self._dialog.activateWindow()
 
-    def _forget_dialog(self, dialog: Any) -> None:
-        """The dialog closed for good; one still closing is forgotten when it is done."""
-        if self._dialog is dialog:
-            self._dialog = None
+    def _on_dialog_closed(self, dialog: Any) -> None:
+        """The engine stopped this dialog: forget it once it has really closed. A dialog the
+        user closed is kept - the tour's keys live in the session, which is the dialog."""
+        if self._dialog_closing is dialog:
+            self._dialog_closing = None
 
     @property
     def dialog(self) -> TourDialog | None:
@@ -588,7 +598,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_size = size
         recorder = TourRecorder(spec, writer, self._tour_frame, self._tour_clock,
                                 self._tour_settled, realtime=realtime,
-                                parent=self)
+                                view_showing=self._is_pane_showing, parent=self)
         recorder.start()   # raises before anything moved
         host.begin_captures()
         self.clock_wanted.emit()
@@ -705,6 +715,7 @@ class WorkspaceCaptureCoordinator(QObject):
 
         # A modal dialog would sit in front of the close and could not be answered.
         dialog, self._dialog = self._dialog, None
+        self._dialog_closing = None
         if dialog is not None:
             dialog.close_for_shutdown()
             dialog.hide()   # a visible modal dialog would sit under the warning below

@@ -205,8 +205,9 @@ def mix_linear(first: str, second: str, t: float) -> str:
 #: The picture height whose screen-space ambient occlusion is the LOOK: every other size
 #: scales the occlusion's world radius to keep that footprint (#733).
 AO_REFERENCE_HEIGHT_PX: Final = 1080.0
-#: The smallest scale a capture may ask for: an 8K picture would otherwise ask for a
-#: 1.7 cm radius, below what the occlusion can resolve.
+#: The smallest scale a capture may ask for: at 4320 px the scale is exactly 0.25
+#: (a 3.5 cm radius); this floor keeps an 8192 px picture (1.85 cm) from asking for less
+#: than the occlusion can resolve.
 AO_MIN_SCALE: Final = 0.25
 
 
@@ -219,7 +220,7 @@ def ao_distance_scale(picture_height_px: float) -> float:
     read 4.3 luma darker than 1080p with AO on, 0.0 with it off, and a glow change moved
     nothing (the review's suspicion). Shrinking the world radius in proportion to the
     height keeps the occlusion's screen footprint - and so the look - the same. 1080p and
-    smaller: 1.0 (the pane's own look is the reference).
+    smaller: 1.0 (1080p is the reference; a 720p video is left alone, not guessed at).
     """
     height = float(picture_height_px)
     if not math.isfinite(height) or height <= AO_REFERENCE_HEIGHT_PX:

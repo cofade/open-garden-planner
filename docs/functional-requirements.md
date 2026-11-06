@@ -1037,9 +1037,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
 - **FR-3D-PHOTO-03** (L6.1): **Save Photo** writes a PNG or JPEG at the view's size, Full HD, QHD or
   4K, whatever the window's size, without moving the view. No selection highlight is in the picture.
   The file says what date it shows. The picture uses the view's **quality preset** (`AutoPreset`'s
-  current level, or the user's fixed choice) and keeps the pane's look at every size: the ambient
-  occlusion's radius follows the picture's height, so a 4K picture's horizon band lies within 1 luma
-  of 1080p's (ADR-072 addendum; the render tier's `picture` gate).
+  current level, or the user's fixed choice) and keeps 1080p's look at 1080p and larger (a smaller picture is left as it was): the
+  ambient occlusion's radius follows the picture's height, so a 4K picture's horizon band lies
+  within 1 luma of 1080p's (ADR-072 addendum; the render tier's `picture` gate).
 - **FR-3D-TOUR-01** (L6.2): **Camera Tour** moves the camera as a **drone orbit** from where the
   view is, along **keyframes** (each the current view, on a smooth path at constant speed), or not
   at all; and the clock not at all, through **a day**, or **through the year**. Duration 1 to 600 s, 24

@@ -353,7 +353,7 @@ owner's video). The tour held the wall time (`clock.set_date` keeps it), which i
 
 ### PF-E3D-25
 
-- **Rule:** A capture's look must be scaled for its PICTURE HEIGHT where Qt's effect is sized in pixels: Qt samples SSAO's scene-unit radius on a pixel grid, so a 4K picture's horizon band read 4.3 luma darker than 1080p with AO on and 0.0 with it off (glow changed nothing). `Quick3DHost.capture` sets `captureAoDistanceScale = ao_distance_scale(height)` (1080p and smaller 1.0, 2x height 0.5, floor 0.25) for its frame and restores 1.0; tune the radius, not the strength.
+- **Rule:** A capture's look must be scaled for its PICTURE HEIGHT where Qt's effect is sized in pixels: Qt samples SSAO's scene-unit radius on a pixel grid, so a 4K picture's garden band read 4.3 luma darker than 1080p with AO on and 0.0 with it off (the horizon band read 1.75; glow changed nothing). `Quick3DHost.capture` sets `captureAoDistanceScale = ao_distance_scale(height)` (1080p and smaller 1.0, 2x height 0.5, floor 0.25) for its frame and restores 1.0; tune the radius, not the strength.
 - **Pinned by:** `tests/unit/test_scene3d_look.py::TestTheCapturesOcclusionScale`; `tests/integration/test_directors_cut_render.py::test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look`
 - **Source:** #733, found by the 3D review of PR #729; ADR-072 addendum. #735 records the preset and colour-tag decisions beside it.
 - **Status:** standing
@@ -361,7 +361,7 @@ owner's video). The tour held the wall time (`clock.set_date` keeps it), which i
 
 The render gate bounds the band at 1.0, its worst 40-row bucket at 1.6 and the sky at 0.5; measured -1.75 / -2.82 before the scale and -0.41 / -0.53 after.
 
-Symptom: the same photo looked darker at 4K than at 1080p, and the difference was blamed on Qt's pixel-sized glow. A before/after matrix (glow off, AO off) showed AO is the resolution-dependent term; the residual ~3-level difference in the garden *below* the horizon is texture minification and is not gated. The capture's own resting frame and the on-screen view keep scale 1.0, so the pane's look is untouched.
+Symptom: the same photo looked darker at 4K than at 1080p, and the difference was blamed on Qt's pixel-sized glow. A before/after matrix (glow off, AO off) showed AO is the resolution-dependent term; the residual ~3-level difference in the garden *below* the horizon is texture minification and is not gated. The capture's own resting frame and the on-screen view keep scale 1.0, so the view's look is untouched; a picture smaller than 1080p is left as it was (the reference is 1080p, not the pane).
 
 ### PF-E3D-26
 

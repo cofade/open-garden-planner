@@ -1611,11 +1611,11 @@ class Quick3DHost:
         root = self._root
         ratio = float(self._view.effectiveDevicePixelRatio())
         shot_before = self._camera_scene
-        # A host that has never been given a camera has no shot to put back; remember the
-        # frame's own camera properties so the picture does not leave its camera behind.
-        camera_before = None if shot is None or shot_before is not None else (
-            _get(root, "camPos"), _get(root, "camTarget"), _get(root, "camFov"),
-            _get(root, "camVersion"))
+        if shot is not None and shot_before is None:
+            # Nothing to put back: moving the view to the shot would leave it there, which
+            # is exactly what a capture must never do (#738). Fail closed instead.
+            raise EngineError(f"capture({label!r}): no camera has been placed yet, so a "
+                              f"picture from elsewhere cannot be put back")
         wind_before = _get(root, "windTime")
         ring_before = _get(root, "selectionVisible")
         photo_before = self._photo
@@ -1656,12 +1656,6 @@ class Quick3DHost:
                     self._apply_grade(photo_before.grade)
                 if shot is not None and shot_before is not None:
                     self.set_camera(shot_before.eye, shot_before.target, shot_before.fov_deg)
-                elif shot is not None and camera_before is not None:
-                    for name, value in zip(
-                            ("camPos", "camTarget", "camFov", "camVersion"), camera_before,
-                            strict=True):
-                        _set(root, name, value)
-                    self._camera_scene = None
                 self._apply_photo(self._view_height_px())
         if image.isNull() or image.width() == 0 or image.height() == 0:
             raise EngineError(f"capture({label!r}): Qt delivered no picture")
