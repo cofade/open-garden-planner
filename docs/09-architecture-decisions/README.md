@@ -10936,9 +10936,16 @@ detections, (10) reversibility.
    in the package's `LocalCache`, and a Store uninstall removes them. Plans live in
    `Documents\Open Garden Planner`, outside the container, and are not affected.
 6. **An app execution alias `OpenGardenPlanner.exe`** is declared, because a Store install's
-   folder under `WindowsApps` cannot be executed directly by the user: the alias is how
-   Explorer passes a plan path, how `--selftest` runs in the installed package, and how an
-   MCP client could start the app.
+   folder under `WindowsApps` cannot be executed directly by the user: the alias is how a
+   shell starts the installed package with arguments — the frozen self-test in CI, or an MCP
+   client starting the app. A double-clicked `.ogp` reaches the app through the manifest's
+   file-type association, which activates the executable with the path as its argument.
+6a. **A Store install shows no GitHub update bar.** The bar offers "Download && Install" of
+   the NSIS installer; in a packaged install that would put a second, unsigned copy under
+   `Program Files (x86)` through the very SmartScreen wall this channel avoids.
+   `application._start_update_check` returns early when
+   `services.update_checker.has_package_identity()` is true
+   (`kernel32.GetCurrentPackageFullName`); the Store delivers updates.
 7. **A verification workflow** (`msix-store-verify.yml`, on demand and on pull requests that
    change the packaging) builds the bundle with the release recipe, packages it, signs it
    with a throw-away certificate, trusts that certificate in the runner's machine store,
@@ -10998,10 +11005,9 @@ detections, (10) reversibility.
 - Two artifacts per release from one bundle; one extra workflow; three repository variables;
   no new Python dependency (Pillow already ships; the SDK tools are on `windows-latest`).
 - The Store listing adds a certification step between a release and its Store availability,
-  and the Store's own update mechanism replaces the in-app update bar for Store users (the
-  checker still runs; it compares against GitHub's latest tag, so a Store user may see the
-  bar a day earlier than the Store delivers the update — acceptable for the first version,
-  tracked as a follow-up).
+  and the Store's own update mechanism replaces the in-app update bar for Store users: the
+  GitHub update check is not started in a packaged install (item 6a), so a Store user is
+  never offered the NSIS installer.
 - `tests/unit/test_build_msix.py` pins the manifest's load-bearing elements, the identity
   rules, the version mapping, the mapping file, SDK discovery, and the release workflow's
   placement/`continue-on-error`/artifact rules; `tests/integration/test_msix_packaging.py`

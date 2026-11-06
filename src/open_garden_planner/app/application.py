@@ -2803,7 +2803,13 @@ class GardenPlannerApp(QMainWindow):
         if not getattr(sys, "frozen", False):
             return  # Only check for updates when running from the installed .exe
 
-        from open_garden_planner.services.update_checker import UpdateChecker
+        from open_garden_planner.services.update_checker import UpdateChecker, has_package_identity
+
+        # A Store install (MSIX, ADR-073) is updated by the Store. Its bar would
+        # offer the GitHub installer: a second, unsigned copy next to the
+        # packaged one, through the SmartScreen wall the Store channel avoids.
+        if has_package_identity():
+            return
 
         self._update_checker = UpdateChecker(self)
         self._update_checker.update_available.connect(self._on_update_available)

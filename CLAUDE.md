@@ -280,8 +280,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   SignPath signs in its own name; Certum Open Source at EUR 49-69/year is trigger 3's concrete
   shape), and the **Microsoft Store is a second channel**: `installer/build_msix.py` packages the
   same bundle as an MSIX, `release.yml` builds it after the attestation (`continue-on-error`,
-  workflow artifact `store-package-v<version>`), `msix-store-verify.yml` installs and self-tests
-  it on a runner (PF-CI-19/20). The listing is **pending** the owner's Partner Center registration
+  workflow artifact `store-package-v<version>`), `msix-store-verify.yml` is the runner-side install +
+  self-test measurement (PF-CI-19/20; its result is recorded in ADR-073, not assumed). The listing is **pending** the owner's Partner Center registration
   and the three `OGP_MSIX_*` repository variables (docs/07 §7.2a). Never claim Store availability
   before the first certified version is live.
 - Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,

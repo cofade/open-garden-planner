@@ -11,9 +11,11 @@ jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
-    # A release run takes 9-13 minutes (measured over the v1.29.x releases). Without
-    # a limit a hung step holds the job for GitHub's default of six hours.
-    timeout-minutes: 45
+    # A release run took 9-13 minutes (measured over the v1.29.x releases) before the
+    # Store package step (ADR-073) added up to 15 minutes of packing plus a ~270 MB
+    # artifact upload; re-measure on the first release that carries it. Without a
+    # limit a hung step holds the job for GitHub's default of six hours.
+    timeout-minutes: 60
     permissions:
       contents: write
       id-token: write

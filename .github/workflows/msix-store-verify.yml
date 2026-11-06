@@ -37,9 +37,9 @@ jobs:
   msix-store-verify:
     name: Store package verify (windows-latest)
     runs-on: windows-latest
-    # Larger than the sum of the step limits (72 minutes), for the same reason
+    # Larger than the sum of the step limits (95 minutes), for the same reason
     # frozen-selftest.yml gives: the job's limit must never be what ends a step.
-    timeout-minutes: 80
+    timeout-minutes: 105
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 5
@@ -60,6 +60,16 @@ jobs:
         timeout-minutes: 30
         run: python installer/build_installer.py --skip-nsis
 
+      # The packaging tests with the REAL makeappx and makepri: the Linux test
+      # job skips the test that needs them, so this is where it runs (PF-CI-20's
+      # pin). `-n 0`: a handful of tests, no worker start-up.
+      - name: Run the packaging tests against the Windows SDK tools
+        shell: pwsh
+        timeout-minutes: 5
+        env:
+          PYTHONUTF8: "1"
+        run: python -m pytest tests/unit/test_build_msix.py tests/integration/test_msix_packaging.py -n 0 -q -p no:cacheprovider
+
       # The development identity: the Store would reject it, a local install
       # accepts it once the matching test certificate is trusted. makeappx
       # validates the manifest against Microsoft's schema here.
@@ -78,6 +88,8 @@ jobs:
         timeout-minutes: 5
         run: |
           $ErrorActionPreference = 'Stop'
+          # PowerShell 7's Appx module needs the Windows PowerShell edition on some images.
+          if (-not (Get-Command Add-AppxPackage -ErrorAction SilentlyContinue)) { Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
           $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
           $msix = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.msix" | Select-Object -First 1
           if (-not $cer -or -not $msix) { Write-Host "::error::package or certificate missing in dist/"; exit 1 }
@@ -174,6 +186,7 @@ jobs:
         timeout-minutes: 5
         run: |
           try {
+            if (-not (Get-Command Remove-AppxPackage -ErrorAction SilentlyContinue)) { Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
             if ($env:OGP_PFN) { Remove-AppxPackage -Package $env:OGP_PFN }
             $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
             if ($cer) {

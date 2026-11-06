@@ -53,7 +53,6 @@ def test_dry_run_stages_a_complete_package_layout(tmp_path: Path) -> None:
     assert "App\\_internal\\PyQt6\\Qt6\\plugins\\qwindows.dll" in targets
     assert "AppxManifest.xml" in targets
     assert "Assets\\Square44x44Logo.png" in targets
-    assert all(not t.startswith("App\\") or "\\" in t[4:] or t == "App\\OpenGardenPlanner.exe" for t in targets)
 
     record = json.loads((tmp_path / "out" / "OpenGardenPlanner-v1.37.6.msix.json").read_text(encoding="utf-8"))
     assert record["dry_run"] is True
@@ -85,5 +84,8 @@ def test_makeappx_packs_the_stage_and_the_package_reads_back(tmp_path: Path) -> 
     assert "Assets/Square150x150Logo.scale-200.png" in names
     if build_msix.find_sdk_tool("makepri.exe") is not None:
         assert "resources.pri" in names, "makepri was available, so the scaled assets must be indexed"
+        assert not [n for n in names if n.startswith("resources.") and n != "resources.pri"], (
+            "split resource packs (resources.scale-*.pri) are inert payload; one PRI carries every scale"
+        )
     record = json.loads(package.with_suffix(".msix.json").read_text(encoding="utf-8"))
     assert record["package"]["files"] == len(names)

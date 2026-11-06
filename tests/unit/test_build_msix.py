@@ -116,6 +116,9 @@ def test_manifest_declares_what_a_full_trust_win32_app_needs() -> None:
     assert '<rescap:Capability Name="runFullTrust" />' in text
     assert '<uap:FileType ContentType="application/x-ogp">.ogp</uap:FileType>' in text
     assert f'<uap5:ExecutionAlias Alias="{build_msix.EXECUTION_ALIAS}" />' in text
+    assert build_msix.MIN_WINDOWS_VERSION == "10.0.17763.0", (
+        "Windows 10 1809 is the floor of uap5:AppExecutionAlias; raising it needs a reason in ADR-073"
+    )
     assert "unvirtualizedResources" not in text, (
         "disabling file-system/registry virtualisation is a restricted capability "
         "that needs Partner Center approval; ADR-073 keeps the default container"
@@ -132,8 +135,13 @@ def test_manifest_is_well_formed_xml_with_one_resource_language() -> None:
     build_msix.parse_manifest(text)  # raises on malformed XML
 
 
-def test_manifest_version_floor_matches_the_qt_six_support_window() -> None:
-    assert build_msix.MIN_WINDOWS_VERSION == "10.0.17763.0"
+def test_manifest_escapes_a_publisher_display_name_with_markup_characters() -> None:
+    """Repository variables reach XML attributes and text; `&` or `"` must not break the manifest."""
+    identity = build_msix.PackageIdentity("cofade.OpenGardenPlanner", 'CN=Garden & "Co"', "Garden & <Co>", False)
+    text = build_msix.render_manifest(identity, "1.2.3")
+    info = build_msix.parse_manifest(text)  # well-formed, or this raises
+    assert info["publisher"] == 'CN=Garden & "Co"'
+    assert "<PublisherDisplayName>Garden &amp; &lt;Co&gt;</PublisherDisplayName>" in text
 
 
 # --------------------------------------------------------------------------- mapping + stage
@@ -162,6 +170,29 @@ def test_mapping_file_puts_the_bundle_under_app_and_the_stage_at_the_root(tmp_pa
     assert not any("priconfig.xml" in line or "mapping.txt" in line for line in lines), (
         "makepri's config and the mapping file itself must not ship inside the package"
     )
+
+
+def test_mapping_file_ships_one_pri_and_no_split_resource_packs(tmp_path: Path) -> None:
+    """makepri's default config splits scale-125..400 into resources.scale-*.pri resource
+    packs that nothing registers; one resources.pri must carry every qualifier (review P1)."""
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "OpenGardenPlanner.exe").write_bytes(b"MZ")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    for name in ("AppxManifest.xml", "resources.pri", "resources.scale-200.pri", "resources.language-de.pri"):
+        (stage / name).write_bytes(b"x")
+    mapping = stage / "mapping.txt"
+    build_msix.write_mapping_file(bundle, stage, mapping)
+    targets = [line.rsplit('"', 2)[1] for line in mapping.read_text(encoding="utf-8").splitlines()[1:]]
+    assert "resources.pri" in targets
+    assert not [t for t in targets if t.startswith("resources.") and t != "resources.pri"], targets
+
+
+def test_pri_config_has_no_automatic_resource_packs() -> None:
+    config = build_msix.render_pri_config()
+    assert "autoResourcePackage" not in config
+    assert 'qualifier name="Scale"' in config and 'qualifier name="Language" value="en-US"' in config
 
 
 def test_stage_writes_manifest_and_every_logo_the_manifest_references(tmp_path: Path) -> None:
@@ -215,6 +246,13 @@ def test_find_sdk_tool_prefers_the_explicit_override(tmp_path: Path) -> None:
     (tmp_path / "makeappx.exe").write_bytes(b"MZ")
     env = {build_msix.ENV_SDK_BIN: str(tmp_path), "PATH": ""}
     assert build_msix.find_sdk_tool("makeappx.exe", env) == tmp_path / "makeappx.exe"
+
+
+def test_find_sdk_tool_refuses_an_override_that_lacks_the_tool(tmp_path: Path) -> None:
+    """PF-CI-20: an explicit folder that does not hold the tool must not fall through to another copy."""
+    env = {build_msix.ENV_SDK_BIN: str(tmp_path), "PATH": ""}
+    with pytest.raises(build_msix.MsixError, match=build_msix.ENV_SDK_BIN):
+        build_msix.find_sdk_tool("makeappx.exe", env)
 
 
 def test_find_sdk_tool_picks_the_newest_windows_kit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

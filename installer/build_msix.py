@@ -61,9 +61,10 @@ APP_DESCRIPTION = (
 )
 #: The manifest's Application Id and the app execution alias. The alias puts
 #: ``OpenGardenPlanner.exe`` on the user's PATH (``%LOCALAPPDATA%\Microsoft\WindowsApps``),
-#: which is the ONLY way to start a Store-installed exe with arguments such as
-#: ``--selftest`` or a plan path: the package folder under WindowsApps is not
-#: directly executable by the user.
+#: which is the ONLY way for a shell to start a Store-installed exe with
+#: arguments (the frozen self-test, an MCP client): the package folder under
+#: WindowsApps is not directly executable by the user. A double-clicked .ogp
+#: reaches the app through the file-type association, not the alias.
 APPLICATION_ID = "OpenGardenPlanner"
 EXECUTION_ALIAS = "OpenGardenPlanner.exe"
 
@@ -176,7 +177,11 @@ def msix_version(version: str) -> str:
 
 def render_manifest(identity: PackageIdentity, version: str) -> str:
     """The AppxManifest.xml for one build. Pure: no I/O, no environment."""
+    from xml.sax.saxutils import escape, quoteattr
+
     v4 = msix_version(version)
+    publisher_attr = quoteattr(identity.publisher)  # includes the surrounding quotes
+    display_text = escape(identity.publisher_display_name)
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="{_NS['']}"
@@ -186,13 +191,13 @@ def render_manifest(identity: PackageIdentity, version: str) -> str:
   IgnorableNamespaces="uap uap5 rescap">
 
   <Identity Name="{identity.name}"
-            Publisher="{identity.publisher}"
+            Publisher={publisher_attr}
             Version="{v4}"
             ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>{APP_NAME}</DisplayName>
-    <PublisherDisplayName>{identity.publisher_display_name}</PublisherDisplayName>
+    <PublisherDisplayName>{display_text}</PublisherDisplayName>
     <Logo>Assets\\StoreLogo.png</Logo>
     <Description>{APP_DESCRIPTION}</Description>
   </Properties>
@@ -352,6 +357,9 @@ def find_sdk_tool(name: str, env: dict[str, str] | None = None) -> Path | None:
         candidate = Path(override) / name
         if candidate.is_file():
             return candidate
+        # An explicit folder that lacks the tool is a configuration error, not a
+        # reason to fall through to some other copy (PF-CI-20 is about the wrong copy).
+        raise MsixError(f"{ENV_SDK_BIN}={override!r} does not contain {name}")
     found = shutil.which(name)
     if found:
         return Path(found)
@@ -368,11 +376,14 @@ def find_sdk_tool(name: str, env: dict[str, str] | None = None) -> Path | None:
     return max(candidates, key=lambda p: [int(x) for x in p.parts[-3].split(".") if x.isdigit()])
 
 
-def _run(cmd: list[str], what: str) -> None:
-    print(f"Running: {subprocess.list2cmdline(cmd)}")
+def _run(cmd: list[str], what: str, *, display: str | None = None,
+         env: dict[str, str] | None = None) -> None:
+    """Run one tool; ``display`` replaces the echoed command line (a script with a
+    password in it is echoed as its label, never verbatim)."""
+    print(f"Running: {display if display is not None else subprocess.list2cmdline(cmd)}")
     try:
         result = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True,
-                                encoding="utf-8", errors="replace")
+                                encoding="utf-8", errors="replace", env=env)
     except OSError as exc:
         # WinError 14001 (side-by-side configuration) is what a makeappx.exe
         # copied WITHOUT its neighbouring DLLs raises: the tool must be used
@@ -415,6 +426,12 @@ def write_mapping_file(bundle_dir: Path, stage_dir: Path, mapping_path: Path) ->
         rel = path.relative_to(stage_dir)
         if rel.name in {mapping_path.name, "priconfig.xml"}:
             continue
+        if rel.name.startswith("resources.") and rel.suffix == ".pri" and rel.name != "resources.pri":
+            # A split resource pack (resources.scale-200.pri ...) that makepri
+            # writes from a config with automatic resource packages: nothing
+            # registers it, so it would be inert payload. render_pri_config
+            # prevents the split; this keeps a stray one out of the package.
+            continue
         lines.append(f'"{path}" "{_package_path(rel)}"')
     mapping_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return count
@@ -433,11 +450,45 @@ def build_stage(identity: PackageIdentity, version: str, stage_dir: Path,
     return manifest
 
 
+def render_pri_config() -> str:
+    """The makepri config: ONE ``resources.pri`` carrying every scale and target size.
+
+    ``makepri createconfig`` would add ``<autoResourcePackage qualifier="Scale"/>``
+    (and Language, DXFeatureLevel), which splits scale 125-400 into
+    ``resources.scale-*.pri`` resource packs that a plain MSIX never registers -
+    the scaled logos would then be unreachable while the files still ship
+    (review of PR #761). No automatic packages, so everything lands in the main PRI.
+    """
+    return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<resources targetOsVersion="10.0.0" majorVersion="1">
+  <index root="\\" startIndexAt="\\">
+    <default>
+      <qualifier name="Language" value="en-US"/>
+      <qualifier name="Contrast" value="standard"/>
+      <qualifier name="Scale" value="100"/>
+      <qualifier name="HomeRegion" value="001"/>
+      <qualifier name="TargetSize" value="256"/>
+      <qualifier name="LayoutDirection" value="LTR"/>
+      <qualifier name="Theme" value="dark"/>
+      <qualifier name="AlternateForm" value=""/>
+      <qualifier name="DXFeatureLevel" value="DX9"/>
+      <qualifier name="Configuration" value=""/>
+      <qualifier name="DeviceFamily" value="Universal"/>
+      <qualifier name="Custom" value=""/>
+    </default>
+    <indexer-config type="folder" foldernameAsQualifier="true" filenameAsQualifier="true" qualifierDelimiter="."/>
+    <indexer-config type="resw" convertDotsToSlashes="true" initialPath=""/>
+    <indexer-config type="resjson" initialPath=""/>
+    <indexer-config type="PRI"/>
+  </index>
+</resources>
+"""
+
+
 def make_pri(stage_dir: Path, makepri: Path) -> Path:
-    """Index the qualified assets (scale-*, targetsize-*) so Windows can resolve them."""
+    """Index the qualified assets (scale-*, targetsize-*) into one ``resources.pri``."""
     config = stage_dir / "priconfig.xml"
-    _run([str(makepri), "createconfig", "/cf", str(config), "/dq", "en-US", "/pv", "10.0.0", "/o"],
-         "makepri createconfig")
+    config.write_text(render_pri_config(), encoding="utf-8")
     pri = stage_dir / "resources.pri"
     _run([str(makepri), "new", "/pr", str(stage_dir), "/cf", str(config),
           "/mn", str(stage_dir / "AppxManifest.xml"), "/of", str(pri), "/o"], "makepri new")
@@ -464,8 +515,15 @@ def sign_for_local_test(msix: Path, identity: PackageIdentity, signtool: Path) -
     cer = msix.with_suffix(".test.cer")
     pfx = msix.with_suffix(".test.pfx")
     password = "ogp-msix-test"
+    # Windows PowerShell 5.1 started FROM pwsh 7 inherits a PSModulePath whose first
+    # entries are the PowerShell 7 module folders; 5.1 cannot load those editions of
+    # Microsoft.PowerShell.Security, and the Cert: drive is then missing
+    # ("Cannot find drive 'Cert'", first run of msix-store-verify.yml on PR #761).
+    # Run the script without the inherited PSModulePath and import the modules by name.
+    child_env = {k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"}
     script = f"""
 $ErrorActionPreference = 'Stop'
+Import-Module Microsoft.PowerShell.Security, PKI
 $cert = New-SelfSignedCertificate -Type Custom -Subject '{identity.publisher}' `
   -KeyUsage DigitalSignature -FriendlyName 'OGP MSIX test signing' `
   -CertStoreLocation 'Cert:\\CurrentUser\\My' -NotAfter (Get-Date).AddDays(30) `
@@ -476,10 +534,11 @@ Export-Certificate -Cert $cert -FilePath '{cer}' | Out-Null
 Remove-Item -Path ('Cert:\\CurrentUser\\My\\' + $cert.Thumbprint)
 Write-Output ('thumbprint=' + $cert.Thumbprint)
 """
-    _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], "test certificate")
+    _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], "test certificate",
+         display="powershell <New-SelfSignedCertificate + Export-PfxCertificate script>", env=child_env)
     try:
         _run([str(signtool), "sign", "/fd", "SHA256", "/a", "/f", str(pfx), "/p", password, str(msix)],
-             "signtool sign")
+             "signtool sign", display=f"{signtool} sign /fd SHA256 /a /f {pfx} /p <test password> {msix}")
     finally:
         with contextlib.suppress(OSError):
             pfx.unlink()
