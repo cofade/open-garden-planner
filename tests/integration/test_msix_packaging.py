@@ -61,7 +61,15 @@ def test_dry_run_stages_a_complete_package_layout(tmp_path: Path) -> None:
     assert record["msix_version"] == "1.37.6.0"
 
 
-@pytest.mark.skipif(build_msix.find_sdk_tool("makeappx.exe") is None,
+def _sdk_tool(name: str) -> Path | None:
+    """The tool, or None - a misconfigured OGP_WINDOWS_SDK_BIN must skip, not break collection."""
+    try:
+        return build_msix.find_sdk_tool(name)
+    except build_msix.MsixError:
+        return None
+
+
+@pytest.mark.skipif(_sdk_tool("makeappx.exe") is None,
                     reason="makeappx.exe (Windows SDK) not available on this machine")
 def test_makeappx_packs_the_stage_and_the_package_reads_back(tmp_path: Path) -> None:
     """The real tool validates the manifest against Microsoft's schema - the one
@@ -82,7 +90,7 @@ def test_makeappx_packs_the_stage_and_the_package_reads_back(tmp_path: Path) -> 
         names = set(archive.namelist())
     assert "App/_internal/PyQt6/Qt6/plugins/qwindows.dll" in names
     assert "Assets/Square150x150Logo.scale-200.png" in names
-    if build_msix.find_sdk_tool("makepri.exe") is not None:
+    if _sdk_tool("makepri.exe") is not None:
         assert "resources.pri" in names, "makepri was available, so the scaled assets must be indexed"
         assert not [n for n in names if n.startswith("resources.") and n != "resources.pri"], (
             "split resource packs (resources.scale-*.pri) are inert payload; one PRI carries every scale"

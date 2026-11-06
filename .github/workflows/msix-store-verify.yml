@@ -88,7 +88,8 @@ jobs:
         timeout-minutes: 5
         run: |
           $ErrorActionPreference = 'Stop'
-          # PowerShell 7's Appx module needs the Windows PowerShell edition on some images.
+          # On the 26100 image pwsh imports Appx natively (measured, run 42260902878); this
+          # no-cost fallback is for an image whose Appx module is Desktop-edition only.
           if (-not (Get-Command Add-AppxPackage -ErrorAction SilentlyContinue)) { Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
           $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
           $msix = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.msix" | Select-Object -First 1

@@ -268,3 +268,17 @@ The first run extracted only the three executables and the DLLs; the manifests
 loader needs. The second run, with the whole folder, packed; the schema error then named
 the exact XPath of the wrong element, which is the message to read before guessing.
 `installer/build_msix.py::_run` turns the `OSError` into a named error that says which folder to use.
+
+### PF-CI-21
+
+- **Rule:** Windows PowerShell 5.1 started from pwsh 7 inherits a `PSModulePath` whose first entries are the PowerShell 7 module folders; 5.1 cannot load those editions of `Microsoft.PowerShell.Security` and `PKI`, so `New-SelfSignedCertificate` fails with "Cannot find drive 'Cert'". A Python step that shells out to `powershell` from a `shell: pwsh` job removes `PSModulePath` from the child's environment and imports the modules by name.
+- **Pinned by:** `tests/unit/test_build_msix.py::test_test_signing_runs_windows_powershell_without_the_inherited_module_path`
+- **Source:** #375, ADR-073; `msix-store-verify.yml` run 42257636976 on `aecf516d` (failed) and run 42260902878 on `f24efab3` (passed with the scrub)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The developer machine never showed it: Git Bash spawned `powershell` with the machine's own
+`PSModulePath`, and the certificate was created. On the runner the step's shell was pwsh 7,
+and the first `msix-store-verify.yml` run died in the signing step before any of the install
+measurement it exists for. The pinned test asserts that the child environment holds no
+`PSModulePath` under any casing and still carries every other variable.

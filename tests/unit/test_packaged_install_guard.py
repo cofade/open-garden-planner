@@ -53,14 +53,35 @@ def test_the_probe_asks_the_app_model_api_and_reads_its_verdict(monkeypatch: pyt
     assert update_checker.has_package_identity() is False
 
 
-def test_the_application_skips_the_github_update_check_in_a_packaged_install() -> None:
-    """Pinned at the source: the early return sits before the checker is created,
-    behind the same `frozen` gate that already keeps dev runs quiet."""
-    text = (ROOT / "src/open_garden_planner/app/application.py").read_text(encoding="utf-8")
-    start = text.index("def _start_update_check(self) -> None:")
-    body = text[start: text.index("def _on_update_available", start)]
-    frozen_gate = body.index('if not getattr(sys, "frozen", False):')
-    guard = body.index("if has_package_identity():")
-    checker = body.index("self._update_checker = UpdateChecker(self)")
-    assert frozen_gate < guard < checker, body
-    assert "return" in body[guard: checker]
+def _start_update_check_on(fake_app: object) -> None:
+    """Run the application's method on a stand-in: only the guard path is exercised."""
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    GardenPlannerApp._start_update_check(fake_app)  # type: ignore[arg-type]
+
+
+def test_a_packaged_frozen_app_starts_no_github_update_checker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Behaviour, not source layout: frozen + package identity -> no UpdateChecker is built."""
+    from types import SimpleNamespace
+
+    created: list[object] = []
+
+    class _Checker:
+        def __init__(self, parent: object) -> None:
+            created.append(parent)
+            self.update_available = SimpleNamespace(connect=lambda _slot: None)
+
+        def start(self) -> None:
+            created.append("started")
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(update_checker, "UpdateChecker", _Checker)
+    fake_app = SimpleNamespace(_on_update_available=lambda _release: None)
+
+    monkeypatch.setattr(update_checker, "has_package_identity", lambda: True)
+    _start_update_check_on(fake_app)
+    assert created == [] and not hasattr(fake_app, "_update_checker")
+
+    monkeypatch.setattr(update_checker, "has_package_identity", lambda: False)
+    _start_update_check_on(fake_app)
+    assert created == [fake_app, "started"], "the NSIS/frozen exe keeps its GitHub update check"

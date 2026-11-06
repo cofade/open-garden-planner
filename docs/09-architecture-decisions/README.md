@@ -10966,10 +10966,12 @@ detections, (10) reversibility.
 - `makeappx pack` validates the manifest against Microsoft's schema and refused the first
   draft: `ExecutionAlias` lives in the `uap5` namespace, not `desktop` (PF-CI-20). The
   corrected manifest packs.
-- The v1.37.6 bundle (3,714 files) packs into a 268.5 MB `.msix` of 3,770 entries (the
-  bundle plus manifest, 46 logo files, `resources.pri`, block map and content types) on the
-  developer machine; the NSIS installer of the same bundle is about 171 MiB because NSIS
-  uses solid LZMA where MSIX uses per-file deflate.
+- The package holds the bundle plus 52 entries of its own (manifest, 46 logo files,
+  `resources.pri`, block map, content types, signature and the signature's catalog). On the
+  runner the v1.37.6 bundle of 3,802 files became 3,854 entries and 285,322,016 bytes
+  (272.1 MB; run 42260902878); the developer machine's older bundle of 3,714 files gave
+  268.5 MB. The NSIS installer of the same bundle is about 171 MiB because NSIS uses solid
+  LZMA where MSIX uses per-file deflate.
 - `makepri` indexes the scale (100–400) and target-size (16–256) logo variants; the
   manifest declares one resource language (`en-US`) because the images are language-neutral
   and the app localises itself at runtime.
@@ -10983,9 +10985,37 @@ detections, (10) reversibility.
   `signtool`, usable without installation **only from its complete `bin/<ver>/x64` folder**
   — the executables copied alone fail with `WinError 14001` (side-by-side configuration)
   because they ship their own `*.dll.manifest` files (PF-CI-20).
-- CI install, smoke, Agent API reachability, `--selftest` in the installed package and the
-  per-user file locations: **recorded from the first `msix-store-verify.yml` run on the
-  branch** — see the addendum below once it exists; until then they are unmeasured.
+- CI install, smoke, Agent API reachability, the frozen self-test in the installed package
+  and the per-user file locations: measured by `msix-store-verify.yml` run 42260902878 on
+  `f24efab3` (PR #761) — the addendum below quotes it. The first run, 42257636976 on
+  `aecf516d`, died before the install: Windows PowerShell started from pwsh had no `Cert:`
+  drive (PF-CI-21).
+
+### ADR-073 addendum: the first runner measurement (run 42260902878, 6 November 2026)
+
+What the workflow proved on `windows-latest` (image 26100, an administrator session):
+
+| Step | Result |
+|---|---|
+| Packaging tests with the real SDK tools | `40 passed in 26.90s` — including the real `makeappx`/`makepri` test; one `resources.pri`, no split resource packs |
+| Package | `Package created: dist/OpenGardenPlanner-v1.37.6.msix (272.1 MB)`; 3,802 bundle files, 3,854 entries, test-signed |
+| Install | `Installed OpenGardenPlanner.Dev_1.37.6.0_x64__7sjkjxhj42b3c at C:\Program Files\WindowsApps\…`; execution alias created at `%LOCALAPPDATA%\Microsoft\WindowsApps\OpenGardenPlanner.exe` |
+| Smoke through the alias | `Smoke test passed: the packaged process was still running after 8 seconds.` |
+| Agent API from outside the package | `Agent API port 127.0.0.1:8765 accepted a connection from outside the package.` — an MCP client can reach a Store install |
+| Frozen self-test in the installed package | `Self-test passed (exit 0)`; log: `37.455s [selftest_exit] code=0 result=PASS` (Agent API, A1 checks, Qt Quick 3D frame on WARP) |
+| Per-user files | Nothing under `%APPDATA%\cofade\Open Garden Planner` or `%LOCALAPPDATA%\cofade\…`; everything under `%LOCALAPPDATA%\Packages\OpenGardenPlanner.Dev_7sjkjxhj42b3c\LocalCache\` — `Roaming\cofade\Open Garden Planner\app.log` and `Local\cofade\Open Garden Planner\cache\{qmlcache, q3dshadercache-…, qtpipelinecache-…}` |
+| Clean-up | `Remove-AppxPackage` and the certificate removal succeeded |
+
+So item 5's virtualisation story is data, not assumption: a full-trust packaged app's
+AppData writes are redirected into the package's `LocalCache`, which a Store uninstall
+removes (settings in the registry go to the package's virtual hive the same way). Plans in
+`Documents\Open Garden Planner` are outside the container. If that ever matters to a user
+report, the restricted capability `unvirtualizedResources` is the lever, and it needs
+Partner Center approval.
+
+Not measured by this run: the Store's own certification outcome and SmartScreen's behaviour
+on a Microsoft-signed install — those need the owner's Partner Center registration and the
+first certified version (see "What the owner must do").
 
 ### What the owner must do (the part no agent can)
 

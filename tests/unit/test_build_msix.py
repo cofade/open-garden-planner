@@ -107,9 +107,10 @@ def test_manifest_round_trips_identity_version_and_executable() -> None:
 def test_manifest_declares_what_a_full_trust_win32_app_needs() -> None:
     """runFullTrust, the .ogp association and the execution alias are load-bearing.
 
-    Without the alias a Store install cannot be started with arguments at all
-    (the WindowsApps folder is not user-executable), which is how the release
-    gate runs ``--selftest`` and how Explorer passes a plan path.
+    Without the alias a shell cannot start a Store install with arguments at all
+    (the WindowsApps folder is not user-executable), which is how the verify
+    workflow runs the frozen self-test; a double-clicked .ogp arrives through
+    the file-type association, not the alias.
     """
     text = build_msix.render_manifest(_dev_identity(), "1.37.6")
     assert 'EntryPoint="Windows.FullTrustApplication"' in text
@@ -343,3 +344,40 @@ def test_the_store_verify_workflow_installs_and_selftests_the_package() -> None:
     assert f"{build_msix.EXECUTION_ALIAS}" in STORE_VERIFY and "--selftest" in STORE_VERIFY
     assert "Remove-AppxPackage" in STORE_VERIFY
     assert "permissions:\n  contents: read" in STORE_VERIFY
+    assert "python -m pytest tests/unit/test_build_msix.py tests/integration/test_msix_packaging.py" in STORE_VERIFY, (
+        "the real-makeappx test is skipped on the Linux test job; this workflow is where it runs (PF-CI-20)"
+    )
+
+
+# --------------------------------------------------------------------------- test signing
+
+def test_test_signing_runs_windows_powershell_without_the_inherited_module_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PF-CI-21: Windows PowerShell started from pwsh 7 inherits a PSModulePath whose first
+    entries are pwsh module folders; it then cannot load Microsoft.PowerShell.Security and
+    has no Cert: drive (run 42257636976). The child must not inherit that variable."""
+    calls: list[tuple[list[str], dict[str, str] | None]] = []
+
+    def fake_run(cmd: list[str], what: str, *, display: str | None = None,
+                 env: dict[str, str] | None = None) -> None:
+        calls.append((cmd, env))
+
+    monkeypatch.setattr(build_msix, "_run", fake_run)
+    monkeypatch.setenv("PSModulePath", r"C:\Program Files\PowerShell\7\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules")
+    monkeypatch.setenv("KEEP_ME", "1")
+    msix = tmp_path / "x.msix"
+    msix.write_bytes(b"PK")
+    identity = build_msix.PackageIdentity("a.b", "CN=O'Garden", "cofade", True)
+
+    cer = build_msix.sign_for_local_test(msix, identity, tmp_path / "signtool.exe")
+
+    assert cer == tmp_path / "x.test.cer"
+    (ps_cmd, ps_env), (sign_cmd, _sign_env) = calls
+    assert ps_cmd[0] == "powershell" and "-NonInteractive" in ps_cmd
+    assert ps_env is not None and not [k for k in ps_env if k.upper() == "PSMODULEPATH"]
+    assert ps_env.get("KEEP_ME") == "1", "only PSModulePath is scrubbed; the rest of the environment stays"
+    script = ps_cmd[-1]
+    assert "Import-Module Microsoft.PowerShell.Security, PKI" in script
+    assert "-Subject 'CN=O''Garden'" in script, "a quote in the publisher DN is doubled, not injected"
+    assert sign_cmd[:3] == [str(tmp_path / "signtool.exe"), "sign", "/fd"]

@@ -521,16 +521,21 @@ def sign_for_local_test(msix: Path, identity: PackageIdentity, signtool: Path) -
     # ("Cannot find drive 'Cert'", first run of msix-store-verify.yml on PR #761).
     # Run the script without the inherited PSModulePath and import the modules by name.
     child_env = {k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"}
+
+    def ps_literal(value: object) -> str:
+        """A PowerShell single-quoted literal: only ' needs doubling."""
+        return "'" + str(value).replace("'", "''") + "'"
+
     script = f"""
 $ErrorActionPreference = 'Stop'
 Import-Module Microsoft.PowerShell.Security, PKI
-$cert = New-SelfSignedCertificate -Type Custom -Subject '{identity.publisher}' `
+$cert = New-SelfSignedCertificate -Type Custom -Subject {ps_literal(identity.publisher)} `
   -KeyUsage DigitalSignature -FriendlyName 'OGP MSIX test signing' `
   -CertStoreLocation 'Cert:\\CurrentUser\\My' -NotAfter (Get-Date).AddDays(30) `
   -TextExtension @('2.5.29.37={{text}}1.3.6.1.5.5.7.3.3', '2.5.29.19={{text}}')
-$pw = ConvertTo-SecureString -String '{password}' -Force -AsPlainText
-Export-PfxCertificate -Cert $cert -FilePath '{pfx}' -Password $pw | Out-Null
-Export-Certificate -Cert $cert -FilePath '{cer}' | Out-Null
+$pw = ConvertTo-SecureString -String {ps_literal(password)} -Force -AsPlainText
+Export-PfxCertificate -Cert $cert -FilePath {ps_literal(pfx)} -Password $pw | Out-Null
+Export-Certificate -Cert $cert -FilePath {ps_literal(cer)} | Out-Null
 Remove-Item -Path ('Cert:\\CurrentUser\\My\\' + $cert.Thumbprint)
 Write-Output ('thumbprint=' + $cert.Thumbprint)
 """
@@ -584,9 +589,13 @@ def build(version: str, bundle_dir: Path, output_dir: Path, *, identity: Package
     print("=" * 60)
 
     build_stage(identity, version, stage_dir, app_ico=app_ico, file_ico=file_ico)
-    makepri = find_sdk_tool("makepri.exe")
-    makeappx = find_sdk_tool("makeappx.exe")
+    makepri: Path | None = None
+    makeappx: Path | None = None
     if not dry_run:
+        # Looked up only when needed: --dry-run needs no SDK, and must not fail
+        # on an OGP_WINDOWS_SDK_BIN that lacks a tool (find_sdk_tool raises then).
+        makepri = find_sdk_tool("makepri.exe")
+        makeappx = find_sdk_tool("makeappx.exe")
         if makeappx is None:
             raise MsixError(f"makeappx.exe not found - install the Windows SDK or set {ENV_SDK_BIN}")
         if makepri is None:

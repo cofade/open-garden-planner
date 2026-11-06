@@ -213,4 +213,6 @@ def has_package_identity() -> bool:
         result = int(windll.kernel32.GetCurrentPackageFullName(ctypes.byref(length), None))
     except (AttributeError, OSError):
         return False
-    return (result == _ERROR_INSUFFICIENT_BUFFER and length.value > 0) or result == 0
+    # With a NULL buffer the API cannot succeed outright: a packaged process answers
+    # ERROR_INSUFFICIENT_BUFFER and the length it would need.
+    return result == _ERROR_INSUFFICIENT_BUFFER and length.value > 0

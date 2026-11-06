@@ -205,9 +205,13 @@ artifact from a release run and upload it as a submission, and after certificati
 Store link to the README and the wiki's Installation page (ADR-073 "What the owner must do").
 Report the listing as pending until the first version is live.
 
-Measured on 2026-11-06 (v1.37.6 bundle, 3,714 files): 268.5 MB package, 3,770 entries.
-The MSIX is larger than the 171 MiB installer because MSIX compresses per file (deflate)
-and NSIS uses a solid LZMA stream — a dated measurement, re-measure on a release build.
+Measured on 2026-11-06: the package holds the bundle plus 52 entries of its own; the runner's
+v1.37.6 bundle (3,802 files) became 3,854 entries and 272.1 MB (run 42260902878), the
+developer machine's older bundle (3,714 files) 268.5 MB. The MSIX is larger than the
+171 MiB installer because MSIX compresses per file (deflate) and NSIS uses a solid LZMA
+stream — dated measurements, re-measure on a release build. The same run installed the
+package, reached the Agent API port from outside it and passed the frozen self-test through
+the alias; ADR-073's addendum quotes the lines.
 
 ## 7.3 Release Process (GitHub Releases)
 
