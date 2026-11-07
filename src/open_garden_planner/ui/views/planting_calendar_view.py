@@ -49,7 +49,7 @@ from open_garden_planner.services.task_generator import (
     propagate_plans_by_anchor,
 )
 from open_garden_planner.services.task_status import effective_status
-from open_garden_planner.services.weather_service import get_frost_alerts
+from open_garden_planner.services.weather_service import WeatherForecast, get_frost_alerts
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor, urgency_dot
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
@@ -1173,6 +1173,7 @@ class PlantingCalendarView(QWidget):
         root.setSpacing(0)
 
         # Weather forecast widget (US-12.1)
+        self._holder: Any | None = None
         self._weather = WeatherWidget()
         self._weather.forecast_ready.connect(self._on_weather_ready)
         self._weather.forecast_failed.connect(self._on_weather_failed)
@@ -1323,7 +1324,16 @@ class PlantingCalendarView(QWidget):
         self.frost_alerts_ready.emit([])
         self._rebuild_dashboard()
 
-    def request_forecast(self) -> None:
+    def set_forecast_holder(self, holder: Any) -> None:
+        """Bind to an application-owned ForecastHolder (ADR-070 addendum, #693)."""
+        self._holder = holder
+        self._weather.set_holder(holder)
+        holder.forecast_ready.connect(self._on_weather_ready)
+        holder.forecast_failed.connect(self._on_weather_failed)
+        holder.forecast_cleared.connect(self.clear_frost_alerts)
+        holder.forecast_days_ready.connect(self.forecast_days_ready.emit)
+
+    def request_forecast(self, force: bool = False) -> None:
         """Fetch the weather forecast for the plan's location (US-12.1) — or, without a
         location, clear it (``forecast_days_ready`` empty). The weather part of
         ``refresh`` alone: the 3D view's Today's Weather asks for it while this tab may
@@ -1331,10 +1341,17 @@ class PlantingCalendarView(QWidget):
         is not started again (``WeatherWidget.refresh``)."""
         place = self._place()
         if place is not None:
-            self._weather.set_location(*place)
-            self._weather.refresh()
+            if self._holder is not None:
+                self._holder.set_location(*place)
+                self._holder.request_forecast(force=force)
+            else:
+                self._weather.set_location(*place)
+                self._weather.refresh()
         else:
-            self._weather.set_location(None, None)
+            if self._holder is not None:
+                self._holder.set_location(None, None)
+            else:
+                self._weather.set_location(None, None)
             self.forecast_days_ready.emit(None, ())
             self.clear_frost_alerts()
 
@@ -1349,10 +1366,16 @@ class PlantingCalendarView(QWidget):
             return
         self.clear_frost_alerts()
         if place is None:
-            self._weather.set_location(None, None)
+            if self._holder is not None:
+                self._holder.set_location(None, None)
+            else:
+                self._weather.set_location(None, None)
             self.forecast_days_ready.emit(None, ())
         else:
-            self._weather.set_location(*place)
+            if self._holder is not None:
+                self._holder.set_location(*place)
+            else:
+                self._weather.set_location(*place)
 
     def _place(self) -> tuple[float, float] | None:
         """The plan's ``(lat, lon)``, or None without one (``solar.plan_place``)."""
@@ -1360,7 +1383,7 @@ class PlantingCalendarView(QWidget):
 
     def refresh(self) -> None:
         """Rebuild the chart and dashboard from current canvas + project state."""
-        self.request_forecast()   # the weather fetch, if the plan has a location (US-12.1)
+        self.request_forecast(force=True)   # the weather fetch, if the plan has a location (US-12.1)
 
         rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
@@ -1640,10 +1663,11 @@ class PlantingCalendarView(QWidget):
 
     # ─── Weather widget slots (US-12.1 / US-12.2) ────────────────────
 
-    def _on_weather_ready(self) -> None:
+    def _on_weather_ready(self, forecast: Any = None) -> None:
         """Apply frost tinting; frost alerts flow into the dashboard via the
         unified engine (build_plan_state → generate_frost_tasks) on refresh."""
-        forecast = self._weather.forecast()
+        if forecast is None or not isinstance(forecast, WeatherForecast):
+            forecast = self._weather.forecast()
         if forecast is None:
             return
         self.forecast_days_ready.emit(
@@ -1667,8 +1691,11 @@ class PlantingCalendarView(QWidget):
         self.frost_alerts_ready.emit(alerts)
         # Regenerate the dashboard with the new alerts. Rebuild only the
         # dashboard (NOT a full refresh — that would re-trigger the weather
-        # fetch and loop).
-        self._rebuild_dashboard()
+        # fetch and loop). Only rebuild when visible to avoid UI work on hidden tabs.
+        if self.isVisible():
+            self._rebuild_dashboard()
+        else:
+            self._needs_refresh = True
 
     @staticmethod
     def _frost_alert_actionable(alert: Any) -> bool:

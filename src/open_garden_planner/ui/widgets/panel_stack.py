@@ -137,8 +137,9 @@ class SidebarController(QWidget):
         panel.take_over_header()
 
         # Default-arg binding so each lambda captures its own key (not the loop var).
+        panel.hover_enter.connect(lambda k=key: self._on_hover_enter(k))
+        panel.hover_leave.connect(lambda k=key: self._on_hover_leave(k))
         panel.header.hover_enter.connect(lambda k=key: self._on_hover_enter(k))
-        panel.header.hover_leave.connect(lambda k=key: self._on_hover_leave(k))
         panel.header.pin_toggled.connect(lambda _c, k=key: self._on_title_click(k))
 
         self._collapse(entry, animate=False, emit=True)

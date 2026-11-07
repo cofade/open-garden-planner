@@ -127,3 +127,61 @@ class TestMissingDimensionsShowDash:
         assert panel._current_plant_data.max_spread_cm is None
         assert panel._current_plant_data.ph_min is None
         assert panel._current_plant_data.hardiness_zone_min is None
+
+
+class TestPlantThumbnailDownload:
+    def test_uncached_thumbnail_starts_fetch_and_updates_on_ready(self, qtbot, monkeypatch, tmp_path) -> None:
+        from PyQt6.QtGui import QImage
+
+        img_path = tmp_path / "test_thumb.png"
+        img = QImage(64, 64, QImage.Format.Format_ARGB32)
+        img.fill(0xFF00FF00)
+        img.save(str(img_path))
+
+        monkeypatch.setattr(
+            "open_garden_planner.services.plant_api.thumbnail_loader.fetch_thumbnail",
+            lambda url: img_path if url == "https://example.com/plant.png" else None,
+        )
+        monkeypatch.setattr(
+            "open_garden_planner.services.plant_api.thumbnail_loader.get_cached_thumbnail",
+            lambda _url: None,
+        )
+
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+
+        species = PlantSpeciesData(
+            common_name="Rose",
+            scientific_name="Rosa",
+            thumbnail_url="https://example.com/plant.png",
+        )
+        panel.set_selected_items([_plant(species)])
+
+        qtbot.waitUntil(
+            lambda: (
+                panel._profile_thumbnail.pixmap() is not None
+                and not panel._profile_thumbnail.pixmap().isNull()
+            ),
+            timeout=3000,
+        )
+
+    def test_thumbnail_worker_shutdown_cancels_and_disconnects(self, qtbot) -> None:
+        """Issue #765: _ThumbnailWorker shutdown cancels execution and disconnects signals."""
+        from open_garden_planner.ui.panels.plant_database_panel import _ThumbnailWorker
+
+        worker = _ThumbnailWorker("https://example.com/test.png")
+        received = []
+        worker.thumbnail_ready.connect(lambda u, p: received.append((u, p)))
+
+        worker.shutdown(timeout_ms=50)
+        assert worker._is_cancelled is True
+
+    def test_panel_shutdown_cleans_up_worker(self, qtbot) -> None:
+        """Issue #765: PlantDatabasePanel.shutdown cleans up active thumbnail worker."""
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        panel._start_thumbnail_fetch("https://example.com/dummy.png")
+        assert panel._thumb_worker is not None
+
+        panel.shutdown()
+        assert panel._thumb_worker is None

@@ -1,5 +1,7 @@
 """Permapeople Plant API client implementation."""
 
+from __future__ import annotations
+
 import logging
 import re
 from typing import Any
@@ -44,6 +46,34 @@ def _meters_str_to_cm(value: str) -> float | None:
     return numbers[-1] * 100 if numbers else None
 
 
+def resolve_permapeople_credentials(settings: Any = None) -> tuple[str, str]:
+    """Resolve (key_id, key_secret) from AppSettings, falling back to environment variables.
+
+    Checked in order:
+    1. settings.permapeople_key_id / settings.permapeople_key_secret (or AppSettings() if settings is None)
+    2. os.environ["PERMAPEOPLE_KEY_ID"] / os.environ["PERMAPEOPLE_KEY_SECRET"]
+    """
+    import os
+
+    if settings is None:
+        try:
+            from open_garden_planner.config.settings import AppSettings
+
+            settings = AppSettings()
+        except (ImportError, RuntimeError):
+            settings = None
+
+    key_id = (getattr(settings, "permapeople_key_id", None) or "").strip()
+    if not key_id:
+        key_id = os.environ.get(PermapeopleClient.KEY_ID_ENV_VAR, "").strip()
+
+    key_secret = (getattr(settings, "permapeople_key_secret", None) or "").strip()
+    if not key_secret:
+        key_secret = os.environ.get(PermapeopleClient.KEY_SECRET_ENV_VAR, "").strip()
+
+    return key_id, key_secret
+
+
 class PermapeopleClient(PlantAPIClient):
     """Client for the Permapeople Plant API.
 
@@ -61,14 +91,20 @@ class PermapeopleClient(PlantAPIClient):
 
         Args:
             key_id: Optional API key ID. If not provided, will look for
-                   PERMAPEOPLE_KEY_ID environment variable.
+                   AppSettings and PERMAPEOPLE_KEY_ID environment variable.
             key_secret: Optional API key secret. If not provided, will look for
-                       PERMAPEOPLE_KEY_SECRET environment variable.
+                       AppSettings and PERMAPEOPLE_KEY_SECRET environment variable.
         """
         import os
 
-        self._key_id = key_id or os.environ.get(self.KEY_ID_ENV_VAR, "")
-        self._key_secret = key_secret or os.environ.get(self.KEY_SECRET_ENV_VAR, "")
+        if key_id is None and key_secret is None:
+            resolved_id, resolved_secret = resolve_permapeople_credentials()
+            self._key_id = resolved_id
+            self._key_secret = resolved_secret
+        else:
+            self._key_id = (key_id or os.environ.get(self.KEY_ID_ENV_VAR, "")).strip()
+            self._key_secret = (key_secret or os.environ.get(self.KEY_SECRET_ENV_VAR, "")).strip()
+
         self._session = requests.Session()
         self._session.headers.update({
             "User-Agent": "OpenGardenPlanner/1.0",
@@ -80,6 +116,12 @@ class PermapeopleClient(PlantAPIClient):
                 "x-permapeople-key-id": self._key_id,
                 "x-permapeople-key-secret": self._key_secret,
             })
+
+    @classmethod
+    def from_settings(cls, settings: Any = None) -> PermapeopleClient:
+        """Create a client with credentials resolved from AppSettings with env fallback."""
+        key_id, key_secret = resolve_permapeople_credentials(settings)
+        return cls(key_id=key_id or None, key_secret=key_secret or None)
 
     @property
     def name(self) -> str:

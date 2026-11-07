@@ -235,3 +235,27 @@ def test_animate_expand_collapse_reach_end_state(qtbot):
     assert panel.minimumHeight() == 0  # floor dropped synchronously on collapse
     qtbot.waitUntil(lambda: not content.isVisible(), timeout=1000)
     assert panel.maximumHeight() == panel.header_height()
+
+
+def test_collapsible_panel_enter_and_leave_events(qtbot):
+    """Issue #772: CollapsiblePanel emits hover_enter and hover_leave signals."""
+    from PyQt6.QtCore import QEvent, QPointF
+    from PyQt6.QtGui import QEnterEvent
+
+    content = QLabel("Content")
+    panel = CollapsiblePanel("Panel", content, expanded=True)
+    qtbot.addWidget(panel)
+    panel.resize(200, 100)
+    panel.show()
+
+    enters: list[int] = []
+    leaves: list[int] = []
+    panel.hover_enter.connect(lambda: enters.append(1))
+    panel.hover_leave.connect(lambda: leaves.append(1))
+
+    enter_event = QEnterEvent(QPointF(10, 10), QPointF(10, 10), QPointF(10, 10))
+    panel.enterEvent(enter_event)
+    assert enters == [1]
+
+    panel.leaveEvent(QEvent(QEvent.Type.Leave))
+    assert leaves == [1]

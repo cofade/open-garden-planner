@@ -4194,3 +4194,12 @@ Docs: ADR-072 addendum, FR-3D-PHOTO-03 / FR-3D-TOUR-02, PF-E3D-25/26, `debug-ver
 - **#723 - intermittent test timing on Qt 6.12**: replaced arbitrary sleep durations with `qtbot.waitUntil` polling on explicit field widths in `tests/ui/test_properties_panel.py` and held lawn tracking in `tests/integration/test_view3d_sync_controller.py`.
 - **#692 - Beauty Board and offscreen exit access violation**: flushed deferred deletion events (`QEvent.Type.DeferredDelete`) and event loop in offscreen teardown and `scripts/render_beauty_board.py` to prevent unreleased D3D11 swapchains during DLL shutdown.
 - **#689 - living garden engine follow-ups**: bounded `root.windTime` in `Garden.qml` to 1 hour and wrapped precipitation shader time in modulo arithmetic for long-running float precision; added midnight timer and automatic transition for Today's Weather; unified ambient buffer assembly into `core/scene3d/living.py` (`living_buffers`).
+
+
+### UI, plant services, agent prompts, and weather architecture (#772, #765, #763, #724, #693)
+
+- **#772 - accordion hover hysteresis buffer**: moving the mouse to the header pin/expand button no longer triggers premature collapse. An 8-pixel transit buffer allows smooth diagonal navigation without false collapse events.
+- **#765 - plant profile thumbnail fetching**: wired asynchronous thumbnail fetching via `_ThumbnailWorker` (`QThread`) in `PlantDatabasePanel` with privacy disclosure in `PRIVACY.md`.
+- **#763 - Permapeople API credentials from settings**: `resolve_permapeople_credentials` checks `AppSettings` first, allowing custom API keys entered in Preferences to be honored by `PermapeopleClient`.
+- **#724 - simulated plan date in `plan-my-week` prompt**: agent prompt `plan-my-week` defaults to the simulated plan date (if active) rather than the wall clock, producing consistent and reproducible weekly garden briefs.
+- **#693 - forecast ownership decoupled into `ForecastHolder`**: moved weather forecast ownership to app level (`src/open_garden_planner/services/forecast_holder.py`). Invalidates on `document_replaced`, drops stale worker results by generation and coordinates, and re-emits synchronously without starting threads or rebuilding hidden dashboards when fresh.
