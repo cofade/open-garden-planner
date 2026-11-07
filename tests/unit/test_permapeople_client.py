@@ -395,3 +395,88 @@ class TestGetByIdSourceIdContract:
             result = client.get_by_id(requested_id)
 
         assert result.source_id == requested_id
+
+
+class TestResolveCredentials:
+    """Issue #763: Permapeople credentials resolution from settings with env fallback."""
+
+    def test_resolves_from_settings_when_env_is_empty(self, monkeypatch) -> None:
+        monkeypatch.delenv(PermapeopleClient.KEY_ID_ENV_VAR, raising=False)
+        monkeypatch.delenv(PermapeopleClient.KEY_SECRET_ENV_VAR, raising=False)
+
+        mock_settings = MagicMock()
+        mock_settings.permapeople_key_id = "settings-key-id"
+        mock_settings.permapeople_key_secret = "settings-key-secret"
+
+        from open_garden_planner.services.plant_api.permapeople_client import (
+            resolve_permapeople_credentials,
+        )
+
+        key_id, key_secret = resolve_permapeople_credentials(mock_settings)
+        assert key_id == "settings-key-id"
+        assert key_secret == "settings-key-secret"
+
+        client = PermapeopleClient.from_settings(mock_settings)
+        assert client.is_configured() is True
+        assert client._key_id == "settings-key-id"
+        assert client._key_secret == "settings-key-secret"
+
+    def test_falls_back_to_env_when_settings_empty(self, monkeypatch) -> None:
+        monkeypatch.setenv(PermapeopleClient.KEY_ID_ENV_VAR, "env-key-id")
+        monkeypatch.setenv(PermapeopleClient.KEY_SECRET_ENV_VAR, "env-key-secret")
+
+        mock_settings = MagicMock()
+        mock_settings.permapeople_key_id = ""
+        mock_settings.permapeople_key_secret = ""
+
+        from open_garden_planner.services.plant_api.permapeople_client import (
+            resolve_permapeople_credentials,
+        )
+
+        key_id, key_secret = resolve_permapeople_credentials(mock_settings)
+        assert key_id == "env-key-id"
+        assert key_secret == "env-key-secret"
+
+        client = PermapeopleClient.from_settings(mock_settings)
+        assert client.is_configured() is True
+        assert client._key_id == "env-key-id"
+        assert client._key_secret == "env-key-secret"
+
+    def test_not_configured_when_both_empty(self, monkeypatch) -> None:
+        monkeypatch.delenv(PermapeopleClient.KEY_ID_ENV_VAR, raising=False)
+        monkeypatch.delenv(PermapeopleClient.KEY_SECRET_ENV_VAR, raising=False)
+
+        mock_settings = MagicMock()
+        mock_settings.permapeople_key_id = ""
+        mock_settings.permapeople_key_secret = ""
+
+        client = PermapeopleClient.from_settings(mock_settings)
+        assert client.is_configured() is False
+
+    def test_resolves_with_none_settings_instantiating_app_settings(self, monkeypatch) -> None:
+        monkeypatch.delenv(PermapeopleClient.KEY_ID_ENV_VAR, raising=False)
+        monkeypatch.delenv(PermapeopleClient.KEY_SECRET_ENV_VAR, raising=False)
+
+        from open_garden_planner.config.settings import AppSettings
+        from open_garden_planner.services.plant_api.permapeople_client import (
+            resolve_permapeople_credentials,
+        )
+
+        fake_settings = MagicMock(spec=AppSettings)
+        fake_settings.permapeople_key_id = "default-app-id"
+        fake_settings.permapeople_key_secret = "default-app-secret"
+
+        with patch("open_garden_planner.config.settings.AppSettings", return_value=fake_settings):
+            key_id, key_secret = resolve_permapeople_credentials(None)
+            assert key_id == "default-app-id"
+            assert key_secret == "default-app-secret"
+
+    def test_resolves_with_real_app_settings(self, monkeypatch) -> None:
+        monkeypatch.delenv(PermapeopleClient.KEY_ID_ENV_VAR, raising=False)
+        monkeypatch.delenv(PermapeopleClient.KEY_SECRET_ENV_VAR, raising=False)
+        from open_garden_planner.services.plant_api.permapeople_client import (
+            resolve_permapeople_credentials,
+        )
+        key_id, key_secret = resolve_permapeople_credentials(None)
+        assert isinstance(key_id, str)
+        assert isinstance(key_secret, str)

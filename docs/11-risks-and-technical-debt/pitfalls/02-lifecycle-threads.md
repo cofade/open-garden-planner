@@ -128,8 +128,8 @@ asserts that the readiness dialog remains the sole visible progress dialog:
 ### PF-LIF-12
 
 - **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; every `location_changed` moves the fetching widget at once (cancelling and disconnecting the old place's fetch, whose result slots stay UNDECORATED — a `@pyqtSlot` slot still receives a queued result), and a consumer takes a result only for the place its producer says it was fetched for.
-- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_living_garden.py::test_a_place_change_off_todays_weather_cancels_the_old_places_fetch`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`
-- **Source:** #389, ADR-070
+- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_living_garden.py::test_a_place_change_off_todays_weather_cancels_the_old_places_fetch`; `tests/integration/test_living_garden.py::test_picking_todays_weather_with_fresh_held_forecast_starts_no_thread_and_rebuilds_no_dashboard`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`; `tests/unit/test_forecast_holder.py`
+- **Source:** #389, #693, ADR-070
 - **Status:** standing
 - **Legacy:** none (new entry)
 
@@ -151,7 +151,10 @@ plan's, labelled it so. Now `PlantingCalendarView.follow_location` moves the wid
 `location_changed`, visible or not, fetching nothing; `forecast_days_ready` carries the
 `(lat, lon)` the widget fetched for, and `WorkspaceLivingCoordinator.set_forecast` drops one for
 another place. Both read a place with ONE function (`core.solar.plan_place`): they compare
-places.
+places. Under #693, the forecast is decoupled from `WeatherWidget` into `ForecastHolder`
+(`services/forecast_holder.py`), which invalidates on `document_replaced`, drops stale results
+by generation and place, and re-emits synchronously without starting threads or rebuilding
+hidden dashboards when fresh.
 
 **The mechanism (the canonical statement; other docs point here).** The disconnect is what keeps
 a result already QUEUED from landing: PyQt6 does not deliver a queued signal to an UNDECORATED

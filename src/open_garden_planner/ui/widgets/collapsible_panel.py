@@ -64,6 +64,16 @@ class CollapsiblePanel(QWidget):
     """
 
     expanded_changed = pyqtSignal(bool)
+    hover_enter = pyqtSignal()
+    hover_leave = pyqtSignal()
+
+    def enterEvent(self, event: QEnterEvent) -> None:
+        self.hover_enter.emit()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QEvent) -> None:
+        self.hover_leave.emit()
+        super().leaveEvent(event)
 
     def __init__(
         self,

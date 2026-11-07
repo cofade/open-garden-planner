@@ -403,3 +403,4 @@ class AgentProviders:
          tuple[int, int]],
         dict[str, Any],
     ] | None = None
+    plan_date: Callable[[], str] | None = None

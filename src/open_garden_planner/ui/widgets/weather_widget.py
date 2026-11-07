@@ -88,15 +88,69 @@ class WeatherWidget(QFrame):
     forecast_ready = pyqtSignal()
     forecast_failed = pyqtSignal(str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, holder: Any | None = None) -> None:
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        self._lat: float | None = None
-        self._lon: float | None = None
+        self.__lat: float | None = None
+        self.__lon: float | None = None
         self._forecast: WeatherForecast | None = None
-        self._worker: _WeatherFetchWorker | None = None
+        self.__worker: _WeatherFetchWorker | None = None
+        self._holder: Any | None = None
         self._expanded = False
         self._build_ui()
+        if holder is not None:
+            self.set_holder(holder)
+
+    def set_holder(self, holder: Any) -> None:
+        """Bind this widget as a subscriber to an app-level ForecastHolder."""
+        self._holder = holder
+        holder.forecast_ready.connect(self._on_fetch_success)
+        holder.forecast_failed.connect(self._on_fetch_error)
+        holder.forecast_cleared.connect(self._on_holder_cleared)
+        if holder.place() is not None:
+            self.set_location(*holder.place())
+        if holder.forecast() is not None:
+            self._on_fetch_success(holder.forecast())
+
+    def _on_holder_cleared(self) -> None:
+        self._forecast = None
+        self._show_empty_state()
+
+    @property
+    def _lat(self) -> float | None:
+        if self._holder is not None:
+            return getattr(self._holder, "_lat", None)
+        return self.__lat
+
+    @_lat.setter
+    def _lat(self, val: float | None) -> None:
+        self.__lat = val
+        if self._holder is not None:
+            self._holder._lat = val
+
+    @property
+    def _lon(self) -> float | None:
+        if self._holder is not None:
+            return getattr(self._holder, "_lon", None)
+        return self.__lon
+
+    @_lon.setter
+    def _lon(self, val: float | None) -> None:
+        self.__lon = val
+        if self._holder is not None:
+            self._holder._lon = val
+
+    @property
+    def _worker(self) -> _WeatherFetchWorker | None:
+        if self._holder is not None:
+            return getattr(self._holder, "_worker", None)
+        return self.__worker
+
+    @_worker.setter
+    def _worker(self, val: _WeatherFetchWorker | None) -> None:
+        if self._holder is not None:
+            self._holder._worker = val
+        self.__worker = val
 
     # ── construction ────────────────────────────────────────────────────
 
@@ -210,20 +264,30 @@ class WeatherWidget(QFrame):
             self._forecast = None
         self._lat = lat
         self._lon = lon
+        if self._holder is not None and self._holder.place() != (lat, lon):
+            self._holder.set_location(lat, lon)
         if lat is None or lon is None:
             self._show_empty_state()
         else:
             self._location_lbl.setText(f"{lat:.2f}°, {lon:.2f}°")
-            self._show_loading()
+            if self._forecast is None:
+                self._show_loading()
 
     def place(self) -> tuple[float, float] | None:
         """The coordinates this widget fetches for (``set_location``), or None."""
+        if self._holder is not None:
+            return self._holder.place()
         if self._lat is None or self._lon is None:
             return None
         return (self._lat, self._lon)
 
     def refresh(self) -> None:
         """Start a background fetch for the current location."""
+        if self._holder is not None:
+            self._show_loading()
+            self._holder.request_forecast(force=True)
+            return
+
         if self._lat is None or self._lon is None:
             self._show_empty_state()
             return
@@ -248,9 +312,11 @@ class WeatherWidget(QFrame):
 
     def shutdown(self, timeout_ms: int = 100) -> None:
         """Cancel and detach/join running worker before teardown (#483)."""
-        worker = self._worker
+        if self._holder is not None:
+            self._holder.shutdown(timeout_ms)
+        worker = self.__worker
         if worker is not None:
-            self._worker = None
+            self.__worker = None
             worker.shutdown(timeout_ms)
 
     def closeEvent(self, event: Any) -> None:
@@ -259,6 +325,8 @@ class WeatherWidget(QFrame):
 
     def forecast(self) -> WeatherForecast | None:
         """Return the currently-held forecast, or None."""
+        if self._holder is not None:
+            return self._holder.forecast()
         return self._forecast
 
     def apply_frost_thresholds(self, orange_c: float, red_c: float) -> None:

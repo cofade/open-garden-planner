@@ -2564,9 +2564,18 @@ def build_server(
         empty week.
 
         Args:
-            today: ISO reference date. Defaults to the real current date; pass
-                it to render a reproducible brief.
+            today: ISO reference date. Defaults to the plan's simulated date (or
+                the real current date if no plan date is active); pass an explicit
+                ISO date to override or render a reproducible brief (#724).
         """
+        if today is None:
+            if getattr(providers, "plan_date", None) is not None:
+                today = await anyio.to_thread.run_sync(providers.plan_date)
+            if not today:
+                import datetime
+
+                today = datetime.date.today().isoformat()
+
         task_raw = await anyio.to_thread.run_sync(
             lambda: providers.get_tasks(
                 None, None, None, None, None, None, today

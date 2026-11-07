@@ -6,7 +6,7 @@ from copy import deepcopy
 from datetime import date
 from typing import Any, cast
 
-from PyQt6.QtCore import QDate, QSignalBlocker, Qt, pyqtSignal
+from PyQt6.QtCore import QDate, QObject, QSignalBlocker, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QShowEvent, QWheelEvent
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.models.plant_data import (
     FlowerType,
     PermacultureLayer,
@@ -242,6 +243,41 @@ class EditableField(QWidget):
             self.value_changed.emit()
 
 
+class _ThumbnailWorker(QThread):
+    """Off-thread loader for plant profile thumbnails (US-G2, issue #765)."""
+
+    thumbnail_ready = pyqtSignal(str, object)  # url, Path | None
+
+    def __init__(self, url: str, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._url = url
+        self._is_cancelled = False
+
+    def cancel(self) -> None:
+        """Mark the worker as cancelled so no signals are emitted."""
+        self._is_cancelled = True
+
+    def shutdown(self, timeout_ms: int = 100) -> None:
+        """Cancel and detach/wait before widget teardown (PF-LIF-12)."""
+        self.cancel()
+        with contextlib.suppress(TypeError, RuntimeError):
+            self.thumbnail_ready.disconnect()
+        self.setParent(None)
+        if self.isRunning():
+            self.wait(timeout_ms)
+            if self.isRunning():
+                retain_worker_until_finished(self)
+
+    def run(self) -> None:
+        if self._is_cancelled:
+            return
+        from open_garden_planner.services.plant_api.thumbnail_loader import fetch_thumbnail
+
+        path = fetch_thumbnail(self._url)
+        if not self._is_cancelled:
+            self.thumbnail_ready.emit(self._url, path)
+
+
 class PlantDatabasePanel(QWidget):
     """Panel for displaying plant species information from the database.
 
@@ -258,6 +294,7 @@ class PlantDatabasePanel(QWidget):
         super().__init__(parent)
         self._current_plant_data: PlantSpeciesData | None = None
         self._current_plant_item: QGraphicsItem | None = None
+        self._thumb_worker: _ThumbnailWorker | None = None
         self._command_manager = None
         # True while applying model values to widgets or building a command:
         # widget signals fired here must not create a nested command.
@@ -290,6 +327,7 @@ class PlantDatabasePanel(QWidget):
         self._setup_ui()
         for spin in self.findChildren(QDoubleSpinBox):
             spin.editingFinished.connect(self._end_spin_gesture)
+        self.destroyed.connect(self.shutdown)
 
     def set_command_manager(self, command_manager: Any) -> None:
         """Attach the shared undo stack; previous stack signals are detached."""
@@ -2188,6 +2226,7 @@ class PlantDatabasePanel(QWidget):
             else:
                 # Show placeholder while loading
                 self._profile_thumbnail.setText("🌱")
+                self._start_thumbnail_fetch(thumb_url)
         else:
             self._profile_thumbnail.setText("🌱")
 
@@ -2203,6 +2242,50 @@ class PlantDatabasePanel(QWidget):
         # Update favorite button
         self._current_plant_data = plant_data
         self._update_favorite_button()
+
+    def shutdown(self) -> None:
+        """Clean up background thumbnail worker on teardown (PF-LIF-12)."""
+        if self._thumb_worker is not None:
+            worker = self._thumb_worker
+            self._thumb_worker = None
+            worker.shutdown()
+
+    def _start_thumbnail_fetch(self, url: str) -> None:
+        """Start off-thread thumbnail download (US-G2, issue #765)."""
+        if self._thumb_worker is not None:
+            self._thumb_worker.shutdown()
+            self._thumb_worker = None
+
+        self._thumb_worker = _ThumbnailWorker(url, self)
+        self._thumb_worker.thumbnail_ready.connect(self._on_thumbnail_ready)
+        self._thumb_worker.start()
+
+    def _on_thumbnail_ready(self, url: str, path: Any) -> None:
+        """Handle downloaded thumbnail on the Qt main thread."""
+        current_url = (
+            (self._current_plant_data.thumbnail_url or self._current_plant_data.image_url)
+            if self._current_plant_data
+            else None
+        )
+        if url != current_url or path is None:
+            return
+
+        from PyQt6.QtGui import QPixmap
+
+        pixmap = QPixmap(str(path))
+        if not pixmap.isNull():
+            scaled = pixmap.scaled(
+                96,
+                96,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self._profile_thumbnail.setPixmap(scaled)
+
+    def closeEvent(self, event: Any) -> None:
+        """Clean up running worker before teardown."""
+        self.shutdown()
+        super().closeEvent(event)
 
     def _on_toggle_favorite(self) -> None:
         """Toggle favorite status for currently displayed plant."""

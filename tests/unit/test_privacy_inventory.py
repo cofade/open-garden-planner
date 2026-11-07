@@ -42,7 +42,7 @@ DISCLOSED: dict[str, tuple[str, ...]] = {
     "main.py": ("127.0.0.1",),
     "services/weather_service.py": ("Weather forecast and frost alerts",),
     "services/climate_service.py": ("Frost dates and hardiness zone",),
-    "services/image_download.py": ("Satellite background",),
+    "services/image_download.py": ("Satellite background", "Plant thumbnail download"),
     "services/google_maps_js_capture.py": ("Satellite background",),
     "ui/dialogs/map_picker_dialog.py": ("Satellite background", "type into the map's search box"),
     "resources/web/map_picker.html": ("Satellite background", "type into the map's search box"),
@@ -95,10 +95,9 @@ def test_privacy_statement_covers_the_ai_assistant_channel_and_the_store_uninsta
     assert "nothing leaves your computer" not in text
 
 
-def test_the_dormant_plant_thumbnail_download_has_no_caller() -> None:
-    """``fetch_thumbnail`` would load images from the hosts a plant provider returns, which
-    PRIVACY.md does not disclose (review round 5). It has no production caller today; the day
-    it gets one, PRIVACY.md's plant-search row must name the image hosts and this test changes."""
+def test_plant_thumbnail_download_is_disclosed_and_has_expected_caller() -> None:
+    """``fetch_thumbnail`` loads images from the hosts a plant provider returns, which
+    PRIVACY.md discloses in its plant thumbnail download row (US-G2, issue #765)."""
     callers = sorted(
         path.relative_to(PACKAGE).as_posix()
         for path in PACKAGE.rglob("*.py")
@@ -106,4 +105,6 @@ def test_the_dormant_plant_thumbnail_download_has_no_caller() -> None:
         and path.name != "thumbnail_loader.py"
         and "fetch_thumbnail" in path.read_text(encoding="utf-8", errors="replace")
     )
-    assert not callers, f"{callers} call fetch_thumbnail: disclose the image hosts in PRIVACY.md first"
+    assert callers == ["ui/panels/plant_database_panel.py"], f"Unexpected callers of fetch_thumbnail: {callers}"
+    text = PRIVACY.read_text(encoding="utf-8")
+    assert "Plant thumbnail download" in text
