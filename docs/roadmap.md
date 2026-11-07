@@ -15,7 +15,7 @@ functional requirements own decisions and capability.
 | Backlog | v0.5 | ✅ Complete | Rotation, vertex editing, annotations |
 | 6 | v1.0 | ✅ Complete | Visual Polish & Public Release |
 | 7 | v1.1 – v1.6 | ✅ Complete | CAD Precision & Constraints |
-| 8 | v1.7 – v1.8.3 | ✅ Complete | Location, Climate & Planting Calendar |
+| 8 | v1.7 | ✅ Complete | Location, Climate & Planting Calendar |
 | 9 | v1.8.4 – v1.8.6 | ✅ Complete | Seed Inventory & Propagation Planning |
 | 10 | v1.8.6 – v1.8.12 | ✅ Complete | Companion Planting & Crop Rotation |
 | 11 | v1.8.13+ | ✅ Complete | Bed Interior Design, Visual Polish & Advanced 2D Tools |
@@ -328,7 +328,7 @@ No v2.0 release: the phase shipped as patch releases and the major-version frami
 | ✅ | 2 | Plant illustration redesign (Lush Sprite). | ADR-040; FR-29 |
 | ✅ | 3 | Object sprites, textures and iconography. | ADR-042; FR-30 |
 
-## Phase 17: Living Garden 3D (L0–L7 complete)
+## Phase 17: Living Garden 3D (✅ L0–L7 complete)
 
 Since L1, the 3D view is the Qt Quick 3D workspace in the main window (Plan / 3D / Split); L0 is complete with a GO, and L1–L7 are complete.
 
