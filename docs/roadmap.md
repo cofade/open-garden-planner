@@ -4187,7 +4187,7 @@ Docs: ADR-072 addendum, FR-3D-PHOTO-03 / FR-3D-TOUR-02, PF-E3D-25/26, `debug-ver
 
 
 
-### Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689)
+### Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689) - shipped in v1.37.7 (PR #762)
 
 - **#688 - smart symbol texture stretching**: composite smart symbols like `compost_bay_3` stretched SVG textures when stretched across wide aspect ratios. Fixed by modular repeating bays of 1:1 aspect ratio (`bay * i`, width `bay`, height `D`) in `compost_bay_3.json` with redundant fence lines removed to eliminate 3D coplanar z-fighting.
 - **#720 - L7 atmosphere sky hygiene**: stripped dead GLSL example functions and unused uniforms from `atmosphere.frag` and `AtmosphereSky.qml`; moved `TWO_SIDED_KINDS` and `two_sided_kinds` into `core.scene3d.materials` so core tests don't touch UI; retained `INV_4PI` for the cloud Henyey-Greenstein dual lobe.

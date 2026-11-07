@@ -260,7 +260,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   and rejected; PF-E3D-25); a picture uses the view's preset, the MP4 keeps its pinned
   BT.709 HD convention, and the smaller L6 findings are closed (PF-E3D-26). See the
   roadmap.
-- Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689):
+- Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689) shipped in
+  **v1.37.7 (PR #762)** after owner manual acceptance on 2026-11-07:
   compost_bay_3 repeating bays aspect ratio; dead GLSL removed and TWO_SIDED_KINDS
   moved to core.scene3d.materials; waitUntil test race elimination; offscreen
   deferred deletion flush preventing exit crash; modulo float precision for
