@@ -121,7 +121,7 @@ def _check_root_docs(root: Path, errors: list[str]) -> None:
         errors.append("CLAUDE.md and AGENTS.md differ")
     max_bytes = _configured_doc_max_bytes(root, errors)
     if codex.is_file() and codex.stat().st_size > ROOT_SOFT_LIMIT_BYTES:
-        errors.append("AGENTS.md exceeds the 32768-byte root-context soft budget; archive narrative")
+        errors.append("AGENTS.md exceeds the 32768-byte root-context soft budget; trim the handoff or move detail to its ADR/FR/issue")
     if codex.is_file() and max_bytes is not None and codex.stat().st_size > max_bytes:
         # Bytes ON DISK, deliberately. The budget is a byte limit on the FILE a reader
         # loads, so a CRLF working copy (the Windows default in this repo) spends one

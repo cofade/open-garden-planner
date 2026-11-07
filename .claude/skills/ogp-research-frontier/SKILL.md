@@ -77,7 +77,7 @@ demonstrate.
   boundary is **write-ready**: "later edit tools route through it identically."
 - A mature command architecture with the two-chokepoint invariant (exactly two
   ways onto the undo stack: `CommandManager.execute()` and
-  `register_applied()`, both dirty the document — see CLAUDE.md #209/#211 and
+  `register_applied()`, both dirty the document — see §11.4 #209/#211 and
   `docs/08-crosscutting-concepts/` §8.2). One agent op → one `execute()` → one
   undo step falls out of existing machinery; no new transaction system needed.
 - `agent_api/providers.py` — the `AgentProviders` dataclass is the documented
@@ -241,7 +241,7 @@ evaluator — but zero ecosystem around it.
   schema artifact is candidate work, not an existing asset.
 - The panel is hidden by one line: `fact:smart-symbol-panel-hidden` (exact source in `quality/skill-facts.json`).
   Persistence, properties editing, and DXF BLOCK/INSERT export all
-  ship and are tested (CLAUDE.md US-C4 entry) — unhiding is a UI decision,
+  ship and are tested (FR-31 / §8.18) — unhiding is a UI decision,
   not an engineering lift.
 
 ### (c) First three concrete steps in this repo
@@ -435,7 +435,7 @@ no-tools baseline on the same task.
 ## What we will NOT pursue (settled retirements — do not resurrect)
 
 - **US-B7 Paper Space MVP** — dropped during PR #191 manual-test review
-  (CLAUDE.md, Package B note): `pdf_report_service` already covers
+  (FR-20.4 / ADR-022): `pdf_report_service` already covers
   print-to-PDF at chosen paper sizes; a second-space CAD-style print workflow
   added nothing. The `paper_layouts` key from short-lived draft builds is
   silently ignored on load. A "layout/paper space" idea is not new ambition;
@@ -464,7 +464,7 @@ one-liners from repo root; expected hits noted):
 - Solver debt: `grep -n "TD-007\|TD-008" docs/11-risks-and-technical-debt/README.md` (if gone, Frontier 4 milestones may be met — update this file)
 - Qt-free engines: `head -25 src/open_garden_planner/services/task_generator.py`
 - Boolean vs offset kernels: `head -1 src/open_garden_planner/core/shape_boolean.py && grep -rn pyclipper src/open_garden_planner/core/tools/offset_tool.py pyproject.toml`
-- US-B7 stays dead: `grep -n "US-B7" CLAUDE.md`
+- US-B7 stays dead: `grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/README.md`
 
 When any milestone in (d) is met: mark it here, update `docs/roadmap.md`, and
 only then involve **ogp-external-positioning** for any outward claim.

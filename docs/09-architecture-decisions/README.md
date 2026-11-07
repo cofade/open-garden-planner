@@ -11122,13 +11122,17 @@ nothing subtracted.
 - *Collapse completed sections in `<details>` blocks.* Rejected: the file is still
   loaded and searched in full, and the history still competes with current work.
 
-**Consequences**: `docs/roadmap.md` drops from 4,205 lines to about 440; the root handoff
-drops from 72 lines to about 30; the two pickup archive files are deleted; the wiki Home
-and Roadmap pages lose their release changelogs; the roadmap's Overview, Dev
-Infrastructure and Phase 17 headings remain because `scripts/sync_wiki.py` includes
-them. `ogp-docs-and-writing`, `deliver-package`, `finalize-us`, `ogp-change-control`,
-the senior-reviewer definitions and the PR template carry the rule. The existing
-`scripts/check_agent_context.py` budget and parity check remain unchanged.
+**Consequences**: `docs/roadmap.md` drops from 4,205 lines to about 380; the root handoff
+drops from 72 lines to about 30; the two pickup archive files and the spent
+`docs/implementation-plan-457.md` are deleted; the wiki Home, Roadmap and Architecture
+pages lose their release changelogs; the roadmap's Overview, Dev Infrastructure and Phase
+17 headings remain because `scripts/sync_wiki.py` includes them. The stale 2026-08
+"Outlook: Additional 2D Features" list was retired: shipped candidates are in the
+delivery index, and the issue tracker remains the work list. This supersedes ADR-068's
+alternative "Deleting historical skills/pickups … rejected" for the two pickup files
+only; historical skills remain. `ogp-docs-and-writing`, `deliver-package`, `finalize-us`,
+`ogp-change-control`, the senior-reviewer definitions and the PR template carry the rule.
+The existing `scripts/check_agent_context.py` budget and parity check remain unchanged.
 
 Cross-refs: AUD-073, AUD-077, AUD-078 in
 `docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md`;

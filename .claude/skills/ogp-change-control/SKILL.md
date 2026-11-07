@@ -109,7 +109,7 @@ ready or merge without the user explicitly confirming manual testing passed — 
 only then: `pr ready` followed by `pr merge --squash --delete-branch --match-head-commit <verified-head-sha>`.
 
 **Why manual testing is sovereign — merged-or-reviewed work has been overturned by it
-repeatedly (all documented in `CLAUDE.md` progress tables):**
+repeatedly (all documented in the ADRs/FRs and the issue record):**
 
 - **US-B7 (Paper Space MVP) was dropped entirely** during PR #191 manual-test review — the
   feature duplicated the existing PDF report service. Code was written; the test killed it.
@@ -135,7 +135,7 @@ Launch the `senior-reviewer` agent against the branch diff (fresh worktree, diff
 re-review** — a review of the fix is not implied by a review of the original. The
 `finalize-us` skill repeats this gate pre-PR; running it twice is by design.
 
-**Real catches that justify the gate (all in `CLAUDE.md` progress tables):**
+**Real catches that justify the gate (all in the ADRs/FRs and the issue record):**
 
 - **#213 / PR #217, P0 in round 2:** the species-assignment resize kept the *visual*
   centre fixed but not `transformOriginPoint`, so a **rotated** plant saved a displaced
@@ -192,7 +192,7 @@ GitHub releases are **the** source of truth for the version. After the merge tri
    there is no sanctioned local `gh` invocation documented for Linux here.
 2. Update **both** `pyproject.toml` (`version = "X.Y.Z"`, line ~7) and
    `src/open_garden_planner/__init__.py` (`__version__ = "X.Y.Z"`, line ~8) to match.
-3. Also update the `CLAUDE.md` progress table / roadmap status in the same commit.
+3. Also replace the current-release line in `AGENTS.md`/`CLAUDE.md` and the roadmap's completed row; do not append a narrative.
 4. Commit as `chore: sync version to vX.Y.Z after US-X.X PR #NNN` and merge its reviewed chore PR —
    the `chore:` prefix is load-bearing (section 2.2).
 

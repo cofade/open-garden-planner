@@ -116,18 +116,17 @@ Multiple rounds are **normal, not failure**:
 
 - **#213 / PR #217**: three senior-review rounds; the P0 was caught in round 2 — the species
   resize kept the visual centre fixed but not `transformOriginPoint`, so a *rotated* plant
-  saved displaced geometry. Round 1 had passed the unrotated case green. (AGENTS.md progress
-  table + §11.4.)
+  saved displaced geometry. Round 1 had passed the unrotated case green. (§11.4 '#213' entry.)
 - **PR #236 (US-C4 smart symbols)**: three senior-review rounds, each catching a new
   exception family escaping a too-narrow catch, until the structural fix landed. (§11.4.)
 - **#211 (undo/redo dirty-flag)**: the review found "the deeper rot" — ~30 direct
-  `_undo_stack.append` sites that the first fix silently un-dirtied. (AGENTS.md, §11.4.)
+  `_undo_stack.append` sites that the first fix silently un-dirtied. (§11.4.)
 
 **Refutation goes both ways — the reviewer is fallible and the primary source wins.**
 Case law — **#223 / PR**: a senior-review P1 claimed the constraints/properties panels would
 lose undo/redo coverage when moved off `can_undo/redo_changed`; it was **refuted by reading
 `commands.py`** — those signals are emitted unconditionally on every `undo()`/`redo()`, not
-only when the boolean flips (AGENTS.md #223 entry; §11.4 "#206 wiring" follow-up records the
+only when the boolean flips (§11.4 '#223' entry; its '#206 wiring' follow-up records the
 refutation). Rule: when a review finding contradicts your understanding, neither party is
 right by rank — the one who reads the actual code at the cited line wins. Answer a finding
 with a file:line citation or a fix, never with an argument from intent.
@@ -196,7 +195,7 @@ Every accepted change in this project traversed this pipeline; use it as the map
 7. **Draft PR** — every coding job ends with one; never a bare pushed branch.
 8. **Manual test (sovereign)** — may reject code, design, or the feature itself (§4).
 9. **Docs of record** — pitfall entry in `pitfalls/` (Rule, Pinned by, Source, Status), ADR or ADR addendum,
-   FR-* entry, roadmap completion note, debug-verbose case study. AGENTS.md: "all lessons
+   FR-* entry, roadmap completed row, debug-verbose case study. AGENTS.md: "all lessons
    learned MUST be documented." A result that isn't in the docs of record is not yet
    accepted — it is merely merged.
 10. **Adopted** — OR **documented retirement**.
@@ -222,7 +221,7 @@ Know the sources so you keep them open (deciding *which* to pursue is
   each escalation generalized into a rule, not just a patch.
 - **Dogfooding the CAD workflows**: Package A (relative/polar input, snap modes) and
   Package B — explicitly titled "closing the CAD precision gap" — exist because real
-  CAD-style use exposed precision gaps (AGENTS.md Phase 13 tables).
+  CAD-style use exposed precision gaps (the roadmap delivery index and ADR-020/021/022/023/024/025/026).
 - **User-owner priorities**: Package D's shape comes from a recorded planning session —
   ADR-033/034/036 and the package issues own the decisions.
 - **Pitfalls generalized into rules**: §11.4 entries ending in "Rule:" / "Lesson:" (the
@@ -326,7 +325,7 @@ Volatile facts date-stamped 2026-07-05 (repo at v1.23.0, Phases 1–13 Packages 
 complete). Re-verify the cited episodes before relying on them:
 `grep -rn "Closed (#218)\|losing game\|#169" docs/11-risks-and-technical-debt/` ·
 `grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/README.md` ·
-`grep -in "refuted by reading\|senior-review rounds\|P0 caught" AGENTS.md` ·
+`grep -rin "refuted by reading\|senior-review rounds\|P0 caught" docs/11-risks-and-technical-debt/` ·
 `grep -rn "issue #229" .agents/skills/finalize-us/SKILL.md` ·
 `sed -n '441,455p' docs/08-crosscutting-concepts/README.md` (§8.12.8 residuals) ·
 `ls tests/unit/test_agent_api_render_coordinate_frame.py` ·

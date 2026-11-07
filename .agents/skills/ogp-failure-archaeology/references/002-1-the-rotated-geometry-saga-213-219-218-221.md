@@ -5,7 +5,7 @@ as `pos + rect.center()` with rotation as a separate angle pivoting on the centr
 whole codebase silently relies on `transformOriginPoint == rect().center()`. Every
 chapter below is a different way that invariant got broken. Source: §11.4 (the #213
 follow-up block, "Closed (#219)", "Closed (#218)"), ADR-028, debug-verbose case study
-"rotated circle drag-resize" (2026-06-17), CLAUDE.md Phase-12-issue-work table.
+"rotated circle drag-resize" (2026-06-17), §11.4.
 
 **Chapter 1 — #213: assigning a species visibly changes nothing.**
 - Symptom: assigning a DB species to an existing generic plant didn't visibly resize it.

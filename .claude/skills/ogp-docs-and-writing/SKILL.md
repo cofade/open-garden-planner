@@ -106,8 +106,8 @@ approaches; changing established patterns; addressing non-obvious constraints.
 
 **Pre-merge doc checklist** (verify before any merge): arc42 docs updated, ADRs created
 if needed, glossary updated (terms **and** any new keyboard shortcut in §12.2), wiki
-sources validated and publication prepared (or flagged pending — see §1), roadmap status + "Docs updated on completion"
-table written, AGENTS.md progress table current, new keyboard shortcuts in glossary.
+sources validated and publication prepared (or flagged pending — see §1), the roadmap's completed row updated,
+the root handoff replaced, the wiki's current status updated, new keyboard shortcuts in glossary.
 
 Additional targets observed in practice (beyond the AGENTS.md tables):
 - Every non-trivial bug fix → **Case study** in `.claude/skills/debug-verbose/SKILL.md`
@@ -183,8 +183,8 @@ the ADR from the roadmap completion row and any related
 
 ### 3.3 Roadmap style (`docs/roadmap.md`)
 
-- Completed phases get `~~strikethrough~~` in the top phase table; US status tables use
-  `✅` rows: `| ✅ | C1 | One-line description — see FR-23 / ADR-029 |`.
+- Completed phases use plain `✅` rows in the top phase table; do not mix strikethrough and
+  bold styles. Completed US rows use `| ✅ | C1 | One-line description — see FR-23 / ADR-029 |`.
 - While a US is open, keep its description and acceptance criteria in the roadmap's
   "Current work" section. When it ships, replace the whole detail with one status row
   (ID, one-line scope, version/PR, ADR/FR link). Delete the design spec, acceptance

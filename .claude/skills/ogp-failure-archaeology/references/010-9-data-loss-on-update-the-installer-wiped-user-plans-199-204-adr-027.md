@@ -1,7 +1,7 @@
 ## 9. Data loss on update — the installer wiped user plans (#199/#204, ADR-027)
 
 Source: §11.4 ("Never default a file dialog into the install directory…"), ADR-027,
-CLAUDE.md issue table.
+§11.4.
 
 - Symptom: "all my gardens vanished after updating."
 - Two independent bugs that combined: (1) file dialogs called with `""` as directory open

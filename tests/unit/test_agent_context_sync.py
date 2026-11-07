@@ -97,9 +97,9 @@ def test_the_doc_budget_counts_the_bytes_on_disk(tmp_path: Path) -> None:
 def test_the_checked_in_documents_keep_headroom() -> None:
     """The root instructions must not ride the limit (#444's batch hit 5 bytes).
 
-    Both files are edited by every change ("add a pickup bullet"), and a gate that only
-    reports "over budget" once is discovered at the worst moment — on the dev box, with
-    a document whose tail a reader may already be truncating. So a real margin is
+    Both files are a rulebook plus a current handoff, and a gate that only reports
+    "over budget" once is discovered at the worst moment — on the dev box, with a
+    document whose tail a reader may already be truncating. So a real margin is
     required, not zero.
     """
     from scripts.check_agent_context import _configured_doc_max_bytes

@@ -71,7 +71,7 @@ behavior differences are common.
 5. Land the fact as (a) a pinned test where feasible, and (b) a dated note in the ADR/§
    with the words "empirically verified" — so the next person knows it wasn't guessed.
 
-**Worked example (US-D1.3, mcp 1.28.1 — §8.19 + ADR-034 addendum, CLAUDE.md D1.3 row):**
+**Worked example (US-D1.3, mcp 1.28.1 — §8.19 + ADR-034 addendum, ADR-034 addendum / FR-AGENT-09):**
 Two facts were established by experiment, not assumption:
 - `Image` (from `mcp.server.fastmcp.utilities.types`) is not pydantic-representable, so
   the natural `-> list[Image | RenderMeta]` annotation **crashes `build_server()` at
@@ -188,7 +188,7 @@ scene programmatically — no UI, no human timing — and print per-step numbers
 4. Convert the decisive trace into either a fix + pinned test, or a documented
    refutation.
 
-**Worked example (#218 — §11.4 "Closed (#218)" entry, CLAUDE.md #218 row):** the
+**Worked example (#218 — §11.4 "Closed (#218)" entry, §11.4 '#218' entry):** the
 theory was "the rotated resize needs a re-anchor post-correction." A headless trace
 showed the **radius stuck at 50 through an (80,80) drag** — at 45° the diagonal drag
 projects onto one local axis (`local_dy ≈ 0`), so `min(width, height)` selected the
@@ -327,12 +327,12 @@ false claim creates real churn.
    fires only when the boolean flips, not on every undo").
 2. Read the defining code path end-to-end (the emit sites, not the connect sites).
 3. If refuted: respond with file+line evidence, don't change the code, and record the
-   refutation where the next person will look (CLAUDE.md row / PR thread).
+   refutation where the next person will look (the ADR/FR or PR thread).
 4. If confirmed: proceed — and thank the reviewer with the same evidence.
 5. Symmetry check: apply this to *your own* recalled claims too, before writing them
    into docs.
 
-**Worked example (#223 — CLAUDE.md #223 row, verified):** a senior-review P1 claimed
+**Worked example (#223 — §11.4 '#223' entry, verified):** a senior-review P1 claimed
 the constraints/properties-panel rewiring changed behavior because
 `can_undo/redo_changed` doesn't fire unconditionally on undo/redo. Reading
 `core/commands.py` showed the signals **already fired unconditionally on every
@@ -431,7 +431,7 @@ Re-verify with:
 - Method 5: `grep -n "9\*\*9\*\*9\|RecursionError" docs/11-risks-and-technical-debt/README.md` and `grep -n "_MAX_NODES" src/open_garden_planner/core/parametric_eval.py`
 - Method 6: `grep -n "sub-pixel\|1e-4" docs/11-risks-and-technical-debt/README.md` and `grep -n "1e-3\|1.0 cm" docs/08-crosscutting-concepts/README.md`
 - Method 7: `grep -n "110 ms\|THE CULPRIT" .claude/skills/debug-verbose/SKILL.md`
-- Method 8: `grep -n "refuted by reading" CLAUDE.md`
+- Method 8: `grep -rn "refuted by reading" docs/11-risks-and-technical-debt/`
 - Method 9: `grep -n "parametrize" tests/integration/test_bed_context_menu.py tests/integration/test_rotation_aware_resize.py`
 
 If any command comes back empty, the underlying fact moved or changed — re-verify the

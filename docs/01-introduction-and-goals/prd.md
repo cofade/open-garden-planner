@@ -26,5 +26,5 @@ All documentation lives in the [`docs/`](docs/) directory:
 | Document | Description |
 |----------|-------------|
 | [Functional Requirements](docs/functional-requirements.md) | All FR-* requirements (canvas, drawing, plants, export, UI) |
-| [Development Roadmap](docs/roadmap.md) | Current work, phase status and delivery index |
+| [Development Roadmap](../roadmap.md) | Current work, phase status and delivery index |
 | [Plant API Setup](docs/03-context-and-scope/PLANT_API_SETUP.md) | How to configure plant database API keys |

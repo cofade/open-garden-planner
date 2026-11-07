@@ -1,7 +1,7 @@
 ## 5. Task dual-store convergence (#227 → #228)
 
 Source: §11.4 ("Closed (#228)…", "Two surfaces that share a status store…"), ADR-029 +
-addendum, CLAUDE.md C2/#230 rows.
+addendum, ADR-029 addendum / FR-21.
 
 - Original design (US-C2): "is this task done" lived in **two** stores — legacy
   `task_completions` (calendar dashboard) and new `task_states` (Tasks tab) — with a

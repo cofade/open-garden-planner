@@ -235,7 +235,7 @@ Facts verified 2026-07-05 against v1.23.0. Re-verify volatile facts before publi
 - Weather provider: `grep -n 'URL\|api\.' src/open_garden_planner/services/weather_service.py | head -5`
 - Plant API chain/terms: `sed -n '1,15p;140,150p' docs/03-context-and-scope/PLANT_API_SETUP.md`
 - Google Maps key rules: `grep -n -A5 '8.15' docs/08-crosscutting-concepts/README.md | head -30`
-- MCP shipped surface (claim ceiling): `grep -n 'D1\.\|D2' AGENTS.md | head` and `ls src/open_garden_planner/agent_api/`
+- MCP shipped surface (claim ceiling): `grep -n 'FR-AGENT' docs/functional-requirements.md | head` and `ls src/open_garden_planner/agent_api/`
 - Unsigned/SmartScreen risk: `grep -rn -i 'smartscreen\|signing\|attestation' docs/11-risks-and-technical-debt/README.md`
 - Release/checksum ownership: `grep -n -i 'SHA256\|release' docs/07-deployment-view/README.md | head`
 - README drift check: `grep -n 'Phases\|Status' README.md` (fix staleness when touched)

@@ -1,6 +1,6 @@
 ## 7. Smart-symbol exception-family enumeration — the losing game (PR #236)
 
-Source: §11.4 (first entry), CLAUDE.md C4 row. Found over **three** senior-review rounds.
+Source: §11.4 (first entry), FR-31 / §8.18. Found over **three** senior-review rounds.
 
 - Contract: a bad user-dropped JSON in `<app-data>/smart_symbols/` must never crash the app.
 - The losing game: first enforced with `except (OSError, JSONDecodeError, ValueError)`.

@@ -1,6 +1,6 @@
 ## 10. i18n incidents — hardcoded strings and mojibake
 
-Source: §11.4 (two entries) + CLAUDE.md Translation section.
+Source: §11.4 (two entries) + §8.3.
 
 - **Hardcoded-English class** (the gate's mechanics/blind-spot are owned by
   `ogp-diagnostics-and-tooling` §1.2/1.3 — in one line: the gate only checks
