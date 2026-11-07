@@ -99,7 +99,7 @@ garden planner with…", never "the first" flat.
 | Read-only MCP surface: `get_plan_summary`, `list_objects`, `get_object`, `get_geometry`, spatial tools, `get_diagnostics`, `render_canvas_image` | US-D1.1–D1.3 and D2.6 geometry read shipped; integration tests incl. real MCP client end-to-end. `get_geometry` reports current live scene-frame vertices, not raw serializer points. |
 | Optional token-gated MCP editing: create/move/set-position/resize/rotate/delete, species/bed links, layers, stacking, polygon/polyline vertex edits, global undo/redo | US-D2.0–D2.6 (ADR-036, FR-AGENT-13–21); the tools appear only when editing is enabled and a token is configured, and every call rechecks the token. Constrained geometry remains permanently refused; do not imply solver-backed edits. |
 | Loopback-only, read-only, disable-able in Settings | ADR-033 (bound 127.0.0.1; Settings toggle) |
-| cm-precision canvas, snap engine, bezier/arc/fillet, DXF import/export, satellite calibration | Phases 1–13 Packages A/B per roadmap/CLAUDE.md, each with tests |
+| cm-precision canvas, snap engine, bezier/arc/fillet, DXF import/export, satellite calibration | Phases 1–13 Packages A/B per the roadmap's delivery index, each with tests |
 
 **MUST NOT be claimed until shipped (do not let these leak into README/releases/replies):**
 
@@ -201,7 +201,7 @@ Any published number — accuracy, performance, comparison against another tool 
 
 - **Contribution channels** (README, verified): GitHub Discussions for questions/ideas,
   Issues for bugs/confirmed tasks *and* as the ready-to-pick work list, `docs/roadmap.md`
-  plus its wiki mirror for what is planned next. **Do not point contributors at the
+  plus its wiki mirror for current work and delivery status. **Do not point contributors at the
   project board** — its auto-add automation was removed in #293 and the board has been
   frozen at issue #161 since 2026-04-18; sending newcomers to a stale board is an
   oversell of the project's activity.
@@ -235,7 +235,7 @@ Facts verified 2026-07-05 against v1.23.0. Re-verify volatile facts before publi
 - Weather provider: `grep -n 'URL\|api\.' src/open_garden_planner/services/weather_service.py | head -5`
 - Plant API chain/terms: `sed -n '1,15p;140,150p' docs/03-context-and-scope/PLANT_API_SETUP.md`
 - Google Maps key rules: `grep -n -A5 '8.15' docs/08-crosscutting-concepts/README.md | head -30`
-- MCP shipped surface (claim ceiling): `grep -n 'D1\.\|D2' CLAUDE.md | head` and `ls src/open_garden_planner/agent_api/`
+- MCP shipped surface (claim ceiling): `grep -n 'FR-AGENT' docs/functional-requirements.md | head` and `ls src/open_garden_planner/agent_api/`
 - Unsigned/SmartScreen risk: `grep -rn -i 'smartscreen\|signing\|attestation' docs/11-risks-and-technical-debt/README.md`
 - Release/checksum ownership: `grep -n -i 'SHA256\|release' docs/07-deployment-view/README.md | head`
 - README drift check: `grep -n 'Phases\|Status' README.md` (fix staleness when touched)

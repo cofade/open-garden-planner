@@ -35,7 +35,7 @@ For each unique issue number, fetch it:
 & "C:\Program Files\GitHub CLI\gh.exe" issue view <M> --json title,body,state,labels,url
 ```
 
-If the PR closes no GitHub issues but references roadmap items (e.g. "US-X.X" or "Package B"), find the corresponding section in `docs/roadmap.md` so the acceptance criteria feed into Phase 4.
+If the PR closes no GitHub issues but references roadmap items (e.g. "US-X.X" or "Package B"), find the corresponding issue or FR entry so the acceptance criteria feed into Phase 4; the roadmap keeps only current work and a one-line delivery index.
 
 ---
 
@@ -121,7 +121,7 @@ Carry the wording over verbatim — the author already chose words that make sen
 
 ### 4b. Per-US / per-feature acceptance walkthroughs
 
-For each user story / feature listed in the PR body, derive a tight walkthrough from the **acceptance criteria** in `docs/roadmap.md` (or `docs/functional-requirements.md` for FR-* entries). Include:
+For each user story / feature listed in the PR body, derive a tight walkthrough from the **acceptance criteria** in the issue, the roadmap's current-work section while open, or `docs/functional-requirements.md` for FR-* entries. Include:
 
 - the **shortcut / menu path** to trigger the feature
 - the **golden path** (do X → see Y)

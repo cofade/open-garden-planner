@@ -29,7 +29,7 @@ Read the canonical source first, then the compact delivery aid:
 - `gh issue list --state open` and each candidate's full `gh issue view <n>` — the real source
   for scope, status, dependencies and the decisions an issue is waiting on. **The issue tracker
   is the only work list**; the project-board automation was deleted in #293.
-- `docs/roadmap.md` — package order, phasing tables and acceptance criteria only.
+- `docs/roadmap.md` — current work, phase status and the one-line delivery index.
 - merged PRs and `git log` — delivery history, used to verify work is actually on `master`.
 
 **Packages are identified by convention, not by GitHub structure.** This repo does **not** use
@@ -68,9 +68,8 @@ Prefer, in order:
 
 1. The package on the **stated critical path** in `docs/roadmap.md` or the epic body, unless
    step 1 just invalidated it.
-2. A package whose blockers are now resolved — recheck, the note may be stale (Package D's own
-   "token auth deferred" note at `docs/roadmap.md:2439` is still there, many releases after the
-   token auth actually shipped in D2.0).
+2. A package whose blockers are now resolved — recheck the issue and the roadmap row; a stale
+   note can survive many releases after the blocker actually shipped.
 3. A package whose issues form a real dependency chain, so shipping them together is cheaper
    than shipping them apart.
 
@@ -214,13 +213,14 @@ that only confirmed what you already believed was not worth the electricity.
 The matrix is in `AGENTS.md` and `ogp-docs-and-writing`; follow it. Four items are easy to forget
 at package scale and are checked here because every recent package PR owed all four:
 
-- **`docs/roadmap.md`** — add or complete the package's US rows. Update repository wiki
-  sources in `docs/wiki/` and validate with `scripts/sync_wiki.py --check` (ADR-051).
-  The published Roadmap is a pointer, not a second tracker. Reconcile direct wiki edits
-  before copying pages; publish only after owner approval and protected merge.
-- **`CLAUDE.md` + `AGENTS.md` "Where to Pick Up After Restart"** — update both, in the same
-  commit, then run `scripts/check_agent_context.py`. That gate is meaningless if the content it
-  compares is stale in both copies.
+- **`docs/roadmap.md`** — complete the package's US row and delete its design detail; the
+  code, tests, ADR/FR and issue are the record. Update repository wiki sources in
+  `docs/wiki/` and validate with `scripts/sync_wiki.py --check` (ADR-051). The published
+  Roadmap is a pointer, not a second tracker. Reconcile direct wiki edits before copying
+  pages; publish only after owner approval and protected merge.
+- **`CLAUDE.md` + `AGENTS.md` "Where to Pick Up After Restart"** — replace the current
+  handoff (release + next work), do not append a release narrative; update both in the
+  same commit, then run `scripts/check_agent_context.py`.
 - **A `debug-verbose` case study in both skill libraries** whenever the package fixed a
   non-obvious bug (symptom → wrong theories → key evidence → root cause → lesson), per
   `AGENTS.md`'s debugging section.

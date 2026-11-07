@@ -7,11 +7,8 @@ from scripts.check_agent_context import _normalise_shared_text, check_repo
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: Bytes the root instructions must leave unused out of the Codex project-doc budget.
-#: The files are edited by every change (each one adds a pickup bullet), so this is a
-#: real budget decision, not a zero: the pre-v1.30 pickup history was moved to
-#: ``docs/agent-pickup-history.md`` on 2026-10-27 to buy the margin, and this floor is
-#: what the next half-dozen pickup entries (about 1.1 KB each) may spend before the
-#: oldest entries move again.
+#: The handoff is replaced on each release, not appended, so this floor is headroom for
+#: binding rules and a current release pointer rather than a history buffer.
 MIN_CONTEXT_HEADROOM_BYTES = 8192
 
 
@@ -100,9 +97,9 @@ def test_the_doc_budget_counts_the_bytes_on_disk(tmp_path: Path) -> None:
 def test_the_checked_in_documents_keep_headroom() -> None:
     """The root instructions must not ride the limit (#444's batch hit 5 bytes).
 
-    Both files are edited by every change ("add a pickup bullet"), and a gate that only
-    reports "over budget" once is discovered at the worst moment — on the dev box, with
-    a document whose tail a reader may already be truncating. So a real margin is
+    Both files are a rulebook plus a current handoff, and a gate that only reports
+    "over budget" once is discovered at the worst moment — on the dev box, with a
+    document whose tail a reader may already be truncating. So a real margin is
     required, not zero.
     """
     from scripts.check_agent_context import _configured_doc_max_bytes

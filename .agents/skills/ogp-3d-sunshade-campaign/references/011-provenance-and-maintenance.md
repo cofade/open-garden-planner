@@ -5,7 +5,7 @@ re-verified 2026-07-19 at v1.24.3 (ADR numbering corrected to 037/038, all
 other facts held). One-line re-verification commands (run from repo root):
 
 - Solar oracle still green: `python3 .agents/skills/ogp-3d-sunshade-campaign/scripts/solar_reference.py --quiet; echo $?` → expect final `RESULT: ALL CHECKS PASSED`, exit 0.
-- Phase 14 roadmap section: `grep -n "Phase 14" docs/roadmap.md` → line ~2447.
+- Phase 14 roadmap section: `grep -n "Phase 14" docs/roadmap.md`.
 - Qt3D open question still open: `grep -n "Qt3D" docs/11-risks-and-technical-debt/README.md` → line ~10 (delete the Phase 5 spike if this row is closed by an ADR).
 - Location dict: `grep -n "latitude, longitude, elevation_m" src/open_garden_planner/core/project.py` → ~line 747.
 - FILE_VERSION: `grep -n "FILE_VERSION" src/open_garden_planner/core/project.py` → `"1.4"` (if higher, re-read the bumping ADR before trusting the additive-metadata rules).

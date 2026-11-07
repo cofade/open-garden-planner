@@ -24,7 +24,7 @@ pest log missed Polygon/Ellipse, succession missed three of four. Fix: central
 `build_bed_context_menu` + `dispatch_bed_action` (ADR-017, §8.14) gated by the
 parametrised `tests/integration/test_bed_context_menu.py` — adding a bed feature means
 adding one assert line per shape there. Closed; read §8.14 + ADR-017 BEFORE adding any
-bed feature (CLAUDE.md says the same).
+bed feature (§8.14 / ADR-017 says the same).
 
 **24 — `max()` is left-biased on ties** (US-12.10/F2.10a, debug-verbose case study):
 `SoilTestHistory.latest = max(records, key=r.date)` returned the *first* same-day
@@ -63,7 +63,7 @@ the status-bar startup reminder invisible behind the modal Welcome dialog → pe
 `tests/integration/test_tasks.py::TestOverdueReminderBar`); shopping-list price ids must
 encode the display unit (g vs kg) or a price silently multiplies 1000×; trellis gallery
 thumbnails fell through to the round fallback because a SOLID fill has no texture
-(PR #236 manual-test fix, CLAUDE.md C3 row).
+(PR #236 manual-test fix, ADR-029 addendum / FR-21).
 
 ---
 

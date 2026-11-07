@@ -4,7 +4,7 @@
 
 Repo state when written: v1.23.0, 2026-07-03, default branch `master`, history is
 squash-merged PRs. Sources: the pitfall entries in `docs/11-risks-and-technical-debt/pitfalls/` (their index is
-§11.4 of the chapter README; the narratives are in `archive/`; the richest), `CLAUDE.md` progress tables, `.claude/skills/debug-verbose/SKILL.md` case
+§11.4 of the chapter README; the narratives are in `archive/`; the richest), the roadmap delivery index, `.claude/skills/debug-verbose/SKILL.md` case
 studies, `docs/roadmap.md`, `docs/09-architecture-decisions/README.md`, `git log`.
 Every "pinned by" test file was verified to exist on disk on 2026-07-03.
 

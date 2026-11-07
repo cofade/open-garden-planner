@@ -32,6 +32,10 @@ When dependencies require a combined PR, explain why and list per-slice evidence
 <!-- Identify updated docs/wiki sources. For application strings, record translation checks.
 Use "not applicable" with a reason if this change adds no display strings. -->
 
+<!-- Documentation lifecycle: root instructions are rules + current handoff; the roadmap is
+current work + a compact completed index. If this PR adds shipped-work narrative to either,
+explain why it cannot live in the release/ADR/issue. The default is no. -->
+
 ## Manual review checklist
 
 <!-- Provide concrete actions and expected results for the owner.

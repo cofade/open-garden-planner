@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "202e5f6be6230561e2ecd6b264f6dd5a48a83c7a979cf371a9664294f4b02fb8"
+          "current_sha256": "3cefbfa77537e18d00508658eee6c0cfd2f5b8b65e7d86365e3b3f169961da28"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -983,7 +983,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
           "sha256": "9a6474d94c6ec40a07dc3197a072317b6d8517c52d1371eff1a42811610746fc",
-          "current_sha256": "9a6474d94c6ec40a07dc3197a072317b6d8517c52d1371eff1a42811610746fc"
+          "current_sha256": "b588f7f654231daf340bb7e91aa8ca6ae1d5fa22ec450c0e83f978a21ed3c45e"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/004-3-phase-1-solar-position-engine-core-solar-py-to-build.md",
@@ -1023,7 +1023,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
           "sha256": "04083922a474e53c489c359148e686be294a3a025d8f3b98515863b9a18326b1",
-          "current_sha256": "04083922a474e53c489c359148e686be294a3a025d8f3b98515863b9a18326b1"
+          "current_sha256": "7b7f1195c00575fbdcd2d6a769a81c07630c30930aaf91a3b5d1d0efcba999f6"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md",
@@ -1158,7 +1158,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
           "sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd",
-          "current_sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd"
+          "current_sha256": "a08610ee8b060d8f76b1525becda4f5e8c5312e837e031d0018b7e1fc458c0e1"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/001-index-scan-this-first.md",
@@ -1168,12 +1168,12 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/002-1-the-rotated-geometry-saga-213-219-218-221.md",
           "sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684",
-          "current_sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684"
+          "current_sha256": "be342312cd3422948fd681b6054adcb6af3265b099c4081cb47c1d2172060cad"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/003-2-the-panel-rebuild-saga-200-206-222-223-225.md",
           "sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0",
-          "current_sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0"
+          "current_sha256": "39436b95a599fb51eaf67388254d565cc5adf66461fea56c663304e2cc6231d8"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/004-3-undo-redo-data-loss-the-two-chokepoint-invariant-209-211.md",
@@ -1188,7 +1188,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
           "sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3",
-          "current_sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3"
+          "current_sha256": "5385ab2b6b48a5de798bf40728c00031c21ad059650acbcaf0e3a53f74add7d3"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/007-6-find-plants-selection-flakiness-two-rounds-212-215.md",
@@ -1198,7 +1198,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
           "sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7",
-          "current_sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7"
+          "current_sha256": "ea378adf4be9db591741375bb762ca1aa975b0d9110882d762e57559a4f429d9"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/009-8-release-workflow-races-chore-race-229-date-matching.md",
@@ -1208,12 +1208,12 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/010-9-data-loss-on-update-the-installer-wiped-user-plans-199-204-adr-027.md",
           "sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f",
-          "current_sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f"
+          "current_sha256": "6574f22fda08ced9854de188659cff8fc844d533874cc78805a9fa84006a48db"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/011-10-i18n-incidents-hardcoded-strings-and-mojibake.md",
           "sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26",
-          "current_sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26"
+          "current_sha256": "a4073e681bb3dba302f2e4b62df5aa089d121d1fbeddd24637727ac52d5dbe6a"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/012-11-ci-only-teardown-crashes-230-pr-235.md",
@@ -1223,12 +1223,12 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/013-12-agent-api-render-tool-d1-3-pr-242-layers-fix-two-empirical-mcp-facts.md",
           "sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713",
-          "current_sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713"
+          "current_sha256": "20dc14b09f959a996e506232fe894b59d200baccd1583b2004ab256cd920d7d7"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
           "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
-          "current_sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849"
+          "current_sha256": "4bdc1f12e3c77255ae643c230fcc41dd6e6b4987b841c0968df2f6752000c11c"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
@@ -1273,12 +1273,12 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
           "sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a",
-          "current_sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a"
+          "current_sha256": "c6e74e3390ea836e8fdfd869d9bfd2e7d7d796e203abbbe075e7cea6330d0841"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
           "sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d",
-          "current_sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d"
+          "current_sha256": "3d6ba00032ea388c19f9ae6dfcb6964f9d83a3090333fcc1351152d4a39ec338"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/025-when-not-to-use-this-skill.md",
@@ -1288,7 +1288,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
           "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
-          "current_sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19"
+          "current_sha256": "7923793ee9c1b77b8cf8d4625985913679d5f1c6e3a85f4a18c217bf657d0607"
         }
       ]
     },
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "202e5f6be6230561e2ecd6b264f6dd5a48a83c7a979cf371a9664294f4b02fb8"
+          "current_sha256": "3cefbfa77537e18d00508658eee6c0cfd2f5b8b65e7d86365e3b3f169961da28"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -2383,7 +2383,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
           "sha256": "02fe0af3503cd454609a31e861d503bad8616e1a1c04ed9c006bdf16b5d5c226",
-          "current_sha256": "02fe0af3503cd454609a31e861d503bad8616e1a1c04ed9c006bdf16b5d5c226"
+          "current_sha256": "9922f19bd3ef47e8f1a21c6ca6257c85f24b234e02928e807a686c8497734ad3"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/004-3-phase-1-solar-position-engine-core-solar-py-to-build.md",
@@ -2423,7 +2423,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
           "sha256": "a75ba20199b6bb58d898ce4048786e4db2863281db66dbe00e9db3255c0223bb",
-          "current_sha256": "a75ba20199b6bb58d898ce4048786e4db2863281db66dbe00e9db3255c0223bb"
+          "current_sha256": "467fc742a72dd2ffc8e9cfffdf4deb45313437943a9ee7bb73a21e1f7fbcff42"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md",
@@ -2558,7 +2558,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
           "sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd",
-          "current_sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd"
+          "current_sha256": "a08610ee8b060d8f76b1525becda4f5e8c5312e837e031d0018b7e1fc458c0e1"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/001-index-scan-this-first.md",
@@ -2568,12 +2568,12 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/002-1-the-rotated-geometry-saga-213-219-218-221.md",
           "sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684",
-          "current_sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684"
+          "current_sha256": "be342312cd3422948fd681b6054adcb6af3265b099c4081cb47c1d2172060cad"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/003-2-the-panel-rebuild-saga-200-206-222-223-225.md",
           "sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0",
-          "current_sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0"
+          "current_sha256": "39436b95a599fb51eaf67388254d565cc5adf66461fea56c663304e2cc6231d8"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/004-3-undo-redo-data-loss-the-two-chokepoint-invariant-209-211.md",
@@ -2588,7 +2588,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
           "sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3",
-          "current_sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3"
+          "current_sha256": "5385ab2b6b48a5de798bf40728c00031c21ad059650acbcaf0e3a53f74add7d3"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/007-6-find-plants-selection-flakiness-two-rounds-212-215.md",
@@ -2598,7 +2598,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
           "sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7",
-          "current_sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7"
+          "current_sha256": "ea378adf4be9db591741375bb762ca1aa975b0d9110882d762e57559a4f429d9"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/009-8-release-workflow-races-chore-race-229-date-matching.md",
@@ -2608,12 +2608,12 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/010-9-data-loss-on-update-the-installer-wiped-user-plans-199-204-adr-027.md",
           "sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f",
-          "current_sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f"
+          "current_sha256": "6574f22fda08ced9854de188659cff8fc844d533874cc78805a9fa84006a48db"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/011-10-i18n-incidents-hardcoded-strings-and-mojibake.md",
           "sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26",
-          "current_sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26"
+          "current_sha256": "a4073e681bb3dba302f2e4b62df5aa089d121d1fbeddd24637727ac52d5dbe6a"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/012-11-ci-only-teardown-crashes-230-pr-235.md",
@@ -2623,12 +2623,12 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/013-12-agent-api-render-tool-d1-3-pr-242-layers-fix-two-empirical-mcp-facts.md",
           "sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713",
-          "current_sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713"
+          "current_sha256": "20dc14b09f959a996e506232fe894b59d200baccd1583b2004ab256cd920d7d7"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
           "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
-          "current_sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849"
+          "current_sha256": "4bdc1f12e3c77255ae643c230fcc41dd6e6b4987b841c0968df2f6752000c11c"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
@@ -2673,12 +2673,12 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
           "sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a",
-          "current_sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a"
+          "current_sha256": "c6e74e3390ea836e8fdfd869d9bfd2e7d7d796e203abbbe075e7cea6330d0841"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
           "sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d",
-          "current_sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d"
+          "current_sha256": "3d6ba00032ea388c19f9ae6dfcb6964f9d83a3090333fcc1351152d4a39ec338"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/025-when-not-to-use-this-skill.md",
@@ -2688,7 +2688,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
           "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
-          "current_sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19"
+          "current_sha256": "7923793ee9c1b77b8cf8d4625985913679d5f1c6e3a85f4a18c217bf657d0607"
         }
       ]
     },
@@ -2926,6 +2926,41 @@
         ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
         ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
         ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md"
+      ]
+    },
+    {
+      "reason": "ADR-074 documentation restructure replaces roadmap line references with ADR/FR/issue pointers in the 3D campaign and failure-archaeology references; original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
+        ".agents/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
+        ".agents/skills/ogp-failure-archaeology/references/002-1-the-rotated-geometry-saga-213-219-218-221.md",
+        ".agents/skills/ogp-failure-archaeology/references/003-2-the-panel-rebuild-saga-200-206-222-223-225.md",
+        ".agents/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
+        ".agents/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
+        ".agents/skills/ogp-failure-archaeology/references/010-9-data-loss-on-update-the-installer-wiped-user-plans-199-204-adr-027.md",
+        ".agents/skills/ogp-failure-archaeology/references/011-10-i18n-incidents-hardcoded-strings-and-mojibake.md",
+        ".agents/skills/ogp-failure-archaeology/references/013-12-agent-api-render-tool-d1-3-pr-242-layers-fix-two-empirical-mcp-facts.md",
+        ".agents/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
+        ".agents/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
+        ".agents/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
+        ".agents/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
+        ".claude/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
+        ".claude/skills/ogp-failure-archaeology/references/002-1-the-rotated-geometry-saga-213-219-218-221.md",
+        ".claude/skills/ogp-failure-archaeology/references/003-2-the-panel-rebuild-saga-200-206-222-223-225.md",
+        ".claude/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
+        ".claude/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
+        ".claude/skills/ogp-failure-archaeology/references/010-9-data-loss-on-update-the-installer-wiped-user-plans-199-204-adr-027.md",
+        ".claude/skills/ogp-failure-archaeology/references/011-10-i18n-incidents-hardcoded-strings-and-mojibake.md",
+        ".claude/skills/ogp-failure-archaeology/references/013-12-agent-api-render-tool-d1-3-pr-242-layers-fix-two-empirical-mcp-facts.md",
+        ".claude/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
+        ".claude/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
+        ".claude/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
+        ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md"
       ]
     }
   ]

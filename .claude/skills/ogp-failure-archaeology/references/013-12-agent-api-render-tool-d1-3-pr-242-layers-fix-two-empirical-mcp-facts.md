@@ -1,6 +1,6 @@
 ## 12. Agent API render tool (D1.3, PR #242) — layers fix + two empirical mcp facts
 
-Source: CLAUDE.md D1.3 row, docs §8.19, ADR-034 addendum.
+Source: ADR-034 addendum / FR-AGENT-09, docs §8.19, ADR-034 addendum.
 
 - **Manual-test fix**: `render_canvas_image`'s `layers` parameter was originally
   *subtractive-only* — it could hide layers but never show one the user had toggled off

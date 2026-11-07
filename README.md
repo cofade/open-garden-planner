@@ -161,11 +161,10 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 ## Status
 
-**Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling and garden
-smart features are complete; the embedded AI Agent Integration's read/export and
-token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is complete through L7 (package L1 replaced the Qt 3D window with the Qt Quick 3D view beside the plan in v1.30.14, L2 added Analyze in 3D in v1.31.0, L3 added the Plant Forge in v1.32.0, L4 completed the built world — objects, roofs, facades, surfaces and ground detail — in v1.34.0, and L5 brought the living garden — day and year playback, weather, falling rain, snow and leaves, butterflies and fireflies, Today's Weather and garden lights — in v1.35.0; L7 moved the app to Qt 6.12 and added an optional atmosphere sky with clouds in v1.36.0; L6 added photo mode, camera tours and video in v1.37.0, and its capture-session follow-ups — photo focus, tour clock/file safety, and the DST-smooth year tour — shipped in v1.37.2 (PR #750), and the capture-quality and L6-hygiene follow-ups in v1.37.6 (PR #759)). Package F is complete: F5 offline examples and portable templates shipped in v1.33.0 after owner acceptance (PR #610). See the
-[Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
-table and current version.
+**Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling, garden smart
+features, Agent Integration, Phase 17 Living Garden 3D through L7, and Package F are
+complete. See the [Development Roadmap](docs/roadmap.md) for current work and delivery
+status; [open issues](https://github.com/cofade/open-garden-planner/issues) own the work list.
 
 ## Documentation
 
@@ -177,14 +176,14 @@ Project documentation follows the [arc42](https://arc42.org/) architecture templ
 | [Functional Requirements](docs/functional-requirements.md) | Detailed requirements specification |
 | [Solution Strategy](docs/04-solution-strategy/) | Technology choices and design decisions |
 | [Building Block View](docs/05-building-block-view/) | Architecture and module structure |
-| [Development Roadmap](docs/roadmap.md) | Phases, user stories, progress tracking |
+| [Development Roadmap](docs/roadmap.md) | Current work, phase status and delivery index |
 | [All Documentation](docs/01-introduction-and-goals/prd.md) | Documentation index |
 
 ## Community
 
 - **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** — questions, ideas, feature requests, and general chat
 - **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** — bug reports and confirmed tasks; this is the authoritative list of open work
-- **[Roadmap](docs/roadmap.md)** — phases, user stories, and what is planned next
+- **[Roadmap](docs/roadmap.md)** — current work and delivery status
 
 ## Contributing
 
@@ -193,7 +192,7 @@ See the [Code of Conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md), a
 
 We welcome contributions! This project aims to be technically clean and attractive for both users and contributors.
 
-- Read the [Roadmap](docs/roadmap.md) and [Architecture](docs/05-building-block-view/) to understand the vision
+- Read the [Roadmap](docs/roadmap.md) for current work and status, and the [Architecture](docs/05-building-block-view/) to understand the vision
 - Browse the **[Issue Tracker](https://github.com/cofade/open-garden-planner/issues)** for ready-to-pick work items — anything open and unassigned is fair game
 - Join **[GitHub Discussions](https://github.com/cofade/open-garden-planner/discussions)** if you have questions or ideas before opening a PR
 - PRs must pass CI: tests, full-tree linting, security/secrets scans, context parity, locked dependency checks and per-file type baselines. Coverage reports enforce measured package line floors. See [quality requirements](docs/10-quality-requirements/).

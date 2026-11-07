@@ -24,7 +24,7 @@
   separate barrier — the Host/Origin (DNS-rebinding) guard, now configured
   explicitly by OGP rather than inherited from the SDK (#396, ADR-033 addendum).
   Do not read "token auth shipped" as "the Agent API is authenticated".
-- **Smart Symbols UI deferred** (CLAUDE.md C4 row): the sidebar panel ships hidden
+- **Smart Symbols UI deferred** (FR-31 / §8.18): the sidebar panel ships hidden
   (`set_panel_visible("smart_symbols", False)` in `application.py`); engine,
   persistence, DXF export, and properties editing are live and tested. The hidden panel
   is intentional, not dead code.

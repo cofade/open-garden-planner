@@ -77,15 +77,15 @@ demonstrate.
   boundary is **write-ready**: "later edit tools route through it identically."
 - A mature command architecture with the two-chokepoint invariant (exactly two
   ways onto the undo stack: `CommandManager.execute()` and
-  `register_applied()`, both dirty the document — see CLAUDE.md #209/#211 and
+  `register_applied()`, both dirty the document — see §11.4 #209/#211 and
   `docs/08-crosscutting-concepts/` §8.2). One agent op → one `execute()` → one
   undo step falls out of existing machinery; no new transaction system needed.
 - `agent_api/providers.py` — the `AgentProviders` dataclass is the documented
   extension seam for write providers (ADR-034 addendum: "the extension seam
   for render (D1.3), exports/save (D1.4) and writes (D2)").
-- The design-decision table in `docs/roadmap.md` (Phase 13 Package D, ~line
-  2387) already commits the contract: writes are "auto-apply, **fully
-  undoable** — one undo step per agent operation."
+- The Phase 13 Package D row in `docs/roadmap.md` and ADR-036 commit the
+  contract: writes are "auto-apply, **fully undoable** — one undo step per
+  agent operation."
 
 ### The non-negotiable prerequisite — do not route around it
 
@@ -241,7 +241,7 @@ evaluator — but zero ecosystem around it.
   schema artifact is candidate work, not an existing asset.
 - The panel is hidden by one line: `fact:smart-symbol-panel-hidden` (exact source in `quality/skill-facts.json`).
   Persistence, properties editing, and DXF BLOCK/INSERT export all
-  ship and are tested (CLAUDE.md US-C4 entry) — unhiding is a UI decision,
+  ship and are tested (FR-31 / §8.18) — unhiding is a UI decision,
   not an engineering lift.
 
 ### (c) First three concrete steps in this repo
@@ -435,7 +435,7 @@ no-tools baseline on the same task.
 ## What we will NOT pursue (settled retirements — do not resurrect)
 
 - **US-B7 Paper Space MVP** — dropped during PR #191 manual-test review
-  (CLAUDE.md, Package B note): `pdf_report_service` already covers
+  (FR-20.4 / ADR-022): `pdf_report_service` already covers
   print-to-PDF at chosen paper sizes; a second-space CAD-style print workflow
   added nothing. The `paper_layouts` key from short-lived draft builds is
   silently ignored on load. A "layout/paper space" idea is not new ambition;
@@ -457,14 +457,14 @@ Re-verify the load-bearing asset claims before acting on this file (all
 one-liners from repo root; expected hits noted):
 
 - Bridge write-ready: `grep -n "run_on_main\|abort_pending" src/open_garden_planner/agent_api/bridge.py`
-- Token-auth prerequisite still open: `grep -n "token auth" docs/roadmap.md docs/functional-requirements.md` (if a token lands, rewrite Frontier 1(c) step 1)
+- Token-auth prerequisite: FR-AGENT-03 and ADR-036; recheck the issue tracker if a token lands, then rewrite Frontier 1(c) step 1
 - Location dict: `grep -n "latitude, longitude, elevation_m" src/open_garden_planner/core/project.py`
 - Safe evaluator + cap: `grep -n "_MAX_NODES\|without.*eval" src/open_garden_planner/core/parametric_eval.py`
 - Symbols bundled / panel hidden: `ls src/open_garden_planner/resources/data/smart_symbols/ && grep -rn 'set_panel_visible("smart_symbols"' src/`
 - Solver debt: `grep -n "TD-007\|TD-008" docs/11-risks-and-technical-debt/README.md` (if gone, Frontier 4 milestones may be met — update this file)
 - Qt-free engines: `head -25 src/open_garden_planner/services/task_generator.py`
 - Boolean vs offset kernels: `head -1 src/open_garden_planner/core/shape_boolean.py && grep -rn pyclipper src/open_garden_planner/core/tools/offset_tool.py pyproject.toml`
-- US-B7 stays dead: `grep -n "US-B7" CLAUDE.md`
+- US-B7 stays dead: `grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/README.md`
 
 When any milestone in (d) is met: mark it here, update `docs/roadmap.md`, and
 only then involve **ogp-external-positioning** for any outward claim.

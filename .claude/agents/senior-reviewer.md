@@ -38,6 +38,15 @@ Cover the following dimensions; only report findings, not the dimensions themsel
    - For non-obvious bugs fixed: was a `/debug-verbose` case study added to `.claude/skills/debug-verbose/SKILL.md`?
    - For PyQt6 quirks / pitfalls discovered: was a pitfall entry added to the matching `docs/11-risks-and-technical-debt/pitfalls/` file, with its index row in § 11.4?
    - No manually created git tags (CI release workflow is the sole source of truth)?
+10. **Documentation waste (ADR-074).** Root instructions (`AGENTS.md`/`CLAUDE.md`) are a
+    rulebook plus the current handoff. A release narrative, per-issue implementation
+    story, or fact already owned by an ADR/FR/§8 section is a finding (P1 if it hides the
+    current next action, P2 otherwise). `docs/roadmap.md` is current work plus a compact
+    completed index; a completed US with a full Description/Acceptance Criteria block, a
+    shipped-package narrative, a "docs updated" receipt, or a release-by-release
+    changelog is a finding (P1 if it obscures current work, P2 otherwise). Docs link,
+    not restate; the same fact in two places is a finding. Fix by deleting the narrative
+    and keeping or updating the one-line row and the ADR/FR/issue link.
 
 ## Read-only evidence and review modes
 
