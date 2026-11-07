@@ -204,6 +204,12 @@ We welcome contributions! This project aims to be technically clean and attracti
 
 Filter species by recorded food-forest layer/functions, edit a selected plant's snapshot with undo, and optionally create semantic food-forest drawing layers. Plants → Insert guild provides three sourced templates, previews and user-template authoring. Explicit guild membership produces missing-function warnings in the canvas, Companion section, Diagnostics and read-only Agent API. Recorded functions do not guarantee growing success; [authoring and evidence](docs/08-crosscutting-concepts/README.md#826-recorded-permaculture-traits-and-guild-templates) explains the limits.
 
+## Privacy
+
+Open Garden Planner sends nothing to its developer: no account, no telemetry, no
+analytics. [PRIVACY.md](PRIVACY.md) lists the optional online features (weather, satellite
+background, plant search, update check) and exactly what each one sends to whom.
+
 ## License
 
 [GPLv3](LICENSE) - Free software, free forever.

@@ -11026,7 +11026,8 @@ first certified version (see "What the owner must do").
    from Partner Center › Product identity into the three repository variables above.
 3. After the next release, download `store-package-v<version>` from the release run and
    upload the `.msix` in a new Store submission; fill the listing (description, screenshots,
-   age rating, privacy statement URL — the app sends no telemetry, see docs/07 §7.4).
+   age rating, privacy statement URL — `PRIVACY.md` at the repository root, which lists
+   every online feature and what it sends; the app sends no telemetry, see docs/07 §7.4).
 4. Once the first version is certified: add the Store link to the README's download
    section and the wiki's Installation page, record the certification outcome and the
    Store's reputation behaviour here, and update §11.1/§11.2.
