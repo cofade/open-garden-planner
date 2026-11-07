@@ -238,7 +238,7 @@ class TestTypedMembersAnd3DSnapshot:
         }
         for idx, (sym_id, primary_type) in enumerate(expected_primary.items()):
             defn = lib.get(sym_id)
-            assert defn is not None and defn.version == 2
+            assert defn is not None and defn.version in (2, 3)
             sym = SmartSymbolItem(sym_id, defn.version, defn.param_defaults())
             scene.addItem(sym)
             sym.regenerate_geometry()
@@ -254,15 +254,16 @@ class TestTypedMembersAnd3DSnapshot:
         assert "PERGOLA" in kinds
         assert "FENCE" in kinds
 
-        # Plain-panel dividers from raised_bed_rows (3) + compost_bay_3 (2) = 5 PLAIN fences,
-        # plus 1 standard FENCE from fence_panel (6 total FENCE records; guides excluded).
+        # Plain-panel dividers from raised_bed_rows (3) = 3 PLAIN fences
+        # (compost_bay_3 uses modular repeating bays without redundant fence lines, #688),
+        # plus 1 standard FENCE from fence_panel (4 total FENCE records; guides excluded).
         fence_records = [r for r in records if r.kind == "FENCE"]
         plain_records = [
             r for r in fence_records if r.params.get(PARAM_PATH_STYLE) == "PLAIN"
         ]
-        assert len(plain_records) == 5
-        assert len(fence_records) == 6
-        assert sorted(round(r.height_cm) for r in plain_records) == [40, 40, 40, 100, 100]
+        assert len(plain_records) == 3
+        assert len(fence_records) == 4
+        assert sorted(round(r.height_cm) for r in plain_records) == [40, 40, 40]
 
         # Guides are also excluded from 2D shadow casters while typed members are included.
         casters = collect_identified_casters(scene)
@@ -275,6 +276,43 @@ class TestTypedMembersAnd3DSnapshot:
                         assert cid not in caster_ids
                     else:
                         assert cid in caster_ids
+
+    def test_compost_bay_3_repeating_bays_aspect_ratio_unstretched(self) -> None:
+        """Issue #688: non-square composite compost_bay_3 builds as modular repeating
+        bays so fill textures maintain a 1:1 aspect ratio without coplanar dividers."""
+        from open_garden_planner.models.smart_symbol import LineSpec, RectSpec
+        from open_garden_planner.services.smart_symbol_library import (
+            get_smart_symbol_library,
+        )
+
+        lib = get_smart_symbol_library()
+        defn = lib.get("compost_bay_3")
+        assert defn is not None and defn.version == 2
+
+        # Default params (bay=100, D=100)
+        specs = defn.generate(defn.param_defaults())
+        rects = [s for s in specs if isinstance(s, RectSpec)]
+        lines = [s for s in specs if isinstance(s, LineSpec)]
+
+        assert len(rects) == 3
+        assert len(lines) == 0  # Redundant fence lines removed to prevent 3D coplanar z-fighting
+        for idx, rect in enumerate(rects):
+            assert rect.object_type == "COMPOST_BIN"
+            assert rect.x == idx * 100.0
+            assert rect.y == 0.0
+            assert rect.w == 100.0
+            assert rect.h == 100.0
+            # 1:1 aspect ratio: no horizontal elongation/distortion
+            assert rect.w / rect.h == 1.0
+
+        # Custom params (bay=120, D=90)
+        custom_specs = defn.generate({"bay": 120.0, "D": 90.0})
+        custom_rects = [s for s in custom_specs if isinstance(s, RectSpec)]
+        assert len(custom_rects) == 3
+        for idx, rect in enumerate(custom_rects):
+            assert rect.x == idx * 120.0
+            assert rect.w == 120.0
+            assert rect.h == 90.0
 
     def test_raised_bed_rows_plant_parenting_regen_and_undo(
         self, qtbot, monkeypatch

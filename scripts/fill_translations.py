@@ -3252,6 +3252,9 @@ _L14_LOOK_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Reduce motion in the 3D view": "Bewegung in der 3D-Ansicht reduzieren",
         "Keep leaves and grass still instead of swaying in the wind.":
             "Blätter und Gras bleiben ruhig, statt sich im Wind zu wiegen.",
+        "Keep leaves and grass still instead of swaying in the wind. The operating system's animation-effects setting also stops the wind.":
+            "Blätter und Gras bleiben ruhig, statt sich im Wind zu wiegen. "
+            "Die Animationseffekte-Einstellung des Betriebssystems stoppt den Wind ebenfalls.",
     },
 }
 

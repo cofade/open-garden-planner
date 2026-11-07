@@ -108,6 +108,7 @@ TRANSLATIONS = {
         "High": "Alta",
         "How detailed the 3D view is drawn. Automatic picks a level from the frame rate it measures on this computer.": "Con qué nivel de detalle se dibuja la vista 3D. «Automática» elige un nivel según la velocidad de fotogramas que mide en este equipo.",
         "Keep leaves and grass still instead of swaying in the wind.": "Mantener quietas las hojas y la hierba en lugar de mecerse con el viento.",
+        "Keep leaves and grass still instead of swaying in the wind. The operating system's animation-effects setting also stops the wind.": "Mantener quietas las hojas y la hierba en lugar de mecerse con el viento. La configuración de efectos de animación del sistema operativo también detiene el viento.",
         "Low": "Baja",
         "Medium": "Media",
         "Quality:": "Calidad:",

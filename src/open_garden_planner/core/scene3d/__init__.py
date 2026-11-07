@@ -78,6 +78,7 @@ from .interleave import (
     EngineBuffers,
     engine_buffers,
 )
+from .materials import TWO_SIDED_KINDS, two_sided_kinds
 from .mesh import (
     BENT_NORMAL_KINDS,
     FILL_TEXTURE_KINDS,
@@ -301,6 +302,7 @@ from .ground import (  # noqa: E402
     TileKey,
     changed_tiles,
 )
+from .living import LivingAssembly, living_buffers  # noqa: E402
 from .record import (  # noqa: E402
     PARAM_PAINT_ORIGIN,
     PEN_CAPS,
@@ -317,6 +319,10 @@ __all__ += [
     "PEN_JOINS",
     "PEN_STYLES",
     "TILE_PX",
+    "TWO_SIDED_KINDS",
+    "two_sided_kinds",
+    "LivingAssembly",
+    "living_buffers",
     "GroundBaking",
     "GroundGrid",
     "GroundTile",

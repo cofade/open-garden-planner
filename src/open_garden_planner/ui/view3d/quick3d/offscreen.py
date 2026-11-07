@@ -53,7 +53,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QImage
 
 from open_garden_planner.core.scene3d import (
@@ -267,7 +267,7 @@ def render_records(
     try:
         with qt_messages.graphics_info() if graphics_info else contextlib.nullcontext():
             host = Quick3DHost(size, qml_dir=qml_dir, look=look, log=emit,
-                               prefer_software=prefer_software)
+                               prefer_software=prefer_software, sky_probe=sky_probe)
             breakdown["qml_load"] = host.qml_load_ms
             api = host.graphics_api()
             if not host.renders_3d():
@@ -302,7 +302,6 @@ def render_records(
             host.set_shot(shot)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
             if sky_light:
-                host.sky_probe = sky_probe
                 host.set_sky(look.sky)
                 breakdown["sky_build"] = host.last_sky_build_ms
             parts = sum(sink.part_count(item_id) for item_id in sink.item_ids())
@@ -331,6 +330,11 @@ def render_records(
     finally:
         if host is not None:
             host.close()
+            # Flush deferred deletion of the host's QQuickView so views do not pile up (#692)
+            app = QCoreApplication.instance()
+            if app is not None:
+                app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+                app.processEvents()
         # Detach the recorder before anything can close the log it writes to: a Qt
         # message handler that raises is turned into qFatal by PyQt.
         qt_messages.uninstall(previous)

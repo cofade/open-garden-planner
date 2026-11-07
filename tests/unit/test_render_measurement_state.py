@@ -56,7 +56,7 @@ def test_memory_sample_does_not_wait_forever_on_a_display_that_presents_nothing(
 def test_oracle_exports_the_held_forge_mesh_instead_of_rebuilding_v0(tmp_path):
     from open_garden_planner.core.plant_forge import forge_record
     from open_garden_planner.core.scene3d.builders import production_registry
-    from open_garden_planner.ui.view3d.quick3d.materials import TWO_SIDED_KINDS
+    from open_garden_planner.core.scene3d.materials import TWO_SIDED_KINDS
     from tests.integration.view3d_selection_driver import ring_records
     from tests.integration.workspace_render_state import load_held_oracle, save_held_oracle
 
