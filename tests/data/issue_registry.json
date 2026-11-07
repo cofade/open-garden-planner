@@ -1136,7 +1136,7 @@
   },
   "693": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Forecast as app-owned data keyed by place (not a hidden tab's widget)"
   },
   "694": {
@@ -1276,7 +1276,7 @@
   },
   "724": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
   },
   "726": {
@@ -1391,17 +1391,22 @@
   },
   "763": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Companion panel's Permapeople fetch ignores the keys saved in Preferences"
   },
   "765": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant profile header never downloads a thumbnail (fetch_thumbnail has no caller)"
   },
   "772": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "fix(ui): prevent premature collapse of accordion panels when moving mouse to header pin button"
+  },
+  "773": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#772, #765, #763, #724, #693): UI & services hygiene — accordion hover, thumbnails, permapeople settings, simulated plan date prompt, and forecast holder"
   }
 }
