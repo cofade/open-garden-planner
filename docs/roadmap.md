@@ -12,17 +12,17 @@ functional requirements own decisions and capability.
 | 3 | v0.3 | ✅ Complete | Objects & Styling: Rich objects, textures, layers |
 | 4 | v0.4 | ✅ Complete | Plants & Metadata: Plant objects, API, sidebar |
 | 5 | v0.5 | ✅ Complete | Export & Polish: PNG/SVG/CSV export, shortcuts, themes |
-| Backlog | — | ✅ Complete | Rotation, vertex editing, annotations |
+| Backlog | v0.5 | ✅ Complete | Rotation, vertex editing, annotations |
 | 6 | v1.0 | ✅ Complete | Visual Polish & Public Release |
 | 7 | v1.1 – v1.6 | ✅ Complete | CAD Precision & Constraints |
 | 8 | v1.7 – v1.8.3 | ✅ Complete | Location, Climate & Planting Calendar |
-| 9 | v1.8.5 – v1.8.6 | ✅ Complete | Seed Inventory & Propagation Planning |
+| 9 | v1.8.4 – v1.8.6 | ✅ Complete | Seed Inventory & Propagation Planning |
 | 10 | v1.8.6 – v1.8.12 | ✅ Complete | Companion Planting & Crop Rotation |
 | 11 | v1.8.13+ | ✅ Complete | Bed Interior Design, Visual Polish & Advanced 2D Tools |
 | 12 | v1.9.0 – v1.10.x | ✅ Complete | Weather & Smart Features |
 | 13 | v1.11 – v1.29.1 | ✅ Complete (Packages A–D) | CAD Precision, Smart Features & Agent Integration |
 | 14 | v1.24.5 – v1.24.12 | ✅ Complete (epic [#255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump) | 3D Visualization & Sun/Shade |
-| 15 | v1.25.0 – v1.27.0 | ✅ Complete (Packages 1–3; epics [#279](https://github.com/cofade/open-garden-planner/issues/279)/[#281](https://github.com/cofade/open-garden-planner/issues/281)/[#284](https://github.com/cofade/open-garden-planner/issues/284)) | Visual Refresh |
+| 15 | v1.25.0 – v1.27.0 | ✅ Complete (Packages 1–3: [#279](https://github.com/cofade/open-garden-planner/issues/279)/[#281](https://github.com/cofade/open-garden-planner/issues/281)/[#284](https://github.com/cofade/open-garden-planner/issues/284)) | Visual Refresh |
 | 16 | — | Future | Platform & Community |
 | 17 | v1.29.10 – v1.37.0 | ✅ Complete (L0–L7; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
@@ -53,9 +53,7 @@ All phases 1–15 and 17 are complete; Phase 16 is future. Patch-release detail 
 in GitHub releases; this index keeps one row per story or package with its durable
 reference. Phase 17 has its own top-level section because the wiki includes it.
 
-
-### Phase 1: Foundation (v0.1) ✅
-
+### Phase 1: Foundation (v0.1) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -69,8 +67,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-1.8 | Application displays OGP logo icon | v0.1 |
 | ✅ | US-1.9 | GitHub repository displays banner image | v0.1 |
 
-### Phase 2: Precision & Calibration (v0.2) ✅
-
+### Phase 2: Precision & Calibration (v0.2) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -84,8 +81,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-2.8 | Lock the background image to prevent moving it | v0.2 |
 | ✅ | US-2.9 | Draw circles by clicking center then a rim point | v0.2 |
 
-### Phase 3: Objects & Styling (v0.3) ✅
-
+### Phase 3: Objects & Styling (v0.3) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -98,8 +94,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-3.7 | Show/hide and lock layers | v0.3 |
 | ✅ | US-3.8 | Copy and paste objects | v0.3 |
 
-### Phase 4: Plants & Metadata (v0.4) ✅
-
+### Phase 4: Plants & Metadata (v0.4) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -113,8 +108,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-4.8 | Organized sidebar with icon-based tool panels | v0.4 |
 | ✅ | US-4.9 | Resize objects by dragging handles | v0.4 |
 
-### Phase 5: Export & Polish (v0.5) ✅
-
+### Phase 5: Export & Polish (v0.5) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -127,7 +121,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-5.7 | Auto-save periodically | v0.5 |
 | ✅ | US-5.8 | Professional SVG icons for all drawing tools | v0.5 |
 
-### Backlog: Core Editing Enhancements ✅
+### Backlog: Core Editing Enhancements ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -136,7 +130,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-B.3 | Vertex coordinate annotations on selection | v0.5 |
 
 ### Phase 6: Visual Polish & Public Release (v1.0) ✅ Complete
-
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -156,8 +149,7 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-6.14 | Windows installer (NSIS) + .ogp file association | v1.0 |
 | ✅ | US-6.15 | Path & fence style presets | v1.0 |
 
-### Phase 7: CAD Precision & Constraints (v1.1 – v1.6) ✅
-
+### Phase 7: CAD Precision & Constraints (v1.1 – v1.6) ✅ Complete
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -187,7 +179,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 
 ### Phase 8: Location, Climate & Planting Calendar (v1.7) ✅ Complete
 
-
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
 | ✅ | US-8.1 | GPS location & climate zone setup | v1.7 |
@@ -200,7 +191,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 
 ### Phase 9: Seed Inventory & Propagation Planning (v1.8) ✅ Complete
 
-
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
 | ✅ | US-9.1 | Seed packet data model | v1.8.4 |
@@ -211,7 +201,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-9.6 | Seed-to-plant manual linking | v1.8.6 |
 
 ### Phase 10: Companion Planting & Crop Rotation (v1.8.6 – v1.8.12) ✅ Complete
-
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -224,7 +213,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | US-10.7 | Season management & plan duplication | v1.8.12 |
 
 ### Phase 11: Bed Interior Design, Visual Polish & Advanced 2D Tools (v1.8.x) ✅ Complete
-
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -247,7 +235,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 
 ### Phase 12: Weather & Smart Features (v1.9.0 – v1.10.x) ✅ Complete
 
-
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
 | ✅ | US-12.1 | Weather forecast widget in Dashboard | v1.9.0 – v1.10.x |
@@ -264,7 +251,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 
 ### Phase 13: CAD Precision Boost — Package A (v1.11.0) ✅ Complete
 
-
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
 | ✅ | A1 | Relative coordinate input `@dx,dy` (status bar + cursor overlay) | v1.11.0 |
@@ -274,7 +260,6 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 
 ### Phase 13: CAD Precision Boost — Package B (v1.12.0) ✅ Complete
 
-
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
 | ✅ | B1 | Cubic Bezier pen tool (drawing only; placed-curve editing → US-B9) | v1.12.0 |
@@ -283,10 +268,9 @@ reference. Phase 17 has its own top-level section because the wiki includes it.
 | ✅ | B4 | Nearest-point fallback snap | v1.12.0 |
 | ✅ | B5 | Perpendicular snap from active tool's `last_point` | v1.12.0 |
 | ✅ | B6 | Tangent snap onto circles + arcs from `last_point` | v1.12.0 |
-| ⛔ | B7 | Paper Space MVP — dropped; see FR-20.4 and the ADR-022 note | v1.12.0 |
+| ⛔ | B7 | Paper Space MVP — dropped; see FR-20.4 and the ADR-022 note | — (dropped) |
 
 ### Phase 13: Smart Features — Package C (v1.17.0) ✅ Complete
-
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
@@ -344,11 +328,9 @@ No v2.0 release: the phase shipped as patch releases and the major-version frami
 | ✅ | 2 | Plant illustration redesign (Lush Sprite). | ADR-040; FR-29 |
 | ✅ | 3 | Object sprites, textures and iconography. | ADR-042; FR-30 |
 
-## Phase 17: Living Garden 3D
+## Phase 17: Living Garden 3D (L0–L7 complete)
 
-Since L1, the 3D view is the Qt Quick 3D workspace in the main window — Plan / 3D / Split. It follows
-every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions
-and walks with collision. Editing stays in 2D. L0 is complete with a GO; L1–L7 are complete.
+Since L1, the 3D view is the Qt Quick 3D workspace in the main window (Plan / 3D / Split); L0 is complete with a GO, and L1–L7 are complete.
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|

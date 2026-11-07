@@ -11126,7 +11126,7 @@ nothing subtracted.
 drops from 72 lines to about 30; the two pickup archive files and the spent
 `docs/implementation-plan-457.md` are deleted; the wiki Home, Roadmap and Architecture
 pages lose their release changelogs; the roadmap's Overview, Dev Infrastructure and Phase
-17 headings remain because `scripts/sync_wiki.py` includes them. The stale 2026-08
+17 headings remain because `scripts/sync_wiki.py` includes them. The stale 2026-03
 "Outlook: Additional 2D Features" list was retired: shipped candidates are in the
 delivery index, and the issue tracker remains the work list. This supersedes ADR-068's
 alternative "Deleting historical skills/pickups … rejected" for the two pickup files

@@ -16,8 +16,7 @@ description: >
 # OGP Proof & Analysis Toolkit
 
 Nine proof methods this project actually uses, each as a recipe with a worked example
-mined from the repo's real history (docs §11.4, §8.9/§8.12/§8.19, ADRs, AGENTS.md
-progress rows, and the pinned tests). The unifying rule: **a claim earns its way into
+mined from the repo's real history (docs §11.4, §8.9/§8.12/§8.19, ADRs, FRs, §11.4 and the pinned tests, and the pinned tests). The unifying rule: **a claim earns its way into
 code, review responses, or docs by a reproducible experiment or a primary-source read —
 never by memory, plausibility, or authority.**
 

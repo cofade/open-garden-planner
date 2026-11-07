@@ -99,7 +99,7 @@ garden planner with…", never "the first" flat.
 | Read-only MCP surface: `get_plan_summary`, `list_objects`, `get_object`, `get_geometry`, spatial tools, `get_diagnostics`, `render_canvas_image` | US-D1.1–D1.3 and D2.6 geometry read shipped; integration tests incl. real MCP client end-to-end. `get_geometry` reports current live scene-frame vertices, not raw serializer points. |
 | Optional token-gated MCP editing: create/move/set-position/resize/rotate/delete, species/bed links, layers, stacking, polygon/polyline vertex edits, global undo/redo | US-D2.0–D2.6 (ADR-036, FR-AGENT-13–21); the tools appear only when editing is enabled and a token is configured, and every call rechecks the token. Constrained geometry remains permanently refused; do not imply solver-backed edits. |
 | Loopback-only, read-only, disable-able in Settings | ADR-033 (bound 127.0.0.1; Settings toggle) |
-| cm-precision canvas, snap engine, bezier/arc/fillet, DXF import/export, satellite calibration | Phases 1–13 Packages A/B per roadmap/CLAUDE.md, each with tests |
+| cm-precision canvas, snap engine, bezier/arc/fillet, DXF import/export, satellite calibration | Phases 1–13 Packages A/B per the roadmap's delivery index, each with tests |
 
 **MUST NOT be claimed until shipped (do not let these leak into README/releases/replies):**
 

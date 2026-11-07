@@ -23,9 +23,8 @@ See the canonical roadmap for the one-line delivery index and the ADR/FR referen
 
 ## Phase 16: future
 
-Planned areas include plugins, shared templates, irrigation planning, advanced cost estimates,
-and cross-platform packaging. These capabilities are not shipped.
-The community documentation in this wiki does not mark Phase 16 complete.
+The planned areas are listed in the canonical roadmap's Phase 16 section. None are shipped;
+the community documentation in this wiki does not mark Phase 16 complete.
 
 <!-- ogp:include roadmap-phase-17 -->
 

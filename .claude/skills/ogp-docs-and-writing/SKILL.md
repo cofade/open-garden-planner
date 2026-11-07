@@ -187,7 +187,7 @@ the ADR from the roadmap completion row and any related
   bold styles. Completed US rows use `| ✅ | C1 | One-line description — see FR-23 / ADR-029 |`.
 - While a US is open, keep its description and acceptance criteria in the roadmap's
   "Current work" section. When it ships, replace the whole detail with one status row
-  (ID, one-line scope, version/PR, ADR/FR link). Delete the design spec, acceptance
+  (ID, one-line scope, version/PR or ADR/FR link). Delete the design spec, acceptance
   highlights, review rounds, manual-test notes and "Docs updated on completion" table:
   the code, tests, ADR, FR, GitHub release and issue are the record.
 - A completed section is a compact status table, not a narrative. Do not add a
