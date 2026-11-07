@@ -1,7 +1,8 @@
 ## 2. Phase 0 — Prerequisites & scope contract
 
 **Required reading (in order):**
-1. `docs/roadmap.md` line ~2447 (Phase 14 goals — the 5 bullets).
+1. The Phase 14 status table in `docs/roadmap.md` and ADR-037/038 (solar,
+   shadow and 3D-engine architecture).
 2. `docs/08-crosscutting-concepts/README.md` §8.1 (coordinates) and the
    §8.10 "Coordinate system reminder" — read BOTH; the Y-up/Y-down split is
    the campaign's central trap. The reconciliation (which one the data path

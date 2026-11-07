@@ -4,7 +4,7 @@ description: >
   Load when finishing ANY feature or fix in Open Garden Planner and you owe documentation
   updates (you always do — this project practices continuous documentation); when writing
   an ADR, an FR-* entry, a pitfall entry (`pitfalls/`, ADR-061), or a debug-verbose case study; when
-  updating docs/roadmap.md, docs/functional-requirements.md, or AGENTS.md progress tables;
+  updating docs/roadmap.md, docs/functional-requirements.md, or the AGENTS.md current handoff;
   when syncing the GitHub wiki; or whenever you are unsure WHERE a piece of knowledge
   should live in the docs. Contains the verified docs-of-record map, the mandatory
   change-type → doc-target tables, the house style derived from real entries, and
@@ -67,10 +67,10 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
 | Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 navigation table to the pitfall area indexes** (`pitfalls/index/NN-*.md`, ADR-061) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
-| Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
+| Roadmap | `docs/roadmap.md` | Current work and acceptance criteria; compact phase status and one-line delivery index; links to ADR/FR/issues |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |
-| AGENTS.md | `AGENTS.md` (repo root) | Quick reference commands, workflow, phase progress tables. **A maintained doc** — its own "Maintaining this file" note requires updating the progress table when US status changes and keeping commands current |
+| AGENTS.md | `AGENTS.md` (repo root) | Quick reference commands, workflow, gates, and the current handoff. **A maintained doc** — its own "Maintaining this file" note requires keeping commands current and replacing the handoff on each release |
 | Debug case-study log | `.claude/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
 | GitHub wiki | `docs/wiki/README.md` | Six repository-owned source pages. Canonical roadmap inclusions render through `scripts/sync_wiki.py`. Validate offline before delivery. Publish to the separate sibling wiki checkout after owner approval and protected merge. If absent, report publication pending. Do not silently clone or edit the published pages as a second tracker (ADR-051). |
 | This skill library | `.claude/skills/<name>/SKILL.md` | Operational knowledge for agents — see §7 below |
@@ -178,23 +178,21 @@ the file is NOT in strictly ascending order; ADR-013 sits after ADR-015). Re-gre
 before opening the PR too: a parallel branch can take your number while yours is in
 review (the sim clock's ADR-052 became ADR-053 when #426 merged first, and every
 reference had to move — `git grep -l "ADR-052"` on the branch, not on master). Reference
-the ADR from AGENTS.md progress notes, the roadmap completion note, and any related
+the ADR from the roadmap completion row and any related
 §8 section or pitfall entry.
 
 ### 3.3 Roadmap style (`docs/roadmap.md`)
 
 - Completed phases get `~~strikethrough~~` in the top phase table; US status tables use
   `✅` rows: `| ✅ | C1 | One-line description — see FR-23 / ADR-029 |`.
-- Each delivered US/package gets an `### … acceptance highlights` bullet list: dense,
-  evidence-linked — names the mechanism (`services/harvest_aggregation`), the undo
-  story, the persistence story ("additive `.ogp` key, no `FILE_VERSION` bump"), review
-  rounds and **manual-test fixes** ("First cut used a bottom `QSplitter` … reworked
-  after manual testing"), and cross-refs (FR-*, ADR-*, §8.x).
-- Each completed section ends with a `### Docs updated on completion` two-column table
-  (`| Document | Section |`) listing exactly which docs were touched — **write this
-  table as you update the docs**; it is the receipt.
-- Deferred scope gets its own `### Out of scope (deferred)` list; follow-up gaps found
-  in manual testing get a follow-up table ("Package B follow-ups" pattern).
+- While a US is open, keep its description and acceptance criteria in the roadmap's
+  "Current work" section. When it ships, replace the whole detail with one status row
+  (ID, one-line scope, version/PR, ADR/FR link). Delete the design spec, acceptance
+  highlights, review rounds, manual-test notes and "Docs updated on completion" table:
+  the code, tests, ADR, FR, GitHub release and issue are the record.
+- A completed section is a compact status table, not a narrative. Do not add a
+  release-by-release changelog, a shipped-package story or a "what changed" paragraph.
+- Deferred scope gets one line with the tracking issue; do not keep a second backlog.
 
 ### 3.4 FR entry format (`docs/functional-requirements.md`)
 
@@ -260,28 +258,17 @@ pin). Cross-refs: FR-*, §8.x, PF-*.>
 - **FR-<AREA>-02**: <…>
 ```
 
-### Roadmap completion (status row + section, in `docs/roadmap.md`)
+### Roadmap completion (one status row, in `docs/roadmap.md`)
 
 ```markdown
 | Status | US    | Description                                                      |
 | ------ | ----- | ---------------------------------------------------------------- |
 | ✅     | X.X   | <One-line summary> — see FR-NN / ADR-0NN                          |
-
-### US-X.X acceptance highlights
-- **<Headline capability>** — <mechanism, file names, undo story, persistence story
-  (additive key vs FILE_VERSION bump), review rounds, manual-test fixes>.
-
-### Out of scope (deferred)
-- <Deferred item + tracking issue if filed>
-
-### Docs updated on completion
-| Document | Section |
-|----------|---------|
-| `docs/09-architecture-decisions/` | ADR-0NN |
-| `docs/functional-requirements.md` | FR-NN (FR-<AREA>-01…NN) |
-| `docs/05-building-block-view/` | <new modules> |
-| `docs/12-glossary/` | <new terms / shortcuts> |
 ```
+
+Delete the open US detail: its description, acceptance criteria, acceptance highlights,
+review rounds, manual-test notes and docs receipt. The code, tests, ADR/FR, GitHub release
+and issue own that evidence. A deferred item gets one line with its tracking issue.
 
 ### Debug-verbose case study (add a mirrored reference and update its case index)
 
@@ -319,7 +306,7 @@ pin). Cross-refs: FR-*, §8.x, PF-*.>
 | "The startup/save/render sequence changed" | docs/06 sequence diagrams |
 | "Known debt, deliberately deferred" | §11.3 TD-* row or filed issue, referenced from roadmap note |
 | "Operational knowledge an agent needs" | the relevant `.claude/skills/*/SKILL.md` |
-| "US finished / phase status changed" | roadmap table + AGENTS.md progress table (both) |
+| "US finished / phase status changed" | roadmap completed row + one-line handoff (both); delete the detail |
 
 One fact, one home; everywhere else links to it. The roadmap note *cites* ADR/FR/§8; it
 does not restate them.
@@ -338,9 +325,10 @@ does not restate them.
   `fill_translations.py` + the German `.ts` this way. Use the `Edit` tool, Python
   `open(..., encoding="utf-8")`, `sed -i.bak`, or `perl -i -pe`. Detect regressions:
   `grep -c "Ã¶\|Ã¤\|Ã¼\|ÃŸ" <file>` — any hit means double-encoded.
-- **Keep AGENTS.md current**: when a US ships, update its progress-table row (status +
-  the dense completion note style you see there); when a command changes, fix Quick
-  Reference. AGENTS.md's own "Maintaining this file" note makes this mandatory.
+- **Keep AGENTS.md current**: when a US ships, update the roadmap's completed row and
+  replace the current handoff; do not append a release narrative. When a command
+  changes, fix Quick Reference. AGENTS.md's own "Maintaining this file" note makes this
+  mandatory.
 - **Wiki sync duty**: edit repository sources in `docs/wiki/`, then run `scripts/sync_wiki.py --check`.
   Render a preview outside the repository. Follow `docs/wiki/README.md` after owner approval and
   protected merge. Read and reconcile direct wiki edits before publishing. An absent sibling
@@ -350,6 +338,25 @@ does not restate them.
   reference is below the bar set by existing entries.
 - **Date-stamp volatile facts** in skills and process docs ("as of 2026-07-04: …"), so
   staleness is detectable.
+
+
+## 6.1 Documentation lifecycle (current vs shipped)
+
+- **Root files** (`AGENTS.md`/`CLAUDE.md`) are a rulebook plus the current handoff. They
+  contain always-on commands, gates, invariants, the current release and the next work.
+  They are not a changelog and not a second roadmap.
+- **Roadmap** (`docs/roadmap.md`) is current work plus a compact completed index.
+  Acceptance criteria exist only while the work is open; on completion they are deleted
+  and replaced by one row.
+- **ADRs, FRs, pitfalls and skills** own durable decisions, capability, lessons and
+  operational knowledge. **GitHub releases and issues** own delivery evidence and the
+  work list. **Git history** is the archive; do not create history files.
+- **Stop phrases**: if you are about to write "shipped in…", stop — that belongs in the
+  GitHub release, the ADR or the issue. If you are about to explain what the code does,
+  stop — the code, ADR or FR owns it.
+- **On release close**: replace the handoff, delete the released detail from the roadmap,
+  keep the one-line row, and update the wiki's current status. This is a release step,
+  not a later cleanup.
 
 ## 7. This skill library is itself a doc of record
 

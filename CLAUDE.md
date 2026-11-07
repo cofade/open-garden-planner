@@ -170,6 +170,8 @@ drift instead of overwriting either agent's native file format.
 | Architecture decision | `docs/09-architecture-decisions/` — create ADR |
 | New domain term | `docs/12-glossary/` — add definition |
 
+**Completed work leaves a one-line row, not a narrative.** When a user story or package ships, replace its design and acceptance detail in `docs/roadmap.md` with one status row and delete the rest; the code, tests, ADR/FR, GitHub release and issue are the record. Do not add release history to this file or create archive files.
+
 **After solving issues, all lessons learned MUST be documented:**
 | Issue Category | Document In | Capture |
 |----------------|-------------|---------|
@@ -248,73 +250,30 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- The issue tracker is the only work list. Read the relevant issue and roadmap
-  acceptance criteria, then `git status` and `git log --oneline -20`.
-- Current shipped capabilities and release evidence: [roadmap](docs/roadmap.md).
-  Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
-  and the `ogp-architecture-contract` skill. Consult the relevant subsystem
-  reference before changing an implementation that looks unusual.
-- UI, plant services, agent prompts, and weather architecture (#772, #765, #763, #724, #693)
-  shipped in **v1.37.8 (PR #773)** after owner manual acceptance on 2026-11-07:
-  accordion hover transit hysteresis (8px buffer); plant profile header asynchronous thumbnail worker;
-  permapeople credentials loaded from AppSettings before env vars; `plan-my-week` prompt
-  defaulting to simulated plan date; and application-level `ForecastHolder` decoupling weather
-  lifecycle with zero-timer coalescing, stale cancellation, and synchronous re-emission.
-- Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689) shipped in
-  **v1.37.7 (PR #762)** after owner manual acceptance on 2026-11-07:
-  compost_bay_3 repeating bays aspect ratio; dead GLSL removed and TWO_SIDED_KINDS
-  moved to core.scene3d.materials; waitUntil test race elimination; offscreen
-  deferred deletion flush preventing exit crash; modulo float precision for
-  precipitation shader, midnight Today's Weather timer, and unified living_buffers.
-- Capture quality and L6 hygiene (#733, #735, #738) shipped in **v1.37.6 (PR #759)** after
-  owner manual acceptance on 2026-11-06: a 4K picture's horizon band keeps 1080p's look by
-  scaling SSAO's radius with the capture height (the review's glow suspicion was measured
-  and rejected; PF-E3D-25); a picture uses the view's preset, the MP4 keeps its pinned
-  BT.709 HD convention, and the smaller L6 findings are closed (PF-E3D-26). See the
-  roadmap.
-- 3D curved geometry and strings (#675, #709, #705, #701) shipped in
-  **v1.37.5 (PR #756)** after owner manual acceptance on 2026-11-06: arc-length fence
-  spacing, 40 cm string posts with a 2.5 cm chord rule, centroid/nearest-bulb lights,
-  and cached shadow-walk roof meshes.
-- Sky/render-tier integrity (#695, #696, #704, #714, #717, #718, #722) shipped in
-  **v1.37.4 (PR #755)** after owner manual acceptance on 2026-11-06: connected
-  white-plateau disc finder, world-elevation set-sun probe (`measured=False` fails
-  closed), 3.6 far-row bound at 640 × 360, flood scoped to the rebuild, `scene_reset`
-  clears the forge queue, 300 ms settle + 1 s ceiling.
-- Distribution trust (#375, ADR-073) decided 2026-11-06: Authenticode for the GitHub installer
-  stays deferred (Azure Artifact Signing is unavailable to an individual outside USA/Canada;
-  SignPath signs in its own name; Certum Open Source at EUR 49-69/year is trigger 3's concrete
-  shape), and the **Microsoft Store is a second channel**: `installer/build_msix.py` packages the
-  same bundle as an MSIX, `release.yml` builds it after the attestation (`continue-on-error`,
-  workflow artifact `store-package-v<version>`), `msix-store-verify.yml` is the runner-side install +
-  self-test measurement (PF-CI-19/20; its result is recorded in ADR-073, not assumed). The listing is **pending** the owner's Partner Center registration
-  and the three `OGP_MSIX_*` repository variables (docs/07 §7.2a). Never claim Store availability
-  before the first certified version is live.
-- Geometry, weather resilience, lighting & test hygiene (#748, #702, #697, #694,
-  #685, #706, #707, #708, #710, #700) shipped in **v1.37.3 (PR #752)**: Angled house polygon roof ridge aligns with
-  dominant MABB/PCA axis with deduplicated intersection parameters; localized forecast
-  card weekdays (`current_locale`); location readers outside L5 route through `plan_place`
-  (safe on hostile plan numbers); stale frost alerts cleared on File > New, load, and failed fetch;
-  PID collision mock in `Init3DGuard` tests; 2D string lights paint order (glow, wire, posts, bulbs);
-  string lights thumbnail moved to `string_lights_paint.py`; 3D string lights wire segments doubled
-  and bulbs tessellated (12 segments, 5 rings); and shadow agreement prose pruned to defer to ADR-059.
-- Shipped packages v1.34 through v1.37.2 (2D drawing tools, capture sessions, 3D Slice A,
-  Phase 17 L5-L7, Russian localization): archived in [history](docs/agent-pickup-history.md).
-- The shared SimClock retains the toolbar's local wall date (ADR-053/062).
-  Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
-  Arrange surface uses `build_arrange_command`; scene teardown uses
-  `CanvasScene.clear()`. Read the architecture contract for the full invariants.
-- Wiki sources are in `docs/wiki/`; validate offline. Publication follows
-  owner approval and protected merge (ADR-051), and must be reported pending
-  until completed. Never use the published Roadmap as a second tracker.
-- Full pickup snapshots, including unique compatibility and owner decisions:
-  [28 October snapshot](docs/agent-pickup-2026-10-28.md),
-  [older history](docs/agent-pickup-history.md). These remain searchable reference
-  records; the roadmap, ADRs and requirements are the docs of record.
+- The issue tracker is the only work list. Read the issue and the roadmap's
+  "Current work" section, then `git status` and `git log --oneline -20`.
+- Current release: **v1.37.8** (2026-11-07). No roadmap phase is active; the next
+  work is in the open issues.
+- Live decisions that constrain the next change:
+  - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
+    Partner Center registration and three `OGP_MSIX_*` repository variables. Never
+    claim Store availability before the first certified version is live.
+- Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
+  `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
+  skill (invariants). If a fact is not there, it does not belong in this file.
+- This section is a handoff, not a changelog. On each release, replace the
+  current-release line and the next-work pointer; do not append a narrative. Shipped
+  detail lives in the GitHub release, the ADR, and the issue.
+- The shared SimClock retains the toolbar's local wall date (ADR-053/062). Subscribe to
+  its signals. Every rect resize uses `geometry_apply.py`; every Arrange surface uses
+  `build_arrange_command`; scene teardown uses `CanvasScene.clear()`. Read the
+  architecture contract for the full invariants.
+- Wiki sources are in `docs/wiki/`; validate offline. Publication follows owner approval
+  and protected merge (ADR-051), and must be reported pending until completed. Never use
+  the published Roadmap as a second tracker.
 - Keep root instructions below the soft budget enforced by
-  `scripts/check_agent_context.py`; archive narrative before adding new pickups.
-  Never remove binding rules to satisfy a byte limit.
+  `scripts/check_agent_context.py`. Never remove binding rules to satisfy a byte limit.
 
-**Maintaining this file:** Update the progress summary when status changes and keep the Quick Reference current. `CLAUDE.md` and `AGENTS.md` are a synchronized pair: if either changes, update both and run `venv/Scripts/python.exe scripts/check_agent_context.py`.
+**Maintaining this file:** This is a rulebook and a current handoff, not a changelog. Keep the Quick Reference current and the handoff to the current release and next work. Shipped work belongs in the GitHub release, the ADR, and the issue — not here. `CLAUDE.md` and `AGENTS.md` are a synchronized pair: if either changes, update both and run `venv/Scripts/python.exe scripts/check_agent_context.py`.
 
 **Version note:** CI release workflow (`release.yml`) is the sole source of truth for versions. Never create git tags manually.

@@ -16,7 +16,7 @@ description: >
 
 How this project decides that something is *true* — and that a change deserves to exist.
 Every rule below is extracted from a named, verifiable episode in this repo's history
-(CLAUDE.md progress tables, `docs/11-risks-and-technical-debt/` §11.4, `docs/roadmap.md`,
+(the CLAUDE.md current handoff, `docs/11-risks-and-technical-debt/` §11.4, `docs/roadmap.md`,
 `.claude/skills/debug-verbose/SKILL.md`, `.claude/agents/senior-reviewer.md`). Nothing here
 is aspirational; it is all case law. (Repo state: v1.23.0, verified 2026-07-05.)
 
@@ -156,11 +156,10 @@ Green tests plus a clean review have repeatedly lost to manual testing in this p
 - **US-B7 (Paper Space MVP)**: dropped entirely at PR #191 manual-test review — the existing
   `pdf_report_service` already covered print-to-PDF at chosen paper sizes, so the Layout tab,
   viewport item, title block, scale bar, and `paper_layouts` schema were all removed before
-  merge. A whole feature retired on evidence of redundancy (`docs/roadmap.md` "US-B7 dropped
-  during manual-test review"; CLAUDE.md Package B note).
+  merge. A whole feature retired on evidence of redundancy (FR-20.4 and the ADR-022 note).
 - **D1.3 layers semantics**: `layers` was subtractive-only (could hide, never show) — the
   gap only surfaced in manual test; the semantics were reworked to snapshot-force-restore so
-  an agent can request a layer the user has toggled off (CLAUDE.md D1.3 entry).
+  an agent can request a layer the user has toggled off (ADR-034 addendum, FR-AGENT-09).
 - Smaller instances: US-C3's gallery thumbnails (trellis fell through to the round fallback
   — manual-test fix), #213's "nothing resizes on screen" (the ring-only refresh was
   technically correct and user-invisible; §11.4 manual-test follow-up), #212's list-scroll
@@ -182,9 +181,10 @@ Rules:
 Every accepted change in this project traversed this pipeline; use it as the map for yours.
 
 1. **Hunch** — from any source in §6.
-2. **GitHub issue / roadmap US with acceptance criteria** — `docs/roadmap.md` for user
-   stories; issues for defects and follow-ups (the project files follow-ups aggressively:
-   #206, #209, #210, #225 each born inside another change's review).
+2. **GitHub issue / roadmap current-work US with acceptance criteria** — the issue for
+   defects, follow-ups and the work list; the roadmap while a US is open; the FR register
+   for shipped capability. The project files follow-ups aggressively: #206, #209, #210,
+   #225 each born inside another change's review.
 3. **Feature branch** — the experiment space; never master (CLAUDE.md workflow step 1).
 4. **Instrumented investigation** — `/debug-verbose` at the first sign of any non-obvious
    bug, before theorising. Predictions written first (§2).
@@ -202,7 +202,7 @@ Every accepted change in this project traversed this pipeline; use it as the map
 10. **Adopted** — OR **documented retirement**.
 
 **Retirement is a first-class outcome, and it still produces knowledge.** US-B7 is the
-exemplar: dropped WITH rationale recorded in both CLAUDE.md and `docs/roadmap.md`, plus a
+exemplar: dropped WITH rationale recorded in FR-20.4, ADR-022 and the issue, plus a
 compat *guarantee* — `FILE_VERSION` stays 1.4, and the loader silently ignores the
 `paper_layouts` key that short-lived draft builds wrote into `.ogp` files. A retired idea
 that leaves behind a recorded reason and a compatibility contract has paid for itself.
@@ -224,8 +224,7 @@ Know the sources so you keep them open (deciding *which* to pursue is
   Package B — explicitly titled "closing the CAD precision gap" — exist because real
   CAD-style use exposed precision gaps (CLAUDE.md Phase 13 tables).
 - **User-owner priorities**: Package D's shape comes from a recorded planning session —
-  `docs/roadmap.md` "Design decisions (from the planning session)" under the Package D
-  section.
+  ADR-033/034/036 and the package issues own the decisions.
 - **Pitfalls generalized into rules**: §11.4 entries ending in "Rule:" / "Lesson:" (the
   trust-boundary broad-catch rule from #236; the enum-combo UNKNOWN rule from #231; the
   two-chokepoint undo-stack invariant from #209; the shared-id-derivation rule from #227).
@@ -326,7 +325,7 @@ CI does not prove the local full suite is clean (`QSettings.setDefaultFormat` le
 Volatile facts date-stamped 2026-07-05 (repo at v1.23.0, Phases 1–13 Packages A–D1.3
 complete). Re-verify the cited episodes before relying on them:
 `grep -rn "Closed (#218)\|losing game\|#169" docs/11-risks-and-technical-debt/` ·
-`grep -n "US-B7 dropped\|planning session" docs/roadmap.md` ·
+`grep -n "US-B7\|Paper Space" docs/functional-requirements.md docs/09-architecture-decisions/README.md` ·
 `grep -in "refuted by reading\|senior-review rounds\|P0 caught" CLAUDE.md` ·
 `grep -rn "issue #229" .claude/skills/finalize-us/SKILL.md` ·
 `sed -n '441,455p' docs/08-crosscutting-concepts/README.md` (§8.12.8 residuals) ·

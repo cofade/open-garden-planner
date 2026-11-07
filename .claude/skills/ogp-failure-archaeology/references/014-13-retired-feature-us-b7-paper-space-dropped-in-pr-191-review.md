@@ -1,6 +1,6 @@
 ## 13. Retired feature: US-B7 Paper Space (dropped in PR #191 review)
 
-Source: `docs/roadmap.md` (~line 2277, "US-B7 dropped during manual-test review"),
+Source: FR-20.4 in `docs/functional-requirements.md` and the ADR-022 note (PR #191),
 CLAUDE.md Package B note.
 
 - US-B7 added a "Layout" tab (Ctrl+4) with one page / viewport / title block / scale

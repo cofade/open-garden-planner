@@ -39,7 +39,7 @@ Facts date-stamped **as of 2026-09-05**: released version **v1.27.7** (matching
 
 | Term | Meaning here |
 |------|--------------|
-| **US** | User story, numbered `US-X.X` (e.g. `US-12.7`) or per-package (`US-A1`, `US-C3`, `US-D1.2`). Defined with acceptance criteria in `docs/roadmap.md`. |
+| **US** | User story, numbered `US-X.X` (e.g. `US-12.7`) or per-package (`US-A1`, `US-C3`, `US-D1.2`). Defined with acceptance criteria in the issue or the roadmap's current-work section while open. |
 | **FR** | Functional requirement (`FR-*`) in `docs/functional-requirements.md`; the durable record of a shipped capability. |
 | **ADR** | Architecture Decision Record in `docs/09-architecture-decisions/`. Required for new dependencies, chosen-between approaches, changed patterns, non-obvious constraints. |
 | **Draft PR** | GitHub pull request opened with `--draft`. In this repo it means "code review passed, awaiting the user's manual test". It is the mandatory end state of every coding job. |
@@ -58,7 +58,7 @@ will be minted.
 
 | Class | Source of truth | Branch | Commit prefix | Release? |
 |-------|-----------------|--------|---------------|----------|
-| User story | `docs/roadmap.md` (read the acceptance criteria before coding) | `feature/US-X.X-short-description` | `feat(US-X.X): ...` | Yes (patch by default) |
+| User story | the issue or the roadmap's current-work section (read the acceptance criteria before coding) | `feature/US-X.X-short-description` | `feat(US-X.X): ...` | Yes (patch by default) |
 | Bug fix / follow-up issue | GitHub issue `#NNN` (the issue tracker is the only work list — the project-board automation was removed in #293) | `fix/NNN-short-description` or `feature/...` per convention in `git log` | `fix(#NNN): ...` or `feat` if it adds capability | Yes |
 | Chore (version sync, roadmap table, doc-only, CI tweak) | — | branch + reviewed PR, including mechanical post-release version sync | `chore: ...` / `chore(scope): ...` | **No** — release.yml skips it |
 
@@ -316,14 +316,14 @@ equivalents in parentheses.
 
 | # | Step | Gate / detail |
 |---|------|---------------|
-| 1 | Classify the change (section 1) and read the source of truth — US acceptance criteria in `docs/roadmap.md` or the GitHub issue | Do not code from the title alone |
+| 1 | Classify the change (section 1) and read the source of truth — US acceptance criteria in the GitHub issue or the roadmap's current-work section | Do not code from the title alone |
 | 2 | `git checkout -b feature/US-X.X-short-description` | Never on master (2.1) |
 | 3 | Implement with type hints; wrap every user-visible string for translation as you go | 2.5; architecture invariants: `ogp-architecture-contract`; Qt/CAD theory: `ogp-qt-cad-reference` |
 | 4 | Quality checks: `venv/Scripts/python.exe -m pytest tests/ -v` **and** `-m pytest tests/ -m perf -n 0` · `-m ruff check src/` · `-m bandit -r src/ --severity-level high` (Linux: `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v`, etc.) | Same three checks CI runs; how-to details: `ogp-build-and-run` |
 | 5 | Translations: run `scripts/update_translations.py`; complete every registered target, compile, and run `scripts/check_translations.py` with `PYTHONUTF8=1` | 2.5 |
 | 6 | Write the integration test in `tests/integration/test_<feature>.py` | Mandatory (2.5); patterns in §8.10 |
 | 7 | Build the exe, then **both** checks — smoke *and* `--selftest` (§2.8) | Windows-only; declare if skipped in a cloud session |
-| 8 | Update docs: FR entry, arc42 sections, ADR if triggered, glossary, §11.4 lessons | Duty matrix: `ogp-docs-and-writing` |
+| 8 | Update docs: FR entry, arc42 sections, ADR if triggered, glossary, §11.4 lessons; delete shipped detail from the roadmap and root handoff | Duty matrix: `ogp-docs-and-writing` |
 | 9 | senior-reviewer pass; fix all P0/P1; re-run until clean | 2.4 — verify findings against code before acting |
 | 10 | Commit `feat(US-X.X): Description`, push, open **draft** PR with summary + test plan + **manual-testing checklist** | 2.3; evidence standards: `ogp-validation-and-qa` |
 | 11 | Wait for CI green (`gh pr checks <PR#> --watch --fail-fast`) | Never merge on red |

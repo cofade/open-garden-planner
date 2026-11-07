@@ -121,6 +121,12 @@ Update affected repository wiki sources in `docs/wiki/` as well. Run `scripts/sy
 and render a preview outside the repository. Do not write to the published wiki before merge.
 Keep all added text English and context pairs synchronized (ADR-051).
 
+**Documentation prune (release close).** Replace the "Current release" line and the
+next-work pointer in `AGENTS.md`/`CLAUDE.md`; delete the released package's detail from
+`docs/roadmap.md` and keep or update its one-line row; update the wiki Home/Roadmap current
+status. Do not append a release narrative or create a history file. Run
+`scripts/check_agent_context.py` and `scripts/sync_wiki.py --check`.
+
 Run lock/export consistency, context parity, skill citations, relevant version/gate tests and
 lint. Run an independent senior review of this chore branch in a fresh worktree. Address
 P0/P1 and repeat review after fixes. Commit using the helper's exact `chore:` description.

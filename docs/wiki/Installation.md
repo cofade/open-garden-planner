@@ -7,7 +7,7 @@ The installer supports Windows 10/11, 64-bit.
 Its default directory is `C:\Program Files (x86)\Open Garden Planner`.
 The wizard offers shortcuts and `.ogp` file association.
 
-As measured on **9 October 2026**, the v1.29.6 installer download is about **171 MiB**.
+The installer download is about **170 MiB**; the release page shows the exact size.
 The local frozen application folder is about **611 MiB**.
 Allow at least **1 GiB** for the application, plus download, temporary installation, and plan storage.
 These sizes are dated measurements, not fixed limits. A minimum RAM requirement has not been measured.

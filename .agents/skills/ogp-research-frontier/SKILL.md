@@ -83,9 +83,9 @@ demonstrate.
 - `agent_api/providers.py` — the `AgentProviders` dataclass is the documented
   extension seam for write providers (ADR-034 addendum: "the extension seam
   for render (D1.3), exports/save (D1.4) and writes (D2)").
-- The design-decision table in `docs/roadmap.md` (Phase 13 Package D, ~line
-  2387) already commits the contract: writes are "auto-apply, **fully
-  undoable** — one undo step per agent operation."
+- The Phase 13 Package D row in `docs/roadmap.md` and ADR-036 commit the
+  contract: writes are "auto-apply, **fully undoable** — one undo step per
+  agent operation."
 
 ### The non-negotiable prerequisite — do not route around it
 
@@ -457,7 +457,7 @@ Re-verify the load-bearing asset claims before acting on this file (all
 one-liners from repo root; expected hits noted):
 
 - Bridge write-ready: `grep -n "run_on_main\|abort_pending" src/open_garden_planner/agent_api/bridge.py`
-- Token-auth prerequisite still open: `grep -n "token auth" docs/roadmap.md docs/functional-requirements.md` (if a token lands, rewrite Frontier 1(c) step 1)
+- Token-auth prerequisite: FR-AGENT-03 and ADR-036; recheck the issue tracker if a token lands, then rewrite Frontier 1(c) step 1
 - Location dict: `grep -n "latitude, longitude, elevation_m" src/open_garden_planner/core/project.py`
 - Safe evaluator + cap: `grep -n "_MAX_NODES\|without.*eval" src/open_garden_planner/core/parametric_eval.py`
 - Symbols bundled / panel hidden: `ls src/open_garden_planner/resources/data/smart_symbols/ && grep -rn 'set_panel_visible("smart_symbols"' src/`

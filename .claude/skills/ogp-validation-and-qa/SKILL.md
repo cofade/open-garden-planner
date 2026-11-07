@@ -175,7 +175,7 @@ Every coding job **must surface a manual-testing checklist** (CLAUDE.md Workflow
 A good checklist — model it on `analyze-pr` Phase 4 (`.claude/skills/analyze-pr/SKILL.md`), the house exemplar:
 
 - **Format each item as `shortcut / menu path → expected visual result`.** Falsifiable observations, not "check it works". Prefix with the launch command `venv/Scripts/python.exe -m open_garden_planner` where useful.
-- **Golden path + at least one edge case per feature**, derived from acceptance criteria in `docs/roadmap.md` / `docs/functional-requirements.md`. Standard edge cases: empty input, degenerate geometry, undo/redo, save→reload roundtrip.
+- **Golden path + at least one edge case per feature**, derived from the issue or the roadmap's current-work section while open, or from `docs/functional-requirements.md` for shipped capability. Standard edge cases: empty input, degenerate geometry, undo/redo, save→reload roundtrip.
 - **Risk-surface items the diff implies but nobody wrote down.** Read the diff stat and add checks by touched area, e.g.: `.ogp` schema / `FILE_VERSION` → open old file, save, reopen on the previously-released exe; anything geometric → repeat on a **rotated** item (§4); anything with a badge/overlay → toggle it and re-check (the #219 class); translations → switch to German and re-walk the path.
 ### Every item must be executable on the day it is read
 

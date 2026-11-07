@@ -3428,8 +3428,7 @@ carries a drift guard against `PLANT_PARENT_TYPES` (§8.14 / ADR-017 — note
 `TRELLIS` is a plant parent but not a soil container). See ADR-036's D2.2/D2.3
 addenda, FR-AGENT-15/16.
 
-**Stacking order (issue #338, ADR-043 — outside the D2.x sequence, see
-`docs/roadmap.md`'s standalone "Canvas: Per-object stacking order" section).**
+**Stacking order (issue #338, ADR-043 — outside the D2.x sequence; see ADR-043 and §8.25).**
 A fifth tool in the same `if writes_active:` block, `arrange_object(item_id, action)`, reorders one
 object within its own layer (`bring_to_front`/`bring_forward`/`send_backward`/
 `send_to_back`). It does not build its own command: it calls

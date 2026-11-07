@@ -10,7 +10,7 @@ See ADR-051 in the architecture decision register.
 | Published page | Authoritative information |
 |---|---|
 | Home | Canonical roadmap and latest GitHub release. |
-| Roadmap | Canonical overview, infrastructure table, and Phase 17 section. Other sections are short summaries with links. |
+| Roadmap | Canonical overview, infrastructure table, and Phase 17 status. Other sections are short summaries with links. |
 | Installation | README, release artifacts, installer settings, and deployment documentation. |
 | Contributing | Root CONTRIBUTING.md. |
 | Architecture | arc42 building blocks, runtime documentation, and ADRs. |
@@ -28,7 +28,7 @@ Roadmap.md contains exactly three fixed inclusion markers:
 ```
 
 The first two include the corresponding canonical tables without rewriting them.
-The third includes the complete canonical Phase 17 section.
+The third includes the canonical Phase 17 status section.
 Unknown, missing, duplicate, or malformed markers fail validation.
 
 ## Check and prepare a review
