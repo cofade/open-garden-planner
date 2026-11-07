@@ -66,11 +66,11 @@ class ForgeWorker:
         *,
         cache: ForgeCache | None = DEFAULT_FORGE_CACHE,
         background: bool = False,
-        season_sink: Callable[[Mapping[str, PhenologyState]], None] | None = None,
+        season_sink: Callable[..., None] | None = None,
     ) -> None:
         self._sink = sink
         self._cache = cache
-        self._season_sink = season_sink
+        self._season_sink: Callable[..., None] | None = season_sink
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="plant-forge") if background else None
         self._flight: tuple[ForgeJob, int, Future[tuple[MeshPart, ...]]] | None = None
         self._epoch = 0

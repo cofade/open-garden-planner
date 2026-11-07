@@ -1139,10 +1139,20 @@
     "state": "OPEN",
     "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
   },
+  "689": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
   "690": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
+  },
+  "692": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
   },
   "694": {
     "is_pr": false,
@@ -1273,6 +1283,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
+  },
+  "723": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
   },
   "726": {
     "is_pr": false,
