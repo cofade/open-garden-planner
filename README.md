@@ -206,9 +206,11 @@ Filter species by recorded food-forest layer/functions, edit a selected plant's 
 
 ## Privacy
 
-Open Garden Planner sends nothing to its developer: no account, no telemetry, no
-analytics. [PRIVACY.md](PRIVACY.md) lists the optional online features (weather, satellite
-background, plant search, update check) and exactly what each one sends to whom.
+Open Garden Planner itself sends nothing to its developer: no account, no telemetry, no
+analytics. [PRIVACY.md](PRIVACY.md) lists every online feature (weather and frost dates,
+satellite background, plant and companion search, the update check of the GitHub version)
+with what each one sends to whom, what an AI assistant you connect can read, and which data
+a Microsoft Store uninstall deletes.
 
 ## License
 

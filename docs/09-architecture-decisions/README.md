@@ -10932,9 +10932,15 @@ detections, (10) reversibility.
    (`runFullTrust`, file-system and registry write virtualisation ON). Disabling the
    virtualisation needs the restricted capability `unvirtualizedResources`, which needs
    Partner Center approval; the first submission does not ask for it. Consequence: under
-   the Store install the app's per-user files (settings, autosaves, `app.log`, caches) live
-   in the package's `LocalCache`, and a Store uninstall removes them. Plans live in
-   `Documents\Open Garden Planner`, outside the container, and are not affected.
+   the Store install the files the app creates in `AppData` (`app.log` and the Qt caches
+   were measured there, see the addendum; seed inventory, custom companion rules,
+   templates, plant lists and the weather/companion caches use the same folders) live in
+   the package's `LocalCache`, and the `QSettings` registry values in the package's
+   private hive (Microsoft's documented HKCU virtualisation, not measured); a Store
+   uninstall removes both. Plans live in `Documents\Open Garden Planner`, outside the
+   container, and are not affected; autosaves are written next to the plan file (an
+   unsaved plan's to the temp folder), so they are not affected either. `PRIVACY.md`
+   tells users which data an uninstall deletes.
 6. **An app execution alias `OpenGardenPlanner.exe`** is declared, because a Store install's
    folder under `WindowsApps` cannot be executed directly by the user: the alias is how a
    shell starts the installed package with arguments — the frozen self-test in CI, or an MCP
@@ -11026,8 +11032,10 @@ first certified version (see "What the owner must do").
    from Partner Center › Product identity into the three repository variables above.
 3. After the next release, download `store-package-v<version>` from the release run and
    upload the `.msix` in a new Store submission; fill the listing (description, screenshots,
-   age rating, privacy statement URL — `PRIVACY.md` at the repository root, which lists
-   every online feature and what it sends; the app sends no telemetry, see docs/07 §7.4).
+   age rating, privacy policy URL
+   `https://github.com/cofade/open-garden-planner/blob/master/PRIVACY.md` — it lists every
+   online feature, what it sends and when, and what a connected AI assistant can read; the
+   URL resolves only after this ADR's PR is merged, so the submission comes after the merge).
 4. Once the first version is certified: add the Store link to the README's download
    section and the wiki's Installation page, record the certification outcome and the
    Store's reputation behaviour here, and update §11.1/§11.2.
@@ -11044,6 +11052,10 @@ first certified version (see "What the owner must do").
   rules, the version mapping, the mapping file, SDK discovery, and the release workflow's
   placement/`continue-on-error`/artifact rules; `tests/integration/test_msix_packaging.py`
   runs the stage on every OS and the real `makeappx` where it exists.
+- `PRIVACY.md` is the listing's privacy-policy URL, a public promise about the network
+  surface: `tests/unit/test_privacy_inventory.py` pins the set of network-using modules and
+  the PRIVACY.md text that discloses each, so a new one fails until it is disclosed. It does
+  not see a new caller of an existing client (the companion panel was one, review round 4).
 - README, docs/07 §7.1/§7.2a/§7.3/§7.4, §11.1/§11.2, the glossary and PF-CI-19/20 are
   updated in the same change.
 

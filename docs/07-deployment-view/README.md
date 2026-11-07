@@ -201,8 +201,9 @@ python installer/build_msix.py --check dist/OpenGardenPlanner-v1.37.6.msix
 
 **Owner steps the pipeline cannot do:** register at Partner Center (free for individuals
 since 2025-09-10), reserve the name, set the three repository variables, download the
-artifact from a release run and upload it as a submission (its privacy-policy URL is the
-repository's `PRIVACY.md`), and after certification add the
+artifact from a release run and upload it as a submission (privacy-policy URL
+`https://github.com/cofade/open-garden-planner/blob/master/PRIVACY.md`, live once on
+master), and after certification add the
 Store link to the README and the wiki's Installation page (ADR-073 "What the owner must do").
 Report the listing as pending until the first version is live.
 

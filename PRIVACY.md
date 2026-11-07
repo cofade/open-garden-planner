@@ -2,18 +2,30 @@
 
 Last updated: 7 November 2026
 
-**Open Garden Planner sends nothing to its developer.** It has no account, no telemetry,
-no analytics, no advertising and no crash reporting. Your plans, settings and logs stay on
-your computer.
+**Open Garden Planner itself sends nothing to its developer.** It has no account, no
+telemetry, no analytics, no advertising and no crash reporting of its own. Your plans,
+settings and logs stay on your computer unless you use one of the online features or
+connect an AI assistant, both described below.
+
+If you installed the app from the Microsoft Store, Microsoft may give the developer
+aggregated download, usage and crash statistics, depending on your Windows diagnostic-data
+settings. That is Microsoft's reporting, covered by
+[Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement); the app
+does not send it.
 
 ## What stays on your computer
 
-- Plan files (`.ogp`) are saved where you choose.
-- Settings, autosaves, logs and cached weather/climate answers are kept in your user
-  profile. In the Microsoft Store version Windows keeps them inside the app's own package
-  folder and removes them when you uninstall the app.
-- The built-in Agent API (for AI assistants that speak MCP) listens on `127.0.0.1` only,
-  so other computers cannot reach it, and nothing leaves your computer through it.
+- **Plan files** (`.ogp`) are saved where you choose. **Autosaves** are written next to the
+  plan file (`~autosave_<name>.ogp`), or to your temp folder for a plan that was never saved.
+- **Settings, logs, caches and the data you keep outside plans** - seed inventory, custom
+  companion rules, templates, plant lists, cached weather, climate and companion answers -
+  are kept in your user profile (`AppData`).
+- **Microsoft Store version:** Windows keeps the settings and the files the app creates in
+  `AppData` inside the app's own package folder
+  (`%LOCALAPPDATA%\Packages\<package folder>\LocalCache`) and **deletes them when you
+  uninstall the app** - including your seed inventory, custom companion rules, templates and
+  plant lists. Copy that folder first if you want to keep them. Plan files and autosaves
+  next to them are not affected.
 
 ## When the app goes online
 
@@ -23,17 +35,27 @@ every internet connection, each one shows the provider your IP address.
 
 | Feature | Provider | What is sent | When |
 | --- | --- | --- | --- |
-| Today's weather and frost alerts | [Open-Meteo](https://open-meteo.com) | Latitude and longitude of the plan's location | When a plan has a location set |
-| Frost dates and hardiness zone | [Open-Meteo](https://open-meteo.com) (historical archive) | Latitude and longitude of the location you look up | When you click *Lookup from Coordinates* in the location dialog |
-| Satellite background | [Google Maps Platform](https://policies.google.com/privacy) | Your own Google Maps API key and the map area you view, search or import | Only when you open the satellite import with a key you entered |
-| Online plant search | [Trefle](https://trefle.io), [Perenual](https://perenual.com), [Permapeople](https://permapeople.org) | Your search term and, where needed, your own API key; result images are then loaded from the addresses the provider returns | Only when you search the online plant database |
-| Update check (GitHub download only) | [GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) | A request for the latest release | When the version installed from GitHub starts. The Microsoft Store version does not check GitHub; the Store updates it |
+| Weather forecast and frost alerts | [Open-Meteo](https://open-meteo.com/en/terms) | Latitude and longitude of the plan's location | When a plan has a location set |
+| Frost dates and hardiness zone | [Open-Meteo](https://open-meteo.com/en/terms) (historical archive) | Latitude and longitude of the location you look up | When you click *Lookup from Coordinates* in the location dialog |
+| Satellite background | [Google Maps Platform](https://policies.google.com/privacy) | The address or place you type into the map's search box (sent while you type), your Windows language and region, the map area you view or import, and your own Google Maps API key | Only when you open the satellite import with your own API key |
+| Online plant search | [Trefle](https://trefle.io), [Perenual](https://perenual.com), [Permapeople](https://permapeople.org) | Your search term and, where needed, your own API key | Only when you search the online plant database |
+| Companion plants | [Permapeople](https://permapeople.org) | The selected plant's scientific name (or common name) and, where needed, your own API key | Only when you click *Fetch from Permapeople* or *Refresh* in the companion panel |
+| Update check (GitHub download only) | [GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) | A request for the latest release; if you click *Download & Install*, the download of the new installer | When the version installed from GitHub starts. The Microsoft Store version does not check GitHub; the Store updates it |
 
 Links in the app (for example to Wikipedia or a plant database) open in your web browser;
 what that site receives is between you and that site.
 
-Downloading the app from the Microsoft Store is covered by
-[Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement).
+## AI assistants
+
+The built-in Agent API is on by default and listens on `127.0.0.1` only, so other computers
+cannot reach it. An AI assistant **you connect** to it (*Help > Connect AI Assistant...*, or
+by hand) can read your whole plan - including its location, plants, tasks and notes - and
+can change it only if you turn on *Allow AI assistants to edit the plan* in the preferences.
+What the assistant then sends to its own provider is decided by that assistant, under its
+provider's privacy terms, not by Open Garden Planner. Connecting runs the assistant's own
+command-line tool or writes Open Garden Planner's local address into that assistant's
+configuration file; those entries stay when you uninstall Open Garden Planner. You can turn
+the Agent API off in the preferences.
 
 ## Questions and changes
 
