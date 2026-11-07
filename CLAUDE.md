@@ -260,6 +260,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   and rejected; PF-E3D-25); a picture uses the view's preset, the MP4 keeps its pinned
   BT.709 HD convention, and the smaller L6 findings are closed (PF-E3D-26). See the
   roadmap.
+- UI, plant services, agent prompts, and weather architecture (#772, #765, #763, #724, #693)
+  implemented on branch `feature/772-765-763-724-693-ui-services-hygiene`:
+  accordion hover transit hysteresis (8px buffer); plant profile header asynchronous thumbnail worker;
+  permapeople credentials loaded from AppSettings before env vars; `plan-my-week` prompt
+  defaulting to simulated plan date; and application-level `ForecastHolder` decoupling weather
+  lifecycle with zero-timer coalescing, stale cancellation, and synchronous re-emission.
 - Engine, smart symbols, and CAD hygiene (#688, #720, #723, #692, #689) shipped in
   **v1.37.7 (PR #762)** after owner manual acceptance on 2026-11-07:
   compost_bay_3 repeating bays aspect ratio; dead GLSL removed and TWO_SIDED_KINDS

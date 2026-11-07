@@ -269,6 +269,12 @@ def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monke
     living.actions[TODAY].trigger()
     qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
     assert weather.fetches == [_place(BERLIN)], "asked for the forecast, once"
+    # When fresh forecast is held, picking Today's Weather re-emits and starts no fetch (#693)
+    living.set_weather(TODAY)
+    assert weather.fetches == [_place(BERLIN)], "fresh forecast: starts no fetch"
+    # Invalidate held forecast to simulate a failed fetch
+    win._forecast_holder.invalidate()
+    win._project_manager.set_location(dict(BERLIN))
     weather.fail = True
     living.set_weather(TODAY)                      # asked again: this fetch fails
     qtbot.waitUntil(lambda: len(weather.fetches) == 2 and living.forecast == (), timeout=5000)
@@ -282,6 +288,46 @@ def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monke
     win._project_manager.set_location(None)
     assert living.forecast == (), "no place: the old forecast is forgotten"
     assert widget._worker is None and len(weather.fetches) == 3, "no location: nothing to fetch"
+
+
+@pytest.mark.real_weather_worker
+def test_picking_todays_weather_with_fresh_held_forecast_starts_no_thread_and_rebuilds_no_dashboard(
+    win, monkeypatch, qtbot
+) -> None:
+    """Issue #693: When a fresh forecast for the plan's location is already held,
+    picking Today's Weather in 3D re-emits synchronously, starting NO background
+    worker thread and triggering NO dashboard rebuild on the hidden calendar tab."""
+    from unittest.mock import MagicMock
+    weather = FakeWeather(monkeypatch)
+    living = win._workspace.living
+    today = date.today().isoformat()
+    assert win._tab_widget.currentIndex() == 0, "calendar tab is hidden"
+
+    # 1. First pick fetches forecast
+    living.actions[TODAY].trigger()
+    qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
+    assert len(weather.fetches) == 1
+    assert win._forecast_holder.is_fresh()
+
+    # 2. Switch away to clear weather
+    living.actions["clear"].trigger()
+    assert living.weather_choice == "clear"
+
+    # 3. Instrument worker start and calendar dashboard rebuild
+    fetch_started = MagicMock()
+    monkeypatch.setattr(win._forecast_holder, "_start_fetch", fetch_started)
+    dashboard_rebuild = MagicMock(wraps=win.calendar_view._rebuild_dashboard)
+    monkeypatch.setattr(win.calendar_view, "_rebuild_dashboard", dashboard_rebuild)
+
+    # 4. Pick Today's Weather again
+    living.actions[TODAY].trigger()
+    qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
+
+    # 5. Assert 0 worker starts, 0 new fetches, 0 dashboard rebuilds
+    assert len(weather.fetches) == 1, "no second network fetch started"
+    assert fetch_started.call_count == 0, "no worker thread started"
+    assert dashboard_rebuild.call_count == 0, "hidden calendar dashboard not rebuilt"
+    assert win._tab_widget.currentIndex() == 0, "calendar remained hidden"
 
 
 @pytest.mark.real_weather_worker

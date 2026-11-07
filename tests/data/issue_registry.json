@@ -919,11 +919,6 @@
     "state": "OPEN",
     "title": "FU-L3: Seasonal callback budget has limited headroom across Windows/WARP runners"
   },
-  "599": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
-  },
   "600": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1114,25 +1109,10 @@
     "state": "MERGED",
     "title": "feat(#452): sliced whole-plan preparation, a geometry lane, and native triangulation"
   },
-  "677": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "download-stats: the 218-download bar is a bulk crawl — count only the then-current release, fix the doubled tooltip"
-  },
-  "683": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#659, #660): decode site-plan-sized backgrounds and encode them once"
-  },
   "685": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Flaky: test_a_death_in_software_mode_switches_3d_off_and_says_so depends on which real PIDs are alive"
-  },
-  "686": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
   },
   "688": {
     "is_pr": false,
@@ -1153,6 +1133,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
+  },
+  "693": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Forecast as app-owned data keyed by place (not a hidden tab's widget)"
   },
   "694": {
     "is_pr": false,
@@ -1289,6 +1274,11 @@
     "state": "CLOSED",
     "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
   },
+  "724": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
+  },
   "726": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1398,5 +1388,20 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#688, #720, #723, #692, #689): engine, smart symbols, and CAD hygiene"
+  },
+  "763": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Companion panel's Permapeople fetch ignores the keys saved in Preferences"
+  },
+  "765": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant profile header never downloads a thumbnail (fetch_thumbnail has no caller)"
+  },
+  "772": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(ui): prevent premature collapse of accordion panels when moving mouse to header pin button"
   }
 }

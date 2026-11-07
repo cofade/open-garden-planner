@@ -3742,6 +3742,7 @@ class AgentHost:
             get_soil_mismatches=host._agent_get_soil_mismatches,
             record_soil_test=host._agent_record_soil_test,
             get_plant_lists=host._agent_get_plant_lists,
+            plan_date=lambda: self._agent_plan_date().isoformat(),
         )
 
 

@@ -251,3 +251,28 @@ def test_duplicate_key_rejected(qtbot):
     ctrl = _make_controller(qtbot, keys=["a"])
     with pytest.raises(ValueError, match="already registered"):
         ctrl.add_panel("a", CollapsiblePanel("dup", QLabel("x")))
+
+
+def test_moving_mouse_from_body_to_header_does_not_prematurely_collapse(qtbot):
+    """Issue #772: Hovering header opens peek; moving mouse across expanded body
+    and back to header does not trigger premature collapse."""
+    ctrl = _make_controller(qtbot)
+    panel = ctrl.panel("a")
+
+    # Hover header to peek
+    panel.header.hover_enter.emit()
+    assert ctrl.state_of("a") is PanelState.COLLAPSED
+    qtbot.waitUntil(lambda: ctrl.state_of("a") is PanelState.PEEKING, timeout=1000)
+
+    # Moving into content body: header.hover_leave must not collapse panel
+    panel.header.hover_leave.emit()
+    assert ctrl._pending_close_key is None
+    assert ctrl.state_of("a") is PanelState.PEEKING
+
+    # Moving within panel body back to header pin icon
+    panel.hover_enter.emit()
+    assert ctrl.state_of("a") is PanelState.PEEKING
+
+    # Click header to pin
+    panel.header.pin_toggled.emit(True)
+    assert ctrl.state_of("a") is PanelState.PINNED
