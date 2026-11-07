@@ -185,3 +185,34 @@ class UpdateChecker(QThread):
         except Exception:
             if not self._is_cancelled:
                 logger.debug("Update check skipped (offline or error)", exc_info=True)
+
+
+#: ``GetCurrentPackageFullName`` returns this when the process has no package identity.
+_APPMODEL_ERROR_NO_PACKAGE = 15700
+_ERROR_INSUFFICIENT_BUFFER = 122
+
+
+def has_package_identity() -> bool:
+    """True when this process runs inside an MSIX package (a Microsoft Store install).
+
+    Asks ``kernel32.GetCurrentPackageFullName`` with an empty buffer: a packaged
+    process answers ``ERROR_INSUFFICIENT_BUFFER`` (122) and a length, an
+    unpackaged one ``APPMODEL_ERROR_NO_PACKAGE`` (15700). Anything else, and any
+    platform without the API, counts as unpackaged: the only consequence of a
+    wrong ``False`` is the ordinary update bar (ADR-073).
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        windll = getattr(ctypes, "windll", None)  # absent off Windows; typeshed agrees
+        if windll is None:
+            return False
+        length = ctypes.c_uint32(0)
+        result = int(windll.kernel32.GetCurrentPackageFullName(ctypes.byref(length), None))
+    except (AttributeError, OSError):
+        return False
+    # With a NULL buffer the API cannot succeed outright: a packaged process answers
+    # ERROR_INSUFFICIENT_BUFFER and the length it would need.
+    return result == _ERROR_INSUFFICIENT_BUFFER and length.value > 0

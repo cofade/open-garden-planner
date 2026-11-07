@@ -5,8 +5,11 @@
 Open Garden Planner is distributed as:
 
 1. **Windows Installer (primary)**: NSIS-based installer wrapping a PyInstaller bundle
-2. **pip install (secondary)**: For Python users who prefer package manager installation
-3. **Source (developer)**: Clone repository and run with `python -m open_garden_planner`
+2. **Microsoft Store (second channel, ADR-073)**: the same PyInstaller bundle packaged as an
+   MSIX (§7.2a), signed by Microsoft after certification. The release workflow builds the
+   package; the listing is **pending** the owner's Partner Center registration
+3. **pip install (secondary)**: For Python users who prefer package manager installation
+4. **Source (developer)**: Clone repository and run with `python -m open_garden_planner`
 
 ## 7.2 Windows Installer (NSIS)
 
@@ -168,6 +171,51 @@ Registry entries under `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall
 | `UninstallString` | `$INSTDIR\Uninstall.exe` |
 | `EstimatedSize` | (computed at install time) |
 
+## 7.2a Microsoft Store package (MSIX, ADR-073)
+
+The second channel packages the **same** frozen bundle the installer wraps — nothing is
+rebuilt — into an MSIX that Microsoft signs after Store certification. Why a second channel
+and not a signature: SmartScreen keeps reputation per file hash for an unsigned file, this
+project releases several times a day with 1–4 downloads each, so every installer starts at
+zero and "report as safe" covers one hash. A Store install never passes the browser download
+path (issue #375, ADR-073).
+
+```bash
+# After build_installer.py (the bundle must exist in dist/OpenGardenPlanner)
+python installer/build_msix.py --version 1.37.6            # dist/OpenGardenPlanner-v1.37.6.msix (+ .msix.json)
+python installer/build_msix.py --version 1.37.6 --sign-test  # plus a throw-away test signature for a local install
+python installer/build_msix.py --dry-run                     # stage + mapping only, no Windows SDK needed
+python installer/build_msix.py --check dist/OpenGardenPlanner-v1.37.6.msix
+```
+
+| Piece | What it is |
+|---|---|
+| `installer/build_msix.py` | Stage (`build/msix/`: `AppxManifest.xml`, 46 logo files from the two `.ico`s, `resources.pri`), a makeappx **mapping file** (the 600 MiB bundle is referenced, never copied, under `App\`), `makeappx pack` with schema validation, optional test signing, and a sidecar `.msix.json` recording identity, inputs and the placeholder flag |
+| Identity | `OGP_MSIX_IDENTITY_NAME`, `OGP_MSIX_PUBLISHER` (`CN=<GUID>`), `OGP_MSIX_PUBLISHER_DISPLAY_NAME` — repository variables copied from Partner Center › Product identity. Unset, the script uses development placeholders that build and test-install but that the Store rejects, and says so |
+| Version | `MAJOR.MINOR.PATCH.0` — the Store reserves the fourth part; pre-release suffixes are refused |
+| Runtime shape | `runFullTrust` packaged desktop app, Windows' default container: AppData writes are redirected into the package's `LocalCache` and removed with a Store uninstall; plans in `Documents\Open Garden Planner` are outside the container. `.ogp` file association and an **app execution alias** named like the exe (the only way to start a Store install with arguments: a plan path, or the self-test flag of §2.8 in `ogp-change-control`) |
+| Tools | `makeappx.exe`, `makepri.exe`, `signtool.exe` from the Windows SDK (`windows-latest` has it). Without the SDK, the NuGet package `Microsoft.Windows.SDK.BuildTools` carries the three; point `OGP_WINDOWS_SDK_BIN` at its **complete** `bin/<version>/x64` folder (PF-CI-20) |
+| In `release.yml` | After the release and the attestation, `continue-on-error`, uploaded as the workflow artifact `store-package-v<version>` (90 days). Not a release asset (unsigned, not installable) and not an attested subject (Microsoft re-signs it) |
+| `msix-store-verify.yml` | On demand and on pull requests that change the packaging: builds the bundle with the release recipe, runs the packaging tests with the real `makeappx`, packages and test-signs the bundle, trusts the certificate in the runner's **machine** store, installs, runs the 8-second smoke (probing the Agent API port from outside the package) and the frozen self-test through the alias, reports where the per-user files landed, removes the package. What each run actually proved is recorded in ADR-073 "Measurements" — read that before citing this row |
+| Local install test | A per-user Trusted People store fails with `0x800B0109` (measured, PF-CI-19); the machine store `Cert:\LocalMachine\TrustedPeople` needs an administrator shell. Then `Add-AppxPackage dist\OpenGardenPlanner-v<version>.msix`, start through the execution alias from any shell, `Remove-AppxPackage` to clean up |
+
+**Owner steps the pipeline cannot do:** register at Partner Center (free for individuals
+since 2025-09-10), reserve the name, set the three repository variables, download the
+artifact from a release run and upload it as a submission (privacy-policy URL
+`https://github.com/cofade/open-garden-planner/blob/master/PRIVACY.md`, live once on
+master), and after certification add the
+Store link to the README and the wiki's Installation page (ADR-073 "What the owner must do").
+Report the listing as pending until the first version is live.
+
+Measured on 2026-11-06: the package holds the bundle plus 52 entries of its own; the runner's
+v1.37.6 bundle (3,802 files) became 3,854 entries and 272.1 MB (run 42260902878; the counts
+are in its artifact `store-package-verify-42260902878`), the
+developer machine's older bundle (3,714 files) 268.5 MB. The MSIX is larger than the
+171 MiB installer because MSIX compresses per file (deflate) and NSIS uses a solid LZMA
+stream — dated measurements, re-measure on a release build. The same run installed the
+package, reached the Agent API port from outside it and passed the frozen self-test through
+the alias; ADR-073's addendum quotes the lines.
+
 ## 7.3 Release Process (GitHub Releases)
 
 ### Creating a Release (Automated)
@@ -190,6 +238,9 @@ Releases are fully automated via the `release.yml` GitHub Actions workflow:
      Sigstore-backed; see §7.3 Verification and ADR-044) for the installer,
      `SHA256SUMS.txt`, the raw app exe, the SBOM and the notices — run *after*
      the release is published so a Sigstore hiccup never costs a release
+   - Packages the same bundle as a Microsoft Store MSIX (§7.2a, ADR-073) and
+     uploads it as the workflow artifact `store-package-v<version>` — after the
+     attestation, `continue-on-error`, so it can never cost a release either
 
 ### Creating a Release (Manual Fallback)
 
@@ -221,6 +272,7 @@ Each release should include:
 | `THIRD_PARTY_NOTICES.md` | Consolidated third-party notices (also installed next to `LICENSE`) |
 | `build-evidence.json` | The toolchain this release was built with (AUD-049); also uploaded as a workflow artifact, but attached here so the record survives artifact expiry |
 | Build provenance attestation | Not an uploaded asset — stored by GitHub against the installer, `SHA256SUMS.txt`, the raw app exe, the SBOM and the notices; verify with `gh attestation verify` (§7.3 Verification, ADR-044) |
+| `OpenGardenPlanner-v{VERSION}.msix` (+ `.msix.json`) | **Not a release asset** — the workflow artifact `store-package-v{VERSION}` of the release run (90 days): the unsigned Store upload for Partner Center (§7.2a, ADR-073) |
 
 ### Verification
 
@@ -255,9 +307,11 @@ warnings — see §11.1/§11.2 and ADR-044.
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
-Five workflow files in `.github/workflows/`: `ci.yml`, `release.yml`, `frozen-selftest.yml`
-(frozen-exe smoke on demand and on pull requests touching the app), and the two scheduled
-report-only workflows `dependency-review.yml` and `download-stats.yml`, both described below:
+Six workflow files in `.github/workflows/`: `ci.yml`, `release.yml`, `frozen-selftest.yml`
+(frozen-exe smoke on demand and on pull requests touching the app), `msix-store-verify.yml`
+(a real install of the Store package, on demand and on pull requests touching the
+packaging — §7.2a), and the two scheduled report-only workflows `dependency-review.yml` and
+`download-stats.yml`, both described below:
 
 ### CI Workflow (`ci.yml`)
 
@@ -477,6 +531,7 @@ flowchart TD
         R10b[Upload SHA256SUMS.txt]
         R10c[Upload ogp-sbom.cdx.json + THIRD_PARTY_NOTICES.md]
         R11["Attest build provenance<br/>actions/attest-build-provenance<br/>installer + checksum + raw app exe + SBOM + notices"]
+        R12["Build the Microsoft Store package (MSIX)<br/>installer/build_msix.py, continue-on-error<br/>workflow artifact store-package-vX.Y.Z (§7.2a)"]
         Skip([Skip<br/>idempotent])
 
         R1 --> R2 --> R3
@@ -485,7 +540,7 @@ flowchart TD
         R9 --> R10a
         R9 --> R10b
         R9 --> R10c
-        R9 --> R11
+        R9 --> R11 --> R12
     end
 
     Trigger --> R1

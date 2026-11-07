@@ -1,0 +1,211 @@
+name: Store package verify
+
+# The measurement behind the Microsoft Store channel (ADR-073, issue #375).
+#
+# release.yml only BUILDS the MSIX. Whether the packaged app still works as a
+# Store install is a different question, and the answer can only come from a
+# real install: the package runs from the ACL-protected WindowsApps folder,
+# under a package identity, with Windows' file-system and registry
+# virtualisation for a full-trust app. This workflow builds the bundle with the
+# release recipe, packages it, signs it with a throw-away certificate, trusts
+# that certificate on the runner (which is an administrator), installs the
+# package, starts it the way a user would through its execution alias, runs
+# both checks of ogp-change-control 2.8 (the 8-second smoke and --selftest),
+# reports where the app's per-user files landed, and removes the package.
+#
+# Triggers: on demand, and on pull requests that change the packaging itself.
+# Not on every shipped-code change: frozen-selftest.yml already runs the exe
+# gate for those, and this costs a second Windows build plus an app install.
+# Not a required check (quality/master-protection.json).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - "installer/build_msix.py"
+      - ".github/workflows/msix-store-verify.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  msix-store-verify:
+    name: Store package verify (windows-latest)
+    runs-on: windows-latest
+    # Larger than the sum of the step limits (95 minutes), for the same reason
+    # frozen-selftest.yml gives: the job's limit must never be what ends a step.
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 5
+
+      - uses: ./.github/actions/setup-locked-env
+        timeout-minutes: 10
+
+      - name: Read the version this bundle will report
+        shell: pwsh
+        timeout-minutes: 1
+        run: |
+          $version = python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"
+          "OGP_EXPECTED_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "OGP_BUNDLE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # The release recipe without the installer (see frozen-selftest.yml).
+      - name: Build the bundle (the release recipe, without the installer)
+        timeout-minutes: 30
+        run: python installer/build_installer.py --skip-nsis
+
+      # The packaging tests with the REAL makeappx and makepri: the Linux test
+      # job skips the test that needs them, so this is where it runs (PF-CI-20's
+      # pin). `-n 0`: a handful of tests, no worker start-up.
+      - name: Run the packaging tests against the Windows SDK tools
+        shell: pwsh
+        timeout-minutes: 5
+        env:
+          PYTHONUTF8: "1"
+        run: python -m pytest tests/unit/test_build_msix.py tests/integration/test_msix_packaging.py -n 0 -q -p no:cacheprovider
+
+      # The development identity: the Store would reject it, a local install
+      # accepts it once the matching test certificate is trusted. makeappx
+      # validates the manifest against Microsoft's schema here.
+      - name: Package the bundle as a test-signed MSIX
+        shell: pwsh
+        timeout-minutes: 15
+        env:
+          PYTHONUTF8: "1"
+        run: python installer/build_msix.py --version $env:OGP_BUNDLE_VERSION --sign-test
+
+      # An MSIX installs only when its signing certificate chains to a store the
+      # MACHINE trusts; a per-user Trusted People store is not enough (measured
+      # on the developer machine, ADR-073). The runner is an administrator.
+      - name: Trust the test certificate and install the package
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # A no-cost fallback for an image whose Appx module is Desktop-edition only.
+          # Whether it is taken is logged, so a run answers the question instead of a comment.
+          if (-not (Get-Command Add-AppxPackage -ErrorAction SilentlyContinue)) { Write-Host "Appx fallback: importing the module through Windows PowerShell"; Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
+          $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
+          $msix = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.msix" | Select-Object -First 1
+          if (-not $cer -or -not $msix) { Write-Host "::error::package or certificate missing in dist/"; exit 1 }
+          Import-Certificate -FilePath $cer.FullName -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+          Add-AppxPackage -Path $msix.FullName
+          $pkg = Get-AppxPackage -Name "OpenGardenPlanner*"
+          if (-not $pkg) { Write-Host "::error::the package did not register"; exit 1 }
+          Write-Host ("Installed " + $pkg.PackageFullName + " at " + $pkg.InstallLocation)
+          "OGP_PFN=$($pkg.PackageFullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "OGP_PACKAGE_FAMILY=$($pkg.PackageFamilyName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $alias = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\OpenGardenPlanner.exe"
+          if (-not (Test-Path $alias)) { Write-Host "::error::execution alias not created: $alias"; exit 1 }
+          "OGP_ALIAS=$alias" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # Check 1 of 2.8 through the alias (the only user-facing way to start a
+      # Store install): the process is still up after 8 seconds. While it is
+      # up, the embedded Agent API must answer a client OUTSIDE the package -
+      # an MCP client is such a client - so the smoke also probes 127.0.0.1:8765.
+      - name: Smoke test through the execution alias (8 seconds, Agent API reachable)
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $p = Start-Process -FilePath $env:OGP_ALIAS -PassThru
+          Start-Sleep -Seconds 8
+          $reachable = $false
+          try {
+            $client = New-Object System.Net.Sockets.TcpClient
+            $client.Connect("127.0.0.1", 8765)
+            $reachable = $client.Connected
+            $client.Close()
+          } catch { $reachable = $false }
+          if ($p.HasExited) {
+            Write-Host "::error::The packaged exe did not stay up for 8 seconds (exit $($p.ExitCode))."
+            exit 1
+          }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "Smoke test passed: the packaged process was still running after 8 seconds."
+          if ($reachable) { Write-Host "Agent API port 127.0.0.1:8765 accepted a connection from outside the package." }
+          else { Write-Host "::warning::Agent API port 127.0.0.1:8765 did not accept a connection from outside the package within 8 seconds." }
+
+      # Check 2 of 2.8, the real gate: the same --selftest release.yml runs, in
+      # the INSTALLED package, started through the alias with arguments.
+      - name: Verify frozen subsystems in the installed package (--selftest)
+        shell: pwsh
+        timeout-minutes: 10
+        env:
+          OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-msix.log
+        run: |
+          $p = Start-Process -FilePath $env:OGP_ALIAS -ArgumentList "--selftest" -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::Self-test failed in the installed Store package (exit $($p.ExitCode)). The next step prints the log."
+            exit 1
+          }
+          Write-Host "Self-test passed (exit 0) in the installed Store package: Agent API, A1 checks and the Qt Quick 3D render are alive."
+
+      # Where did the app write? Under file-system virtualisation a full-trust
+      # packaged app's AppData writes are redirected into the package's
+      # LocalCache; a Store uninstall removes that folder. ADR-073 documents
+      # what this run reports. It can fail nothing.
+      - name: Report where the per-user files landed
+        if: always()
+        shell: pwsh
+        timeout-minutes: 2
+        env:
+          OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-msix.log
+        run: |
+          try {
+            if (Test-Path -LiteralPath $env:OGP_SELFTEST_LOG) {
+              Write-Host "--- self-test log ($env:OGP_SELFTEST_LOG) ---"
+              Get-Content -LiteralPath $env:OGP_SELFTEST_LOG -ErrorAction Stop | ForEach-Object { Write-Host $_ }
+            } else {
+              Write-Host "No self-test log at $env:OGP_SELFTEST_LOG (the env var may have been redirected with the rest of the write set)."
+            }
+            $real = Join-Path $env:APPDATA "cofade\Open Garden Planner"
+            $realLocal = Join-Path $env:LOCALAPPDATA "cofade\Open Garden Planner"
+            $roaming = Join-Path $env:APPDATA "OpenGardenPlanner"
+            $cache = if ($env:OGP_PACKAGE_FAMILY) { Join-Path $env:LOCALAPPDATA "Packages\$env:OGP_PACKAGE_FAMILY" } else { $null }
+            foreach ($dir in @($real, $realLocal, $roaming, $cache)) {
+              if ($dir -and (Test-Path -LiteralPath $dir)) {
+                Write-Host "--- $dir ---"
+                Get-ChildItem -LiteralPath $dir -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 60 | ForEach-Object { Write-Host ("  " + $_.FullName.Substring($dir.Length) + "  " + $_.Length) }
+              } else {
+                Write-Host "--- $dir --- (absent)"
+              }
+            }
+          } catch {
+            Write-Host "The report could not be completed ($($_.Exception.Message)). The verdicts above stand."
+          }
+          exit 0
+
+      - name: Remove the package and the test certificate
+        if: always()
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          try {
+            if (-not (Get-Command Remove-AppxPackage -ErrorAction SilentlyContinue)) { Write-Host "Appx fallback: importing the module through Windows PowerShell"; Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue }
+            if ($env:OGP_PFN) { Remove-AppxPackage -Package $env:OGP_PFN }
+            $cer = Get-ChildItem dist -Filter "OpenGardenPlanner-v*.test.cer" | Select-Object -First 1
+            if ($cer) {
+              $thumb = (New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $cer.FullName).Thumbprint
+              Remove-Item -Path ("Cert:\LocalMachine\TrustedPeople\" + $thumb) -ErrorAction SilentlyContinue
+            }
+          } catch {
+            Write-Host "Clean-up incomplete ($($_.Exception.Message)); the runner is discarded anyway."
+          }
+          exit 0
+
+      - name: Upload the package record
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        timeout-minutes: 2
+        with:
+          name: store-package-verify-${{ github.run_id }}
+          path: |
+            dist/OpenGardenPlanner-v*.msix.json
+            ${{ runner.temp }}/ogp-selftest-msix.log
+          if-no-files-found: warn

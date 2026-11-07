@@ -241,3 +241,44 @@ app." The list came from the wheels' ELF headers, not from trial and error: Qt M
 `libpulse.so.0`, `libGL`, `libEGL` and `libxkbcommon`; its FFmpeg plugin `libX11`, `libXrandr` and
 `libXext`; the bundled FFmpeg `libdrm`, `libbz2` and `libz`. Without H.264 on Linux, the MP4 tests
 walk the MPEG-4 path there.
+
+### PF-CI-19
+
+- **Rule:** An MSIX installs only when its signing certificate chains to a store the MACHINE trusts: a test certificate imported into `Cert:\CurrentUser\TrustedPeople` still fails `Add-AppxPackage` with `0x800B0109`, so a local install test needs `Cert:\LocalMachine\TrustedPeople` and administrator rights, and the Store package's install measurement runs on the CI runner (`msix-store-verify.yml`), never silently skipped on the developer machine. A Store submission itself is uploaded unsigned; Microsoft signs it.
+- **Pinned by:** `tests/unit/test_build_msix.py::test_the_store_verify_workflow_installs_and_selftests_the_package`
+- **Source:** #375, ADR-073, measured on the developer machine on 2026-11-06
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The unattended developer session has no administrator token, and a UAC prompt is not an
+option in an autonomous run. The failure is deterministic and documented by Microsoft; the
+per-user store is honoured for ordinary Authenticode checks, not for package deployment. The pinned
+test asserts that the workflow trusts the certificate machine-wide.
+
+### PF-CI-20
+
+- **Rule:** The Windows SDK packaging tools (`makeappx.exe`, `makepri.exe`, `signtool.exe`) run only from their complete `bin/<version>/x64` folder: each ships `*.dll.manifest` side-by-side files, and the executables copied alone fail with `WinError 14001` (side-by-side configuration is invalid). `makeappx pack` validates `AppxManifest.xml` against Microsoft's schema, a check no Python test can imitate, and it is strict about namespaces: `ExecutionAlias` is `uap5:` (or `uap8:`), not `desktop:`.
+- **Pinned by:** `tests/integration/test_msix_packaging.py::test_makeappx_packs_the_stage_and_the_package_reads_back`
+- **Source:** #375, ADR-073, 2026-11-06 (the NuGet `Microsoft.Windows.SDK.BuildTools` 10.0.26100.9457 package, extracted without an SDK install)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first run extracted only the three executables and the DLLs; the manifests
+(`Microsoft.Windows.Build.Appx.AppxPackaging.dll.manifest` and siblings) are what the
+loader needs. The second run, with the whole folder, packed; the schema error then named
+the exact XPath of the wrong element, which is the message to read before guessing.
+`installer/build_msix.py::_run` turns the `OSError` into a named error that says which folder to use.
+
+### PF-CI-21
+
+- **Rule:** Windows PowerShell 5.1 started from pwsh 7 has no `Cert:` drive (`New-SelfSignedCertificate` is found, then fails with "Cannot find drive 'Cert'"): the child inherits a `PSModulePath` whose first entries are the PowerShell 7 module folders, and the `Cert:` provider belongs to `Microsoft.PowerShell.Security`. A Python step that shells out to `powershell` from a `shell: pwsh` job removes `PSModulePath` from the child's environment and imports `Microsoft.PowerShell.Security` and `PKI` by name; the two measures were applied together and restored the drive, neither was isolated.
+- **Pinned by:** `tests/unit/test_build_msix.py::test_test_signing_runs_windows_powershell_without_the_inherited_module_path`
+- **Source:** #375, ADR-073; `msix-store-verify.yml` run 42257636976 on `aecf516d` (failed) and run 42260902878 on `f24efab3` (passed with the scrub)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The developer machine never showed it: Git Bash spawned `powershell` with the machine's own
+`PSModulePath`, and the certificate was created. On the runner the step's shell was pwsh 7,
+and the first `msix-store-verify.yml` run died in the signing step before any of the install
+measurement it exists for. The pinned test asserts that the child environment holds no
+`PSModulePath` under any casing and that a sentinel variable survives the scrub.

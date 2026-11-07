@@ -11,9 +11,11 @@ jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
-    # A release run takes 9-13 minutes (measured over the v1.29.x releases). Without
-    # a limit a hung step holds the job for GitHub's default of six hours.
-    timeout-minutes: 45
+    # A release run took 9-13 minutes (measured over the v1.29.x releases) before the
+    # Store package step (ADR-073) added up to 15 minutes of packing plus a ~270 MB
+    # artifact upload; re-measure on the first release that carries it. Without a
+    # limit a hung step holds the job for GitHub's default of six hours.
+    timeout-minutes: 60
     permissions:
       contents: write
       id-token: write
@@ -262,3 +264,47 @@ jobs:
             dist/OpenGardenPlanner/OpenGardenPlanner.exe
             dist/ogp-sbom.cdx.json
             dist/THIRD_PARTY_NOTICES.md
+
+      # The Microsoft Store channel (ADR-073, issue #375). The SAME frozen bundle
+      # the installer above was built from is packaged a second time as an MSIX
+      # for a Partner Center submission: the Store signs it with Microsoft's
+      # certificate after certification, which is what removes the SmartScreen
+      # "unknown publisher / not commonly downloaded" wall an unsigned,
+      # three-releases-a-day download can never climb (reputation is per file
+      # hash for an unsigned file). The identity comes from repository
+      # variables set from Partner Center > Product identity; until they exist
+      # the package carries a development placeholder that the Store rejects,
+      # and the sidecar .msix.json says so.
+      #
+      # ADR-044's placement lesson applies: this runs after the release AND the
+      # attestation, and `continue-on-error` means a missing SDK tool or a
+      # makeappx regression can never cost the GitHub release, which stays the
+      # primary channel. The package is a WORKFLOW ARTIFACT, not a release
+      # asset: unsigned, it cannot be installed by a user, and attaching it to
+      # the release page would only confuse. The owner downloads it from this
+      # run for the Store upload (docs/07 §7.2a); it is not an attested subject
+      # because Microsoft re-signs it, and the subject list above stays what
+      # test_the_release_workflow_still_attests_build_provenance pins.
+      - name: Build the Microsoft Store package (MSIX)
+        if: steps.check_tag.outputs.exists == 'false'
+        continue-on-error: true
+        timeout-minutes: 15
+        shell: bash
+        env:
+          OGP_MSIX_IDENTITY_NAME: ${{ vars.OGP_MSIX_IDENTITY_NAME }}
+          OGP_MSIX_PUBLISHER: ${{ vars.OGP_MSIX_PUBLISHER }}
+          OGP_MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.OGP_MSIX_PUBLISHER_DISPLAY_NAME }}
+          PYTHONUTF8: "1"
+        run: python installer/build_msix.py --version ${{ steps.version.outputs.version }}
+
+      - name: Upload the Store package
+        if: steps.check_tag.outputs.exists == 'false'
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-package-v${{ steps.version.outputs.version }}
+          path: |
+            dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}.msix
+            dist/OpenGardenPlanner-v${{ steps.version.outputs.version }}.msix.json
+          if-no-files-found: warn
+          retention-days: 90
