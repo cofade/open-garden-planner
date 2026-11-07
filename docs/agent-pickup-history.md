@@ -80,3 +80,49 @@ change.
   `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
   when `new` deltas explain the window, and `chart.js` removes duplicate SVG `<title>`
   tooltips and formats `>3` windows via localized `windowCount`.
+
+## Pickups moved 2026-11-07 (root budget)
+
+- 3D hardening, touch/region/CI, and bed/constraint reconciliation (#535/#578/#619, #443/#485, #321/#451) shipped in v1.34.7–v1.34.9 (PRs #647, #649, #650).
+- 3D performance and stability, Slice A (ADR-069): #452 shipped in v1.34.11 (PR #676)
+  — a whole-plan read is sliced at 4 ms with heavy builders on one worker lane
+  (heartbeat p95 1.7–3.6 ms on the issue's plans, was 4.0–12.6 s in one block). #531
+  (in-place Model reuse) and #598 (sparse seasonal index) were built and WITHDRAWN:
+  both render tiers draw a replaced geometry as nothing while still picking it. #475
+  (raster lane, padded tiles) and #534 (wind memory) are open.
+- 2D drawing-tools package (#674, #665, #690) shipped in v1.36.2 (PR #713) after
+  owner manual acceptance: Group/Ungroup on every item's context menu with one-step multi-group
+  ungroup (FR-EDIT-22), per-object fill angle/scale/offset as additive appearance
+  metadata with roof-frame composition (FR-EDIT-23, ADR-071), and a HOUSE ridge created
+  by a type change in the same undo step (FR-EDIT-24, ADR-046 addendum). #664 (split
+  along line) and #688 (smart-symbol texture stretch) were deliberately left for a
+  follow-up slice.
+- 2D drawing & CAD integrity follow-ups (#741, #740, #727, #726, #703, #712; FR-EDIT-25)
+  shipped in **v1.37.1 (PR #747)** after owner manual acceptance on 2026-11-05:
+  `ROOF_RIDGE` excluded from `groupable_selection()`; fresh linked ridges created on
+  array (`LinearArrayCommand`, `GridArrayCommand`, `CircularArrayCommand`, `ArrayAlongPathCommand`),
+  offset, and mirror copy of groups containing a `HOUSE`; project load sanitises legacy/stale
+  `ridge_item_id` and orphan `owner_polygon_id` links; `ArcItem`, `BezierItem`, `ConstructionLineItem`,
+  `ConstructionCircleItem`, `CalloutItem`, and `TextItem` route context menu and Delete key through
+  `dispatch_delete_selection`; grouping houses across layers normalises member and ridge layers to
+  the group layer with undo restoration and canvas visibility fallback; `delete_object` on groups
+  prunes nested journal notes in the same compound undo step; path presets default to 80 cm and
+  preserve user-set widths on style switch; paved paths use flat caps and bevel joins eliminating
+  rounded lobes in 2D and agreeing with 3D kerb mesh; and plan loader enforces `MAX_POLYLINE_VERTICES` (16,384).
+- Capture-session integrity package (#730, #731, #732, #745) shipped in v1.37.2 (PR #750):
+  a tour holds the clock only when it moves it, and agents use the owner's date during
+  a time-lapse (ADR-072 addendum); a kept `.part.mp4` survives, Esc/X ask after 10 s, and
+  app close waits for the writer (PF-E3D-22); a year's tour holds UTC across DST (1.53
+  vs 18.07 luma; ADR-053 addendum L6, PF-E3D-24); applied blur always has a point,
+  using the ground under the view's centre while walking (PF-E3D-23).
+- Phase 17 L5 (#389) shipped in v1.35.0 (PR #699). Load `ogp-lush-cinematic`/`ogp-3d-renderer` before a
+  visible 3D change; `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
+- L6 (#390, ADR-072) is the Director's cut: one capture path (`Quick3DHost.capture`),
+  photo mode, camera tours, video (`video_writer.py`) and the read-only `render_3d_view`;
+  shipped in v1.37.0 (PR #729). A plant's rect follows `CanvasScene.drawn_plan_date`
+  (PF-CAN-43); Ultra's reflections + blur + glow crashed Qt (PF-E3D-21, #744); its
+  follow-ups are PF-E3D-18/19/20 and #745.
+- L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt 6.12 pins and an opt-in
+  atmosphere sky that only DRAWS (PF-E3D-14/17).
+- Russian localization (#492, FR-I18N-09) shipped in v1.36.1 (PR #495):
+  full Russian UI.

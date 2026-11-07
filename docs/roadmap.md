@@ -4196,7 +4196,7 @@ Docs: ADR-072 addendum, FR-3D-PHOTO-03 / FR-3D-TOUR-02, PF-E3D-25/26, `debug-ver
 - **#689 - living garden engine follow-ups**: bounded `root.windTime` in `Garden.qml` to 1 hour and wrapped precipitation shader time in modulo arithmetic for long-running float precision; added midnight timer and automatic transition for Today's Weather; unified ambient buffer assembly into `core/scene3d/living.py` (`living_buffers`).
 
 
-### UI, plant services, agent prompts, and weather architecture (#772, #765, #763, #724, #693)
+### UI, plant services, agent prompts, and weather architecture (#772, #765, #763, #724, #693) — shipped in v1.37.8 (PR #773)
 
 - **#772 - accordion hover hysteresis buffer**: moving the mouse to the header pin/expand button no longer triggers premature collapse. An 8-pixel transit buffer allows smooth diagonal navigation without false collapse events.
 - **#765 - plant profile thumbnail fetching**: wired asynchronous thumbnail fetching via `_ThumbnailWorker` (`QThread`) in `PlantDatabasePanel` with privacy disclosure in `PRIVACY.md`.
