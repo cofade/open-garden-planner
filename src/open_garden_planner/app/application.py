@@ -592,6 +592,9 @@ class GardenPlannerApp(QMainWindow):
     ) -> dict[str, Any]:
         return self._agent_host._agent_get_tasks(from_date, to_date, source, bed_id, species_key, include_dismissed, today)
 
+    def _agent_plan_date(self) -> Any:
+        return self._agent_host._agent_plan_date()
+
     def _do_agent_get_tasks(
         self,
         from_date: str | None,
@@ -2316,6 +2319,10 @@ class GardenPlannerApp(QMainWindow):
 
         # Tab 1: Planting Calendar (US-8.5)
         self.calendar_view = PlantingCalendarView(self.canvas_scene, self._project_manager)
+        from open_garden_planner.services.forecast_holder import ForecastHolder
+        self._forecast_holder = ForecastHolder(self)
+        self.calendar_view.set_forecast_holder(self._forecast_holder)
+        self.canvas_scene.document_replaced.connect(self._forecast_holder.invalidate)
         # The planting-calendar tab carries its own status messages (a refused
         # propagation date, #415). It shares the canvas's scene, but a tab
         # message should come from the tab rather than from the canvas view.
@@ -2367,8 +2374,9 @@ class GardenPlannerApp(QMainWindow):
         # while its tab is hidden, so it can be wired to stack_changed (covers
         # undo/redo) without the heavyweight churn #210 flagged — fixes #225.
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
-        # the weather widget follows the place at once, also while this tab is hidden
-        # (its refresh is skipped then): a fetch for the old place is cancelled (PF-LIF-12)
+        # the weather holder follows the place at once, also while this tab is hidden
+        # (its refresh is skipped then): a fetch for the old place is cancelled (PF-LIF-12, #693)
+        self._project_manager.location_changed.connect(self._on_location_changed_for_forecast)
         self._project_manager.location_changed.connect(self.calendar_view.follow_location)
         self._project_manager.location_changed.connect(
             lambda _: self.calendar_view.schedule_refresh()
@@ -2403,10 +2411,12 @@ class GardenPlannerApp(QMainWindow):
         self.addAction(tasks_shortcut)
         # Reuse the calendar's single weather fetch for frost tasks.
         self.calendar_view.frost_alerts_ready.connect(self.tasks_view.set_frost_alerts)
-        # ... and for the 3D view's "Today's Weather" (Phase 17 L5.3): no second fetch —
-        # the 3D view asks the calendar's weather widget, also while its tab is hidden.
-        self.calendar_view.forecast_days_ready.connect(self._workspace.set_weather_forecast)
-        self._workspace.forecast_wanted.connect(self.calendar_view.request_forecast)
+        # ... and for the 3D view's "Today's Weather" (Phase 17 L5.3, #693):
+        # 3D view reads from the app-level forecast holder; when fresh, re-emits synchronously without fetch
+        self._forecast_holder.forecast_days_ready.connect(self._workspace.set_weather_forecast)
+        self._workspace.forecast_wanted.connect(lambda: self._forecast_holder.request_forecast(force=False))
+        # Keep calendar_view.forecast_days_ready in sync for external subscribers/tests
+        self._forecast_holder.forecast_days_ready.connect(self.calendar_view.forecast_days_ready.emit)
         # ...and keep an application-owned copy for the agent's PlanState build
         # (US-D3.3). Reading `tasks_view._frost_alerts` from here would couple
         # the agent path to a private attribute of a widget; this is the same
@@ -3854,6 +3864,8 @@ class GardenPlannerApp(QMainWindow):
             # Shut down calendar background workers and services (#483).
             if getattr(self, "calendar_view", None) is not None and hasattr(self.calendar_view, "shutdown"):
                 self.calendar_view.shutdown()
+            if getattr(self, "_forecast_holder", None) is not None:
+                self._forecast_holder.shutdown()
             # The 3D workspace (L1.3): stop its pipeline and close its engine
             # host while this window still exists — and clear a pending start
             # marker, because a clean close is not a crash (ADR-060).
@@ -5393,8 +5405,11 @@ class GardenPlannerApp(QMainWindow):
         settings = get_settings()
         trefle_token = settings.trefle_api_token or os.environ.get("TREFLE_API_TOKEN", "")
         perenual_key = settings.perenual_api_key or os.environ.get("PERENUAL_API_KEY", "")
-        permapeople_id = settings.permapeople_key_id or os.environ.get("PERMAPEOPLE_KEY_ID", "")
-        permapeople_secret = settings.permapeople_key_secret or os.environ.get("PERMAPEOPLE_KEY_SECRET", "")
+        from open_garden_planner.services.plant_api.permapeople_client import (
+            resolve_permapeople_credentials,
+        )
+
+        permapeople_id, permapeople_secret = resolve_permapeople_credentials(settings)
 
         api_manager = PlantAPIManager(
             trefle_api_token=trefle_token or None,
@@ -6668,6 +6683,29 @@ class GardenPlannerApp(QMainWindow):
             self.tasks_view.refresh()
         elif index == self._tab_widget.indexOf(self.harvest_view):
             self.harvest_view.refresh()
+
+    def _is_forecast_wanted(self) -> bool:
+        """Check whether any subscriber currently requires weather forecast data (#693)."""
+        from open_garden_planner.core.scene3d.weather import TODAY
+        if hasattr(self, "_workspace") and getattr(self._workspace.living, "_weather", None) == TODAY:
+            return True
+        return bool(
+            hasattr(self, "calendar_view")
+            and self.calendar_view is not None
+            and self.calendar_view.isVisible()
+        )
+
+    def _on_location_changed_for_forecast(self, location: object) -> None:
+        """Forward location changes to ForecastHolder (ADR-070 addendum, #693)."""
+        loc = location if isinstance(location, dict) else getattr(self._project_manager, "location", None)
+        place = plan_place(loc)
+        if hasattr(self, "_forecast_holder") and self._forecast_holder is not None:
+            if place is not None:
+                self._forecast_holder.set_location(*place)
+            else:
+                self._forecast_holder.set_location(None, None)
+            if self._is_forecast_wanted():
+                self._forecast_holder.request_forecast(force=False)
 
     def _on_frost_alert_ready(self, count: int, max_severity: str) -> None:
         """Update the frost alert corner badge (themed icon, re-applied on

@@ -43,11 +43,11 @@ class _HeaderFrame(QFrame):
     hover_leave = pyqtSignal()
     pin_toggled = pyqtSignal(bool)
 
-    def enterEvent(self, event: QEnterEvent) -> None:
+    def enterEvent(self, event: QEnterEvent | None) -> None:
         self.hover_enter.emit()
         super().enterEvent(event)
 
-    def leaveEvent(self, event: QEvent) -> None:
+    def leaveEvent(self, event: QEvent | None) -> None:
         self.hover_leave.emit()
         super().leaveEvent(event)
 
@@ -64,6 +64,16 @@ class CollapsiblePanel(QWidget):
     """
 
     expanded_changed = pyqtSignal(bool)
+    hover_enter = pyqtSignal()
+    hover_leave = pyqtSignal()
+
+    def enterEvent(self, event: QEnterEvent | None) -> None:
+        self.hover_enter.emit()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QEvent | None) -> None:
+        self.hover_leave.emit()
+        super().leaveEvent(event)
 
     def __init__(
         self,

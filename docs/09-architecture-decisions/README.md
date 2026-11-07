@@ -10374,6 +10374,11 @@ past midnight, the firefly season's date, one life assembly for the product and 
    An edit at the same coordinates (a frost date) keeps the forecast. No zero-timer: a fetch
    for the same place already on its way is not started again (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
    calendar's frost alerts, which keep the old plan's after a cleared location: #694.
+   **#693 addendum (forecast as app-owned data)**: the forecast is decoupled from `WeatherWidget`
+   into `ForecastHolder` (`services/forecast_holder.py`), which invalidates on `document_replaced`,
+   updates coordinates without fetching on `location_changed` until asked, coalesces repeat asks
+   via a zero-timer, drops stale results by generation/coordinates, and re-emits synchronously
+   when a fresh forecast is held without starting a thread or rebuilding hidden dashboards.
 2. **Where noon stands is the place's.** The dew's noon fade and the fireflies' midnight
    read the meridian from the plan's hemisphere (`noon_azimuth`; `LookController.set_southern`,
    told by the workspace) — not from both: a summer dawn north of ~60° stands near due north,

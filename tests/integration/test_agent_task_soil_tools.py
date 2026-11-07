@@ -315,9 +315,12 @@ class TestRealMcpTransport:
             assert task_id in {t["task_id"] for t in await tasks()}
             calendar = await _call(session, "get_task_calendar", today=TODAY)
             assert calendar["coverage"] == "full"
-            # the prompt's window is around its reference date, the wall clock by default (#715)
+            # the prompt's window is around its reference date (#715)
             prompt = await session.get_prompt("plan-my-week", arguments={"today": TODAY})
             assert "Transport reminder" in prompt.messages[0].content.text
+            # defaults to the plan's simulated date without arguments (#724)
+            prompt_default = await session.get_prompt("plan-my-week", arguments={})
+            assert prompt_default.messages[0].content.text
         _exercise_mcp(qtbot, mcp_server, workflow, writes=True)
 
 
@@ -965,6 +968,77 @@ class TestProviderWiring:
         )
         assert "no geo-location" in text
         assert "Do not tell the user the week is empty" in text
+
+    @pytest.mark.anyio
+    async def test_plan_my_week_prompt_defaults_to_simulated_plan_date(self) -> None:
+        """Issue #724: plan-my-week defaults to plan_date when today is not specified."""
+        from open_garden_planner.agent_api.providers import AgentProviders
+        from open_garden_planner.agent_api.server import build_server
+
+        sim_date = "2027-04-15"
+        calls = []
+
+        def fake_get_tasks(*args):
+            calls.append(args)
+            return {
+                "tasks": [],
+                "coverage": "full",
+                "from_date": sim_date,
+                "to_date": sim_date,
+                "today": sim_date,
+                "total": 0,
+            }
+
+        def fake_get_calendar(*args):
+            return {"coverage": "full", "months": [], "year": 2027, "today": sim_date, "total": 0}
+
+        base = dict.fromkeys(AgentProviders.__dataclass_fields__)
+        base["snapshot"] = lambda: {"summary": {}, "layers": [], "objects": [], "as_of_date": sim_date}
+        base["get_tasks"] = fake_get_tasks
+        base["get_task_calendar"] = fake_get_calendar
+        base["plan_date"] = lambda: sim_date
+        base["diagnostics"] = lambda: []
+        providers = AgentProviders(**base)
+
+        server = build_server(providers)
+        await server.get_prompt("plan-my-week", arguments={})
+        assert len(calls) >= 1
+        assert calls[0][6] == sim_date
+
+    @pytest.mark.anyio
+    async def test_plan_my_week_prompt_falls_back_when_plan_date_is_none(self) -> None:
+        """Issue #724: plan-my-week falls back to real today when plan_date returns None."""
+        from open_garden_planner.agent_api.providers import AgentProviders
+        from open_garden_planner.agent_api.server import build_server
+
+        calls = []
+
+        def fake_get_tasks(*args):
+            calls.append(args)
+            return {
+                "tasks": [],
+                "coverage": "full",
+                "from_date": "2026-01-01",
+                "to_date": "2026-01-01",
+                "today": "2026-01-01",
+                "total": 0,
+            }
+
+        def fake_get_calendar(*args):
+            return {"coverage": "full", "months": [], "year": 2026, "today": "2026-01-01", "total": 0}
+
+        base = dict.fromkeys(AgentProviders.__dataclass_fields__)
+        base["snapshot"] = lambda: {"summary": {}, "layers": [], "objects": [], "as_of_date": "2026-01-01"}
+        base["get_tasks"] = fake_get_tasks
+        base["get_task_calendar"] = fake_get_calendar
+        base["plan_date"] = lambda: None
+        base["diagnostics"] = lambda: []
+        providers = AgentProviders(**base)
+
+        server = build_server(providers)
+        await server.get_prompt("plan-my-week", arguments={})
+        assert len(calls) >= 1
+        assert calls[0][6] == datetime.date.today().isoformat()
 
     def test_soil_prompt_asks_for_a_test_when_untested(
         self, app: Any, bed_id: str
