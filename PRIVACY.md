@@ -8,7 +8,7 @@ settings and logs stay on your computer unless you use one of the online feature
 connect an AI assistant, both described below.
 
 If you installed the app from the Microsoft Store, Microsoft may give the developer
-aggregated download, usage and crash statistics, depending on your Windows diagnostic-data
+aggregated download and usage statistics and crash reports, depending on your Windows diagnostic-data
 settings. That is Microsoft's reporting, covered by
 [Microsoft's privacy statement](https://privacy.microsoft.com/privacystatement); the app
 does not send it.
@@ -17,20 +17,24 @@ does not send it.
 
 - **Plan files** (`.ogp`) are saved where you choose. **Autosaves** are written next to the
   plan file (`~autosave_<name>.ogp`), or to your temp folder for a plan that was never saved.
-- **Settings, logs, caches and the data you keep outside plans** - seed inventory, custom
-  companion rules, templates, plant lists, cached weather, climate and companion answers -
-  are kept in your user profile (`AppData`).
-- **Microsoft Store version:** Windows keeps the settings and the files the app creates in
-  `AppData` inside the app's own package folder
+- **Settings** are kept in your user registry. **Logs, caches and the data you keep outside
+  plans** - custom plants, seed inventory, custom companion rules, guild templates, smart
+  symbols, plan templates, plant lists, cached weather, climate and companion answers - are
+  kept in your user profile (`AppData`).
+- **Microsoft Store version:** Windows keeps the settings and the files the Store version
+  creates in `AppData` inside the app's own package folder
   (`%LOCALAPPDATA%\Packages\<package folder>\LocalCache`) and **deletes them when you
-  uninstall the app** - including your seed inventory, custom companion rules, templates and
-  plant lists. Copy that folder first if you want to keep them. Plan files and autosaves
-  next to them are not affected.
+  uninstall the app** - including your custom plants, seed inventory, custom companion rules,
+  guild templates, smart symbols, plan templates and plant lists. Copy that folder first if
+  you want to keep them. Files left by an earlier installation from GitHub stay where they
+  are, and plan files and the autosaves next to them are not affected.
 
 ## When the app goes online
 
 Only the features below connect to the internet. Each connection goes directly from your
-computer to the provider named; the developer is not involved and receives nothing. Like
+computer to the provider named; the developer is not involved and receives nothing
+(GitHub publicly counts downloads of its release files; that count is all the developer
+sees). Like
 every internet connection, each one shows the provider your IP address.
 
 | Feature | Provider | What is sent | When |
@@ -50,10 +54,14 @@ what that site receives is between you and that site.
 The built-in Agent API is on by default and listens on `127.0.0.1` only, so other computers
 cannot reach it. An AI assistant **you connect** to it (*Help > Connect AI Assistant...*, or
 by hand) can read your whole plan - including its location, plants, tasks and notes - and
-can change it only if you turn on *Allow AI assistants to edit the plan* in the preferences.
-What the assistant then sends to its own provider is decided by that assistant, under its
-provider's privacy terms, not by Open Garden Planner. Connecting runs the assistant's own
-command-line tool or writes Open Garden Planner's local address into that assistant's
+can save the open plan and export it to files on your computer. It can change the plan
+itself only if you turn on *Allow AI assistants to edit the plan* in the preferences. What
+the assistant then sends to its own provider is decided by that assistant, under its
+provider's privacy terms, not by Open Garden Planner.
+
+The *Connect AI Assistant* dialog runs the command-line tools of the assistants it finds on
+your computer to detect them. Connecting one runs that tool or writes Open Garden Planner's
+local address - with the access token, if AI editing is on - into that assistant's
 configuration file; those entries stay when you uninstall Open Garden Planner. You can turn
 the Agent API off in the preferences.
 

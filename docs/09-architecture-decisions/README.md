@@ -10938,9 +10938,11 @@ detections, (10) reversibility.
    the package's `LocalCache`, and the `QSettings` registry values in the package's
    private hive (Microsoft's documented HKCU virtualisation, not measured); a Store
    uninstall removes both. Plans live in `Documents\Open Garden Planner`, outside the
-   container, and are not affected; autosaves are written next to the plan file (an
-   unsaved plan's to the temp folder), so they are not affected either. `PRIVACY.md`
-   tells users which data an uninstall deletes.
+   container, and are not affected, nor are autosaves, which are written next to the plan
+   file (an unsaved plan's autosave goes to `%LOCALAPPDATA%\Temp`, whose fate under the
+   container is not measured). Files that an earlier GitHub install left in the real
+   `AppData` are edited in place and survive (Microsoft's documented 1903+ rule, not
+   measured). `PRIVACY.md` tells users which data an uninstall deletes.
 6. **An app execution alias `OpenGardenPlanner.exe`** is declared, because a Store install's
    folder under `WindowsApps` cannot be executed directly by the user: the alias is how a
    shell starts the installed package with arguments — the frozen self-test in CI, or an MCP
@@ -11015,7 +11017,8 @@ What the workflow proved on `windows-latest` (image 26100, an administrator sess
 
 So item 5's virtualisation story is data, not assumption: a full-trust packaged app's
 AppData writes are redirected into the package's `LocalCache`, which a Store uninstall
-removes (settings in the registry go to the package's virtual hive the same way). Plans in
+removes (for settings in the registry Microsoft documents the same for the package's
+private hive; that part was not measured). Plans in
 `Documents\Open Garden Planner` are outside the container. If that ever matters to a user
 report, the restricted capability `unvirtualizedResources` is the lever, and it needs
 Partner Center approval.
@@ -11054,8 +11057,12 @@ first certified version (see "What the owner must do").
   runs the stage on every OS and the real `makeappx` where it exists.
 - `PRIVACY.md` is the listing's privacy-policy URL, a public promise about the network
   surface: `tests/unit/test_privacy_inventory.py` pins the set of network-using modules and
-  the PRIVACY.md text that discloses each, so a new one fails until it is disclosed. It does
-  not see a new caller of an existing client (the companion panel was one, review round 4).
+  the PRIVACY.md text that discloses each, so a new one fails until it is disclosed, and it
+  fails if the dormant plant-thumbnail download (`fetch_thumbnail`) gains a caller. It is a
+  tripwire, not a proof: it matches import lines and known Qt network classes, so a new
+  caller of an existing client (the companion panel was one, review round 4) or an unusual
+  transport passes it. A change touching `services/plant_api`, `image_download` or the map
+  picker still needs PRIVACY.md's "When" column checked in review.
 - README, docs/07 §7.1/§7.2a/§7.3/§7.4, §11.1/§11.2, the glossary and PF-CI-19/20 are
   updated in the same change.
 

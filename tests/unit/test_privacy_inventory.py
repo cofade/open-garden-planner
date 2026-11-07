@@ -19,14 +19,21 @@ ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "src" / "open_garden_planner"
 PRIVACY = ROOT / "PRIVACY.md"
 
-#: Python constructs that open a network connection or load a web page.
+#: Python constructs that open a network connection or load a web page: import lines of the
+#: network libraries (plain and ``from`` forms) and the Qt network / web classes.
 _NETWORK = re.compile(
-    r"import requests|requests\.(get|post|put|delete|head|request|Session)\b|urllib\.request|"
-    r"\burlopen\b|http\.client|QNetworkAccessManager|QWebEngineView|\bhttpx\b|\baiohttp\b|"
-    r"socket\.(create_connection|socket)\b"
+    r"^\s*(?:import|from)\s+(?:requests|httpx|aiohttp|websockets|websocket|ftplib|smtplib|"
+    r"urllib\.request|urllib3|http\.client)\b|"
+    r"^\s*from\s+urllib\s+import\s+[^\n]*\brequest\b|^\s*from\s+http\s+import\s+[^\n]*\bclient\b|"
+    r"\burlopen\b|QNetworkAccessManager|QTcpSocket|QSslSocket|QUdpSocket|QWebSocket|"
+    r"QWebEngine(?:View|Page)|socket\.(?:create_connection|socket)\b",
+    re.MULTILINE,
 )
-#: Bundled web pages that load remote scripts.
-_REMOTE_SCRIPT = re.compile(r"""<script[^>]+src=["']https?://|maps\.googleapis\.com|https?://[a-z0-9.-]+/[^"']*\.js""")
+#: Bundled web/QML pages that load remote content.
+_REMOTE_SCRIPT = re.compile(
+    r"""<script[^>]+src=["']https?://|maps\.googleapis\.com|https?://[a-z0-9.-]+/[^"']*\.js|"""
+    r"""XMLHttpRequest|\bfetch\s*\(\s*["'`]https?://|source:\s*["']https?://"""
+)
 
 #: Module (relative to the package) -> the PRIVACY.md text that discloses its traffic.
 DISCLOSED: dict[str, tuple[str, ...]] = {
@@ -54,9 +61,10 @@ def _network_modules() -> set[str]:
             continue
         if _NETWORK.search(path.read_text(encoding="utf-8", errors="replace")):
             found.add(path.relative_to(PACKAGE).as_posix())
-    for path in (PACKAGE / "resources").rglob("*.htm*"):
-        if _REMOTE_SCRIPT.search(path.read_text(encoding="utf-8", errors="replace")):
-            found.add(path.relative_to(PACKAGE).as_posix())
+    for pattern in ("*.htm*", "*.qml", "*.js"):
+        for path in PACKAGE.rglob(pattern):
+            if _REMOTE_SCRIPT.search(path.read_text(encoding="utf-8", errors="replace")):
+                found.add(path.relative_to(PACKAGE).as_posix())
     return found
 
 
@@ -82,5 +90,20 @@ def test_privacy_statement_covers_the_ai_assistant_channel_and_the_store_uninsta
     Store uninstall deletes the data kept outside plans."""
     text = PRIVACY.read_text(encoding="utf-8")
     assert "can read your whole plan" in text
-    assert "deletes them when you" in text and "seed inventory" in text
+    assert "deletes them when you" in text
+    assert all(word in text for word in ("custom plants", "seed inventory", "guild templates"))
     assert "nothing leaves your computer" not in text
+
+
+def test_the_dormant_plant_thumbnail_download_has_no_caller() -> None:
+    """``fetch_thumbnail`` would load images from the hosts a plant provider returns, which
+    PRIVACY.md does not disclose (review round 5). It has no production caller today; the day
+    it gets one, PRIVACY.md's plant-search row must name the image hosts and this test changes."""
+    callers = sorted(
+        path.relative_to(PACKAGE).as_posix()
+        for path in PACKAGE.rglob("*.py")
+        if "__pycache__" not in path.parts
+        and path.name != "thumbnail_loader.py"
+        and "fetch_thumbnail" in path.read_text(encoding="utf-8", errors="replace")
+    )
+    assert not callers, f"{callers} call fetch_thumbnail: disclose the image hosts in PRIVACY.md first"
