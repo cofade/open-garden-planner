@@ -1136,12 +1136,12 @@
   },
   "688": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
   },
   "689": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
   },
   "690": {
@@ -1151,7 +1151,7 @@
   },
   "692": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
   },
   "694": {
@@ -1271,7 +1271,7 @@
   },
   "720": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L7 follow-up: atmosphere sky hygiene from the senior review (dead GLSL, silent compile failure, tests, upstream report)"
   },
   "721": {
@@ -1286,7 +1286,7 @@
   },
   "723": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
   },
   "726": {
@@ -1393,5 +1393,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#733, #735, #738): capture quality and L6 hygiene"
+  },
+  "762": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#688, #720, #723, #692, #689): engine, smart symbols, and CAD hygiene"
   }
 }
