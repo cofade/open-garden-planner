@@ -371,6 +371,9 @@ class CanvasView(QGraphicsView):
         self._drill_handle: QGraphicsItem | None = None
         self._drill_handle_start_scene: QPointF | None = None
         self._drill_handle_parent_frame = False
+        self._drill_handle_rotation_item: QGraphicsItem | None = None
+        self._drill_handle_initial_angle = 0.0
+        self._drill_handle_undo_depth = 0
         self._canvas_scene.selectionChanged.connect(
             self._on_selection_changed_for_group_drill
         )
@@ -4802,11 +4805,20 @@ class CanvasView(QGraphicsView):
         point = (
             parent.mapFromScene(scene_pos) if parent_frame else QPointF(scene_pos)
         )
+        rotation_item = parent if isinstance(handle, RotationHandle) else None
+        rotation_start = (
+            float(getattr(parent, "rotation_angle", parent.rotation()))
+            if rotation_item is not None
+            else 0.0
+        )
         if not begin(point, parent_frame=parent_frame):
             return False
         self._drill_handle = handle
         self._drill_handle_start_scene = QPointF(scene_pos)
         self._drill_handle_parent_frame = parent_frame
+        self._drill_handle_rotation_item = rotation_item
+        self._drill_handle_initial_angle = rotation_start
+        self._drill_handle_undo_depth = self._command_manager.undo_depth
         self._drag_start_positions.clear()
         self._rotating_item = None
         self._active_drag_handle = handle
@@ -4839,9 +4851,13 @@ class CanvasView(QGraphicsView):
 
     def _finish_drill_handle(self) -> None:
         handle = self._drill_handle
+        rotating_item = self._drill_handle_rotation_item
+        initial_angle = self._drill_handle_initial_angle
+        undo_depth = self._drill_handle_undo_depth
         self._drill_handle = None
         self._drill_handle_start_scene = None
         self._drill_handle_parent_frame = False
+        self._drill_handle_rotation_item = None
         self._active_drag_handle = None
         if handle is None:
             return
@@ -4851,6 +4867,9 @@ class CanvasView(QGraphicsView):
             end = getattr(handle, "end_drag", None)
             if callable(end):
                 end()
+        if rotating_item is not None:
+            with contextlib.suppress(RuntimeError):
+                self._ensure_rotation_undo(rotating_item, initial_angle, undo_depth)
 
     def _clamp_to_canvas(self, scene_pos: QPointF) -> QPointF:
         """Clamp a scene point to the plan's canvas rectangle."""
@@ -5112,8 +5131,6 @@ class CanvasView(QGraphicsView):
             return self.tr("Ungroup the shape before splitting it")
         if item_to_local_painter_path(item) is None:
             return self.tr("This shape has no closed outline to split")
-        if polygon_type_for_split(item.object_type) is None:
-            return self.tr("This shape type has no polygonal form to split into")
 
         layer = (
             self._canvas_scene.get_layer_by_id(item.layer_id)
@@ -5150,6 +5167,8 @@ class CanvasView(QGraphicsView):
             )
         ):
             return self.tr("The shape carries links that a split cannot preserve")
+        if polygon_type_for_split(item.object_type) is None:
+            return self.tr("This shape type has no polygonal form to split into")
 
         manager = getattr(self.window(), "_project_manager", None)
         if (
