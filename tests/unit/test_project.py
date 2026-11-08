@@ -470,11 +470,17 @@ class TestItemReferences:
     ) -> None:
         from uuid import uuid4
 
+        from open_garden_planner.models.task import (
+            make_soil_amendment_task_id,
+            make_soil_mismatch_task_id,
+            make_succession_task_id,
+        )
+
         key = str(uuid4())
         for task_id in (
-            f"succession:sow:{key}:entry-1",
-            f"succession:clear:{key}:entry-1",
-            f"soil_amendment:{key}:compost",
-            f"soil_mismatch:{key}",
+            make_succession_task_id("sow", key, "entry-1"),
+            make_succession_task_id("clear", key, "entry-1"),
+            make_soil_amendment_task_id(key, "compost"),
+            make_soil_mismatch_task_id(key),
         ):
             assert manager._task_id_references_item(task_id, key), task_id

@@ -4795,8 +4795,13 @@ class CanvasView(QGraphicsView):
         begin = getattr(handle, "begin_drag", None)
         if not callable(begin):
             return False
-        parent_frame = True
-        point = parent.mapFromScene(scene_pos)
+        # A resize handle works in the member's parent (group) frame; a
+        # rotation handle works in scene coordinates, where its centre and
+        # sampled points must share one frame (#771 review).
+        parent_frame = not isinstance(handle, RotationHandle)
+        point = (
+            parent.mapFromScene(scene_pos) if parent_frame else QPointF(scene_pos)
+        )
         if not begin(point, parent_frame=parent_frame):
             return False
         self._drill_handle = handle
@@ -4817,12 +4822,15 @@ class CanvasView(QGraphicsView):
             apply = getattr(handle, "apply_drag", None)
             if callable(apply):
                 parent = handle.parentItem()
-                if self._drill_handle_parent_frame and parent is not None:
-                    point = parent.mapFromScene(scene_pos)
-                    if isinstance(handle, ResizeHandle):
-                        apply(point, parent_frame=True)
-                    else:
-                        apply(point)
+                if (
+                    isinstance(handle, ResizeHandle)
+                    and self._drill_handle_parent_frame
+                    and parent is not None
+                ):
+                    apply(
+                        parent.mapFromScene(self._clamp_to_canvas(scene_pos)),
+                        parent_frame=True,
+                    )
                 else:
                     apply(scene_pos)
             group = self._drill_down_group
@@ -4843,6 +4851,14 @@ class CanvasView(QGraphicsView):
             end = getattr(handle, "end_drag", None)
             if callable(end):
                 end()
+
+    def _clamp_to_canvas(self, scene_pos: QPointF) -> QPointF:
+        """Clamp a scene point to the plan's canvas rectangle."""
+        rect = self._canvas_scene.canvas_rect
+        return QPointF(
+            min(max(scene_pos.x(), rect.left()), rect.right()),
+            min(max(scene_pos.y(), rect.top()), rect.bottom()),
+        )
 
     def _delta_in_parent_frame(
         self, item: QGraphicsItem, delta: QPointF

@@ -154,6 +154,64 @@ def test_a_focused_member_rotation_handle_rotates_only_that_member(canvas) -> No
     assert first.rotation() == pytest.approx(before)
 
 
+def test_a_transformed_group_rotation_uses_one_frame(canvas) -> None:
+    import math
+
+    _show(canvas)
+    group, first, _second = _group(canvas)
+    group.setPos(50, 60)
+    group.setRotation(30)
+    first.setPos(200, 100)
+    canvas.scene().clearSelection()
+    group.setSelected(True)
+    canvas.begin_group_drill_down(first)
+    handle = first._rotation_handle
+    handle.update_position()
+    start = handle.scenePos()
+    target = start + QPointF(40, 20)
+    centre = first.mapToScene(first.rect().center())
+    expected = math.degrees(
+        math.atan2(target.y() - centre.y(), target.x() - centre.x())
+        - math.atan2(start.y() - centre.y(), start.x() - centre.x())
+    )
+    before = first.rotation()
+
+    assert canvas.begin_drill_handle_drag(handle, start) is True
+    canvas._move_drill_handle(target)
+    canvas._finish_drill_handle()
+
+    assert first.rotation() == pytest.approx(before + expected, abs=0.6)
+
+
+def test_a_drilled_handle_resize_is_clamped_to_the_canvas(canvas) -> None:
+    from open_garden_planner.ui.canvas.items.resize_handle import HandlePosition
+
+    _show(canvas)
+    scene = canvas.scene()
+    first = RectangleItem(0, 0, 150, 100)
+    second = RectangleItem(300, 0, 100, 100)
+    for item in (first, second):
+        item.layer_id = scene.active_layer.id
+        scene.addItem(item)
+        item.setSelected(True)
+    canvas.group_selected()
+    group = next(item for item in scene.items() if isinstance(item, GroupItem))
+    group.setPos(4800, 0)
+    scene.clearSelection()
+    group.setSelected(True)
+    canvas.begin_group_drill_down(first)
+    handle = next(
+        item for item in first._resize_handles
+        if item.handle_position is HandlePosition.MIDDLE_RIGHT
+    )
+    handle.update_position()
+    assert canvas.begin_drill_handle_drag(handle, handle.scenePos()) is True
+    canvas._move_drill_handle(QPointF(5200, handle.scenePos().y()))
+    canvas._finish_drill_handle()
+
+    assert first.sceneBoundingRect().right() <= 5000.0 + 1e-6
+
+
 def test_a_rotated_group_handle_keeps_the_dragged_corner_under_the_pointer(canvas) -> None:
     _show(canvas)
     group, first, _second = _group(canvas)
