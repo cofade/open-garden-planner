@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-11-04T23:00:43.371349+00:00"
+    "modified": "2026-11-08T19:46:53.587694+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -188,7 +188,7 @@
       "stroke_color": "#ffa0a09b",
       "stroke_width": 80.0,
       "path_fence_style": "STEPPING_STONES",
-      "stack_order": 16384
+      "stack_order": 17408
     },
     {
       "type": "polyline",
@@ -212,7 +212,7 @@
       "stroke_color": "#ff8c8c8c",
       "stroke_width": 80.0,
       "path_fence_style": "PAVED_PATH",
-      "stack_order": 17408
+      "stack_order": 18432
     },
     {
       "type": "polyline",
@@ -232,7 +232,7 @@
       "stroke_color": "#ffa07846",
       "stroke_width": 80.0,
       "path_fence_style": "WOODEN_BOARDWALK",
-      "stack_order": 18432
+      "stack_order": 19456
     },
     {
       "type": "polyline",
@@ -260,7 +260,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 80.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 19456
+      "stack_order": 20480
     },
     {
       "type": "polyline",
@@ -284,7 +284,7 @@
       "stroke_color": "#ff7d5c3e",
       "stroke_width": 80.0,
       "path_fence_style": "DIRT_PATH",
-      "stack_order": 20480
+      "stack_order": 21504
     },
     {
       "type": "polygon",
@@ -407,12 +407,37 @@
       "height": 220.0,
       "object_type": "GREENHOUSE",
       "name": "Greenhouse",
+      "metadata": {
+        "ridge_item_id": "31444ab7-2db3-53db-bd50-5341746e1347"
+      },
       "fill_color": "#ffd2e6f5",
       "stroke_color": "#ffa0a5aa",
       "stroke_width": 2.5,
       "fill_pattern": "GLASS",
       "stroke_style": "SOLID",
       "stack_order": 11264
+    },
+    {
+      "type": "polyline",
+      "item_id": "31444ab7-2db3-53db-bd50-5341746e1347",
+      "points": [
+        {
+          "x": 380.0,
+          "y": 190.0
+        },
+        {
+          "x": 680.0,
+          "y": 190.0
+        }
+      ],
+      "object_type": "ROOF_RIDGE",
+      "metadata": {
+        "owner_polygon_id": "363f608d-8c90-457c-a72f-4d58a61a6ed8",
+        "ridge_finish": "aluminium"
+      },
+      "stroke_color": "#ffb0b5b9",
+      "stroke_width": 2.0,
+      "stack_order": 12288
     },
     {
       "type": "rectangle",
@@ -428,7 +453,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 12288
+      "stack_order": 13312
     },
     {
       "type": "polyline",
@@ -448,7 +473,7 @@
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 3.0,
       "path_fence_style": "WOODEN_FENCE",
-      "stack_order": 13312
+      "stack_order": 14336
     },
     {
       "type": "polyline",
@@ -468,7 +493,7 @@
       "stroke_color": "#ff3c3c3c",
       "stroke_width": 2.5,
       "path_fence_style": "METAL_FENCE",
-      "stack_order": 14336
+      "stack_order": 15360
     },
     {
       "type": "polygon",
@@ -498,7 +523,7 @@
       "stroke_width": 1.5,
       "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
-      "stack_order": 15360
+      "stack_order": 16384
     },
     {
       "type": "rectangle",
@@ -514,7 +539,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 21504
+      "stack_order": 22528
     },
     {
       "type": "rectangle",
@@ -531,7 +556,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "rotation_angle": 180.0,
-      "stack_order": 22528
+      "stack_order": 23552
     },
     {
       "type": "rectangle",
@@ -548,7 +573,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "rotation_angle": 180.0,
-      "stack_order": 23552
+      "stack_order": 24576
     },
     {
       "type": "rectangle",
@@ -564,7 +589,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 24576
+      "stack_order": 25600
     },
     {
       "type": "rectangle",
@@ -580,7 +605,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 25600
+      "stack_order": 26624
     },
     {
       "type": "circle",
@@ -595,7 +620,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 26624
+      "stack_order": 27648
     },
     {
       "type": "rectangle",
@@ -611,7 +636,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 27648
+      "stack_order": 28672
     },
     {
       "type": "rectangle",
@@ -627,7 +652,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 28672
+      "stack_order": 29696
     },
     {
       "type": "circle",
@@ -642,7 +667,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 29696
+      "stack_order": 30720
     },
     {
       "type": "circle",
@@ -657,7 +682,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 30720
+      "stack_order": 31744
     },
     {
       "type": "rectangle",
@@ -673,7 +698,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 31744
+      "stack_order": 32768
     },
     {
       "type": "rectangle",
@@ -689,7 +714,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 32768
+      "stack_order": 33792
     },
     {
       "type": "circle",
@@ -704,7 +729,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 33792
+      "stack_order": 34816
     },
     {
       "type": "rectangle",
@@ -720,7 +745,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 34816
+      "stack_order": 35840
     },
     {
       "type": "circle",
@@ -735,7 +760,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 35840
+      "stack_order": 36864
     },
     {
       "type": "rectangle",
@@ -751,7 +776,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 36864
+      "stack_order": 37888
     },
     {
       "type": "rectangle",
@@ -767,7 +792,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 37888
+      "stack_order": 38912
     },
     {
       "type": "rectangle",
@@ -791,7 +816,7 @@
         "7bdffb9e-0bc3-4ec4-a7ad-7e28c18a39bd",
         "de0f3217-aa3d-40b9-8732-50d39c5c3a48"
       ],
-      "stack_order": 38912
+      "stack_order": 39936
     },
     {
       "type": "circle",
@@ -858,7 +883,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 39936
+      "stack_order": 40960
     },
     {
       "type": "circle",
@@ -927,7 +952,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 40960
+      "stack_order": 41984
     },
     {
       "type": "circle",
@@ -996,7 +1021,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 41984
+      "stack_order": 43008
     },
     {
       "type": "circle",
@@ -1063,7 +1088,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 43008
+      "stack_order": 44032
     },
     {
       "type": "circle",
@@ -1126,7 +1151,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 44032
+      "stack_order": 45056
     },
     {
       "type": "circle",
@@ -1196,7 +1221,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
-      "stack_order": 45056
+      "stack_order": 46080
     },
     {
       "type": "rectangle",
@@ -1215,7 +1240,7 @@
       "child_item_ids": [
         "4362733c-90c9-44eb-92c2-e5bf1a0a04bf"
       ],
-      "stack_order": 46080
+      "stack_order": 47104
     },
     {
       "type": "circle",
@@ -1286,7 +1311,7 @@
       "stroke_style": "SOLID",
       "plant_species": "runner bean",
       "parent_bed_id": "2511284b-f6ec-4d37-a9b6-29609ff5e724",
-      "stack_order": 47104
+      "stack_order": 48128
     },
     {
       "type": "rectangle",
@@ -1302,7 +1327,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 48128
+      "stack_order": 49152
     },
     {
       "type": "rectangle",
@@ -1318,7 +1343,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 49152
+      "stack_order": 50176
     },
     {
       "type": "circle",
@@ -1333,7 +1358,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 50176
+      "stack_order": 51200
     },
     {
       "type": "circle",
@@ -1348,7 +1373,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 51200
+      "stack_order": 52224
     },
     {
       "type": "rectangle",
@@ -1364,7 +1389,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 52224
+      "stack_order": 53248
     },
     {
       "type": "circle",
@@ -1379,7 +1404,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 53248
+      "stack_order": 54272
     },
     {
       "type": "rectangle",
@@ -1395,7 +1420,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 54272
+      "stack_order": 55296
     },
     {
       "type": "circle",
@@ -1410,7 +1435,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 55296
+      "stack_order": 56320
     },
     {
       "type": "circle",
@@ -1425,7 +1450,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 56320
+      "stack_order": 57344
     },
     {
       "type": "circle",
@@ -1479,7 +1504,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 57344
+      "stack_order": 58368
     },
     {
       "type": "circle",
@@ -1533,7 +1558,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 58368
+      "stack_order": 59392
     },
     {
       "type": "circle",
@@ -1585,7 +1610,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 59392
+      "stack_order": 60416
     },
     {
       "type": "circle",
@@ -1639,7 +1664,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 60416
+      "stack_order": 61440
     },
     {
       "type": "circle",
@@ -1691,7 +1716,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 61440
+      "stack_order": 62464
     },
     {
       "type": "circle",
@@ -1706,7 +1731,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 62464
+      "stack_order": 63488
     },
     {
       "type": "polyline",
@@ -1729,7 +1754,7 @@
       "name": "String lights",
       "stroke_color": "#ff303336",
       "stroke_width": 12.0,
-      "stack_order": 63488
+      "stack_order": 64512
     }
   ],
   "location": {

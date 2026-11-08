@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-27T08:20:48.004506+00:00"
+    "modified": "2026-11-08T19:46:53.547772+00:00"
   },
   "canvas": {
     "width": 5000.0,
@@ -66,7 +66,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 19456
+      "stack_order": 20480
     },
     {
       "type": "polyline",
@@ -85,7 +85,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 31744
+      "stack_order": 32768
     },
     {
       "type": "polyline",
@@ -104,7 +104,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 44032
+      "stack_order": 45056
     },
     {
       "type": "polyline",
@@ -123,7 +123,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 56320
+      "stack_order": 57344
     },
     {
       "type": "polyline",
@@ -142,7 +142,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 68608
+      "stack_order": 69632
     },
     {
       "type": "polyline",
@@ -161,7 +161,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 80896
+      "stack_order": 81920
     },
     {
       "type": "polyline",
@@ -180,7 +180,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 93184
+      "stack_order": 94208
     },
     {
       "type": "polyline",
@@ -199,7 +199,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 105472
+      "stack_order": 106496
     },
     {
       "type": "polyline",
@@ -218,7 +218,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 117760
+      "stack_order": 118784
     },
     {
       "type": "polyline",
@@ -237,7 +237,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 130048
+      "stack_order": 131072
     },
     {
       "type": "polyline",
@@ -256,7 +256,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 142336
+      "stack_order": 143360
     },
     {
       "type": "polyline",
@@ -275,7 +275,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 154624
+      "stack_order": 155648
     },
     {
       "type": "polyline",
@@ -294,7 +294,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 166912
+      "stack_order": 167936
     },
     {
       "type": "polyline",
@@ -313,7 +313,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 179200
+      "stack_order": 180224
     },
     {
       "type": "polyline",
@@ -332,7 +332,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 191488
+      "stack_order": 192512
     },
     {
       "type": "polyline",
@@ -351,7 +351,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 203776
+      "stack_order": 204800
     },
     {
       "type": "polyline",
@@ -370,7 +370,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 216064
+      "stack_order": 217088
     },
     {
       "type": "polyline",
@@ -389,7 +389,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 228352
+      "stack_order": 229376
     },
     {
       "type": "polyline",
@@ -408,7 +408,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 240640
+      "stack_order": 241664
     },
     {
       "type": "polyline",
@@ -427,7 +427,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 252928
+      "stack_order": 253952
     },
     {
       "type": "polyline",
@@ -446,7 +446,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 265216
+      "stack_order": 266240
     },
     {
       "type": "polyline",
@@ -465,7 +465,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 277504
+      "stack_order": 278528
     },
     {
       "type": "polyline",
@@ -484,7 +484,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 289792
+      "stack_order": 290816
     },
     {
       "type": "polyline",
@@ -503,7 +503,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 302080
+      "stack_order": 303104
     },
     {
       "type": "polygon",
@@ -584,12 +584,37 @@
       "height": 420.0,
       "object_type": "GREENHOUSE",
       "name": "Greenhouse",
+      "metadata": {
+        "ridge_item_id": "4cd6cc6b-b0bc-5937-9dfb-e348f5ad1ffe"
+      },
       "fill_color": "#ffd2e6f5",
       "stroke_color": "#ffa0a5aa",
       "stroke_width": 2.5,
       "fill_pattern": "GLASS",
       "stroke_style": "SOLID",
       "stack_order": 5120
+    },
+    {
+      "type": "polyline",
+      "item_id": "4cd6cc6b-b0bc-5937-9dfb-e348f5ad1ffe",
+      "points": [
+        {
+          "x": 2100.0,
+          "y": 2660.0
+        },
+        {
+          "x": 2600.0,
+          "y": 2660.0
+        }
+      ],
+      "object_type": "ROOF_RIDGE",
+      "metadata": {
+        "owner_polygon_id": "c427a50a-1b68-4b04-a267-658a01e0fa80",
+        "ridge_finish": "aluminium"
+      },
+      "stroke_color": "#ffb0b5b9",
+      "stroke_width": 2.0,
+      "stack_order": 6144
     },
     {
       "type": "polyline",
@@ -613,7 +638,7 @@
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 3.0,
       "path_fence_style": "WOODEN_FENCE",
-      "stack_order": 6144
+      "stack_order": 7168
     },
     {
       "type": "polygon",
@@ -643,7 +668,7 @@
       "stroke_width": 1.5,
       "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
-      "stack_order": 7168
+      "stack_order": 8192
     },
     {
       "type": "rectangle",
@@ -671,7 +696,7 @@
         "12032c83-9515-4d54-93f8-3a8f74c2e347",
         "9fdbf077-55e0-421b-ac7e-7bc50508eb8f"
       ],
-      "stack_order": 8192
+      "stack_order": 9216
     },
     {
       "type": "circle",
@@ -738,7 +763,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 9216
+      "stack_order": 10240
     },
     {
       "type": "circle",
@@ -807,7 +832,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 10240
+      "stack_order": 11264
     },
     {
       "type": "circle",
@@ -874,7 +899,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 11264
+      "stack_order": 12288
     },
     {
       "type": "circle",
@@ -937,7 +962,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 12288
+      "stack_order": 13312
     },
     {
       "type": "circle",
@@ -1007,7 +1032,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 13312
+      "stack_order": 14336
     },
     {
       "type": "circle",
@@ -1076,7 +1101,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 14336
+      "stack_order": 15360
     },
     {
       "type": "circle",
@@ -1143,7 +1168,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 15360
+      "stack_order": 16384
     },
     {
       "type": "circle",
@@ -1211,7 +1236,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 16384
+      "stack_order": 17408
     },
     {
       "type": "circle",
@@ -1275,7 +1300,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 17408
+      "stack_order": 18432
     },
     {
       "type": "circle",
@@ -1338,7 +1363,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "9521ea50-7322-4836-ae1e-21fd04ac56b5",
-      "stack_order": 18432
+      "stack_order": 19456
     },
     {
       "type": "rectangle",
@@ -1366,7 +1391,7 @@
         "01eba246-3f03-47ea-93e8-b2995e10987a",
         "ba8748a6-aefe-49e6-a400-a13a675883d1"
       ],
-      "stack_order": 20480
+      "stack_order": 21504
     },
     {
       "type": "circle",
@@ -1435,7 +1460,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 21504
+      "stack_order": 22528
     },
     {
       "type": "circle",
@@ -1502,7 +1527,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 22528
+      "stack_order": 23552
     },
     {
       "type": "circle",
@@ -1565,7 +1590,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 23552
+      "stack_order": 24576
     },
     {
       "type": "circle",
@@ -1635,7 +1660,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 24576
+      "stack_order": 25600
     },
     {
       "type": "circle",
@@ -1704,7 +1729,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 25600
+      "stack_order": 26624
     },
     {
       "type": "circle",
@@ -1771,7 +1796,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 26624
+      "stack_order": 27648
     },
     {
       "type": "circle",
@@ -1839,7 +1864,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 27648
+      "stack_order": 28672
     },
     {
       "type": "circle",
@@ -1903,7 +1928,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 28672
+      "stack_order": 29696
     },
     {
       "type": "circle",
@@ -1966,7 +1991,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 29696
+      "stack_order": 30720
     },
     {
       "type": "circle",
@@ -2036,7 +2061,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
-      "stack_order": 30720
+      "stack_order": 31744
     },
     {
       "type": "rectangle",
@@ -2064,7 +2089,7 @@
         "56f02fe2-120f-4f24-b2e9-657e7bfb46a2",
         "32149bb3-40ed-4fcd-9758-d0d722545a1f"
       ],
-      "stack_order": 32768
+      "stack_order": 33792
     },
     {
       "type": "circle",
@@ -2131,7 +2156,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 33792
+      "stack_order": 34816
     },
     {
       "type": "circle",
@@ -2194,7 +2219,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 34816
+      "stack_order": 35840
     },
     {
       "type": "circle",
@@ -2264,7 +2289,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 35840
+      "stack_order": 36864
     },
     {
       "type": "circle",
@@ -2333,7 +2358,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 36864
+      "stack_order": 37888
     },
     {
       "type": "circle",
@@ -2400,7 +2425,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 37888
+      "stack_order": 38912
     },
     {
       "type": "circle",
@@ -2468,7 +2493,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 38912
+      "stack_order": 39936
     },
     {
       "type": "circle",
@@ -2532,7 +2557,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 39936
+      "stack_order": 40960
     },
     {
       "type": "circle",
@@ -2595,7 +2620,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 40960
+      "stack_order": 41984
     },
     {
       "type": "circle",
@@ -2665,7 +2690,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 41984
+      "stack_order": 43008
     },
     {
       "type": "circle",
@@ -2734,7 +2759,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
-      "stack_order": 43008
+      "stack_order": 44032
     },
     {
       "type": "rectangle",
@@ -2762,7 +2787,7 @@
         "052b936c-3816-49be-9694-96624afd2874",
         "46a2f856-a36c-4d11-aee6-dd1808e71097"
       ],
-      "stack_order": 45056
+      "stack_order": 46080
     },
     {
       "type": "circle",
@@ -2825,7 +2850,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 46080
+      "stack_order": 47104
     },
     {
       "type": "circle",
@@ -2895,7 +2920,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 47104
+      "stack_order": 48128
     },
     {
       "type": "circle",
@@ -2964,7 +2989,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 48128
+      "stack_order": 49152
     },
     {
       "type": "circle",
@@ -3031,7 +3056,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 49152
+      "stack_order": 50176
     },
     {
       "type": "circle",
@@ -3099,7 +3124,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 50176
+      "stack_order": 51200
     },
     {
       "type": "circle",
@@ -3163,7 +3188,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 51200
+      "stack_order": 52224
     },
     {
       "type": "circle",
@@ -3226,7 +3251,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 52224
+      "stack_order": 53248
     },
     {
       "type": "circle",
@@ -3296,7 +3321,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 53248
+      "stack_order": 54272
     },
     {
       "type": "circle",
@@ -3365,7 +3390,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 54272
+      "stack_order": 55296
     },
     {
       "type": "circle",
@@ -3435,7 +3460,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "58daba96-4700-4cf6-a445-482b8b285916",
-      "stack_order": 55296
+      "stack_order": 56320
     },
     {
       "type": "rectangle",
@@ -3463,7 +3488,7 @@
         "e081ff69-3fc5-4919-8a69-f0202eb81535",
         "2c41249a-d832-4575-8eb5-d8c114fc9786"
       ],
-      "stack_order": 57344
+      "stack_order": 58368
     },
     {
       "type": "circle",
@@ -3533,7 +3558,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 58368
+      "stack_order": 59392
     },
     {
       "type": "circle",
@@ -3602,7 +3627,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 59392
+      "stack_order": 60416
     },
     {
       "type": "circle",
@@ -3669,7 +3694,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 60416
+      "stack_order": 61440
     },
     {
       "type": "circle",
@@ -3737,7 +3762,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 61440
+      "stack_order": 62464
     },
     {
       "type": "circle",
@@ -3801,7 +3826,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 62464
+      "stack_order": 63488
     },
     {
       "type": "circle",
@@ -3864,7 +3889,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 63488
+      "stack_order": 64512
     },
     {
       "type": "circle",
@@ -3934,7 +3959,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 64512
+      "stack_order": 65536
     },
     {
       "type": "circle",
@@ -4003,7 +4028,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 65536
+      "stack_order": 66560
     },
     {
       "type": "circle",
@@ -4073,7 +4098,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 66560
+      "stack_order": 67584
     },
     {
       "type": "circle",
@@ -4136,7 +4161,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
-      "stack_order": 67584
+      "stack_order": 68608
     },
     {
       "type": "rectangle",
@@ -4164,7 +4189,7 @@
         "c72d4eed-57b2-4266-ae69-e2214ef4bfae",
         "a27d7386-db0f-4e74-9ee7-231d13c92331"
       ],
-      "stack_order": 69632
+      "stack_order": 70656
     },
     {
       "type": "circle",
@@ -4233,7 +4258,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 70656
+      "stack_order": 71680
     },
     {
       "type": "circle",
@@ -4300,7 +4325,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 71680
+      "stack_order": 72704
     },
     {
       "type": "circle",
@@ -4368,7 +4393,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 72704
+      "stack_order": 73728
     },
     {
       "type": "circle",
@@ -4432,7 +4457,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 73728
+      "stack_order": 74752
     },
     {
       "type": "circle",
@@ -4495,7 +4520,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 74752
+      "stack_order": 75776
     },
     {
       "type": "circle",
@@ -4565,7 +4590,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 75776
+      "stack_order": 76800
     },
     {
       "type": "circle",
@@ -4634,7 +4659,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 76800
+      "stack_order": 77824
     },
     {
       "type": "circle",
@@ -4704,7 +4729,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 77824
+      "stack_order": 78848
     },
     {
       "type": "circle",
@@ -4767,7 +4792,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 78848
+      "stack_order": 79872
     },
     {
       "type": "circle",
@@ -4830,7 +4855,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
-      "stack_order": 79872
+      "stack_order": 80896
     },
     {
       "type": "rectangle",
@@ -4858,7 +4883,7 @@
         "0361faa3-a1bb-4725-8ff9-4e4bae05326d",
         "e68d1675-5f6a-41da-a600-fb4d13ea9d90"
       ],
-      "stack_order": 81920
+      "stack_order": 82944
     },
     {
       "type": "circle",
@@ -4925,7 +4950,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 82944
+      "stack_order": 83968
     },
     {
       "type": "circle",
@@ -4993,7 +5018,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 83968
+      "stack_order": 84992
     },
     {
       "type": "circle",
@@ -5057,7 +5082,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 84992
+      "stack_order": 86016
     },
     {
       "type": "circle",
@@ -5120,7 +5145,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 86016
+      "stack_order": 87040
     },
     {
       "type": "circle",
@@ -5190,7 +5215,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 87040
+      "stack_order": 88064
     },
     {
       "type": "circle",
@@ -5259,7 +5284,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 88064
+      "stack_order": 89088
     },
     {
       "type": "circle",
@@ -5329,7 +5354,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 89088
+      "stack_order": 90112
     },
     {
       "type": "circle",
@@ -5392,7 +5417,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 90112
+      "stack_order": 91136
     },
     {
       "type": "circle",
@@ -5455,7 +5480,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 91136
+      "stack_order": 92160
     },
     {
       "type": "circle",
@@ -5523,7 +5548,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
-      "stack_order": 92160
+      "stack_order": 93184
     },
     {
       "type": "rectangle",
@@ -5551,7 +5576,7 @@
         "ae27d3e7-ac79-4e83-b274-658d8225b900",
         "4adae7ff-2b05-412d-8719-819cde3f6571"
       ],
-      "stack_order": 94208
+      "stack_order": 95232
     },
     {
       "type": "circle",
@@ -5619,7 +5644,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 95232
+      "stack_order": 96256
     },
     {
       "type": "circle",
@@ -5683,7 +5708,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 96256
+      "stack_order": 97280
     },
     {
       "type": "circle",
@@ -5746,7 +5771,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 97280
+      "stack_order": 98304
     },
     {
       "type": "circle",
@@ -5816,7 +5841,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 98304
+      "stack_order": 99328
     },
     {
       "type": "circle",
@@ -5885,7 +5910,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 99328
+      "stack_order": 100352
     },
     {
       "type": "circle",
@@ -5955,7 +5980,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 100352
+      "stack_order": 101376
     },
     {
       "type": "circle",
@@ -6018,7 +6043,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 101376
+      "stack_order": 102400
     },
     {
       "type": "circle",
@@ -6081,7 +6106,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 102400
+      "stack_order": 103424
     },
     {
       "type": "circle",
@@ -6149,7 +6174,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 103424
+      "stack_order": 104448
     },
     {
       "type": "circle",
@@ -6217,7 +6242,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "18b017ad-2bc9-4f68-90cc-c5baa5fdc977",
-      "stack_order": 104448
+      "stack_order": 105472
     },
     {
       "type": "rectangle",
@@ -6245,7 +6270,7 @@
         "785f8b09-57ab-42af-8212-5ab301981baa",
         "5cfd0fc0-ed72-43bd-8c46-66c40764c157"
       ],
-      "stack_order": 106496
+      "stack_order": 107520
     },
     {
       "type": "circle",
@@ -6309,7 +6334,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 107520
+      "stack_order": 108544
     },
     {
       "type": "circle",
@@ -6372,7 +6397,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 108544
+      "stack_order": 109568
     },
     {
       "type": "circle",
@@ -6442,7 +6467,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 109568
+      "stack_order": 110592
     },
     {
       "type": "circle",
@@ -6511,7 +6536,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 110592
+      "stack_order": 111616
     },
     {
       "type": "circle",
@@ -6581,7 +6606,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 111616
+      "stack_order": 112640
     },
     {
       "type": "circle",
@@ -6644,7 +6669,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 112640
+      "stack_order": 113664
     },
     {
       "type": "circle",
@@ -6707,7 +6732,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 113664
+      "stack_order": 114688
     },
     {
       "type": "circle",
@@ -6775,7 +6800,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 114688
+      "stack_order": 115712
     },
     {
       "type": "circle",
@@ -6843,7 +6868,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 115712
+      "stack_order": 116736
     },
     {
       "type": "circle",
@@ -6906,7 +6931,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
-      "stack_order": 116736
+      "stack_order": 117760
     },
     {
       "type": "rectangle",
@@ -6934,7 +6959,7 @@
         "30401c11-56e1-4a2c-90c1-97115c3932fe",
         "9e9e17f6-ec0a-413f-b432-1b1790f92a6b"
       ],
-      "stack_order": 118784
+      "stack_order": 119808
     },
     {
       "type": "circle",
@@ -6997,7 +7022,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 119808
+      "stack_order": 120832
     },
     {
       "type": "circle",
@@ -7067,7 +7092,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 120832
+      "stack_order": 121856
     },
     {
       "type": "circle",
@@ -7136,7 +7161,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 121856
+      "stack_order": 122880
     },
     {
       "type": "circle",
@@ -7206,7 +7231,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 122880
+      "stack_order": 123904
     },
     {
       "type": "circle",
@@ -7269,7 +7294,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 123904
+      "stack_order": 124928
     },
     {
       "type": "circle",
@@ -7332,7 +7357,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 124928
+      "stack_order": 125952
     },
     {
       "type": "circle",
@@ -7400,7 +7425,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 125952
+      "stack_order": 126976
     },
     {
       "type": "circle",
@@ -7468,7 +7493,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 126976
+      "stack_order": 128000
     },
     {
       "type": "circle",
@@ -7531,7 +7556,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 128000
+      "stack_order": 129024
     },
     {
       "type": "circle",
@@ -7598,7 +7623,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
-      "stack_order": 129024
+      "stack_order": 130048
     },
     {
       "type": "rectangle",
@@ -7626,7 +7651,7 @@
         "61b0b789-ae34-4afc-8775-f312fd191330",
         "c2bbd7f5-eea2-43f9-8f6c-df74dbdfdcb9"
       ],
-      "stack_order": 131072
+      "stack_order": 132096
     },
     {
       "type": "circle",
@@ -7696,7 +7721,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 132096
+      "stack_order": 133120
     },
     {
       "type": "circle",
@@ -7765,7 +7790,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 133120
+      "stack_order": 134144
     },
     {
       "type": "circle",
@@ -7835,7 +7860,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 134144
+      "stack_order": 135168
     },
     {
       "type": "circle",
@@ -7898,7 +7923,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 135168
+      "stack_order": 136192
     },
     {
       "type": "circle",
@@ -7961,7 +7986,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 136192
+      "stack_order": 137216
     },
     {
       "type": "circle",
@@ -8029,7 +8054,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 137216
+      "stack_order": 138240
     },
     {
       "type": "circle",
@@ -8097,7 +8122,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 138240
+      "stack_order": 139264
     },
     {
       "type": "circle",
@@ -8160,7 +8185,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 139264
+      "stack_order": 140288
     },
     {
       "type": "circle",
@@ -8227,7 +8252,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 140288
+      "stack_order": 141312
     },
     {
       "type": "circle",
@@ -8296,7 +8321,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "d09ec555-6896-4108-b798-a03dd1ff409b",
-      "stack_order": 141312
+      "stack_order": 142336
     },
     {
       "type": "rectangle",
@@ -8324,7 +8349,7 @@
         "7643644a-d5c2-4721-bc57-2df9a01883cf",
         "1b100666-4d47-4677-9003-cb0109fa1957"
       ],
-      "stack_order": 143360
+      "stack_order": 144384
     },
     {
       "type": "circle",
@@ -8393,7 +8418,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 144384
+      "stack_order": 145408
     },
     {
       "type": "circle",
@@ -8463,7 +8488,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 145408
+      "stack_order": 146432
     },
     {
       "type": "circle",
@@ -8526,7 +8551,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 146432
+      "stack_order": 147456
     },
     {
       "type": "circle",
@@ -8589,7 +8614,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 147456
+      "stack_order": 148480
     },
     {
       "type": "circle",
@@ -8657,7 +8682,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 148480
+      "stack_order": 149504
     },
     {
       "type": "circle",
@@ -8725,7 +8750,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 149504
+      "stack_order": 150528
     },
     {
       "type": "circle",
@@ -8788,7 +8813,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 150528
+      "stack_order": 151552
     },
     {
       "type": "circle",
@@ -8855,7 +8880,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 151552
+      "stack_order": 152576
     },
     {
       "type": "circle",
@@ -8924,7 +8949,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 152576
+      "stack_order": 153600
     },
     {
       "type": "circle",
@@ -8991,7 +9016,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
-      "stack_order": 153600
+      "stack_order": 154624
     },
     {
       "type": "rectangle",
@@ -9019,7 +9044,7 @@
         "a6caf77c-fad8-4cd4-b1bb-5ff1fb0a15be",
         "726acf40-99ed-4433-b721-3d7d5ae96f5d"
       ],
-      "stack_order": 155648
+      "stack_order": 156672
     },
     {
       "type": "circle",
@@ -9089,7 +9114,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 156672
+      "stack_order": 157696
     },
     {
       "type": "circle",
@@ -9152,7 +9177,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 157696
+      "stack_order": 158720
     },
     {
       "type": "circle",
@@ -9215,7 +9240,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 158720
+      "stack_order": 159744
     },
     {
       "type": "circle",
@@ -9283,7 +9308,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 159744
+      "stack_order": 160768
     },
     {
       "type": "circle",
@@ -9351,7 +9376,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 160768
+      "stack_order": 161792
     },
     {
       "type": "circle",
@@ -9414,7 +9439,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 161792
+      "stack_order": 162816
     },
     {
       "type": "circle",
@@ -9481,7 +9506,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 162816
+      "stack_order": 163840
     },
     {
       "type": "circle",
@@ -9550,7 +9575,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 163840
+      "stack_order": 164864
     },
     {
       "type": "circle",
@@ -9617,7 +9642,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 164864
+      "stack_order": 165888
     },
     {
       "type": "circle",
@@ -9680,7 +9705,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
-      "stack_order": 165888
+      "stack_order": 166912
     },
     {
       "type": "rectangle",
@@ -9708,7 +9733,7 @@
         "9d92de3a-1b5a-479b-a7a9-de3f0a5adf80",
         "39a2ff45-562f-4ff5-9b6a-8135ae784b61"
       ],
-      "stack_order": 167936
+      "stack_order": 168960
     },
     {
       "type": "circle",
@@ -9771,7 +9796,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 168960
+      "stack_order": 169984
     },
     {
       "type": "circle",
@@ -9834,7 +9859,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 169984
+      "stack_order": 171008
     },
     {
       "type": "circle",
@@ -9902,7 +9927,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 171008
+      "stack_order": 172032
     },
     {
       "type": "circle",
@@ -9970,7 +9995,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 172032
+      "stack_order": 173056
     },
     {
       "type": "circle",
@@ -10033,7 +10058,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 173056
+      "stack_order": 174080
     },
     {
       "type": "circle",
@@ -10100,7 +10125,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 174080
+      "stack_order": 175104
     },
     {
       "type": "circle",
@@ -10169,7 +10194,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 175104
+      "stack_order": 176128
     },
     {
       "type": "circle",
@@ -10236,7 +10261,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 176128
+      "stack_order": 177152
     },
     {
       "type": "circle",
@@ -10299,7 +10324,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 177152
+      "stack_order": 178176
     },
     {
       "type": "circle",
@@ -10369,7 +10394,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
-      "stack_order": 178176
+      "stack_order": 179200
     },
     {
       "type": "rectangle",
@@ -10397,7 +10422,7 @@
         "14551a14-3151-4471-896a-b8abe814c42f",
         "fdd12f42-5929-4d9c-9229-d2cc7adc5545"
       ],
-      "stack_order": 180224
+      "stack_order": 181248
     },
     {
       "type": "circle",
@@ -10460,7 +10485,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 181248
+      "stack_order": 182272
     },
     {
       "type": "circle",
@@ -10528,7 +10553,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 182272
+      "stack_order": 183296
     },
     {
       "type": "circle",
@@ -10596,7 +10621,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 183296
+      "stack_order": 184320
     },
     {
       "type": "circle",
@@ -10659,7 +10684,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 184320
+      "stack_order": 185344
     },
     {
       "type": "circle",
@@ -10726,7 +10751,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 185344
+      "stack_order": 186368
     },
     {
       "type": "circle",
@@ -10795,7 +10820,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 186368
+      "stack_order": 187392
     },
     {
       "type": "circle",
@@ -10862,7 +10887,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 187392
+      "stack_order": 188416
     },
     {
       "type": "circle",
@@ -10925,7 +10950,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 188416
+      "stack_order": 189440
     },
     {
       "type": "circle",
@@ -10995,7 +11020,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 189440
+      "stack_order": 190464
     },
     {
       "type": "circle",
@@ -11064,7 +11089,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
-      "stack_order": 190464
+      "stack_order": 191488
     },
     {
       "type": "rectangle",
@@ -11092,7 +11117,7 @@
         "f311da10-2ff6-411e-a9f9-7ad1c3d4394b",
         "bd1a53b5-1fb5-441b-882b-34a96974dcc0"
       ],
-      "stack_order": 192512
+      "stack_order": 193536
     },
     {
       "type": "circle",
@@ -11160,7 +11185,7 @@
       "stroke_style": "SOLID",
       "plant_species": "celery",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 193536
+      "stack_order": 194560
     },
     {
       "type": "circle",
@@ -11228,7 +11253,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 194560
+      "stack_order": 195584
     },
     {
       "type": "circle",
@@ -11291,7 +11316,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 195584
+      "stack_order": 196608
     },
     {
       "type": "circle",
@@ -11358,7 +11383,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 196608
+      "stack_order": 197632
     },
     {
       "type": "circle",
@@ -11427,7 +11452,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 197632
+      "stack_order": 198656
     },
     {
       "type": "circle",
@@ -11494,7 +11519,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 198656
+      "stack_order": 199680
     },
     {
       "type": "circle",
@@ -11557,7 +11582,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 199680
+      "stack_order": 200704
     },
     {
       "type": "circle",
@@ -11627,7 +11652,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 200704
+      "stack_order": 201728
     },
     {
       "type": "circle",
@@ -11696,7 +11721,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 201728
+      "stack_order": 202752
     },
     {
       "type": "circle",
@@ -11763,7 +11788,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "4e301bba-8f9b-4d20-8f54-ebfffea7423b",
-      "stack_order": 202752
+      "stack_order": 203776
     },
     {
       "type": "rectangle",
@@ -11791,7 +11816,7 @@
         "008dfc04-677e-45d1-b06b-d5eca8679579",
         "e96d2477-b6ef-4810-b280-108b78d1f7ef"
       ],
-      "stack_order": 204800
+      "stack_order": 205824
     },
     {
       "type": "circle",
@@ -11859,7 +11884,7 @@
       "stroke_style": "SOLID",
       "plant_species": "broccoli",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 205824
+      "stack_order": 206848
     },
     {
       "type": "circle",
@@ -11922,7 +11947,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 206848
+      "stack_order": 207872
     },
     {
       "type": "circle",
@@ -11989,7 +12014,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 207872
+      "stack_order": 208896
     },
     {
       "type": "circle",
@@ -12058,7 +12083,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 208896
+      "stack_order": 209920
     },
     {
       "type": "circle",
@@ -12125,7 +12150,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 209920
+      "stack_order": 210944
     },
     {
       "type": "circle",
@@ -12188,7 +12213,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 210944
+      "stack_order": 211968
     },
     {
       "type": "circle",
@@ -12258,7 +12283,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 211968
+      "stack_order": 212992
     },
     {
       "type": "circle",
@@ -12327,7 +12352,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 212992
+      "stack_order": 214016
     },
     {
       "type": "circle",
@@ -12394,7 +12419,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 214016
+      "stack_order": 215040
     },
     {
       "type": "circle",
@@ -12462,7 +12487,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "b87413f6-7163-411c-8695-3dadb9baebde",
-      "stack_order": 215040
+      "stack_order": 216064
     },
     {
       "type": "rectangle",
@@ -12490,7 +12515,7 @@
         "c391885a-25f9-4288-8e4c-41de8df80d6b",
         "96419fb6-aebb-40cc-8d94-f53356e69c6d"
       ],
-      "stack_order": 217088
+      "stack_order": 218112
     },
     {
       "type": "circle",
@@ -12553,7 +12578,7 @@
       "stroke_style": "SOLID",
       "plant_species": "endive",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 218112
+      "stack_order": 219136
     },
     {
       "type": "circle",
@@ -12620,7 +12645,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 219136
+      "stack_order": 220160
     },
     {
       "type": "circle",
@@ -12689,7 +12714,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 220160
+      "stack_order": 221184
     },
     {
       "type": "circle",
@@ -12756,7 +12781,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 221184
+      "stack_order": 222208
     },
     {
       "type": "circle",
@@ -12819,7 +12844,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 222208
+      "stack_order": 223232
     },
     {
       "type": "circle",
@@ -12889,7 +12914,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 223232
+      "stack_order": 224256
     },
     {
       "type": "circle",
@@ -12958,7 +12983,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 224256
+      "stack_order": 225280
     },
     {
       "type": "circle",
@@ -13025,7 +13050,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 225280
+      "stack_order": 226304
     },
     {
       "type": "circle",
@@ -13093,7 +13118,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 226304
+      "stack_order": 227328
     },
     {
       "type": "circle",
@@ -13157,7 +13182,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
-      "stack_order": 227328
+      "stack_order": 228352
     },
     {
       "type": "rectangle",
@@ -13185,7 +13210,7 @@
         "612ef3c1-d742-4adf-b47f-a592ef9f8803",
         "d77cd931-1bed-4f57-8c0a-707f5365d5fa"
       ],
-      "stack_order": 229376
+      "stack_order": 230400
     },
     {
       "type": "circle",
@@ -13252,7 +13277,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 230400
+      "stack_order": 231424
     },
     {
       "type": "circle",
@@ -13321,7 +13346,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 231424
+      "stack_order": 232448
     },
     {
       "type": "circle",
@@ -13388,7 +13413,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 232448
+      "stack_order": 233472
     },
     {
       "type": "circle",
@@ -13451,7 +13476,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 233472
+      "stack_order": 234496
     },
     {
       "type": "circle",
@@ -13521,7 +13546,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 234496
+      "stack_order": 235520
     },
     {
       "type": "circle",
@@ -13590,7 +13615,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 235520
+      "stack_order": 236544
     },
     {
       "type": "circle",
@@ -13657,7 +13682,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 236544
+      "stack_order": 237568
     },
     {
       "type": "circle",
@@ -13725,7 +13750,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 237568
+      "stack_order": 238592
     },
     {
       "type": "circle",
@@ -13789,7 +13814,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 238592
+      "stack_order": 239616
     },
     {
       "type": "circle",
@@ -13852,7 +13877,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
-      "stack_order": 239616
+      "stack_order": 240640
     },
     {
       "type": "rectangle",
@@ -13880,7 +13905,7 @@
         "3fffe75f-3779-415c-bb94-9f46119f3fd7",
         "313d0eac-b77a-40d6-a0ca-60d23240a76b"
       ],
-      "stack_order": 241664
+      "stack_order": 242688
     },
     {
       "type": "circle",
@@ -13949,7 +13974,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 242688
+      "stack_order": 243712
     },
     {
       "type": "circle",
@@ -14016,7 +14041,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 243712
+      "stack_order": 244736
     },
     {
       "type": "circle",
@@ -14079,7 +14104,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 244736
+      "stack_order": 245760
     },
     {
       "type": "circle",
@@ -14149,7 +14174,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 245760
+      "stack_order": 246784
     },
     {
       "type": "circle",
@@ -14218,7 +14243,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 246784
+      "stack_order": 247808
     },
     {
       "type": "circle",
@@ -14285,7 +14310,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 247808
+      "stack_order": 248832
     },
     {
       "type": "circle",
@@ -14353,7 +14378,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 248832
+      "stack_order": 249856
     },
     {
       "type": "circle",
@@ -14417,7 +14442,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 249856
+      "stack_order": 250880
     },
     {
       "type": "circle",
@@ -14480,7 +14505,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 250880
+      "stack_order": 251904
     },
     {
       "type": "circle",
@@ -14550,7 +14575,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "9ff1f67d-f064-4448-b0a3-4cdf191a487a",
-      "stack_order": 251904
+      "stack_order": 252928
     },
     {
       "type": "rectangle",
@@ -14578,7 +14603,7 @@
         "5d52f3b6-c003-4d15-b6cd-ca3075b161ec",
         "1c19c4e7-0c88-4783-9d4d-cf3e131d685a"
       ],
-      "stack_order": 253952
+      "stack_order": 254976
     },
     {
       "type": "circle",
@@ -14645,7 +14670,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 254976
+      "stack_order": 256000
     },
     {
       "type": "circle",
@@ -14708,7 +14733,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 256000
+      "stack_order": 257024
     },
     {
       "type": "circle",
@@ -14778,7 +14803,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 257024
+      "stack_order": 258048
     },
     {
       "type": "circle",
@@ -14847,7 +14872,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 258048
+      "stack_order": 259072
     },
     {
       "type": "circle",
@@ -14914,7 +14939,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 259072
+      "stack_order": 260096
     },
     {
       "type": "circle",
@@ -14982,7 +15007,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 260096
+      "stack_order": 261120
     },
     {
       "type": "circle",
@@ -15046,7 +15071,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 261120
+      "stack_order": 262144
     },
     {
       "type": "circle",
@@ -15109,7 +15134,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 262144
+      "stack_order": 263168
     },
     {
       "type": "circle",
@@ -15179,7 +15204,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 263168
+      "stack_order": 264192
     },
     {
       "type": "circle",
@@ -15248,7 +15273,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
-      "stack_order": 264192
+      "stack_order": 265216
     },
     {
       "type": "rectangle",
@@ -15276,7 +15301,7 @@
         "654cb8c5-2ffb-4f0d-a2ee-7bacb90c570d",
         "1fc4b48d-f125-4271-992b-d3dfd773f017"
       ],
-      "stack_order": 266240
+      "stack_order": 267264
     },
     {
       "type": "circle",
@@ -15339,7 +15364,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 267264
+      "stack_order": 268288
     },
     {
       "type": "circle",
@@ -15409,7 +15434,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 268288
+      "stack_order": 269312
     },
     {
       "type": "circle",
@@ -15478,7 +15503,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 269312
+      "stack_order": 270336
     },
     {
       "type": "circle",
@@ -15545,7 +15570,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 270336
+      "stack_order": 271360
     },
     {
       "type": "circle",
@@ -15613,7 +15638,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 271360
+      "stack_order": 272384
     },
     {
       "type": "circle",
@@ -15677,7 +15702,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 272384
+      "stack_order": 273408
     },
     {
       "type": "circle",
@@ -15740,7 +15765,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 273408
+      "stack_order": 274432
     },
     {
       "type": "circle",
@@ -15810,7 +15835,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 274432
+      "stack_order": 275456
     },
     {
       "type": "circle",
@@ -15879,7 +15904,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 275456
+      "stack_order": 276480
     },
     {
       "type": "circle",
@@ -15949,7 +15974,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "7deeeae4-2797-481c-b5c9-4d72687a869f",
-      "stack_order": 276480
+      "stack_order": 277504
     },
     {
       "type": "rectangle",
@@ -15977,7 +16002,7 @@
         "8c0cdb30-b5ce-4208-bcc4-93b8922bfcc9",
         "f1b342fd-08f6-4871-b4a8-37bdd07be0bd"
       ],
-      "stack_order": 278528
+      "stack_order": 279552
     },
     {
       "type": "circle",
@@ -16047,7 +16072,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 279552
+      "stack_order": 280576
     },
     {
       "type": "circle",
@@ -16116,7 +16141,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 280576
+      "stack_order": 281600
     },
     {
       "type": "circle",
@@ -16183,7 +16208,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 281600
+      "stack_order": 282624
     },
     {
       "type": "circle",
@@ -16251,7 +16276,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 282624
+      "stack_order": 283648
     },
     {
       "type": "circle",
@@ -16315,7 +16340,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 283648
+      "stack_order": 284672
     },
     {
       "type": "circle",
@@ -16378,7 +16403,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 284672
+      "stack_order": 285696
     },
     {
       "type": "circle",
@@ -16448,7 +16473,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 285696
+      "stack_order": 286720
     },
     {
       "type": "circle",
@@ -16517,7 +16542,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 286720
+      "stack_order": 287744
     },
     {
       "type": "circle",
@@ -16587,7 +16612,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 287744
+      "stack_order": 288768
     },
     {
       "type": "circle",
@@ -16650,7 +16675,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "e6657f46-979e-4d83-becf-a485df5e3575",
-      "stack_order": 288768
+      "stack_order": 289792
     },
     {
       "type": "rectangle",
@@ -16678,7 +16703,7 @@
         "58a14ad4-26b5-43d7-b2d5-d555bdd75a6c",
         "b1a6c427-6842-467c-8800-69b8344ec1c9"
       ],
-      "stack_order": 290816
+      "stack_order": 291840
     },
     {
       "type": "circle",
@@ -16747,7 +16772,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 291840
+      "stack_order": 292864
     },
     {
       "type": "circle",
@@ -16814,7 +16839,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 292864
+      "stack_order": 293888
     },
     {
       "type": "circle",
@@ -16882,7 +16907,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 293888
+      "stack_order": 294912
     },
     {
       "type": "circle",
@@ -16946,7 +16971,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 294912
+      "stack_order": 295936
     },
     {
       "type": "circle",
@@ -17009,7 +17034,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 295936
+      "stack_order": 296960
     },
     {
       "type": "circle",
@@ -17079,7 +17104,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 296960
+      "stack_order": 297984
     },
     {
       "type": "circle",
@@ -17148,7 +17173,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 297984
+      "stack_order": 299008
     },
     {
       "type": "circle",
@@ -17218,7 +17243,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 299008
+      "stack_order": 300032
     },
     {
       "type": "circle",
@@ -17281,7 +17306,7 @@
       "stroke_style": "SOLID",
       "plant_species": "potato",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 300032
+      "stack_order": 301056
     },
     {
       "type": "circle",
@@ -17344,7 +17369,7 @@
       "stroke_style": "SOLID",
       "plant_species": "garlic",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
-      "stack_order": 301056
+      "stack_order": 302080
     },
     {
       "type": "circle",
@@ -17398,7 +17423,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 303104
+      "stack_order": 304128
     },
     {
       "type": "circle",
@@ -17452,7 +17477,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pear tree",
-      "stack_order": 304128
+      "stack_order": 305152
     },
     {
       "type": "circle",
@@ -17506,7 +17531,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "plum tree",
-      "stack_order": 305152
+      "stack_order": 306176
     },
     {
       "type": "circle",
@@ -17560,7 +17585,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 306176
+      "stack_order": 307200
     },
     {
       "type": "circle",
@@ -17612,7 +17637,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "birch",
-      "stack_order": 307200
+      "stack_order": 308224
     },
     {
       "type": "circle",
@@ -17664,7 +17689,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "maple",
-      "stack_order": 308224
+      "stack_order": 309248
     },
     {
       "type": "circle",
@@ -17716,7 +17741,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "spruce",
-      "stack_order": 309248
+      "stack_order": 310272
     },
     {
       "type": "circle",
@@ -17768,7 +17793,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pine",
-      "stack_order": 310272
+      "stack_order": 311296
     },
     {
       "type": "circle",
@@ -17822,7 +17847,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "walnut tree",
-      "stack_order": 311296
+      "stack_order": 312320
     },
     {
       "type": "circle",
@@ -17874,7 +17899,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "magnolia",
-      "stack_order": 312320
+      "stack_order": 313344
     },
     {
       "type": "circle",
@@ -17928,7 +17953,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 313344
+      "stack_order": 314368
     },
     {
       "type": "circle",
@@ -17982,7 +18007,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pear tree",
-      "stack_order": 314368
+      "stack_order": 315392
     },
     {
       "type": "circle",
@@ -18036,7 +18061,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "plum tree",
-      "stack_order": 315392
+      "stack_order": 316416
     },
     {
       "type": "circle",
@@ -18090,7 +18115,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 316416
+      "stack_order": 317440
     },
     {
       "type": "circle",
@@ -18142,7 +18167,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "birch",
-      "stack_order": 317440
+      "stack_order": 318464
     },
     {
       "type": "circle",
@@ -18194,7 +18219,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "maple",
-      "stack_order": 318464
+      "stack_order": 319488
     },
     {
       "type": "circle",
@@ -18246,7 +18271,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "spruce",
-      "stack_order": 319488
+      "stack_order": 320512
     },
     {
       "type": "circle",
@@ -18298,7 +18323,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pine",
-      "stack_order": 320512
+      "stack_order": 321536
     },
     {
       "type": "circle",
@@ -18352,7 +18377,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "walnut tree",
-      "stack_order": 321536
+      "stack_order": 322560
     },
     {
       "type": "circle",
@@ -18404,7 +18429,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "magnolia",
-      "stack_order": 322560
+      "stack_order": 323584
     },
     {
       "type": "circle",
@@ -18458,7 +18483,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 323584
+      "stack_order": 324608
     },
     {
       "type": "circle",
@@ -18512,7 +18537,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pear tree",
-      "stack_order": 324608
+      "stack_order": 325632
     },
     {
       "type": "circle",
@@ -18566,7 +18591,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "plum tree",
-      "stack_order": 325632
+      "stack_order": 326656
     },
     {
       "type": "circle",
@@ -18620,7 +18645,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 326656
+      "stack_order": 327680
     },
     {
       "type": "circle",
@@ -18672,7 +18697,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "birch",
-      "stack_order": 327680
+      "stack_order": 328704
     },
     {
       "type": "circle",
@@ -18724,7 +18749,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "maple",
-      "stack_order": 328704
+      "stack_order": 329728
     },
     {
       "type": "circle",
@@ -18776,7 +18801,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "spruce",
-      "stack_order": 329728
+      "stack_order": 330752
     },
     {
       "type": "circle",
@@ -18828,7 +18853,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pine",
-      "stack_order": 330752
+      "stack_order": 331776
     },
     {
       "type": "circle",
@@ -18882,7 +18907,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "walnut tree",
-      "stack_order": 331776
+      "stack_order": 332800
     },
     {
       "type": "circle",
@@ -18934,7 +18959,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "magnolia",
-      "stack_order": 332800
+      "stack_order": 333824
     },
     {
       "type": "circle",
@@ -18988,7 +19013,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 333824
+      "stack_order": 334848
     },
     {
       "type": "circle",
@@ -19042,7 +19067,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pear tree",
-      "stack_order": 334848
+      "stack_order": 335872
     },
     {
       "type": "circle",
@@ -19096,7 +19121,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "plum tree",
-      "stack_order": 335872
+      "stack_order": 336896
     },
     {
       "type": "circle",
@@ -19150,7 +19175,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 336896
+      "stack_order": 337920
     },
     {
       "type": "circle",
@@ -19202,7 +19227,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "birch",
-      "stack_order": 337920
+      "stack_order": 338944
     },
     {
       "type": "circle",
@@ -19254,7 +19279,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "maple",
-      "stack_order": 338944
+      "stack_order": 339968
     },
     {
       "type": "circle",
@@ -19306,7 +19331,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "spruce",
-      "stack_order": 339968
+      "stack_order": 340992
     },
     {
       "type": "circle",
@@ -19358,7 +19383,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pine",
-      "stack_order": 340992
+      "stack_order": 342016
     },
     {
       "type": "circle",
@@ -19412,7 +19437,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "walnut tree",
-      "stack_order": 342016
+      "stack_order": 343040
     },
     {
       "type": "circle",
@@ -19464,7 +19489,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "magnolia",
-      "stack_order": 343040
+      "stack_order": 344064
     },
     {
       "type": "circle",
@@ -19516,7 +19541,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 344064
+      "stack_order": 345088
     },
     {
       "type": "circle",
@@ -19570,7 +19595,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 345088
+      "stack_order": 346112
     },
     {
       "type": "circle",
@@ -19622,7 +19647,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 346112
+      "stack_order": 347136
     },
     {
       "type": "circle",
@@ -19674,7 +19699,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "boxwood",
-      "stack_order": 347136
+      "stack_order": 348160
     },
     {
       "type": "circle",
@@ -19726,7 +19751,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "forsythia",
-      "stack_order": 348160
+      "stack_order": 349184
     },
     {
       "type": "circle",
@@ -19780,7 +19805,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "blueberry",
-      "stack_order": 349184
+      "stack_order": 350208
     },
     {
       "type": "circle",
@@ -19834,7 +19859,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "raspberry",
-      "stack_order": 350208
+      "stack_order": 351232
     },
     {
       "type": "circle",
@@ -19888,7 +19913,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "currant",
-      "stack_order": 351232
+      "stack_order": 352256
     },
     {
       "type": "circle",
@@ -19940,7 +19965,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 352256
+      "stack_order": 353280
     },
     {
       "type": "circle",
@@ -19994,7 +20019,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 353280
+      "stack_order": 354304
     },
     {
       "type": "circle",
@@ -20046,7 +20071,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 354304
+      "stack_order": 355328
     },
     {
       "type": "circle",
@@ -20098,7 +20123,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "boxwood",
-      "stack_order": 355328
+      "stack_order": 356352
     },
     {
       "type": "circle",
@@ -20150,7 +20175,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "forsythia",
-      "stack_order": 356352
+      "stack_order": 357376
     },
     {
       "type": "circle",
@@ -20204,7 +20229,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "blueberry",
-      "stack_order": 357376
+      "stack_order": 358400
     },
     {
       "type": "circle",
@@ -20258,7 +20283,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "raspberry",
-      "stack_order": 358400
+      "stack_order": 359424
     },
     {
       "type": "circle",
@@ -20312,7 +20337,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "currant",
-      "stack_order": 359424
+      "stack_order": 360448
     },
     {
       "type": "circle",
@@ -20364,7 +20389,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 360448
+      "stack_order": 361472
     },
     {
       "type": "circle",
@@ -20418,7 +20443,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 361472
+      "stack_order": 362496
     },
     {
       "type": "circle",
@@ -20470,7 +20495,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 362496
+      "stack_order": 363520
     },
     {
       "type": "circle",
@@ -20522,7 +20547,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "boxwood",
-      "stack_order": 363520
+      "stack_order": 364544
     },
     {
       "type": "circle",
@@ -20574,7 +20599,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "forsythia",
-      "stack_order": 364544
+      "stack_order": 365568
     },
     {
       "type": "circle",
@@ -20628,7 +20653,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "blueberry",
-      "stack_order": 365568
+      "stack_order": 366592
     },
     {
       "type": "circle",
@@ -20682,7 +20707,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "raspberry",
-      "stack_order": 366592
+      "stack_order": 367616
     },
     {
       "type": "circle",
@@ -20736,7 +20761,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "currant",
-      "stack_order": 367616
+      "stack_order": 368640
     },
     {
       "type": "circle",
@@ -20788,7 +20813,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 368640
+      "stack_order": 369664
     },
     {
       "type": "circle",
@@ -20842,7 +20867,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 369664
+      "stack_order": 370688
     },
     {
       "type": "circle",
@@ -20894,7 +20919,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 370688
+      "stack_order": 371712
     },
     {
       "type": "circle",
@@ -20946,7 +20971,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "boxwood",
-      "stack_order": 371712
+      "stack_order": 372736
     },
     {
       "type": "circle",
@@ -20998,7 +21023,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "forsythia",
-      "stack_order": 372736
+      "stack_order": 373760
     },
     {
       "type": "circle",
@@ -21052,7 +21077,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "blueberry",
-      "stack_order": 373760
+      "stack_order": 374784
     },
     {
       "type": "circle",
@@ -21106,7 +21131,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "raspberry",
-      "stack_order": 374784
+      "stack_order": 375808
     },
     {
       "type": "circle",
@@ -21160,7 +21185,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "currant",
-      "stack_order": 375808
+      "stack_order": 376832
     },
     {
       "type": "circle",
@@ -21212,7 +21237,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 376832
+      "stack_order": 377856
     },
     {
       "type": "circle",
@@ -21266,7 +21291,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 377856
+      "stack_order": 378880
     },
     {
       "type": "circle",
@@ -21318,7 +21343,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 378880
+      "stack_order": 379904
     },
     {
       "type": "circle",
@@ -21370,7 +21395,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "boxwood",
-      "stack_order": 379904
+      "stack_order": 380928
     },
     {
       "type": "circle",
@@ -21422,7 +21447,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "forsythia",
-      "stack_order": 380928
+      "stack_order": 381952
     },
     {
       "type": "circle",
@@ -21476,7 +21501,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "blueberry",
-      "stack_order": 381952
+      "stack_order": 382976
     },
     {
       "type": "circle",
@@ -21530,7 +21555,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "raspberry",
-      "stack_order": 382976
+      "stack_order": 384000
     },
     {
       "type": "circle",
@@ -21584,7 +21609,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "currant",
-      "stack_order": 384000
+      "stack_order": 385024
     },
     {
       "type": "rectangle",
@@ -21600,7 +21625,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 385024
+      "stack_order": 386048
     },
     {
       "type": "rectangle",
@@ -21616,7 +21641,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 386048
+      "stack_order": 387072
     },
     {
       "type": "rectangle",
@@ -21632,7 +21657,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 387072
+      "stack_order": 388096
     },
     {
       "type": "rectangle",
@@ -21648,7 +21673,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 388096
+      "stack_order": 389120
     },
     {
       "type": "rectangle",
@@ -21664,7 +21689,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 389120
+      "stack_order": 390144
     },
     {
       "type": "rectangle",
@@ -21680,7 +21705,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 390144
+      "stack_order": 391168
     },
     {
       "type": "rectangle",
@@ -21696,7 +21721,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 391168
+      "stack_order": 392192
     },
     {
       "type": "rectangle",
@@ -21712,7 +21737,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 392192
+      "stack_order": 393216
     },
     {
       "type": "rectangle",
@@ -21728,7 +21753,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 393216
+      "stack_order": 394240
     },
     {
       "type": "rectangle",
@@ -21744,7 +21769,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 394240
+      "stack_order": 395264
     },
     {
       "type": "rectangle",
@@ -21760,7 +21785,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 395264
+      "stack_order": 396288
     },
     {
       "type": "rectangle",
@@ -21776,7 +21801,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 396288
+      "stack_order": 397312
     },
     {
       "type": "rectangle",
@@ -21792,7 +21817,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 397312
+      "stack_order": 398336
     },
     {
       "type": "rectangle",
@@ -21808,7 +21833,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 398336
+      "stack_order": 399360
     },
     {
       "type": "rectangle",
@@ -21824,7 +21849,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 399360
+      "stack_order": 400384
     },
     {
       "type": "rectangle",
@@ -21840,7 +21865,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 400384
+      "stack_order": 401408
     },
     {
       "type": "rectangle",
@@ -21856,7 +21881,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 401408
+      "stack_order": 402432
     },
     {
       "type": "rectangle",
@@ -21872,7 +21897,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 402432
+      "stack_order": 403456
     },
     {
       "type": "rectangle",
@@ -21888,7 +21913,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 403456
+      "stack_order": 404480
     },
     {
       "type": "rectangle",
@@ -21904,7 +21929,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 404480
+      "stack_order": 405504
     },
     {
       "type": "rectangle",
@@ -21920,7 +21945,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 405504
+      "stack_order": 406528
     },
     {
       "type": "rectangle",
@@ -21936,7 +21961,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 406528
+      "stack_order": 407552
     },
     {
       "type": "rectangle",
@@ -21952,7 +21977,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 407552
+      "stack_order": 408576
     },
     {
       "type": "rectangle",
@@ -21968,7 +21993,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 408576
+      "stack_order": 409600
     },
     {
       "type": "rectangle",
@@ -21984,7 +22009,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 409600
+      "stack_order": 410624
     },
     {
       "type": "rectangle",
@@ -22000,7 +22025,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 410624
+      "stack_order": 411648
     },
     {
       "type": "rectangle",
@@ -22016,7 +22041,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 411648
+      "stack_order": 412672
     },
     {
       "type": "rectangle",
@@ -22032,7 +22057,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 412672
+      "stack_order": 413696
     },
     {
       "type": "rectangle",
@@ -22048,7 +22073,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 413696
+      "stack_order": 414720
     },
     {
       "type": "rectangle",
@@ -22064,7 +22089,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 414720
+      "stack_order": 415744
     },
     {
       "type": "circle",
@@ -22079,7 +22104,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 415744
+      "stack_order": 416768
     },
     {
       "type": "circle",
@@ -22094,7 +22119,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 416768
+      "stack_order": 417792
     },
     {
       "type": "circle",
@@ -22109,7 +22134,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 417792
+      "stack_order": 418816
     },
     {
       "type": "circle",
@@ -22124,7 +22149,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 418816
+      "stack_order": 419840
     },
     {
       "type": "circle",
@@ -22139,7 +22164,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 419840
+      "stack_order": 420864
     },
     {
       "type": "circle",
@@ -22154,7 +22179,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 420864
+      "stack_order": 421888
     },
     {
       "type": "circle",
@@ -22169,7 +22194,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 421888
+      "stack_order": 422912
     },
     {
       "type": "circle",
@@ -22184,7 +22209,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 422912
+      "stack_order": 423936
     },
     {
       "type": "circle",
@@ -22199,7 +22224,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 423936
+      "stack_order": 424960
     },
     {
       "type": "circle",
@@ -22214,7 +22239,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 424960
+      "stack_order": 425984
     },
     {
       "type": "circle",
@@ -22229,7 +22254,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 425984
+      "stack_order": 427008
     },
     {
       "type": "circle",
@@ -22244,7 +22269,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 427008
+      "stack_order": 428032
     },
     {
       "type": "circle",
@@ -22259,7 +22284,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 428032
+      "stack_order": 429056
     },
     {
       "type": "circle",
@@ -22274,7 +22299,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 429056
+      "stack_order": 430080
     },
     {
       "type": "circle",
@@ -22289,7 +22314,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 430080
+      "stack_order": 431104
     },
     {
       "type": "circle",
@@ -22304,7 +22329,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 431104
+      "stack_order": 432128
     },
     {
       "type": "circle",
@@ -22319,7 +22344,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 432128
+      "stack_order": 433152
     },
     {
       "type": "circle",
@@ -22334,7 +22359,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 433152
+      "stack_order": 434176
     },
     {
       "type": "circle",
@@ -22349,7 +22374,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 434176
+      "stack_order": 435200
     },
     {
       "type": "circle",
@@ -22364,7 +22389,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 435200
+      "stack_order": 436224
     }
   ],
   "location": {
