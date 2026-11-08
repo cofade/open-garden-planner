@@ -552,67 +552,72 @@
     <context>
         <name>CanvasView</name>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4900" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5096" />
             <source>A building and its roof ridge cannot be split</source>
             <translation>Здание и его конёк нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4888" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4757" />
+            <source>A constrained member or group cannot be moved while drilled down</source>
+            <translation>Элемент или группа с ограничениями не могут перемещаться в режиме детализации</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/canvas_view.py" line="5085" />
             <source>A constrained shape cannot be split</source>
             <translation>Форму с ограничениями нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5036" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5232" />
             <source>All shapes must be on the same layer</source>
             <translation>Все фигуры должны быть на одном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5313" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5509" />
             <source>Already at back</source>
             <translation>Уже на заднем плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5312" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5508" />
             <source>Already at front</source>
             <translation>Уже на переднем плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1898" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1904" />
             <source>Angle</source>
             <translation>Угол</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5172" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5368" />
             <source>Applied boolean {op}</source>
             <translation>Применена булева операция {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5130" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5326" />
             <source>Apply boolean {op}?</source>
             <translation>Применить булеву операцию {op}?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="627" />
+            <location filename="../../ui/canvas/canvas_view.py" line="633" />
             <source>BBQ/Grill</source>
             <translation>Мангал/Гриль</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="609" />
+            <location filename="../../ui/canvas/canvas_view.py" line="615" />
             <source>Bench</source>
             <translation>Скамейка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="657" />
+            <location filename="../../ui/canvas/canvas_view.py" line="663" />
             <source>Bird Bath</source>
             <translation>Купалка для птиц</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5017" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5213" />
             <source>Boolean operations refuse plants, linked objects, constraints, and locked layers</source>
             <translation>Булевы операции не поддерживают растения, связанные объекты, ограничения и заблокированные слои</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5059" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5255" />
             <source>Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)</source>
             <translation>Булевы операции требуют замкнутых фигур (полигон, прямоугольник, круг или эллипс)</translation>
         </message>
@@ -621,42 +626,42 @@
             <translation type="vanished">Для булевых операций требуются замкнутые фигуры (многоугольник, прямоугольник или окружность)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5129" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5325" />
             <source>Boolean {op}</source>
             <translation>Булева операция {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5101" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5297" />
             <source>Boolean {op} produced an empty result</source>
             <translation>Булева операция {op} дала пустой результат</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="608" />
+            <location filename="../../ui/canvas/canvas_view.py" line="614" />
             <source>Chair</source>
             <translation>Стул</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4936" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5132" />
             <source>Click the first point of the cutting line. Esc cancels.</source>
             <translation>Щёлкните первую точку линии разреза. Esc отменяет.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1903" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1909" />
             <source>Coincident</source>
             <translation>Совпадение</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="643" />
+            <location filename="../../ui/canvas/canvas_view.py" line="649" />
             <source>Cold Frame</source>
             <translation>Холодный парник</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="642" />
+            <location filename="../../ui/canvas/canvas_view.py" line="648" />
             <source>Compost Bin</source>
             <translation>Компостный ящик</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="670" />
+            <location filename="../../ui/canvas/canvas_view.py" line="676" />
             <source>Container</source>
             <translation>Контейнер</translation>
         </message>
@@ -701,32 +706,32 @@
             <translation>Вырезано {count} объект(ов)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3515" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3557" />
             <source>Delete Bed</source>
             <translation>Удалить грядку</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3522" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3564" />
             <source>Delete bed and plants</source>
             <translation>Удалить грядку и растения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1892" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1898" />
             <source>Distance</source>
             <translation>Расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="398" />
+            <location filename="../../ui/canvas/canvas_view.py" line="404" />
             <source>Distance in cm</source>
             <translation>Расстояние в см</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5228" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5424" />
             <source>Distance must be positive</source>
             <translation>Расстояние должно быть положительным</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="523" />
+            <location filename="../../ui/canvas/canvas_view.py" line="529" />
             <source>Driveway</source>
             <translation>Подъездная дорога</translation>
         </message>
@@ -736,67 +741,67 @@
             <translation>Дублировано {count} объект(ов)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1893" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1899" />
             <source>Edge length</source>
             <translation>Длина ребра</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1901" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1907" />
             <source>Equal</source>
             <translation>Равно</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="554" />
+            <location filename="../../ui/canvas/canvas_view.py" line="560" />
             <source>Fence</source>
             <translation>Забор</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="628" />
+            <location filename="../../ui/canvas/canvas_view.py" line="634" />
             <source>Fire Pit</source>
             <translation>Костровая чаша</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1902" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1908" />
             <source>Fixed</source>
             <translation>Фиксировано</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="512" />
+            <location filename="../../ui/canvas/canvas_view.py" line="518" />
             <source>Garage/Shed</source>
             <translation>Гараж/Сарай</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="539" />
+            <location filename="../../ui/canvas/canvas_view.py" line="545" />
             <source>Garden Bed</source>
             <translation>Грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="631" />
+            <location filename="../../ui/canvas/canvas_view.py" line="637" />
             <source>Garden Light</source>
             <translation>Садовый фонарь</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="534" />
+            <location filename="../../ui/canvas/canvas_view.py" line="540" />
             <source>Greenhouse</source>
             <translation>Теплица</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4782" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4976" />
             <source>Grouped {n} items</source>
             <translation>Сгруппировано {n} объектов</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4395" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4441" />
             <source>Guide position</source>
             <translation>Позиция направляющей</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="615" />
+            <location filename="../../ui/canvas/canvas_view.py" line="621" />
             <source>Hammock</source>
             <translation>Гамак</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="598" />
+            <location filename="../../ui/canvas/canvas_view.py" line="604" />
             <source>Hedge</source>
             <translation>Живая изгородь</translation>
         </message>
@@ -805,67 +810,67 @@
             <translation type="vanished">Секция живой изгороди</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1894" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1900" />
             <source>Horizontal</source>
             <translation>Горизонтально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1896" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1902" />
             <source>Horizontal distance</source>
             <translation>Горизонтальное расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1904" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1910" />
             <source>Horizontal symmetry</source>
             <translation>Горизонтальная симметрия</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="612" />
+            <location filename="../../ui/canvas/canvas_view.py" line="618" />
             <source>Hot Tub</source>
             <translation>Горячая купель</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="506" />
+            <location filename="../../ui/canvas/canvas_view.py" line="512" />
             <source>House</source>
             <translation>Дом</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2504" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2510" />
             <source>Import Background Image...</source>
             <translation>Импортировать фоновое изображение…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5231" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5427" />
             <source>Invalid distance. Enter a number in centimeters.</source>
             <translation>Некорректное расстояние. Введите число в сантиметрах.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3526" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3568" />
             <source>Keep plants</source>
             <translation>Оставить растения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="548" />
+            <location filename="../../ui/canvas/canvas_view.py" line="554" />
             <source>Lawn</source>
             <translation>Газон</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="610" />
+            <location filename="../../ui/canvas/canvas_view.py" line="616" />
             <source>Lounger</source>
             <translation>Шезлонг</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4798" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4992" />
             <source>No group selected</source>
             <translation>Группа не выбрана</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5315" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5511" />
             <source>No overlapping object behind</source>
             <translation>Нет перекрывающегося объекта сзади</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5314" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5510" />
             <source>No overlapping object in front</source>
             <translation>Нет перекрывающегося объекта спереди</translation>
         </message>
@@ -887,17 +892,17 @@
             <translation>Результат смещения пуст — попробуйте уменьшить расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4867" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5062" />
             <source>Only closed shapes (polygon, rectangle, circle, or ellipse) can be split</source>
             <translation>Разделять можно только замкнутые формы (многоугольник, прямоугольник, круг или эллипс)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1899" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1905" />
             <source>Parallel</source>
             <translation>Параллельно</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="626" />
+            <location filename="../../ui/canvas/canvas_view.py" line="632" />
             <source>Parasol</source>
             <translation>Зонт от солнца</translation>
         </message>
@@ -907,83 +912,83 @@
             <translation>Вставлено {count} объект(ов)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="566" />
+            <location filename="../../ui/canvas/canvas_view.py" line="572" />
             <source>Path</source>
             <translation>Дорожка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="591" />
+            <location filename="../../ui/canvas/canvas_view.py" line="597" />
             <source>Perennial</source>
             <translation>Многолетник</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="646" />
+            <location filename="../../ui/canvas/canvas_view.py" line="652" />
             <source>Pergola</source>
             <translation>Пергола</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1900" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1906" />
             <source>Perpendicular</source>
             <translation>Перпендикулярно</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="614" />
+            <location filename="../../ui/canvas/canvas_view.py" line="620" />
             <source>Picnic Table</source>
             <translation>Стол для пикника</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="629" />
+            <location filename="../../ui/canvas/canvas_view.py" line="635" />
             <source>Planter/Pot</source>
             <translation>Кашпо/Горшок/Pot</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4895" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5091" />
             <source>Plants and linked objects cannot be split</source>
             <translation>Растения и связанные объекты нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1907" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1913" />
             <source>Point on circle</source>
             <translation>Точка на окружности</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1906" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1912" />
             <source>Point on edge</source>
             <translation>Точка на ребре</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="529" />
+            <location filename="../../ui/canvas/canvas_view.py" line="535" />
             <source>Pond/Pool</source>
             <translation>Пруд/Бассейн</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3488" />
-            <location filename="../../ui/canvas/canvas_view.py" line="4822" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3530" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5016" />
             <source>Press Esc to leave the group before cutting or deleting one of its members</source>
             <translation>Нажмите Esc, чтобы выйти из группы, прежде чем вырезать или удалять её элемент</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="655" />
+            <location filename="../../ui/canvas/canvas_view.py" line="661" />
             <source>Rain Barrel</source>
             <translation>Бочка для дождевой воды</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="641" />
+            <location filename="../../ui/canvas/canvas_view.py" line="647" />
             <source>Raised Bed</source>
             <translation>Приподнятая грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="682" />
+            <location filename="../../ui/canvas/canvas_view.py" line="688" />
             <source>Round Container</source>
             <translation>Круглый контейнер</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="611" />
+            <location filename="../../ui/canvas/canvas_view.py" line="617" />
             <source>Sandbox</source>
             <translation>Песочница</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4777" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4971" />
             <source>Select 2 or more items to group</source>
             <translation>Выберите 2 или более объектов для группировки</translation>
         </message>
@@ -993,23 +998,23 @@
             <translation>Выберите фигуру для смещения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5311" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5318" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5507" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5514" />
             <source>Select an object to arrange</source>
             <translation>Выберите объект для упорядочивания</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5273" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5469" />
             <source>Select at least 2 objects to align</source>
             <translation>Выберите не менее 2 объектов для выравнивания</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5333" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5529" />
             <source>Select at least 3 objects to distribute</source>
             <translation>Выберите не менее 3 объектов для распределения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4979" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5175" />
             <source>Select at least two shapes (intersection and subtraction need exactly two)</source>
             <translation>Выберите как минимум две фигуры (для пересечения и вычитания требуется ровно две)</translation>
         </message>
@@ -1043,182 +1048,187 @@
             <translation type="vanished">Фигуры должны пересекаться для выполнения булевых операций</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5091" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5287" />
             <source>Shapes must overlap for this operation</source>
             <translation>Для этой операции фигуры должны перекрываться</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5070" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5266" />
             <source>Shapes must touch or overlap</source>
             <translation>Фигуры должны соприкасаться или перекрываться</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="585" />
+            <location filename="../../ui/canvas/canvas_view.py" line="591" />
             <source>Shrub</source>
             <translation>Кустарник</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="573" />
+            <location filename="../../ui/canvas/canvas_view.py" line="579" />
             <source>String Lights</source>
             <translation>Гирлянда</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="613" />
+            <location filename="../../ui/canvas/canvas_view.py" line="619" />
             <source>Swing</source>
             <translation>Качели</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="606" />
+            <location filename="../../ui/canvas/canvas_view.py" line="612" />
             <source>Table (Rectangular)</source>
             <translation>Стол (прямоугольный)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="625" />
+            <location filename="../../ui/canvas/canvas_view.py" line="631" />
             <source>Table (Round)</source>
             <translation>Стол (круглый)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1908" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1914" />
             <source>Tangent</source>
             <translation>Касательная</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="517" />
+            <location filename="../../ui/canvas/canvas_view.py" line="523" />
             <source>Terrace/Patio</source>
             <translation>Терраса/Патио</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5080" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5276" />
             <source>The merged outline would contain a hole; keep the shapes separate</source>
             <translation>Объединённый контур содержал бы отверстие; оставьте фигуры раздельными</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5111" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5307" />
             <source>The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.</source>
             <translation>Результат содержал бы {count} вершин; план поддерживает не более {limit}. Оставьте фигуры раздельными.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3517" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3559" />
             <source>The selected bed(s) contain plants. What would you like to do?</source>
             <translation>Выбранные грядки содержат растения. Что хотите сделать?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4912" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5108" />
             <source>The shape carries links that a split cannot preserve</source>
             <translation>Форма содержит связи, которые нельзя сохранить при разделении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4920" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5116" />
             <source>The shape has tracking records that a split cannot preserve</source>
             <translation>У формы есть записи отслеживания, которые нельзя сохранить при разделении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4871" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5066" />
             <source>The shape is no longer in this plan</source>
             <translation>Формы больше нет в этом плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4883" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5080" />
             <source>The shape is on a locked layer</source>
             <translation>Форма находится на заблокированном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5049" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5245" />
             <source>The shapes contain different data; keep them separate or make their data consistent</source>
             <translation>Фигуры содержат разные данные; оставьте их раздельными или согласуйте их данные</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3377" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3419" />
             <source>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</source>
             <translation>Эта длина ребра принадлежит жёсткой фигуре. Удалите ограничение и измените размер фигуры.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4875" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5070" />
             <source>This shape has no closed outline to split</source>
             <translation>У этой формы нет замкнутого контура для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="644" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5072" />
+            <source>This shape type has no polygonal form to split into</source>
+            <translation>У этого типа формы нет многоугольной формы для разделения</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/canvas_view.py" line="650" />
             <source>Tool Shed</source>
             <translation>Сарай для инструментов</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="630" />
+            <location filename="../../ui/canvas/canvas_view.py" line="636" />
             <source>Trampoline</source>
             <translation>Батут</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="579" />
+            <location filename="../../ui/canvas/canvas_view.py" line="585" />
             <source>Tree</source>
             <translation>Дерево</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="672" />
+            <location filename="../../ui/canvas/canvas_view.py" line="678" />
             <source>Trellis</source>
             <translation>Шпалера</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4873" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5068" />
             <source>Ungroup the shape before splitting it</source>
             <translation>Разгруппируйте форму перед разделением</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4806" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5000" />
             <source>Ungroup {n} groups</source>
             <translation>Разгруппировать {n} групп</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4811" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5005" />
             <source>Ungrouped</source>
             <translation>Разгруппировано</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4813" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5007" />
             <source>Ungrouped {n} groups</source>
             <translation>Разгруппировано {n} групп</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1895" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1901" />
             <source>Vertical</source>
             <translation>Вертикально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1897" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1903" />
             <source>Vertical distance</source>
             <translation>Вертикальное расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1905" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1911" />
             <source>Vertical symmetry</source>
             <translation>Вертикальная симметрия</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="560" />
+            <location filename="../../ui/canvas/canvas_view.py" line="566" />
             <source>Wall</source>
             <translation>Стена</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="671" />
+            <location filename="../../ui/canvas/canvas_view.py" line="677" />
             <source>Wall Planter</source>
             <translation>Настенное кашпо</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="656" />
+            <location filename="../../ui/canvas/canvas_view.py" line="662" />
             <source>Water Tap</source>
             <translation>Водопроводный кран</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="645" />
+            <location filename="../../ui/canvas/canvas_view.py" line="651" />
             <source>Wheelbarrow</source>
             <translation>Тачка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4391" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4437" />
             <source>X</source>
             <translation>X</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4391" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4437" />
             <source>Y</source>
             <translation>Y</translation>
         </message>
@@ -1233,7 +1243,7 @@
             <translation>наружу</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4392" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4438" />
             <source>{axis} position (cm)</source>
             <translation>Позиция по оси {axis} (см)</translation>
         </message>
@@ -1537,38 +1547,38 @@
             <translation>Добавить узел</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5287" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5483" />
             <source>Align bottom</source>
             <translation>Выровнять по нижнему краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5288" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5484" />
             <source>Align center horizontally</source>
             <translation>Выровнять по центру горизонтально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5289" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5485" />
             <source>Align center vertically</source>
             <translation>Выровнять по центру вертикально</translation>
         </message>
         <message>
             <location filename="../../core/commands.py" line="2127" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5292" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5488" />
             <source>Align items</source>
             <translation>Выровнять объекты</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5284" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5480" />
             <source>Align left</source>
             <translation>Выровнять по левому краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5285" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5481" />
             <source>Align right</source>
             <translation>Выровнять по правому краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5286" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5482" />
             <source>Align top</source>
             <translation>Выровнять по верхнему краю</translation>
         </message>
@@ -1711,17 +1721,17 @@
             <translation>Отвязать растение от грядки</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5343" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5539" />
             <source>Distribute horizontally</source>
             <translation>Распределить по горизонтали</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5347" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5543" />
             <source>Distribute items</source>
             <translation>Распределить объекты</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5344" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5540" />
             <source>Distribute vertically</source>
             <translation>Распределить по вертикали</translation>
         </message>
@@ -1804,18 +1814,18 @@
         <message>
             <location filename="../../app/agent_host.py" line="820" />
             <location filename="../../core/commands.py" line="1163" />
-            <location filename="../../ui/canvas/canvas_view.py" line="3846" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3892" />
             <source>Move item</source>
             <translation>Переместить объект</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2756" />
+            <location filename="../../ui/panels/properties_panel.py" line="2768" />
             <source>Move item (constrained)</source>
             <translation>Переместить объект (с ограничениями)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3740" />
-            <location filename="../../ui/canvas/canvas_view.py" line="3844" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3786" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3890" />
             <source>Move items (constrained)</source>
             <translation>Переместить объекты (с ограничениями)</translation>
         </message>
@@ -2006,7 +2016,7 @@
             <translation>Видимость подписей</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="3026" />
+            <location filename="../../ui/panels/properties_panel.py" line="3038" />
             <source>name</source>
             <translation>Название</translation>
         </message>
@@ -8145,9 +8155,9 @@ Please save your project to a permanent location.</source>
     <context>
         <name>LiveSunMap</name>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="110" />
-            <location filename="../../ui/live_sun_map.py" line="123" />
-            <location filename="../../ui/live_sun_map.py" line="152" />
+            <location filename="../../ui/live_sun_map.py" line="113" />
+            <location filename="../../ui/live_sun_map.py" line="126" />
+            <location filename="../../ui/live_sun_map.py" line="155" />
             <source>Hours of Sun could not be computed.</source>
             <translation>Не удалось рассчитать часы солнца.</translation>
         </message>
@@ -8162,28 +8172,28 @@ Please save your project to a permanent location.</source>
             <translation>Укажите местоположение сада перед расчётом часов солнца.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="183" />
+            <location filename="../../ui/live_sun_map.py" line="186" />
             <source>Sun map unavailable</source>
             <translation>Карта солнца недоступна</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="158" />
+            <location filename="../../ui/live_sun_map.py" line="161" />
             <source>Sun-map settings changed during export. Please retry.</source>
             <translation>Настройки карты солнца изменились во время экспорта. Повторите попытку.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="161" />
+            <location filename="../../ui/live_sun_map.py" line="164" />
             <source>The garden changed during export. Please retry.</source>
             <translation>Сад изменился во время экспорта. Повторите попытку.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="195" />
+            <location filename="../../ui/live_sun_map.py" line="198" />
             <source>The garden document was replaced during export.</source>
             <translation>Документ сада был заменён во время экспорта.</translation>
         </message>
         <message>
-            <location filename="../../ui/live_sun_map.py" line="143" />
-            <location filename="../../ui/live_sun_map.py" line="207" />
+            <location filename="../../ui/live_sun_map.py" line="146" />
+            <location filename="../../ui/live_sun_map.py" line="210" />
             <source>The garden is closing.</source>
             <translation>Сад закрывается.</translation>
         </message>
@@ -11653,7 +11663,7 @@ to assign species data.</source>
     <context>
         <name>ProjectManager</name>
         <message>
-            <location filename="../../core/project.py" line="1098" />
+            <location filename="../../core/project.py" line="1121" />
             <source>Choose a template filename outside the current project and bundled examples.</source>
             <translation>Выберите имя файла шаблона за пределами текущего проекта и встроенных примеров.</translation>
         </message>
@@ -11778,7 +11788,7 @@ to assign species data.</source>
             <translation>На передний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2844" />
+            <location filename="../../ui/panels/properties_panel.py" line="2856" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Невозможно изменить размер этой фигуры: длина её ребра ограничена. Сначала удалите ограничение.</translation>
         </message>
@@ -13944,7 +13954,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>SplitShapeMenu</name>
         <message>
-            <location filename="../../ui/canvas/items/split_menu.py" line="38" />
+            <location filename="../../ui/canvas/items/split_menu.py" line="40" />
             <source>Split Along Line…</source>
             <translation>Разделить по линии…</translation>
         </message>
@@ -13952,42 +13962,42 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>SplitShapeTool</name>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="186" />
+            <location filename="../../core/tools/split_tool.py" line="192" />
             <source>A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.</source>
             <translation>У одной части будет {count} вершин; план поддерживает не более {limit}. Выберите более простой разрез.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="89" />
+            <location filename="../../core/tools/split_tool.py" line="92" />
             <source>Click the second point of the cutting line; Shift constrains the angle. Esc cancels.</source>
             <translation>Щёлкните вторую точку линии разреза; Shift ограничивает угол. Esc отменяет.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="35" />
+            <location filename="../../core/tools/split_tool.py" line="37" />
             <source>Split along line</source>
             <translation>Разделить по линии</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="143" />
+            <location filename="../../core/tools/split_tool.py" line="149" />
             <source>Split cancelled</source>
             <translation>Разделение отменено</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="120" />
+            <location filename="../../core/tools/split_tool.py" line="126" />
             <source>Split the shape into {count} pieces</source>
             <translation>Форма разделена на {count} частей</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="101" />
+            <location filename="../../core/tools/split_tool.py" line="105" />
             <source>The cutting line must cross the shape. Choose another second point.</source>
             <translation>Линия разреза должна пересекать форму. Выберите другую вторую точку.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="67" />
+            <location filename="../../core/tools/split_tool.py" line="70" />
             <source>The shape to split is no longer available.</source>
             <translation>Форма для разделения больше недоступна.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="77" />
+            <location filename="../../core/tools/split_tool.py" line="80" />
             <source>This shape cannot be split: {reason}</source>
             <translation>Эту форму нельзя разделить: {reason}</translation>
         </message>

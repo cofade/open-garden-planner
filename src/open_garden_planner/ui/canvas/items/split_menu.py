@@ -27,6 +27,8 @@ def build_split_action(menu: QMenu, item: QGraphicsItem) -> QAction | None:
 
     if not isinstance(item, (PolygonItem, RectangleItem, CircleItem, EllipseItem)):
         return None
+    # The refusal reason is delivered as the action's tooltip (FR-SPLIT-03).
+    menu.setToolTipsVisible(True)
     scene = item.scene()
     if scene is None:
         return None

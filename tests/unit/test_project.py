@@ -442,9 +442,9 @@ class TestItemReferences:
                 SimpleNamespace(id="task-1", to_dict=lambda: {"bed_id": key})
             )
         elif store == "task_state":
-            manager.set_task_status(f"water:{key}:2026", "done")
+            manager.set_task_status(f"succession:sow:{key}:entry-1", "done")
         else:
-            manager._task_completions.add(f"water:{key}:2026")
+            manager._task_completions.add(f"soil_mismatch:{key}")
 
         assert manager.has_item_references(key) is True
         assert manager.has_item_references(str(uuid4())) is False
@@ -457,3 +457,24 @@ class TestItemReferences:
         key = str(uuid4())
         manager.set_journal_note(JournalNote(id="note-1", text="note"))
         assert manager.has_item_references(key) is False
+
+    def test_an_unrelated_task_id_is_not_a_reference(self, manager: ProjectManager) -> None:
+        from uuid import uuid4
+
+        key = str(uuid4())
+        manager.set_task_status(f"water:{key}:2026", "done")
+        assert manager.has_item_references(key) is False
+
+    def test_every_task_generator_bed_id_format_is_recognised(
+        self, manager: ProjectManager
+    ) -> None:
+        from uuid import uuid4
+
+        key = str(uuid4())
+        for task_id in (
+            f"succession:sow:{key}:entry-1",
+            f"succession:clear:{key}:entry-1",
+            f"soil_amendment:{key}:compost",
+            f"soil_mismatch:{key}",
+        ):
+            assert manager._task_id_references_item(task_id, key), task_id

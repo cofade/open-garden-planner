@@ -104,6 +104,32 @@ def test_a_vertical_cut_keeps_look_metadata_and_is_one_undo_step(
     assert len(_add_pieces(scene)) == 2
 
 
+def test_the_context_menu_shows_a_refusal_reason_as_its_tooltip(canvas, monkeypatch) -> None:
+    scene = canvas.scene()
+    locked = Layer(name="Locked", locked=True, z_order=2)
+    scene.add_layer(locked)
+    source = RectangleItem(100, 100, 200, 100)
+    source.layer_id = locked.id
+    scene.addItem(source)
+    captured: dict[str, object] = {}
+
+    def inspect_menu(menu, *_args):
+        action = next(
+            entry for entry in menu.actions() if entry.objectName() == "split_shape"
+        )
+        captured["enabled"] = action.isEnabled()
+        captured["tooltip"] = action.toolTip()
+        captured["tips"] = menu.toolTipsVisible()
+        return None
+
+    monkeypatch.setattr(QMenu, "exec", inspect_menu)
+    source.contextMenuEvent(MagicMock(spec=QGraphicsSceneContextMenuEvent))
+
+    assert captured["enabled"] is False
+    assert captured["tooltip"] == "The shape is on a locked layer"
+    assert captured["tips"] is True
+
+
 def test_the_context_menu_offers_a_dispatchable_split_action(canvas, monkeypatch) -> None:
     source = _add(canvas, RectangleItem(100, 100, 200, 100))
     captured: dict[str, str] = {}
@@ -256,6 +282,46 @@ def test_a_save_and_reopen_preserves_the_pieces(canvas, mouse_event, tmp_path) -
     assert [piece.polygon() for piece in pieces] == geometry
     assert all(piece.metadata["future_field"] == {"keep": True} for piece in pieces)
 
+    # A second save/reload must be stable (issue #664 acceptance).
+    second = tmp_path / "split-second.ogp"
+    ProjectManager().save(restored, second)
+    ProjectManager().load(restored, second)
+    again = [item for item in restored.items() if isinstance(item, PolygonItem)]
+    assert [piece.polygon() for piece in again] == geometry
+
+
+def test_a_deleted_source_clears_the_piece_preview(canvas, mouse_event) -> None:
+    source = _add(canvas, RectangleItem(100, 100, 200, 100))
+    assert canvas.start_split_shape(source) is True
+    tool = canvas._split_tool
+    assert tool.mouse_press(mouse_event, QPointF(200, 0)) is True
+    assert tool.mouse_move(mouse_event, QPointF(200, 400)) is True
+    assert tool._preview_pieces
+
+    canvas.scene().removeItem(source)
+    assert tool.mouse_move(mouse_event, QPointF(220, 400)) is True
+
+    assert tool._preview_pieces == []
+    assert tool._preview_line is None
+
+
+def test_the_vertex_cap_message_is_not_overwritten(canvas, mouse_event, monkeypatch) -> None:
+    from open_garden_planner.ui.canvas.items import polygon_item
+
+    monkeypatch.setattr(polygon_item, "MAX_POLYGON_VERTICES", 4)
+    source = _add(canvas, RectangleItem(100, 100, 200, 100))
+    assert canvas.start_split_shape(source) is True
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(200, 0))
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+
+    assert tool.mouse_press(mouse_event, QPointF(200, 400)) is True
+
+    assert source.scene() is canvas.scene()
+    assert canvas.command_manager.undo_depth == 0
+    assert messages and "vertices" in messages[-1]
+
 
 def test_a_locked_layer_refuses_the_split(canvas) -> None:
     scene = canvas.scene()
@@ -284,6 +350,31 @@ def test_a_constrained_shape_refuses_the_split(canvas) -> None:
     assert canvas.start_split_shape(source) is False
     assert source.scene() is canvas.scene()
     assert canvas.command_manager.undo_depth == 0
+
+
+def test_a_container_without_a_polygonal_form_is_refused(canvas) -> None:
+    source = _add(
+        canvas,
+        RectangleItem(100, 100, 200, 100, object_type=ObjectType.CONTAINER),
+    )
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+
+    assert canvas.start_split_shape(source) is False
+    assert messages == ["This shape type has no polygonal form to split into"]
+    assert source.scene() is canvas.scene()
+
+
+def test_a_raised_bed_becomes_a_garden_bed(canvas, mouse_event) -> None:
+    source = _add(
+        canvas,
+        RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED),
+    )
+    _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
+
+    pieces = _add_pieces(canvas.scene())
+    assert len(pieces) == 2
+    assert all(piece.object_type is ObjectType.GARDEN_BED for piece in pieces)
 
 
 def test_a_plant_or_group_member_refuses_the_split(canvas) -> None:

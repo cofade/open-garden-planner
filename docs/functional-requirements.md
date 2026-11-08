@@ -1216,10 +1216,11 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   panels read (`CanvasView.effective_selection`). Clicking outside the member, pressing
   Esc, or selecting another object clears the focus.
 - **FR-DRILL-02:** While focused, a member can be moved by dragging its body or with the
-  arrow keys, and its geometry/appearance/species/notes can be edited through the
-  Properties panel; each edit is one undo step and moves the member in its group's
-  frame, never the group. The member's layer cannot change, and Cut/Delete are refused
-  until the focus is cleared.
+  arrow keys, resized/rotated with its own handles, and its
+  geometry/appearance/species/notes can be edited through the Properties panel; each
+  edit is one undo step and moves the member in its group's frame, never the group.
+  The member's layer cannot change, movement of a constrained member or ancestor is
+  refused, and Cut/Delete are refused until the focus is cleared.
 - **FR-DRILL-03:** Smart symbols are not drillable because their members are generated
   from parameters. Nested groups drill one level per click; the focused member's inner
   outline is drawn by `GroupItem.paint` and disappears with the selection (exports clear

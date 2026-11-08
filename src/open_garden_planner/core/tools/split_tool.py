@@ -19,8 +19,10 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonIt
 
 from open_garden_planner.core.cad_geometry import snap_point_to_axis_step
 from open_garden_planner.core.item_look import copy_visual_style
-from open_garden_planner.core.object_types import get_valid_types_for_shape
-from open_garden_planner.core.shape_split import split_item_into_local_polygons
+from open_garden_planner.core.shape_split import (
+    polygon_type_for_split,
+    split_item_into_local_polygons,
+)
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 from open_garden_planner.core.tools.preview_z import PREVIEW_Z_FILL, PREVIEW_Z_LINE
 
@@ -44,6 +46,7 @@ class SplitShapeTool(BaseTool):
         self._start: QPointF | None = None
         self._preview_line: QGraphicsLineItem | None = None
         self._preview_pieces: list[QGraphicsPolygonItem] = []
+        self._build_error: str | None = None
         self._scene = view._canvas_scene
         self._scene.document_replaced.connect(self.cancel)
 
@@ -98,12 +101,15 @@ class SplitShapeTool(BaseTool):
         pieces = self._build_pieces(source, self._start, end)
         if pieces is None:
             self._view.set_status_message(
-                QCoreApplication.translate(
+                self._build_error
+                or QCoreApplication.translate(
                     "SplitShapeTool",
                     "The cutting line must cross the shape. Choose another second point.",
                 )
             )
+            self._build_error = None
             return True
+        self._build_error = None
 
         from open_garden_planner.core.commands import SplitShapeCommand
 
@@ -151,6 +157,7 @@ class SplitShapeTool(BaseTool):
         self._clear_previews()
         self._start = None
         self.source_id = None
+        self._build_error = None
 
     # ------------------------------------------------------------------
     # Geometry and preview
@@ -182,20 +189,20 @@ class SplitShapeTool(BaseTool):
         if not local_polygons:
             return None
         if any(poly.count() > MAX_POLYGON_VERTICES for poly in local_polygons):
-            self._view.set_status_message(
-                QCoreApplication.translate(
-                    "SplitShapeTool",
-                    "A piece would have {count} vertices; the plan supports at "
-                    "most {limit}. Choose a simpler cut.",
-                ).format(
-                    count=max(poly.count() for poly in local_polygons),
-                    limit=MAX_POLYGON_VERTICES,
-                )
+            self._build_error = QCoreApplication.translate(
+                "SplitShapeTool",
+                "A piece would have {count} vertices; the plan supports at "
+                "most {limit}. Choose a simpler cut.",
+            ).format(
+                count=max(poly.count() for poly in local_polygons),
+                limit=MAX_POLYGON_VERTICES,
             )
             return None
 
         pieces: list[QGraphicsItem] = []
-        valid_types = get_valid_types_for_shape("polygon")
+        polygon_type = polygon_type_for_split(
+            getattr(source, "object_type", None)
+        )
         for polygon in local_polygons:
             item = PolygonItem.from_polygon(polygon)
             # Work in the source's local frame so the material keeps its
@@ -203,8 +210,8 @@ class SplitShapeTool(BaseTool):
             item._apply_rotation(source.rotation())
             centre = item.transformOriginPoint()
             item.setPos(source.mapToScene(centre) - centre)
-            if getattr(source, "object_type", None) in valid_types:
-                item.object_type = source.object_type  # type: ignore[attr-defined]
+            if polygon_type is not None:
+                item.object_type = polygon_type
             item.name = getattr(source, "name", "")
             item.label_visible = getattr(source, "label_visible", True)
             item.area_label_visible = getattr(source, "area_label_visible", False)
@@ -244,6 +251,7 @@ class SplitShapeTool(BaseTool):
     def _show_piece_preview(self, end: QPointF) -> None:
         source = self._source()
         if source is None or self._start is None:
+            self._clear_previews()
             return
         local_polygons = split_item_into_local_polygons(source, self._start, end)
         self._clear_piece_preview()

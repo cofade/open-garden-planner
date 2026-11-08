@@ -11179,10 +11179,14 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
 2. **Geometry edits of a focused member stay in the group frame.** A body drag is a
    view-owned gesture (`begin_drill_down_drag`/`_finish_drill_down_drag`), not Qt's
    group drag; the arrow keys and the Properties panel convert a scene delta through
-   `_delta_in_parent_frame()` before writing `item.pos()`. The group's `ItemIsMovable`
-   flag is cleared while the member is focused and restored on exit. Changing the
-   member's layer is refused in the context menu, the panel and `PropertyEdits`, and
-   Cut/Delete are refused while a member is focused.
+   `_delta_in_parent_frame()` before writing `item.pos()`. The member's own resize and
+   rotation handles are shown, and the view replays their press/move/release through
+   `ResizeHandle.begin_drag/apply_drag/end_drag` and the `RotationHandle` equivalents,
+   because Qt routes a group child's handle press to the group. Every grouped
+   ancestor's `ItemIsMovable` flag is cleared while the member is focused and restored
+   on exit. Changing the member's layer is refused in the context menu, the panel and
+   `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
+   refused while a member is focused.
 3. **Split works in the source's local frame and replaces it in one command.**
    `core/shape_split.py` clips the item's local `QPainterPath` against the two
    half-planes of the two-point axis; `SplitShapeCommand` removes the source and adds

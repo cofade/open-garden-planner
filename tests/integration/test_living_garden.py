@@ -602,7 +602,7 @@ def test_garden_lights_are_drawn_with_their_tools_and_light_the_3d_garden(
     expected = sorted(source.light for source in lamp_sources(records))
     actual = sorted(lit)
     assert len(actual) == len(expected), "they light from under their lamps"
-    for got, want in zip(actual, expected):
+    for got, want in zip(actual, expected, strict=True):
         # pytest 9.2 rejects ``approx`` over a nested tuple; compare each lamp
         assert got == pytest.approx(want), "they light from under their lamps"
     assert len(lit) <= LAMP_SLOTS

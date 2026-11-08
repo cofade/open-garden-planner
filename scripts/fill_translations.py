@@ -3618,6 +3618,10 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Die Form liegt auf einer gesperrten Ebene",
         "This shape has no closed outline to split":
             "Diese Form hat keine geschlossene Kontur zum Teilen",
+        "This shape type has no polygonal form to split into":
+            "Dieser Formtyp hat keine polygonale Form zum Teilen",
+        "A constrained member or group cannot be moved while drilled down":
+            "Ein Mitglied oder eine Gruppe mit Randbedingung kann im Drilldown nicht bewegt werden",
         "Ungroup the shape before splitting it":
             "Gruppierung der Form vor dem Teilen aufheben",
     },

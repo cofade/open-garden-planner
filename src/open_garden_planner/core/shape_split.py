@@ -33,6 +33,8 @@ from open_garden_planner.core.shape_boolean import (
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsItem
 
+    from open_garden_planner.core.object_types import ObjectType
+
 #: A cutting axis shorter than this cannot define a direction.
 MIN_AXIS_LENGTH_CM = 1e-6
 
@@ -140,8 +142,27 @@ def split_item_into_local_polygons(
     return split_path(local_path, local_first, local_second)
 
 
+def polygon_type_for_split(source_type: object) -> ObjectType | None:
+    """The type a split piece carries, or None when the source has no form.
+
+    ``polygon_equivalent_object_type`` owns the established conversions
+    (rectangle, raised bed, hedge section, already-polygonal types). The two
+    generic curves are the split-specific addition: their pieces are polygons,
+    so they become ``GENERIC_POLYGON`` rather than losing their identity.
+    """
+    from open_garden_planner.core.object_types import (
+        ObjectType,
+        polygon_equivalent_object_type,
+    )
+
+    if source_type in {ObjectType.GENERIC_CIRCLE, ObjectType.GENERIC_ELLIPSE}:
+        return ObjectType.GENERIC_POLYGON
+    return polygon_equivalent_object_type(source_type)  # type: ignore[arg-type]
+
+
 __all__ = [
     "MIN_AXIS_LENGTH_CM",
+    "polygon_type_for_split",
     "split_item_into_local_polygons",
     "split_path",
 ]

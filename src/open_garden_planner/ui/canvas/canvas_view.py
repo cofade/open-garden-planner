@@ -153,6 +153,7 @@ from open_garden_planner.ui.canvas.clipboard_operations import (
 from open_garden_planner.ui.canvas.drag_constraints import DragConstraints
 from open_garden_planner.ui.canvas.items.resize_handle import (
     DRAG_HANDLE_TYPES,
+    ResizeHandle,
     RotationHandle,
     VertexHandle,
 )
@@ -357,12 +358,19 @@ class CanvasView(QGraphicsView):
         # after a second click inside a selected group, and its owning group.
         self._drill_down_item: QGraphicsItem | None = None
         self._drill_down_group: QGraphicsItem | None = None
-        self._drill_down_group_was_movable = True
+        # Every grouped ancestor and the ItemIsMovable value to restore, so a
+        # nested drill-down never leaves the outer group draggable (#771).
+        self._drill_down_ancestors: list[tuple[QGraphicsItem, bool]] = []
         # A body drag of the drilled member is handled here, not by Qt: the
         # group owns Qt's drag machinery while it is selected (#771).
         self._drill_drag_item: QGraphicsItem | None = None
         self._drill_drag_start_scene: QPointF | None = None
         self._drill_drag_start_pos: QPointF | None = None
+        # A resize/rotation handle of the drilled member. Qt does not deliver
+        # its moves while the group is selected, so the view replays them.
+        self._drill_handle: QGraphicsItem | None = None
+        self._drill_handle_start_scene: QPointF | None = None
+        self._drill_handle_parent_frame = False
         self._canvas_scene.selectionChanged.connect(
             self._on_selection_changed_for_group_drill
         )
@@ -2565,6 +2573,20 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # A focused group member's handle must be handled here: Qt delivers
+        # the press to the selected group instead of the ItemIgnoresTransforms
+        # handle, so the view owns the whole gesture (#771).
+        if event.button() == Qt.MouseButton.LeftButton and self._drill_down_item is not None:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            candidate = self._canvas_scene.itemAt(scene_pos, self.transform())
+            if (
+                isinstance(candidate, DRAG_HANDLE_TYPES)
+                and candidate.parentItem() is self._drill_down_item
+                and self.begin_drill_handle_drag(candidate, scene_pos)
+            ):
+                event.accept()
+                return
+
         # A journal pin's constant-screen glyph cannot be hit by Qt's own
         # itemAt; give the Select tool the click it needs (PF-CAN-40).
         tool = self._tool_manager.active_tool
@@ -2625,8 +2647,12 @@ class CanvasView(QGraphicsView):
                 self._rotating_item = None
 
         # Store positions of selected items for drag undo tracking
-        # Must be AFTER super() so item selection is updated
-        if event.button() == Qt.MouseButton.LeftButton:
+        # Must be AFTER super() so item selection is updated. A drilled handle
+        # owns its own gesture, so it must not seed a group move command.
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and self._drill_handle is None
+        ):
             self._drag_start_positions = {
                 item: item.pos() for item in self.scene().selectedItems()
             }
@@ -2719,6 +2745,17 @@ class CanvasView(QGraphicsView):
                 event.accept()
                 return
             self._finish_drill_down_drag()
+            event.accept()
+            return
+
+        # A focused member's handle drag is replayed into its own handlers.
+        if self._drill_handle is not None:
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self._move_drill_handle(scene_pos)
+                self.viewport().update()
+                event.accept()
+                return
+            self._finish_drill_handle()
             event.accept()
             return
 
@@ -3017,6 +3054,13 @@ class CanvasView(QGraphicsView):
         # A drill-down member drag is committed here (#771).
         if self._drill_drag_item is not None and event.button() == Qt.MouseButton.LeftButton:
             self._finish_drill_down_drag()
+            event.accept()
+            return
+
+        # A focused member's handle drag is committed through its own release
+        # handler (#771).
+        if self._drill_handle is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._finish_drill_handle()
             event.accept()
             return
 
@@ -3713,6 +3757,10 @@ class CanvasView(QGraphicsView):
             return
 
         if self._drill_down_item is not None:
+            reason = self.drill_down_movement_reason()
+            if reason is not None:
+                self.set_status_message(reason)
+                return
             # A group member lives in the group frame; the scene arrow delta
             # must turn with a rotated group before it is applied to pos().
             self._command_manager.execute(
@@ -4583,12 +4631,16 @@ class CanvasView(QGraphicsView):
         consumer uses.
         """
         item = self._drill_down_item
-        if (
-            item is not None
-            and item.scene() is self._canvas_scene
-            and item.isSelected()
-        ):
-            return [item]
+        try:
+            if (
+                item is not None
+                and item.scene() is self._canvas_scene
+                and item.isSelected()
+            ):
+                return [item]
+        except RuntimeError:
+            # The focused member was deleted during teardown/undo.
+            self._clear_group_drill_down()
         return list(self._canvas_scene.selectedItems())
 
     def drill_target_at(self, scene_pos: QPointF) -> QGraphicsItem | None:
@@ -4604,15 +4656,29 @@ class CanvasView(QGraphicsView):
         )
 
         focused = self._drill_down_item
-        if (
-            focused is not None
-            and is_drillable_group(focused)
-            and focused.isSelected()
-        ):
+        try:
+            focused_is_group = (
+                focused is not None
+                and is_drillable_group(focused)
+                and focused.isSelected()
+            )
+        except RuntimeError:
+            self._clear_group_drill_down()
+            focused = None
+            focused_is_group = False
+        if focused_is_group:
             # A nested group is the drill target after the first level; the
             # click that focused it did not change the outer group's Qt
             # selection, so the focused group is the next context.
-            group = focused
+            group = cast(QGraphicsItem, focused)
+        elif focused is not None and focused.isSelected():
+            # A focused leaf keeps its own parent as the hit context, so a
+            # press on it resolves to the leaf (body drag), not to the group
+            # that happens to be the Qt selection.
+            parent = focused.parentItem()
+            if parent is None:
+                return None
+            group = parent
         else:
             selected = [
                 item
@@ -4631,9 +4697,10 @@ class CanvasView(QGraphicsView):
 
         Qt routes a selected child back to its group, so the group stays the
         Qt selection and this method supplies the *logical* focus: the group's
-        painted outline marks the member and ``effective_selection`` makes every
-        panel edit it. The child keeps its group membership, so its layer cannot
-        be changed (a group's members share its layer).
+        painted outline marks the member, its own handles are shown, and
+        ``effective_selection`` makes every panel edit it. The child keeps its
+        group membership, so its layer cannot be changed (a group's members
+        share its layer).
         """
         if self._drill_down_item is child:
             return
@@ -4641,24 +4708,141 @@ class CanvasView(QGraphicsView):
         self._drill_down_item = child
         group = child.parentItem()
         self._drill_down_group = group
-        if group is not None:
-            self._drill_down_group_was_movable = bool(
-                group.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+        ancestors: list[tuple[QGraphicsItem, bool]] = []
+        node = group
+        while node is not None:
+            ancestors.append(
+                (
+                    node,
+                    bool(
+                        node.flags()
+                        & QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+                    ),
+                )
             )
-            # Qt would otherwise move the whole group on the same press that
-            # focuses the member.
-            group.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
-            if hasattr(group, "set_drill_down_child"):
-                group.set_drill_down_child(child)
+            # Every ancestor stays still while a descendant is being edited;
+            # restore each flag in reverse order on exit.
+            node.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            node = node.parentItem()
+        self._drill_down_ancestors = ancestors
+        if group is not None and hasattr(group, "set_drill_down_child"):
+            group.set_drill_down_child(child)
+        if hasattr(child, "show_resize_handles"):
+            child.show_resize_handles()
+        if hasattr(child, "show_rotation_handle"):
+            child.show_rotation_handle()
         self.drill_down_changed.emit()
+
+    def drill_down_movement_reason(self, item: QGraphicsItem | None = None) -> str | None:
+        """Why the focused member cannot move, or None (#771).
+
+        A FIXED or other constraint on the member, its group or any grouped
+        ancestor is owned by the group frame. Refusing the movement is safer
+        than silently bypassing it; clear the drill-down to move the group.
+        """
+        target = item if item is not None else self._drill_down_item
+        if target is None:
+            return None
+        item_ids = []
+        item_id = getattr(target, "item_id", None)
+        if item_id is not None:
+            item_ids.append(item_id)
+        node = target.parentItem()
+        while node is not None:
+            parent_id = getattr(node, "item_id", None)
+            if parent_id is not None:
+                item_ids.append(parent_id)
+            node = node.parentItem()
+        graph = self._canvas_scene.constraint_graph
+        for candidate in item_ids:
+            if graph.get_item_constraints(candidate):
+                return self.tr(
+                    "A constrained member or group cannot be moved while drilled down"
+                )
+        return None
 
     def begin_drill_down_drag(
         self, item: QGraphicsItem, scene_pos: QPointF
-    ) -> None:
-        """Start a body drag of the drilled member (#771)."""
+    ) -> bool:
+        """Start a body drag of the drilled member (#771). False when refused."""
+        reason = self.drill_down_movement_reason(item)
+        if reason is not None:
+            self.set_status_message(reason)
+            return False
         self._drill_drag_item = item
         self._drill_drag_start_scene = QPointF(scene_pos)
         self._drill_drag_start_pos = QPointF(item.pos())
+        return True
+
+    def begin_drill_handle_drag(
+        self, handle: QGraphicsItem, scene_pos: QPointF
+    ) -> bool:
+        """Take over a focused member's handle drag (#771); False when refused.
+
+        Qt does not deliver the press or moves to a handle inside a selected
+        group, so the view initialises the handle's own drag state and replays
+        the moves and release into its handlers. The handle's end handler is
+        what registers the one undo command. A constrained member or ancestor
+        never starts the gesture.
+        """
+        parent = handle.parentItem()
+        if parent is None:
+            return False
+        reason = self.drill_down_movement_reason(parent)
+        if reason is not None:
+            self.set_status_message(reason)
+            return False
+        begin = getattr(handle, "begin_drag", None)
+        if not callable(begin):
+            return False
+        parent_frame = True
+        point = parent.mapFromScene(scene_pos)
+        if not begin(point, parent_frame=parent_frame):
+            return False
+        self._drill_handle = handle
+        self._drill_handle_start_scene = QPointF(scene_pos)
+        self._drill_handle_parent_frame = parent_frame
+        self._drag_start_positions.clear()
+        self._rotating_item = None
+        self._active_drag_handle = handle
+        return True
+
+    def _move_drill_handle(self, scene_pos: QPointF) -> None:
+        handle = self._drill_handle
+        if handle is None:
+            return
+        with contextlib.suppress(RuntimeError):
+            if handle.scene() is not self._canvas_scene:
+                return
+            apply = getattr(handle, "apply_drag", None)
+            if callable(apply):
+                parent = handle.parentItem()
+                if self._drill_handle_parent_frame and parent is not None:
+                    point = parent.mapFromScene(scene_pos)
+                    if isinstance(handle, ResizeHandle):
+                        apply(point, parent_frame=True)
+                    else:
+                        apply(point)
+                else:
+                    apply(scene_pos)
+            group = self._drill_down_group
+            if group is not None:
+                group.update()
+
+    def _finish_drill_handle(self) -> None:
+        handle = self._drill_handle
+        self._drill_handle = None
+        self._drill_handle_start_scene = None
+        self._drill_handle_parent_frame = False
+        self._active_drag_handle = None
+        if handle is None:
+            return
+        with contextlib.suppress(RuntimeError):
+            if handle.scene() is not self._canvas_scene:
+                return
+            end = getattr(handle, "end_drag", None)
+            if callable(end):
+                end()
 
     def _delta_in_parent_frame(
         self, item: QGraphicsItem, delta: QPointF
@@ -4740,31 +4924,58 @@ class CanvasView(QGraphicsView):
         item = self._drill_down_item
         if item is None:
             return
+        try:
+            still_selected = item.isSelected()
+        except RuntimeError:
+            self._clear_group_drill_down()
+            return
         top_level = [
             candidate
             for candidate in self._canvas_scene.selectedItems()
             if candidate.parentItem() is None
         ]
-        if item.isSelected() and len(top_level) == 1:
+        if still_selected and len(top_level) == 1:
             return
         self._clear_group_drill_down()
 
     def _clear_group_drill_down(self) -> None:
-        group = self._drill_down_group
         had_focus = self._drill_down_item is not None
-        self._drill_down_item = None
-        self._drill_down_group = None
-        self._drill_drag_item = None
-        self._drill_drag_start_scene = None
-        self._drill_drag_start_pos = None
+        # A live gesture is committed before the focus is torn down; otherwise
+        # the applied geometry would have no undo step (#771 review).
+        self._finish_drill_down_drag()
+        self._finish_drill_handle()
+        item = self._drill_down_item
+        group = self._drill_down_group
+        ancestors = self._drill_down_ancestors
+        group_was_selected = False
         if group is not None:
             with contextlib.suppress(RuntimeError):
-                group.setFlag(
-                    QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
-                    self._drill_down_group_was_movable,
-                )
+                group_was_selected = group.isSelected()
+        self._drill_down_item = None
+        self._drill_down_group = None
+        self._drill_down_ancestors = []
+        if item is not None:
+            with contextlib.suppress(RuntimeError):
+                if hasattr(item, "hide_resize_handles"):
+                    item.hide_resize_handles()
+                if hasattr(item, "hide_rotation_handle"):
+                    item.hide_rotation_handle()
+        if group is not None:
+            with contextlib.suppress(RuntimeError):
                 if hasattr(group, "set_drill_down_child"):
                     group.set_drill_down_child(None)
+        for ancestor, was_movable in reversed(ancestors):
+            with contextlib.suppress(RuntimeError):
+                ancestor.setFlag(
+                    QGraphicsItem.GraphicsItemFlag.ItemIsMovable, was_movable
+                )
+        # Hiding a handle that Qt marked selected clears the whole group
+        # selection. A focus that ended while the group was selected (Esc or
+        # a click on the group body) must leave it selected.
+        if group_was_selected and group is not None:
+            with contextlib.suppress(RuntimeError):
+                if group.scene() is self._canvas_scene and not group.isSelected():
+                    group.setSelected(True)
         if had_focus:
             self.drill_down_changed.emit()
 
@@ -4867,6 +5078,7 @@ class CanvasView(QGraphicsView):
             is_ridge_bearing_type,
         )
         from open_garden_planner.core.shape_boolean import item_to_local_painter_path
+        from open_garden_planner.core.shape_split import polygon_type_for_split
         from open_garden_planner.ui.canvas.items import (
             CircleItem,
             EllipseItem,
@@ -4884,6 +5096,8 @@ class CanvasView(QGraphicsView):
             return self.tr("Ungroup the shape before splitting it")
         if item_to_local_painter_path(item) is None:
             return self.tr("This shape has no closed outline to split")
+        if polygon_type_for_split(item.object_type) is None:
+            return self.tr("This shape type has no polygonal form to split into")
 
         layer = (
             self._canvas_scene.get_layer_by_id(item.layer_id)
@@ -4899,7 +5113,6 @@ class CanvasView(QGraphicsView):
             return self.tr("A constrained shape cannot be split")
         if (
             is_plant_type(item.object_type)
-            or getattr(item, "paints_sprite", False)
             or item.parent_bed_id is not None
             or item.has_children
         ):
@@ -5016,7 +5229,7 @@ class CanvasView(QGraphicsView):
                 or item.paints_sprite
                 or item.parent_bed_id is not None
                 or item.has_children
-                or item.parentItem() is not None
+                or item.parentItem() is not None  # type: ignore[attr-defined]
                 or constraints
                 or (layer is not None and layer.locked)
                 or any(

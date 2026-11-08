@@ -8284,7 +8284,10 @@ notifies them because Qt emits no `selectionChanged`. `GroupItem.paint` draws th
 focused member's inner outline only while the group is selected. A body drag is
 the view's own gesture (`begin_drill_down_drag`), not Qt's group drag; arrow keys
 and the Properties panel convert scene deltas through `_delta_in_parent_frame`.
-The member cannot change layer, be cut or be deleted while focused; clicking
-outside the member or pressing `Esc` clears the focus and restores the group's
-`ItemIsMovable` flag. Smart symbols are not drillable because their members are
-generated from parameters.
+The member's resize/rotation handles are shown, but their own press never reaches
+them inside the selected group, so the view replays the gesture through the
+handles' `begin_drag` / `apply_drag` / `end_drag` seam. The member cannot change
+layer, be cut or be deleted while focused, and a constrained member or ancestor
+refuses movement. Clicking outside the member or pressing `Esc` clears the focus
+and restores every grouped ancestor's `ItemIsMovable` flag. Smart symbols are not
+drillable because their members are generated from parameters.

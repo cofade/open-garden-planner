@@ -38,6 +38,7 @@ from open_garden_planner.core.plan_io import (
     write_plan,
 )
 from open_garden_planner.models.layer import Layer, create_default_layers
+from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
 # File format version for backward compatibility.
 #
@@ -327,6 +328,22 @@ class ProjectManager(QObject):
         """Set of completed task IDs for the current project."""
         return set(self._task_completions)
 
+    @staticmethod
+    def _task_id_references_item(task_id: object, key: str) -> bool:
+        """Whether a deterministic task id names *key* as its bed/area.
+
+        The two formats are owned by ``services.task_generator``:
+        ``succession:<sow|clear>:<bed_id>:<entry>`` and
+        ``soil_amendment:<bed_id>:<name>`` / ``soil_mismatch:<bed_id>``.
+        Explicit segment matching avoids a substring false positive when an
+        unrelated id happens to contain the same characters.
+        """
+        parts = str(task_id).split(":")
+        if not parts:
+            return False
+        index = TASK_BED_ID_SEGMENTS.get(parts[0])
+        return index is not None and len(parts) > index and parts[index] == key
+
     def has_item_references(self, item_id: UUID | str) -> bool:
         """Whether project data outside the scene still points at *item_id*.
 
@@ -353,9 +370,15 @@ class ProjectManager(QObject):
         for task in self._manual_tasks.values():
             if isinstance(task, dict) and str(task.get("bed_id", "")) == key:
                 return True
-        if any(key in str(task_id) for task_id in self._task_states):
+        if any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_states
+        ):
             return True
-        return any(key in str(task_id) for task_id in self._task_completions)
+        return any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_completions
+        )
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's

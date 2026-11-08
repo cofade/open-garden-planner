@@ -96,6 +96,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             'La forma está en una capa bloqueada',
         'This shape has no closed outline to split':
             'Esta forma no tiene un contorno cerrado que dividir',
+        'This shape type has no polygonal form to split into':
+            'Este tipo de forma no tiene una forma poligonal en la que dividirse',
+        'A constrained member or group cannot be moved while drilled down':
+            'Un miembro o grupo con restricciones no se puede mover durante la selección detallada',
         'Ungroup the shape before splitting it':
             'Desagrupa la forma antes de dividirla',
         'Angle': 'Ángulo',

@@ -137,6 +137,9 @@ def group_child_at(
     for candidate in scene.items(scene_pos):
         if candidate is group:
             continue
+        if isinstance(candidate, DRAG_HANDLE_TYPES):
+            # The handle's own press must keep its resize/rotate meaning.
+            return None
         node: QGraphicsItem | None = candidate
         while node is not None and node is not group:
             parent = node.parentItem()
@@ -146,6 +149,8 @@ def group_child_at(
                 if getattr(node, "item_id", None) is None:
                     return None
                 return node
+            if isinstance(node, DRAG_HANDLE_TYPES):
+                return None
             node = parent
     return None
 
