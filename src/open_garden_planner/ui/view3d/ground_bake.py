@@ -164,7 +164,11 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPainterPath, QPen, QPolygonF, QTransform
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
+from open_garden_planner.core.furniture_renderer import (
+    is_furniture_type,
+    paints_picture,
+    render_furniture_pixmap,
+)
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d import (
@@ -614,8 +618,8 @@ def _paint_filled(painter: QPainter, record: Record, paint: Paint, ox: float, oy
     if rect is not None and shape != SHAPE_ELLIPSE and _paint_sprite(painter, object_type, rect):
         return
     pen = _pen(material, paint, paint.stroke_width_cm)
-    furniture = object_type is not None and is_furniture_type(object_type)
-    # a furniture item without its sprite file has no brush on the canvas either
+    furniture = object_type is not None and paints_picture(object_type)
+    # a picture item without its picture has no brush on the canvas either
     brush = QBrush(Qt.BrushStyle.NoBrush) if furniture else _brush(material)
     # The outline of a polygon: one closed ring of points, several for a record of
     # regions (a rectangle, an ellipse and a circle are their rect).
@@ -844,8 +848,8 @@ def _fill_is_opaque(record: Record) -> bool:
     if fill is None or fill[3] != 255:
         return False
     object_type = _object_type(record.kind)
-    if object_type is not None and is_furniture_type(object_type):
-        return False  # a sprite, or no brush at all (``_paint_filled``)
+    if object_type is not None and paints_picture(object_type):
+        return False  # a picture, or no brush at all (``_paint_filled``)
     paint = material.paint or _PLAIN_PAINT
     return paint.opacity >= 1.0 and _pattern_is_opaque(material.pattern)
 

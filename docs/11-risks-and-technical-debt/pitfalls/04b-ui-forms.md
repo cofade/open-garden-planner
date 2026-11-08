@@ -108,3 +108,13 @@ The camera tour's dialog stopped a recording in its `closeEvent`. Esc went throu
 hides and never calls `closeEvent`: the recording went on behind a dialog nobody could reach, with
 the clock held. Now Esc cancels and the dialog stays, to say what happened; the X cancels, ignores
 the close, and closes when the recording has stopped.
+
+### PF-UI-35
+
+- **Rule:** A list row that swaps one widget for another (a `QLabel` for a `QLineEdit`) pins its row height; the list measures rows from their real size hints plus its frame, never from a fixed per-row constant.
+- **Pinned by:** `tests/integration/test_layers_panel_height.py`
+- **Source:** #774 / #775
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Two owner-reported layers-panel defects with one cause: the panel assumed every row was 36 px. `_adjust_list_height` multiplied the layer count by 36 and ignored the list's frame, so a font/DPI that made rows taller clipped the last row and left an empty band under it (#774). And the inline rename hid the `QLabel` and showed a `QLineEdit` whose size hint is shorter, so the row shrank while editing (#775). `LayerListItem` now sets a minimum height (`ROW_HEIGHT`), `_refresh_list` uses the row's real hint (at least `ROW_HEIGHT`), and `_adjust_list_height` uses the same fixed height in both the "all rows" and "scroll at five" branches, adding `2 * frameWidth()`.

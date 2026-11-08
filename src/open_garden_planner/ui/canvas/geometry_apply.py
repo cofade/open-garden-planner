@@ -204,11 +204,12 @@ def capture_rect_like_geometry(item: QGraphicsItem) -> dict[str, Any]:
 
 
 def _update_house_ridge_if_any(item: QGraphicsItem) -> None:
-    """Re-derive a HOUSE's ridge after canonical geometry/rotation was applied."""
-    from open_garden_planner.core.object_types import ObjectType
+    """Re-derive a ridge-bearing building's ridge after canonical geometry was applied
+    (a HOUSE, or since #768 a GREENHOUSE)."""
+    from open_garden_planner.core.object_types import is_ridge_bearing_type
     from open_garden_planner.ui.canvas.roof_ridge_link import update_linked_ridge
 
-    if getattr(item, "object_type", None) == ObjectType.HOUSE:
+    if is_ridge_bearing_type(getattr(item, "object_type", None)):
         update_linked_ridge(item)
 
 

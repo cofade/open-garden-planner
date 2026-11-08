@@ -31,6 +31,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from open_garden_planner.core.roof_style import is_ridge_bearing_kind
+
 # Plant object types — mirrors ``plant_renderer.is_plant_type``.
 _PLANT_TYPE_NAMES = frozenset({"TREE", "SHRUB", "PERENNIAL"})
 
@@ -884,10 +886,11 @@ def list_creatable_types() -> list[dict[str, Any]]:
             "pairs, scene cm) OR a rectangular footprint ('x'/'y' centre + "
             "'width'/'height', expanded to four points)."
         )
-        if name == "HOUSE":
+        if is_ridge_bearing_kind(name):
             notes += (
-                " A HOUSE automatically gets its linked ROOF_RIDGE polyline in "
-                "the same single undo step (reported as linked_items_created)."
+                " A HOUSE or GREENHOUSE automatically gets its linked ROOF_RIDGE "
+                "polyline in the same single undo step (reported as "
+                "linked_items_created)."
             )
         entries.append(
             _family_entry(name, "polygon", ["points OR x+y+width+height"], ["name"], notes)

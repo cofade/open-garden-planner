@@ -649,12 +649,14 @@ def test_deleting_a_group_removes_its_nested_house_ridge(qtbot) -> None:
     assert ridge.scene() is None, "the ridge of a grouped house was left in the plan"
 
 
-def test_a_converted_rectangle_ridge_follows_move_resize_and_rotation(qtbot) -> None:
+@pytest.mark.parametrize("building", [ObjectType.HOUSE, ObjectType.GREENHOUSE],
+                         ids=["house", "greenhouse"])
+def test_a_converted_rectangle_ridge_follows_move_resize_and_rotation(qtbot, building) -> None:
     from open_garden_planner.ui.canvas.geometry_apply import apply_rect_like_geometry
 
     scene, view = _scene_view(qtbot)
     rect = _house_rect(scene)
-    rect._dispatch_change_type(ObjectType.HOUSE)
+    rect._dispatch_change_type(building)
     ridge = _ridge_of(rect)
     assert ridge is not None
 

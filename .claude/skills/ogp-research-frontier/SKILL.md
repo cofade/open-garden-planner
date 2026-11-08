@@ -229,26 +229,29 @@ evaluator — but zero ecosystem around it.
   JSON file is untrusted input", module docstring), with a node-count cap
   (`_MAX_NODES = 250`) against stack-exhaustion, whitelisted funcs
   (`min/max/abs/round/floor/ceil/sqrt`). Qt-free.
-- 5 bundled symbols in
-  `src/open_garden_planner/resources/data/smart_symbols/` (`raised_bed_rows`,
-  `pergola`, `fence_panel`, `greenhouse_gabled`, `compost_bay_3`), versioned
-  JSON with `repeat` blocks and expression coordinates; user drop-a-file
-  extensibility via `<app-data>/smart_symbols/` (§8.18).
+- The five template definitions (`raised_bed_rows`, `pergola`, `fence_panel`,
+  `greenhouse_gabled`, `compost_bay_3`) moved to
+  `tests/fixtures/smart_symbols/` when #770 retired the app's bundled set and
+  the sidebar panel: they are the DSL's real-file regression corpus now. User
+  drop-a-file extensibility via `<app-data>/smart_symbols/` still works (§8.18).
 - §8.18 (`docs/08-crosscutting-concepts/README.md` ~line 806) is already a
   near-complete authoring guide, and
-  `tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI.
+  `tests/unit/test_smart_symbol_schema.py` validates every fixture file in CI.
   Note: validation today is a **pytest test, not a formal JSON Schema** — the
   schema artifact is candidate work, not an existing asset.
-- The panel is hidden by one line: `fact:smart-symbol-panel-hidden` (exact source in `quality/skill-facts.json`).
-  Persistence, properties editing, and DXF BLOCK/INSERT export all
-  ship and are tested (FR-31 / §8.18) — unhiding is a UI decision,
-  not an engineering lift.
+- The sidebar panel and bundled templates were retired by #770; the engine,
+  persistence, properties editing and DXF BLOCK/INSERT export still ship and are
+  tested (FR-31 / §8.18), and existing `.ogp` files keep working from their
+  cached children. Reviving the DSL means a parametric TOOL (as #768/#769 did
+  for the glasshouse and pergola), not re-showing a library panel.
 
 ### (c) First three concrete steps in this repo
 
-1. **Unhide the panel** (delete/flip that one line — see `ogp-config-and-flags`
-   for the hidden-feature-toggle conventions), then
-   author ~5 more symbols exercising the DSL's edges (`choice` params, nested
+1. **Give the DSL a first-class tool, not a panel**: the retirement in #770 is
+   the verdict on a library of fixed symbols; the successful pattern is the
+   parametric structure (#768/#769). Prototype one symbol-backed tool (a
+   garden feature whose plan and 3D build share one parametric layout), then
+   author ~5 fixtures exercising the DSL's edges (`choice` params, nested
    `repeat`, `circle` elements) to stress the format before third parties do.
 2. **Formal validation surface**: write an actual JSON Schema for the symbol
    format plus a tiny validation CLI (`python -m
@@ -460,7 +463,7 @@ one-liners from repo root; expected hits noted):
 - Token-auth prerequisite: FR-AGENT-03 and ADR-036; recheck the issue tracker if a token lands, then rewrite Frontier 1(c) step 1
 - Location dict: `grep -n "latitude, longitude, elevation_m" src/open_garden_planner/core/project.py`
 - Safe evaluator + cap: `grep -n "_MAX_NODES\|without.*eval" src/open_garden_planner/core/parametric_eval.py`
-- Symbols bundled / panel hidden: `ls src/open_garden_planner/resources/data/smart_symbols/ && grep -rn 'set_panel_visible("smart_symbols"' src/`
+- Smart Symbols retired (#770): `ls tests/fixtures/smart_symbols/ && ! grep -rn 'set_panel_visible("smart_symbols"' src/`
 - Solver debt: `grep -n "TD-007\|TD-008" docs/11-risks-and-technical-debt/README.md` (if gone, Frontier 4 milestones may be met — update this file)
 - Qt-free engines: `head -25 src/open_garden_planner/services/task_generator.py`
 - Boolean vs offset kernels: `head -1 src/open_garden_planner/core/shape_boolean.py && grep -rn pyclipper src/open_garden_planner/core/tools/offset_tool.py pyproject.toml`

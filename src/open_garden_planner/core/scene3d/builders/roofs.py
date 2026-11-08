@@ -37,6 +37,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..mesh import Mesh
+from ..record import ParamValue
 from .palette import TINT, PaletteColor
 from .primitives import (
     F64,
@@ -50,6 +51,25 @@ from .primitives import (
 #: A ridge shorter than this (cm) has no direction.
 MIN_RIDGE_CM = 1.0
 _ON_LINE = 1e-7
+
+#: Two ends of a ridge line, in the object's own frame (cm).
+Ridge = tuple[tuple[float, float], tuple[float, float]]
+
+
+def ridge_of(value: ParamValue | None) -> Ridge | None:
+    """``params["ridge"]`` as two finite points, or None for anything else."""
+    if not isinstance(value, tuple) or len(value) != 2:
+        return None
+    points: list[tuple[float, float]] = []
+    for point in value:
+        if not isinstance(point, tuple) or len(point) != 2:
+            return None
+        x, y = point
+        if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, int | float) \
+                or not isinstance(y, int | float) or not math.isfinite(x + y):
+            return None
+        points.append((float(x), float(y)))
+    return points[0], points[1]
 
 
 @dataclass(frozen=True, slots=True)

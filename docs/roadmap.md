@@ -34,10 +34,16 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #743, #734, #719, #716, #534, #531 | The 3D view's trust and frame budget. |
-| CAD and drawing tools | #771, #769, #768, #664, #666 | Precision and editing depth. |
-| Architecture and tech debt | #770, #667 | Remove redundant surfaces and make tests repeatable. |
+| CAD and drawing tools | #771, #664, #666 | Precision and editing depth. |
+| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
+
+### Post-Phase 17 packages
+
+| Status | ID | Scope | Version / reference |
+|--------|----|-------|---------------------|
+| 🔶 In review | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | `feature/768-769-770-parametric-structures`; ADR-032 addendum; FR-3D-BUILT-01a–01c |
 
 ### Phase 16: Platform & Community (future)
 

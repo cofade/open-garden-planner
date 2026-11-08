@@ -398,8 +398,27 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         painter.restore()
 
     def _paint_roof_ridge(self, painter: QPainter) -> None:
-        """Paint a roof ridge cap with layered width and highlight."""
+        """Paint a roof ridge cap with layered width and highlight.
+
+        A house's cap is terracotta; a greenhouse's is anodised aluminium (#768,
+        ``ridge_finish`` in its metadata — set when the ridge is built, absent on
+        every ridge that predates the glasshouse tool).
+        """
         import math as _math
+
+        from open_garden_planner.core.greenhouse import (
+            RIDGE_ALUMINIUM_HEX,
+            RIDGE_ALUMINIUM_SHADOW_HEX,
+        )
+
+        if self.get_metadata("ridge_finish") == "aluminium":
+            base_colour = QColor(RIDGE_ALUMINIUM_SHADOW_HEX)
+            body_colour = QColor(RIDGE_ALUMINIUM_HEX)
+            highlight_colour = body_colour.lighter(115)
+        else:
+            base_colour, body_colour, highlight_colour = (
+                QColor(70, 45, 20), QColor(155, 90, 52), QColor(210, 150, 100),
+            )
 
         path = self.path()
         pts = self._points
@@ -413,7 +432,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         # Layer 1 – wide dark shadow base (ridge cap sides)
-        pen_base = QPen(QColor(70, 45, 20))
+        pen_base = QPen(base_colour)
         pen_base.setWidthF(8.0)
         pen_base.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen_base.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -421,8 +440,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
 
-        # Layer 2 – main ridge body (terracotta)
-        pen_body = QPen(QColor(155, 90, 52))
+        # Layer 2 – main ridge body
+        pen_body = QPen(body_colour)
         pen_body.setWidthF(5.5)
         pen_body.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen_body.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -430,7 +449,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         painter.drawPath(path)
 
         # Layer 3 – central highlight (peak of the ridge cap)
-        pen_highlight = QPen(QColor(210, 150, 100))
+        pen_highlight = QPen(highlight_colour)
         pen_highlight.setWidthF(1.8)
         pen_highlight.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen_highlight)
@@ -448,12 +467,14 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             # Cap circles at each end point
             for end_pt in (pts[i], pts[i + 1]):
                 r = 4.0
-                painter.setPen(QPen(QColor(70, 45, 20), 1.0))
-                painter.setBrush(QBrush(QColor(155, 90, 52)))
+                painter.setPen(QPen(base_colour, 1.0))
+                painter.setBrush(QBrush(body_colour))
                 painter.drawEllipse(end_pt, r, r)
                 # Highlight on cap
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(210, 150, 100, 160)))
+                highlight = QColor(highlight_colour)
+                highlight.setAlpha(160)
+                painter.setBrush(QBrush(highlight))
                 painter.drawEllipse(
                     QPointF(end_pt.x() - ux * 0.5, end_pt.y() - uy * 0.5), r * 0.45, r * 0.45
                 )

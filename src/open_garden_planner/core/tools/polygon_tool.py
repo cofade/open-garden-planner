@@ -6,7 +6,7 @@ from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPolygonItem
 
-from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.object_types import ObjectType, is_ridge_bearing_type
 
 from .base_tool import BaseTool, ToolType
 from .preview_z import PREVIEW_Z_FILL, PREVIEW_Z_HANDLE, PREVIEW_Z_LINE
@@ -234,8 +234,9 @@ class PolygonTool(BaseTool):
             item = PolygonItem(self._vertices, object_type=self._object_type, layer_id=layer_id)
             self._view.add_item(item, "polygon")
 
-            # Auto-create a roof ridge when placing a HOUSE polygon
-            if self._object_type == ObjectType.HOUSE:
+            # Auto-create a roof ridge when placing a ridge-bearing building
+            # (a HOUSE, or since #768 a GREENHOUSE).
+            if is_ridge_bearing_type(self._object_type):
                 self._create_roof_ridge(item, layer_id)
 
         self._reset_state()

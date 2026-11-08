@@ -10,10 +10,11 @@ from collections import OrderedDict
 from pathlib import Path
 
 from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter, QPixmap
+from PyQt6.QtGui import QImage, QPainter, QPixmap, QTransform
 from PyQt6.QtSvg import QSvgRenderer
 
 from .object_types import ObjectType
+from .sprite_orientation import NATURAL_SIZE_CM, sprite_turn_deg
 
 # Directories containing SVG files
 _FURNITURE_DIR = Path(__file__).parent.parent / "resources" / "objects" / "furniture"
@@ -52,7 +53,6 @@ _INFRASTRUCTURE_FILES: dict[ObjectType, str] = {
     ObjectType.TOOL_SHED: "tool_shed",
     # Package 3a roster (#308)
     ObjectType.WHEELBARROW: "wheelbarrow",
-    ObjectType.PERGOLA: "pergola",
     ObjectType.BIRD_BATH: "bird_bath",
 }
 
@@ -66,7 +66,6 @@ _SVG_DIR_OVERRIDES: dict[ObjectType, Path] = {
     ObjectType.WATER_TAP: _INFRASTRUCTURE_DIR,
     ObjectType.TOOL_SHED: _INFRASTRUCTURE_DIR,
     ObjectType.WHEELBARROW: _INFRASTRUCTURE_DIR,
-    ObjectType.PERGOLA: _INFRASTRUCTURE_DIR,
     ObjectType.BIRD_BATH: _INFRASTRUCTURE_DIR,
 }
 
@@ -80,42 +79,18 @@ _OBJECT_SVG_FILES: dict[ObjectType, str] = {
     ObjectType.WATER_TAP: "water_tap",
     ObjectType.TOOL_SHED: "tool_shed",
     ObjectType.WHEELBARROW: "wheelbarrow",
-    ObjectType.PERGOLA: "pergola",
     ObjectType.BIRD_BATH: "bird_bath",
 }
 
-# Default dimensions in cm (width, height) for each furniture type
+# Default dimensions in cm (width, height) for each furniture type, from the
+# one natural-size table that also drives sprite turning (#776). Each entry must
+# equal its sprite's viewBox (gate: tests/unit/test_object_sprite_conformance.py).
+# A garden light is a lantern post (round); a string of lights is a line and has
+# no sprite (ui/canvas/items/string_lights_paint.py).
 FURNITURE_DEFAULT_DIMENSIONS: dict[ObjectType, tuple[float, float]] = {
-    ObjectType.TABLE_RECTANGULAR: (150.0, 100.0),
-    ObjectType.TABLE_ROUND: (100.0, 100.0),
-    ObjectType.CHAIR: (50.0, 50.0),
-    ObjectType.BENCH: (180.0, 60.0),
-    ObjectType.PARASOL: (300.0, 300.0),
-    ObjectType.LOUNGER: (70.0, 190.0),
-    ObjectType.BBQ_GRILL: (80.0, 80.0),  # circle-tool object → square footprint (#308)
-    ObjectType.FIRE_PIT: (100.0, 100.0),
-    ObjectType.PLANTER_POT: (50.0, 50.0),
-    # Infrastructure
-    ObjectType.RAISED_BED: (120.0, 80.0),
-    ObjectType.COMPOST_BIN: (100.0, 100.0),
-    ObjectType.COLD_FRAME: (120.0, 60.0),
-    ObjectType.RAIN_BARREL: (60.0, 60.0),
-    ObjectType.WATER_TAP: (20.0, 20.0),
-    ObjectType.TOOL_SHED: (200.0, 150.0),
-    # Package 3a roster (#308) — must equal the sprite's viewBox (gate:
-    # tests/unit/test_object_sprite_conformance.py)
-    ObjectType.SANDBOX: (150.0, 150.0),
-    ObjectType.TRAMPOLINE: (300.0, 300.0),
-    ObjectType.HOT_TUB: (220.0, 220.0),
-    ObjectType.SWING: (200.0, 150.0),
-    ObjectType.PICNIC_TABLE: (180.0, 150.0),
-    ObjectType.HAMMOCK: (300.0, 120.0),
-    ObjectType.WHEELBARROW: (60.0, 140.0),
-    ObjectType.PERGOLA: (300.0, 300.0),
-    ObjectType.BIRD_BATH: (50.0, 50.0),
-    # Garden lights (Phase 17 L5.4): a lantern post (round). A string of lights is a
-    # line and has no sprite (ui/canvas/items/string_lights_paint.py)
-    ObjectType.GARDEN_LIGHT: (40.0, 40.0),
+    ObjectType[name]: size
+    for name, size in NATURAL_SIZE_CM.items()
+    if name in ObjectType.__members__
 }
 
 # Cache for QSvgRenderer instances (path -> renderer)
@@ -145,6 +120,18 @@ def is_furniture_type(object_type: ObjectType | None) -> bool:
     if object_type is None:
         return False
     return object_type in _FURNITURE_FILES or object_type in _OBJECT_SVG_FILES
+
+
+def paints_picture(object_type: ObjectType | None) -> bool:
+    """Whether a type's 2D canvas picture is a PICTURE, not a plain fill.
+
+    An SVG sprite (``is_furniture_type``) or a parametric painter: a PERGOLA is
+    drawn from ``core.pergola`` by ``ui.canvas.items.pergola_paint`` since #769,
+    never a stretched sprite. Such an item states no pen or brush of its own, and
+    a missing picture paints NOTHING — never the plain fill underneath (#308's
+    "a furniture item without its sprite file has no brush on the canvas").
+    """
+    return is_furniture_type(object_type) or object_type is ObjectType.PERGOLA
 
 
 @functools.lru_cache(maxsize=64)
@@ -228,17 +215,25 @@ def render_furniture_pixmap(
     if renderer is None:
         return None
 
-    # Calculate render size (use integer pixels, minimum 4, capped at MAX_FURNITURE_DIMENSION_PX)
-    if width > MAX_FURNITURE_DIMENSION_PX or height > MAX_FURNITURE_DIMENSION_PX:
-        scale = min(MAX_FURNITURE_DIMENSION_PX / width, MAX_FURNITURE_DIMENSION_PX / height)
-        w = max(int(width * scale), 4)
-        h = max(int(height * scale), 4)
-    else:
-        w = max(int(width), 4)
-        h = max(int(height), 4)
+    # A sprite whose natural long axis is opposite the target's is rendered at
+    # the SWAPPED size and turned a quarter clockwise below, so its long axis
+    # follows the item's instead of being squashed (#776).
+    turn = sprite_turn_deg(object_type.name, width, height) != 0.0
+    target_width, target_height = (height, width) if turn else (width, height)
 
-    # Build cache key
-    cache_key = f"{svg_path}:{w}:{h}"
+    # Calculate render size (use integer pixels, minimum 4, capped at MAX_FURNITURE_DIMENSION_PX)
+    if target_width > MAX_FURNITURE_DIMENSION_PX or target_height > MAX_FURNITURE_DIMENSION_PX:
+        scale = min(MAX_FURNITURE_DIMENSION_PX / target_width,
+                    MAX_FURNITURE_DIMENSION_PX / target_height)
+        w = max(int(target_width * scale), 4)
+        h = max(int(target_height * scale), 4)
+    else:
+        w = max(int(target_width), 4)
+        h = max(int(target_height), 4)
+
+    # Build cache key (the turn is part of it: the same pixel size can be a
+    # natural or a turned picture)
+    cache_key = f"{svg_path}:{w}:{h}:{'t' if turn else 'n'}"
 
     if cache_key in _pixmap_cache:
         _pixmap_cache.move_to_end(cache_key)
@@ -259,9 +254,13 @@ def render_furniture_pixmap(
     painter.end()
 
     pixmap = QPixmap.fromImage(image)
+    if turn:
+        pixmap = pixmap.transformed(
+            QTransform().rotate(90.0), Qt.TransformationMode.FastTransformation
+        )
 
     global _current_cache_bytes
-    entry_bytes = w * h * 4
+    entry_bytes = pixmap.width() * pixmap.height() * 4
 
     # Evict least recently used entries until within entry and byte budget (#474)
     while _pixmap_cache and (

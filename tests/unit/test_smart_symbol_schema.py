@@ -1,8 +1,9 @@
-"""CI schema validator for every bundled smart-symbol JSON (US-C4).
+"""CI schema validator for every smart-symbol fixture JSON (US-C4; #770).
 
-Satisfies the acceptance criterion "add a schema validator that runs in CI for
-every file under data/smart_symbols/". Each bundled file must load, validate,
-have every expression parse, and generate ≥1 primitive at its defaults.
+The five template definitions are TEST FIXTURES now (the app ships no bundled
+smart symbols since #770): each must still load, validate, have every expression
+parse, and generate ≥1 primitive at its defaults, so the engine's declarative
+DSL stays covered by real files.
 """
 
 import json
@@ -12,17 +13,14 @@ import pytest
 
 from open_garden_planner.models.smart_symbol import SmartSymbolDefinition
 
-_BUNDLED_DIR = (
-    Path(__file__).parent.parent.parent
-    / "src" / "open_garden_planner" / "resources" / "data" / "smart_symbols"
-)
+_BUNDLED_DIR = Path(__file__).parent.parent / "fixtures" / "smart_symbols"
 
 _FILES = sorted(_BUNDLED_DIR.glob("*.json"))
 
 
 def test_bundled_dir_exists_and_has_symbols() -> None:
     assert _BUNDLED_DIR.is_dir()
-    assert len(_FILES) >= 5, "the starter set requires ≥5 bundled symbols"
+    assert len(_FILES) >= 5, "the fixture set requires ≥5 symbols"
 
 
 @pytest.mark.parametrize("path", _FILES, ids=[p.stem for p in _FILES])

@@ -505,15 +505,15 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 ## FR-25: Parametric Blocks / Smart Symbols (Phase 13, Package C, US-C4, issue #188)
 
-> **UI status (deferred):** the engine, persistence, properties-panel parameter editing, and DXF export below all ship and are tested, but the **Smart Symbols sidebar panel is hidden from the UI** for now (it stays registered with the `SidebarController` so order/wiring are untouched; re-enable by removing the single `set_panel_visible("smart_symbols", False)` line in `application.py`). Symbols already present in a loaded `.ogp` still regenerate and export normally. FR-SYMBOL-01 describes the panel as designed; it is currently not user-reachable.
+> **UI status (retired, #770):** the Smart Symbols sidebar panel and the bundled starter set were removed in #770. The engine, persistence, properties-panel parameter editing, and DXF export below still ship and are tested: symbols already present in a loaded `.ogp` regenerate/export normally, and user definitions in `<app-data>/smart_symbols/` still load. The five former bundled templates are test fixtures now (`tests/fixtures/smart_symbols/`). New fixed symbols are not offered as a library: the parametric structure tools (#768 glasshouse, #769 pergola) are the product direction. FR-SYMBOL-01 is retired with the panel.
 
-- **FR-SYMBOL-01**: A **Smart Symbols** sidebar panel lists the available parametric symbols (bundled + user). Double-clicking (or Insert) drops a `SmartSymbolItem` with default parameters at the viewport centre on the active layer (undoable). *(Panel currently hidden — see UI status note above.)*
+- **FR-SYMBOL-01** *(retired #770)*: The Smart Symbols sidebar panel and its Insert action no longer exist. Existing symbol instances remain editable through the Properties panel.
 - **FR-SYMBOL-02**: A symbol instance stores `symbol_id + version + params`, NOT the expanded geometry — it **regenerates** its child primitives from a versioned JSON definition. Editing a parameter (typed widget in the properties panel: spin for number/length, combo for choice) regenerates the geometry while preserving position, rotation, and layer; the change is a single undoable command.
-- **FR-SYMBOL-03**: Definitions live in a versioned **JSON** format under `resources/data/smart_symbols/` (bundled) and `<app-data>/smart_symbols/` (user). A user drops a file there and it appears in the panel on next launch. Geometry is a declarative element list (`rect`/`line`/`polyline`/`polygon`/`circle` + a `repeat` loop) whose coordinates are arithmetic expressions over the parameters, evaluated by a safe (no-`eval`) evaluator. See ADR-032 + §8.18.
-- **FR-SYMBOL-04**: A ≥5-symbol starter set ships: `raised_bed_rows`, `greenhouse_gabled`, `pergola`, `fence_panel`, `compost_bay_3`.
+- **FR-SYMBOL-03**: Definitions are versioned **JSON** files under `<app-data>/smart_symbols/` (user); a user drops a file there and it loads on next launch. The former bundled directory no longer ships. Geometry is a declarative element list (`rect`/`line`/`polyline`/`polygon`/`circle` + a `repeat` loop) whose coordinates are arithmetic expressions over the parameters, evaluated by a safe (no-`eval`) evaluator. See ADR-032 + §8.18.
+- **FR-SYMBOL-04** *(retired #770)*: The former ≥5-symbol starter set (`raised_bed_rows`, `greenhouse_gabled`, `pergola`, `fence_panel`, `compost_bay_3`) is no longer bundled; the definitions are the DSL's regression fixtures in `tests/fixtures/smart_symbols/`.
 - **FR-SYMBOL-05**: `.ogp` persistence is backwards-compatible (no `FILE_VERSION` bump): a symbol is stored as a `group` + a `smart_symbol` metadata key + its generated children as a cached snapshot. An older app loads it as a plain group; a current app regenerates if the live definition's version matches, else uses the cached geometry and logs a warning. A missing/unknown symbol likewise falls back to the cached geometry.
 - **FR-SYMBOL-06**: DXF export emits each symbol as a **BLOCK + INSERT** (block geometry in symbol-local coords; insert at the symbol's position/rotation; identical params reuse a block); the symbol's children are never exported as duplicate flat entities.
-- **FR-SYMBOL-07**: A CI test validates every bundled symbol file (loads, validates, expressions parse, generates ≥1 primitive). Symbol/parameter display names are localized via `name`/`name_de` + `label`/`label_de` data fields; panel chrome is localized via `tr()`.
+- **FR-SYMBOL-07**: A CI test validates every fixture symbol file (loads, validates, expressions parse, generates ≥1 primitive). Symbol/parameter display names are localized via `name`/`name_de` + `label`/`label_de` data fields.
 - **FR-SYMBOL-08** (issue #599): Typed smart-symbol members and definition versioning. Smart symbol element definitions declare canonical `object_type` names, instantiated as real typed canvas items (e.g. `RAISED_BED`, `GREENHOUSE`, `COMPOST`, `FENCE`). Members marked with `role: "guide"` (or `is_guide: true`) serve as 2D layout references and are excluded from 3D record snapshotting and shadow casting. Generated children receive deterministic stable UUIDs derived from the symbol's UUID and element index/repeat counter, ensuring plant parenting links survive parameter edits. Parameter edits and bed membership reconciliation execute in a single atomic command (`ChangeSmartSymbolParamCommand`). When an instance's definition version in a loaded plan is older than the library version, the instance retains its saved geometry without silent regeneration, and parameters are marked read-only with a translated explanation in the Properties panel.
 
 ## FR-26: Agent API — Embedded MCP Server (Phase 13, Package D, US-D1.1, epic #237)
@@ -858,6 +858,32 @@ The built world complete (L4, #388, ADR-065).
   frames' and the garden light's is #698; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).
+- **FR-3D-BUILT-01a** (#769, parametric pergola): A **Pergola** is drawn as a
+  scalable rectangle and painted and built from ONE layout
+  (`core/pergola.py`): four posts carrying a perimeter of four beams, nine
+  rafters across the depth and five purlins on top. The purlins' top is the
+  item's height; every member's size is bounded (posts ≤ 14 cm, beams ≤ 18 cm
+  deep, rafters ≤ 8 cm wide), so a 12 m pergola is still timber, not a block.
+  The canvas picture, the gallery thumbnail and the 3D frame read the same
+  layout, so the 2D posts/rafters and the 3D ones cannot drift. No pergola
+  sprite ships (the former fixed `pergola.svg` is retired).
+- **FR-3D-BUILT-01b** (#768, parametric glasshouse): A **Greenhouse** is a
+  first-class ridge-bearing building: drawing a polygon or converting a shape
+  creates the same linked `ROOF_RIDGE` a house gets (`core.roof_ridge`), and the
+  ridge is anodised aluminium (`#B0B5B9` / `#9EA3A8`) rather than the house's
+  brown. The canvas paints the glass fill plus aluminium glazing bars at the
+  same ~60 cm bays the 3D frame uses (`core/greenhouse.py`); the 3D builder keeps
+  the framed glasshouse when the live ridge is the footprint's natural long
+  axis, and otherwise builds the plan's own ridge as a glass gable roof. The
+  former fixed `greenhouse_gabled` smart symbol is not needed.
+- **FR-3D-BUILT-01c** (#776, sprite orientation): An illustrated object's
+  picture TURNS with its footprint instead of being squashed. When the sprite's
+  natural aspect and the item's rectangle are opposite (a portrait wheelbarrow
+  on a wide rectangle, a landscape bench on a tall one), the 2D renderer draws
+  it at the swapped size and rotates it a quarter clockwise, and the 3D builder
+  builds the same turned model (`core/sprite_orientation.py` is the one rule).
+  Near-square art or near-square targets never turn; a polygon whose local
+  bounding box has the opposite aspect turns too.
 - **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
   (Automatic, Gable, Hip, Single slope, Flat), **Roof pitch** (Auto, 5–60°) and
   **Roof overhang** (Auto, 0–150 cm) in the Properties panel. Each change is one

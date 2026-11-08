@@ -322,3 +322,13 @@ Symptom: the new set-sun probe failed the **painted** sky on every frame with a 
 - **Legacy:** none (new entry)
 
 Symptom: `--analysis` on `bench_built` raised "the probe pin shows in 38 pixels only" before writing a sun-hours row, while the same board passed on `bench_small`. Root cause: the pin's height is a share of the sun-path dome (52 cm on that plan), and the built-world noon camera stands 27 m away; the old search also checked only the first 30 cm, so a point whose ball was under a canopy could win. Fix: require the whole pin to be clear, raise its height from the camera until it shows 60 px (gate 50, cap 4×), and record `pin_height_cm` beside `pin_px`.
+
+### PF-L3D-21
+
+- **Rule:** A structure's 2D picture and its 3D build read ONE parametric layout; never two tables of constants, and never a fixed sprite for one of them.
+- **Pinned by:** `tests/integration/test_parametric_structures.py::TestPergola`; `tests/integration/test_parametric_structures.py::TestGreenhouseRidge`
+- **Source:** #768 / #769
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The old pergola was a 300 x 300 SVG stretched into the item's rectangle, while the 3D builder had its own post/rafter constants (two beams, no purlins): the owner saw a picture that did not match the model and could not scale it. `core/pergola.py` is now the one layout (four posts, four beams, nine rafters, five purlins, with the purlins' top at the item's height); `ui/canvas/items/pergola_paint.py`, the gallery thumbnail and `builders/structures._pergola` all consume it. The same rule made the glasshouse's glazing bays one constant (`core/greenhouse.py`) shared by the 2D bars and the 3D frame, and its ridge one linked `ROOF_RIDGE` rather than a fixed symbol.

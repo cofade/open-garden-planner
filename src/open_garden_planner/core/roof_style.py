@@ -37,7 +37,8 @@ from typing import Final
 
 __all__ = [
     "BUILDING_KINDS", "MAX_OVERHANG_CM", "MAX_PITCH_DEG", "MIN_PITCH_DEG", "OVERHANG_KEY",
-    "PITCH_KEY", "ROOF_STYLES", "STYLE_KEY", "roof_overhang_cm", "roof_pitch_deg", "roof_style",
+    "PITCH_KEY", "RIDGE_BEARING_KINDS", "ROOF_STYLES", "STYLE_KEY", "is_ridge_bearing_kind",
+    "roof_overhang_cm", "roof_pitch_deg", "roof_style",
 ]
 
 STYLE_KEY: Final = "roof_style"
@@ -53,6 +54,16 @@ ROOF_STYLES: Final[tuple[str, ...]] = (GABLE, HIP, SHED, FLAT)
 
 #: The ObjectType names that carry a roof.
 BUILDING_KINDS: Final[frozenset[str]] = frozenset({"HOUSE", "GARAGE_SHED", "TOOL_SHED"})
+
+#: The kinds whose plan may hold a linked ``ROOF_RIDGE`` — the buildings whose 3D
+#: roof is built from the ridge the user can edit (a HOUSE) and a GREENHOUSE (#768:
+#: a glasshouse is a first-class building with a ridge, not a fixed sprite).
+RIDGE_BEARING_KINDS: Final[frozenset[str]] = frozenset({"HOUSE", "GREENHOUSE"})
+
+
+def is_ridge_bearing_kind(kind: object) -> bool:
+    """Whether an ObjectType NAME (``"HOUSE"`` …) may own a ``ROOF_RIDGE``."""
+    return isinstance(kind, str) and kind in RIDGE_BEARING_KINDS
 
 #: The pitch a user can set, in degrees. Below 5° a pitched roof is a flat one;
 #: above 60° the eaves of any building would sink under a door.

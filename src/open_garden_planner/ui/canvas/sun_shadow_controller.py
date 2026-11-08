@@ -53,6 +53,7 @@ from open_garden_planner.core.object_height import casts_2d_shadow, effective_he
 from open_garden_planner.core.object_types import PathFenceStyle
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
+    is_ridge_bearing_kind,
     roof_overhang_cm,
     roof_pitch_deg,
     roof_style,
@@ -417,7 +418,7 @@ def _building_roof_triangles(
     pitch = roof_pitch_deg(metadata)
     overhang = roof_overhang_cm(metadata)
     ridge: tuple[tuple[float, float], tuple[float, float]] | None = None
-    if kind == "HOUSE" and isinstance(ridge_item, PolylineItem) and len(ridge_item.points) >= 2:
+    if is_ridge_bearing_kind(kind) and isinstance(ridge_item, PolylineItem) and len(ridge_item.points) >= 2:
         p0 = ridge_item.mapToScene(ridge_item.points[0])
         p1 = ridge_item.mapToScene(ridge_item.points[-1])
         e0 = frame.local_from_scene(p0.x(), p0.y())
@@ -511,7 +512,7 @@ def collect_identified_casters(
             )
             roof_tris: tuple[Triangle3D, ...] = ()
             if kind in BUILDING_KINDS and len(footprints) == 1:
-                ridge_id = meta_dict.get("ridge_item_id") if kind == "HOUSE" else None
+                ridge_id = meta_dict.get("ridge_item_id") if is_ridge_bearing_kind(kind) else None
                 ridge_item = lookup.get(ridge_id) if ridge_id else None
                 # A copied/stale link must not let this house use another's
                 # ridge; the ownership rule is shared with the 2D lookup and

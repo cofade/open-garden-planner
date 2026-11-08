@@ -417,7 +417,8 @@ MUTANTS: tuple[Mutant, ...] = (
     # ── fix round 2: every region of a record can be built ───────────────────
     Mutant("a resolved HOUSE still carries the ridge of the outline as it was drawn",
            SRC + "ui/view3d/snapshot.py",
-           '    if kind == "HOUSE" and not resolved:', '    if kind == "HOUSE":',
+           "    if is_ridge_bearing_kind(kind) and not resolved:",
+           "    if is_ridge_bearing_kind(kind):",
            (SNAPSHOT, EDGE_PLAN)),
     Mutant("a resolved outline does not say so",
            SRC + "ui/view3d/snapshot.py",

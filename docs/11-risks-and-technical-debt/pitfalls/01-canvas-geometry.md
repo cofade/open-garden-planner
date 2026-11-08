@@ -583,3 +583,23 @@ document items one by one (`_is_project_document_item`), and each removal leaves
 behind. `NoIndex` survives, which is the way to tell a stale index from anything else; it is not
 the fix. The fix is `CanvasScene.drawn_plan_date`, which moves between the announcement and the
 repaint, so the announcement still sees the old rect.
+
+### PF-CAN-44
+
+- **Rule:** A sprite whose natural aspect is opposite its item's is TURNED a quarter, never stretched; the 3D builder must build the same turn from the same rule.
+- **Pinned by:** `tests/unit/test_sprite_orientation.py`; `tests/integration/test_object_sprite_rendering.py`
+- **Source:** #776
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A wheelbarrow's sprite is 60 x 140 cm; drawn into a 140 x 60 rectangle it was rendered into that rect and squashed, and the 3D builder stretched its own model into the same wrong frame. The fix is `core/sprite_orientation.py`: `NATURAL_SIZE_CM` + `sprite_turn_deg` (only opposite aspects turn; near-square art or targets never do). The 2D renderer renders at the swapped size and rotates the pixmap; `kit.object_box` stores the swapped build extents and `kit.placed` turns the mesh by -90 deg about z. The 2D/3D agreement is the point: changing only one of them would have made the picture and the model disagree about which way the wheelbarrow faces.
+
+### PF-CAN-45
+
+- **Rule:** Every ridge path asks one predicate (`is_ridge_bearing_type` / `is_ridge_bearing_kind`), never `object_type == HOUSE`; adding a ridge-bearing kind means adding it to `RIDGE_BEARING_KINDS` and nothing else.
+- **Pinned by:** `tests/integration/test_parametric_structures.py::TestGreenhouseRidge`; `tests/integration/test_house_roof_ridge.py`
+- **Source:** #768
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, deleted and sanitised by a dozen call sites. Teaching GREENHOUSE to be a building meant touching every one; a single missed `== HOUSE` would have left a greenhouse ridge that did not follow a move, a copy without its own ridge, or a load that dropped the link. The predicate lives in `core.roof_style.py` (Qt-free, kind names) and `core.object_types.is_ridge_bearing_type` (enum); `ChangeObjectTypeCommand` uses it for both the execute and undo halves, and `apply_ridge_look` gives a greenhouse its aluminium finish (and a house its brown) on build, type change and undo.

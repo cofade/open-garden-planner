@@ -54,8 +54,9 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
    sampling) within **[0.18, 1.00]**; ≥ 0.25 at 24 px (gallery-thumbnail
    scale, 1-px sampling); and a luminance-spread floor (std ≥ 0.05) so a
    sprite can never degrade to one flat fill. Open structures are legitimately
-   airy (swing 0.205, hammock 0.426, pergola 0.530); solid ones fill their
-   footprint (sandbox 0.999). Enforced by
+   airy (swing 0.205, hammock 0.426); solid ones fill their footprint
+   (sandbox 0.999). A pergola has no sprite since #769: its 2D picture is the
+   parametric painter `ui/canvas/items/pergola_paint.py`. Enforced by
    `tests/integration/test_object_sprite_rendering.py`.
 9. **Bed/container interiors stay calm.** `raised_bed`, `planter_pot`,
    `cold_frame` are soil containers — plants get placed on them and the grid
@@ -66,12 +67,14 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
 | Directory | Sprites |
 |---|---|
 | `furniture/` (16) | table_rectangular, table_round, chair, bench, parasol, lounger, bbq_grill, fire_pit, planter_pot, **sandbox, trampoline, hot_tub, swing, picnic_table, hammock**, *garden_light* |
-| `infrastructure/` (9) | raised_bed, compost_bin, cold_frame, rain_barrel, water_tap, tool_shed, **wheelbarrow, pergola, bird_bath** |
+| `infrastructure/` (8) | raised_bed, compost_bin, cold_frame, rain_barrel, water_tap, tool_shed, **wheelbarrow, bird_bath** |
 
 Bold = added in Package 3a (#308); italic = added in Phase 17 L5.4 (#389): the
 lantern from above with its warm bulb's light (`lamp_glow`, the `FLAME` triad — a lamp,
 not a fire). A string of lights has no sprite: it is a line, drawn by the canvas
-(`ui/canvas/items/string_lights_paint.py`). Adding an object type touches eight
+(`ui/canvas/items/string_lights_paint.py`); a pergola has none since #769: its
+picture is parametric (`ui/canvas/items/pergola_paint.py`, `core/pergola.py`).
+Adding an object type touches eight
 registration surfaces in six source files (enum + styles + valid-shape list in
 `object_types.py`, ToolType, canvas tool registration, renderer maps + default
 dims, height default (deliberately omitted for the open structures swing /

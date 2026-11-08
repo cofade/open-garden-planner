@@ -35,7 +35,6 @@ class TestSidebarOrder:
             "plant_search",
             "plant_lists",
             "journal",
-            "smart_symbols",
             "diagnostics",
         ]
         assert actual_keys == expected_keys, (

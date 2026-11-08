@@ -239,6 +239,6 @@ class TestFurnitureRendererBoundsAndCache:
         render_furniture_pixmap(ObjectType.CHAIR, width=100, height=100)
 
         keys = list(fr._pixmap_cache.keys())
-        assert keys[-1].endswith(":100:100")
+        assert ":100:100:" in keys[-1]  # the turn flag follows the size
 
 

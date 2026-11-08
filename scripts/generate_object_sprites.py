@@ -1175,33 +1175,6 @@ def build_wheelbarrow(sp: Sprite) -> None:
     sp.add(f'<path d="{tub_d}" fill="none" stroke="{en["light"]}" stroke-width="1.0" opacity="0.5"/>')
 
 
-def build_pergola(sp: Sprite) -> None:
-    W = sp.w  # 300 x 300
-    wood = MATERIALS["oak"]
-    post = mix(wood["mid"], wood["dark"], 0.4)
-    # posts
-    for px, py in ((10, 10), (W - 26, 10), (10, W - 26), (W - 26, W - 26)):
-        halo_rect(sp, px, py, 16, 16, wood, pad=1.2, rx=2)
-        g = sp.rad([(0, lighten(post, 0.2), None), (100, wood["dark"], None)])
-        sp.add(rect_s(px, py, 16, 16, f"url(#{g})", rx=2))
-    # rafters (running along y)
-    n = 9
-    span = W - 60
-    for i in range(n):
-        x = 30 + span * i / (n - 1) - 4
-        plank(sp, x, 0, 8, W, wood, "v", rx=1.5)
-    # perimeter beams (along x) over the rafters
-    plank(sp, 0, 6, W, 12, wood, "h", rx=2)
-    plank(sp, 0, W - 18, W, 12, wood, "h", rx=2)
-    # side beams (along y) over the ends
-    plank(sp, 6, 0, 12, W, wood, "v", rx=2)
-    plank(sp, W - 18, 0, 12, W, wood, "v", rx=2)
-    # top purlins (thin cross slats)
-    for k in range(1, 6):
-        y = 18 + (W - 36) * k / 6 - 2.5
-        plank(sp, 4, y, W - 8, 5, wood, "h", rx=1.5, grain=False, knot=False)
-
-
 def build_swing(sp: Sprite) -> None:
     W, H = sp.w, sp.h  # 200 x 150
     wood = MATERIALS["pine"]
@@ -1378,7 +1351,6 @@ OBJECTS: dict[str, dict] = {
     "picnic_table": dict(view=(180, 150), dir="furniture", build=build_picnic_table, shape="rect"),
     "hammock": dict(view=(300, 120), dir="furniture", build=build_hammock, shape="rect"),
     "wheelbarrow": dict(view=(60, 140), dir="infrastructure", build=build_wheelbarrow, shape="rect"),
-    "pergola": dict(view=(300, 300), dir="infrastructure", build=build_pergola, shape="rect"),
     "bird_bath": dict(view=(50, 50), dir="infrastructure", build=build_bird_bath, shape="circle"),
     # garden lights (Phase 17 L5.4, #389)
     "garden_light": dict(view=(40, 40), dir="furniture", build=build_garden_light, shape="circle"),

@@ -25,7 +25,6 @@ INFRASTRUCTURE_TYPES = [
     ObjectType.TOOL_SHED,
     # Package 3a roster (#308)
     ObjectType.WHEELBARROW,
-    ObjectType.PERGOLA,
     ObjectType.BIRD_BATH,
 ]
 
