@@ -865,9 +865,9 @@ class TestRecordContent:
         zs = [items[item_id].zValue() for item_id in records]
         assert zs == sorted(zs) and len(set(zs)) > 5
         ridges = [i for i in items.values() if i.object_type is ObjectType.ROOF_RIDGE]
-        # contract v2 hands the ridge to its house as a param and gives the ridge item
-        # no record
-        assert len(ridges) == 1 and str(ridges[0].item_id) not in records
+        # contract v2 hands each ridge to its building as a param and gives the
+        # ridge item no record: bench_small has a HOUSE and a GREENHOUSE (#768)
+        assert len(ridges) == 2 and all(str(r.item_id) not in records for r in ridges)
         assert len(records) == 98
 
     def test_skipped_items(self, canvas: CanvasView) -> None:
