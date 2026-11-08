@@ -3108,6 +3108,45 @@ class BooleanShapeCommand(Command):
                     self._scene.addItem(item)
 
 
+class SplitShapeCommand(Command):
+    """Replace one shape by the pieces on each side of a cutting line (#664).
+
+    The source stays alive in this command for undo, exactly like
+    ``BooleanShapeCommand``; execute removes it and adds the pieces in one
+    undo step, undo reverses both.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        source: QGraphicsItem,
+        pieces: list[QGraphicsItem],
+    ) -> None:
+        self._scene = scene
+        self._source = source
+        self._pieces = list(pieces)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Split shape")
+
+    def execute(self) -> None:
+        if self._source.scene() is self._scene:
+            self._scene.removeItem(self._source)
+        with _bulk_add_scope(self._scene):
+            for piece in self._pieces:
+                if piece.scene() is None:
+                    self._scene.addItem(piece)
+
+    def undo(self) -> None:
+        for piece in self._pieces:
+            if piece.scene() is self._scene:
+                self._scene.removeItem(piece)
+        with _bulk_add_scope(self._scene):
+            if self._source.scene() is None:
+                self._scene.addItem(self._source)
+
+
 class ArrayAlongPathCommand(Command):
     """Place copies of an item along a path."""
 

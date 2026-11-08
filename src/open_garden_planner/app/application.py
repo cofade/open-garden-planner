@@ -2115,6 +2115,14 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.selectionChanged.connect(self._update_plant_database_panel)
         self.canvas_scene.selectionChanged.connect(self._update_companion_panel)
         self.canvas_scene.selectionChanged.connect(self._update_crop_rotation_panel)
+        # Group drill-down changes the logical selection without a Qt selection
+        # change, so the same consumers listen to the view's signal (#771).
+        self.canvas_view.drill_down_changed.connect(self._on_selection_changed)
+        self.canvas_view.drill_down_changed.connect(self._update_properties_panel)
+        self.canvas_view.drill_down_changed.connect(self._update_plant_database_panel)
+        self.canvas_view.drill_down_changed.connect(self._update_companion_panel)
+        self.canvas_view.drill_down_changed.connect(self._update_crop_rotation_panel)
+        self.canvas_view.drill_down_changed.connect(self._update_companion_highlights)
 
         # ── Companion planting highlights (US-10.2) ──────────────────────────
         # Debounce timer for drag updates (avoids re-querying on every pixel move)
@@ -2957,7 +2965,7 @@ class GardenPlannerApp(QMainWindow):
     def _update_properties_panel(self) -> None:
         """Update properties panel with current selection."""
         try:
-            selected_items = self.canvas_scene.selectedItems()
+            selected_items = self.canvas_view.effective_selection()
             self.properties_panel.set_selected_items(selected_items)
         except RuntimeError:
             # Canvas scene has been deleted (happens during app shutdown)
@@ -2968,7 +2976,7 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.core.object_types import ObjectType
 
         try:
-            selected_items = self.canvas_scene.selectedItems()
+            selected_items = self.canvas_view.effective_selection()
 
             # Check if exactly one plant item is selected
             show_panel = False
@@ -2995,7 +3003,7 @@ class GardenPlannerApp(QMainWindow):
     def _update_companion_panel(self) -> None:
         """Update the companion planting panel for the current plant selection (US-10.3)."""
         try:
-            selected_items = self.canvas_scene.selectedItems()
+            selected_items = self.canvas_view.effective_selection()
             show_panel = False
             plant_item = None
             if len(selected_items) == 1 and self._is_canvas_plant(selected_items[0]):
@@ -3015,7 +3023,7 @@ class GardenPlannerApp(QMainWindow):
     def _update_crop_rotation_panel(self) -> None:
         """Update the crop rotation panel for the current bed selection (US-10.6)."""
         try:
-            selected_items = self.canvas_scene.selectedItems()
+            selected_items = self.canvas_view.effective_selection()
             show_panel = False
             bed_item = None
             area_id = None
@@ -3966,11 +3974,12 @@ class GardenPlannerApp(QMainWindow):
     def _on_select_all(self) -> None:
         """Handle Select All action."""
         try:
+            self.canvas_view.end_group_drill_down()
             for item in self.canvas_scene.items():
                 # Only select items that are selectable (not background, grid, etc.)
                 if item.flags() & item.GraphicsItemFlag.ItemIsSelectable:
                     item.setSelected(True)
-            count = len(self.canvas_scene.selectedItems())
+            count = len(self.canvas_view.effective_selection())
             self.statusBar().showMessage(self.tr("Selected {count} object(s)").format(count=count))
         except RuntimeError:
             pass
@@ -4333,7 +4342,7 @@ class GardenPlannerApp(QMainWindow):
 
         if self._companion_warnings_enabled:
             # 1. Selection-based coloured rings (beneficial / antagonistic)
-            selected_plants = [it for it in self.canvas_scene.selectedItems() if it in all_plants]
+            selected_plants = [it for it in self.canvas_view.effective_selection() if it in all_plants]
             for selected_plant in selected_plants:
                 sel_center = selected_plant.mapToScene(selected_plant.rect().center())  # type: ignore[attr-defined]
                 sel_species = self._companion_species_name(selected_plant)
@@ -5255,7 +5264,7 @@ class GardenPlannerApp(QMainWindow):
         self._sidebar_controller.reset_selection_dismissals()
         # Guard against accessing deleted scene (can happen during shutdown or dialog execution)
         try:
-            selected_items = self.canvas_scene.selectedItems()
+            selected_items = self.canvas_view.effective_selection()
             count = len(selected_items)
             self.update_selection(count, selected_items)
         except RuntimeError:
@@ -5407,7 +5416,7 @@ class GardenPlannerApp(QMainWindow):
             plant_data = dialog.selected_plant
             if plant_data:
                 # Check if there's a selected plant item to update
-                selected_items = self.canvas_scene.selectedItems()
+                selected_items = self.canvas_view.effective_selection()
                 from open_garden_planner.core.object_types import ObjectType
 
                 # Find a plant item in selection

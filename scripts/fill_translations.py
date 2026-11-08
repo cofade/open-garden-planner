@@ -3590,6 +3590,65 @@ for _ctx, _strings in _DRAWING_TOOLS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── CAD editing (#664 split, #771 group drill-down) ──
+_CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Commands": {
+        "Split shape": "Form teilen",
+    },
+    "CanvasView": {
+        "A building and its roof ridge cannot be split":
+            "Ein Gebäude und sein Dachfirst können nicht geteilt werden",
+        "A constrained shape cannot be split":
+            "Eine Form mit Randbedingung kann nicht geteilt werden",
+        "Click the first point of the cutting line. Esc cancels.":
+            "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
+        "Only closed shapes (polygon, rectangle, circle, or ellipse) can be split":
+            "Nur geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse) können geteilt werden",
+        "Plants and linked objects cannot be split":
+            "Pflanzen und verknüpfte Objekte können nicht geteilt werden",
+        "Press Esc to leave the group before cutting or deleting one of its members":
+            "Mit Esc die Gruppe verlassen, bevor ein Mitglied ausgeschnitten oder gelöscht wird",
+        "The shape carries links that a split cannot preserve":
+            "Die Form trägt Verknüpfungen, die ein Teilen nicht bewahren kann",
+        "The shape has tracking records that a split cannot preserve":
+            "Die Form hat Nachverfolgungsdaten, die ein Teilen nicht bewahren kann",
+        "The shape is no longer in this plan":
+            "Die Form ist nicht mehr in diesem Plan",
+        "The shape is on a locked layer":
+            "Die Form liegt auf einer gesperrten Ebene",
+        "This shape has no closed outline to split":
+            "Diese Form hat keine geschlossene Kontur zum Teilen",
+        "Ungroup the shape before splitting it":
+            "Gruppierung der Form vor dem Teilen aufheben",
+    },
+    "PropertiesPanel": {
+        "A group member stays on its group's layer":
+            "Ein Gruppenmitglied bleibt auf der Ebene seiner Gruppe",
+    },
+    "SplitShapeMenu": {
+        "Split Along Line…": "An Linie teilen…",
+    },
+    "SplitShapeTool": {
+        "A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.":
+            "Ein Teil hätte {count} Scheitelpunkte; der Plan unterstützt höchstens {limit}. Wählen Sie einen einfacheren Schnitt.",
+        "Click the second point of the cutting line; Shift constrains the angle. Esc cancels.":
+            "Klicken Sie den zweiten Punkt der Schnittlinie; Shift begrenzt den Winkel. Esc bricht ab.",
+        "Split along line": "An Linie teilen",
+        "Split cancelled": "Teilen abgebrochen",
+        "Split the shape into {count} pieces":
+            "Die Form in {count} Teile geteilt",
+        "The cutting line must cross the shape. Choose another second point.":
+            "Die Schnittlinie muss die Form kreuzen. Wählen Sie einen anderen zweiten Punkt.",
+        "The shape to split is no longer available.":
+            "Die zu teilende Form ist nicht mehr verfügbar.",
+        "This shape cannot be split: {reason}":
+            "Diese Form kann nicht geteilt werden: {reason}",
+    },
+}
+for _ctx, _strings in _CAD_EDITING_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)

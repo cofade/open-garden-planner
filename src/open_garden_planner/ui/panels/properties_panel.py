@@ -708,6 +708,11 @@ class PropertiesPanel(QWidget):
                 layer_combo = QComboBox()
                 _style_combo(layer_combo)
                 self._populate_layer_combo(layer_combo, item)
+                if item.parentItem() is not None:
+                    layer_combo.setEnabled(False)
+                    layer_combo.setToolTip(
+                        self.tr("A group member stays on its group's layer")
+                    )
                 layer_combo.currentIndexChanged.connect(
                     lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
                 )
@@ -803,6 +808,11 @@ class PropertiesPanel(QWidget):
             layer_combo = QComboBox()
             _style_combo(layer_combo)
             self._populate_layer_combo(layer_combo, item)
+            if item.parentItem() is not None:
+                layer_combo.setEnabled(False)
+                layer_combo.setToolTip(
+                    self.tr("A group member stays on its group's layer")
+                )
             layer_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
             )
@@ -2682,6 +2692,17 @@ class PropertiesPanel(QWidget):
             new_scene_x - old_top_left_scene.x(),
             new_scene_y - old_top_left_scene.y()
         )
+        # A drilled-down group member lives in its group's frame: a scene-space
+        # delta must be rotated into that frame before move commands apply it
+        # to item.pos() (#771). Uses the parent's scene transform, not the
+        # item's (which already includes the child's own rotation).
+        move_delta = QPointF(delta)
+        parent = item.parentItem()
+        if parent is not None:
+            inverse, invertible = parent.sceneTransform().inverted()
+            if invertible:
+                origin = inverse.map(QPointF(0.0, 0.0))
+                move_delta = inverse.map(delta) - origin
 
         # Validate bounds - don't allow moving outside canvas area (0, 0, width, height in scene coords)
         canvas_rect = scene.canvas_rect  # QRectF(0, 0, width_cm, height_cm)
@@ -2709,7 +2730,11 @@ class PropertiesPanel(QWidget):
             from open_garden_planner.ui.canvas.items import GardenItemMixin
 
             graph = scene.constraint_graph
-            if isinstance(item, GardenItemMixin) and graph.constraints:
+            if (
+                item.parentItem() is None
+                and isinstance(item, GardenItemMixin)
+                and graph.constraints
+            ):
                 # Compute constraint propagation
                 constrained_ids = set()
                 for c in graph.constraints.values():
@@ -2737,7 +2762,7 @@ class PropertiesPanel(QWidget):
                             return
 
         # No constraints or no propagation - simple move
-        command = MoveItemsCommand([item], delta)
+        command = MoveItemsCommand([item], move_delta)
         if self._command_manager:
             self._command_manager.execute(command)
 

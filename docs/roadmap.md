@@ -34,7 +34,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #743, #734, #719, #716, #534, #531 | The 3D view's trust and frame budget. |
-| CAD and drawing tools | #771, #664, #666 | Precision and editing depth. |
+| CAD and drawing tools | #666 | Precision and editing depth. |
 | Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.

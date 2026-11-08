@@ -11151,3 +11151,73 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 `docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md`;
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
+
+## ADR-075: CAD editing keeps the group frame and the command stack (issues #664, #771)
+
+**Status**: Accepted (issues #664, #771)
+
+**Context**: Two CAD editing gaps shared the canvas selection and command seams. A
+closed shape could not be cut into pieces: the only workaround lost the layer, look,
+fill transform, label state and metadata. And a group's members could not be edited
+without ungrouping it. Qt constrains the second problem more than the first: a
+`QGraphicsItemGroup` routes a child's selection back to the group (`scene.selectedItems()`
+returns only the group), and the child's own resize/vertex handles do not receive a
+usable drag while the group is the selection. Detaching the child on drill-down and
+re-adding it on exit looks simple, but commands captured while detached store local
+`pos()`/`rect()` values in the child's temporary top-level frame; re-adding changes
+that frame, so a later undo on a moved or rotated group can restore the wrong place.
+
+**Decision**:
+1. **Drill-down is a logical focus, not a reparent.** `CanvasView.drill_down_item` names
+   one direct member of the selected group. The group stays the Qt selection; the
+   member stays its child, so its layer guard, saved group data and transform frame
+   are unchanged. `CanvasView.effective_selection()` is the one selection seam every
+   panel uses (`_on_selection_changed`, properties, plant details, companion, crop
+   rotation), and `drill_down_changed` replaces Qt's `selectionChanged` for that focus
+   because Qt does not emit one. `GroupItem.paint` draws the focused member's outline
+   only while the group is selected, so exports (which clear selection) never paint it.
+2. **Geometry edits of a focused member stay in the group frame.** A body drag is a
+   view-owned gesture (`begin_drill_down_drag`/`_finish_drill_down_drag`), not Qt's
+   group drag; the arrow keys and the Properties panel convert a scene delta through
+   `_delta_in_parent_frame()` before writing `item.pos()`. The group's `ItemIsMovable`
+   flag is cleared while the member is focused and restored on exit. Changing the
+   member's layer is refused in the context menu, the panel and `PropertyEdits`, and
+   Cut/Delete are refused while a member is focused.
+3. **Split works in the source's local frame and replaces it in one command.**
+   `core/shape_split.py` clips the item's local `QPainterPath` against the two
+   half-planes of the two-point axis; `SplitShapeCommand` removes the source and adds
+   ordinary `PolygonItem`s in one undo step. Pieces copy the source's layer, object
+   type (when valid for a polygon), name, label/area state, metadata, stack order and
+   `fill_transform`; using the local frame keeps a rotated source's rotation and
+   pattern direction. Curves flatten to polygons, a concave shape may yield more than
+   two pieces, and a result that contains a hole is refused because a `QPolygonF`
+   cannot carry it.
+4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
+   plants, plants' parents and children, constraints, locked layers, roof ridges and
+   ridge-bearing buildings, grouped members, and any source whose UUID is still named
+   by soil, pest, harvest, succession, crop-rotation, manual-task or task-state data.
+   The last check is `ProjectManager.has_item_references`, the single central query.
+
+**Alternatives considered**:
+- *Detach the member and re-add it on exit.* Rejected: command snapshots are in the
+  temporary top-level frame; undo after a moved or rotated group would restore a
+  different place. It also changes the group's serialized children while focused.
+- *Duplicate the member as an edit proxy and apply it back on exit.* Rejected: the
+  edit commands would target a deleted proxy after the apply, leaving a broken stack.
+- *Copy the split geometry into `shape_boolean` or the tool.* Rejected: the roof
+  painter already has a line split, and a second copy would drift; `shape_split`
+  reuses `item_to_local_painter_path` and the shared `path_has_hole` / area floor.
+- *Produce scene-frame pieces.* Rejected: a rotated source's brush transform would be
+  recomputed from the scene origin, so the material would visibly jump at the cut.
+- *Allow a split of tracked beds and let the records follow one arbitrary piece.*
+  Rejected: the user did not choose which piece inherits the history; refusing is
+  reversible, silently reassigning is not.
+
+**Consequences**: New `core/shape_split.py`, `core/tools/split_tool.py` and
+`ui/canvas/items/split_menu.py`; `SplitShapeCommand` in `core/commands.py`; group
+drill-down state and `drill_down_changed` in `ui/canvas/canvas_view.py`. No
+`FILE_VERSION` bump: the pieces are ordinary polygons and drill-down is runtime-only.
+User-visible strings are covered in EN/DE/ES/RU. Pins:
+`tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`.
+Cross-refs: FR-35, §8.35, PF-CAN-46.

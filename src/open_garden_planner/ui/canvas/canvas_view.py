@@ -125,6 +125,7 @@ from open_garden_planner.core.tools import (
     PolylineTool,
     RectangleTool,
     SelectTool,
+    SplitShapeTool,
     SymmetryConstraintTool,
     TextTool,
     ToolManager,
@@ -183,6 +184,9 @@ class CanvasView(QGraphicsView):
     #: Emitted alongside tool_changed, carrying the ToolType rather than the
     #: (possibly translated) display name — see #304.
     tool_type_changed = pyqtSignal(ToolType)
+    #: Emitted when group drill-down focus changes (#771). Qt does not fire
+    #: ``selectionChanged`` because the group stays the selected item.
+    drill_down_changed = pyqtSignal()
     #: A one-line message for the main window's status bar.
     #:
     #: This is a SIGNAL, not a parent lookup, and that is the whole point. The
@@ -348,6 +352,21 @@ class CanvasView(QGraphicsView):
         # ItemIgnoresTransformations, which QGraphicsScene.itemAt never hits,
         # so Qt's own drag machinery cannot pick it up (PF-CAN-40).
         self._pin_drag_item: QGraphicsItem | None = None
+
+        # Group drill-down (#771): the one member that receives edit focus
+        # after a second click inside a selected group, and its owning group.
+        self._drill_down_item: QGraphicsItem | None = None
+        self._drill_down_group: QGraphicsItem | None = None
+        self._drill_down_group_was_movable = True
+        # A body drag of the drilled member is handled here, not by Qt: the
+        # group owns Qt's drag machinery while it is selected (#771).
+        self._drill_drag_item: QGraphicsItem | None = None
+        self._drill_drag_start_scene: QPointF | None = None
+        self._drill_drag_start_pos: QPointF | None = None
+        self._canvas_scene.selectionChanged.connect(
+            self._on_selection_changed_for_group_drill
+        )
+        self._canvas_scene.document_replaced.connect(self._reset_group_drill_down)
         self._pin_drag_offset = QPointF()
         # The item a rotation gesture is turning (issue #485). During rotation
         # only THIS item is pinned in the constraint solver; every other item —
@@ -438,6 +457,9 @@ class CanvasView(QGraphicsView):
         # Register CAD editing tools
         self._tool_manager.register_tool(TrimExtendTool(self))
         self._tool_manager.register_tool(OffsetTool(self))
+        # Split a closed shape along a two-point cutting line (#664).
+        self._split_tool = SplitShapeTool(self)
+        self._tool_manager.register_tool(self._split_tool)
         # Phase 13 Package B (US-B3): fillet & chamfer corner editors.
         self._tool_manager.register_tool(FilletTool(self))
         self._tool_manager.register_tool(ChamferTool(self))
@@ -2689,6 +2711,17 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # A drill-down member drag is ours too: Qt would move the group (#771).
+        if self._drill_drag_item is not None:
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self._move_drill_down_item(scene_pos)
+                self.viewport().update()
+                event.accept()
+                return
+            self._finish_drill_down_drag()
+            event.accept()
+            return
+
         # ── Guide drag ─────────────────────────────────────────────────────
         if self._dragging_guide is not None:
             guide = self._dragging_guide
@@ -2981,6 +3014,12 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
+        # A drill-down member drag is committed here (#771).
+        if self._drill_drag_item is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._finish_drill_down_drag()
+            event.accept()
+            return
+
         # Capture the rotation state before any path below can clear it (#485):
         # a release that never reaches the handle must still become one undo
         # entry, or a rotation would be left that no Ctrl+Z can reverse.
@@ -3177,13 +3216,20 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Handle ESC to exit vertex edit mode
+        # Handle ESC to exit vertex edit mode (the drilled-down member when
+        # group drill-down is active).
         if event.key() == Qt.Key.Key_Escape:
-            for item in self._canvas_scene.selectedItems():
+            for item in self.effective_selection():
                 if hasattr(item, "is_vertex_edit_mode") and item.is_vertex_edit_mode:
                     item.exit_vertex_edit_mode()
                     event.accept()
                     return
+
+        # Handle ESC to leave group drill-down while keeping the group selected.
+        if event.key() == Qt.Key.Key_Escape and self._drill_down_item is not None:
+            self.end_group_drill_down()
+            event.accept()
+            return
 
         # Handle Copy (Ctrl+C)
         if (
@@ -3437,6 +3483,14 @@ class CanvasView(QGraphicsView):
         """
         from open_garden_planner.ui.canvas.items.group_item import top_level_selection
 
+        if self._drill_down_item is not None:
+            self.set_status_message(
+                self.tr(
+                    "Press Esc to leave the group before cutting or deleting "
+                    "one of its members"
+                )
+            )
+            return
         selected = top_level_selection(list(self.scene().selectedItems()))
         if not selected:
             return
@@ -3595,7 +3649,10 @@ class CanvasView(QGraphicsView):
         """
         from open_garden_planner.ui.canvas.items.group_item import top_level_selection
 
-        selected = top_level_selection(list(self.scene().selectedItems()))
+        if self._drill_down_item is not None:
+            selected = [self._drill_down_item]
+        else:
+            selected = top_level_selection(list(self.scene().selectedItems()))
         if not selected:
             return
 
@@ -3653,6 +3710,16 @@ class CanvasView(QGraphicsView):
         # Clamp delta to keep items inside the canvas
         delta = self._clamp_delta_to_canvas(selected, QPointF(dx, dy))
         if delta.x() == 0 and delta.y() == 0:
+            return
+
+        if self._drill_down_item is not None:
+            # A group member lives in the group frame; the scene arrow delta
+            # must turn with a rotated group before it is applied to pos().
+            self._command_manager.execute(
+                MoveItemsCommand(
+                    selected, self._delta_in_parent_frame(selected[0], delta)
+                )
+            )
             return
 
         # Check for constraint propagation
@@ -4497,6 +4564,214 @@ class CanvasView(QGraphicsView):
     # Group / Ungroup
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Group drill-down (#771)
+    # ------------------------------------------------------------------
+
+    @property
+    def drill_down_item(self) -> QGraphicsItem | None:
+        """The group member currently receiving edit focus, or None (#771)."""
+        return self._drill_down_item
+
+    def effective_selection(self) -> list[QGraphicsItem]:
+        """The selection the panels act on (#771).
+
+        Qt reports a selected ``QGraphicsItemGroup`` as the only selected item
+        even though its members carry the selected flag. When a drill-down is
+        active, the *member* is what the Properties, plant and rotation panels
+        must show and edit, so this is the one seam every panel selection
+        consumer uses.
+        """
+        item = self._drill_down_item
+        if (
+            item is not None
+            and item.scene() is self._canvas_scene
+            and item.isSelected()
+        ):
+            return [item]
+        return list(self._canvas_scene.selectedItems())
+
+    def drill_target_at(self, scene_pos: QPointF) -> QGraphicsItem | None:
+        """The group member a second click should focus, if any (#771).
+
+        Only when exactly one drillable group is selected and the click lands
+        on one of its members. A drag handle returns None so the handle's own
+        gesture keeps its meaning.
+        """
+        from open_garden_planner.ui.canvas.items.group_item import (
+            group_child_at,
+            is_drillable_group,
+        )
+
+        focused = self._drill_down_item
+        if (
+            focused is not None
+            and is_drillable_group(focused)
+            and focused.isSelected()
+        ):
+            # A nested group is the drill target after the first level; the
+            # click that focused it did not change the outer group's Qt
+            # selection, so the focused group is the next context.
+            group = focused
+        else:
+            selected = [
+                item
+                for item in self._canvas_scene.selectedItems()
+                if item.parentItem() is None
+            ]
+            if len(selected) != 1:
+                return None
+            group = selected[0]
+        if not is_drillable_group(group):
+            return None
+        return group_child_at(self._canvas_scene, group, scene_pos)
+
+    def begin_group_drill_down(self, child: QGraphicsItem) -> None:
+        """Give edit focus to one member of the selected group (#771).
+
+        Qt routes a selected child back to its group, so the group stays the
+        Qt selection and this method supplies the *logical* focus: the group's
+        painted outline marks the member and ``effective_selection`` makes every
+        panel edit it. The child keeps its group membership, so its layer cannot
+        be changed (a group's members share its layer).
+        """
+        if self._drill_down_item is child:
+            return
+        self._clear_group_drill_down()
+        self._drill_down_item = child
+        group = child.parentItem()
+        self._drill_down_group = group
+        if group is not None:
+            self._drill_down_group_was_movable = bool(
+                group.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+            )
+            # Qt would otherwise move the whole group on the same press that
+            # focuses the member.
+            group.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            if hasattr(group, "set_drill_down_child"):
+                group.set_drill_down_child(child)
+        self.drill_down_changed.emit()
+
+    def begin_drill_down_drag(
+        self, item: QGraphicsItem, scene_pos: QPointF
+    ) -> None:
+        """Start a body drag of the drilled member (#771)."""
+        self._drill_drag_item = item
+        self._drill_drag_start_scene = QPointF(scene_pos)
+        self._drill_drag_start_pos = QPointF(item.pos())
+
+    def _delta_in_parent_frame(
+        self, item: QGraphicsItem, delta: QPointF
+    ) -> QPointF:
+        """A scene-space delta expressed in *item*'s parent (group) frame."""
+        parent = item.parentItem()
+        if parent is None:
+            return QPointF(delta)
+        inverse, invertible = parent.sceneTransform().inverted()
+        if not invertible:
+            return QPointF(delta)
+        origin = inverse.map(QPointF(0.0, 0.0))
+        return inverse.map(delta) - origin
+
+    def _move_drill_down_item(self, scene_pos: QPointF) -> None:
+        item = self._drill_drag_item
+        if item is None or self._drill_drag_start_scene is None:
+            return
+        if self._drill_drag_start_pos is None:
+            return
+        with contextlib.suppress(RuntimeError):
+            if item.scene() is not self._canvas_scene:
+                return
+            delta = self._delta_in_parent_frame(
+                item, scene_pos - self._drill_drag_start_scene
+            )
+            item.setPos(self._drill_drag_start_pos + delta)
+            item.update()
+            group = self._drill_down_group
+            if group is not None:
+                group.update()
+
+    def _finish_drill_down_drag(self) -> None:
+        item = self._drill_drag_item
+        start_pos = self._drill_drag_start_pos
+        self._drill_drag_item = None
+        self._drill_drag_start_scene = None
+        self._drill_drag_start_pos = None
+        if item is None or start_pos is None:
+            return
+        try:
+            if item.scene() is not self._canvas_scene:
+                return
+        except RuntimeError:
+            return
+        delta = item.pos() - start_pos
+        item.setPos(start_pos)
+        if delta.x() == 0 and delta.y() == 0:
+            return
+        from open_garden_planner.core.commands import MoveItemsCommand
+
+        self._command_manager.execute(MoveItemsCommand([item], delta))
+
+    def end_group_drill_down(self) -> None:
+        """Leave drill-down focus and restore the group's normal selection."""
+        self._clear_group_drill_down()
+
+    def group_drill_should_end_on_press(self, scene_pos: QPointF) -> bool:
+        """Whether a press while drilled down should leave the member (#771).
+
+        A click on one of the member's own handles must keep the focus (the
+        handle drag is the edit). Anything else that is not a member retires
+        the drill-down; ``drill_target_at`` handles a click on another member.
+        """
+        if self._drill_down_item is None:
+            return False
+        item = self._canvas_scene.itemAt(scene_pos, self.transform())
+        return not isinstance(item, DRAG_HANDLE_TYPES)
+
+    def _on_selection_changed_for_group_drill(self) -> None:
+        if self._drill_down_item is None:
+            return
+        # Qt fires selectionChanged between deselecting the group and selecting
+        # its members, so judge the final state on the next event-loop turn.
+        with contextlib.suppress(RuntimeError):
+            QTimer.singleShot(0, self._finish_group_drill_down)
+
+    def _finish_group_drill_down(self) -> None:
+        item = self._drill_down_item
+        if item is None:
+            return
+        top_level = [
+            candidate
+            for candidate in self._canvas_scene.selectedItems()
+            if candidate.parentItem() is None
+        ]
+        if item.isSelected() and len(top_level) == 1:
+            return
+        self._clear_group_drill_down()
+
+    def _clear_group_drill_down(self) -> None:
+        group = self._drill_down_group
+        had_focus = self._drill_down_item is not None
+        self._drill_down_item = None
+        self._drill_down_group = None
+        self._drill_drag_item = None
+        self._drill_drag_start_scene = None
+        self._drill_drag_start_pos = None
+        if group is not None:
+            with contextlib.suppress(RuntimeError):
+                group.setFlag(
+                    QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
+                    self._drill_down_group_was_movable,
+                )
+                if hasattr(group, "set_drill_down_child"):
+                    group.set_drill_down_child(None)
+        if had_focus:
+            self.drill_down_changed.emit()
+
+    def _reset_group_drill_down(self) -> None:
+        """Forget a drilled item when a new document replaces the scene."""
+        self._clear_group_drill_down()
+
     def group_selected(self) -> None:
         """Group all currently selected items (Ctrl+G and the Group menu entry).
 
@@ -4553,6 +4828,14 @@ class CanvasView(QGraphicsView):
         return self._clipboard_operations.copy_selected()
 
     def cut_selected(self) -> None:
+        if self._drill_down_item is not None:
+            self.set_status_message(
+                self.tr(
+                    "Press Esc to leave the group before cutting or deleting "
+                    "one of its members"
+                )
+            )
+            return
         return self._clipboard_operations.cut_selected()
 
     def paste(self) -> None:
@@ -4569,6 +4852,101 @@ class CanvasView(QGraphicsView):
 
     def create_circular_array(self) -> None:
         return self._clipboard_operations.create_circular_array()
+
+    def split_refusal_reason(self, item: QGraphicsItem) -> str | None:
+        """Why *item* cannot be split along a line, or None when it can (#664).
+
+        The split replaces the source by ordinary polygons, so anything keyed to
+        the source's UUID (soil/pest/harvest history, succession, crop rotation,
+        journal/task links) would be orphaned. Those references, plus plants,
+        constraints, group membership and locked layers, are refused before any
+        mutation.
+        """
+        from open_garden_planner.core.object_types import (
+            is_plant_type,
+            is_ridge_bearing_type,
+        )
+        from open_garden_planner.core.shape_boolean import item_to_local_painter_path
+        from open_garden_planner.ui.canvas.items import (
+            CircleItem,
+            EllipseItem,
+            PolygonItem,
+            RectangleItem,
+        )
+
+        if not isinstance(item, (PolygonItem, RectangleItem, CircleItem, EllipseItem)):
+            return self.tr(
+                "Only closed shapes (polygon, rectangle, circle, or ellipse) can be split"
+            )
+        if item.scene() is not self._canvas_scene:
+            return self.tr("The shape is no longer in this plan")
+        if item.parentItem() is not None:
+            return self.tr("Ungroup the shape before splitting it")
+        if item_to_local_painter_path(item) is None:
+            return self.tr("This shape has no closed outline to split")
+
+        layer = (
+            self._canvas_scene.get_layer_by_id(item.layer_id)
+            if item.layer_id
+            else None
+        )
+        if layer is not None and layer.locked:
+            return self.tr("The shape is on a locked layer")
+        if (
+            item.item_id is not None
+            and self._canvas_scene.constraint_graph.get_item_constraints(item.item_id)
+        ):
+            return self.tr("A constrained shape cannot be split")
+        if (
+            is_plant_type(item.object_type)
+            or getattr(item, "paints_sprite", False)
+            or item.parent_bed_id is not None
+            or item.has_children
+        ):
+            return self.tr("Plants and linked objects cannot be split")
+        if (
+            item.object_type is not None
+            and is_ridge_bearing_type(item.object_type)
+        ) or item.object_type is ObjectType.ROOF_RIDGE:
+            return self.tr("A building and its roof ridge cannot be split")
+        metadata = item.metadata
+        if any(
+            key in metadata
+            for key in (
+                "plant_species",
+                "guild",
+                "garden_tracking",
+                "ridge_item_id",
+                "owner_polygon_id",
+            )
+        ):
+            return self.tr("The shape carries links that a split cannot preserve")
+
+        manager = getattr(self.window(), "_project_manager", None)
+        if (
+            manager is not None
+            and item.item_id is not None
+            and manager.has_item_references(item.item_id)
+        ):
+            return self.tr("The shape has tracking records that a split cannot preserve")
+        return None
+
+    def start_split_shape(self, item: QGraphicsItem) -> bool:
+        """Arm the split tool for *item* from its context menu (#664)."""
+        reason = self.split_refusal_reason(item)
+        if reason is not None:
+            self.set_status_message(reason)
+            return False
+        if item.item_id is None:
+            return False
+        self._split_tool.prepare(item.item_id)
+        self.set_active_tool(ToolType.SPLIT)
+        self._canvas_scene.clearSelection()
+        item.setSelected(True)
+        self.set_status_message(
+            self.tr("Click the first point of the cutting line. Esc cancels.")
+        )
+        return True
 
     def boolean_operation(self, operation: str) -> None:
         """Apply union (any count) or intersect/subtract (exactly two) shapes.

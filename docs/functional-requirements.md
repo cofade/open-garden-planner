@@ -1192,3 +1192,38 @@ ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.
   Durable data is pushed before Pages deployment; reports can be rebuilt offline.
 
 Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages deployment.
+
+## FR-35: CAD editing — split along a line and group drill-down (issues #664, #771, ADR-075)
+
+- **FR-SPLIT-01:** A closed shape (polygon, rectangle, circle or ellipse) offers
+  **Split Along Line…** in its context menu. The tool takes two snapped scene points,
+  previews the infinite cutting line and the resulting pieces, constrains the line to
+  45° steps while Shift is held, and cancels on Esc without mutating the scene.
+- **FR-SPLIT-02:** Applying the cut replaces the source with the pieces in exactly one
+  undo step. Each piece keeps the source's layer, object type when valid for a polygon,
+  fill/stroke colours, fill pattern and fill-transform, label/area visibility, name,
+  metadata and stacking rank. A rotated source keeps its rotation and material
+  direction; curves become polygons; a concave shape may produce more than two pieces;
+  a result that would contain a hole is refused.
+- **FR-SPLIT-03:** The split is refused without mutation for plants, plant parents with
+  tracked links, constrained shapes, locked layers, grouped members, roof ridges,
+  ridge-bearing buildings, and any shape whose UUID is still referenced by soil, pest,
+  harvest, succession, crop-rotation, manual-task or task-state project data
+  (`ProjectManager.has_item_references`). The refusal reason is shown to the user.
+- **FR-DRILL-01:** With a group selected, a plain click on one of its members focuses
+  that member for editing without ungrouping. The group remains the canvas selection;
+  the focused member is what the Properties, plant-details, companion and crop-rotation
+  panels read (`CanvasView.effective_selection`). Clicking outside the member, pressing
+  Esc, or selecting another object clears the focus.
+- **FR-DRILL-02:** While focused, a member can be moved by dragging its body or with the
+  arrow keys, and its geometry/appearance/species/notes can be edited through the
+  Properties panel; each edit is one undo step and moves the member in its group's
+  frame, never the group. The member's layer cannot change, and Cut/Delete are refused
+  until the focus is cleared.
+- **FR-DRILL-03:** Smart symbols are not drillable because their members are generated
+  from parameters. Nested groups drill one level per click; the focused member's inner
+  outline is drawn by `GroupItem.paint` and disappears with the selection (exports clear
+  it first).
+
+Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`.

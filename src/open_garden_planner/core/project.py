@@ -327,6 +327,36 @@ class ProjectManager(QObject):
         """Set of completed task IDs for the current project."""
         return set(self._task_completions)
 
+    def has_item_references(self, item_id: UUID | str) -> bool:
+        """Whether project data outside the scene still points at *item_id*.
+
+        A command that replaces a shape (the split, #664) must not orphan the
+        records keyed by its UUID. The checked collections are exactly the ones
+        that store a bed/area/plant id: soil tests, pest/disease logs, harvest
+        logs, succession plans, crop-rotation records, manual-task bed links and
+        task states whose deterministic id carries the item id. Journal notes
+        are keyed by their own note id and do not reference garden items.
+        """
+        key = str(item_id)
+        if not key:
+            return False
+        if (
+            key in self._soil_tests
+            or key in self._pest_logs
+            or key in self._harvest_logs
+            or key in self._succession_plans
+        ):
+            return True
+        for record in self._crop_rotation.get("records", []):
+            if isinstance(record, dict) and str(record.get("area_id", "")) == key:
+                return True
+        for task in self._manual_tasks.values():
+            if isinstance(task, dict) and str(task.get("bed_id", "")) == key:
+                return True
+        if any(key in str(task_id) for task_id in self._task_states):
+            return True
+        return any(key in str(task_id) for task_id in self._task_completions)
+
     def set_task_completion(self, task_id: str, done: bool) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's
         "Done" toggle.

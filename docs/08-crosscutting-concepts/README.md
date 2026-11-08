@@ -8228,7 +8228,7 @@ rectangle/ellipse/circle edge types are unique but share index 0.
 
 An item's right-click menu is built by the item, but a capability that must
 appear on every item type lives in ONE shared seam so a new type cannot miss
-it. There are four, all reachable from `GardenItemMixin` (and used directly by
+it. There are five, all reachable from `GardenItemMixin` (and used directly by
 the item classes that do not inherit it):
 
 | Capability | Builder / dispatcher | Contract |
@@ -8237,6 +8237,7 @@ the item classes that do not inherit it):
 | Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
 | Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
 | Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22 |
+| Split along a line | `split_menu.build_split_action` (QAction `triggered`) | §8.35, ADR-075, FR-35; closed shapes only |
 
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on
@@ -8254,3 +8255,36 @@ already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
+
+## 8.35 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)
+
+**Split along a line.** `build_split_action` in
+`ui/canvas/items/split_menu.py` is the one context-menu seam for every closed
+shape (polygon, rectangle, circle, ellipse). It asks the view's
+`split_refusal_reason` before enabling the row and starts
+`CanvasView.start_split_shape`. `SplitShapeTool` takes two snapped picks
+(`Shift` constrains to 45°; `Esc` cancels), previews the infinite line and the
+resulting pieces, and applies `SplitShapeCommand` on the second pick. Geometry is
+`core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is cut
+by the two half-planes, so a rotated source keeps its rotation and fill-pattern
+direction. Pieces are ordinary `PolygonItem`s with the source's layer, type
+(where valid for a polygon), look, `fill_transform`, label/area state, metadata
+and stack rank. Curves flatten to polygons; a concave shape may produce more than
+two pieces; a hole is refused. The refusal list (plants, tracked UUIDs,
+constraints, locked layers, ridges, group members) is in `ADR-075` and
+`CanvasView.split_refusal_reason`, backed by
+`ProjectManager.has_item_references`.
+
+**Group drill-down.** Qt routes a group child's selection back to the group, so
+there is no Qt-level "selected child" state to switch to. The second click on a
+member sets `CanvasView.drill_down_item` instead: the group remains the Qt
+selection, the member stays its child (same layer, same saved frame), and
+`effective_selection()` is the one list every panel consumes. `drill_down_changed`
+notifies them because Qt emits no `selectionChanged`. `GroupItem.paint` draws the
+focused member's inner outline only while the group is selected. A body drag is
+the view's own gesture (`begin_drill_down_drag`), not Qt's group drag; arrow keys
+and the Properties panel convert scene deltas through `_delta_in_parent_frame`.
+The member cannot change layer, be cut or be deleted while focused; clicking
+outside the member or pressing `Esc` clears the focus and restores the group's
+`ItemIsMovable` flag. Smart symbols are not drillable because their members are
+generated from parameters.

@@ -603,3 +603,13 @@ A wheelbarrow's sprite is 60 x 140 cm; drawn into a 140 x 60 rectangle it was re
 - **Legacy:** none (new entry)
 
 A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, deleted and sanitised by a dozen call sites. Teaching GREENHOUSE to be a building meant touching every one; a single missed `== HOUSE` would have left a greenhouse ridge that did not follow a move, a copy without its own ridge, or a load that dropped the link. The predicate lives in `core.roof_style.py` (Qt-free, kind names) and `core.object_types.is_ridge_bearing_type` (enum); `ChangeObjectTypeCommand` uses it for both the execute and undo halves, and `apply_ridge_look` gives a greenhouse its aluminium finish (and a house its brown) on build, type change and undo.
+
+### PF-CAN-46
+
+- **Rule:** A `QGraphicsItemGroup` child cannot be selected independently: selecting it selects the group, and its resize/vertex handles do not receive a usable drag. Group drill-down is therefore a VIEW-LEVEL logical focus (`drill_down_item` / `effective_selection`), never a reparent or a temporary ungroup.
+- **Pinned by:** `tests/integration/test_group_drill_down.py::test_second_click_focuses_the_member_then_outside_restores_the_group`; `tests/integration/test_group_drill_down.py::test_the_properties_panel_shows_the_member_and_disables_its_layer`
+- **Source:** #771, ADR-075
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt 6.12 routes `child.setSelected(True)` through the group: `scene.selectedItems()` returns only the group even though the child's `isSelected()` is true. A `QGraphicsItemGroup` child's `ResizeHandle` gets the press but the group still moves on drag, and a double-click does not reach the child's vertex-edit handler. Detaching the child with `removeFromGroup` on drill-down and re-adding it on exit makes handles work but changes its parent frame; commands captured while detached store local `pos()`/`rect()` values, so undo after moving or rotating the group restores the wrong place. The vetted path keeps membership: the group stays selected, `effective_selection()` supplies the member to every panel, body drags and arrow keys convert scene deltas through `_delta_in_parent_frame`, and the member's layer/cut/delete operations are refused until the focus clears.
