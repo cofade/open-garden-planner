@@ -567,6 +567,30 @@ drag keeping its anchored corner and exactly one resize step, finishing and
 re-adopting, and the setting off). A real touchscreen's **delivery** is still the
 owner's manual test; a headless process cannot produce one.
 
+### 8.9.13 Parametric object pictures — one layout for 2D, gallery and 3D (#768/#769/#776)
+
+An illustrated object that scales must not be a fixed sprite stretched into its
+rectangle. Two patterns replace that:
+
+1. **A parametric layout is the single source.** `core/pergola.py` returns the
+   member rectangles and the heights each layer spans; `ui/canvas/items/pergola_paint.py`
+   draws them for the canvas and the gallery, and `core/scene3d/builders/structures.py`
+   extrudes the same rectangles. A new member is added in the layout only. The
+   glasshouse's glazing bays follow the same rule (`core/greenhouse.py`), and its
+   ridge is the plan's linked `ROOF_RIDGE` rather than a symbol.
+2. **Aspect is a turn, not a stretch.** `core/sprite_orientation.py` states each
+   sprite's natural footprint and `sprite_turn_deg`; `core/furniture_renderer.py`
+   renders at the swapped size and rotates the pixmap, while
+   `builders/kit.object_box`/`placed` build the same quarter-turned mesh. One rule
+   keeps the picture and the model facing the same way.
+
+Both patterns are read by `RectangleItem.paint`/`PolygonItem.paint`; the ground
+bake reads `paints_picture` (a picture item paints no plain fill). A type whose
+picture is parametric declares `paints_picture` (it stores no pen or brush of its
+own), so a missing picture paints nothing rather than a plain fill. Pin:
+`tests/integration/test_parametric_structures.py`,
+`tests/unit/test_sprite_orientation.py`, PF-CAN-44/45, PF-L3D-21.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer
@@ -3013,10 +3037,11 @@ Startup is always fully collapsed; pin/peek/dismissal state is never saved. The 
 
 ## 8.18 Smart Symbol Authoring (US-C4)
 
-Smart symbols are **parametric blocks** defined in JSON. Bundled definitions
-live in `resources/data/smart_symbols/*.json`; users add their own by dropping a
-file in `<app-data>/smart_symbols/` (it appears in the **Smart Symbols** panel on
-next launch). See ADR-032 for the architecture.
+Smart symbols are **parametric blocks** defined in JSON. The app ships no bundled
+definitions and no sidebar panel since #770 (the fixed templates are test fixtures
+in `tests/fixtures/smart_symbols/`); users can still add their own by dropping a
+file in `<app-data>/smart_symbols/`, and existing plans keep their cached children.
+See ADR-032 (and its #768–#770 addendum) for the architecture.
 
 **File shape** (one symbol per file; `id` should match the filename):
 
@@ -3065,7 +3090,7 @@ next launch). See ADR-032 for the architecture.
   definition) falls back to the cached geometry embedded in the file and logs a
   warning, so old plans never break.
 
-`tests/unit/test_smart_symbol_schema.py` validates every bundled file in CI
+`tests/unit/test_smart_symbol_schema.py` validates every fixture file in CI
 (loads, validates, every expression parses, generates ≥1 primitive).
 
 ## 8.19 Agent API — Embedded MCP Server & Thread Marshaling (US-D1.1–D1.6, D2.0–D2.6, D3.1–D3.4, ADR-033/034/035/036)

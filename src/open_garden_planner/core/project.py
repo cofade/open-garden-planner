@@ -2032,13 +2032,13 @@ class ProjectManager(QObject):
         """Sanitise legacy/stale roof ridge links (issue #712).
 
         Plans written before type-change lifecycles can leave ``ridge_item_id``
-        on items that are no longer a HOUSE, or point to missing or dead items.
-        Drop ``ridge_item_id`` when the item is not a HOUSE, or the named item
-        is missing, not a ROOF_RIDGE, or owned by someone else. Also clear
-        stale ``owner_polygon_id`` on ROOF_RIDGE items whose owner is dead or
-        not a HOUSE.
+        on items that are no longer ridge-bearing, or point to missing or dead
+        items. Drop ``ridge_item_id`` when the item is not a HOUSE or GREENHOUSE
+        (#768), or the named item is missing, not a ROOF_RIDGE, or owned by
+        someone else. Also clear stale ``owner_polygon_id`` on ROOF_RIDGE items
+        whose owner is dead or not ridge-bearing.
         """
-        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.object_types import ObjectType, is_ridge_bearing_type
         from open_garden_planner.ui.canvas.items.group_item import selection_tree
 
         flat = selection_tree(items)
@@ -2059,7 +2059,7 @@ class ProjectManager(QObject):
             ridge_id_raw = metadata.get("ridge_item_id")
             if ridge_id_raw is not None:
                 drop = False
-                if obj_type is not ObjectType.HOUSE:
+                if not is_ridge_bearing_type(obj_type):
                     drop = True
                 else:
                     try:
@@ -2090,7 +2090,7 @@ class ProjectManager(QObject):
                         drop_owner = True
                     else:
                         owner = items_by_id.get(owner_uuid)
-                        if owner is None or getattr(owner, "object_type", None) is not ObjectType.HOUSE:
+                        if owner is None or not is_ridge_bearing_type(getattr(owner, "object_type", None)):
                             drop_owner = True
                     if drop_owner:
                         metadata.pop("owner_polygon_id", None)

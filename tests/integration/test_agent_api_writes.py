@@ -265,9 +265,16 @@ def test_create_object_shape_families_end_to_end(
         for request, result in zip(requests, results, strict=True)
         if request["object_type"] == "HOUSE"
     )
-    assert sum(result["linked_items_created"] for result in results) == 1
+    assert sum(result["linked_items_created"] for result in results) == 2
+    # Both ridge-bearing buildings (#768): the HOUSE and the GREENHOUSE.
+    greenhouse_result = next(
+        result
+        for request, result in zip(requests, results, strict=True)
+        if request["object_type"] == "GREENHOUSE"
+    )
+    assert greenhouse_result["linked_items_created"] == 1
     top_level = [item for item in scene.items() if item.parentItem() is None]
-    assert len(top_level) == before + len(requests) + 1  # HOUSE's ridge
+    assert len(top_level) == before + len(requests) + 2  # two ridges
 
     manager = ProjectManager()
     save_path = tmp_path / "agent-created-shapes.ogp"

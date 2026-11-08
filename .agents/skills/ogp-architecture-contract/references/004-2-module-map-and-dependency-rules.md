@@ -11,7 +11,7 @@ Verified against `docs/05-building-block-view/README.md` §5.2 and the source tr
 | `models/` | Pure data: `plant_data` (incl. `species_key`), `task`, `harvest_log`, `smart_symbol` | stdlib (Qt-free where marked) |
 | `services/` | Qt-free domain engines (`task_generator`, `task_status`, `harvest_aggregation`, `smart_symbol_library`, shopping list, soil, crop rotation) + Qt-using I/O services (export, `scene_rendering`, pdf report, dxf, weather) | `core`, `models`; never `ui` panels |
 | `agent_api/` | Embedded MCP server (see invariant 12). Qt-touching: `bridge.py`, `render.py` only | `core` (snapshot shapes), `services/scene_rendering`; wired by `app/` |
-| `resources/` | Data (`plant_species.json` — the single species+calendar source, ADR-014; `smart_symbols/*.json`), icons, textures, translations, web | — |
+| `resources/` | Data (`plant_species.json` — the single species+calendar source, ADR-014), icons, textures, translations, web. The bundled `smart_symbols/` directory was retired by #770 | — |
 
 Rules of thumb: **new domain logic starts Qt-free in `core/` or `services/`** and
 gets a thin Qt adapter; **`application.py` is wiring, not logic**; anything both

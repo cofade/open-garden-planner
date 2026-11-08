@@ -155,7 +155,7 @@
       "stroke_color": "#ffb4aa96",
       "stroke_width": 8.0,
       "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 14336
+      "stack_order": 15360
     },
     {
       "type": "polyline",
@@ -184,7 +184,7 @@
       "stroke_color": "#ffa0a09b",
       "stroke_width": 6.0,
       "path_fence_style": "STEPPING_STONES",
-      "stack_order": 15360
+      "stack_order": 16384
     },
     {
       "type": "polygon",
@@ -222,7 +222,7 @@
         "242eb70e-122e-4aed-a86d-82e9ef5558de",
         "b5144c2c-cac1-44d0-beff-620563e41538"
       ],
-      "stack_order": 16384
+      "stack_order": 17408
     },
     {
       "type": "polygon",
@@ -265,7 +265,7 @@
         "a4008da6-bce7-452e-9432-2aee21c4e3ee",
         "661c4530-9781-4ffb-b1d4-9c904b316118"
       ],
-      "stack_order": 22528
+      "stack_order": 23552
     },
     {
       "type": "polygon",
@@ -304,7 +304,7 @@
         "e675a4dd-1ded-425e-9244-56e6d4c83ea2",
         "d365cbfa-c4be-4c08-b1b3-d91fbd4b9929"
       ],
-      "stack_order": 33792
+      "stack_order": 34816
     },
     {
       "type": "polygon",
@@ -371,6 +371,9 @@
       "height": 340.0,
       "object_type": "GREENHOUSE",
       "name": "Invernadero",
+      "metadata": {
+        "ridge_item_id": "a4eb0341-086d-56c4-a0a6-09376cd5f431"
+      },
       "label_visible": false,
       "fill_color": "#ffd2e6f5",
       "stroke_color": "#ffa0a5aa",
@@ -378,6 +381,29 @@
       "fill_pattern": "GLASS",
       "stroke_style": "SOLID",
       "stack_order": 7168
+    },
+    {
+      "type": "polyline",
+      "item_id": "a4eb0341-086d-56c4-a0a6-09376cd5f431",
+      "points": [
+        {
+          "x": 1460.0,
+          "y": 1180.0
+        },
+        {
+          "x": 1460.0,
+          "y": 1520.0
+        }
+      ],
+      "object_type": "ROOF_RIDGE",
+      "metadata": {
+        "owner_polygon_id": "41497c0e-6703-477b-9f4b-aa9d12445e60",
+        "ridge_finish": "aluminium"
+      },
+      "label_visible": false,
+      "stroke_color": "#ffb0b5b9",
+      "stroke_width": 2.0,
+      "stack_order": 8192
     },
     {
       "type": "rectangle",
@@ -394,7 +420,7 @@
       "stroke_width": 2.0,
       "fill_pattern": "CONCRETE",
       "stroke_style": "SOLID",
-      "stack_order": 8192
+      "stack_order": 9216
     },
     {
       "type": "rectangle",
@@ -414,7 +440,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 9216
+      "stack_order": 10240
     },
     {
       "type": "polyline",
@@ -435,7 +461,7 @@
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 3.0,
       "path_fence_style": "WOODEN_FENCE",
-      "stack_order": 10240
+      "stack_order": 11264
     },
     {
       "type": "polyline",
@@ -456,7 +482,7 @@
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 3.0,
       "path_fence_style": "WOODEN_FENCE",
-      "stack_order": 11264
+      "stack_order": 12288
     },
     {
       "type": "polygon",
@@ -487,7 +513,7 @@
       "stroke_width": 1.5,
       "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
-      "stack_order": 12288
+      "stack_order": 13312
     },
     {
       "type": "polyline",
@@ -508,7 +534,7 @@
       "stroke_color": "#ff828278",
       "stroke_width": 5.0,
       "path_fence_style": "STONE_WALL",
-      "stack_order": 13312
+      "stack_order": 14336
     },
     {
       "type": "circle",
@@ -579,7 +605,7 @@
       "stroke_style": "SOLID",
       "plant_species": "parsley",
       "parent_bed_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
-      "stack_order": 17408
+      "stack_order": 18432
     },
     {
       "type": "circle",
@@ -647,7 +673,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sage",
       "parent_bed_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
-      "stack_order": 18432
+      "stack_order": 19456
     },
     {
       "type": "circle",
@@ -715,7 +741,7 @@
       "stroke_style": "SOLID",
       "plant_species": "oregano",
       "parent_bed_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
-      "stack_order": 19456
+      "stack_order": 20480
     },
     {
       "type": "circle",
@@ -786,7 +812,7 @@
       "stroke_style": "SOLID",
       "plant_species": "chives",
       "parent_bed_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
-      "stack_order": 20480
+      "stack_order": 21504
     },
     {
       "type": "circle",
@@ -854,7 +880,7 @@
       "stroke_style": "SOLID",
       "plant_species": "thyme",
       "parent_bed_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
-      "stack_order": 21504
+      "stack_order": 22528
     },
     {
       "type": "circle",
@@ -921,7 +947,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lavender",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 23552
+      "stack_order": 24576
     },
     {
       "type": "circle",
@@ -974,7 +1000,7 @@
       "stroke_style": "SOLID",
       "plant_species": "peony",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 24576
+      "stack_order": 25600
     },
     {
       "type": "circle",
@@ -1027,7 +1053,7 @@
       "stroke_style": "SOLID",
       "plant_species": "iris",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 25600
+      "stack_order": 26624
     },
     {
       "type": "circle",
@@ -1094,7 +1120,7 @@
       "stroke_style": "SOLID",
       "plant_species": "echinacea",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 26624
+      "stack_order": 27648
     },
     {
       "type": "circle",
@@ -1149,7 +1175,7 @@
       "stroke_style": "SOLID",
       "plant_species": "aster",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 27648
+      "stack_order": 28672
     },
     {
       "type": "circle",
@@ -1202,7 +1228,7 @@
       "stroke_style": "SOLID",
       "plant_species": "geranium",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 28672
+      "stack_order": 29696
     },
     {
       "type": "circle",
@@ -1255,7 +1281,7 @@
       "stroke_style": "SOLID",
       "plant_species": "chrysanthemum",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 29696
+      "stack_order": 30720
     },
     {
       "type": "circle",
@@ -1308,7 +1334,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lily",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 30720
+      "stack_order": 31744
     },
     {
       "type": "circle",
@@ -1376,7 +1402,7 @@
       "stroke_style": "SOLID",
       "plant_species": "borage",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 31744
+      "stack_order": 32768
     },
     {
       "type": "circle",
@@ -1431,7 +1457,7 @@
       "stroke_style": "SOLID",
       "plant_species": "pansy",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "stack_order": 32768
+      "stack_order": 33792
     },
     {
       "type": "circle",
@@ -1499,7 +1525,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sunflower",
       "parent_bed_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "stack_order": 34816
+      "stack_order": 35840
     },
     {
       "type": "circle",
@@ -1551,7 +1577,7 @@
       "stroke_style": "SOLID",
       "plant_species": "dahlia",
       "parent_bed_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "stack_order": 35840
+      "stack_order": 36864
     },
     {
       "type": "circle",
@@ -1621,7 +1647,7 @@
       "stroke_style": "SOLID",
       "plant_species": "marigold",
       "parent_bed_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "stack_order": 36864
+      "stack_order": 37888
     },
     {
       "type": "circle",
@@ -1673,7 +1699,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cosmos",
       "parent_bed_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "stack_order": 37888
+      "stack_order": 38912
     },
     {
       "type": "circle",
@@ -1725,7 +1751,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zinnia",
       "parent_bed_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "stack_order": 38912
+      "stack_order": 39936
     },
     {
       "type": "circle",
@@ -1777,7 +1803,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tulip",
       "parent_bed_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "stack_order": 39936
+      "stack_order": 40960
     },
     {
       "type": "rectangle",
@@ -1802,7 +1828,7 @@
         "86d6532b-ef09-4eb5-a37b-bba94d70171d",
         "4d43fded-7edd-402c-aeeb-9ac5f005337d"
       ],
-      "stack_order": 40960
+      "stack_order": 41984
     },
     {
       "type": "circle",
@@ -1870,7 +1896,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "1000e0a2-2d30-4a7b-b71f-2bf944f93a5d",
-      "stack_order": 41984
+      "stack_order": 43008
     },
     {
       "type": "circle",
@@ -1938,7 +1964,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "1000e0a2-2d30-4a7b-b71f-2bf944f93a5d",
-      "stack_order": 43008
+      "stack_order": 44032
     },
     {
       "type": "circle",
@@ -2008,7 +2034,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "1000e0a2-2d30-4a7b-b71f-2bf944f93a5d",
-      "stack_order": 44032
+      "stack_order": 45056
     },
     {
       "type": "circle",
@@ -2079,7 +2105,7 @@
       "stroke_style": "SOLID",
       "plant_species": "sweet pepper",
       "parent_bed_id": "1000e0a2-2d30-4a7b-b71f-2bf944f93a5d",
-      "stack_order": 45056
+      "stack_order": 46080
     },
     {
       "type": "circle",
@@ -2147,7 +2173,7 @@
       "stroke_style": "SOLID",
       "plant_species": "tomato",
       "parent_bed_id": "1000e0a2-2d30-4a7b-b71f-2bf944f93a5d",
-      "stack_order": 46080
+      "stack_order": 47104
     },
     {
       "type": "circle",
@@ -2217,7 +2243,7 @@
       "stroke_style": "SOLID",
       "plant_species": "basil",
       "parent_bed_id": "1000e0a2-2d30-4a7b-b71f-2bf944f93a5d",
-      "stack_order": 47104
+      "stack_order": 48128
     },
     {
       "type": "rectangle",
@@ -2243,7 +2269,7 @@
         "61725f84-70be-4853-9b0d-102ff21a1d5c",
         "ccb4a446-0be0-4364-b42e-92e8418c893c"
       ],
-      "stack_order": 48128
+      "stack_order": 49152
     },
     {
       "type": "circle",
@@ -2313,7 +2339,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 49152
+      "stack_order": 50176
     },
     {
       "type": "circle",
@@ -2381,7 +2407,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cabbage",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 50176
+      "stack_order": 51200
     },
     {
       "type": "circle",
@@ -2449,7 +2475,7 @@
       "stroke_style": "SOLID",
       "plant_species": "kale",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 51200
+      "stack_order": 52224
     },
     {
       "type": "circle",
@@ -2519,7 +2545,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lettuce",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 52224
+      "stack_order": 53248
     },
     {
       "type": "circle",
@@ -2583,7 +2609,7 @@
       "stroke_style": "SOLID",
       "plant_species": "carrot",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 53248
+      "stack_order": 54272
     },
     {
       "type": "circle",
@@ -2654,7 +2680,7 @@
       "stroke_style": "SOLID",
       "plant_species": "onion",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 54272
+      "stack_order": 55296
     },
     {
       "type": "circle",
@@ -2719,7 +2745,7 @@
       "stroke_style": "SOLID",
       "plant_species": "beet",
       "parent_bed_id": "a48b7093-0890-42ab-a28f-08fddcfb6b21",
-      "stack_order": 55296
+      "stack_order": 56320
     },
     {
       "type": "rectangle",
@@ -2744,7 +2770,7 @@
         "924b938b-5695-4356-be5c-2d9167d3dc17",
         "f08e6239-031e-4baa-b1ff-41272f86d643"
       ],
-      "stack_order": 56320
+      "stack_order": 57344
     },
     {
       "type": "circle",
@@ -2815,7 +2841,7 @@
       "stroke_style": "SOLID",
       "plant_species": "zucchini",
       "parent_bed_id": "3ab74df9-39d5-4d37-8f10-07ee95cec347",
-      "stack_order": 57344
+      "stack_order": 58368
     },
     {
       "type": "circle",
@@ -2885,7 +2911,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "3ab74df9-39d5-4d37-8f10-07ee95cec347",
-      "stack_order": 58368
+      "stack_order": 59392
     },
     {
       "type": "circle",
@@ -2955,7 +2981,7 @@
       "stroke_style": "SOLID",
       "plant_species": "bean (bush)",
       "parent_bed_id": "3ab74df9-39d5-4d37-8f10-07ee95cec347",
-      "stack_order": 59392
+      "stack_order": 60416
     },
     {
       "type": "circle",
@@ -3024,7 +3050,7 @@
       "stroke_style": "SOLID",
       "plant_species": "leek",
       "parent_bed_id": "3ab74df9-39d5-4d37-8f10-07ee95cec347",
-      "stack_order": 60416
+      "stack_order": 61440
     },
     {
       "type": "circle",
@@ -3088,7 +3114,7 @@
       "stroke_style": "SOLID",
       "plant_species": "spinach",
       "parent_bed_id": "3ab74df9-39d5-4d37-8f10-07ee95cec347",
-      "stack_order": 61440
+      "stack_order": 62464
     },
     {
       "type": "circle",
@@ -3157,7 +3183,7 @@
       "stroke_style": "SOLID",
       "plant_species": "chives",
       "parent_bed_id": "3ab74df9-39d5-4d37-8f10-07ee95cec347",
-      "stack_order": 62464
+      "stack_order": 63488
     },
     {
       "type": "circle",
@@ -3176,7 +3202,7 @@
       "child_item_ids": [
         "bff0d353-5381-4cde-b667-59659fd3e331"
       ],
-      "stack_order": 63488
+      "stack_order": 64512
     },
     {
       "type": "circle",
@@ -3244,7 +3270,7 @@
       "stroke_style": "SOLID",
       "plant_species": "rosemary",
       "parent_bed_id": "2ffea9ae-d1b4-4465-a360-b15f056d1d33",
-      "stack_order": 64512
+      "stack_order": 65536
     },
     {
       "type": "circle",
@@ -3263,7 +3289,7 @@
       "child_item_ids": [
         "7bfc9c63-7c9a-49ed-a92f-3ae26633c940"
       ],
-      "stack_order": 65536
+      "stack_order": 66560
     },
     {
       "type": "circle",
@@ -3331,7 +3357,7 @@
       "stroke_style": "SOLID",
       "plant_species": "lavender",
       "parent_bed_id": "d149bd2b-b1e8-4ce2-a091-40156d0e154c",
-      "stack_order": 66560
+      "stack_order": 67584
     },
     {
       "type": "circle",
@@ -3350,7 +3376,7 @@
       "child_item_ids": [
         "51cb2fd5-3a05-498d-976d-f548372db018"
       ],
-      "stack_order": 67584
+      "stack_order": 68608
     },
     {
       "type": "circle",
@@ -3418,7 +3444,7 @@
       "stroke_style": "SOLID",
       "plant_species": "thyme",
       "parent_bed_id": "a913ff94-50c5-475c-b511-5d4ca132ef10",
-      "stack_order": 68608
+      "stack_order": 69632
     },
     {
       "type": "rectangle",
@@ -3439,7 +3465,7 @@
         "e25d1e58-bcb2-4ba4-8dea-dd2d623b9647",
         "10592db1-7ecf-4352-b04b-30f0030d85d7"
       ],
-      "stack_order": 69632
+      "stack_order": 70656
     },
     {
       "type": "circle",
@@ -3511,7 +3537,7 @@
       "stroke_style": "SOLID",
       "plant_species": "runner bean",
       "parent_bed_id": "015ad71b-1b17-48a0-86fa-e8967e1bf481",
-      "stack_order": 70656
+      "stack_order": 71680
     },
     {
       "type": "circle",
@@ -3582,7 +3608,7 @@
       "stroke_style": "SOLID",
       "plant_species": "cucumber",
       "parent_bed_id": "015ad71b-1b17-48a0-86fa-e8967e1bf481",
-      "stack_order": 71680
+      "stack_order": 72704
     },
     {
       "type": "circle",
@@ -3635,7 +3661,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "hydrangea",
-      "stack_order": 72704
+      "stack_order": 73728
     },
     {
       "type": "circle",
@@ -3690,7 +3716,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rose",
-      "stack_order": 73728
+      "stack_order": 74752
     },
     {
       "type": "circle",
@@ -3743,7 +3769,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lilac",
-      "stack_order": 74752
+      "stack_order": 75776
     },
     {
       "type": "circle",
@@ -3796,7 +3822,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "boxwood",
-      "stack_order": 75776
+      "stack_order": 76800
     },
     {
       "type": "circle",
@@ -3849,7 +3875,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "forsythia",
-      "stack_order": 76800
+      "stack_order": 77824
     },
     {
       "type": "circle",
@@ -3902,7 +3928,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "rhododendron",
-      "stack_order": 77824
+      "stack_order": 78848
     },
     {
       "type": "circle",
@@ -3957,7 +3983,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "blueberry",
-      "stack_order": 78848
+      "stack_order": 79872
     },
     {
       "type": "circle",
@@ -4012,7 +4038,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "raspberry",
-      "stack_order": 79872
+      "stack_order": 80896
     },
     {
       "type": "circle",
@@ -4067,7 +4093,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "currant",
-      "stack_order": 80896
+      "stack_order": 81920
     },
     {
       "type": "circle",
@@ -4122,7 +4148,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "gooseberry",
-      "stack_order": 81920
+      "stack_order": 82944
     },
     {
       "type": "circle",
@@ -4177,7 +4203,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "cherry tree",
-      "stack_order": 82944
+      "stack_order": 83968
     },
     {
       "type": "circle",
@@ -4230,7 +4256,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "birch",
-      "stack_order": 83968
+      "stack_order": 84992
     },
     {
       "type": "circle",
@@ -4285,7 +4311,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "apple tree",
-      "stack_order": 84992
+      "stack_order": 86016
     },
     {
       "type": "circle",
@@ -4340,7 +4366,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pear tree",
-      "stack_order": 86016
+      "stack_order": 87040
     },
     {
       "type": "circle",
@@ -4393,7 +4419,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "spruce",
-      "stack_order": 87040
+      "stack_order": 88064
     },
     {
       "type": "circle",
@@ -4446,7 +4472,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "magnolia",
-      "stack_order": 88064
+      "stack_order": 89088
     },
     {
       "type": "rectangle",
@@ -4463,7 +4489,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 89088
+      "stack_order": 90112
     },
     {
       "type": "rectangle",
@@ -4480,7 +4506,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 90112
+      "stack_order": 91136
     },
     {
       "type": "rectangle",
@@ -4497,7 +4523,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 91136
+      "stack_order": 92160
     },
     {
       "type": "rectangle",
@@ -4514,7 +4540,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 92160
+      "stack_order": 93184
     },
     {
       "type": "rectangle",
@@ -4531,7 +4557,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 93184
+      "stack_order": 94208
     },
     {
       "type": "circle",
@@ -4547,7 +4573,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 94208
+      "stack_order": 95232
     },
     {
       "type": "circle",
@@ -4563,7 +4589,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 95232
+      "stack_order": 96256
     },
     {
       "type": "rectangle",
@@ -4580,7 +4606,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 96256
+      "stack_order": 97280
     },
     {
       "type": "circle",
@@ -4596,7 +4622,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 97280
+      "stack_order": 98304
     },
     {
       "type": "circle",
@@ -4612,7 +4638,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 98304
+      "stack_order": 99328
     },
     {
       "type": "rectangle",
@@ -4629,7 +4655,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 99328
+      "stack_order": 100352
     },
     {
       "type": "rectangle",
@@ -4646,7 +4672,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 100352
+      "stack_order": 101376
     },
     {
       "type": "circle",
@@ -4662,7 +4688,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 101376
+      "stack_order": 102400
     }
   ],
   "location": {

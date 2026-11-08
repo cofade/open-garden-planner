@@ -71,6 +71,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
 from PyQt6.QtCore import QPointF  # noqa: E402
+from PyQt6.QtGui import QColor, QPolygonF  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from open_garden_planner.core import ProjectManager  # noqa: E402
@@ -186,6 +187,33 @@ class PlanBuilder:
         house.set_metadata("ridge_item_id", str(ridge.item_id))
         return house
 
+    def greenhouse(self, x: float, y: float, w: float, h: float,
+                   name: str = "Greenhouse") -> RectangleItem:
+        """GREENHOUSE rectangle plus its linked aluminium ridge (#768).
+
+        Mirrors ``ChangeObjectTypeCommand``: the ridge is the canonical long-axis
+        line in the item's local frame, mapped to the scene, and the two items
+        name each other. The finish is the anodised aluminium of #768.
+        """
+        item = self.rect(x, y, w, h, ObjectType.GREENHOUSE, name)
+        rect = item.rect()
+        polygon = QPolygonF([rect.topLeft(), rect.topRight(),
+                             rect.bottomRight(), rect.bottomLeft()])
+        p1, p2 = compute_roof_ridge_endpoints(polygon, item.pos())
+        ridge = PolylineItem([p1, p2], object_type=ObjectType.ROOF_RIDGE)
+        # A deterministic id that does NOT consume the seeded sequence: adding the
+        # ridge must not shift every later item's id (the plan's plant shapes and
+        # the 3D/shadow goldens are seeded from those ids).
+        ridge._item_id = uuid.uuid5(item.item_id, "greenhouse-ridge")
+        self.scene.addItem(ridge)
+        self.count += 1
+        ridge.set_metadata("owner_polygon_id", str(item.item_id))
+        ridge.set_metadata("ridge_finish", "aluminium")
+        ridge.stroke_color = QColor(176, 181, 185)
+        ridge._setup_styling()
+        item.set_metadata("ridge_item_id", str(ridge.item_id))
+        return item
+
     def plant(self, cx: float, cy: float, common_name: str, ot: ObjectType,
               spread_cm: float | None = None, height_cm: float | None = None,
               parent: Any = None) -> CircleItem:
@@ -242,7 +270,7 @@ def build_small() -> PlanBuilder:
 
     # --- buildings ---
     b.house([(160, 1000), (1060, 1000), (1060, 1540), (160, 1540)])
-    b.rect(1340, 1180, 240, 340, T.GREENHOUSE, "Greenhouse")
+    b.greenhouse(1340, 1180, 240, 340, "Greenhouse")
     b.rect(1960, 1240, 300, 240, T.GARAGE_SHED, "Shed")
     b.rect(220, 740, 380, 210, T.PERGOLA, "Pergola", height_cm=250)
 
@@ -345,7 +373,7 @@ def build_large() -> PlanBuilder:
     b.polygon([(30, 30), (4970, 30), (4970, 2970), (30, 2970)], T.LAWN, "Lawn")
     b.house([(200, 2200), (1300, 2200), (1300, 2900), (200, 2900)])
     b.rect(1500, 2500, 400, 350, T.GARAGE_SHED, "Shed")
-    b.rect(2100, 2450, 500, 420, T.GREENHOUSE, "Greenhouse")
+    b.greenhouse(2100, 2450, 500, 420, "Greenhouse")
     b.polyline([(10, 10), (4990, 10), (4990, 2990)], T.FENCE, PathFenceStyle.WOODEN_FENCE,
                "Fence")
     b.polygon([(10, 30), (80, 30), (80, 2990), (10, 2990)], T.HEDGE_POLYGON, "Hedge")
@@ -420,7 +448,7 @@ def build_built() -> PlanBuilder:
     garage.metadata["roof_style"] = "flat"
     shed = b.rect(80, 80, 240, 180, T.TOOL_SHED, "Tool shed")
     shed.metadata["roof_style"] = "shed"
-    b.rect(380, 80, 300, 220, T.GREENHOUSE, "Greenhouse")
+    b.greenhouse(380, 80, 300, 220, "Greenhouse")
     b.rect(1180, 700, 300, 260, T.PERGOLA, "Pergola")
 
     # --- boundaries ---

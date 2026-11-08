@@ -1,15 +1,21 @@
-"""Smart-symbol library loader (US-C4).
+"""Smart-symbol library loader (US-C4; bundled templates retired by #770).
 
 Loads parametric symbol definitions from two sources:
 
-* **Bundled** — ``resources/data/smart_symbols/*.json`` shipped with the app.
-  Validated eagerly; a malformed bundled file is a packaging bug and crashes
-  loud (mirrors ``services/amendment_loader.py``).
+* **Bundled** — a directory of ``*.json`` files (used by tests; the app ships
+  none since #770 retired the fixed templates in favour of the parametric
+  HOUSE / GREENHOUSE / PERGOLA tools). Validated eagerly; a malformed bundled
+  file is a packaging bug and crashes loud (mirrors
+  ``services/amendment_loader.py``).
 * **User** — ``<app-data>/smart_symbols/*.json`` (auto-created). Users drop a
-  JSON here to add a symbol; it appears on next launch. A malformed *user*
-  file is skipped with a warning (one bad file must not break the app).
+  JSON here to add a symbol; it loads on next launch. A malformed *user* file is
+  skipped with a warning (one bad file must not break the app). No sidebar panel
+  inserts new symbols since #770; this path keeps existing/user definitions
+  available to the properties panel.
 
-A user file may override a bundled symbol by reusing its ``id``.
+Existing plans are unaffected: a smart symbol stores its generated child shapes,
+so it loads and draws without its definition. A user file may override a bundled
+symbol by reusing its ``id``.
 """
 
 from __future__ import annotations
@@ -22,7 +28,8 @@ from open_garden_planner.models.smart_symbol import SmartSymbolDefinition
 
 logger = logging.getLogger(__name__)
 
-_BUNDLED_DIR = Path(__file__).parent.parent / "resources" / "data" / "smart_symbols"
+#: No bundled templates ship since #770; tests pass their own ``bundled_dir``.
+_BUNDLED_DIR: Path | None = None
 
 
 def _user_dir() -> Path:
@@ -63,12 +70,13 @@ class SmartSymbolLibrary:
         if self._symbols is not None:
             return
         symbols: dict[str, SmartSymbolDefinition] = {}
-        # Bundled: crash loud on malformed (packaging bug).
-        for path in sorted(self._bundled_dir.glob("*.json")):
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-            definition = SmartSymbolDefinition.from_dict(data)
-            symbols[definition.id] = definition
+        # Bundled: crash loud on malformed (packaging bug). None since #770.
+        if self._bundled_dir is not None:
+            for path in sorted(self._bundled_dir.glob("*.json")):
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                definition = SmartSymbolDefinition.from_dict(data)
+                symbols[definition.id] = definition
         # User: skip-with-warning on ANY failure (a bad user file must never
         # crash startup). This loop is THE trust boundary for untrusted JSON, so
         # it catches ``Exception`` rather than a hand-picked tuple — every prior

@@ -218,7 +218,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
           "sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c",
-          "current_sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c"
+          "current_sha256": "534a52c675b5a279ae5664e5f2d6e1c2a42c93ecfd5840c8bca11d43409d0d36"
         },
         {
           "path": ".agents/skills/debug-verbose/references/043-case-study-outer-dialog-ok-appends-a-duplicate-after-sub-dialog-edit-us-12-10-f2-6c-f.md",
@@ -1063,7 +1063,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
           "sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781",
-          "current_sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781"
+          "current_sha256": "a1a13a4ac6ef4858ec722d33e3d0b8e186a15a4a519ef69add19536c23e887e9"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/005-3-the-write-path-command-pattern-8-2-adr-004.md",
@@ -1073,7 +1073,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/006-4-known-weak-points-stated-plainly.md",
           "sha256": "a69007a81234be0dfe30f92b9cc7b5bdb2cf82475c8138731b64f9acdcd9a08e",
-          "current_sha256": "0e29afb66e47f73243dc9b897d4d037e39b095d168d09e8817b526640ce4b185"
+          "current_sha256": "bd48f1d85b4ea210cec5ac9815165d2b287a1ee41e0cac274d8dc753f4b1e191"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/007-5-before-you-design-anything-checklist.md",
@@ -1618,7 +1618,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
           "sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c",
-          "current_sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c"
+          "current_sha256": "534a52c675b5a279ae5664e5f2d6e1c2a42c93ecfd5840c8bca11d43409d0d36"
         },
         {
           "path": ".claude/skills/debug-verbose/references/043-case-study-outer-dialog-ok-appends-a-duplicate-after-sub-dialog-edit-us-12-10-f2-6c-f.md",
@@ -2463,7 +2463,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
           "sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781",
-          "current_sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781"
+          "current_sha256": "a1a13a4ac6ef4858ec722d33e3d0b8e186a15a4a519ef69add19536c23e887e9"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/005-3-the-write-path-command-pattern-8-2-adr-004.md",
@@ -2473,7 +2473,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/006-4-known-weak-points-stated-plainly.md",
           "sha256": "a69007a81234be0dfe30f92b9cc7b5bdb2cf82475c8138731b64f9acdcd9a08e",
-          "current_sha256": "0e29afb66e47f73243dc9b897d4d037e39b095d168d09e8817b526640ce4b185"
+          "current_sha256": "bd48f1d85b4ea210cec5ac9815165d2b287a1ee41e0cac274d8dc753f4b1e191"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/007-5-before-you-design-anything-checklist.md",

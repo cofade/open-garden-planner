@@ -25,8 +25,10 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
+from open_garden_planner.ui.canvas.roof_ridge_link import ridge_points_local
 
 from .garden_item import GardenItemMixin, is_interactive_paint
+from .greenhouse_paint import paint_greenhouse
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
 from .roof_paint import paint_roof_with_ridge
 
@@ -504,6 +506,16 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             self._paint_with_ridge(painter, ridge)
         else:
             super().paint(painter, option, widget)
+
+        # A GREENHOUSE's aluminium glazing bars over its glass fill (#768); the
+        # ridge is the plan's linked one in the item's own frame.
+        if self.object_type == ObjectType.GREENHOUSE:
+            paint_greenhouse(
+                painter,
+                poly,
+                self.pen(),
+                ridge_points_local(self, ridge),
+            )
 
         # Draw square-foot grid overlay inside bed
         if self._grid_enabled and is_bed_type(self.object_type):

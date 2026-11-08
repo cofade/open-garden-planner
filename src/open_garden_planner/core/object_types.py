@@ -8,6 +8,7 @@ from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, Qt
 from PyQt6.QtGui import QColor
 
 from .fill_patterns import FillPattern
+from .roof_style import is_ridge_bearing_kind
 
 
 class PathFenceStyle(Enum):
@@ -729,6 +730,16 @@ def is_container_type(object_type: ObjectType | None) -> bool:
     if object_type is None:
         return False
     return object_type in CONTAINER_TYPES
+
+
+def is_ridge_bearing_type(object_type: ObjectType | None) -> bool:
+    """Whether this type may own a linked ``ROOF_RIDGE`` (#768).
+
+    A HOUSE always could; a GREENHOUSE is a first-class parametric building now,
+    so its ridge is the same derived geometry (``core.roof_ridge``), created,
+    moved and deleted by the same one path (``ui.canvas.roof_ridge_link``).
+    """
+    return object_type is not None and is_ridge_bearing_kind(object_type.name)
 
 
 def polygon_equivalent_object_type(

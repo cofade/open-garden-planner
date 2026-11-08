@@ -67,6 +67,7 @@ from open_garden_planner.core.plant_height_estimate import (
 )
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
+    is_ridge_bearing_kind,
     roof_overhang_cm,
     roof_pitch_deg,
     roof_style,
@@ -1074,7 +1075,7 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         overhang = roof_overhang_cm(metadata)
         if overhang is not None:
             params[PARAM_ROOF_OVERHANG] = quantize_cm(overhang)
-    if kind == "HOUSE" and not resolved:  # a drawn ridge belongs to the DRAWN outline
+    if is_ridge_bearing_kind(kind) and not resolved:  # a drawn ridge belongs to the DRAWN outline
         ridge_id = metadata.get("ridge_item_id")
         if ridge_id:
             from open_garden_planner.ui.canvas.roof_ridge_link import is_owned_ridge

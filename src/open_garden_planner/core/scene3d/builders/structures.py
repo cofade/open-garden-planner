@@ -7,19 +7,20 @@ greenhouse's) as a solid prism, and the meshes here are open frames and glass
 that casts no shadow (``ogp-lush-cinematic`` §4). The same porosity question the
 fences raise (issue #440); the 3D view shows what is built.
 
-- **PERGOLA** (the sprite ``build_pergola``): four posts, two beams along the
-  sprite's width on them, nine rafters along its depth on top — the rafters' top
-  is the height. Its default height (250 cm, since L4's second owner pass) casts
-  its whole footprint in 2D, these open rafters in 3D.
+- **PERGOLA** (#769, ``core.pergola``'s one layout with the 2D picture): four
+  posts carrying a perimeter of four beams, nine rafters across the depth and five
+  purlins on top — the purlins' top is the height. Its default height (250 cm)
+  casts its whole footprint in 2D, these open rafters in 3D.
 - **TRELLIS** (no sprite: a ``LATTICE`` fill in the item's colour, so ``tinted``):
   a post at each end of the footprint's LONG side, a top and a bottom rail and a
   diagonal lattice between them, in the vertical plane through the footprint's
   middle — what a climber is tied to (L3 grows climbers up to it).
-- **GREENHOUSE** (a ``GLASS`` fill in the item's colour): an aluminium frame on a
-  concrete kerb, glass walls, glass gables and a pitched glass roof along the
-  long side; its ridge beam's top is the height. The glass is ``tinted`` (the
-  item's fill), translucent and casts no shadow. A footprint that is not a box
-  gets the gable roof of ``roofs`` in glass over its walls.
+- **GREENHOUSE** (#768, a ``GLASS`` fill in the item's colour): an aluminium
+  frame on a concrete kerb, glass walls, glass gables and a pitched glass roof
+  along the plan's ridge; its ridge beam's top is the height. The glass is
+  ``tinted`` (the item's fill), translucent and casts no shadow. A box footprint
+  whose live ridge is the natural long axis gets the framed house; any other
+  footprint or ridge gets ``roofs.gable_roof`` in glass over its walls.
 """
 
 from __future__ import annotations
@@ -29,9 +30,11 @@ from typing import Final
 
 import numpy as np
 
+from ...greenhouse import bay_count
+from ...pergola import layout as pergola_layout
 from ..build import BuilderRegistry
 from ..mesh import Mesh, MeshPart
-from ..record import Record
+from ..record import PARAM_RIDGE, Record
 from . import palette
 from .common import BuiltBuilder, footprint_of, has_one_plain_ring, plain_block
 from .kit import (
@@ -46,7 +49,7 @@ from .kit import (
     turned_mesh,
 )
 from .primitives import F64, flat_mesh, quad_triangles
-from .roofs import RoofStyle, bounding_box_ridge, gable_roof
+from .roofs import Ridge, RoofStyle, bounding_box_ridge, gable_roof, ridge_of
 
 #: The kinds this module builds.
 KINDS: Final[tuple[str, ...]] = ("PERGOLA", "TRELLIS", "GREENHOUSE")
@@ -71,27 +74,23 @@ def _pergola(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     box = object_box(record)
     if box is None or box.round:
         return plain_block(record, height_cm)
-    w, d, h = box.half_w, box.half_d, height_cm
-    post = min(14.0, 0.06 * min(box.width, box.depth))
-    inset = min(10.0, 0.04 * min(box.width, box.depth))
-    rafter_h = min(12.0, 0.06 * h)
-    beam_h = min(18.0, 0.08 * h)
-    deck = h - rafter_h
-    meshes = [slabs([(sx * (w - inset - post / 2.0), sy * (d - inset - post / 2.0), post, post)
-                     for sx in (-1, 1) for sy in (-1, 1)], 0.0, deck - beam_h,
-                    palette.PLANK_GROOVE.linear, 1.0)]
-    beam_w = min(10.0, 0.8 * post)
-    for sy in (-1.0, 1.0):
-        y = sy * (d - inset - post / 2.0)
-        meshes.append(slab(-w + 1.0, w - 1.0, y - beam_w / 2.0, y + beam_w / 2.0, deck - beam_h, deck,
-                           palette.PLANK.linear, 1.0))
-    count = 9
-    span = box.width - 2.0 * min(30.0, 0.1 * box.width)
-    rafter_w = min(8.0, 0.03 * box.width)
-    xs = -span / 2.0 + span * np.arange(count) / (count - 1)
-    # oak mid, as the beams: the light oak clipped on the rafters' sunlit sides
-    meshes.append(slabs([(x, 0.0, rafter_w, box.depth - 2.0) for x in xs], deck, h,
-                        palette.PLANK.linear, 0.8))
+    # ONE layout with the 2D picture and the gallery (``core.pergola``): posts,
+    # four perimeter beams, nine rafters and five purlins; the purlins' top is the
+    # item's height (#769).
+    plan = pergola_layout(box.width, box.depth, height_cm)
+    if plan is None:
+        return plain_block(record, height_cm)
+    meshes = [
+        slabs([r.as_slab() for r in plan.posts], 0.0, plan.beam_bottom,
+              palette.PLANK_GROOVE.linear, 1.0),
+        slabs([r.as_slab() for r in plan.beams], plan.beam_bottom, plan.deck,
+              palette.PLANK.linear, 1.0),
+        # oak mid, as the beams: the light oak clipped on the rafters' sunlit sides
+        slabs([r.as_slab() for r in plan.rafters], plan.deck, plan.rafter_top,
+              palette.PLANK.linear, 0.8),
+        slabs([r.as_slab() for r in plan.purlins], plan.rafter_top, plan.height,
+              palette.OAK_LIGHT.linear, 0.5),
+    ]
     return (_part(meshes, box, "pergola"),)
 
 
@@ -150,13 +149,61 @@ def _trellis(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     mesh = Mesh.merge(meshes)
     if not along_x:
         mesh = turned_mesh(mesh, "z", 90.0)
-    return (MeshPart(mesh.translated(box.cx, box.cy, 0.0) if box.cx or box.cy else mesh, "vc",
-                     tinted=True, name="trellis"),)
+    return (MeshPart(placed([mesh], box), "vc", tinted=True, name="trellis"),)
 
 
-GLASS_ROOF: Final = RoofStyle(tile=palette.GLASS, cap=palette.STEEL_LIGHT, timber=palette.STEEL,
+GLASS_ROOF: Final = RoofStyle(tile=palette.GLASS, cap=palette.STEEL, timber=palette.STEEL,
                               overhang_cm=3.0, pitch_deg=30.0, slab_cm=2.0, cap_rise_cm=3.0,
                               cap_half_width_cm=4.0, eave_floor_cm=150.0, eave_floor_share=0.7)
+
+
+def _box_ridge(box: ObjectBox) -> Ridge:
+    """The ridge the framed house is built on: the box's long axis, through its
+    centre, in the item's own frame (the same line ``bounding_box_ridge`` gives a
+    rectangle, and the one ``core.roof_ridge`` draws in 2D)."""
+    if box.width >= box.depth:
+        return ((box.cx - box.half_w, box.cy), (box.cx + box.half_w, box.cy))
+    return ((box.cx, box.cy - box.half_d), (box.cx, box.cy + box.half_d))
+
+
+def _same_ridge(one: Ridge, other: Ridge, tolerance_cm: float = 1.0) -> bool:
+    """Whether two ridge lines are the same segment, end order ignored (an edited
+    ridge is authoritative in direction: a dragged endpoint may swap them)."""
+
+    def near(a: tuple[float, float], b: tuple[float, float]) -> bool:
+        return abs(a[0] - b[0]) <= tolerance_cm and abs(a[1] - b[1]) <= tolerance_cm
+
+    return (near(one[0], other[0]) and near(one[1], other[1])) or (
+        near(one[0], other[1]) and near(one[1], other[0])
+    )
+
+
+def _roof_glass_and_frame(mesh: Mesh) -> tuple[Mesh, Mesh]:
+    """Split a gable roof into its GLASS-tile triangles and its aluminium frame
+    (the cap and the timber/fascia), so only the glass takes the item's tint
+    (#768). Colours are per vertex; a triangle belongs to the tile when all three
+    of its vertices carry the tile colour. The tile subset is neutralised to
+    ``palette.TINT`` because the sink multiplies a tinted part by the item's
+    colour — a part that is tinted twice would render darker than its walls."""
+    tile = np.asarray(palette.GLASS.linear, dtype=np.float32)
+    triangles = mesh.colors[mesh.indices]  # (n, 3, 4)
+    is_glass = np.all(np.isclose(triangles, tile, atol=1e-5), axis=(1, 2))
+
+    def subset(mask: np.ndarray) -> Mesh:
+        indices = mesh.indices[mask]
+        if not len(indices):
+            return Mesh.empty()
+        used, inverse = np.unique(indices, return_inverse=True)
+        return Mesh.from_arrays(
+            mesh.positions[used], mesh.normals[used], mesh.colors[used], mesh.uvs[used],
+            inverse.reshape(-1, 3).astype(np.uint32),
+        )
+
+    glass = subset(is_glass)
+    if glass.vertex_count:
+        white = np.broadcast_to(np.asarray(palette.TINT, dtype=np.float32), glass.colors.shape)
+        glass = Mesh.from_arrays(glass.positions, glass.normals, white, glass.uvs, glass.indices)
+    return glass, subset(~is_glass)
 
 
 def _greenhouse_box(box: ObjectBox, h: float) -> tuple[MeshPart, ...]:
@@ -177,7 +224,7 @@ def _greenhouse_box(box: ObjectBox, h: float) -> tuple[MeshPart, ...]:
         slab(L - 6.0, L, -S + 6.0, S - 6.0, 0.0, kerb, concrete, 0.8),
         slab(-L, L, -ridge_h / 2.0, ridge_h / 2.0, h - ridge_h, h, alu_light, 0.5),
     ]
-    bays = min(MAX_REPEATS // 12, max(2, round(2.0 * L / 60.0)))
+    bays = bay_count(2.0 * L)
     xs = -L + bar / 2.0 + (2.0 * L - bar) * np.arange(bays + 1) / bays
     for x in xs:
         for sy in (-1.0, 1.0):
@@ -223,21 +270,30 @@ def _greenhouse_box(box: ObjectBox, h: float) -> tuple[MeshPart, ...]:
 
 
 def _greenhouse(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
+    """The glasshouse (#768): the framed house where its live ridge is the box's
+    natural long axis, else the plan's own ridge under a glass gable roof."""
     box = object_box(record)
-    if box is not None and not box.round:
+    live = ridge_of(record.params.get(PARAM_RIDGE))
+    if box is not None and not box.round and (
+        live is None or _same_ridge(live, _box_ridge(box))
+    ):
         return _greenhouse_box(box, height_cm)
     if not has_one_plain_ring(record):
         return plain_block(record, height_cm)
     footprint = footprint_of(record)
-    ridge = bounding_box_ridge(footprint)
+    ridge = live if live is not None else bounding_box_ridge(footprint)
     built = gable_roof(footprint, ridge, height_cm, GLASS_ROOF) if ridge is not None else None
     if built is None:
         return plain_block(record, height_cm)
-    roof = Mesh.from_arrays(built.roof.positions, built.roof.normals,
-                            np.broadcast_to(palette.TINT, built.roof.colors.shape), built.roof.uvs,
-                            built.roof.indices)
-    return (MeshPart(Mesh.merge([built.walls, roof]), "glass", casts_shadow=False, tinted=True,
-                     name="glass"),)
+    # Walls in the item's glass tint; the roof's glass tiles take the same tint,
+    # while its aluminium cap/fascia stays grey (#768).
+    glass_roof, frame_roof = _roof_glass_and_frame(built.roof)
+    parts = [MeshPart(built.walls, "glass", casts_shadow=False, tinted=True, name="glass")]
+    if glass_roof.vertex_count:
+        parts.append(MeshPart(glass_roof, "glass", casts_shadow=False, tinted=True, name="glass"))
+    if frame_roof.vertex_count:
+        parts.append(MeshPart(frame_roof, "roof", casts_shadow=False, name="roof"))
+    return tuple(parts)
 
 
 build_pergola: Final = BuiltBuilder(_pergola, "pergola")

@@ -41,6 +41,14 @@ def _themed_icon(name: str, role: str) -> QIcon:
     return icon if icon is not None else QIcon()
 
 
+#: One layer row's height in px: the 24 px buttons plus the row's 4+4 px margins.
+#: The inline rename swaps a QLabel for a QLineEdit whose size hint is shorter,
+#: and a DPI/font can make a row taller — so the row is pinned to at least this
+#: (#775) and the list is measured in whole rows (#774), never a fixed 36 px
+#: count that clipped the last row and left an empty band under it.
+ROW_HEIGHT = 36
+
+
 class LayerListItem(QWidget):
     """Custom widget for a layer list item with visibility/lock controls."""
 
@@ -59,6 +67,7 @@ class LayerListItem(QWidget):
         """
         super().__init__(parent)
         self.layer = layer
+        self.setMinimumHeight(ROW_HEIGHT)  # #775: never shrink for the rename edit
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -99,6 +108,7 @@ class LayerListItem(QWidget):
         # Layer name label — use palette-safe color so it stays readable
         # when selected in both light and dark modes
         self.name_label = QLabel(self.layer.name)
+        self.name_label.setToolTip(self.layer.name)  # a long name clips; the tooltip shows it
         self.name_label.setStyleSheet(
             "padding-left: 4px;"
         )
@@ -204,6 +214,7 @@ class LayerListItem(QWidget):
         """
         self.layer = layer
         self.name_label.setText(layer.name)
+        self.name_label.setToolTip(layer.name)
         self.name_edit.setText(layer.name)
         self.visibility_btn.setChecked(layer.visible)
         self.visibility_btn.setIcon(
@@ -256,6 +267,9 @@ class LayersPanel(QWidget):
 
         # Layer list - height adjusts to content, scrolls at 5+ layers
         self.layer_list = QListWidget()
+        # A long layer name must not add a horizontal scrollbar: it would take
+        # height from the viewport and clip the last row (#774).
+        self.layer_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.layer_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.layer_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self.layer_list.currentRowChanged.connect(self._on_layer_selected)
@@ -339,7 +353,7 @@ class LayersPanel(QWidget):
             widget.delete_requested.connect(self._on_delete_layer)
 
             hint = widget.sizeHint()
-            hint.setHeight(max(hint.height(), 36))
+            hint.setHeight(max(hint.height(), ROW_HEIGHT))
             item.setSizeHint(hint)
             self.layer_list.addItem(item)
             self.layer_list.setItemWidget(item, widget)
@@ -359,21 +373,22 @@ class LayersPanel(QWidget):
         self._adjust_list_height()
 
     def _adjust_list_height(self) -> None:
-        """Adjust the list height based on number of layers."""
-        # Height per item (24px icon + 4+4px margins + 4px padding)
-        item_height = 36
-        num_layers = len(self._layers)
-        max_visible = 5
+        """Size the list to whole rows, frame included (#774).
 
-        if num_layers <= max_visible:
-            # Show all layers without scrolling
-            height = max(item_height, num_layers * item_height)
-            self.layer_list.setFixedHeight(height)
-        else:
-            # Limit to max_visible layers, enable scrolling
-            height = max_visible * item_height
-            self.layer_list.setMaximumHeight(height)
-            self.layer_list.setMinimumHeight(height)
+        The old fixed ``count * 36`` ignored both the row's real size hint (a
+        font/DPI can make a row taller) and the list's frame, so the last row was
+        clipped and an empty band appeared beneath it — the highest layer needed
+        a scroll to be seen. Measure the rows we actually show and use the SAME
+        fixed height in both branches, so a refresh after a rename or a theme
+        change cannot leave a stale maximum behind.
+        """
+        count = self.layer_list.count()
+        rows = [self.layer_list.sizeHintForRow(i) for i in range(count)]
+        row_height = max([ROW_HEIGHT, *rows])
+        max_visible = 5
+        visible = min(count, max_visible)
+        frame = 2 * self.layer_list.frameWidth()
+        self.layer_list.setFixedHeight(max(visible, 1) * row_height + frame)
 
     def refresh_layer_visibility(self, layer_id: UUID, visible: bool) -> None:
         """Update the visibility button for a layer without emitting layer_visibility_changed.

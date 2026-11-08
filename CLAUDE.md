@@ -258,6 +258,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
     Partner Center registration and three `OGP_MSIX_*` repository variables. Never
     claim Store availability before the first certified version is live.
+  - Parametric structures (#768/#769/#770): a ridge-bearing kind is asked through
+    `is_ridge_bearing_type`, never `== HOUSE`; a structure's 2D picture and 3D build
+    share one layout (`core/pergola.py`, `core/greenhouse.py`); a sprite whose
+    natural aspect is opposite its item's turns via `core/sprite_orientation.py`.
+    The Smart Symbols panel and bundled templates are retired.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

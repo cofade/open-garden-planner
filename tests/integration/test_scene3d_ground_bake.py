@@ -430,7 +430,7 @@ class TestParityOfPaths:
 
 class TestParityOfSprites:
     @pytest.mark.parametrize("angle", [0.0, 33.0])
-    @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "PERGOLA"])
+    @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "WHEELBARROW"])
     def test_a_furniture_item_without_a_solid_is_its_sprite_on_the_ground(
             self, qtbot: Any, kind: str, angle: float) -> None:
         """An object whose builder built nothing (``objects_unbuilt``) shows its 2D
@@ -438,7 +438,7 @@ class TestParityOfSprites:
         scene = new_scene()
         x, y = ACROSS_A_CORNER
         object_type = ObjectType[kind]
-        if kind == "PERGOLA":
+        if kind == "WHEELBARROW":
             item: Any = RectangleItem(x + 0.4, y + 0.7, 300.0, 200.0, object_type=object_type)
         else:
             item = CircleItem(x + 110.3, y + 90.6, 75.0, object_type=object_type)
@@ -1890,15 +1890,15 @@ class TestHostilePlans:
 
         monkeypatch.setattr(ground_bake, "render_furniture_pixmap", recording)
         scene = _hostile_scene()
-        scene.addItem(RectangleItem(100.0, 100.0, 300.0, 200.0, object_type=ObjectType.PERGOLA))
+        scene.addItem(RectangleItem(100.0, 100.0, 300.0, 200.0, object_type=ObjectType.WHEELBARROW))
         bake = Bake(scene, registry=objects_unbuilt())
         bake.step()
         assert set(asked) == {(300.0, 200.0)}  # control: the canvas's own size
         asked.clear()
 
         scene.addItem(RectangleItem(-450_000.0, -450_000.0, 900_000.0, 900_000.0,
-                                    object_type=ObjectType.PERGOLA))
-        scene.addItem(RectangleItem(-450_000.0, 700.0, 900_000.0, 0.5, object_type=ObjectType.PERGOLA))
+                                    object_type=ObjectType.WHEELBARROW))
+        scene.addItem(RectangleItem(-450_000.0, 700.0, 900_000.0, 0.5, object_type=ObjectType.WHEELBARROW))
         painted = bake.baker.records_painted
         bake.step()
         assert bake.skipped == [] and bake.baker.failures == {}

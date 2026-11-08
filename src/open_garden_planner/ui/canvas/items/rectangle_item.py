@@ -17,11 +17,28 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
-from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
-from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge, outline_polygon
+from open_garden_planner.core.furniture_renderer import (
+    is_furniture_type,
+    paints_picture,
+    render_furniture_pixmap,
+)
+from open_garden_planner.core.object_height import effective_height_cm
+from open_garden_planner.core.object_types import (
+    ObjectType,
+    StrokeStyle,
+    get_style,
+    is_bed_type,
+    is_ridge_bearing_type,
+)
+from open_garden_planner.ui.canvas.roof_ridge_link import (
+    linked_ridge,
+    outline_polygon,
+    ridge_points_local,
+)
 
 from .garden_item import GardenItemMixin
+from .greenhouse_paint import paint_greenhouse
+from .pergola_paint import paint_pergola
 from .resize_handle import RectVertexEditMixin, ResizeHandlesMixin, RotationHandleMixin
 from .roof_paint import paint_roof_with_ridge
 
@@ -173,8 +190,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
     @property
     def paints_sprite(self) -> bool:
-        """A furniture rectangle is painted as an SVG sprite (``GardenItemMixin.paints_sprite``)."""
-        return is_furniture_type(self.object_type)
+        """A furniture rectangle is painted as an SVG sprite; a pergola by its own
+        parametric painter (#769) — both are pictures, not fills
+        (``GardenItemMixin.paints_sprite``)."""
+        return paints_picture(self.object_type)
 
     def _setup_styling(self) -> None:
         """Configure visual appearance based on object type."""
@@ -330,13 +349,31 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self._draw_soil_mismatch_border(painter)
                 return
 
+        # A PERGOLA is drawn from its one parametric layout (#769), never a
+        # stretched sprite: posts, beams, rafters and purlins at their real sizes.
+        if self.object_type == ObjectType.PERGOLA:
+            height = effective_height_cm(self.object_type, self.metadata)
+            if not paint_pergola(painter, self.rect(), height or 250.0):
+                super().paint(painter, option, widget)
+        # A GREENHOUSE is a first-class building now (#768): its glass fill, then
+        # the aluminium glazing bars the 3D frame puts at the same bay lines.
+        elif self.object_type == ObjectType.GREENHOUSE:
+            super().paint(painter, option, widget)
+            polygon = outline_polygon(self)
+            if polygon is not None:
+                paint_greenhouse(
+                    painter,
+                    polygon,
+                    self.pen(),
+                    ridge_points_local(self, linked_ridge(self)),
+                )
         # A HOUSE is drawn as its roof seen from above. A ridge-less rectangle
         # paints a flat fill, but one converted into a HOUSE (#690) owns a
         # ROOF_RIDGE, and its tiles must lap down-slope on BOTH sides of it —
         # the same ridge-aware paint the polygon tool's houses have used since
         # #372. Without this branch the converted house's tiles lapped back up
         # toward the ridge (manual test of PR #713, 2.1).
-        if self.object_type == ObjectType.HOUSE:
+        elif self.object_type == ObjectType.HOUSE:
             ridge = linked_ridge(self)
             polygon = outline_polygon(self)
             if ridge is not None and polygon is not None:
@@ -424,21 +461,21 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         return super().itemChange(change, value)
 
     def _update_house_ridge(self) -> None:
-        """Keep a converted HOUSE's linked ridge on the current outline.
+        """Keep a converted ridge-bearing building's linked ridge on the outline.
 
-        A rectangle can become a HOUSE (``get_valid_types_for_shape``), and the
-        ridge is a separate scene item, so it must follow the host on a move, a
-        rotation and a resize — otherwise the 2D ridge and the 3D roof keep
-        stale geometry (PF-CAN-34; review P1 of #690).
+        A rectangle can become a HOUSE or GREENHOUSE (``get_valid_types_for_shape``),
+        and the ridge is a separate scene item, so it must follow the host on a
+        move, a rotation and a resize — otherwise the 2D ridge and the 3D roof
+        keep stale geometry (PF-CAN-34; review P1 of #690, extended by #768).
         """
-        if self.object_type != ObjectType.HOUSE:
+        if not is_ridge_bearing_type(self.object_type):
             return
         from open_garden_planner.ui.canvas.roof_ridge_link import update_linked_ridge
 
         update_linked_ridge(self)
 
     def _apply_rotation(self, angle: float) -> None:
-        """Apply rotation and keep a converted HOUSE's ridge in step."""
+        """Apply rotation and keep a converted building's ridge in step."""
         super()._apply_rotation(angle)
         self._update_house_ridge()
 

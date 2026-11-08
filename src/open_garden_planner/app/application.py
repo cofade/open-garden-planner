@@ -79,7 +79,6 @@ from open_garden_planner.ui.panels import (
     PlantListsPanel,
     PlantSearchPanel,
     PropertiesPanel,
-    SmartSymbolsPanel,
 )
 from open_garden_planner.ui.sun_export_gate import ExportCanceled
 from open_garden_planner.ui.theme import (
@@ -2669,16 +2668,6 @@ class GardenPlannerApp(QMainWindow):
         )
         sidebar_layout.addWidget(self.journal_collapsible)
 
-        # 11. Smart Symbols library (US-C4) — parametric blocks
-        self.smart_symbols_panel = SmartSymbolsPanel()
-        self.smart_symbols_panel.symbol_selected.connect(self._on_smart_symbol_selected)
-        self.smart_symbols_collapsible = CollapsiblePanel(
-            self.tr("Smart Symbols"),
-            self.smart_symbols_panel,
-            expanded=False,
-        )
-        sidebar_layout.addWidget(self.smart_symbols_collapsible)
-
         # Route every panel through the SidebarController (US-226 accordion):
         # all bars start collapsed; hover peeks them open in place, a title click
         # toggles them open/closed. Panels keep a fixed canonical order (they are
@@ -2699,7 +2688,6 @@ class GardenPlannerApp(QMainWindow):
             ("plant_search", plant_search_collapsible),
             ("plant_lists", plant_lists_collapsible),
             ("journal", self.journal_collapsible),
-            ("smart_symbols", self.smart_symbols_collapsible),
         ]
         from open_garden_planner.ui.guild_coordinator import GuildCoordinator
         from open_garden_planner.ui.panels.diagnostics_panel import DiagnosticsPanel
@@ -2733,11 +2721,6 @@ class GardenPlannerApp(QMainWindow):
         # behaviour; the selection updaters re-show them on a relevant selection).
         for key in ("plant_details", "companion", "crop_rotation"):
             self._sidebar_controller.set_panel_visible(key, False)
-        # US-C4: the Smart Symbols engine, persistence, and DXF export ship, but
-        # the sidebar panel is deferred from the UI for now. It stays registered
-        # (so order/wiring are untouched) but its bar is permanently hidden —
-        # nothing re-shows it. Re-enable by deleting this one line.
-        self._sidebar_controller.set_panel_visible("smart_symbols", False)
 
         sidebar_layout.addWidget(self._sidebar_controller)
 
@@ -6361,45 +6344,6 @@ class GardenPlannerApp(QMainWindow):
         """Sidebar double-click → centre viewport on pin + open editor."""
         self.canvas_view.focus_on_journal_pin(note_id)
         self._on_journal_note_edit(note_id)
-
-    def _on_smart_symbol_selected(self, symbol_id: str) -> None:
-        """Drop a parametric smart symbol at the viewport centre (US-C4)."""
-        from open_garden_planner.core.commands import CreateItemCommand
-        from open_garden_planner.services.smart_symbol_library import (
-            get_smart_symbol_library,
-        )
-        from open_garden_planner.ui.canvas.items.smart_symbol_item import SmartSymbolItem
-
-        definition = get_smart_symbol_library().get(symbol_id)
-        if definition is None:
-            return
-        scene = (
-            getattr(self.canvas_view, "_canvas_scene", None)
-            or self.canvas_view.scene()
-        )
-        if scene is None:
-            return
-        layer_id = (
-            scene.active_layer.id
-            if getattr(scene, "active_layer", None)
-            else None
-        )
-        # No canvas name → no floating label child to entangle with the
-        # regenerated geometry; the panel header shows the symbol's name.
-        symbol = SmartSymbolItem(
-            symbol_id=symbol_id,
-            symbol_version=definition.version,
-            params=definition.param_defaults(),
-            layer_id=layer_id,
-        )
-        center = self.canvas_view.mapToScene(
-            self.canvas_view.viewport().rect().center()
-        )
-        symbol.setPos(center)
-        symbol.regenerate_geometry()
-        self.canvas_view.command_manager.execute(CreateItemCommand(scene, symbol))
-        scene.clearSelection()
-        symbol.setSelected(True)
 
     def _on_garden_journal_notes_changed(self, notes: object) -> None:
         """Refresh the sidebar panel when notes change (added / edited / removed)."""

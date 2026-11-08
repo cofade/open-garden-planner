@@ -689,11 +689,6 @@
     "state": "CLOSED",
     "title": "One polygon of a plan file can freeze the 2D canvas for minutes"
   },
-  "475": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "3D ground: one ground tile is not bounded in time, and hairlines / dashed round outlines differ from the canvas at tile borders"
-  },
   "480": {
     "is_pr": false,
     "state": "CLOSED",
@@ -718,16 +713,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "build(454): pin the build toolchain and publish the frozen inventory"
-  },
-  "492": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Russian translation proposal (open_garden_planner_ru.ts)"
-  },
-  "495": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(i18n): add Russian translation (ru)"
   },
   "496": {
     "is_pr": false,
@@ -774,11 +759,6 @@
     "state": "CLOSED",
     "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
   },
-  "531": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
-  },
   "532": {
     "is_pr": false,
     "state": "CLOSED",
@@ -788,11 +768,6 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: committed memory grows ~2 MB/min while the wind runs (FU-L14-2, intermittent)"
-  },
-  "535": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "3D: a software-only adapter (WARP, no GPU) gets the hardware look - 12.8 s to the first readback"
   },
   "536": {
     "is_pr": false,
@@ -869,11 +844,6 @@
     "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
-  "578": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L2 3D: the near half of the sun-path dome crosses in front of the garden"
-  },
   "584": {
     "is_pr": true,
     "state": "MERGED",
@@ -913,11 +883,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
-  },
-  "598": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "FU-L3: Seasonal callback budget has limited headroom across Windows/WARP runners"
   },
   "600": {
     "is_pr": false,
@@ -1039,11 +1004,6 @@
     "state": "MERGED",
     "title": "fix(#641, #643, #623, #605): precision, UI, and diagnostic bugfixes"
   },
-  "647": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(3D): Visual polish and engine hardening package (#535, #578, #576, #619, #589, #582, #615)"
-  },
   "649": {
     "is_pr": true,
     "state": "MERGED",
@@ -1079,11 +1039,6 @@
     "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
-  "664": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Split a shape along a two-click snapped line"
-  },
   "665": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1104,135 +1059,30 @@
     "state": "CLOSED",
     "title": "3D: a filleted fence/wall corner renders as a solid curved block (posts must follow the arc at straight-run spacing)"
   },
-  "676": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#452): sliced whole-plan preparation, a geometry lane, and native triangulation"
-  },
-  "685": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Flaky: test_a_death_in_software_mode_switches_3d_off_and_says_so depends on which real PIDs are alive"
-  },
-  "688": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
-  },
-  "689": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
-  },
   "690": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
-  },
-  "692": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
-  },
-  "693": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Forecast as app-owned data keyed by place (not a hidden tab's widget)"
-  },
-  "694": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Stale frost alerts survive File > New, a cleared location and a failed fetch (badge, dashboard, Tasks tab, agent)"
   },
   "695": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
   },
-  "696": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Clear horizon step 3.13 at the low-preset sunset exceeds HORIZON_STEP_BOUND 3.0 (pre-existing, ungated)"
-  },
-  "697": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Location readers outside L5 raise on a hostile plan (OverflowError, NaN, text): route them through plan_place"
-  },
-  "699": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#389): L5 living garden - playback, weather, particles, Today's Weather, garden lights"
-  },
-  "700": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
-  },
   "701": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Shadow casters rebuild every shed's 3D roof mesh on the main thread; 150 sheds time out a sun-controls test (#440)"
-  },
-  "702": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Weather forecast cards show English weekday names in every UI language"
-  },
-  "703": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "The plan loader caps a polygon's vertices but not a polyline's"
-  },
-  "704": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Beauty Board --analysis fails on bench_built: the probe pin shows in 38 px (< 50) at noon"
-  },
-  "705": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "3D: where a string of lights' point light stands on a loop or an L/U string, and lay each string out once per light pass"
-  },
-  "706": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "2D: a string's post symbol hides the bulb kept 6 cm from it (paint the posts before the bulbs)"
-  },
-  "707": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "String lights: stale text and three test gaps after PR #699's reviews"
-  },
-  "708": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Layering: the string's type icon lives in the gallery's data module; Record.has_2d_caster has only test readers"
   },
   "709": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "A string of lights cannot be filleted (owner decision); open earlier filleted strings without a wall of posts"
   },
-  "710": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
-  },
-  "712": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Derived ridge follow-ups: groupable ridges, copy ridges, legacy link sanitising, remaining menu undo"
-  },
   "713": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
-  },
-  "714": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Render tier: distant-horizon gate fails on master (403 m / 15° rows 3.44–3.48 > 3.0 luma)"
   },
   "716": {
     "is_pr": false,
@@ -1243,11 +1093,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
-  },
-  "718": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Render tier: the flood-release soak never settles its initial forge/LOD work (pre-existing on master)"
   },
   "719": {
     "is_pr": false,
@@ -1269,26 +1114,6 @@
     "state": "CLOSED",
     "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
   },
-  "723": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
-  },
-  "724": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
-  },
-  "726": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fix(paths): paved path ends/bends grow rounded grey lobes; 3D selection edge misses the mesh"
-  },
-  "727": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fix(paths): switching path style resets the user-set width; unify path default widths"
-  },
   "728": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1298,16 +1123,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#390): L6 Director's cut - photo mode, camera tours, video and render_3d_view"
-  },
-  "730": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Camera tours: nobody owns the clock during a recording (agent writes take the tour's date; a flight preview reverts the user's clock)"
-  },
-  "731": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Camera tours: a kept video can be lost (the next recording deletes .part.mp4; one Esc discards a long render)"
   },
   "732": {
     "is_pr": false,
@@ -1319,94 +1134,29 @@
     "state": "CLOSED",
     "title": "4K pictures: the horizon band is 9 levels darker than at 1080p (glow is pixel-sized)"
   },
-  "735": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Capture quality: a picture uses the view's quality preset, and the MP4 carries no colour tag"
-  },
-  "738": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L6 hygiene: the smaller findings of the #390 reviews"
-  },
-  "740": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fix(agent-api): delete_object on a group leaves nested journal notes behind"
-  },
-  "741": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fix(#690): grouping houses from different layers leaves a nested ridge on its old layer"
-  },
-  "744": {
+  "768": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Ultra: reflections + blur + glow in one effect chain crash Qt's render thread in d3d11.dll (workaround drops reflections under blur)"
+    "title": "feat(cad): adapt Glasshouse tool to parametric building class with aluminium roof ridge"
   },
-  "745": {
+  "769": {
     "is_pr": false,
-    "state": "CLOSED",
-    "title": "Photo mode: blur without a focus after opening a plan, and an auto-focus in mid-air while walking"
+    "state": "OPEN",
+    "title": "feat(cad): add scalable Pergola building tool with matching 2D/3D rafter and post representation"
   },
-  "747": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#741, #740, #727, #726, #703, #712): 2D drawing & CAD integrity follow-ups"
-  },
-  "748": {
+  "770": {
     "is_pr": false,
-    "state": "CLOSED",
-    "title": "Drawing house polygon at an angle forces axis-aligned roof ridge and distorted roof pitch"
+    "state": "OPEN",
+    "title": "refactor(smart_symbols): retire Smart Symbols panel and redundant symbol definitions"
   },
-  "750": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#730, #731, #732, #745): capture-session integrity - clock, files, focus"
-  },
-  "752": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#748, #702, #697, #694, #685, #706, #707, #708, #710, #700): CAD geometry, weather resilience, lighting & test hygiene"
-  },
-  "755": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#695, #696, #704, #714, #717, #718, #722): sky probes, horizon bounds, pin sizing and forge-reset safety"
-  },
-  "756": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#675, #709, #705, #701): curved geometry, string lights and shadow cost"
-  },
-  "759": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#733, #735, #738): capture quality and L6 hygiene"
-  },
-  "762": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#688, #720, #723, #692, #689): engine, smart symbols, and CAD hygiene"
-  },
-  "763": {
+  "774": {
     "is_pr": false,
-    "state": "CLOSED",
-    "title": "Companion panel's Permapeople fetch ignores the keys saved in Preferences"
+    "state": "OPEN",
+    "title": "Not all layers are by default visible in properties menu"
   },
-  "765": {
+  "775": {
     "is_pr": false,
-    "state": "CLOSED",
-    "title": "Plant profile header never downloads a thumbnail (fetch_thumbnail has no caller)"
-  },
-  "772": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fix(ui): prevent premature collapse of accordion panels when moving mouse to header pin button"
-  },
-  "773": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#772, #765, #763, #724, #693): UI & services hygiene — accordion hover, thumbnails, permapeople settings, simulated plan date prompt, and forecast holder"
+    "state": "OPEN",
+    "title": "Editing a layer name shrinks text box vertically"
   }
 }

@@ -208,3 +208,4 @@
 | Case study: a filleted fence became a wall of planks (#675/#709) | [Read](205-case-study-a-filleted-fence-became-a-wall-of-planks-675-709.md) |
 | Case study: the cheaper shadow walk got slower (#701) | [Read](206-case-study-the-cheaper-shadow-walk-got-slower-701.md) |
 | Case study: a 4K picture's dark band that was blamed on the glow (#733) | [Read](207-case-study-a-4k-picture-that-was-blamed-on-the-glow-733.md) |
+| Case study: a layers list with an empty row and a rename that shrank its row (#774/#775) | [Read](208-case-study-a-layers-list-with-an-empty-row-and-a-rename-that-shrank-774-775.md) |

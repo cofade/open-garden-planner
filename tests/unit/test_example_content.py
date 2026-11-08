@@ -139,12 +139,22 @@ def test_the_showcase_is_a_real_saved_plan_with_its_links_and_place():
     plan = load(SHOWCASE)
     assert plan["location"]["timezone"] == "Europe/Berlin"
     by_id = {o["item_id"]: o for o in plan["objects"]}
-    assert len(by_id) == len(plan["objects"]) == 99
+    assert len(by_id) == len(plan["objects"]) == 100
     assert sum(1 for o in plan["objects"] if species(o) or o.get("object_type") in
                {"TREE", "SHRUB", "PERENNIAL"}) == 61
     for obj in plan["objects"]:
         if parent_id := obj.get("parent_bed_id"):
             assert obj["item_id"] in by_id[parent_id]["child_item_ids"]
+    # #768: every glasshouse in the showcase is ridge-bearing, with its linked
+    # aluminium ROOF_RIDGE (a saved example must show the current tool, not an
+    # older non-ridge greenhouse).
+    greenhouses = [o for o in plan["objects"] if o.get("object_type") == "GREENHOUSE"]
+    assert greenhouses
+    for greenhouse in greenhouses:
+        ridge = by_id[greenhouse["metadata"]["ridge_item_id"]]
+        assert ridge["object_type"] == "ROOF_RIDGE"
+        assert ridge["metadata"]["owner_polygon_id"] == greenhouse["item_id"]
+        assert ridge["metadata"]["ridge_finish"] == "aluminium"
     # it shows off the built world: every class of the 3D pipeline stands in it
     kinds = {o.get("object_type") for o in plan["objects"]}
     assert {"HOUSE", "ROOF_RIDGE", "GREENHOUSE", "GARAGE_SHED", "PERGOLA", "RAISED_BED", "POND_POOL",

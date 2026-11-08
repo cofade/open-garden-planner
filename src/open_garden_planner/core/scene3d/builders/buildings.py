@@ -71,12 +71,14 @@ from .common import BuiltBuilder, corner_count, footprint_of, has_one_plain_ring
 from .facade import facade
 from .roofs import (
     GableRoof,
+    Ridge,
     RoofStyle,
     bounding_box_ridge,
     eave_floor,
     flat_roof,
     gable_roof,
     hip_roof,
+    ridge_of,
     shed_roof,
 )
 
@@ -117,24 +119,6 @@ FLAT_ROOF: Final = RoofStyle(
     tile=palette.CONCRETE_LIGHT, cap=palette.CONCRETE, timber=palette.STONE_DARK,
     overhang_cm=15.0, pitch_deg=0.0, slab_cm=20.0,
 )
-
-Ridge = tuple[tuple[float, float], tuple[float, float]]
-
-
-def ridge_of(value: ParamValue | None) -> Ridge | None:
-    """``params["ridge"]`` as two finite points, or None for anything else."""
-    if not isinstance(value, tuple) or len(value) != 2:
-        return None
-    points: list[tuple[float, float]] = []
-    for point in value:
-        if not isinstance(point, tuple) or len(point) != 2:
-            return None
-        x, y = point
-        if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, int | float) \
-                or not isinstance(y, int | float) or not math.isfinite(x + y):
-            return None
-        points.append((float(x), float(y)))
-    return points[0], points[1]
 
 
 def chosen_style(record: Record) -> str | None:

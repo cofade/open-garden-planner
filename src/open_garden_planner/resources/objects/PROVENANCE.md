@@ -28,4 +28,4 @@ it merges (`ogp-external-positioning`: assets without provenance don't ship).
 | Directory | Files |
 |---|---|
 | `furniture/` | bbq_grill, bench, chair, fire_pit, garden_light, hammock, hot_tub, lounger, parasol, picnic_table, planter_pot, sandbox, swing, table_rectangular, table_round, trampoline |
-| `infrastructure/` | bird_bath, cold_frame, compost_bin, pergola, rain_barrel, raised_bed, tool_shed, water_tap, wheelbarrow |
+| `infrastructure/` | bird_bath, cold_frame, compost_bin, rain_barrel, raised_bed, tool_shed, water_tap, wheelbarrow |

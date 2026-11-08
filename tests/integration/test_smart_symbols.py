@@ -31,22 +31,67 @@ def _geometry_children(symbol: SmartSymbolItem) -> int:
     return len(symbol.childItems())
 
 
+#: The five template definitions moved here when #770 retired the Smart Symbols
+#: panel: they are test fixtures now, not app content. The engine, persistence,
+#: properties editing and DXF export still ship, and existing plans keep working
+#: from their cached children.
+FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "smart_symbols"
+
+
+@pytest.fixture(autouse=True)
+def _fixture_library(monkeypatch, tmp_path) -> None:
+    """Point the process-wide library at the fixture definitions (#770)."""
+    from open_garden_planner.services import smart_symbol_library as module
+
+    user = tmp_path / "user"
+    user.mkdir()
+    library = module.SmartSymbolLibrary(bundled_dir=FIXTURE_DIR, user_dir=user)
+    monkeypatch.setattr(module, "_default_library", library)
+
+
+def _insert_symbol(
+    scene: CanvasScene,
+    symbol_id: str,
+    *,
+    version: int | None = None,
+    params: dict | None = None,
+) -> SmartSymbolItem:
+    """Create and place a symbol directly (the panel that used to do this is
+    retired, #770); the engine's own path is unchanged."""
+    from open_garden_planner.services.smart_symbol_library import (
+        get_smart_symbol_library,
+    )
+
+    definition = get_smart_symbol_library().get(symbol_id)
+    assert definition is not None
+    symbol = SmartSymbolItem(
+        symbol_id,
+        definition.version if version is None else version,
+        definition.param_defaults() if params is None else params,
+    )
+    scene.addItem(symbol)
+    symbol.regenerate_geometry()
+    return symbol
+
+
 class TestPlacementAndEditing:
-    def test_panel_lists_bundled_symbols(self, qtbot, monkeypatch) -> None:
+    def test_panel_retired(self, qtbot, monkeypatch) -> None:
+        """#770: the Smart Symbols sidebar panel and its templates are gone, and
+        the sidebar no longer registers the key (existing plans keep working)."""
         win = _make_app(qtbot, monkeypatch)
-        assert win.smart_symbols_panel._list.count() >= 5
+        assert not hasattr(win, "smart_symbols_panel")
+        assert "smart_symbols" not in win._sidebar_controller.panel_keys()
 
     def test_insert_creates_parametric_item(self, qtbot, monkeypatch) -> None:
         win = _make_app(qtbot, monkeypatch)
-        win._on_smart_symbol_selected("raised_bed_rows")
+        _insert_symbol(win.canvas_scene, "raised_bed_rows")
         syms = [it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem)]
         assert len(syms) == 1
         assert _geometry_children(syms[0]) == 4  # 1 rect + 3 rows
 
     def test_param_edit_regenerates_undoably(self, qtbot, monkeypatch) -> None:
         win = _make_app(qtbot, monkeypatch)
-        win._on_smart_symbol_selected("raised_bed_rows")
-        sym = next(it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem))
+        sym = _insert_symbol(win.canvas_scene, "raised_bed_rows")
         sym.setPos(200.0, 150.0)
         pos_before = (sym.pos().x(), sym.pos().y())
 
@@ -69,8 +114,7 @@ class TestPlacementAndEditing:
 
     def test_repeated_edits_do_not_leak_items(self, qtbot, monkeypatch) -> None:
         win = _make_app(qtbot, monkeypatch)
-        win._on_smart_symbol_selected("raised_bed_rows")
-        sym = next(it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem))
+        sym = _insert_symbol(win.canvas_scene, "raised_bed_rows")
         for rows in (5, 8, 3, 6):
             sym.params["rows"] = rows
             sym.regenerate_geometry()
@@ -95,8 +139,7 @@ class TestPlacementAndEditing:
         lib._ensure_loaded()
         lib._symbols["dz"] = definition
 
-        win._on_smart_symbol_selected("dz")
-        sym = next(it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem))
+        sym = _insert_symbol(win.canvas_scene, "dz")
         assert _geometry_children(sym) == 1
         win.properties_panel.set_command_manager(win.canvas_view.command_manager)
         win.properties_panel.set_selected_items([sym])
@@ -106,8 +149,7 @@ class TestPlacementAndEditing:
 
     def test_ungroup_action_suppressed(self, qtbot, monkeypatch) -> None:
         win = _make_app(qtbot, monkeypatch)
-        win._on_smart_symbol_selected("raised_bed_rows")
-        sym = next(it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem))
+        sym = _insert_symbol(win.canvas_scene, "raised_bed_rows")
         # SmartSymbolItem overrides contextMenuEvent and must not wire the
         # destructive ungroup action (which GroupItem does via ungroup_item).
         from open_garden_planner.ui.canvas.items.group_item import GroupItem
@@ -324,10 +366,7 @@ class TestTypedMembersAnd3DSnapshot:
         win = _make_app(qtbot, monkeypatch)
         win.properties_panel.set_command_manager(win.canvas_view.command_manager)
 
-        win._on_smart_symbol_selected("raised_bed_rows")
-        sym = next(
-            it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem)
-        )
+        sym = _insert_symbol(win.canvas_scene, "raised_bed_rows")
         bed_child = next(
             c
             for c in sym.childItems()
@@ -464,12 +503,7 @@ class TestTypedMembersAnd3DSnapshot:
         lib._ensure_loaded()
         lib._symbols["dz_panel"] = definition
 
-        win._on_smart_symbol_selected("dz_panel")
-        sym = next(
-            it
-            for it in win.canvas_scene.items()
-            if isinstance(it, SmartSymbolItem) and it.symbol_id == "dz_panel"
-        )
+        sym = _insert_symbol(win.canvas_scene, "dz_panel")
         orig_children = list(sym.childItems())
         orig_undo_depth = len(win.canvas_view.command_manager._undo_stack)
         win.properties_panel.set_selected_items([sym])

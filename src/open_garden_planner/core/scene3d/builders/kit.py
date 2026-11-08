@@ -35,6 +35,7 @@ from typing import Final
 import numpy as np
 from numpy.typing import ArrayLike
 
+from ...sprite_orientation import sprite_turn_deg
 from ..build import item_seed
 from ..mesh import Mesh
 from ..record import PARAM_RADIUS_CM, PARAM_SEED, SHAPE_CIRCLE, Record
@@ -72,14 +73,17 @@ Color = tuple[float, float, float, float]
 @dataclass(frozen=True, slots=True)
 class ObjectBox:
     """Where an object stands in its item-local frame: the centre and the half
-    extents of its footprint's local bounding box (cm). ``round``: the footprint is
-    a circle of radius ``half_w`` (= ``half_d``)."""
+    extents of its BUILD footprint (cm). ``round``: the footprint is a circle of
+    radius ``half_w`` (= ``half_d``). ``turned``: the sprite's natural long axis
+    is opposite the item's, so the builder builds in the swapped frame and
+    ``placed`` turns the finished mesh a quarter clockwise into the item (#776)."""
 
     cx: float
     cy: float
     half_w: float
     half_d: float
     round: bool = False
+    turned: bool = False
 
     @property
     def width(self) -> float:
@@ -123,7 +127,14 @@ def object_box(record: Record) -> ObjectBox | None:
     if abs(signed_area(ring)) < BOX_AREA_SHARE * float(size[0] * size[1]):
         return None
     centre = (low + high) / 2.0
-    return ObjectBox(float(centre[0]), float(centre[1]), float(size[0]) / 2.0, float(size[1]) / 2.0)
+    # A sprite whose natural long axis is opposite the item's is built in the
+    # swapped frame and turned into place by ``placed`` (#776) — the same rule
+    # the 2D renderer applies to the pixmap.
+    turned = sprite_turn_deg(record.kind, float(size[0]), float(size[1])) != 0.0
+    half_w, half_d = float(size[0]) / 2.0, float(size[1]) / 2.0
+    if turned:
+        half_w, half_d = half_d, half_w
+    return ObjectBox(float(centre[0]), float(centre[1]), half_w, half_d, turned=turned)
 
 
 def seed_of(record: Record, salt: str) -> int:
@@ -133,9 +144,16 @@ def seed_of(record: Record, salt: str) -> int:
 
 
 def placed(meshes: Sequence[Mesh], box: ObjectBox) -> Mesh:
-    """``meshes`` built about the object's own centre, merged and moved onto the box."""
+    """``meshes`` built about the object's own centre, merged, turned into the
+    item's frame when the sprite needed a quarter turn (#776), and moved onto the
+    box."""
     merged = Mesh.merge(list(meshes))
-    if not merged.vertex_count or (box.cx == 0.0 and box.cy == 0.0):
+    if not merged.vertex_count:
+        return merged
+    if box.turned:
+        # Clockwise, matching the pixmap turn in ``furniture_renderer``.
+        merged = turned_mesh(merged, "z", -90.0)
+    if box.cx == 0.0 and box.cy == 0.0:
         return merged
     return merged.translated(box.cx, box.cy, 0.0)
 

@@ -1328,13 +1328,15 @@ def _restore_constraints(commands: list[Command]) -> None:
 
 
 class ChangeObjectTypeCommand(Command):
-    """Change an item's type/style and keep a HOUSE's roof ridge in step (#690).
+    """Change an item's type/style and keep a linked roof ridge in step (#690, #768).
 
-    A HOUSE's ``ROOF_RIDGE`` is derived geometry (ADR-046): the polygon tool
-    creates it on draw, and this command creates it when a shape *becomes* a
-    HOUSE (a rectangle converted from the Properties panel or Change Type), so
-    the canvas shows the same ridge either way. Converting away from HOUSE takes
-    the ridge with it, and both halves are one undo step with the type change.
+    A ridge-bearing building's ``ROOF_RIDGE`` is derived geometry (ADR-046): the
+    polygon tool creates it on draw, and this command creates it when a shape
+    *becomes* a HOUSE or GREENHOUSE (a rectangle converted from the Properties
+    panel or Change Type), so the canvas shows the same ridge either way.
+    Converting away from a ridge-bearing type takes the ridge with it, and both
+    halves are one undo step with the type change. A GREENHOUSE's ridge wears the
+    aluminium finish and a HOUSE's the brown one (``apply_ridge_look``).
 
     The ridge is built once, on the first execute that needs one, and re-added
     on redo — never rebuilt — so its UUID and the metadata links on both sides
@@ -1373,12 +1375,10 @@ class ChangeObjectTypeCommand(Command):
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Change type")
 
-    def _new_is_house(self) -> bool:
-        from open_garden_planner.core.object_types import ObjectType
+    def _new_is_ridge_bearing(self) -> bool:
+        from open_garden_planner.core.object_types import is_ridge_bearing_type
 
-        return bool(
-            getattr(self._item, "object_type", None) == ObjectType.HOUSE
-        )
+        return is_ridge_bearing_type(getattr(self._item, "object_type", None))
 
     def _link(self, ridge: QGraphicsItem | None) -> None:
         """Name (or unname) the linked ridge on the item — both directions."""
@@ -1407,14 +1407,15 @@ class ChangeObjectTypeCommand(Command):
 
     def execute(self) -> None:
         from open_garden_planner.ui.canvas.roof_ridge_link import (
+            apply_ridge_look,
             build_linked_ridge,
             linked_ridge,
         )
 
         scene = self._item.scene() or self._scene
-        was_house = self._new_is_house()
+        was_ridge_bearing = self._new_is_ridge_bearing()
         self._apply_func(self._item, self._new_state)
-        if self._new_is_house():
+        if self._new_is_ridge_bearing():
             ridge = linked_ridge(self._item) or self._created_ridge
             if ridge is None:
                 self._created_ridge = build_linked_ridge(
@@ -1423,10 +1424,11 @@ class ChangeObjectTypeCommand(Command):
                 ridge = self._created_ridge
             if ridge is not None:
                 self._link(ridge)
+                apply_ridge_look(self._item, ridge)
                 if ridge.scene() is None and scene is not None:
                     scene.addItem(ridge)
             return
-        if was_house:
+        if was_ridge_bearing:
             ridge = linked_ridge(self._item) or self._created_ridge or self._removed_ridge
             # Clear the link even when the named ridge is gone: a dangling id
             # would keep the scene treating this item as a ridge owner (PF-PER-25).
@@ -1446,12 +1448,16 @@ class ChangeObjectTypeCommand(Command):
             self._link(None)
 
     def undo(self) -> None:
-        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.object_types import is_ridge_bearing_type
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            apply_ridge_look,
+            linked_ridge,
+        )
 
         scene = self._item.scene() or self._scene
-        old_is_house = self._old_state.get("object_type") == ObjectType.HOUSE
+        old_is_ridge_bearing = is_ridge_bearing_type(self._old_state.get("object_type"))
         self._apply_func(self._item, self._old_state)
-        if not old_is_house:
+        if not old_is_ridge_bearing:
             if self._created_ridge is not None and self._created_ridge.scene() is not None:
                 created_scene = self._created_ridge.scene()
                 if created_scene is not None:
@@ -1459,10 +1465,11 @@ class ChangeObjectTypeCommand(Command):
             self._restore_old_link()
             return
         if self._removed_ridge is not None:
-            # The pre-command HOUSE owned a ridge and execute removed it.
+            # The pre-command ridge-bearing item owned a ridge and execute removed it.
             if self._removed_ridge.scene() is None and scene is not None:
                 scene.addItem(self._removed_ridge)
             self._link(self._removed_ridge)
+            apply_ridge_look(self._item, self._removed_ridge)  # brown vs aluminium
             _restore_constraints(self._ridge_constraints)
             return
         if self._created_ridge is not None:
@@ -1473,6 +1480,10 @@ class ChangeObjectTypeCommand(Command):
             created_scene = self._created_ridge.scene()
             if created_scene is not None:
                 created_scene.removeItem(self._created_ridge)
+        else:
+            # The item kept its ridge through the change (GREENHOUSE <-> HOUSE,
+            # #768): its finish follows the type undo restores.
+            apply_ridge_look(self._item, linked_ridge(self._item))
         # A HOUSE whose link predates this command: restore exactly that key.
         self._restore_old_link()
 

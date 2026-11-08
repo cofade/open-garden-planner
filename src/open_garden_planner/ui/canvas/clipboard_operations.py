@@ -52,19 +52,20 @@ def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _with_house_ridges(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
-    """Give every copied HOUSE its OWN linked ridge, before the create command.
+    """Give every copied ridge-bearing building its OWN linked ridge, before the
+    create command (#712, #768).
 
     Copying a plan object means copying what makes it that object. The ridge is
     a free top-level sibling (ADR-046), so it is appended beside the copies and
-    created in the same ``CreateItemsCommand`` (one undo step). A HOUSE nested
+    created in the same ``CreateItemsCommand`` (one undo step). A building nested
     in a copied group gets its ridge at the top level too, exactly as drawing
     one does; ``build_linked_ridge`` maps through the child's parent transform.
     """
-    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.object_types import is_ridge_bearing_type
     from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
 
     def houses_of(item: QGraphicsItem) -> Iterator[QGraphicsItem]:
-        if getattr(item, "object_type", None) == ObjectType.HOUSE:
+        if is_ridge_bearing_type(getattr(item, "object_type", None)):
             yield item
         for child in item.childItems():
             yield from houses_of(child)

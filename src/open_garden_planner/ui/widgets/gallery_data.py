@@ -133,10 +133,17 @@ def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
 
 def thumbnail_for(obj_type: ObjectType) -> QPixmap | None:
     """The gallery's own painted picture for a type with no sprite (a string of
-    lights), else None. The gallery and the Properties panel's Type dropdown share
-    this one seam, so the two can never show different pictures (L5.4, #389)."""
+    lights, a pergola since #769), else None. The gallery and the Properties
+    panel's Type dropdown share this one seam, so the two can never show
+    different pictures (L5.4, #389)."""
     if obj_type == ObjectType.STRING_LIGHTS:
         return render_string_lights_thumbnail()
+    if obj_type == ObjectType.PERGOLA:
+        from open_garden_planner.ui.canvas.items.pergola_paint import (
+            render_pergola_thumbnail as _render,
+        )
+
+        return _render()
     return None
 
 
@@ -393,6 +400,12 @@ def _structure_items() -> list[GalleryItem]:
             name=name, tool_type=tool, object_type=obj, thumbnail=thumb,
             icon_name=icon if icon_used else "",
         ))
+    # A pergola is a parametric structure now (#769): its thumbnail is the same
+    # picture its canvas item paints, from the one layout in ``core.pergola``.
+    items.append(GalleryItem(
+        name=_tr("Pergola"), tool_type=ToolType.PERGOLA, object_type=ObjectType.PERGOLA,
+        thumbnail=thumbnail_for(ObjectType.PERGOLA),
+    ))
     return items
 
 
@@ -491,7 +504,6 @@ def _infrastructure_items() -> list[GalleryItem]:
         (_tr("Water Tap"), ToolType.WATER_TAP, ObjectType.WATER_TAP, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
         (_tr("Tool Shed"), ToolType.TOOL_SHED, ObjectType.TOOL_SHED, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
         # Package 3a roster (#308)
-        (_tr("Pergola"), ToolType.PERGOLA, ObjectType.PERGOLA, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
         (_tr("Wheelbarrow"), ToolType.WHEELBARROW, ObjectType.WHEELBARROW, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
         (_tr("Bird Bath"), ToolType.BIRD_BATH, ObjectType.BIRD_BATH, _INFRASTRUCTURE_DIR, _INFRASTRUCTURE_FILES),
     ]

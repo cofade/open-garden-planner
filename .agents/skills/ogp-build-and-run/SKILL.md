@@ -319,7 +319,7 @@ uninstaller copies any top-level `$INSTDIR\*.ogp` to
 | Autosave (untitled) | System temp dir: `~autosave_untitled.ogp` | same |
 | QSettings | `QSettings("cofade", "Open Garden Planner")` → Windows registry `HKCU\Software\cofade\Open Garden Planner`; Linux `~/.config/cofade/Open Garden Planner.conf` (tests redirect to org `cofade_test`) | `config/settings.py:22` `create_qsettings`, `tests/conftest.py` |
 | App-data dir | Windows `%APPDATA%\OpenGardenPlanner`; Linux `$XDG_DATA_HOME`-or-`~/.local/share` `/OpenGardenPlanner`; macOS `~/Library/Application Support/OpenGardenPlanner` | `services/plant_library.py::get_app_data_dir()` |
-| User smart symbols | `<app-data>/smart_symbols/*.json` (drop-a-file extensible; bundled ones in `resources/data/smart_symbols/`) | `services/smart_symbol_library.py` |
+| User smart symbols | `<app-data>/smart_symbols/*.json` (drop-a-file extensible; the app ships no bundled set since #770 — fixtures live in `tests/fixtures/smart_symbols/`) | `services/smart_symbol_library.py` |
 | Translations | `src/open_garden_planner/resources/translations/*.ts|.qm` | dir listing |
 | API keys | Google Maps key is stored in Preferences at `api_keys/google_maps_key`; blank Preferences falls back to `.env` at repo root (`OGP_GOOGLE_MAPS_KEY`), loaded by `main.py` via python-dotenv; optional | `app/settings.py`, `application.py`, `main.py` |
 

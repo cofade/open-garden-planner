@@ -482,7 +482,9 @@ class AgentHost:
             stamp_default_planting_date(cast(Any, item).metadata, self._agent_plan_date())
 
         linked_items: list[Any] = []
-        if object_type == "HOUSE":
+        from open_garden_planner.core.roof_style import is_ridge_bearing_kind
+
+        if is_ridge_bearing_kind(object_type):  # HOUSE, GREENHOUSE (#768)
             from open_garden_planner.ui.canvas.roof_ridge_link import (
                 build_linked_ridge,
             )
@@ -490,11 +492,11 @@ class AgentHost:
             # One construction path with the polygon tool and a type change:
             # `build_linked_ridge` computes the canonical geometry in the item's
             # local frame, maps it through the item's transform and links both
-            # metadata ends. CreateItemsCommand still makes the house and its
+            # metadata ends. CreateItemsCommand still makes the building and its
             # ridge one atomic undo step.
             ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
             if ridge is None:
-                raise ValueError("Could not build the HOUSE roof ridge.")
+                raise ValueError(f"Could not build the {object_type} roof ridge.")
             linked_items.append(ridge)
 
         items = [item, *linked_items]
