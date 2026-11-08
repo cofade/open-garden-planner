@@ -776,7 +776,7 @@ Smart symbol children previously instantiated exclusively as untyped/generic can
 
 ### Addendum (Issues #768–#770 — Parametric Structures Replace the Fixed Templates, 2026-11-08)
 
-**Status**: In review (draft PR #779). **Context**: the Smart Symbols panel was already hidden, and its fixed templates (a gabled glasshouse, a pergola) were the wrong abstraction for the owner's workflow: both objects need to scale with the plan and match their 3D build. Two first-class parametric tools replace them.
+**Status**: Shipped in v1.37.9 (PR #779). **Context**: the Smart Symbols panel was already hidden, and its fixed templates (a gabled glasshouse, a pergola) were the wrong abstraction for the owner's workflow: both objects need to scale with the plan and match their 3D build. Two first-class parametric tools replace them.
 
 **Decision**:
 1. **Pergola is a parametric structure, not a symbol.** `core/pergola.py` is the ONE layout (posts, perimeter beams, rafters, purlins); the canvas painter (`ui/canvas/items/pergola_paint.py`), the gallery thumbnail and the 3D builder (`core/scene3d/builders/structures.py`) all read it. The old `pergola.svg`, its generator recipe and the bundled `pergola` symbol are retired.
