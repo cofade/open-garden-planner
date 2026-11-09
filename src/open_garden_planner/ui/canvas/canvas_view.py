@@ -995,27 +995,14 @@ class CanvasView(QGraphicsView):
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Set the active drawing tool.
 
-        The split tool is selection-driven: a toolbar click or the bare ``S``
-        shortcut arms the one selected closed shape. Without that selection it
-        explains why and returns to Select instead of starting a gesture that
-        has no source.
+        The split tool is scene-wide: a toolbar click or the ``Shift+S``
+        shortcut starts a fresh two-point cut. Every closed shape the drawn
+        segment crosses is split, whether or not anything was selected first
+        (#664).
         """
         if tool_type is ToolType.SPLIT:
-            selected = [
-                item
-                for item in self._canvas_scene.selectedItems()
-                if item.parentItem() is None
-                and hasattr(item, "object_type")
-            ]
-            if len(selected) == 1:
-                if self.start_split_shape(selected[0]):
-                    return
-                # A refusal reason is already on the status bar; keep Split
-                # armed so the user can click a different shape.
-                self._activate_tool_direct(ToolType.SPLIT)
-                return
             self._activate_tool_direct(ToolType.SPLIT)
-            self.set_status_message(self.tr("Click the closed shape to split"))
+            self._split_tool.prepare(None)
             return
         self._activate_tool_direct(tool_type)
 
@@ -5203,15 +5190,19 @@ class CanvasView(QGraphicsView):
         return None
 
     def start_split_shape(self, item: QGraphicsItem) -> bool:
-        """Arm the split tool for *item* from its context menu (#664)."""
+        """Arm the split tool for *item* from its context menu (#664).
+
+        The toolbar's Split tool is scene-wide; this entry keeps the explicit
+        per-shape action scoped to the clicked shape.
+        """
         reason = self.split_refusal_reason(item)
         if reason is not None:
             self.set_status_message(reason)
             return False
         if item.item_id is None:
             return False
-        self._split_tool.prepare(item.item_id)
         self._activate_tool_direct(ToolType.SPLIT)
+        self._split_tool.prepare(item.item_id)
         self._canvas_scene.clearSelection()
         item.setSelected(True)
         self.set_status_message(

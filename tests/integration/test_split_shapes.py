@@ -9,12 +9,13 @@ refused before any mutation.
 
 from __future__ import annotations
 
+import math
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QColor, QKeyEvent, QPainterPath
+from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPainterPath
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
@@ -105,22 +106,27 @@ def test_a_vertical_cut_keeps_look_metadata_and_is_one_undo_step(
     assert len(_add_pieces(scene)) == 2
 
 
-def test_the_cad_toolbar_arms_the_selected_shape(qtbot, canvas) -> None:
+def test_the_cad_toolbar_starts_a_scene_wide_cut(qtbot, canvas) -> None:
     from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
 
-    source = _add(canvas, RectangleItem(100, 100, 200, 100))
+    # A selection is deliberately present: Split must no longer arm it, because
+    # the toolbar tool cuts every shape the two-point line crosses (#664).
+    _add(canvas, RectangleItem(100, 100, 200, 100))
     toolbar = ConstraintToolbar()
     qtbot.addWidget(toolbar)
     toolbar.tool_selected.connect(canvas.set_active_tool)
     button = toolbar._buttons[ToolType.SPLIT]
-    assert button.shortcut().toString() == "S"
+    assert button.shortcut().toString() == "Shift+S"
     assert not button.icon().isNull()
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
 
     button.click()
     QTest.qWait(10)
 
     assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
-    assert canvas._split_tool.source_id == source.item_id
+    assert canvas._split_tool.source_id is None
+    assert messages[-1] == "Click the first point of the cutting line. Esc cancels."
 
 
 def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None:
@@ -136,17 +142,19 @@ def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None
     toolbar._buttons[ToolType.SPLIT].click()
     QTest.qWait(10)
 
-    assert messages[-1] == "Click the closed shape to split"
+    assert messages[-1] == "Click the first point of the cutting line. Esc cancels."
     assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
     assert canvas._split_tool.source_id is None
 
 
-def test_the_cad_toolbar_can_pick_the_shape_on_the_canvas(
+def test_the_cad_toolbar_splits_every_shape_the_line_crosses(
     qtbot, canvas, mouse_event
 ) -> None:
     from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
 
-    source = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    first = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    second = _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    untouched = _add(canvas, RectangleItem(900, 100, 200, 100), select=False)
     canvas.scene().clearSelection()
     toolbar = ConstraintToolbar()
     qtbot.addWidget(toolbar)
@@ -155,14 +163,278 @@ def test_the_cad_toolbar_can_pick_the_shape_on_the_canvas(
     tool = canvas._split_tool
 
     assert tool.source_id is None
-    assert tool.mouse_press(mouse_event, QPointF(200, 150)) is True
-    assert tool.source_id == source.item_id
-    assert source.isSelected()
-    assert tool.mouse_press(mouse_event, QPointF(200, 0)) is True
-    assert tool.mouse_press(mouse_event, QPointF(200, 400)) is True
+    assert tool.mouse_press(mouse_event, QPointF(0, 150)) is True
+    assert tool.mouse_press(mouse_event, QPointF(700, 150)) is True
 
-    assert len(_add_pieces(canvas.scene())) == 2
+    pieces = _add_pieces(canvas.scene())
+    assert len(pieces) == 4
+    assert first.scene() is None
+    assert second.scene() is None
+    assert untouched.scene() is canvas.scene()
+    assert canvas.command_manager.undo_depth == 1
+
+
+def test_real_viewport_clicks_split_every_crossed_shape(qtbot, canvas) -> None:
+    """The gesture works through the view's real mouse dispatch, not only calls."""
+    canvas.resize(800, 600)
+    canvas.show()
+    canvas.centerOn(QPointF(350, 150))
+    qtbot.wait(50)
+    first = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    second = _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    canvas.set_active_tool(ToolType.SPLIT)
+
+    for scene_point in (QPointF(0, 150), QPointF(700, 150)):
+        viewport_point = canvas.mapFromScene(scene_point)
+        QTest.mouseClick(
+            canvas.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            viewport_point,
+        )
+        qtbot.wait(10)
+
+    assert first.scene() is None
+    assert second.scene() is None
+    assert len(_add_pieces(canvas.scene())) == 4
+    assert canvas.command_manager.undo_depth == 1
+
+
+def test_shift_constrains_the_line_to_45_degree_steps(canvas, mouse_event) -> None:
+    shift = MagicMock(spec=QMouseEvent)
+    shift.modifiers.return_value = Qt.KeyboardModifier.ShiftModifier
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    assert tool.mouse_press(mouse_event, QPointF(0, 0)) is True
+
+    assert tool._end(QPointF(100, 30), shift) == QPointF(
+        math.hypot(100, 30), 0
+    )
+    vertical = tool._end(QPointF(30, 100), shift)
+    assert vertical.x() == pytest.approx(0.0)
+    assert vertical.y() == pytest.approx(math.hypot(30, 100))
+
+
+def test_a_scene_wide_cut_undoes_all_sources_in_one_step(canvas, mouse_event) -> None:
+    scene = canvas.scene()
+    first = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    second = _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+    assert canvas.command_manager.undo_depth == 1
+
+    canvas.command_manager.undo()
+
+    assert first.scene() is scene
+    assert second.scene() is scene
+    assert _add_pieces(scene) == []
+    assert canvas.command_manager.undo_depth == 0
+
+
+def test_a_shape_on_the_lines_extension_is_not_split(canvas, mouse_event) -> None:
+    target = _add(canvas, RectangleItem(900, 100, 200, 100), select=False)
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    # Collinear with the shape but nowhere near it: the DRAWN segment decides.
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(500, 150))
+
+    assert target.scene() is canvas.scene()
+    assert _add_pieces(canvas.scene()) == []
+    assert canvas.command_manager.undo_depth == 0
+    assert messages[-1] == (
+        "The cutting line must cross a closed shape. Choose another second point."
+    )
+
+
+def test_a_line_starting_inside_a_shape_still_splits_it(canvas, mouse_event) -> None:
+    source = _add(canvas, RectangleItem(100, 100, 400, 200), select=False)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    # One pick inside the shape, one outside: the supporting axis still divides it.
+    tool.mouse_press(mouse_event, QPointF(200, 200))
+    tool.mouse_press(mouse_event, QPointF(800, 200))
+
     assert source.scene() is None
+    assert len(_add_pieces(canvas.scene())) == 2
+    assert canvas.command_manager.undo_depth == 1
+
+
+def test_a_scene_wide_cut_skips_a_grouped_shape(canvas, mouse_event) -> None:
+    scene = canvas.scene()
+    first = _add(canvas, RectangleItem(100, 100, 200, 100), select=True)
+    second = RectangleItem(400, 100, 200, 100)
+    _add(canvas, second, select=True)
+    first.setSelected(True)
+    second.setSelected(True)
+    canvas.group_selected()
+    depth = canvas.command_manager.undo_depth
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+
+    assert first.scene() is scene
+    assert second.scene() is scene
+    assert _add_pieces(scene) == []
+    assert canvas.command_manager.undo_depth == depth
+    assert messages[-1] == "Nothing was split: Ungroup the shape before splitting it"
+
+
+def test_a_scene_wide_cut_skips_a_plant_but_splits_the_bed(
+    canvas, mouse_event
+) -> None:
+    bed = _add(canvas, RectangleItem(100, 100, 400, 100), select=False)
+    plant = _add(
+        canvas,
+        CircleItem(300, 150, 40, object_type=ObjectType.TREE),
+        select=False,
+    )
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(600, 150))
+
+    assert bed.scene() is None
+    assert plant.scene() is canvas.scene()
+    assert len(_add_pieces(canvas.scene())) == 2
+    assert "1 crossed object could not be split" in messages[-1]
+    assert canvas.command_manager.undo_depth == 1
+
+
+def test_a_line_crossing_only_a_plant_explains_why_nothing_split(
+    canvas, mouse_event
+) -> None:
+    plant = _add(
+        canvas,
+        CircleItem(300, 150, 40, object_type=ObjectType.TREE),
+        select=False,
+    )
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(600, 150))
+
+    assert plant.scene() is canvas.scene()
+    assert canvas.command_manager.undo_depth == 0
+    assert messages[-1] == "Nothing was split: Plants and linked objects cannot be split"
+
+
+def test_the_tool_stays_armed_for_another_cut_after_a_scene_wide_split(
+    canvas, mouse_event
+) -> None:
+    _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(400, 150))
+
+    assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
+    assert tool._start is None
+
+    # The context-menu action is one-shot and returns to Select.
+    source = _add(canvas, RectangleItem(600, 300, 200, 100), select=False)
+    assert canvas.start_split_shape(source) is True
+    tool.mouse_press(mouse_event, QPointF(500, 350))
+    tool.mouse_press(mouse_event, QPointF(900, 350))
+    assert canvas.tool_manager.active_tool_type is ToolType.SELECT
+
+
+def test_a_scoped_context_menu_split_leaves_other_crossed_shapes_alone(
+    canvas, mouse_event
+) -> None:
+    chosen = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    neighbour = _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    assert canvas.start_split_shape(chosen) is True
+    tool = canvas._split_tool
+
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+
+    assert chosen.scene() is None
+    assert neighbour.scene() is canvas.scene()
+    assert len(_add_pieces(canvas.scene())) == 2
+
+
+def test_the_preview_shows_the_pieces_of_every_crossed_shape(
+    canvas, mouse_event
+) -> None:
+    _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    assert tool.mouse_press(mouse_event, QPointF(0, 150)) is True
+
+    assert tool.mouse_move(mouse_event, QPointF(700, 150)) is True
+
+    assert len(tool._preview_pieces) == 4
+    assert tool._preview_line is not None
+
+
+def test_a_multi_shape_split_survives_save_and_reopen(
+    canvas, mouse_event, tmp_path
+) -> None:
+    _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    _add(canvas, RectangleItem(400, 100, 200, 100), select=False)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+    geometry = sorted(
+        (piece.polygon() for piece in _add_pieces(canvas.scene())),
+        key=lambda poly: (poly.boundingRect().x(), poly.boundingRect().y()),
+    )
+
+    path = tmp_path / "multi-split.ogp"
+    ProjectManager().save(canvas.scene(), path)
+    restored = canvas.scene()
+    ProjectManager().load(restored, path)
+
+    pieces = [item for item in restored.items() if isinstance(item, PolygonItem)]
+    assert len(pieces) == 4
+    restored_geometry = sorted(
+        (piece.polygon() for piece in pieces),
+        key=lambda poly: (poly.boundingRect().x(), poly.boundingRect().y()),
+    )
+    assert restored_geometry == geometry
+
+
+def test_the_split_shortcut_does_not_collide_with_snap(qtbot) -> None:
+    """The shortcut must not collide with the main window's S (Snap to Grid).
+
+    A ``QToolButton`` shortcut and a ``QAction`` shortcut on the same key make
+    Qt fire NEITHER (measured on this Qt version); the first version of this
+    tool shipped with ``S`` and was dead for exactly that reason. Offscreen Qt
+    has no focus window, so this pins the configuration rather than a key press.
+    """
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.app.settings import get_settings
+
+    get_settings().show_welcome_on_startup = False
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+
+    split = window.constraint_toolbar._buttons[ToolType.SPLIT]
+    assert split.shortcut().toString() == "Shift+S"
+    assert window.snap_action.shortcut().toString() == "S"
+    assert split.shortcut() != window.snap_action.shortcut()
 
 
 def test_the_context_menu_shows_a_refusal_reason_as_its_tooltip(canvas, monkeypatch) -> None:

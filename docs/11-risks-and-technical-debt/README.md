@@ -154,6 +154,7 @@ Citations written before ADR-061 used the numbered form. Each resolves through t
 | 11.4.18 | PF-L3D-05 | What the looks, the sky and the wind taught (Phase 17 L1.4, #385) |
 | 11.4.19 | PF-E3D-08 | What selection, the info card and walk mode taught (Phase 17 L1.8, #385) |
 | 11.4.20 | PF-E3D-09 | What the default flip and the removal of Qt 3D taught (Phase 17 L1.9 / L1.10, #385) |
+| 11.4.21 | PF-UI-36 | A tool shortcut that collided with Snap to Grid (PR #783, #664) |
 
 ## 11.5 Community and Governance
 

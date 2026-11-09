@@ -1842,8 +1842,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
         "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
-        "Split along line — cut a closed shape with two points":
-            "Teilen entlang einer Linie — eine geschlossene Form mit zwei Punkten schneiden",
+        "Split along line — cut every closed shape the line crosses":
+            "Teilen entlang einer Linie — jede geschlossene Form schneiden, die die Linie kreuzt",
         "Offset — parallel copy or parallel line":
             "Versatz — parallele Kopie oder parallele Linie",
         "Fillet — round a corner": "Abrunden — Ecke abrunden",
@@ -3604,8 +3604,6 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Eine Form mit Randbedingung kann nicht geteilt werden",
         "Click the first point of the cutting line. Esc cancels.":
             "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
-        "Click the closed shape to split":
-            "Klicken Sie die geschlossene Form zum Teilen an",
         "Only closed shapes (polygon, rectangle, circle, or ellipse) can be split":
             "Nur geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse) können geteilt werden",
         "Plants and linked objects cannot be split":
@@ -3637,8 +3635,6 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Split Along Line…": "An Linie teilen…",
     },
     "SplitShapeTool": {
-        "Click the closed shape to split":
-            "Klicken Sie die geschlossene Form zum Teilen an",
         "Click the first point of the cutting line. Esc cancels.":
             "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
         "A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.":
@@ -3649,12 +3645,20 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Split cancelled": "Teilen abgebrochen",
         "Split the shape into {count} pieces":
             "Die Form in {count} Teile geteilt",
-        "The cutting line must cross the shape. Choose another second point.":
-            "Die Schnittlinie muss die Form kreuzen. Wählen Sie einen anderen zweiten Punkt.",
+        "Split {count} shapes": "{count} Formen teilen",
+        "Split {shapes} shapes into {pieces} pieces":
+            "{shapes} Formen in {pieces} Teile geteilt",
+        "Nothing was split: {reason}": "Nichts wurde geteilt: {reason}",
+        "The cut would leave a piece too small to keep":
+            "Der Schnitt würde ein zu kleines Teil hinterlassen",
+        "The cutting line must cross a closed shape. Choose another second point.":
+            "Die Schnittlinie muss eine geschlossene Form kreuzen. Wählen Sie einen anderen zweiten Punkt.",
         "The shape to split is no longer available.":
             "Die zu teilende Form ist nicht mehr verfügbar.",
-        "This shape cannot be split: {reason}":
-            "Diese Form kann nicht geteilt werden: {reason}",
+        "{message}; 1 crossed object could not be split":
+            "{message}; 1 gekreuztes Objekt konnte nicht geteilt werden",
+        "{message}; {count} crossed objects could not be split":
+            "{message}; {count} gekreuzte Objekte konnten nicht geteilt werden",
     },
 }
 for _ctx, _strings in _CAD_EDITING_TRANSLATIONS.items():

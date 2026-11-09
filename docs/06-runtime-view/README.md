@@ -1088,20 +1088,23 @@ stamped with it, not with the frame being rendered (ADR-072 addendum, issue #730
 ```mermaid
 sequenceDiagram
     participant U as User
+    participant TB as CAD toolbar / Shift+S
     participant M as Context menu
     participant V as CanvasView
     participant T as SplitShapeTool
     participant H as CommandManager
-    U->>M: Split Along Line…
-    M->>V: start_split_shape(source)
-    V->>V: split_refusal_reason(source) — refuse before mutation
-    V->>T: prepare(source) + activate
-    U->>T: first snapped point
-    T->>T: line preview
+    U->>TB: Split
+    TB->>V: set_active_tool(SPLIT)
+    V->>T: activate + prepare(None) — scene-wide
+    U->>T: first snapped point (anywhere)
+    T->>T: freeze visible closed shapes; line preview
+    U->>T: mouse move
+    T->>T: segment_crosses_item → piece preview for every crossed shape
     U->>T: second snapped point (Shift constrains)
-    T->>T: split_item_into_local_polygons(source, a, b)
-    T->>H: execute(SplitShapeCommand(source, pieces))
-    H->>V: one undo step; source removed, pieces added
+    T->>T: split_item_into_local_polygons for every crossed shape
+    T->>H: execute(CompoundCommand of SplitShapeCommand)
+    H->>V: one undo step; sources removed, pieces added
+    Note over U,M: The context menu's Split Along Line… enters the same tool<br/>through start_split_shape(source), scoped to that one shape.
 ```
 
 A group drill-down has no Qt selection change to observe: the group remains selected.

@@ -1196,23 +1196,28 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
 ## FR-35: CAD editing — split along a line and group drill-down (issues #664, #771, ADR-075)
 
 - **FR-SPLIT-01:** A closed shape (polygon, rectangle, circle or ellipse) offers
-  **Split Along Line…** in its context menu. The CAD toolbar's Split button and the
-  bare `S` shortcut arm the one selected closed shape, or stay active and pick the
-  shape on the first canvas click when none is selected. The tool takes two snapped
-  scene points, previews
-  the infinite cutting line and the resulting pieces, constrains the line to 45° steps
-  while Shift is held, and cancels on Esc without mutating the scene.
-- **FR-SPLIT-02:** Applying the cut replaces the source with the pieces in exactly one
-  undo step. Each piece keeps the source's layer, object type when valid for a polygon,
-  fill/stroke colours, fill pattern and fill-transform, label/area visibility, name,
-  metadata and stacking rank. A rotated source keeps its rotation and material
+  **Split Along Line…** in its context menu, scoped to that shape. The CAD toolbar's
+  Split button and the `Shift+S` shortcut start the same two-point gesture scene-wide:
+  click a first and a second point anywhere, and every closed shape the drawn segment
+  crosses is cut along the segment's supporting axis. A shape the segment crosses end
+  to end is fully split; a shape the segment only clips loses that part. The tool
+  takes two snapped scene points, previews the segment and the pieces of every shape it
+  will split, constrains the line to 45° steps while Shift is held, and cancels on Esc
+  without mutating the scene. `S` alone stays Snap to Grid; the split shortcut must not
+  reuse it (two window shortcuts on one key fire neither).
+- **FR-SPLIT-02:** Applying one gesture replaces every crossed source with its pieces in
+  exactly one undo step. Each piece keeps its source's layer, object type when valid for
+  a polygon, fill/stroke colours, fill pattern and fill-transform, label/area visibility,
+  name, metadata and stacking rank. A rotated source keeps its rotation and material
   direction; curves become polygons; a concave shape may produce more than two pieces;
   a result that would contain a hole is refused.
 - **FR-SPLIT-03:** The split is refused without mutation for plants, plant parents with
   tracked links, constrained shapes, locked layers, grouped members, roof ridges,
   ridge-bearing buildings, and any shape whose UUID is still referenced by soil, pest,
   harvest, succession, crop-rotation, manual-task or task-state project data
-  (`ProjectManager.has_item_references`). The refusal reason is shown to the user.
+  (`ProjectManager.has_item_references`). A scene-wide cut splits the eligible crossed
+  shapes and reports how many crossed objects could not be split; when nothing can be
+  split, the reason is shown to the user.
 - **FR-DRILL-01:** With a group selected, a plain click on one of its members focuses
   that member for editing without ungrouping. The group remains the canvas selection;
   the focused member is what the Properties, plant-details, companion and crop-rotation

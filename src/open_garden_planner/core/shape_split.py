@@ -1,9 +1,11 @@
-"""Split a closed shape along an infinite two-point cutting axis (#664).
+"""Split closed shapes along a two-point cutting axis (#664).
 
-The operation is a geometry-only helper: :func:`split_path` cuts a
-``QPainterPath`` into the pieces on each side of a line, and
-:func:`split_item_into_local_polygons` runs it in an item's **local** frame so
-the source's position, rotation and fill pattern stay aligned with the pieces.
+The operation is a geometry-only helper. :func:`segment_crosses_path` decides
+whether the DRAWN segment reaches a shape; :func:`split_path` cuts a
+``QPainterPath`` into the pieces on each side of the segment's infinite
+supporting axis; and :func:`split_item_into_local_polygons` runs that cut in an
+item's **local** frame so the source's position, rotation and fill pattern stay
+aligned with the pieces.
 
 The pieces are ordinary polygons. Curves (circles, ellipses) therefore become
 polygons, and a concave shape may produce more than two pieces; both are
@@ -123,6 +125,45 @@ def split_path(path: QPainterPath, a: QPointF, b: QPointF) -> list[QPolygonF]:
     return pieces
 
 
+def segment_crosses_path(path: QPainterPath, a: QPointF, b: QPointF) -> bool:
+    """Whether the finite segment ``a``-``b`` touches the filled *path*.
+
+    The split tool uses this before :func:`split_path`: a two-click line only
+    cuts the shapes the user actually drew across, not every shape on its
+    infinite extension (#664). A segment wholly inside the shape counts (the
+    user drew inside it); a segment that only approaches the extension does
+    not.
+    """
+    if path.isEmpty():
+        return False
+    dx = b.x() - a.x()
+    dy = b.y() - a.y()
+    length = math.hypot(dx, dy)
+    if not math.isfinite(length) or length < MIN_AXIS_LENGTH_CM:
+        return False
+    segment = QPainterPath()
+    segment.moveTo(a)
+    segment.lineTo(b)
+    return path.intersects(segment)
+
+
+def segment_crosses_item(item: QGraphicsItem, first: QPointF, second: QPointF) -> bool:
+    """Whether the scene-space segment ``first``-``second`` touches *item*.
+
+    Works in the item's local frame, like :func:`split_item_into_local_polygons`,
+    so a rotated or grouped source is tested against its real footprint.
+    Unsupported items are never crossed.
+    """
+    local_path = item_to_local_painter_path(item)
+    if local_path is None:
+        return False
+    return segment_crosses_path(
+        local_path,
+        item.mapFromScene(first),
+        item.mapFromScene(second),
+    )
+
+
 def split_item_into_local_polygons(
     item: QGraphicsItem,
     first: QPointF,
@@ -163,6 +204,8 @@ def polygon_type_for_split(source_type: object) -> ObjectType | None:
 __all__ = [
     "MIN_AXIS_LENGTH_CM",
     "polygon_type_for_split",
+    "segment_crosses_item",
+    "segment_crosses_path",
     "split_item_into_local_polygons",
     "split_path",
 ]

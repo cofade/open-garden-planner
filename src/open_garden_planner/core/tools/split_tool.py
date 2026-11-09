@@ -1,19 +1,25 @@
-"""Split a closed shape along a two-click snapped line (#664).
+"""Split every closed shape crossed by a two-point cutting line (#664).
 
-The tool is started from a shape's context menu (``CanvasView.start_split_shape``),
-takes two snapped scene points, previews the resulting pieces live, and applies
-the cut as exactly one undo step. ``Shift`` constrains the line to 45-degree
-steps; ``Esc`` cancels without mutating the scene.
+The toolbar's Split tool is scene-wide: it takes two snapped points and cuts
+every closed shape that the drawn segment touches along the segment's infinite
+axis. A shape the segment crosses end to end becomes two (or more) pieces; a
+shape the segment only clips loses that part. Every cut of one gesture is one
+undo step.
+
+The context menu's ``Split Along Line…`` keeps the same gesture scoped to the
+clicked shape. ``Shift`` constrains the line to 45-degree steps; ``Esc``
+cancels without mutating the scene.
 """
 
 from __future__ import annotations
 
 import contextlib
 from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from PyQt6.QtCore import QCoreApplication, QPointF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem
 
@@ -21,6 +27,7 @@ from open_garden_planner.core.cad_geometry import snap_point_to_axis_step
 from open_garden_planner.core.item_look import copy_visual_style
 from open_garden_planner.core.shape_split import (
     polygon_type_for_split,
+    segment_crosses_item,
     split_item_into_local_polygons,
 )
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
@@ -30,23 +37,46 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 
+@dataclass
+class _ShapeCut:
+    """One source shape and its pieces, in the source's local frame."""
+
+    source: QGraphicsItem
+    polygons: list[QPolygonF]
+
+
+@dataclass
+class _CutPlan:
+    """What one two-point gesture would do, before any item is created."""
+
+    cuts: list[_ShapeCut] = field(default_factory=list)
+    crossed: int = 0
+    skipped: int = 0
+    error: str | None = None
+
+
 class SplitShapeTool(BaseTool):
-    """Two snapped picks define an infinite cutting axis; Shift constrains it."""
+    """Two snapped picks define a cutting line; every crossed shape is split."""
 
     tool_type = ToolType.SPLIT
     display_name = QCoreApplication.translate("SplitShapeTool", "Split along line")
-    shortcut = "S"
+    # Shift+S, not S: S is the main window's Snap to Grid action, and a second
+    # window shortcut on the same key makes Qt fire neither (measured).
+    shortcut = "Shift+S"
     cursor = Qt.CursorShape.CrossCursor
     accepts_typed_coordinates = False
     # Keep BaseTool's shared anchor snap: both picks and the preview use it.
 
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
+        #: When set, the gesture is scoped to this one source (context menu).
+        #: ``None`` is the toolbar's scene-wide mode.
         self.source_id: UUID | None = None
         self._start: QPointF | None = None
+        self._candidates: list[QGraphicsItem] = []
+        self._refusal_cache: dict[QGraphicsItem, str | None] = {}
         self._preview_line: QGraphicsLineItem | None = None
         self._preview_pieces: list[QGraphicsPolygonItem] = []
-        self._build_error: str | None = None
         self._scene = view._canvas_scene
         self._scene.document_replaced.connect(self.cancel)
 
@@ -54,8 +84,22 @@ class SplitShapeTool(BaseTool):
     # Starting and finishing the gesture
     # ------------------------------------------------------------------
 
-    def prepare(self, source_id: UUID) -> None:
-        """Arm the tool for one source item without starting a pick yet."""
+    def activate(self) -> None:
+        """Start a fresh gesture whenever the tool becomes active."""
+        super().activate()
+        self.cancel()
+        self._view.set_status_message(
+            QCoreApplication.translate(
+                "SplitShapeTool", "Click the first point of the cutting line. Esc cancels."
+            )
+        )
+
+    def prepare(self, source_id: UUID | None) -> None:
+        """Scope the next cut to one shape, or clear the scope (``None``).
+
+        The context menu passes the clicked shape; the toolbar and shortcut pass
+        ``None`` so the line splits every closed shape it crosses.
+        """
         self.cancel()
         self.source_id = source_id
 
@@ -64,35 +108,7 @@ class SplitShapeTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
-        source = self._source()
-        if source is None and self.source_id is None:
-            picked = self._pick_source(scene_pos)
-            if picked is None:
-                self._view.set_status_message(
-                    QCoreApplication.translate(
-                        "SplitShapeTool", "Click the closed shape to split"
-                    )
-                )
-                return True
-            reason = self._view.split_refusal_reason(picked)
-            if reason is not None:
-                self._view.set_status_message(
-                    QCoreApplication.translate(
-                        "SplitShapeTool", "This shape cannot be split: {reason}"
-                    ).format(reason=reason)
-                )
-                return True
-            self.source_id = picked.item_id  # type: ignore[attr-defined]
-            self._scene.clearSelection()
-            picked.setSelected(True)
-            self._view.set_status_message(
-                QCoreApplication.translate(
-                    "SplitShapeTool",
-                    "Click the first point of the cutting line. Esc cancels.",
-                )
-            )
-            return True
-        if source is None:
+        if self.source_id is not None and self._source() is None:
             self._view.set_status_message(
                 QCoreApplication.translate(
                     "SplitShapeTool", "The shape to split is no longer available."
@@ -101,19 +117,11 @@ class SplitShapeTool(BaseTool):
             self.cancel()
             self._view.set_active_tool(ToolType.SELECT)
             return True
-        reason = self._view.split_refusal_reason(source)
-        if reason is not None:
-            self._view.set_status_message(
-                QCoreApplication.translate(
-                    "SplitShapeTool", "This shape cannot be split: {reason}"
-                ).format(reason=reason)
-            )
-            self.cancel()
-            self._view.set_active_tool(ToolType.SELECT)
-            return True
 
         if self._start is None:
             self._start = QPointF(scene_pos)
+            self._candidates = self._collect_candidates()
+            self._refusal_cache.clear()
             self._show_line_preview(QPointF(scene_pos))
             self._view.set_status_message(
                 QCoreApplication.translate(
@@ -125,36 +133,19 @@ class SplitShapeTool(BaseTool):
             return True
 
         end = self._end(scene_pos, event)
-        pieces = self._build_pieces(source, self._start, end)
-        if pieces is None:
+        plan = self._plan_cut(self._start, end)
+        if not plan.cuts:
             self._view.set_status_message(
-                self._build_error
+                plan.error
                 or QCoreApplication.translate(
                     "SplitShapeTool",
-                    "The cutting line must cross the shape. Choose another second point.",
+                    "The cutting line must cross a closed shape. "
+                    "Choose another second point.",
                 )
             )
-            self._build_error = None
             return True
-        self._build_error = None
 
-        from open_garden_planner.core.commands import SplitShapeCommand
-
-        self._clear_previews()
-        self.source_id = None
-        self._start = None
-        self._view.command_manager.execute(
-            SplitShapeCommand(self._scene, source, pieces)
-        )
-        self._scene.clearSelection()
-        for piece in pieces:
-            piece.setSelected(True)
-        self._view.set_status_message(
-            QCoreApplication.translate(
-                "SplitShapeTool", "Split the shape into {count} pieces"
-            ).format(count=len(pieces))
-        )
-        self._view.set_active_tool(ToolType.SELECT)
+        self._apply(plan)
         return True
 
     def mouse_move(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
@@ -180,18 +171,28 @@ class SplitShapeTool(BaseTool):
         return False
 
     def cancel(self) -> None:
-        """Remove every preview and forget the armed source."""
+        """Remove every preview and forget the armed source and gesture."""
         self._clear_previews()
         self._start = None
         self.source_id = None
-        self._build_error = None
+        self._candidates = []
+        self._refusal_cache.clear()
 
     # ------------------------------------------------------------------
-    # Geometry and preview
+    # Planning
     # ------------------------------------------------------------------
 
-    def _pick_source(self, scene_pos: QPointF) -> QGraphicsItem | None:
-        """The topmost closed shape under the cursor (toolbar activation path)."""
+    def _collect_candidates(self) -> list[QGraphicsItem]:
+        """Every closed shape this gesture may cut, snapshotted at the first click.
+
+        In scene-wide mode that is every visible polygon/rectangle/circle/ellipse
+        including grouped children: a grouped child is still reported by the
+        refusal check (with "ungroup first") instead of vanishing silently.
+        """
+        if self.source_id is not None:
+            source = self._source()
+            return [source] if source is not None else []
+
         from open_garden_planner.ui.canvas.items import (
             CircleItem,
             EllipseItem,
@@ -200,13 +201,175 @@ class SplitShapeTool(BaseTool):
         )
 
         shape_types = (PolygonItem, RectangleItem, CircleItem, EllipseItem)
-        for candidate in self._scene.items(scene_pos):
-            if (
-                isinstance(candidate, shape_types)
-                and getattr(candidate, "item_id", None) is not None
+        return [
+            item
+            for item in self._scene.items()
+            if isinstance(item, shape_types)
+            and getattr(item, "item_id", None) is not None
+            and item.isVisible()
+        ]
+
+    def _refusal_for(self, item: QGraphicsItem) -> str | None:
+        """Cache the view's refusal reason for the life of one gesture."""
+        if item not in self._refusal_cache:
+            self._refusal_cache[item] = self._view.split_refusal_reason(item)
+        return self._refusal_cache[item]
+
+    def _plan_cut(self, start: QPointF, end: QPointF) -> _CutPlan:
+        """Collect every crossed shape and its pieces without mutating anything."""
+        from open_garden_planner.ui.canvas.items.polygon_item import (
+            MAX_POLYGON_VERTICES,
+        )
+
+        plan = _CutPlan()
+        first_reason: str | None = None
+        vertex_error: str | None = None
+        segment_bounds = QRectF(start, end).normalized().adjusted(-1, -1, 1, 1)
+
+        for item in self._candidates:
+            if item.scene() is not self._scene:
+                continue
+            if not item.sceneBoundingRect().intersects(segment_bounds):
+                continue
+            if not segment_crosses_item(item, start, end):
+                continue
+            plan.crossed += 1
+
+            reason = self._refusal_for(item)
+            if reason is not None:
+                plan.skipped += 1
+                first_reason = first_reason or reason
+                continue
+
+            local_polygons = split_item_into_local_polygons(item, start, end)
+            if not local_polygons:
+                plan.skipped += 1
+                first_reason = first_reason or QCoreApplication.translate(
+                    "SplitShapeTool",
+                    "The cut would leave a piece too small to keep",
+                )
+                continue
+            if any(
+                polygon.count() > MAX_POLYGON_VERTICES for polygon in local_polygons
             ):
-                return candidate
-        return None
+                vertex_error = QCoreApplication.translate(
+                    "SplitShapeTool",
+                    "A piece would have {count} vertices; the plan supports at "
+                    "most {limit}. Choose a simpler cut.",
+                ).format(
+                    count=max(polygon.count() for polygon in local_polygons),
+                    limit=MAX_POLYGON_VERTICES,
+                )
+                plan.skipped += 1
+                continue
+
+            plan.cuts.append(_ShapeCut(item, local_polygons))
+
+        if not plan.cuts:
+            if vertex_error is not None:
+                plan.error = vertex_error
+            elif plan.crossed and plan.skipped and first_reason is not None:
+                plan.error = QCoreApplication.translate(
+                    "SplitShapeTool", "Nothing was split: {reason}"
+                ).format(reason=first_reason)
+        return plan
+
+    # ------------------------------------------------------------------
+    # Applying
+    # ------------------------------------------------------------------
+
+    def _apply(self, plan: _CutPlan) -> None:
+        """Create all pieces and replace every source in one undo step."""
+        from open_garden_planner.core.commands import (
+            CompoundCommand,
+            SplitShapeCommand,
+        )
+
+        splits = [
+            (
+                cut.source,
+                [
+                    self._make_piece(cut.source, polygon)
+                    for polygon in cut.polygons
+                ],
+            )
+            for cut in plan.cuts
+        ]
+        commands = [
+            SplitShapeCommand(self._scene, source, pieces)
+            for source, pieces in splits
+        ]
+        command = (
+            commands[0]
+            if len(commands) == 1
+            else CompoundCommand(
+                commands,
+                QCoreApplication.translate(
+                    "SplitShapeTool", "Split {count} shapes"
+                ).format(count=len(commands)),
+            )
+        )
+
+        scoped = self.source_id is not None
+        pieces = [piece for _source, split_pieces in splits for piece in split_pieces]
+        self._clear_previews()
+        self._start = None
+        self.source_id = None
+        self._view.command_manager.execute(command)
+        self._scene.clearSelection()
+        for piece in pieces:
+            piece.setSelected(True)
+
+        if len(plan.cuts) == 1:
+            message = QCoreApplication.translate(
+                "SplitShapeTool", "Split the shape into {count} pieces"
+            ).format(count=len(pieces))
+        else:
+            message = QCoreApplication.translate(
+                "SplitShapeTool", "Split {shapes} shapes into {pieces} pieces"
+            ).format(shapes=len(plan.cuts), pieces=len(pieces))
+        if plan.skipped == 1:
+            message = QCoreApplication.translate(
+                "SplitShapeTool", "{message}; 1 crossed object could not be split"
+            ).format(message=message)
+        elif plan.skipped:
+            message = QCoreApplication.translate(
+                "SplitShapeTool", "{message}; {count} crossed objects could not be split"
+            ).format(message=message, count=plan.skipped)
+        self._view.set_status_message(message)
+
+        if scoped:
+            # The context-menu action is a one-shot edit; return to Select.
+            self._view.set_active_tool(ToolType.SELECT)
+
+    def _make_piece(self, source: QGraphicsItem, polygon: QPolygonF) -> QGraphicsItem:
+        """Build one unsaved piece that keeps the source's frame and look."""
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        item = PolygonItem.from_polygon(QPolygonF(polygon))
+        # Work in the source's local frame so the material keeps its
+        # orientation and the source's rotation is reproduced exactly.
+        item._apply_rotation(source.rotation())
+        centre = item.transformOriginPoint()
+        item.setPos(source.mapToScene(centre) - centre)
+        polygon_type = polygon_type_for_split(getattr(source, "object_type", None))
+        if polygon_type is not None:
+            item.object_type = polygon_type
+        item.name = getattr(source, "name", "")
+        item.label_visible = getattr(source, "label_visible", True)
+        item.area_label_visible = getattr(source, "area_label_visible", False)
+        item.layer_id = getattr(source, "layer_id", None)
+        item.stack_order = getattr(source, "stack_order", None)
+        metadata = getattr(source, "metadata", None)
+        if metadata:
+            item.metadata.update(deepcopy(metadata))
+        copy_visual_style(source, item)
+        item._setup_styling()
+        return item
+
+    # ------------------------------------------------------------------
+    # Geometry and preview
+    # ------------------------------------------------------------------
 
     def _source(self) -> QGraphicsItem | None:
         if self.source_id is None:
@@ -218,59 +381,8 @@ class SplitShapeTool(BaseTool):
             return snap_point_to_axis_step(self._start, point, 45)
         return QPointF(point)
 
-    def _build_pieces(
-        self,
-        source: QGraphicsItem,
-        start: QPointF,
-        end: QPointF,
-    ) -> list[QGraphicsItem] | None:
-        """Build the unsaved pieces, or None when the cut is unusable."""
-        from open_garden_planner.ui.canvas.items import PolygonItem
-        from open_garden_planner.ui.canvas.items.polygon_item import (
-            MAX_POLYGON_VERTICES,
-        )
-
-        local_polygons = split_item_into_local_polygons(source, start, end)
-        if not local_polygons:
-            return None
-        if any(poly.count() > MAX_POLYGON_VERTICES for poly in local_polygons):
-            self._build_error = QCoreApplication.translate(
-                "SplitShapeTool",
-                "A piece would have {count} vertices; the plan supports at "
-                "most {limit}. Choose a simpler cut.",
-            ).format(
-                count=max(poly.count() for poly in local_polygons),
-                limit=MAX_POLYGON_VERTICES,
-            )
-            return None
-
-        pieces: list[QGraphicsItem] = []
-        polygon_type = polygon_type_for_split(
-            getattr(source, "object_type", None)
-        )
-        for polygon in local_polygons:
-            item = PolygonItem.from_polygon(polygon)
-            # Work in the source's local frame so the material keeps its
-            # orientation and the source's rotation is reproduced exactly.
-            item._apply_rotation(source.rotation())
-            centre = item.transformOriginPoint()
-            item.setPos(source.mapToScene(centre) - centre)
-            if polygon_type is not None:
-                item.object_type = polygon_type
-            item.name = getattr(source, "name", "")
-            item.label_visible = getattr(source, "label_visible", True)
-            item.area_label_visible = getattr(source, "area_label_visible", False)
-            item.layer_id = getattr(source, "layer_id", None)
-            item.stack_order = getattr(source, "stack_order", None)
-            metadata = getattr(source, "metadata", None)
-            if metadata:
-                item.metadata.update(deepcopy(metadata))
-            copy_visual_style(source, item)
-            item._setup_styling()
-            pieces.append(item)
-        return pieces
-
     def _show_line_preview(self, end: QPointF) -> None:
+        """Draw only the drawn segment: it is what decides which shapes are cut."""
         if self._start is None:
             return
         if self._preview_line is None:
@@ -280,36 +392,29 @@ class SplitShapeTool(BaseTool):
             self._preview_line.setPen(pen)
             self._preview_line.setZValue(PREVIEW_Z_LINE)
             self._scene.addItem(self._preview_line)
-        direction = end - self._start
-        length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
-        if length <= 1e-6:
-            self._preview_line.setLine(
-                self._start.x(), self._start.y(), self._start.x(), self._start.y()
-            )
-            return
-        extent = self._scene.sceneRect().width() + self._scene.sceneRect().height()
-        direction *= extent / length
-        first = self._start - direction
-        second = self._start + direction
-        self._preview_line.setLine(first.x(), first.y(), second.x(), second.y())
+        self._preview_line.setLine(
+            self._start.x(), self._start.y(), end.x(), end.y()
+        )
 
     def _show_piece_preview(self, end: QPointF) -> None:
-        source = self._source()
-        if source is None or self._start is None:
+        if self.source_id is not None and self._source() is None:
             self._clear_previews()
             return
-        local_polygons = split_item_into_local_polygons(source, self._start, end)
-        self._clear_piece_preview()
-        if not local_polygons:
+        if self._start is None:
             return
-        for polygon in local_polygons:
-            scene_polygon = source.mapToScene(QPolygonF(polygon))
-            preview = QGraphicsPolygonItem(scene_polygon)
-            preview.setPen(QPen(QColor(60, 130, 200), 1.2, Qt.PenStyle.DashLine))
-            preview.setBrush(QColor(60, 130, 200, 40))
-            preview.setZValue(PREVIEW_Z_FILL)
-            self._scene.addItem(preview)
-            self._preview_pieces.append(preview)
+        plan = self._plan_cut(self._start, end)
+        self._clear_piece_preview()
+        for cut in plan.cuts:
+            for polygon in cut.polygons:
+                scene_polygon = cut.source.mapToScene(QPolygonF(polygon))
+                preview = QGraphicsPolygonItem(scene_polygon)
+                preview.setPen(
+                    QPen(QColor(60, 130, 200), 1.2, Qt.PenStyle.DashLine)
+                )
+                preview.setBrush(QColor(60, 130, 200, 40))
+                preview.setZValue(PREVIEW_Z_FILL)
+                self._scene.addItem(preview)
+                self._preview_pieces.append(preview)
 
     def _clear_piece_preview(self) -> None:
         for preview in self._preview_pieces:

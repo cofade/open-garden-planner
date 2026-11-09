@@ -11188,12 +11188,17 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
    `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
    refused while a member is focused.
 3. **Split works in the source's local frame and replaces it in one command.**
-   The context menu, the CAD toolbar button next to Trim/Extend, and the bare `S`
-   shortcut reach the same tool; the toolbar/shortcut path arms the one selected
-   closed shape, or stays active and picks the shape on the first canvas click when
-   none is selected. `core/shape_split.py` clips the item's local `QPainterPath` against the
-   two half-planes of the two-point axis; `SplitShapeCommand` removes the source and
-   adds ordinary `PolygonItem`s in one undo step. Pieces copy the source's layer, object
+   The context menu and the CAD toolbar button next to Trim/Extend reach the
+   same tool, but with different scopes: the context menu arms the clicked
+   closed shape, while the toolbar and the `Shift+S` shortcut start a scene-wide
+   two-point cut with no prior selection. In scene-wide mode the first click is
+   the line's first point and every closed shape the drawn segment touches is
+   cut along the segment's supporting axis; shapes on the line's infinite
+   extension but not reached by the segment are not cut. `core/shape_split.py`
+   clips each item's local `QPainterPath` against the two half-planes of the
+   two-point axis; one `SplitShapeCommand` per source removes it and adds
+   ordinary `PolygonItem`s, and the whole gesture is one `CompoundCommand`
+   (one undo step). Pieces copy the source's layer, object
    type (when valid for a polygon), name, label/area state, metadata, stack order and
    `fill_transform`; using the local frame keeps a rotated source's rotation and
    pattern direction. Curves flatten to polygons, a concave shape may yield more than
@@ -11228,3 +11233,22 @@ User-visible strings are covered in EN/DE/ES/RU. Pins:
 `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
 `tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`.
 Cross-refs: FR-35, §8.35, PF-CAN-46.
+
+**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
+required a selected shape (or a shape-picking first click), so a line could cut only
+one object and a scene-wide cut took three clicks. The owner's expectation is the
+CAD-knife one: choose the tool, click two points anywhere, and every object the line
+crosses is split, fully or partly. The tool now takes the first click as the line's
+start with no source selected, freezes the visible closed-shape candidates at that
+point, previews every crossed shape's pieces while the second point moves, and applies
+all cuts in one undo step. The context-menu action keeps its explicit one-shape scope
+and returns to Select; the toolbar stays armed for another cut. The candidate test is
+the **drawn segment** (`segment_crosses_item`), not the infinite axis: a shape lying on
+the line's extension but not reached by the segment is never touched, while a segment
+that starts or ends inside a shape still divides it along the supporting axis.
+
+The shortcut changed from `S` to `Shift+S` because the first version was dead in the
+real window: `S` is `snap_action`'s window shortcut, and a second window shortcut on
+the same key makes Qt fire neither (measured on Qt 6.12 with a `QToolButton` and a
+`QAction` in one window; PF-UI-36). `Shift+S` is free and leaves `S` as Snap to Grid.

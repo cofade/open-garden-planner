@@ -15,6 +15,8 @@ from open_garden_planner.core.shape_boolean import (
 )
 from open_garden_planner.core.shape_split import (
     MIN_AXIS_LENGTH_CM,
+    segment_crosses_item,
+    segment_crosses_path,
     split_item_into_local_polygons,
     split_path,
 )
@@ -124,3 +126,33 @@ def test_a_rectangle_item_converts_to_its_local_path(qtbot) -> None:
 
 def test_axis_length_floor_is_a_real_constant() -> None:
     assert MIN_AXIS_LENGTH_CM > 0.0
+
+
+def test_a_segment_crosses_only_the_shapes_it_reaches(qtbot) -> None:
+    path = _rect_path(100, 100, 200, 100)
+
+    # Through the shape, wholly inside it, and just clipping a corner.
+    assert segment_crosses_path(path, QPointF(0, 150), QPointF(400, 150)) is True
+    assert segment_crosses_path(path, QPointF(150, 120), QPointF(250, 180)) is True
+    assert segment_crosses_path(path, QPointF(100, 100), QPointF(120, 120)) is True
+    # Collinear with the shape but far short of it: the drawn line never arrives.
+    assert segment_crosses_path(path, QPointF(0, 150), QPointF(50, 150)) is False
+    assert segment_crosses_path(path, QPointF(0, 150), QPointF(0, 150)) is False
+    assert segment_crosses_path(QPainterPath(), QPointF(0, 0), QPointF(10, 10)) is False
+
+
+def test_a_segment_crosses_a_rotated_item_in_its_own_frame(qtbot) -> None:
+    source = RectangleItem(100, 100, 200, 100)
+    source._apply_rotation(37)
+    assert source.scene() is None
+
+    # A horizontal line at the shape's centre reaches it whether or not it is rotated.
+    centre = source.sceneBoundingRect().center()
+    assert segment_crosses_item(
+        source, QPointF(centre.x() - 500, centre.y()), QPointF(centre.x() + 500, centre.y())
+    ) is True
+    # Far above the rotated footprint: no contact.
+    assert segment_crosses_item(
+        source, QPointF(centre.x() - 500, centre.y() - 500),
+        QPointF(centre.x() + 500, centre.y() - 500),
+    ) is False

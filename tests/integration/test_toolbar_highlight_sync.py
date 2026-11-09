@@ -76,9 +76,9 @@ class TestToolbarHighlightSync:
         ]
         for tool_type in tool_types:
             if tool_type is ToolType.SPLIT:
-                # Split is selection-driven: its toolbar button arms the one
-                # selected closed shape (otherwise it explains and returns to
-                # Select).
+                # Split is scene-wide now; it needs no selected shape before
+                # activation, but keep one here so the assertion also covers
+                # activating the tool while a selection exists (#664).
                 from open_garden_planner.ui.canvas.items import RectangleItem
 
                 item = RectangleItem(0, 0, 100, 100)

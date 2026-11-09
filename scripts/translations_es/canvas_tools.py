@@ -80,8 +80,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             'Una forma con restricciones no se puede dividir',
         'Click the first point of the cutting line. Esc cancels.':
             'Haz clic en el primer punto de la línea de corte. Esc cancela.',
-        'Click the closed shape to split':
-            'Haz clic en la forma cerrada que quieres dividir',
         'Only closed shapes (polygon, rectangle, circle, or ellipse) can be split':
             'Solo se pueden dividir formas cerradas (polígono, rectángulo, círculo o elipse)',
         'Plants and linked objects cannot be split':
@@ -502,8 +500,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Split Along Line…': 'Dividir por línea…',
     },
     'SplitShapeTool': {
-        'Click the closed shape to split':
-            'Haz clic en la forma cerrada que quieres dividir',
         'Click the first point of the cutting line. Esc cancels.':
             'Haz clic en el primer punto de la línea de corte. Esc cancela.',
         'A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.':
@@ -514,11 +510,19 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Split cancelled': 'División cancelada',
         'Split the shape into {count} pieces':
             'Se dividió la forma en {count} piezas',
-        'The cutting line must cross the shape. Choose another second point.':
-            'La línea de corte debe cruzar la forma. Elige otro segundo punto.',
+        'Split {count} shapes': 'Dividir {count} formas',
+        'Split {shapes} shapes into {pieces} pieces':
+            'Se dividieron {shapes} formas en {pieces} piezas',
+        'Nothing was split: {reason}': 'No se dividió nada: {reason}',
+        'The cut would leave a piece too small to keep':
+            'El corte dejaría una pieza demasiado pequeña para conservarla',
+        'The cutting line must cross a closed shape. Choose another second point.':
+            'La línea de corte debe cruzar una forma cerrada. Elige otro segundo punto.',
         'The shape to split is no longer available.':
             'La forma que se va a dividir ya no está disponible.',
-        'This shape cannot be split: {reason}':
-            'Esta forma no se puede dividir: {reason}',
+        '{message}; 1 crossed object could not be split':
+            '{message}; 1 objeto cruzado no se pudo dividir',
+        '{message}; {count} crossed objects could not be split':
+            '{message}; {count} objetos cruzados no se pudieron dividir',
     },
 }

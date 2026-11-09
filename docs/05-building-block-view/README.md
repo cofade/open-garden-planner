@@ -64,7 +64,7 @@ src/open_garden_planner/
 │   ├── project.py                # Save/load, ProjectManager
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
-│   ├── shape_split.py            # Local-frame two-point shape cut — polygon pieces, hole refusal (#664, ADR-075)
+│   ├── shape_split.py            # Local-frame two-point cut; segment-crossing test, polygon pieces, hole refusal (#664, ADR-075)
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering (resolves sprites through plant_art)
 │   ├── plant_art/                # Stdlib-only: what a plant looks like, for 2D and 3D (Phase 17 L1.7, ADR-059 addendum) — see §5.10
 │   │   ├── recipes.py            #   PALETTES / FRUITS / FLOWERS / SPECIES / CATEGORIES — the sprite recipes (moved from the generator script)
@@ -169,7 +169,7 @@ src/open_garden_planner/
 │       ├── mirror_tool.py        # Mirror selection across an axis (Package B US-B4)
 │       ├── trim_tool.py          # Trim/Extend (US-11.16)
 │       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
-│       ├── split_tool.py         # Two-click shape split with line/piece preview (#664, ADR-075)
+│       ├── split_tool.py         # Scene-wide two-click split: every closed shape the segment crosses (#664, ADR-075)
 │       ├── measure_tool.py       # Distance measurement
 │       ├── constraint_tool.py    # Distance constraint creation
 │       └── preview_z.py          # Reserved z-values for in-progress tool previews below minimap cutoff (#377, §8.25.6)
