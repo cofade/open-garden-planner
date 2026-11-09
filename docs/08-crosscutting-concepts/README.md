@@ -5927,7 +5927,11 @@ poplar; the elevation window keeps an isolated cumulus from reading as a black s
 The far-row bound is
 3.6 luma at 640 × 360, re-derived from the current scene's 3.44 / 3.48 / 3.11 (#714), and
 the clear look's per-mood step is gated at the same bound (covering #696's 3.13 low
-sunset). The atmosphere sky's own low band and cloudy deck band remain #716 and #719.
+sunset). `--sky-bands` (#716, #719) renders sky-only frames toward, across and away from a
+300° sun, clear and under every closed weather, and bins them by world elevation: the
+render tier gates, on both skies, that the clear sky never darkens from 20° down to 0.5°,
+that its 6–15° band is at most 1.15× the painted sky's, and that the haze band (3°) is at
+most 10 luma brighter than the cloud deck (10°) at a 6° and a 0.5° sun.
 `--analysis` places its probe pin on open ground whose whole height is clear and sizes it
 from the shot's camera (the dome share raised to at least 60 px, capped at 4×), because
 `bench_built`'s distant noon camera showed the product's 52 cm pin in 38 px under the
@@ -7861,13 +7865,24 @@ applies no exposure under our post effects, so `atmosphere.frag` applies the sky
 sky (Qt's generator formula, `paintedSky()`) and mixes the atmosphere over it by
 `(1 − twilight) × smoothstep(0, 6°, elevation)`: the horizon the fog meets and the night are the
 painted sky's in every direction. Its scale is not a constant: `atmosphere_lut.atmosphere_gain`
-gives it the painted sky's cosine-weighted light on a horizontal surface at every sun, so its
-brightness matches the light the painted probe casts. The weather's cloud is the clouds' cover
+gives it the painted sky's cosine-weighted light on a horizontal surface at every sun, over the
+sky as drawn (through the haze band only its share counts), so its brightness matches the light
+the painted probe casts. The gain is redistributed per elevation (#716): the sky-view table's
+alpha is the sky's profile (`atmosphere_lut.sky_profile`), which gives every ring of the clear
+atmosphere the mean luminance of the painted sky's gradient at that elevation (the painted sky
+without its sun — normalising on its ring means spread its disc's glow into a bright ring,
+PF-L3D-22) times one glow factor that keeps the light on the ground. The atmosphere keeps its
+hue and its structure round the azimuth; through the haze band two skies of the same mean
+brightness mix, so the sky never darkens toward the horizon. The weather's cloud is the clouds' cover
 (Partly cloudy 0.4: scattered clouds; Overcast and Rain 1.0; Snow 0.85); their light is `ATMOSPHERE_CLOUD_GAIN` × the same gain
-(`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering
-and silver lining fade with the cover (a thick deck diffuses, so a cloudy evening dims as under
-the painted sky), they lose the sun through civil twilight and take the look's horizon hue in
-proportion to the cover. Custom materials that may run under a `SkyMaterial` keep the
+(`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering,
+silver lining and the sun side of their ambient fade with the cover (a thick deck diffuses, so a
+cloudy evening dims as under the painted sky), they lose the sun through civil twilight and take
+the look's horizon hue in proportion to the cover. A deck (cloud ≥ 0.5, the overcast mood's
+boundary) takes an anchor on top (#719, `deck_anchor`): `ATMOSPHERE_DECK_LEVEL` by how closed it
+is and `ATMOSPHERE_DECK_SUNSET` per sun elevation, measured in the frame (PF-L3D-23) so that the
+deck 10° up reads the painted sky's luminance there and the painted haze band meets it without a
+band at any sun. Partly cloudy takes neither. Custom materials that may run under a `SkyMaterial` keep the
 widened probe guard (PF-E3D-15). The app no longer reaches it, because the painted probe is
 always set.
 
@@ -7899,8 +7914,12 @@ models (`test_view3d_looks_render.py`'s `board` fixture is parametrized by sky m
 atmosphere on ONE live host against a fresh host per sun — the sky-view table refilled in place,
 model switches both ways, a top-down round trip, a cloud deck coming and going
 (`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) —, the weather's gates on both
-skies (`test_living_garden_render.py`) and the frozen self-test's point 8 (the atmosphere from the
-bundle, clear and cloudy).
+skies (`test_living_garden_render.py`), where the atmosphere meets the painted horizon on both
+skies (`--sky-bands`: `test_the_clear_sky_never_darkens_on_the_way_down_to_the_horizon`,
+`test_the_atmospheres_low_band_is_as_bright_as_the_painted_skys`,
+`test_the_cloud_deck_meets_the_painted_horizon_without_a_band`; the profile's definition and the
+light it keeps in the model: `test_scene3d_atmosphere_sky.py`) and the frozen self-test's point 8
+(the atmosphere from the bundle, clear and cloudy).
 
 ### 8.29.15 The director's cut — pictures, photo mode, tours and video (L6, #390, ADR-072)
 
