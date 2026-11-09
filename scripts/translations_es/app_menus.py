@@ -32,8 +32,8 @@ TRANSLATIONS = {
         "Perpendicular": "Perpendicular",
         "Symmetry Constraint": "Restricción de simetría",
         "Trim/Extend — X toggles mode": "Recortar/Extender — X alterna modo",
-        "Split along line — cut every closed shape the line crosses":
-            "Dividir por línea — cortar cada forma cerrada que cruce la línea",
+        "Split along line — cut the closed shapes a two-point line crosses":
+            "Dividir por línea — cortar las formas cerradas que cruce una línea de dos puntos",
         "Vertical Alignment": "Alineación vertical",
         "Vertical Distance": "Distancia vertical",
     },

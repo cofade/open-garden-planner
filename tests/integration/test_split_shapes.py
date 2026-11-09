@@ -1,10 +1,12 @@
 """End-to-end split-along-a-line workflow (#664).
 
-The tool is started from the shape's context menu, takes two snapped scene
-points, previews the line and pieces, and replaces the source with polygons in
-one undo step. The source's layer, look, fill transform, label state and
-metadata survive; linked, constrained, planted, grouped and tracked shapes are
-refused before any mutation.
+The toolbar's Split tool takes two snapped scene points with no source
+selection and splits every closed shape the drawn segment passes through; the
+context-menu action scopes the same gesture to one shape. The source's layer,
+look, fill transform, label state, metadata and linked plants survive; a
+planted bed's plants are re-homed to the piece holding their standing point.
+Boundary touches are not crossings; refused shapes are skipped. All cuts of one
+gesture are one undo step.
 """
 
 from __future__ import annotations
@@ -215,6 +217,75 @@ def test_shift_constrains_the_line_to_45_degree_steps(canvas, mouse_event) -> No
     assert vertical.y() == pytest.approx(math.hypot(30, 100))
 
 
+def test_a_line_that_only_touches_a_corner_does_not_split(canvas, mouse_event) -> None:
+    """A snapped pick on an outline is not a cut; it used to remove a whole bed."""
+    source = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    # Both picks are outside except the first one, which sits on the corner.
+    tool.mouse_press(mouse_event, QPointF(100, 100))
+    tool.mouse_press(mouse_event, QPointF(0, 0))
+
+    assert source.scene() is canvas.scene()
+    assert _add_pieces(canvas.scene()) == []
+    assert canvas.command_manager.undo_depth == 0
+    assert messages[-1] == (
+        "The cutting line must cross a closed shape. Choose another second point."
+    )
+
+
+def test_a_bed_with_a_linked_plant_rehomes_the_plant_in_the_same_step(
+    canvas, mouse_event
+) -> None:
+    from open_garden_planner.core.commands import set_parent_link
+
+    scene = canvas.scene()
+    bed = _add(
+        canvas,
+        RectangleItem(100, 100, 400, 100, object_type=ObjectType.GARDEN_BED),
+        select=False,
+    )
+    plant = _add(
+        canvas,
+        CircleItem(150, 130, 20, object_type=ObjectType.PERENNIAL),
+        select=False,
+    )
+    assert set_parent_link(scene, plant, bed.item_id) is True
+    assert plant.item_id in bed.child_item_ids
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+
+    # y=150 divides the bed; the plant's standing point (150, 130) is above it.
+    tool.mouse_press(mouse_event, QPointF(0, 150))
+    tool.mouse_press(mouse_event, QPointF(700, 150))
+
+    pieces = _add_pieces(scene)
+    assert len(pieces) == 2
+    assert bed.scene() is None
+    assert plant.scene() is scene
+    parent = next(
+        (piece for piece in pieces if piece.item_id == plant.parent_bed_id), None
+    )
+    assert parent is not None
+    assert plant.item_id in parent.child_item_ids
+    assert parent.sceneBoundingRect().contains(plant.sceneBoundingRect().center())
+    assert canvas.command_manager.undo_depth == 1
+
+    canvas.command_manager.undo()
+    assert bed.scene() is scene
+    assert plant.parent_bed_id == bed.item_id
+    assert plant.item_id in bed.child_item_ids
+    assert canvas.command_manager.undo_depth == 0
+
+    canvas.command_manager.redo()
+    assert bed.scene() is None
+    assert plant.parent_bed_id is not None
+    assert plant.parent_bed_id != bed.item_id
+
+
 def test_a_scene_wide_cut_undoes_all_sources_in_one_step(canvas, mouse_event) -> None:
     scene = canvas.scene()
     first = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
@@ -232,6 +303,12 @@ def test_a_scene_wide_cut_undoes_all_sources_in_one_step(canvas, mouse_event) ->
     assert second.scene() is scene
     assert _add_pieces(scene) == []
     assert canvas.command_manager.undo_depth == 0
+
+    canvas.command_manager.redo()
+    assert first.scene() is None
+    assert second.scene() is None
+    assert len(_add_pieces(scene)) == 4
+    assert canvas.command_manager.undo_depth == 1
 
 
 def test_a_shape_on_the_lines_extension_is_not_split(canvas, mouse_event) -> None:
@@ -386,6 +463,8 @@ def test_the_preview_shows_the_pieces_of_every_crossed_shape(
 
     assert len(tool._preview_pieces) == 4
     assert tool._preview_line is not None
+    assert tool._preview_axis is not None
+    assert tool._preview_axis.line().length() > tool._preview_line.line().length()
 
 
 def test_a_multi_shape_split_survives_save_and_reopen(
@@ -424,6 +503,9 @@ def test_the_split_shortcut_does_not_collide_with_snap(qtbot) -> None:
     tool shipped with ``S`` and was dead for exactly that reason. Offscreen Qt
     has no focus window, so this pins the configuration rather than a key press.
     """
+    from PyQt6.QtGui import QAction
+    from PyQt6.QtWidgets import QToolButton
+
     from open_garden_planner.app.application import GardenPlannerApp
     from open_garden_planner.app.settings import get_settings
 
@@ -434,7 +516,17 @@ def test_the_split_shortcut_does_not_collide_with_snap(qtbot) -> None:
     split = window.constraint_toolbar._buttons[ToolType.SPLIT]
     assert split.shortcut().toString() == "Shift+S"
     assert window.snap_action.shortcut().toString() == "S"
-    assert split.shortcut() != window.snap_action.shortcut()
+    # The rule is the whole window, not only this one action: any future
+    # action or tool button on Shift+S would make the pair ambiguous again.
+    action_shortcuts = {
+        action.shortcut()
+        for action in window.findChildren(QAction)
+        if not action.shortcut().isEmpty()
+    }
+    assert split.shortcut() not in action_shortcuts
+    for button in window.findChildren(QToolButton):
+        if button is not split:
+            assert button.shortcut() != split.shortcut()
 
 
 def test_the_context_menu_shows_a_refusal_reason_as_its_tooltip(canvas, monkeypatch) -> None:

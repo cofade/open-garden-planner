@@ -131,14 +131,41 @@ def test_axis_length_floor_is_a_real_constant() -> None:
 def test_a_segment_crosses_only_the_shapes_it_reaches(qtbot) -> None:
     path = _rect_path(100, 100, 200, 100)
 
-    # Through the shape, wholly inside it, and just clipping a corner.
+    # Through the shape, wholly inside it, and clipping a corner on the way past.
     assert segment_crosses_path(path, QPointF(0, 150), QPointF(400, 150)) is True
     assert segment_crosses_path(path, QPointF(150, 120), QPointF(250, 180)) is True
-    assert segment_crosses_path(path, QPointF(100, 100), QPointF(120, 120)) is True
+    assert segment_crosses_path(path, QPointF(80, 140), QPointF(160, 60)) is True
     # Collinear with the shape but far short of it: the drawn line never arrives.
     assert segment_crosses_path(path, QPointF(0, 150), QPointF(50, 150)) is False
     assert segment_crosses_path(path, QPointF(0, 150), QPointF(0, 150)) is False
     assert segment_crosses_path(QPainterPath(), QPointF(0, 0), QPointF(10, 10)) is False
+
+
+def test_a_touch_is_not_a_crossing(qtbot) -> None:
+    """A snapped pick on an outline must not cut the shape it only grazed.
+
+    Every case here used to be true under ``QPainterPath.intersects``; a real
+    tool then removed a bed for a corner-only pick (#664 review round 2).
+    """
+    path = _rect_path(100, 100, 200, 100)
+
+    # Ends on the corner / edge from outside.
+    assert segment_crosses_path(path, QPointF(80, 80), QPointF(100, 100)) is False
+    assert segment_crosses_path(path, QPointF(80, 150), QPointF(100, 150)) is False
+    # Starts on the boundary and goes outward.
+    assert segment_crosses_path(path, QPointF(100, 100), QPointF(80, 80)) is False
+    assert segment_crosses_path(path, QPointF(100, 150), QPointF(80, 150)) is False
+    # Runs along an edge, including its extension.
+    assert segment_crosses_path(path, QPointF(100, 100), QPointF(300, 100)) is False
+    assert segment_crosses_path(path, QPointF(0, 100), QPointF(400, 100)) is False
+    # Tangent through the top-left corner only.
+    assert segment_crosses_path(path, QPointF(50, 150), QPointF(150, 50)) is False
+    # A boundary-aligned segment on a circle is not a crossing either.
+    circle = QPainterPath()
+    circle.addEllipse(QRectF(100, 100, 100, 100))
+    assert segment_crosses_path(
+        circle, QPointF(100, 150), QPointF(50, 150)
+    ) is False
 
 
 def test_a_segment_crosses_a_rotated_item_in_its_own_frame(qtbot) -> None:

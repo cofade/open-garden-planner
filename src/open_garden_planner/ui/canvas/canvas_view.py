@@ -1007,7 +1007,7 @@ class CanvasView(QGraphicsView):
         self._activate_tool_direct(tool_type)
 
     def _activate_tool_direct(self, tool_type: ToolType) -> None:
-        """Switch tools without the split tool's selection precheck."""
+        """Switch tools without any extra policy around the target tool."""
         self._tool_manager.set_active_tool(tool_type)
         # Refresh the typed-input anchor (Package A US-A1/A2): previous
         # tool's last_point is stale when switching tools.
@@ -2588,8 +2588,15 @@ class CanvasView(QGraphicsView):
 
         # A focused group member's handle must be handled here: Qt delivers
         # the press to the selected group instead of the ItemIgnoresTransforms
-        # handle, so the view owns the whole gesture (#771).
-        if event.button() == Qt.MouseButton.LeftButton and self._drill_down_item is not None:
+        # handle, so the view owns the whole gesture (#771). Only Select owns
+        # that gesture: another active tool (Split, Measure, a drawing tool)
+        # must receive the click it was asked for.
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and self._drill_down_item is not None
+            and getattr(self._tool_manager.active_tool, "tool_type", None)
+            is ToolType.SELECT
+        ):
             scene_pos = self.mapToScene(event.position().toPoint())
             candidate = self._canvas_scene.itemAt(scene_pos, self.transform())
             if (
@@ -5114,9 +5121,11 @@ class CanvasView(QGraphicsView):
 
         The split replaces the source by ordinary polygons, so anything keyed to
         the source's UUID (soil/pest/harvest history, succession, crop rotation,
-        journal/task links) would be orphaned. Those references, plus plants,
-        constraints, group membership and locked layers, are refused before any
-        mutation.
+        journal/task links) would be orphaned. Those references, plus a plant
+        itself, constraints, group membership and locked layers, are refused
+        before any mutation. A bed or other plant parent IS splittable: its
+        linked plants are re-homed to the piece that holds their standing point
+        in the same undo step.
         """
         from open_garden_planner.core.object_types import (
             is_plant_type,
@@ -5154,11 +5163,7 @@ class CanvasView(QGraphicsView):
             and self._canvas_scene.constraint_graph.get_item_constraints(item.item_id)
         ):
             return self.tr("A constrained shape cannot be split")
-        if (
-            is_plant_type(item.object_type)
-            or item.parent_bed_id is not None
-            or item.has_children
-        ):
+        if is_plant_type(item.object_type) or item.parent_bed_id is not None:
             return self.tr("Plants and linked objects cannot be split")
         if (
             item.object_type is not None

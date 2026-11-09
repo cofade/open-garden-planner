@@ -1,10 +1,12 @@
 """Split every closed shape crossed by a two-point cutting line (#664).
 
 The toolbar's Split tool is scene-wide: it takes two snapped points and cuts
-every closed shape that the drawn segment touches along the segment's infinite
-axis. A shape the segment crosses end to end becomes two (or more) pieces; a
-shape the segment only clips loses that part. Every cut of one gesture is one
-undo step.
+every closed shape that the drawn segment passes through along the segment's
+infinite supporting axis. A shape the segment crosses end to end becomes two
+(or more) pieces; a shape the segment clips is cut along the same axis when
+both resulting pieces are large enough to keep. A segment that only touches an
+outline (a corner, an edge, a tangent) is not a crossing. Every cut of one
+gesture is one undo step.
 
 The context menu's ``Split Along Line…`` keeps the same gesture scoped to the
 clicked shape. ``Shift`` constrains the line to 45-degree steps; ``Esc``
@@ -76,6 +78,7 @@ class SplitShapeTool(BaseTool):
         self._candidates: list[QGraphicsItem] = []
         self._refusal_cache: dict[QGraphicsItem, str | None] = {}
         self._preview_line: QGraphicsLineItem | None = None
+        self._preview_axis: QGraphicsLineItem | None = None
         self._preview_pieces: list[QGraphicsPolygonItem] = []
         self._scene = view._canvas_scene
         self._scene.document_replaced.connect(self.cancel)
@@ -281,7 +284,9 @@ class SplitShapeTool(BaseTool):
     def _apply(self, plan: _CutPlan) -> None:
         """Create all pieces and replace every source in one undo step."""
         from open_garden_planner.core.commands import (
+            Command,
             CompoundCommand,
+            ReconcileBedMembershipCommand,
             SplitShapeCommand,
         )
 
@@ -295,10 +300,24 @@ class SplitShapeTool(BaseTool):
             )
             for cut in plan.cuts
         ]
-        commands = [
+        commands: list[Command] = [
             SplitShapeCommand(self._scene, source, pieces)
             for source, pieces in splits
         ]
+        # A bed with plants is splittable: re-home every linked plant to the
+        # piece its standing point falls in, inside the SAME undo step (#664).
+        # The command captures the links BEFORE the sources disappear.
+        parent_ids: set[UUID] = set()
+        for cut in plan.cuts:
+            parent_id = getattr(cut.source, "item_id", None)
+            if getattr(cut.source, "has_children", False) and parent_id is not None:
+                parent_ids.add(parent_id)
+        if parent_ids:
+            commands.append(
+                ReconcileBedMembershipCommand(
+                    self._scene, focus_parents=parent_ids
+                )
+            )
         command = (
             commands[0]
             if len(commands) == 1
@@ -306,7 +325,7 @@ class SplitShapeTool(BaseTool):
                 commands,
                 QCoreApplication.translate(
                     "SplitShapeTool", "Split {count} shapes"
-                ).format(count=len(commands)),
+                ).format(count=len(plan.cuts)),
             )
         )
 
@@ -382,7 +401,12 @@ class SplitShapeTool(BaseTool):
         return QPointF(point)
 
     def _show_line_preview(self, end: QPointF) -> None:
-        """Draw only the drawn segment: it is what decides which shapes are cut."""
+        """Draw the segment, plus the supporting axis the cut actually uses.
+
+        Only the drawn segment decides WHICH shapes are cut; the cut itself
+        runs along the segment's infinite supporting axis, so the faint axis
+        line shows how far the blades reach (#664 review).
+        """
         if self._start is None:
             return
         if self._preview_line is None:
@@ -392,8 +416,32 @@ class SplitShapeTool(BaseTool):
             self._preview_line.setPen(pen)
             self._preview_line.setZValue(PREVIEW_Z_LINE)
             self._scene.addItem(self._preview_line)
+        if self._preview_axis is None:
+            self._preview_axis = QGraphicsLineItem()
+            pen = QPen(QColor(25, 120, 220, 90), 1.0, Qt.PenStyle.DotLine)
+            pen.setCosmetic(True)
+            self._preview_axis.setPen(pen)
+            self._preview_axis.setZValue(PREVIEW_Z_LINE)
+            self._scene.addItem(self._preview_axis)
         self._preview_line.setLine(
             self._start.x(), self._start.y(), end.x(), end.y()
+        )
+        direction = end - self._start
+        length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+        if length <= 1e-6:
+            self._preview_axis.setLine(
+                self._start.x(),
+                self._start.y(),
+                self._start.x(),
+                self._start.y(),
+            )
+            return
+        extent = self._scene.sceneRect().width() + self._scene.sceneRect().height()
+        direction *= extent / length
+        first = self._start - direction
+        second = self._start + direction
+        self._preview_axis.setLine(
+            first.x(), first.y(), second.x(), second.y()
         )
 
     def _show_piece_preview(self, end: QPointF) -> None:
@@ -425,8 +473,10 @@ class SplitShapeTool(BaseTool):
 
     def _clear_previews(self) -> None:
         self._clear_piece_preview()
-        if self._preview_line is not None:
-            with contextlib.suppress(RuntimeError):
-                if self._preview_line.scene() is not None:
-                    self._scene.removeItem(self._preview_line)
+        for preview in (self._preview_line, self._preview_axis):
+            if preview is not None:
+                with contextlib.suppress(RuntimeError):
+                    if preview.scene() is not None:
+                        self._scene.removeItem(preview)
         self._preview_line = None
+        self._preview_axis = None

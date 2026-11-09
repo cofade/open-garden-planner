@@ -8268,21 +8268,27 @@ both start a scene-wide cut with no source selection: the first canvas click
 is the line's first point. `SplitShapeTool` freezes the visible closed-shape
 candidates at that click, and each `mouse_move` tests them with
 `shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
-DRAWN SEGMENT touches are candidates — a shape lying on the line's infinite
-extension but not reached by it is left alone. On the second pick the tool cuts
-every candidate along the segment's supporting axis, so a fully crossed shape
-becomes two halves and a clipped one loses that part. Geometry is
-`core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is cut
-by the two half-planes, so a rotated source keeps its rotation and fill-pattern
-direction. All cuts of one gesture go through one `CompoundCommand` of
-`SplitShapeCommand`s, so they are exactly one undo step. Pieces are ordinary
-`PolygonItem`s with the source's layer, type (where valid for a polygon), look,
-`fill_transform`, label/area state, metadata and stack rank. Curves flatten to
-polygons; a concave shape may produce more than two pieces; a hole is refused.
-Refused shapes are skipped (a success message counts them); when nothing can be
-split the first refusal reason is shown instead of a command. The refusal list
-(plants, tracked UUIDs, constraints, locked layers, ridges, group members) is in
-`ADR-075` and `CanvasView.split_refusal_reason`, backed by
+DRAWN SEGMENT passes through are candidates — a shape lying on the line's
+infinite extension but not reached by it is left alone, and a segment that only
+touches an outline (a snapped corner, an edge, a tangent) is not a crossing. On
+the second pick the tool cuts every candidate along the segment's supporting
+axis, so a fully crossed shape becomes two halves and a clipped one is cut when
+both pieces are large enough to keep. The preview draws the bright segment plus
+a faint supporting axis, so the user sees the line that actually cuts. Geometry
+is `core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is
+cut by the two half-planes, so a rotated source keeps its rotation and
+fill-pattern direction. All cuts of one gesture share one undo step: a bare
+`SplitShapeCommand` for one source, a `CompoundCommand` for several. Pieces are
+ordinary `PolygonItem`s with the source's layer, type (where valid for a
+polygon), look, `fill_transform`, label/area state, metadata and stack rank.
+Curves flatten to polygons; a concave shape may produce more than two pieces; a
+hole is refused. A bed or other plant parent is eligible: a
+`ReconcileBedMembershipCommand` in the same undo step re-homes every linked
+plant to the piece containing its standing point. Refused shapes are skipped (a
+success message counts them); when nothing can be split the first refusal reason
+is shown instead of a command. The refusal list (a plant itself, tracked UUIDs,
+constraints, locked layers, ridges, group members, containers) is in `ADR-075`
+and `CanvasView.split_refusal_reason`, backed by
 `ProjectManager.has_item_references`. The shortcut is `Shift+S`, never `S`:
 `S` is the main window's Snap to Grid, and two window shortcuts on one key make
 Qt fire neither (PF-UI-36).

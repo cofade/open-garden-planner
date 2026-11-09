@@ -11192,23 +11192,30 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
    same tool, but with different scopes: the context menu arms the clicked
    closed shape, while the toolbar and the `Shift+S` shortcut start a scene-wide
    two-point cut with no prior selection. In scene-wide mode the first click is
-   the line's first point and every closed shape the drawn segment touches is
-   cut along the segment's supporting axis; shapes on the line's infinite
-   extension but not reached by the segment are not cut. `core/shape_split.py`
-   clips each item's local `QPainterPath` against the two half-planes of the
-   two-point axis; one `SplitShapeCommand` per source removes it and adds
-   ordinary `PolygonItem`s, and the whole gesture is one `CompoundCommand`
-   (one undo step). Pieces copy the source's layer, object
+   the line's first point and every closed shape the drawn segment passes
+   through is cut along the segment's supporting axis; shapes on the line's
+   infinite extension but not reached by the segment are not cut, and a
+   boundary touch (a corner, an edge, a tangent) is not a crossing.
+   `core/shape_split.py` clips each item's local `QPainterPath` against the two
+   half-planes of the two-point axis; one `SplitShapeCommand` per source removes
+   it and adds ordinary `PolygonItem`s, and the whole gesture is one undo step
+   (a bare command for one source, a `CompoundCommand` for several). Pieces copy
+   the source's layer, object
    type (when valid for a polygon), name, label/area state, metadata, stack order and
    `fill_transform`; using the local frame keeps a rotated source's rotation and
    pattern direction. Curves flatten to polygons, a concave shape may yield more than
    two pieces, and a result that contains a hole is refused because a `QPolygonF`
    cannot carry it.
 4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
-   plants, plants' parents and children, constraints, locked layers, roof ridges and
-   ridge-bearing buildings, grouped members, and any source whose UUID is still named
-   by soil, pest, harvest, succession, crop-rotation, manual-task or task-state data.
-   The last check is `ProjectManager.has_item_references`, the single central query.
+   a plant itself, constraints, locked layers, roof ridges and ridge-bearing
+   buildings, grouped members, shape types without a polygonal form, and any source
+   whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
+   manual-task or task-state data. The last check is
+   `ProjectManager.has_item_references`, the single central query. A bed or other
+   plant parent is NOT refused for having plants: a
+   `ReconcileBedMembershipCommand` in the same undo step re-homes each linked plant
+   to the piece that contains its standing point, using the established
+   plant→bed mutator.
 
 **Alternatives considered**:
 - *Detach the member and re-add it on exit.* Rejected: command snapshots are in the
@@ -11252,3 +11259,14 @@ The shortcut changed from `S` to `Shift+S` because the first version was dead in
 real window: `S` is `snap_action`'s window shortcut, and a second window shortcut on
 the same key makes Qt fire neither (measured on Qt 6.12 with a `QToolButton` and a
 `QAction` in one window; PF-UI-36). `Shift+S` is free and leaves `S` as Snap to Grid.
+
+Review then found two consequences worth stating. A **touch is not a crossing**:
+`segment_crosses_path` splits the segment at its outline crossings and accepts only
+an interval whose midpoint is strictly inside (offset points on both sides must be
+inside), so a snapped pick on a bed's corner, a segment along an edge, or a tangent
+returns False. And **a bed with plants is eligible**: refusing every plant parent
+would make the headline feature unable to touch the normal object in a garden. The
+`SplitShapeTool` adds a `ReconcileBedMembershipCommand` to the same undo step for
+every split source that has children; the existing plant→bed mutator moves each
+plant to the new piece containing its standing point, and undo restores the source's
+links before the source itself comes back.

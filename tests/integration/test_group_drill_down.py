@@ -130,6 +130,27 @@ def test_a_focused_member_handle_resizes_only_that_member(canvas) -> None:
     assert first.rect() == before
 
 
+def test_a_focused_member_handle_does_not_steal_another_tools_click(canvas) -> None:
+    """Split (or any non-Select tool) must get the click it was asked for."""
+    from open_garden_planner.core.tools import ToolType
+
+    _show(canvas)
+    group, first, _second = _group(canvas)
+    canvas.scene().clearSelection()
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+
+    handle = first._resize_handles[0]
+    handle.update_position()
+    canvas.set_active_tool(ToolType.SPLIT)
+    point = canvas.mapFromScene(handle.scenePos())
+    QTest.mousePress(canvas.viewport(), Qt.MouseButton.LeftButton, pos=point)
+    QTest.mouseRelease(canvas.viewport(), Qt.MouseButton.LeftButton, pos=point)
+
+    assert canvas._drill_handle is None
+    assert canvas._split_tool._start is not None
+
+
 def test_a_focused_member_rotation_handle_rotates_only_that_member(canvas) -> None:
     _show(canvas)
     group, first, _second = _group(canvas)

@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QPainterPath, QPolygonF
 
+from open_garden_planner.core.cad_geometry import segment_segment_intersection
 from open_garden_planner.core.shape_boolean import (
     MIN_RESULT_AREA_CM2,
     _polygon_area,
@@ -40,16 +41,25 @@ if TYPE_CHECKING:
 #: A cutting axis shorter than this cannot define a direction.
 MIN_AXIS_LENGTH_CM = 1e-6
 
+#: How far beside an interval midpoint a crossing test looks to tell interior
+#: from a segment lying along an edge: 1 micron, far below any drawable stroke.
+_INTERIOR_PROBE_CM = 1e-4
+
 
 def split_path(path: QPainterPath, a: QPointF, b: QPointF) -> list[QPolygonF]:
     """Cut *path* into the filled pieces on each side of the infinite axis a-b.
 
     Returns the pieces in local path coordinates. An empty list means the cut
-    was refused: a degenerate axis, an empty path, a line that misses (or only
-    touches) the shape, a result Qt cannot represent as polygons (a hole), or
-    a piece below the degeneracy floor. The two sides are clipped by half-plane
-    rectangles built from the path's own bounds, so the axis needs no finite
-    extent and the caller does not have to extend it.
+    was refused: a degenerate axis, an empty path, a supporting axis that misses
+    (or only touches) the shape, a result Qt cannot represent as polygons (a
+    hole), or a piece below the degeneracy floor. The two sides are clipped by
+    half-plane rectangles built from the path's own bounds, so the axis needs no
+    finite extent and the caller does not have to extend it.
+
+    This function has no idea where the user's drawn segment starts and ends. A
+    caller that must honour the segment (the split tool does) checks
+    :func:`segment_crosses_path` first; without that check a line merely
+    collinear with a shape's extension would cut it.
     """
     if path.isEmpty():
         return []
@@ -126,13 +136,19 @@ def split_path(path: QPainterPath, a: QPointF, b: QPointF) -> list[QPolygonF]:
 
 
 def segment_crosses_path(path: QPainterPath, a: QPointF, b: QPointF) -> bool:
-    """Whether the finite segment ``a``-``b`` touches the filled *path*.
+    """Whether the finite segment ``a``-``b`` passes through the filled *path*.
 
-    The split tool uses this before :func:`split_path`: a two-click line only
-    cuts the shapes the user actually drew across, not every shape on its
-    infinite extension (#664). A segment wholly inside the shape counts (the
-    user drew inside it); a segment that only approaches the extension does
-    not.
+    A **touch** is not a crossing: a segment that ends on the outline, runs
+    along an edge, or is tangent to it never enters the shape and returns False.
+    The segment must own a non-zero length inside the fill. That is what stops a
+    snapped pick on a bed's corner from cutting the bed it merely grazed (#664).
+
+    The test walks the segment's parameter intervals split at its crossings
+    with the (flattened) outline and asks whether any interval midpoint is
+    strictly inside. A midpoint is accepted only when points offset to BOTH
+    sides of the line are inside, which rejects a segment lying along an edge.
+    ``split_path`` still needs the caller's permission: it cuts along the
+    segment's infinite supporting axis.
     """
     if path.isEmpty():
         return False
@@ -141,10 +157,36 @@ def segment_crosses_path(path: QPainterPath, a: QPointF, b: QPointF) -> bool:
     length = math.hypot(dx, dy)
     if not math.isfinite(length) or length < MIN_AXIS_LENGTH_CM:
         return False
-    segment = QPainterPath()
-    segment.moveTo(a)
-    segment.lineTo(b)
-    return path.intersects(segment)
+    normal_x, normal_y = -dy / length, dx / length
+
+    outline = path.toFillPolygon()
+    if outline.count() < 3:
+        return False
+    stops = [0.0, 1.0]
+    for index in range(outline.count()):
+        edge_start = outline.at(index)
+        edge_end = outline.at((index + 1) % outline.count())
+        hit = segment_segment_intersection(a, b, edge_start, edge_end)
+        if hit is not None:
+            stops.append(hit[0])
+    stops.sort()
+    unique: list[float] = []
+    for stop in stops:
+        if not unique or stop - unique[-1] > 1e-9:
+            unique.append(stop)
+    for low, high in zip(unique, unique[1:], strict=False):
+        if high - low <= 1e-9:
+            continue
+        middle = 0.5 * (low + high)
+        mid_x = a.x() + dx * middle
+        mid_y = a.y() + dy * middle
+        left = QPointF(mid_x + normal_x * _INTERIOR_PROBE_CM,
+                       mid_y + normal_y * _INTERIOR_PROBE_CM)
+        right = QPointF(mid_x - normal_x * _INTERIOR_PROBE_CM,
+                        mid_y - normal_y * _INTERIOR_PROBE_CM)
+        if path.contains(left) and path.contains(right):
+            return True
+    return False
 
 
 def segment_crosses_item(item: QGraphicsItem, first: QPointF, second: QPointF) -> bool:
