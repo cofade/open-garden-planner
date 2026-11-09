@@ -586,7 +586,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 **US-E6 — the 3D view** (since Phase 17 L1.9 the 3D pane of the main window's workspace, engine Qt Quick 3D per ADR-048 / ADR-060; the US-E6 viewer window on Qt 3D, ADR-038, is retired; no `FILE_VERSION` change):
 
-- **FR-SUN-06**: **View → "3D View"** shows the plan in 3D inside the main window: from Plan mode it switches the workspace to **Split** — the plan and the 3D view side by side — and in 3D or Split mode it changes nothing (the workspace's own modes Plan / 3D / Split, Alt+1 / Alt+2 / Alt+3, are FR-3D-WS-01; no separate window opens). Every visible object with a footprint stands at its **effective height** (FR-SUN-02) on the same footprint the 2D shadow overlay uses — a building with its roof, a fence with its posts and pickets, a wall, a bed, a hedge as built shapes, a plant as the silhouette of its sprite's archetype (FR-3D-PLANT-01…04), anything else as a prism in its fill colour; objects without a height (lawns, paths, in-ground beds …) lie on the ground as on the plan (the ground bake, FR-3D-GROUND-*) — on a ground the size of the canvas, in a meadow. The camera orbits (FR-3D-WS-06) and starts framed on the plan. The light is the plan's sun — location, date and time of the one simulation clock (FR-SUN-04) — with shadows whose ground coverage matches the 2D overlay's (FR-3D-LOOK-01, FR-3D-LOOK-06); without a garden location a fixed southern midday sun (50° high, azimuth 180°) lights it, and after sunset the view fades through twilight into a moonlit night. The view follows **every** edit of the plan at once (FR-3D-WS-03) — there is no Refresh — and a date change regrows the dated plants (FR-SUN-08). It is a viewer: a click selects (FR-3D-SELECT-01…05), nothing is edited in 3D, and nothing 3D is written to the `.ogp` (camera, mode and walk state are not saved with the plan; the Split position is a window setting). Detail: FR-33.
+- **FR-SUN-06**: **View → "3D View"** shows the plan in 3D inside the main window: from Plan mode it switches the workspace to **Split** — the plan and the 3D view side by side — and in 3D or Split mode it changes nothing (the workspace's own modes Plan / 3D / Split, Alt+1 / Alt+2 / Alt+3, are FR-3D-WS-01; no separate window opens). Every visible object with a footprint stands at its **effective height** (FR-SUN-02) on the same footprint the 2D shadow overlay uses — a building with its roof, a fence with its posts and pickets, a wall, a bed, a hedge as built shapes, a plant as the silhouette of its sprite's archetype (FR-3D-PLANT-01…04), anything else as a prism in its fill colour; objects without a height (lawns, paths, in-ground beds …) lie on the ground as on the plan (the ground bake, FR-3D-GROUND-*) — on a ground the size of the canvas, in a meadow. The camera orbits (FR-3D-WS-06) and starts framed on the plan. The light is the plan's sun — location, date and time of the one simulation clock (FR-SUN-04) — with shadows whose ground coverage matches the 2D overlay's (FR-3D-LOOK-01, FR-3D-LOOK-06); without a garden location a fixed southern midday sun (50° high, azimuth 180°) lights it, and after sunset the view fades through twilight into a moonlit night. The view follows **every** edit of the plan at once (FR-3D-WS-03) — there is no Refresh — and a date change regrows the dated plants (FR-SUN-08). It is a viewer: a click selects (FR-3D-SELECT-01…05), nothing is edited in 3D, and nothing 3D is written to the `.ogp` except the camera tours the user chose to keep in the plan (FR-3D-TOUR-04; camera, mode and walk state are not saved with the plan; the Split position is a window setting). Detail: FR-33.
 
 **US-E7 — first-person walkthrough** (a camera mode of the 3D view — since Phase 17 L1.9 the workspace's, FR-3D-WALK-01…03; no `FILE_VERSION` change):
 
@@ -1088,6 +1088,26 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the
   clock holds and restores it: a date the user sets during a **flight preview** survives its end.
+- **FR-3D-TOUR-04** *(issue #737)*: A tour can be **kept in the plan under a name** and rendered
+  again later. The dialog's first group lists the plan's tours: **Save Tour As** keeps the
+  controls as a new tour (a name the plan already has is asked about before it is replaced),
+  **Save Tour** writes changed controls back to the tour they came from, **Rename** and
+  **Delete** do what they say, and choosing a tour puts its camera, time range, duration, frame
+  rate and size back into the controls. Saving, changing, renaming and deleting a tour are
+  **one undo step each** and mark the plan as changed; setting up a tour without saving it, and
+  choosing one, change nothing. A saved tour holds a camera and a clock and nothing of the
+  garden, so rendering it after the garden changed shows the changed garden along the saved
+  path. A saved drone orbit or held view starts from the view it was saved with, and the dialog
+  says so; **Use Current View** starts it from the view again. Choosing another tour asks
+  before it discards unsaved keyframes or unsaved changes. The tours are saved with the plan
+  file and belong to it: a new or opened plan shows its own tours and none of the last plan's;
+  Save As, a template and a new season keep them. A plan keeps up to 50 tours of up to 100
+  keyframes each. The file's format version does not change: a release from before this
+  feature opens a plan with tours and ignores them (and writes the plan back without them if it
+  saves). A tour in a file that cannot be read is skipped, the rest of the plan loads, and the
+  status bar says how many were skipped. The look of the picture (photo mode, weather, quality)
+  is not part of a tour: it is the view's when the tour is rendered. Not included: a tour is not
+  kept in the crash-recovery file (which holds the drawing only).
 - **FR-AGENT-31** (L6.3, #390, ADR-072): **`render_3d_view`** renders a PNG of the 3D view for an
   agent, from the owner's camera or one of its own, and reports what it shows (plan date, time, sun,
   weather, quality, roofs, overlays). It is read-only and needs no token; it never moves the

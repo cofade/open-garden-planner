@@ -1083,3 +1083,25 @@ therefore restores nothing, so a date set while it runs survives it. During a cl
 tour, agent reads report the owner's held date (`as_of_date`) and agent-created plants are
 stamped with it, not with the frame being rendered (ADR-072 addendum, issue #730).
 
+A tour kept in the plan (issue #737) takes the plan's write path, not the capture's:
+
+```mermaid
+sequenceDiagram
+    participant Dialog as TourDialog (the draft)
+    participant Coord as WorkspaceCaptureCoordinator
+    participant Stack as CommandManager
+    participant Plan as ProjectManager
+    Dialog->>Dialog: the controls as a SavedTour (None: no tour yet)
+    Dialog->>Coord: save_tour / rename_tour / delete_tour
+    Coord->>Stack: execute(one tour command: the list before, the list after)
+    Stack->>Plan: set_camera_tours(the list after)
+    Plan-->>Coord: camera_tours_changed
+    Coord-->>Dialog: tours_changed: the combo names the plan's tours
+    Stack-->>Plan: stack_changed: the plan is dirty
+    Note over Stack,Plan: undo and redo call set_camera_tours with the other list
+```
+
+`ProjectManager.save` writes the list as the file's `camera_tours` key; `load` hands the raw
+key to `load_tours`, which skips what is no tour, and `new_project` empties the list. The
+scene's `document_replaced` clears the dialog's draft before the new plan's tours arrive.
+
