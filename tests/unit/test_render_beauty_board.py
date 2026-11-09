@@ -233,3 +233,51 @@ def test_the_date_row_can_fail(qtbot, tmp_path: Path) -> None:  # noqa: ARG001 -
     assert board.records_digest(june) == digests["2026-06-21"]
     with pytest.raises(KeyError):
         run.snapshot_day(dict(june))                  # records nobody snapshotted
+
+
+def _painted_edge(camera, elevation: float, azimuth: float, width: float) -> np.ndarray:
+    """A frame of bare ground with the ``--stairs`` panel's analytic shadow painted dark:
+    everything between its face and its far edge (no engine — the cameras' geometry)."""
+    cols, rows = np.meshgrid(np.arange(camera.size[0]) + 0.5, np.arange(camera.size[1]) + 0.5)
+    rays = camera.rays(cols, rows)
+    eye = np.asarray(camera.eye)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(rays[..., 2] < -1e-9, -eye[2] / rays[..., 2], np.nan)
+    north = eye[1] + t * rays[..., 1]
+    reach = board.STAIRS_HEIGHT_CM / math.tan(math.radians(elevation))
+    edge = board.STAIRS_NORTH_CM - board.STAIRS_PANEL_CM / 2.0 + math.cos(math.radians(azimuth + 180.0)) * reach
+    frame = np.full(rays.shape[:2] + (3,), 120.0)
+    frame[np.isfinite(t) & (north > edge) & (north < board.STAIRS_NORTH_CM)] = 50.0
+    return frame
+
+
+def test_the_stairs_probe_sees_the_edges_its_gate_judges() -> None:
+    """#734 (PF-L3D-20): a gate that reads a shadow edge outside its frame reads nothing.
+    The board's two cameras see the panel's long shadow edge where the render tier judges
+    it (20-40 m out in the default framing, under both suns; the golden-hour camera up
+    close at 15.2°), and at 1080p a picket pitch spans the streak instrument's 8 px on the
+    lines it reads inside the fence's 6° shadow."""
+    width, depth, size = 2400.0, 1600.0, (1920, 1080)
+    cameras = board.stairs_cameras(width, depth, size)
+    assert set(cameras) == {"hero", "framed"}
+    for elevation, azimuth in board.STAIRS_SUNS:
+        frame = _painted_edge(cameras["framed"], elevation, azimuth, width)
+        rows = board.stairs_measure(frame, cameras["framed"], "PLAIN", elevation, azimuth, width)
+        (far,) = [row for row in rows["edge"] if row["depth_m"] == [20.0, 40.0]]
+        assert far["stations"] > 500 and far["wobble_cm"] < 1.5, (elevation, far)
+        assert rows["foot"]["samples"] > 300 and rows["foot"]["lit_share"] < 0.02, rows["foot"]
+    golden = max(board.STAIRS_SUNS)
+    hero = board.stairs_measure(_painted_edge(cameras["hero"], *golden, width), cameras["hero"],
+                                "PLAIN", *golden, width)
+    assert sum(row["stations"] for row in hero["edge"] if row["depth_m"][1] <= 20.0) > 500
+    sunset = min(board.STAIRS_SUNS)
+    lines = [board.probes.shadow_streaks(
+        np.full((size[1], size[0], 3), 80.0), cameras["hero"], (board.STAIRS_INSET_CM, -offset),
+        (width - board.STAIRS_INSET_CM, -offset), period_cm=12.0, lit_luma=120.0)
+        for offset in board.STAIRS_STREAK_OFFSETS_CM]
+    assert sum(line["streak"] is not None for line in lines) >= 2, (sunset, lines)
+    record = board.stairs_record("WOODEN_FENCE", board.STAIRS_INSET_CM, width - board.STAIRS_INSET_CM)
+    assert record.kind == "FENCE" and record.height_cm == board.STAIRS_HEIGHT_CM
+    assert record.params["path_style"] == "WOODEN_FENCE"
+    (start, end) = record.path
+    assert end[0] - start[0] == pytest.approx(width - 2 * board.STAIRS_INSET_CM)

@@ -258,6 +258,52 @@ def test_far_plan_preserves_shadows_and_has_no_ao_line(tmp_path) -> None:
         assert row["outer_rows"]["step"] <= 3.0, row
 
 
+#: #734: the board's ``--stairs`` (a 23.8 m solid panel and a picket fence at the plan's
+#: south edge, the board's golden hour 15.2° and sunset 5.9°) on the presets a promotion is
+#: recorded on, at 1920 x 1080 — at the tier's 640 x 360 a picket pitch never spans the
+#: 8 px the streak instrument needs. Measured on the RTX 4070 (2026-11-09), base 53b48405
+#: high / ultra -> with the cascades fitted to the casters (high and ultra alike):
+#: the panel's edge 20-40 m out in the default framing, cm spread across it — 15.2°:
+#: 5 / 1 -> 1, 5.9°: 11 / 2 -> 2; the line along its foot at 5.9°, the share of it the
+#: sun reaches: 0.339 / 0.011 -> 0.011; the picket fence's shadow at 5.9°, streaks (the
+#: one-pitch-filtered spread over the shadow's contrast, the worse camera): 0.49 / 0.30 ->
+#: 0.10-0.17; the orbit's crawl (0.5° a frame, the edge averaged over 30 cm): 0.23 px locked,
+#: 0.19 px fitted.
+STAIRS_SIZE = "1920x1080"
+STAIRS_PRESETS = ("high", "ultra")
+MAX_PANEL_STAIRS_CM = {15.2: 2.5, 5.9: 4.0}
+MAX_FOOT_LIT_SHARE = 0.05
+MAX_STREAK = 0.25
+MAX_ORBIT_SWIM_PX = 0.5
+
+
+def test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks(tmp_path) -> None:
+    """#734. The shadow map's texels along a long shadow on the meadow — not what the
+    casters are shaped like (the picket tops' old ramp is pinned without an engine:
+    ``test_scene3d_builders.py::TestPolylinesAreBuiltFromTheCentreLine::``
+    ``test_picket_tops_repeat_no_pattern_and_follow_the_items_seed``)."""
+    out = tmp_path / "stairs"
+    metrics = _ok_board(run_board(out, "--size", STAIRS_SIZE, "--presets", ",".join(STAIRS_PRESETS),
+                                  "--shots=", "--stairs"), out)
+    for preset in STAIRS_PRESETS:
+        rows = metrics["stairs"][preset]
+        panel = {row["sun_elev"]: row for row in rows
+                 if row["caster"] == "PLAIN" and row["camera"] == "framed"}
+        for elevation, bound in MAX_PANEL_STAIRS_CM.items():
+            (far,) = [b for b in panel[elevation]["edge"] if b["depth_m"] == [20.0, 40.0]]
+            assert far["stations"] > 500, (preset, elevation, far)   # the instrument saw the edge
+            assert far["wobble_cm"] <= bound, (preset, elevation, far)
+        feet = [row["foot"] for row in rows if "foot" in row]
+        assert len(feet) == 4 and all(foot["samples"] > 300 for foot in feet), feet
+        assert max(foot["lit_share"] for foot in feet) <= MAX_FOOT_LIT_SHARE, (preset, feet)
+        streaks = [line["streak"] for row in rows for line in row.get("streaks", {}).values()
+                   if line["streak"] is not None]
+        assert len(streaks) >= 4, (preset, rows)
+        assert max(streaks) <= MAX_STREAK, (preset, streaks)
+        (orbit,) = [b for b in metrics["stairs_orbit"][preset]["swim"] if b["depth_m"] == [20.0, 40.0]]
+        assert orbit["pairs"] > 2000 and orbit["swim_px"] <= MAX_ORBIT_SWIM_PX, (preset, orbit)
+
+
 def test_lawn_blades_do_not_add_dark_stubble_to_the_same_high_look(tmp_path) -> None:
     """#604: isolate blades from High's own AO, cascades and ground lighting."""
     out = tmp_path / "lawn"
