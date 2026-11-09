@@ -1110,7 +1110,12 @@ Item {
             // the camera, a framed plan beyond 90 m lay clear and shadowless (3D review).
             // The top-down truth view keeps the measured 9000.
             shadowMapFar: root.topDown ? 9000 : root.shadowFar
-            lockShadowmapTexels: true
+            // #734: unlocked, each cascade's map spans what CASTS in its slice (the plan's
+            // own items), not the slice's whole bounding sphere (~170 m at the board's
+            // golden hour: 8.3 cm texels on High, stair-stepped edges and lit teeth under
+            // every caster at a low sun). Measured: no more crawl when the camera orbits.
+            // The orthographic truth view keeps the locked fit it was measured with.
+            lockShadowmapTexels: root.topDown
         }
         // The flat fill - ONLY where no sky texture lights the view (the truth view, a
         // host without a sky). No direct light of its own; separate from the key light
