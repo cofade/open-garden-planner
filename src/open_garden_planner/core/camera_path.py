@@ -33,7 +33,7 @@ from .scene3d.camera import CameraPose
 __all__ = ["DATE_STEPS_PER_S", "DEFAULT_FPS", "EYE_SAMPLES_PER_S", "FRAME_RATES", "MAX_DURATION_S",
            "MIN_DURATION_S", "MIN_EYE_CM", "WIND_START_S",
            "CameraKey", "CameraMotion", "CameraPath", "DroneOrbit", "HeldCamera", "TourFrame",
-           "TourSpec", "frame_count", "path_eyes", "tour_frames"]
+           "TourSpec", "distinct_keys", "frame_count", "path_eyes", "tour_frames"]
 
 Point3 = tuple[float, float, float]
 
@@ -119,6 +119,20 @@ def _ease(u: float) -> float:
     return peak * (u - share / 2.0)
 
 
+def distinct_keys(keys: Sequence[CameraKey], *, closed: bool = False) -> tuple[CameraKey, ...]:
+    """The keys a path is made of: consecutive identical keys count once, and a closed
+    path does not name its first key again at the end. THE one rule for "can these keys
+    be flown": ``CameraPath`` builds on it, and a saved tour is checked with it without
+    paying for the spline (``core/camera_tours.py``)."""
+    kept: list[CameraKey] = []
+    for key in keys:
+        if not kept or key != kept[-1]:
+            kept.append(key)
+    if closed and len(kept) > 1 and kept[0] == kept[-1]:
+        kept.pop()
+    return tuple(kept)
+
+
 class CameraPath:
     """The spline through two or more keys (module docstring). Immutable once built.
 
@@ -127,15 +141,10 @@ class CameraPath:
     """
 
     def __init__(self, keys: Sequence[CameraKey], *, closed: bool = False) -> None:
-        kept: list[CameraKey] = []
-        for key in keys:
-            if not kept or key != kept[-1]:
-                kept.append(key)
-        if closed and len(kept) > 1 and kept[0] == kept[-1]:
-            kept.pop()
+        kept = distinct_keys(keys, closed=closed)
         if len(kept) < 2:
             raise ValueError("A camera path needs at least two different keys")
-        self.keys: Final = tuple(kept)
+        self.keys: Final = kept
         self._closed = bool(closed)
         rows = np.array([(*key.eye, *key.target, key.fov_deg * _FOV_WEIGHT_CM) for key in kept],
                         dtype=np.float64)
