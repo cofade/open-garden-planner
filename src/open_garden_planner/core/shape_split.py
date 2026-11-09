@@ -190,7 +190,7 @@ def segment_crosses_path(path: QPainterPath, a: QPointF, b: QPointF) -> bool:
 
 
 def segment_crosses_item(item: QGraphicsItem, first: QPointF, second: QPointF) -> bool:
-    """Whether the scene-space segment ``first``-``second`` touches *item*.
+    """Whether the scene-space segment ``first``-``second`` passes through *item*.
 
     Works in the item's local frame, like :func:`split_item_into_local_polygons`,
     so a rotated or grouped source is tested against its real footprint.
