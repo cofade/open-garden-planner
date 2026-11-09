@@ -141,6 +141,10 @@ class ShortcutsDialog(QDialog):
         # Drawing tools
         tools_group = self._create_shortcut_group(self.tr("Drawing Tools"), [
             ("V", self.tr("Select Tool")),
+            (
+                self._localize_shortcut("Escape"),
+                self.tr("Cancel and return to the Select tool"),
+            ),
             ("M", self.tr("Measure Tool")),
             ("R", self.tr("Rectangle")),
             ("P", self.tr("Polygon")),

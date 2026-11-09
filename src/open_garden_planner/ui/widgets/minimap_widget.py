@@ -70,6 +70,9 @@ class MinimapWidget(QWidget):
         # Scene rects the minimap itself dirtied by hiding/restoring overlay
         # items around its last render — see `_on_scene_changed` (issue #305).
         self._self_dirty_rects: list[QRectF] = []
+        # Items hidden by opacity instead of a flag for the current render, with
+        # the opacity to put back - see `_hide_overlay_items` (PF-CAN-48).
+        self._faded: dict[QGraphicsItem, float] = {}
 
         # Size is updated in _do_update() to match canvas aspect ratio
         self.resize(MINIMAP_WIDTH, MINIMAP_HEIGHT)
@@ -267,20 +270,38 @@ class MinimapWidget(QWidget):
         The flag suppresses paint without changing visibility, selection or
         the plan revision.
 
-        Returns the list of items that were suppressed (for later restore).
+        One kind of item must not have a flag touched at all: a
+        non-selectable descendant of a *selected group* - the handles of a
+        drilled-down member (#771). ``QGraphicsItem.isSelected`` answers for
+        the group there, and ``setFlags`` deselects any item that reports
+        selected without being selectable, which unselects the whole group
+        (measured, Qt 6.12; PF-CAN-48). Those items are made fully transparent
+        for the render instead: opacity has no selection side effect.
+
+        Returns the list of items that were suppressed (for later restore);
+        ``_faded`` remembers the opacity of the ones hidden that way.
         """
         hidden: list[QGraphicsItem] = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
         no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
+        selectable = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
         # Never suppress the scene's current focus item — it may be an active
         # inline text editor (EditableLabel). Doing so would close the editor.
         focus_item = self._canvas_scene.focusItem()
         for item in self._canvas_scene.items():
             if item is focus_item:
                 continue
-            if item.isVisible() and not (item.flags() & no_contents) and (
-                bool(item.flags() & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
+            flags = item.flags()
+            if item.isVisible() and not (flags & no_contents) and (
+                bool(flags & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
             ):
+                if not (flags & selectable) and item.isSelected():
+                    opacity = item.opacity()
+                    if opacity > 0.0:
+                        self._faded[item] = opacity
+                        item.setOpacity(0.0)
+                        hidden.append(item)
+                    continue
                 item.setFlag(no_contents, True)
                 hidden.append(item)
         return hidden
@@ -289,7 +310,11 @@ class MinimapWidget(QWidget):
         """Restore items suppressed before thumbnail render."""
         no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
         for item in hidden:
-            item.setFlag(no_contents, False)
+            opacity = self._faded.pop(item, None)
+            if opacity is None:
+                item.setFlag(no_contents, False)
+            else:
+                item.setOpacity(opacity)
 
     def paintEvent(self, _event: object) -> None:
         """Draw the minimap thumbnail, border, and viewport rectangle."""

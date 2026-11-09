@@ -4787,7 +4787,7 @@ class GardenPlannerApp(QMainWindow):
         self._pre_preview_state = None
 
     def keyPressEvent(self, event) -> None:
-        """Handle key press events for preview mode toggle."""
+        """Handle preview-mode keys and an Esc nothing else consumed."""
         if event.key() == Qt.Key.Key_F11:
             if self._preview_mode:
                 self._exit_preview_mode()
@@ -4799,6 +4799,14 @@ class GardenPlannerApp(QMainWindow):
             self._exit_preview_mode()
             event.accept()
             return
+        # An Esc that no focused widget consumed ends the active tool: right
+        # after a tool was picked the focus is often in a panel or the search
+        # field, not on the canvas (manual test, PR #783).
+        if event.key() == Qt.Key.Key_Escape:
+            return_to_select = getattr(self.canvas_view, "return_to_select_tool", None)
+            if callable(return_to_select) and return_to_select():
+                event.accept()
+                return
         super().keyPressEvent(event)
 
     def _on_toggle_grid(self, checked: bool) -> None:

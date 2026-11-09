@@ -26,7 +26,12 @@ from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem
 
 from open_garden_planner.core.cad_geometry import snap_point_to_axis_step
-from open_garden_planner.core.item_look import copy_visual_style
+from open_garden_planner.core.item_look import (
+    adopt_type_fill,
+    copy_visual_style,
+    paints_sprite,
+)
+from open_garden_planner.core.object_height import carry_height_across_type_change
 from open_garden_planner.core.shape_split import (
     polygon_type_for_split,
     segment_crosses_item,
@@ -375,7 +380,8 @@ class SplitShapeTool(BaseTool):
         item._apply_rotation(source.rotation())
         centre = item.transformOriginPoint()
         item.setPos(source.mapToScene(centre) - centre)
-        polygon_type = polygon_type_for_split(getattr(source, "object_type", None))
+        source_type = getattr(source, "object_type", None)
+        polygon_type = polygon_type_for_split(source_type)
         if polygon_type is not None:
             item.object_type = polygon_type
         item.name = getattr(source, "name", "")
@@ -386,7 +392,20 @@ class SplitShapeTool(BaseTool):
         metadata = getattr(source, "metadata", None)
         if metadata:
             item.metadata.update(deepcopy(metadata))
+        # The source's roof ridge leaves with the source; ``SplitShapeCommand``
+        # builds every piece its own, so no piece may name the old one.
+        item.metadata.pop("ridge_item_id", None)
         copy_visual_style(source, item)
+        if paints_sprite(source):
+            # A sprite (a raised bed's wooden frame) cannot be drawn on a
+            # free-form outline. Its stored fill was never what the user saw,
+            # so a piece whose type had to change takes the new type's pattern
+            # (soil) instead of going flat brown. A shape painted by its own
+            # brush keeps the pattern the user gave it.
+            adopt_type_fill(item, source_type, polygon_type)
+        # A piece stands as tall as its source: the 40 cm of a raised bed is a
+        # type default the garden-bed pieces would otherwise lose.
+        carry_height_across_type_change(item.metadata, source_type, polygon_type)
         item._setup_styling()
         return item
 

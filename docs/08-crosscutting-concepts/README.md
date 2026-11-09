@@ -8288,11 +8288,32 @@ hole is refused. A bed or other plant parent with a polygonal form is eligible: 
 plant to the piece containing its standing point. Refused shapes are skipped (a
 success message counts them); when nothing can be split the first refusal reason
 is shown instead of a command. The refusal list (a plant itself, tracked UUIDs,
-constraints, locked layers, ridges, group members, containers) is in `ADR-075`
+constraints, locked layers, group members, containers) is in `ADR-075`
 and `CanvasView.split_refusal_reason`, backed by
 `ProjectManager.has_item_references`. The shortcut is `Shift+S`, never `S`:
 `S` is the main window's Snap to Grid, and two window shortcuts on one key make
 Qt fire neither (PF-UI-36).
+
+*What a piece owes its source beyond a copy.* A house or a greenhouse is split
+like any other shape: `SplitShapeCommand` removes the source's linked ridge with
+the source and builds every piece its own (`build_copy_ridges`); a piece never
+keeps the source's `ridge_item_id`. A piece whose type had to change keeps the
+height the source stood at (`object_height.carry_height_across_type_change`: a
+raised bed's 40 cm is a type default the garden-bed piece does not have), and
+takes its new type's fill pattern when the source was painted as a sprite, whose
+stored fill was never on screen. `item_look.adopt_rebuilt_type` is the same pair
+of rules for the corner tools and the loader's raised-bed migration. A new
+"rebuild this shape" operation calls one of the two; copying the type and the
+look alone loses the height.
+
+**Esc ends the tool.** `CanvasView.return_to_select_tool` is the one rule for
+every tool: the canvas calls it after the active tool's own `key_press`, and the
+main window's `keyPressEvent` calls it for an Esc no focused widget consumed
+(right after a tool is picked the focus is usually in a panel or the search
+field). Deactivating a tool cancels its gesture, and every tool switch hides the
+distance/angle prompt, so a new tool needs no Esc code of its own. Narrower Esc
+meanings run first in `CanvasView.keyPressEvent`: calibration, vertex editing,
+group drill-down.
 
 **Group drill-down.** Qt routes a group child's selection back to the group, so
 there is no Qt-level "selected child" state to switch to. The second click on a
@@ -8309,4 +8330,10 @@ handles' `begin_drag` / `apply_drag` / `end_drag` seam. The member cannot change
 layer, be cut or be deleted while focused, and a constrained member or ancestor
 refuses movement. Clicking outside the member or pressing `Esc` clears the focus
 and restores every grouped ancestor's `ItemIsMovable` flag. Smart symbols are not
-drillable because their members are generated from parameters.
+drillable because their members are generated from parameters. The focus depends
+on the group staying selected, and Qt unselects a group when any flag of a
+non-selectable descendant is set (PF-CAN-48): the minimap hides a focused
+member's handles by opacity, and any new code that toggles flags on arbitrary
+scene items has to make the same exception. Test drill-down in the running
+window (`GardenPlannerApp`), past a minimap refresh; a bare canvas has no
+minimap.

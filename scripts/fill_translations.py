@@ -3604,9 +3604,11 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
     "Commands": {
         "Split shape": "Form teilen",
     },
+    "ShortcutsDialog": {
+        "Cancel and return to the Select tool":
+            "Abbrechen und zum Auswahlwerkzeug zurückkehren",
+    },
     "CanvasView": {
-        "A building and its roof ridge cannot be split":
-            "Ein Gebäude und sein Dachfirst können nicht geteilt werden",
         "A constrained shape cannot be split":
             "Eine Form mit Randbedingung kann nicht geteilt werden",
         "Click the first point of the cutting line. Esc cancels.":

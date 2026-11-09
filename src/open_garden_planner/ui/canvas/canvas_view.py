@@ -1006,6 +1006,21 @@ class CanvasView(QGraphicsView):
             return
         self._activate_tool_direct(tool_type)
 
+    def return_to_select_tool(self) -> bool:
+        """End the active tool and make Select active; False if it already is.
+
+        This is Esc's rule for every tool - drawing, object placing, CAD and
+        constraint tools alike. Deactivating a tool cancels its gesture, so no
+        half-drawn preview survives. The main window calls it for an Esc that
+        no focused widget consumed, because the keyboard focus is often in a
+        panel or the search field right after a tool was picked.
+        """
+        tool = self._tool_manager.active_tool
+        if getattr(tool, "tool_type", None) is ToolType.SELECT:
+            return False
+        self.set_active_tool(ToolType.SELECT)
+        return True
+
     def _activate_tool_direct(self, tool_type: ToolType) -> None:
         """Switch tools without any extra policy around the target tool."""
         self._tool_manager.set_active_tool(tool_type)
@@ -1014,6 +1029,12 @@ class CanvasView(QGraphicsView):
         self.refresh_input_anchor()
         # Clear any pending typed input from the previous tool.
         self._input_buffer.clear()
+        # The Dist/Angle prompt belongs to the previous tool's gesture. It is
+        # re-shown by the next mouse move if the new tool wants one; without
+        # this an Esc pressed with the mouse at rest left it over Select.
+        hide_overlay = getattr(self._dynamic_overlay, "hide_overlay", None)
+        if callable(hide_overlay):
+            hide_overlay()
 
     # Zoom methods
 
@@ -3384,7 +3405,12 @@ class CanvasView(QGraphicsView):
 
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
-        if tool and tool.key_press(event):
+        handled = bool(tool and tool.key_press(event))
+        # Esc always ends the active tool, whatever the tool cancelled itself:
+        # the canvas is back on Select, as after V (manual test, PR #783).
+        if event.key() == Qt.Key.Key_Escape and self.return_to_select_tool():
+            handled = True
+        if handled:
             self.refresh_input_anchor()
             event.accept()
             return
@@ -5125,12 +5151,12 @@ class CanvasView(QGraphicsView):
         itself, constraints, group membership and locked layers, are refused
         before any mutation. A bed or other plant parent with a polygonal form
         IS splittable: its linked plants are re-homed to the piece that holds
-        their standing point in the same undo step.
+        their standing point in the same undo step. So is a building with a
+        roof ridge (a house, a greenhouse), like a garage: the ridge is derived
+        from the outline, so every piece gets its own (``SplitShapeCommand``).
+        Only a ridge someone constrained keeps its building whole.
         """
-        from open_garden_planner.core.object_types import (
-            is_plant_type,
-            is_ridge_bearing_type,
-        )
+        from open_garden_planner.core.object_types import is_plant_type
         from open_garden_planner.core.shape_boolean import item_to_local_painter_path
         from open_garden_planner.core.shape_split import polygon_type_for_split
         from open_garden_planner.ui.canvas.items import (
@@ -5139,6 +5165,7 @@ class CanvasView(QGraphicsView):
             PolygonItem,
             RectangleItem,
         )
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
 
         if not isinstance(item, (PolygonItem, RectangleItem, CircleItem, EllipseItem)):
             return self.tr(
@@ -5165,11 +5192,13 @@ class CanvasView(QGraphicsView):
             return self.tr("A constrained shape cannot be split")
         if is_plant_type(item.object_type) or item.parent_bed_id is not None:
             return self.tr("Plants and linked objects cannot be split")
-        if (
-            item.object_type is not None
-            and is_ridge_bearing_type(item.object_type)
-        ) or item.object_type is ObjectType.ROOF_RIDGE:
-            return self.tr("A building and its roof ridge cannot be split")
+        for ridge in linked_ridges_under(item):
+            ridge_id = getattr(ridge, "item_id", None)
+            if (
+                ridge_id is not None
+                and self._canvas_scene.constraint_graph.get_item_constraints(ridge_id)
+            ):
+                return self.tr("A constrained shape cannot be split")
         metadata = item.metadata
         if any(
             key in metadata
@@ -5177,7 +5206,6 @@ class CanvasView(QGraphicsView):
                 "plant_species",
                 "guild",
                 "garden_tracking",
-                "ridge_item_id",
                 "owner_polygon_id",
             )
         ):

@@ -531,3 +531,176 @@ def test_the_running_app_panel_follows_drill_down_focus(qtbot, monkeypatch) -> N
 
     window.canvas_view.end_group_drill_down()
     assert window.properties_panel._current_items == [group]
+
+
+def _running_app(qtbot, monkeypatch):
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.app.settings import get_settings
+
+    get_settings().show_welcome_on_startup = False
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *_args, **_kwargs: QMessageBox.StandardButton.Discard,
+    )
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    window.resize(1400, 900)
+    window.show()
+    QTest.qWaitForWindowExposed(window)
+    canvas = window.canvas_view
+    group, first, second = _group(canvas)
+    canvas.scene().clearSelection()
+    QTest.qWait(300)
+    canvas.set_zoom(1)
+    canvas.centerOn(QPointF(150, 50))
+    QTest.qWait(200)
+    return window, canvas, group, first, second
+
+
+def test_the_running_app_keeps_the_member_focused_past_a_minimap_refresh(
+    qtbot, monkeypatch
+) -> None:
+    """Manual test 8 of PR #783: the focus lasted a split second.
+
+    The minimap re-renders 100 ms after the click and suppresses every overlay
+    item for the thumbnail. Touching a flag of the focused member's handles
+    unselected the whole group (PF-CAN-48), which retired the drill-down. A
+    bare canvas has no minimap, so only the real window sees it.
+    """
+    window, canvas, group, first, _second = _running_app(qtbot, monkeypatch)
+    renders = {"n": 0}
+    original = window._minimap._do_update
+
+    def counted() -> None:
+        renders["n"] += 1
+        original()
+
+    window._minimap._update_timer.timeout.disconnect()
+    window._minimap._update_timer.timeout.connect(counted)
+
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+    QTest.qWait(500)
+
+    assert renders["n"] > 0, "the minimap never refreshed; the test proves nothing"
+    assert canvas.drill_down_item is first, "the focus fell back to the group"
+    assert canvas.scene().selectedItems() == [group]
+    assert window.properties_panel._current_items == [first]
+
+    # The member is usable, not merely focused: drag it after the refresh.
+    group_pos = QPointF(group.pos())
+    start = QPointF(first.pos())
+    point = canvas.mapFromScene(first.sceneBoundingRect().center())
+    QTest.mousePress(canvas.viewport(), Qt.MouseButton.LeftButton, pos=point)
+    QTest.mouseMove(canvas.viewport(), point + QPoint(30, 20))
+    QTest.mouseRelease(
+        canvas.viewport(), Qt.MouseButton.LeftButton, pos=point + QPoint(30, 20)
+    )
+    QTest.qWait(500)
+    assert first.pos() != start
+    assert group.pos() == group_pos
+    assert canvas.drill_down_item is first
+
+
+def test_a_focused_member_leaves_the_idle_window_quiet(qtbot, monkeypatch) -> None:
+    """Hiding the handles by opacity must not restart the #305 render loop."""
+    window, canvas, _group_obj, first, _second = _running_app(qtbot, monkeypatch)
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+    QTest.qWait(1500)
+
+    renders = {"n": 0}
+    original = window._minimap._do_update
+
+    def counted() -> None:
+        renders["n"] += 1
+        original()
+
+    window._minimap._update_timer.timeout.disconnect()
+    window._minimap._update_timer.timeout.connect(counted)
+    changed = {"n": 0}
+    canvas.scene().changed.connect(
+        lambda _rects: changed.__setitem__("n", changed["n"] + 1)
+    )
+    QTest.qWait(1500)
+
+    assert canvas.drill_down_item is first
+    assert changed["n"] == 0, f"scene.changed fired {changed['n']} times while idle"
+    assert renders["n"] == 0, f"minimap re-rendered {renders['n']} times while idle"
+
+
+def test_the_minimap_does_not_paint_a_focused_members_handles(canvas, monkeypatch) -> None:
+    """The thumbnail shows plan content only, also while drilled down."""
+    from open_garden_planner.ui.canvas.items.resize_handle import ResizeHandle
+    from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
+
+    _show(canvas)
+    group, first, _second = _group(canvas)
+    canvas.scene().clearSelection()
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+    minimap = MinimapWidget(canvas, canvas.scene())
+    try:
+        painted = {"n": 0}
+        original = ResizeHandle.paint
+
+        def counting(self, *args, **kwargs):
+            painted["n"] += 1
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(ResizeHandle, "paint", counting)
+        opacities = [handle.opacity() for handle in first._resize_handles]
+        minimap._do_update()
+
+        assert painted["n"] == 0
+        assert group.isSelected(), "a thumbnail refresh deselected the group"
+        assert canvas.drill_down_item is first
+        assert [h.opacity() for h in first._resize_handles] == opacities
+    finally:
+        minimap.deleteLater()
+
+
+@pytest.mark.parametrize(
+    "member_type",
+    ["GARDEN_BED", "RAISED_BED", "TREE", "HOUSE"],
+)
+def test_the_focus_survives_the_running_windows_debounced_refreshes(
+    qtbot, monkeypatch, member_type: str
+) -> None:
+    """Beds, sprites, plants and buildings each bring their own periodic work.
+
+    The soil-badge debounce (500 ms), the companion and spacing checks and the
+    minimap all run in the real window after a click; none may unselect the
+    group and end the focus (PF-CAN-48).
+    """
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    window, canvas, _group_obj, _first, _second = _running_app(qtbot, monkeypatch)
+    scene = canvas.scene()
+    object_type = ObjectType[member_type]
+    if member_type == "TREE":
+        member = CircleItem(600, 50, 40, object_type=object_type)
+    else:
+        member = RectangleItem(550, 0, 120, 100, object_type=object_type)
+    other = RectangleItem(750, 0, 100, 100)
+    scene.clearSelection()
+    for item in (member, other):
+        item.layer_id = scene.active_layer.id
+        scene.addItem(item)
+        item.setSelected(True)
+    canvas.group_selected()
+    group = member.parentItem()
+    assert isinstance(group, GroupItem)
+    scene.clearSelection()
+    canvas.centerOn(member.sceneBoundingRect().center())
+    QTest.qWait(200)
+
+    _drill(canvas, member)
+    assert canvas.drill_down_item is member
+    QTest.qWait(900)
+
+    assert canvas.drill_down_item is member, "the focus fell back to the group"
+    assert scene.selectedItems() == [group]
+    assert window.properties_panel._current_items == [member]

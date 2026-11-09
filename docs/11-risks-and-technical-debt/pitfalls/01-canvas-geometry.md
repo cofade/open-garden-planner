@@ -633,3 +633,30 @@ sides of the line are inside; a boundary-aligned segment has one side outside.
 `tests/unit/test_shape_split.py` covers the outward corner/edge/tangent starts and
 the true corner-to-corner crossing; the integration test reproduces the
 corner-snap cut that used to happen.
+
+### PF-CAN-48
+
+- **Rule:** `QGraphicsItem.setFlags` deselects any item that reports `isSelected()` without being selectable, and a `QGraphicsItemGroup` descendant reports its GROUP's selection: one flag set on a handle inside a selected group unselects the whole group. Code that toggles a flag on arbitrary scene items (the minimap's overlay suppression) must leave such descendants' flags alone and hide them by opacity.
+- **Pinned by:** `tests/integration/test_group_drill_down.py::test_the_running_app_keeps_the_member_focused_past_a_minimap_refresh`; `tests/integration/test_group_drill_down.py::test_the_minimap_does_not_paint_a_focused_members_handles`; `tests/integration/test_group_drill_down.py::test_a_focused_member_leaves_the_idle_window_quiet`
+- **Source:** #771, PR #783 (manual test 8), ADR-075 addendum 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Group drill-down (PF-CAN-46) keeps the group as the Qt selection and shows the
+focused member's handles. In the real window the focus lasted a split second: the
+minimap re-renders 100 ms after any scene change and suppresses every overlay item
+for its thumbnail with `setFlag(ItemHasNoContents, True)`. Qt's `setFlags` ends
+with "if the item is not selectable but is selected, deselect it"; for a group
+descendant `isSelected()` answers for the group and `setSelected(False)` is routed
+to the group, so the group lost its selection and the view retired the drill-down.
+Measured on Qt 6.12 with three items: a flag set on a non-selectable child of a
+selected group unselects the group and emits `selectionChanged`; `setOpacity` does
+neither; a selectable child (a grouped journal pin) is not affected, which is why
+the earlier group test in `test_garden_journal.py` stayed green. The minimap
+keeps `ItemHasNoContents` for everything else (PR #713: hiding deselects) and
+makes exactly these descendants fully transparent for the render, restoring the
+opacity they had. The idle-quiescence pin shows the opacity round trip does not
+restart the #305 render loop. No bare-canvas test could have caught this: the
+canvas fixture has no minimap, and the one running-app test called
+`begin_group_drill_down` directly instead of clicking.
+

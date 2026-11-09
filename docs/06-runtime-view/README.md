@@ -1113,5 +1113,7 @@ and emits `drill_down_changed`; the app's selection consumers call
 `effective_selection()` and therefore show the member. A member body drag is a
 view-owned gesture, and its release registers one `MoveItemsCommand` with a
 parent-frame delta. Clicking outside the member or pressing Esc clears the focus and
-restores the group flag; Cut/Delete are refused while the focus is active.
+restores the group flag; Cut/Delete are refused while the focus is active. The
+minimap re-renders 100 ms after each of these changes and must leave the group
+selected: it hides the member's handles by opacity, never by a flag (PF-CAN-48).
 

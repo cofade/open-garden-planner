@@ -852,6 +852,175 @@ def test_a_raised_bed_becomes_a_garden_bed(canvas, mouse_event) -> None:
     assert all(piece.object_type is ObjectType.GARDEN_BED for piece in pieces)
 
 
+def test_a_split_raised_bed_keeps_its_height_and_gets_the_soil_texture(
+    canvas, mouse_event, tmp_path
+) -> None:
+    """Manual test 2 of PR #783: the pieces went flat brown and lost 40 cm.
+
+    A raised bed is 40 cm by its TYPE default and painted as a sprite, so
+    neither survives a plain copy onto a garden-bed polygon.
+    """
+    from open_garden_planner.core.object_height import effective_height_cm
+
+    scene = canvas.scene()
+    source = _add(
+        canvas,
+        RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED),
+    )
+    assert source.paints_sprite
+    assert "object_height_cm" not in source.metadata
+    assert effective_height_cm(source.object_type, source.metadata) == 40.0
+
+    _split(canvas, source, QPointF(150, 0), QPointF(250, 400), mouse_event)
+
+    pieces = _add_pieces(scene)
+    assert len(pieces) == 2
+    for piece in pieces:
+        assert piece.object_type is ObjectType.GARDEN_BED
+        assert effective_height_cm(piece.object_type, piece.metadata) == 40.0
+        assert piece.fill_pattern is FillPattern.SOIL
+        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
+    assert "object_height_cm" not in source.metadata, "the source was mutated"
+
+    target = tmp_path / "raised-bed.ogp"
+    manager = ProjectManager()
+    manager.save(scene, target)
+    manager.load(scene, target)
+    reloaded = _add_pieces(scene)
+    assert len(reloaded) == 2
+    for piece in reloaded:
+        assert effective_height_cm(piece.object_type, piece.metadata) == 40.0
+        assert piece.fill_pattern is FillPattern.SOIL
+
+
+def test_a_split_raised_bed_keeps_a_height_the_user_set(canvas, mouse_event) -> None:
+    from open_garden_planner.core.object_height import effective_height_cm
+
+    source = RectangleItem(100, 100, 200, 100, object_type=ObjectType.RAISED_BED)
+    source.metadata["object_height_cm"] = 75.0
+    _add(canvas, source)
+
+    _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
+
+    for piece in _add_pieces(canvas.scene()):
+        assert piece.metadata["object_height_cm"] == 75.0
+        assert effective_height_cm(piece.object_type, piece.metadata) == 75.0
+
+
+def test_a_split_that_keeps_the_type_writes_no_height(canvas, mouse_event) -> None:
+    """Only a height the type change would lose is written down."""
+    source = _add(
+        canvas, RectangleItem(100, 100, 200, 100, object_type=ObjectType.GARAGE_SHED)
+    )
+    _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
+
+    pieces = _add_pieces(canvas.scene())
+    assert len(pieces) == 2
+    assert all("object_height_cm" not in piece.metadata for piece in pieces)
+
+
+def _ridges(scene) -> list:
+    return [
+        item
+        for item in scene.items()
+        if getattr(item, "object_type", None) is ObjectType.ROOF_RIDGE
+    ]
+
+
+def _building(canvas, object_type: ObjectType, *, polygon: bool):
+    """A ridge-bearing building with its linked ridge, as the tools make it."""
+    from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+    if polygon:
+        item = PolygonItem(
+            [QPointF(100, 100), QPointF(500, 100), QPointF(500, 300), QPointF(100, 300)],
+            object_type=object_type,
+        )
+    else:
+        item = RectangleItem(100, 100, 400, 200, object_type=object_type)
+    _add(canvas, item)
+    ridge = build_linked_ridge(item, item.layer_id)
+    assert ridge is not None
+    canvas.scene().addItem(ridge)
+    return item, ridge
+
+
+@pytest.mark.parametrize("object_type", [ObjectType.HOUSE, ObjectType.GREENHOUSE])
+@pytest.mark.parametrize("polygon", [True, False], ids=["polygon", "rectangle"])
+def test_a_building_with_a_ridge_splits_like_a_garage(
+    canvas, mouse_event, tmp_path, object_type: ObjectType, polygon: bool
+) -> None:
+    """Manual test 6 of PR #783: a garage split, a house and a greenhouse did not."""
+    from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+
+    scene = canvas.scene()
+    source, source_ridge = _building(canvas, object_type, polygon=polygon)
+    source.metadata["roof_style"] = "hip"
+    assert canvas.split_refusal_reason(source) is None
+    before = ProjectManager().snapshot_dict(scene)["objects"]
+
+    _split(canvas, source, QPointF(250, 0), QPointF(250, 600), mouse_event)
+
+    pieces = [item for item in _add_pieces(scene) if item is not source]
+    assert len(pieces) == 2
+    assert source.scene() is None
+    assert source_ridge.scene() is None, "the source's ridge was left behind"
+    ridges = _ridges(scene)
+    assert len(ridges) == 2
+    owned = []
+    for piece in pieces:
+        assert piece.object_type is object_type
+        assert piece.metadata["roof_style"] == "hip"
+        ridge = linked_ridge(piece)
+        assert ridge is not None, "a piece has no ridge of its own"
+        assert ridge is not source_ridge
+        assert ridge.metadata["owner_polygon_id"] == str(piece.item_id)
+        # The ridge lies inside its own piece, not where the source's was.
+        outline = piece.mapToScene(piece.polygon()).boundingRect()
+        for point in ridge.points:
+            assert outline.adjusted(-1, -1, 1, 1).contains(ridge.mapToScene(point))
+        owned.append(ridge)
+    assert set(map(id, owned)) == set(map(id, ridges))
+    if object_type is ObjectType.GREENHOUSE:
+        assert all(r.metadata.get("ridge_finish") == "aluminium" for r in ridges)
+    assert canvas.command_manager.undo_depth == 1
+
+    canvas.command_manager.undo()
+    assert source.scene() is scene
+    assert source_ridge.scene() is scene
+    assert linked_ridge(source) is source_ridge
+    assert _ridges(scene) == [source_ridge]
+    assert ProjectManager().snapshot_dict(scene)["objects"] == before
+
+    canvas.command_manager.redo()
+    assert source.scene() is None and source_ridge.scene() is None
+    assert set(map(id, _ridges(scene))) == set(map(id, ridges)), (
+        "redo built a second set of ridges"
+    )
+
+    target = tmp_path / "building.ogp"
+    manager = ProjectManager()
+    manager.save(scene, target)
+    manager.load(scene, target)
+    reloaded = _add_pieces(scene)
+    assert len(reloaded) == 2
+    assert len(_ridges(scene)) == 2
+    assert all(linked_ridge(piece) is not None for piece in reloaded)
+
+
+def test_a_building_whose_ridge_is_constrained_is_not_split(canvas) -> None:
+    source, ridge = _building(canvas, ObjectType.HOUSE, polygon=True)
+    other = _add(canvas, RectangleItem(700, 100, 100, 100), select=False)
+    assert other.scene() is canvas.scene()
+    anchor = AnchorRef(ridge.item_id, AnchorType.CENTER)
+    canvas.scene().constraint_graph.add_constraint(
+        anchor, anchor, 0, constraint_type=ConstraintType.FIXED,
+        target_x=0, target_y=0,
+    )
+
+    assert canvas.split_refusal_reason(source) == "A constrained shape cannot be split"
+
+
 def test_a_plant_or_group_member_refuses_the_split(canvas) -> None:
     plant = _add(canvas, CircleItem(100, 100, 40, object_type=ObjectType.TREE))
     assert canvas.start_split_shape(plant) is False

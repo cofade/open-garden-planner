@@ -11208,8 +11208,9 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
    two pieces, and a result that contains a hole is refused because a `QPolygonF`
    cannot carry it.
 4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
-   a plant itself, constraints, locked layers, roof ridges and ridge-bearing
-   buildings, grouped members, shape types without a polygonal form, and any source
+   a plant itself, constraints, locked layers, grouped members (ridge-bearing
+   buildings too at first; the second addendum lifts that), shape types without a
+   polygonal form, and any source
    whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
    manual-task or task-state data. The last check is
    `ProjectManager.has_item_references`, the single central query. A bed or other
@@ -11239,8 +11240,10 @@ drill-down state and `drill_down_changed` in `ui/canvas/canvas_view.py`. No
 `FILE_VERSION` bump: the pieces are ordinary polygons and drill-down is runtime-only.
 User-visible strings are covered in EN/DE/ES/RU. Pins:
 `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
-`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`.
-Cross-refs: FR-35, §8.35, PF-CAN-46.
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
 
 **Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
 Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
@@ -11271,3 +11274,51 @@ would make the headline feature unable to touch the normal object in a garden. T
 every split source that has children; the existing plant→bed mutator moves each
 plant to the new piece containing its standing point, and undo restores the source's
 links before the source itself comes back.
+
+**Addendum 2 (2026-11-09) — what the owner's manual test of PR #783 changed.**
+
+1. **A building with a ridge is split like a garage.** Refusing every ridge-bearing
+   building was the cheap answer to "the linked `ROOF_RIDGE` would be orphaned", and
+   the owner could not see why a garage split while a house and a greenhouse did not.
+   The ridge is derived geometry (ADR-046), so nothing has to be preserved:
+   `SplitShapeCommand` looks up the source's ridge while the source is still in the
+   scene (`linked_ridges_under`), removes it with the source, and on its first execute
+   builds every piece its own through the one construction path
+   (`roof_ridge_link.build_copy_ridges`, which also gives a greenhouse its aluminium
+   finish). Undo removes the pieces' ridges and brings the source back with its own;
+   redo reuses the ridges it built. A piece's copied metadata drops `ridge_item_id`
+   before that, so no piece names the old ridge. The roof-style keys travel with the
+   metadata. The one remaining refusal is a ridge someone constrained.
+2. **A rebuilt shape stands as tall as the shape it replaces.** A raised bed is 40 cm
+   by its TYPE default (ADR-037, rung 4) with nothing stored, and a piece of it is a
+   garden bed, whose default is "no height": the split silently sank the bed into the
+   ground. `object_height.carry_height_across_type_change` writes the height the object
+   had as an explicit `object_height_cm` when a real type change would alter the
+   resolved height and the user stored none. The corner tools and the loader's
+   raised-bed migration had the same loss, so `item_look.adopt_rebuilt_type` now holds
+   both halves of a rebuild's type change — the new type's fill pattern and the old
+   height — for those two callers. The Properties panel's type change is the user's own
+   decision and keeps following the new type's default.
+3. **A sprite's stored fill is not its look.** A raised bed is painted as a sprite, so
+   its stored `SOLID` fill was never on screen; copied to a garden-bed piece it became a
+   flat brown polygon. A piece of a sprite-painted source whose type had to change takes
+   the new type's fill pattern (`adopt_type_fill`: soil). A source painted by its own
+   brush keeps the user's pattern through the cut — the split's preservation promise,
+   which the corner tools' unconditional `adopt_type_fill` does not make. The wooden
+   frame itself stays a rectangle-only sprite (owner decision 2026-10-31): a piece is a
+   garden bed with soil and a height, which the 3D view builds as an edged bed.
+4. **Esc ends every tool.** Only `V` returned to Select; Esc cancelled a gesture in most
+   tools and did nothing when the focus was in a panel, where it usually is right after
+   a tool was picked. `CanvasView.return_to_select_tool` is the one rule: the canvas
+   calls it after the active tool's own `key_press`, and the main window's
+   `keyPressEvent` calls it for an Esc no focused widget consumed. Deactivating a tool
+   cancels its gesture, so no per-tool code was needed. Rejected: a window-level
+   `QShortcut` on Esc — it would pre-empt every line edit, popup and inline editor in
+   the window, and a second shortcut on one key fires neither (PF-UI-36).
+5. **The minimap must not touch a flag of a selected group's descendant.** The
+   drill-down focus lasted one minimap refresh (100 ms) in the real window: suppressing
+   the focused member's handles with `setFlag(ItemHasNoContents)` unselected the whole
+   group, because `setFlags` deselects an item that reports selected without being
+   selectable and a group descendant reports its group's selection. Those items are now
+   hidden by opacity for the thumbnail (PF-CAN-48). No bare-canvas test could see it;
+   the pins drive the real window with real clicks past a refresh.

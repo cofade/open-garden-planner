@@ -211,3 +211,4 @@
 | Case study: a layers list with an empty row and a rename that shrank its row (#774/#775) | [Read](208-case-study-a-layers-list-with-an-empty-row-and-a-rename-that-shrank-774-775.md) |
 | Case study: a tool shortcut that fired nothing because S already belonged to Snap (PR #783) | [Read](209-case-study-a-tool-shortcut-that-fired-nothing-pr783.md) |
 | Case study: a snapped corner cut the bed it only grazed (PR #783) | [Read](210-case-study-a-snapped-corner-that-cut-a-bed-pr783.md) |
+| Case study: a group member that kept its focus for a split second - the minimap unselected the group (PR #783) | [Read](211-case-study-a-group-member-that-kept-its-focus-for-a-split-second-pr783.md) |

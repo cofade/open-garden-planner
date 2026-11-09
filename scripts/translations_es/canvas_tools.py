@@ -74,8 +74,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Already at front': 'Ya está al frente',
         'Ungroup {n} groups': 'Desagrupar {n} grupos',
         'Ungrouped {n} groups': '{n} grupos desagrupados',
-        'A building and its roof ridge cannot be split':
-            'Un edificio y su cumbrera no se pueden dividir',
         'A constrained shape cannot be split':
             'Una forma con restricciones no se puede dividir',
         'Click the first point of the cutting line. Esc cancels.':

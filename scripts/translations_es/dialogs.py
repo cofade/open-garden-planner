@@ -698,6 +698,8 @@ TRANSLATIONS = {
     },
     "ShortcutsDialog": {
         "Alt": "Alt",
+        "Cancel and return to the Select tool":
+            "Cancelar y volver a la herramienta de selección",
         "Arrow Keys": "Teclas de flecha",
         "Bring Forward": "Avanzar un nivel",
         "Bring to Front": "Traer al frente",

@@ -1212,22 +1212,39 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   a polygon, fill/stroke colours, fill pattern and fill-transform, label/area visibility,
   name, metadata and stacking rank. A rotated source keeps its rotation and material
   direction; curves become polygons; a concave shape may produce more than two pieces;
-  a result that would contain a hole is refused.
+  a result that would contain a hole is refused. A piece whose type has to change (a
+  raised bed becomes a garden bed) still stands as tall as its source: a height that was
+  only the source type's default (a raised bed's 40 cm) is written to the piece as its
+  explicit height. When the source was painted as a sprite, such a piece takes its new
+  type's fill pattern (soil) instead of the stored fill the sprite had hidden; a shape
+  painted by its own brush keeps the pattern the user gave it.
 - **FR-SPLIT-03:** The split is refused without mutation for a plant itself, constrained
-  shapes, locked layers, grouped members, roof ridges, ridge-bearing buildings,
+  shapes, locked layers, grouped members,
   shape types with no polygonal form (for example a container), and any shape whose
   UUID is still referenced by soil, pest, harvest, succession, crop-rotation,
   manual-task or task-state project data (`ProjectManager.has_item_references`). A bed,
   raised bed or other plant parent with a polygonal form IS eligible: its linked plants
   are re-homed to the piece that contains their standing point in the same undo step,
-  so no plant is orphaned. A scene-wide cut splits the eligible crossed shapes and
+  so no plant is orphaned. A house or a greenhouse is split like a garage: its linked
+  roof ridge leaves with it, every piece gets its own ridge, and undo restores the
+  original building and ridge; only a building whose ridge is constrained is refused.
+  A scene-wide cut splits the eligible crossed shapes and
   reports how many crossed objects could not be split; when nothing can be split, the
   reason is shown to the user.
 - **FR-DRILL-01:** With a group selected, a plain click on one of its members focuses
   that member for editing without ungrouping. The group remains the canvas selection;
   the focused member is what the Properties, plant-details, companion and crop-rotation
   panels read (`CanvasView.effective_selection`). Clicking outside the member, pressing
-  Esc, or selecting another object clears the focus.
+  Esc, or selecting another object clears the focus. Nothing else does: the focus
+  survives the minimap's refreshes and every other redraw of the running window.
+- **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
+  object-placing, CAD and constraint tool. A gesture in progress is cancelled with no
+  preview left behind and the distance/angle prompt is hidden. It works wherever the
+  keyboard focus is in the main window - the canvas, a panel, the object search field,
+  the status-bar coordinate field - as long as the focused widget does not use Esc
+  itself (an open search popup closes first). Narrower Esc meanings come first on the
+  canvas: cancelling a calibration, leaving vertex editing, leaving a group drill-down
+  and finishing an inline text edit. F1 lists the key under Drawing Tools.
 - **FR-DRILL-02:** While focused, a member can be moved by dragging its body or with the
   arrow keys, resized/rotated with its own handles, and its
   geometry/appearance/species/notes can be edited through the Properties panel; each

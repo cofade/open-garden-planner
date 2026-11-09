@@ -2751,9 +2751,11 @@ class ProjectManager(QObject):
                 if obj.get("area_label_visible"):
                     item.area_label_visible = True
                 if migrated_raised_bed:
-                    from open_garden_planner.core.item_look import adopt_type_fill
+                    from open_garden_planner.core.item_look import (
+                        adopt_rebuilt_type,
+                    )
 
-                    adopt_type_fill(
+                    adopt_rebuilt_type(
                         item, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
                     )
                 return item
