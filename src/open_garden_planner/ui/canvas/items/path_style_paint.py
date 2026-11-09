@@ -68,7 +68,11 @@ from PyQt6.QtGui import (
     QTransform,
 )
 
-from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.fill_patterns import (
+    FillPattern,
+    brush_for_painter,
+    create_pattern_brush,
+)
 from open_garden_planner.core.object_types import PathFenceStyle
 
 #: A gravel path's edging: at most this wide (cm), at most this share of the path's
@@ -230,12 +234,16 @@ class PathStylePaint:
                  path: QPainterPath | None = None, *,
                  clip: tuple[float, float, float, float] | None = None,
                  budget: WalkBudget | None = None,
-                 fill_transform: Any | None = None) -> None:
+                 fill_transform: Any | None = None,
+                 level_tiles: bool = False) -> None:
         if (clip is None) != (budget is None):
             raise ValueError("a clipped walk needs a budget, and a budget a clip")
         # A path's textured fill may carry the object's pattern transform
         # (#665); the 3D ground bake passes None (its ruler is unchanged).
         self._fill_transform = fill_transform
+        # The canvas paints a textured line with the tile its painter's
+        # resolution calls for (#785); the ground bake keeps the 256-px tile.
+        self._level_tiles = level_tiles
         # read only, never changed: the canvas item's own list is used as it is (this
         # object lives for one paint)
         self._points = points if isinstance(points, list) else list(points)
@@ -347,9 +355,10 @@ class PathStylePaint:
         export writes a pen as its colour, and a texture brush's colour is black (a
         black bar in every exported SVG, PF-CAN-27)."""
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(create_pattern_brush(
-            pattern, self.pen().color(), self._fill_transform
-        ))
+        brush = create_pattern_brush(pattern, self.pen().color(), self._fill_transform)
+        if self._level_tiles:
+            brush = brush_for_painter(brush, painter) or brush
+        painter.setBrush(brush)
         painter.drawPath(self._stroke_outline(width))
 
     def _paint_gravel_path(self, painter: QPainter) -> None:

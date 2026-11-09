@@ -291,6 +291,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     self.pen(),
                     self.path(),
                     fill_transform=getattr(self, "fill_transform", None),
+                    level_tiles=True,
                 )
             else:
                 path_paint = PathStylePaint(
@@ -300,6 +301,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     clip=clip,
                     budget=budget,
                     fill_transform=getattr(self, "fill_transform", None),
+                    level_tiles=True,
                 )
             path_paint.paint(painter, style)
             self._paint_selection(painter, option)

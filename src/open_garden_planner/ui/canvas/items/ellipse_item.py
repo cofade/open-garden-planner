@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 
+from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin
 
@@ -106,7 +107,8 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             painter.drawEllipse(rect.translated(self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y))
             painter.restore()
 
-        super().paint(painter, option, widget)
+        # the fill tile at the painter's resolution (#785)
+        paint_shape(self, painter, option, widget, super().paint)
 
         # F9: soil-mismatch border for bed-typed ellipses (US-12.10d).
         from open_garden_planner.core.object_types import is_bed_type

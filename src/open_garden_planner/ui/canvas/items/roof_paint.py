@@ -31,7 +31,7 @@ from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QPainter, QPainterPath, QPen, QPolygonF, QTransform
 from PyQt6.QtWidgets import QGraphicsItem
 
-from open_garden_planner.core.fill_patterns import FillTransform
+from open_garden_planner.core.fill_patterns import FillTransform, brush_for_painter
 
 
 def _split_path_by_line(
@@ -165,6 +165,8 @@ def paint_roof_with_ridge(
         normal_tx = normal_tx * user_tx
     normal_brush = QBrush(brush)
     normal_brush.setTransform(normal_tx)
+    # the tile at the painter's resolution, inside the same ridge frame (#785)
+    normal_brush = brush_for_painter(normal_brush, painter) or normal_brush
 
     # Mirrored brush: reflects the down-slope across the ridge, for the
     # half that faces the other way (issue #372).
@@ -176,6 +178,7 @@ def paint_roof_with_ridge(
         mirrored_tx = mirrored_tx * user_tx
     mirrored_brush = QBrush(brush)
     mirrored_brush.setTransform(mirrored_tx)
+    mirrored_brush = brush_for_painter(mirrored_brush, painter) or mirrored_brush
 
     # Bounding rect for fill (clip handles actual shape)
     bounds = poly_path.boundingRect()

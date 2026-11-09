@@ -27,6 +27,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
 from open_garden_planner.ui.canvas.roof_ridge_link import ridge_points_local
 
+from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin, is_interactive_paint
 from .greenhouse_paint import paint_greenhouse
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
@@ -505,7 +506,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         if ridge is not None and self.object_type == ObjectType.HOUSE:
             self._paint_with_ridge(painter, ridge)
         else:
-            super().paint(painter, option, widget)
+            # the fill tile at the painter's resolution (#785)
+            paint_shape(self, painter, option, widget, super().paint)
 
         # A GREENHOUSE's aluminium glazing bars over its glass fill (#768); the
         # ridge is the plan's linked one in the item's own frame.

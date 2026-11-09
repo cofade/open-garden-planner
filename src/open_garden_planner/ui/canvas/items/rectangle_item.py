@@ -19,8 +19,8 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import (
     is_furniture_type,
-    paints_picture,
     paint_furniture,
+    paints_picture,
 )
 from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.object_types import (
@@ -36,6 +36,7 @@ from open_garden_planner.ui.canvas.roof_ridge_link import (
     ridge_points_local,
 )
 
+from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin
 from .greenhouse_paint import paint_greenhouse
 from .pergola_paint import paint_pergola
@@ -342,11 +343,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         if self.object_type == ObjectType.PERGOLA:
             height = effective_height_cm(self.object_type, self.metadata)
             if not paint_pergola(painter, self.rect(), height or 250.0):
-                super().paint(painter, option, widget)
+                paint_shape(self, painter, option, widget, super().paint)
         # A GREENHOUSE is a first-class building now (#768): its glass fill, then
         # the aluminium glazing bars the 3D frame puts at the same bay lines.
         elif self.object_type == ObjectType.GREENHOUSE:
-            super().paint(painter, option, widget)
+            paint_shape(self, painter, option, widget, super().paint)
             polygon = outline_polygon(self)
             if polygon is not None:
                 paint_greenhouse(
@@ -375,9 +376,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self.fill_transform,
                 )
             else:
-                super().paint(painter, option, widget)
+                paint_shape(self, painter, option, widget, super().paint)
         else:
-            super().paint(painter, option, widget)
+            # The fill tile at the painter's resolution (#785); at 100 % zoom
+            # this IS the base class's paint.
+            paint_shape(self, painter, option, widget, super().paint)
 
         # Draw square-foot grid overlay inside bed
         if self._grid_enabled and is_bed_type(self.object_type):

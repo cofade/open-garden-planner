@@ -27,6 +27,7 @@ from open_garden_planner.core.plant_renderer import (
 )
 from open_garden_planner.core.plant_sizing import sizing_for_item
 
+from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin
 from .resize_handle import (
     MINIMUM_SIZE_CM,
@@ -515,7 +516,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 return
 
         # Fall back to standard ellipse painting for non-plant/furniture circles
-        super().paint(painter, option, widget)
+        # (the fill tile at the painter's resolution, #785)
+        paint_shape(self, painter, option, widget, super().paint)
 
         # Draw soil mismatch border for circular beds (US-12.10d)
         self._draw_soil_mismatch_border(painter)
