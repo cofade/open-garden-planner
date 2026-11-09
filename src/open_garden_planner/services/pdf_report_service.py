@@ -571,19 +571,21 @@ def _plant_rows(scene: Any) -> list[tuple[str, str, str, str]]:
     """Every plant of *scene* as (name, type, position, notes), ordered by name."""
     from open_garden_planner.core.object_types import get_translated_display_name
 
-    rows: list[tuple[str, str, str, str]] = []
+    found: list[tuple[list[Any], float, float, tuple[str, str, str, str]]] = []
     for item in _plant_items(scene):
         center = item.mapToScene(item.boundingRect().center())
         metadata = getattr(item, "metadata", {}) or {}
         notes = (metadata.get("plant_instance") or {}).get("notes", "") or ""
-        rows.append((
-            _plant_display_name(item) or _tr("Unnamed"),
+        name = _plant_display_name(item) or _tr("Unnamed")
+        found.append((_natural_key(name), center.x(), center.y(), (
+            name,
             get_translated_display_name(item.object_type),
             f"({center.x():.0f}, {center.y():.0f})",
             str(notes),
-        ))
-    rows.sort(key=lambda row: (_natural_key(row[0]), row[2]))
-    return rows
+        )))
+    # By name, and plants of one name from left to right.
+    found.sort(key=lambda entry: (entry[0], entry[1], entry[2]))
+    return [row for _key, _x, _y, row in found]
 
 
 def _render_plant_list(
