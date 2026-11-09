@@ -107,7 +107,7 @@ class PdfReportDialog(QDialog):
         self._cb_garden_notes.setChecked(False)
         self._cb_harvest_summary = QCheckBox(self.tr("Harvest summary"))
         self._cb_harvest_summary.setChecked(False)
-        self._cb_legend = QCheckBox(self.tr("Legend (layers)"))
+        self._cb_legend = QCheckBox(self.tr("Legend (objects and plants)"))
         self._cb_legend.setChecked(True)
 
         for cb in (

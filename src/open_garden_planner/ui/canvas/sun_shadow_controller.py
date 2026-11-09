@@ -266,7 +266,9 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         if region is not None and not region.isEmpty():
             max_occ = max((r.occlusion for r in self._weighted_regions), default=1.0)
             painter.save()
-            painter.setClipPath(region)
+            # IntersectClip: a paint() never replaces the clip it was handed —
+            # a print tile or a PDF frame is one (#788, PF-CAN-54).
+            painter.setClipPath(region, Qt.ClipOperation.IntersectClip)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             for pen in _FEATHER_PENS:
                 if max_occ < 0.999:
@@ -282,7 +284,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # Solid core, hard-cut at the canvas boundary.
         painter.save()
         if self._clip_rect is not None:
-            painter.setClipRect(self._clip_rect)
+            painter.setClipRect(self._clip_rect, Qt.ClipOperation.IntersectClip)
         painter.setPen(Qt.PenStyle.NoPen)
         if self._region_paths and not (
             len(self._weighted_regions) == 1
