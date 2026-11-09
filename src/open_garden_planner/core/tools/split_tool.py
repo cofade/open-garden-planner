@@ -82,7 +82,7 @@ class SplitShapeTool(BaseTool):
                     ).format(reason=reason)
                 )
                 return True
-            self.source_id = picked.item_id
+            self.source_id = picked.item_id  # type: ignore[attr-defined]
             self._scene.clearSelection()
             picked.setSelected(True)
             self._view.set_status_message(
