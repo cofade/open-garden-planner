@@ -43,6 +43,7 @@ from typing import Any
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QPolygonF
 from PyQt6.QtWidgets import (
+    QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsScene,
     QStyleOptionGraphicsItem,
@@ -173,6 +174,8 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self.setZValue(_OVERLAY_Z)
         self.setPen(QPen(Qt.PenStyle.NoPen))
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        # Rasterised once per solve and zoom, then blitted (#784).
+        self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self._clip_rect: QRectF | None = None
         self._feather_region: QPainterPath | None = None
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()

@@ -38,6 +38,8 @@ from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
 
+from .item_cache import ensure_item_cache_budget
+
 #: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
 #: path, a terrace, an in-ground bed with no height): above the background image
 #: (-1000), below the sun study's shadow overlay (-500) and hours-of-sun map (-450),
@@ -147,6 +149,9 @@ class CanvasScene(QGraphicsScene):
             parent: Parent object
         """
         super().__init__(parent)
+        # Qt keeps the items' device caches in QPixmapCache, 10 MB by default:
+        # one plan's worth does not fit, and the cache thrashes (#784).
+        ensure_item_cache_budget()
         self._plan_clock: SimClock | None = None
         self._painted_plan_date: date | None = None
 
