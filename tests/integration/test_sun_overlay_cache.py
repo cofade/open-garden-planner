@@ -3,7 +3,9 @@
 Before #784 the overlay was an uncached item: every repaint of the canvas — a
 pan, a hover, another item's update — stroked its four antialiased feather pens
 again (95 % of a 100 ms paint on the family-garden example). It is
-``DeviceCoordinateCache`` now, like every other canvas item.
+``DeviceCoordinateCache`` now, like every other canvas item, and while a zoom
+is under way it shows its last picture scaled instead of rasterising at every
+wheel step.
 
 These tests COUNT paints instead of timing them (§8.10.10): a count holds on any
 machine under any load. The wall-clock ratio is pinned on the quiet runner by
@@ -17,7 +19,7 @@ from datetime import UTC, datetime
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtGui import QImage, QPainter, QPainterPath
 from PyQt6.QtWidgets import QApplication, QGraphicsItem
 
 from open_garden_planner.core.object_height import METADATA_KEY
@@ -115,11 +117,13 @@ class TestRasterisedOncePerSolve:
 
     def test_a_pan_does_not_paint_it_again(self, staged, paints) -> None:
         """The whole overlay is in view at fit: a pan moves its picture."""
-        _scene_, _controller, view = staged
+        scene, controller, view = staged
         view.set_zoom(view.zoom_factor * 1.05)  # scroll bars need something to scroll
         view.centerOn(QPointF(600, 450))
         view.viewport().repaint()
-        assert len(paints) == 1  # it is in view, and the zoom rasterised it
+        controller.settle_overlay()
+        view.viewport().repaint()
+        assert len(paints) == 2  # it is in view: the zoom step, then its rasterisation
         paints.clear()
         bar = view.horizontalScrollBar()
         for _ in range(6):
@@ -151,6 +155,91 @@ class TestRasterisedOncePerSolve:
         assert len(paints) == 0
 
 
+class TestZoomGesture:
+    """A zoom invalidates the device cache at every step. The overlay answers a
+    step with the picture of its last rasterisation, scaled, and rasterises for
+    the new zoom once — when the steps have stopped."""
+
+    def test_wheel_steps_do_not_rasterise(self, staged) -> None:
+        scene, _controller, view = staged
+        overlay = _overlay(scene)
+        rasterised = overlay.exact_paints
+        assert rasterised >= 1
+        for _ in range(8):
+            view.set_zoom(view.zoom_factor * 1.1)
+            view.centerOn(QPointF(600, 450))
+            view.viewport().repaint()
+        assert overlay.exact_paints == rasterised
+
+    def test_the_zoom_settles_into_one_rasterisation(self, staged, qtbot) -> None:
+        scene, _controller, view = staged
+        overlay = _overlay(scene)
+        for _ in range(5):
+            view.set_zoom(view.zoom_factor * 1.1)
+            view.centerOn(QPointF(600, 450))
+            view.viewport().repaint()
+        rasterised = overlay.exact_paints
+        # the controller's own timer, not a call from the test
+        qtbot.waitUntil(lambda: overlay._pending is None, timeout=3000)
+        view.viewport().repaint()
+        view.viewport().repaint()
+        assert overlay.exact_paints == rasterised + 1
+
+    def test_the_picture_of_a_step_is_the_shadow_scaled(self, staged) -> None:
+        """What a wheel step shows is the overlay — softer, in the same place."""
+        scene, controller, view = staged
+        view.set_zoom(view.zoom_factor * 1.6)
+        view.centerOn(QPointF(600, 450))
+        QApplication.processEvents()
+        stepped = _pixels(view.viewport().grab().toImage())
+        controller.settle_overlay()
+        settled = _pixels(view.viewport().grab().toImage())
+        _overlay(scene).setVisible(False)
+        without = _pixels(view.viewport().grab().toImage())
+        shadow = np.abs(settled - without).max(axis=2) > 20  # the overlay's pixels
+        assert shadow.mean() > 0.05
+        difference = np.abs(stepped - settled).max(axis=2)
+        assert difference[shadow].mean() < 2.0  # the same tone over the shadow
+        assert (difference > 30).mean() < 0.02  # edges only: a 1.6x enlarged outline
+
+    def test_a_new_solve_during_a_zoom_is_rasterised_at_once(self, staged) -> None:
+        """A scrub must show the sun where it is: a picture of the previous
+        solve is never shown for a new one."""
+        scene, controller, view = staged
+        overlay = _overlay(scene)
+        view.set_zoom(view.zoom_factor * 1.3)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        rasterised = overlay.exact_paints
+        controller.set_sim_datetime(SUNS["evening"])
+        view.viewport().repaint()
+        assert overlay.exact_paints == rasterised + 1
+
+    def test_an_overlay_nobody_settles_never_defers(self, qtbot) -> None:
+        scene = CanvasScene(600.0, 400.0)
+        overlay = SunShadowOverlayItem()
+        scene.addItem(overlay)
+        path = QPainterPath()
+        path.addRect(QRectF(100, 100, 200, 100))
+        overlay.set_clip_rect(QRectF(0, 0, 600, 400))
+        overlay.set_shadow_path(path)
+        view = CanvasView(scene)
+        view.resize(500, 400)
+        view.show()
+        qtbot.addWidget(view)
+        qtbot.waitExposed(view)
+        view.centerOn(QPointF(200, 150))
+        QApplication.processEvents()
+        view.viewport().repaint()
+        before = overlay.exact_paints
+        assert before >= 1
+        for _ in range(3):
+            view.set_zoom(view.zoom_factor * 1.2)
+            view.centerOn(QPointF(200, 150))
+            view.viewport().repaint()
+        assert overlay.exact_paints == before + 3
+
+
 class TestPixelsUnchanged:
     @pytest.mark.parametrize("sun", list(SUNS))
     @pytest.mark.parametrize("zoom", [0.6, 1.0, 3.0])
@@ -163,6 +252,7 @@ class TestPixelsUnchanged:
         view.set_zoom(zoom)
         view.centerOn(QPointF(600, 450))
         QApplication.processEvents()
+        controller.settle_overlay()  # the zoom has stopped
         overlay = _overlay(scene)
         cached = _pixels(view.viewport().grab().toImage())
         overlay.setCacheMode(QGraphicsItem.CacheMode.NoCache)

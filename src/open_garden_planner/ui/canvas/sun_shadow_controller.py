@@ -41,7 +41,16 @@ from functools import lru_cache
 from typing import Any
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QPolygonF
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QPolygonF,
+    QTransform,
+)
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPathItem,
@@ -135,6 +144,20 @@ _FEATHER_MAX_WIDTH = 14.0
 
 _DEBOUNCE_MS = 150
 
+# While a zoom is under way the overlay shows the picture of its last
+# rasterisation, scaled; it is rasterised for the new zoom once this long has
+# passed without another zoom step (#784).
+_SETTLE_MS = 120
+
+# The longest side (device pixels) of the picture kept for that: 16 MB at most.
+# A larger overlay — zoomed in far, where little of it is in view and a
+# rasterisation is cheap — is painted directly at every step, as before.
+_PICTURE_MAX_SIDE = 2048
+
+# How many zooms count as "rasterised for": more than one, because two views of
+# one scene (or a view and a redraw at another scale) alternate.
+_SETTLED_SCALES = 4
+
 
 def _build_feather_pens() -> tuple[QPen, ...]:
     """The feather strokes are constant — build them once, not every paint()."""
@@ -167,6 +190,22 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     - a SOFT outward penumbra, clipped to the area *outside* the shadow so
       the interior stays a flat tone (no darker ring) and only a feather
       shows past the edge.
+
+    Rasterising that is expensive — four antialiased wide strokes of the whole
+    shadow outline, 60-130 ms on a family garden at fit, 95 % of it Qt's
+    antialiasing (#784) — so it happens once per solve and zoom:
+
+    - the item is ``DeviceCoordinateCache`` like every canvas item: a repaint, a
+      pan or another item's update blits the cached picture;
+    - a ZOOM invalidates that cache at every step. While steps keep coming the
+      item paints the picture of its last rasterisation, scaled (``_picture``),
+      and asks ``settle_requested`` for a call to ``settle()`` once they stop;
+      then it is rasterised for the new zoom, once. ``exact_paints`` counts the
+      rasterisations.
+
+    An export, a print, the minimap and the Agent API render disable item caches
+    first: for them — and for an overlay nobody settles — ``paint`` is the plain
+    rasterisation it always was.
     """
 
     def __init__(self) -> None:
@@ -180,6 +219,17 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._feather_region: QPainterPath | None = None
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
         self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
+        #: Asked (by a paint that showed the scaled picture) to call ``settle()``
+        #: once the zoom has stopped. The controller sets it; None = never defer.
+        self.settle_requested: Callable[[], None] | None = None
+        #: Rasterisations of the overlay — the #206-style instrument of #784.
+        self.exact_paints = 0
+        self._generation = 0  # what is painted: bumped by every change of it
+        self._settled: list[tuple[float, ...]] = []  # zooms rasterised for
+        self._pending: tuple[float, ...] | None = None  # the zoom under way
+        self._picture: QPixmap | None = None  # the last rasterisation
+        self._picture_rect = QRectF()  # ... and the item rect it covers
+        self._picture_key: tuple[Any, ...] | None = None
 
     def set_clip_rect(self, rect: QRectF | None) -> None:
         """Bound all painting to ``rect`` (the canvas); None = unbounded."""
@@ -188,12 +238,14 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             return
         self.prepareGeometryChange()
         self._clip_rect = new_rect
+        self._generation += 1
         self._rebuild_feather()
         self.update()
 
     def set_shadow_path(self, path: QPainterPath) -> None:
         """Set the shadow path and refresh the cached feather region."""
         self.setPath(path)  # base path + prepareGeometryChange + update
+        self._generation += 1
         if path.isEmpty():
             self._weighted_regions = ()
             self._region_paths = ()
@@ -216,6 +268,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             color.setAlpha(max(1, min(255, round(base_alpha * reg.occlusion))))
             built.append((reg_path, color))
         self._region_paths = tuple(built)
+        self._generation += 1
         self.update()
 
     def weighted_regions(self) -> tuple[WeightedShadowRegion, ...]:
@@ -257,11 +310,115 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         _option: QStyleOptionGraphicsItem | None,
         _widget: QWidget | None = None,
     ) -> None:
-        if painter is None:
+        if painter is None or self.path().isEmpty():
             return
+        if (
+            self.settle_requested is None
+            or self.cacheMode() == QGraphicsItem.CacheMode.NoCache
+        ):
+            # an export, a print, the minimap; an overlay nobody settles
+            self._paint_exact(painter)
+            return
+        to_device = painter.deviceTransform()
+        scale = (
+            round(to_device.m11(), 6),
+            round(to_device.m12(), 6),
+            round(to_device.m21(), 6),
+            round(to_device.m22(), 6),
+        )
+        if (
+            self._settled
+            and scale not in self._settled
+            and self._picture is not None
+            and self._picture_key is not None
+            and self._picture_key[0] == self._generation
+        ):
+            # A zoom step: the last rasterisation, scaled, until the zoom settles.
+            # Laid down in DEVICE pixels (the picture is upright there; the view
+            # paints the scene through a Y-flip), where it now belongs.
+            from_device, invertible = to_device.inverted()
+            if invertible:
+                painter.save()
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                painter.setWorldTransform(from_device * painter.worldTransform())
+                painter.drawPixmap(
+                    to_device.mapRect(self._picture_rect),
+                    self._picture,
+                    QRectF(self._picture.rect()),
+                )
+                painter.restore()
+                self._pending = scale
+                self.settle_requested()
+                return
+        if scale in self._settled:
+            self._settled.remove(scale)
+        self._settled.append(scale)
+        del self._settled[:-_SETTLED_SCALES]
+        self._paint_and_keep(painter, to_device, scale)
+
+    def settle(self) -> None:
+        """The zoom has stopped: rasterise for it (the next paint does)."""
+        if self._pending is None:
+            return
+        if self._pending not in self._settled:
+            self._settled.append(self._pending)
+            del self._settled[:-_SETTLED_SCALES]
+        self._pending = None
+        self.update()
+
+    def _paint_and_keep(
+        self, painter: QPainter, to_device: QTransform, scale: tuple[float, ...]
+    ) -> None:
+        """Rasterise the overlay and keep that picture for the next zoom."""
+        from_device, invertible = to_device.inverted()
+        area = to_device.mapRect(self.boundingRect()).toAlignedRect()
+        if (
+            not invertible
+            or scale[1] != 0.0  # a turned or sheared view: no axis-aligned picture
+            or scale[2] != 0.0
+            or area.isEmpty()
+            or max(area.width(), area.height()) > _PICTURE_MAX_SIDE
+        ):
+            self._paint_exact(painter)
+            return
+        # The same zoom, moved by whole pixels (a pan's strip of a clipped
+        # cache): the picture that is kept IS this rasterisation.
+        key = (
+            self._generation,
+            scale,
+            round(to_device.dx() % 1.0, 4),
+            round(to_device.dy() % 1.0, 4),
+            area.width(),
+            area.height(),
+        )
+        if self._picture is None or self._picture_key != key:
+            picture = QPixmap(area.size())
+            if picture.isNull():
+                self._paint_exact(painter)
+                return
+            picture.fill(Qt.GlobalColor.transparent)
+            picture_painter = QPainter(picture)
+            try:
+                picture_painter.setTransform(
+                    to_device * QTransform.fromTranslate(-area.x(), -area.y())
+                )
+                self._paint_exact(picture_painter)
+            finally:
+                picture_painter.end()
+            self._picture = picture
+            self._picture_key = key
+        self._picture_rect = from_device.mapRect(QRectF(area))
+        painter.save()
+        # device transform = identity (core.sprite_raster does the same): the
+        # picture is in device pixels and is laid down unscaled
+        painter.setWorldTransform(from_device * painter.worldTransform())
+        painter.drawPixmap(area.topLeft(), self._picture)
+        painter.restore()
+
+    def _paint_exact(self, painter: QPainter) -> None:
+        """Rasterise the overlay: the feather strokes, then the core."""
+        self.exact_paints += 1
         path = self.path()
-        if path.isEmpty():
-            return
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         # Soft outward penumbra — only outside the shadow's own fill area, so
         # the interior stays flat and there is no darker ring at the boundary.
@@ -602,6 +759,11 @@ class SunShadowController(QObject):
         self._debounce.setSingleShot(True)
         self._debounce.setInterval(_DEBOUNCE_MS)
         self._debounce.timeout.connect(self.recompute_now)
+        # After the last step of a zoom the overlay is rasterised for it (#784).
+        self._settle = QTimer(self)
+        self._settle.setSingleShot(True)
+        self._settle.setInterval(_SETTLE_MS)
+        self._settle.timeout.connect(self.settle_overlay)
         scene.changed.connect(self._on_scene_changed)
 
     # ── public API ─────────────────────────────────────────────
@@ -800,9 +962,22 @@ class SunShadowController(QObject):
         overlay = self._alive_overlay()
         if overlay is None:
             overlay = SunShadowOverlayItem()
+            overlay.settle_requested = self._request_settle
             self._scene.addItem(overlay)
             self._overlay = overlay
         return overlay
+
+    def _request_settle(self) -> None:
+        """A zoom step showed the overlay's scaled picture: (re)start the wait."""
+        with contextlib.suppress(RuntimeError):  # #230 teardown guard
+            self._settle.start()
+
+    def settle_overlay(self) -> None:
+        """Rasterise the overlay for the zoom it is shown at now (the settle
+        timer's slot; a caller that cannot wait for it calls this)."""
+        overlay = self._alive_overlay()
+        if overlay is not None:
+            overlay.settle()
 
     def _clear_overlay(self) -> None:
         self._last_key = None
