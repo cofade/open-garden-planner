@@ -603,3 +603,23 @@ A wheelbarrow's sprite is 60 x 140 cm; drawn into a 140 x 60 rectangle it was re
 - **Legacy:** none (new entry)
 
 A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, deleted and sanitised by a dozen call sites. Teaching GREENHOUSE to be a building meant touching every one; a single missed `== HOUSE` would have left a greenhouse ridge that did not follow a move, a copy without its own ridge, or a load that dropped the link. The predicate lives in `core.roof_style.py` (Qt-free, kind names) and `core.object_types.is_ridge_bearing_type` (enum); `ChangeObjectTypeCommand` uses it for both the execute and undo halves, and `apply_ridge_look` gives a greenhouse its aluminium finish (and a house its brown) on build, type change and undo.
+
+### PF-CAN-49
+
+- **Rule:** Qt keeps every item's `DeviceCoordinateCache` picture in the process-wide `QPixmapCache`, whose default limit is 10 MB; a canvas raises it (`ui/canvas/item_cache.ensure_item_cache_budget`, 256 MB) or its item caches thrash and every repaint paints the items again. Setting a cache mode proves nothing: count the paints.
+- **Pinned by:** `tests/integration/test_canvas_sharpness.py::TestPanIsCheap`; `tests/integration/test_sun_overlay_cache.py::TestRasterisedOncePerSolve`; `tests/perf/test_sun_overlay_repaint.py`
+- **Source:** #784
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (one lawn alone is 5.2 MB), so with the default limit Qt evicted and re-painted on every frame: 49 ms for a repaint that is 8 ms of blits, 143 ms for a 40-px pan. A picture larger than the whole limit (a lawn on a 4K display is 33 MB) was never kept at all. The first attempt at #784 set the sun overlay to `DeviceCoordinateCache` and measured no change whatsoever (146 ms against 152) — the overlay's 5 MB picture was evicted by the next item's. NFR-PERF-01's reference plan did not show it because its 990 items are small. The limit is a ceiling, not an allocation. Details and numbers: §8.35.
+
+### PF-CAN-50
+
+- **Rule:** A bitmap drawn through a painter is rasterised for THAT painter: ask `core/raster_resolution` (device scale of the painter, rounded up to a power of two, never below 1) through `paint_plant` / `paint_furniture` / `brush_for_painter`, never hand a renderer the item's size in centimetres as pixels, and never rasterise a sprite whole when it would exceed 1024 px a side.
+- **Pinned by:** `tests/integration/test_canvas_sharpness.py`; `tests/unit/test_raster_resolution.py`; `tests/unit/test_sprite_raster.py`; `tests/unit/test_fill_pattern_levels.py`
+- **Source:** #785
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`render_plant_pixmap(diameter=...)` and `render_furniture_pixmap(width=..., height=...)` take pixels; the item paints passed centimetres, so every sprite was 1 px per cm and anything above 100 % zoom, on a high-density display or in a 300-dpi export was an enlarged bitmap. The resolution cannot be the item's: one item is painted by the canvas, an export, the minimap and the Agent API render at different scales. Three traps on the way: `QPainter.worldTransform()` leaves out the device pixel ratio (`deviceTransform()` has it); a pixmap drawn into an item-space rectangle under the canvas's Y-flip is mirrored (lay a device-space picture down with the device transform made the identity); and a level below 1 is not "sharper", it changes how a texture reads when zoomed out (`MIN_LEVEL`, an owner's decision). A defect of this kind is proportional to zoom and to rotation — test at 400 % and 1000 %, rotated, and against the same interior at 100 % enlarged. §8.9.14.

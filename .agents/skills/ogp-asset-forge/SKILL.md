@@ -38,6 +38,14 @@ shipped textures (`src/open_garden_planner/resources/textures/`) at 1:1 AND
   compost 47 → glass 215; corten is the smoothest at 2.5 — re-measure after any regeneration, the band comment in the test is the record). Verify tinted
   renders on the contact sheet with the object's real default fill colour.
 - **Seamless by construction** (§3) — never "healed" after the fact.
+- **Two tiles per texture (#785).** The generator also writes the painter's own
+  512-px canvas (before the box downsample) as `textures/x2/<name>.png` — the
+  detail tile the canvas paints with above 100 % zoom. You never author it: it
+  falls out of the same run. `--check` gates both files, and
+  `tests/unit/test_fill_pattern_levels.py` holds every detail tile to the seam
+  gate. A recipe that is right at 256 px is right at 512 px, but LOOK at the
+  `x2` tile too: a primitive that was hidden by the downsample (a one-pixel
+  jag, a hard noise cell) shows there.
 - Reference exemplars: `wood.png` / `brick.png` (structured), `soil.png` /
   `gravel.png` (organic scatter), `flagstone.png` / `clay.png` (Voronoi),
   `water.png` / `glass.png` (analytic fields), `hedge.png` (leaf primitive).
@@ -134,7 +142,7 @@ workflow (validated in the #281 style lab, 2026-07-26):
 
 | Gate | Command | Pass |
 |---|---|---|
-| Pixel determinism | `venv/Scripts/python.exe scripts/generate_asset_forge_textures.py --check` | every committed PNG decodes to the generator's pixels (pinned by `tests/unit/test_texture_forge_conformance.py`, which also pins registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, the tint band, gate teeth, and that the legacy Qt generator stays deleted) |
+| Pixel determinism | `venv/Scripts/python.exe scripts/generate_asset_forge_textures.py --check` | every committed PNG — the 24 tiles and their 24 `x2/` detail tiles — decodes to the generator's pixels (pinned by `tests/unit/test_texture_forge_conformance.py`, which also pins registry ↔ `_TEXTURE_FILES` ↔ files, 256² RGB, 512² RGB for `x2/`, the tint band, gate teeth, and that the legacy Qt generator stays deleted) |
 | Tileability | `venv/Scripts/python.exe scripts/check_texture_tileability.py [file]` | seam/98th-percentile ratio ≤ 1.6 both axes for ALL 24 (`tests/unit/test_texture_tileability.py` parametrises every file — no grandfather list; recalibrate the 1.6 only with a written rationale in the checker header + test). Know its blind spot: the metric grades a texture against its OWN p98 internal step, so structured tiles with hard edges everywhere get more slack than organic ones — for those also eyeball `\|row0 − row255\|` / `\|col0 − col255\|` against the interior joint profile |
 | On-canvas (§8.10) | `venv/Scripts/python.exe -m pytest tests/integration/test_texture_forge_rendering.py` | every pattern paints with detail through the panel's apply slots → brush → item → flipped `scene.render`; the wrap column AND row of the item's real tinted brush are inside the fill's own edge family; red vs blue fill colours move the hue without flattening; thumbnails render; greenhouse tool draws GLASS |
 | Style | contact sheet: legacy · new 1:1 · 2×2 tiled · tinted with the default fill colour | owner's manual sign-off (sovereign) |

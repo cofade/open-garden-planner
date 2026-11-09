@@ -138,11 +138,12 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Plant SVGs (`resources/plants/`, ADR-040)
 - **Generated, never hand-edited**: all 108 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
 - Top-down, rotation-safe radial shading; QtSvg-subset only; contract in `resources/plants/README.md`, provenance in `resources/plants/PROVENANCE.md`
-- Consumed unchanged by `core/plant_renderer.py` (cached pixmaps, stable per-item rotation, optional tint)
+- Consumed unchanged by `core/plant_renderer.py` (stable per-item rotation, optional tint); the canvas paints them through `paint_plant`, rasterised at the painter's resolution (§8.9.14)
 
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
-- 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
+- 256×256 px RGB, **1 px = 1 cm** on the canvas; strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
+- Each texture also ships a **detail tile** `resources/textures/x2/<name>.png` (512×512, 2 px per cm): the generator's own canvas before the box downsample that makes the 256-px tile, under the same pixel gate. The canvas paints a fill with it above 100 % zoom (`brush_for_painter`, §8.9.14); at 100 % and below the 256-px tile is used unchanged
 - Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives - #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
 - A filled object may **turn, scale and shift its own texture** without touching its geometry: `FillTransform` (`core/fill_patterns.py`) is an additive per-object `fill_transform` block applied as a brush transform (ADR-071, FR-EDIT-23). The identity is never saved; roof tiles compose the transform inside the canonical ridge frame. `core/item_look.fill_brush` / `restore_stored_look` / `_LOOK_ATTRIBUTES` are the one copy/restore path for it
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
@@ -150,7 +151,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
 - **Generated, never hand-edited**: all 26 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
 - Top-down, light from straight above, **no baked shadow** (the item-level painted shadow is the single source — furniture rotation is user-controlled); QtSvg-subset only; viewBox = nominal footprint in cm (gate-read table); contract in `resources/objects/README.md`, provenance in `resources/objects/PROVENANCE.md`
-- Consumed unchanged by `core/furniture_renderer.py` (cached pixmaps, stretched to the item rect); gallery thumbnails letterbox by viewBox aspect
+- Consumed unchanged by `core/furniture_renderer.py` (stretched to the item rect); the canvas and the ground bake paint them through `paint_furniture`, rasterised at the painter's resolution (§8.9.14); gallery thumbnails letterbox by viewBox aspect
 
 ## 8.6 Development Workflow
 
@@ -580,7 +581,7 @@ rectangle. Two patterns replace that:
    ridge is the plan's linked `ROOF_RIDGE` rather than a symbol.
 2. **Aspect is a turn, not a stretch.** `core/sprite_orientation.py` states each
    sprite's natural footprint and `sprite_turn_deg`; `core/furniture_renderer.py`
-   renders at the swapped size and rotates the pixmap, while
+   draws the sprite at the swapped size, turned a quarter (`_draw_furniture`), while
    `builders/kit.object_box`/`placed` build the same quarter-turned mesh. One rule
    keeps the picture and the model facing the same way.
 
@@ -590,6 +591,93 @@ picture is parametric declares `paints_picture` (it stores no pen or brush of it
 own), so a missing picture paints nothing rather than a plain fill. Pin:
 `tests/integration/test_parametric_structures.py`,
 `tests/unit/test_sprite_orientation.py`, PF-CAN-44/45, PF-L3D-21.
+
+### 8.9.14 A bitmap is rasterised for the painter that draws it (#785)
+
+A plant sprite, an object sprite and a fill-texture tile are bitmaps, and a
+bitmap has a resolution. Until #785 every one was made at **1 pixel per
+centimetre of plan** — the paint code handed the renderer the item's size in
+centimetres where it expected pixels — so anything above 100 % zoom, on a
+high-density display or in a 300-dpi export was an enlarged bitmap beside
+crisp vector outlines. An item is painted by many painters (the canvas at this
+zoom, an export at that scale, the minimap, the Agent API render, a printer),
+so the resolution cannot be a property of the item: it is asked of the painter,
+at paint time, in **one place**.
+
+**The rule — `core/raster_resolution.py`, and nowhere else:**
+
+1. `device_scale(painter)`: the device pixels one centimetre covers under the
+   painter's *device* transform — world scale, item and group rotation,
+   mirroring and the device pixel ratio together (`QPainter.deviceTransform()`
+   includes the ratio; `worldTransform()` does not). The larger axis, signs
+   dropped. Two painters are not taken at their word: a device finer than
+   300 dpi (a printer at 1200) counts as 300, and a painter that records
+   instead of rasterising (SVG, `QPicture`) keeps 1 px per cm, because it is
+   replayed at a size nobody knows — and the SVG export's pattern
+   post-processing expects 256-px tiles.
+2. `raster_level(scale)`: that scale rounded **up** to a power of two, never
+   below 1. A bitmap is therefore never enlarged and is reduced by less than
+   two, where bilinear filtering does not alias; a smooth zoom makes a new
+   bitmap once per doubling, not once per wheel step; and the level — through
+   the pixel size it yields — is part of every cache key.
+
+**Who asks it:**
+
+| Bitmap | Paint with | What it does |
+|---|---|---|
+| Plant sprite | `core.plant_renderer.paint_plant(painter, rect, …)` | turns and tints, then `sprite_raster.paint_sprite` |
+| Object sprite | `core.furniture_renderer.paint_furniture(painter, rect, type)` | undoes the canvas Y-flip, quarter-turns (#776), then `paint_sprite` |
+| Fill tile | `ui.canvas.items.fill_paint.paint_shape(item, painter, option, widget, super().paint)` | `fill_patterns.brush_for_painter`: the 512-px detail tile under a brush transform scaled by 1/2 when the level is above 1; otherwise the item's own Qt paint, untouched |
+
+`RectangleItem`, `CircleItem`, `EllipseItem` and `PolygonItem` call these; the
+ridge roof (`roof_paint`) and a textured path (`path_style_paint`, the canvas
+only) refine their own brushes with `brush_for_painter`; the 3D ground bake
+paints a sprite through `paint_furniture` (its grid is 1 px per cm at most, so
+its level is the canvas's at 100 %). `render_plant_pixmap` and
+`render_furniture_pixmap` remain for a caller that wants a pixmap of a pixel
+size it states itself (a list icon, a thumbnail) — **never pass them a size in
+centimetres**.
+
+**What `paint_sprite` guarantees** (`core/sprite_raster.py`):
+
+- A sprite of at most 1024 px a side is a pixmap in `SPRITE_CACHE` (least
+  recently used out; 64 MB, each entry 4 MB at most), drawn into its **exact**
+  rectangle — not `toAlignedRect()`, which enlarged a 10 cm seedling by up to a
+  centimetre and put a bench up to 0.3 cm off its rectangle.
+- A sprite that would need more (a 5 m tree at 400 %) is **never rasterised
+  whole**. Only the part the device shows is drawn, from the vector, into a
+  transient layer in device pixels (16 megapixels at most), and that layer is
+  laid down untransformed. Measured: a 9000-px tree clipped to a 1500×900 window
+  costs 6–16 ms; the 2048-px pixmap it replaces costs 66 ms and 16 MB and would
+  still be shown 4.4 times too large. Nothing is cached for it — Qt's device
+  cache already keeps the item's picture between paints.
+- Both routes draw the sprite with one callback (`draw(painter, rect)`), so they
+  cannot disagree about a turn, a flip or a tint, and a zoom that crosses the
+  1024-px threshold does not move the picture
+  (`TestCachedAndExposedAgree`, `TestOversizedSprite`).
+
+**Zoomed out, nothing changes.** The level is never below 1: below 100 % a
+bitmap is the 1-px-per-cm one, minified by the painter exactly as before. Coarser
+levels were built and measured — they remove the moire of bricks and roof tiles
+(rms error against the area average 12.3 → 5.5 at 30 %) but also the contrast a
+texture and a leaf outline read by at that size (a fill's luminance spread at
+10 % falls from 18.1 to 6.5, under the floor `TestTexturesAreNeverDropped`
+guards) — and 20–25 % is where the owner works. That is a change of look, for
+the owner to make (`raster_resolution.MIN_LEVEL`).
+
+**Drawing a picture in device pixels.** Both `paint_sprite`'s layer and the
+sun overlay's kept picture (§8.35) are laid down with
+`painter.setWorldTransform(to_device.inverted()[0] * painter.worldTransform())`,
+which makes the painter's device transform the identity whatever view transform
+and pixel ratio lie between world and device. A pixmap drawn into an item-space
+rectangle instead is mirrored by the canvas's Y-flip — the first version of the
+overlay's zoom picture was, and `test_the_picture_of_a_step_is_the_shadow_scaled`
+is what caught it.
+
+Pinned by `tests/unit/test_raster_resolution.py`, `tests/unit/test_sprite_raster.py`,
+`tests/unit/test_fill_pattern_levels.py` and, through a real `CanvasView`, the
+export and the Agent API render, `tests/integration/test_canvas_sharpness.py`
+(23 of its 25 cases fail on the commit before the fix). PF-CAN-50.
 
 ## 8.10 Integration Test Policy
 
@@ -4285,7 +4373,7 @@ FILE_VERSION bump) is pinned by `tests/unit/test_project_unknown_object_type.py`
 
 ## 8.24 Texture Forge Pipeline (#309, ADR-042)
 
-### 8.24.1 One generator, 24 artifacts
+### 8.24.1 One generator, 24 textures (two tiles each)
 
 Every PNG under `resources/textures/` is produced by
 `scripts/generate_asset_forge_textures.py`: one `generate_<name>(rng)` recipe
@@ -4320,6 +4408,19 @@ Pillow filter is involved — Pillow only encodes/decodes PNG. The binding
 style contract ("Lush": visible detail, radial shading, concentric occlusion,
 tint-readable contrast, no directional light) is the `ogp-asset-forge`
 skill's §1; provenance is `resources/textures/PROVENANCE.md`.
+
+**The detail tile (#785).** The painter's canvas is 512 × 512; the 256-px tile
+is its 2 × 2 box average. `Tile.finish` now also keeps that canvas, rounded, and
+the generator writes it as `resources/textures/x2/<name>.png` — the same picture
+at 2 px per cm, from the same run of the same recipe, with no recipe knowing
+about it. `--check` compares both files of every texture; the 256-px tile is
+byte-for-byte what it was. The conformance gate (`TestDetailTiles`) pins
+registry ↔ files, 512² RGB, the pixels, that the detail tile averages back to
+the tile (0.75 of a level at most where neither is clipped) and the rounding-tie
+margin; `tests/unit/test_fill_pattern_levels.py` holds every detail tile to the
+tileability gate. The 24 detail tiles add 5.17 MB to the repository and the
+installer (the 24 tiles are 1.70 MB). ADR-042 addendum (#785) records why 2 px
+per cm and not 4.
 
 ### 8.24.2 The three invariants
 
@@ -8254,3 +8355,89 @@ already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
+
+## 8.35 Canvas raster caches and repaint cost (#784, #785)
+
+What the plan canvas keeps as pixels, what bounds it, and what a frame costs.
+Numbers are the bundled family-garden example in a 1453 × 898 viewport at fit
+(56 %), spacing rings on, sun overlay on unless stated — medians on a machine
+that was rendering other things, so read the ratios.
+
+| Interaction | Before (53b48405) | After | Why |
+|---|---|---|---|
+| Repaint, overlay on / off | 159 / 53 ms (3.0×) | 12 / 11 ms (1.1×) | the overlay and the items are blits |
+| The same, spacing rings off | 113 / 8.7 ms (13×) | 10.0 / 9.7 ms (1.0×) | |
+| 40-px pan step | 93–143 ms | 20–24 ms | the same |
+| Wheel-zoom step near fit | 161–182 ms | 61–79 ms (overlay off: 55–79) | the overlay shows its last picture until the zoom settles |
+| 60-step zoom sweep, total | 5.0 s | 2.8–3.2 s | |
+| Timeline scrub step at fit | 121–175 ms | 127–145 ms | unchanged: one rasterisation per solve is the floor (at twice fit 123 → 72 ms) |
+
+**Three caches, each with a stated bound:**
+
+| Cache | Holds | Bound |
+|---|---|---|
+| `QPixmapCache` (Qt's, process-wide) | every `DeviceCoordinateCache` item's device picture, the sun overlay's among them | 256 MB — `ui/canvas/item_cache.ITEM_CACHE_BUDGET_KB`, set by `CanvasScene` |
+| `core.sprite_raster.SPRITE_CACHE` | plant and object sprites per raster level | 64 MB, 4096 entries, 1024 × 1024 px (4 MB) an entry |
+| `core.fill_patterns._level_tiles` | tinted detail tiles per (pattern, colour) | 48 MB, 1 MB an entry |
+
+(`render_plant_pixmap`'s and `render_furniture_pixmap`'s own caches, for list
+icons and thumbnails, are 32 MB and 64 MB.)
+
+**Qt's item cache lives in `QPixmapCache`, and its default limit is 10 MB**
+(PF-CAN-49). #430 made every unselected item `DeviceCoordinateCache`; one lawn
+covering this viewport is 5.2 MB and the plan's 101 visible items need 17 MB. Past
+the limit Qt evicts, an evicted item is painted again on the next frame, and
+the cache thrashes: the "repaint with the overlay off" of 49 ms above is what a
+hundred *paints* cost, and the 40 ms the survey attributed to the spacing rings
+was this too (with room in the cache, rings on and off read 11 and 10 ms). A
+picture larger than the whole limit — the lawn on a 4K display is 33 MB — was
+never kept at all. `CanvasScene.__init__` calls `ensure_item_cache_budget()`,
+which raises the limit to 256 MB (never lowers it). That is a ceiling: the cache
+holds what the visible items need (17 MB here, about 110 MB at 4K) and evicts
+beyond it.
+
+**The sun-shadow overlay is rasterised once per solve and zoom.** Its paint is
+four antialiased wide strokes of the whole shadow outline, clipped to the area
+outside the shadow, then the core: 60–130 ms on this plan at fit, 95 % of it the
+strokes, and almost all of that Qt's antialiased rasterisation (the stroker
+takes 0.5 ms; the same strokes without antialiasing 3–5 ms). It is not made
+cheaper — its pixels are the contract — it is made rarer:
+
+- `SunShadowOverlayItem` is `DeviceCoordinateCache`: a repaint, a pan and another
+  item's update blit its picture (0.3–0.6 ms). Against the direct paint the
+  cached picture differs by the rounding of premultiplied alpha, 3 levels at
+  most (`TestPixelsUnchanged`: three zooms, two sun positions); an export, a
+  print, the minimap and the Agent API render disable item caches first and get
+  the direct paint, bit for bit.
+- A **zoom** invalidates a device cache at every wheel step. While steps keep
+  coming the overlay paints the picture of its last rasterisation, scaled, and
+  asks its controller's 120-ms single-shot timer for `settle()`; then it is
+  rasterised for the new zoom, once (`TestZoomGesture`). The picture is kept
+  only up to 2048 px a side (16 MB); a new solve is never shown with an old
+  picture (a scrub rasterises at once); an overlay without a controller never
+  defers.
+
+Rejected, with measurements: replacing the strokes by pre-offset ring polygons
+(`pyclipper`, once per solve) halves the paint (71 → 32 ms) for 6–34 ms more per
+solve and moves pixels by up to 16–52 levels at edges; `QPainterPath.simplified()`
+on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
+
+**What still costs, and is not hidden:**
+
+- A zoom step repaints every visible item's device cache: 55–68 ms near fit on
+  this plan, overlay on or off. With the spacing rings off it is lower; how the
+  rings are drawn is another change's.
+- The **first** zoom across a raster level (100 %, 200 %, 400 % …) rasterises
+  each visible sprite at the new level and tints the detail tiles in use: one
+  frame of about 0.4 s on this plan (61 plants), once per level while the
+  sprites stay in the cache. Zooming back and forth afterwards is blits.
+- A scrub step still rasterises the overlay once (60–130 ms at fit, 7–25 ms
+  zoomed in): scrubbing the timeline at fit is as slow as it was. The
+  candidate, not built: a half-resolution picture while solves keep arriving,
+  settled the way a zoom is — it changes the pixels of a scrub frame, so it is
+  the owner's to ask for.
+
+Pinned as a ratio, never in milliseconds: `tests/perf/test_sun_overlay_repaint.py`
+(marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.06 with the
+fix, 16.9 before). Counted, on any machine: `tests/integration/test_sun_overlay_cache.py`
+and `TestPanIsCheap` in `tests/integration/test_canvas_sharpness.py`.

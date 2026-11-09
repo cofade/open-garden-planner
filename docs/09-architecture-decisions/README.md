@@ -5110,6 +5110,43 @@ assertion after every iteration. Fourteen must be caught and two must pass (a di
 `needs` graph, and a comment that changes no configuration) — the passing controls are what
 distinguish a working pin from one that fails everything. Run it after touching the matcher.
 
+### ADR-042 addendum: a detail tile per texture, 2 px per cm (issue #785, 9 November 2026)
+
+**Context.** A fill texture is a 256-px tile spanning 2.56 m: 1 texture pixel per
+centimetre, the forge's contract. Above 100 % zoom — the balcony and raised-bed
+examples open at 291 % and 340 % — and in a 300-dpi export that tile is enlarged
+by the painter, and the fills are soft beside vector outlines. #785 makes every
+bitmap follow the painter's resolution (§8.9.14); a sprite is a vector and can
+be rasterised at any level, a texture has only the pixels it ships.
+
+**Decision.** Each texture ships a second tile, `resources/textures/x2/<name>.png`:
+**the generator's own 512-px canvas before the box downsample that makes the
+256-px tile.** No recipe changes and no recipe knows about it; the 256-px tile
+is, by construction, its 2 × 2 box average, and stays byte-for-byte what it was.
+`core.fill_patterns.brush_for_painter` uses the detail tile when the painter
+shows more than 1 px per cm, under a brush transform scaled by one half, and the
+256-px tile otherwise — at 100 % zoom and below a fill is painted exactly as
+before. The detail tile is tinted with the 256-px tile's mean luminance, so the
+two levels are one picture.
+
+**Alternatives, with what was measured.**
+
+| Option | Sharpness above 100 % | Bytes | Why (not) |
+|---|---|---|---|
+| Keep 256 px, smooth filtering (status quo) | texture pixel = zoom px; gradient energy 1.0 | 0 | this IS the defect |
+| **512-px detail tile from the painter's canvas (chosen)** | gradient energy x1.4-3.0 (median 1.6; water and stone, smooth by design, 1.15); a texture pixel is sharp to 200 % | **+5.17 MB** (24 files; the 256-px set is 1.70 MB) | zero recipe risk, same pixel gate, same seams |
+| 1024-px tile (4 px per cm) | sharp to 400 % | about +15-18 MB (extrapolated, not built) and 4 MB per tinted tile in memory | the recipes are not supersample-independent: `fine_grain` draws `(C/2)^2` random numbers, so another supersample factor shifts every later draw and changes the picture; needs a recipe audit and an owner sign-off of 24 new looks |
+| Sharpen an enlarged tile at run time | edges crisper, no new detail | 0 | invents halos; "sharp but wrong" |
+| Coarser tiles (box averages) below 100 % | n/a - zoomed out | 0 | built and measured: removes moire (rms against the area average 12.3 -> 5.5 at 30 %) but lowers the contrast a texture reads by (luminance spread at 10 % 18.1 -> 6.5, under the #503 guard's floor of 8). A change of look at the owner's working zoom, left out: `raster_resolution.MIN_LEVEL` |
+
+**Consequences.** Fills are twice as fine, not unboundedly fine: at 1000 % a
+texture pixel still covers 5 screen pixels, where a sprite is exact. The 24
+detail tiles are generated, gated (`--check`, `TestDetailTiles`, tileability)
+and recorded in `PROVENANCE.md` like the tiles they come from. The SVG export
+and the 3D ground bake keep the 256-px tile (a recording painter is not asked
+its scale; the bake's grid is 1 px per cm at most). Tinted detail tiles are
+cached per (pattern, colour) within 48 MB.
+
 ### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
 
 The forge's tint-readability band was written for a tint that could not do the job.

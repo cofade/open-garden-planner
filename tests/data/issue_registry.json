@@ -1136,27 +1136,37 @@
   },
   "768": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(cad): adapt Glasshouse tool to parametric building class with aluminium roof ridge"
   },
   "769": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(cad): add scalable Pergola building tool with matching 2D/3D rafter and post representation"
   },
   "770": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "refactor(smart_symbols): retire Smart Symbols panel and redundant symbol definitions"
   },
   "774": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Not all layers are by default visible in properties menu"
   },
   "775": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Editing a layer name shrinks text box vertically"
+  },
+  "784": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D canvas: the sun-shadow overlay makes every repaint cost ~130-160 ms (pan, zoom and timeline scrub stutter)"
+  },
+  "785": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D canvas: sprites and fill textures are rasterised at 1 px per cm - blurry above 100 % zoom and in high-resolution exports"
   }
 }
