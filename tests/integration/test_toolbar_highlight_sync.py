@@ -75,6 +75,16 @@ class TestToolbarHighlightSync:
             ToolType.SELECT,
         ]
         for tool_type in tool_types:
+            if tool_type is ToolType.SPLIT:
+                # Split is selection-driven: its toolbar button arms the one
+                # selected closed shape (otherwise it explains and returns to
+                # Select).
+                from open_garden_planner.ui.canvas.items import RectangleItem
+
+                item = RectangleItem(0, 0, 100, 100)
+                item.layer_id = window.canvas_scene.active_layer.id
+                window.canvas_scene.addItem(item)
+                item.setSelected(True)
             window.canvas_view.set_active_tool(tool_type)
 
             checked = _all_checked_buttons(window)
