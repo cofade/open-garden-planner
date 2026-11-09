@@ -10871,6 +10871,117 @@ row for `look.ao_distance_scale`, `tests/ui/test_quick3d_host.py`'s no-camera an
 raising-resting-frame rows, and the tour-hygiene tests of #738 (including the workspace-level
 hidden-view guard and the closing-dialog twin).
 
+### ADR-072 addendum: camera tours kept in the plan (#737)
+
+**Status:** implemented for issue #737; the release that ships it is named by its version sync.
+It replaces the consequence above that "keys of a tour live in the session".
+
+A tour's keyframes and settings lived only as long as the dialog, so a user could not come back
+next week, after changing the garden, and render the same flight again.
+
+1. **The plan owns its tours.** `ProjectManager.camera_tours` is a tuple of immutable
+   `SavedTour` objects (`core/camera_tours.py`, Qt-free). The dialog's controls are a draft:
+   "Save Tour" / "Save Tour As" keep the draft in the plan under a name, choosing a saved
+   tour puts it back into the controls. Names are unique whatever their case, one clean line
+   of at most 60 characters. A new, opened or recovered plan replaces the list and clears the
+   draft (its keyframes were points of the old plan); Save As, a template (`camera_tours` is
+   a kept field of ADR-066: a path through kept geometry, no site data) and a new season keep
+   the tours.
+2. **A saved tour holds a camera and a clock, and nothing of the garden.** What is written is
+   what the dialog needs to make the same video: the motion, its keyframes (kept whatever the
+   motion is: they are the user's work), the loop flag, the frame's duration, rate and size,
+   and a day's or a year's range. Rendering it later renders the garden as it is then. Not
+   written: the output path, the wind (reduced motion is the machine's setting), and the
+   look: photo mode's development, the weather and the quality preset stay the view's at the
+   time of the render, as for every picture (addendum above, decision 1).
+3. **A saved orbit or held view carries the view it started from.** The dialog's orbit "starts
+   where the view is now"; saved like that it would be another video on every render. The
+   orbit's pose (target, distance, yaw, pitch, field of view, turns, direction) and the held
+   camera are saved, the dialog says that the tour starts at its saved view, and "Use Current
+   View" lets it go.
+4. **The format is one additive top-level key, and `FILE_VERSION` stays `"1.4"`.**
+
+   ```json
+   "camera_tours": [
+     {
+       "name": "Promo Flight",
+       "motion": "path",
+       "keys": [
+         {"eye": [6370.2, -2718.9, 3521.4], "target": [1200.0, 800.0, 0.0], "fov_deg": 40.0},
+         {"eye": [3208.7, -3921.0, 3912.3], "target": [1200.0, 800.0, 0.0], "fov_deg": 40.0}
+       ],
+       "closed": true,
+       "date_range": ["2027-03-01", "2027-10-31"],
+       "duration_s": 12.0,
+       "fps": 30,
+       "size": [1920, 1080]
+     },
+     {
+       "name": "Drone",
+       "motion": "orbit",
+       "orbit": {"target": [1200.0, 800.0], "distance_cm": 2150.75, "yaw_deg": 33.5,
+                 "pitch_deg": 28.25, "fov_deg": 40.0, "turns": 2, "clockwise": false},
+       "duration_s": 12.0,
+       "fps": 30,
+       "size": [1920, 1080]
+     }
+   ]
+   ```
+
+   `motion` is `orbit`, `path` or `hold` (`held`: one key); `time_range` is `["06:00", "21:00"]`;
+   points are scene centimetres (east, north, up). The key is absent when the plan has no tour.
+   No bump, because an older build can ignore it safely (architecture contract, row 9): its
+   loader reads the keys it knows, the plan validator checks numbers only, and the version
+   guard refuses only a file newer than its own. Proven on the real thing: release v1.37.9's
+   own code loads a plan written with tours and loses nothing but the tours
+   (`test_a_file_with_tours_opens_in_the_last_release_that_did_not_know_them`). The degrade is
+   the one of every additive key: an older build that saves the plan writes it back without
+   the tours. The same holds one level down: a field of a tour this build does not know is
+   left out when the tour is saved again.
+5. **Every edit is one undo step through one writer.** `SaveCameraTourCommand` (a new name is
+   added at the end, a known name replaces that tour in place), `RenameCameraTourCommand` and
+   `DeleteCameraTourCommand` go through `CommandManager.execute`; each keeps the whole list
+   before and after, so undo and redo restore exactly what was there, in its order.
+   `ProjectManager.set_camera_tours` is the only writer besides load and new, and marks the
+   plan dirty. Changing the draft, choosing a tour and a cancelled name dialog are no step. A
+   command that cannot be built (unknown name, name taken, more than 50 tours) raises before
+   anything reaches the stack. The commands say they change neither the ground band nor
+   containment, so the canvas skips both restack scans.
+6. **The reader is a trust boundary.** `load_tours` is the one reader. One broad `except` per
+   entry (architecture contract, row 14): what is not a tour this build can render is skipped,
+   logged and counted, and the load of the plan goes on. Geometry is never repaired (a path
+   with one key changed is another video): a wrong type, a number that is no camera (not
+   finite, beyond 10 km, a field of view outside 0 to 180, an eye on its target), fewer than
+   two different keys, a range that runs backwards and both ranges at once skip the tour.
+   Settings are put back into their range: duration 1 to 600 s (default 12), a frame rate
+   and a size the dialog offers (defaults otherwise), whole turns 1 to 4. Caps: 50 tours per
+   plan, 100 keyframes per tour; a second tour of a name is skipped. The status bar says how
+   many tours could not be read, since they are gone with the next save. The document's
+   numeric boundary is unchanged: a NaN or an infinity anywhere in the file, a tour included,
+   refuses the whole document before any tour is read (`plan_io`, AUD-041). A tour's name is
+   shown as plain text wherever it appears.
+7. **The agent surface is unchanged.** `snapshot_dict` is the plan as the file holds it, so the
+   tours are in it; the curated agent schema names none of them, and no tool was added.
+
+**Alternatives rejected:** an id per tour with per-tour restore methods (the journal-note
+pattern): the name is the identity the user sees, and a whole-list snapshot is exact and
+small; the tours in `QSettings` (they would stay on one machine and not travel with the
+plan); nesting them under the file's `metadata` (a template drops it, and every other
+plan-scoped store is top-level); saving an orbit as "from wherever the view is" (not the same
+video twice); clamping a hostile coordinate into range; keeping unread entries and writing
+them back verbatim (unvalidated data would pass the boundary on every save); a `FILE_VERSION`
+bump (it locks every older install out of data it can ignore).
+
+**Consequences:** 23 new UI strings in every registered locale. A year's range is absolute
+dates, so a tour carried into a new season still names last year's dates until the user
+changes them. The autosave file holds the scene only, so a plan recovered after a crash has
+no tours, like the rest of the plan's metadata (location, soil tests, tasks); that is older
+than tours and is not changed here. Pinned by `tests/unit/test_camera_tours.py` (the model,
+one probe per class of hostile entry, the three commands' step counts) and
+`tests/integration/test_tour_persistence.py` (the dialog's own controls, save and reopen, the
+same frames, the changed garden along the saved path, another plan, the previous release,
+the real window).
+
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 
 **Status**: Accepted (2026-11-06). Packaging and pipeline shipped; the Store listing itself

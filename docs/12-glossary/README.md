@@ -351,7 +351,11 @@ yearly plan copy and from task reminder reference dates (ADR-062).
   vignette, grade. Photo mode's word for what it does.
 - **Grade:** a colour treatment of the whole picture, computed as a 16-level lookup table (LUT).
 - **Keyframe (of a tour):** a camera placement the path passes through.
-- **Drone orbit:** a tour around the plan at the view's distance and height, starting where the view is.
+- **Drone orbit:** a tour around the plan at the view's distance and height, starting where the view is
+  (a saved one: where the view was when it was saved).
+- **Saved tour:** a camera tour kept in the plan under a name (#737): its camera, its clock range,
+  its duration, frame rate and size, and nothing of the garden. The dialog's controls are the
+  **draft**; saving, renaming and deleting a saved tour are one undo step each.
 - **Time-lapse:** a tour during which the sim clock runs through a day or a stretch of the year.
 
 ### Plant Forge, Space colonisation, Pipe model and Phenology (L3, #387, ADR-064)
