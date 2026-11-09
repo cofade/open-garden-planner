@@ -995,9 +995,29 @@ class CanvasView(QGraphicsView):
     def set_active_tool(self, tool_type: ToolType) -> None:
         """Set the active drawing tool.
 
-        Args:
-            tool_type: The tool type to activate
+        The split tool is selection-driven: a toolbar click or the bare ``S``
+        shortcut arms the one selected closed shape. Without that selection it
+        explains why and returns to Select instead of starting a gesture that
+        has no source.
         """
+        if tool_type is ToolType.SPLIT:
+            selected = [
+                item
+                for item in self._canvas_scene.selectedItems()
+                if item.parentItem() is None
+                and hasattr(item, "object_type")
+            ]
+            if len(selected) != 1 or not self.start_split_shape(selected[0]):
+                if len(selected) != 1:
+                    self.set_status_message(
+                        self.tr("Select one closed shape to split")
+                    )
+                self._activate_tool_direct(ToolType.SELECT)
+            return
+        self._activate_tool_direct(tool_type)
+
+    def _activate_tool_direct(self, tool_type: ToolType) -> None:
+        """Switch tools without the split tool's selection precheck."""
         self._tool_manager.set_active_tool(tool_type)
         # Refresh the typed-input anchor (Package A US-A1/A2): previous
         # tool's last_point is stale when switching tools.
@@ -5188,7 +5208,7 @@ class CanvasView(QGraphicsView):
         if item.item_id is None:
             return False
         self._split_tool.prepare(item.item_id)
-        self.set_active_tool(ToolType.SPLIT)
+        self._activate_tool_direct(ToolType.SPLIT)
         self._canvas_scene.clearSelection()
         item.setSelected(True)
         self.set_status_message(

@@ -80,6 +80,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             'Una forma con restricciones no se puede dividir',
         'Click the first point of the cutting line. Esc cancels.':
             'Haz clic en el primer punto de la línea de corte. Esc cancela.',
+        'Select one closed shape to split':
+            'Selecciona una forma cerrada para dividir',
         'Only closed shapes (polygon, rectangle, circle, or ellipse) can be split':
             'Solo se pueden dividir formas cerradas (polígono, rectángulo, círculo o elipse)',
         'Plants and linked objects cannot be split':

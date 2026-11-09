@@ -1196,9 +1196,11 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
 ## FR-35: CAD editing — split along a line and group drill-down (issues #664, #771, ADR-075)
 
 - **FR-SPLIT-01:** A closed shape (polygon, rectangle, circle or ellipse) offers
-  **Split Along Line…** in its context menu. The tool takes two snapped scene points,
-  previews the infinite cutting line and the resulting pieces, constrains the line to
-  45° steps while Shift is held, and cancels on Esc without mutating the scene.
+  **Split Along Line…** in its context menu. The CAD toolbar's Split button and the
+  bare `S` shortcut arm the one selected closed shape; with no such selection they
+  explain why and return to Select. The tool takes two snapped scene points, previews
+  the infinite cutting line and the resulting pieces, constrains the line to 45° steps
+  while Shift is held, and cancels on Esc without mutating the scene.
 - **FR-SPLIT-02:** Applying the cut replaces the source with the pieces in exactly one
   undo step. Each piece keeps the source's layer, object type when valid for a polygon,
   fill/stroke colours, fill pattern and fill-transform, label/area visibility, name,

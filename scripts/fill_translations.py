@@ -1842,6 +1842,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
         "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
+        "Split along line — cut a closed shape with two points":
+            "Teilen entlang einer Linie — eine geschlossene Form mit zwei Punkten schneiden",
         "Offset — parallel copy or parallel line":
             "Versatz — parallele Kopie oder parallele Linie",
         "Fillet — round a corner": "Abrunden — Ecke abrunden",
@@ -3602,6 +3604,8 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Eine Form mit Randbedingung kann nicht geteilt werden",
         "Click the first point of the cutting line. Esc cancels.":
             "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
+        "Select one closed shape to split":
+            "Eine geschlossene Form zum Teilen auswählen",
         "Only closed shapes (polygon, rectangle, circle, or ellipse) can be split":
             "Nur geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse) können geteilt werden",
         "Plants and linked objects cannot be split":

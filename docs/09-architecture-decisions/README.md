@@ -11188,9 +11188,12 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
    `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
    refused while a member is focused.
 3. **Split works in the source's local frame and replaces it in one command.**
-   `core/shape_split.py` clips the item's local `QPainterPath` against the two
-   half-planes of the two-point axis; `SplitShapeCommand` removes the source and adds
-   ordinary `PolygonItem`s in one undo step. Pieces copy the source's layer, object
+   The context menu, the CAD toolbar button next to Trim/Extend, and the bare `S`
+   shortcut reach the same tool; the toolbar/shortcut path arms the one selected
+   closed shape and explains a missing selection instead of starting a sourceless
+   gesture. `core/shape_split.py` clips the item's local `QPainterPath` against the
+   two half-planes of the two-point axis; `SplitShapeCommand` removes the source and
+   adds ordinary `PolygonItem`s in one undo step. Pieces copy the source's layer, object
    type (when valid for a polygon), name, label/area state, metadata, stack order and
    `fill_transform`; using the local frame keeps a rotated source's rotation and
    pattern direction. Curves flatten to polygons, a concave shape may yield more than

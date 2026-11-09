@@ -35,7 +35,7 @@ class SplitShapeTool(BaseTool):
 
     tool_type = ToolType.SPLIT
     display_name = QCoreApplication.translate("SplitShapeTool", "Split along line")
-    shortcut = ""
+    shortcut = "S"
     cursor = Qt.CursorShape.CrossCursor
     accepts_typed_coordinates = False
     # Keep BaseTool's shared anchor snap: both picks and the preview use it.

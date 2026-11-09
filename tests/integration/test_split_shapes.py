@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QColor, QKeyEvent, QPainterPath
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.constraints import AnchorRef, ConstraintType
@@ -102,6 +103,41 @@ def test_a_vertical_cut_keeps_look_metadata_and_is_one_undo_step(
 
     canvas.command_manager.redo()
     assert len(_add_pieces(scene)) == 2
+
+
+def test_the_cad_toolbar_arms_the_selected_shape(qtbot, canvas) -> None:
+    from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
+
+    source = _add(canvas, RectangleItem(100, 100, 200, 100))
+    toolbar = ConstraintToolbar()
+    qtbot.addWidget(toolbar)
+    toolbar.tool_selected.connect(canvas.set_active_tool)
+    button = toolbar._buttons[ToolType.SPLIT]
+    assert button.shortcut().toString() == "S"
+    assert not button.icon().isNull()
+
+    button.click()
+    QTest.qWait(10)
+
+    assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
+    assert canvas._split_tool.source_id == source.item_id
+
+
+def test_the_cad_toolbar_explains_a_missing_selection(qtbot, canvas) -> None:
+    from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
+
+    canvas.scene().clearSelection()
+    toolbar = ConstraintToolbar()
+    qtbot.addWidget(toolbar)
+    toolbar.tool_selected.connect(canvas.set_active_tool)
+    messages: list[str] = []
+    canvas.status_message.connect(messages.append)
+
+    toolbar._buttons[ToolType.SPLIT].click()
+    QTest.qWait(10)
+
+    assert messages[-1] == "Select one closed shape to split"
+    assert canvas.tool_manager.active_tool_type is ToolType.SELECT
 
 
 def test_the_context_menu_shows_a_refusal_reason_as_its_tooltip(canvas, monkeypatch) -> None:
