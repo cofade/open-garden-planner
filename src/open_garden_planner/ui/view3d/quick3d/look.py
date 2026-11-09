@@ -51,7 +51,7 @@ from open_garden_planner.core.scene3d.look import (
 from open_garden_planner.core.scene3d.photo import (
     VIGNETTE_MAX,
     PhotoSettings,
-    blur_amount,
+    blur_sigma_share,
     exposure_gain,
     focus_distance_cm,
     focus_range_cm,
@@ -186,18 +186,18 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
 
 
 def photo_properties(settings: PhotoSettings, eye: tuple[float, float, float],
-                     target: tuple[float, float, float],
-                     picture_height_px: float) -> dict[str, float]:
+                     target: tuple[float, float, float]) -> dict[str, float]:
     """``settings`` as the scene's photo properties, for a camera at ``eye`` looking at
-    ``target`` and a picture this many device pixels high (L6.1). The grade is not here: it is
-    a texture, and the host owns those (``Quick3DHost.set_photo``)."""
+    ``target`` (L6.1). None depends on the picture's size: the blur is a share of the
+    picture's height (#743). The grade is not here: it is a texture, and the host owns
+    those (``Quick3DHost.set_photo``)."""
     distance = focus_distance_cm(settings, eye, target)
     return {
         "photoExposure": exposure_gain(settings.exposure_ev),
         "photoVignette": float(settings.vignette) * VIGNETTE_MAX,
         "photoFocusDistance": distance,
         "photoFocusRange": focus_range_cm(distance, settings.blur),
-        "photoBlur": blur_amount(settings, picture_height_px) if settings.depth_of_field else 0.0,
+        "photoBlur": blur_sigma_share(settings),
     }
 
 

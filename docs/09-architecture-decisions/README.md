@@ -10744,12 +10744,13 @@ view on any steady path.
   seen at the same size), and Qt's amount is capped at its 1080p value because more only shows the taps
   as copies. The slider moves the width of the sharp band, not the amount (owner's manual test: with a
   band of 40 % a high and a low blur gave one picture). A picture-relative blur needs a custom depth
-  of field `Effect` (follow-up).
+  of field `Effect` (follow-up). Done by the addendum "photo mode's own depth of field" (#743).
 - **Screen-space reflections stand down while the blur is drawn.** On Ultra, reflections + depth of
   field + glow in one effect chain took Qt's render thread down in `d3d11.dll` at the owner's first
   focus click (two crashes, one address; PF-E3D-21), and it showed on the owner's `quality = ultra`
   only. Ultra's photos have no reflections; Low to High never had any. Finding the Qt-side cause, to
-  give them back, is #744.
+  give them back, is #744 (generalised and reproduced without project code in the addendum "photo
+  mode's own depth of field"; the workaround stays).
 - **The blur needs a focused point, so the first blur sets one.** The slider used to do nothing before
   the first click on the view (owner's manual test: "no difference between a high and a low blur").
   Three edges of that first focus (another plan, walk mode, one invariant) are #745.
@@ -10981,6 +10982,102 @@ one probe per class of hostile entry, the three commands' step counts) and
 `tests/integration/test_tour_persistence.py` (the dialog's own controls, save and reopen, the
 same frames, the changed garden along the saved path, another plan, the previous release,
 the real window).
+
+### ADR-072 addendum: photo mode's own depth of field (#743, #744)
+
+**Status**: proposed in the visual-polish package; not yet accepted by the owner.
+
+**Context**: decision 5 promises that the view previews what is saved, and the consequences above
+record where it failed. Qt's `depthOfField*` blurs a half-resolution copy with three taps
+`0.53 x amount` px apart, about 2 px at any picture size. Measured on bench_small's hero camera at
+blur 0.8 (60 px tiles, gradient kept against the sharp picture): the 640 x 360 preview kept 0.53 of
+its detail, a 4K save shrunk to the same size 0.92. On a bench with known answers
+(`tests/integration/photoblur_bench.qml`) Qt's blur put a 7 to 8 level fringe of an in-focus bar on
+the blurred wall beside it at 4K, drew a thin far line 3.6 times wider (as a share of the picture)
+at 360 px than at 4K, and left a blurred near bar's edge 1 px wide at 4K.
+
+**Decision**:
+
+1. **The app blurs, not Qt.** `qml/PhotoBlur.qml` is an `Effect` in the environment's `effects`,
+   only while the blur is drawn (`depthOfFieldActive`), so blur 0 is the view to the level. A user
+   effect runs on the scene's linear colour, before exposure, tone mapping, glow, the grade and the
+   vignette (measured: a constant 0.25 written there came out tone-mapped), so a blurred highlight
+   still glows.
+2. **The blur is a share of the picture's height.** The Gaussian's sigma is `blur x
+   BLUR_SIGMA_SHARE (0.006) x height`: 6.5 px at 1080p at the slider's end, 13 px at 4K, 2 px in a
+   328 px pane. Nothing in `photo_properties` depends on a picture's size any more; `blur_amount`,
+   `BLUR_MAX` and the 1080p cap are gone.
+3. **Two layers, premultiplied, at two sizes.** Out of focus is 0 inside the band and grows to 1
+   one band beyond its edge. What lies behind the band and what lies in front of it are separate
+   layers; each is premultiplied by its weight and blurred at sigma and at a third of it, rows then
+   columns, each tap a bilinear pair of texels (exact for premultiplied data, no texel skipped: no
+   copies). A far pixel takes the average of its own layer only (no fringe); the near layer covers
+   its own pixels and spreads past its edge (soft against a sharp background). Up to a third out of
+   focus the small blur takes over from the sharp pixel, beyond that the full blur from the small one:
+   lerping a sharp pixel with the full blur drew sharp leaves inside a haze. A layer's silhouette
+   pixel counts for a fifth (PF-E3D-27): its colour is multisampled, its depth one sample.
+4. **The sharp band keeps a whole plant and loses the scale model** (decided in this package; the
+   owner may veto either constant): `FOCUS_RANGE_MIN_CM` stays the owner's 60 cm (the band is now
+   sharp to its edge, half in front of the point and half behind), and the band is never thinner
+   than `FOCUS_RANGE_FLOOR_SHARE` (8 %) of the depth at `FOCUS_RANGE_FLOOR_AT_CM` (25 m), growing
+   with the square of the depth as a lens's depth of field does: 2 m (8 %) at 25 m, 4.6 m (12 %)
+   at 38 m, 5.7 m (13.5 %) at the family garden's 42 m camera, where the strongest blur left about a metre (3D
+   review of #729). Below about 9 m the floor is under the strong share and changes nothing. The
+   slider moves the band and the blur together.
+5. **Ultra's reflections still stand down under the blur** (#744). With the app's blur in Qt's
+   place the crash stayed: reflections kept under the blur on Ultra died at the first blurred frame,
+   3 of 3; with the workaround 10 of 10 rounds drew. With glow on, any two effects ahead of Qt's
+   own scene effect break its chain (PF-E3D-21): reflections with Qt's depth of field, reflections
+   with one user effect, two pass-through user effects (a wrong picture, or a crash). One effect
+   ahead of it, with any number of passes and buffers, is fine. A reproducer without project code is
+   in `adr-048-evidence/qt-effect-chain-glow/` with a bug-report draft; filing it needs the owner's
+   Qt account. Re-test on every Qt bump; when it is fixed, drop the `depthOfFieldActive` term from
+   `ssrEnabled` and invert the `ultra_blur` gate.
+
+**Measured** (dev box, RTX 4070, Direct3D 11, medium preset unless named; GPU shared with other
+work, so costs are ranges of A/B rounds interleaved):
+
+| | Qt's blur (base `53b48405`) | PhotoBlur |
+|---|---|---|
+| preview 640 x 360 against a 4K save at blur 0.8, mean gradient ratio of 41 tiles | 0.528 / 0.919 (0.391 apart) | 0.428 / 0.435 (0.033 apart) |
+| the same, middle third | 0.539 / 0.944 | 0.426 / 0.462 |
+| slider 0.05 against 1.0: share of 60 px tiles below 0.8, focus tile kept | 0.137 / 0.657; 1.20 / 0.93 | 0.000 / 0.652; 1.00 / 0.97 |
+| bench: fringe of an in-focus bar on the blurred wall, 4K | 7 to 8 levels | 0.0 |
+| bench: a 2 cm far line's width, share of the height, 360 px / 4K | 0.0083 / 0.0023 | 0.0139 / 0.0153 (one hump) |
+| bench: a near bar's 10-90 % edge, share of the height, 360 px / 4K | 0.0056 / 0.0005 | 0.0083 / 0.0069 |
+| frame at 1280 x 720, blur off / on, median of 60 grabs | | low 8.0 / 10.2 ms, medium 9.4 / 11.0, high 8.9 / 7.3, Ultra 3.1-4.2 / 3.5-5.7 |
+| a 4K capture, blur off / on, median of 8 | | medium 781 / 1245 ms (one run), Ultra 1691 / 1692 ms |
+
+Blur 0 with a focus set: 0 levels from the view. The memory loop of 30 1080p captures: +73 MB
+before, -88 MB after (noise). The five buffers are RGBA16F at the picture's size, about 330 MB
+during a 4K capture; the capture view rests small afterwards and gives them back (decision 4).
+
+**Alternatives rejected**: the issue's single pass weighted by each tap's own circle of confusion
+(no near spread: a blurred picket keeps its hard edge); scatter-as-gather with a per-tap sigma (not
+separable, and its approximations draw their own halos); a half-resolution layer for the full blur
+(a 2 px sigma in the pane would be 1 px, and the preview would part from the save again); lerping
+the sharp pixel with one full blur (sharp leaves inside a haze, round 1 of the look-dev); turning
+glow off on Ultra under the blur instead of reflections (glow changes the whole picture's
+brightness, reflections only water and glass).
+
+**Not fixed here, measured** (#743's "separate" bullet): with photo mode off, the 360 px pane reads
++4.75 luma (mean) and up to +12.3 in a 40-row band brighter than 1080p and a 4K capture of the same
+camera (family garden, medium). It is ambient occlusion, not glow: with AO off the gap is 0.25 mean
+and 1.0 worst band; glow on or off moves it by 0.15. Scaling AO's distance by 1080/height below
+1080p, the #733 lever, does not help (+4.86). `aoSoftness` is the pixel-sized term: at 360 px a
+softness of 25 instead of 45 zeroes the mean (+0.5) but a 40-row band stays 8.9 brighter, so no
+single knob gives the pane a 4K save's occlusion. Proposed: while photo mode is on, render the pane
+at a 1080p-equivalent internal height and show it scaled (the preview then is a save), or retune
+SSAO per height (softness and distance together) with the owner's eye on the everyday view. Both
+change the pane's look or its cost and are left to a follow-up.
+
+**Consequences**: no `.ogp` change, no `FILE_VERSION` bump, no new dependency, no user-visible
+string. The 3D view's look with photo mode off is untouched. Pinned by
+`tests/integration/test_directors_cut_render.py` (`test_a_saved_photo_has_the_blur_its_preview_shows`
+failed on Qt's blur at 0.394 apart; the slider; blur 0; the bench; `ultra_blur` now asserts that
+reflections stand down under the blur and come back without it), `tests/unit/test_scene3d_photo.py`
+(the sigma share and the band floors), and `tests/unit/test_quick3d_qml.py` (the effect's wiring,
+the shared shader code, the silhouette weight, the shader paths).
 
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 

@@ -1134,29 +1134,39 @@
     "state": "CLOSED",
     "title": "4K pictures: the horizon band is 9 levels darker than at 1080p (glow is pixel-sized)"
   },
-  "768": {
+  "743": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "Photo mode: the saved 4K photo is sharper than its preview (Qt's blur pass is half-resolution)"
+  },
+  "744": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ultra: reflections + blur + glow in one effect chain crash Qt's render thread in d3d11.dll (workaround drops reflections under blur)"
+  },
+  "768": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "feat(cad): adapt Glasshouse tool to parametric building class with aluminium roof ridge"
   },
   "769": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(cad): add scalable Pergola building tool with matching 2D/3D rafter and post representation"
   },
   "770": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "refactor(smart_symbols): retire Smart Symbols panel and redundant symbol definitions"
   },
   "774": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Not all layers are by default visible in properties menu"
   },
   "775": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Editing a layer name shrinks text box vertically"
   }
 }

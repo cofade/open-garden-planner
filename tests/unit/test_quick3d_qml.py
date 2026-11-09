@@ -96,8 +96,9 @@ def user_visible_strings(text: str) -> list[str]:
 
 
 def test_there_is_qml_to_scan() -> None:
-    # Garden.qml, and since L7 (#391) the atmosphere sky it creates
-    assert [path.name for path in sorted(QML_DIR.glob("*.qml"))] == ["AtmosphereSky.qml", "Garden.qml"]
+    # Garden.qml, since L7 (#391) the atmosphere sky it creates, and photo mode's blur (#743)
+    assert [path.name for path in sorted(QML_DIR.glob("*.qml"))] == [
+        "AtmosphereSky.qml", "Garden.qml", "PhotoBlur.qml"]
 
 
 @pytest.mark.parametrize("path", sorted(QML_DIR.glob("*.qml")), ids=lambda p: p.name)
@@ -310,7 +311,8 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
     """A shader the scene names but the bundle lacks only fails when a Model uses it —
     in front of a user. The data loop of ``installer/ogp.spec`` ships this directory."""
     sky = strip_comments((QML_DIR / "AtmosphereSky.qml").read_text(encoding="utf-8"))
-    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene() + sky))
+    blur = strip_comments((QML_DIR / "PhotoBlur.qml").read_text(encoding="utf-8"))
+    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene() + sky + blur))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
     assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
                                 # the atmosphere sky's: L7 (#391; its two look-up
@@ -323,10 +325,14 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "foliage_door.vert", "grass_door.vert",
                                 "ground.frag", "lawn.frag",         # detail normals and lawn lighting
                                 "precipitation.vert", "precipitation.frag",   # rain, snow: L5
-                                "ambient.vert", "ambient.frag"}     # leaves, butterflies, fireflies, bulbs
+                                "ambient.vert", "ambient.frag",     # leaves, butterflies, fireflies, bulbs
+                                # photo mode's depth of field (#743)
+                                "photoblur_layer.frag", "photoblur_rows.frag",
+                                "photoblur_compose.frag"}
     # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {
-        "Garden.qml", "AtmosphereSky.qml", "PROVENANCE.md", "LICENSE-qt-skymaterial.txt"}
+        "Garden.qml", "AtmosphereSky.qml", "PhotoBlur.qml", "PROVENANCE.md",
+        "LICENSE-qt-skymaterial.txt"}
 
 
 def test_the_ground_detail_shader_flips_v_itself() -> None:
@@ -450,11 +456,15 @@ def test_the_look_rules_the_spike_paid_for() -> None:
     assert "root.topDown ? SceneEnvironment.TonemapModeNone" in code
     assert "csmNumSplits: root.topDown ? 0 : root.shadowCascades" in code
     assert '(root.topDown || root.antialiasing === "msaa")' in code
-    # reflections, blur and glow in one chain took Qt's render thread down on Ultra (PF-E3D-21)
+    # reflections, blur and glow in one chain took Qt's render thread down on Ultra (PF-E3D-21):
+    # with glow on, two effects ahead of Qt's own scene effect break the chain (#744)
     assert re.search(r"ssrEnabled:\s*!root\.topDown\s*&&\s*root\.reflections\s*&&\s*"
                      r"!root\.depthOfFieldActive", code), "reflections stand down under blur"
-    assert re.search(r"depthOfFieldEnabled:\s*root\.depthOfFieldActive", code)
     assert "readonly property bool depthOfFieldActive: !root.topDown && root.photoBlur > 0" in code
+    # photo mode's blur is the app's own (#743), in the chain only while it is drawn; Qt's
+    # half-resolution depth of field is never switched on
+    assert "effects: root.depthOfFieldActive ? [photoBlur] : []" in code
+    assert "depthOfField" not in code.replace("depthOfFieldActive", ""), "Qt's blur is not used"
     # with a sky the sky is the fill; without one, the look's flat fill
     assert "ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor" in code
 
@@ -658,3 +668,61 @@ def test_a_door_vertex_shader_is_its_look_shader_with_the_collapse_added(look: s
                 "#if QSSG_ENABLE_DEPTH_PASS\n    if (uOpacity < 1.0)\n        POSITION = vec4(0.0);\n"
                 "#endif\n")
     assert body.replace(collapse, "", 1) == source
+
+
+def _shared_blocks(name: str) -> dict[str, str]:
+    """The ``// ---- shared with <file> ... ----`` blocks of a photo blur shader, by partner."""
+    text = (QML_DIR / name).read_text(encoding="utf-8")
+    found = re.findall(r"// ---- shared with (\S+) .*?----\n(.*?)// ---- end of shared ----",
+                       text, re.S)
+    return dict(found)
+
+
+def test_the_photo_blurs_shared_shader_code_is_one_text() -> None:
+    """#743: an effect shader includes no file of the app's, so the depth, the amount out of
+    focus and the Gaussian are copied between the passes. A copy that drifted would weigh a
+    layer by another band than the composition reads, or blur the rows unlike the columns."""
+    layer, rows, compose = (_shared_blocks(name) for name in (
+        "photoblur_layer.frag", "photoblur_rows.frag", "photoblur_compose.frag"))
+    assert set(layer) == {"photoblur_compose.frag"} and set(rows) == {"photoblur_compose.frag"}
+    assert set(compose) == {"photoblur_layer.frag", "photoblur_rows.frag"}
+    assert layer["photoblur_compose.frag"] == compose["photoblur_layer.frag"]
+    assert rows["photoblur_compose.frag"] == compose["photoblur_rows.frag"]
+
+
+def test_the_photo_blur_is_picture_relative_premultiplied_and_reads_every_texel() -> None:
+    """#743's defects of Qt's blur, read from the source: the sigma is a share of the picture's
+    height (not pixels of a half-resolution copy), a layer is premultiplied by its weight (no
+    in-focus colour reaches a blurred average), every buffer is at the picture's own size, and
+    the kernel's REACH is capped, never its spacing (wider taps showed as copies)."""
+    rows = (QML_DIR / "photoblur_rows.frag").read_text(encoding="utf-8")
+    layer = (QML_DIR / "photoblur_layer.frag").read_text(encoding="utf-8")
+    compose = (QML_DIR / "photoblur_compose.frag").read_text(encoding="utf-8")
+    assert "float sigma = blurShare * sigmaScale * OUTPUT_SIZE.y;" in rows
+    assert "float sigma = blurShare * OUTPUT_SIZE.y;" in compose
+    assert "FRAGCOLOR = vec4(colour * weight, weight);" in layer
+    assert "for (int i = 1; i <= reach; i += 2)" in rows
+    blur = strip_comments((QML_DIR / "PhotoBlur.qml").read_text(encoding="utf-8"))
+    assert blur.count("Buffer {") == blur.count("sizeMultiplier: 1.0") == 5
+
+
+def test_the_photo_blur_weighs_a_layers_silhouette_for_a_fifth() -> None:
+    """PF-E3D-27: a silhouette pixel's colour is multisampled while the depth pass puts all of it
+    in one layer. At full weight a dark blurred bar took a 47-level light rim from the sharp
+    panel beside it (360 px picture). The layer pass looks at the four cross neighbours."""
+    layer = (QML_DIR / "photoblur_layer.frag").read_text(encoding="utf-8")
+    assert "const float SILHOUETTE_WEIGHT = 0.2;" in layer
+    for offset in ("+ vec2(pixel.x, 0.0)", "- vec2(pixel.x, 0.0)", "+ vec2(0.0, pixel.y)",
+                   "- vec2(0.0, pixel.y)"):
+        assert f"layerAmount(INPUT_UV {offset})" in layer, offset
+    assert "if (inside <= 0.0)\n            weight *= SILHOUETTE_WEIGHT;" in layer
+
+
+def test_the_photo_blur_finds_its_shaders_beside_itself() -> None:
+    """Measured (#743): a ``Shader``'s plain relative path in an Effect component resolves against
+    the file that INSTANTIATES the component - the bench fixture in tests/ read no shader at
+    all. ``Qt.resolvedUrl`` resolves against PhotoBlur.qml's own directory."""
+    blur = strip_comments((QML_DIR / "PhotoBlur.qml").read_text(encoding="utf-8"))
+    shaders = re.findall(r"shader:\s*(.+)", blur)
+    assert len(shaders) == 3
+    assert all(re.fullmatch(r'Qt\.resolvedUrl\("photoblur_\w+\.frag"\)', value.strip()) for value in shaders)

@@ -209,3 +209,4 @@
 | Case study: the cheaper shadow walk got slower (#701) | [Read](206-case-study-the-cheaper-shadow-walk-got-slower-701.md) |
 | Case study: a 4K picture's dark band that was blamed on the glow (#733) | [Read](207-case-study-a-4k-picture-that-was-blamed-on-the-glow-733.md) |
 | Case study: a layers list with an empty row and a rename that shrank its row (#774/#775) | [Read](208-case-study-a-layers-list-with-an-empty-row-and-a-rename-that-shrank-774-775.md) |
+| Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](211-case-study-a-blurred-bar-with-a-light-rim-743.md) |

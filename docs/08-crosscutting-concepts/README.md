@@ -2317,6 +2317,19 @@ audit evidence for the command, machine and measured limitations.
   through `view3d_capture_driver.py`.
 - **`QComboBox.findData` does not find a tuple** (PyQt wraps it): the size combo started on
   "nothing", and only an end-to-end test through the dialog met it.
+- **A blur is measured in tiles of detail, at two sizes of one shot** (#743). The gradient a 60 px
+  tile keeps against its own sharp picture is a measure that does not care what the scene is; a
+  save shrunk to the preview's size by area means must keep what the preview keeps. The old pin
+  (`mean > 1.0` against the sharp view) passed while the owner saw no difference. The parity test
+  was observed failing on Qt's blur (0.394 apart) before the fix.
+- **A bench with known answers for a post effect** (`tests/integration/photoblur_bench.qml`, the
+  `blur_bench` scenario). Unlit flat panels at chosen depths turn "a fringe", "copies" and "a hard
+  near edge" into single numbers that a real garden blurs together; it found the multisampled
+  silhouette rim (PF-E3D-27) that no garden shot showed clearly. A fixture QML that uses a product
+  component imports the product's directory by a relative path, and the component must resolve
+  its own files with `Qt.resolvedUrl`.
+- **A pick after a capture needs a frame of the view first**: the engine picks in the frame it drew
+  last, and that was the capture view's resting frame (the click landed metres away).
 
 ### 8.10.16 Patterns from the living garden (Phase 17 L5, #389)
 
@@ -7917,19 +7930,27 @@ what the owner has on, and the agent's metadata says which.
 **Photo mode** (`3D ▸ Capture ▸ Photo Mode`, or View ▸ Workspace) adds a line of controls to the
 pane's notices and turns a click into "focus here". `core/scene3d/photo.py` is the Qt-free truth:
 `PhotoSettings` (exposure in stops, vignette, grade, blur, a focused POINT), `NO_PHOTO`, and the
-procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene. Blur is
-scaled to the picture's height, because Qt's is in pixels; the focused point becomes a depth along
-the view's axis, because that is what Qt compares. The slider moves the width of the sharp band
-(`focus_range_cm`: 60 % of the depth at a faint blur, 3 % at the strongest): a pixel outside the band
-gets Qt's half-resolution blur in full whatever the amount, which is capped at its 1080p value (more
-shows the three taps as copies). At 40 % the whole garden lay inside the band and the owner saw no
-difference between a high and a low blur (manual test); a 4K photo is sharper than its preview (ADR-072,
-consequences). There is no depth of field without a focused point, so the first blur above 0 focuses what
+procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene; nothing in
+the mapping depends on a picture's size. The blur is the app's own effect, `qml/PhotoBlur.qml` (#743,
+ADR-072 addendum "photo mode's own depth of field"), never Qt's `depthOfField*`: a Gaussian whose
+sigma is a share of the picture's height (`BLUR_SIGMA_SHARE` 0.006 at the slider's end: 6.5 px at
+1080p, 13 px at 4K), so the pane previews what a 4K save holds. It splits what lies behind the sharp
+band from what lies in front of it, weights each layer by how far out of focus it is, blurs the
+premultiplied layers at sigma and at a third of it, and composes them over the sharp scene: no
+in-focus colour bleeds into a blurred neighbour, and a blurred foreground edge is soft against a sharp
+background. It is in the effect chain only while the blur is drawn, so blur 0 is the view to the level.
+The focused point becomes a depth along the view's axis, because that is what the blur compares. The
+slider moves the blur and the width of the sharp band together (`focus_range_cm`: 60 % of the depth at a
+faint blur, 3 % at the strongest, never under 60 cm, and never under 8 % of the depth at 25 m growing with
+the square of the depth beyond: no tilt-shift scale model at the whole-plan camera). At 40 % the whole
+garden lay inside the band and the owner saw no difference between a high and a low blur (manual test).
+There is no depth of field without a focused point, so the first blur above 0 focuses what
 the camera looks at (a click moves it; while walking, the ground under the view's centre), and a new
 plan gives the kept blur its point once the new camera is framed. While the blur is drawn the Ultra
-preset's screen-space
-reflections stand down: reflections, blur and glow in one chain killed the render thread in `d3d11.dll`
-(PF-E3D-21). Grades come through
+preset's screen-space reflections stand down: with glow on, Qt 6.12's effect chain breaks as soon as two
+effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744). The pane is
+still a few levels brighter than a save below 1080p: Qt's ambient occlusion is pixel-sized (ADR-072
+addendum, open). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
 life, and re-chosen when the look's adjustments change.
 
