@@ -11299,8 +11299,10 @@ decided and what was rejected.
    pattern (`adopt_rebuilt_type(keep_fill=...)`). The wooden frame stays a
    rectangle-only sprite (owner decision 2026-10-31): a piece is a garden bed with soil
    and a height, which the 3D view builds as an edged bed.
-4. **Esc ends every tool** through `CanvasView.return_to_select_tool`, called by the
-   canvas and, for an Esc no focused widget consumed, by the main window. Rejected: a
+4. **Esc ends every tool, and means the same wherever the focus is.** The canvas
+   leaves one narrower mode per press (calibration, vertex editing, drill-down), else
+   ends the tool (`return_to_select_tool`); the main window calls the same two steps
+   (`CanvasView.handle_escape`) for an Esc no focused widget consumed. Rejected: a
    window-level `QShortcut` on Esc, which would pre-empt every line edit, popup and
    inline editor in the window (and a second shortcut on one key fires neither,
    PF-UI-36). The focused inline editor receives the same Esc first.

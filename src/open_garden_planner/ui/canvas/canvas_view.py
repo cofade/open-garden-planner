@@ -1006,14 +1006,42 @@ class CanvasView(QGraphicsView):
             return
         self._activate_tool_direct(tool_type)
 
+    def _escape_inner_mode(self) -> bool:
+        """Leave ONE of Esc's narrower modes; False when none is active.
+
+        In this order: a running calibration is cancelled, a shape in vertex
+        editing leaves it (the drilled-down member when a drill-down is
+        active), a group drill-down returns to the group. One mode per press.
+        """
+        if self._canvas_scene.is_calibrating:
+            self._canvas_scene.cancel_calibration()
+            return True
+        for item in self.effective_selection():
+            if hasattr(item, "is_vertex_edit_mode") and item.is_vertex_edit_mode:
+                item.exit_vertex_edit_mode()
+                return True
+        if self._drill_down_item is not None:
+            self.end_group_drill_down()
+            return True
+        return False
+
+    def handle_escape(self) -> bool:
+        """What an Esc means to the canvas when the canvas does not have the key.
+
+        The main window calls this for an Esc no focused widget consumed: the
+        keyboard focus is usually in a panel right after a tool was picked or
+        while a drilled-down member is being edited, and one Esc must do the
+        same thing there as on the canvas - leave the innermost mode, else end
+        the tool. Returns False when there was nothing to leave.
+        """
+        return self._escape_inner_mode() or self.return_to_select_tool()
+
     def return_to_select_tool(self) -> bool:
         """End the active tool and make Select active; False if it already is.
 
-        This is Esc's rule for every tool - drawing, object placing, CAD and
-        constraint tools alike. Deactivating a tool cancels its gesture, so no
-        half-drawn preview survives. The main window calls it for an Esc that
-        no focused widget consumed, because the keyboard focus is often in a
-        panel or the search field right after a tool was picked.
+        This is Esc's last meaning for every tool - drawing, object placing,
+        CAD and constraint tools alike. Deactivating a tool cancels its
+        gesture, so no half-drawn preview survives.
         """
         tool = self._tool_manager.active_tool
         if getattr(tool, "tool_type", None) is ToolType.SELECT:
@@ -1032,7 +1060,8 @@ class CanvasView(QGraphicsView):
         # The Dist/Angle prompt belongs to the previous tool's gesture. It is
         # re-shown by the next mouse move if the new tool wants one; without
         # this an Esc pressed with the mouse at rest left it over Select.
-        # (``getattr``: the attribute is typed ``object``, as at its other uses.)
+        # (``getattr``: the attribute is typed ``object``; a direct call would
+        # add an attr-defined error to the mypy baseline.)
         hide_overlay = getattr(self._dynamic_overlay, "hide_overlay", None)
         if callable(hide_overlay):
             hide_overlay()
@@ -3296,24 +3325,9 @@ class CanvasView(QGraphicsView):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handle key press for tool operations and editing."""
-        # Handle ESC to cancel calibration
-        if event.key() == Qt.Key.Key_Escape and self._canvas_scene.is_calibrating:
-            self._canvas_scene.cancel_calibration()
-            event.accept()
-            return
-
-        # Handle ESC to exit vertex edit mode (the drilled-down member when
-        # group drill-down is active).
-        if event.key() == Qt.Key.Key_Escape:
-            for item in self.effective_selection():
-                if hasattr(item, "is_vertex_edit_mode") and item.is_vertex_edit_mode:
-                    item.exit_vertex_edit_mode()
-                    event.accept()
-                    return
-
-        # Handle ESC to leave group drill-down while keeping the group selected.
-        if event.key() == Qt.Key.Key_Escape and self._drill_down_item is not None:
-            self.end_group_drill_down()
+        # Esc's narrower meanings (calibration, vertex editing, group
+        # drill-down) take an Esc of their own before a tool is ended.
+        if event.key() == Qt.Key.Key_Escape and self._escape_inner_mode():
             event.accept()
             return
 

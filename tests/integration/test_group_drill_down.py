@@ -721,3 +721,37 @@ def test_the_focus_survives_the_running_windows_debounced_refreshes(
     assert canvas.drill_down_item is member, "the focus fell back to the group"
     assert scene.selectedItems() == [group]
     assert window.properties_panel._current_items == [member]
+
+
+def test_escape_in_a_panel_leaves_the_drill_down_like_escape_on_the_canvas(
+    qtbot, monkeypatch
+) -> None:
+    """While a member is edited the focus is in the Properties panel.
+
+    One Esc must do there what it does on the canvas (FR-DRILL-01): leave the
+    member, keep the group selected. With a tool active as well, the drill-down
+    is left first and the tool on the next Esc, wherever the focus is.
+    """
+    from open_garden_planner.core.tools import ToolType
+
+    window, canvas, group, first, _second = _running_app(qtbot, monkeypatch)
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+
+    QTest.keyClick(window.properties_panel, Qt.Key.Key_Escape)
+
+    assert canvas.drill_down_item is None
+    assert canvas.scene().selectedItems() == [group]
+    assert window.properties_panel._current_items == [group]
+
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+    canvas.set_active_tool(ToolType.MEASURE)
+    for widget in (window.properties_panel, canvas):
+        canvas.begin_group_drill_down(first)
+        canvas.set_active_tool(ToolType.MEASURE)
+        QTest.keyClick(widget, Qt.Key.Key_Escape)
+        assert canvas.drill_down_item is None, widget
+        assert canvas.tool_manager.active_tool_type == ToolType.MEASURE, widget
+        QTest.keyClick(widget, Qt.Key.Key_Escape)
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT, widget

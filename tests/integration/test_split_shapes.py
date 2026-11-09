@@ -907,6 +907,49 @@ def test_a_split_raised_bed_keeps_a_height_the_user_set(canvas, mouse_event) -> 
         assert effective_height_cm(piece.object_type, piece.metadata) == 75.0
 
 
+@pytest.mark.parametrize("shape", ["rectangle", "circle", "ellipse"])
+def test_a_generic_shape_keeps_the_users_pattern_when_its_type_changes(
+    canvas, mouse_event, tmp_path, shape: str
+) -> None:
+    """FR-SPLIT-02: a shape painted by its own brush keeps the user's pattern.
+
+    A generic rectangle or curve becomes a GENERIC_POLYGON, a real type change;
+    only a sprite-painted source may take the new type's pattern instead.
+    """
+    scene = canvas.scene()
+    if shape == "rectangle":
+        source = RectangleItem(100, 100, 200, 100)
+    elif shape == "circle":
+        source = CircleItem(200, 150, 80)
+    else:
+        source = EllipseItem(100, 100, 200, 100)
+    assert not source.paints_sprite
+    source.fill_pattern = FillPattern.GRAVEL
+    source.fill_color = QColor("#123456")
+    source._setup_styling()
+    _add(canvas, source)
+
+    _split(canvas, source, QPointF(200, 0), QPointF(200, 400), mouse_event)
+
+    pieces = _add_pieces(scene)
+    assert len(pieces) == 2
+    for piece in pieces:
+        assert piece.object_type is ObjectType.GENERIC_POLYGON
+        assert piece.fill_pattern is FillPattern.GRAVEL
+        assert piece.fill_color == QColor("#123456")
+        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
+
+    target = tmp_path / "generic.ogp"
+    manager = ProjectManager()
+    manager.save(scene, target)
+    manager.load(scene, target)
+    reloaded = _add_pieces(scene)
+    assert len(reloaded) == 2
+    for piece in reloaded:
+        assert piece.fill_pattern is FillPattern.GRAVEL
+        assert piece.brush().style() == Qt.BrushStyle.TexturePattern
+
+
 def test_a_split_that_keeps_the_type_writes_no_height(canvas, mouse_event) -> None:
     """Only a height the type change would lose is written down."""
     source = _add(
@@ -1052,6 +1095,8 @@ def test_a_house_without_a_ridge_gives_pieces_without_one(canvas, mouse_event) -
     source = _add(
         canvas, RectangleItem(100, 100, 400, 200, object_type=ObjectType.HOUSE)
     )
+    # What deleting the ridge leaves behind: an id that names nothing.
+    source.metadata["ridge_item_id"] = "0b0f5d0e-3c58-4f5e-9d0a-5f3c1f0c9a11"
     assert _ridges(canvas.scene()) == []
 
     _split(canvas, source, QPointF(250, 0), QPointF(250, 600), mouse_event)

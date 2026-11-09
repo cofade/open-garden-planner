@@ -4799,10 +4799,11 @@ class GardenPlannerApp(QMainWindow):
             self._exit_preview_mode()
             event.accept()
             return
-        # An Esc that no focused widget consumed ends the active tool: right
-        # after a tool was picked the focus is often in a panel or the search
-        # field, not on the canvas (manual test, PR #783).
-        if event.key() == Qt.Key.Key_Escape and self.canvas_view.return_to_select_tool():
+        # An Esc that no focused widget consumed means what it means on the
+        # canvas: right after a tool was picked, or while a drilled-down member
+        # is edited, the focus is in a panel or the search field (manual test,
+        # PR #783).
+        if event.key() == Qt.Key.Key_Escape and self.canvas_view.handle_escape():
             event.accept()
             return
         super().keyPressEvent(event)

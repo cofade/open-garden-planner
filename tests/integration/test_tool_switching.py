@@ -277,6 +277,35 @@ class TestEscapeReturnsToSelect:
         assert bed.name == "Bed"
         assert canvas.tool_manager.active_tool_type == ToolType.SELECT
 
+    def test_one_escape_finishes_a_callout_and_returns_to_select(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The Callout tool stays active while its text is edited."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+        canvas.set_active_tool(ToolType.CALLOUT)
+        viewport = canvas.viewport()
+        QTest.mouseClick(viewport, Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        QTest.mouseClick(viewport, Qt.MouseButton.LeftButton, pos=QPoint(420, 240))
+        callout = next(i for i in canvas.scene().items() if isinstance(i, CalloutItem))
+        editor = canvas.scene().focusItem()
+        assert editor is not None and hasattr(editor, "toPlainText")
+        assert canvas.tool_manager.active_tool_type == ToolType.CALLOUT
+        editor.setPlainText("note")
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert canvas.scene().focusItem() is not editor, "the edit needed a second Esc"
+        assert callout.scene() is canvas.scene()
+        assert callout.to_dict()["content"] == "note"
+
     def test_the_shortcuts_dialog_lists_escape(self, qtbot: object) -> None:
         from PyQt6.QtWidgets import QLabel
 

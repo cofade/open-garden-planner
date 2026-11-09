@@ -1252,12 +1252,16 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
 - **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
   object-placing, CAD and constraint tool. A gesture in progress is cancelled with no
   preview left behind and the distance/angle prompt is hidden. An inline text or label
-  edit that has the focus is finished by the same Esc. It works wherever the keyboard
-  focus is in the main window - the canvas, a panel, the object search field, the
-  status-bar coordinate field - as long as the focused widget does not use Esc itself
-  (an open search popup closes first). Three narrower meanings take an Esc of their own
-  first: cancelling a calibration, leaving vertex editing and leaving a group
-  drill-down. F1 lists the key under Drawing Tools.
+  edit that has the focus is finished by the same Esc. Three narrower meanings take
+  an Esc of their own first: cancelling a calibration, leaving vertex editing and
+  leaving a group drill-down. All of it works wherever the keyboard focus is in the
+  main window - the canvas, a panel, the object search field, the status-bar
+  coordinate field - as long as the focused widget does not use Esc itself (an open
+  search popup closes first). In fullscreen preview an Esc on the canvas first ends a
+  tool that was picked there, and the next one leaves the preview. F1 lists the key
+  under Drawing Tools.
 
 Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
-`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`.
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
