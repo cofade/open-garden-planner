@@ -213,6 +213,9 @@ Item {
     // (measured, #733 - not the glow the review suspected). A capture shrinks the radius
     // in proportion to its height, so the occlusion's footprint stays 1080p's.
     property real captureAoDistanceScale: 1.0
+    // A frame whose camera does not move - a picture, a held camera's time-lapse - fits
+    // the shadow map to the casters (the key light, #734); the view never does.
+    property bool fittedShadows: false
     // the height the screen-sized measures go by (a particle's and the ring's minimum size)
     readonly property real pictureHeight: captureWanted ? captureHeight / capturePixelRatio
                                                         : view.height
@@ -1110,12 +1113,13 @@ Item {
             // the camera, a framed plan beyond 90 m lay clear and shadowless (3D review).
             // The top-down truth view keeps the measured 9000.
             shadowMapFar: root.topDown ? 9000 : root.shadowFar
-            // #734: unlocked, each cascade's map spans what CASTS in its slice (the plan's
-            // own items), not the slice's whole bounding sphere (~170 m at the board's
-            // golden hour: 8.3 cm texels on High, stair-stepped edges and lit teeth under
-            // every caster at a low sun). Measured: no more crawl when the camera orbits.
-            // The orthographic truth view keeps the locked fit it was measured with.
-            lockShadowmapTexels: root.topDown
+            // #734: a still frame fits each cascade to what CASTS in its slice (the plan's
+            // own items, ~1 cm texels) - not the slice's whole bounding sphere (8.3 cm on
+            // High at the board's golden hour: long edges stepped, lit teeth under every
+            // caster, a picket fence's slits streaked at a low sun). A moving camera keeps
+            // the sphere: a fitted map moves with the view and crawled twice as far in an
+            // orbit (ADR-059 addendum, #734). The truth view keeps the fit it was measured with.
+            lockShadowmapTexels: root.topDown || !root.fittedShadows
         }
         // The flat fill - ONLY where no sky texture lights the view (the truth view, a
         // host without a sky). No direct light of its own; separate from the key light

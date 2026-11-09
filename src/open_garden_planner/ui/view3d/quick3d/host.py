@@ -858,6 +858,17 @@ class Quick3DHost:
 
     _camera_scene: PerspectiveShot | None = None
 
+    def set_fitted_shadows(self, fitted: bool) -> None:
+        """Fit the key light's shadow map to what casts (True) or keep the texel-locked
+        fit of the slices' bounding spheres (False, the view's). FOR A FRAME WHOSE CAMERA
+        DOES NOT MOVE ONLY: a fitted map is about eight times finer on the board's golden
+        hour (no stair-stepped long shadows, no lit teeth under a caster's foot, no streaks
+        through a picket fence at a low sun), but it follows the camera and crawled twice
+        as far as the locked one in an orbit (ADR-059 addendum, #734). ``capture`` sets it
+        for its own frame; the orthographic truth view is locked either way."""
+        self._open("set_fitted_shadows")
+        _set(self._root, "fittedShadows", bool(fitted))
+
     def _update_shadow_reach(self) -> None:
         shot, plan = self._camera_scene, self._meadow_plan
         if shot is None:
@@ -1573,14 +1584,17 @@ class Quick3DHost:
 
     def capture(self, size: tuple[int, int], shot: PerspectiveShot | None = None, *,
                 wind_time_s: float | None = None, photo: PhotoSettings | None = None,
-                label: str = "") -> QImage:
+                label: str = "", fitted_shadows: bool = True) -> QImage:
         """A picture of exactly ``size`` device pixels, without moving anything on screen:
         ``shot`` (None: the camera in place) through the scene's second View3D, whose size
         does not depend on the window's. Selection ring off; the photo settings apply.
         ``wind_time_s``: the wind's clock for this picture (a tour's frames are computed,
         not timed). ``photo``: develop this picture differently from the view (an agent's
-        picture takes ``NO_PHOTO``). Legal on a ``LIVE`` host only (``lifecycle.py``); else
-        ``HostStateError``. ``EngineError`` when no picture comes back.
+        picture takes ``NO_PHOTO``). ``fitted_shadows``: the key light's shadow map fitted
+        to the casters for this frame (``set_fitted_shadows``) — a picture's camera does not
+        move; a frame of a MOVING camera passes False and keeps the view's stable fit.
+        Legal on a ``LIVE`` host only (``lifecycle.py``); else ``HostStateError``.
+        ``EngineError`` when no picture comes back.
 
         WHY NOTHING JUMPS (ADR-072, measured: the view read back after a capture differs
         in no pixel). Everything below is one synchronous call on the GUI thread, and the
@@ -1633,6 +1647,7 @@ class Quick3DHost:
             _set(root, "captureWidth", width)
             _set(root, "captureHeight", height)
             _set(root, "captureAoDistanceScale", ao_distance_scale(float(height)))
+            _set(root, "fittedShadows", bool(fitted_shadows))
             _set(root, "captureWanted", True)
             self._apply_photo(float(height))
             item = cast("QQuickItem", self._call("captureItem"))
@@ -1649,6 +1664,7 @@ class Quick3DHost:
                     self._drop_capture_view()
             finally:
                 _set(root, "captureAoDistanceScale", 1.0)
+                _set(root, "fittedShadows", False)
                 _set(root, "selectionVisible", ring_before)
                 _set(root, "windTime", wind_before)
                 self._photo = photo_before

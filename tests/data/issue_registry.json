@@ -1134,6 +1134,11 @@
     "state": "CLOSED",
     "title": "4K pictures: the horizon band is 9 levels darker than at 1080p (glow is pixel-sized)"
   },
+  "734": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Low sun: a long fence shadow on the meadow shows stair steps"
+  },
   "768": {
     "is_pr": false,
     "state": "OPEN",

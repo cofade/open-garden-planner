@@ -45,10 +45,13 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
                rectangle meets the meadow (gate: within 1)
 ``--stairs``   #734: a 23.8 m solid panel and a picket fence at the plan's south edge at
                the golden-hour (15.2°) and sunset (5.9°) suns, seen by the golden-hour
-               camera and the app's default framing: the long shadow's edge against the
-               analytic line per view-depth bin (its staircase, cm and px), the lit share
-               of the panel's foot, the streaks in the fence's shadow, and the edge's
-               crawl while the framing orbits 0.5° a frame
+               camera and the app's default framing as a picture sees them (the shadow
+               map fitted to the casters): the long shadow's edge against the analytic
+               line per view-depth bin (its staircase, cm and px), the lit share of the
+               panel's foot, the streaks in the fence's shadow; and the edge's crawl while
+               the golden-hour camera orbits 0.5° a frame, in the view's fit and a picture's
+``--photo-shadows``  every frame with a picture's shadow fit (to the casters) instead of
+               the view's texel-locked one (#734)
 ``--fps-seconds N``  frames a SHOWN view presents per second with the wind running,
                per preset — or, where nothing is presented (the display asleep), the
                cost of a finished readback, labelled as such
@@ -257,7 +260,11 @@ STAIRS_PANEL_CM = 8.0
 STAIRS_FOOT_CM = 15.0
 #: The orbit: the default framing turned this much per frame, for this many frames, the
 #: edge averaged over this length before frames are compared (``probes.edge_swim``).
-STAIRS_ORBIT_STEP_DEG, STAIRS_ORBIT_FRAMES, STAIRS_SWIM_SMOOTH_CM = 0.5, 6, 30.0
+STAIRS_ORBIT_STEP_DEG, STAIRS_ORBIT_FRAMES, STAIRS_SWIM_SMOOTH_CM = 0.5, 8, 30.0
+#: The orbit's scene spans a garden: the panel and a column this tall at each plan corner
+#: (a garden's casters fill the plan and stand as tall as its trees; with the panel alone
+#: the near cascades never cut the casters' box, and a fitted map did not crawl).
+STAIRS_COLUMN_CM, STAIRS_COLUMN_HEIGHT_CM = 50.0, 1000.0
 #: The streak lines: this far south of the fence (cm), inside its shadow at the 6° sun
 #: (they see the slits between the pickets under, between and over the rails).
 STAIRS_STREAK_OFFSETS_CM = (100.0, 250.0, 350.0, 420.0)
@@ -352,6 +359,17 @@ def stairs_record(style: str, west: float, east: float) -> Record:
                   transform=Transform(east_cm=middle, north_cm=STAIRS_NORTH_CM),
                   material=Material("FENCE", stroke_rgba=(139, 90, 43, 255)),
                   height_cm=STAIRS_HEIGHT_CM, params=Params({"seed": "stairs", "path_style": style}))
+
+
+def column_record(item_id: str, east: float, north: float, height: float) -> Record:
+    """A square column (``STAIRS_COLUMN_CM`` a side): a ``PLAIN`` line as long as it is wide."""
+    side = STAIRS_COLUMN_CM
+    line = ((-side / 2.0, 0.0), (side / 2.0, 0.0))
+    strip = tuple(tuple(ring) for ring in polyline_footprint(list(line), side))
+    return Record(item_id=item_id, kind="FENCE", shape="polyline", footprints=strip, path=line,
+                  path_width_cm=side, transform=Transform(east_cm=east, north_cm=north),
+                  material=Material("FENCE", stroke_rgba=(110, 110, 110, 255)), height_cm=height,
+                  params=Params({"seed": item_id, "path_style": "PLAIN"}))
 
 
 def stairs_cameras(width: float, depth: float, size: tuple[int, int]) -> dict[str, probes.Pinhole]:
@@ -645,10 +663,11 @@ class Board:
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
               baked: bool = False, ambient: Any = None,
-              lamps: Any = ()) -> tuple[np.ndarray, Any, dict[str, Any]]:
+              lamps: Any = (), fitted: bool = False) -> tuple[np.ndarray, Any, dict[str, Any]]:
         """Render one frame in a host of its own, save it, account for its Qt messages.
         ``baked``: the plan's flat surfaces are painted onto its ground (L1.5 —
-        every board shot; the probes' oracles want it bare, #586)."""
+        every board shot; the probes' oracles want it bare, #586). ``fitted``: the shadow
+        map fitted to the casters, as a picture's (#734; ``--photo-shadows`` for every frame)."""
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
@@ -662,7 +681,8 @@ class Board:
                 graphics_info=True, sky_light=sky and not self.software,
                 prefer_software=self.software, plant_date=build_date,
                 latitude_deg=float(self.location.get("latitude", 52.0)),
-                frost_dates=self.location.get("frost_dates"), ambient=ambient, lamps=lamps)
+                frost_dates=self.location.get("frost_dates"), ambient=ambient, lamps=lamps,
+                fitted_shadows=fitted or bool(self.args.photo_shadows))
         except RenderError as error:
             self._count(dict(error.qt))
             self.write()             # what Qt said is in metrics.json before the run ends
@@ -1417,7 +1437,9 @@ class Board:
 
         A 23.8 m line at the plan's south edge (``STAIRS_*``) in each of
         ``STAIRS_CASTERS``, under each of ``STAIRS_SUNS``, seen by two production cameras
-        (``stairs_cameras``); every frame measured by ``stairs_measure``."""
+        (``stairs_cameras``) as a PICTURE sees it (the shadow map fitted to the casters,
+        ``Quick3DHost.capture``); every frame measured by ``stairs_measure``. Then the
+        orbit (``stairs_orbit``) in both fits."""
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
@@ -1438,7 +1460,8 @@ class Board:
                         rgb, _frame, info = self.frame(
                             f"stairs_{caster.lower()}_{elevation:g}_{label}_{preset}", records,
                             sun=sun, look=look, ground=self.plan_ground(), registry=registry,
-                            shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                            shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
+                            fitted=True)
                         row = {"caster": caster, "sun_elev": elevation, "sun_az": azimuth,
                                "camera": label, "file": info["file"],
                                **stairs_measure(rgb, camera, caster, elevation, azimuth, self.width)}
@@ -1453,35 +1476,47 @@ class Board:
             self.stairs_orbit(preset, registry)
 
     def stairs_orbit(self, preset: str, registry: Any) -> None:
-        """The panel under the lowest sun while the default framing orbits the plan by
-        ``STAIRS_ORBIT_STEP_DEG`` a frame: how its shadow's edge crawls on the ground
-        (``probes.edge_swim``, averaged over ``STAIRS_SWIM_SMOOTH_CM`` along the edge —
-        Qt's filter re-dithers a soft edge per pixel whenever the camera moves)."""
-        from dataclasses import replace as replaced
-
-        from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
+        """The panel (with a tall column at each plan corner: ``STAIRS_COLUMN_*``) under the
+        golden-hour sun while the golden-hour camera orbits the plan's centre by
+        ``STAIRS_ORBIT_STEP_DEG`` a frame (what a drone tour does), in the
+        view's texel-locked fit (``view``) and in a picture's fit to the casters
+        (``fitted``): how the shadow's edge crawls on the ground (``probes.edge_swim``,
+        averaged over ``STAIRS_SWIM_SMOOTH_CM`` along the edge — Qt's filter re-dithers a
+        soft edge per pixel whenever the camera moves). A fitted map follows the camera
+        through the casters: the reason a moving camera keeps the locked one (#734)."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
-        elevation, azimuth = min(STAIRS_SUNS)
+        elevation, azimuth = max(STAIRS_SUNS)
         sun = SunState(elevation, azimuth)
         look = look_for(sun, preset)
         records = {"stairs": stairs_record("PLAIN", STAIRS_INSET_CM, self.width - STAIRS_INSET_CM)}
-        pose = frame_pose(Bounds.of_plan(self.width, self.depth), self.size[0] / self.size[1])
-        traces = []
-        for step in range(STAIRS_ORBIT_FRAMES):
-            moved = replaced(pose, yaw_deg=pose.yaw_deg + STAIRS_ORBIT_STEP_DEG * step)
-            camera = probes.Pinhole(moved.eye, moved.target_scene, 40.0, self.size)
-            rgb, _frame, _info = self.frame(
-                f"stairs_orbit_{elevation:g}_{preset}_{step:02d}", records, sun=sun, look=look,
-                ground=self.plan_ground(), registry=registry,
-                shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-            traces.append(stairs_trace(rgb, camera, "PLAIN", elevation, azimuth, self.width))
-        rows = probes.edge_swim(traces, smooth_cm=STAIRS_SWIM_SMOOTH_CM)
-        self.metrics.setdefault("stairs_orbit", {})[preset] = {
-            "sun_elev": elevation, "step_deg": STAIRS_ORBIT_STEP_DEG, "frames": STAIRS_ORBIT_FRAMES,
-            "smooth_cm": STAIRS_SWIM_SMOOTH_CM, "swim": rows}
-        self.log("stairs_orbit", preset=preset, **{
-            f"swim_px_{int(r['depth_m'][0])}m": r.get("swim_px") for r in rows if "swim_px" in r})
+        for index, (east, north) in enumerate(((0.0, 0.0), (self.width, 0.0), (0.0, self.depth),
+                                               (self.width, self.depth))):
+            records[f"column_{index}"] = column_record(f"column_{index}", east, north,
+                                                       STAIRS_COLUMN_HEIGHT_CM)
+        hero = next(shot for shot in default_shots(self.width, self.depth) if shot.name == "golden_hour")
+        centre = (self.width / 2.0, self.depth / 2.0)
+        reach = math.hypot(hero.eye[0] - centre[0], hero.eye[1] - centre[1])
+        start = math.atan2(hero.eye[1] - centre[1], hero.eye[0] - centre[0])
+        out: dict[str, Any] = {"sun_elev": elevation, "step_deg": STAIRS_ORBIT_STEP_DEG,
+                               "frames": STAIRS_ORBIT_FRAMES, "smooth_cm": STAIRS_SWIM_SMOOTH_CM}
+        for label, fitted in (("view", False), ("fitted", True)):
+            traces = []
+            for step in range(STAIRS_ORBIT_FRAMES):
+                angle = start + math.radians(STAIRS_ORBIT_STEP_DEG * step)
+                eye = (centre[0] + reach * math.cos(angle), centre[1] + reach * math.sin(angle),
+                       hero.eye[2])
+                camera = probes.Pinhole(eye, hero.target, hero.fov_deg, self.size)
+                rgb, _frame, _info = self.frame(
+                    f"stairs_orbit_{label}_{preset}_{step:02d}", records, sun=sun, look=look,
+                    ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), fitted=fitted)
+                traces.append(stairs_trace(rgb, camera, "PLAIN", elevation, azimuth, self.width))
+            out[label] = probes.edge_swim(traces, smooth_cm=STAIRS_SWIM_SMOOTH_CM)
+            self.log("stairs_orbit", preset=preset, fit=label, **{
+                f"swim_px_{int(r['depth_m'][0])}m": r.get("swim_px")
+                for r in out[label] if "swim_px" in r})
+        self.metrics.setdefault("stairs_orbit", {})[preset] = out
         self.write()
 
     def restore_check(self, shot: BoardShot, preset: str) -> None:
@@ -1567,6 +1602,8 @@ class Board:
             )
             self.metrics["frame_rate"]["parts"] = host.part_count()
             host.set_camera(shot.eye, shot.target, shot.fov_deg)
+            if self.args.photo_shadows:   # what a picture's frame costs (#734)
+                host.set_fitted_shadows(True)
             host.set_look(look_for(sun, presets[0]))
             if not self.software:
                 host.set_sky(self.with_sky_model(look_for(sun, presets[0])).sky)
@@ -1620,6 +1657,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="the evening from 6 to -7 degrees on one camera: the light must fade")
     parser.add_argument("--fence", action="store_true",
                         help="the plan's fences alone at the noon camera: how they alias, per preset")
+    parser.add_argument("--photo-shadows", action="store_true",
+                        help="every frame with a picture's shadow fit (to the casters, #734)")
     parser.add_argument("--stairs", action="store_true",
                         help="#734: a long fence's low-sun shadow edge and its streaks")
     parser.add_argument("--edge", action="store_true",

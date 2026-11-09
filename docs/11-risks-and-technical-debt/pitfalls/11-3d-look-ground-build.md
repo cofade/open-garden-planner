@@ -332,3 +332,23 @@ Symptom: `--analysis` on `bench_built` raised "the probe pin shows in 38 pixels 
 - **Legacy:** none (new entry)
 
 The old pergola was a 300 x 300 SVG stretched into the item's rectangle, while the 3D builder had its own post/rafter constants (two beams, no purlins): the owner saw a picture that did not match the model and could not scale it. `core/pergola.py` is now the one layout (four posts, four beams, nine rafters, five purlins, with the purlins' top at the item's height); `ui/canvas/items/pergola_paint.py`, the gallery thumbnail and `builders/structures._pergola` all consume it. The same rule made the glasshouse's glazing bays one constant (`core/greenhouse.py`) shared by the 2D bars and the 3D frame, and its ridge one linked `ROOF_RIDGE` rather than a fixed symbol.
+
+### PF-L3D-24
+
+- **Rule:** Fit a cascaded shadow map to what CASTS, never to the slice's bounding sphere: `lockShadowmapTexels: true` sizes every cascade by the sphere around its whole frustum slice up to `shadowMapFar`, so a low sun stair-steps every long shadow and lights teeth under every caster's foot; and `pcfFactor` is a radius in scene units that cannot hide a texel larger than it.
+- **Pinned by:** `tests/integration/test_view3d_looks_render.py::test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks`; `tests/unit/test_board_probes.py::test_a_stepped_edge_is_measured_as_steps_of_its_own_size`
+- **Source:** #734; ADR-059 addendum (#734)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: in the app's default framing, a solid panel's shadow 20–40 m out stepped by 5 cm across its edge at 15° and 11 cm at 5.9° on High (2.2 / 6.2 px at 1080p), every caster's foot showed lit teeth up to 81 cm long at sunset (34 % of a line 15 cm out lit), and a picket fence's sunset shadow was strewn with bright streaks. Root cause (Qt 6.12's `setupCascadingCamerasForShadowMap`): locked, the last cascade spans a 170 m sphere — 8.3 cm texels on a 2048 page — and the day's `pcfFactor` 2 is 2 cm of light space for every cascade; at an oblique sun the pickets close their slits to 0.5 cm, far under a texel. Fix: `lockShadowmapTexels: root.topDown` (the perspective view fits each cascade to the casters' box in its slice — about 1 cm texels on a 24 m plan, no cost; measured crawl under an orbit unchanged). Dead ends, measured one at a time: a 4096 map halves the steps for four times the texels; a reach without the 9000 cm floor moved the golden-hour camera's 10–20 m band into the coarser cascade; a larger `pcfFactor` smeared the streaks into bands and softened every contact; moving `csmSplit2` traded near for far.
+
+### PF-L3D-25
+
+- **Rule:** Before blaming a renderer for a pattern in a shadow, check that it changes when the shadow map does: a "jitter" made from a multiplicative step modulo a small number is a RAMP, and a low sun stretches a ramp in a caster's height into a regular staircase along its shadow.
+- **Pinned by:** `tests/unit/test_scene3d_builders.py::test_picket_tops_repeat_no_pattern_and_follow_the_items_seed`
+- **Source:** #734
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the family garden's fence shadow at golden hour showed regular stair steps, identical with a 4096 map, a tighter cascade and a 32-bit map. Root cause: the L0 picket fence lowered its pickets by `index * 7919 % 13 / 13 * 4` cm — and `7919 mod 13 = 2`, so the tops climbed 0.6 cm a picket for seven pickets and dropped, repeating every 13; at 15° every centimetre is 3.7 cm of shadow. The same formula made every picket fence in every plan a clone. Fix: each picket's drop is a hash of the item's seed (`fences.unit_hash`, `picket_seed`), 0.5–1.5 cm (`PICKET_DROP_CM`). The test checks the autocorrelation of the tops at lags 1–20 (the ramp reads 1.0 at lag 13) — one frame's look cannot tell a ramp from noise.
