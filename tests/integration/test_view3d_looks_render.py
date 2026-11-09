@@ -467,6 +467,93 @@ def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: 
     assert difference >= MIN_DAY_SKY_DIFFERENCE, difference
 
 
+# ── #716 / #719: where the atmosphere meets the painted horizon ──────────────────
+# The board's `--sky-bands` phase: sky-only frames over the empty meadow at a 300° sun,
+# toward, across and away from it, binned by WORLD elevation (PF-L3D-19), on both skies.
+
+#: #716: from 20° down to 0.5° the clear sky may not darken, away from the sun and across
+#: it (toward it the disc's own glow is in the profile; the painted sky reads 10 there at a
+#: 15° sun). The bound is the band medians' noise: the painted sky reads 0.0 everywhere.
+#: `master` read 16.7-21.9 away (0.7 across) at 15°, 6°, 2° and 0.5°.
+MAX_SKY_INVERSION_LUMA = 1.0
+#: #716: the low band every board camera sees (6-15°), over the azimuth (toward : across :
+#: away = 1 : 2 : 1), against the painted sky's; the issue's bound at sunset, held at every
+#: sun. `master` read 1.37-1.60.
+MAX_LOW_BAND_RATIO = 1.15
+#: #719: the haze band (3°) minus the deck above it (10°), toward, across and away from a
+#: 6° and a 0.5° sun, on every closed weather. The painted sky reads 3-9; `master`'s
+#: atmosphere 26.5-51.0 at a 0.5° sun (Overcast and Rain), 19.2-38.4 (Snow).
+MAX_BAND_OVER_DECK_LUMA = 10.0
+#: The sky-band frames see the meadow below the horizon: lit by the painted probe under
+#: both skies (PF-E3D-17), it must not move with the sky drawn above it.
+MAX_GROUND_LUMA_DIFFERENCE = 1.0
+
+_SKY_BANDS: dict[str, tuple[dict[str, Any], Path]] = {}
+
+
+def sky_bands_for(model: str, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    if model not in _SKY_BANDS:
+        out = tmp_path_factory.mktemp(f"sky-bands-{model}") / "board"
+        _SKY_BANDS[model] = _ok_board(run_board(
+            out, "--presets", "medium", "--shots", "none", "--sky-bands", "--sky", model), out), out
+    metrics = _SKY_BANDS[model][0]
+    assert metrics["qt_messages"]["counts"].get("error", 0) == 0, metrics["qt_messages"]
+    bands: dict[str, Any] = metrics["sky_bands"]
+    return bands
+
+
+@pytest.fixture(scope="module")
+def sky_bands(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, Any]]:
+    return {model: sky_bands_for(model, tmp_path_factory) for model in SKY_MODELS}
+
+
+def test_the_clear_sky_never_darkens_on_the_way_down_to_the_horizon(sky_bands) -> None:
+    """#716: the atmosphere's low band was brighter than the painted horizon the haze band
+    mixes in below it — away from a low sun it peaked at 4-5° and fell toward 0.5°."""
+    for model, bands in sky_bands.items():
+        assert set(bands["clear"]) == {"60", "15", "6", "2", "0.5"}, bands["clear"].keys()
+        for sun, rows in bands["clear"].items():
+            for label in ("across", "away"):
+                inversion = rows[label]["inversion"]
+                assert inversion["measured"], (model, sun, label)
+                assert inversion["inversion_luma"] <= MAX_SKY_INVERSION_LUMA, (model, sun, label, inversion)
+
+
+def test_the_atmospheres_low_band_is_as_bright_as_the_painted_skys(sky_bands) -> None:
+    """#716: one gain for the whole sky drew the 6-15° band 1.4-1.8x the painted sky's
+    luminance (a cream wash at golden hour and sunset); per elevation it is the painted
+    sky's now. The painted board is the reference of the ratio."""
+    painted, atmosphere = sky_bands["painted"]["clear"], sky_bands["atmosphere"]["clear"]
+    for sun in ("15", "6", "2", "0.5"):
+        ratio = (atmosphere[sun]["azimuth_mean_low_band_luminance"]
+                 / painted[sun]["azimuth_mean_low_band_luminance"])
+        assert ratio <= MAX_LOW_BAND_RATIO, (sun, ratio)
+
+
+def test_the_cloud_deck_meets_the_painted_horizon_without_a_band(sky_bands) -> None:
+    """#719: under a closed deck the painted haze band read 30-55 luma brighter than the deck
+    10° up at a setting sun (the G5 horizon gate, over 0.15°, cannot see a band 6° tall)."""
+    for model, bands in sky_bands.items():
+        for weather in ("overcast", "rain", "snow"):
+            assert set(bands[weather]) == {"6", "0.5"}, (model, weather)
+            for sun, rows in bands[weather].items():
+                for label in ("toward", "across", "away"):
+                    step = rows[label]["band_minus_deck"]
+                    assert step is not None, (model, weather, sun, label)
+                    assert step <= MAX_BAND_OVER_DECK_LUMA, (model, weather, sun, label, step)
+
+
+def test_the_sky_bands_leave_the_garden_as_it_was(sky_bands) -> None:
+    """The meadow under the sky-band frames is the painted probe's under both skies: the
+    profile and the deck's anchor change the sky drawn, never the light."""
+    painted, atmosphere = sky_bands["painted"], sky_bands["atmosphere"]
+    for weather in ("clear", "overcast", "rain", "snow"):
+        for sun, rows in atmosphere[weather].items():
+            for label in ("toward", "across", "away"):
+                ground = rows[label]["ground_luma"], painted[weather][sun][label]["ground_luma"]
+                assert abs(ground[0] - ground[1]) <= MAX_GROUND_LUMA_DIFFERENCE, (weather, sun, label, ground)
+
+
 def test_the_horizon_hue_seam_is_reported(board) -> None:
     """Review P2: the luma rows cannot see a HUE seam (grey-blue sky over lime meadow);
     ``delta_e`` (CIE76) is reported for every mood — not gated (an owner question)."""

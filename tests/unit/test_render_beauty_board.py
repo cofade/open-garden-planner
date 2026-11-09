@@ -43,6 +43,27 @@ def test_distant_horizon_cameras_exercise_the_fog_distance_and_low_pitch() -> No
     assert fog_depth_cm(600 * 100.0)[0] > fog_depth_cm(67 * 100.0)[0]
 
 
+@pytest.mark.parametrize(("label", "turn"), board.SKY_BAND_DIRECTIONS)
+def test_the_sky_band_cameras_see_every_band_they_judge(label: str, turn: float) -> None:
+    """#716/#719: the sky-band frames must hold the meadow (−6…−3°), the haze band (3°),
+    the deck (10°), the low band (6–15°) and the top of the inversion range (20°) in the
+    probe's own window round the bearing — at the render tier's size."""
+    from scripts import board_probes as probes
+
+    size = (640, 360)
+    bearing = (board.SKY_BAND_AZIMUTH + turn) % 360.0
+    camera = board.sky_band_camera(bearing, size)
+    flat = np.full((size[1], size[0], 3), 128.0)
+    profile = probes.sky_profile(flat, camera, bearing, lowest_deg=-10.0, highest_deg=30.0)
+    for elevation in (-6.0, -3.0, board.SKY_BAND_INVERSION_RANGE[0], board.SKY_BAND_HAZE_DEG,
+                      board.SKY_BAND_LOW[0], board.SKY_BAND_DECK_DEG, board.SKY_BAND_LOW[1],
+                      board.SKY_BAND_INVERSION_RANGE[1]):
+        assert probes.profile_at(profile, elevation) == 128.0, (label, elevation)
+    assert min(profile["count"]) >= 20
+    args = board._parse(["--sky-bands", "--sky", "atmosphere"])
+    assert args.sky_bands is True and args.sky == "atmosphere"
+
+
 @pytest.mark.parametrize("size", [(2400.0, 1600.0), (5000.0, 4000.0), (800.0, 3000.0)])
 def test_the_shots_are_the_spikes(size: tuple[float, float]) -> None:
     """Same dates, times and cameras as the L0 board (frozen when L1.10 deleted the

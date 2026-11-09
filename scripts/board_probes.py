@@ -440,6 +440,93 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
     return out
 
 
+def sky_profile(rgb: Any, camera: Pinhole, bearing_deg: float, *, half_width_deg: float = 4.0,
+                band_deg: float = 0.5, lowest_deg: float = -8.0, highest_deg: float = 30.0,
+                min_samples: int = 20, sun: tuple[float, float] | None = None,
+                sun_radius_deg: float = 3.0) -> dict[str, list[float]]:
+    """The sky's brightness per WORLD ELEVATION along one compass bearing (#716, #719).
+
+    Pixels within ``half_width_deg`` of ``bearing_deg`` are binned by the elevation of
+    their ray in bands ``band_deg`` wide, centred on its multiples (the band "3°" is
+    2.75–3.25° at 0.5°). An image row is a plane, not a cone (PF-L3D-19): off-axis pixels
+    of one row of a pitched camera sit higher in the sky, so a row mean mixes elevations.
+    Per band: ``luma`` the median luma (codes; robust to the dither and a stray cloud
+    edge), ``luminance`` the mean relative luminance (linear light), ``count`` the pixels.
+    Bands with fewer than ``min_samples`` pixels are left out. ``sun`` = (azimuth,
+    elevation) in degrees leaves out the pixels within ``sun_radius_deg`` of it: the disc
+    is not the sky's brightness, and a white core would pull two skies' means together.
+    """
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
+    rays = view.rays(xs, ys)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    bearing = (np.degrees(np.arctan2(rays[..., 0], rays[..., 1])) + 360.0) % 360.0
+    near = np.abs(((bearing - bearing_deg + 180.0) % 360.0) - 180.0) <= half_width_deg
+    if sun is not None:
+        azimuth, height = (math.radians(value) for value in sun)
+        towards = np.array([math.cos(height) * math.sin(azimuth),
+                            math.cos(height) * math.cos(azimuth), math.sin(height)])
+        near &= np.degrees(np.arccos(np.clip(rays @ towards, -1.0, 1.0))) > sun_radius_deg
+    elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    bands = np.rint(elevation / band_deg).astype(np.int64)
+    lum, linear = luma(frame), luminance(frame)
+    out: dict[str, list[float]] = {"elevation_deg": [], "luma": [], "luminance": [], "count": []}
+    first, last = int(math.ceil(lowest_deg / band_deg)), int(math.floor(highest_deg / band_deg))
+    for band in range(first, last + 1):
+        chosen = near & (bands == band)
+        count = int(chosen.sum())
+        if count < min_samples:
+            continue
+        out["elevation_deg"].append(round(band * band_deg, 4))
+        out["luma"].append(round(float(np.median(lum[chosen])), 3))
+        out["luminance"].append(round(float(linear[chosen].mean()), 6))
+        out["count"].append(float(count))
+    return out
+
+
+def profile_at(profile: dict[str, list[float]], elevation_deg: float, key: str = "luma") -> float | None:
+    """The value of the ``sky_profile`` band whose centre is ``elevation_deg`` (None when
+    that band was not measured)."""
+    for centre, value in zip(profile["elevation_deg"], profile[key], strict=True):
+        if abs(centre - elevation_deg) < 1e-6:
+            return value
+    return None
+
+
+def profile_mean(profile: dict[str, list[float]], low_deg: float, high_deg: float,
+                 key: str = "luminance") -> float | None:
+    """The mean of a ``sky_profile`` value over the bands centred in [low, high]."""
+    values = [value for centre, value in zip(profile["elevation_deg"], profile[key], strict=True)
+              if low_deg - 1e-6 <= centre <= high_deg + 1e-6]
+    return float(np.mean(values)) if values else None
+
+
+def horizon_inversion(profile: dict[str, list[float]], low_deg: float = 0.5,
+                      high_deg: float = 20.0) -> dict[str, Any]:
+    """How far the sky DARKENS on the way down to the horizon (#716).
+
+    Walking the bands from ``high_deg`` down to ``low_deg``, the luma should never fall
+    (the painted sky rises steadily toward its horizon). ``inversion_luma`` is the largest
+    amount any band lies under a brighter band above it — 0 for a sky that only brightens
+    toward the horizon — and ``at_deg`` / ``above_deg`` name the pair. ``measured`` is
+    False when fewer than two bands lie in the range: nothing measured is not a pass.
+    """
+    pairs = [(centre, value) for centre, value in zip(profile["elevation_deg"], profile["luma"], strict=True)
+             if low_deg - 1e-6 <= centre <= high_deg + 1e-6]
+    pairs.sort(key=lambda pair: -pair[0])
+    worst, at, above = 0.0, None, None
+    peak, peak_at = -math.inf, None
+    for centre, value in pairs:
+        if peak - value > worst:
+            worst, at, above = peak - value, centre, peak_at
+        if value > peak:
+            peak, peak_at = value, centre
+    return {"inversion_luma": round(worst, 3), "at_deg": at, "above_deg": above,
+            "measured": len(pairs) >= 2}
+
+
 def bearing_error_deg(measured: float, expected: float) -> float:
     """Signed difference of two compass bearings, in (-180, 180]."""
     return ((measured - expected + 180.0) % 360.0) - 180.0
