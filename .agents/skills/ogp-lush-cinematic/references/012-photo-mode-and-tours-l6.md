@@ -8,10 +8,10 @@ before/after board and a note in the taste log.
 |---|---|---|---|
 | Exposure | -2 to +1.5 stops | a factor on the mood's own exposure | a stop is a stop in every mood; +2 clipped 66 % of a noon picture |
 | Vignette | 0..1 | `vignetteRadius` 0..0.20, strength fixed at 15, colour black | at 1, a corner down to about a half, the middle within 2 %; Qt's default grey brightens a night |
-| Blur | 0..1 | `depthOfFieldBlurAmount` 0..5 at 1080p, scaled with the picture's height | 0.8 is what a first focus click gives; at 8 Qt's three taps read as ghosts |
+| Blur | 0..1 | `PhotoBlur.qml`: a Gaussian of sigma 0..0.006 of the picture's height (6.5 px at 1080p, 13 px at 4K), over the layers behind and in front of the sharp band (#743) | 0.8 is what a first focus click gives; the same share of every picture, so the pane previews a 4K save (Qt's half-resolution blur kept 0.53 of the detail in the pane and 0.92 in the save) |
 | Focus point | | the first blur above 0 focuses what the camera looks at; a click moves it | no depth of field without a point: the slider did nothing before a click (owner's manual test) |
-| Ultra's reflections | | off while the blur is drawn | with reflections + blur + glow Qt's render thread crashed in `d3d11.dll` (PF-E3D-21) |
-| Focus range | | 60 % of the depth at the faintest blur, 3 % at the strongest, geometric in between (half in front, half behind), at least 60 cm (a whole plant; the owner's call) | the depth is along the view's axis; a pixel outside the band gets Qt's half-resolution blur in full whatever the amount, so the band is what the slider moves (owner's manual test: 40 % showed nothing); Qt's amount is capped at its 1080p value, because at 4K the three taps show as copies |
+| Ultra's reflections | | off while the blur is drawn | with glow, any two effects ahead of Qt's scene effect crash its chain in `d3d11.dll`: the app's blur too (PF-E3D-21, #744) |
+| Focus range | | 60 % of the depth at the faintest blur, 3 % at the strongest, geometric in between (half in front, half behind), at least 60 cm (a whole plant; the owner's call), and at least 8 % of the depth at 25 m growing with its square (decided in #743's package, owner may veto) | the depth is along the view's axis; out of focus grows from 0 at the band's edge to full one band further; the band and the blur move together (owner's manual test of #390: a 40 % band showed nothing); the far floor keeps the 38-42 m whole-plan camera from a tilt-shift scale model (about a metre was left sharp) |
 
 Grades (`core/scene3d/photo.py`), each on top of the mood's own saturation and contrast:
 

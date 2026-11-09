@@ -82,10 +82,12 @@ class TestSpec:
             # the atmosphere sky (L7, #391) with its provenance and Qt's licence texts:
             # they ship beside the files they cover (MIT asks for the notice in copies)
             "AtmosphereSky.qml", "Garden.qml", "LICENSE-qt-skymaterial.txt", "PROVENANCE.md",
+            "PhotoBlur.qml",                  # photo mode's depth of field (#743)
             "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
             "atmosphere.frag",
             "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
             "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
+            "photoblur_compose.frag", "photoblur_layer.frag", "photoblur_rows.frag",
             "precipitation.frag", "precipitation.vert",    # rain and snow: L5 (#389)
             "ring.frag", "ring.vert",
             "screen.frag", "screen.vert", "water.frag", "water_door.frag"]
