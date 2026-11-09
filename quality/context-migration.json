@@ -1118,7 +1118,7 @@
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
           "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
-          "current_sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3"
+          "current_sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81"
         },
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/005-triage-table-c-tests-ci-teardown.md",
@@ -1233,7 +1233,7 @@
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
           "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
-          "current_sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b"
+          "current_sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/016-15-tangent-constraint-degeneracy-pr-198-adr-024-fixed-2026-06-07.md",
@@ -1363,7 +1363,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
           "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
-          "current_sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91"
+          "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
@@ -1373,7 +1373,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
           "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
-          "current_sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c"
+          "current_sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/006-4-signals-slots-and-lifecycle-safety.md",
@@ -2518,7 +2518,7 @@
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
           "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
-          "current_sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3"
+          "current_sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81"
         },
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/005-triage-table-c-tests-ci-teardown.md",
@@ -2633,7 +2633,7 @@
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
           "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
-          "current_sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b"
+          "current_sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/016-15-tangent-constraint-degeneracy-pr-198-adr-024-fixed-2026-06-07.md",
@@ -2763,7 +2763,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
           "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
-          "current_sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91"
+          "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
@@ -2773,7 +2773,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
           "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
-          "current_sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c"
+          "current_sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/006-4-signals-slots-and-lifecycle-safety.md",

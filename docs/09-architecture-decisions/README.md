@@ -2651,9 +2651,9 @@ for degenerate polygons. The identity above is exact and needs no branch.
   (`tests/unit/test_roof_tile_orientation.py`).
 
 **Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
-shape is load-bearing: Qt does not serialize the painter clip into SVG, and
-`ExportService._fix_svg_qt_texture_clipping` pairs each shadow group with the
-next texture group 1:1 (§11.4). Only the brush assignment changed.
+shape was kept; only the brush assignment changed. (At the time the SVG export
+depended on that shape through a post-processor; since #787 it does not — the
+export records clips and brush transforms below the painter, ADR-075.)
 
 **Testing note.** Correlating the real 256 px tile texture was tried first and
 had **no discriminating power** (peak correlation ~0.03 either way, and the
@@ -11151,3 +11151,77 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 `docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md`;
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
+
+## ADR-075: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
+
+**Status**: Accepted (visual-polish package, 2026-11-09)
+
+**Context**: every export paints the same `QGraphicsScene`, each through a different
+paint device, and each device had its own way of being wrong. The SVG of the
+family-garden example showed the roof texture over 70 % of the drawing; the PDF
+report's plan pages were 72-dpi bitmaps; a 1:50 printout painted shadows over its own
+footer; and every export forced one point size on text the user had sized on purpose.
+Measured on Qt 6.12: `QSvgGenerator` drops a brush's own transform and a pixmap's source
+rectangle, writes no clip in its default mode and a staircase for two stacked clips in
+SVG 1.1 mode, and `QSvgRenderer` ignores `clip-path`.
+
+**Decision**:
+
+1. **The SVG export records and replays.** The scene is painted into a recording
+   `QPaintEngine` (`services/svg_export.py`) and the recording is replayed into
+   `QSvgGenerator(Svg11)`. A clipped fill or stroke is written as geometry already cut
+   to its clip, a brush transform is moved into the world transform, a source rectangle
+   is cut out of its pixmap. Only a clipped picture or clipped text keeps a real
+   `<clipPath>`. Rejected: repairing the written file by pattern (the previous design —
+   it knew one painter's output and missed the next one); writing our own SVG
+   serializer (every pen, brush, gradient and text item the app paints would have to be
+   re-implemented, and a miss drops content silently); SVG 1.1 clips alone (staircases,
+   invisible to `QSvgRenderer`, and no answer to brush transforms).
+2. **An SVG is laid out at print resolution.** One user unit is 1/300 inch; `width` and
+   `height` state the requested size in millimetres. The painter's world transform
+   therefore carries the scale of a 300-dpi PNG, so a picture that rasterises itself for
+   the painter's scale is print-sharp in the SVG, and a constant-pixel-size label or
+   hairline is the size it has in that PNG. The generator's own resolution stays the
+   logical screen resolution, because that is what a font's size in user units has to
+   agree with.
+3. **SVG text stays text.** A designer who imports the plan edits a label, changes its
+   typeface, searches it; outlines would take all three away and multiply the file's
+   size. The cost is that glyph shapes and advance widths are the viewer's: measured in
+   headless Edge a note's run is within 1.6 % of the canvas. Every `font-family` names a
+   generic fallback (`'Segoe UI', sans-serif`), so a machine without the family shows a
+   similar face instead of the viewer's serif default. Rejected: converting text to
+   paths; embedding fonts (licences, size).
+4. **The PDF report's plan pages are 300-dpi pictures, not vectors.** The page is laid
+   out in points; each plan picture is painted into a `QImage` of 300 dpi and placed on
+   the page (`PLAN_RENDER_DPI`). Measured on the four bundled examples, every page type
+   on: 150 dpi 1.2–2.7 MB / 0.3–0.8 s, 200 dpi 1.8–4.0 MB / 0.4–1.3 s, 300 dpi
+   3.2–7.0 MB / 0.8–2.4 s. Rejected: painting the scene on the PDF painter. It would be
+   sharp at any zoom, but the painter's world transform would carry the page's 72 units
+   per inch, and everything that rasterises itself for the painter's scale — sprites,
+   texture tiles — would be 72 dpi inside a vector page; the earlier finding that a
+   pre-flipped painter is unreliable on a `QPdfWriter` (PF-CAN-10) also stands.
+5. **Only constant-pixel-size text is given a size for the output** (PF-CAN-08). A text
+   note is sized in plan units and scales with the plan. Notes and callouts are laid out
+   by their font's design metrics (`PreferNoHinting`), because a hinted layout is rounded
+   to the pixels of the note's nominal size and shows it once scaled; the report's own
+   text uses the same preference, for the same reason at 72 units per inch.
+6. **A `paint()` never replaces the clip it is handed** (PF-CAN-54), and a printout sets
+   its tile as an explicit clip.
+7. **A report section that needs more pages gets them.** `PdfReportService.plan_pages`
+   returns one entry per real page, so the page count, the progress callback and the
+   section titles ("Plant List – page 2 of 3") agree. Small beds whose detail frames
+   touch share one page; a frame has a minimum extent (150 cm), padding and a minimum
+   aspect ratio. The legend lists the object types and plants on the plan, each with a
+   sample painted by the item itself.
+8. **A plan has a title apart from its file name.** `ProjectManager.display_name` is the
+   file's stem, or — for a plan opened from an example or a template and not yet saved —
+   that template's title; `project_name` stays what default file names are built from.
+
+**Consequences**: the SVG fidelity test compares the rasterised SVG with the PNG export
+of the same scene (four bundled examples, a parametric roof, a glasshouse, a painter
+nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowledge.
+An SVG's pictures are embedded once per use, as before, and grow with their resolution.
+The report is three to eight times larger than at 72 dpi.
+
+Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.35; FR-EXP-01,
+FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
