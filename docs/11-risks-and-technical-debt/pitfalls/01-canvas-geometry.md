@@ -603,3 +603,69 @@ A wheelbarrow's sprite is 60 x 140 cm; drawn into a 140 x 60 rectangle it was re
 - **Legacy:** none (new entry)
 
 A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, deleted and sanitised by a dozen call sites. Teaching GREENHOUSE to be a building meant touching every one; a single missed `== HOUSE` would have left a greenhouse ridge that did not follow a move, a copy without its own ridge, or a load that dropped the link. The predicate lives in `core.roof_style.py` (Qt-free, kind names) and `core.object_types.is_ridge_bearing_type` (enum); `ChangeObjectTypeCommand` uses it for both the execute and undo halves, and `apply_ridge_look` gives a greenhouse its aluminium finish (and a house its brown) on build, type change and undo.
+
+### PF-CAN-46
+
+- **Rule:** A `QGraphicsItemGroup` child cannot be selected independently: selecting it selects the group, and its resize/vertex handles do not receive a usable drag. Group drill-down is therefore a VIEW-LEVEL logical focus (`drill_down_item` / `effective_selection`), never a reparent or a temporary ungroup.
+- **Pinned by:** `tests/integration/test_group_drill_down.py::test_second_click_focuses_the_member_then_outside_restores_the_group`; `tests/integration/test_group_drill_down.py::test_the_properties_panel_shows_the_member_and_disables_its_layer`
+- **Source:** #771, ADR-075
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt 6.12 routes `child.setSelected(True)` through the group: `scene.selectedItems()` returns only the group even though the child's `isSelected()` is true. A `QGraphicsItemGroup` child's `ResizeHandle` press is swallowed by the group, and a double-click does not reach the child's vertex-edit handler. Detaching the child with `removeFromGroup` on drill-down and re-adding it on exit makes handles work but changes its parent frame; commands captured while detached store local `pos()`/`rect()` values, so undo after moving or rotating the group restores the wrong place. The vetted path keeps membership: the group stays selected, `effective_selection()` supplies the member to every panel, body drags and arrow keys convert scene deltas through `_delta_in_parent_frame`, and the view replays the member's handle drag through `begin_drag` / `apply_drag` / `end_drag`. The member's layer/cut/delete operations are refused until the focus clears.
+
+### PF-CAN-47
+
+- **Rule:** `QPainterPath.intersects` is true for a boundary touch, not only for an interior crossing. A geometry operation that means "crosses" must prove interior overlap — for a segment, split it at its outline crossings and require an interval midpoint strictly inside — or a snapped corner pick silently cuts the shape it only grazed.
+- **Pinned by:** `tests/unit/test_shape_split.py::test_a_touch_is_not_a_crossing`; `tests/integration/test_split_shapes.py::test_a_line_that_only_touches_a_corner_does_not_split`
+- **Source:** #664, PR #783, ADR-075 addendum
+- **Status:** standing
+- **Legacy:** 11.4.22 (new entry)
+
+The split tool's first crossing predicate was `path.intersects(segment)`. Qt answers
+True when a segment ends on the outline, runs along an edge, or is tangent to it, so
+a line whose first pick snapped to a bed's corner and whose second pick went away
+from it removed the bed and created two pieces. The same answer is right for a
+boolean *touch* test and wrong for a knife. `segment_crosses_path` now sorts the
+segment's parameters at its crossings with the flattened outline, samples each
+interval between them, and accepts the segment only when points offset to BOTH
+sides of the line are inside; a boundary-aligned segment has one side outside.
+`tests/unit/test_shape_split.py` covers the outward corner/edge/tangent starts and
+the true corner-to-corner crossing; the integration test reproduces the
+corner-snap cut that used to happen.
+
+### PF-CAN-48
+
+- **Rule:** `QGraphicsItem.setFlags` deselects any item that reports `isSelected()` without being selectable, and a descendant that already existed when its parent joined a `QGraphicsItemGroup` reports its GROUP's selection: one flag set on such a handle inside a selected group unselects the whole group. Code that toggles a flag on arbitrary scene items (the minimap's overlay suppression) must test exactly that condition and hide those items by opacity.
+- **Pinned by:** `tests/integration/test_group_drill_down.py::test_the_running_app_keeps_the_member_focused_past_a_minimap_refresh`; `tests/integration/test_group_drill_down.py::test_the_minimap_does_not_paint_a_focused_members_handles`; `tests/integration/test_group_drill_down.py::test_a_focused_member_leaves_the_idle_window_quiet`
+- **Source:** #771, PR #783 (manual test 8), ADR-075 addendum 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Group drill-down (PF-CAN-46) keeps the group as the Qt selection and shows the
+focused member's handles. In the real window the focus lasted a split second: the
+minimap re-renders 100 ms after any scene change and suppresses every overlay item
+for its thumbnail with `setFlag(ItemHasNoContents, True)`. Qt's `setFlags` ends
+with "if the item is not selectable but is selected, deselect it"; for a group
+descendant `isSelected()` answers for the group and `setSelected(False)` is routed
+to the group, so the group lost its selection and the view retired the drill-down.
+Measured on Qt 6.12 with three items: a flag set on a non-selectable child of a
+selected group unselects the group and emits `selectionChanged`; `setOpacity` does
+neither; a selectable child (a grouped journal pin) is not affected, which is why
+the earlier group test in `test_garden_journal.py` stayed green. The precondition
+is also measured: only a child that existed when its parent was added to the group
+reports the group's selection; a child created afterwards reports False and its
+flags are harmless. A member's handles are created when it is first selected, and
+a user selects the members in order to group them, so the real workflow always
+meets the precondition - while a group loaded from a file, whose members were
+never selected, does not. The pins therefore build their group through
+`_group()`, which selects first; a pin that grouped unselected members would pass
+on the broken code. The minimap's test is Qt's own (`not selectable and
+isSelected()`), so it is right in both cases. The minimap
+keeps `ItemHasNoContents` for everything else (PR #713: hiding deselects) and
+makes exactly these descendants fully transparent for the render, restoring the
+opacity they had. The idle-quiescence pin shows the opacity round trip does not
+restart the #305 render loop. No bare-canvas test could have caught this: the
+canvas fixture has no minimap, and the one running-app test called
+`begin_group_drill_down` directly instead of clicking.
+

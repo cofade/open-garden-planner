@@ -1842,6 +1842,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
         "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
+        "Split along line — cut the eligible closed shapes a two-point line crosses":
+            "Teilen entlang einer Linie — die geeigneten geschlossenen Formen schneiden, die eine Zwei-Punkt-Linie kreuzt",
         "Offset — parallel copy or parallel line":
             "Versatz — parallele Kopie oder parallele Linie",
         "Fillet — round a corner": "Abrunden — Ecke abrunden",
@@ -1950,6 +1952,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Middle Mouse Drag": "Mittlere Maustaste ziehen",
         "Pan": "Schwenken",
         "Drawing Tools": "Zeichenwerkzeuge",
+        "CAD Editing": "CAD-Bearbeitung",
+        "Trim/Extend": "Trimmen/Erweitern",
+        "Split along line": "An Linie teilen",
+        "Offset": "Versatz",
+        "Fillet": "Abrunden",
+        "Chamfer": "Anfasen",
+        "Mirror": "Spiegeln",
         "Select Tool": "Auswahlwerkzeug",
         "Measure Tool": "Messwerkzeug",
         "Rectangle": "Rechteck",
@@ -3587,6 +3596,81 @@ _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 }
 for _ctx, _strings in _DRAWING_TOOLS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── CAD editing (#664 split, #771 group drill-down) ──
+_CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Commands": {
+        "Split shape": "Form teilen",
+    },
+    "ShortcutsDialog": {
+        "Cancel and return to the Select tool":
+            "Abbrechen und zum Auswahlwerkzeug zurückkehren",
+    },
+    "CanvasView": {
+        "A constrained shape cannot be split":
+            "Eine Form mit Randbedingung kann nicht geteilt werden",
+        "Click the first point of the cutting line. Esc cancels.":
+            "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
+        "Only closed shapes (polygon, rectangle, circle, or ellipse) can be split":
+            "Nur geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse) können geteilt werden",
+        "Plants and linked objects cannot be split":
+            "Pflanzen und verknüpfte Objekte können nicht geteilt werden",
+        "Press Esc to leave the group before cutting or deleting one of its members":
+            "Mit Esc die Gruppe verlassen, bevor ein Mitglied ausgeschnitten oder gelöscht wird",
+        "The shape carries links that a split cannot preserve":
+            "Die Form trägt Verknüpfungen, die ein Teilen nicht bewahren kann",
+        "The shape has tracking records that a split cannot preserve":
+            "Die Form hat Nachverfolgungsdaten, die ein Teilen nicht bewahren kann",
+        "The shape is no longer in this plan":
+            "Die Form ist nicht mehr in diesem Plan",
+        "The shape is on a locked layer":
+            "Die Form liegt auf einer gesperrten Ebene",
+        "This shape has no closed outline to split":
+            "Diese Form hat keine geschlossene Kontur zum Teilen",
+        "This shape type has no polygonal form to split into":
+            "Dieser Formtyp hat keine polygonale Form zum Teilen",
+        "A constrained member or group cannot be moved while drilled down":
+            "Ein Mitglied oder eine Gruppe mit Randbedingung kann im Drilldown nicht bewegt werden",
+        "Ungroup the shape before splitting it":
+            "Gruppierung der Form vor dem Teilen aufheben",
+    },
+    "PropertiesPanel": {
+        "A group member stays on its group's layer":
+            "Ein Gruppenmitglied bleibt auf der Ebene seiner Gruppe",
+    },
+    "SplitShapeMenu": {
+        "Split Along Line…": "An Linie teilen…",
+    },
+    "SplitShapeTool": {
+        "Click the first point of the cutting line. Esc cancels.":
+            "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
+        "A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.":
+            "Ein Teil hätte {count} Scheitelpunkte; der Plan unterstützt höchstens {limit}. Wählen Sie einen einfacheren Schnitt.",
+        "Click the second point of the cutting line; Shift constrains the angle. Esc cancels.":
+            "Klicken Sie den zweiten Punkt der Schnittlinie; Shift begrenzt den Winkel. Esc bricht ab.",
+        "Split along line": "An Linie teilen",
+        "Split cancelled": "Teilen abgebrochen",
+        "Split the shape into {count} pieces":
+            "Die Form in {count} Teile geteilt",
+        "Split {count} shapes": "{count} Formen teilen",
+        "Split {shapes} shapes into {pieces} pieces":
+            "{shapes} Formen in {pieces} Teile geteilt",
+        "Nothing was split: {reason}": "Nichts wurde geteilt: {reason}",
+        "The cut would leave a piece too small to keep":
+            "Der Schnitt würde ein zu kleines Teil hinterlassen",
+        "The cutting line must cross a closed shape. Choose another second point.":
+            "Die Schnittlinie muss eine geschlossene Form kreuzen. Wählen Sie einen anderen zweiten Punkt.",
+        "The shape to split is no longer available.":
+            "Die zu teilende Form ist nicht mehr verfügbar.",
+        "{message}; 1 crossed object could not be split":
+            "{message}; 1 gekreuztes Objekt konnte nicht geteilt werden",
+        "{message}; {count} crossed objects could not be split":
+            "{message}; {count} gekreuzte Objekte konnten nicht geteilt werden",
+    },
+}
+for _ctx, _strings in _CAD_EDITING_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

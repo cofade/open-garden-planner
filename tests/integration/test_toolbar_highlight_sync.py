@@ -75,6 +75,16 @@ class TestToolbarHighlightSync:
             ToolType.SELECT,
         ]
         for tool_type in tool_types:
+            if tool_type is ToolType.SPLIT:
+                # Split is scene-wide now; it needs no selected shape before
+                # activation, but keep one here so the assertion also covers
+                # activating the tool while a selection exists (#664).
+                from open_garden_planner.ui.canvas.items import RectangleItem
+
+                item = RectangleItem(0, 0, 100, 100)
+                item.layer_id = window.canvas_scene.active_layer.id
+                window.canvas_scene.addItem(item)
+                item.setSelected(True)
             window.canvas_view.set_active_tool(tool_type)
 
             checked = _all_checked_buttons(window)

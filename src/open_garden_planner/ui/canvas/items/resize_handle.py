@@ -380,6 +380,7 @@ class ResizeHandle(QGraphicsRectItem):
         self._drag_start_pos: QPointF | None = None
         self._initial_rect: QRectF | None = None
         self._initial_parent_pos: QPointF | None = None
+        self._parent_frame = False
 
         self._setup_appearance()
         self._setup_flags()
@@ -441,32 +442,92 @@ class ResizeHandle(QGraphicsRectItem):
         self.setBrush(QBrush(HANDLE_COLOR))
         super().hoverLeaveEvent(event)
 
+    def begin_drag(self, scene_pos: QPointF, *, parent_frame: bool = False) -> bool:
+        """Initialise a resize gesture; False when a constraint blocks it.
+
+        Separate from :meth:`mousePressEvent` so a view that owns a group
+        drill-down can drive the gesture itself (a selected group swallows the
+        child handle's own press, #771). ``parent_frame=True`` means the points
+        are in the item's parent frame (a group child); the resize math then
+        stays in that frame instead of treating them as scene coordinates.
+        """
+        if self._parent_item is not None and _has_blocking_constraints(
+            self._parent_item
+        ):
+            _emit_scale_blocked_hint(self._parent_item)
+            return False
+        self._is_dragging = True
+        self._parent_frame = parent_frame
+        self._drag_start_pos = QPointF(scene_pos)
+
+        # Store initial geometry — use rect() (actual geometry) rather than
+        # boundingRect() which includes pen width + shadow margin.
+        if self._parent_item is not None:
+            if hasattr(self._parent_item, 'rect') and callable(self._parent_item.rect):
+                self._initial_rect = self._parent_item.rect()
+            else:
+                self._initial_rect = self._parent_item.boundingRect()
+            self._initial_parent_pos = self._parent_item.pos()
+
+            if hasattr(self._parent_item, '_on_resize_start'):
+                self._parent_item._on_resize_start()
+        return True
+
+    def apply_drag(self, scene_pos: QPointF, *, parent_frame: bool = False) -> None:
+        """Apply one move of the active resize gesture.
+
+        ``parent_frame=True`` skips the scene-canvas clamp because the point is
+        in a group parent's frame; the group is already inside the canvas.
+        """
+        if not self._is_dragging or self._drag_start_pos is None:
+            return
+        if self._parent_item is None or self._initial_rect is None:
+            return
+
+        current_pos = (
+            scene_pos
+            if parent_frame
+            else _clamp_pos_to_canvas(scene_pos, self._parent_item)
+        )
+        delta = current_pos - self._drag_start_pos
+        self._apply_resize(delta)
+
+        # Propagate to EQUAL-constrained partners in real time
+        if hasattr(self._parent_item, '_propagate_equal_resize_live'):
+            self._parent_item._propagate_equal_resize_live()
+
+        _announce_live_edit(self._parent_item)
+
+    def end_drag(self) -> None:
+        """Complete the active resize gesture."""
+        if not self._is_dragging:
+            return
+        self.ungrabMouse()
+        self._is_dragging = False
+
+        # Hide dimension display
+        if (self._parent_item is not None and
+            hasattr(self._parent_item, '_dimension_display') and
+            self._parent_item._dimension_display is not None):
+            self._parent_item._dimension_display.hide_display()
+
+        # Notify parent that resize is complete
+        if self._parent_item is not None and hasattr(self._parent_item, '_on_resize_end'):
+            self._parent_item._on_resize_end(
+                self._initial_rect,
+                self._initial_parent_pos,
+            )
+
+        self._drag_start_pos = None
+        self._initial_rect = None
+        self._initial_parent_pos = None
+
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start resize operation."""
         if event.button() == Qt.MouseButton.LeftButton:
-            if self._parent_item is not None and _has_blocking_constraints(
-                self._parent_item
-            ):
-                _emit_scale_blocked_hint(self._parent_item)
+            if not self.begin_drag(event.scenePos()):
                 event.ignore()
                 return
-            self._is_dragging = True
-            self._drag_start_pos = event.scenePos()
-
-            # Store initial geometry — use rect() (actual geometry) rather
-            # than boundingRect() which includes pen width + shadow margin
-            # and would inflate dimensions on every drag.
-            if self._parent_item is not None:
-                if hasattr(self._parent_item, 'rect') and callable(self._parent_item.rect):
-                    self._initial_rect = self._parent_item.rect()
-                else:
-                    self._initial_rect = self._parent_item.boundingRect()
-                self._initial_parent_pos = self._parent_item.pos()
-
-                # Notify parent that resize is starting
-                if hasattr(self._parent_item, '_on_resize_start'):
-                    self._parent_item._on_resize_start()
-
             self.grabMouse()
             event.accept()
         else:
@@ -477,47 +538,13 @@ class ResizeHandle(QGraphicsRectItem):
         if not self._is_dragging or self._drag_start_pos is None:
             super().mouseMoveEvent(event)
             return
-
-        if self._parent_item is None or self._initial_rect is None:
-            return
-
-        # Calculate delta in scene coordinates, clamped to canvas
-        current_pos = _clamp_pos_to_canvas(event.scenePos(), self._parent_item)
-        delta = current_pos - self._drag_start_pos
-
-        # Apply resize based on handle position
-        self._apply_resize(delta)
-
-        # Propagate to EQUAL-constrained partners in real time
-        if self._parent_item is not None and hasattr(self._parent_item, '_propagate_equal_resize_live'):
-            self._parent_item._propagate_equal_resize_live()
-
-        _announce_live_edit(self._parent_item)
+        self.apply_drag(event.scenePos())
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Complete resize operation."""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
-            self.ungrabMouse()
-            self._is_dragging = False
-
-            # Hide dimension display
-            if (self._parent_item is not None and
-                hasattr(self._parent_item, '_dimension_display') and
-                self._parent_item._dimension_display is not None):
-                self._parent_item._dimension_display.hide_display()
-
-            # Notify parent that resize is complete
-            if self._parent_item is not None and hasattr(self._parent_item, '_on_resize_end'):
-                self._parent_item._on_resize_end(
-                    self._initial_rect,
-                    self._initial_parent_pos,
-                )
-
-            self._drag_start_pos = None
-            self._initial_rect = None
-            self._initial_parent_pos = None
-
+            self.end_drag()
             event.accept()
         else:
             super().mouseReleaseEvent(event)
@@ -865,31 +892,86 @@ class RotationHandle(QGraphicsEllipseItem):
         self.setBrush(QBrush(ROTATION_HANDLE_COLOR))
         super().hoverLeaveEvent(event)
 
+    def begin_drag(self, scene_pos: QPointF, *, parent_frame: bool = False) -> bool:
+        """Initialise a rotation gesture; False when the item is fixed.
+
+        Separate from :meth:`mousePressEvent` for a view-driven drill-down
+        handle gesture (#771). ``parent_frame=True`` keeps the centre and the
+        sampled points in the item's group frame.
+        """
+        if self._parent_item is not None and _is_item_fixed(self._parent_item):
+            return False
+        self._is_dragging = True
+        self._drag_start_pos = QPointF(scene_pos)
+
+        # Store initial rotation angle and calculate center
+        if self._parent_item is not None:
+            rect = self._parent_item.boundingRect()
+            self._center = (
+                self._parent_item.mapToParent(rect.center())
+                if parent_frame
+                else self._parent_item.mapToScene(rect.center())
+            )
+            if hasattr(self._parent_item, 'rotation_angle'):
+                self._initial_angle = self._parent_item.rotation_angle
+            else:
+                self._initial_angle = self._parent_item.rotation()
+            if hasattr(self._parent_item, '_on_rotation_start'):
+                self._parent_item._on_rotation_start()
+        return True
+
+    def apply_drag(self, scene_pos: QPointF) -> None:
+        """Apply one move of the active rotation gesture."""
+        if not self._is_dragging or self._drag_start_pos is None:
+            return
+        if self._parent_item is None:
+            return
+
+        # Calculate angles from center to start and current positions
+        start_angle = math.atan2(
+            self._drag_start_pos.y() - self._center.y(),
+            self._drag_start_pos.x() - self._center.x()
+        )
+        current_angle = math.atan2(
+            scene_pos.y() - self._center.y(),
+            scene_pos.x() - self._center.x()
+        )
+
+        delta_degrees = math.degrees(current_angle - start_angle)
+        new_angle = self._initial_angle + delta_degrees
+
+        # Check if Shift is held for 15° snapping
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            new_angle = round(new_angle / ROTATION_SNAP_ANGLE) * ROTATION_SNAP_ANGLE
+
+        self._apply_rotation(new_angle, scene_pos)
+
+    def end_drag(self) -> None:
+        """Complete the active rotation gesture."""
+        if not self._is_dragging:
+            return
+        self.ungrabMouse()
+        self._is_dragging = False
+
+        # Hide angle display
+        if (self._parent_item is not None and
+            hasattr(self._parent_item, '_angle_display') and
+            self._parent_item._angle_display is not None):
+            self._parent_item._angle_display.hide_display()
+
+        # Notify parent that rotation is complete
+        if self._parent_item is not None and hasattr(self._parent_item, '_on_rotation_end'):
+            self._parent_item._on_rotation_end(self._initial_angle)
+
+        self._drag_start_pos = None
+
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start rotation operation."""
         if event.button() == Qt.MouseButton.LeftButton:
-            if self._parent_item is not None and _is_item_fixed(self._parent_item):
+            if not self.begin_drag(event.scenePos()):
                 event.ignore()
                 return
-            self._is_dragging = True
-            self._drag_start_pos = event.scenePos()
-
-            # Store initial rotation angle and calculate center
-            if self._parent_item is not None:
-                rect = self._parent_item.boundingRect()
-                # Get center in scene coordinates
-                self._center = self._parent_item.mapToScene(rect.center())
-
-                # Get initial rotation angle of the item
-                if hasattr(self._parent_item, 'rotation_angle'):
-                    self._initial_angle = self._parent_item.rotation_angle
-                else:
-                    self._initial_angle = self._parent_item.rotation()
-
-                # Notify parent that rotation is starting
-                if hasattr(self._parent_item, '_on_rotation_start'):
-                    self._parent_item._on_rotation_start()
-
             self.grabMouse()
             event.accept()
         else:
@@ -900,54 +982,13 @@ class RotationHandle(QGraphicsEllipseItem):
         if not self._is_dragging or self._drag_start_pos is None:
             super().mouseMoveEvent(event)
             return
-
-        if self._parent_item is None:
-            return
-
-        current_pos = event.scenePos()
-
-        # Calculate angles from center to start and current positions
-        start_angle = math.atan2(
-            self._drag_start_pos.y() - self._center.y(),
-            self._drag_start_pos.x() - self._center.x()
-        )
-        current_angle = math.atan2(
-            current_pos.y() - self._center.y(),
-            current_pos.x() - self._center.x()
-        )
-
-        # Calculate delta in degrees
-        delta_degrees = math.degrees(current_angle - start_angle)
-        new_angle = self._initial_angle + delta_degrees
-
-        # Check if Shift is held for 15° snapping
-        modifiers = QApplication.keyboardModifiers()
-        if modifiers & Qt.KeyboardModifier.ShiftModifier:
-            new_angle = round(new_angle / ROTATION_SNAP_ANGLE) * ROTATION_SNAP_ANGLE
-
-        # Apply the rotation
-        self._apply_rotation(new_angle, current_pos)
-
+        self.apply_drag(event.scenePos())
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Complete rotation operation."""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
-            self.ungrabMouse()
-            self._is_dragging = False
-
-            # Hide angle display
-            if (self._parent_item is not None and
-                hasattr(self._parent_item, '_angle_display') and
-                self._parent_item._angle_display is not None):
-                self._parent_item._angle_display.hide_display()
-
-            # Notify parent that rotation is complete
-            if self._parent_item is not None and hasattr(self._parent_item, '_on_rotation_end'):
-                self._parent_item._on_rotation_end(self._initial_angle)
-
-            self._drag_start_pos = None
-
+            self.end_drag()
             event.accept()
         else:
             super().mouseReleaseEvent(event)

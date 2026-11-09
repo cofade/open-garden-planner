@@ -74,6 +74,32 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Already at front': 'Ya está al frente',
         'Ungroup {n} groups': 'Desagrupar {n} grupos',
         'Ungrouped {n} groups': '{n} grupos desagrupados',
+        'A constrained shape cannot be split':
+            'Una forma con restricciones no se puede dividir',
+        'Click the first point of the cutting line. Esc cancels.':
+            'Haz clic en el primer punto de la línea de corte. Esc cancela.',
+        'Only closed shapes (polygon, rectangle, circle, or ellipse) can be split':
+            'Solo se pueden dividir formas cerradas (polígono, rectángulo, círculo o elipse)',
+        'Plants and linked objects cannot be split':
+            'Las plantas y los objetos vinculados no se pueden dividir',
+        'Press Esc to leave the group before cutting or deleting one of its members':
+            'Pulsa Esc para salir del grupo antes de cortar o eliminar uno de sus miembros',
+        'The shape carries links that a split cannot preserve':
+            'La forma contiene vínculos que una división no puede conservar',
+        'The shape has tracking records that a split cannot preserve':
+            'La forma tiene registros de seguimiento que una división no puede conservar',
+        'The shape is no longer in this plan':
+            'La forma ya no está en este plano',
+        'The shape is on a locked layer':
+            'La forma está en una capa bloqueada',
+        'This shape has no closed outline to split':
+            'Esta forma no tiene un contorno cerrado que dividir',
+        'This shape type has no polygonal form to split into':
+            'Este tipo de forma no tiene una forma poligonal en la que dividirse',
+        'A constrained member or group cannot be moved while drilled down':
+            'Un miembro o grupo con restricciones no se puede mover durante la selección detallada',
+        'Ungroup the shape before splitting it':
+            'Desagrupa la forma antes de dividirla',
         'Angle': 'Ángulo',
         'Applied boolean {op}': 'Operación booleana {op} aplicada',
         'Apply boolean {op}?': '¿Aplicar operación booleana {op}?',
@@ -467,5 +493,34 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     'VerticalDistanceConstraintTool': {
         'Vertical Distance Constraint': 'Restricción de distancia vertical',
         '↕ {d:.2f} m': '↕ {d:.2f} m',
+    },
+    'SplitShapeMenu': {
+        'Split Along Line…': 'Dividir por línea…',
+    },
+    'SplitShapeTool': {
+        'Click the first point of the cutting line. Esc cancels.':
+            'Haz clic en el primer punto de la línea de corte. Esc cancela.',
+        'A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.':
+            'Una pieza tendría {count} vértices; el plano admite como máximo {limit}. Elige un corte más simple.',
+        'Click the second point of the cutting line; Shift constrains the angle. Esc cancels.':
+            'Haz clic en el segundo punto de la línea de corte; Mayús restringe el ángulo. Esc cancela.',
+        'Split along line': 'Dividir por línea',
+        'Split cancelled': 'División cancelada',
+        'Split the shape into {count} pieces':
+            'Se dividió la forma en {count} piezas',
+        'Split {count} shapes': 'Dividir {count} formas',
+        'Split {shapes} shapes into {pieces} pieces':
+            'Se dividieron {shapes} formas en {pieces} piezas',
+        'Nothing was split: {reason}': 'No se dividió nada: {reason}',
+        'The cut would leave a piece too small to keep':
+            'El corte dejaría una pieza demasiado pequeña para conservarla',
+        'The cutting line must cross a closed shape. Choose another second point.':
+            'La línea de corte debe cruzar una forma cerrada. Elige otro segundo punto.',
+        'The shape to split is no longer available.':
+            'La forma que se va a dividir ya no está disponible.',
+        '{message}; 1 crossed object could not be split':
+            '{message}; 1 objeto cruzado no se pudo dividir',
+        '{message}; {count} crossed objects could not be split':
+            '{message}; {count} objetos cruzados no se pudieron dividir',
     },
 }

@@ -394,3 +394,93 @@ class TestSerialization:
         assert loaded_ridge.zValue() > loaded_polygon.zValue(), (
             "Roof ridge must render above its owner polygon after reload"
         )
+
+
+class TestItemReferences:
+    """The split refuses a source whose UUID project data still points at (#664)."""
+
+    @pytest.fixture
+    def manager(self, qtbot) -> ProjectManager:
+        return ProjectManager()
+
+    @pytest.mark.parametrize(
+        "store",
+        [
+            "soil",
+            "pest",
+            "harvest",
+            "succession",
+            "crop_rotation",
+            "manual_task",
+            "task_state",
+            "legacy_task_completion",
+        ],
+    )
+    def test_every_tracked_target_is_found(self, manager: ProjectManager, store: str) -> None:
+        from types import SimpleNamespace
+        from uuid import uuid4
+
+        key = str(uuid4())
+        if store == "soil":
+            manager.set_soil_test_history(
+                key, SimpleNamespace(to_dict=lambda: {"records": []})
+            )
+        elif store == "pest":
+            manager.set_pest_log_history(
+                key, SimpleNamespace(to_dict=lambda: {"records": []})
+            )
+        elif store == "harvest":
+            manager.set_harvest_history(
+                key, SimpleNamespace(to_dict=lambda: {"records": []})
+            )
+        elif store == "succession":
+            manager.set_succession_plan(key, {})
+        elif store == "crop_rotation":
+            manager.set_crop_rotation({"records": [{"area_id": key}]})
+        elif store == "manual_task":
+            manager.set_manual_task(
+                SimpleNamespace(id="task-1", to_dict=lambda: {"bed_id": key})
+            )
+        elif store == "task_state":
+            manager.set_task_status(f"succession:sow:{key}:entry-1", "done")
+        else:
+            manager._task_completions.add(f"soil_mismatch:{key}")
+
+        assert manager.has_item_references(key) is True
+        assert manager.has_item_references(str(uuid4())) is False
+
+    def test_journal_notes_do_not_reference_another_item(self, manager: ProjectManager) -> None:
+        from uuid import uuid4
+
+        from open_garden_planner.models.journal_note import JournalNote
+
+        key = str(uuid4())
+        manager.set_journal_note(JournalNote(id="note-1", text="note"))
+        assert manager.has_item_references(key) is False
+
+    def test_an_unrelated_task_id_is_not_a_reference(self, manager: ProjectManager) -> None:
+        from uuid import uuid4
+
+        key = str(uuid4())
+        manager.set_task_status(f"water:{key}:2026", "done")
+        assert manager.has_item_references(key) is False
+
+    def test_every_task_generator_bed_id_format_is_recognised(
+        self, manager: ProjectManager
+    ) -> None:
+        from uuid import uuid4
+
+        from open_garden_planner.models.task import (
+            make_soil_amendment_task_id,
+            make_soil_mismatch_task_id,
+            make_succession_task_id,
+        )
+
+        key = str(uuid4())
+        for task_id in (
+            make_succession_task_id("sow", key, "entry-1"),
+            make_succession_task_id("clear", key, "entry-1"),
+            make_soil_amendment_task_id(key, "compost"),
+            make_soil_mismatch_task_id(key),
+        ):
+            assert manager._task_id_references_item(task_id, key), task_id

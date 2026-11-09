@@ -1136,27 +1136,32 @@
   },
   "768": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(cad): adapt Glasshouse tool to parametric building class with aluminium roof ridge"
   },
   "769": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(cad): add scalable Pergola building tool with matching 2D/3D rafter and post representation"
   },
   "770": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "refactor(smart_symbols): retire Smart Symbols panel and redundant symbol definitions"
   },
   "774": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Not all layers are by default visible in properties menu"
   },
   "775": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Editing a layer name shrinks text box vertically"
+  },
+  "783": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
   }
 }
