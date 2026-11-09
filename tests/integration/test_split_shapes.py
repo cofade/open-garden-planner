@@ -1008,6 +1008,74 @@ def test_a_building_with_a_ridge_splits_like_a_garage(
     assert all(linked_ridge(piece) is not None for piece in reloaded)
 
 
+def test_two_buildings_cut_by_one_line_are_one_undo_step(canvas, mouse_event) -> None:
+    from open_garden_planner.ui.canvas.roof_ridge_link import (
+        build_linked_ridge,
+        linked_ridge,
+    )
+
+    scene = canvas.scene()
+    house, house_ridge = _building(canvas, ObjectType.HOUSE, polygon=True)
+    greenhouse = RectangleItem(100, 500, 400, 200, object_type=ObjectType.GREENHOUSE)
+    _add(canvas, greenhouse, select=False)
+    greenhouse_ridge = build_linked_ridge(greenhouse, greenhouse.layer_id)
+    scene.addItem(greenhouse_ridge)
+    scene.clearSelection()
+    before = ProjectManager().snapshot_dict(scene)["objects"]
+
+    canvas.set_active_tool(ToolType.SPLIT)
+    tool = canvas._split_tool
+    assert tool.mouse_press(mouse_event, QPointF(300, 0)) is True
+    assert tool.mouse_press(mouse_event, QPointF(300, 900)) is True
+
+    pieces = _add_pieces(scene)
+    assert len(pieces) == 4
+    assert len(_ridges(scene)) == 4
+    assert all(linked_ridge(piece) is not None for piece in pieces)
+    assert house_ridge.scene() is None and greenhouse_ridge.scene() is None
+    assert canvas.command_manager.undo_depth == 1
+    after = ProjectManager().snapshot_dict(scene)["objects"]
+
+    canvas.command_manager.undo()
+    assert ProjectManager().snapshot_dict(scene)["objects"] == before
+    assert linked_ridge(house) is house_ridge
+    assert linked_ridge(greenhouse) is greenhouse_ridge
+
+    canvas.command_manager.redo()
+    assert ProjectManager().snapshot_dict(scene)["objects"] == after
+    canvas.command_manager.undo()
+    assert ProjectManager().snapshot_dict(scene)["objects"] == before
+
+
+def test_a_house_without_a_ridge_gives_pieces_without_one(canvas, mouse_event) -> None:
+    """A deleted ridge is the user's flat roof; a cut must not put gables back."""
+    source = _add(
+        canvas, RectangleItem(100, 100, 400, 200, object_type=ObjectType.HOUSE)
+    )
+    assert _ridges(canvas.scene()) == []
+
+    _split(canvas, source, QPointF(250, 0), QPointF(250, 600), mouse_event)
+
+    pieces = _add_pieces(canvas.scene())
+    assert len(pieces) == 2
+    assert all(piece.object_type is ObjectType.HOUSE for piece in pieces)
+    assert _ridges(canvas.scene()) == []
+    assert all("ridge_item_id" not in piece.metadata for piece in pieces)
+
+
+def test_a_building_whose_ridge_is_on_a_locked_layer_is_not_split(canvas) -> None:
+    """The split would delete the ridge; a locked layer is never mutated."""
+    scene = canvas.scene()
+    source, ridge = _building(canvas, ObjectType.HOUSE, polygon=True)
+    locked = Layer(name="Locked", locked=True, z_order=2)
+    scene.add_layer(locked)
+    ridge.layer_id = locked.id
+
+    assert canvas.split_refusal_reason(source) == "The shape is on a locked layer"
+    assert canvas.start_split_shape(source) is False
+    assert ridge.scene() is scene and source.scene() is scene
+
+
 def test_a_building_whose_ridge_is_constrained_is_not_split(canvas) -> None:
     source, ridge = _building(canvas, ObjectType.HOUSE, polygon=True)
     other = _add(canvas, RectangleItem(700, 100, 100, 100), select=False)

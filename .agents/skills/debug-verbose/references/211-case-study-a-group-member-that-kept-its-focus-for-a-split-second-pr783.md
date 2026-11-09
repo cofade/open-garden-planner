@@ -33,11 +33,16 @@ The selection was cleared from inside the minimap's thumbnail render, 100 ms
 after the click, by a `setFlag` on one of the focused member's handles.
 
 **Root cause**: `QGraphicsItem.setFlags` deselects an item that reports
-`isSelected()` without being selectable. A `QGraphicsItemGroup` descendant
-reports its GROUP's selection and routes `setSelected(False)` to the group, so
-setting any flag on a handle inside the selected group unselected the group, and
-the view then retired the drill-down. Measured in isolation (Qt 6.12): the flag
-unselects the group, `setOpacity` does not, a selectable child is immune. The
+`isSelected()` without being selectable. A descendant that already existed when
+its parent joined a `QGraphicsItemGroup` reports its GROUP's selection and routes
+`setSelected(False)` to the group, so setting any flag on such a handle inside
+the selected group unselected the group, and the view then retired the
+drill-down. Measured in isolation (Qt 6.12): the flag unselects the group,
+`setOpacity` does not, a selectable child is immune, and so is a child created
+AFTER the grouping (it reports False). Handles are created when a member is
+first selected, and a user selects the members to group them, so the real
+workflow always meets the precondition; a test that groups unselected members
+does not, and would have passed on the broken code. The
 minimap had already been taught not to `setVisible(False)` (PR #713); the flag it
 switched to has the same side effect for this one kind of item.
 

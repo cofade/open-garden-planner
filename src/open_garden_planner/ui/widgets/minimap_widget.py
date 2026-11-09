@@ -230,15 +230,17 @@ class MinimapWidget(QWidget):
         # recorded, which keeps the filter's blind spot to the curve-edit
         # connector lines. A slightly inflated copy absorbs the
         # anti-aliasing margin Qt adds to the dirty rect it reports.
-        hidden = self._hide_overlay_items()
+        hidden: list[QGraphicsItem] = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+        painter = QPainter()
         try:
+            self._hide_overlay_items(hidden)
             self._self_dirty_rects = [
                 item.sceneBoundingRect().adjusted(-1, -1, 1, 1)
                 for item in hidden
                 if not (item.flags() & ignore_flag)
             ]
-            painter = QPainter(pixmap)
+            painter.begin(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             # A scene.render is not a viewport paint: disable item caches, or a
             # cached styled path reports the whole item as its exposed rect and
@@ -250,8 +252,11 @@ class MinimapWidget(QWidget):
 
             with _uncached_items(self._canvas_scene), temporary_walk_cap():
                 self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
-            painter.end()
         finally:
+            # Whatever the render did: no live painter on the pixmap, and no
+            # item left suppressed or transparent.
+            if painter.isActive():
+                painter.end()
             self._restore_overlay_items(hidden)
 
         # Flip vertically to match the view's Y-flip transform
@@ -259,7 +264,9 @@ class MinimapWidget(QWidget):
         self._check_auto_hide()
         self.update()
 
-    def _hide_overlay_items(self) -> list[QGraphicsItem]:
+    def _hide_overlay_items(
+        self, hidden: list[QGraphicsItem] | None = None
+    ) -> list[QGraphicsItem]:
         """Suppress screen-space and tool-overlay items before thumbnail render.
 
         Uses ``ItemHasNoContents`` rather than ``setVisible(False)``: Qt
@@ -279,9 +286,12 @@ class MinimapWidget(QWidget):
         for the render instead: opacity has no selection side effect.
 
         Returns the list of items that were suppressed (for later restore);
-        ``_faded`` remembers the opacity of the ones hidden that way.
+        ``_faded`` remembers the opacity of the ones hidden that way. A caller
+        that must restore even when this loop raises passes its own ``hidden``
+        list, which is filled as the items are suppressed.
         """
-        hidden: list[QGraphicsItem] = []
+        if hidden is None:
+            hidden = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
         no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
         selectable = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable

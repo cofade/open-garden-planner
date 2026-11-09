@@ -31,6 +31,13 @@ def _show(canvas) -> None:
 
 
 def _group(canvas) -> tuple[GroupItem, RectangleItem, RectangleItem]:
+    """Two rectangles grouped the way a user groups them: selected first.
+
+    The selection is load-bearing for the PF-CAN-48 pins. A member's handles are
+    created when it is selected, so they exist when the member joins the group,
+    and only such a child reports the group's selection (the precondition of
+    the minimap bug). Do not build the group without selecting the members.
+    """
     scene = canvas.scene()
     first = RectangleItem(0, 0, 100, 100)
     second = RectangleItem(200, 0, 100, 100)
@@ -535,9 +542,7 @@ def test_the_running_app_panel_follows_drill_down_focus(qtbot, monkeypatch) -> N
 
 def _running_app(qtbot, monkeypatch):
     from open_garden_planner.app.application import GardenPlannerApp
-    from open_garden_planner.app.settings import get_settings
 
-    get_settings().show_welcome_on_startup = False
     monkeypatch.setattr(
         QMessageBox,
         "question",
@@ -606,19 +611,31 @@ def test_the_running_app_keeps_the_member_focused_past_a_minimap_refresh(
 def test_a_focused_member_leaves_the_idle_window_quiet(qtbot, monkeypatch) -> None:
     """Hiding the handles by opacity must not restart the #305 render loop."""
     window, canvas, _group_obj, first, _second = _running_app(qtbot, monkeypatch)
-    _drill(canvas, first)
-    assert canvas.drill_down_item is first
-    QTest.qWait(1500)
-
     renders = {"n": 0}
-    original = window._minimap._do_update
+    faded = {"n": 0}
+    minimap = window._minimap
+    original = minimap._do_update
+    original_restore = minimap._restore_overlay_items
 
     def counted() -> None:
         renders["n"] += 1
         original()
 
-    window._minimap._update_timer.timeout.disconnect()
-    window._minimap._update_timer.timeout.connect(counted)
+    def counting_restore(hidden) -> None:
+        faded["n"] += len(minimap._faded)
+        original_restore(hidden)
+
+    minimap._update_timer.timeout.disconnect()
+    minimap._update_timer.timeout.connect(counted)
+    monkeypatch.setattr(minimap, "_restore_overlay_items", counting_restore)
+
+    _drill(canvas, first)
+    assert canvas.drill_down_item is first
+    QTest.qWait(1500)
+    # Positive control: the opacity path really ran while the member was focused;
+    # otherwise the quiet window below would prove nothing about it.
+    assert renders["n"] > 0 and faded["n"] > 0, (renders, faded)
+    renders["n"] = 0
     changed = {"n": 0}
     canvas.scene().changed.connect(
         lambda _rects: changed.__setitem__("n", changed["n"] + 1)

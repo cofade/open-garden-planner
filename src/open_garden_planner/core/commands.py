@@ -3119,9 +3119,10 @@ class SplitShapeCommand(Command):
     shape. Its linked ``ROOF_RIDGE`` is derived geometry that names its owner,
     so the source's ridge leaves and returns with the source, and every piece
     gets its own ridge from the one construction path
-    (``roof_ridge_link.build_copy_ridges``) on the first execute. Construct the
-    command while the source is still in the scene: that is when its ridge can
-    be looked up.
+    (``roof_ridge_link.build_copy_ridges``) on the first execute. A building
+    without a ridge (the user deleted it: a flat roof) gives pieces without one.
+    Construct the command while the source is still in the scene: that is when
+    its ridge can be looked up.
     """
 
     def __init__(
@@ -3157,7 +3158,9 @@ class SplitShapeCommand(Command):
                     build_copy_ridges,
                 )
 
-                self._piece_ridges = build_copy_ridges(self._pieces)
+                self._piece_ridges = (
+                    build_copy_ridges(self._pieces) if self._source_ridges else []
+                )
             for ridge in self._piece_ridges:
                 if ridge.scene() is None:
                     self._scene.addItem(ridge)

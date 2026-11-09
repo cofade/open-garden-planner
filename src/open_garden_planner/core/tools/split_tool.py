@@ -27,11 +27,10 @@ from PyQt6.QtWidgets import QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonIt
 
 from open_garden_planner.core.cad_geometry import snap_point_to_axis_step
 from open_garden_planner.core.item_look import (
-    adopt_type_fill,
+    adopt_rebuilt_type,
     copy_visual_style,
     paints_sprite,
 )
-from open_garden_planner.core.object_height import carry_height_across_type_change
 from open_garden_planner.core.shape_split import (
     polygon_type_for_split,
     segment_crosses_item,
@@ -396,16 +395,15 @@ class SplitShapeTool(BaseTool):
         # builds every piece its own, so no piece may name the old one.
         item.metadata.pop("ridge_item_id", None)
         copy_visual_style(source, item)
-        if paints_sprite(source):
-            # A sprite (a raised bed's wooden frame) cannot be drawn on a
-            # free-form outline. Its stored fill was never what the user saw,
-            # so a piece whose type had to change takes the new type's pattern
-            # (soil) instead of going flat brown. A shape painted by its own
-            # brush keeps the pattern the user gave it.
-            adopt_type_fill(item, source_type, polygon_type)
-        # A piece stands as tall as its source: the 40 cm of a raised bed is a
-        # type default the garden-bed pieces would otherwise lose.
-        carry_height_across_type_change(item.metadata, source_type, polygon_type)
+        # A piece whose type had to change stands as tall as its source (the
+        # 40 cm of a raised bed is a type default a garden bed lacks). A sprite
+        # (the raised bed's wooden frame) cannot be drawn on a free-form
+        # outline and its stored fill was never on screen, so such a piece
+        # takes its new type's pattern (soil) instead of going flat brown; a
+        # shape painted by its own brush keeps the pattern the user gave it.
+        adopt_rebuilt_type(
+            item, source_type, polygon_type, keep_fill=not paints_sprite(source)
+        )
         item._setup_styling()
         return item
 

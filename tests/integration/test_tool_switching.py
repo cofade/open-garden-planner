@@ -202,6 +202,81 @@ class TestEscapeReturnsToSelect:
         assert canvas.tool_manager.active_tool_type == ToolType.SELECT
         assert not overlay.isVisible()
 
+    def test_one_escape_finishes_a_text_annotation_and_returns_to_select(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The focused inline editor gets Esc first, then the tool ends.
+
+        The view sees keys before the scene: without the forwarding the tool
+        switch swallowed the key and the edit needed a second Esc.
+        """
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        item = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+        assert item._editing and canvas.scene().focusItem() is item
+        item.setPlainText("abc")
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert item._editing is False, "the edit needed a second Esc"
+        assert item.scene() is canvas.scene()
+        assert item.content == "abc"
+
+    def test_escape_on_an_empty_text_annotation_removes_it(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        assert any(isinstance(i, TextItem) for i in canvas.scene().items())
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+
+    def test_a_label_editor_under_a_drawing_tool_closes_on_the_first_escape(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        from PyQt6.QtTest import QTest
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+        bed = RectangleItem(100, 100, 300, 200)
+        bed.name = "Bed"
+        canvas.scene().addItem(bed)
+        canvas.set_active_tool(ToolType.RECTANGLE)
+        bed.start_label_edit()
+        editor = bed._edit_label_item
+        assert editor is not None and editor.isVisible()
+        # The editor takes the focus on the next event-loop turn.
+        qtbot.waitUntil(  # type: ignore[attr-defined]
+            lambda: canvas.scene().focusItem() is editor, timeout=2000
+        )
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert not editor.isVisible(), "the label editor needed a second Esc"
+        assert bed.name == "Bed"
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+
     def test_the_shortcuts_dialog_lists_escape(self, qtbot: object) -> None:
         from PyQt6.QtWidgets import QLabel
 
@@ -226,9 +301,7 @@ class TestEscapeReturnsToSelect:
         from PyQt6.QtWidgets import QMessageBox
 
         from open_garden_planner.app.application import GardenPlannerApp
-        from open_garden_planner.app.settings import get_settings
 
-        get_settings().show_welcome_on_startup = False
         monkeypatch.setattr(  # type: ignore[attr-defined]
             QMessageBox,
             "question",

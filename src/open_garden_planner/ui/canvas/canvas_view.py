@@ -1032,6 +1032,7 @@ class CanvasView(QGraphicsView):
         # The Dist/Angle prompt belongs to the previous tool's gesture. It is
         # re-shown by the next mouse move if the new tool wants one; without
         # this an Esc pressed with the mouse at rest left it over Select.
+        # (``getattr``: the attribute is typed ``object``, as at its other uses.)
         hide_overlay = getattr(self._dynamic_overlay, "hide_overlay", None)
         if callable(hide_overlay):
             hide_overlay()
@@ -3405,10 +3406,21 @@ class CanvasView(QGraphicsView):
 
         # Delegate to active tool first
         tool = self._tool_manager.active_tool
+        escape_ends_tool = (
+            event.key() == Qt.Key.Key_Escape
+            and getattr(tool, "tool_type", None) is not ToolType.SELECT
+        )
+        if escape_ends_tool and _in_text_edit:
+            # Innermost consumer first: the focused inline editor (a text
+            # annotation, a label) finishes its edit on this same Esc. The
+            # view sees keys before the scene, so without this the tool
+            # switch below would swallow the key and the edit would need a
+            # second Esc (senior review of PR #783).
+            super().keyPressEvent(event)
         handled = bool(tool and tool.key_press(event))
         # Esc always ends the active tool, whatever the tool cancelled itself:
         # the canvas is back on Select, as after V (manual test, PR #783).
-        if event.key() == Qt.Key.Key_Escape and self.return_to_select_tool():
+        if escape_ends_tool and self.return_to_select_tool():
             handled = True
         if handled:
             self.refresh_input_anchor()
@@ -5154,7 +5166,8 @@ class CanvasView(QGraphicsView):
         their standing point in the same undo step. So is a building with a
         roof ridge (a house, a greenhouse), like a garage: the ridge is derived
         from the outline, so every piece gets its own (``SplitShapeCommand``).
-        Only a ridge someone constrained keeps its building whole.
+        Only a ridge that is constrained or on a locked layer keeps its
+        building whole.
         """
         from open_garden_planner.core.object_types import is_plant_type
         from open_garden_planner.core.shape_boolean import item_to_local_painter_path
@@ -5192,7 +5205,11 @@ class CanvasView(QGraphicsView):
             return self.tr("A constrained shape cannot be split")
         if is_plant_type(item.object_type) or item.parent_bed_id is not None:
             return self.tr("Plants and linked objects cannot be split")
+        # The split removes the building's linked ridge with it, so the ridge
+        # is held to the same two rules as the shape itself.
         for ridge in linked_ridges_under(item):
+            if self._layer_is_locked_for(ridge):
+                return self.tr("The shape is on a locked layer")
             ridge_id = getattr(ridge, "item_id", None)
             if (
                 ridge_id is not None

@@ -1227,7 +1227,8 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   are re-homed to the piece that contains their standing point in the same undo step,
   so no plant is orphaned. A house or a greenhouse is split like a garage: its linked
   roof ridge leaves with it, every piece gets its own ridge, and undo restores the
-  original building and ridge; only a building whose ridge is constrained is refused.
+  original building and ridge. A building without a ridge (a flat roof) gives pieces
+  without one. A building whose ridge is constrained or on a locked layer is refused.
   A scene-wide cut splits the eligible crossed shapes and
   reports how many crossed objects could not be split; when nothing can be split, the
   reason is shown to the user.
@@ -1237,14 +1238,6 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   panels read (`CanvasView.effective_selection`). Clicking outside the member, pressing
   Esc, or selecting another object clears the focus. Nothing else does: the focus
   survives the minimap's refreshes and every other redraw of the running window.
-- **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
-  object-placing, CAD and constraint tool. A gesture in progress is cancelled with no
-  preview left behind and the distance/angle prompt is hidden. It works wherever the
-  keyboard focus is in the main window - the canvas, a panel, the object search field,
-  the status-bar coordinate field - as long as the focused widget does not use Esc
-  itself (an open search popup closes first). Narrower Esc meanings come first on the
-  canvas: cancelling a calibration, leaving vertex editing, leaving a group drill-down
-  and finishing an inline text edit. F1 lists the key under Drawing Tools.
 - **FR-DRILL-02:** While focused, a member can be moved by dragging its body or with the
   arrow keys, resized/rotated with its own handles, and its
   geometry/appearance/species/notes can be edited through the Properties panel; each
@@ -1255,6 +1248,16 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   from parameters. Nested groups drill one level per click; the focused member's inner
   outline is drawn by `GroupItem.paint` and disappears with the selection (exports clear
   it first).
+
+- **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
+  object-placing, CAD and constraint tool. A gesture in progress is cancelled with no
+  preview left behind and the distance/angle prompt is hidden. An inline text or label
+  edit that has the focus is finished by the same Esc. It works wherever the keyboard
+  focus is in the main window - the canvas, a panel, the object search field, the
+  status-bar coordinate field - as long as the focused widget does not use Esc itself
+  (an open search popup closes first). Three narrower meanings take an Esc of their own
+  first: cancelling a calibration, leaving vertex editing and leaving a group
+  drill-down. F1 lists the key under Drawing Tools.
 
 Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
 `tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`.

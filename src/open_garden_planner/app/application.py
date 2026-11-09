@@ -4802,11 +4802,9 @@ class GardenPlannerApp(QMainWindow):
         # An Esc that no focused widget consumed ends the active tool: right
         # after a tool was picked the focus is often in a panel or the search
         # field, not on the canvas (manual test, PR #783).
-        if event.key() == Qt.Key.Key_Escape:
-            return_to_select = getattr(self.canvas_view, "return_to_select_tool", None)
-            if callable(return_to_select) and return_to_select():
-                event.accept()
-                return
+        if event.key() == Qt.Key.Key_Escape and self.canvas_view.return_to_select_tool():
+            event.accept()
+            return
         super().keyPressEvent(event)
 
     def _on_toggle_grid(self, checked: bool) -> None:

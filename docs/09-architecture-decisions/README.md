@@ -11275,50 +11275,34 @@ every split source that has children; the existing plant→bed mutator moves eac
 plant to the new piece containing its standing point, and undo restores the source's
 links before the source itself comes back.
 
-**Addendum 2 (2026-11-09) — what the owner's manual test of PR #783 changed.**
+**Addendum 2 (2026-11-09) — decisions from the owner's manual test of PR #783.**
+Behaviour is specified in FR-35 and the mechanics in §8.35; this records what was
+decided and what was rejected.
 
-1. **A building with a ridge is split like a garage.** Refusing every ridge-bearing
-   building was the cheap answer to "the linked `ROOF_RIDGE` would be orphaned", and
-   the owner could not see why a garage split while a house and a greenhouse did not.
-   The ridge is derived geometry (ADR-046), so nothing has to be preserved:
-   `SplitShapeCommand` looks up the source's ridge while the source is still in the
-   scene (`linked_ridges_under`), removes it with the source, and on its first execute
-   builds every piece its own through the one construction path
-   (`roof_ridge_link.build_copy_ridges`, which also gives a greenhouse its aluminium
-   finish). Undo removes the pieces' ridges and brings the source back with its own;
-   redo reuses the ridges it built. A piece's copied metadata drops `ridge_item_id`
-   before that, so no piece names the old ridge. The roof-style keys travel with the
-   metadata. The one remaining refusal is a ridge someone constrained.
-2. **A rebuilt shape stands as tall as the shape it replaces.** A raised bed is 40 cm
-   by its TYPE default (ADR-037, rung 4) with nothing stored, and a piece of it is a
-   garden bed, whose default is "no height": the split silently sank the bed into the
-   ground. `object_height.carry_height_across_type_change` writes the height the object
-   had as an explicit `object_height_cm` when a real type change would alter the
-   resolved height and the user stored none. The corner tools and the loader's
-   raised-bed migration had the same loss, so `item_look.adopt_rebuilt_type` now holds
-   both halves of a rebuild's type change — the new type's fill pattern and the old
-   height — for those two callers. The Properties panel's type change is the user's own
-   decision and keeps following the new type's default.
-3. **A sprite's stored fill is not its look.** A raised bed is painted as a sprite, so
-   its stored `SOLID` fill was never on screen; copied to a garden-bed piece it became a
-   flat brown polygon. A piece of a sprite-painted source whose type had to change takes
-   the new type's fill pattern (`adopt_type_fill`: soil). A source painted by its own
-   brush keeps the user's pattern through the cut — the split's preservation promise,
-   which the corner tools' unconditional `adopt_type_fill` does not make. The wooden
-   frame itself stays a rectangle-only sprite (owner decision 2026-10-31): a piece is a
-   garden bed with soil and a height, which the 3D view builds as an edged bed.
-4. **Esc ends every tool.** Only `V` returned to Select; Esc cancelled a gesture in most
-   tools and did nothing when the focus was in a panel, where it usually is right after
-   a tool was picked. `CanvasView.return_to_select_tool` is the one rule: the canvas
-   calls it after the active tool's own `key_press`, and the main window's
-   `keyPressEvent` calls it for an Esc no focused widget consumed. Deactivating a tool
-   cancels its gesture, so no per-tool code was needed. Rejected: a window-level
-   `QShortcut` on Esc — it would pre-empt every line edit, popup and inline editor in
-   the window, and a second shortcut on one key fires neither (PF-UI-36).
-5. **The minimap must not touch a flag of a selected group's descendant.** The
-   drill-down focus lasted one minimap refresh (100 ms) in the real window: suppressing
-   the focused member's handles with `setFlag(ItemHasNoContents)` unselected the whole
-   group, because `setFlags` deselects an item that reports selected without being
-   selectable and a group descendant reports its group's selection. Those items are now
-   hidden by opacity for the thumbnail (PF-CAN-48). No bare-canvas test could see it;
-   the pins drive the real window with real clicks past a refresh.
+1. **A building with a ridge is split like a garage.** The first version refused every
+   ridge-bearing building because its linked `ROOF_RIDGE` would be orphaned. The ridge
+   is derived geometry (ADR-046), so nothing has to be preserved: `SplitShapeCommand`
+   removes the source's ridge with the source and builds every piece its own through
+   `roof_ridge_link.build_copy_ridges`. A source without a ridge (the user's flat roof)
+   gives pieces without one. A ridge that is constrained or on a locked layer still
+   refuses the split, like the shape itself.
+2. **A rebuild's type change keeps the height.** A raised bed's 40 cm is a per-type
+   default (ADR-037, rung 4); its garden-bed pieces had none. The height the object
+   stood at is written as an explicit `object_height_cm`
+   (`object_height.carry_height_across_type_change`), in the one entry point for a
+   rebuild's type change, `item_look.adopt_rebuilt_type`, which the split, the corner
+   tools and the loader's raised-bed migration share. Accepted trade-off: the piece then
+   shows a custom height, so a later manual type change no longer follows the new type's
+   default. The Properties panel's own type change is unchanged.
+3. **A sprite's stored fill is not its look.** A piece of a sprite-painted source takes
+   its new type's fill pattern; a source painted by its own brush keeps the user's
+   pattern (`adopt_rebuilt_type(keep_fill=...)`). The wooden frame stays a
+   rectangle-only sprite (owner decision 2026-10-31): a piece is a garden bed with soil
+   and a height, which the 3D view builds as an edged bed.
+4. **Esc ends every tool** through `CanvasView.return_to_select_tool`, called by the
+   canvas and, for an Esc no focused widget consumed, by the main window. Rejected: a
+   window-level `QShortcut` on Esc, which would pre-empt every line edit, popup and
+   inline editor in the window (and a second shortcut on one key fires neither,
+   PF-UI-36). The focused inline editor receives the same Esc first.
+5. **The minimap hides a selected group's descendants by opacity** instead of a flag
+   (PF-CAN-48).

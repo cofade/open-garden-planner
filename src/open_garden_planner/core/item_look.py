@@ -243,6 +243,8 @@ def adopt_rebuilt_type(
     item: Any,
     previous_type: ObjectType | None,
     new_type: ObjectType | None,
+    *,
+    keep_fill: bool = False,
 ) -> None:
     """Everything a rebuild's type change owes the object, in one place.
 
@@ -253,12 +255,18 @@ def adopt_rebuilt_type(
     corner tools and the loader's migration all call this, so a rebuilt raised
     bed cannot be textured and 40 cm tall on one path and flat brown on another
     (manual test 2 of PR #783). Call it AFTER the item's metadata is in place.
+
+    ``keep_fill`` leaves the copied fill pattern alone. The split passes it for
+    a source that is painted by its own brush (FR-SPLIT-02 promises the user's
+    pattern survives a cut); a sprite-painted source's stored fill was never on
+    screen, so its pieces take the new type's pattern like everyone else's.
     """
     from open_garden_planner.core.object_height import (
         carry_height_across_type_change,
     )
 
-    adopt_type_fill(item, previous_type, new_type)
+    if not keep_fill:
+        adopt_type_fill(item, previous_type, new_type)
     metadata = getattr(item, "metadata", None)
     if isinstance(metadata, dict):
         carry_height_across_type_change(metadata, previous_type, new_type)
