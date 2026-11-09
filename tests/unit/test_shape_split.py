@@ -135,6 +135,9 @@ def test_a_segment_crosses_only_the_shapes_it_reaches(qtbot) -> None:
     assert segment_crosses_path(path, QPointF(0, 150), QPointF(400, 150)) is True
     assert segment_crosses_path(path, QPointF(150, 120), QPointF(250, 180)) is True
     assert segment_crosses_path(path, QPointF(80, 140), QPointF(160, 60)) is True
+    # Through two opposite corners: the interior interval survives duplicate
+    # crossing parameters at each vertex.
+    assert segment_crosses_path(path, QPointF(50, 50), QPointF(250, 250)) is True
     # Collinear with the shape but far short of it: the drawn line never arrives.
     assert segment_crosses_path(path, QPointF(0, 150), QPointF(50, 150)) is False
     assert segment_crosses_path(path, QPointF(0, 150), QPointF(0, 150)) is False
