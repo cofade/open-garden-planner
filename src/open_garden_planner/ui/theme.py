@@ -3,15 +3,17 @@
 Provides light and dark color schemes with comprehensive styling.
 """
 
+import atexit
 import contextlib
 import logging
-import os
+import shutil
 import tempfile
 from collections.abc import Callable
+from pathlib import Path
 
 from PyQt6 import sip
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QPainter, QPixmap
+from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPalette, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
 from open_garden_planner.models.theme import ThemeMode as ThemeMode
@@ -55,6 +57,8 @@ class ThemeColors:
         "warning": "#ef6c00",
         "error": "#d32f2f",
         "info": "#1565c0",
+        # Hyperlinks in rich text (QPalette.Link): 4.5:1 on every surface
+        "link": "#1565c0",
         # Text on a saturated status surface (notification banners, badges)
         "on_status": "#ffffff",
         # UI element colors
@@ -119,6 +123,7 @@ class ThemeColors:
         "warning": "#ffa726",
         "error": "#ef5350",
         "info": "#64b5f6",
+        "link": "#64b5f6",
         # Dark mode's saturated status surfaces are lighter — dark text reads
         "on_status": "#1a1e1a",
         # UI element colors
@@ -168,20 +173,93 @@ class ThemeColors:
     def detect_system_theme() -> ThemeMode:
         """Detect the system's preferred color scheme.
 
+        Asks Qt's colour scheme, NEVER ``QApplication.palette()``: since #791 the
+        application palette is the app's own (``apply_theme`` sets it), so a
+        detection that read it would find the app's last theme and could never
+        follow the system again (PF-UI-37). While an explicit theme is applied
+        the scheme is pinned to it, so this answers "the theme on screen" then.
+
         Returns:
             ThemeMode.DARK if system prefers dark, ThemeMode.LIGHT otherwise
         """
-        # Qt 6.5+ has better dark mode detection, but for compatibility
-        # we'll check the application's palette
-        palette = QApplication.palette()
-        window_color = palette.color(palette.ColorRole.Window)
-
-        # If the background is dark (low luminance), use dark theme
+        scheme = _system_color_scheme()
+        if scheme == Qt.ColorScheme.Dark:
+            return ThemeMode.DARK
+        if scheme == Qt.ColorScheme.Light:
+            return ThemeMode.LIGHT
+        # No scheme (the offscreen platform, old desktops): the style's own
+        # palette — still not the application's.
+        style = QApplication.style()
+        if style is None:
+            return ThemeMode.LIGHT
+        window_color = style.standardPalette().color(QPalette.ColorRole.Window)
         luminance = (0.299 * window_color.red() +
                      0.587 * window_color.green() +
                      0.114 * window_color.blue()) / 255.0
 
         return ThemeMode.DARK if luminance < 0.5 else ThemeMode.LIGHT
+
+
+def _system_color_scheme() -> Qt.ColorScheme:
+    """Qt's current colour scheme — the seam tests replace to play a Windows mode."""
+    hints = QGuiApplication.styleHints()
+    return hints.colorScheme() if hints is not None else Qt.ColorScheme.Unknown
+
+
+def _pin_color_scheme(scheme: Qt.ColorScheme) -> None:
+    """Tell Qt which scheme the APP has; ``Unknown`` hands it back to the system.
+
+    The native style draws what no stylesheet rule covers (the toolbar's overflow
+    button, menu check marks, the calendar popup, message-box icons) in the
+    colours of Qt's scheme, and Qt's scheme is the operating system's unless the
+    application says otherwise. Without this a light app on a dark Windows gets
+    white glyphs on cream. A platform without schemes ignores the call.
+    """
+    hints = QGuiApplication.styleHints()
+    setter = getattr(hints, "setColorScheme", None)
+    if setter is None:
+        return
+    if scheme == Qt.ColorScheme.Unknown or hints.colorScheme() != scheme:
+        setter(scheme)
+
+
+def build_palette(colors: dict[str, str]) -> QPalette:
+    """The application palette of a theme: every role a widget, a rich-text
+    link or a ``palette(...)`` stylesheet value can read, from the tokens."""
+    palette = QPalette()
+    role = QPalette.ColorRole
+    roles = {
+        role.Window: "background",
+        role.WindowText: "text_primary",
+        role.Base: "input",
+        role.AlternateBase: "background_alt",
+        role.Text: "text_primary",
+        role.Button: "button",
+        role.ButtonText: "text_primary",
+        role.BrightText: "accent_text",
+        role.ToolTipBase: "surface",
+        role.ToolTipText: "text_primary",
+        role.PlaceholderText: "text_secondary",
+        role.Highlight: "selection",
+        role.HighlightedText: "text_primary",
+        role.Link: "link",
+        role.LinkVisited: "link",
+        role.Light: "surface",
+        role.Midlight: "surface_alt",
+        role.Mid: "border",
+        role.Dark: "text_secondary",
+        role.Shadow: "text_primary",
+        role.Accent: "accent",
+    }
+    for color_role, token in roles.items():
+        palette.setColor(color_role, QColor(colors[token]))
+    disabled = QPalette.ColorGroup.Disabled
+    for color_role in (role.WindowText, role.Text, role.ButtonText, role.PlaceholderText):
+        palette.setColor(disabled, color_role, QColor(colors["text_disabled"]))
+    for color_role in (role.Base, role.Button):
+        palette.setColor(disabled, color_role, QColor(colors["input_disabled"]))
+    palette.setColor(disabled, role.Highlight, QColor(colors["selection_inactive"]))
+    return palette
 
 
 # ---------------------------------------------------------------------------
@@ -318,27 +396,16 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     """
     colors = ThemeColors.get_colors(mode)
 
-    # Write tiny SVG arrow files to temp dir — Qt QSS image: url() requires
-    # file paths; inline data URIs are not supported by Qt's QSS image loader.
-    _c = colors["text_secondary"]
-    _tmp = tempfile.gettempdir()
-    _key = _c.lstrip("#")
-    _up_path = os.path.join(_tmp, f"ogp_arrow_up_{_key}.svg").replace("\\", "/")
-    _dn_path = os.path.join(_tmp, f"ogp_arrow_dn_{_key}.svg").replace("\\", "/")
-    # Path-based chevrons (a <text> glyph depended on the system font and
+    # Tiny SVG files for the glyphs a stylesheet needs — Qt QSS image: url()
+    # requires file paths; inline data URIs are not supported by its loader.
+    # Path-based shapes (a <text> glyph depended on the system font and
     # could render as an emoji box; #310).
-    with open(_up_path, "w", encoding="utf-8") as _f:
-        _f.write(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
-            f'<path d="M2 6.5 L5 3.5 L8 6.5" fill="none" stroke="{_c}" stroke-width="1.6" '
-            f'stroke-linecap="round" stroke-linejoin="round"/></svg>'
-        )
-    with open(_dn_path, "w", encoding="utf-8") as _f:
-        _f.write(
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
-            f'<path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="{_c}" stroke-width="1.6" '
-            f'stroke-linecap="round" stroke-linejoin="round"/></svg>'
-        )
+    _c = colors["text_secondary"]
+    _up_path = _glyph_file("arrow_up", _c, "M2 6.5 L5 3.5 L8 6.5")
+    _dn_path = _glyph_file("arrow_dn", _c, "M2 3.5 L5 6.5 L8 3.5")
+    _check_path = _glyph_file("check", colors["accent_text"], "M2 5.4 L4.2 7.5 L8 2.8")
+    _dash_path = _glyph_file("dash", colors["accent_text"], "M2.5 5 L7.5 5")
+    _check_off_path = _glyph_file("check_off", colors["text_disabled"], "M2 5.4 L4.2 7.5 L8 2.8")
 
     # Banner-button hover wash derived from on_status so it flips with the
     # mode (a white wash is imperceptible over dark-on-amber in dark mode).
@@ -705,11 +772,52 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         color: {colors['text_disabled']};
     }}
 
+    /* An indicator is seen by its OUTLINE: text_secondary reaches 3:1 on every
+       surface in both palettes, the border token (1.5:1) does not (#791). The
+       native style draws these in the operating system's scheme, so without a
+       rule an empty box vanished on the app's light theme on a dark Windows. */
+    QCheckBox::indicator, QGroupBox::indicator, QAbstractItemView::indicator {{
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        border: 2px solid {colors['text_secondary']};
+        background-color: {colors['input']};
+    }}
+
+    QCheckBox::indicator:hover, QGroupBox::indicator:hover,
+    QAbstractItemView::indicator:hover {{
+        border-color: {colors['accent']};
+    }}
+
+    QCheckBox::indicator:checked, QGroupBox::indicator:checked,
+    QAbstractItemView::indicator:checked {{
+        background-color: {colors['accent']};
+        border-color: {colors['accent']};
+        image: url("{_check_path}");
+    }}
+
+    QCheckBox::indicator:indeterminate, QAbstractItemView::indicator:indeterminate {{
+        background-color: {colors['accent']};
+        border-color: {colors['accent']};
+        image: url("{_dash_path}");
+    }}
+
+    QCheckBox::indicator:disabled, QGroupBox::indicator:disabled,
+    QAbstractItemView::indicator:disabled {{
+        border-color: {colors['text_disabled']};
+        background-color: {colors['input_disabled']};
+    }}
+
+    QCheckBox::indicator:checked:disabled, QGroupBox::indicator:checked:disabled,
+    QAbstractItemView::indicator:checked:disabled {{
+        image: url("{_check_off_path}");
+    }}
+
     QRadioButton::indicator {{
         width: 14px;
         height: 14px;
-        border-radius: 7px;
-        border: 2px solid {colors['border']};
+        border-radius: 9px;
+        border: 2px solid {colors['text_secondary']};
         background-color: {colors['input']};
     }}
 
@@ -1161,6 +1269,31 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     """
 
 
+_glyph_dir: Path | None = None
+
+
+def _glyph_file(name: str, color: str, path_data: str) -> str:
+    """Write one stroked 10 x 10 glyph and return its path for ``image: url()``.
+
+    Into a directory of this process alone (``mkdtemp``: an unpredictable name
+    only its owner can read), removed at exit — never a fixed name in the shared
+    temp directory, which another local user could plant first (CWE-377, §8.11).
+    """
+    global _glyph_dir
+    if _glyph_dir is None or not _glyph_dir.is_dir():
+        _glyph_dir = Path(tempfile.mkdtemp(prefix="ogp-theme-"))
+        atexit.register(shutil.rmtree, _glyph_dir, ignore_errors=True)
+    target = _glyph_dir / f"{name}_{color.lstrip('#')}.svg"
+    if not target.exists():
+        target.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">'
+            f'<path d="{path_data}" fill="none" stroke="{color}" stroke-width="1.6" '
+            'stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            encoding="utf-8",
+        )
+    return target.as_posix()
+
+
 def _set_windows_dark_titlebar(window, dark: bool) -> None:
     """Set Windows title bar to dark or light mode (Windows 10 1809+).
 
@@ -1219,11 +1352,26 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
     """
     global _current_colors
 
+    # A system-following theme first hands Qt's scheme back to the operating
+    # system, THEN asks it; an explicit theme pins the scheme after resolving.
+    if mode == ThemeMode.SYSTEM:
+        _pin_color_scheme(Qt.ColorScheme.Unknown)
+
     # Publish the resolved palette BEFORE restyling so listeners and
     # re-polished widgets that call theme_color() during the restyle
     # already see the new values.
     colors = ThemeColors.get_colors(mode)
     _current_colors = colors
+
+    # ONE theme, three carriers (#791): Qt's colour scheme (what the native
+    # style draws), the application palette (what `palette(...)`, rich-text
+    # links and item views read) and the stylesheet. Leave one of them to the
+    # operating system and the app's light theme is unreadable on a dark Windows.
+    if mode != ThemeMode.SYSTEM:
+        _pin_color_scheme(
+            Qt.ColorScheme.Dark if colors is ThemeColors.DARK else Qt.ColorScheme.Light
+        )
+    app.setPalette(build_palette(colors))
 
     stylesheet = generate_stylesheet(mode)
     app.setStyleSheet(stylesheet)

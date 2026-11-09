@@ -87,7 +87,8 @@ class SeedInventoryView(QWidget):
         top_row.addWidget(title_lbl)
         top_row.addStretch()
         self._stats_lbl = QLabel()
-        self._stats_lbl.setStyleSheet("color: palette(text); font-size: 9pt;")
+        set_text_role(self._stats_lbl, color_role="secondary")
+        self._stats_lbl.setStyleSheet("font-size: 9pt;")
         top_row.addWidget(self._stats_lbl)
         layout.addLayout(top_row)
 

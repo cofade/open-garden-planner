@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.ui.theme import set_text_role
+
 
 class CalibrationDialog(QDialog):
     """Dialog for calibrating background image scale using two points.
@@ -74,7 +76,8 @@ class CalibrationDialog(QDialog):
 
         # Status label
         self._status_label = QLabel(self.tr("Click the first point on the image"))
-        self._status_label.setStyleSheet("color: palette(highlight); font-weight: bold;")
+        set_text_role(self._status_label, color_role="info")
+        self._status_label.setStyleSheet("font-weight: bold;")
         layout.addWidget(self._status_label)
 
         # Distance input

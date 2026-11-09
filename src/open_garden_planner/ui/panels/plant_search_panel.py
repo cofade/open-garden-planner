@@ -175,7 +175,7 @@ class PlantSearchPanel(QWidget):
 
         # Results count label
         self.results_label = QLabel(self.tr("No plants in project"))
-        self.results_label.setStyleSheet("color: palette(text);")
+        set_text_role(self.results_label, color_role="secondary")
         layout.addWidget(self.results_label)
 
         # Results list
