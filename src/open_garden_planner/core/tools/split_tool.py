@@ -1,12 +1,12 @@
-"""Split every closed shape crossed by a two-point cutting line (#664).
+"""Split every eligible closed shape crossed by a two-point cutting line (#664).
 
 The toolbar's Split tool is scene-wide: it takes two snapped points and cuts
-every closed shape that the drawn segment passes through along the segment's
-infinite supporting axis. A shape the segment crosses end to end becomes two
-(or more) pieces; a shape the segment clips is cut along the same axis when
-both resulting pieces are large enough to keep. A segment that only touches an
-outline (a corner, an edge, a tangent) is not a crossing. Every cut of one
-gesture is one undo step.
+every eligible closed shape that the drawn segment passes through along the
+segment's infinite supporting axis. A shape the segment crosses end to end
+becomes two (or more) pieces; a shape the segment clips is cut along the same
+axis when both resulting pieces are large enough to keep. A segment that only
+touches an outline (a corner, an edge, a tangent) is not a crossing. Every cut
+of one gesture is one undo step.
 
 The context menu's ``Split Along Line…`` keeps the same gesture scoped to the
 clicked shape. ``Shift`` constrains the line to 45-degree steps; ``Esc``
@@ -101,7 +101,7 @@ class SplitShapeTool(BaseTool):
         """Scope the next cut to one shape, or clear the scope (``None``).
 
         The context menu passes the clicked shape; the toolbar and shortcut pass
-        ``None`` so the line splits every closed shape it crosses.
+        ``None`` so the line splits every eligible closed shape it crosses.
         """
         self.cancel()
         self.source_id = source_id

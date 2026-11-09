@@ -542,6 +542,7 @@ def test_the_shortcuts_dialog_lists_split(qtbot) -> None:
     titles = {group.title() for group in dialog.findChildren(QGroupBox)}
     assert "CAD Editing" in titles
     assert "Split along line" in labels
+    assert "Shift+S" in labels
 
 
 def test_the_split_shortcut_does_not_collide_with_snap(qtbot) -> None:
