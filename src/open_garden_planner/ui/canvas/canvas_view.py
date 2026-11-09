@@ -75,6 +75,10 @@ from open_garden_planner.core.commands import (
     iter_plant_parents,
 )
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
+from open_garden_planner.core.measurements import (
+    SCALE_BAR_NICE_DISTANCES_CM,
+    format_scale_distance,
+)
 from open_garden_planner.core.object_types import (
     ObjectType,
     is_bed_type,
@@ -4338,21 +4342,7 @@ class CanvasView(QGraphicsView):
             self.viewport().update()
 
     # Scale bar constants
-    _SCALE_BAR_NICE_DISTANCES = [
-        1,
-        2,
-        5,
-        10,
-        20,
-        50,
-        100,
-        200,
-        500,
-        1000,
-        2000,
-        5000,
-        10000,
-    ]
+    _SCALE_BAR_NICE_DISTANCES = SCALE_BAR_NICE_DISTANCES_CM
     _SCALE_BAR_MARGIN = 12
     _SCALE_BAR_TICK_H = 5
     _SCALE_BAR_LINE_WIDTH = 2
@@ -4370,13 +4360,7 @@ class CanvasView(QGraphicsView):
         Returns:
             Formatted string (e.g., "50 cm", "2 m", "1.5 km")
         """
-        if cm >= 100000:
-            km = cm / 100000
-            return f"{km:g} km"
-        if cm >= 100:
-            m = cm / 100
-            return f"{m:g} m"
-        return f"{cm:g} cm"
+        return format_scale_distance(cm)
 
     def _pick_scale_bar_distance(self) -> float:
         """Pick the best round distance for the scale bar at current zoom.

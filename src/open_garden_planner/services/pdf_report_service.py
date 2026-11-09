@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -10,6 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QCoreApplication, QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
+
+from open_garden_planner.core.measurements import (
+    SCALE_BAR_NICE_DISTANCES_CM,
+    format_scale_distance,
+)
 
 
 def _tr(text: str) -> str:
@@ -170,19 +176,71 @@ def _draw_north_arrow(painter: QPainter, cx: float, cy: float, size: float) -> N
     painter.restore()
 
 
+_SCALE_BAR_PREFERRED_CM = 1000.0   # 10 m, where it fits
+_SCALE_BAR_MIN_PT = 20.0           # shorter is a stub nobody can lay a ruler on
+_SCALE_BAR_MAX_PAGE_SHARE = 0.25   # longer is a banner
+
+
+def _fit_rect(source: QRectF, bounds: QRectF) -> QRectF:
+    """The largest rectangle of *source*'s aspect ratio inside *bounds*, centred.
+
+    ``QGraphicsScene.render`` keeps the source's aspect ratio and anchors the
+    picture at the target's corner. Rendering into this rectangle instead puts
+    the plan in the middle of its page, and makes ``width / source.width()``
+    the one true scale of the picture (#782).
+    """
+    if source.width() <= 0 or source.height() <= 0:
+        return QRectF(bounds)
+    scale = min(bounds.width() / source.width(), bounds.height() / source.height())
+    width = source.width() * scale
+    height = source.height() * scale
+    return QRectF(
+        bounds.left() + (bounds.width() - width) / 2.0,
+        bounds.top() + (bounds.height() - height) / 2.0,
+        width,
+        height,
+    )
+
+
+def _pick_pdf_scale_distance(pt_per_cm: float, page_width_pt: float) -> float:
+    """The round distance, in cm, that the overview's scale bar shows.
+
+    10 m where a bar of 10 m is between 20 pt and a quarter of the page;
+    otherwise the round distance nearest to 10 m that is. The bar is drawn at
+    exactly this distance, so its label is always its length.
+    """
+    longest = page_width_pt * _SCALE_BAR_MAX_PAGE_SHARE
+    fitting = [
+        float(d) for d in SCALE_BAR_NICE_DISTANCES_CM
+        if _SCALE_BAR_MIN_PT <= d * pt_per_cm <= longest
+    ]
+    if _SCALE_BAR_PREFERRED_CM in fitting:
+        return _SCALE_BAR_PREFERRED_CM
+    if fitting:
+        return min(fitting, key=lambda d: abs(math.log(d / _SCALE_BAR_PREFERRED_CM)))
+    # No round distance fits (a plan of many kilometres, or one of centimetres):
+    # the one whose bar is nearest the allowed range. Still drawn to scale.
+    target = math.sqrt(_SCALE_BAR_MIN_PT * longest)
+    return float(min(
+        SCALE_BAR_NICE_DISTANCES_CM,
+        key=lambda d: abs(math.log(max(d * pt_per_cm, 1e-9) / target)),
+    ))
+
+
 def _draw_scale_bar(
     painter: QPainter,
     left: float,
     bottom: float,
-    canvas_width_cm: float,
+    pt_per_cm: float,
     page_width_pt: float,
 ) -> None:
-    """Draw a 10 m scale bar below the plan overview."""
-    # Pick a round scale bar length: 10 m = 1000 cm
-    bar_m = 10
-    bar_cm = bar_m * 100
-    bar_pt = bar_cm / canvas_width_cm * page_width_pt
-    bar_pt = max(20.0, min(bar_pt, page_width_pt * 0.25))  # clamp
+    """Draw a scale bar of a round distance below the plan overview.
+
+    *pt_per_cm* is the scale the plan was drawn at. The bar is never clamped:
+    its length is its label's distance at that scale.
+    """
+    bar_cm = _pick_pdf_scale_distance(pt_per_cm, page_width_pt)
+    bar_pt = bar_cm * pt_per_cm
 
     pen = QPen(QColor("#333333"))
     pen.setWidthF(1.0)
@@ -196,10 +254,13 @@ def _draw_scale_bar(
     font = QFont("Arial", 5)
     painter.setFont(font)
     painter.setPen(QColor("#333333"))
+    # The label is centred on the bar but not squeezed into it: a short bar
+    # would clip its own text.
+    label_w = max(bar_pt, _pt(20))
     painter.drawText(
-        QRectF(left, y + _pt(1), bar_pt, _pt(6)),
+        QRectF(left + (bar_pt - label_w) / 2.0, y + _pt(1), label_w, _pt(6)),
         Qt.AlignmentFlag.AlignCenter,
-        f"{bar_m} m",
+        format_scale_distance(bar_cm),
     )
 
 
@@ -276,8 +337,9 @@ def _render_overview(
     )
 
     canvas_rect = scene.canvas_rect if hasattr(scene, "canvas_rect") else scene.sceneRect()
-    img = _scene_to_image(scene, canvas_rect, content_rect)
-    painter.drawImage(content_rect, img)
+    plan_rect = _fit_rect(canvas_rect, content_rect)
+    img = _scene_to_image(scene, canvas_rect, plan_rect)
+    painter.drawImage(plan_rect, img)
 
     # North arrow (top-right of content area)
     _draw_north_arrow(
@@ -287,12 +349,12 @@ def _render_overview(
         north_size,
     )
 
-    # Scale bar
+    # Scale bar, at the scale the plan was drawn at
     _draw_scale_bar(
         painter,
         content_rect.left() + _pt(4),
         content_rect.bottom(),
-        canvas_rect.width(),
+        plan_rect.width() / max(1.0, canvas_rect.width()),
         content_rect.width(),
     )
 
@@ -322,8 +384,9 @@ def _render_bed_detail(
     bed_scene_rect = bed_item.mapToScene(bed_item.boundingRect()).boundingRect()
     padding = max(bed_scene_rect.width(), bed_scene_rect.height()) * 0.1
     source = bed_scene_rect.adjusted(-padding, -padding, padding, padding)
-    img = _scene_to_image(scene, source, content_rect)
-    painter.drawImage(content_rect, img)
+    bed_rect = _fit_rect(source, content_rect)
+    img = _scene_to_image(scene, source, bed_rect)
+    painter.drawImage(bed_rect, img)
 
     bed_name = getattr(bed_item, "name", "") or _tr("Bed")
     _draw_title_block(painter, page_rect, f"{opts.project_name} – {bed_name}", opts.export_date)
