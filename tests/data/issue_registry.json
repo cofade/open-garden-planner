@@ -1158,5 +1158,20 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Editing a layer name shrinks text box vertically"
+  },
+  "786": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Spacing-overlap warnings are filled red discs that flood the family-garden example and every export"
+  },
+  "790": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Selection handles of a plant span its spacing ring; position and diameter labels overlap"
+  },
+  "793": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas legibility: scale-bar and object labels have no halo, note kerning breaks at zoom, grid draws over sprites"
   }
 }

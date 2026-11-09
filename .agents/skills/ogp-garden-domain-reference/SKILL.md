@@ -117,12 +117,15 @@ same `max_spread/2` used when species assignment resizes the footprint so
 diameter == `max_spread_cm` (#213) — and only resizes `if db_radius is not
 None`, so sparse species never collapse a plant to 0.
 
-**Spacing ring paint gate** (verified in `ui/canvas/items/circle_item.py`):
-the dashed ring draws only when `spacing_ring_radius_cm` is not None — i.e.
+**Spacing ring paint gate** (`CircleItem._painted_spacing_ring_cm`): the
+dashed ring draws only when `spacing_ring_radius_cm` is not None — i.e.
 effective spacing **strictly exceeds** the footprint (a ring inside the
-footprint conveys nothing) — **and** the item `isSelected()` *or* has a
-spacing-overlap state set. `_positive_number` rejects `bool` so `True` is
-never read as 1 cm.
+footprint conveys nothing) — **and** the item `isSelected()` *or* its state is
+`"overlap"`. A plant whose spacing is fine and that is not selected draws
+nothing (#786). The ring is a line, never a fill; an unselected crowded plant
+draws only the arcs that lie inside a conflicting neighbour's circle
+(`spacing_conflict_arcs`). No export shows it. `_positive_number` rejects
+`bool` so `True` is never read as 1 cm.
 
 Vocabulary: **spacing** = distance between plants (radius, cm); **spread** =
 mature canopy width (diameter, cm). The DB stores spread; spacing is derived.
@@ -221,9 +224,16 @@ deliberately does not report positive states (spacing `"ideal"`, rotation
 `application.py::_update_spacing_overlaps` (debounced timer + selection
 changed). Plants are grouped by `parent_bed_id` (orphans form their own
 group); only plants with a non-None `effective_spacing_radius()` participate.
-For each pair: **overlap iff `dist < radius_a + radius_b`** (spacing circles
-intersect → planted too densely for mature size). State is `"overlap"` or
-`"ideal"` per plant. Special case (US-C3b): a TRELLIS parent uses a **1-D
+For each pair **in the same storey**: **overlap iff `dist < radius_a +
+radius_b`** (spacing circles intersect → planted too densely for mature
+size). State is `"overlap"` or `"ideal"` per plant, and an overlapping plant
+also holds its conflicting neighbours' circles (`spacing_conflicts`).
+**Storeys** (`plant_sizing.spacing_storey`, ADR-028 addendum, #786): the
+species' `permaculture_layer` `canopy`/`sub_canopy` is the overstorey, the
+other five layers the understorey; without a recorded layer a `TREE` is
+overstorey. A tree is never compared with what grows under its crown — a
+guild's ground cover under its apple tree is the design, not a density error;
+its light is the sun evaluation's question. Special case (US-C3b): a TRELLIS parent uses a **1-D
 distance projected onto its rotation-aware long axis** — climbers are spaced
 along the bar; perpendicular offset is placement noise. Container capacity
 (`_update_container_capacity`) runs on the same triggers but is independent
@@ -472,7 +482,7 @@ grep -n "def make_calendar_task_id" -A 12 src/open_garden_planner/services/task_
 
 # Sizing precedence + ring gate
 grep -n "effective_spacing_radius_cm\|spacing_ring_radius_cm" src/open_garden_planner/core/plant_sizing.py
-grep -n "isSelected() or self._spacing_overlap" src/open_garden_planner/ui/canvas/items/circle_item.py
+grep -n "_painted_spacing_ring_cm\|spacings_conflict" src/open_garden_planner/ui/canvas/items/circle_item.py src/open_garden_planner/app/application.py
 
 # Location dict keys
 grep -n "def set_location" -A 8 src/open_garden_planner/core/project.py

@@ -396,7 +396,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             self._draw_grid_overlay(painter)
 
         # Draw crop rotation status indicator (colored inner border on beds)
-        if self._rotation_status is not None:
+        if self._rotation_status is not None and self._diagnostics_painted():
             _rotation_colors = {
                 "good": QColor(46, 125, 50, 160),       # Green
                 "suboptimal": QColor(245, 127, 23, 160),  # Amber

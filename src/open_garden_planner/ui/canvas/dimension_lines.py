@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
     QGraphicsPathItem,
     QGraphicsPolygonItem,
     QGraphicsScene,
-    QGraphicsSimpleTextItem,
 )
 
 from open_garden_planner.core.constraints import (
@@ -27,6 +26,7 @@ from open_garden_planner.core.constraints import (
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
+from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem
 
 # Colors
 COLOR_SATISFIED = QColor(0, 120, 200)  # Blue
@@ -543,7 +543,7 @@ class DimensionLineManager:
         # Distance text
         dist_m = target_distance / 100.0
         text_str = f"{dist_m:.2f} m"
-        text_item = QGraphicsSimpleTextItem(text_str)
+        text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -614,7 +614,7 @@ class DimensionLineManager:
         # Distance text
         dist_m = target_distance / 100.0
         text_str = f"↔ {dist_m:.2f} m"
-        text_item = QGraphicsSimpleTextItem(text_str)
+        text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -679,7 +679,7 @@ class DimensionLineManager:
         # Distance text
         dist_m = target_distance / 100.0
         text_str = f"↕ {dist_m:.2f} m"
-        text_item = QGraphicsSimpleTextItem(text_str)
+        text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -725,7 +725,7 @@ class DimensionLineManager:
 
         # Label badge at midpoint
         mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
-        text_item = QGraphicsSimpleTextItem(label)
+        text_item = HaloTextItem(label, centered=True)
         font = QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -784,7 +784,7 @@ class DimensionLineManager:
         group.items.append(diamond_item)
 
         # "⦿" label offset from the marker
-        text_item = QGraphicsSimpleTextItem("⦿")
+        text_item = HaloTextItem("⦿")
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -1070,7 +1070,7 @@ class DimensionLineManager:
 
         # "=" label at midpoint
         mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
-        text_item = QGraphicsSimpleTextItem("=")
+        text_item = HaloTextItem("=")
         font = QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -1150,7 +1150,7 @@ class DimensionLineManager:
 
         # "∥" label near the midpoint
         mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
-        text_item = QGraphicsSimpleTextItem("\u2225")
+        text_item = HaloTextItem("\u2225")
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -1193,7 +1193,7 @@ class DimensionLineManager:
 
         # "⊾" label near the midpoint
         mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
-        text_item = QGraphicsSimpleTextItem("\u22be")
+        text_item = HaloTextItem("\u22be")
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -1295,7 +1295,7 @@ class DimensionLineManager:
         else:
             label_pos = QPointF(axis_val + 6.0, (pos_a.y() + pos_b.y()) / 2.0 - 8.0)
 
-        text_item = QGraphicsSimpleTextItem("S")
+        text_item = HaloTextItem("S")
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -1392,7 +1392,7 @@ class DimensionLineManager:
             pos_b.y() + math.sin(mid_angle_rad) * label_r,
         )
         text_str = f"{target_angle_deg:.1f}°"
-        text_item = QGraphicsSimpleTextItem(text_str)
+        text_item = HaloTextItem(text_str)
         font = QFont()
         font.setPointSize(9)
         font.setBold(True)

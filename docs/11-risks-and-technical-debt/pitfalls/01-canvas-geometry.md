@@ -603,3 +603,23 @@ A wheelbarrow's sprite is 60 x 140 cm; drawn into a 140 x 60 rectangle it was re
 - **Legacy:** none (new entry)
 
 A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, deleted and sanitised by a dozen call sites. Teaching GREENHOUSE to be a building meant touching every one; a single missed `== HOUSE` would have left a greenhouse ridge that did not follow a move, a copy without its own ridge, or a load that dropped the link. The predicate lives in `core.roof_style.py` (Qt-free, kind names) and `core.object_types.is_ridge_bearing_type` (enum); `ChangeObjectTypeCommand` uses it for both the execute and undo halves, and `apply_ridge_look` gives a greenhouse its aluminium finish (and a house its brown) on build, type change and undo.
+
+### PF-CAN-51
+
+- **Rule:** Whatever marks an object (selection handles, the rotation handle, a label anchor) reads `handle_geometry.selection_frame_rect(item)`, never `boundingRect()`; and an `ItemIgnoresTransformations` label is centred or stacked in its own pixel frame, never by an offset written into its position.
+- **Pinned by:** `tests/integration/test_selection_frame.py`; `tests/integration/test_canvas_legibility.py::test_a_label_is_centred_on_its_object_at_every_zoom`
+- **Source:** #790, #793
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. See §8.9.16.
+
+### PF-CAN-52
+
+- **Rule:** Text that the view scales (a `TextItem` note) is laid out by design metrics with `PreferNoHinting` at its exact point size; text with a halo strokes the glyph outline path, because `drawText` with a wide pen outlines nothing.
+- **Pinned by:** `tests/integration/test_canvas_legibility.py::test_a_text_note_is_laid_out_by_design_metrics_at_its_exact_size`; `tests/integration/test_canvas_legibility.py::test_the_scale_bar_label_reads_on_every_background`
+- **Source:** #793
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A hinted font at a whole point size rounds every advance to the pixel grid of that one size; the zoom magnifies the rounding into uneven gaps ("thy me"). Measured on Windows over one line: glyph positions up to 10.25 px from linear before and 1.9 px after; worst letter gap at 3.3x zoom 2.85 px off before and 1.15 px after. The offscreen platform the suite runs on does not hint (0.0 px either way), so the test pins the font setup, not pixels. A label's contrast is measured, not judged: §8.9.14.

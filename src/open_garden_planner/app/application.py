@@ -4426,6 +4426,9 @@ class GardenPlannerApp(QMainWindow):
         # Desired final overlap state per plant, computed before any setter
         # call so each item is mutated at most once this pass.
         desired: dict[int, str | None] = {id(plant): None for plant in all_plants}
+        # Per plant, the spacing circles of the neighbours it is too close to
+        # (scene x, scene y, radius): the ring is drawn where it meets them.
+        conflicts: dict[int, list[tuple[float, float, float]]] = {}
 
         if self._spacing_circles_enabled:
             # Group plants by parent bed
@@ -4464,12 +4467,14 @@ class GardenPlannerApp(QMainWindow):
                     distance = self._trellis_axis_distance_fn(parent)
                 else:
                     distance = math.hypot
-                self._check_spacing_group(group, distance, desired)
+                self._check_spacing_group(group, distance, desired, conflicts)
             if orphans:
-                self._check_spacing_group(orphans, math.hypot, desired)
+                self._check_spacing_group(orphans, math.hypot, desired, conflicts)
 
         for plant in all_plants:
-            plant.set_spacing_overlap(desired[id(plant)])  # type: ignore[attr-defined]
+            plant.set_spacing_overlap(  # type: ignore[attr-defined]
+                desired[id(plant)], conflicts.get(id(plant), ())
+            )
 
     def _trellis_axis_distance_fn(self, trellis: object):
         """Return a 1-D distance callable projecting onto the trellis long axis.
@@ -4506,7 +4511,11 @@ class GardenPlannerApp(QMainWindow):
         return lambda dx, dy: abs(dx * ux + dy * uy)
 
     def _check_spacing_group(
-        self, plants: list, distance: object, desired: dict[int, str | None]
+        self,
+        plants: list,
+        distance: object,
+        desired: dict[int, str | None],
+        conflicts: dict[int, list[tuple[float, float, float]]] | None = None,
     ) -> None:
         """Compute spacing overlap decisions within a group of sibling plants.
 
@@ -4520,7 +4529,8 @@ class GardenPlannerApp(QMainWindow):
 
         Writes results into ``desired`` (keyed by ``id(plant)``) rather than
         calling setters directly — the caller applies each plant's final
-        value exactly once (issue #305).
+        value exactly once (issue #305). ``conflicts``, when given, collects
+        per plant the spacing circle of every neighbour it is too close to.
         """
         # Filter to plants that have spacing data
         with_data = [
@@ -4533,13 +4543,22 @@ class GardenPlannerApp(QMainWindow):
                 desired[id(p)] = "ideal"
             return
 
+        from open_garden_planner.core.plant_sizing import (
+            spacing_storey_for_item,
+            spacings_conflict,
+        )
+
         overlap_set: set[int] = set()
+        # A tree and what grows under its crown share ground on purpose, so a
+        # pair is compared within its storey only (core.plant_sizing, #786).
+        storeys = [spacing_storey_for_item(p) for p in with_data]
 
         for i, plant_a in enumerate(with_data):
             center_a = plant_a.mapToScene(plant_a.rect().center())
             radius_a = plant_a.effective_spacing_radius()
 
-            for plant_b in with_data[i + 1:]:
+            for j in range(i + 1, len(with_data)):
+                plant_b = with_data[j]
                 center_b = plant_b.mapToScene(plant_b.rect().center())
                 radius_b = plant_b.effective_spacing_radius()
 
@@ -4548,9 +4567,16 @@ class GardenPlannerApp(QMainWindow):
                     center_a.y() - center_b.y(),
                 )
 
-                if dist < radius_a + radius_b:
+                if spacings_conflict(dist, radius_a, radius_b, storeys[i], storeys[j]):
                     overlap_set.add(id(plant_a))
                     overlap_set.add(id(plant_b))
+                    if conflicts is not None:
+                        conflicts.setdefault(id(plant_a), []).append(
+                            (center_b.x(), center_b.y(), radius_b)
+                        )
+                        conflicts.setdefault(id(plant_b), []).append(
+                            (center_a.x(), center_a.y(), radius_a)
+                        )
 
         for plant in with_data:
             desired[id(plant)] = "overlap" if id(plant) in overlap_set else "ideal"

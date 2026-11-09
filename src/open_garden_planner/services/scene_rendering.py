@@ -29,38 +29,21 @@ from PyQt6.QtWidgets import (
 
 @contextmanager
 def _hidden_overlay_items(scene: QGraphicsScene) -> Iterator[None]:
-    """Temporarily hide selection handles + soil reminder badges."""
-    from open_garden_planner.ui.canvas.items.resize_handle import (
-        MidpointHandle,
-        RectCornerHandle,
-        ResizeHandle,
-        RotationHandle,
-        VertexHandle,
-    )
-    from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
+    """Temporarily hide selection handles, badges and diagnostic decorations.
 
-    handle_types = (
-        ResizeHandle,
-        RotationHandle,
-        MidpointHandle,
-        RectCornerHandle,
-        VertexHandle,
-        SoilBadgeItem,
-    )
-    hidden: list[object] = []
-    previously_selected = list(scene.selectedItems())
-    for item in scene.items():
-        if isinstance(item, handle_types) and item.isVisible():
-            item.setVisible(False)
-            hidden.append(item)
-    scene.clearSelection()
+    One list of what a picture of the plan leaves out, for every export path:
+    ``ExportService._hide_overlay_items`` owns it (SVG, PDF report and print
+    call it directly), and PNG, the thumbnails and the Agent API's render tool
+    reach it through here. Until #786 this function kept a second copy of the
+    type list, which had already fallen behind (no lock badge).
+    """
+    from open_garden_planner.services.export_service import ExportService
+
+    hidden, previously_selected = ExportService._hide_overlay_items(scene)
     try:
         yield
     finally:
-        for item in hidden:
-            item.setVisible(True)
-        for item in previously_selected:
-            item.setSelected(True)
+        ExportService._restore_overlay_items(hidden, previously_selected)
 
 
 @contextmanager

@@ -15,6 +15,24 @@ from PyQt6.QtWidgets import (
 )
 
 
+class _PaintedDiagnostics:
+    """A scene's painted diagnostic decorations, as one entry of the hidden-overlay list.
+
+    ``ExportService._hide_overlay_items`` hides overlay ITEMS one by one and
+    returns them; ``_restore_overlay_items`` shows each entry again. A spacing
+    ring or a soil border is painted by its garden item, so there is nothing to
+    hide per item: the scene switches them off together. This entry stands for
+    that switch, so showing it again switches the decorations back on and no
+    caller of the pair has to know about them (#786, §8.9.15).
+    """
+
+    def __init__(self, scene: QGraphicsScene) -> None:
+        self._scene = scene
+
+    def setVisible(self, visible: bool) -> None:
+        self._scene.set_diagnostic_overlays_visible(visible)
+
+
 class ExportService:
     """Service for exporting garden plans to PNG and SVG formats."""
 
@@ -68,7 +86,9 @@ class ExportService:
             the selection state can be restored after the render.
         """
         from open_garden_planner.ui.canvas.items.garden_item import (
+            GuildBadgeItem,
             LockBadgeItem,
+            SunBadgeItem,
         )
         from open_garden_planner.ui.canvas.items.resize_handle import (
             MidpointHandle,
@@ -89,12 +109,21 @@ class ExportService:
             VertexHandle,
             SoilBadgeItem,
             LockBadgeItem,
+            SunBadgeItem,
+            GuildBadgeItem,
         )
         hidden: list[object] = []
         for item in scene.items():
             if isinstance(item, handle_types) and item.isVisible():
                 item.setVisible(False)
                 hidden.append(item)
+
+        # The diagnostic decorations a garden item paints itself (spacing ring,
+        # companion ring, antagonist / capacity badge, soil and rotation border)
+        # are no scene items: the scene switches them off as one (#786).
+        if getattr(scene, "diagnostic_overlays_visible", False):
+            scene.set_diagnostic_overlays_visible(False)
+            hidden.append(_PaintedDiagnostics(scene))
 
         previously_selected = list(scene.selectedItems())
         scene.clearSelection()
