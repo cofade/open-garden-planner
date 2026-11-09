@@ -64,6 +64,19 @@ PHOTO_SUN = (5.9, 250.0)
 #: reported horizon band.
 PICTURE_BAND = (0.36, 0.44)
 PICTURE_SKY = 0.18
+#: The blur's measuring tile (#743): 60 px of the picture it is measured in. A tile whose sharp
+#: picture has less gradient than this (levels per pixel) is flat (sky, a lawn far off) and says
+#: nothing about blur.
+BLUR_TILE = 60
+BLUR_FLAT = 1.0
+#: The picture the slider is pinned in, and the save the preview is compared with (a whole
+#: multiple of the view's own size, so that the save shrinks to the preview by area means).
+SLIDER_PICTURE = (1280, 720)
+SAVE_HEIGHT = 2160
+#: Where the slider's focus is clicked in the view (logical px): the crown of the tree left of
+#: the house, about 21 m out, a body that fills its tile. A click on the poplar's trunk in the
+#: middle kept 0.67 of its tile at blur 1, rightly: the tile is mostly lawn metres behind it.
+FOCUS_CLICK = (180.0, 150.0)
 
 
 def pump(ms: float) -> None:
@@ -93,6 +106,97 @@ def difference(first: Any, second: Any) -> dict[str, float]:
     delta = np.abs(first - second)
     return {"mean": round(float(delta.mean()), 3), "p99": float(np.percentile(delta, 99)),
             "max": int(delta.max())}
+
+
+def luma_of(pixels: Any) -> Any:
+    return (0.2126 * pixels[..., 0] + 0.7152 * pixels[..., 1]
+            + 0.0722 * pixels[..., 2]).astype(np.float64)
+
+
+def shrink(luma: Any, factor: int) -> Any:
+    """Area means of ``factor`` x ``factor`` blocks: a big picture seen at a small size."""
+    height, width = luma.shape[0] // factor, luma.shape[1] // factor
+    return luma[:height * factor, :width * factor].reshape(height, factor, width, factor).mean(axis=(1, 3))
+
+
+def gradient_tiles(luma: Any, tile: int) -> Any:
+    """The mean absolute luma step to the right and downwards, per ``tile`` x ``tile`` block."""
+    step = np.zeros_like(luma)
+    step[:, :-1] += np.abs(np.diff(luma, axis=1))
+    step[:-1, :] += np.abs(np.diff(luma, axis=0))
+    rows, columns = luma.shape[0] // tile, luma.shape[1] // tile
+    return step[:rows * tile, :columns * tile].reshape(rows, tile, columns, tile).mean(axis=(1, 3))
+
+
+def gradient_ratios(blurred: Any, sharp: Any, tile: int = BLUR_TILE) -> Any:
+    """Per tile: how much of the sharp picture's detail the blurred one keeps (1 = all of it).
+    NaN where the sharp tile is flat."""
+    kept, there = gradient_tiles(blurred, tile), gradient_tiles(sharp, tile)
+    return np.where(there >= BLUR_FLAT, kept / np.maximum(there, 1e-9), np.nan)
+
+
+def blur_answers(host: Any, size: tuple[int, int], out: Path) -> dict[str, Any]:
+    """#743: what the blur does to a picture, measured in tiles of the picture's detail.
+
+    - ``parity``: the preview's size and a save of ``SAVE_HEIGHT`` of one camera and one blur,
+      the save shrunk to the preview's size by area means: the gradient ratio per tile of each
+      against its own sharp picture. Qt's half-resolution blur gave 0.66 in the pane and 0.91 in a
+      4K save at blur 0.8 (3D review of #729).
+    - ``slider``: blur 0.05 and 1.0 with one focus, in ``SLIDER_PICTURE``: the share of tiles
+      that lost a fifth of their detail, and the ratio of the tile under the focus.
+    - ``zero``: blur 0 with a focus is the view, not a level apart.
+    """
+    from open_garden_planner.core.scene3d.photo import NO_PHOTO, PhotoSettings
+
+    host.grab("before the click")   # the engine picks in the frame it drew last: the view's
+    hit = host.pick(*FOCUS_CLICK)
+    focus = hit.point if hit is not None else HERO[1]
+    answers: dict[str, Any] = {"focus": [round(value, 1) for value in focus],
+                               "focus_item": hit.item_id if hit is not None else None}
+    host.set_photo(PhotoSettings(blur=0.0, focus_scene=focus))
+    answers["zero"] = difference(rgb(host.capture(size, photo=NO_PHOTO, label="sharp")),
+                                 rgb(host.capture(size, label="blur 0")))
+    factor = max(1, round(SAVE_HEIGHT / size[1]))
+    save = (size[0] * factor, size[1] * factor)
+    sharp_small = luma_of(rgb(host.capture(size, photo=NO_PHOTO, label="sharp")))
+    sharp_save = shrink(luma_of(rgb(host.capture(save, photo=NO_PHOTO, label="sharp save"))), factor)
+    host.set_photo(PhotoSettings(blur=0.8, focus_scene=focus))
+    preview = host.capture(size, label="preview")
+    saved = host.capture(save, label="save")
+    preview.save(str(out / "blur_preview.png"))
+    saved.scaled(size[0], size[1]).save(str(out / "blur_save_shrunk.png"))
+    small = gradient_ratios(luma_of(rgb(preview)), sharp_small)
+    large = gradient_ratios(shrink(luma_of(rgb(saved)), factor), sharp_save)
+    both = ~(np.isnan(small) | np.isnan(large))
+    rows, columns = small.shape
+    middle = np.zeros_like(both)
+    middle[rows // 3:rows - rows // 3, columns // 3:columns - columns // 3] = True
+    answers["parity"] = {
+        "save": list(save), "tiles": int(both.sum()),
+        "preview_mean": round(float(small[both].mean()), 3),
+        "save_mean": round(float(large[both].mean()), 3),
+        "mean_abs_difference": round(float(np.abs(small - large)[both].mean()), 3),
+        "worst_tile": round(float(np.abs(small - large)[both].max()), 3),
+        "preview_middle": round(float(small[both & middle].mean()), 3),
+        "save_middle": round(float(large[both & middle].mean()), 3)}
+    # the slider: one focus, a faint blur and the strongest
+    sharp = luma_of(rgb(host.capture(SLIDER_PICTURE, photo=NO_PHOTO, label="slider sharp")))
+    x, y = host.project(*focus)
+    column = int(x * SLIDER_PICTURE[0] / VIEW[0]) // BLUR_TILE
+    row = int(y * SLIDER_PICTURE[1] / VIEW[1]) // BLUR_TILE
+    slider: dict[str, Any] = {"focus_tile": [row, column]}
+    for blur in (0.05, 1.0):
+        host.set_photo(PhotoSettings(blur=blur, focus_scene=focus))
+        image = host.capture(SLIDER_PICTURE, label=f"slider {blur}")
+        image.save(str(out / f"blur_{blur}.png"))
+        ratios = gradient_ratios(luma_of(rgb(image)), sharp)
+        valid = ~np.isnan(ratios)
+        slider[str(blur)] = {"soft_share": round(float((ratios[valid] < 0.8).mean()), 3),
+                             "focus_ratio": round(float(ratios[row, column]), 3),
+                             "tiles": int(valid.sum())}
+    answers["slider"] = slider
+    host.set_photo(NO_PHOTO)
+    return answers
 
 
 def shown_host(out: Path, preset: str = "medium", *,
@@ -222,6 +326,7 @@ def scenario_host(out: Path) -> dict[str, Any]:
         result["photo_override"] = difference(view, plain)
         result["photo_kept"] = host.photo.exposure_ev == 1.0
         host.set_photo(NO_PHOTO)
+        result["blur"] = blur_answers(host, size, out)
         # memory: 30 pictures of a moving camera, with the view presenting
         before = committed_mb()
         spent = []
@@ -327,6 +432,8 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
     (OMSetRenderTargets on a released view) at the first focus click of an owner's manual test
     of #390. The picture is blurred in the shown window and in a capture, over and over, and
     the blur is really there."""
+    from PyQt6.QtCore import QObject
+
     from open_garden_planner.core.scene3d.photo import NO_PHOTO, PhotoSettings
 
     host, _sync = shown_host(out, "ultra")
@@ -336,6 +443,10 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
         size = (round(VIEW[0] * ratio), round(VIEW[1] * ratio))
         sharp = rgb(host.capture(size, label="sharp"))
         focus = HERO[1]   # what the hero camera looks at
+        # the environment's own switch: Ultra's reflections, and whether they stand down (#744)
+        environment = next(child for child in host._root.findChildren(QObject)
+                           if "ExtendedSceneEnvironment" in child.metaObject().className())
+        reflections = bool(environment.property("ssrEnabled"))
         rows: dict[str, Any] = {}
         for blur in (0.3, 1.0, 0.0, 1.0):
             host.set_photo(PhotoSettings(blur=blur, focus_scene=focus))
@@ -346,13 +457,96 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
             agent = rgb(host.capture(size, photo=NO_PHOTO, label=f"agent {blur}"))
             rows[str(blur)] = {"capture_vs_sharp": difference(sharp, made),
                                "agent_vs_sharp": difference(sharp, agent),
-                               "blur_drawn": bool(host._root.property("depthOfFieldActive"))}
+                               "blur_drawn": bool(host._root.property("depthOfFieldActive")),
+                               "reflections_drawn": bool(environment.property("ssrEnabled"))}
         host.set_photo(PhotoSettings())
         pump(300)
-        return {"rows": rows, "after": difference(sharp, rgb(host.capture(size, label="after")))}
+        return {"rows": rows, "reflections_without_blur": reflections,
+                "after": difference(sharp, rgb(host.capture(size, label="after")))}
     finally:
         host.close()
         pump(100)
+
+
+BENCH = Path(__file__).with_name("photoblur_bench.qml")
+
+
+def _bench_picture(size: tuple[int, int], blur_on: bool, out: Path) -> Any:
+    """One picture of ``photoblur_bench.qml`` at ``size``, read as luma (a shown window, an
+    explicit-size View3D, ``grabToImage`` driven by ``grabWindow``: the capture path's way)."""
+    from PyQt6.QtCore import QCoreApplication, QSize
+    from PyQt6.QtQuick import QQuickItem, QQuickView
+
+    view = QQuickView()
+    view.setResizeMode(QQuickView.ResizeMode.SizeViewToRootObject)
+    view.setInitialProperties({"pictureWidth": size[0], "pictureHeight": size[1], "blurOn": blur_on})
+    view.setSource(QUrl.fromLocalFile(str(BENCH)))
+    if view.errors():
+        raise RuntimeError("; ".join(error.toString() for error in view.errors()))
+    view.show()
+    try:
+        if wait_until(lambda: view.isExposed() and view.isSceneGraphInitialized(), 20.0) is None:
+            raise RuntimeError("the bench window never got a frame")
+        pump(50)
+        item = view.rootObject().findChild(QQuickItem, "bench")
+        result = item.grabToImage(QSize(*size))
+        view.grabWindow()
+        QCoreApplication.sendPostedEvents(result, 0)
+        image = result.image()
+        image.save(str(out / f"bench_{size[1]}_{'blur' if blur_on else 'sharp'}.png"))
+        return luma_of(rgb(image))
+    finally:
+        view.close()
+        view.deleteLater()
+        pump(50)
+
+
+def _bench_answers(sharp: Any, blurred: Any) -> dict[str, Any]:
+    """The bench's measures, positions given in a 2160 px picture and scaled to this one."""
+    scale = sharp.shape[0] / 2160.0
+
+    def at(value: float) -> int:
+        return round(value * scale)
+
+    rows = slice(at(950), at(1250))
+    # in-focus white bar on the far wall: the wall's first pixels beside it, against the wall
+    profile = sharp[rows].mean(axis=0)
+    right = at(1400) + int(np.argmax(profile[at(1400):] < 100.0))
+    left = at(1300) + int(np.argmax(profile[at(1300):] > 200.0)) - 1
+    wall = float(blurred[rows, right + at(90):right + at(90) + 10].mean())
+    fringe = max(float((blurred[rows, right:right + 3].mean(axis=0) - wall).max()),
+                 float((blurred[rows, left - 2:left + 1].mean(axis=0) - wall).max()))
+    # the thin line on the far wall: its width and its humps
+    line = blurred[at(900):at(1000), at(2482):at(2782)].mean(axis=0)
+    line = np.convolve(line, np.ones(3) / 3.0, mode="same")[2:-2]
+    base = float(np.median(np.r_[line[:5], line[-5:]]))
+    top = float(line.max()) - base
+    above = np.where(line - base >= 0.5 * top)[0]
+    humps = sum(1 for index in range(1, len(line) - 1)
+                if line[index] > line[index - 1] and line[index] >= line[index + 1]
+                and line[index] - base > 0.3 * top)
+    # the near bar's right edge over the sharp panel: 10-90 % rise; and the bar's own rim
+    edge = blurred[at(1485):at(1565), at(2180):at(2420)].mean(axis=0)
+    low, high = float(edge.min()), float(edge.max())
+    rise = int(np.argmax(edge > low + 0.9 * (high - low))) - int(np.argmax(edge > low + 0.1 * (high - low)))
+    inner = blurred[at(1485):at(1565), at(2173):at(2261)].mean(axis=0)
+    return {"fringe": round(fringe, 2), "line_width_share": round(float(above[-1] - above[0] + 1) / sharp.shape[0], 5),
+            "line_humps": humps, "near_edge_share": round(rise / sharp.shape[0], 5),
+            "near_rim": round(float(inner.max() - inner[len(inner) // 2]), 2)}
+
+
+def scenario_blur_bench(out: Path) -> dict[str, Any]:
+    """#743's three defects of Qt's blur on a bench with known answers, at a preview's size and
+    at 4K: an in-focus colour reaching the blurred wall (fringe), a thin line drawn as copies,
+    and a blurred near bar with a hard edge (or a light rim, PF-E3D-27). And the same measures
+    in both sizes, as shares of the picture's height."""
+    answers: dict[str, Any] = {}
+    for size in ((640, 360), (3840, 2160)):
+        sharp = _bench_picture(size, False, out)
+        blurred = _bench_picture(size, True, out)
+        answers[str(size[1])] = {"blurred": _bench_answers(sharp, blurred),
+                                 "sharp": _bench_answers(sharp, sharp)}
+    return answers
 
 
 def scenario_soak(out: Path) -> dict[str, Any]:
@@ -757,7 +951,7 @@ SCENARIOS: dict[str, Callable[[Path], dict[str, Any]]] = {
     "detail": scenario_detail,
     "timelapse": scenario_timelapse, "agent": scenario_agent, "soak": scenario_soak,
     "daysoak": scenario_daysoak, "ultra_blur": scenario_ultra_blur,
-    "picture": scenario_picture,
+    "picture": scenario_picture, "blur_bench": scenario_blur_bench,
 }
 
 
