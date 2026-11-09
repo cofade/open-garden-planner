@@ -332,3 +332,23 @@ Symptom: `--analysis` on `bench_built` raised "the probe pin shows in 38 pixels 
 - **Legacy:** none (new entry)
 
 The old pergola was a 300 x 300 SVG stretched into the item's rectangle, while the 3D builder had its own post/rafter constants (two beams, no purlins): the owner saw a picture that did not match the model and could not scale it. `core/pergola.py` is now the one layout (four posts, four beams, nine rafters, five purlins, with the purlins' top at the item's height); `ui/canvas/items/pergola_paint.py`, the gallery thumbnail and `builders/structures._pergola` all consume it. The same rule made the glasshouse's glazing bays one constant (`core/greenhouse.py`) shared by the 2D bars and the 3D frame, and its ridge one linked `ROOF_RIDGE` rather than a fixed symbol.
+
+### PF-L3D-22
+
+- **Rule:** To give one sky another sky's brightness per elevation, match each ring to the other sky's GRADIENT without its sun, never to its ring means: a sun's glow in a reference ring is spread round the whole ring.
+- **Pinned by:** `tests/unit/test_scene3d_atmosphere_sky.py::test_every_ring_of_the_drawn_atmosphere_is_as_bright_as_the_painted_gradient`
+- **Source:** #716
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the first model of the atmosphere's per-elevation profile, which matched every ring of the atmosphere to the painted sky's mean over the azimuth, put a bright ring round the sky at the sun's elevation: away from a 60° sun the drawn sky rose from 0.0845 at 50° to 0.0996 at 60° and fell to 0.0910 at 75° (exposed units, about 10 %). Root cause: the painted sky's disc glow sits within about 25° of the sun, so its ring mean at the sun's elevation is higher than the rings beside it, and the normalisation copies that bump to every azimuth of the atmosphere. Fix: `atmosphere_lut.sky_profile` matches each ring to `painted_gradient` (the painted sky without its sun) times one glow factor from `_balance`, so the light on the ground is still the painted sky's; the atmosphere keeps its own halo round the sun.
+
+### PF-L3D-23
+
+- **Rule:** Do not derive a drawn sky's level by inverting its shader's exposure curve: the frame passes the scene's tone mapping after it. Calibrate a sky level in the frame, from the response to two known scales.
+- **Pinned by:** `tests/integration/test_view3d_looks_render.py::test_the_cloud_deck_meets_the_painted_horizon_without_a_band`
+- **Source:** #719
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: a two-source model of the cloud deck's level (the example's sun through its airmass, and the sky-view table's ambient samples, both computable on the CPU) fitted its constants to the deck's radiance recovered through `1 − exp(−x × probeExposure)` and missed by −74 % to +23 % over the sun. The same inversion gave the painted Overcast at 10° a lower radiance than the deck, although the frame shows it 19 luma brighter. Root cause: at the noon Overcast the painted sky's radiance there predicts 0.39 through the curve, and the frame reads 0.62: the scene's exposure and tone mapping act on the sky after `skyExposed`. Fix: the deck's anchor (`look.ATMOSPHERE_DECK_LEVEL` and `ATMOSPHERE_DECK_SUNSET`) is measured by rendering the deck at two known factors per sun elevation and solving for the factor in the frame (ADR-048 addendum on #716/#719).

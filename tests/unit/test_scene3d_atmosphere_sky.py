@@ -16,11 +16,18 @@ import pytest
 from open_garden_planner.app.settings import AppSettings
 from open_garden_planner.core.scene3d import SunState
 from open_garden_planner.core.scene3d.atmosphere_lut import (
+    EARTH_ATMOSPHERE,
+    _balance,
     _upper_hemisphere,
     atmosphere_gain,
+    drawn_radiance,
+    haze_share,
+    painted_gradient,
     painted_radiance,
+    sky_profile,
     sky_view_lut,
     sky_view_radiance,
+    sky_view_rgba16f,
     sky_view_uv,
     transmittance_lut,
 )
@@ -29,6 +36,8 @@ from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE,
     ATMOSPHERE_CLOUD_GAIN,
+    ATMOSPHERE_DECK_LEVEL,
+    ATMOSPHERE_DECK_SUNSET,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     ATMOSPHERE_THIN_CLOUD_LIFT,
@@ -45,6 +54,7 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     atmosphere_properties,
     atmosphere_sun_direction,
     cloud_light_gain,
+    deck_anchor,
     painted_sky,
 )
 
@@ -244,16 +254,134 @@ def test_the_clear_sky_is_blue_above_and_brightest_toward_the_sun() -> None:
 def test_the_gain_gives_the_atmosphere_the_painted_skys_light_on_the_ground(elevation: float) -> None:
     """The gain's DEFINITION: scaled by it, the atmosphere's cosine-weighted luminance
     over the upper hemisphere equals the painted sky's (the light balance of the accepted
-    look — measured on the GPU: the lit grass read the same, L7)."""
+    look — measured on the GPU: the lit grass read the same, L7), both over the sky AS
+    DRAWN: through the haze band each counts with the atmosphere's share (#716)."""
     sky = look_for(SunState(elevation, 225.0)).sky
     sun, painted = atmosphere_sun_direction(sky), painted_sky(sky)
     gain = atmosphere_gain(sun, painted)
     directions, weights = _upper_hemisphere()
+    share = haze_share(np.arcsin(directions[..., 2])) * weights
     luma = np.array([0.2126, 0.7152, 0.0722])
-    painted_light = float((painted_radiance(directions, painted, sun) @ luma * weights).sum())
-    atmosphere_light = float((sky_view_radiance(directions, sun) @ luma * weights).sum())
+    painted_light = float((painted_radiance(directions, painted, sun) @ luma * share).sum())
+    atmosphere_light = float((sky_view_radiance(directions, sun) @ luma * share).sum())
     assert gain > 0.0
     assert gain * atmosphere_light == pytest.approx(painted_light, rel=1e-9)
+    # the haze band is about 1 % of the light: the drawn sky's gain stays within 1.5 % of
+    # the bare ratio of L7 (measured: 0.9 % at a 6° sun, the most)
+    bare = (float((painted_radiance(directions, painted, sun) @ luma * weights).sum())
+            / float((sky_view_radiance(directions, sun) @ luma * weights).sum()))
+    assert gain == pytest.approx(bare, rel=0.015)
+
+
+# ── the profile: the gain per elevation (#716) ───────────────────────────────
+
+#: Sun elevations of the profile's gates: noon, golden hour, sunset, the setting sun and
+#: twilight.
+PROFILE_SUNS = (60.0, 15.0, 6.0, 2.0, 0.5, -3.0)
+_LUMA = np.array([0.2126, 0.7152, 0.0722])
+
+
+def _ring(elevation_deg: float, azimuth_rad: np.ndarray) -> np.ndarray:
+    el = math.radians(elevation_deg)
+    return np.stack((np.cos(el) * np.cos(azimuth_rad), np.cos(el) * np.sin(azimuth_rad),
+                     np.full_like(azimuth_rad, math.sin(el))), axis=-1)
+
+
+def _sky(elevation: float, weather: str = "clear") -> tuple:
+    look = (look_for(SunState(elevation, 300.0), "medium") if weather == "clear"
+            else living_look(SunState(elevation, 300.0), "medium", weather))
+    return look, atmosphere_sun_direction(look.sky), painted_sky(look.sky)
+
+
+@pytest.mark.parametrize("weather", ["clear", "partly_cloudy", "overcast"])
+@pytest.mark.parametrize("elevation", PROFILE_SUNS)
+def test_every_ring_of_the_drawn_atmosphere_is_as_bright_as_the_painted_gradient(
+        elevation: float, weather: str) -> None:
+    """#716: one gain for the whole sky left the atmosphere's 6-15° band 1.4-1.8x the
+    painted sky and its zenith 0.5-0.8x. Per elevation, the drawn atmosphere's mean over
+    the azimuth is the painted sky's GRADIENT (its sun left out: its glow spread round a
+    ring drew a bright ring at the sun's elevation) times one glow factor."""
+    _look, sun, painted = _sky(elevation, weather)
+    _gain, glow = _balance(sun, painted, EARTH_ATMOSPHERE)
+    assert 1.0 <= glow < 1.06, glow
+    azimuth = np.radians(np.arange(0.0, 360.0, 1.0) + 0.5)
+    for ring_elevation in (7.0, 12.0, 25.0, 45.0, 70.0, 88.0):
+        directions = _ring(ring_elevation, azimuth)
+        drawn = float((drawn_radiance(directions, sun, painted) @ _LUMA).mean())
+        target = glow * float(painted_gradient(math.radians(ring_elevation), painted) @ _LUMA)
+        assert drawn == pytest.approx(target, rel=0.004), ring_elevation
+    profile = sky_profile(sun, painted)
+    assert profile.shape == (128,) and not profile.flags.writeable
+    assert np.all(np.isfinite(profile)) and profile.min() > 0.0
+
+
+@pytest.mark.parametrize("elevation", PROFILE_SUNS)
+def test_the_sky_as_drawn_sends_the_painted_skys_light_onto_the_ground(elevation: float) -> None:
+    """The profile only REDISTRIBUTES the gain: the drawn sky - the painted sky through the
+    haze band, the profiled atmosphere above it - sends the painted sky's light onto a
+    horizontal surface, and the gain is the profile's mean weighted by the atmosphere's
+    own light. (The garden is lit by the painted probe under both models since L7's
+    revision, PF-E3D-17; this keeps the sky as bright as the light it stands for.)"""
+    _look, sun, painted = _sky(elevation)
+    directions, weights = _upper_hemisphere()
+    drawn = float((drawn_radiance(directions, sun, painted) @ _LUMA * weights).sum())
+    reference = float((painted_radiance(directions, painted, sun) @ _LUMA * weights).sum())
+    assert drawn == pytest.approx(reference, rel=0.002)
+
+
+def _exposed(radiance: np.ndarray, exposure: float) -> np.ndarray:
+    """``atmosphere.frag``'s ``skyExposed`` (and the painted skybox's ``qt_exposure``)."""
+    return 1.0 - np.exp(-np.asarray(radiance) * exposure)
+
+
+@pytest.mark.parametrize("elevation", PROFILE_SUNS)
+def test_the_clear_sky_never_darkens_on_the_way_down_to_the_horizon(elevation: float) -> None:
+    """#716's first gate in the model: away from the sun and across it, the drawn sky's
+    luminance never falls from 20° down to 0.5° (before: up to 0.11 of the exposed range
+    away from a 6° sun - the bright low band above the painted horizon of the haze band).
+    The render tier measures the same on the GPU (``--sky-bands``)."""
+    look, sun, painted = _sky(elevation)
+    azimuth = math.atan2(sun[1], sun[0])
+    elevations = np.arange(20.0, 0.49, -0.25)
+    for turn in (90.0, 180.0):
+        directions = np.array([_ring(e, np.array([azimuth + math.radians(turn)]))[0]
+                               for e in elevations])
+        lum = _exposed(drawn_radiance(directions, sun, painted,
+                                      weight=1.0 - look.sky.twilight) @ _LUMA,
+                       look.mood.probe_exposure)
+        assert float(np.max(np.maximum.accumulate(lum) - lum)) < 0.006, turn
+
+
+@pytest.mark.parametrize("elevation", [15.0, 6.0, 2.0, 0.5])
+def test_the_low_band_is_the_painted_skys_brightness(elevation: float) -> None:
+    """#716: the 6-15° band every board camera sees read 1.4-1.8x the painted sky. Over the
+    azimuth (toward : across : away = 1 : 2 : 1) the exposed band is within 1.15x - the
+    issue's bound at sunset - at every low sun."""
+    look, sun, painted = _sky(elevation)
+    azimuth = math.atan2(sun[1], sun[0])
+    drawn = reference = 0.0
+    for turn, weight in ((0.0, 1.0), (90.0, 2.0), (180.0, 1.0)):
+        for band in np.arange(6.0, 15.01, 0.5):
+            direction = _ring(band, np.array([azimuth + math.radians(turn)]))
+            drawn += weight * float(_exposed(drawn_radiance(direction, sun, painted) @ _LUMA,
+                                             look.mood.probe_exposure)[0])
+            reference += weight * float(_exposed(painted_radiance(direction, painted, sun) @ _LUMA,
+                                                 look.mood.probe_exposure)[0])
+    assert 0.85 < drawn / reference <= 1.15
+
+
+def test_the_table_carries_the_profile_in_its_alpha() -> None:
+    """The profile rides in the sky-view table's alpha (one value per row); without a
+    painted sky the alpha is 1, as the example's provider wrote it."""
+    _look, sun, painted = _sky(6.0)
+    plain = np.frombuffer(sky_view_rgba16f(sun), dtype="<f2").reshape(128, 128, 4)
+    shaped = np.frombuffer(sky_view_rgba16f(sun, painted), dtype="<f2").reshape(128, 128, 4)
+    assert np.array_equal(plain[..., :3], shaped[..., :3])
+    assert np.all(plain[..., 3] == 1.0)
+    assert np.allclose(shaped[..., 3], sky_profile(sun, painted)[:, None].astype(np.float16))
+    # a weather changes the profile at the same sun: the table must be refilled for it
+    _overcast_look, same_sun, grey = _sky(6.0, "overcast")
+    assert same_sun == sun and not np.allclose(sky_profile(sun, grey), sky_profile(sun, painted))
 
 
 def test_the_gain_rises_as_the_sun_sinks() -> None:
@@ -292,8 +420,48 @@ def test_the_clouds_are_lit_by_the_one_gain_of_the_atmosphere(weather: str) -> N
         inputs = atmosphere_properties(sky)
         lift = 1.0 + ATMOSPHERE_THIN_CLOUD_LIFT * (1.0 - sky.cloud) ** 2
         assert inputs["cloudLightGain"] == pytest.approx(
-            ATMOSPHERE_CLOUD_GAIN * inputs["atmosphereGain"] * lift)
+            ATMOSPHERE_CLOUD_GAIN * inputs["atmosphereGain"] * lift * deck_anchor(sky))
         assert inputs["cloudLightGain"] == pytest.approx(cloud_light_gain(sky, painted))
+
+
+def test_a_deck_takes_its_anchor_and_scattered_clouds_do_not() -> None:
+    """#719: nothing tied the deck's level to the painted horizon it meets at the haze band
+    (11-14 luma under it by day, 37-45 at sunset). Measured in the frame: by day one LEVEL,
+    taken as far as the deck is closed (Snow's 0.85 is 0.7 closed); toward sunset a SHAPE
+    per sun elevation, interpolated in log space and held beyond its rows, that every deck
+    (cloud >= 0.5, the overcast mood's boundary) takes in full. Partly cloudy's 0.4 takes
+    neither: its clouds keep the light the owner accepted."""
+    shape = dict(ATMOSPHERE_DECK_SUNSET)
+    elevations = [elevation for elevation, _factor in ATMOSPHERE_DECK_SUNSET]
+    assert elevations == sorted(elevations) and all(factor > 0.0 for factor in shape.values())
+    assert shape[max(elevations)] == 1.0, "by day the shape is 1: the level alone"
+    at = SunState(40.0, 200.0)
+    assert deck_anchor(living_look(at, "high", "partly_cloudy").sky) == 1.0
+    assert deck_anchor(look_for(at).sky) == 1.0
+    overcast = living_look(at, "high", "overcast").sky
+    assert deck_anchor(overcast) == pytest.approx(ATMOSPHERE_DECK_LEVEL), "a full deck by day"
+    snow = living_look(at, "high", "snow").sky
+    closed = (snow.cloud - 0.5) / 0.5
+    assert closed == pytest.approx(0.7)
+    assert deck_anchor(snow) == pytest.approx(ATMOSPHERE_DECK_LEVEL ** closed)
+    for row in (0.0, 2.0, -3.0):           # on a row: its factor, in full for both decks
+        assert deck_anchor(replace(overcast, sun_elevation_deg=row)) == pytest.approx(
+            ATMOSPHERE_DECK_LEVEL * shape[row])
+        assert deck_anchor(replace(snow, sun_elevation_deg=row)) == pytest.approx(
+            ATMOSPHERE_DECK_LEVEL ** closed * shape[row])
+    between = deck_anchor(replace(overcast, sun_elevation_deg=0.25))
+    assert between == pytest.approx(ATMOSPHERE_DECK_LEVEL * math.sqrt(shape[0.0] * shape[0.5]))
+    assert deck_anchor(replace(overcast, sun_elevation_deg=-12.0)) == pytest.approx(
+        ATMOSPHERE_DECK_LEVEL * shape[min(elevations)]), "held below the first row"
+
+
+def test_a_full_cover_diffuses_the_sun_side_of_the_decks_ambient() -> None:
+    """#719: the example lights its clouds' ambient from the clear sky beside the sun, by
+    how much each sample faces the sun; at a 0.5° sun that sample is the aerosol glow, and
+    a closed deck read 138 / 120 / 102 luma toward / across / away. A thick deck diffuses
+    it as it does the forward lobe (``CLOUD_DIFFUSION``): 126 / 120 / 119."""
+    code = (QML_DIR / "atmosphere.frag").read_text(encoding="utf-8")
+    assert "sunFacing = mix(sunFacing, 0.5, CLOUD_DIFFUSION * cloudCoverage);" in code
 
 
 def test_separate_clouds_stay_white_and_leave_the_disc_in_their_gaps() -> None:
@@ -307,7 +475,8 @@ def test_separate_clouds_stay_white_and_leave_the_disc_in_their_gaps() -> None:
     assert overcast["sunAlpha"] == 0.0
     assert partly["cloudLightGain"] == pytest.approx(
         ATMOSPHERE_CLOUD_GAIN * partly["atmosphereGain"] * (1.0 + ATMOSPHERE_THIN_CLOUD_LIFT * 0.36))
-    assert overcast["cloudLightGain"] == pytest.approx(ATMOSPHERE_CLOUD_GAIN * overcast["atmosphereGain"])
+    assert overcast["cloudLightGain"] == pytest.approx(
+        ATMOSPHERE_CLOUD_GAIN * overcast["atmosphereGain"] * ATMOSPHERE_DECK_LEVEL)
 
 
 def test_a_full_cover_diffuses_the_decks_forward_lobe() -> None:

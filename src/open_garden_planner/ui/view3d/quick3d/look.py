@@ -40,6 +40,8 @@ from open_garden_planner.core.scene3d.color import srgb_to_linear
 from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_direction_scene
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_CLOUD_GAIN,
+    ATMOSPHERE_DECK_LEVEL,
+    ATMOSPHERE_DECK_SUNSET,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     ATMOSPHERE_THIN_CLOUD_LIFT,
@@ -60,7 +62,7 @@ from open_garden_planner.core.scene3d.photo import (
 __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
            "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
            "atmosphere_properties", "atmosphere_sun_direction", "engine_hex", "engine_linear",
-           "cloud_light_gain", "painted_sky", "photo_properties",
+           "cloud_light_gain", "deck_anchor", "painted_sky", "photo_properties",
            "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
@@ -271,6 +273,26 @@ def painted_sky(sky: SkySpec) -> PaintedSky:
                       ground_curve=float(sky.ground_curve))
 
 
+#: The cloud from which the weather's clouds are a deck: the overcast mood's own
+#: boundary (``weather.mood_of``), where the disc starts to go (``sunAlpha``).
+DECK_FROM_CLOUD: Final = 0.5
+
+
+def deck_anchor(sky: SkySpec) -> float:
+    """How much more light a cloud DECK takes at this sun (#719): ``ATMOSPHERE_DECK_LEVEL``
+    to the power of how closed the deck is (0 at a cloud of 0.5, 1 at a full cover — the
+    measure ``sunAlpha`` takes: Snow's 0.85 is 0.7 closed), times ``ATMOSPHERE_DECK_SUNSET``
+    at the sun's elevation (log-linear between its rows, held beyond them). 1 below a
+    deck: Partly cloudy's scattered clouds keep their light."""
+    cloud = float(sky.cloud)
+    if cloud < DECK_FROM_CLOUD:
+        return 1.0
+    closed = min((cloud - DECK_FROM_CLOUD) / (1.0 - DECK_FROM_CLOUD), 1.0)
+    elevations, factors = zip(*ATMOSPHERE_DECK_SUNSET, strict=True)
+    sunset = float(np.exp(np.interp(float(sky.sun_elevation_deg), elevations, np.log(factors))))
+    return float(ATMOSPHERE_DECK_LEVEL) ** closed * sunset
+
+
 def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None = None) -> float:
     """The clouds' light in the painted sky's units: ``ATMOSPHERE_CLOUD_GAIN`` × the clear
     sky's gain at this sun (``sky_gain``: ``atmosphere_gain`` of this sky, when the caller
@@ -280,11 +302,12 @@ def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None =
     scattering, which ``atmosphere.frag`` now fades with the cover). The gain was
     calibrated on a full deck: separate clouds take ``ATMOSPHERE_THIN_CLOUD_LIFT`` × (1 −
     cover)² more on top, or Partly cloudy's noon clouds read as dark smoke on a brighter
-    sky (3D review of the owner's Partly cloudy: luma 167 on gaps of 207)."""
+    sky (3D review of the owner's Partly cloudy: luma 167 on gaps of 207). A closed deck
+    takes ``deck_anchor`` on top: its level meets the painted sky at the haze band (#719)."""
     gain = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
     cover = min(max(float(sky.cloud), 0.0), 1.0)
     return (float(ATMOSPHERE_CLOUD_GAIN) * float(gain)
-            * (1.0 + float(ATMOSPHERE_THIN_CLOUD_LIFT) * (1.0 - cover) ** 2))
+            * (1.0 + float(ATMOSPHERE_THIN_CLOUD_LIFT) * (1.0 - cover) ** 2) * deck_anchor(sky))
 
 
 def atmosphere_properties(sky: SkySpec) -> dict[str, object]:

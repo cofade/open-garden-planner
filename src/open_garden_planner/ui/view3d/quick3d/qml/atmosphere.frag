@@ -4,7 +4,7 @@
 //
 // Open Garden Planner (Phase 17 L7, #391): the atmosphere sky's SkyMaterial shader.
 // Qt's skymaterial example (advancedsky.frag, qtquick3d v6.12.0; MIT) up to its MAIN(),
-// with three marked changes in raymarchClouds(); MAIN() and the painted-sky base below
+// with four marked changes in raymarchClouds(); MAIN() and the painted-sky base below
 // the marked boundary are the app's (GPL-3.0-or-later). paintedSky() re-expresses the
 // arithmetic of Qt's ProceduralSkyTextureData (GPL-3.0-only): see PROVENANCE.md.
 // Provenance and licence texts: PROVENANCE.md and LICENSE-qt-skymaterial.txt beside this file.
@@ -85,7 +85,8 @@ float cloudDensityAt(vec3 pos, float heightFraction)
 }
 
 // Open Garden Planner (L7, 3D review): how much of the deck's forward lobe a full cover
-// diffuses away (gFwd below; the silver lining fades with the cover too)
+// diffuses away (gFwd below; the silver lining and the sun side of the ambient fade with
+// the cover too)
 const float CLOUD_DIFFUSION = 0.8;
 
 vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
@@ -176,6 +177,10 @@ vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
 
             vec3 ambient = mix(skyGroundRGB, skyZenithRGB, clamp(hf, 0.0, 1.0)) * 0.6;
             float sunFacing = clamp(cosThetaView * 0.5 + 0.5, 0.0, 1.0);
+            // L7 (#719): the sun side of the ambient diffuses with the cover as the
+            // forward lobe does - its sample is the clear sky's aerosol glow beside a low
+            // sun, and a closed deck read 138 / 120 / 102 luma toward / across / away
+            sunFacing = mix(sunFacing, 0.5, CLOUD_DIFFUSION * cloudCoverage);
             ambient += skySunSideRGB * sunFacing * 0.6;
 
             vec3 stepScatter = (msLight + ambient) * (1.0 - stepT);
@@ -226,7 +231,7 @@ vec2 sampleSphericalMap(vec3 v)
 
 //-----------------------------------------------------------------------------
 // Open Garden Planner (Phase 17 L7, #391). Everything above this line is Qt's
-// advancedsky.frag (MIT) but for three marked changes in raymarchClouds(); from here
+// advancedsky.frag (MIT) but for four marked changes in raymarchClouds(); from here
 // on is the app's (GPL-3.0-or-later; paintedSky(): see PROVENANCE.md).
 //
 // THE PAINTED SKY IS THE BASE. paintedSky() is Qt's ProceduralSkyTextureData,
@@ -246,6 +251,21 @@ vec2 sampleSphericalMap(vec3 v)
 //  - atmosphereGain scales the physical radiance (W m^-2 sr^-1 after the spectral
 //    conversion) into the painted sky's units, in place of the example's 0.1, and
 //    cloudLightGain the clouds' scattered light (see the end of MAIN()).
+//
+// WHERE THE TWO SKIES MEET (#716, #719) - the order of operations in MAIN():
+//  1. the painted sky in this direction, and the atmosphere's share of it
+//     (atmosphereWeight x smoothstep(0, hazeDeg, elevation));
+//  2. the clear sky: the sky-view table x its alpha, this sky's PROFILE
+//     (atmosphere_lut.sky_profile) x atmosphereGain - every ring of it has the mean
+//     brightness of the painted sky's gradient at its elevation (x one glow factor that
+//     keeps the painted sky's light on the ground), so through the haze band two skies
+//     of the same mean brightness mix and the sky never darkens toward the horizon;
+//  3. the disc;
+//  4. the clouds over it: their light x cloudLightGain, which for a deck carries its
+//     ANCHOR (quick3d/look.py deck_anchor, measured): a closed deck reads the painted
+//     sky's brightness 10 deg up, so the painted haze band below meets it without a
+//     band at any sun;
+//  5. mix(painted, atmosphere, share), then the skybox's exposure (skyExposed).
 //
 // The sun disc of the atmosphere is the look's sun colour (sunDiscColor, linear,
 // times sunAlpha: 0 while the sun is down), drawn where the atmosphere shows; the
@@ -299,8 +319,13 @@ void MAIN()
         return;
     }
 
+    // the clear sky: the table's rgb, times its alpha - this sky's profile (#716,
+    // atmosphere_lut.sky_profile), which gives every ring above the horizon the painted
+    // gradient's mean brightness: one gain alone left a cream low band 1.4-1.8x the
+    // painted sky over a horizon that darkened toward 0.5 deg, and a zenith at 0.5-0.8x
     vec2 uv = sampleSphericalMap(direction);
-    vec3 col = texture(skytextureBuffer, uv).rgb;
+    vec4 skyView = texture(skytextureBuffer, uv);
+    vec3 col = skyView.rgb * skyView.a;
 
     vec3 sunCol = vec3(0.0);
     if (direction.y > 0.0) {
@@ -351,7 +376,8 @@ void MAIN()
 
     // the atmosphere in the painted sky's units; the disc is already in them. The clouds
     // take the same gain times ATMOSPHERE_CLOUD_GAIN (cloudLightGain, quick3d/look.py
-    // cloud_light_gain): the example's scale saturates a full cover to white
+    // cloud_light_gain): the example's scale saturates a full cover to white; a deck takes
+    // its anchor on top there (#719)
     vec3 atmosphere = max(col * cloudT * atmosphereGain + cloudScatter * cloudLightGain, vec3(0.0))
                       + sunCol * cloudT;
     FRAGCOLOR = vec4(skyExposed(mix(painted, atmosphere, share)), 1.0);

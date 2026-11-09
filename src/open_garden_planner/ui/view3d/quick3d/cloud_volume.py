@@ -10,8 +10,9 @@ first frame was white, and an offscreen frame (rendered once) white every time
 - ``CloudNoiseTexture``: the cloud noise volume (``core/scene3d/cloud_noise.py``), one
   RGBA16F 64³ texture per host, uploaded once, at construction.
 - ``SkyViewTexture``: the sky-view table (``core/scene3d/atmosphere_lut.py``), RGBA16F
-  128², REFILLED for every new sun (``set_sun_direction``) — the same object: a data
-  object is never re-pointed at another ``Texture`` (that draws white:
+  128², its alpha the sky's per-elevation profile (#716), REFILLED for every new sun or
+  painted sky (``set_sky``: a weather changes the profile at the same sun) — the same
+  object: a data object is never re-pointed at another ``Texture`` (that draws white:
   ``ogp-3d-renderer`` §2/§5), and ``setTextureData`` + ``update()`` on the attached one
   is the measured way to change a texture's pixels.
 
@@ -23,7 +24,7 @@ from __future__ import annotations
 from PyQt6.QtCore import QByteArray, QSize
 from PyQt6.QtQuick3D import QQuick3DTextureData
 
-from open_garden_planner.core.scene3d.atmosphere_lut import LUT_SIZE, sky_view_rgba16f
+from open_garden_planner.core.scene3d.atmosphere_lut import LUT_SIZE, PaintedSky, sky_view_rgba16f
 from open_garden_planner.core.scene3d.cloud_noise import SIZE, cloud_noise_rgba16f
 
 __all__ = ["CloudNoiseTexture", "SkyViewTexture"]
@@ -44,20 +45,23 @@ class CloudNoiseTexture(QQuick3DTextureData):
 
 
 class SkyViewTexture(QQuick3DTextureData):
-    """The sky-view table of one sun: ``LUT_SIZE``², RGBA16F, row ``v`` = 0 first."""
+    """The sky-view table of one sky: ``LUT_SIZE``², RGBA16F, row ``v`` = 0 first; rgb
+    the clear sky's radiance of this sun, alpha this painted sky's profile."""
 
-    def __init__(self, sun_direction: tuple[float, float, float]) -> None:
+    def __init__(self, sun_direction: tuple[float, float, float], painted: PaintedSky) -> None:
         super().__init__()
         self.setSize(QSize(LUT_SIZE, LUT_SIZE))
         self.setFormat(QQuick3DTextureData.Format.RGBA16F)
         self.setHasTransparency(False)
         self.sun_direction: tuple[float, float, float] | None = None
-        self.set_sun_direction(sun_direction)
+        self.painted: PaintedSky | None = None
+        self.set_sky(sun_direction, painted)
 
-    def set_sun_direction(self, sun_direction: tuple[float, float, float]) -> None:
-        """Refill the table for a sun (atmosphere coordinates); the same sun: nothing."""
-        if sun_direction == self.sun_direction:
+    def set_sky(self, sun_direction: tuple[float, float, float], painted: PaintedSky) -> None:
+        """Refill the table for a sun (atmosphere coordinates) and the painted sky beneath
+        it; the same sun and painted sky: nothing."""
+        if sun_direction == self.sun_direction and painted == self.painted:
             return
-        self.setTextureData(QByteArray(sky_view_rgba16f(sun_direction)))
+        self.setTextureData(QByteArray(sky_view_rgba16f(sun_direction, painted)))
         self.update()  # type: ignore[attr-defined]
-        self.sun_direction = sun_direction
+        self.sun_direction, self.painted = sun_direction, painted
