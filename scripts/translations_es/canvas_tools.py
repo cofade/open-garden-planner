@@ -80,8 +80,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             'Una forma con restricciones no se puede dividir',
         'Click the first point of the cutting line. Esc cancels.':
             'Haz clic en el primer punto de la línea de corte. Esc cancela.',
-        'Select one closed shape to split':
-            'Selecciona una forma cerrada para dividir',
+        'Click the closed shape to split':
+            'Haz clic en la forma cerrada que quieres dividir',
         'Only closed shapes (polygon, rectangle, circle, or ellipse) can be split':
             'Solo se pueden dividir formas cerradas (polígono, rectángulo, círculo o elipse)',
         'Plants and linked objects cannot be split':
@@ -502,6 +502,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Split Along Line…': 'Dividir por línea…',
     },
     'SplitShapeTool': {
+        'Click the closed shape to split':
+            'Haz clic en la forma cerrada que quieres dividir',
+        'Click the first point of the cutting line. Esc cancels.':
+            'Haz clic en el primer punto de la línea de corte. Esc cancela.',
         'A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.':
             'Una pieza tendría {count} vértices; el plano admite como máximo {limit}. Elige un corte más simple.',
         'Click the second point of the cutting line; Shift constrains the angle. Esc cancels.':

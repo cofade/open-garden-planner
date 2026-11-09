@@ -1007,12 +1007,15 @@ class CanvasView(QGraphicsView):
                 if item.parentItem() is None
                 and hasattr(item, "object_type")
             ]
-            if len(selected) != 1 or not self.start_split_shape(selected[0]):
-                if len(selected) != 1:
-                    self.set_status_message(
-                        self.tr("Select one closed shape to split")
-                    )
-                self._activate_tool_direct(ToolType.SELECT)
+            if len(selected) == 1:
+                if self.start_split_shape(selected[0]):
+                    return
+                # A refusal reason is already on the status bar; keep Split
+                # armed so the user can click a different shape.
+                self._activate_tool_direct(ToolType.SPLIT)
+                return
+            self._activate_tool_direct(ToolType.SPLIT)
+            self.set_status_message(self.tr("Click the closed shape to split"))
             return
         self._activate_tool_direct(tool_type)
 

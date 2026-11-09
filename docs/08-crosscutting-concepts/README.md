@@ -8263,8 +8263,8 @@ groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 shape (polygon, rectangle, circle, ellipse). It asks the view's
 `split_refusal_reason` before enabling the row and starts
 `CanvasView.start_split_shape`. The CAD toolbar places the same action next to
-Trim/Extend, and the bare `S` shortcut reaches it; both arm the one selected
-closed shape (or explain why there is none). `SplitShapeTool` takes two snapped picks
+Trim/Extend, and the bare `S` shortcut reaches it; both arm a selected closed
+shape, or stay active and pick one on the first canvas click. `SplitShapeTool` takes two snapped picks
 (`Shift` constrains to 45°; `Esc` cancels), previews the infinite line and the
 resulting pieces, and applies `SplitShapeCommand` on the second pick. Geometry is
 `core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is cut

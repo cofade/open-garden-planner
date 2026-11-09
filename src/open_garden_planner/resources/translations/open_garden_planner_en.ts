@@ -552,47 +552,47 @@
     <context>
         <name>CanvasView</name>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5177" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5180" />
             <source>A building and its roof ridge cannot be split</source>
             <translation>A building and its roof ridge cannot be split</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4782" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4785" />
             <source>A constrained member or group cannot be moved while drilled down</source>
             <translation>A constrained member or group cannot be moved while drilled down</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5166" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5169" />
             <source>A constrained shape cannot be split</source>
             <translation>A constrained shape cannot be split</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5315" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5318" />
             <source>All shapes must be on the same layer</source>
             <translation>All shapes must be on the same layer</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5592" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5595" />
             <source>Already at back</source>
             <translation>Already at back</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5591" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5594" />
             <source>Already at front</source>
             <translation>Already at front</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1929" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1932" />
             <source>Angle</source>
             <translation>Angle</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5451" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5454" />
             <source>Applied boolean {op}</source>
             <translation>Applied boolean {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5409" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5412" />
             <source>Apply boolean {op}?</source>
             <translation>Apply boolean {op}?</translation>
         </message>
@@ -612,12 +612,12 @@
             <translation>Bird Bath</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5296" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5299" />
             <source>Boolean operations refuse plants, linked objects, constraints, and locked layers</source>
             <translation>Boolean operations refuse plants, linked objects, constraints, and locked layers</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5338" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5341" />
             <source>Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)</source>
             <translation>Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)</translation>
         </message>
@@ -626,12 +626,12 @@
             <translation type="vanished">Boolean operations require closed shapes (polygon, rectangle, or circle)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5408" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5411" />
             <source>Boolean {op}</source>
             <translation>Boolean {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5380" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5383" />
             <source>Boolean {op} produced an empty result</source>
             <translation>Boolean {op} produced an empty result</translation>
         </message>
@@ -641,12 +641,17 @@
             <translation>Chair</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5215" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1018" />
+            <source>Click the closed shape to split</source>
+            <translation>Click the closed shape to split</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/canvas_view.py" line="5218" />
             <source>Click the first point of the cutting line. Esc cancels.</source>
             <translation>Click the first point of the cutting line. Esc cancels.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1934" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1937" />
             <source>Coincident</source>
             <translation>Coincident</translation>
         </message>
@@ -706,17 +711,17 @@
             <translation>Cut {count} item(s)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3582" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3585" />
             <source>Delete Bed</source>
             <translation>Delete Bed</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3589" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3592" />
             <source>Delete bed and plants</source>
             <translation>Delete bed and plants</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1923" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1926" />
             <source>Distance</source>
             <translation>Distance</translation>
         </message>
@@ -726,7 +731,7 @@
             <translation>Distance in cm</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5507" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5510" />
             <source>Distance must be positive</source>
             <translation>Distance must be positive</translation>
         </message>
@@ -741,12 +746,12 @@
             <translation>Duplicated {count} item(s)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1924" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1927" />
             <source>Edge length</source>
             <translation>Edge length</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1932" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1935" />
             <source>Equal</source>
             <translation>Equal</translation>
         </message>
@@ -761,7 +766,7 @@
             <translation>Fire Pit</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1933" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1936" />
             <source>Fixed</source>
             <translation>Fixed</translation>
         </message>
@@ -786,12 +791,12 @@
             <translation>Greenhouse</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5059" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5062" />
             <source>Grouped {n} items</source>
             <translation>Grouped {n} items</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4466" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4469" />
             <source>Guide position</source>
             <translation>Guide position</translation>
         </message>
@@ -810,17 +815,17 @@
             <translation type="vanished">Hedge Section</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1925" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1928" />
             <source>Horizontal</source>
             <translation>Horizontal</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1927" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1930" />
             <source>Horizontal distance</source>
             <translation>Horizontal distance</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1935" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1938" />
             <source>Horizontal symmetry</source>
             <translation>Horizontal symmetry</translation>
         </message>
@@ -835,17 +840,17 @@
             <translation>House</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="2535" />
+            <location filename="../../ui/canvas/canvas_view.py" line="2538" />
             <source>Import Background Image...</source>
             <translation>Import Background Image...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5510" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5513" />
             <source>Invalid distance. Enter a number in centimeters.</source>
             <translation>Invalid distance. Enter a number in centimeters.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3593" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3596" />
             <source>Keep plants</source>
             <translation>Keep plants</translation>
         </message>
@@ -860,17 +865,17 @@
             <translation>Lounger</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5075" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5078" />
             <source>No group selected</source>
             <translation>No group selected</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5594" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5597" />
             <source>No overlapping object behind</source>
             <translation>No overlapping object behind</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5593" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5596" />
             <source>No overlapping object in front</source>
             <translation>No overlapping object in front</translation>
         </message>
@@ -892,12 +897,12 @@
             <translation>Offset result is empty — try a smaller distance</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5145" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5148" />
             <source>Only closed shapes (polygon, rectangle, circle, or ellipse) can be split</source>
             <translation>Only closed shapes (polygon, rectangle, circle, or ellipse) can be split</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1930" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1933" />
             <source>Parallel</source>
             <translation>Parallel</translation>
         </message>
@@ -927,7 +932,7 @@
             <translation>Pergola</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1931" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1934" />
             <source>Perpendicular</source>
             <translation>Perpendicular</translation>
         </message>
@@ -942,17 +947,17 @@
             <translation>Planter/Pot</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5172" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5175" />
             <source>Plants and linked objects cannot be split</source>
             <translation>Plants and linked objects cannot be split</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1938" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1941" />
             <source>Point on circle</source>
             <translation>Point on circle</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1937" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1940" />
             <source>Point on edge</source>
             <translation>Point on edge</translation>
         </message>
@@ -962,8 +967,8 @@
             <translation>Pond/Pool</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3555" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5099" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3558" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5102" />
             <source>Press Esc to leave the group before cutting or deleting one of its members</source>
             <translation>Press Esc to leave the group before cutting or deleting one of its members</translation>
         </message>
@@ -988,7 +993,7 @@
             <translation>Sandbox</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5054" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5057" />
             <source>Select 2 or more items to group</source>
             <translation>Select 2 or more items to group</translation>
         </message>
@@ -998,23 +1003,23 @@
             <translation>Select a shape to offset</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5590" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5597" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5593" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5600" />
             <source>Select an object to arrange</source>
             <translation>Select an object to arrange</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5552" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5555" />
             <source>Select at least 2 objects to align</source>
             <translation>Select at least 2 objects to align</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5612" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5615" />
             <source>Select at least 3 objects to distribute</source>
             <translation>Select at least 3 objects to distribute</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5258" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5261" />
             <source>Select at least two shapes (intersection and subtraction need exactly two)</source>
             <translation>Select at least two shapes (intersection and subtraction need exactly two)</translation>
         </message>
@@ -1038,9 +1043,8 @@
             <translation type="vanished">Select exactly two shapes for boolean operation</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1013" />
             <source>Select one closed shape to split</source>
-            <translation>Select one closed shape to split</translation>
+            <translation type="vanished">Select one closed shape to split</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/clipboard_operations.py" line="823" />
@@ -1053,12 +1057,12 @@
             <translation type="vanished">Shapes must overlap for boolean operations</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5370" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5373" />
             <source>Shapes must overlap for this operation</source>
             <translation>Shapes must overlap for this operation</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5349" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5352" />
             <source>Shapes must touch or overlap</source>
             <translation>Shapes must touch or overlap</translation>
         </message>
@@ -1088,7 +1092,7 @@
             <translation>Table (Round)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1939" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1942" />
             <source>Tangent</source>
             <translation>Tangent</translation>
         </message>
@@ -1098,47 +1102,47 @@
             <translation>Terrace/Patio</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5359" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5362" />
             <source>The merged outline would contain a hole; keep the shapes separate</source>
             <translation>The merged outline would contain a hole; keep the shapes separate</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5390" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5393" />
             <source>The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.</source>
             <translation>The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3584" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3587" />
             <source>The selected bed(s) contain plants. What would you like to do?</source>
             <translation>The selected bed(s) contain plants. What would you like to do?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5189" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5192" />
             <source>The shape carries links that a split cannot preserve</source>
             <translation>The shape carries links that a split cannot preserve</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5199" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5202" />
             <source>The shape has tracking records that a split cannot preserve</source>
             <translation>The shape has tracking records that a split cannot preserve</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5149" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5152" />
             <source>The shape is no longer in this plan</source>
             <translation>The shape is no longer in this plan</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5161" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5164" />
             <source>The shape is on a locked layer</source>
             <translation>The shape is on a locked layer</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5328" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5331" />
             <source>The shapes contain different data; keep them separate or make their data consistent</source>
             <translation>The shapes contain different data; keep them separate or make their data consistent</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3444" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3447" />
             <source>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</source>
             <translation>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</translation>
         </message>
@@ -1147,12 +1151,12 @@
             <translation type="vanished">This edge length belongs to a rigid shape. Resize the shape instead.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5153" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5156" />
             <source>This shape has no closed outline to split</source>
             <translation>This shape has no closed outline to split</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5191" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5194" />
             <source>This shape type has no polygonal form to split into</source>
             <translation>This shape type has no polygonal form to split into</translation>
         </message>
@@ -1177,37 +1181,37 @@
             <translation>Trellis</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5151" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5154" />
             <source>Ungroup the shape before splitting it</source>
             <translation>Ungroup the shape before splitting it</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5083" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5086" />
             <source>Ungroup {n} groups</source>
             <translation>Ungroup {n} groups</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5088" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5091" />
             <source>Ungrouped</source>
             <translation>Ungrouped</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5090" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5093" />
             <source>Ungrouped {n} groups</source>
             <translation>Ungrouped {n} groups</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1926" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1929" />
             <source>Vertical</source>
             <translation>Vertical</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1928" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1931" />
             <source>Vertical distance</source>
             <translation>Vertical distance</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="1936" />
+            <location filename="../../ui/canvas/canvas_view.py" line="1939" />
             <source>Vertical symmetry</source>
             <translation>Vertical symmetry</translation>
         </message>
@@ -1232,12 +1236,12 @@
             <translation>Wheelbarrow</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4462" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4465" />
             <source>X</source>
             <translation>X</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4462" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4465" />
             <source>Y</source>
             <translation>Y</translation>
         </message>
@@ -1252,7 +1256,7 @@
             <translation>outward</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4463" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4466" />
             <source>{axis} position (cm)</source>
             <translation>{axis} position (cm)</translation>
         </message>
@@ -1568,38 +1572,38 @@
             <translation>Add vertex</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5566" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5569" />
             <source>Align bottom</source>
             <translation>Align bottom</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5567" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5570" />
             <source>Align center horizontally</source>
             <translation>Align center horizontally</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5568" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5571" />
             <source>Align center vertically</source>
             <translation>Align center vertically</translation>
         </message>
         <message>
             <location filename="../../core/commands.py" line="2127" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5571" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5574" />
             <source>Align items</source>
             <translation>Align items</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5563" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5566" />
             <source>Align left</source>
             <translation>Align left</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5564" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5567" />
             <source>Align right</source>
             <translation>Align right</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5565" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5568" />
             <source>Align top</source>
             <translation>Align top</translation>
         </message>
@@ -1742,17 +1746,17 @@
             <translation>Detach plant from bed</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5622" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5625" />
             <source>Distribute horizontally</source>
             <translation>Distribute horizontally</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5626" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5629" />
             <source>Distribute items</source>
             <translation>Distribute items</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5623" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5626" />
             <source>Distribute vertically</source>
             <translation>Distribute vertically</translation>
         </message>
@@ -1835,7 +1839,7 @@
         <message>
             <location filename="../../app/agent_host.py" line="820" />
             <location filename="../../core/commands.py" line="1163" />
-            <location filename="../../ui/canvas/canvas_view.py" line="3917" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3920" />
             <source>Move item</source>
             <translation>Move item</translation>
         </message>
@@ -1845,8 +1849,8 @@
             <translation>Move item (constrained)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="3811" />
-            <location filename="../../ui/canvas/canvas_view.py" line="3915" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3814" />
+            <location filename="../../ui/canvas/canvas_view.py" line="3918" />
             <source>Move items (constrained)</source>
             <translation>Move items (constrained)</translation>
         </message>
@@ -14036,12 +14040,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>SplitShapeTool</name>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="192" />
+            <location filename="../../core/tools/split_tool.py" line="237" />
             <source>A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.</source>
             <translation>A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="92" />
+            <location filename="../../core/tools/split_tool.py" line="72" />
+            <source>Click the closed shape to split</source>
+            <translation>Click the closed shape to split</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/split_tool.py" line="89" />
+            <source>Click the first point of the cutting line. Esc cancels.</source>
+            <translation>Click the first point of the cutting line. Esc cancels.</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/split_tool.py" line="119" />
             <source>Click the second point of the cutting line; Shift constrains the angle. Esc cancels.</source>
             <translation>Click the second point of the cutting line; Shift constrains the angle. Esc cancels.</translation>
         </message>
@@ -14051,26 +14065,27 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Split along line</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="149" />
+            <location filename="../../core/tools/split_tool.py" line="176" />
             <source>Split cancelled</source>
             <translation>Split cancelled</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="126" />
+            <location filename="../../core/tools/split_tool.py" line="153" />
             <source>Split the shape into {count} pieces</source>
             <translation>Split the shape into {count} pieces</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="105" />
+            <location filename="../../core/tools/split_tool.py" line="132" />
             <source>The cutting line must cross the shape. Choose another second point.</source>
             <translation>The cutting line must cross the shape. Choose another second point.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="70" />
+            <location filename="../../core/tools/split_tool.py" line="97" />
             <source>The shape to split is no longer available.</source>
             <translation>The shape to split is no longer available.</translation>
         </message>
         <message>
+            <location filename="../../core/tools/split_tool.py" line="107" />
             <location filename="../../core/tools/split_tool.py" line="80" />
             <source>This shape cannot be split: {reason}</source>
             <translation>This shape cannot be split: {reason}</translation>

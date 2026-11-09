@@ -123,7 +123,7 @@ def test_the_cad_toolbar_arms_the_selected_shape(qtbot, canvas) -> None:
     assert canvas._split_tool.source_id == source.item_id
 
 
-def test_the_cad_toolbar_explains_a_missing_selection(qtbot, canvas) -> None:
+def test_the_cad_toolbar_stays_active_without_a_selection(qtbot, canvas) -> None:
     from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
 
     canvas.scene().clearSelection()
@@ -136,8 +136,33 @@ def test_the_cad_toolbar_explains_a_missing_selection(qtbot, canvas) -> None:
     toolbar._buttons[ToolType.SPLIT].click()
     QTest.qWait(10)
 
-    assert messages[-1] == "Select one closed shape to split"
-    assert canvas.tool_manager.active_tool_type is ToolType.SELECT
+    assert messages[-1] == "Click the closed shape to split"
+    assert canvas.tool_manager.active_tool_type is ToolType.SPLIT
+    assert canvas._split_tool.source_id is None
+
+
+def test_the_cad_toolbar_can_pick_the_shape_on_the_canvas(
+    qtbot, canvas, mouse_event
+) -> None:
+    from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
+
+    source = _add(canvas, RectangleItem(100, 100, 200, 100), select=False)
+    canvas.scene().clearSelection()
+    toolbar = ConstraintToolbar()
+    qtbot.addWidget(toolbar)
+    toolbar.tool_selected.connect(canvas.set_active_tool)
+    toolbar._buttons[ToolType.SPLIT].click()
+    tool = canvas._split_tool
+
+    assert tool.source_id is None
+    assert tool.mouse_press(mouse_event, QPointF(200, 150)) is True
+    assert tool.source_id == source.item_id
+    assert source.isSelected()
+    assert tool.mouse_press(mouse_event, QPointF(200, 0)) is True
+    assert tool.mouse_press(mouse_event, QPointF(200, 400)) is True
+
+    assert len(_add_pieces(canvas.scene())) == 2
+    assert source.scene() is None
 
 
 def test_the_context_menu_shows_a_refusal_reason_as_its_tooltip(canvas, monkeypatch) -> None:

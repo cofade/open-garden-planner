@@ -11190,8 +11190,8 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
 3. **Split works in the source's local frame and replaces it in one command.**
    The context menu, the CAD toolbar button next to Trim/Extend, and the bare `S`
    shortcut reach the same tool; the toolbar/shortcut path arms the one selected
-   closed shape and explains a missing selection instead of starting a sourceless
-   gesture. `core/shape_split.py` clips the item's local `QPainterPath` against the
+   closed shape, or stays active and picks the shape on the first canvas click when
+   none is selected. `core/shape_split.py` clips the item's local `QPainterPath` against the
    two half-planes of the two-point axis; `SplitShapeCommand` removes the source and
    adds ordinary `PolygonItem`s in one undo step. Pieces copy the source's layer, object
    type (when valid for a polygon), name, label/area state, metadata, stack order and

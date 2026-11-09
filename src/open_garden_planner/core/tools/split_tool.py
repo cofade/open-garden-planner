@@ -65,6 +65,33 @@ class SplitShapeTool(BaseTool):
             return False
 
         source = self._source()
+        if source is None and self.source_id is None:
+            picked = self._pick_source(scene_pos)
+            if picked is None:
+                self._view.set_status_message(
+                    QCoreApplication.translate(
+                        "SplitShapeTool", "Click the closed shape to split"
+                    )
+                )
+                return True
+            reason = self._view.split_refusal_reason(picked)
+            if reason is not None:
+                self._view.set_status_message(
+                    QCoreApplication.translate(
+                        "SplitShapeTool", "This shape cannot be split: {reason}"
+                    ).format(reason=reason)
+                )
+                return True
+            self.source_id = picked.item_id
+            self._scene.clearSelection()
+            picked.setSelected(True)
+            self._view.set_status_message(
+                QCoreApplication.translate(
+                    "SplitShapeTool",
+                    "Click the first point of the cutting line. Esc cancels.",
+                )
+            )
+            return True
         if source is None:
             self._view.set_status_message(
                 QCoreApplication.translate(
@@ -162,6 +189,24 @@ class SplitShapeTool(BaseTool):
     # ------------------------------------------------------------------
     # Geometry and preview
     # ------------------------------------------------------------------
+
+    def _pick_source(self, scene_pos: QPointF) -> QGraphicsItem | None:
+        """The topmost closed shape under the cursor (toolbar activation path)."""
+        from open_garden_planner.ui.canvas.items import (
+            CircleItem,
+            EllipseItem,
+            PolygonItem,
+            RectangleItem,
+        )
+
+        shape_types = (PolygonItem, RectangleItem, CircleItem, EllipseItem)
+        for candidate in self._scene.items(scene_pos):
+            if (
+                isinstance(candidate, shape_types)
+                and getattr(candidate, "item_id", None) is not None
+            ):
+                return candidate
+        return None
 
     def _source(self) -> QGraphicsItem | None:
         if self.source_id is None:

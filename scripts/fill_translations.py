@@ -3604,8 +3604,8 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
             "Eine Form mit Randbedingung kann nicht geteilt werden",
         "Click the first point of the cutting line. Esc cancels.":
             "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
-        "Select one closed shape to split":
-            "Eine geschlossene Form zum Teilen auswählen",
+        "Click the closed shape to split":
+            "Klicken Sie die geschlossene Form zum Teilen an",
         "Only closed shapes (polygon, rectangle, circle, or ellipse) can be split":
             "Nur geschlossene Formen (Polygon, Rechteck, Kreis oder Ellipse) können geteilt werden",
         "Plants and linked objects cannot be split":
@@ -3637,6 +3637,10 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Split Along Line…": "An Linie teilen…",
     },
     "SplitShapeTool": {
+        "Click the closed shape to split":
+            "Klicken Sie die geschlossene Form zum Teilen an",
+        "Click the first point of the cutting line. Esc cancels.":
+            "Klicken Sie den ersten Punkt der Schnittlinie. Esc bricht ab.",
         "A piece would have {count} vertices; the plan supports at most {limit}. Choose a simpler cut.":
             "Ein Teil hätte {count} Scheitelpunkte; der Plan unterstützt höchstens {limit}. Wählen Sie einen einfacheren Schnitt.",
         "Click the second point of the cutting line; Shift constrains the angle. Esc cancels.":
