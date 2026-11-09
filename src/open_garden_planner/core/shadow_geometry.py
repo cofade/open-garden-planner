@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Sequence
+from functools import lru_cache
 from typing import Any, NamedTuple, cast
 
 import pyclipper
@@ -446,10 +447,75 @@ def clip_to_rect(
     return [_from_int(path) for path in result]
 
 
+class OpenFrame:
+    """The solid members of an OPEN FRAME — a pergola's timber, a trellis's lattice, a
+    swing's legs and beam — in the frame's OWN coordinates (#698).
+
+    ``triangles``: the members as triangles, cm, z from the frame's own ground.
+    ``footprint``: the outline its prism stands on, in the same coordinates — the
+    item's footprint before it is turned and placed. ``rotation_deg``: how far the
+    item is turned in the scene, counter-clockwise seen from above (north up).
+
+    Kept in the frame's own coordinates on purpose: what a frame lets through
+    depends on the sun's bearing RELATIVE to it, not on where it stands. Fifty
+    garden lights along a path are one frame fifty times — the caster walk hands
+    all of them the very same object, they are weighed once per sun position, and
+    they get the very same number (so the overlay paints them as one region).
+
+    Immutable, compared by value, hashed once: a frame can be a thousand
+    triangles, and the transmittance cache looks one up for every caster and sun.
+    Plain data — safe to hand to the heatmap worker thread.
+    """
+
+    __slots__ = ("triangles", "footprint", "rotation_deg", "_hash")
+
+    triangles: tuple[Triangle3D, ...]
+    footprint: tuple[Point, ...]
+    rotation_deg: float
+    _hash: int
+
+    def __init__(self, triangles: Iterable[Triangle3D], footprint: Iterable[Point],
+                 rotation_deg: float = 0.0) -> None:
+        object.__setattr__(self, "triangles", tuple(triangles))
+        object.__setattr__(self, "footprint", tuple(footprint))
+        object.__setattr__(self, "rotation_deg", float(rotation_deg))
+        object.__setattr__(self, "_hash",
+                           hash((self.triangles, self.footprint, self.rotation_deg)))
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("an OpenFrame is immutable")
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+        return (isinstance(other, OpenFrame) and self._hash == other._hash
+                and self.rotation_deg == other.rotation_deg
+                and self.footprint == other.footprint and self.triangles == other.triangles)
+
+    def __repr__(self) -> str:
+        return (f"OpenFrame({len(self.triangles)} triangles, {len(self.footprint)} corners, "
+                f"turned {self.rotation_deg:g} deg)")
+
+    def with_triangles(self, triangles: Iterable[Triangle3D]) -> OpenFrame:
+        """The same frame with other members — its slice above a raised receiver."""
+        return OpenFrame(triangles, self.footprint, self.rotation_deg)
+
+
 class GroupedCaster(NamedTuple):
     """All solid footprints of ONE owner with its height, base, and optional 3D
     roof or fence porosity metadata (#440) — the caster shape of
-    ``compute_grouped_shadows`` and ``compute_weighted_shadows``."""
+    ``compute_grouped_shadows`` and ``compute_weighted_shadows``.
+
+    ``frame`` (#698): the solid members of an OPEN FRAME (a pergola, a trellis, a
+    swing …). They do NOT replace the prism's shadow as ``roof_triangles`` do: they
+    weigh it (``open_frame_transmittance``). None for every caster that is no open
+    frame; a frame WITHOUT triangles is an open frame with nothing solid left (a
+    slice above a raised receiver that holds none of its members), which lets all
+    the sun through.
+    """
 
     footprints: Sequence[Sequence[Point]]
     height_cm: float
@@ -459,6 +525,90 @@ class GroupedCaster(NamedTuple):
     fence_points: tuple[Point, ...] = ()
     fence_width_cm: float = 0.0
     transmittance: float | None = None
+    frame: OpenFrame | None = None
+
+
+def _path_area_cm2(paths: Iterable[Sequence[tuple[int, int]]]) -> float:
+    """The ground a union's rings cover, cm² (holes are clockwise and subtract)."""
+    return float(sum(pyclipper.Area(path) for path in paths)) / (CLIPPER_SCALE * CLIPPER_SCALE)
+
+
+def _frame_shadow_area_cm2(
+    triangles: Sequence[Triangle3D], elevation_deg: float, direction: Point
+) -> float:
+    """The ground a frame's members shade, cm²: every triangle moved along the sun ray
+    onto the ground, united. One numpy projection and one clipper union.
+
+    The triangles' z is taken as it comes — from the frame's own ground. A base under
+    the frame moves its whole shadow ``base / tan α`` along the sun ray and changes no
+    area, so it is not asked for.
+
+    Only the triangles that face the sun are united. For every solid a builder makes
+    — boxes, beams, rods, lathed posts, cloth laid with both faces — those cover the
+    same ground as all of them, at half the clipper's work (measured: a trellis 2.8 ms
+    with all, 0.7 ms with these). ``tests/unit/test_open_frames.py`` holds every
+    open-frame kind to that, against all triangles united, over sizes and suns.
+    """
+    import numpy as np
+
+    corners = np.asarray(triangles, dtype=np.float64).reshape(-1, 3, 3)
+    if not len(corners):
+        return 0.0
+    reach = np.maximum(corners[:, :, 2], 0.0) / math.tan(math.radians(elevation_deg))
+    grid = np.rint(np.stack(
+        [corners[:, :, 0] + reach * direction[0], corners[:, :, 1] + reach * direction[1]],
+        axis=2) * CLIPPER_SCALE).astype(np.int64)
+    doubled = ((grid[:, 1, 0] - grid[:, 0, 0]) * (grid[:, 2, 1] - grid[:, 0, 1])
+               - (grid[:, 2, 0] - grid[:, 0, 0]) * (grid[:, 1, 1] - grid[:, 0, 1]))
+    lit = grid[doubled > 0]
+    if not len(lit):
+        return 0.0
+    return _path_area_cm2(_union_int(lit.tolist()))
+
+
+@lru_cache(maxsize=4096)
+def _open_frame_transmittance(
+    frame: OpenFrame, height_cm: float, elevation_deg: float, azimuth_deg: float
+) -> float:
+    length = shadow_length_cm(height_cm, elevation_deg)
+    if length is None:
+        return 1.0
+    # in the frame's own coordinates: the item turned counter-clockwise by t sees the
+    # sun at the bearing it has in the scene plus t (a bearing runs clockwise)
+    direction = shadow_direction_scene(azimuth_deg + frame.rotation_deg)
+    prism_area = _path_area_cm2(_union_int(_caster_paths_int(frame.footprint, length, direction)))
+    if prism_area <= 0.0:
+        return 1.0
+    frame_area = _frame_shadow_area_cm2(frame.triangles, elevation_deg, direction)
+    return float(min(1.0, max(0.0, 1.0 - frame_area / prism_area)))
+
+
+def open_frame_transmittance(
+    frame: OpenFrame, height_cm: float, elevation_deg: float, azimuth_deg: float
+) -> float:
+    """The share of the sun an open frame lets through, in ``[0.0, 1.0]`` (#698).
+
+    ``1 - A(frame) / A(prism)``: ``A(prism)`` is the ground shadow of the caster the
+    2D model casts — the frame's footprint, ``height_cm`` high — and ``A(frame)`` the
+    ground shadow of the frame's own solid members, both for this sun. The prism
+    keeps its shape — it is where the shade can fall — and this number is how dark
+    it is there: the frame's shade, spread evenly over the prism's. So the shade
+    the 2D model reports, area times depth, is the frame's real shadow area, at
+    every elevation and azimuth and for every size and turn of the item — nothing
+    is tabulated.
+
+    ``azimuth_deg`` is the sun's bearing in the SCENE; the frame's turn is the
+    frame's own (``OpenFrame.rotation_deg``). A base under the caster moves the
+    prism's shadow and the frame's alike and leaves the number as it is, so none
+    is asked for. 1.0 (all the sun) for a frame with no members, a prism with no
+    shadow, and a sun below ``MIN_SUN_ELEVATION_DEG``. Results are kept per frame,
+    height and sun: the map asks the same sample for the grid and again for every
+    plant it shades, and every identical frame on the plan shares the answer.
+    """
+    if elevation_deg < MIN_SUN_ELEVATION_DEG or not frame.triangles:
+        return 1.0
+    return _open_frame_transmittance(
+        frame, float(height_cm), float(elevation_deg), float(azimuth_deg))
 
 
 def caster_transmittance(
@@ -469,12 +619,17 @@ def caster_transmittance(
     """Open sunlight transmittance in ``[0.0, 1.0]`` for a caster (#440).
 
     Returns ``0.0`` for opaque casters, ``caster.transmittance`` when explicitly
-    provided, or the angle-dependent structural fence transmittance when
-    ``caster.fence_style`` is set.
+    provided, the open frame's for the sun of the moment when the caster carries a
+    ``frame`` (#698, ``open_frame_transmittance``), or the angle-dependent
+    structural fence transmittance when ``caster.fence_style`` is set.
     """
     explicit = getattr(caster, "transmittance", None)
     if explicit is not None:
         return float(min(1.0, max(0.0, float(explicit))))
+    frame = getattr(caster, "frame", None)
+    if frame is not None:
+        return open_frame_transmittance(
+            frame, float(getattr(caster, "height_cm", 0.0) or 0.0), elevation_deg, azimuth_deg)
     fence_style = getattr(caster, "fence_style", None)
     if isinstance(fence_style, str) and fence_style:
         from open_garden_planner.core.scene3d.builders.fences import fence_transmittance
@@ -638,30 +793,55 @@ def compute_weighted_shadows(
         for p in paths
     ]
     opaque_union = _union_int(opaque_paths)
-    porous_regions: list[tuple[list[list[tuple[int, int]]], float]] = []
+    # The porous owners, each with the box its shadow lies in. A clip is asked only
+    # where two boxes overlap, and a box is made once, not once per pair: fifty garden
+    # lights along a path are fifty shades that never meet (#698; the pairwise loop
+    # cost 0.8 s a sun position at 500 of them). The boxes are turned WITH THE SUN —
+    # every shade is swept along the same direction, so a long shade's box is as
+    # narrow as its caster, where an upright box round a slanting shade takes in the
+    # neighbours it never touches.
 
-    for p_paths, p_trans in zip(owner_int_paths, owner_transmittances, strict=True):
-        if not (0.0 < p_trans < 1.0 and p_paths):
-            continue
-        rem = _diff_int(p_paths, opaque_union) if opaque_union else p_paths
+    def box(paths: list[list[tuple[int, int]]]) -> tuple[float, float, float, float] | None:
+        return _box_along(paths, direction)
+
+    opaque_bbox = box(opaque_union)
+    porous = [
+        (paths, trans, box(paths))
+        for paths, trans in zip(owner_int_paths, owner_transmittances, strict=True)
+        if 0.0 < trans < 1.0 and paths
+    ]
+    meets_another = _boxes_meeting_another([box for _paths, _trans, box in porous])
+    porous_regions: list[_PorousRegion] = []
+    alone: list[tuple[list[list[tuple[int, int]]], float]] = []
+
+    for (p_paths, p_trans, p_bbox), meets in zip(porous, meets_another, strict=True):
+        rem = (_diff_int(p_paths, opaque_union)
+               if opaque_union and _bboxes_overlap(p_bbox, opaque_bbox) else p_paths)
         if not rem:
             continue
-        next_regions: list[tuple[list[list[tuple[int, int]]], float]] = []
-        for r_paths, r_trans in porous_regions:
-            if not rem:
-                next_regions.append((r_paths, r_trans))
+        if not meets:
+            # no other porous shade can reach it: it is its own region, as it is
+            alone.append((rem, p_trans))
+            continue
+        rem_bbox = box(rem)
+        next_regions: list[_PorousRegion] = []
+        for region in porous_regions:
+            r_paths, r_trans, r_bbox = region
+            if not rem or not _bboxes_overlap(r_bbox, rem_bbox):
+                next_regions.append(region)
                 continue
             overlap = _intersect_int(r_paths, rem)
             if not overlap:
-                next_regions.append((r_paths, r_trans))
+                next_regions.append(region)
                 continue
             r_only = _diff_int(r_paths, rem)
             if r_only:
-                next_regions.append((r_only, r_trans))
-            next_regions.append((overlap, r_trans * p_trans))
+                next_regions.append((r_only, r_trans, box(r_only)))
+            next_regions.append((overlap, r_trans * p_trans, box(overlap)))
             rem = _diff_int(rem, r_paths)
+            rem_bbox = box(rem)
         if rem:
-            next_regions.append((rem, p_trans))
+            next_regions.append((rem, p_trans, rem_bbox))
         porous_regions = next_regions
 
     weighted_regions: list[WeightedShadowRegion] = []
@@ -674,7 +854,7 @@ def compute_weighted_shadows(
             )
         )
     grouped_by_trans: dict[float, list[list[tuple[int, int]]]] = {}
-    for r_paths, r_trans in porous_regions:
+    for r_paths, r_trans in [*((paths, trans) for paths, trans, _box in porous_regions), *alone]:
         if not r_paths:
             continue
         key_t = round(r_trans, 6)
@@ -813,12 +993,61 @@ def _paths_bbox(
 
 
 def _bboxes_overlap(
-    a: tuple[int, int, int, int] | None,
-    b: tuple[int, int, int, int] | None,
+    a: tuple[float, float, float, float] | None,
+    b: tuple[float, float, float, float] | None,
 ) -> bool:
     if a is None or b is None:
         return False
     return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
+def _box_along(
+    paths: Sequence[Sequence[tuple[int, int]]], direction: Point
+) -> tuple[float, float, float, float] | None:
+    """The box the paths lie in, in coordinates turned with the sun — ``u`` along
+    ``direction`` (a unit vector), ``v`` across it — as ``(u0, v0, u1, v1)``, one grid
+    unit wider on every side (the turn is float arithmetic: two shapes that overlap
+    must never be told apart by a rounding). None for no paths."""
+    dx, dy = direction
+    along = [x * dx + y * dy for path in paths for x, y in path]
+    if not along:
+        return None
+    across = [y * dx - x * dy for path in paths for x, y in path]
+    return (min(along) - 1.0, min(across) - 1.0, max(along) + 1.0, max(across) + 1.0)
+
+
+#: One region of ``compute_weighted_shadows``' porous partition: its paths, its
+#: transmittance, and the box the paths lie in (``_box_along``; None for no paths).
+_PorousRegion = tuple[list[list[tuple[int, int]]], float, tuple[float, float, float, float] | None]
+
+#: Above this many boxes ``_boxes_meeting_another`` answers "every one may": its table
+#: of pairs is n x n booleans (16 MB here), and a plan of four thousand porous casters
+#: is a crafted one.
+_MAX_BOX_PAIRS = 4000
+
+
+def _boxes_meeting_another(
+    boxes: Sequence[tuple[float, float, float, float] | None],
+) -> list[bool]:
+    """For each box: does it overlap ANOTHER box of the list (``_bboxes_overlap``'s
+    rule: boxes that only touch do not)? One vectorised table instead of a Python loop
+    over the pairs. A missing box meets none."""
+    count = len(boxes)
+    if count < 2:
+        return [False] * count
+    if count > _MAX_BOX_PAIRS:
+        return [box is not None for box in boxes]
+    import numpy as np
+
+    present = np.array([box is not None for box in boxes])
+    table = np.array([box if box is not None else (0.0, 0.0, 0.0, 0.0) for box in boxes],
+                     dtype=np.float64)
+    x0, y0, x1, y1 = table[:, 0], table[:, 1], table[:, 2], table[:, 3]
+    apart = ((x1[:, None] <= x0[None, :]) | (x1[None, :] <= x0[:, None])
+             | (y1[:, None] <= y0[None, :]) | (y1[None, :] <= y0[:, None]))
+    meets = ~apart & present[:, None] & present[None, :]
+    np.fill_diagonal(meets, False)
+    return [bool(value) for value in meets.any(axis=1)]
 
 
 def _intersect_int(
