@@ -252,7 +252,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.37.9** (2026-11-08). No roadmap phase is active; the next
+- Current release: **v1.37.10** (2026-11-09). No roadmap phase is active; the next
   work is in the open issues.
 - Live decisions that constrain the next change:
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
@@ -263,6 +263,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     share one layout (`core/pergola.py`, `core/greenhouse.py`); a sprite whose
     natural aspect is opposite its item's turns via `core/sprite_orientation.py`.
     The Smart Symbols panel and bundled templates are retired.
+  - CAD editing (#664/#771, ADR-075): group drill-down is a view-level focus and is
+    tested in the running window, past a minimap refresh (PF-CAN-48); a rebuild that
+    changes type goes through `item_look.adopt_rebuilt_type`; Esc is
+    `CanvasView.handle_escape`, on the canvas and from the main window.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

@@ -34,8 +34,8 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 |-------|-------------|----------------|
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #743, #734, #719, #716, #534, #531 | The 3D view's trust and frame budget. |
-| CAD and drawing tools | #666 | Precision and editing depth. |
-| Architecture and tech debt | #667 | Remove redundant surfaces and make tests repeatable. |
+| CAD and drawing tools | #828, #827, #666 | Precision and editing depth. |
+| Architecture and tech debt | #829, #667 | Remove redundant surfaces and make tests repeatable. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -44,7 +44,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |
-| 🔶 In review | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |
+| ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |
 
 ### Phase 16: Platform & Community (future)
 

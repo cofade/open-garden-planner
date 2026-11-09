@@ -11154,7 +11154,7 @@ Restart", `docs/wiki/README.md`.
 
 ## ADR-075: CAD editing keeps the group frame and the command stack (issues #664, #771)
 
-**Status**: Accepted (issues #664, #771)
+**Status**: Shipped in v1.37.10 (PR #783)
 
 **Context**: Two CAD editing gaps shared the canvas selection and command seams. A
 closed shape could not be cut into pieces: the only workaround lost the layer, look,

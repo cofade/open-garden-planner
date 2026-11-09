@@ -1468,7 +1468,7 @@ wheels = [
 
 [[package]]
 name = "open-garden-planner"
-version = "1.37.9"
+version = "1.37.10"
 source = { editable = "." }
 dependencies = [
     { name = "ezdxf" },
