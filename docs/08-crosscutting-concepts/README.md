@@ -8290,7 +8290,7 @@ groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
 
-## 8.35 Exports — one picture in every format (#787, #788, #789, ADR-075)
+## 8.36 Exports — one picture in every format (#787, #788, #789, ADR-076)
 
 PNG, SVG, the PDF report, the printout and the Agent API render all paint the same
 scene. Five rules keep them the same picture.

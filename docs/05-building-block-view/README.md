@@ -271,7 +271,7 @@ src/open_garden_planner/
 │   ├── bundled_species_db.py     # Bundled species DB loader + drop-flow hook (issue #170)
 │   ├── scene_rendering.py        # Shared region-render helper (ADR-023, used by PNG + viewport)
 │   ├── export_service.py         # PDF/image export
-│   ├── svg_export.py             # SVG export: recording paint engine + replay into QSvgGenerator (ADR-075)
+│   ├── svg_export.py             # SVG export: recording paint engine + replay into QSvgGenerator (ADR-076)
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   ├── task_generator.py         # Pure (PlanState)->list[Task] generators + generate_all (US-C2, ADR-029)

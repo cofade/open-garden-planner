@@ -2653,7 +2653,7 @@ for degenerate polygons. The identity above is exact and needs no branch.
 **Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
 shape was kept; only the brush assignment changed. (At the time the SVG export
 depended on that shape through a post-processor; since #787 it does not — the
-export records clips and brush transforms below the painter, ADR-075.)
+export records clips and brush transforms below the painter, ADR-076.)
 
 **Testing note.** Correlating the real 256 px tile texture was tried first and
 had **no discriminating power** (peak correlation ~0.03 either way, and the
@@ -11313,7 +11313,7 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
 
-## ADR-075: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
+## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09)
 
@@ -11384,5 +11384,5 @@ nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowl
 An SVG's pictures are embedded once per use, as before, and grow with their resolution.
 The report is three to eight times larger than at 72 dpi.
 
-Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.35; FR-EXP-01,
+Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
 FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
