@@ -17,13 +17,13 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
+from open_garden_planner.core.furniture_renderer import is_furniture_type, paint_furniture
 from open_garden_planner.core.growth_model import grown_spread_cm
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.core.plant_renderer import (
     PlantCategory,
     is_plant_type,
-    render_plant_pixmap,
+    paint_plant,
 )
 from open_garden_planner.core.plant_sizing import sizing_for_item
 
@@ -386,30 +386,29 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             # Render at a larger size so organic shapes fill the circle
             render_diameter = diameter * self._PLANT_FILL_SCALE
 
-            pixmap = render_plant_pixmap(
+            # Centered on the footprint rect regardless of how far
+            # render_diameter has diverged from it (a young plant's icon
+            # can now be considerably smaller than the footprint, #298
+            # follow-up) -- equivalent to the old overflow-based offset
+            # when diameter == rect.width(), see _visual_plant_diameter_cm.
+            center = rect.center()
+            draw_rect = QRectF(
+                center.x() - render_diameter / 2.0,
+                center.y() - render_diameter / 2.0,
+                render_diameter,
+                render_diameter,
+            )
+            # The sprite is rasterised at the painter's own resolution (#785):
+            # paint_plant asks core.raster_resolution, this item states cm only.
+            if paint_plant(
+                painter,
+                draw_rect,
                 object_type=self.object_type,
-                diameter=render_diameter,
                 item_id=str(self._item_id),
                 species=self._plant_species,
                 category=self._plant_category,
                 tint_color=self.fill_color,
-            )
-
-            if pixmap is not None:
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-                # Centered on the footprint rect regardless of how far
-                # render_diameter has diverged from it (a young plant's icon
-                # can now be considerably smaller than the footprint, #298
-                # follow-up) -- equivalent to the old overflow-based offset
-                # when diameter == rect.width(), see _visual_plant_diameter_cm.
-                center = rect.center()
-                draw_rect = QRectF(
-                    center.x() - render_diameter / 2.0,
-                    center.y() - render_diameter / 2.0,
-                    render_diameter,
-                    render_diameter,
-                )
-                painter.drawPixmap(draw_rect.toAlignedRect(), pixmap)
+            ):
 
                 # Draw selection highlight
                 if self.isSelected():
@@ -502,23 +501,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         if is_furniture_type(self.object_type):
             rect = self.rect()
-            diameter = rect.width()
-            pixmap = render_furniture_pixmap(
-                object_type=self.object_type,
-                width=diameter,
-                height=diameter,
-            )
-            if pixmap is not None:
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-                # Undo the canvas/export Y-flip so the sprite reads upright
-                # (see RectangleItem.paint, #308 manual test: fire-pit flames).
-                painter.save()
-                painter.translate(rect.center())
-                painter.scale(1.0, -1.0)
-                painter.translate(-rect.center())
-                painter.drawPixmap(rect.toAlignedRect(), pixmap)
-                painter.restore()
-
+            # Upright (the canvas/export Y-flip undone, #308) and at the
+            # painter's own resolution (#785) — both are paint_furniture's.
+            if paint_furniture(painter, rect, self.object_type):
                 # Draw selection highlight
                 if self.isSelected():
                     pen = QPen(QColor(0, 120, 215, 180))
