@@ -272,6 +272,8 @@ class ProjectManager(QObject):
         """Initialize the project manager."""
         super().__init__(parent)
         self._current_file: Path | None = None
+        # The title of the example or template this unsaved plan was opened from.
+        self._template_title: str | None = None
         self._dirty = False
         self._location: dict[str, Any] | None = None
         self._task_completions: set[str] = set()
@@ -316,6 +318,18 @@ class ProjectManager(QObject):
         if self._current_file:
             return self._current_file.stem
         return "Untitled"
+
+    @property
+    def display_name(self) -> str:
+        """The plan's title for a reader: a report's cover, a print legend.
+
+        The file's stem once the plan has a file. A plan opened from an example
+        or a template has none yet and carries that template's title (#788) —
+        ``project_name`` stays the name default file names are built from.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return self._template_title or self.project_name
 
     @property
     def location(self) -> dict[str, Any] | None:
@@ -826,6 +840,7 @@ class ProjectManager(QObject):
     def new_project(self) -> None:
         """Start a new untitled project."""
         self._current_file = None
+        self._template_title = None
         self._dirty = False
         self._location = None
         self._task_completions = set()
@@ -1122,7 +1137,11 @@ class ProjectManager(QObject):
             self._sync_custom_plants(scene)
 
             self._current_file = None if as_template else file_path
+            self._template_title = None
             if as_template:
+                from open_garden_planner.core.templates import template_title
+
+                self._template_title = template_title(file_path)
                 self.mark_dirty()
             else:
                 self.mark_clean()
@@ -1133,6 +1152,7 @@ class ProjectManager(QObject):
         except Exception:
             if scene_mutated:
                 self._current_file = None
+                self._template_title = None
                 self.mark_dirty()
                 self.project_changed.emit(None)
             raise

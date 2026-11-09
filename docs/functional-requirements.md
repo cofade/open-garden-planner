@@ -264,14 +264,14 @@ Pre-defined object types for common property elements:
 - **FR-FILE-08** (issue #199): Save/Open/export dialogs default to a safe, writable location — the open project's folder when one exists, otherwise `<Documents>/Open Garden Planner` (`app/paths.get_projects_dir()`). They must **never** default to the process working directory, which for a packaged build is the install folder; user data stored there is destroyed on upgrade/uninstall. Complemented installer-side by user-data preservation (see deployment view §7.2): the uninstaller backs up any `$INSTDIR\*.ogp` to `Documents\Open Garden Planner\Recovered Plans` before removing the install directory.
 
 ### FR-9.2 Export
-- **FR-EXP-01**: Export to PNG (configurable DPI: 72, 150, 300)
-- **FR-EXP-02**: Export to SVG (vector, scalable)
-- **FR-EXP-03**: Print support with scaling and page layout (Phase 6)
+- **FR-EXP-01**: Export to PNG (configurable DPI: 72, 150, 300). Object labels are sized for the output; a text note keeps the size it has on the plan at every DPI and paper size (#789).
+- **FR-EXP-02**: Export to SVG (vector, scalable). The file states the requested physical size (`width`/`height` in mm) and is the picture the PNG export paints: textures, clipped shapes (roofs, glasshouses, shadows) and pattern angles included. Text stays editable text and names a generic fallback font family (#787, ADR-075).
+- **FR-EXP-03**: Print support with scaling and page layout (Phase 6). At a fixed scale each sheet shows its tile of the plan and nothing else: nothing is printed on the margin or over the footer (#788). Object labels are readable at the printer's resolution; a text note keeps its plan size (#789).
 - **FR-EXP-04**: Export selected objects only or entire canvas
 - **FR-EXP-05**: Export includes visible layers only (or all, user choice)
 - **FR-EXP-06**: Plant list export: CSV with all plant metadata
 - **FR-EXP-07**: Export to DXF (AutoCAD R2010+); shapes map to LWPOLYLINE/CIRCLE/ELLIPSE; layers preserved; 1 unit = 1 cm
-- **FR-EXP-08**: Multi-page PDF report with configurable pages (cover, overview, bed details, plant list, legend); paper size A4/A3/Letter/Legal, landscape/portrait
+- **FR-EXP-08**: Multi-page PDF report with configurable pages (cover, overview, bed details, plant list, legend); paper size A4/A3/Letter/Legal, landscape/portrait. Plan pictures are 300 dpi. The plant list runs over as many pages as it needs and names every plant (its own name, else its species). A bed-detail page shows the bed in context with a minimum extent of 150 cm; small beds next to each other share a page. The legend lists the object types and plants on the plan with a sample of each. The cover carries the plan's title — for a plan opened from an example, the example's name (#788, ADR-075).
 
 ### FR-9.3 Import
 - **FR-IMP-01**: Import `.ogp` project files

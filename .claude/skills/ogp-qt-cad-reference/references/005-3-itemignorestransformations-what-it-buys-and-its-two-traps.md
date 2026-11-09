@@ -14,7 +14,12 @@ rendered into a 774 px image comes out ~80+ cm wide. Fix: call
 and `_restore_text_after_export()` after (`export_service.py` ~line 105;
 `scale = output_width_cm / canvas_width_cm`). The flag stays ON — only the
 point size is retargeted. `render_scene_region`'s `text_point_size` argument
-is the same idea for the shared pipeline.
+is the same idea for the shared pipeline. Both go through one helper,
+`scene_rendering.retarget_constant_size_text`, which touches ONLY text that
+`draws_at_constant_pixel_size` (the flag on the item or an ancestor). A text
+note (`TextItem`) or a callout's text has no such flag: its font is in plan
+units, the export's scale already scales it, and forcing a point size on it
+was #789. Printing uses the same helper since #789.
 
 **Trap 2 — PyQt6 silently drops the mouse grab on IIT child handles**
 (§11.4, #193 follow-up; ADR-025 consequence 7). A handle grabs the mouse in

@@ -3542,7 +3542,7 @@ class GardenPlannerApp(QMainWindow):
                 self.canvas_scene,
                 file_path,
                 output_width_cm=ExportService.PAPER_A4_LANDSCAPE_WIDTH_CM,
-                title=self._project_manager.project_name,
+                title=self._project_manager.display_name,
                 description="Created with Open Garden Planner",
             ))
             self.statusBar().showMessage(self.tr("Exported: {path}").format(path=file_path))
@@ -3610,7 +3610,7 @@ class GardenPlannerApp(QMainWindow):
             with self._sun_export_gate.gui_session() as validate_snapshot:
                 print_mgr = GardenPrintManager(
                     self.canvas_scene,
-                    project_name=self._project_manager.project_name,
+                    project_name=self._project_manager.display_name,
                     snapshot_validator=validate_snapshot,
                 )
                 print_mgr.configure(
@@ -3715,7 +3715,7 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.dialogs.pdf_report_dialog import PdfReportDialog
 
         dialog = PdfReportDialog(
-            project_name=self._project_manager.project_name,
+            project_name=self._project_manager.display_name,
             parent=self,
         )
         if dialog.exec() != PdfReportDialog.DialogCode.Accepted:

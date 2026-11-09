@@ -8289,3 +8289,33 @@ already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
+
+## 8.35 Exports — one picture in every format (#787, #788, #789, ADR-075)
+
+PNG, SVG, the PDF report, the printout and the Agent API render all paint the same
+scene. Five rules keep them the same picture.
+
+| Rule | Where | Pinned by |
+|---|---|---|
+| The scene is prepared for an export in one way: overlays hidden (`ExportService._hide_overlay_items`), item caches off, constant-pixel-size text given a point size for the output | `services/scene_rendering.py`, `ExportService` | `tests/integration/test_export_overlay_hide.py`, `tests/integration/test_export_text_notes.py` |
+| Only text that `draws_at_constant_pixel_size` (`ItemIgnoresTransformations` on the item or an ancestor) is retargeted; a text note or a callout keeps its plan size | `scene_rendering.retarget_constant_size_text` | `tests/integration/test_export_text_notes.py` |
+| The painter the scene is rendered with carries the true output scale in its world transform — a 300-dpi `QImage` for PNG and for the report's plan pages, 1/300-inch units for SVG, the printer's resolution for print | `ExportService.export_to_png`, `pdf_report_service._scene_to_image`, `svg_export.record_scene`, `GardenPrintManager` | `tests/integration/test_pdf_report_pages.py` |
+| The SVG is recorded and replayed, never painted into `QSvgGenerator` directly | `services/svg_export.py` (PF-CAN-53) | `tests/integration/test_svg_export_fidelity.py` |
+| Nothing is painted outside its frame: a `paint()` clips with `IntersectClip`, a print tile is an explicit clip, a report picture is its frame | PF-CAN-54 | `tests/integration/test_pdf_report_pages.py` |
+
+**How to test an export.** Measure the rendered output, not the calls: rasterise it and
+compare ink. A PDF is rasterised with `QPdfDocument`; an SVG with `QSvgRenderer`, which
+is **not a browser** — it ignores `clip-path` and sets large text up to 6 % wide — so
+assert a remaining `<clipPath>` and a font size on the file's structure, and check a
+browser by hand (`scripts/svg_preview.py`, or headless Edge) when the SVG writer
+changes. A texture is resampled differently by every rasteriser: compare block averages
+(4 x 4 pixels), not single pixels. Find ink by a colour nothing else has, and take the
+extent of an area from lines that are at least a fifth set — a footer's grey text and
+hairline rule have a shadow's grey in their antialiasing.
+
+**The report's pages.** `PdfReportService.plan_pages(scene, options, page_rect)` lists
+every page as `(type, data)`; `render_page` paints one. A test renders a page into a
+`QImage` of one pixel per point and reads it. Bed-detail frames come from `_bed_frame`
+(padding, 150 cm minimum extent, minimum aspect, moved into the plan) and `_bed_groups`
+(small beds whose frames touch share a page). The plant list names a plant as the plant
+panels do: its own name, else `ui.plant_traits.species_display_name`.

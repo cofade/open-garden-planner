@@ -306,7 +306,9 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         region = self._feather_region
         if region is not None and not region.isEmpty():
             painter.save()
-            painter.setClipPath(region)
+            # IntersectClip: a paint() never replaces the clip it was handed —
+            # a print tile or a PDF frame is one (#788, PF-CAN-54).
+            painter.setClipPath(region, Qt.ClipOperation.IntersectClip)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             if by_region:
                 # each region's own outline at its own strength. The clip keeps what
@@ -324,7 +326,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # Solid core, hard-cut at the canvas boundary.
         painter.save()
         if self._clip_rect is not None:
-            painter.setClipRect(self._clip_rect)
+            painter.setClipRect(self._clip_rect, Qt.ClipOperation.IntersectClip)
         painter.setPen(Qt.PenStyle.NoPen)
         if by_region:
             for reg_path, reg_color in self._region_paths:
