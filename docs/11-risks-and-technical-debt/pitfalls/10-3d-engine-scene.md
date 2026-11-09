@@ -302,7 +302,7 @@ colour picker. `QMediaRecorder.errorOccurred` carries an enum PyQt6 cannot conne
 
 ### PF-E3D-21
 
-- **Rule:** With glow on, an `ExtendedSceneEnvironment` never runs two effects ahead of its own scene effect: screen-space reflections plus a depth of field (Qt's or the app's `PhotoBlur.qml`), or any two user `Effect`s, kill Qt 6.12's render thread in `d3d11.dll` (`OMSetRenderTargets` on a released view, a read at address 0x16d) or draw a wrong picture, and nothing reaches stderr or `app.log`. `Garden.qml` turns reflections off while `photoBlur > 0` (`depthOfFieldActive`). Only Ultra has reflections, so only Ultra crashed; and a probe that isolates the profile runs on the default quality, so it never saw it.
+- **Rule:** With glow on, an `ExtendedSceneEnvironment` never runs two effects ahead of its own scene effect: screen-space reflections plus a depth of field (Qt's or the app's `PhotoBlur.qml`), or any two user `Effect`s, kill Qt 6.12's render thread in `d3d11.dll` (a read at address 0x16d in `OMSetRenderTargets`) or draw a wrong picture, and nothing reaches stderr or `app.log`. `Garden.qml` turns reflections off while `photoBlur > 0` (`depthOfFieldActive`). Only Ultra has reflections, so only Ultra crashed; and a probe that isolates the profile runs on the default quality, so it never saw it.
 - **Pinned by:** `tests/integration/test_directors_cut_render.py::test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down`; `tests/unit/test_quick3d_qml.py::test_the_look_rules_the_spike_paid_for`
 - **Source:** #390 manual test, two crashes at the same address (v1.36.x exe, `view3d/quality = ultra`); ADR-072; #744 (generalised, reproduced without project code: `adr-048-evidence/qt-effect-chain-glow/`).
 - **Status:** standing
@@ -313,10 +313,15 @@ driver process dies and writes no result file).
 
 #744 re-tested it with the app's own blur in place of Qt's (#743): reflections kept under the blur on
 Ultra crashed 3 of 3 at the first blurred frame; with the workaround 10 of 10 rounds drew. A cube scene
-with nothing of the app's (`effect_chain_glow_crash.qml` in the evidence folder) dies at its first frame
+with nothing of the app's (`effect_chain_glow_crash.qml` in the evidence folder) crashes
 with reflections, Qt's depth of field and glow (6 of 7 GPU runs with exit 0xC0000005, the seventh ended
 without its ALIVE line; 3 of 3 on WARP) and lives with any one of them removed. Its dump faults at
-`d3d11.dll+0x158c32`, a read at 0x16d: the owner's address. Two pass-through user `Effect`s with glow
+`d3d11.dll+0x158c32`, a read at 0x16d: the owner's address. A logged series on WARP (2026-11-10)
+ended 18 of 20 runs with 0xC0000005 and 2 with 0xC0000374 (heap corruption); with a 10-second timer
+6 of 8 died 4 to 5 s after their start and 2 at exit. Three of the 20 lost the device and went on
+with a second QRhi, two of them with a damaged image path in a `QSSG.warning`: memory is overwritten
+or used after its release, and a released render-target view is a guess, not a finding. One earlier
+WARP run of 17 exited with code 0, so a single clean run proves nothing. Two pass-through user `Effect`s with glow
 drew grey where the scene was; reflections plus one user `Effect` with glow crashed when reflections came
 on after the first frame, or drew black. One effect ahead of the scene effect, with any number of passes
 and buffers, was fine every time. The count, not the kind, breaks it.
