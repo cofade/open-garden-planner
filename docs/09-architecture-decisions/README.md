@@ -11212,7 +11212,7 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
    whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
    manual-task or task-state data. The last check is
    `ProjectManager.has_item_references`, the single central query. A bed or other
-   plant parent is NOT refused for having plants: a
+   plant parent with a polygonal form is NOT refused for having plants: a
    `ReconcileBedMembershipCommand` in the same undo step re-homes each linked plant
    to the piece that contains its standing point, using the established
    plant→bed mutator.

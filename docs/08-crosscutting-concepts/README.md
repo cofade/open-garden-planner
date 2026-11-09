@@ -8282,7 +8282,7 @@ fill-pattern direction. All cuts of one gesture share one undo step: a bare
 ordinary `PolygonItem`s with the source's layer, type (where valid for a
 polygon), look, `fill_transform`, label/area state, metadata and stack rank.
 Curves flatten to polygons; a concave shape may produce more than two pieces; a
-hole is refused. A bed or other plant parent is eligible: a
+hole is refused. A bed or other plant parent with a polygonal form is eligible: a
 `ReconcileBedMembershipCommand` in the same undo step re-homes every linked
 plant to the piece containing its standing point. Refused shapes are skipped (a
 success message counts them); when nothing can be split the first refusal reason

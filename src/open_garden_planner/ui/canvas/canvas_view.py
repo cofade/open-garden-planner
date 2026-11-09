@@ -5123,9 +5123,9 @@ class CanvasView(QGraphicsView):
         the source's UUID (soil/pest/harvest history, succession, crop rotation,
         journal/task links) would be orphaned. Those references, plus a plant
         itself, constraints, group membership and locked layers, are refused
-        before any mutation. A bed or other plant parent IS splittable: its
-        linked plants are re-homed to the piece that holds their standing point
-        in the same undo step.
+        before any mutation. A bed or other plant parent with a polygonal form
+        IS splittable: its linked plants are re-homed to the piece that holds
+        their standing point in the same undo step.
         """
         from open_garden_planner.core.object_types import (
             is_plant_type,

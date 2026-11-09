@@ -1218,11 +1218,11 @@ Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages 
   shape types with no polygonal form (for example a container), and any shape whose
   UUID is still referenced by soil, pest, harvest, succession, crop-rotation,
   manual-task or task-state project data (`ProjectManager.has_item_references`). A bed,
-  raised bed or other plant parent IS eligible: its linked plants are re-homed to the
-  piece that contains their standing point in the same undo step, so no plant is
-  orphaned. A scene-wide cut splits the eligible crossed shapes and reports how many
-  crossed objects could not be split; when nothing can be split, the reason is shown
-  to the user.
+  raised bed or other plant parent with a polygonal form IS eligible: its linked plants
+  are re-homed to the piece that contains their standing point in the same undo step,
+  so no plant is orphaned. A scene-wide cut splits the eligible crossed shapes and
+  reports how many crossed objects could not be split; when nothing can be split, the
+  reason is shown to the user.
 - **FR-DRILL-01:** With a group selected, a plain click on one of its members focuses
   that member for editing without ungrouping. The group remains the canvas selection;
   the focused member is what the Properties, plant-details, companion and crop-rotation
