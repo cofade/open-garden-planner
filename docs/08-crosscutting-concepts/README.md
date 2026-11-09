@@ -8278,8 +8278,9 @@ a faint supporting axis, so the user sees the line that actually cuts. Geometry
 is `core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is
 cut by the two half-planes, so a rotated source keeps its rotation and
 fill-pattern direction. All cuts of one gesture share one undo step: a bare
-`SplitShapeCommand` for one source, a `CompoundCommand` for several. Pieces are
-ordinary `PolygonItem`s with the source's layer, type (where valid for a
+`SplitShapeCommand` when no membership reconciliation is needed, otherwise a
+`CompoundCommand` (several sources, or one planted bed plus its plant re-home).
+Pieces are ordinary `PolygonItem`s with the source's layer, type (where valid for a
 polygon), look, `fill_transform`, label/area state, metadata and stack rank.
 Curves flatten to polygons; a concave shape may produce more than two pieces; a
 hole is refused. A bed or other plant parent with a polygonal form is eligible: a

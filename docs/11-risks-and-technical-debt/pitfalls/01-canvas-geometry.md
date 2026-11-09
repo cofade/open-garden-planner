@@ -613,3 +613,23 @@ A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, delete
 - **Legacy:** none (new entry)
 
 Qt 6.12 routes `child.setSelected(True)` through the group: `scene.selectedItems()` returns only the group even though the child's `isSelected()` is true. A `QGraphicsItemGroup` child's `ResizeHandle` press is swallowed by the group, and a double-click does not reach the child's vertex-edit handler. Detaching the child with `removeFromGroup` on drill-down and re-adding it on exit makes handles work but changes its parent frame; commands captured while detached store local `pos()`/`rect()` values, so undo after moving or rotating the group restores the wrong place. The vetted path keeps membership: the group stays selected, `effective_selection()` supplies the member to every panel, body drags and arrow keys convert scene deltas through `_delta_in_parent_frame`, and the view replays the member's handle drag through `begin_drag` / `apply_drag` / `end_drag`. The member's layer/cut/delete operations are refused until the focus clears.
+
+### PF-CAN-47
+
+- **Rule:** `QPainterPath.intersects` is true for a boundary touch, not only for an interior crossing. A geometry operation that means "crosses" must prove interior overlap — for a segment, split it at its outline crossings and require an interval midpoint strictly inside — or a snapped corner pick silently cuts the shape it only grazed.
+- **Pinned by:** `tests/unit/test_shape_split.py::test_a_touch_is_not_a_crossing`; `tests/integration/test_split_shapes.py::test_a_line_that_only_touches_a_corner_does_not_split`
+- **Source:** #664, PR #783, ADR-075 addendum
+- **Status:** standing
+- **Legacy:** 11.4.22 (new entry)
+
+The split tool's first crossing predicate was `path.intersects(segment)`. Qt answers
+True when a segment ends on the outline, runs along an edge, or is tangent to it, so
+a line whose first pick snapped to a bed's corner and whose second pick went away
+from it removed the bed and created two pieces. The same answer is right for a
+boolean *touch* test and wrong for a knife. `segment_crosses_path` now sorts the
+segment's parameters at its crossings with the flattened outline, samples each
+interval between them, and accepts the segment only when points offset to BOTH
+sides of the line are inside; a boundary-aligned segment has one side outside.
+`tests/unit/test_shape_split.py` covers the outward corner/edge/tangent starts and
+the true corner-to-corner crossing; the integration test reproduces the
+corner-snap cut that used to happen.

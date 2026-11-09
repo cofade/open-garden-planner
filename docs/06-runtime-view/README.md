@@ -1102,7 +1102,7 @@ sequenceDiagram
     T->>T: segment_crosses_item → piece preview for every crossed shape
     U->>T: second snapped point (Shift constrains)
     T->>T: split_item_into_local_polygons for every crossed shape
-    T->>H: execute(SplitShapeCommand, or a CompoundCommand for several;<br/>a planted bed also re-homes its plants in the same step)
+    T->>H: execute(a bare SplitShapeCommand, or a CompoundCommand when a planted bed needs its plants re-homed)
     H->>V: one undo step; sources removed, pieces added
     Note over U,M: The context menu's Split Along Line… enters the same tool<br/>through start_split_shape(source), scoped to that one shape.
 ```

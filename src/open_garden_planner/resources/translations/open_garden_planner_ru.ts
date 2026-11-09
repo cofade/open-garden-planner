@@ -2981,9 +2981,13 @@
             <translation type="vanished">Разделить по линии — разрезать каждую замкнутую форму, которую пересекает линия</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
             <source>Split along line — cut the closed shapes a two-point line crosses</source>
-            <translation>Разделить по линии — разрезать замкнутые формы, которые пересекает линия из двух точек</translation>
+            <translation type="vanished">Разделить по линии — разрезать замкнутые формы, которые пересекает линия из двух точек</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <source>Split along line — cut the eligible closed shapes a two-point line crosses</source>
+            <translation>Разделить по линии — разрезать подходящие замкнутые формы, которые пересекает линия из двух точек</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="82" />
@@ -13187,7 +13191,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="109" />
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="110" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Arrow Keys</source>
             <translation>Клавиши-стрелки</translation>
         </message>
@@ -13202,6 +13206,16 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>На передний план</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <source>CAD Editing</source>
+            <translation>CAD-редактирование</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <source>Chamfer</source>
+            <translation>Фаска</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="147" />
             <source>Circle</source>
             <translation>Круг</translation>
@@ -13212,7 +13226,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Клик</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="197" />
             <source>Close</source>
             <translation>Закрыть</translation>
         </message>
@@ -13247,7 +13261,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Удалить выделенное</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Double-click</source>
             <translation>Двойной щелчок</translation>
         </message>
@@ -13262,7 +13276,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Инструменты рисования</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
             <source>Driveway</source>
             <translation>Подъездная дорога</translation>
         </message>
@@ -13277,7 +13291,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Правка</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Edit object label</source>
             <translation>Редактировать метку объекта</translation>
         </message>
@@ -13297,7 +13311,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Выход из полноэкранного просмотра</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
             <source>Fence</source>
             <translation>Забор</translation>
         </message>
@@ -13305,6 +13319,11 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="54" />
             <source>File</source>
             <translation>Файл</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <source>Fillet</source>
+            <translation>Скругление</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="90" />
@@ -13317,7 +13336,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Полноэкранный просмотр</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
             <source>Garden Bed</source>
             <translation>Грядка</translation>
         </message>
@@ -13332,7 +13351,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Вкладка «Урожай»</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
             <source>House</source>
             <translation>Дом</translation>
         </message>
@@ -13367,17 +13386,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Перетаскивание средней кнопкой мыши</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <source>Mirror</source>
+            <translation>Отразить</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="126" />
             <source>Mouse Drag</source>
             <translation>Перетаскивание мышью</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Move selected (by 1cm)</source>
             <translation>Переместить выделенное (на 1 см)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Move selected (by grid size)</source>
             <translation>Переместить выделенное (на размер сетки)</translation>
         </message>
@@ -13387,9 +13411,14 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Новый проект</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="173" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="184" />
             <source>Object Manipulation</source>
             <translation>Управление объектами</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <source>Offset</source>
+            <translation>Смещение</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="56" />
@@ -13424,12 +13453,12 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Вставить</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="159" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="170" />
             <source>Path</source>
             <translation>Дорожка</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="178" />
             <source>Perennial</source>
             <translation>Многолетник</translation>
         </message>
@@ -13444,7 +13473,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Только план</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
             <source>Plant Tools</source>
             <translation>Инструменты «Растения»</translation>
         </message>
@@ -13459,7 +13488,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Многоугольник</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="163" />
             <source>Property Objects</source>
             <translation>Объекты участка</translation>
         </message>
@@ -13505,7 +13534,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Колесо прокрутки</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="179" />
             <source>Search Plant Database</source>
             <translation>Поиск в базе растений</translation>
         </message>
@@ -13545,14 +13574,19 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Shift</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Shift+Arrow Keys</source>
             <translation>Shift+клавиши-стрелки</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="177" />
             <source>Shrub</source>
             <translation>Кустарник</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <source>Split along line</source>
+            <translation>Разделить по линии</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
@@ -13560,7 +13594,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Вкладка «Задачи»</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
             <source>Terrace/Patio</source>
             <translation>Терраса/патио</translation>
         </message>
@@ -13575,9 +13609,14 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Привязка к сетке (вкл./выкл.)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
             <source>Tree</source>
             <translation>Дерево</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <source>Trim/Extend</source>
+            <translation>Обрезать/Удлинить</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="65" />
@@ -13610,7 +13649,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Режим прогулки (3D)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="169" />
             <source>Wall</source>
             <translation>Стена</translation>
         </message>
@@ -14017,17 +14056,17 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Разделение отменено</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="344" />
+            <location filename="../../core/tools/split_tool.py" line="347" />
             <source>Split the shape into {count} pieces</source>
             <translation>Форма разделена на {count} частей</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="327" />
+            <location filename="../../core/tools/split_tool.py" line="329" />
             <source>Split {count} shapes</source>
             <translation>Разделить {count} форм</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="348" />
+            <location filename="../../core/tools/split_tool.py" line="351" />
             <source>Split {shapes} shapes into {pieces} pieces</source>
             <translation>{shapes} форм разделено на {pieces} частей</translation>
         </message>
@@ -14055,12 +14094,12 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation type="vanished">Эту форму нельзя разделить: {reason}</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="352" />
+            <location filename="../../core/tools/split_tool.py" line="355" />
             <source>{message}; 1 crossed object could not be split</source>
             <translation>{message}; 1 пересечённый объект нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="356" />
+            <location filename="../../core/tools/split_tool.py" line="359" />
             <source>{message}; {count} crossed objects could not be split</source>
             <translation>{message}; {count} пересечённых объектов нельзя разделить</translation>
         </message>

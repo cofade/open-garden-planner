@@ -210,3 +210,4 @@
 | Case study: a 4K picture's dark band that was blamed on the glow (#733) | [Read](207-case-study-a-4k-picture-that-was-blamed-on-the-glow-733.md) |
 | Case study: a layers list with an empty row and a rename that shrank its row (#774/#775) | [Read](208-case-study-a-layers-list-with-an-empty-row-and-a-rename-that-shrank-774-775.md) |
 | Case study: a tool shortcut that fired nothing because S already belonged to Snap (PR #783) | [Read](209-case-study-a-tool-shortcut-that-fired-nothing-pr783.md) |
+| Case study: a snapped corner cut the bed it only grazed (PR #783) | [Read](210-case-study-a-snapped-corner-that-cut-a-bed-pr783.md) |

@@ -3053,9 +3053,13 @@
             <translation type="vanished">Teilen entlang einer Linie — jede geschlossene Form schneiden, die die Linie kreuzt</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
             <source>Split along line — cut the closed shapes a two-point line crosses</source>
-            <translation>Teilen entlang einer Linie — die geschlossenen Formen schneiden, die eine Zwei-Punkt-Linie kreuzt</translation>
+            <translation type="vanished">Teilen entlang einer Linie — die geschlossenen Formen schneiden, die eine Zwei-Punkt-Linie kreuzt</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <source>Split along line — cut the eligible closed shapes a two-point line crosses</source>
+            <translation>Teilen entlang einer Linie — die geeigneten geschlossenen Formen schneiden, die eine Zwei-Punkt-Linie kreuzt</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="82" />
@@ -13483,7 +13487,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="109" />
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="110" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Arrow Keys</source>
             <translation>Pfeiltasten</translation>
         </message>
@@ -13498,6 +13502,16 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Ganz nach vorn</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <source>CAD Editing</source>
+            <translation>CAD-Bearbeitung</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <source>Chamfer</source>
+            <translation>Anfasen</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="147" />
             <source>Circle</source>
             <translation>Kreis</translation>
@@ -13508,7 +13522,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Klick</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="197" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
@@ -13543,7 +13557,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Auswahl löschen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Double-click</source>
             <translation>Doppelklick</translation>
         </message>
@@ -13558,7 +13572,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Zeichenwerkzeuge</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
             <source>Driveway</source>
             <translation>Einfahrt</translation>
         </message>
@@ -13573,7 +13587,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Edit object label</source>
             <translation>Objektbeschriftung bearbeiten</translation>
         </message>
@@ -13593,7 +13607,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Vollbildvorschau beenden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
             <source>Fence</source>
             <translation>Zaun</translation>
         </message>
@@ -13601,6 +13615,11 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="54" />
             <source>File</source>
             <translation>Datei</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <source>Fillet</source>
+            <translation>Abrunden</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="90" />
@@ -13613,7 +13632,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Vollbildvorschau</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
             <source>Garden Bed</source>
             <translation>Gartenbeet</translation>
         </message>
@@ -13628,7 +13647,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Tab Ernte</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
             <source>House</source>
             <translation>Haus</translation>
         </message>
@@ -13663,17 +13682,22 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Mittlere Maustaste ziehen</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <source>Mirror</source>
+            <translation>Spiegeln</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="126" />
             <source>Mouse Drag</source>
             <translation>Ziehen mit der Maus</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Move selected (by 1cm)</source>
             <translation>Auswahl verschieben (um 1 cm)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Move selected (by grid size)</source>
             <translation>Auswahl verschieben (um Rastergröße)</translation>
         </message>
@@ -13683,9 +13707,14 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Neues Projekt</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="173" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="184" />
             <source>Object Manipulation</source>
             <translation>Objektbearbeitung</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <source>Offset</source>
+            <translation>Versatz</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="56" />
@@ -13720,12 +13749,12 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Einfügen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="159" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="170" />
             <source>Path</source>
             <translation>Weg</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="178" />
             <source>Perennial</source>
             <translation>Staude</translation>
         </message>
@@ -13740,7 +13769,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Nur Plan</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
             <source>Plant Tools</source>
             <translation>Pflanzenwerkzeuge</translation>
         </message>
@@ -13755,7 +13784,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Polygon</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="163" />
             <source>Property Objects</source>
             <translation>Grundstücksobjekte</translation>
         </message>
@@ -13801,7 +13830,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Mausrad</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="179" />
             <source>Search Plant Database</source>
             <translation>Pflanzendatenbank durchsuchen</translation>
         </message>
@@ -13841,14 +13870,19 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Umschalt</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Shift+Arrow Keys</source>
             <translation>Umschalt+Pfeiltasten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="177" />
             <source>Shrub</source>
             <translation>Strauch</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <source>Split along line</source>
+            <translation>An Linie teilen</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
@@ -13856,7 +13890,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Tab Aufgaben</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
             <source>Terrace/Patio</source>
             <translation>Terrasse/Patio</translation>
         </message>
@@ -13871,9 +13905,14 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Am Raster einrasten umschalten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
             <source>Tree</source>
             <translation>Baum</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <source>Trim/Extend</source>
+            <translation>Trimmen/Erweitern</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="65" />
@@ -13906,7 +13945,7 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Rundgang (3D)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="169" />
             <source>Wall</source>
             <translation>Mauer</translation>
         </message>
@@ -14317,17 +14356,17 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Teilen abgebrochen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="344" />
+            <location filename="../../core/tools/split_tool.py" line="347" />
             <source>Split the shape into {count} pieces</source>
             <translation>Die Form in {count} Teile geteilt</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="327" />
+            <location filename="../../core/tools/split_tool.py" line="329" />
             <source>Split {count} shapes</source>
             <translation>{count} Formen teilen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="348" />
+            <location filename="../../core/tools/split_tool.py" line="351" />
             <source>Split {shapes} shapes into {pieces} pieces</source>
             <translation>{shapes} Formen in {pieces} Teile geteilt</translation>
         </message>
@@ -14355,12 +14394,12 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation type="vanished">Diese Form kann nicht geteilt werden: {reason}</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="352" />
+            <location filename="../../core/tools/split_tool.py" line="355" />
             <source>{message}; 1 crossed object could not be split</source>
             <translation>{message}; 1 gekreuztes Objekt konnte nicht geteilt werden</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="356" />
+            <location filename="../../core/tools/split_tool.py" line="359" />
             <source>{message}; {count} crossed objects could not be split</source>
             <translation>{message}; {count} gekreuzte Objekte konnten nicht geteilt werden</translation>
         </message>

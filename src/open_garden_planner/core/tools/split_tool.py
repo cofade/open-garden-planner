@@ -323,9 +323,13 @@ class SplitShapeTool(BaseTool):
             if len(commands) == 1
             else CompoundCommand(
                 commands,
-                QCoreApplication.translate(
-                    "SplitShapeTool", "Split {count} shapes"
-                ).format(count=len(plan.cuts)),
+                (
+                    commands[0].description
+                    if len(plan.cuts) == 1
+                    else QCoreApplication.translate(
+                        "SplitShapeTool", "Split {count} shapes"
+                    ).format(count=len(plan.cuts))
+                ),
             )
         )
 

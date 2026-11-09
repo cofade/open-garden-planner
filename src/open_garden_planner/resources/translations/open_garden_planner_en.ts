@@ -3009,9 +3009,13 @@
             <translation type="vanished">Split along line — cut every closed shape the line crosses</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
             <source>Split along line — cut the closed shapes a two-point line crosses</source>
-            <translation>Split along line — cut the closed shapes a two-point line crosses</translation>
+            <translation type="vanished">Split along line — cut the closed shapes a two-point line crosses</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <source>Split along line — cut the eligible closed shapes a two-point line crosses</source>
+            <translation>Split along line — cut the eligible closed shapes a two-point line crosses</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="82" />
@@ -13251,7 +13255,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="109" />
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="110" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Arrow Keys</source>
             <translation>Arrow Keys</translation>
         </message>
@@ -13266,6 +13270,16 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Bring to Front</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <source>CAD Editing</source>
+            <translation>CAD Editing</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <source>Chamfer</source>
+            <translation>Chamfer</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="147" />
             <source>Circle</source>
             <translation>Circle</translation>
@@ -13276,7 +13290,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Click</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="197" />
             <source>Close</source>
             <translation>Close</translation>
         </message>
@@ -13311,7 +13325,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Delete selected</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Double-click</source>
             <translation>Double-click</translation>
         </message>
@@ -13326,7 +13340,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Drawing Tools</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
             <source>Driveway</source>
             <translation>Driveway</translation>
         </message>
@@ -13341,7 +13355,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Edit</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Edit object label</source>
             <translation>Edit object label</translation>
         </message>
@@ -13361,7 +13375,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Exit Fullscreen Preview</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
             <source>Fence</source>
             <translation>Fence</translation>
         </message>
@@ -13369,6 +13383,11 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="54" />
             <source>File</source>
             <translation>File</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <source>Fillet</source>
+            <translation>Fillet</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="90" />
@@ -13381,7 +13400,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Fullscreen Preview</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
             <source>Garden Bed</source>
             <translation>Garden Bed</translation>
         </message>
@@ -13396,7 +13415,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Harvest tab</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
             <source>House</source>
             <translation>House</translation>
         </message>
@@ -13431,17 +13450,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Middle Mouse Drag</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <source>Mirror</source>
+            <translation>Mirror</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="126" />
             <source>Mouse Drag</source>
             <translation>Mouse Drag</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Move selected (by 1cm)</source>
             <translation>Move selected (by 1cm)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Move selected (by grid size)</source>
             <translation>Move selected (by grid size)</translation>
         </message>
@@ -13451,9 +13475,14 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>New Project</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="173" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="184" />
             <source>Object Manipulation</source>
             <translation>Object Manipulation</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <source>Offset</source>
+            <translation>Offset</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="56" />
@@ -13488,12 +13517,12 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Paste</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="159" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="170" />
             <source>Path</source>
             <translation>Path</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="178" />
             <source>Perennial</source>
             <translation>Perennial</translation>
         </message>
@@ -13508,7 +13537,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Plan only</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
             <source>Plant Tools</source>
             <translation>Plant Tools</translation>
         </message>
@@ -13523,7 +13552,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Polygon</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="163" />
             <source>Property Objects</source>
             <translation>Property Objects</translation>
         </message>
@@ -13569,7 +13598,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Scroll Wheel</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="179" />
             <source>Search Plant Database</source>
             <translation>Search Plant Database</translation>
         </message>
@@ -13609,14 +13638,19 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Shift</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Shift+Arrow Keys</source>
             <translation>Shift+Arrow Keys</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="177" />
             <source>Shrub</source>
             <translation>Shrub</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <source>Split along line</source>
+            <translation>Split along line</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
@@ -13624,7 +13658,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Tasks tab</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
             <source>Terrace/Patio</source>
             <translation>Terrace/Patio</translation>
         </message>
@@ -13639,9 +13673,14 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Toggle Snap to Grid</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
             <source>Tree</source>
             <translation>Tree</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <source>Trim/Extend</source>
+            <translation>Trim/Extend</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="65" />
@@ -13674,7 +13713,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Walk Mode (3D)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="169" />
             <source>Wall</source>
             <translation>Wall</translation>
         </message>
@@ -14081,17 +14120,17 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Split cancelled</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="344" />
+            <location filename="../../core/tools/split_tool.py" line="347" />
             <source>Split the shape into {count} pieces</source>
             <translation>Split the shape into {count} pieces</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="327" />
+            <location filename="../../core/tools/split_tool.py" line="329" />
             <source>Split {count} shapes</source>
             <translation>Split {count} shapes</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="348" />
+            <location filename="../../core/tools/split_tool.py" line="351" />
             <source>Split {shapes} shapes into {pieces} pieces</source>
             <translation>Split {shapes} shapes into {pieces} pieces</translation>
         </message>
@@ -14119,12 +14158,12 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation type="vanished">This shape cannot be split: {reason}</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="352" />
+            <location filename="../../core/tools/split_tool.py" line="355" />
             <source>{message}; 1 crossed object could not be split</source>
             <translation>{message}; 1 crossed object could not be split</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="356" />
+            <location filename="../../core/tools/split_tool.py" line="359" />
             <source>{message}; {count} crossed objects could not be split</source>
             <translation>{message}; {count} crossed objects could not be split</translation>
         </message>

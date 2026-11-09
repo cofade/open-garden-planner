@@ -2933,9 +2933,13 @@
             <translation type="vanished">Dividir por línea — cortar cada forma cerrada que cruce la línea</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
             <source>Split along line — cut the closed shapes a two-point line crosses</source>
-            <translation>Dividir por línea — cortar las formas cerradas que cruce una línea de dos puntos</translation>
+            <translation type="vanished">Dividir por línea — cortar las formas cerradas que cruce una línea de dos puntos</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <source>Split along line — cut the eligible closed shapes a two-point line crosses</source>
+            <translation>Dividir por línea — cortar las formas cerradas que pueda cruzar una línea de dos puntos</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="82" />
@@ -13032,7 +13036,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="109" />
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="110" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Arrow Keys</source>
             <translation>Teclas de flecha</translation>
         </message>
@@ -13047,6 +13051,16 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Traer al frente</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <source>CAD Editing</source>
+            <translation>Edición CAD</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <source>Chamfer</source>
+            <translation>Chaflán</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="147" />
             <source>Circle</source>
             <translation>Círculo</translation>
@@ -13057,7 +13071,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Clic</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="197" />
             <source>Close</source>
             <translation>Cerrar</translation>
         </message>
@@ -13092,7 +13106,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Eliminar selección</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Double-click</source>
             <translation>Doble clic</translation>
         </message>
@@ -13107,7 +13121,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Herramientas de dibujo</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
             <source>Driveway</source>
             <translation>Entrada de vehículos</translation>
         </message>
@@ -13122,7 +13136,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Editar</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="187" />
             <source>Edit object label</source>
             <translation>Editar etiqueta del objeto</translation>
         </message>
@@ -13142,7 +13156,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Salir de la vista previa en pantalla completa</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
             <source>Fence</source>
             <translation>Valla</translation>
         </message>
@@ -13150,6 +13164,11 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="54" />
             <source>File</source>
             <translation>Archivo</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <source>Fillet</source>
+            <translation>Redondeo</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="90" />
@@ -13162,7 +13181,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Vista previa en pantalla completa</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
             <source>Garden Bed</source>
             <translation>Bancal de huerto</translation>
         </message>
@@ -13177,7 +13196,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Pestaña Cosecha</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
             <source>House</source>
             <translation>Casa</translation>
         </message>
@@ -13212,17 +13231,22 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Arrastrar botón central del ratón</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <source>Mirror</source>
+            <translation>Simetría</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="126" />
             <source>Mouse Drag</source>
             <translation>Arrastrar con el ratón</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Move selected (by 1cm)</source>
             <translation>Mover selección (1 cm)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
             <source>Move selected (by grid size)</source>
             <translation>Mover selección (tamaño de cuadrícula)</translation>
         </message>
@@ -13232,9 +13256,14 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Nuevo proyecto</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="173" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="184" />
             <source>Object Manipulation</source>
             <translation>Manipulación de objetos</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <source>Offset</source>
+            <translation>Desplazamiento</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="56" />
@@ -13269,12 +13298,12 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Pegar</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="159" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="170" />
             <source>Path</source>
             <translation>Camino</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="178" />
             <source>Perennial</source>
             <translation>Vivaz</translation>
         </message>
@@ -13289,7 +13318,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Solo plano</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
             <source>Plant Tools</source>
             <translation>Herramientas de plantas</translation>
         </message>
@@ -13304,7 +13333,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Polígono</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="163" />
             <source>Property Objects</source>
             <translation>Objetos de la propiedad</translation>
         </message>
@@ -13350,7 +13379,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Rueda del ratón</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="179" />
             <source>Search Plant Database</source>
             <translation>Buscar en la base de datos de plantas</translation>
         </message>
@@ -13390,14 +13419,19 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Mayús</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Shift+Arrow Keys</source>
             <translation>Mayús+Teclas de flecha</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="177" />
             <source>Shrub</source>
             <translation>Arbusto</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <source>Split along line</source>
+            <translation>Dividir por línea</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
@@ -13405,7 +13439,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Pestaña Tareas</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
             <source>Terrace/Patio</source>
             <translation>Terraza/Patio</translation>
         </message>
@@ -13420,9 +13454,14 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Alternar ajuste a cuadrícula</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
             <source>Tree</source>
             <translation>Árbol</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <source>Trim/Extend</source>
+            <translation>Recortar/Extender</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/shortcuts_dialog.py" line="65" />
@@ -13455,7 +13494,7 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Paseo virtual (3D)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="169" />
             <source>Wall</source>
             <translation>Muro</translation>
         </message>
@@ -13862,17 +13901,17 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>División cancelada</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="344" />
+            <location filename="../../core/tools/split_tool.py" line="347" />
             <source>Split the shape into {count} pieces</source>
             <translation>Se dividió la forma en {count} piezas</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="327" />
+            <location filename="../../core/tools/split_tool.py" line="329" />
             <source>Split {count} shapes</source>
             <translation>Dividir {count} formas</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="348" />
+            <location filename="../../core/tools/split_tool.py" line="351" />
             <source>Split {shapes} shapes into {pieces} pieces</source>
             <translation>Se dividieron {shapes} formas en {pieces} piezas</translation>
         </message>
@@ -13900,12 +13939,12 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation type="vanished">Esta forma no se puede dividir: {reason}</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="352" />
+            <location filename="../../core/tools/split_tool.py" line="355" />
             <source>{message}; 1 crossed object could not be split</source>
             <translation>{message}; 1 objeto cruzado no se pudo dividir</translation>
         </message>
         <message>
-            <location filename="../../core/tools/split_tool.py" line="356" />
+            <location filename="../../core/tools/split_tool.py" line="359" />
             <source>{message}; {count} crossed objects could not be split</source>
             <translation>{message}; {count} objetos cruzados no se pudieron dividir</translation>
         </message>

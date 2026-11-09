@@ -1842,8 +1842,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
         "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
-        "Split along line — cut the closed shapes a two-point line crosses":
-            "Teilen entlang einer Linie — die geschlossenen Formen schneiden, die eine Zwei-Punkt-Linie kreuzt",
+        "Split along line — cut the eligible closed shapes a two-point line crosses":
+            "Teilen entlang einer Linie — die geeigneten geschlossenen Formen schneiden, die eine Zwei-Punkt-Linie kreuzt",
         "Offset — parallel copy or parallel line":
             "Versatz — parallele Kopie oder parallele Linie",
         "Fillet — round a corner": "Abrunden — Ecke abrunden",
@@ -1952,6 +1952,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Middle Mouse Drag": "Mittlere Maustaste ziehen",
         "Pan": "Schwenken",
         "Drawing Tools": "Zeichenwerkzeuge",
+        "CAD Editing": "CAD-Bearbeitung",
+        "Trim/Extend": "Trimmen/Erweitern",
+        "Split along line": "An Linie teilen",
+        "Offset": "Versatz",
+        "Fillet": "Abrunden",
+        "Chamfer": "Anfasen",
+        "Mirror": "Spiegeln",
         "Select Tool": "Auswahlwerkzeug",
         "Measure Tool": "Messwerkzeug",
         "Rectangle": "Rechteck",

@@ -11199,7 +11199,8 @@ that frame, so a later undo on a moved or rotated group can restore the wrong pl
    `core/shape_split.py` clips each item's local `QPainterPath` against the two
    half-planes of the two-point axis; one `SplitShapeCommand` per source removes
    it and adds ordinary `PolygonItem`s, and the whole gesture is one undo step
-   (a bare command for one source, a `CompoundCommand` for several). Pieces copy
+   (a bare command when no membership reconciliation is needed, otherwise a
+   `CompoundCommand`). Pieces copy
    the source's layer, object
    type (when valid for a polygon), name, label/area state, metadata, stack order and
    `fill_transform`; using the local frame keeps a rotated source's rotation and

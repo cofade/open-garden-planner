@@ -237,8 +237,8 @@ def test_a_line_that_only_touches_a_corner_does_not_split(canvas, mouse_event) -
     )
 
 
-def test_a_bed_with_a_linked_plant_rehomes_the_plant_in_the_same_step(
-    canvas, mouse_event
+def test_a_bed_with_linked_plants_rehomes_them_in_the_same_step(
+    canvas, mouse_event, tmp_path
 ) -> None:
     from open_garden_planner.core.commands import set_parent_link
 
@@ -248,42 +248,78 @@ def test_a_bed_with_a_linked_plant_rehomes_the_plant_in_the_same_step(
         RectangleItem(100, 100, 400, 100, object_type=ObjectType.GARDEN_BED),
         select=False,
     )
-    plant = _add(
+    top_plant = _add(
         canvas,
         CircleItem(150, 130, 20, object_type=ObjectType.PERENNIAL),
         select=False,
     )
-    assert set_parent_link(scene, plant, bed.item_id) is True
-    assert plant.item_id in bed.child_item_ids
+    bottom_plant = _add(
+        canvas,
+        CircleItem(300, 170, 20, object_type=ObjectType.PERENNIAL),
+        select=False,
+    )
+    for plant in (top_plant, bottom_plant):
+        assert set_parent_link(scene, plant, bed.item_id) is True
+        assert plant.item_id in bed.child_item_ids
     canvas.set_active_tool(ToolType.SPLIT)
     tool = canvas._split_tool
 
-    # y=150 divides the bed; the plant's standing point (150, 130) is above it.
+    # y=150 divides the bed; one plant stands above the cut, one below.
     tool.mouse_press(mouse_event, QPointF(0, 150))
     tool.mouse_press(mouse_event, QPointF(700, 150))
 
     pieces = _add_pieces(scene)
     assert len(pieces) == 2
     assert bed.scene() is None
-    assert plant.scene() is scene
-    parent = next(
-        (piece for piece in pieces if piece.item_id == plant.parent_bed_id), None
+    assert canvas.command_manager.last_command.description == "Split shape"
+
+    def parent_of(plant):
+        return next(
+            (piece for piece in pieces if piece.item_id == plant.parent_bed_id),
+            None,
+        )
+
+    top_parent = parent_of(top_plant)
+    bottom_parent = parent_of(bottom_plant)
+    assert top_parent is not None and bottom_parent is not None
+    assert top_parent is not bottom_parent
+    assert top_plant.item_id in top_parent.child_item_ids
+    assert bottom_plant.item_id in bottom_parent.child_item_ids
+    assert bottom_plant.item_id not in top_parent.child_item_ids
+    assert top_plant.item_id not in bottom_parent.child_item_ids
+    assert top_parent.sceneBoundingRect().contains(
+        top_plant.sceneBoundingRect().center()
     )
-    assert parent is not None
-    assert plant.item_id in parent.child_item_ids
-    assert parent.sceneBoundingRect().contains(plant.sceneBoundingRect().center())
+    assert bottom_parent.sceneBoundingRect().contains(
+        bottom_plant.sceneBoundingRect().center()
+    )
     assert canvas.command_manager.undo_depth == 1
 
     canvas.command_manager.undo()
     assert bed.scene() is scene
-    assert plant.parent_bed_id == bed.item_id
-    assert plant.item_id in bed.child_item_ids
+    for plant in (top_plant, bottom_plant):
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
     assert canvas.command_manager.undo_depth == 0
 
     canvas.command_manager.redo()
     assert bed.scene() is None
-    assert plant.parent_bed_id is not None
-    assert plant.parent_bed_id != bed.item_id
+    for plant in (top_plant, bottom_plant):
+        parent = parent_of(plant)
+        assert parent is not None
+        assert parent.item_id != bed.item_id
+        assert plant.item_id in parent.child_item_ids
+
+    path = tmp_path / "planted-bed-split.ogp"
+    ProjectManager().save(scene, path)
+    restored = canvas.scene()
+    ProjectManager().load(restored, path)
+    for plant in (top_plant, bottom_plant):
+        restored_plant = restored.find_item_by_id(plant.item_id)
+        assert restored_plant is not None
+        parent = restored.find_item_by_id(restored_plant.parent_bed_id)
+        assert parent is not None
+        assert restored_plant.item_id in parent.child_item_ids
 
 
 def test_a_scene_wide_cut_undoes_all_sources_in_one_step(canvas, mouse_event) -> None:
@@ -493,6 +529,19 @@ def test_a_multi_shape_split_survives_save_and_reopen(
         key=lambda poly: (poly.boundingRect().x(), poly.boundingRect().y()),
     )
     assert restored_geometry == geometry
+
+
+def test_the_shortcuts_dialog_lists_split(qtbot) -> None:
+    from PyQt6.QtWidgets import QGroupBox, QLabel
+
+    from open_garden_planner.ui.dialogs.shortcuts_dialog import ShortcutsDialog
+
+    dialog = ShortcutsDialog()
+    qtbot.addWidget(dialog)
+    labels = {label.text() for label in dialog.findChildren(QLabel)}
+    titles = {group.title() for group in dialog.findChildren(QGroupBox)}
+    assert "CAD Editing" in titles
+    assert "Split along line" in labels
 
 
 def test_the_split_shortcut_does_not_collide_with_snap(qtbot) -> None:

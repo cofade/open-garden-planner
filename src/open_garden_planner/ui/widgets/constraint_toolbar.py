@@ -99,7 +99,7 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     ),
     _ToolEntry(
         "split",
-        "Split along line — cut the closed shapes a two-point line crosses",
+        "Split along line — cut the eligible closed shapes a two-point line crosses",
         "Shift+S",
         ToolType.SPLIT,
     ),
