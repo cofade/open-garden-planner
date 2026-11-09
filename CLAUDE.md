@@ -263,10 +263,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     share one layout (`core/pergola.py`, `core/greenhouse.py`); a sprite whose
     natural aspect is opposite its item's turns via `core/sprite_orientation.py`.
     The Smart Symbols panel and bundled templates are retired.
-  - CAD editing (#664/#771, ADR-075): group drill-down is a view-level focus and is
-    tested in the running window, past a minimap refresh (PF-CAN-48); a rebuild that
-    changes type goes through `item_look.adopt_rebuilt_type`; Esc is
-    `CanvasView.handle_escape`, on the canvas and from the main window.
+  - CAD editing (#664/#771): read ADR-075, §8.35 and PF-CAN-48 before touching
+    group drill-down, a rebuild that changes an object's type, or Esc handling.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.
