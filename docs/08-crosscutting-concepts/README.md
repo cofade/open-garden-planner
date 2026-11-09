@@ -6669,12 +6669,47 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | −16.7 / −7.5 / −3.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | −7.0 / −7.0 / −6.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | −71.0 / −71.0 / −70.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | −56.3 / −56.3 / −56.0 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | −18.4 / −12.0 / −9.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
 fence by that transmittance (the table's ratio column). For the complete per-kind narrative of
 reach differences, nominal sections and pre-#440 gable geometry, see ADR-059 addendum "builders v0"
 ("Where the tip is").
+
+**Open frames (#698).** A pergola, a trellis, a swing, a hammock and a garden light are mostly
+air, and the 2D analysis casts them as their footprint prism WEIGHTED by a transmittance — the
+rule a new object kind has to be placed under:
+
+- **Which kinds** is a recorded decision in `core/object_height.py`: `OPEN_FRAME_TYPE_NAMES`
+  (weighted), `SOLID_2D_DECISIONS` (mostly air in 3D, solid in 2D, each with its reason — the
+  parasol, the greenhouse, the low furniture) and `NO_2D_SHADOW_TYPE_NAMES` (a string of
+  lights). `tests/unit/test_open_frames.py` measures every object kind and fails for one whose
+  3D model shades less than half of its prism and that is on none of the three lists. A kind
+  belongs on the open-frame list when its shade is thin members spread over the whole prism; a
+  solid top on a pole or on legs does not — its shade is dark and lies somewhere else.
+- **The weight is measured, not tabulated**: `1 − A(frame) ÷ A(prism)` for the item's own size,
+  height and turn and the sun of the moment (`core.shadow_geometry.open_frame_transmittance`),
+  from the 3D builder's own members (`core/scene3d/builders/open_frames.py`; a pergola's from
+  `core/pergola.layout`). To make a kind an open frame, add its name and nothing else — its
+  production builder is read. Do not add a table of shares: the members' sizes are capped, so
+  a share that is right for one footprint is wrong for the next.
+- **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
+  the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
+  hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks
+  a caster for its height and footprint alone casts it solid — ask the hook.
+- **Identical items share one frame.** The walk hands every item of the same geometry and
+  turn the same `OpenFrame` object, so it is weighed once per sun position and its shades
+  merge into one weighted region. Do not pose a frame into the scene or give it a per-item
+  field: fifty garden lights then cost fifty weighings and fifty regions a sample (measured:
+  36 ms a sun position against 6 ms).
+- **Testing it**: against the measuring script's own projection, over sizes and suns; and at a
+  turn other than 0 (a frame turned with the sun shades the same, turned against it does not —
+  a defect proportional to the turn is invisible at 0).
 
 **What the numbers are for.** They are analytic references for the builders: one item, the sun
 square to a straight 10 m line (a building: square to or along its ridge), the mesh projected

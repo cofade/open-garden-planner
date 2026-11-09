@@ -715,6 +715,15 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - 3D shadow drape consumes WeightedShadowRegion sequences to interpolate linear RGB vertex multipliers in a single persistent "shade" mesh.
 - All 9 built-world families meet the 10% relative-area ratio (0.90 <= area_ratio <= 1.10) and <= 15 cm reach difference across 15°, 35°, and 60° solar elevations.
 
+### FR-SUN-13: Open frames shade as frames (issue #698)
+
+- A **pergola**, a **trellis**, a **swing**, a **hammock** and a **garden light** are open frames: the 2D shadow overlay, the hours-of-sun heatmap, the per-plant sun estimates and the 3D analysis drape cast their footprint prism weighted by the share of the sun the frame lets through, not as a solid block.
+- The share is computed for the item itself and the sun of the moment — its size, its height, its rotation, the sun's elevation and azimuth — from the same members the 3D view builds (a pergola's from the one layout its 2D picture is drawn from). It is between 0 and 1; at the default sizes a pergola lets 64–71 % of the sun through, a trellis 61–68 %, a swing 83–85 %, a hammock 70–79 %, a garden light 63–79 % (sun due south at 15°–60°).
+- Ground under or behind an open frame collects its minutes of sun multiplied by that share; where the shade of two frames overlaps the shares multiply, and a solid's shade stays full shade (FR-SUN-12).
+- The overlay draws an open frame's shade lighter in proportion, with a soft edge of the same strength.
+- A **parasol**, a **greenhouse** and low furniture (tables, bench, chair, trampoline, grill, wheelbarrow, bird bath) keep the solid prism; a string of lights casts no 2D shadow (FR-3D-LIVE-08).
+- For the weighted 2D shadow of each of the five kinds the 3D model's shadow area is within 10 % at 15°, 35° and 60°.
+
 ## Audit A1 data and download safety (issue #453)
 
 - **FR-SAFETY-01**: Opening non-finite/overflowing numeric plan data refuses before
@@ -852,10 +861,10 @@ The built world complete (L4, #388, ADR-065).
   **Object height** field, and casts its shadow in 2D and 3D: also the parasol
   (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
   water tap (80), swing (220), hammock (110) and pergola (250), which had none
-  before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
-  whole footprint (a picket, metal or chain-link fence is weighted by its transmittance
-  since #440; the open
-  frames' and the garden light's is #698; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
+  before L4's owner passes. In 2D an open frame (pergola, trellis, swing, hammock,
+  garden light) shades its footprint prism in part: it is weighted by its transmittance
+  since #698 (FR-SUN-13), as a picket, metal or chain-link fence is since #440; a parasol
+  shades its whole footprint; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).
 - **FR-3D-BUILT-01a** (#769, parametric pergola): A **Pergola** is drawn as a
