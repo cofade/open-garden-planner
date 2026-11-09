@@ -17,7 +17,8 @@ The rule, asked by every bitmap painter and stated nowhere else:
    (``LEVEL_STEP``), so a bitmap is never shown larger than it was rasterised and
    is minified by less than ``LEVEL_STEP`` — and a smooth zoom re-rasterises
    once per doubling, not once per wheel step. The level is part of every cache
-   key (through the pixel size it yields).
+   key (through the pixel size it yields). It is never below ``MIN_LEVEL`` = 1:
+   **below 100 % the picture is what it always was** (see ``MIN_LEVEL``).
 
 Two painters are not asked for their scale:
 
@@ -43,10 +44,19 @@ from PyQt6.QtGui import QPaintEngine, QPainter
 #: in [1, 2) — bilinear filtering is alias-free there — and never magnified.
 LEVEL_STEP: Final = 2.0
 
-#: The coarsest and finest level. 1/16 px per cm is a 16-px tile for a 2.56 m
-#: pattern (the minimap of a large plan); 256 px per cm is past the view's
-#: maximum zoom (5000 %) on a 300 % display.
-MIN_LEVEL: Final = 1.0 / 16.0
+#: The coarsest level: 1 px per cm, the resolution every bitmap had before #785.
+#: Zoomed out, a bitmap is the 1-px-per-cm one minified by the painter, exactly as
+#: it was. Coarser levels were measured and left out on purpose: at 25 % zoom
+#: they remove the moire of bricks and roof tiles (rms error against the area
+#: average 12.3 -> 5.5) but also the contrast that makes a texture and a leaf
+#: outline read at that size (a fill's luminance spread at 10 % drops from 18.1
+#: to 6.5; ``TestTexturesAreNeverDropped`` guards 8) — and 20-25 % is where the
+#: owner works. That is a change of look, not of sharpness, and not this rule's
+#: to make.
+MIN_LEVEL: Final = 1.0
+
+#: The finest level: 256 px per cm is past the view's maximum zoom (5000 %) on a
+#: 300 % display.
 MAX_LEVEL: Final = 256.0
 
 #: A scale this close above a level still takes that level: a 100 % view whose

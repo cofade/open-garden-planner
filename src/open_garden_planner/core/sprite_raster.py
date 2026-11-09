@@ -122,14 +122,23 @@ def sprite_pixel_size(width: float, height: float, level: float) -> tuple[int, i
     )
 
 
-def rasterise(
-    width_px: int, height_px: int, draw: SpriteDraw, tint: QColor | None = None
-) -> QPixmap | None:
-    """``draw`` into a new transparent ``width_px`` x ``height_px`` pixmap, tinted."""
+def _transparent_image(width_px: int, height_px: int) -> QImage | None:
+    """A new transparent image to paint a sprite into; None when there is no
+    memory for it. Every bitmap this module makes is made here."""
     image = QImage(width_px, height_px, QImage.Format.Format_ARGB32_Premultiplied)
     if image.isNull():
         return None
     image.fill(Qt.GlobalColor.transparent)
+    return image
+
+
+def rasterise(
+    width_px: int, height_px: int, draw: SpriteDraw, tint: QColor | None = None
+) -> QPixmap | None:
+    """``draw`` into a new transparent ``width_px`` x ``height_px`` pixmap, tinted."""
+    image = _transparent_image(width_px, height_px)
+    if image is None:
+        return None
     painter = QPainter(image)
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -220,14 +229,11 @@ def _paint_exposed(
     pixels = area.width() * area.height() * shrink * shrink
     if pixels > MAX_LAYER_PIXELS:
         shrink *= math.sqrt(MAX_LAYER_PIXELS / pixels)
-    layer = QImage(
-        max(math.ceil(area.width() * shrink), 1),
-        max(math.ceil(area.height() * shrink), 1),
-        QImage.Format.Format_ARGB32_Premultiplied,
+    layer = _transparent_image(
+        max(math.ceil(area.width() * shrink), 1), max(math.ceil(area.height() * shrink), 1)
     )
-    if layer.isNull():
+    if layer is None:
         return False
-    layer.fill(Qt.GlobalColor.transparent)
     layer_painter = QPainter(layer)
     try:
         layer_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
