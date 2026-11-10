@@ -33,6 +33,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.sun_heatmap import (
     SunHeatmapController,
     SunHeatmapOverlayItem,
+    SunMapLabelItem,
     build_heatmap_image,
 )
 from open_garden_planner.ui.canvas.sun_legend import (
@@ -392,6 +393,58 @@ def test_the_minimap_shows_no_key(mapped) -> None:
     scene.removeItem(_legend_item(scene))
     minimap._do_update()
     assert np.array_equal(first, pixels(minimap._thumbnail.toImage()))
+
+
+def test_no_label_of_the_plan_touches_the_key_on_the_canvas(mapped) -> None:
+    """An hour's label half under the key reads as one of the key's numbers:
+    the key takes its room in the label pass (§8.9.15)."""
+    view, scene, controller = mapped
+    _grab(view)
+    rect = QRectF(view.sun_legend_rect())
+    # a label right where the key lies
+    under = SunMapLabelItem("6 h")
+    under.setPos(view.mapToScene(rect.center().toPoint()))
+    scene.addItem(under)
+    _grab(view)
+    blocked = scene.label_blockers(view.viewport())
+    assert [QRectF(one) for one in blocked] == [rect]
+    shown = scene.plan_labels_shown(view.viewportTransform(), blocked)
+    assert under not in [label for label, _device, _box in shown]
+    for _label, _device, box in shown:
+        assert not box.intersects(rect)
+    assert shown, "the other labels are still there"
+
+    # no key, no blocker: the label has its room back, and is painted
+    with_key = pixels(_grab(view))
+    controller.computed.disconnect()
+    view.set_sun_legend(None)
+    _grab(view)
+    assert scene.label_blockers(view.viewport()) == ()
+    without_key = pixels(_grab(view))
+    assert under in [label for label, _d, _b in scene.plan_labels_shown(view.viewportTransform())]
+    box = under.deviceTransform(view.viewportTransform()).mapRect(under.text_rect()).toAlignedRect()
+    patch = (slice(box.top(), box.bottom()), slice(box.left(), box.right()))
+    assert (without_key[patch].sum(axis=2) < 200).sum() >= 12, "the label is not painted"
+    assert with_key.shape == without_key.shape
+
+
+def test_no_label_of_the_plan_touches_the_key_in_a_picture(mapped) -> None:
+    _view, scene, _controller = mapped
+    item = _legend_item(scene)
+    # a label on the plan's south-west corner, where a picture has its key
+    under = SunMapLabelItem("6 h")
+    under.setPos(160.0, 60.0)
+    scene.addItem(under)
+    with_label = pixels(export(scene))
+    under.setVisible(False)
+    assert np.array_equal(with_label, pixels(export(scene))), "the label was painted under the key"
+    # without the key the label is in the picture
+    under.setVisible(True)
+    scene.removeItem(item)
+    lone = pixels(export(scene))
+    under.setVisible(False)
+    assert (np.abs(lone - pixels(export(scene))).sum(axis=2) > 90).sum() > 30
+    scene.addItem(item)
 
 
 def test_a_cleared_map_takes_its_key_out_of_the_scene(mapped) -> None:

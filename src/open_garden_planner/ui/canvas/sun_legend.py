@@ -278,6 +278,12 @@ class SunMapLegendItem(HaloTextItem):
         margin = self._margin()
         return QRectF(margin, -margin - size.height(), size.width(), size.height())
 
+    def plan_label_blocker(self) -> QRectF:
+        """The room the key takes, which no label of the plan may touch
+        (``ui.canvas.plan_labels``): an hour's label half under the key reads
+        as one of the key's own numbers."""
+        return self._key_rect()
+
     def boundingRect(self) -> QRectF:
         # The key's rectangle AND its mirror image below the corner. A picture
         # is rendered through a painter that flips y, and the scene finds the

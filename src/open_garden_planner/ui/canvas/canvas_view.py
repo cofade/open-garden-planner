@@ -4523,7 +4523,10 @@ class CanvasView(QGraphicsView):
         self._sun_legend_rect = QRect()
         key = self._sun_legend
         widget = self.viewport()
-        if key is None or widget is None:
+        if widget is None:
+            return
+        if key is None:
+            self._keep_labels_off_the_key(widget)
             return
         font = legend_font()
         viewport = widget.rect()
@@ -4548,7 +4551,18 @@ class CanvasView(QGraphicsView):
                     QColor(self._canvas_scene.CANVAS_COLOR), with_title=with_title,
                 )
                 self._sun_legend_rect = rect.toAlignedRect()
+                self._keep_labels_off_the_key(widget)
                 return
+        self._keep_labels_off_the_key(widget)
+
+    def _keep_labels_off_the_key(self, viewport: QWidget) -> None:
+        """Tell the scene's label pass where the key lies (``plan_labels``): a
+        label of the plan half under the key reads as one of its numbers. The
+        labels were painted before the key in this very paint, so a key that
+        moved or went away costs one more paint."""
+        rects = [] if self._sun_legend_rect.isEmpty() else [QRectF(self._sun_legend_rect)]
+        if self._canvas_scene.set_label_blockers(viewport, rects):
+            viewport.update()
 
     # Ruler tick intervals (cm), used to pick a nice spacing based on zoom
     _RULER_NICE_INTERVALS = [

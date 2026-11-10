@@ -7,10 +7,19 @@ items are painted. The view paints through that hook and so does
 ``scene.render()``, so an export shows the labels the canvas shows.
 
 Which labels have room is decided by ``core.label_layout`` in device pixels.
+
+Something that is not a label can take room too: the key of the sun map lies
+over the plan's corner, and an hour's label half under it reads as part of it.
+Such a thing is a *blocker* — a rectangle no label may touch. A scene item
+states one with ``plan_label_blocker()`` (the key in a picture of the plan); a
+view states the ones it draws over its viewport with
+``CanvasScene.set_label_blockers`` (the key on the canvas).
 """
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QRectF
@@ -27,7 +36,9 @@ if TYPE_CHECKING:
 ShownLabel = tuple[PlanLabelItem, QTransform, QRectF]
 
 
-def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLabel]:
+def plan_labels_shown(
+    scene: QGraphicsScene, world: QTransform, blocked: Sequence[QRectF] = ()
+) -> list[ShownLabel]:
     """The object labels a paint of ``scene`` with the transform ``world`` shows.
 
     ``world`` maps scene to device pixels (a view's ``viewportTransform()``, an
@@ -35,13 +46,32 @@ def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLab
     transform and the device rect it is painted in. The layout looks at every
     visible label of the scene, never at a repainted region alone: the repaint
     of a small region has to choose the same labels as a full one.
+
+    ``blocked`` are device rectangles no label may touch (module docstring);
+    the scene's own blockers — visible items with ``plan_label_blocker()`` —
+    are added to them.
     """
     # The minimap suppresses screen-space items with this flag instead of
     # hiding them; what it suppresses must not reappear through this pass.
     no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
-    labels: list[ShownLabel] = []
+    labels: list[ShownLabel | None] = []
     candidates: list[LabelCandidate] = []
+
+    def block(rect: QRectF) -> None:
+        # placed before every label, and never painted by this pass
+        candidates.append(LabelCandidate(
+            rect=(rect.left(), rect.top(), rect.right(), rect.bottom()),
+            owner_extent_px=math.inf, pinned=True,
+        ))
+        labels.append(None)
+
+    for rect in blocked:
+        block(rect)
     for item in scene.items():
+        blocker = getattr(item, "plan_label_blocker", None)
+        if blocker is not None and item.isVisible():
+            block(item.deviceTransform(world).mapRect(blocker()))
+            continue
         if not isinstance(item, PlanLabelItem) or not item.isVisible():
             continue
         if item.flags() & no_contents:
@@ -65,7 +95,10 @@ def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLab
             )
         )
         labels.append((item, device, box))
-    return [labels[index] for index in place_labels(candidates)] if candidates else []
+    if not candidates:
+        return []
+    placed = (labels[index] for index in place_labels(candidates))
+    return [label for label in placed if label is not None]
 
 
 def _free_label_tie(item: PlanLabelItem) -> str:
@@ -90,7 +123,10 @@ def paint_plan_labels(
     once. A render into a picture (an export, the minimap) is never tracked.
     """
     world = painter.worldTransform()
-    shown = plan_labels_shown(scene, world)
+    viewport = painter.device()
+    blockers = getattr(scene, "label_blockers", None)
+    blocked = blockers(viewport) if callable(blockers) and isinstance(viewport, QWidget) else ()
+    shown = plan_labels_shown(scene, world, blocked)
     exposed = world.mapRect(rect)
     for item, device, box in shown:
         if not box.intersects(exposed):
@@ -101,7 +137,6 @@ def paint_plan_labels(
         item.paint_text(painter)
         painter.restore()
 
-    viewport = painter.device()
     if isinstance(viewport, QWidget):
         chosen = frozenset(id(item) for item, _device, _box in shown)
         key = id(viewport)
