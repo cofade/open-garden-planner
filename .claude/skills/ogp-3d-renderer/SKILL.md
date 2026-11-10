@@ -41,5 +41,6 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 25. Recording a video (#807) — what Qt hands Windows' H.264 encoder (CBR or a quality, never a profile), the level, the stream's layout, colour tags Qt's decoder reads, a 4K tour's memory | [Read](references/025-25-recording-a-video-what-reaches-the-encoder-807.md) |
 | 26. The atmosphere sky at the painted horizon (#716, #719) — table alpha, calibrating in the frame, a full shared GPU | [Read](references/026-26-the-atmosphere-sky-at-the-horizon-716-719.md) |
 | 27. The meadow's grass on the engine (#798) — no anisotropy, `VAR_WORLD_POSITION`, RGBA16F mips keep the mean, the tile alpha as data, premultiplied `QImage` traps | [Read](references/027-27-the-meadows-grass-on-the-engine-798.md) |
+| 28. A plant's sway in every pass and AO on flat leaves (#800, #805) — the shadow pass runs a custom vertex MAIN (`QSSG_ENABLE_ORTHO_SHADOW_PASS`), world to model axes, a material swapped while the clock runs, SSAO bands on flat micro-leaves and `OCCLUSION_AMOUNT`, whole cycles per clock wrap | [Read](references/028-28-a-plants-sway-in-every-pass-and-ao-on-flat-leaves-800-805.md) |
 
 The host state contract is owned by `ui/view3d/quick3d/lifecycle.py`.

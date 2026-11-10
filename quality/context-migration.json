@@ -1307,8 +1307,8 @@
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
-          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "ace3ce93cd87f2200780c37ade956b39ce2b9dfdc6019dc6ad59179a0a78efae"
+          "sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66",
+          "current_sha256": "0fd8605da8d3e470ca2049c2060b0d665fe4cbef06a6934baa58e5ffaf8e1c15"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
@@ -1332,8 +1332,8 @@
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
-          "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "7b96fd873ccdbd50a2e05d85dbbdfdd9b88f6eb899daf72bc03e6c6bc1d9249c"
+          "sha256": "b214154e268d4982b65b10436bdac418724cff9811e81b6ae9e211195dab0e09",
+          "current_sha256": "775bd15ab41e1ab735473ad0a17af60e29ede609b0a5b01c2304a72fab4fa06a"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
@@ -2707,8 +2707,8 @@
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",
-          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "ace3ce93cd87f2200780c37ade956b39ce2b9dfdc6019dc6ad59179a0a78efae"
+          "sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66",
+          "current_sha256": "0fd8605da8d3e470ca2049c2060b0d665fe4cbef06a6934baa58e5ffaf8e1c15"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
@@ -2732,8 +2732,8 @@
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
-          "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "7b96fd873ccdbd50a2e05d85dbbdfdd9b88f6eb899daf72bc03e6c6bc1d9249c"
+          "sha256": "b214154e268d4982b65b10436bdac418724cff9811e81b6ae9e211195dab0e09",
+          "current_sha256": "775bd15ab41e1ab735473ad0a17af60e29ede609b0a5b01c2304a72fab4fa06a"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",

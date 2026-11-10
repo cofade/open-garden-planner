@@ -57,7 +57,7 @@ from .sink import SunState
 __all__ = [
     "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_DECK_LEVEL", "ATMOSPHERE_DECK_SUNSET",
     "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG", "ATMOSPHERE_THIN_CLOUD_LIFT",
-    "AUTO", "AUTO_LEVELS",
+    "AO_FLAT_BIAS_CM", "AUTO", "AUTO_LEVELS",
     "CLEAR_STILL",
     "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
     "GOLDEN_DEG", "AtmosphereSpec",
@@ -118,8 +118,17 @@ FOG_OF_HORIZON: Final = 0.8
 #: the walk (the sky lights a surface from one hemisphere, a flat ambient from all
 #: directions). L1.4 fix round 1.
 FILL_OF_SKY: Final = 0.5
-#: Amplitude of the foliage and grass sway, in the shaders' units (spike).
+#: Amplitude of the foliage and grass sway, in the shaders' units (spike); a plant's sway
+#: is a share of its height times the look's strength over this (#800, ``wind.py``).
 WIND_STRENGTH: Final = 2.5
+#: Qt's ambient occlusion bias (cm) in every look, the floor under a weather's (#805):
+#: the pass's normal faces the camera, so a FLAT surface seen at a slant occludes itself
+#: in bands - diagonal stripes across every micro-leaf from Medium up (the "acne" of
+#: the 3D survey: neither the shadow bias nor the map changes them, AO off removes them).
+#: 1 cm: the stripes on a backlit crown -44 % (AO off -50 %), a box caster's contact as
+#: before (0.0223 -> 0.0214 on its lit foot, High), open ground's self-occlusion
+#: 16.9 -> 11.4 levels; 2 cm halved the contact. ADR-059 addendum (#800, #805).
+AO_FLAT_BIAS_CM: Final = 1.0
 #: The moon of the night rig: fixed, high in the south (spike). It is a LOOK, not an
 #: ephemeris — the plan's sun is below the horizon, and the scene still needs a key.
 MOON_ELEVATION_DEG: Final = 38.0
@@ -638,11 +647,12 @@ class AtmosphereSpec:
     #: The garden lights, 0 (off, by day) .. 1 (on at night): they come on with dusk.
     lamps: float = 0.0
     #: The ambient occlusion under this weather (#687): factors on the spike's strength
-    #: (55) and reach (14) and Qt's bias in cm — 1, 1 and 0 when clear. Whether there is
-    #: occlusion at all stays the preset's (``PresetSpec.ambient_occlusion``).
+    #: (55) and reach (14) and Qt's bias in cm — 1, 1 and ``AO_FLAT_BIAS_CM`` when clear
+    #: (#805). Whether there is occlusion at all stays the preset's
+    #: (``PresetSpec.ambient_occlusion``).
     ao_strength_gain: float = 1.0
     ao_distance_gain: float = 1.0
-    ao_bias_cm: float = 0.0
+    ao_bias_cm: float = AO_FLAT_BIAS_CM
     #: How much snow lies on a built part's TOPS (a roof, a bed's soil, a deck), 0..1
     #: (#687): smooth, they hold a full cover where the meadow still shows its grass.
     built_snow: float = 0.0

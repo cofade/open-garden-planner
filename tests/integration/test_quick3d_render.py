@@ -178,13 +178,15 @@ def test_at_rest_a_vertex_with_full_wind_weight_is_where_its_mesh_puts_it(run: R
 
 def test_a_shader_that_sways_at_rest_would_fail(tmp_path: Path) -> None:
     """Control: the shaders as they were before the fix (the ``* rest`` factor removed).
-    The same boxes land 10.2 px (foliage) and 18.9 px (grass) from where their meshes
-    are — 20 cm and 38 cm in the garden — with no error and no warning anywhere."""
+    The same boxes land 10.2 px (foliage, L1.4's sway) and 18.9 px (grass) from where
+    their meshes are — 20 cm and 38 cm in the garden — with no error and no warning
+    anywhere; #800's plant sway, at clock 0 without the factor, more than 5 px too."""
     qml = tmp_path / "qml"
     shutil.copytree(QML_SOURCE, qml)
-    for file in ("foliage.vert", "grass.vert"):
+    # the lawn's blades move by two lines; a plant by one, its whole sway (#800)
+    for file, lines in (("foliage.vert", 1), ("grass.vert", 2)):
         text = (qml / file).read_text(encoding="utf-8")
-        assert text.count(" * rest;") == 2, f"the control no longer finds the rest factor in {file}"
+        assert text.count(" * rest;") == lines, f"the control no longer finds the rest factor in {file}"
         (qml / file).write_text(text.replace(" * rest;", ";"), encoding="utf-8")
     out = tmp_path / "out"
     proc, result = run_driver(out, "rest", qml_dir=qml, env=render_env(tmp_path))
@@ -611,10 +613,11 @@ def _broken_copy(tmp_path: Path, file: str, old: str, new: str) -> Path:
 @pytest.mark.parametrize(("file", "old", "new"), [
     ("water.frag", "waterLuma(LIGHT_COLOR)", "waterLumaRenamed(LIGHT_COLOR)"),
     ("foliage.frag", "vColor.rgb * uTint", "vColor.rgb * uTintMissing"),
-    ("foliage.vert", "uWind * w * gust * rest;\n    VERTEX.z",
-     "uWindMissing * w * gust * rest;\n    VERTEX.z"),
+    ("foliage.vert", "float wind = length(uWindSway);", "float wind = length(uWindSwayMissing);"),
     ("grass.vert", "vColor = COLOR;", "vColorMissing = COLOR;"),
-], ids=["water.frag", "foliage.frag", "foliage.vert", "grass.vert"])
+    # #800: compiled at load by the shader warmer, so any frame hears it
+    ("plant_sway.vert", "vColor = COLOR;", "vColorMissing = COLOR;"),
+], ids=["water.frag", "foliage.frag", "foliage.vert", "grass.vert", "plant_sway.vert"])
 def test_a_broken_shader_fails_the_render(tmp_path: Path, file: str, old: str, new: str) -> None:
     """Positive control. A shader that does not compile is only a Qt WARNING, and the
     frame still renders — in the wrong colours (the spike measured exit 0 and 449

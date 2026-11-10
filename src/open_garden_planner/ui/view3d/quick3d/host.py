@@ -626,6 +626,9 @@ class Quick3DHost:
             _set(model, "partName", spec.name)
             if spec.ground_detail:
                 _set(model, "groundDetail", True)
+            if spec.sway[0] > 0.0:
+                # #800: the plant's size and phase - its leaves, wood and fruit sway together
+                _set(model, "swayFrame", QVector3D(*spec.sway))
             self._call("applyPlantSeason", model)
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)

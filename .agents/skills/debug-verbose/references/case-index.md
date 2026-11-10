@@ -218,3 +218,4 @@
 | Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](222-case-study-a-blurred-bar-with-a-light-rim-743.md) |
 | Case study: a video whose first second more bits could not fix - Qt's average bit rate is Media Foundation's CBR (#807) | [Read](226-case-study-a-video-whose-first-second-more-bits-could-not-fix-807.md) |
 | Case study: a meadow "shimmer" that was the instrument's own (#798) | [Read](227-case-study-a-meadow-flicker-that-was-the-instruments-798.md) |
+| Case study: stripes that were not shadow acne, and a crown that would not sway (#800, #805) | [Read](228-case-study-stripes-that-were-not-acne-and-a-crown-that-did-not-sway-800-805.md) |
