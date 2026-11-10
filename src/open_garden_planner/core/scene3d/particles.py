@@ -184,6 +184,9 @@ class Emitter:
     radius_cm: float
     count: int
     color_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    #: The colours its particles pick from (linear), times ``color_linear``; empty: the
+    #: kind's own (a butterfly's wings) or white. A leaf's are its own crown's (#687).
+    palette_linear: tuple[tuple[float, float, float], ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind not in AMBIENT_KINDS:
@@ -204,9 +207,14 @@ _TURNED: Final = 0.2
 #: flowers are within reach: a tall tree's crown is not where they flutter (board, L5).
 _IN_FLOWER: Final = 0.35
 _FLOWER_HEIGHT_MAX_CM: Final = 350.0
-#: The autumn leaves' palette (linear): amber, rust, ochre, a late green.
-LEAF_PALETTE: Final = ((0.62, 0.27, 0.04), (0.45, 0.11, 0.03), (0.52, 0.38, 0.07),
-                       (0.30, 0.33, 0.06))
+#: A falling leaf is its own crown's colour (#687): this many samples of the Forge's leaf
+#: colours for the tree's palette (``plant_forge.palette_leaf_colors``, what the crown is
+#: built with), from its outer, upper leaves — the ones that fall —, times the season's
+#: tint (``PhenologyState.foliage_tint_linear``, the crown's ``seasonTint``). The style
+#: table forbids a palette literal: one (amber, rust, ochre) gave a red maple amber leaves.
+_LEAF_SAMPLES: Final = 8
+_FALLING_HEIGHT: Final = (0.45, 1.0)
+_FALLING_DEPTH: Final = (0.6, 1.0)
 #: The butterflies' wings (linear): a white, a brimstone yellow, a peacock orange, a blue.
 #: The white is a cabbage white's cream — at 0.86 a wing in the key light drew near-white.
 BUTTERFLY_PALETTE: Final = ((0.70, 0.70, 0.64), (0.90, 0.80, 0.18), (0.80, 0.30, 0.05),
@@ -234,6 +242,28 @@ def _plant_size(record: Record) -> tuple[float, float] | None:
     if height is None or not math.isfinite(float(radius)) or not math.isfinite(height):
         return None
     return float(radius), float(height)
+
+
+def _crown_leaf_palette(record: Record, state: PhenologyState
+                        ) -> tuple[tuple[float, float, float], ...]:
+    """The colours a falling leaf of ``record`` picks from (``_LEAF_SAMPLES``, linear):
+    its crown's own on the date of ``state`` — deterministic per item, never two trees'
+    clones."""
+    from ..plant_art import DEFAULT_PALETTE, traits_for
+    from ..plant_forge.foliage import palette_leaf_colors
+    from .builders.plants import plant_sprite
+
+    sprite = plant_sprite(record)
+    try:
+        palette = traits_for(sprite).palette if sprite is not None else DEFAULT_PALETTE
+    except KeyError:
+        palette = DEFAULT_PALETTE
+    rng = np.random.default_rng(_stable_seed("leaf-palette", record.item_id))
+    height = rng.uniform(*_FALLING_HEIGHT, _LEAF_SAMPLES)
+    depth = rng.uniform(*_FALLING_DEPTH, _LEAF_SAMPLES)
+    colours = (palette_leaf_colors(palette, sprite, height, depth, rng)[:, :3].astype(np.float64)
+               * np.asarray(state.foliage_tint_linear, dtype=np.float64))
+    return tuple((float(r), float(g), float(b)) for r, g, b in colours)
 
 
 def _share(weights: list[float], budget: int, *, at_least: int = 1) -> list[int]:
@@ -286,8 +316,11 @@ def ambient_emitters(records: Iterable[Record], seasons: Mapping[str, PhenologyS
             if count <= 0:
                 continue
             t = record.transform
+            palette = (_crown_leaf_palette(record, seasons[record.item_id]) if kind == "leaf"
+                       else ())
             out.append(Emitter(kind, record.item_id, float(t.east_cm), float(t.north_cm),
-                               float(t.base_cm) + height, float(t.base_cm), radius, count))
+                               float(t.base_cm) + height, float(t.base_cm), radius, count,
+                               palette_linear=palette))
 
     add("leaf", leaves, _share([r * r for _r, r, _h in leaves], MAX_LEAVES, at_least=3))
     add("butterfly", flowering,
@@ -333,8 +366,8 @@ def ambient_buffers(emitters: Iterable[Emitter]) -> EngineBuffers:
         per[:, 3] = rng.random(n)
         per[:, 4] = rng.random(n)
         per[:, 5] = emitter.radius_cm
-        palette = {"leaf": LEAF_PALETTE, "butterfly": BUTTERFLY_PALETTE}.get(
-            emitter.kind, ((1.0, 1.0, 1.0),))
+        palette = emitter.palette_linear or (
+            BUTTERFLY_PALETTE if emitter.kind == "butterfly" else ((1.0, 1.0, 1.0),))
         pick = rng.integers(0, len(palette), n)
         per[:, 6:9] = np.asarray(palette, dtype=np.float64)[pick] * np.asarray(
             emitter.color_linear, dtype=np.float64)

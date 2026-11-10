@@ -190,6 +190,11 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
         "butterflyLife": float(atmosphere.butterflies),
         "fireflyLife": float(atmosphere.fireflies),
         "lampGlow": float(atmosphere.lamps),
+        # the ambient occlusion under the weather (#687): on the spike's 55 / 14, plus a bias
+        "aoStrengthGain": float(atmosphere.ao_strength_gain),
+        "aoDistanceGain": float(atmosphere.ao_distance_gain),
+        "aoBias": float(atmosphere.ao_bias_cm),
+        "builtSnow": float(atmosphere.built_snow),   # snow on built tops (#687)
     }
 
 

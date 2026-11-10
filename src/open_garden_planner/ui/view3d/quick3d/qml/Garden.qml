@@ -105,6 +105,12 @@ Item {
     property real butterflyLife: 0.0
     property real fireflyLife: 0.0
     property real lampGlow: 0.0             // the garden lights: off by day, on at night
+    // the ambient occlusion under the weather (#687): factors on the spike's strength and
+    // reach, and the bias (cm) that keeps open flat ground from occluding itself
+    property real aoStrengthGain: 1.0
+    property real aoDistanceGain: 1.0
+    property real aoBias: 0.0
+    property real builtSnow: 0.0            // snow on built TOPS: a roof, a bed's soil (#687)
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -624,7 +630,11 @@ Item {
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
-            materials: fade < 1.0 ? [vcScreen] : [vcLook]
+            // #687: under snow the tops lie under the ground's snow (built_snow.frag) - only
+            // while it snows, so a snowless frame is the principled look; a building's floor
+            // lies under its roof (Cutaway shows it) and stays bare
+            materials: fade < 1.0 ? [vcScreen]
+                       : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
                 vertexColorsEnabled: true
@@ -645,6 +655,24 @@ Item {
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: vcSnow
+                // the principled look's albedo through the engine's polynomial (sRGB in)
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
+                property real uRough: 0.78
+                property real uSpecular: 0.35
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
             }
         }
     }
@@ -668,7 +696,8 @@ Item {
             pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
-            materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]
+            materials: root.roofsHidden || fade < 1.0 ? [roofScreen]
+                       : root.builtSnow > 0.0 ? [roofSnow] : [roofLook]   // #687: snow on the roof
             // roof tiles and shingles (ogp-lush-cinematic 4: roughness 0.70-0.85)
             PrincipledMaterial {
                 id: roofLook
@@ -686,6 +715,20 @@ Item {
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: roofSnow
+                property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property TextureInput uFill: TextureInput { texture: null }
+                property real uHasFill: 0.0
+                property real uRough: 0.80
+                property real uSpecular: 0.15
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
             }
         }
     }
@@ -1024,8 +1067,14 @@ Item {
             // 0 wherever AO is off: Qt's setAoStrength turns AO on whenever the strength
             // is not 0, whatever aoEnabled says (3D review of L4's second owner pass: Low
             // drew SSAO once the fade had changed it)
-            aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
-            aoDistance: 14 * root.captureAoDistanceScale
+            aoStrength: 55 * root.aoStrengthGain * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
+            // the weather's reach and bias (#687): under cloud the sky is the light and what
+            // hides it grounds an object; the bias keeps flat ground seen at a slant from
+            // occluding itself (Qt's normal faces the camera: open snow greyed, a light rim
+            // round every object). A capture's scale shrinks both: the bias is a share of
+            // the reach, and the rim comes back below 0.3 of it
+            aoDistance: 14 * root.aoDistanceGain * root.captureAoDistanceScale
+            aoBias: root.aoBias * root.captureAoDistanceScale
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
             glowEnabled: !root.topDown && root.glow
@@ -1463,6 +1512,26 @@ Item {
                     cullMode: Material.NoCulling
                     vertexShader: "screen.vert"
                     fragmentShader: "screen.frag"
+                }
+            }
+            Model {   // #687: the snow on built tops, so the first snowy frame compiles nothing
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property TextureInput uFill: TextureInput { texture: null }
+                    property real uHasFill: 0.0
+                    property real uRough: 0.78
+                    property real uSpecular: 0.35
+                    property real uSnowCover: 0.0
+                    property real uSnowRough: 1.0
+                    property real uSnowSpecular: 0.15
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
                 }
             }
             Model {

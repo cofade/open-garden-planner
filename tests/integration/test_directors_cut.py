@@ -506,6 +506,52 @@ def test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views(rig: R
     assert {picture["fitted_shadows"] for picture in host.pictures} == {False}
 
 
+def test_a_tours_frames_light_their_own_lamps_and_the_view_gets_its_back(rig: Rig) -> None:
+    """#687: the lamps that light are the six nearest the camera's TARGET (weighted by
+    ``lit_lamps``). A tour's frame looks elsewhere than the pane, so every frame is lit by
+    the lamps of ITS target, told to the host before its picture is taken; the view's own
+    come back when the tour ends. Before, a tour over more than six lanterns lit the pane's."""
+    from unittest.mock import MagicMock
+
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QMouseEvent
+
+    from open_garden_planner.core.scene3d.lights import lamp_sources, lit_lamps
+    from open_garden_planner.core.tools.base_tool import ToolType
+
+    event = MagicMock(spec=QMouseEvent)
+    event.button.return_value = Qt.MouseButton.LeftButton
+    event.buttons.return_value = Qt.MouseButton.LeftButton
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    rig.view.set_active_tool(ToolType.GARDEN_LIGHT)
+    for k in range(9):                                   # nine lanterns along the plan
+        tool = rig.view.tool_manager.active_tool
+        tool.mouse_press(event, QPointF(150.0 + 220.0 * k, 300.0))
+        tool.mouse_press(event, QPointF(170.0 + 220.0 * k, 300.0))
+    rig.open_3d()
+    host, capture = rig.host, rig.workspace.capture
+    rig.qtbot.waitUntil(lambda: bool(host.lamps) and len(host.lamps[-1]) == 6, timeout=5000)
+    sources = lamp_sources(rig.workspace.controller.sync.records.values())
+    assert len(sources) == 9
+    pane = capture.camera_key()
+    far = CameraKey((pane.eye[0] + 1500.0, pane.eye[1], pane.eye[2]),
+                    (sources[-1].light[0], sources[-1].light[1], 0.0), pane.fov_deg)
+    lit_at_picture: list[list[tuple[float, float, float, float]]] = []
+    original = host.capture
+
+    def noting(*arguments: Any, **keywords: Any) -> QImage:
+        lit_at_picture.append(list(host.lamps[-1]))
+        return original(*arguments, **keywords)
+
+    host.capture = noting  # type: ignore[method-assign]
+    assert run_tour(rig, TourSpec(HeldCamera(far), 1.0, 24)).ok
+    wanted = [tuple(light) for light in lit_lamps(sources, far.target)]
+    assert lit_at_picture and all([tuple(v) for v in lit] == wanted for lit in lit_at_picture), (
+        "every frame lit by the lamps of its own target")
+    assert [tuple(v) for v in host.lamps[-1]] == [tuple(light) for light in lit_lamps(sources, pane.target)], (
+        "the view's own lamps again")
+
+
 def test_a_time_lapse_moves_the_clock_frame_by_frame_and_puts_it_back(rig: Rig) -> None:
     rig.open_3d()
     capture, clock = rig.workspace.capture, rig.clock

@@ -156,7 +156,8 @@ class WorkspaceCaptureCoordinator(QObject):
                  forge_pending: Callable[[], int], is_pane_showing: Callable[[], bool],
                  view_state: Callable[[], str], ground_point: Callable[[float, float], Any],
                  default_path: Callable[[str], str], fly_path: Callable[[Any], None],
-                 is_walking: Callable[[], bool], parent: QWidget) -> None:
+                 is_walking: Callable[[], bool], parent: QWidget,
+                 aim_lamps: Callable[[Any], None] | None = None) -> None:
         super().__init__(parent)
         self._get_host = get_host
         self._get_controller = get_controller
@@ -171,6 +172,9 @@ class WorkspaceCaptureCoordinator(QObject):
         self._is_walking = is_walking
         self.default_path = default_path
         self._fly_path = fly_path
+        #: The garden lights that light follow a picture's own camera target (#687;
+        #: ``WorkspaceLivingCoordinator.aim_lamps``); None gives the view's back.
+        self._aim_lamps: Callable[[Any], None] = aim_lamps or (lambda _target: None)
         self._parent = parent
         self._settings: PhotoSettings = NO_PHOTO
         self._photo_on = False
@@ -693,6 +697,7 @@ class WorkspaceCaptureCoordinator(QObject):
         from .quick3d.shots import PerspectiveShot
 
         key = frame.key
+        self._aim_lamps(key.target)   # its lamps, not the view's (#687)
         image: QImage = self._get_host().capture(
             self._tour_size, PerspectiveShot(key.eye, key.target, key.fov_deg),
             wind_time_s=frame.wind_time_s, label=f"tour{frame.index}",
@@ -750,6 +755,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_holds_utc = False
         try:
             try:
+                self._aim_lamps(None)   # the view's own lamps again (#687)
                 self._fly_path(None)
                 host = self._get_host()
                 if host is not None:
@@ -838,12 +844,17 @@ class WorkspaceCaptureCoordinator(QObject):
         if blocker is not None:
             raise CaptureRefused(blocker)
         host = self._get_host()
+        if shot is not None:
+            self._aim_lamps(shot.target)   # its own lamps, not the view's (#687)
         try:
             image = host.capture(size, shot, photo=NO_PHOTO, label="agent",
                                  fitted_shadows=True)   # a still picture (#734)
         except HostStateError as error:   # resized or hidden a moment ago: "not now"
             _LOG.info("render_3d_view: no frame right now (%s)", log_text(error))
             raise CaptureRefused("warming_up") from error
+        finally:
+            if shot is not None:
+                self._aim_lamps(None)
         buffer = QBuffer()
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         image.save(buffer, "PNG")

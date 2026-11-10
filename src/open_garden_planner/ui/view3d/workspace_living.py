@@ -22,7 +22,10 @@ coordinators of the workspace it is told the host and the look controller by
   changes. The checkable "Wildlife and Falling Leaves" switches the life off and on
   (``set_life_enabled``) — the bulbs stay.
 - **The lamps that light** — the ``lights.LAMP_SLOTS`` garden lights nearest to the
-  camera's target (``nearest_lamps``), told to the host when that set changes.
+  camera's target, each faded by how much nearer it is than the nearest one left out
+  (``lit_lamps``, #687: no pool switches in one frame), told to the host when they
+  change. A picture from another camera — a tour's frame, an agent's view — is lit by
+  ITS target while it is taken (``aim_lamps``).
 
 Both the weather and the life switch are the session's (not stored), like the sim
 moment itself (FR-SUN-04): every session starts clear, with life on.
@@ -50,7 +53,7 @@ from open_garden_planner.core.scene3d.lights import (
     LIGHT_KINDS,
     LampSource,
     lamp_sources,
-    nearest_lamps,
+    lit_lamps,
 )
 from open_garden_planner.core.scene3d.weather import TODAY, WEATHER_CHOICES, todays_weather
 from open_garden_planner.core.solar import plan_place
@@ -114,6 +117,8 @@ class WorkspaceLivingCoordinator(QObject):
         self._lit: tuple[tuple[float, float, float, float], ...] | None = None
         self._ambient_key: object = None
         self._target: tuple[float, float, float] = (0.0, 0.0, 0.0)
+        #: The target of a picture from another camera while it is taken (``aim_lamps``).
+        self._capture_target: tuple[float, float, float] | None = None
         self._button: QToolButton | None = None
         self._pass_date: date | None = None
         self._midnight_timer = QTimer(self)
@@ -362,6 +367,15 @@ class WorkspaceLivingCoordinator(QObject):
         if self._sources:
             self._send_lamps()
 
+    def aim_lamps(self, target: tuple[float, float, float] | None) -> None:
+        """A picture from another camera than the view's — a tour's frame, an agent's
+        view — is lit by the lamps of ITS ``target`` (#687: a tour over more than six
+        lanterns lit the pane's); None gives the view its own back."""
+        self._capture_target = (None if target is None
+                                else (float(target[0]), float(target[1]), float(target[2])))
+        if self._sources:
+            self._send_lamps()
+
     # ── internals ────────────────────────────────────────────────────────────
 
     def _on_date(self, _day: date) -> None:
@@ -439,7 +453,8 @@ class WorkspaceLivingCoordinator(QObject):
         host = self._get_host()
         if host is None:
             return
-        lit = tuple(source.light for source in nearest_lamps(self._sources, self._target))
+        target = self._target if self._capture_target is None else self._capture_target
+        lit = lit_lamps(self._sources, target)
         if lit == self._lit:
             return
         self._lit = lit

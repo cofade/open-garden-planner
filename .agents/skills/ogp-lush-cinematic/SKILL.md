@@ -27,5 +27,6 @@ from dated measurements. New lessons belong in a new reference and index row.
 | The atmosphere sky — values and open taste questions (L7) | [Read](references/011-atmosphere-sky-l7.md) |
 | Photo mode and tours — the values (L6) | [Read](references/012-photo-mode-and-tours-l6.md) |
 | Low-sun shadow edges — steps, lit teeth, streaks and the `--stairs` probe (#734) | [Read](references/013-low-sun-shadow-edges-734.md) |
+| The living garden's polish — occlusion under cloud, snow on built tops, leaves, lamp pools, no dew mist (#687) | [Read](references/014-living-garden-polish-687.md) |
 | The atmosphere sky at the painted horizon — profile and deck anchor (#716, #719) | [Read](references/016-atmosphere-horizon-716-719.md) |
 | The meadow's grass — one ground shader, the texture, its variation and the owner's open-ground switch (#798) | [Read](references/017-meadow-grass-798.md) |

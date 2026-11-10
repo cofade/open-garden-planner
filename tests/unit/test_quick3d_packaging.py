@@ -85,6 +85,7 @@ class TestSpec:
             "PhotoBlur.qml",                  # photo mode's depth of field (#743)
             "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
             "atmosphere.frag",
+            "built_snow.frag", "built_snow.vert",   # snow on built tops (#687)
             "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
             "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
             "photoblur_compose.frag", "photoblur_layer.frag", "photoblur_rows.frag",

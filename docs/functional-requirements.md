@@ -1001,13 +1001,16 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   are. Partly cloudy: the sun stays out, its shadows crisp and only a little fainter, the
   sky a little greyer; with the atmosphere sky (FR-3D-LOOK-08) scattered white clouds cross
   it, golden toward sunset.
-  Overcast: a grey sky, no sun disc, soft and faint shadows. Rain: overcast, wet
-  leaves and ground, a nearer haze, stronger wind and falling rain. Snow: a pale sky, snow
-  on the ground and the leaves, falling snow, little wind. A new weather shows at once.
-  Not stored: every session starts clear.
+  Overcast: a grey sky, no sun disc, soft and faint shadows; what an object hides of the sky
+  darkens the ground at its foot (a stronger ambient occlusion under cloud, #687) while open
+  ground stays as bright as it is. Rain: overcast, wet leaves and ground, a nearer haze,
+  stronger wind and falling rain. Snow: a pale sky, snow on the ground and the leaves, and
+  on the TOPS of what is built — roofs, a bed's soil, decks, the trampoline's mat, a bench's
+  seat (#687; walls, glass and water stay as they are) — falling snow, little wind. A new
+  weather shows at once. Not stored: every session starts clear.
 - **FR-3D-LIVE-04** (L5.2): Particles: rain and snow around the point the camera looks at;
   **falling leaves** under trees and shrubs that are dropping their leaves on the plan
-  date; **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
+  date, each in its own tree's turned colour (a red maple drops red leaves, #687); **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
   **fireflies** among the plants on summer evenings (the hemisphere's June–August or
   December–February, from dusk). At most **5,000** particles at once. "Wildlife and Falling
   Leaves" in the Weather menu switches the leaves, butterflies and fireflies off and on.
@@ -1037,7 +1040,10 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   3D; saved there, it stays a fence.
 - **FR-3D-LIVE-08** (L5.4): From dusk on, every bulb of a garden light **glows** in 3D and
   the six lights nearest to the point the camera looks at **light** the garden around them
-  (leaves, lawn and ground included); the lights go off at sunrise. In 2D a garden light
+  (leaves, lawn and ground included); a light at the edge of those six fades as the camera
+  turns away, so no pool switches on or off in one frame, and a camera tour's frame or an
+  agent's picture is lit by the lights nearest the point IT looks at (#687); the lights go
+  off at sunrise. In 2D a garden light
   casts the usual solid-footprint shadow (ADR-059's table); a **string of lights casts no 2D
   shadow** — not in the overlay, the hours-of-sun map or a plant's sun estimate (the owner's
   decision: the shade of a wire is no planning fact). In 3D both cast their own thin

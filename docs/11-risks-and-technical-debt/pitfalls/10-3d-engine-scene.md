@@ -402,3 +402,23 @@ The first theory (two passes writing one buffer aliased it) died when the second
 its own and the rim stayed. Debug output of the layer pass showed the weight covering the bar's 15
 pixels plus the one multisampled edge pixel, whose linear colour (0.13) was 26 times the bar's: averaged
 with full weight it lit the whole blurred edge. At a fifth the rim read 14 levels at 360 px and 4 at 4K.
+
+### PF-E3D-28
+
+- **Rule:** Judge an ambient-occlusion change at more than one picture size and on a far camera before shipping it: Qt 6.12's pass leaves the self-occlusion its bias does not remove in a RING of open ground whose distance moves with the picture's height (its sample radius is a world radius on a pixel grid). A view-sized pane and a 1080p or 4K save of the same camera then differ by band, not by a uniform offset, and a mean hides it.
+- **Pinned by:** `tests/integration/test_living_garden_render.py::test_the_living_board_renders_every_shot`; `tests/unit/test_quick3d_qml.py::test_the_environments_constants_are_the_spikes`
+- **Source:** #687 against #831; ADR-070 addendum (#687); `ogp-3d-renderer` reference 24
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Measured through `Quick3DHost.capture` on #831's own setup (family garden, medium, sun 38°/250°, every picture shrunk to 360 rows, against 1080p): the clear look +4.74 mean at 360 px (worst 40-row band +12.27), +1.39 at 720p, -0.14 at 4K (#831's numbers, unchanged). Overcast at the clear AO values +4.14 / +1.22 / -0.13; at #687's (99 / 70 / 21) +0.73 / -0.62 / +1.25 — but the bands swing both ways: 360 px +13.4 and -11.7, 720p +5.1 and -7.5, 4K +11.1 and -7.9 (today +2.1 and -4.0). The far camera's open meadow at 1080p is darkened 0.1 / 7.4 / 18.7 / 16.1 / 7.2 / 3.5 levels from the horizon down (bias 0.3 of the reach), 5.0 / 7.8 / 4.7 / 2.5 / 1.0 at 0.5 — where the pass does nothing for a box's foot any more. A bias scaled by 1080/height below 1080p over-corrected (720p bands up to +8.7). On the board's own cameras (closer, less open meadow) the frames are clean at 720p and 1080p. The bias follows the capture's AO scale (`captureAoDistanceScale`): unscaled, a 4K overcast picture read +4.51 against 1080p.
+
+### PF-E3D-29
+
+- **Rule:** A picture taken from another camera than the view's — a tour's frame, an agent's `render_3d_view` with a camera — is lit by the garden lights nearest ITS target: `WorkspaceCaptureCoordinator` calls `aim_lamps(target)` before the capture and `aim_lamps(None)` after it (a tour: when it ends); the lamp slots are a camera-dependent choice like the precipitation's box, never the pane's.
+- **Pinned by:** `tests/integration/test_directors_cut.py::test_a_tours_frames_light_their_own_lamps_and_the_view_gets_its_back`; `tests/unit/test_scene3d_particles.py::test_a_lamp_fades_in_and_out_of_the_lit_six_and_no_pool_pops`
+- **Source:** #687 (item 2, found while designing the lamp fade); ADR-070 addendum (#687)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (found by reading, then pinned): `camera_moved` is called only from `Workspace._apply_camera`, so a tour over a plan with more than six lanterns lit every frame with the six nearest the PANE's target, at full strength, wherever the tour looked. The test drew nine lanterns, ran a held-camera tour aimed at the last one, and read the host's lamps at each picture: before the fix every frame held the pane's six. The lamp weights (`lights.lit_lamps`: `smoothstep(0, LAMP_FADE_CM, d_out - d)`, 200 cm) have no clock, so the same tour lights the same frames.
