@@ -476,20 +476,57 @@ def _establish(item):
 FAMILY_PATH_WIDTH_CM = {"Gravel path": 80.0, "Stepping stones": 50.0}
 
 
+#: What stood in the 50 cm stepping-stone walk, and where it stands in the showcase: the
+#: object's name or the plant's common name, and its centre. In the bench plan the walk is
+#: a 6 cm line, so a bird bath 26 cm from it and two perennials beside it were clear; as a
+#: walk it ran over them (review of #795). The path's own points stay: test data is pinned
+#: to them, and so does the bench fixture's layout. The lily moves so that the
+#: chrysanthemum, now east of the walk, keeps its distance from it.
+FAMILY_MOVED_CM = {
+    "Bird bath": (620.0, 450.0),         # was (560, 470): east of the walk, by the pond's end
+    "Geranium": (612.0, 681.0),          # was x 630: the border's last plant west of the walk
+    "Chrysanthemum": (746.0, 681.0),     # was x 712: the first plant east of it
+    "Lily": (811.0, 681.0),              # was x 794
+}
+
+#: The cherry bears fruit in June (its fictional harvest below), so it is no tree of this
+#: spring: planted in autumn 2022 as a nursery tree of this size (the growth model's low
+#: end is the size AT planting). On the reference date its crown is the 3.7 m the plan was
+#: drawn with; it is 6.4 m tall, where the spring-planted tree stood at 5.1 m.
+FAMILY_CHERRY = {"planting_date": "2022-11-05", "current_spread_cm": 130.0,
+                 "current_height_cm": 150.0}
+
+
+def _name_of(item):
+    """An object's name, or a plant's common name (the bench builder names no plant)."""
+    species = (getattr(item, "metadata", None) or {}).get("plant_species") or {}
+    return getattr(item, "name", "") or species.get("common_name", "")
+
+
 def family_garden():
     """The bench plan as an example: ``make_bench_plans.build_small``, one builder for both."""
     from make_bench_plans import BERLIN, build_small
 
     builder = build_small()
-    widened = set()
+    widened, moved, cherries = set(), set(), 0
     for item in builder.scene.items():
         _establish(item)
+        name = _name_of(item)
         if getattr(item, "object_type", None) is ObjectType.PATH and item.name in FAMILY_PATH_WIDTH_CM:
             pen = item.pen()
             pen.setWidthF(FAMILY_PATH_WIDTH_CM[item.name])
             adopt_pen(item, pen)
             widened.add(item.name)
+        if name in FAMILY_MOVED_CM and isinstance(item, CircleItem):
+            assert name not in moved, name          # each name stands for one object
+            centre = item.mapToParent(item.rect().center())
+            item.moveBy(FAMILY_MOVED_CM[name][0] - centre.x(), FAMILY_MOVED_CM[name][1] - centre.y())
+            moved.add(name)
+        if name == "Cherry Tree":
+            item.metadata["plant_instance"] = dict(FAMILY_CHERRY)
+            cherries += 1
     assert widened == set(FAMILY_PATH_WIDTH_CM), widened
+    assert moved == set(FAMILY_MOVED_CM) and cherries == 1, (moved, cherries)
     manager = ProjectManager()
     manager.set_location(dict(BERLIN) | {"timezone": "Europe/Berlin"})
     # What a Berlin garden planted on 15 April (its trees stood before) has given by 21 June.

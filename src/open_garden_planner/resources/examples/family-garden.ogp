@@ -1180,7 +1180,7 @@
     {
       "type": "circle",
       "item_id": "8b373789-0371-46ed-8147-2d786228e17b",
-      "center_x": 630.0,
+      "center_x": 612.0,
       "center_y": 681.0,
       "radius": 27.5,
       "object_type": "PERENNIAL",
@@ -1233,7 +1233,7 @@
     {
       "type": "circle",
       "item_id": "a73bd9b7-8b9f-444f-8f73-a13cede40a53",
-      "center_x": 712.0,
+      "center_x": 746.0,
       "center_y": 681.0,
       "radius": 27.5,
       "object_type": "PERENNIAL",
@@ -1286,7 +1286,7 @@
     {
       "type": "circle",
       "item_id": "93e93978-aea7-4ad1-9861-bda40ef3d768",
-      "center_x": 794.0,
+      "center_x": 811.0,
       "center_y": 681.0,
       "radius": 27.5,
       "object_type": "PERENNIAL",
@@ -4191,9 +4191,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-03-01",
-          "current_spread_cm": 360.0,
-          "current_height_cm": 480.0
+          "planting_date": "2022-11-05",
+          "current_spread_cm": 130.0,
+          "current_height_cm": 150.0
         }
       },
       "label_visible": false,
@@ -4611,8 +4611,8 @@
     {
       "type": "circle",
       "item_id": "27876439-af11-41e1-b506-aef30d3f5b7b",
-      "center_x": 560.0,
-      "center_y": 470.0,
+      "center_x": 620.0,
+      "center_y": 450.0,
       "radius": 25,
       "object_type": "BIRD_BATH",
       "name": "Bird bath",

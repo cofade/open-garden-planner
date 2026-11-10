@@ -8620,6 +8620,13 @@ Data rules the content tests hold (`tests/unit/test_example_content.py`):
 - A path is as wide as a path one walks on (40 cm or more). The showcase's two
   polyline paths are 80 and 50 cm; the bench fixture keeps the 8 and 6 cm its
   pinned numbers were measured with.
+- Nothing stands in the showcase's stepping-stone walk but the ground it is laid
+  on or through (lawn, terrace, the perennial border): every other object keeps
+  5 cm or more from its edge. Widening a path is a reason to look at what stands
+  beside it; the generator moves four items of the bench plan (`FAMILY_MOVED_CM`).
+- A harvest fits the age of its plant: a tree's first record is three years or
+  more after its planting date, a shrub's one year, and a year's total is at most
+  7 kg per year since planting.
 - A tutorial note has no halo, so its ink suits its ground: light and bold on a
   lawn, dark on the balcony's boards.
 - An item is turned with `geometry_apply.apply_rotation`, never a bare

@@ -9792,8 +9792,9 @@ The fourth example, `family-garden`, is not a teaching plan: it is the plan of e
 (`tests/fixtures/plans/bench_small.ogp`), shipped at the owner's request and the subject of the
 project's visual material. It is built by the same `make_bench_plans.build_small` and keeps the
 fixture's item ids, because a plant's procedural shape is seeded by its id; a test fails when the
-two drift. It keeps the fixture's layout and its 6 to 10 cm path widths (*the widths are
-superseded by the #795 addendum below*). One difference: what takes
+two drift. It keeps the fixture's layout and its 6 to 10 cm path widths (*the widths, the
+place of four objects and the cherry's age are superseded by the #795 addendum below*). One
+difference: what takes
 a year or more to mature is planted on 1 March, not on the fixture's 15 April, so a default
 time-lapse shows the birch leafing out instead of popping in (949 cm against the fixture's 929 cm
 on 21 June). It needs no
@@ -9872,6 +9873,23 @@ a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in
    showcase's "Gravel path" is 80 cm and its "Stepping stones" 50 cm. Only the example changes:
    the bench fixture keeps its widths, and the test that holds the two together compares
    geometry, ids, names and species, not stroke widths.
+   **What stood in the widened walk moved out of it** *(review round 1; supersedes "keeps the
+   fixture's layout" for four objects)*. As a 50 cm walk the stepping stones ran over the bird
+   bath (48 % of it), a chrysanthemum (43 %) and a geranium (8 %). The bird bath stands at
+   (620, 450), east of the walk; in the perennial border the geranium is at x 612, the
+   chrysanthemum at x 746 and the lily at x 811 (it makes room for the chrysanthemum). The
+   path's points do not move, because test data is pinned to them, and the fixture is
+   untouched: the generator moves the four items (`FAMILY_MOVED_CM`), and the test that
+   holds example and fixture together lists the four centres. The walk still crosses the
+   perennial border bed, which is the ground it is laid through, like the lawn and the
+   terrace. The birch's crown reaches over the gravel path; its trunk is a metre from it.
+   **The cherry is a tree of several years** *(review round 1)*. It has 6.5 kg of harvest
+   in June 2026 and was planted on 1 March 2026 like every established plant. It is now
+   planted on 5 November 2022 as a nursery tree (1.5 m tall, 1.3 m crown: the growth model's
+   low end is the size at planting). On the reference date its crown is 373 cm as before
+   and it is 640 cm tall, where it was 511 cm. Every other harvest entry of the four examples
+   was checked against its plant's age (`test_a_harvest_fits_the_age_of_the_plant_that_gave_it`):
+   none needed a change.
 9. **A seasonal 2D look is not built.** Trees in full leaf on 21 December are a project of their
    own; a follow-up issue carries it.
 10. **Unevaluated sun rows fold in the panel.** With Hours of Sun off, every plant with a known
