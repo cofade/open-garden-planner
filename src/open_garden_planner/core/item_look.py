@@ -75,6 +75,7 @@ __all__ = [
     "MIN_STROKE_WIDTH",
     "LineLook",
     "adopt_pen",
+    "adopt_rebuilt_type",
     "adopt_type_fill",
     "apply_line_look",
     "capture_line_look",
@@ -236,6 +237,39 @@ def adopt_type_fill(
         colour = style.fill_color
     item.setBrush(fill_brush(item, QColor(colour)))
     item.update()
+
+
+def adopt_rebuilt_type(
+    item: Any,
+    previous_type: ObjectType | None,
+    new_type: ObjectType | None,
+    *,
+    keep_fill: bool = False,
+) -> None:
+    """Everything a rebuild's type change owes the object, in one place.
+
+    A shape rebuilt as a polygon may have to change type (raised bed → garden
+    bed). It then takes the new type's fill pattern (:func:`adopt_type_fill`)
+    and keeps the height it stood at
+    (``object_height.carry_height_across_type_change``). The split tool, the
+    corner tools and the loader's migration all call this, so a rebuilt raised
+    bed cannot be textured and 40 cm tall on one path and flat brown on another
+    (manual test 2 of PR #783). Call it AFTER the item's metadata is in place.
+
+    ``keep_fill`` leaves the copied fill pattern alone. The split passes it for
+    a source that is painted by its own brush (FR-SPLIT-02 promises the user's
+    pattern survives a cut); a sprite-painted source's stored fill was never on
+    screen, so its pieces take the new type's pattern like everyone else's.
+    """
+    from open_garden_planner.core.object_height import (
+        carry_height_across_type_change,
+    )
+
+    if not keep_fill:
+        adopt_type_fill(item, previous_type, new_type)
+    metadata = getattr(item, "metadata", None)
+    if isinstance(metadata, dict):
+        carry_height_across_type_change(metadata, previous_type, new_type)
 
 
 def inherit_item_identity(source: Any, dest: Any) -> None:

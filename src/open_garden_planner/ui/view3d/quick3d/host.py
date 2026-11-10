@@ -1375,7 +1375,7 @@ class Quick3DHost:
         _set(self._root, "camFov", float(shot.fov_deg))
         _set(self._root, "camVersion", int(_get(self._root, "camVersion")) + 1)
         if self._photo.depth_of_field:   # L6.1: the focus stays on the point, not at a distance
-            self._apply_photo(self._view_height_px())
+            self._apply_photo()
         # where the rain falls follows the camera (L5): around the point it looks at
         volume = precipitation_volume(shot.eye, shot.target)
         _set(self._root, "volumeCenter", _engine_vector((*volume.center_scene, 0.0)))
@@ -1523,21 +1523,19 @@ class Quick3DHost:
         (``core.scene3d.photo``). ``NO_PHOTO`` is the view itself. Moves no camera."""
         self._open("set_photo")
         self._photo = settings
-        self._apply_photo(self._view_height_px())
+        self._apply_photo()
         self._apply_grade(settings.grade)
 
     @property
     def photo(self) -> PhotoSettings:
         return self._photo
 
-    def _view_height_px(self) -> float:
-        return float(self._root.height()) * float(self._view.effectiveDevicePixelRatio())
-
-    def _apply_photo(self, picture_height_px: float) -> None:
-        """The photo settings for the camera in place and a picture of this height."""
+    def _apply_photo(self) -> None:
+        """The photo settings for the camera in place. Nothing in them depends on a picture's
+        size: the blur is a share of whatever picture is drawn (#743)."""
         shot = self._camera_scene
         eye, target = (shot.eye, shot.target) if shot is not None else ((0.0, 0.0, 0.0),) * 2
-        for name, value in photo_properties(self._photo, eye, target, picture_height_px).items():
+        for name, value in photo_properties(self._photo, eye, target).items():
             _set(self._root, name, value)
 
     def _apply_grade(self, grade: str) -> None:
@@ -1649,7 +1647,7 @@ class Quick3DHost:
             _set(root, "captureAoDistanceScale", ao_distance_scale(float(height)))
             _set(root, "fittedShadows", bool(fitted_shadows))
             _set(root, "captureWanted", True)
-            self._apply_photo(float(height))
+            self._apply_photo()
             item = cast("QQuickItem", self._call("captureItem"))
             # Qt multiplies the target size by the window's ratio again
             result = item.grabToImage(QSize(round(width / ratio), round(height / ratio)))
@@ -1672,7 +1670,7 @@ class Quick3DHost:
                     self._apply_grade(photo_before.grade)
                 if shot is not None and shot_before is not None:
                     self.set_camera(shot_before.eye, shot_before.target, shot_before.fov_deg)
-                self._apply_photo(self._view_height_px())
+                self._apply_photo()
         if image.isNull() or image.width() == 0 or image.height() == 0:
             raise EngineError(f"capture({label!r}): Qt delivered no picture")
         if (image.width(), image.height()) != (width, height):

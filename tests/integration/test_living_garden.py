@@ -600,7 +600,11 @@ def test_garden_lights_are_drawn_with_their_tools_and_light_the_3d_garden(
 
     records = bench.workspace.controller.sync.records.values()
     expected = sorted(source.light for source in lamp_sources(records))
-    assert sorted(lit) == pytest.approx(expected), "they light from under their lamps"
+    actual = sorted(lit)
+    assert len(actual) == len(expected), "they light from under their lamps"
+    for got, want in zip(actual, expected, strict=True):
+        # pytest 9.2 rejects ``approx`` over a nested tuple; compare each lamp
+        assert got == pytest.approx(want), "they light from under their lamps"
     assert len(lit) <= LAMP_SLOTS
     assert bench.host.ambient and not bench.host.ambient[-1].is_empty, "their bulbs glow"
 

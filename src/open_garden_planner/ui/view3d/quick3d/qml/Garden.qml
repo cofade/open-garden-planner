@@ -165,11 +165,13 @@ Item {
     property real photoVignette: 0.0        // Qt's vignetteRadius; 0 is off
     property real photoFocusDistance: 600.0 // cm, from the camera to the focused point
     property real photoFocusRange: 100.0    // cm that stay sharp around it
-    property real photoBlur: 0.0            // Qt's depthOfFieldBlurAmount; 0 is off
+    // the blur's sigma as a share of the picture's height (PhotoBlur.qml, #743); 0 is off
+    property real photoBlur: 0.0
     property bool photoGraded: false        // a colour grade is on (showPhotoGrade)
-    // The blur is drawn (it is never in the truth view). Screen-space reflections stand down
-    // while it is: SSR + depth of field + glow in one effect chain crashed Qt's render thread
-    // in d3d11.dll (OMSetRenderTargets on a released view) on the Ultra preset
+    // The blur is drawn (it is never in the truth view): PhotoBlur is in the effect chain only
+    // then. Screen-space reflections stand down while it is (PF-E3D-21): with glow on, Qt
+    // 6.12's chain breaks as soon as TWO effects run ahead of its own scene effect - SSR and
+    // the blur here - (a crash in d3d11.dll at OMSetRenderTargets, or a wrong picture)
     readonly property bool depthOfFieldActive: !root.topDown && root.photoBlur > 0
 
     // A grade's table: ONE Texture per grade, with its data object, for the host's life
@@ -1060,10 +1062,17 @@ Item {
             vignetteStrength: 15
             vignetteRadius: root.photoVignette
             lutEnabled: !root.topDown && root.photoGraded
-            depthOfFieldEnabled: root.depthOfFieldActive
-            depthOfFieldFocusDistance: root.photoFocusDistance
-            depthOfFieldFocusRange: root.photoFocusRange
-            depthOfFieldBlurAmount: root.photoBlur
+            // photo mode's depth of field (#743): the app's own picture-relative blur, never
+            // Qt's depthOfField* (a half-resolution copy, about 2 px at any picture size). In
+            // the chain only while it is drawn, so blur 0 is the view to the level
+            effects: root.depthOfFieldActive ? [photoBlur] : []
+        }
+
+        PhotoBlur {
+            id: photoBlur
+            focusDistance: root.photoFocusDistance
+            focusRange: root.photoFocusRange
+            blurShare: root.photoBlur
         }
 
         PerspectiveCamera {

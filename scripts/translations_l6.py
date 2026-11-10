@@ -1,4 +1,5 @@
-"""German and Spanish targets for the director's cut (Phase 17 L6, #390)."""
+"""German and Spanish targets for the director's cut (Phase 17 L6, #390; tours kept in
+the plan, #737)."""
 
 DE = {
     "TourDialog": {
@@ -89,6 +90,44 @@ DE = {
         "{count} frames were rendered before the 3D view had caught up with their date.":
             "{count} Bilder wurden gerendert, bevor die 3D-Ansicht bei ihrem Datum angekommen war.",
         "{rate} frames per second": "{rate} Bilder pro Sekunde",
+        # tours kept in the plan (#737)
+        "Tours in This Plan": "Fahrten in diesem Plan",
+        "The tours kept in this plan. They are saved with the plan file.":
+            "Die in diesem Plan gespeicherten Fahrten. Sie werden mit der Plandatei gespeichert.",
+        "Unsaved Tour": "Nicht gespeicherte Fahrt",
+        "Save Tour": "Fahrt speichern",
+        "Save Tour As...": "Fahrt speichern unter...",
+        "Save Tour As": "Fahrt speichern unter",
+        "Rename...": "Umbenennen...",
+        "Rename Tour": "Fahrt umbenennen",
+        "Delete": "Löschen",
+        "Name of the tour:": "Name der Fahrt:",
+        "Use Current View": "Aktuelle Ansicht verwenden",
+        "Starts at the view saved with this tour.":
+            "Beginnt bei der Ansicht, die mit dieser Fahrt gespeichert wurde.",
+        "The camera stays at the view saved with this tour. Good for a time-lapse.":
+            "Die Kamera bleibt bei der Ansicht, die mit dieser Fahrt gespeichert wurde. Gut für "
+            "einen Zeitraffer.",
+        "Discard the changes to the current tour?": "Änderungen an der aktuellen Fahrt verwerfen?",
+        "Saved the tour '{name}' in the plan.": "Fahrt '{name}' im Plan gespeichert.",
+        "A plan keeps at most {count} tours. Delete one first.":
+            "Ein Plan enthält höchstens {count} Fahrten. Löschen Sie zuerst eine.",
+        "A tour named '{name}' already exists. Replace it?":
+            "Eine Fahrt mit dem Namen '{name}' ist bereits vorhanden. Ersetzen?",
+        "A tour named '{name}' already exists.":
+            "Eine Fahrt mit dem Namen '{name}' ist bereits vorhanden.",
+        "Deleted the tour '{name}'. Undo brings it back.":
+            "Fahrt '{name}' gelöscht. Mit Rückgängig kommt sie zurück.",
+    },
+    "Commands": {
+        "Save camera tour": "Kamerafahrt speichern",
+        "Rename camera tour": "Kamerafahrt umbenennen",
+        "Delete camera tour": "Kamerafahrt löschen",
+    },
+    "GardenPlannerApp": {
+        "Warning: {count} camera tour(s) could not be read and were skipped.":
+            "Warnung: {count} Kamerafahrt(en) konnten nicht gelesen werden und wurden "
+            "übersprungen.",
     },
     "Workspace": {
         "Camera Tour": "Kamerafahrt",
@@ -231,6 +270,42 @@ ES = {
         "{count} frames were rendered before the 3D view had caught up with their date.":
             "{count} fotogramas se renderizaron antes de que la vista 3D alcanzara su fecha.",
         "{rate} frames per second": "{rate} fotogramas por segundo",
+        # tours kept in the plan (#737)
+        "Tours in This Plan": "Recorridos de este plano",
+        "The tours kept in this plan. They are saved with the plan file.":
+            "Los recorridos guardados en este plano. Se guardan con el archivo del plano.",
+        "Unsaved Tour": "Recorrido sin guardar",
+        "Save Tour": "Guardar recorrido",
+        "Save Tour As...": "Guardar recorrido como...",
+        "Save Tour As": "Guardar recorrido como",
+        "Rename...": "Cambiar nombre...",
+        "Rename Tour": "Cambiar nombre del recorrido",
+        "Delete": "Eliminar",
+        "Name of the tour:": "Nombre del recorrido:",
+        "Use Current View": "Usar la vista actual",
+        "Starts at the view saved with this tour.":
+            "Empieza en la vista guardada con este recorrido.",
+        "The camera stays at the view saved with this tour. Good for a time-lapse.":
+            "La cámara se queda en la vista guardada con este recorrido. Ideal para un "
+            "time-lapse.",
+        "Discard the changes to the current tour?": "¿Descartar los cambios del recorrido actual?",
+        "Saved the tour '{name}' in the plan.": "Recorrido '{name}' guardado en el plano.",
+        "A plan keeps at most {count} tours. Delete one first.":
+            "Un plano admite como máximo {count} recorridos. Elimine uno primero.",
+        "A tour named '{name}' already exists. Replace it?":
+            "Ya existe un recorrido llamado '{name}'. ¿Reemplazarlo?",
+        "A tour named '{name}' already exists.": "Ya existe un recorrido llamado '{name}'.",
+        "Deleted the tour '{name}'. Undo brings it back.":
+            "Recorrido '{name}' eliminado. Deshacer lo recupera.",
+    },
+    "Commands": {
+        "Save camera tour": "Guardar recorrido de cámara",
+        "Rename camera tour": "Cambiar nombre del recorrido de cámara",
+        "Delete camera tour": "Eliminar recorrido de cámara",
+    },
+    "GardenPlannerApp": {
+        "Warning: {count} camera tour(s) could not be read and were skipped.":
+            "Advertencia: no se pudieron leer {count} recorrido(s) de cámara y se omitieron.",
     },
     "Workspace": {
         "Camera Tour": "Recorrido de cámara",

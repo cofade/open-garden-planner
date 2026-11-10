@@ -13,6 +13,9 @@
 | **Semantic color token** | A named entry in `ThemeColors.LIGHT/DARK` expressing intent (`error`, `warning_bg`, `caution`, …). Widget code reads it live via `theme_color()`/`rgba()` instead of hardcoding hex — enforced by the QSS-color lint gate |
 | **Text role** | The `textRole`/`colorRole` dynamic label properties (h1/h2/hint/small/placeholder; success/…/secondary) styled centrally by the generated stylesheet; assigned via `theme.set_text_role()` |
 | **Canvas** | The main drawing area where garden objects are placed and manipulated |
+| **Split along line** | Cut the eligible closed shapes a two-point line passes through into the pieces on each side of the line's supporting axis. The toolbar tool cuts all crossed shapes in one gesture; the context-menu action scopes it to one shape. A planted bed's linked plants follow the piece that holds their standing point. The pieces are ordinary polygons; each gesture is one undo step (FR-35, ADR-075). |
+| **Group drill-down** | A second click on a member of a selected group gives that member edit focus without ungrouping it. Qt keeps the group as the selection; `CanvasView.effective_selection()` is the logical member selection the panels read (FR-35, ADR-075). |
+| **Effective selection** | The item list the UI acts on: the drilled-down group member when one is focused, otherwise `scene.selectedItems()`. One seam so panels cannot disagree about which object an edit belongs to. |
 | **Beauty Board** | The fixed set of 3D shots of `tests/fixtures/plans/bench_small.ogp` (golden hour, sunset, noon, morning, December noon, night, walk) per render preset, rendered before and after every 3D-visible change together with its `metrics.json`; judged by the `ogp-3d-reviewer` and the owner. Rendered through the production pipeline by `scripts/render_beauty_board.py` (L1.4); procedure in the `ogp-lush-cinematic` skill (Phase 17) |
 | **Truth gate (3D)** | A measured check that a 3D frame still states the plan's data: mesh height and spread vs the resolved values, shadow-map footprint vs the analytic 2D shadow (IoU), north-up ground, the sky's sun at the solar azimuth, the plan date. A failed truth gate is a P0 however good the frame looks (ADR-048) |
 | **Truth principle** | "A beautiful wrong frame is a P0": the 3D view may only show what the plan's data says. Since Phase 17 L1.1 the gates that need no pixels are tests in the Qt-free pipeline — mesh top = resolved height (`verify_builder`), faces lit from their own side (`Mesh.validate`), the 2D footprint (golden fixture), the ground a solid covers (`verify_builder`'s plan view), nothing mirrored (frame determinant +1). See ADR-059 decision 13 |
@@ -351,7 +354,11 @@ yearly plan copy and from task reminder reference dates (ADR-062).
   vignette, grade. Photo mode's word for what it does.
 - **Grade:** a colour treatment of the whole picture, computed as a 16-level lookup table (LUT).
 - **Keyframe (of a tour):** a camera placement the path passes through.
-- **Drone orbit:** a tour around the plan at the view's distance and height, starting where the view is.
+- **Drone orbit:** a tour around the plan at the view's distance and height, starting where the view is
+  (a saved one: where the view was when it was saved).
+- **Saved tour:** a camera tour kept in the plan under a name (#737): its camera, its clock range,
+  its duration, frame rate and size, and nothing of the garden. The dialog's controls are the
+  **draft**; saving, renaming and deleting a saved tour are one undo step each.
 - **Time-lapse:** a tour during which the sim clock runs through a day or a stretch of the year.
 
 ### Plant Forge, Space colonisation, Pipe model and Phenology (L3, #387, ADR-064)

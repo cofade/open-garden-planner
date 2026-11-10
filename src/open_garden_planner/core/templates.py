@@ -13,6 +13,8 @@ from typing import Any
 KEEP_PROJECT_FIELDS = frozenset({
     "canvas_width", "canvas_height", "objects", "layers", "constraints", "guides",
     "succession_plans", "auto_assign_permaculture_layers",
+    # #737: a camera tour is a path through the geometry that is kept, and no site data.
+    "camera_tours",
 })
 STRIP_PROJECT_FIELDS = frozenset({
     "location", "task_completions", "seed_inventory", "propagation_overrides",

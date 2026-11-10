@@ -64,6 +64,7 @@ src/open_garden_planner/
 │   ├── project.py                # Save/load, ProjectManager
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
+│   ├── shape_split.py            # Local-frame two-point cut; segment-crossing test, polygon pieces, hole refusal (#664, ADR-075)
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering (resolves sprites through plant_art)
 │   ├── plant_art/                # Stdlib-only: what a plant looks like, for 2D and 3D (Phase 17 L1.7, ADR-059 addendum) — see §5.10
 │   │   ├── recipes.py            #   PALETTES / FRUITS / FLOWERS / SPECIES / CATEGORIES — the sprite recipes (moved from the generator script)
@@ -79,6 +80,7 @@ src/open_garden_planner/
 │   │                             #   soil_surface_cm (Phase 17 L1.6); casts_2d_shadow (a string of lights: no, L5.4)
 │   ├── string_lights.py          # Qt-free: a string of lights is a LINE — layout(): its posts, spans, bulbs (L5.4)
 │   ├── camera_path.py            # Qt-free: a camera tour as data — spline, drone orbit, frames (L6.2, ADR-072)
+│   ├── camera_tours.py           # Qt-free: named tours kept in the plan — SavedTour, load_tours (the trust boundary), #737
 │   ├── video_yuv.py              # Qt-free: BT.709 YUV frames for a video (L6.2, PF-E3D-20)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
 │   │                             #   ShadowCaster(footprint, height, base): a raised caster's shadow starts base/tanα out (L1.6)
@@ -168,6 +170,7 @@ src/open_garden_planner/
 │       ├── mirror_tool.py        # Mirror selection across an axis (Package B US-B4)
 │       ├── trim_tool.py          # Trim/Extend (US-11.16)
 │       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
+│       ├── split_tool.py         # Scene-wide two-click split: every eligible closed shape the segment crosses (#664, ADR-075)
 │       ├── measure_tool.py       # Distance measurement
 │       ├── constraint_tool.py    # Distance constraint creation
 │       └── preview_z.py          # Reserved z-values for in-progress tool previews below minimap cutoff (#377, §8.25.6)
@@ -202,6 +205,8 @@ src/open_garden_planner/
 │   │       ├── arc_item.py       # ArcItem (Package B US-B2)
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
+│   │       ├── group_item.py     # Group container, drill-down focus outline and ungroup rules (#771, ADR-075)
+│   │       ├── split_menu.py     # the one Split Along Line context-menu seam (#664, §8.35)
 │   │       └── resize_handle.py
 │   ├── view3d/                   # the 3D view (Phase 17; US-E6's Qt 3D window left in L1.10): snapshot.py
 │   │                             #   (plan→records: snapshot_records, contract v2 — L1.1) and the workspace below
@@ -643,11 +648,13 @@ heights and the shadows' places stay with `core/solar` and the records. Concept:
 | `core/scene3d/lights.py`, `builders/lights.py` (L5.4) | Qt-free. The garden light's and the string's builders; where their bulbs are (one function each); `lamp_sources` (posed bulbs and the point each lamp lights from), `nearest_lamps`. | records → lamps |
 | `core/playback.py` (L5.1) | Qt-free. One step of the day or the year playback of the sim clock (`next_step`). | (mode, speed, moment) → next moment |
 | `core/camera_path.py` (L6.2, ADR-072) | Qt-free. A tour as data: `CameraPath` (centripetal Catmull-Rom at constant speed), `DroneOrbit`, `HeldCamera`, `TourSpec`, and `tour_frames`, the exact frames from their index. | spec → frames (camera, date, time, wind) |
+| `core/camera_tours.py` (#737, ADR-072 addendum) | Qt-free. `SavedTour`: an immutable named tour that can always be rendered (`spec()`), with `to_dict` / `from_dict`; `load_tours`, the one reader of the plan's `camera_tours` key and its trust boundary (skips what is no tour, clamps settings, caps counts); `dump_tours`, `checked_tours`, `find_tour`, `clean_tour_name`; the sizes, turns and limits the dialog offers. Held by `ProjectManager.camera_tours`; written only by `set_camera_tours`, which the three tour commands of `core/commands.py` call. | plan file entries ↔ `SavedTour` ↔ `TourSpec` |
 | `core/video_yuv.py` (L6.2) | Qt-free. `rgb_to_yuv420`: limited-range BT.709 4:2:0 in fixed point; `yuv_to_rgb`, the inverse a player applies. Why: PF-E3D-20. | RGB image → Y, Cb, Cr planes |
-| `core/scene3d/photo.py` (L6.1) | Qt-free. `PhotoSettings`, `NO_PHOTO`, `GRADES` and `lut_strip`, the procedural colour tables. | settings → the scene's numbers; grade → table |
+| `core/scene3d/photo.py` (L6.1) | Qt-free. `PhotoSettings`, `NO_PHOTO`, `GRADES` and `lut_strip`, the procedural colour tables; the blur's sigma share and the sharp band's floors (#743). | settings → the scene's numbers; grade → table |
+| `ui/view3d/quick3d/qml/PhotoBlur.qml` (#743, ADR-072 addendum) | Photo mode's depth of field: an `Effect` in the environment's chain only while the blur is drawn; far and near layers premultiplied by how far out of focus they are, blurred at a sigma that is a share of the picture's height and at a third of it (`photoblur_layer.frag`, `photoblur_rows.frag`, `photoblur_compose.frag`). Replaces Qt's `depthOfField*`. | focus depth, band, sigma share → the blurred linear picture, before tone mapping |
 | `ui/view3d/workspace_capture.py` (L6) | `WorkspaceCaptureCoordinator`: the strip's Capture menu, photo mode's line and the focus click, Save Photo, `start_tour`, and `capture_blocker` / `agent_picture`. The only caller of `Quick3DHost.capture`. | host, controller, look, clock, camera → pictures |
 | `ui/view3d/tour_recorder.py` (L6.2) | `TourRecorder`: one frame per pass of the event loop; clock, settle, capture, offer; pauses on `HostStateError`. Engine-free: its seams are callables. | spec, writer, callables → `TourResult` |
-| `ui/view3d/tour_dialog.py` (L6.2) | `TourDialog`: camera, time, size; keys; Preview, Save Video, Save PNG Sequence. | coordinator → a recording |
+| `ui/view3d/tour_dialog.py` (L6.2, #737) | `TourDialog`: the plan's saved tours (choose, Save Tour, Save Tour As, Rename, Delete); camera, time, size; keys; Preview, Save Video, Save PNG Sequence. Its controls are a draft; a saved orbit or held view is pinned until "Use Current View". | coordinator → a recording; draft ↔ `SavedTour` |
 | `ui/view3d/video_writer.py` (L6.2) | `Mp4Writer`, `PngSequenceWriter`, `NullWriter`, `best_codec`. The only importer of Qt Multimedia, on first use. | frames → a file |
 | `ui/view3d/workspace_living.py` (L5) | `WorkspaceLivingCoordinator`: the 3D strip's Weather button and menu, the life switch, the forecast (`set_forecast`), the plants' life from the Plant Forge's `season_sink`, the nearest lamps on every camera move; tells the look controller and the host. | menu, clock, records, phenology → `LookController` / host calls |
 | `ui/view3d/look_controller.py` | `LookController`: engine-free, one per host, built with ONE render-mode parameter (`software`: no sky, no wind, `auto` = low). Takes the sun the pipeline last sent (`Scene3DController.sync.sun`, after every pass), the settings and the host's frame count, and tells the host the look (`set_look`, only when it changed — also when the sky failed), the sky (`set_sky`, once per noticeable sun move and only once the sun rests 0.3 s — and at most once a second while it keeps moving, `SKY_MAX_STALENESS_MS` — at once on a change of phase; a sky the engine refuses: one error, the plain sky for the session) and the wind (`set_wind_running` / `rest_wind`: only while the pane is shown, motion is not reduced and the adapter is not software). Stores where `auto` settled and its bars. Never takes a frame from the live host. | sun, showing, settings → host calls; `preset_changed`, `sky_rebuilt` |

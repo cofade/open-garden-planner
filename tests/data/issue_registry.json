@@ -1039,6 +1039,11 @@
     "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
+  "664": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Split a shape along a two-click snapped line"
+  },
   "665": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1139,29 +1144,49 @@
     "state": "OPEN",
     "title": "Low sun: a long fence shadow on the meadow shows stair steps"
   },
-  "768": {
+  "743": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "Photo mode: the saved 4K photo is sharper than its preview (Qt's blur pass is half-resolution)"
+  },
+  "744": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ultra: reflections + blur + glow in one effect chain crash Qt's render thread in d3d11.dll (workaround drops reflections under blur)"
+  },
+  "768": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "feat(cad): adapt Glasshouse tool to parametric building class with aluminium roof ridge"
   },
   "769": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "feat(cad): add scalable Pergola building tool with matching 2D/3D rafter and post representation"
   },
   "770": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "refactor(smart_symbols): retire Smart Symbols panel and redundant symbol definitions"
+  },
+  "771": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "feat(cad): allow selecting and editing individual items within a group on second click (drill-down selection)"
   },
   "774": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Not all layers are by default visible in properties menu"
   },
   "775": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Editing a layer name shrinks text box vertically"
+  },
+  "783": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
   }
 }

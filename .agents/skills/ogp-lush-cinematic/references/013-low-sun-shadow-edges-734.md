@@ -16,7 +16,7 @@ blaming the shadow map, find out which of the two a step is.
 
 What is left and is TRUE: the posts stand 0.5–1.5 cm proud of the pickets (a small bump in the
 shadow every 2 m), the pickets' comb, the 10 cm shadow bias's lit sliver at a caster's foot,
-and Qt's per-pixel PCF dither (`ogp-3d-renderer` §22). The family garden's fence edge at golden
+and Qt's per-pixel PCF dither (`ogp-3d-renderer` §23). The family garden's fence edge at golden
 hour also carries the shadows of the perennials behind it (200 cm tall, 90 cm behind a 120 cm
 fence: their shadows reach past the fence's at 15°) — the 2D overlay's outline shows them.
 
