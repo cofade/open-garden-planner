@@ -935,17 +935,34 @@ soon as the points are closer on screen than the text is wide. A circle's positi
 and diameter labels share the right-edge midpoint and are stacked with
 `AnnotationLabel.set_screen_offset`.
 
-**The canvas grid is clipped, not reordered.** It is a view-level pass (no export
+**The canvas grid is cut out, not reordered.** It is a view-level pass (no export
 carries it) and is painted after the items. It must still read as lying under the
 objects, and it must stay visible on a lawn or a terrace, which a background grid
-would not. `CanvasView._grid_region` therefore clips the lines to the plan less
-every drawn object that is not a ground surface (`canvas_scene.on_ground`). A plant
-cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
+would not. `CanvasView._draw_grid` therefore draws the lines into a layer in
+device pixels (`core.sprite_raster.paint_layer`, the sprites' own route) and
+clears from that layer every drawn object that is not a ground surface
+(`canvas_scene.on_ground`), each with its own fill rule and on whole pixels. A
+plant cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
 
-**"Something stands here" is one predicate.** `canvas_scene.is_standing_object`
-(a visible rectangle, circle, ellipse, polygon or polyline that is no ground
-surface) and the item's `grid_cover_path()` answer it for the grid and for the
-hour labels of the sun map (§8.9.18). **A line covers its stroke, not what it
+**What stands on the plan is kept by the scene, not asked for a paint.**
+`CanvasScene.standing_covers()` holds one path per standing object, in plan
+coordinates, with the rectangle round it. It is taken again when
+`paint_revision` has moved (§8.37) and at no other time: a repaint, a pan and a
+zoom read the same list, because plan coordinates do not change with the view.
+Until the review of #793 the view asked every object on every paint and united
+one `QRegion` per object in Python: 70 ms of a 120 ms repaint on a plan of 853
+objects (now 37 ms, against 33 ms for the lines with no cut-out at all). A
+layer, not a clip: the lines under a clip region of fourteen thousand rectangles
+cost 20 ms more than the lines themselves, and the paths of two objects in one
+clip path cancel where they overlap with opposite winding. The layer's painter
+is given a clip rectangle, though: Qt's raster engine draws a cosmetic line
+without one ten times slower (196 lines, 28 ms against 2.5 ms).
+
+**"Something stands here" is one predicate and one walk.**
+`canvas_scene.is_standing_object` (a visible rectangle, circle, ellipse, polygon
+or polyline that is no ground surface) and the item's `grid_cover_path()` answer
+it, and `canvas_scene.collect_standing_covers` collects it, for the grid and for
+the hour labels of the sun map (§8.9.18). **A line covers its stroke, not what it
 encloses**: `shape()` of a path item is its stroke united with the path *filled*,
 and a fill closes an open line from its end back to its start. A railing round
 three sides of a balcony covered the whole balcony — the grid was cut out of it
@@ -954,8 +971,9 @@ stroke alone (#794).
 
 Pin: `tests/integration/test_selection_frame.py`,
 `tests/integration/test_canvas_legibility.py`,
+`tests/integration/test_grid_cover_cache.py`,
 `tests/integration/test_sun_map_labels.py::test_an_open_fence_covers_its_line_not_the_ground_it_encloses`;
-PF-CAN-51.
+PF-CAN-51, PF-CAN-60.
 
 ### 8.9.18 The sun map's key and labels, and the shadow's soft edge (#794, #793)
 
