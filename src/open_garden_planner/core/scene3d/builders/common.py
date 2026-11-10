@@ -238,16 +238,24 @@ def with_surfaces(parts: Sequence[MeshPart]) -> tuple[MeshPart, ...]:
                 or part.tinted or part.fill_texture or not part.mesh.triangle_count):
             out.append(part)
             continue
-        colours, inverse = np.unique(np.ascontiguousarray(part.mesh.colors[:, :3]), axis=0,
-                                     return_inverse=True)
-        names = [name or DEFAULT_SURFACE for name in palette.surfaces_of_colours(colours)]
-        per_triangle = np.asarray(names, dtype=object)[inverse.reshape(-1)[part.mesh.indices[:, 0]]]
-        order = list(dict.fromkeys(per_triangle.tolist()))
-        if len(order) == 1:
-            out.append(dataclasses.replace(part, surface=order[0]))
+        # each triangle's colour (its first vertex's) as one 12-byte key, numbered
+        keys = np.ascontiguousarray(part.mesh.colors[part.mesh.indices[:, 0], :3]).view(
+            np.dtype((np.void, 12))).reshape(-1)
+        colours, colour_of = np.unique(keys, return_inverse=True)
+        names = [palette.SURFACE_BY_COLOUR.get(key.tobytes(), DEFAULT_SURFACE) for key in colours]
+        distinct, surface_of_colour = np.unique(np.asarray(names), return_inverse=True)
+        surface_of = surface_of_colour.reshape(-1)[colour_of.reshape(-1)]
+        if len(distinct) == 1:
+            out.append(dataclasses.replace(part, surface=str(distinct[0])))
             continue
-        rank = np.asarray([order.index(name) for name in per_triangle.tolist()])
-        runs = tuple((name, int((rank == index).sum())) for index, name in enumerate(order))
+        # the surfaces in the order they first appear, and each triangle's place in it
+        firsts = np.asarray([int(np.argmax(surface_of == index)) for index in range(len(distinct))])
+        appearance = np.argsort(firsts, kind="stable")
+        rank = np.empty(len(distinct), dtype=np.int64)
+        rank[appearance] = np.arange(len(distinct))
+        rank = rank[surface_of]
+        order = [str(distinct[index]) for index in appearance]
+        runs = tuple((name, int(count)) for name, count in zip(order, np.bincount(rank), strict=True))
         mesh = part.mesh
         if bool((np.diff(rank) < 0).any()):   # not grouped yet: order the triangles run by run
             sequence = np.argsort(rank, kind="stable")
