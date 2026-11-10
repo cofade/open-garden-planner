@@ -341,6 +341,7 @@ class TestPanIsCheap:
                   for i in range(3)]
         for plant in plants:
             scene.addItem(plant)
+        sprite_raster.clear_sprite_cache()  # only this plan's sprites below
         view = make_view(scene)
         view.set_zoom(4.0)
         view.centerOn(QPointF(600, 450))

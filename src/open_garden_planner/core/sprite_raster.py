@@ -10,8 +10,13 @@ fine:
   ``SPRITE_CACHE`` and drawn into its exact rectangle. The pixel size is the
   cache key, so two zooms inside one level share a pixmap and a new level is a
   new one.
-- **a sprite that would need more than ``MAX_CACHED_SIDE_PX`` on a side** (a
-  5 m tree at 400 %) is not rasterised whole — that pixmap is 16 MB at 2048 px
+- **a sprite whose level asks for more than ``MAX_CACHED_SIDE_PX`` on a side
+  while the device shows no more than that of it** (a 3.45 m tree at 224 %:
+  773 device pixels, 1380 at level 4) is rasterised at ``MAX_CACHED_SIDE_PX``
+  — never enlarged, minified by less than the level would be — and cached
+  like any other.
+- **a sprite the device shows more than ``MAX_CACHED_SIDE_PX`` of** (a 5 m
+  tree at 400 %) is not rasterised whole — that pixmap is 16 MB at 2048 px
   and 100 MB at 5000. Only the part of it the device can show is drawn, straight
   from the vector into a layer of that part's size, at the device's own
   resolution. Measured (#785): a 9000-px tree clipped to a 1500 x 900 window
@@ -171,10 +176,19 @@ def paint_sprite(
     width, height = target.width(), target.height()
     if not (math.isfinite(width) and math.isfinite(height) and width > 0.0 and height > 0.0):
         return False
-    level = raster_level(device_scale(painter))
-    width_px, height_px = sprite_pixel_size(width, height, level)
-    if max(width_px, height_px) > MAX_CACHED_SIDE_PX:
-        return _paint_exposed(painter, target, draw, tint)
+    scale = device_scale(painter)
+    width_px, height_px = sprite_pixel_size(width, height, raster_level(scale))
+    longest = max(width_px, height_px)
+    if longest > MAX_CACHED_SIDE_PX:
+        if max(width, height) * scale > MAX_CACHED_SIDE_PX:
+            return _paint_exposed(painter, target, draw, tint)
+        # The level's bitmap is too large to keep, but the device shows no more
+        # of this sprite than the largest one that may be kept: that one is
+        # still at least as fine as the device, and it is cached — the exposed
+        # route would draw the vector again at every zoom step.
+        fit = MAX_CACHED_SIDE_PX / longest
+        width_px = max(math.ceil(width_px * fit - 1e-6), MIN_SIDE_PX)
+        height_px = max(math.ceil(height_px * fit - 1e-6), MIN_SIDE_PX)
     cache_key = (key, width_px, height_px, tint.rgba() if tint is not None else None)
     pixmap = cache.get(cache_key)
     if pixmap is None:

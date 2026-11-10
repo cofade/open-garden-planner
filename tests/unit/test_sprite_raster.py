@@ -247,6 +247,83 @@ class TestOversizedSprite:
         assert _pixels(image)[..., 3].max() == 0
 
 
+class TestLargestCachedSprite:
+    """Between "the level's bitmap fits the cache" and "the device shows more
+    pixels of it than the cache holds" lies a band — a 3.45 m tree at 224 % is
+    773 device pixels, its level-4 bitmap 1380. There the sprite is rasterised
+    at the cap: still at least as fine as the device, and cached, where the
+    exposed route would draw it from the vector again at every zoom step (5 ms
+    a tree on the family-garden example)."""
+
+    @staticmethod
+    def _spy(monkeypatch) -> tuple[list[tuple[int, int]], list[int]]:
+        made: list[tuple[int, int]] = []
+        exposed: list[int] = []
+        real_rasterise, real_exposed = sprite_raster.rasterise, sprite_raster._paint_exposed
+
+        def rasterise(width, height, draw, tint=None):
+            made.append((width, height))
+            return real_rasterise(width, height, draw, tint)
+
+        def paint_exposed(*args):
+            exposed.append(1)
+            return real_exposed(*args)
+
+        monkeypatch.setattr(sprite_raster, "rasterise", rasterise)
+        monkeypatch.setattr(sprite_raster, "_paint_exposed", paint_exposed)
+        return made, exposed
+
+    @staticmethod
+    def _paint(scale: float, rect: QRectF, cache: PixmapLru) -> QImage:
+        image = _canvas(1100, 1100)
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.scale(scale, scale)
+        assert paint_sprite(painter, rect, "star", _draw_star, cache=cache)
+        painter.end()
+        return image
+
+    def test_it_is_cached_at_the_cap_and_shared_across_the_band(
+        self, qtbot, cache, monkeypatch
+    ) -> None:
+        made, exposed = self._spy(monkeypatch)
+        rect = QRectF(0, 0, 345, 345)
+        assert sprite_pixel_size(345, 345, 4.0)[0] > MAX_CACHED_SIDE_PX  # the level's is too large
+        self._paint(2.24, rect, cache)  # 773 device pixels
+        self._paint(2.46, rect, cache)  # 849: the next wheel step
+        assert made == [(MAX_CACHED_SIDE_PX, MAX_CACHED_SIDE_PX)]
+        assert exposed == [] and len(cache) == 1
+
+    def test_a_long_sprite_keeps_its_aspect(self, qtbot, cache, monkeypatch) -> None:
+        made, exposed = self._spy(monkeypatch)
+        self._paint(2.3, QRectF(0, 0, 400, 100), cache)  # 920 x 230 device pixels
+        assert made == [(MAX_CACHED_SIDE_PX, MAX_CACHED_SIDE_PX // 4)]
+        assert exposed == []
+
+    def test_past_the_cap_it_is_drawn_from_the_vector(self, qtbot, cache, monkeypatch) -> None:
+        made, exposed = self._spy(monkeypatch)
+        self._paint(3.0, QRectF(0, 0, 345, 345), cache)  # 1035 device pixels
+        assert made == [] and exposed == [1] and len(cache) == 0
+
+    def test_it_is_never_enlarged(self, qtbot, cache) -> None:
+        """At the top of the band the device shows as many pixels as the bitmap
+        has: the picture is the vector's, to the resampling of one minification."""
+        rect = QRectF(0, 0, 345, 345)
+        scale = 2.96  # 1021 device pixels of a 1024-px bitmap
+        cached = self._paint(scale, rect, cache)
+        assert len(cache) == 1
+        direct = _canvas(1100, 1100)
+        painter = QPainter(direct)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.scale(scale, scale)
+        _draw_star(painter, rect)
+        painter.end()
+        difference = np.abs(_pixels(cached) - _pixels(direct))
+        # edges move by a fraction of a pixel; nothing is blurred over several
+        assert difference.mean() < 0.5, difference.mean()
+        assert (difference.max(axis=2) > 64).mean() < 0.002
+
+
 class TestCachedAndExposedAgree:
     def test_one_picture_on_both_sides_of_the_threshold(self, qtbot, cache, monkeypatch) -> None:
         """The same sprite through the pixmap route and through the layer route
