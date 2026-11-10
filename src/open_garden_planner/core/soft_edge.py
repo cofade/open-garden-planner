@@ -74,8 +74,11 @@ MIN_CELL_PX: Final = 2.0
 #: half it is the anti-aliasing of the shade's own edge.
 MIN_REACH_PX: Final = 1.5
 
-#: The most cells one field may have. A larger one (a poster-size export of a
-#: large plan) is computed on a coarser lattice: 16 MB of sums a field.
+#: The most cells one field may have: 16 MB of sums. A larger one (a
+#: poster-size export of a large plan) is computed in bands of that many cells,
+#: on the SAME lattice. Not on a coarser one, as it was until the second review
+#: of the 2D branch: how much coarser followed from what one paint exposed, so
+#: two tiles of one print computed two lattices.
 MAX_FIELD_CELLS: Final = 4_000_000
 
 #: Entries of the coverage-to-weight table (coverage 0 to 1). Many: far from
@@ -105,8 +108,10 @@ class FeatherGrid:
 
     Attributes:
         cell_cm: The side of one cell, centimetres of plan. The lattice is
-            anchored at the item's origin, so two partial paints of one
-            picture compute the same cells.
+            anchored at the item's origin and its pitch follows from the
+            device's scale alone (``feather_grid``), so two partial paints of
+            one picture — a pan's strip, the tiles of a print — compute the
+            same cells.
         radius: Cells each side of one box pass (``BLUR_PASSES`` are made).
     """
 
@@ -117,11 +122,6 @@ class FeatherGrid:
     def blur_cells(self) -> int:
         """How many cells the passes reach from a cell."""
         return BLUR_PASSES * self.radius
-
-    def coarser(self, factor: float) -> FeatherGrid:
-        """The same falloff on a lattice ``factor`` times coarser (>= 1)."""
-        cell = self.cell_cm * max(1.0, factor)
-        return FeatherGrid(cell, _radius_for(cell, FEATHER_REACH_CM))
 
 
 def _radius_for(cell_cm: float, reach_cm: float) -> int:

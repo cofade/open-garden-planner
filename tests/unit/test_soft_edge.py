@@ -74,12 +74,12 @@ class TestLattice:
         assert grid is not None
         assert (BLUR_PASSES * grid.radius + 0.5) * grid.cell_cm >= FEATHER_REACH_CM - 1e-9
 
-    def test_a_coarser_lattice_still_spans_the_reach(self) -> None:
-        grid = feather_grid(10.0)
-        assert grid is not None
-        coarse = grid.coarser(3.0)
-        assert coarse.cell_cm == pytest.approx(3.0 * grid.cell_cm)
-        assert (BLUR_PASSES * coarse.radius + 0.5) * coarse.cell_cm >= FEATHER_REACH_CM
+    def test_the_lattice_follows_from_the_scale_alone(self) -> None:
+        """No way to make it coarser for one paint: a field too large for one
+        pass is computed in bands on this lattice
+        (``tests/integration/test_shadow_feather_concave.py``)."""
+        assert feather_grid(10.0) == feather_grid(10.0)
+        assert not hasattr(feather_grid(10.0), "coarser")
 
 
 class TestBoxSums:

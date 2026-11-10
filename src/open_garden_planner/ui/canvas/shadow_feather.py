@@ -9,6 +9,11 @@ edge of the shade stays where its geometry puts it, the interior keeps its
 flat tone, and no painter is handed a clip to honour: an SVG gets a picture,
 not a ``<clipPath>`` its reader may ignore (PF-CAN-53).
 
+The lattice is the plan's and the device scale's alone: anchored at the
+item's origin, its pitch ``feather_grid`` of the painter's scale. What a paint
+exposes decides which cells are computed, never where they lie — a field of
+more than ``MAX_FIELD_CELLS`` is computed in bands of that many cells.
+
 The layer is composed in four steps, all in device pixels (``paint_feather``):
 
 1. the falloff's weight, enlarged, as a MASK in which the shade's own tone is
@@ -28,7 +33,7 @@ import math
 from collections.abc import Sequence
 
 import numpy as np
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
 from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath
 
 from open_garden_planner.core.raster_resolution import device_scale, raw_device_scale
@@ -175,48 +180,66 @@ def paint_feather(
         )
         if shown.isEmpty():
             return
-        # one cell of margin: the enlargement reads a cell's neighbours
-        span = (shown.width() / grid.cell_cm + 2.0) * (shown.height() / grid.cell_cm + 2.0)
-        if span > MAX_FIELD_CELLS:
-            grid = grid.coarser(math.sqrt(span / MAX_FIELD_CELLS))
+        if not isinstance(device, QImage):
+            return  # ``paint_layer`` hands out an image; nothing else can be read back
         cell = grid.cell_cm
-        cells = (
-            math.floor(shown.left() / cell) - 1,
-            math.floor(shown.top() / cell) - 1,
-            math.ceil(shown.right() / cell) + 1,
-            math.ceil(shown.bottom() / cell) + 1,
-        )
-        pictures = falloff_pictures(shade, tones, color, grid, cells)
-        if pictures is None or not isinstance(device, QImage):
-            return
-        mask, tint = pictures
-        # a cell's value is the falloff at its CENTRE: the pictures' pixel
-        # centres lie on the cell centres
-        field = QRectF(
-            cells[0] * cell, cells[1] * cell,
-            (cells[2] - cells[0]) * cell, (cells[3] - cells[1]) * cell,
-        )
+        # one cell of margin: the enlargement reads a cell's neighbours
+        left = math.floor(shown.left() / cell) - 1
+        top = math.floor(shown.top() / cell) - 1
+        right = math.ceil(shown.right() / cell) + 1
+        bottom = math.ceil(shown.bottom() / cell) + 1
+        # The field in bands of at most MAX_FIELD_CELLS, each on the one
+        # lattice (module docstring); nearly always there is one band.
+        rows = max(1, MAX_FIELD_CELLS // (right - left))
+        to_device = layer.transform()
+
+        def device_row(lattice_row: int) -> int:
+            # where a band ends on the device: one expression for the band
+            # above and the band below, so each pixel row is in exactly one
+            return round(to_device.map(QPointF(0.0, lattice_row * cell)).y())
+
         layer.save()
         layer.setClipRect(clip_rect, Qt.ClipOperation.IntersectClip)
         layer.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        # 1. the weight, enlarged: the shade's own tone is half a byte of alpha
-        layer.drawImage(field, mask, QRectF(mask.rect()))
-        # 2. ... added to itself, saturating: the weight clamped to the shade's
-        # tone, pixel by pixel. After the enlargement — a clamp on the lattice
-        # leaves a cell's width of ground darker than the shade along every
-        # concave outline.
-        layer.save()
-        layer.resetTransform()
-        layer.setClipping(False)
-        layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_Plus)
-        layer.drawImage(0, 0, device.copy())
-        layer.restore()
-        # 3. the shade's colour into the mask
-        layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        if tint is None:
-            layer.fillRect(field, color)
-        else:
-            layer.drawImage(field, tint, QRectF(tint.rect()))
+        for first in range(top, bottom, rows):
+            last = min(first + rows, bottom)
+            ends = sorted((device_row(first), device_row(last)))
+            pixels = QRect(0, ends[0], device.width(), ends[1] - ends[0]).intersected(device.rect())
+            if pixels.isEmpty():
+                continue
+            # ... with the row beyond each of its ends, for the enlargement
+            cells = (left, max(top, first - 1), right, min(bottom, last + 1))
+            pictures = falloff_pictures(shade, tones, color, grid, cells)
+            if pictures is None:
+                continue
+            mask, tint = pictures
+            # a cell's value is the falloff at its CENTRE: the pictures' pixel
+            # centres lie on the cell centres
+            field = QRectF(
+                left * cell, cells[1] * cell, (right - left) * cell, (cells[3] - cells[1]) * cell
+            )
+            layer.save()
+            layer.resetTransform()
+            layer.setClipRect(pixels, Qt.ClipOperation.IntersectClip)
+            layer.setTransform(to_device)
+            # 1. the weight, enlarged: the shade's own tone is half a byte of alpha
+            layer.drawImage(field, mask, QRectF(mask.rect()))
+            # 2. ... added to itself, saturating: the weight clamped to the
+            # shade's tone, pixel by pixel. After the enlargement — a clamp on
+            # the lattice leaves a cell's width of ground darker than the shade
+            # along every concave outline.
+            layer.save()
+            layer.resetTransform()            # the clip stays: it is the device's
+            layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_Plus)
+            layer.drawImage(pixels.topLeft(), device.copy(pixels))
+            layer.restore()
+            # 3. the shade's colour into the mask
+            layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            if tint is None:
+                layer.fillRect(field, color)
+            else:
+                layer.drawImage(field, tint, QRectF(tint.rect()))
+            layer.restore()
         # 4. the shade itself is drawn by the overlay, with its own flat tone
         layer.setRenderHint(QPainter.RenderHint.Antialiasing)
         layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationOut)

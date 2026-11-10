@@ -33,6 +33,7 @@ from open_garden_planner.core.soft_edge import (
     feather_fields,
     feather_grid,
 )
+from open_garden_planner.ui.canvas import shadow_feather
 from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowOverlayItem
 from tests.integration.test_shadow_feather import FEATHER_REACH_CM, _darkness
 
@@ -204,6 +205,38 @@ def test_where_a_light_and_a_solid_shade_meet_nothing_is_darker_than_the_solid_o
     assert int(beside_light.max()) <= light_tone + 1, (scale, int(beside_light.max()), light_tone)
     # ... and it is a falloff there: something is painted
     assert int(beside_light.max()) >= 0.5 * light_tone
+
+
+def test_two_tiles_of_one_picture_compute_one_lattice(qtbot, monkeypatch) -> None:
+    """The lattice is the plan's and the device scale's, never the exposed
+    area's. A field of more cells than ``MAX_FIELD_CELLS`` used to be computed
+    on a coarser lattice — coarser by what THIS paint exposed, so two tiles of
+    one large print computed two lattices and met at a seam (review round 2).
+    It is computed in bands of that many cells instead. The bound is lowered
+    here so that a picture of a megapixel crosses it."""
+    overlay = _overlay(SHAPES["the inside corner of an L"][0])
+    scale = 4.0
+    window = QRectF(40.0, 40.0, 280.0, 220.0)
+    at_once = _paint(overlay, window, scale)              # the default bound: one band
+
+    monkeypatch.setattr(shadow_feather, "MAX_FIELD_CELLS", 20_000)
+    in_bands = _paint(overlay, window, scale)
+    assert np.abs(in_bands - at_once).max() <= 1, "the bands show in the picture"
+
+    width, height = at_once.shape[1], at_once.shape[0]
+    image = QImage(width, height, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.white)
+    for tile in (QRectF(0, 0, 437, height), QRectF(437, 0, width - 437, height)):
+        painter = QPainter(image)
+        painter.setClipRect(tile, Qt.ClipOperation.IntersectClip)
+        painter.scale(scale, scale)
+        painter.translate(-window.left(), -window.top())
+        overlay._paint_exact(painter)
+        painter.end()
+    in_tiles = _darkness(image)
+    seam = np.abs(in_tiles[:, 430:444] - at_once[:, 430:444])
+    assert seam.max() <= 1, f"the two tiles meet at a seam of {int(seam.max())} levels"
+    assert np.abs(in_tiles - at_once).max() <= 1
 
 
 class TestWhereTheClampIs:
