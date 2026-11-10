@@ -22,6 +22,8 @@ the pond's morning glint no longer clips.
 from __future__ import annotations
 
 import colorsys
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -33,11 +35,18 @@ from tests.integration.quick3d_render_support import (
     failure_report,
     load_rgb,
     luma,
-    render_tier,
+    *render_tier,
     run_driver,
 )
 
-pytestmark = render_tier
+#: On the hosted Windows runner the software renderer (Direct3D 11 on WARP) does not
+#: finish the scene fixture within the driver's 780 s watchdog (#892). The Linux render
+#: job and every local run on a GPU or on WARP cover the file.
+_HOSTED_WINDOWS = sys.platform == "win32" and os.environ.get("GITHUB_ACTIONS") == "true"
+pytestmark = [
+    *render_tier,
+    pytest.mark.skipif(_HOSTED_WINDOWS, reason="too slow on the hosted Windows runner's WARP: #892"),
+]
 
 Run = tuple[dict[str, Any], Path]
 #: A bit frame's luma above the black frame's by this much: the bit is set; below LOW:
