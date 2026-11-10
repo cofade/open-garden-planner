@@ -20,6 +20,11 @@ Design constraints (campaign fences):
   with a soft, effect-free outward feather (``shadow_feather``, a smooth
   falloff since #793); at night (sun below the horizon) the whole canvas is
   shaded rather than the shadows vanishing.
+- While the hours-of-sun map is shown the overlay is NOT painted
+  (``set_map_shown``, #794). The map lies above it and is translucent, so the
+  shadow of one instant showed through and read as fewer hours of sun. The
+  shadows are still solved and published: the 3D drape and every other reader
+  of ``drape_polygons()`` must not notice.
 - All math happens in scene cm via the Qt-free ``core/shadow_geometry``;
   scene +y is already North — there is NO extra Y-flip here (§8.20).
 - The sim moment is NOT owned here (Phase 17 L1.0, ADR-053): the controller
@@ -848,6 +853,11 @@ class SunShadowController(QObject):
         # this object with its parent, and would call into the dead slot.
         connect_qobject(self._clock.instant_changed, self._on_clock_changed)
         self._overlay: SunShadowOverlayItem | None = None
+        #: The overlay holds a solve (shadows or the night) that is to be seen.
+        #: Not ``overlay.isVisible()``: a shown hours-of-sun map hides the
+        #: picture of a solve that is current all the same (``set_map_shown``).
+        self._overlay_wanted = False
+        self._map_shown = False
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None
         #: What the overlay paints, as plain polygons (scene cm): the shadows' union,
@@ -886,6 +896,27 @@ class SunShadowController(QObject):
     def sim_datetime_utc(self) -> datetime:
         """The sim instant in UTC — read from the clock, never a private copy."""
         return self._clock.utc
+
+    @property
+    def map_shown(self) -> bool:
+        """Whether an hours-of-sun map is shown over the plan (``set_map_shown``)."""
+        return self._map_shown
+
+    def set_map_shown(self, shown: bool) -> None:
+        """Tell the controller that the hours-of-sun map is (no longer) shown.
+
+        While it is, the overlay is not painted (#794): the map is the day's
+        total and is translucent, and the shadow of one instant under it turns
+        a sunny spot's colour into a shadier one's. Only the PICTURE goes:
+        state, solves, ``drape_polygons()`` and ``shadows_changed`` are what
+        they are without a map, so the 3D view's shadow drape is unaffected.
+        """
+        if shown == self._map_shown:
+            return
+        self._map_shown = shown
+        overlay = self._alive_overlay()
+        if overlay is not None:
+            overlay.setVisible(self._overlay_wanted and not shown)
 
     def drape_polygons(self) -> tuple[tuple[tuple[float, float], ...], ...]:
         """The polygons the overlay paints right now (scene cm; even-odd: outers CCW,
@@ -991,7 +1022,7 @@ class SunShadowController(QObject):
             enriched_key,
         )
         overlay = self._alive_overlay()
-        if key == self._last_key and overlay is not None and overlay.isVisible():
+        if key == self._last_key and overlay is not None and self._overlay_wanted:
             self._set_state(STATE_ACTIVE)
             return
         has_enriched = any(
@@ -1024,7 +1055,7 @@ class SunShadowController(QObject):
         overlay.set_clip_rect(canvas_rect)
         overlay.set_shadow_path(path)
         overlay.set_weighted_regions(regions)
-        overlay.setVisible(True)
+        self._show(overlay)
         self._last_key = key
         self.recompute_count += 1
         self._publish(
@@ -1056,11 +1087,18 @@ class SunShadowController(QObject):
         try:
             if overlay.scene() is not self._scene:
                 self._overlay = None
+                self._overlay_wanted = False
                 return None
         except RuntimeError:  # underlying C++ object deleted by scene.clear()
             self._overlay = None
+            self._overlay_wanted = False
             return None
         return overlay
+
+    def _show(self, overlay: SunShadowOverlayItem) -> None:
+        """The overlay holds a solve to be seen — unless a map is shown over it."""
+        self._overlay_wanted = True
+        overlay.setVisible(not self._map_shown)
 
     def _ensure_overlay(self) -> SunShadowOverlayItem:
         overlay = self._alive_overlay()
@@ -1086,9 +1124,10 @@ class SunShadowController(QObject):
     def _clear_overlay(self) -> None:
         self._last_key = None
         overlay = self._alive_overlay()
-        if overlay is not None and overlay.isVisible():
+        if overlay is not None and self._overlay_wanted:
             overlay.set_shadow_path(QPainterPath())
             overlay.setVisible(False)
+        self._overlay_wanted = False
         self._publish(())
 
     def _canvas_rect(self) -> QRectF | None:
@@ -1112,7 +1151,7 @@ class SunShadowController(QObject):
             round(canvas_rect.height(), 3),
         )
         overlay = self._alive_overlay()
-        if night_key == self._last_key and overlay is not None and overlay.isVisible():
+        if night_key == self._last_key and overlay is not None and self._overlay_wanted:
             return
         path = QPainterPath()
         path.addRect(canvas_rect)
@@ -1124,7 +1163,7 @@ class SunShadowController(QObject):
         night_poly = ((left, top), (right, top), (right, bottom), (left, bottom))
         night_regions = (WeightedShadowRegion([list(night_poly)], occlusion=1.0, transmittance=0.0),)
         overlay.set_weighted_regions(night_regions)
-        overlay.setVisible(True)
+        self._show(overlay)
         self._last_key = night_key
         self.recompute_count += 1
         self._publish((night_poly,), night_regions)
