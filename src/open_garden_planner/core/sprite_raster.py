@@ -482,7 +482,9 @@ def ensure_sprite_cache_room(device_pixels: float, cache: PixmapLru = SPRITE_CAC
 
 
 def clear_sprite_cache() -> None:
-    """Drop every cached canvas sprite."""
+    """Drop every cached canvas sprite. Called where a plan is closed or
+    replaced (``CanvasScene.clear``); the cache's bound stays what the largest
+    viewport made it."""
     SPRITE_CACHE.clear()
 
 

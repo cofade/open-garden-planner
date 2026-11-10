@@ -39,6 +39,7 @@ from open_garden_planner.core.object_height import lies_on_ground
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
+from open_garden_planner.core.sprite_raster import clear_sprite_cache
 from open_garden_planner.models.layer import Layer, create_default_layers
 
 from .item_cache import ensure_item_cache_budget
@@ -2109,6 +2110,10 @@ class CanvasScene(QGraphicsScene):
         ``_compare_overlay_visible``) and image calibration
         (``_calibration_markers``, ``_calibration_points``,
         ``_calibration_image``, ``_calibration_mode``).
+
+        What was kept for painting the plan goes here too: the standing
+        covers, the label layouts and the plan's sprites
+        (``core.sprite_raster.clear_sprite_cache``).
         """
         self.reset_document_diagnostics()
         self._compare_items.clear()
@@ -2125,6 +2130,9 @@ class CanvasScene(QGraphicsScene):
         if self._label_pass is not None:
             self._label_pass.clear()
         self._paint_revision += 1
+        # ... and so do their sprites: the plan is closed or replaced, and
+        # what it painted must not stay until the next plan pushes it out.
+        clear_sprite_cache()
         super().clear()
         self.timeline_changed.emit()  # readers must see the empty, completed document
 
