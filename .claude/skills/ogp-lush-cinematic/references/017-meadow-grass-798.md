@@ -23,10 +23,17 @@ Measured with the board's `--meadow` phase (High, the noon shot's sun, RTX 4070)
 What it looks like: from the default framing a grass field with soft patches, fading into the
 fog; at eye height grass with blades where the plan has open ground, and a planned lawn beside
 it is lighter and lime (its own fill colour) with its blades at High — a lawn edge, not a
-football pitch against felt. The remaining flat share of the default framing (0.0–13 %) is the
-fogged band at the top: the haze flattens it, as it should.
+football pitch against felt. The remaining flat share of the default framing (0.0–13.7 % at
+1280 × 720, 0.0–5.9 % at 1080p) is the fogged band at the top: the haze flattens it, as it
+should. The far meadow flickers 0.23–0.33 luma RMS in an orbit and 0.09–0.10 in a low flight
+(flat 0.03–0.10; without mipmaps 3.4 / 5.4).
 
 Open for the owner (not decided): whether the plan's open ground takes the grass at all
 (`look.OPEN_GROUND_GRASS`; at L0 the owner kept "unplanned ground" flat as "an honest 'no lawn
 here'"), and whether the meadow should be less saturated than the noon lime it shares with
 `MEADOW_ALBEDO`.
+
+Under the owner's veto (`OPEN_GROUND_GRASS = False`) the plan's open ground is flat beside the
+varied meadow: the twin edge probe reads a step of 1.84 and a line of 7.5 there, so the edge
+gate as it stands would fail — a veto needs the gate (or the meadow's variation near the plan)
+adjusted too.

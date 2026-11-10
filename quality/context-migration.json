@@ -1333,7 +1333,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
           "sha256": "b214154e268d4982b65b10436bdac418724cff9811e81b6ae9e211195dab0e09",
-          "current_sha256": "775bd15ab41e1ab735473ad0a17af60e29ede609b0a5b01c2304a72fab4fa06a"
+          "current_sha256": "7a441c87672d1d0eaddbda57db37d31496d2171ff89f7e6fe1d7a74a666a62e2"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
@@ -2733,7 +2733,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
           "sha256": "b214154e268d4982b65b10436bdac418724cff9811e81b6ae9e211195dab0e09",
-          "current_sha256": "775bd15ab41e1ab735473ad0a17af60e29ede609b0a5b01c2304a72fab4fa06a"
+          "current_sha256": "7a441c87672d1d0eaddbda57db37d31496d2171ff89f7e6fe1d7a74a666a62e2"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",

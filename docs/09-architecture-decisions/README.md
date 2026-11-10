@@ -4302,19 +4302,21 @@ defined in `core/scene3d/look.py`; `quick3d/look.py` only maps it onto `meadowCo
 `meadow_mask`, `track_luma` / `temporal_noise`, `repeat_amplitude`, each with a positive control in
 `test_board_probes.py`): the app's default framing (`camera.frame_pose`) and the walk shot's eye
 level at the noon shot's sun (21 June, 11:00 UTC), High, 1280 × 720, RTX 4070; "before" is the
-production board on the base (`56ab8e0c`, an archive). The far-meadow flicker follows up to 400
+production board on the base (`56ab8e0c`, an archive), "after" the final surface as the render
+tier measured it on the merged tree (`test_meadow_render.py`). The far-meadow flicker follows up to 400
 ground points 30–150 m out (nearer for a small plan's view) through ten frames of the default
 framing orbiting 0.5° a frame and of a flight 2.5 m high along the plan's south side, 25 cm a frame
 (7.5 m/s at 30 fps).
 
 | | family garden | food forest | raised bed | balcony |
 |---|---|---|---|---|
-| flat green, default framing (before → after) | 0.790 → 0.131 | 0.804 → 0.088 | 0.734 → 0.001 | 0.753 → 0.000 |
-| flat green, eye level | 0.112 → 0.005 | 0.091 → 0.036 | 0.262 → 0.064 | 0.242 → 0.062 |
-| meadow's texture (mean local luma std) | 0.54 → 5.67 | 0.55 → 6.37 | 0.62 → 9.72 | 0.56 → 9.16 |
+| flat green, default framing (before → after) | 0.790 → 0.137 | 0.804 → 0.092 | 0.734 → 0.001 | 0.753 → 0.000 |
+| flat green, eye level | 0.112 → 0.005 | 0.091 → 0.041 | 0.262 → 0.073 | 0.242 → 0.071 |
+| meadow's texture (mean local luma std) | 0.54 → 5.66 | 0.55 → 6.37 | 0.62 → 9.72 | 0.56 → 9.16 |
 | meadow's mean luma | 155.18 → 154.93 | 154.81 → 154.61 | 150.18 → 151.27 | 154.26 → 155.78 |
-| far-meadow zigzag, orbit (luma RMS) | 0.094 → 0.229 | 0.098 → 0.228 | 0.085 → 0.243 | 0.088 → 0.328 |
-| far-meadow zigzag, flight | 0.027 → 0.102 | 0.027 → 0.100 | 0.032 → 0.107 | 0.036 → 0.104 |
+| at 1920 × 1080: flat green, default / eye | 0.804 → 0.059 / 0.129 → 0.011 | 0.814 → 0.026 / 0.099 → 0.041 | 0.745 → 0.001 / 0.269 → 0.062 | 0.762 → 0.000 / 0.278 → 0.062 |
+| far-meadow zigzag, orbit (luma RMS) | 0.094 → 0.231 | 0.098 → 0.231 | 0.085 → 0.241 | 0.088 → 0.332 |
+| far-meadow zigzag, flight | 0.027 → 0.099 | 0.027 → 0.094 | 0.032 → 0.099 | 0.036 → 0.101 |
 
 What is left flat in the default framing is the fogged band at the top of the frame (the family
 garden's rows 0–120 read 62–88 % flat, the rest under 7 %): the haze flattens it, as it should.
@@ -4342,6 +4344,15 @@ this machine's offscreen grab taking 4–5 s, and judged with the render tier's 
 | sky disc azimuth error | 0.08° | 0.08° (atmosphere 0.06°) |
 | night over noon | 0.0998 / 0.0926 | 0.0998 / 0.0931 / 0.0927 / 0.0931 |
 | dusk monotone, garden monotone, sunset step under the day ramp | yes, yes, yes | yes, yes, yes at every preset |
+
+On the tree merged again with #800/#805 (its AO floor and plant sway; Low / Medium / High /
+Ultra): plan edge (twin) 0.00 / 0.03 / 0.01 / 0.02, line 0.93 at most; distant horizon rows
+3.48; per-mood horizon 3.12; IoU 0.920–0.985; north-up 0.7637; night over noon 0.094–0.100;
+every dusk and garden dusk monotone; the fence's aliasing at Low 8.11 against Medium's 8.79
+(base 8.05 / 8.91). Render tier: `test_meadow_render.py` 4 passed, `test_quick3d_selftest.py`
+11, `test_quick3d_render.py` 51, `test_scene3d_ground_render.py` 27 (its WARP keep-alive
+soak failed its own precondition — a cycle presenting one frame — on the base and the branch
+alike while other agents rendered, and passed on the next run).
 
 The plan's edge cannot be judged on the frame any more: a 2 m line of grass is not flat, and the
 fits read its pattern (the same in every preset and mood: −2.1 on one view). The board renders

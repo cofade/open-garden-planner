@@ -18,9 +18,10 @@ PF-L3D-31. Measured on the dev box (RTX 4070, Direct3D 11, PyQt6 / PyQt6-Qt6 6.1
   the plan's edge. UV0 is not used for it (the meadow's mesh carries none).
 - **An RGBA16F `QQuick3DTextureData` with `generateMipmaps: true`** samples with linear
   filtering and a full mip chain; its mips average the stored LINEAR values, so a texture
-  stored as linear light over its mean keeps mean 1 at every level (the far meadow's mean
-  luma within 1.2 of the flat meadow's in every bundled example's default framing; part of
-  it is the variation's own local mean). 256² × 8 bytes = 512 KiB, ~683 KiB with mips, ONE
+  stored as linear light over its mean keeps mean 1 at every level (the meadow's mean luma in
+  the four bundled examples' default framing −0.25 / −0.20 / +1.09 / +1.52 against the flat
+  meadow's; the small plans' near meadow carries the variation's own local mean, and the
+  far meadow, its octaves faded, is the flat mean). 256² × 8 bytes = 512 KiB, ~683 KiB with mips, ONE
   per host (`GrassDetailTexture`), its `Texture` never re-pointed (§5).
 - **A uniform branch around `texture()` in a custom material** (`if (uSurface > 0.5)`) compiles
   and renders on Direct3D 11 with no Qt message, as `water.frag`'s `uHasFill` branch does; the
