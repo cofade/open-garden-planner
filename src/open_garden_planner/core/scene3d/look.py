@@ -55,8 +55,8 @@ from .frame import sun_direction_scene
 from .sink import SunState
 
 __all__ = [
-    "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG",
-    "ATMOSPHERE_THIN_CLOUD_LIFT",
+    "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_DECK_LEVEL", "ATMOSPHERE_DECK_SUNSET",
+    "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG", "ATMOSPHERE_THIN_CLOUD_LIFT",
     "AUTO", "AUTO_LEVELS",
     "CLEAR_STILL",
     "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
@@ -134,6 +134,25 @@ ATMOSPHERE_CLOUD_GAIN: Final = 0.064
 #: and at Partly cloudy's 0.4 it read as dark smoke at noon. 4.2 is x 2.5 at 0.4, x 1 at
 #: Overcast and Rain, x 1.09 at Snow (3D review of the owner's Partly cloudy).
 ATMOSPHERE_THIN_CLOUD_LIFT: Final = 4.2
+#: A cloud DECK's light on top of ``ATMOSPHERE_CLOUD_GAIN`` x the gain (#719,
+#: ``quick3d.look.deck_anchor``): at and below the 6° haze band the painted sky shows, and
+#: nothing tied the deck's level to it — the deck read 11-14 luma under the painted haze
+#: band from noon down to a 6° sun, 37-45 at sunset. Measured in the frame (two renders per
+#: sun at known factors; PF-L3D-23) so that under a full Overcast the deck 10° up, over the
+#: azimuth, reads the painted sky's luminance there. By day the factor is one LEVEL, taken
+#: as far as the deck is closed (cover 0.5 -> 1, as the disc's ``sunAlpha``: Snow's 0.85 is
+#: 0.7 closed, and read 1.02-1.05 of the painted sky with it) ...
+ATMOSPHERE_DECK_LEVEL: Final = 1.48
+#: ... and toward sunset a SHAPE per sun elevation (degrees, factor; 1 by day, interpolated
+#: in log space, held beyond the rows) that every deck takes in full — every weather of a
+#: cloud of 0.5 or more, the overcast mood's own boundary (``weather.mood_of``): the
+#: example lights its clouds by its sun through an airmass from the ground, which dies
+#: faster than the painted sky dims (the deck fell to 0.29 of its noon luminance at a 0°
+#: sun, the painted sky to 0.6), then the clear sky's gain lifts it again in twilight.
+#: Partly cloudy's 0.4 takes neither: its clouds keep the light the owner accepted.
+ATMOSPHERE_DECK_SUNSET: Final = (
+    (-5.0, 0.547), (-4.0, 0.527), (-3.0, 0.723), (-2.0, 1.169), (-1.0, 1.709), (0.0, 2.081),
+    (0.5, 1.574), (1.0, 1.378), (2.0, 1.169), (3.0, 1.074), (6.0, 1.0))
 #: The atmosphere's sun disc × this, over the painted disc's colour and energy. The
 #: painted disc stands two to three times above the sky around it; the atmosphere's
 #: aerosol halo, after the gain, is about as bright as the painted disc — at × 1 the disc

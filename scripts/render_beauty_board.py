@@ -53,6 +53,11 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
                moves (a time-lapse), each in the view's fit and a picture's
 ``--photo-shadows``  every frame with a picture's shadow fit (to the casters) instead of
                the view's texel-locked one (#734)
+``--sky-bands`` sky-only frames toward, across and away from a 300° sun, clear and under
+               each closed weather, binned by world elevation (#716, #719): how far the
+               clear sky darkens toward the horizon, its 6–15° band, and the haze band
+               (3°) against the cloud deck (10°). Recorded only; the render tier judges
+               it against the painted sky's board
 ``--fps-seconds N``  frames a SHOWN view presents per second with the wind running,
                per preset — or, where nothing is presented (the display asleep), the
                cost of a finished readback, labelled as such
@@ -279,6 +284,17 @@ STAIRS_STREAK_OFFSETS_CM = (100.0, 250.0, 350.0, 420.0)
 HORIZON_WEATHERS = ("partly_cloudy", "overcast", "rain", "snow")
 
 
+def sky_band_camera(bearing_deg: float, size: tuple[int, int]) -> probes.Pinhole:
+    """The sky-band probe's camera (#716, #719): eye height over the empty meadow, looking
+    along ``bearing_deg`` pitched ``SKY_BAND_PITCH_DEG`` up."""
+    bearing = math.radians(bearing_deg)
+    return probes.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(bearing) * 1000.0, math.cos(bearing) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(SKY_BAND_PITCH_DEG))),
+        fov_deg=SKY_BAND_FOV_DEG, size=size)
+
+
 def weather_look(sun: SunState, preset: str, weather: str = "clear") -> LookSpec:
     """The look a probe judges under ``weather``: ``look_for`` when clear, else
     ``living_look`` with its rain or snow left out — a probe reads the light, the fog and
@@ -494,6 +510,23 @@ DUSK_ELEVATIONS = (6.0, 3.1, 2.6, 2.1, 1.6, 1.1, 0.6, 0.4, 0.0, -1.0, -2.0, -3.0
 #: below it, and how far a sky row may dip under the rows beside it.
 SKY_DUSK_ELEVATIONS = (1.0, 0.4, 0.0, -1.0, -3.0)
 SKY_DUSK_DIP_BOUND = 10.0
+#: The sky-band probe (#716, #719): sky-only frames over the empty meadow at one sun
+#: azimuth (the 3D review's 300°), looking toward the sun, across it and away from it,
+#: pitched to see from below the horizon to 30°; the profile is binned by WORLD
+#: elevation (``board_probes.sky_profile``). The clear sky at a high, a golden, a
+#: sunset and two setting suns; the cloud decks at the sunset sun and the setting one.
+SKY_BAND_AZIMUTH = 300.0
+SKY_BAND_DIRECTIONS = (("toward", 0.0), ("across", 90.0), ("away", 180.0))
+SKY_BAND_CLEAR_SUNS = (60.0, 15.0, 6.0, 2.0, 0.5)
+SKY_BAND_CLOUD_SUNS = (6.0, 0.5)
+SKY_BAND_WEATHERS = ("overcast", "rain", "snow")
+SKY_BAND_PITCH_DEG, SKY_BAND_FOV_DEG = 10.0, 40.0
+#: #716: from here down to the horizon the clear sky may not darken.
+SKY_BAND_INVERSION_RANGE = (0.5, 20.0)
+#: #719: the haze band's middle against the deck above it.
+SKY_BAND_HAZE_DEG, SKY_BAND_DECK_DEG = 3.0, 10.0
+#: #716: the low band every board camera sees.
+SKY_BAND_LOW = (6.0, 15.0)
 #: The edge probe's cameras stand on the edge's line this far from the middle of the
 #: judged stretch, at eye height — the grazing view under which a sheen shows — and judge
 #: a band this wide on each side of the edge, starting this far from it, this long.
@@ -1354,6 +1387,72 @@ class Board:
                     f"the set sun dips more than {SKY_DUSK_DIP_BOUND:g} luma under its rows "
                     f"({weather}, {preset}); see metrics.json")
 
+    def sky_bands(self, presets: list[str]) -> None:
+        """How the sky meets the painted horizon (#716, #719), per elevation band.
+
+        Sky-only frames over the empty meadow (``ground=None``) at ``SKY_BAND_AZIMUTH``,
+        toward, across and away from the sun, under the clear sky (``SKY_BAND_CLEAR_SUNS``)
+        and each cloud deck (``SKY_BAND_WEATHERS`` at ``SKY_BAND_CLOUD_SUNS``), on the
+        first preset. Per frame: the profile by world elevation, how far it darkens on the
+        way down to the horizon (``inversion``, #716), the haze band (3°) minus the deck
+        (10°) (#719), the low band's mean luminance (6–15°, #716) and the meadow's luma
+        (−6…−3°). Measures and records only: the render tier judges the numbers, and the
+        sky-to-sky ratio needs both skies' boards. Nothing on a software adapter: no sky.
+        """
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        if self.software:
+            self.metrics["sky_bands"] = {"skipped": "no sky texture on a software adapter"}
+            return
+        preset = presets[0]
+        out: dict[str, Any] = {"preset": preset, "azimuth_deg": SKY_BAND_AZIMUTH,
+                               "inversion_range_deg": list(SKY_BAND_INVERSION_RANGE),
+                               "haze_deg": SKY_BAND_HAZE_DEG, "deck_deg": SKY_BAND_DECK_DEG,
+                               "low_band_deg": list(SKY_BAND_LOW)}
+        self.metrics["sky_bands"] = out
+        plan = [("clear", SKY_BAND_CLEAR_SUNS)] + [(weather, SKY_BAND_CLOUD_SUNS)
+                                                   for weather in SKY_BAND_WEATHERS]
+        for weather, suns in plan:
+            by_sun: dict[str, Any] = {}
+            out[weather] = by_sun
+            for elevation in suns:
+                sun = SunState(elevation, SKY_BAND_AZIMUTH)
+                look = weather_look(sun, preset, weather)
+                rows: dict[str, Any] = {}
+                for label, turn in SKY_BAND_DIRECTIONS:
+                    bearing = (SKY_BAND_AZIMUTH + turn) % 360.0
+                    camera = sky_band_camera(bearing, self.size)
+                    rgb, _frame, info = self.frame(
+                        f"skyband_{weather}_{elevation:g}_{label}_{preset}", {}, sun=sun, look=look,
+                        ground=None, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    profile = probes.sky_profile(
+                        rgb, camera, bearing, sun=(SKY_BAND_AZIMUTH, elevation),
+                        lowest_deg=SKY_BAND_PITCH_DEG - SKY_BAND_FOV_DEG / 2.0,
+                        highest_deg=SKY_BAND_PITCH_DEG + SKY_BAND_FOV_DEG / 2.0)
+                    haze = probes.profile_at(profile, SKY_BAND_HAZE_DEG)
+                    deck = probes.profile_at(profile, SKY_BAND_DECK_DEG)
+                    rows[label] = {
+                        "file": info["file"], "bearing_deg": bearing,
+                        "inversion": probes.horizon_inversion(profile, *SKY_BAND_INVERSION_RANGE),
+                        "haze_luma": haze, "deck_luma": deck,
+                        "band_minus_deck": (None if haze is None or deck is None
+                                            else round(haze - deck, 3)),
+                        "low_band_luminance": probes.profile_mean(profile, *SKY_BAND_LOW),
+                        "ground_luma": probes.profile_mean(profile, -6.0, -3.0, key="luma"),
+                        "profile": profile}
+                # toward, across (twice: left and right are one sky) and away: four points
+                # of the azimuth
+                lows = [rows[label]["low_band_luminance"] for label in ("toward", "across",
+                                                                         "across", "away")]
+                rows["azimuth_mean_low_band_luminance"] = (
+                    None if any(value is None for value in lows) else round(float(np.mean(lows)), 6))
+                by_sun[f"{elevation:g}"] = rows
+                self.log("sky_bands", weather=weather, sun=elevation, **{
+                    f"{label}_{key}": (rows[label]["inversion"]["inversion_luma"] if key == "inv"
+                                       else rows[label]["band_minus_deck"])
+                    for label, _turn in SKY_BAND_DIRECTIONS for key in ("inv", "step")})
+                self.write()
+
     def fence_moire(self, shots: list[BoardShot], presets: list[str]) -> None:
         """How the plan's fences alias, per preset: the fences alone at the noon camera
         against the same frame without them (``probes.thin_geometry_moire``)."""
@@ -1715,6 +1814,9 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="#734: a long fence's low-sun shadow edge and its streaks")
     parser.add_argument("--edge", action="store_true",
                         help="an empty plan: the step where the plan rectangle meets the meadow")
+    parser.add_argument("--sky-bands", action="store_true",
+                        help="sky-only frames toward, across and away from a low sun, clear and "
+                             "under each cloud deck: the sky per elevation band (#716, #719)")
     parser.add_argument("--fps-seconds", type=float, default=0.0,
                         help="frames a SHOWN window presents per second, per preset (0 = off)")
     parser.add_argument("--software", action="store_true",
@@ -1806,6 +1908,8 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.fence_moire(default_shots(board.width, board.depth), presets)
     if args.edge:
         board.plan_edge(default_shots(board.width, board.depth), presets)
+    if args.sky_bands:
+        board.sky_bands(presets)
     if args.stairs:
         board.stairs(presets)
     if shots and (args.iou or args.orient or args.horizon or args.dusk or args.fence or args.edge

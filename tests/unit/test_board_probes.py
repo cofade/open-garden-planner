@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -301,6 +302,38 @@ def test_a_low_suns_disc_beats_a_brighter_warm_horizon_band() -> None:
     assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
 
 
+def test_a_warm_clipped_disc_is_still_the_discs_own_plateau() -> None:
+    """#716: the atmosphere's 6° disc core read (255, 255, 243) once the profile dimmed the
+    sky round a low sun (master's (255, 255, 252) clipped blue too, from the brighter sky
+    behind it). A warm core clips red and green first, so "every channel >= 250" found no
+    plateau, and the warm fallback locked 0.49° low onto the haze band below. A clipped core
+    is luma >= 250; the band (luma ~206) stays out."""
+    azimuth, elevation = 180.0, 6.0
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(elevation + 2.0))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    frame[rays[..., 2] < 0.0] = (70.0, 110.0, 60.0)
+    elevation_deg = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    frame[(elevation_deg > 0.2) & (elevation_deg < 5.5)] = (255.0, 200.0, 120.0)
+    sun = np.asarray(sun_direction_scene(elevation, azimuth))
+    disc = np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0))) < 1.0
+    frame[disc] = (255.0, 255.0, 243.0)
+    assert int(disc.sum()) >= 20 and not np.all(frame[disc] >= 250.0)
+    found = P.sun_disc(frame, camera)
+    assert found["found"] and found.get("plateau_px", 0) >= 20, found
+    assert abs(P.bearing_error_deg(found["bearing_deg"], azimuth)) < 0.25, found
+    assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
+
+
 def test_two_white_blobs_do_not_make_a_sun_between_them() -> None:
     """#717 review: the white path took the centroid of EVERY white pixel, so two
     clouds at 160° and 200° read as a sun at 180°. It takes the largest connected
@@ -406,6 +439,80 @@ def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
     cloudy[(sky_elevation > 5.5) & (sky_elevation < 7.5)] = 20.0
     ignored = P.sun_dip(cloudy, camera, azimuth, sun_elevation_deg=elevation)
     assert ignored["dip_luma"] > -10.0, ignored
+
+
+def _elevation_sky(camera: P.Pinhole, luma_of: Any) -> tuple[np.ndarray, np.ndarray]:
+    """A grey frame whose value is a function of each pixel's WORLD elevation."""
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    value = np.clip(luma_of(elevation), 0.0, 255.0)
+    return np.repeat(value[..., None], 3, axis=2), elevation
+
+
+def _band_camera(bearing: float = 120.0) -> P.Pinhole:
+    look = math.radians(bearing)
+    return P.Pinhole(eye=(0.0, 0.0, 160.0),
+                     target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                             160.0 + 1000.0 * math.tan(math.radians(10.0))),
+                     fov_deg=40.0, size=SIZE)
+
+
+def test_the_sky_profile_bins_by_world_elevation_not_by_row() -> None:
+    """#716/#719 (PF-L3D-19): a sky that only rises toward the horizon reads as rising in
+    every band, and a band's value is the sky's AT that elevation — off-axis pixels of one
+    row of a pitched camera sit higher, so a row mean would blur the bands together."""
+    camera = _band_camera()
+    frame, elevation = _elevation_sky(camera, lambda e: 200.0 - 4.0 * np.maximum(e, 0.0))
+    profile = P.sky_profile(frame, camera, 120.0, half_width_deg=4.0)
+    assert P.profile_at(profile, 3.0) == pytest.approx(188.0, abs=1.0)
+    assert P.profile_at(profile, 10.0) == pytest.approx(160.0, abs=1.0)
+    assert P.profile_at(profile, 40.0) is None, "outside the frame: not measured"
+    assert P.profile_mean(profile, 6.0, 15.0, key="luma") == pytest.approx(158.0, abs=1.0)
+    clean = P.horizon_inversion(profile)
+    assert clean["measured"] is True and clean["inversion_luma"] == 0.0, clean
+    # the image row through 25° in the middle spans several degrees across the frame:
+    # its mean is not the sky at 25° (the profile's band is)
+    row = int(np.argmin(np.abs(elevation[:, SIZE[0] // 2] - 25.0)))
+    assert float(np.ptp(elevation[row])) > 2.0
+    assert abs(float(frame[row, :, 0].mean()) - 100.0) > 2.0
+    assert P.profile_at(P.sky_profile(frame, camera, 120.0, highest_deg=30.0), 25.0) == pytest.approx(
+        100.0, abs=1.0)
+
+
+def test_a_bright_band_above_the_horizon_is_an_inversion_and_a_deck_step_is_measured() -> None:
+    """#716's symptom: the sky peaks at 4-5° and darkens toward 0.5°. #719's: a bright band
+    under a darker deck — band (3°) minus deck (10°)."""
+    camera = _band_camera()
+    peaked, _ = _elevation_sky(camera, lambda e: np.where(e < 4.5, 190.0 + 8.0 * e, 226.0 - 2.0 * (e - 4.5)))
+    found = P.horizon_inversion(P.sky_profile(peaked, camera, 120.0))
+    assert found["inversion_luma"] == pytest.approx(32.0, abs=2.5), found
+    assert found["above_deg"] == pytest.approx(4.5, abs=0.5) and found["at_deg"] == pytest.approx(0.5)
+    deck, _ = _elevation_sky(camera, lambda e: np.where(e < 6.0, 180.0, 130.0))
+    profile = P.sky_profile(deck, camera, 120.0)
+    assert P.profile_at(profile, 3.0) - P.profile_at(profile, 10.0) == pytest.approx(50.0)
+    # nothing measured is not a pass
+    empty = P.horizon_inversion({"elevation_deg": [], "luma": [], "luminance": [], "count": []})
+    assert empty["measured"] is False
+
+
+def test_the_sky_profile_leaves_the_disc_out() -> None:
+    """The sun's disc is not the sky's brightness: within the given radius of the sun its
+    pixels are not counted, so a white core cannot pull two skies' means together."""
+    camera = _band_camera(300.0)
+    frame, _ = _elevation_sky(camera, lambda e: np.full_like(e, 120.0))
+    cols, rows = np.meshgrid(np.arange(SIZE[0]) + 0.5, np.arange(SIZE[1]) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    sun = np.asarray(sun_direction_scene(8.0, 300.0))
+    frame[np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0))) < 1.5] = 255.0
+    with_disc = P.sky_profile(frame, camera, 300.0)
+    without = P.sky_profile(frame, camera, 300.0, sun=(300.0, 8.0), sun_radius_deg=3.0)
+    assert P.profile_mean(with_disc, 7.0, 9.0) > P.profile_mean(without, 7.0, 9.0)
+    assert P.profile_mean(without, 7.0, 9.0) == pytest.approx(
+        float(P.luminance(np.array([120.0] * 3))), rel=1e-4)
 
 
 def test_a_sky_without_a_disc_is_not_a_measurement() -> None:

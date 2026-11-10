@@ -4071,6 +4071,165 @@ fix the crash, and add a partly cloudy weather. What changed:
 - **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
   machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
+### Addendum L7.1 — the atmosphere sky meets the painted horizon (2026-11-09, #716, #719)
+
+**Status**: Proposed (branch `vp/716-719-sky`, in the visual-polish package). Both issues
+are one problem: at and below the 6° haze band the painted sky shows, so the fog meets the
+same horizon in every direction (unchanged), and above it nothing tied the atmosphere's
+LEVEL to that horizon. The clear sky's low band was too bright (#716), the cloud deck too
+dark (#719). The painted sky, the default, is untouched: the painted board's seven shots
+are identical to `master`'s to the level (max difference 0). The sun's azimuth and
+elevation, the shadows and every truth gate are untouched: the key light and the probe are
+the painted sky's, as since L7's revision.
+
+**Measured with a new board phase** (`render_beauty_board.py --sky-bands`): sky-only frames
+over the empty meadow at a 300° sun, toward, across and away from it, Medium, 640 × 360, RTX
+4070, binned by WORLD elevation in 0.5° bands within ±4° of the bearing
+(`board_probes.sky_profile`; an image row is a plane, PF-L3D-19). The render tier gates it on
+both skies (`test_view3d_looks_render.py`); every gate below was observed failing on `master`
+with the same phase first.
+
+**#716 — one gain, redistributed per elevation.** `atmosphere_gain` scaled the whole sky by
+one number, so the atmosphere's steep fall from horizon to zenith stayed: its 6–15° band read
+1.37–1.60× the painted sky's luminance over the azimuth (up to 2.1× toward a low sun), its
+zenith 0.5–0.8× (Python model of the drawn sky), and its bright low band stood over the
+painted horizon of the haze band, so the sky darkened toward 0.5°. The reviewer's proposal —
+one `lowBandScale` faded out between 6° and 25°, the gain re-integrated over the sky as drawn —
+was modelled first and not built: it removes the darkening, but with the light kept the gain
+rises and the faded band becomes a bright belt (rings at 1.3–1.5× the painted sky at 25°),
+the 6–15° band stays at 1.10–1.19× (over 1.15 at 6°, 2° and 0.5°) and the zenith at
+0.57–0.83×. Instead `atmosphere_lut.sky_profile` gives every ring of the clear
+atmosphere the mean luminance of the painted sky's GRADIENT at its elevation (the painted
+sky without its sun) × one glow factor, and rides in the sky-view table's alpha, relative to
+the gain. Normalising on the painted ring MEANS was modelled first and rejected: the painted
+disc's glow spread round the ring at the sun's elevation (+10 % at a 60° sun, PF-L3D-22). The
+gain and the glow factor are integrated over the sky as drawn (each direction weighted by the
+atmosphere's haze share), so the drawn sky still sends the painted sky's light onto a
+horizontal surface (model: 1.0002–1.0003; the gain moves by at most 0.9 % against L7's).
+
+| Clear sky, 300° sun | `master` | branch | painted |
+|---|---|---|---|
+| darkening 20° → 0.5°, away (luma), suns 60 / 15 / 6 / 2 / 0.5° | 1.7 / 18.3 / 21.9 / 20.8 / 16.7 | 0.0 at every sun | 0.0 |
+| darkening 20° → 0.5°, across | 0.1–0.7 | 0.0 | 0.0 |
+| 6–15° band over the azimuth (1 : 2 : 1), over the painted sky's | 1.37 / 1.44 / 1.49 / 1.59 / 1.60 | 1.05 / 0.94 / 0.96 / 0.99 / 0.99 | 1 |
+| … toward the sun at 2° / 0.5° | 1.98 / 2.10 | 1.35 / 1.42 | 1 |
+| meadow under the frames, atmosphere minus painted (luma) | 0.00 | 0.00 | — |
+
+Toward a low sun the sky still darkens below the sun's glow into the painted horizon (24–26
+luma at 6–0.5°; `master` 39–46; the painted sky 10 at a 15° sun): that is the disc's own glow
+meeting a horizon that must be the same in every direction, and is not gated. The issue's
+grass criterion (±1 luma at 60°, 15°, 2°) holds trivially: the painted probe lights the garden
+under both models since L7's revision (PF-E3D-17), so `atmosphere_gain` no longer reaches the
+ground; the meadow under the sky-band frames is identical on `master` and the branch
+(mean luma of the −6…−3° bands, away: 200.99 / 150.35 / 69.01 at 60° / 15° / 2°, the same
+under both skies).
+
+**#719 — the deck anchored on the painted haze band.** The deck 10° up read 11–14 luma under
+the painted band from noon down to a 6° sun and 37–45 at sunset (its light is the example's
+sun through a ground airmass, which dies faster than the painted sky dims: 0.29 of its noon
+luminance at a 0° sun against the painted sky's 0.6; then the clear sky's gain lifted it again
+in twilight, the "rise after sunset"). Two changes, both measured:
+
+- **the sun side of the clouds' ambient diffuses with the cover** (`atmosphere.frag`, a fourth
+  marked change to the example's `raymarchClouds`: `sunFacing` toward 0.5 by
+  `CLOUD_DIFFUSION × cover`, as the forward lobe already did). Its sample is the clear sky's
+  aerosol glow beside a low sun: a closed deck read 138 / 120 / 102 luma toward / across / away
+  at a 0.5° sun, 126 / 120 / 119 after. One scale cannot meet a band with a spread of 36 luma;
+- **a deck's light takes an anchor** (`quick3d.look.deck_anchor`, on `cloudLightGain`):
+  `ATMOSPHERE_DECK_LEVEL` 1.48 by day, to the power of how closed the deck is (0.5 → 1, as
+  `sunAlpha`; Snow is 0.7), times `ATMOSPHERE_DECK_SUNSET` per sun elevation (1 by day, 2.08 at
+  0°, 0.53 at −4°; log-linear) for every deck (cloud ≥ 0.5, the overcast mood's boundary).
+  Partly cloudy takes neither. Measured in the frame: the deck rendered at factors 1 and 2 at
+  14 suns from 60° to −5°, the factor solved from the local response so that under a full
+  Overcast the deck 10° up reads the painted sky's luminance over the azimuth, then checked.
+  A two-source CPU model of the deck through `skyExposed` missed by −74 % to +23 % (the frame
+  passes the scene's tone mapping after the shader, PF-L3D-23). The reviewer's proposal — a
+  factor table on `cloud_light_gain` — is what was built, plus the diffusion it lacked; the
+  failed slant clamp (deck 231 at a 0° sun) was not repeated: the slant is unchanged.
+  Snow's own sunset needed the shape in full and its level only by closure (with both by
+  closure its across view read 13.4 at 0.5°).
+
+| Band (3°) minus deck (10°), luma, toward / across / away | `master` | branch | painted |
+|---|---|---|---|
+| Overcast and Rain, 6° sun | 9.9 / 14.0 / 16.9 | −0.9 / 0.8 / 0.0 | 3.0 / 5.7 / 5.7 |
+| Overcast and Rain, 0.5° sun | 26.5 / 37.5 / 51.0 | 1.1 / 3.9 / 5.6 | 6.2 / 6.0 / 6.0 |
+| Snow, 6° sun | 1.5 / 13.9 / 4.3 | −4.4 / 4.2 / −8.1 | 4.1 / 7.4 / 7.4 |
+| Snow, 0.5° sun | 19.2 / 37.6 / 38.4 | −1.9 / 8.0 / −0.1 | 8.9 / 8.6 / 8.6 |
+| Overcast, 14 suns 60° … −5° (before: the diffusion alone) | up to 44.8 (0°) | −1.7 … 7.6 | 1.2 … 7.2 |
+| Snow, 14 suns 60° … −5° (before: the diffusion alone) | up to 43.1 (0°) | −8.1 … 9.7 | 2.7 … 9.6 |
+
+The colour step at the haze line went down with it (ΔE76 band against deck, toward a 0.5° sun:
+Overcast 9.9 → 0.3, Snow 8.8 → 3.5 before the hue share below; the painted sky's own 4.1).
+
+**Cost**: none measurable — the profile reuses the gain's pass and the cached table (a new sun's
+Python work 244–270 ms median against `master`'s 259–275 ms; a new weather at the same sun
+1.9 ms).
+
+**Snow's deck at a low sun** (the owner's note on this addendum's first build; fixed and
+measured). The clouds' hue share was the cover alone, so Snow's 0.85 kept 15 % of the deck's
+own colour, lit by the example's sun through a ground airmass, which is nearly pure red at a low
+sun. The blend keeps luminance, so a pure red brings a large red channel: the deck read pink over
+a grey haze band. `quick3d.look.cloud_hue_share` now keeps a cloud's own colour only where the
+cloud is thin AND the deck open: 1 − (1 − cover) × (1 − closed). `deck_closure` is the one
+measure of "closed" for the disc (`sunAlpha`), the anchor and the hue. Partly cloudy keeps 0.4,
+Overcast and Rain 1, Snow 0.955. A share of 1 was measured too (the weather's neutral grey,
+C*ab 1.3–1.5). 0.955 is continuous in the cover and keeps the painted deck's chroma; how warm a
+snowy sunset may be stays the owner's call.
+
+| Snow deck 10° up (`--sky-bands`), sun 1 / 0.5 / 0 / −1° | `master` (0.5°) | before | after | painted (0.5°) |
+|---|---|---|---|---|
+| chroma C*ab, toward / across / away | 8.7–11.5 | 7.3–9.7, hue 14–32° | 3.2–4.0, hue 359–27° | 3.3–3.6 |
+| ΔE76 deck against the band (3°) | 8.4–20.5 | 3.1–6.5 | 1.0–4.8 | 4.2–4.3 |
+| deck chroma at any of the 14 suns 60° … −5° | — | up to 9.7 | up to 4.0 | — |
+| band minus deck (luma) over the 14 suns | — | −8.1 … 9.7 | −7.5 … 9.6 | 2.7 … 9.6 |
+
+Both columns were rendered on the same tree, "before" with the old share patched in. The deck's
+lightness moved by at most 0.3 L* at every one of the 14 suns.
+
+**Render tier on the merged tree** (this branch with `feature/3d-visual-polish`: `master`
+v1.37.10, #737, #743/#744; RTX 4070, 2026-11-10):
+
+- `test_living_garden_render.py::test_the_living_board_renders_every_shot` passes on both skies
+  (the atmosphere again after the hue share). L5 on the atmosphere, branch against `master`:
+  cloudy sunset over noon 0.737 / 0.776 / 0.796 / 0.720 against 0.772 / 0.770 / 0.792 / 0.712
+  (Partly cloudy / Overcast / Rain / Snow; gate < 0.85). Every cloudy dusk is monotone, with
+  `sky_dusk_ok` everywhere. The hue share moved only Snow (0.719 → 0.720). Under Overcast, Rain
+  and Snow the garden's ground luminance, atmosphere over painted, is 1.000 at noon, golden hour
+  and sunset. #719's "0.87–0.99" predates L7's revision: the painted probe lights the garden under
+  both models since then;
+- `test_quick3d_selftest.py`: 11 passed, on the GPU and on WARP. The atmosphere frames lie 82.3
+  off the plain background (bound 11) and the cloudy band (cloud 0.7, hue share 0.82) lies 26.1
+  off the clear one (bound 7; 27.6 with the old share);
+- `test_view3d_looks_render.py`, the board, moods, night and sky-band subset (26 tests): 22
+  passed. On this machine an offscreen grab takes 2.0–3.3 s per 640 × 360 frame (with and
+  without `QT_D3D_NO_VBLANK_THREAD`, on any tree), so the production board needs 935–1004 s
+  against the tier's 780 s watchdog. The run lengthened only the timeouts, with a pytest plugin
+  outside the repository; the bounds were not touched. The sky-band gates on the merged tree:
+  darkening 0.0 across and away at every sun; the 6–15° band at 1.05 / 0.94 / 0.96 / 0.99 / 0.99;
+  band minus deck −0.9 … 5.6 (Overcast, Rain) and −7.5 … 7.4 (Snow); the meadow unchanged. The
+  night/day test reads the night 0.000 luma off the painted night at every preset and the day
+  sky 15.66 off the painted one (bound 5; 17.7 before the profile). The four failures:
+  - G4 on the atmosphere, in two tests: the 6° disc read 0.49° low. The finder was at fault, not
+    the disc (next paragraph). After the fix the night/day test passes, with the atmosphere's
+    worst errors at 0.06° bearing and 0.07° elevation. The production board was not rendered
+    again; its own 48 sky views, read again offline by the new finder, give 0.07° (atmosphere)
+    and 0.13° (painted) at worst;
+  - `test_dusk_fades_and_sunset_is_no_cliff` on BOTH skies: at Medium, High and Ultra the night
+    frame reads 0.004 above the −5° frame (0.0402 → 0.0445 painted). This change did not cause
+    it. The merged base's own full painted board (`d319bce0`) shows the same rise to the digit
+    (+0.00425 / +0.00400 / +0.00412). The `--dusk` phase alone is monotone and identical on the
+    base and on the branch (night 0.0300), and inside the full board the night reads 0.0445, so
+    an earlier phase leaves state behind. It is left for a follow-up.
+
+**The sun-disc finder (G4) keys on a clipped core.** It took a plateau of pixels with every
+channel ≥ 250. Whether a warm core clips blue depends on the sky behind the disc. The
+atmosphere's 6° core read (255, 255, 252) on `master` and on the merged base, and
+(255, 255, 243) once the profile dimmed the sky round a low sun. The disc stood where it was,
+but no plateau was found, and the warm fallback read it 0.49° low over the haze band.
+`board_probes.sun_disc` now takes luma ≥ 250, because a warm core clips red and green first:
+the 6° plateau is 169 px at 5.96°, the 12° plateau 130 px at 12.05°. The painted discs peak at
+200–216, keep the fallback and read as before.
+
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
 **Status**: Accepted (2026-10, #414 / #416, task-date correctness package)
@@ -7332,7 +7491,8 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 - **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
   (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
   disc finder first takes the largest connected, compact white plateau (at least 20
-  pixels, every channel ≥ 250, bounding box at most 4:1, at least 40 % filled) and its
+  pixels, every channel ≥ 250 — luma ≥ 250 since #716, addendum L7.1 of ADR-048 — bounding
+  box at most 4:1, at least 40 % filled) and its
   centroid, falling back to the old bright-and-warm peak: at a low sun the warm
   horizon band outscored the disc (#717), and the centroid of every white pixel merged
   two blobs into a false sun between them. Measured on the RTX 4070 at 640 × 360: worst

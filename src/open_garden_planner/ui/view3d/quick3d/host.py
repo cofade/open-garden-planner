@@ -177,6 +177,7 @@ from .look import (
     SkySpec,
     atmosphere_properties,
     atmosphere_sun_direction,
+    painted_sky,
     photo_properties,
     scene_properties,
     sky_properties,
@@ -1465,7 +1466,7 @@ class Quick3DHost:
             # written) — in the same GUI-thread turn, so no frame shows the painted
             # background between the two calls
             self._call("buildAtmosphere", self._atmosphere_inputs(sky), self._cloud_volume(),
-                       self._sky_view_table(atmosphere_sun_direction(sky)))
+                       self._sky_view_table(sky))
         self.last_sky_build_ms = (time.perf_counter() - started) * 1000.0
         self._sky = sky
         self.sky_builds += 1
@@ -1482,13 +1483,16 @@ class Quick3DHost:
             inputs[name] = value
         return inputs
 
-    def _sky_view_table(self, sun_direction: tuple[float, float, float]) -> SkyViewTexture:
-        """The sky-view table for ``sun_direction``, made once and refilled in place
-        (about 0.1 s of numpy per new sun, on the GUI thread like the painted sky's)."""
+    def _sky_view_table(self, sky: SkySpec) -> SkyViewTexture:
+        """The sky-view table of ``sky`` — its sun's clear sky and its painted sky's
+        profile (#716) — made once and refilled in place (about 0.1 s of numpy per new
+        sun, on the GUI thread like the painted sky's; a new weather at the same sun
+        refills only the profile's alpha from the cached table)."""
+        sun_direction, painted = atmosphere_sun_direction(sky), painted_sky(sky)
         if self._sky_view is None:
-            self._sky_view = SkyViewTexture(sun_direction)
+            self._sky_view = SkyViewTexture(sun_direction, painted)
         else:
-            self._sky_view.set_sun_direction(sun_direction)
+            self._sky_view.set_sky(sun_direction, painted)
         return self._sky_view
 
     def _cloud_volume(self) -> CloudNoiseTexture:
