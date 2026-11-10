@@ -208,14 +208,19 @@ def _parse_number(token: str) -> float:
     from open_garden_planner.core.i18n import parse_decimal
 
     token = token.strip()
-    if not _NUMBER_RE.match(token):
-        # Translate the template first so format() substitutes into the
-        # localised string, not the English original.
-        template = QCoreApplication.translate(
-            "ParseError", "Not a number: '{token}'"
-        )
-        raise ParseError(template.format(token=token))
-    return parse_decimal(token)
+    if _NUMBER_RE.match(token):
+        # ``parse_decimal`` is the stricter of the two (ASCII digits, a finite
+        # result): what it refuses is "not a number" here as well.
+        try:
+            return parse_decimal(token)
+        except ValueError:
+            pass
+    # Translate the template first so format() substitutes into the
+    # localised string, not the English original.
+    template = QCoreApplication.translate(
+        "ParseError", "Not a number: '{token}'"
+    )
+    raise ParseError(template.format(token=token))
 
 
 def looks_like_explicit_coord(text: str) -> bool:

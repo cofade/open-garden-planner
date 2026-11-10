@@ -36,6 +36,7 @@ from open_garden_planner.core.playback import (
     next_step,
 )
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+from open_garden_planner.ui.date_fields import as_date_field, as_time_field
 from open_garden_planner.ui.icons import get_icon
 
 _ANIMATE_INTERVAL_MS = STEP_MS
@@ -232,9 +233,7 @@ class SunSimToolbar(QToolBar):
         self.addWidget(self._content)
 
         group = self._group()
-        self._date_edit = _PlanDateEdit(self)
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(_PlanDateEdit(self))
         self._date_edit.setDateRange(QDate(MIN_PLAN_DATE.year, 1, 1), QDate(MAX_PLAN_DATE.year, 12, 31))
         self._date_edit.setMinimumWidth(self._date_edit.fontMetrics().horizontalAdvance("2000-00-00") + 48)
         self._date_edit.setToolTip(self.tr("Plan date: plant presence, growth and sunlight"))
@@ -254,8 +253,7 @@ class SunSimToolbar(QToolBar):
         group.addWidget(self._month_slider)
 
         group = self._group()
-        self._time_edit = _PlanTimeEdit(self)
-        self._time_edit.setDisplayFormat("HH:mm")
+        self._time_edit = as_time_field(_PlanTimeEdit(self))
         self._time_edit.setToolTip(self.tr("Time of day"))
         self._time_edit.setMinimumWidth(self._time_edit.fontMetrics().horizontalAdvance("00:00") + 40)
         group.addWidget(self._time_edit)

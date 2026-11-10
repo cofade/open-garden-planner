@@ -108,11 +108,15 @@ def diagnostics_from_records(
             out.append(DiagnosticRecord(**diagnostic))
         # An object without a name is labelled with its type's enum NAME
         # ("TREE"): say so, so a UI can show the type's translated name (#792).
+        # Only where THIS function wrote that fallback: a diagnostic that brings
+        # its own label (the sun records name an unnamed plant's species) is not
+        # labelled with the type, and the flag is a fact an agent reads.
         type_named = not record.get("name") and bool(record.get("object_type"))
         for diagnostic in out[offset:]:
-            diagnostic.details.setdefault("label", label)
-            if type_named:
-                diagnostic.details.setdefault("label_is_type", True)
+            if "label" not in diagnostic.details:
+                diagnostic.details["label"] = label
+                if type_named:
+                    diagnostic.details.setdefault("label_is_type", True)
             if diagnostic.kind == "crop_rotation":
                 diagnostic.details.setdefault("rotation_status", rotation)
 

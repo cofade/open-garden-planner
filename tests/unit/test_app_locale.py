@@ -17,7 +17,7 @@ import datetime
 import pytest
 from PyQt6.QtCore import QLocale, Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QSpinBox, QVBoxLayout, QWidget
 
 from open_garden_planner.core import i18n
 from open_garden_planner.core.coordinate_input.parser import parse
@@ -171,6 +171,40 @@ def test_either_decimal_mark_is_accepted_in_free_text(qtbot, speak, language) ->
         i18n.parse_decimal("1.234,5")
 
 
+@pytest.mark.parametrize(("text", "value"), [
+    ("1,234", 1.234),          # ONE mark is the decimal mark, never a group separator
+    ("1.234", 1.234),
+    ("-,5", -0.5), ("+.5", 0.5), ("5.", 5.0), ("5,", 5.0), ("-12", -12.0), ("007", 7.0),
+    ("\t155,8\n", 155.8),
+])
+def test_free_text_reads_what_the_formatters_write_in_either_mark(text, value) -> None:
+    assert i18n.parse_decimal(text) == pytest.approx(value)
+
+
+@pytest.mark.parametrize("text", [
+    "nan", "NaN", "inf", "-inf", "Infinity", "+infinity",   # no number field takes these
+    "1e3", "1E-3", "1e400",                                 # nor an exponent
+    "1_000", "0x10", "١٢",                                  # nor Python's or another script's forms
+    "1,234.5", "1.234,5", "1,234,567", "1.2.3", "1 234,5",  # nor a group separator
+    "", "  ", ",", ".", "-", "1,-5", "--1", "1 2", "5 cm",
+])
+def test_free_text_rejects_every_other_form(text) -> None:
+    with pytest.raises(ValueError):
+        i18n.parse_decimal(text)
+
+
+def test_a_price_field_never_stores_a_non_finite_number() -> None:
+    """The caller that had no guard of its own: "nan" is not below zero."""
+    import math
+
+    for text in ("nan", "inf", "-inf"):
+        try:
+            value = i18n.parse_decimal(text)
+        except ValueError:
+            continue
+        raise AssertionError(f"{text!r} became {value} ({math.isfinite(value)=})")
+
+
 @pytest.mark.parametrize(
     ("language", "system", "typed"),
     [
@@ -202,6 +236,197 @@ def test_either_decimal_key_types_the_decimal_mark(qtbot, speak, language, syste
     QTest.keyClick(spin, Qt.Key.Key_Return)
 
     assert spin.value() == pytest.approx(155.8)
+
+
+def _focused_spin(qtbot, *, decimals: int = 1, suffix: str = "") -> QDoubleSpinBox:
+    host = QWidget()
+    qtbot.addWidget(host)
+    layout = QVBoxLayout(host)
+    spin = QDoubleSpinBox()
+    spin.setRange(-1e6, 1e6)
+    spin.setDecimals(decimals)
+    spin.setSuffix(suffix)
+    layout.addWidget(spin)
+    host.show()
+    host.activateWindow()
+    spin.setFocus(Qt.FocusReason.TabFocusReason)
+    qtbot.waitUntil(spin.hasFocus, timeout=3000)
+    spin.host = host   # the window lives as long as the test holds the field
+    return spin
+
+
+def _paste(spin: QDoubleSpinBox, text: str, how: str) -> None:
+    QApplication.clipboard().setText(text)
+    spin.selectAll()
+    if how == "keyboard":
+        QTest.keyClick(spin, Qt.Key.Key_V, Qt.KeyboardModifier.ControlModifier)
+    else:   # the Paste row of the field's own context menu
+        menu = spin.lineEdit().createStandardContextMenu()
+        paste = next(action for action in menu.actions() if action.objectName() == "edit-paste")
+        assert paste.isEnabled()
+        paste.trigger()
+        menu.deleteLater()
+    QTest.keyClick(spin, Qt.Key.Key_Return)
+
+
+@pytest.mark.parametrize("how", ["keyboard", "context-menu"])
+@pytest.mark.parametrize(
+    ("language", "system", "pasted"),
+    [
+        # Qt alone reads the other convention's mark as a group separator and drops
+        # it: "155,8" pasted into an English field was 1558.
+        pytest.param("en", "de_DE", "155,8", id="comma-pasted-into-an-english-ui"),
+        pytest.param("de", "en_US", "155.8", id="point-pasted-into-a-german-ui"),
+        pytest.param("ru", "en_US", "155.8", id="point-pasted-into-a-russian-ui"),
+        pytest.param("en", "de_DE", "155.8", id="the-ui-languages-own-mark"),
+        pytest.param("de", "en_US", "155,8", id="the-german-uis-own-mark"),
+    ],
+)
+def test_a_pasted_number_reads_either_mark_as_the_decimal_mark(
+        qtbot, speak, language, system, pasted, how) -> None:
+    speak(language, system)
+    spin = _focused_spin(qtbot, suffix=" cm")
+    _paste(spin, pasted, how)
+    assert spin.value() == pytest.approx(155.8)
+
+
+@pytest.mark.parametrize(("language", "pasted", "value"), [
+    # More than one mark: the last is the decimal mark and the others group. That is
+    # Qt's own reading in the field's locale and it is left alone; the other
+    # convention's grouping is refused, never guessed (the field keeps its value).
+    ("en", "1,234.5", 1234.5), ("en", "1,234,567", 1234567.0),
+    ("en", "1.234,5", None), ("en", "1.2.3", None),
+    ("de", "1.234,5", 1234.5), ("de", "1.234.567", 1234567.0),
+    ("de", "1,234.5", None), ("de", "1,2,3", None),
+])
+def test_a_pasted_number_with_group_separators_is_qts_to_read(
+        qtbot, speak, language, pasted, value) -> None:
+    speak(language, "en_US" if language == "de" else "de_DE")
+    spin = _focused_spin(qtbot, decimals=2)
+    spin.setRange(-1e9, 1e9)
+    spin.setValue(7.5)
+    _paste(spin, pasted, "keyboard")
+    assert spin.value() == pytest.approx(7.5 if value is None else value)
+
+
+@pytest.mark.parametrize(("entered", "decimals", "typed", "pasted"), [
+    # ADR-077's table of the trade-off, measured in an English UI. None: the paste is
+    # refused and the field keeps its value.
+    ("155,8", 2, 155.8, 155.8),
+    ("1,234", 2, 1.23, None),
+    ("1,234", 3, 1.234, 1.234),
+    ("1,234.5", 2, 1.23, 1234.5),
+    ("1,234.5", 3, 1.234, 1234.5),
+])
+def test_a_single_mark_is_never_a_thousands_separator(
+        qtbot, speak, entered, decimals, typed, pasted) -> None:
+    speak("en", "de_DE")
+    spin = _focused_spin(qtbot, decimals=decimals)
+    spin.setValue(7.0)
+    spin.selectAll()
+    QTest.keyClicks(spin, entered)
+    QTest.keyClick(spin, Qt.Key.Key_Return)
+    assert spin.value() == pytest.approx(typed)
+    spin.setValue(7.0)
+    _paste(spin, entered, "keyboard")
+    assert spin.value() == pytest.approx(7.0 if pasted is None else pasted)
+
+
+def test_a_whole_number_field_is_left_alone(qtbot, speak) -> None:
+    """``QSpinBox`` has no decimal mark: nothing is installed on it, Qt's own rule stays."""
+    speak("en", "de_DE")
+    host = QWidget()
+    qtbot.addWidget(host)
+    layout = QVBoxLayout(host)
+    spin = QSpinBox()
+    spin.setRange(0, 100000)
+    layout.addWidget(spin)
+    host.show()
+    spin.setFocus(Qt.FocusReason.TabFocusReason)
+    qtbot.waitUntil(spin.hasFocus, timeout=3000)
+    own = spin.lineEdit().validator()
+    QApplication.clipboard().setText("1234")
+    spin.selectAll()
+    QTest.keyClick(spin, Qt.Key.Key_V, Qt.KeyboardModifier.ControlModifier)
+    QTest.keyClick(spin, Qt.Key.Key_Return)
+    assert spin.value() == 1234
+    assert spin.lineEdit().validator() is own
+
+
+def test_the_fields_own_behaviour_survives(qtbot, speak) -> None:
+    """Prefix and suffix, the special value, stepping and a second focus."""
+    speak("de", "en_US")
+    spin = _focused_spin(qtbot, decimals=2, suffix=" m.")      # a mark in the suffix
+    spin.setPrefix("ca. ")                                     # and one in the prefix
+    spin.setSpecialValueText("keine, bitte")
+    spin.setMinimum(0.0)
+    spin.setValue(0.0)
+    assert spin.text() == "keine, bitte"
+    spin.setValue(2.5)
+    assert spin.text() == "ca. 2,50 m."
+    spin.stepUp()
+    assert spin.value() == pytest.approx(3.5)
+    _paste(spin, "12.25", "keyboard")
+    assert spin.value() == pytest.approx(12.25) and spin.text() == "ca. 12,25 m."
+    first = spin.lineEdit().validator()
+    spin.clearFocus()
+    spin.setFocus(Qt.FocusReason.TabFocusReason)
+    qtbot.waitUntil(spin.hasFocus, timeout=3000)
+    assert spin.lineEdit().validator() is first, "installed once, not stacked"
+
+
+def test_the_rule_lives_and_dies_with_its_field(qtbot, speak, qapp) -> None:
+    """Qt owns the validator through the field's line edit; Python must hold its Python
+    half meanwhile (a validator Python let go refuses every text), and let go of it once
+    the field is destroyed: at the next field that takes the focus, not on a ``destroyed``
+    signal (PF-E3D-07)."""
+    import gc
+
+    from PyQt6 import sip
+
+    from open_garden_planner.ui import number_fields
+
+    speak("en", "de_DE")
+    spin = _focused_spin(qtbot)
+    validator = spin.lineEdit().validator()
+    assert type(validator).__name__ == "_EitherDecimalMark"
+    assert any(kept is validator for kept in number_fields._alive)
+    held = len(number_fields._alive)
+    del validator
+    gc.collect()                        # nothing but the registry holds it now
+    spin.selectAll()
+    QTest.keyClicks(spin, "155,8")
+    QTest.keyClick(spin, Qt.Key.Key_Return)
+    assert spin.value() == pytest.approx(155.8), "the validator is still the Python one"
+
+    host = spin.host
+    del spin.host
+    sip.delete(host)                    # the window, the field, its line edit, the validator
+    qapp.processEvents()
+    _focused_spin(qtbot)                # the next field to take the focus prunes the list
+    assert all(not sip.isdeleted(kept) for kept in number_fields._alive)
+    assert len(number_fields._alive) <= held, "the destroyed field's validator is gone"
+
+
+def test_the_app_installs_the_number_field_rule_on_its_application(qapp) -> None:
+    """``main()`` installs it once on its QApplication (the test session does the same in
+    ``conftest._app_locale``); a second call on the same application is a no-op."""
+    import ast
+    from pathlib import Path
+
+    from open_garden_planner.ui import number_fields
+
+    # read, not imported: importing ``main`` wants QtWebEngine before any application exists
+    main_source = Path(i18n.__file__).resolve().parents[1] / "main.py"
+    tree = ast.parse(main_source.read_text(encoding="utf-8"))
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Name) and node.func.id == "install_decimal_marks"]
+    assert len(calls) == 1 and isinstance(calls[0].args[0], ast.Name)
+
+    installed = number_fields._decimal_marks
+    assert installed is not None and installed.parent() is qapp
+    number_fields.install_decimal_marks(qapp)
+    assert number_fields._decimal_marks is installed
 
 
 def test_loading_a_language_that_fails_still_applies_a_locale(qtbot, speak, monkeypatch) -> None:

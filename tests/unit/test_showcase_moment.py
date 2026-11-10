@@ -84,6 +84,75 @@ def test_without_an_example_the_clock_is_left_alone():
     assert clock.wall == mine and not seen
 
 
+def test_saving_the_copy_ends_the_showcase_and_later_settings_are_the_users():
+    clock = clock_in()
+    moment = ShowcaseMoment(clock)
+    assert moment.copy_saved() is False, "saving a plan that is no example changes nothing"
+    moment.document_opened(JUNE)
+    assert moment.copy_saved() is True
+    assert clock.wall == LATE and not moment.active
+    mine = datetime(2027, 4, 1, 10, 0)
+    clock.set_datetime(mine)
+    assert moment.copy_saved() is False
+    moment.document_opened(None)
+    assert clock.wall == mine, "nothing older is put over the user's own choice"
+
+
+def test_a_raising_listener_does_not_leave_a_reading_behind():
+    clock = clock_in()
+    moment = ShowcaseMoment(clock)
+    moment.document_opened(JUNE)
+
+    def broken(_change):
+        raise RuntimeError("listener")
+
+    clock.instant_changed.connect(broken)
+    with pytest.raises(RuntimeError):
+        moment.copy_saved()
+    clock.instant_changed.disconnect(broken)
+    assert clock.wall == LATE and not moment.active
+
+
+class Tour:
+    """The inner holder: a tour that moves the clock and puts one reading back."""
+
+    def __init__(self, clock):
+        self.clock, self.hold = clock, clock.wall
+
+    def held_reading(self):
+        return self.hold
+
+    def rebase_hold(self):
+        if self.hold is not None:
+            self.hold = self.clock.wall
+
+    def finish(self):
+        reading, self.hold = self.hold, None
+        self.clock.set_datetime(reading)
+
+
+def test_a_tour_under_the_showcase_returns_to_the_document_open_when_it_ends():
+    clock = clock_in()
+    tours = []
+    moment = ShowcaseMoment(clock, inner_hold=lambda: tours[-1] if tours else None)
+    moment.document_opened(JUNE)
+    tours.append(Tour(clock))                       # holds the example's moment
+    clock.set_date(date(2026, 12, 21))              # a frame
+    moment.document_opened(None)                    # an agent opens the user's plan
+    clock.set_date(date(2026, 12, 24))              # the next frame
+    tours[-1].finish()
+    assert clock.wall == LATE, "not the example's moment on the user's plan"
+
+    # an example opened under a tour: the user's reading is the HELD one, not the frame's
+    tours.append(Tour(clock))
+    clock.set_date(date(2026, 12, 21))
+    moment.document_opened(SEPTEMBER)
+    tours[-1].finish()
+    assert clock.plan_date == date(2026, 9, 21)
+    moment.document_opened(None)
+    assert clock.wall == LATE
+
+
 def test_opening_an_example_notifies_the_clocks_listeners_once():
     clock = clock_in()
     dates, instants = [], []

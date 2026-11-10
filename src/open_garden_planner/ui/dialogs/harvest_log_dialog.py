@@ -42,6 +42,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.app.paths import default_dialog_dir
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 #: Default unit choices offered in the (editable) unit combo.
@@ -120,9 +121,7 @@ class HarvestLogDialog(QDialog):
         form = QFormLayout()
 
         # Date
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         today = _date.today()
         self._date_edit.setDate(QDate(today.year, today.month, today.day))
         form.addRow(self.tr("Date"), self._date_edit)

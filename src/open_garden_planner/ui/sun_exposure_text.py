@@ -2,8 +2,9 @@
 
 from datetime import date
 
-from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QLocale
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication
 
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.models.plant_data import SunRequirement
 
 
@@ -32,14 +33,14 @@ def unavailable_message(reason: str) -> str:
 
 def exposure_hours_text(hours: float, reference_date: date) -> str:
     return QCoreApplication.translate("SunExposure", "{hours} h on {date}").format(
-        hours=QLocale().toString(hours, "f", 1), date=reference_date.isoformat())
+        hours=format_decimal(hours, 1), date=reference_date.isoformat())
 
 
 def mismatch_message(name: str, required: SunRequirement, hours: float, reference_date: date, direction: str) -> str:
     description = QCoreApplication.translate("SunExposure", "too little sun") if direction == "too_little" else QCoreApplication.translate("SunExposure", "too much sun")
     message = QCoreApplication.translate(
         "SunExposure", "{name} needs {required}, but receives ~{hours} h direct sun on {date} ({direction})."
-    ).format(name=name, required=sun_requirement_label(required.value), hours=QLocale().toString(hours, "f", 1),
+    ).format(name=name, required=sun_requirement_label(required.value), hours=format_decimal(hours, 1),
              date=reference_date.isoformat(), direction=description)
     return message + "\n" + QCoreApplication.translate(
         "SunExposure", "Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.")

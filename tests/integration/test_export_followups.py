@@ -433,6 +433,56 @@ def test_the_default_plan_name_is_translated_on_the_cover(
     assert ProjectManager().project_name == "Untitled"
 
 
+def test_the_agents_default_file_names_do_not_follow_the_ui_language(
+    qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A German UI named an agent's PDF "Unbenannt.pdf": a file an agent asks for by
+    name must not depend on the language the user reads. The UI's own default (a save
+    dialog's suggestion, the window title) stays translated."""
+    from open_garden_planner.agent_api import exports
+    from open_garden_planner.services.soil_service import SoilService
+
+    names: list[str] = []
+
+    class Named(Exception):
+        """The name is known; the export itself is not this test's subject."""
+
+    def record(requested, *, default_filename=None, suffix, project_manager):
+        assert requested is None
+        names.append(default_filename)
+        raise Named
+
+    monkeypatch.setattr(exports, "resolve_export_path", record)
+    catalogue = _Catalogue({("ProjectManager", "Untitled"): "Unbenannt"})
+    QCoreApplication.installTranslator(catalogue)
+    try:
+        manager = ProjectManager()
+        scene = CanvasScene(width_cm=800, height_cm=500)
+        soil = SoilService(manager)
+        for export in (
+            lambda: exports.export_pdf_file(scene, manager, None, "A4", "landscape"),
+            lambda: exports.export_dxf_file(scene, manager, None),
+            lambda: exports.export_csv_file(scene, manager, soil, "shopping_list", None),
+            lambda: exports.export_csv_file(scene, manager, soil, "harvest", None),
+        ):
+            with pytest.raises(Named):
+                export()
+        assert names == ["Untitled.pdf", "Untitled.dxf", "Untitled_shopping_list.csv",
+                         "Untitled_harvest.csv"]
+        assert manager.file_stem == "Untitled"
+        assert manager.project_name == "Unbenannt", "the UI's name is the language's"
+
+        # with a file, both are its stem
+        manager.save(scene, tmp_path / "Mein Garten.ogp")
+        assert manager.file_stem == manager.project_name == "Mein Garten"
+        names.clear()
+        with pytest.raises(Named):
+            exports.export_dxf_file(scene, manager, None)
+        assert names == ["Mein Garten.dxf"]
+    finally:
+        QCoreApplication.removeTranslator(catalogue)
+
+
 def test_an_empty_report_title_falls_back_to_a_translated_name(qtbot) -> None:
     catalogue = _Catalogue({("PdfReportDialog", "Garden Plan"): "Gartenplan"})
     QCoreApplication.installTranslator(catalogue)

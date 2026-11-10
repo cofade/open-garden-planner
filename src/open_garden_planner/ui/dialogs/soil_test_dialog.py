@@ -45,6 +45,7 @@ from open_garden_planner.core.i18n import LocalizedNumber, format_decimal
 from open_garden_planner.models.amendment import AmendmentRecommendation
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
 from open_garden_planner.services.soil_service import SoilService
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.widgets import SoilSparklineWidget
 
 # Categorical labels for Rapitest scale. Index = stored level value.
@@ -152,9 +153,7 @@ class SoilTestDialog(QDialog):
 
         # Date row
         meta_form = QFormLayout()
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         today = _date.today()
         self._date_edit.setDate(QDate(today.year, today.month, today.day))
         meta_form.addRow(self.tr("Date"), self._date_edit)

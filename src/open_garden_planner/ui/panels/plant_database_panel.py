@@ -49,6 +49,7 @@ from open_garden_planner.models.plant_data import (
 from open_garden_planner.services import get_plant_library
 from open_garden_planner.services.bundled_species_db import merge_calendar_data
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.edible_parts import display_edible_parts, parse_edible_parts
 from open_garden_planner.ui.plant_species_assignment import (
     apply_species_to_item,
@@ -80,8 +81,7 @@ class ClickableDateEdit(QDateEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the date edit."""
         super().__init__(parent)
-        self.setCalendarPopup(True)
-        self.setCalendarWidget(_PlanCalendar(self))
+        as_date_field(self, calendar=_PlanCalendar(self))
         self.setDateRange(_qt_date(MIN_PLAN_DATE), _qt_date(MAX_PLAN_DATE))
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -841,7 +841,6 @@ class PlantDatabasePanel(QWidget):
         planting_layout.setSpacing(4)
 
         self.planting_date_edit = ClickableDateEdit()
-        self.planting_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.planting_date_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         # Date is already initialized to minimum date in __init__, shows as empty
         self.planting_date_edit.dateChanged.connect(self._on_planting_date_changed)
@@ -857,7 +856,6 @@ class PlantDatabasePanel(QWidget):
 
         removal_layout = QHBoxLayout()
         self.removal_date_edit = ClickableDateEdit()
-        self.removal_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.removal_date_edit.setSpecialValueText(self.tr("Not removed"))
         self.removal_date_edit.set_stored_date(None)
         self.removal_date_edit.dateChanged.connect(self._on_removal_date_changed)
