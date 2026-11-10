@@ -901,7 +901,7 @@ key can show).
 
 | Where | Who draws it | Size and colours |
 |---|---|---|
-| The canvas | `CanvasView._draw_sun_legend`, over the viewport, after the scene (`set_sun_legend`; the application passes `SunHeatmapController.legend_key()` on the controller's `computed`) | the scale bar's font; the theme's `scale_bar_fg`, its halo following from it |
+| The canvas | `CanvasView._draw_sun_legend`, over the viewport, after the scene (`set_sun_legend`; the application passes `SunHeatmapController.legend_key()` on the controller's `computed`); drawn from one kept picture (`sun_legend_picture`), remade when the key, the colours, the pixel ratio or the language change | the scale bar's font; the theme's `scale_bar_fg`, its halo following from it |
 | A picture of the plan (PNG, SVG, PDF report, print, the Agent API's render) | `SunMapLegendItem`, a scene item at the plan's south-west corner that the export seam shows for the render only (§8.9.16) | a `HaloTextItem`, so the export retargets its font with every other constant-size text (PF-CAN-08) and the key grows with it; dark ink on the light halo |
 
 On the canvas the key lies in the bottom-left corner, in the strip the scale bar
