@@ -207,6 +207,7 @@ def render_records(
     ambient: EngineBuffers | None = None,
     lamps: Sequence[tuple[float, float, float, float]] = (),
     sky_probe: bool = True,
+    fitted_shadows: bool = False,
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -239,7 +240,9 @@ def render_records(
     rest, every particle where its seed puts it. ``sky_probe=False`` (L7): a sky of the
     atmosphere model (``look.sky.model``) backs the frame without the painted sky's
     light probe — nothing lit by a sky, no probe to filter — what the self-test renders
-    on a machine without a GPU (``Quick3DHost.sky_probe``).
+    on a machine without a GPU (``Quick3DHost.sky_probe``). ``fitted_shadows=True`` (#734):
+    the shadow map fitted to the casters, as a picture's (``Quick3DHost.capture``); the
+    default is the view's texel-locked fit.
 
     Raises ``RenderError`` on a QML or shader error, when this backend cannot
     render 3D, when a Qt Quick window is shown in this process (module
@@ -300,6 +303,8 @@ def render_records(
             if faded_ids:
                 host.set_faded_items(faded_ids, XRAY_OPACITY)
             host.set_shot(shot)
+            if fitted_shadows:
+                host.set_fitted_shadows(True)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
             if sky_light:
                 host.set_sky(look.sky)

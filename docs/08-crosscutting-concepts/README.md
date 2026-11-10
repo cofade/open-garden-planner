@@ -5850,6 +5850,26 @@ change applies one `set_look` call without moving the camera or rebuilding sky.
 Crossing the Medium/High boundary also updates lawn-blade admission through the
 existing scene diff (#607).
 
+**Shadows at a low sun (#734).** A low sun stretches two things: every centimetre of a
+caster's height into `1 / tan(elevation)` of shadow (3.7 at 15°, 9.7 at 6°), and a shadow
+map's texel into `texel / sin(elevation)` on the ground. A frame whose camera does not move
+— a picture, the agent's picture, a held camera's time-lapse — fits its cascades to what
+CASTS: those paths pass `Quick3DHost.capture(fitted_shadows=True)` by name (the QML
+`fittedShadows`, for that frame only), and a capture that does not ask keeps the view's fit
+and is the view to the level (the self-test checks it). Qt spans each
+cascade by the casters' box in its slice, the plan's own items, about 1 cm texels on a 24 m
+plan at every preset, instead of the bounding sphere of the whole slice (8.3 cm on High at the
+board's golden hour: long edges stepped, the foot of every caster showed lit teeth, and a
+picket fence's slits aliased into streaks at sunset). The live view and a tour whose camera
+moves keep the texel-locked sphere: a fitted map moves with the camera through the casters
+and its edges crawled two to four times as far in an orbit of the family garden (0.38 / 0.69
+px a frame against 0.17 / 0.16). `pcfFactor` is a radius in scene units for
+every cascade; Qt turns its kernel per screen pixel, so a moving camera re-dithers a soft
+edge — the floor of any frame-to-frame comparison. A caster's own shape is the other half: a
+picket fence's tops differ by a hash of the item's seed (0.5–1.5 cm under the posts), never by
+a ramp. The board's `--stairs` probe measures both (`--photo-shadows` renders every frame in a
+picture's fit); the numbers are the ADR-059 addendum (#734), the rules PF-L3D-24 / PF-L3D-25.
+
 **Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
 medium and high from the frames the view PRESENTS (`health().frames_presented`, Qt's own frame
 signal) — polled every 0.5 s and only while the wind animates, because a view that draws on

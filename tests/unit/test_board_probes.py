@@ -624,3 +624,158 @@ def test_pickets_that_alias_are_measured_against_their_resolved_texture() -> Non
     assert aliased["pixels"] == resolved["pixels"] == 20 * cols
     assert P.thin_geometry_moire(meadow, meadow) == {"pixels": 0, "dark_share": 0.0,
                                                      "laplacian": 0.0, "alias_error": None}
+
+
+# ── a long shadow's edge and the streaks in it (#734) ────────────────────────
+
+#: An oblique camera over a shadow edge along ``north = EDGE_NORTH`` (the shadow north
+#: of it), the edge's stations from about 8 m to 49 m deep — the board's ``--stairs``.
+EDGE_CAMERA = P.Pinhole(eye=(1300.0, -900.0, 450.0), target=(-600.0, 300.0, 0.0), fov_deg=46.0,
+                        size=(960, 540))
+EDGE_NORTH = -130.0
+
+
+def _ground(camera: P.Pinhole) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(east, north) of the ground under every pixel centre, and which pixels hit it."""
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    eye = np.asarray(camera.eye)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(rays[..., 2] < -1e-9, -eye[2] / rays[..., 2], np.nan)
+    return eye[0] + t * rays[..., 0], eye[1] + t * rays[..., 1], np.isfinite(t)
+
+
+def _edge_frame(edge_north: np.ndarray | float, *, supersample: int = 2) -> np.ndarray:
+    """The meadow with a shadow north of ``edge_north`` (a function of east, or a
+    constant), anti-aliased by ``supersample`` x ``supersample`` sub-pixels."""
+    width, height = EDGE_CAMERA.size
+    big = P.Pinhole(EDGE_CAMERA.eye, EDGE_CAMERA.target, EDGE_CAMERA.fov_deg,
+                    (width * supersample, height * supersample))
+    east, north, ground = _ground(big)
+    line = edge_north(east) if callable(edge_north) else edge_north
+    frame = np.empty(east.shape + (3,))
+    frame[:] = (150.0, 190.0, 230.0)
+    frame[ground] = MEADOW
+    frame[ground & (north > line)] = SHADE
+    return frame.reshape(height, supersample, width, supersample, 3).mean(axis=(1, 3))
+
+
+def _trace(frame: np.ndarray, line_north: float = EDGE_NORTH) -> dict:
+    return P.shadow_edge_trace(frame, EDGE_CAMERA, (-4000.0, line_north), (1800.0, line_north),
+                               (0.0, -1.0), half_width_cm=60.0)
+
+
+def test_a_straight_shadow_edge_where_the_line_is_has_no_staircase() -> None:
+    trace = _trace(_edge_frame(EDGE_NORTH))
+    rows = [row for row in P.edge_staircase(trace) if "wobble_px" in row]
+    assert {tuple(row["depth_m"]) for row in rows} >= {(0.0, 10.0), (10.0, 20.0), (20.0, 40.0)}
+    for row in rows:
+        assert abs(row["offset_cm"]) < 1.5, row
+        # the instrument's floor on a 3x-supersampled frame: 0.28 px (0.56 cm) near
+        assert row["wobble_px"] < 0.4 and row["jump_px"] < 0.45, row
+
+
+def test_a_shadow_that_ends_short_reads_its_offset_and_still_no_staircase() -> None:
+    """A constant offset is bias (or the caster's own shape), not steps: it is reported
+    and detrended away. Negative: the shadow ends short of the line (positive: past it,
+    toward the lit side)."""
+    trace = _trace(_edge_frame(EDGE_NORTH + 15.0))
+    for row in (row for row in P.edge_staircase(trace) if "wobble_px" in row):
+        assert row["offset_cm"] == pytest.approx(-15.0, abs=1.5), row
+        assert row["wobble_px"] < 0.4, row
+
+
+def test_a_stepped_edge_is_measured_as_steps_of_its_own_size() -> None:
+    """The positive control: a sawtooth staircase (20 cm deep, a riser every 50 cm along
+    the edge, a ramp between) reads as about 20 cm of wobble, in pixels as the camera
+    shows it — larger near, smaller far — and its risers are jumps. From 10 m out the
+    steps are a few pixels deep and the pixels soften them: what is measured is what
+    the screen shows (at 960 x 540: 14.7 cm at 10-20 m, less further out)."""
+    def stepped(east: np.ndarray) -> np.ndarray:
+        return EDGE_NORTH + 20.0 * (np.mod(east, 50.0) / 50.0)
+    straight = P.edge_staircase(_trace(_edge_frame(EDGE_NORTH)))
+    steps = P.edge_staircase(_trace(_edge_frame(stepped)))
+    rows = [(flat, row) for flat, row in zip(straight, steps, strict=True)
+            if "wobble_px" in row and row["depth_m"][1] <= 40.0]
+    assert len(rows) == 3
+    for flat, row in rows:
+        if row["depth_m"][1] <= 10.0:
+            assert row["wobble_cm"] == pytest.approx(18.0, abs=3.0), row  # p95 - p5 of a ramp
+        assert row["wobble_cm"] > 8.0, row
+        assert row["wobble_px"] > 3.0 * flat["wobble_px"] + 0.5, (flat, row)
+        assert row["jump_px"] > flat["jump_px"] + 0.3, (flat, row)
+    near, far = rows[0][1], rows[-1][1]
+    assert near["wobble_px"] > far["wobble_px"], "the same steps look smaller further away"
+
+
+def test_a_station_whose_line_leaves_the_frame_is_not_judged() -> None:
+    trace = _trace(_edge_frame(EDGE_NORTH))
+    assert trace["valid"].any() and not trace["valid"].all()
+    kept = P.edge_staircase(trace, keep=np.zeros(len(trace["valid"]), dtype=bool))
+    assert all("wobble_px" not in row and row["stations"] == 0 for row in kept)
+    assert trace["valid"].any(), "the trace is the caller's: judging it leaves it as it was"
+
+
+def _striped(lit_slits: np.ndarray | None) -> np.ndarray:
+    """The meadow in a fence's shadow south of ``north = 0`` (to -500 cm), with slits of
+    light 4 cm wide every 12 cm along east — every one of them (``lit_slits`` None) or
+    those the mask lets through (indexed by slit)."""
+    width, height = EDGE_CAMERA.size
+    east, north, ground = _ground(P.Pinhole(EDGE_CAMERA.eye, EDGE_CAMERA.target,
+                                            EDGE_CAMERA.fov_deg, (width * 2, height * 2)))
+    frame = np.empty(east.shape + (3,))
+    frame[:] = (150.0, 190.0, 230.0)
+    frame[ground] = MEADOW
+    band = ground & (north < 0.0) & (north > -500.0)
+    slot = np.floor(np.nan_to_num(east) / 12.0).astype(np.int64)
+    in_slit = np.mod(np.nan_to_num(east), 12.0) < 4.0
+    if lit_slits is not None:
+        in_slit &= lit_slits[np.mod(slot, len(lit_slits))]
+    frame[band & ~in_slit] = SHADE
+    return frame.reshape(height, 2, width, 2, 3).mean(axis=(1, 3))
+
+
+def test_regular_picket_stripes_do_not_streak_and_aliased_slits_do() -> None:
+    """True stripes repeat with the pickets and cancel in the one-pitch filter; slits
+    of which a random few leak light (a shadow map's texels aliasing them) beat."""
+    def streak(frame: np.ndarray) -> float:
+        lit = P.shadow_streaks(frame, EDGE_CAMERA, (-300.0, 150.0), (1300.0, 150.0),
+                               period_cm=12.0, lit_luma=0.0)["mean_luma"]
+        out = P.shadow_streaks(frame, EDGE_CAMERA, (-300.0, -200.0), (1300.0, -200.0),
+                               period_cm=12.0, lit_luma=float(lit))
+        assert out["samples"] > 150, out
+        return float(out["streak"])
+
+    regular = streak(_striped(None))
+    leaking = streak(_striped(np.random.default_rng(734).random(97) < 0.25))
+    assert regular < 0.1, regular
+    assert leaking > 0.25 and leaking > 3 * regular, (regular, leaking)
+
+
+def test_an_edge_that_stays_put_while_the_camera_moves_does_not_swim_and_one_that_moves_does() -> None:
+    """``edge_swim`` compares consecutive frames on one WORLD grid along the edge: a camera
+    move changes where the stations are on screen, never where the edge is."""
+    def framed(camera: P.Pinhole, edge: float) -> dict:
+        width, height = camera.size
+        big = P.Pinhole(camera.eye, camera.target, camera.fov_deg, (width * 2, height * 2))
+        east, north, ground = _ground(big)
+        frame = np.empty(east.shape + (3,))
+        frame[:] = (150.0, 190.0, 230.0)
+        frame[ground] = MEADOW
+        frame[ground & (north > edge)] = SHADE
+        rgb = frame.reshape(height, 2, width, 2, 3).mean(axis=(1, 3))
+        return P.shadow_edge_trace(rgb, camera, (-4000.0, EDGE_NORTH), (1800.0, EDGE_NORTH),
+                                   (0.0, -1.0), half_width_cm=60.0)
+
+    moved = P.Pinhole((1330.0, -880.0, 450.0), EDGE_CAMERA.target, EDGE_CAMERA.fov_deg, EDGE_CAMERA.size)
+    still = P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH), framed(moved, EDGE_NORTH)])
+    crawled = P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH), framed(moved, EDGE_NORTH + 4.0)])
+    judged = [(a, b) for a, b in zip(still, crawled, strict=True)
+              if "swim_cm" in a and a["pairs"] >= 200]
+    assert judged
+    for a, b in judged:
+        assert a["swim_cm"] < 1.5, a        # the instrument's floor: 1.0 cm at 960 x 540
+        assert b["swim_cm"] == pytest.approx(4.0, abs=1.0), b
+        assert b["swim_px"] > 2.0 * a["swim_px"], (a, b)
+    assert P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH)]) == []

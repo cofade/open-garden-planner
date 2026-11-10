@@ -643,6 +643,289 @@ def _edge_line(values: Array, view: Pinhole, pair: Array) -> float | None:
     return float(np.abs(samples[near] - np.median(samples)).max())
 
 
+# ── a long shadow's edge: stair steps (#734) ─────────────────────────────────
+
+#: The view-depth bins (m) a traced shadow edge is reported in. A cascade's texels grow
+#: with the distance from the camera: one number over the whole edge hides the far
+#: steps behind the clean near ones (PF-L3D-19 — bin by the world quantity).
+EDGE_DEPTH_BINS_M = (0.0, 10.0, 20.0, 40.0, 80.0)
+#: A station needs this much luma between the shadow's level and the lit level.
+EDGE_MIN_CONTRAST = 6.0
+
+
+def _bilinear(values: Array, px: Array, py: Array) -> Array:
+    """``values`` (rows x cols) at continuous pixel positions (pixel (i, j) covers
+    [i, i+1) x [j, j+1), its centre at +0.5), bilinearly."""
+    rows, cols = values.shape
+    x = np.clip(np.asarray(px, dtype=np.float64) - 0.5, 0.0, cols - 1.000001)
+    y = np.clip(np.asarray(py, dtype=np.float64) - 0.5, 0.0, rows - 1.000001)
+    x0, y0 = np.floor(x).astype(np.int64), np.floor(y).astype(np.int64)
+    fx, fy = x - x0, y - y0
+    x1, y1 = np.minimum(x0 + 1, cols - 1), np.minimum(y0 + 1, rows - 1)
+    return np.asarray(values[y0, x0] * (1 - fx) * (1 - fy) + values[y0, x1] * fx * (1 - fy)
+                      + values[y1, x0] * (1 - fx) * fy + values[y1, x1] * fx * fy)
+
+
+def shadow_edge_trace(rgb: Any, camera: Pinhole, start: tuple[float, float],
+                      end: tuple[float, float], lit_side: tuple[float, float], *,
+                      half_width_cm: float, spacing_px: float = 0.5, across: int = 241,
+                      min_contrast: float = EDGE_MIN_CONTRAST) -> dict[str, Any]:
+    """Where a STRAIGHT shadow edge on the ground (z = 0) lies, all along it.
+
+    ``start`` / ``end``: (east, north) of the analytic edge; ``lit_side``: the unit
+    (east, north) normal of it that points out of the shadow. Stations lie along the
+    edge ``spacing_px`` apart ON SCREEN (a uniform step in centimetres would give the
+    near end a few stations per step and the far end hundreds); at each the ground is
+    read on a line across the edge, ``half_width_cm`` either side, ``across`` samples.
+
+    The edge's position is the AREA estimator, not a threshold crossing: with the luma
+    normalised between the shadow's level (the median of the inner 40 % on the shadow
+    side) and the lit level (the outer 40 % on the lit side), ``f`` in [0, 1], a step
+    at ``u*`` gives ``∫ f du = W - u*``. It is sub-pixel, has one answer per station
+    even where noise crosses the threshold several times, and a blurred edge sits where
+    the sharp one would. A station counts when its whole line is in front of the camera
+    and inside the frame, and the two levels differ by ``min_contrast``.
+
+    Returns per station: ``along_cm`` (from ``start``), ``offset_cm`` (+ = toward the lit
+    side: the shadow reaches past the analytic line; - = it ends short), ``depth_cm`` (view depth of the
+    station's point on the analytic line), ``px_per_cm`` (screen pixels per centimetre
+    across the edge there) and ``valid``; and ``spacing_px``."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    values = luma(frame)
+    eye, forward, _right, _up = view._basis()
+    a, b = np.asarray(start, dtype=np.float64), np.asarray(end, dtype=np.float64)
+    length = float(np.linalg.norm(b - a))
+    direction = (b - a) / max(length, 1e-9)
+    normal = np.asarray(lit_side, dtype=np.float64)
+    normal = normal / max(float(np.linalg.norm(normal)), 1e-9)
+    empty: dict[str, Any] = {key: np.zeros(0) for key in ("along_cm", "offset_cm", "depth_cm",
+                                                         "px_per_cm")}
+    empty["spacing_px"] = spacing_px
+    # stations uniform on screen: a dense walk, then its screen arc length inverted
+    dense = np.linspace(0.0, length, 8001)
+    points = np.column_stack([a[0] + dense * direction[0], a[1] + dense * direction[1],
+                              np.zeros_like(dense)])
+    px, py, front = view.project(points)
+    seen = front & (px >= 0) & (px < cols) & (py >= 0) & (py < rows)
+    if seen.sum() < 2:
+        return {**empty, "valid": np.zeros(0, dtype=bool)}
+    first, last = np.flatnonzero(seen)[[0, -1]]
+    dense, px, py = dense[first:last + 1], px[first:last + 1], py[first:last + 1]
+    arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(px), np.diff(py)))])
+    along = np.interp(np.arange(0.0, arc[-1], spacing_px), arc, dense)
+    u = np.linspace(-half_width_cm, half_width_cm, across)
+    east = a[0] + along[:, None] * direction[0] + u[None, :] * normal[0]
+    north = a[1] + along[:, None] * direction[1] + u[None, :] * normal[1]
+    grid = np.column_stack([east.ravel(), north.ravel(), np.zeros(east.size)])
+    gx, gy, gfront = view.project(grid)
+    gx, gy = gx.reshape(east.shape), gy.reshape(east.shape)
+    inside = (gfront.reshape(east.shape) & (gx >= 0) & (gx < cols) & (gy >= 0) & (gy < rows)).all(axis=1)
+    profile = _bilinear(values, gx, gy)
+    inner = u <= -0.6 * half_width_cm
+    outer = u >= 0.6 * half_width_cm
+    dark = np.median(profile[:, inner], axis=1)
+    lit = np.median(profile[:, outer], axis=1)
+    contrast = lit - dark
+    share = np.clip((profile - dark[:, None]) / np.where(contrast > 1e-9, contrast, 1.0)[:, None], 0.0, 1.0)
+    offset = half_width_cm - np.trapezoid(share, u, axis=1)
+    # the screen scale across the edge, and each station's view depth
+    on_line = np.column_stack([a[0] + along * direction[0], a[1] + along * direction[1],
+                               np.zeros_like(along)])
+    ox, oy, _f = view.project(on_line)
+    nx, ny, _f = view.project(on_line + np.array([normal[0], normal[1], 0.0]))
+    tx, ty, _f = view.project(on_line + np.array([direction[0], direction[1], 0.0]))
+    tangent = np.column_stack([tx - ox, ty - oy])
+    tangent /= np.maximum(np.linalg.norm(tangent, axis=1), 1e-12)[:, None]
+    shift = np.column_stack([nx - ox, ny - oy])
+    px_per_cm = np.abs(shift[:, 0] * tangent[:, 1] - shift[:, 1] * tangent[:, 0])
+    depth = (on_line - eye) @ forward
+    return {"along_cm": along, "offset_cm": offset, "depth_cm": depth, "px_per_cm": px_per_cm,
+            "valid": inside & (contrast >= min_contrast), "spacing_px": spacing_px}
+
+
+def edge_staircase(trace: dict[str, Any], *, bins_m: Sequence[float] = EDGE_DEPTH_BINS_M,
+                   keep: Any = None, min_stations: int = 40) -> list[dict[str, Any]]:
+    """How far a traced shadow edge (``shadow_edge_trace``) strays from a straight line,
+    per view-depth bin. ``keep``: an extra mask of the stations to judge (e.g. away from
+    other casters' shadows).
+
+    In each bin the offsets are detrended by a straight line along the edge (a constant
+    offset is bias or a caster's own shape; a staircase is what is left). ``wobble_cm``
+    / ``wobble_px``: the spread (95th minus 5th percentile) of what is left, in
+    centimetres on the ground and in screen pixels across the edge — the size of the
+    steps the eye sees. ``jump_px``: the 99th percentile of the change between stations
+    one screen pixel apart (a soft edge that wanders is not a staircase; a riser is —
+    and a riser can be one station pair in twenty).
+    ``offset_cm``: the median offset (+: the shadow reaches past the line, -: short)."""
+    valid = np.array(trace["valid"], dtype=bool)   # a copy: the trace is the caller's
+    if keep is not None:
+        valid &= np.asarray(keep, dtype=bool)
+    along, offset = trace["along_cm"], trace["offset_cm"]
+    depth_m, scale = trace["depth_cm"] / 100.0, trace["px_per_cm"]
+    rows: list[dict[str, Any]] = []
+    for low, high in zip(bins_m[:-1], bins_m[1:], strict=True):
+        mask = valid & (depth_m >= low) & (depth_m < high)
+        count = int(mask.sum())
+        row: dict[str, Any] = {"depth_m": [low, high], "stations": count}
+        if count < min_stations:
+            rows.append(row)
+            continue
+        s, o, k = along[mask], offset[mask], scale[mask]
+        fit = np.polyfit(s, o, 1)
+        rest = o - np.polyval(fit, s)
+        rest_px = rest * k
+        # stations lie spacing_px apart on screen: compare those one pixel apart
+        stride = max(1, int(round(1.0 / float(trace["spacing_px"]))))
+        jumps = np.abs(np.diff(rest_px[::stride])) if count > stride else np.zeros(1)
+        row.update({
+            "offset_cm": round(float(np.median(o)), 2),
+            "wobble_cm": round(float(np.percentile(rest, 95) - np.percentile(rest, 5)), 2),
+            "wobble_px": round(float(np.percentile(rest_px, 95) - np.percentile(rest_px, 5)), 3),
+            "jump_px": round(float(np.percentile(jumps, 99)), 3),
+            "px_per_cm": round(float(np.median(k)), 4)})
+        rows.append(row)
+    return rows
+
+
+def ground_line_luma(rgb: Any, camera: Pinhole, start: tuple[float, float],
+                     end: tuple[float, float], *, step_cm: float = 1.0) -> Array:
+    """The luma under a ground line ``start`` -> ``end``, every ``step_cm``, where the
+    camera sees it (bilinear; points off the frame or behind the camera are left out)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    a, b = np.asarray(start, dtype=np.float64), np.asarray(end, dtype=np.float64)
+    length = float(np.linalg.norm(b - a))
+    along = np.arange(0.0, length, step_cm)
+    points = a[None, :] + along[:, None] * ((b - a) / max(length, 1e-9))[None, :]
+    px, py, front = view.project(np.column_stack([points, np.zeros(len(points))]))
+    seen = front & (px >= 1) & (px < cols - 1) & (py >= 1) & (py < rows - 1)
+    return _bilinear(luma(frame), px[seen], py[seen])
+
+
+def lit_share(base: Array, shadow: Array, lit: Array) -> float | None:
+    """The share of ``base`` samples brighter than halfway between the medians of
+    ``shadow`` and ``lit`` — e.g. how much of a line just behind a caster's foot the
+    sun reaches where its shadow should lie (a shadow map's lit teeth under a caster)."""
+    if not len(base) or not len(shadow) or not len(lit):
+        return None
+    threshold = (float(np.median(shadow)) + float(np.median(lit))) / 2.0
+    return round(float((np.asarray(base) > threshold).mean()), 4)
+
+
+def edge_swim(traces: Sequence[dict[str, Any]], *, grid_cm: float = 2.0, smooth_cm: float = 0.0,
+              bins_m: Sequence[float] = EDGE_DEPTH_BINS_M) -> list[dict[str, Any]]:
+    """How a shadow edge CRAWLS between the frames of a camera move, the sun held still.
+
+    ``traces``: ``shadow_edge_trace`` of the same edge in consecutive frames. The true
+    edge does not move in the world, so each trace's offsets are put on one world grid
+    along the edge (``grid_cm``) and consecutive frames compared where both saw it. Per
+    view-depth bin of the later frame: ``swim_cm`` / ``swim_px``, the 95th percentile of
+    the change (in pixels with that frame's scale), and ``pairs`` compared.
+    ``smooth_cm``: the offsets are first averaged along the edge over this length. Qt's
+    filter turns its samples by a per-PIXEL noise, so a moving camera re-dithers a soft
+    edge everywhere; a shadow map's texels that move with the camera shift whole stretches
+    of it. Averaged over a few centimetres the dither cancels and a crawl stays."""
+    if len(traces) < 2:
+        return []
+    top = max(float(np.max(t["along_cm"])) for t in traces if len(t["along_cm"]))
+    grid = np.arange(0.0, top, grid_cm)
+
+    def on_grid(trace: dict[str, Any]) -> tuple[Array, Array, Array]:
+        valid = np.asarray(trace["valid"], dtype=bool)
+        along = trace["along_cm"][valid]
+        if len(along) < 2:
+            nothing = np.full(len(grid), np.nan)
+            return nothing, nothing, nothing
+        inside = (grid >= along[0]) & (grid <= along[-1])
+        values = [np.where(inside, np.interp(grid, along, trace[key][valid]), np.nan)
+                  for key in ("offset_cm", "px_per_cm", "depth_cm")]
+        # a gap in the valid stations wider than two grid steps is not interpolated across
+        gaps = np.interp(grid, along[1:], np.diff(along), left=np.inf, right=np.inf) > 2 * grid_cm
+        values = [np.where(gaps, np.nan, value) for value in values]
+        width = int(round(smooth_cm / grid_cm))
+        if width > 1:   # a running mean that leaves a window touching a gap undefined
+            kernel = np.ones(width) / width
+            values[0] = np.convolve(values[0], kernel, mode="same")
+        return values[0], values[1], values[2]
+
+    sampled = [on_grid(trace) for trace in traces]
+    changes_cm: list[Array] = []
+    changes_px: list[Array] = []
+    depths: list[Array] = []
+    for (o0, _k0, _d0), (o1, k1, d1) in zip(sampled[:-1], sampled[1:], strict=True):
+        both = np.isfinite(o0) & np.isfinite(o1)
+        changes_cm.append(np.abs(o1[both] - o0[both]))
+        changes_px.append(np.abs(o1[both] - o0[both]) * k1[both])
+        depths.append(d1[both] / 100.0)
+    change_cm, change_px, depth = (np.concatenate(changes_cm), np.concatenate(changes_px),
+                                   np.concatenate(depths))
+    rows: list[dict[str, Any]] = []
+    for low, high in zip(bins_m[:-1], bins_m[1:], strict=True):
+        mask = (depth >= low) & (depth < high)
+        row: dict[str, Any] = {"depth_m": [low, high], "pairs": int(mask.sum())}
+        if mask.sum() >= 40:
+            row.update({"swim_cm": round(float(np.percentile(change_cm[mask], 95)), 3),
+                        "swim_px": round(float(np.percentile(change_px[mask], 95)), 3)})
+        rows.append(row)
+    return rows
+
+
+def _longest_run(mask: Any) -> tuple[int, int] | None:
+    """[first, last) of the longest run of True in a 1-D mask (None: no True)."""
+    flags = np.concatenate([[False], np.asarray(mask, dtype=bool), [False]])
+    edges = np.flatnonzero(np.diff(flags.astype(np.int8)))
+    if not len(edges):
+        return None
+    starts, stops = edges[0::2], edges[1::2]
+    best = int(np.argmax(stops - starts))
+    return int(starts[best]), int(stops[best])
+
+
+def shadow_streaks(rgb: Any, camera: Pinhole, start: tuple[float, float], end: tuple[float, float],
+                   *, period_cm: float, lit_luma: float, step_cm: float = 1.0,
+                   min_period_px: float = 8.0) -> dict[str, Any]:
+    """How a porous caster's shadow STREAKS along a ground line ``start`` -> ``end``.
+
+    The luma is read every ``step_cm`` along the line and box-filtered over one
+    ``period_cm`` (a picket fence's pitch along the line): a pattern that repeats with
+    the caster's own period — the true picket stripes, sharp or soft — averages to a
+    constant, and what is left is the low-frequency beat a shadow map makes when its
+    texels alias the slits (some slits leak a whole texel of light, others none).
+    Judged only where one period spans ``min_period_px`` on screen (the longest such
+    run of the line): further out the PIXELS alias the true stripes into a moiré of
+    their own — the anti-aliasing's business, not the shadow map's.
+    ``streak``: the spread (95th minus 5th percentile) of the filtered luma, as a share
+    of the contrast between ``lit_luma`` and the line's median luma (``contrast``)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    a, b = np.asarray(start, dtype=np.float64), np.asarray(end, dtype=np.float64)
+    length = float(np.linalg.norm(b - a))
+    along = np.arange(0.0, length, step_cm)
+    points = a[None, :] + along[:, None] * ((b - a) / max(length, 1e-9))[None, :]
+    px, py, front = view.project(np.column_stack([points, np.zeros(len(points))]))
+    window = max(1, int(round(period_cm / step_cm)))
+    spacing = np.hypot(np.gradient(px), np.gradient(py)) if len(px) > 1 else np.zeros(len(px))
+    seen = (front & (px >= 1) & (px < cols - 1) & (py >= 1) & (py < rows - 1)
+            & (spacing * window >= min_period_px))
+    run = _longest_run(seen)
+    if run is None or run[1] - run[0] < 3 * window:
+        return {"samples": 0 if run is None else run[1] - run[0], "streak": None,
+                "mean_luma": None}
+    first, last = run
+    values = _bilinear(luma(frame), px[first:last], py[first:last])
+    smoothed = np.convolve(values, np.ones(window) / window, mode="valid")
+    level = float(np.median(values))
+    contrast = max(lit_luma - level, 1e-6)
+    return {"samples": int(len(values)),
+            "streak": round(float(np.percentile(smoothed, 95) - np.percentile(smoothed, 5)) / contrast, 4),
+            "mean_luma": round(float(values.mean()), 2), "lit_luma": round(lit_luma, 2),
+            "contrast": round(contrast, 2)}
+
+
 # ── aliasing of thin repeated geometry (picket fences) ───────────────────────
 
 #: A fence pixel this dark (luma) is one the anti-aliasing let alias to near-black.
