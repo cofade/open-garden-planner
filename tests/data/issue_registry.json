@@ -1204,6 +1204,16 @@
     "state": "OPEN",
     "title": "3D: the garden gets brighter as night falls (ground luma rises after sunset)"
   },
+  "807": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Tour video: review-grade H.264 only (Constrained Baseline, 0.2 bit/px, no colour tags); orbit has no easing and no pitch control"
+  },
+  "809": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: no recovery when the graphics device is lost or memory runs out - frames silently miss scene parts"
+  },
   "831": {
     "is_pr": false,
     "state": "OPEN",

@@ -28,4 +28,5 @@ from dated measurements. New lessons belong in a new reference and index row.
 | Photo mode and tours — the values (L6) | [Read](references/012-photo-mode-and-tours-l6.md) |
 | Low-sun shadow edges — steps, lit teeth, streaks and the `--stairs` probe (#734) | [Read](references/013-low-sun-shadow-edges-734.md) |
 | The living garden's polish — occlusion under cloud, snow on built tops, leaves, lamp pools, no dew mist (#687) | [Read](references/014-living-garden-polish-687.md) |
+| A tour video good enough to publish, and the orbit that films it — how to measure, the numbers, promo settings (#807) | [Read](references/015-review-grade-video-and-the-promo-orbit-807.md) |
 | The atmosphere sky at the painted horizon — profile and deck anchor (#716, #719) | [Read](references/016-atmosphere-horizon-716-719.md) |

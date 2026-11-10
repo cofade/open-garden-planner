@@ -168,6 +168,82 @@ def test_half_a_turn_is_not_a_loop() -> None:
         DroneOrbit(POSE, turns=0.0)
 
 
+def yaw_steps(orbit: DroneOrbit, frames: int = 360) -> np.ndarray:
+    """The orbit's turn per frame, in degrees, over ``frames`` frames of its tour."""
+    spec = TourSpec(orbit, frames / 30.0, 30)
+    bearings = [math.degrees(math.atan2(frame.key.eye[0] - POSE.target[0],
+                                        frame.key.eye[1] - POSE.target[1]))
+                for frame in tour_frames(spec)]
+    return np.diff(np.unwrap(np.radians(bearings))) * 180.0 / math.pi
+
+
+def test_an_orbit_that_does_not_ease_flies_the_frames_it_always_flew() -> None:
+    """#807: easing is new and opt-in. Every orbit before it - and every saved one that does
+    not ask - turns at one speed and ends one step before its start (the loop's seam)."""
+    orbit = DroneOrbit(POSE, turns=2.0)
+    assert not orbit.ease and orbit.closed
+    frames = list(tour_frames(TourSpec(orbit, 4.0, 30)))
+    for frame in frames:   # the expression the orbit has always used, to the last bit
+        expected = CameraPose(POSE.target, POSE.distance_cm,
+                              POSE.yaw_deg + 1.0 * 360.0 * 2.0 * (frame.index / len(frames)),
+                              POSE.pitch_deg)
+        assert frame.key == CameraKey(expected.eye, expected.target_scene, 40.0)
+
+
+def test_an_eased_orbit_starts_and_stops_at_rest_and_is_not_a_loop() -> None:
+    orbit = DroneOrbit(POSE, turns=1.0, ease=True)
+    assert not orbit.closed, "it stops where it started: a loop would stutter at the seam"
+    steps = yaw_steps(orbit)
+    cruise = np.median(steps)
+    assert steps[0] < 0.01 * cruise and steps[-1] < 0.01 * cruise, "at rest at both ends"
+    assert steps.sum() == pytest.approx(360.0), "a whole turn, from rest to rest"
+    assert cruise == pytest.approx(360.0 / 359 / (1.0 - camera_path.ORBIT_EASE_SHARE), rel=1e-3)
+    assert orbit.at(1.0).eye == pytest.approx(orbit.at(0.0).eye)
+
+
+def test_an_eased_orbit_changes_its_speed_smoothly() -> None:
+    """No kick: the speed and its change are continuous where the ease meets the cruise
+    (a raised cosine, so the acceleration is 0 at rest and at the cruise)."""
+    frames = 900
+    steps = yaw_steps(DroneOrbit(POSE, turns=1.0, ease=True), frames)
+    change = np.diff(steps)
+    ramp = camera_path.ORBIT_EASE_SHARE * (frames - 1)
+    cruise = 360.0 / (frames - 1) / (1.0 - camera_path.ORBIT_EASE_SHARE)
+    # the raised cosine's largest change of speed, and the largest change of that, per frame
+    assert np.abs(change).max() <= cruise * math.pi / (2.0 * ramp) * 1.01
+    assert np.abs(np.diff(change)).max() <= cruise * math.pi ** 2 / (2.0 * ramp ** 2) * 1.05
+    joint = round(ramp)
+    # (a linear ramp, the keyframe path's, changes its speed by its whole amount at once)
+    assert abs(change[0]) < 0.05 * np.abs(change).max(), "it leaves rest without a kick"
+    assert np.abs(change[joint - 2:joint + 2]).max() < 0.05 * np.abs(change).max(), \
+        "and joins the cruise without one"
+
+
+def test_an_eased_orbit_turns_both_ways_and_a_whole_number_of_times() -> None:
+    clockwise = DroneOrbit(POSE, turns=2.0, ease=True)
+    other = DroneOrbit(POSE, turns=2.0, clockwise=False, ease=True)
+    assert yaw_steps(clockwise).sum() == pytest.approx(720.0)
+    assert yaw_steps(other).sum() == pytest.approx(-720.0)
+
+
+@pytest.mark.parametrize(("distance", "low"), [(5000.0, 5.0), (2300.0, 5.0), (100.0, 11.54),
+                                               (40.0, 30.0), (10.0, 89.0)])
+def test_an_orbits_pitch_keeps_the_eye_above_the_ground(distance: float, low: float) -> None:
+    """The view's own range (5 to 89 degrees), and never an eye lower than MIN_EYE_CM: a
+    short orbit tilts up instead of skimming the lawn."""
+    floor, ceiling = camera_path.orbit_pitch_range(distance)
+    assert floor == pytest.approx(low, abs=0.01) and ceiling == 89.0
+    eye = CameraPose((0.0, 0.0), distance, 0.0, floor).eye
+    assert eye[2] >= min(MIN_EYE_CM, distance * math.sin(math.radians(89.0))) - 1e-9
+
+
+def test_a_pitch_outside_the_range_is_put_back_into_it() -> None:
+    assert camera_path.clamp_orbit_pitch(1.0, 5000.0) == 5.0
+    assert camera_path.clamp_orbit_pitch(95.0, 5000.0) == 89.0
+    assert camera_path.clamp_orbit_pitch(18.5, 5000.0) == 18.5
+    assert camera_path.clamp_orbit_pitch(10.0, 100.0) == pytest.approx(11.54, abs=0.01)
+
+
 def test_a_held_camera_stays() -> None:
     held = HeldCamera(KEYS[0])
     assert held.at(0.0) == held.at(1.0) == KEYS[0]
