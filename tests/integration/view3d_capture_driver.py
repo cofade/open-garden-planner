@@ -429,7 +429,7 @@ def scenario_grades(out: Path) -> dict[str, Any]:
 def scenario_ultra_blur(out: Path) -> dict[str, Any]:
     """The Ultra preset draws screen-space reflections, a high-quality glow and ambient occlusion.
     With depth of field in the same effect chain Qt's render thread crashed in d3d11.dll
-    (OMSetRenderTargets on a released view) at the first focus click of an owner's manual test
+    (a read at address 0x16d in OMSetRenderTargets, #744) at the first focus click of an owner's manual test
     of #390. The picture is blurred in the shown window and in a capture, over and over, and
     the blur is really there."""
     from PyQt6.QtCore import QObject
