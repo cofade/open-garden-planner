@@ -17,8 +17,9 @@ Design constraints (campaign fences):
   save-time geometry).
 - The overlay is CLIPPED to the canvas bounds (a long shadow is cut off at
   the garden edge, never spilling onto the grey area outside) and painted
-  with a soft, effect-free outward feather; at night (sun below the horizon)
-  the whole canvas is shaded rather than the shadows vanishing.
+  with a soft, effect-free outward feather (``shadow_feather``, a smooth
+  falloff since #793); at night (sun below the horizon) the whole canvas is
+  shaded rather than the shadows vanishing.
 - All math happens in scene cm via the Qt-free ``core/shadow_geometry``;
   scene +y is already North — there is NO extra Y-flip here (§8.20).
 - The sim moment is NOT owned here (Phase 17 L1.0, ADR-053): the controller
@@ -121,6 +122,7 @@ from .footprints import (
     item_outline,
 )
 from .items.polyline_item import PolylineItem
+from .shadow_feather import FEATHER_REACH_CM, ToneRegion, paint_feather
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
 STATE_DISABLED = "disabled"
@@ -137,18 +139,12 @@ _OVERLAY_Z = -500.0
 # Slightly deeper + more opaque than the first cut (manual-test feedback).
 _SHADOW_COLOR = QColor(30, 41, 66, 110)
 
-# Effect-free soft edge (the scene deliberately avoids QGraphicsEffect): a few
-# translucent strokes of the shadow colour, widest/faintest first, painted only
-# OUTSIDE the shadow's own fill so the interior stays flat and an outward
-# penumbra shows. Widths in scene cm — the halo reaches ~half the widest width
-# past the edge.
-_FEATHER_STEPS: tuple[tuple[float, int], ...] = (
-    (14.0, 16),
-    (9.0, 30),
-    (5.0, 48),
-    (2.5, 66),
-)
-_FEATHER_MAX_WIDTH = 14.0
+# Effect-free soft edge (the scene deliberately avoids QGraphicsEffect): a
+# smooth falloff from the shade's own tone to nothing, painted only OUTSIDE the
+# shadow's own fill so the interior stays flat (``shadow_feather``, #793). The
+# overlay's bounding rectangle leaves this much room for it, in scene cm: the
+# falloff's reach, and as much again for the cells its enlargement runs over.
+_FEATHER_MARGIN_CM = 2.0 * FEATHER_REACH_CM
 
 _DEBOUNCE_MS = 150
 
@@ -173,39 +169,6 @@ _PICTURE_MAX_ENLARGEMENT = 4.0
 _SETTLED_SCALES = 4
 
 
-def _build_feather_pens() -> tuple[QPen, ...]:
-    """The feather strokes are constant — build them once, not every paint()."""
-    pens = []
-    for width_cm, alpha in _FEATHER_STEPS:
-        color = QColor(_SHADOW_COLOR)
-        color.setAlpha(alpha)
-        pen = QPen(color)
-        pen.setWidthF(width_cm)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pens.append(pen)
-    return tuple(pens)
-
-
-_FEATHER_PENS: tuple[QPen, ...] = _build_feather_pens()
-
-
-@lru_cache(maxsize=128)
-def _feather_pens_for(occlusion: float) -> tuple[QPen, ...]:
-    """The feather strokes of a region of that occlusion: the constant pens, their
-    alpha scaled as the region's own fill is. A light shade gets a light edge."""
-    if occlusion >= 0.999:
-        return _FEATHER_PENS
-    pens = []
-    for pen in _FEATHER_PENS:
-        color = QColor(pen.color())
-        color.setAlpha(max(1, round(color.alpha() * occlusion)))
-        scaled = QPen(pen)
-        scaled.setColor(color)
-        pens.append(scaled)
-    return tuple(pens)
-
-
 def _enlargement(kept: tuple[float, ...], now: tuple[float, ...]) -> float:
     """How many times larger a picture rasterised at the device scale ``kept``
     is shown at ``now`` (both axis-aligned: ``(m11, m12, m21, m22)``)."""
@@ -225,15 +188,17 @@ class SunShadowOverlayItem(QGraphicsPathItem):
 
     - a HARD clip to the canvas bounds, so a long shadow is simply cut off at
       the garden edge instead of spilling onto the grey outside area;
-    - a SOFT outward penumbra, clipped to the area *outside* the shadow so
-      the interior stays a flat tone (no darker ring) and only a feather
-      shows past the edge. Each weighted region is edged at its OWN strength
-      (#698): a porous fence's or an open frame's light shade beside a solid's
-      must not wear the solid's edge — it read as an outline drawn round the shade.
+    - a SOFT outward penumbra: a smooth falloff from the shade's tone at its
+      edge to nothing ``FEATHER_REACH_CM`` further out, with the shade itself
+      cut out of it, so the interior stays a flat tone (no darker ring) and
+      only a feather shows past the edge (``shadow_feather``; until #793 four
+      stacked strokes, which showed as four bands from 200 % zoom on). Each
+      weighted region is edged at its OWN strength (#698): a porous fence's or
+      an open frame's light shade beside a solid's must not wear the solid's
+      edge — it read as an outline drawn round the shade.
 
-    Rasterising that is expensive — four antialiased wide strokes of the whole
-    shadow outline, 60-130 ms on a family garden at fit, 95 % of it Qt's
-    antialiasing (#784) — so it happens once per solve and zoom:
+    Rasterising that is not free (tens of milliseconds on a family garden at
+    fit, #784), so it happens once per solve and zoom:
 
     - the item is ``DeviceCoordinateCache`` like every canvas item: a repaint, a
       pan or another item's update blits the cached picture;
@@ -258,7 +223,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # Rasterised once per solve and zoom, then blitted (#784).
         self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self._clip_rect: QRectF | None = None
-        self._feather_region: QPainterPath | None = None
+        self._feathered = False  # there is ground beside the shade to feather
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
         self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
         #: Asked (by a paint that showed the scaled picture) to call ``settle()``
@@ -272,7 +237,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._picture: QPixmap | None = None  # the last rasterisation
         self._picture_rect = QRectF()  # ... and the item rect it covers
         self._picture_key: tuple[Any, ...] | None = None
-        self._region_feathers: tuple[tuple[QPainterPath, tuple[QPen, ...]], ...] = ()
+        self._region_tones: tuple[ToneRegion, ...] = ()
 
     def set_clip_rect(self, rect: QRectF | None) -> None:
         """Bound all painting to ``rect`` (the canvas); None = unbounded."""
@@ -292,14 +257,14 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         if path.isEmpty():
             self._weighted_regions = ()
             self._region_paths = ()
-            self._region_feathers = ()
+            self._region_tones = ()
         self._rebuild_feather()
 
     def set_weighted_regions(self, regions: Sequence[WeightedShadowRegion]) -> None:
         """Cache pre-partitioned weighted shadow regions for porous/opaque painting."""
         self._weighted_regions = tuple(regions)
         built: list[tuple[QPainterPath, QColor]] = []
-        feathers: list[tuple[QPainterPath, tuple[QPen, ...]]] = []
+        tones: list[ToneRegion] = []
         base_alpha = _SHADOW_COLOR.alpha()
         for reg in self._weighted_regions:
             if not reg.polygons or reg.occlusion <= 0.0:
@@ -312,9 +277,9 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             color = QColor(_SHADOW_COLOR)
             color.setAlpha(max(1, min(255, round(base_alpha * reg.occlusion))))
             built.append((reg_path, color))
-            feathers.append((reg_path, _feather_pens_for(round(min(1.0, reg.occlusion), 3))))
+            tones.append((reg_path, min(1.0, reg.occlusion)))
         self._region_paths = tuple(built)
-        self._region_feathers = tuple(feathers)
+        self._region_tones = tuple(tones)
         self._generation += 1
         self.update()
 
@@ -332,18 +297,20 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         )
 
     def _rebuild_feather(self) -> None:
-        """Cache the outward-feather clip region (canvas minus shadow).
+        """Note whether there is ground beside the shade to feather.
 
         Computed on change, never in ``paint()`` — the recompute-discipline
-        rule extends to the overlay's own edge softening.
+        rule extends to the overlay's own edge softening. No canvas bounds: no
+        feather, as ever. A shade that covers the whole canvas (the night) has
+        no edge inside it.
         """
         path = self.path()
-        if self._clip_rect is None or path.isEmpty():
-            self._feather_region = None
-            return
-        clip = QPainterPath()
-        clip.addRect(self._clip_rect)
-        self._feather_region = clip.subtracted(path)
+        clip = self._clip_rect
+        self._feathered = (
+            clip is not None
+            and not path.isEmpty()
+            and not path.contains(clip.adjusted(1.0, 1.0, -1.0, -1.0))
+        )
 
     def boundingRect(self) -> QRectF:
         # Painted area is the shadow path plus its outward feather, all clipped
@@ -351,10 +318,10 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # edge. Report a tight superset so itemsBoundingRect()/fit-to-view stay
         # honest.
         rect = super().boundingRect().adjusted(
-            -_FEATHER_MAX_WIDTH,
-            -_FEATHER_MAX_WIDTH,
-            _FEATHER_MAX_WIDTH,
-            _FEATHER_MAX_WIDTH,
+            -_FEATHER_MARGIN_CM,
+            -_FEATHER_MARGIN_CM,
+            _FEATHER_MARGIN_CM,
+            _FEATHER_MARGIN_CM,
         )
         if self._clip_rect is not None:
             rect = rect.intersected(self._clip_rect)
@@ -473,33 +440,25 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.restore()
 
     def _paint_exact(self, painter: QPainter) -> None:
-        """Rasterise the overlay: the feather strokes, then the core."""
+        """Rasterise the overlay: the soft edge, then the core."""
         self.exact_paints += 1
         path = self.path()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         # Soft outward penumbra — only outside the shadow's own fill area, so
         # the interior stays flat and there is no darker ring at the boundary.
+        # Each region's edge starts at its own tone; a boundary two regions
+        # share — a fence's shade running into a house's — lies inside the
+        # WHOLE shadow and gets no edge at all.
         by_region = self._paints_regions()
-        region = self._feather_region
-        if region is not None and not region.isEmpty():
-            painter.save()
-            # IntersectClip: a paint() never replaces the clip it was handed —
-            # a print tile or a PDF frame is one (#788, PF-CAN-54).
-            painter.setClipPath(region, Qt.ClipOperation.IntersectClip)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            if by_region:
-                # each region's own outline at its own strength. The clip keeps what
-                # lies outside the WHOLE shadow, so a boundary two regions share —
-                # a fence's shade running into a house's — is not stroked at all.
-                for reg_path, pens in self._region_feathers:
-                    for pen in pens:
-                        painter.setPen(pen)
-                        painter.drawPath(reg_path)
-            else:
-                for pen in _FEATHER_PENS:
-                    painter.setPen(pen)
-                    painter.drawPath(path)
-            painter.restore()
+        if self._feathered and self._clip_rect is not None:
+            paint_feather(
+                painter,
+                self.boundingRect(),
+                self._clip_rect,
+                path,
+                self._region_tones if by_region else (),
+                _SHADOW_COLOR,
+            )
         # Solid core, hard-cut at the canvas boundary.
         painter.save()
         if self._clip_rect is not None:

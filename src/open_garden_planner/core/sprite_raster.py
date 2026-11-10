@@ -271,6 +271,22 @@ def _paint_exposed(
     return True
 
 
+def paint_layer(painter: QPainter, target: QRectF, draw: SpriteDraw) -> bool:
+    """Paint what ``draw`` describes through a layer in device pixels.
+
+    For a picture that is neither a sprite nor worth keeping: something that
+    has to be composed before it is laid down (the sun shadow's soft edge is a
+    field with the shade cut out of it). ``draw(p, target)`` paints into a
+    transparent layer that covers what ``painter``'s device shows of
+    ``target`` and nothing else; the layer has the device's resolution — 300
+    dpi at most on a finer one, 1 px per cm on a recording painter — and is
+    laid down untransformed, so it is the same picture in a view, an export, an
+    SVG and a print, and needs no clip of its own. False when nothing could be
+    painted.
+    """
+    return _paint_exposed(painter, target, draw, None)
+
+
 def clear_sprite_cache() -> None:
     """Drop every cached canvas sprite."""
     SPRITE_CACHE.clear()
@@ -286,6 +302,7 @@ __all__ = [
     "TINT_ALPHA",
     "PixmapLru",
     "clear_sprite_cache",
+    "paint_layer",
     "paint_sprite",
     "rasterise",
     "sprite_pixel_size",
