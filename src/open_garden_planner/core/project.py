@@ -39,6 +39,7 @@ from open_garden_planner.core.plan_io import (
     write_plan,
 )
 from open_garden_planner.models.layer import Layer, create_default_layers
+from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
 # File format version for backward compatibility.
 #
@@ -337,6 +338,58 @@ class ProjectManager(QObject):
     def task_completions(self) -> set[str]:
         """Set of completed task IDs for the current project."""
         return set(self._task_completions)
+
+    @staticmethod
+    def _task_id_references_item(task_id: object, key: str) -> bool:
+        """Whether a deterministic task id names *key* as its bed/area.
+
+        The two formats are owned by ``services.task_generator``:
+        ``succession:<sow|clear>:<bed_id>:<entry>`` and
+        ``soil_amendment:<bed_id>:<name>`` / ``soil_mismatch:<bed_id>``.
+        Explicit segment matching avoids a substring false positive when an
+        unrelated id happens to contain the same characters.
+        """
+        parts = str(task_id).split(":")
+        if not parts:
+            return False
+        index = TASK_BED_ID_SEGMENTS.get(parts[0])
+        return index is not None and len(parts) > index and parts[index] == key
+
+    def has_item_references(self, item_id: UUID | str) -> bool:
+        """Whether project data outside the scene still points at *item_id*.
+
+        A command that replaces a shape (the split, #664) must not orphan the
+        records keyed by its UUID. The checked collections are exactly the ones
+        that store a bed/area/plant id: soil tests, pest/disease logs, harvest
+        logs, succession plans, crop-rotation records, manual-task bed links and
+        task states whose deterministic id carries the item id. Journal notes
+        are keyed by their own note id and do not reference garden items.
+        """
+        key = str(item_id)
+        if not key:
+            return False
+        if (
+            key in self._soil_tests
+            or key in self._pest_logs
+            or key in self._harvest_logs
+            or key in self._succession_plans
+        ):
+            return True
+        for record in self._crop_rotation.get("records", []):
+            if isinstance(record, dict) and str(record.get("area_id", "")) == key:
+                return True
+        for task in self._manual_tasks.values():
+            if isinstance(task, dict) and str(task.get("bed_id", "")) == key:
+                return True
+        if any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_states
+        ):
+            return True
+        return any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_completions
+        )
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's
@@ -2743,9 +2796,11 @@ class ProjectManager(QObject):
                 if obj.get("area_label_visible"):
                     item.area_label_visible = True
                 if migrated_raised_bed:
-                    from open_garden_planner.core.item_look import adopt_type_fill
+                    from open_garden_planner.core.item_look import (
+                        adopt_rebuilt_type,
+                    )
 
-                    adopt_type_fill(
+                    adopt_rebuilt_type(
                         item, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
                     )
                 return item

@@ -365,3 +365,64 @@ class TestEveryStandingObjectHasAHeight:
         assert DEFAULT_HEIGHTS_CM[name] == height
         assert resolve_height(name, None) == (height, SOURCE_DEFAULT)
         assert effective_height_cm(name, {METADATA_KEY: 210.0}) == 210.0
+
+
+class TestHeightAcrossATypeChange:
+    """A rebuilt shape stands as tall as the shape it replaces (PR #783, test 2).
+
+    A raised bed's 40 cm is a per-type default with nothing stored; rebuilt as a
+    garden-bed polygon it silently became "no height".
+    """
+
+    def test_a_default_height_the_new_type_lacks_is_written_down(self) -> None:
+        from open_garden_planner.core.object_height import (
+            carry_height_across_type_change,
+        )
+
+        metadata: dict[str, object] = {}
+        carry_height_across_type_change(metadata, "RAISED_BED", "GARDEN_BED")
+        assert metadata == {METADATA_KEY: 40.0}
+        assert effective_height_cm("GARDEN_BED", metadata) == 40.0
+
+    def test_a_height_the_user_set_is_left_alone(self) -> None:
+        from open_garden_planner.core.object_height import (
+            carry_height_across_type_change,
+        )
+
+        metadata: dict[str, object] = {METADATA_KEY: 75.0}
+        carry_height_across_type_change(metadata, "RAISED_BED", "GARDEN_BED")
+        assert metadata == {METADATA_KEY: 75.0}
+
+    @pytest.mark.parametrize(
+        ("before", "after"),
+        [
+            ("RAISED_BED", "RAISED_BED"),  # no type change
+            ("HEDGE_SECTION", "HEDGE_POLYGON"),  # both 150 cm
+            ("GENERIC_RECTANGLE", "GENERIC_POLYGON"),  # neither has a height
+            ("GENERIC_CIRCLE", "GENERIC_POLYGON"),
+            (None, "GARDEN_BED"),
+            ("RAISED_BED", None),
+        ],
+    )
+    def test_a_change_that_keeps_the_height_writes_nothing(
+        self, before: str | None, after: str | None
+    ) -> None:
+        from open_garden_planner.core.object_height import (
+            carry_height_across_type_change,
+        )
+
+        metadata: dict[str, object] = {}
+        carry_height_across_type_change(metadata, before, after)
+        assert metadata == {}
+
+    def test_it_takes_the_enum_as_well_as_the_name(self) -> None:
+        from open_garden_planner.core.object_height import (
+            carry_height_across_type_change,
+        )
+        from open_garden_planner.core.object_types import ObjectType
+
+        metadata: dict[str, object] = {}
+        carry_height_across_type_change(
+            metadata, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
+        )
+        assert metadata == {METADATA_KEY: 40.0}

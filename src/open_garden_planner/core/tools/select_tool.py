@@ -48,6 +48,31 @@ class SelectTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        multi_held = event.modifiers() & (
+            Qt.KeyboardModifier.ShiftModifier
+            | Qt.KeyboardModifier.ControlModifier
+        )
+
+        # A second click inside an already-selected group drills into the
+        # member under the cursor (#771). A modifier click keeps its usual
+        # multi-select meaning; a handle/label hit returns None here and the
+        # normal gesture continues.
+        if not multi_held:
+            drill_target = self._view.drill_target_at(scene_pos)
+            if isinstance(drill_target, QGraphicsItem):
+                if self._view.drill_down_item is drill_target:
+                    # A press on the already-focused member starts its own
+                    # body drag. Qt would drag the whole group instead.
+                    self._view.begin_drill_down_drag(drill_target, scene_pos)
+                    return True
+                self._view.begin_group_drill_down(drill_target)
+                # Let Qt process the press so it establishes the selection.
+                return False
+            if self._view.group_drill_should_end_on_press(scene_pos) is True:
+                # A click elsewhere in the group (or outside it) returns the
+                # group to its normal one-unit selection.
+                self._view.end_group_drill_down()
+
         # Check if clicking on an item. ``itemAt`` is the only hit test that
         # finds a DRAG HANDLE (an ItemIgnoresTransformations control); the
         # selectable-under walk is what finds a journal pin, which ``itemAt``
@@ -66,10 +91,6 @@ class SelectTool(BaseTool):
             # app's own toggle path is what makes a pin stay selected when the
             # next Ctrl+click lands on another object; Qt's default press
             # replaces the selection for Ctrl.
-            multi_held = event.modifiers() & (
-                Qt.KeyboardModifier.ShiftModifier
-                | Qt.KeyboardModifier.ControlModifier
-            )
             if multi_held:
                 # Editing controls need the press even though they are not
                 # selectable. Let Qt establish their grab before the view's
@@ -84,6 +105,11 @@ class SelectTool(BaseTool):
                 # instead of toggling it (#522).
                 target = self._selectable_under(scene_pos)
                 if target is not None:
+                    if target.parentItem() is not None:
+                        # A group member enters the selection only through a
+                        # drill-down click, never by Shift/Ctrl toggling it
+                        # beside unrelated top-level items (#771).
+                        return False
                     target.setSelected(not target.isSelected())
                     return True
                 # Nothing selectable under the cursor: the click goes through as

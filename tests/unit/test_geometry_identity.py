@@ -763,6 +763,13 @@ def test_a_raised_bed_converts_to_a_garden_bed_polygon(
     assert replacement.fill_color is not None
     assert replacement.fill_color.rgba() == colour_before.rgba()
     assert replacement.brush().style() == Qt.BrushStyle.TexturePattern
+    # ... and stands as tall as the raised bed did: its 40 cm was a type default
+    # the garden bed does not have (manual test 2 of PR #783).
+    from open_garden_planner.core.object_height import effective_height_cm
+
+    assert effective_height_cm(bed.object_type, bed.metadata) == 40.0
+    assert effective_height_cm(replacement.object_type, replacement.metadata) == 40.0
+    assert "object_height_cm" not in bed.metadata, "undo must restore the original"
     assert style_gaps(replacement) == [], "pattern, colour and brush must agree"
 
     canvas.command_manager.undo()
@@ -1092,6 +1099,10 @@ def test_a_saved_polygon_raised_bed_loads_as_a_garden_bed(
     assert loaded.fill_pattern == FillPattern.SOIL, (
         "the migrated garden bed must show the soil pattern, not the old solid fill"
     )
+    # The polygon claimed RAISED_BED, so it stood 40 cm; the repair keeps that.
+    from open_garden_planner.core.object_height import effective_height_cm
+
+    assert effective_height_cm(loaded.object_type, loaded.metadata) == 40.0
     assert loaded.brush().style() == Qt.BrushStyle.TexturePattern
     assert style_gaps(loaded) == [], "pattern, colour and brush must agree"
 

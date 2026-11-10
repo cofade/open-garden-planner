@@ -39,7 +39,12 @@ from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
-from open_garden_planner.models.task import ManualTask
+from open_garden_planner.models.task import (
+    ManualTask,
+    make_soil_amendment_task_id,
+    make_soil_mismatch_task_id,
+    make_succession_task_id,
+)
 from open_garden_planner.services.weather_service import FrostAlert
 
 # ── Output value object ──────────────────────────────────────────────────────
@@ -292,7 +297,7 @@ def generate_succession_tasks(state: PlanState) -> list[Task]:
                 sow_date, sow_date, state.today
             ) is not None):
                 tasks.append(Task(
-                    task_id=f"succession:sow:{bed_id}:{entry.id}",
+                    task_id=make_succession_task_id("sow", bed_id, entry.id),
                     source="succession",
                     task_type="succession_sow",
                     title=entry.common_name,
@@ -306,7 +311,7 @@ def generate_succession_tasks(state: PlanState) -> list[Task]:
                 clear_date, clear_date, state.today
             ) is not None):
                 tasks.append(Task(
-                    task_id=f"succession:clear:{bed_id}:{entry.id}",
+                    task_id=make_succession_task_id("clear", bed_id, entry.id),
                     source="succession",
                     task_type="succession_clear",
                     title=entry.common_name,
@@ -328,7 +333,7 @@ def generate_soil_amendment_tasks(state: PlanState) -> list[Task]:
             # The id uses the English data name (stable across UI languages);
             # only the title follows the active language (#408).
             tasks.append(Task(
-                task_id=f"soil_amendment:{bed.bed_id}:{stable_name}",
+                task_id=make_soil_amendment_task_id(bed.bed_id, stable_name),
                 source="soil",
                 task_type="soil_amendment",
                 title=f"{display_name} — {bed.name}",
@@ -350,7 +355,7 @@ def generate_soil_mismatch_tasks(state: PlanState) -> list[Task]:
             "Tasks", "Soil mismatch in {bed}: {plants}"
         ).format(bed=bed.name, plants=", ".join(bed.mismatch_plants))
         tasks.append(Task(
-            task_id=f"soil_mismatch:{bed.bed_id}",
+            task_id=make_soil_mismatch_task_id(bed.bed_id),
             source="soil",
             task_type="soil_mismatch",
             title=title,

@@ -206,3 +206,6 @@ scripts/.replay_gate_mutations.backup
 # pyproject.toml). A direct PyInstaller build has no such file and falls back
 # to open_garden_planner.__version__.
 src/open_garden_planner/_version.py
+
+# Chromium/QtWebEngine crash log from a killed helper process
+/debug.log

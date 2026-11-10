@@ -1,22 +1,21 @@
-// Reproducer: with glow on, an ExtendedSceneEnvironment whose chain has two effects
-// ahead of its own scene (tonemapper) effect crashes the render thread on Direct3D 11.
+// Reproducer: an ExtendedSceneEnvironment with glow, screen-space reflections and
+// depth of field crashes on Direct3D 11 (Qt 6.12.0, Windows 11).
 //
 // Run:   qml effect_chain_glow_crash.qml
 // Args:  qml effect_chain_glow_crash.qml -- [--no-glow] [--no-ssr] [--no-dof] [--seconds=N]
 //
 // The scene is one cube on a plane. The environment enables screen-space reflections,
-// depth of field and glow. Nothing else is set.
+// depth of field and glow. No other effect is enabled.
 //
 // Expected: the window shows the cube, and after N seconds (default 3) the file prints
-//           "ALIVE" and quits.
-// Actual (Qt 6.12.0, Windows 11, Direct3D 11, NVIDIA RTX 4070 and WARP not tested):
-//           the process dies at the first frame with an access violation in d3d11.dll
-//           (CContext::OMSetRenderTargets), no "ALIVE" line and no Qt warning.
+//           "ALIVE", quits and exits with code 0.
+// Actual (Direct3D 11 on an NVIDIA RTX 4070 and on WARP; other backends not tested):
+//           in nearly every run the process ends with an access violation (exit code
+//           0xC0000005) or with heap corruption (0xC0000374). Read the exit code: the
+//           "ALIVE" line can still appear in a run that crashes. Counts: see the report.
 //
-// Each flag below removes one of the three; with any one removed the file prints ALIVE.
-// Any two effects ahead of the scene effect break it, not only these two: two
-// pass-through user Effects with glow gave a wrong picture (grey, the scene gone), and
-// reflections plus one user Effect with glow crashed or gave a black picture.
+// Each flag removes one of the three effects. With any one removed, the file prints
+// "ALIVE" and exits with code 0.
 
 import QtQuick
 import QtQuick3D

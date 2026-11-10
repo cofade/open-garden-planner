@@ -399,13 +399,21 @@ def test_every_handle_that_edits_a_geometry_announces_each_move() -> None:
     mouse move, so every handle's ``mouseMoveEvent`` in ``resize_handle.py`` says so —
     all but the rotation handle's, whose ``setRotation`` Qt announces itself."""
     modules = [ITEMS / "resize_handle.py", ITEMS / "vertex_handles.py"]
-    movers = {node.name: _method(node, "mouseMoveEvent")
-              for module in modules for node in _classes(module)}
+    nodes = {node.name: node for module in modules for node in _classes(module)}
+    movers = {name: _method(node, "mouseMoveEvent") for name, node in nodes.items()}
     movers = {name: method for name, method in movers.items() if method is not None}
     assert sorted(movers) == ["CurveControlHandle", "RectCornerHandle", "ResizeHandle",
                               "RotationHandle", "VertexHandle"]
     for name, method in movers.items():
         announces = "_announce_live_edit" in _calls(method)
+        if not announces and name == "ResizeHandle":
+            # The view-driven drill-down path calls `apply_drag`; the direct
+            # mouse path delegates to it (#771).
+            apply_method = _method(nodes[name], "apply_drag")
+            announces = (
+                apply_method is not None
+                and "_announce_live_edit" in _calls(apply_method)
+            )
         assert announces is (name != "RotationHandle"), name
 
 
