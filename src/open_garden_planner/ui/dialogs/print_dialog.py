@@ -36,8 +36,8 @@ SCALE_PRESETS = [
 #: printer's page layout and for the page count the Print Options dialog states
 #: (#836). Until then the layout was built without a unit, which Qt reads as
 #: points: 10 pt, 3.5 mm, less than most desktop printers can print to, while
-#: the dialog counted pages for 10 mm. 10 mm is a margin every common printer
-#: honours, so the sheet that comes out is the sheet the preview showed.
+#: the dialog counted pages for 10 mm. 10 mm is inside what common desktop
+#: printers print to, so the sheet that comes out is the sheet the preview showed.
 PRINT_MARGIN_MM = 10.0
 
 #: Height of the footer (project name, scale, date) under the plan, millimetres.
