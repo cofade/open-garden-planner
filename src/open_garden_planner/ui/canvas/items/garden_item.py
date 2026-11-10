@@ -70,7 +70,40 @@ class SunBadgeItem(QGraphicsPixmapItem):
     A dedicated type for the same reason as ``LockBadgeItem``: the export seam
     recognises a diagnostic badge by its type and keeps it out of a picture of
     the plan (#786).
+
+    The badge lies on the plan and is scaled with its plant (four tenths of the
+    footprint), so a pixmap of a fixed pixel size is the wrong picture of it at
+    every zoom but one: the 24-pixel one it had was enlarged 19 times on a
+    1.1 m plant at 400 %. ``set_icon`` names the icon instead and ``paint``
+    draws it for the painter (``ui.icons.paint_icon``, §8.9.14). The pixmap
+    stays what gives the item its size: 24 units a side.
     """
+
+    def __init__(self, parent: QGraphicsItem | None = None) -> None:
+        super().__init__(parent)
+        self._icon_name: str | None = None
+
+    def set_icon(self, name: str | None) -> None:
+        """Name the themed icon the badge shows (``None``: its pixmap as it is)."""
+        if name != self._icon_name:
+            self._icon_name = name
+            self.update()
+
+    def paint(
+        self,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
+        widget: QWidget | None = None,
+    ) -> None:
+        if painter is None:
+            return
+        if self._icon_name is not None:
+            from open_garden_planner.ui.icons import paint_icon
+
+            size = self.pixmap().deviceIndependentSize()
+            if paint_icon(painter, self._icon_name, QRectF(self.offset(), size)):
+                return
+        super().paint(painter, option, widget)
 
 
 class GuildBadgeItem(QGraphicsEllipseItem):
