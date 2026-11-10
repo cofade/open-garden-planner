@@ -7794,6 +7794,36 @@ local pitched-roof triangles (64 entries, keyed by the complete geometry), so 15
 identical sheds build one roof; the per-owner pyclipper union stays, because removing it
 made the global union of unmerged triangle paths slower (3.25 s against 1.48 s).
 
+**Materials (#801, #803; ADR-059 addendum "what built parts are made of").** A built
+part reflects by what it is MADE of: `core/scene3d/materials.SURFACES` names each surface's
+roughness and specular amount and, for roofs and walls, a detail picture. ONE path carries
+it: a palette entry names its surface (`builders/palette.py`, `SURFACE_BY_COLOUR`), a tinted
+part names its own in its builder (a house's walls `plaster`, a shed's `wood_cladding`, a
+garden wall `masonry`, a fence by its style, a container by its material, a deck `wood`),
+`builders.common.with_surfaces` writes a part's `surface` or — a trampoline is a rubber mat,
+a plastic pad and a steel frame — its `surface_runs` (its triangles grouped run by run; it
+stays one part for everything that reads parts), the sink creates one Model per run
+(`mesh.surface_pieces`) with the surface in its `PartSpec`, and the host writes
+`quick3d.materials.surface_look` on the Model. `Garden.qml`'s `vcPart` / `roofPart` hold no
+table: every material reads `surfaceRough` / `surfaceSpecular`, whose defaults are
+`DEFAULT_SURFACE` (0.78 / 0.35, the look every part had before). Qt switches a principled
+material's specular off at 0.01 or less and barely scales a grazing highlight above it
+(PF-E3D-32): a dull dark surface is specular 0. The detail picture is the canvas's own
+texture (`core.scene3d.surface_detail`: a linear albedo multiplier of mean 1 and height
+slopes, PF-L3D-35), one `Texture` per picture per scene, drawn by `built_detail.vert/.frag`:
+a roof's tile faces carry uvs in cm — a gable's are the 2D brush's frame (u along the ridge
+from its middle, v from the ridge, mirrored as the canvas mirrors it), a hip's faces and a
+shed's plane run along their own eave — and a wall's face lays its picture by its own plane in
+the item's frame; the detail normal fades with distance, the albedo by its mipmaps (Qt's
+`Texture` has no anisotropy). The detail material takes the ground's rain tint and the rain's
+roughness / specular shift (`wetRoughShift`, `wetSpecularShift`) and the living garden's
+snow (`builtSnow`, the same rule as `built_snow.frag`). The pond's glint is GGX soft-capped in
+`water.frag` (`SPECULAR_LIGHT`, `uGlintCap`). How to add a surface: an entry in `SURFACES`
+(§4 of `ogp-lush-cinematic` for its range), the palette entries or the builder that name it,
+and — with a picture — a pattern the canvas ships; the drift guard is
+`test_scene3d_surfaces.py`, the look gate `test_built_materials_render.py` (judged against the
+part's own specular-free frame, PF-L3D-34).
+
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on
 hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → snapshot →

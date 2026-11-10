@@ -451,3 +451,13 @@ No `ffprobe` is needed to check it: Qt's player prints FFmpeg's own stream line,
 `ColorSpace_BT709`, `ColorTransfer_BT709` and `ColorRange_Video`; the decoded planes were identical,
 180 of 180. Media Foundation repeats the SPS at every IDR frame (one a second), so a tag in `avcC`
 alone would be undone in the stream: every SPS is rewritten, and the samples move.
+
+### PF-E3D-32
+
+- **Rule:** `PrincipledMaterial.specularAmount` is a switch at 0.01, not a dial at grazing: at 0.01 or less Qt draws no specular at all, above it the amount scales F0 only and a grazing highlight in the sun's colour is nearly the same (a black mat facing a 15° sun: luma 25.4 at 0.01, 62.8 at 0.015, 63.5 at 0.35). A dull dark surface is specular OFF; roughness, not the amount, narrows a sheen.
+- **Pinned by:** `tests/unit/test_scene3d_surfaces.py::test_a_dull_dark_surface_takes_no_specular_at_all`; `tests/integration/test_built_materials_render.py::test_the_trampoline_s_mat_stays_dark_and_its_pad_blue`
+- **Source:** #803; ADR-059 addendum (#801, #803)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: #803 proposed specular 0.05 for rubber to take the warm sheen off the trampoline's mat; measured, 0.05 left it at luma 62.8 - the same as 0.35 (63.5) - while 0.01 read 25.4, exactly the specular-free frame. Sweep (black mat, a 15.2° sun, the camera 6.5 m back along its azimuth, roughness 0.95): 0.0 / 0.005 / 0.01 → 25.4; 0.015 → 62.8; 0.02 → 62.2; 0.05 → 62.8; 0.35 → 63.5. Roughness moved it more: 0.90 → 73.2, 0.98 → 57.7, 1.0 → 54.6 (with the specular on). Cause (consistent with the sweep): Qt keys a principled material's specular in only above 0.01, and its Fresnel reaches 1 at grazing whatever F0 the amount sets. Fix: `SURFACES` gives rubber and canvas specular 0.0; plastic stays on but fully rough (1.0, its pad 8.0° off its blue facing the sun, 9.3° at 0.95).

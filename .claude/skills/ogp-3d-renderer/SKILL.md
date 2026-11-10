@@ -40,5 +40,6 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 24. Ambient occlusion under a weather (#687) — flat ground occluding itself, the bias and the rim, the ring that moves with picture size, height fog is a slab, `VAR_COLOR` vs `COLOR`, `NORMAL` | [Read](references/024-24-ssao-under-a-weather-height-fog-vertex-colour-687.md) |
 | 25. Recording a video (#807) — what Qt hands Windows' H.264 encoder (CBR or a quality, never a profile), the level, the stream's layout, colour tags Qt's decoder reads, a 4K tour's memory | [Read](references/025-25-recording-a-video-what-reaches-the-encoder-807.md) |
 | 26. The atmosphere sky at the painted horizon (#716, #719) — table alpha, calibrating in the frame, a full shared GPU | [Read](references/026-26-the-atmosphere-sky-at-the-horizon-716-719.md) |
+| 29. Built materials on the engine (#801, #803) — `specularAmount` is a switch at 0.01, `Texture` has no anisotropy, a `TextureInput` is sampled raw, a cotangent frame from screen derivatives, `SPECULAR_LIGHT()` and the soft-capped glint, one Model per surface | [Read](references/029-29-built-materials-on-the-engine-801-803.md) |
 
 The host state contract is owned by `ui/view3d/quick3d/lifecycle.py`.

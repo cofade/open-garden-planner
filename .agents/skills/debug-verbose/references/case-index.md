@@ -217,3 +217,4 @@
 | Case study: a day lapse that flickered at dawn and grew brighter after sunset (#799, #802) | [Read](221-case-study-a-day-lapse-that-flickered-and-brightened-after-sunset-799-802.md) |
 | Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](222-case-study-a-blurred-bar-with-a-light-rim-743.md) |
 | Case study: a video whose first second more bits could not fix - Qt's average bit rate is Media Foundation's CBR (#807) | [Read](226-case-study-a-video-whose-first-second-more-bits-could-not-fix-807.md) |
+| Case study: a black mat that read tan at a 'dull' specular, and a render gate that could not see it until its positive control (#801, #803) | [Read](229-case-study-a-black-mat-that-read-tan-and-a-gate-that-could-not-see-it-801-803.md) |
