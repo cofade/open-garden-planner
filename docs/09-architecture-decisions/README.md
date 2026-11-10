@@ -4099,7 +4099,7 @@ fix the crash, and add a partly cloudy weather. What changed:
 
 ### Addendum L7.1 — the atmosphere sky meets the painted horizon (2026-11-09, #716, #719)
 
-**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11). Both issues
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-10). Both issues
 are one problem: at and below the 6° haze band the painted sky shows, so the fog meets the
 same horizon in every direction (unchanged), and above it nothing tied the atmosphere's
 LEVEL to that horizon. The clear sky's low band was too bright (#716), the cloud deck too
@@ -4258,7 +4258,7 @@ the 6° plateau is 169 px at 5.96°, the 12° plateau 130 px at 12.05°. The pai
 
 ### Addendum #798 — the meadow's grass (2026-11-10)
 
-**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11). The 3D survey's top
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-10). The 3D survey's top
 visual defect: from the app's default framing 73–80 % of the picture was flat green (local luma
 std under 1.5 over 9 × 9 px; the survey read 80 % on the family garden, measured here 79.0 %),
 the meadow's own texture a luma std of 0.54–0.62, and at eye height the plan's open ground a
@@ -12108,7 +12108,7 @@ hidden-view guard and the closing-dialog twin).
 
 ### ADR-072 addendum: camera tours kept in the plan (#737)
 
-**Status:** implemented for issue #737; the release that ships it is named by its version sync.
+**Status:** shipped in v1.39.0 (PR #882) for issue #737.
 It replaces the consequence above that "keys of a tour live in the session".
 
 A tour's keyframes and settings lived only as long as the dialog, so a user could not come back
@@ -12219,7 +12219,7 @@ the real window).
 
 ### ADR-072 addendum: photo mode's own depth of field (#743, #744)
 
-**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11).
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-10).
 
 **Context**: decision 5 promises that the view previews what is saved, and the consequences above
 record where it failed. Qt's `depthOfField*` blurs a half-resolution copy with three taps
@@ -12315,7 +12315,7 @@ the shared shader code, the silhouette weight, the shader paths).
 
 ### ADR-072 addendum: review-grade video, and an orbit's ease and tilt (#807)
 
-**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11).
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-10).
 Decisions 5, 6 and 7 were the owner's to confirm (each is one constant) and stand as built.
 
 **Context**: the 3D promo survey found the MP4 review-grade only: H.264 Constrained Baseline at
