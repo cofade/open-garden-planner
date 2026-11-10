@@ -86,8 +86,16 @@ one is `en_US`).
   the planting calendar's `dd MMM`, `calendar=` a calendar widget of the field's own. No other
   code sets a display format or a week start (`tests/unit/test_date_fields.py` walks the
   source). Date keys stay ISO.
-- **A typed number**: a `QDoubleSpinBox` needs nothing — either decimal key types the field's
-  decimal mark. Free text is read with `parse_decimal`. What the UI shows, it accepts back.
+- **A typed or pasted number**: a `QDoubleSpinBox` needs nothing. `ui/number_fields` (installed
+  on the application by `main()`) puts a validator in front of the focused field's own, and a
+  number with ONE mark has it read as the decimal mark, whether it was typed, pasted with
+  Ctrl+V or pasted from the context menu. Free text is read with `parse_decimal`: a sign, ASCII
+  digits, at most one mark; it raises `ValueError` for a group separator, an exponent, `nan`
+  and `inf`. What the UI shows, it accepts back.
+- **`core/i18n.py` imports QtCore only.** Qt-free services ask it for a formatter. Widget code
+  for numbers and dates lives in `ui/number_fields.py` and `ui/date_fields.py`;
+  `scripts/check_import_boundaries.py` fails when a `QT_CORE_ONLY` module reaches a widget
+  module through its eager imports.
 - **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
   in every language (`tests/integration/test_locale_chrome.py`).
 - **In tests** the locale is process-wide state. `conftest._app_locale` starts every test in

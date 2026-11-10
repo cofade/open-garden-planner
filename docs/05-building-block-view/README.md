@@ -155,7 +155,7 @@ src/open_garden_planner/
 │   ├── stacking.py               # Qt-free per-object stacking order (Bring to Front/Forward/Backward/Back), block expansion, parent clamp (ADR-043, §8.25)
 │   ├── canvas_bounds.py          # Qt-free canvas clamping math — the ONE shared rule keeping items on-plan across GUI and Agent API (#380)
 │   ├── alignment.py              # Object alignment helpers
-│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month formatters, decimal keys (ADR-077)
+│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month/date formatters, parse_decimal; QtCore only (ADR-077)
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -271,6 +271,8 @@ src/open_garden_planner/
 │   │   ├── sun_sim_toolbar.py    # Sun & shade sim date/time-slider toolbar (US-E3)
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
+│   ├── date_fields.py            # as_date_field / as_time_field: ISO, 24 hours, week from Monday for every date and time field (#792, ADR-077)
+│   ├── number_fields.py          # Either decimal mark is the decimal mark in a QDoubleSpinBox, typed or pasted (#792, ADR-077)
 │   ├── sim_clock_subscription.py # connect_qobject(): a QObject on the Qt-free sim clock, never called after Qt destroyed it (L1.3)
 
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
@@ -877,6 +879,8 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `app/agent_host.py` | MCP-to-document host adapter with an explicit application reference. The application retains lifecycle/state and compatibility methods. |
 | `core/startup_probe.py` | Opt-in isolated startup measurement; normal startup does not activate it. |
 
-`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions;
+`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions
+and keeps the `QT_CORE_ONLY` modules (`core/i18n.py`, `services/task_generator.py`,
+`services/soil_service.py`) off the widget modules;
 the graph and scoped line/import measurements are in the audit evidence. These
 are responsibility extractions, not new domain or persistence implementations.

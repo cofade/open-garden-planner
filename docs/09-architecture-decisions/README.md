@@ -10063,7 +10063,9 @@ A13 (#465) must describe continuity without assigning privileges.
 2. **Static boundary enforcement.** `check_import_boundaries.py` checks eager
    module/class imports, including relative imports, conditionals and try blocks.
    Local and `TYPE_CHECKING` adapters remain permitted. The exception baseline
-   is empty. The permitted layer graph is acyclic; this does not claim that all
+   is empty. Since #792 it also follows the eager imports of the modules listed
+   in `QT_CORE_ONLY` and fails when one reaches `QtWidgets` or `QtGui` (a parent
+   package's `__init__` is not followed). The permitted layer graph is acyclic; this does not claim that all
    deferred runtime imports are cycle-free or that dynamic imports are analyzed.
 3. **Extract responsibilities through composition.** `ClipboardOperations`,
    `DragConstraints`, `PropertyEdits` and `AgentHost` have an explicit typed host.
@@ -11764,12 +11766,20 @@ application's chosen language, never the system locale on its own.
    `month_abbreviation`, `format_day_month` (the order of day and month is a translated
    Qt pattern). A translated template that carries its precision (`"{d:.2f} m"`) is
    handed a `LocalizedNumber`, so no source string and no catalog entry changes.
-4. **A typed `,` or `.` is the decimal mark in a number field.** A `QDoubleSpinBox`
-   silently drops the other convention's mark (measured: locale `en`, typed "155,8",
-   value 1558). Since the locale follows the UI language and the keyboard does not, a
-   German numeric keypad would enter values ten times too large into an English UI.
-   `_DecimalKeys` watches the focused spin box and rewrites the key; `parse_decimal`
-   does the same for free text (the typed-coordinate field, the shopping list's price).
+4. **A `,` or a `.` is the decimal mark in a number field, typed or pasted.** A
+   `QDoubleSpinBox` silently drops the other convention's mark (measured: locale `en`,
+   typed "155,8", value 1558). Since the locale follows the UI language and the keyboard
+   does not, a German numeric keypad would enter values ten times too large into an
+   English UI. `ui/number_fields` puts a validator in front of the focused spin box's
+   own: a number with exactly ONE mark gets it rewritten to the field's decimal mark,
+   whichever way the text arrives (a key, Ctrl+V, the context menu's Paste). The first
+   version rewrote key events only, so a pasted "155,8" was still 1558 (review round 1).
+   A text with more than one mark is handed to Qt untouched: its own grouping is read in
+   the field's locale and the other convention's is refused, so nothing is guessed. A
+   `QSpinBox` has no decimal mark and is left alone. `parse_decimal` is the same rule for
+   free text (the typed-coordinate field, the shopping list's price): a sign, ASCII
+   digits and at most one mark; it refuses a group separator, an exponent and everything
+   only Python's `float` reads (`nan`, `inf`, `1_000`), and its result is finite.
    What the UI shows, it accepts back — in either convention.
 5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
    and the clipboard rows of the shopping list write a decimal point in every language.
@@ -11806,9 +11816,20 @@ application-wide Python event filter for the decimal key (it would run for every
 of every object — the filter sits on the focused spin box only); removing the decimal
 key rewrite and documenting the trap (a silent factor of ten in a CAD field).
 
-**Consequences**: a user who types a group separator into a number field gets a decimal
-mark instead; nobody is known to do that in a CAD field, and the coordinate parser has
-read both marks as decimal since Package A. An English UI is `en_US` on a non-English
+**Consequences**: a single `,` or `.` is always the decimal mark. That is a trade-off
+and it has a loser: a user who writes a thousands separator. "1,234" entered into an
+English field is 1.234, and "1,234.5" TYPED into it is 1.23 (the comma becomes the
+decimal mark, the fourth digit exceeds the field's two decimals, the second mark is
+refused); before this ADR both were read as English grouping, 1234 and 1234.5. Pasted as
+a whole, "1,234.5" is still 1234.5, because a text with two marks is left to Qt. The
+other choice loses more: a mark that is a decimal mark in one UI language and a group
+separator in the other is a silent factor of ten or a thousand for everyone whose
+keyboard or clipboard does not match the UI language, which is the owner's own setup.
+The formatters write no group separator, so the UI never shows a number it would read
+back differently, and the coordinate parser has read both marks as decimal since
+Package A. `core/i18n.py` imports QtCore only, because Qt-free services ask it for a
+formatter; the number-field validator and the date-field helper live in `ui/`, and
+`scripts/check_import_boundaries.py` holds that (`QT_CORE_ONLY`). An English UI is `en_US` on a non-English
 system. That locale's month/day order, 12-hour clock and Sunday week start reach a widget
 that takes its format from the locale; the app's own date and time fields and its dates in
 text therefore take none of the three from it (decisions 7 to 9). The first version of this
