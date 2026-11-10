@@ -1308,7 +1308,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 ### ADR-037 addendum — the sun map's key, its labels and what is painted with it (#794, #793; 2026-11-10)
 
-**Status**: Accepted (2026-11-10), decisions 1, 3 and 6 pending the owner's confirmation; amended the same day after the second review of the 2D branch — the day's format in decision 1 and the invariant of decision 7 are that round's, and what decision 7 does to a narrow sunlit gap is pending the owner's confirmation too | **Context**: issue #794 (the hours-of-sun map in the 2D plan: no legend, labels cut by plants, blurred badges, time-of-day shadows over the map) and the last point of #793 (the shadow's soft edge shows as bands when zoomed in). Mechanics: §8.9.18.
+**Status**: Accepted (2026-11-10), shipped in v1.38.0 (PR #838); decisions 1, 3, 6 and the narrow-gap rule of decision 7 were confirmed in the owner's manual test of 2026-11-10; amended the same day after the second review of the 2D branch — the day's format in decision 1 and the invariant of decision 7 are that round's | **Context**: issue #794 (the hours-of-sun map in the 2D plan: no legend, labels cut by plants, blurred badges, time-of-day shadows over the map) and the last point of #793 (the shadow's soft edge shows as bands when zoomed in). Mechanics: §8.9.18.
 
 **1. The map has a key. This revises "the labeled contours are the key" of the addendum above.** A number on a contour says what the line is; it does not say what a colour is, and between two contours the colour is all there is. The key is a bar of the map's tints from no sun to sun all day, a mark at every contoured hour, numbers at the numbered hours, and a title with the day — written as every label, card and legend of the application writes a date (`core.i18n.format_short_date`: day, month name, year, in the UI language), not in ISO, which is for a date field, a file and the Agent API (until the second review the title wrote `2026-06-21`). What it shows is derived from the tables the map is drawn from (`core.heatmap_render.sun_legend`); there is no second colour table and no second "which hours are numbered" rule, and a unit test searches the sources for one. The bar shows the tints on the bare plan's colour: the map is translucent, so on a lawn its colours are the lawn's too — no key can show that, and an opaque map (which could) would hide the garden the map is read against. *Rejected*: a swatch legend in the toolbar (removed in 2026-07 for good reason: it is not on the picture and not in an export); discrete hour classes (the map is continuous since the 2026-07 redesign; the horticultural bands stay the domain classification the even contours align with).
 
@@ -9824,8 +9824,8 @@ name, since "Iris" is both a plant's name and a genus.
 
 ### ADR-066 addendum: examples open in a showcase state (#795)
 
-**Date:** 2026-11-10. **Status:** built for the visual-polish package; the decisions marked
-*owner* wait for the owner's confirmation.
+**Date:** 2026-11-10. **Status:** shipped in v1.38.0 (PR #838); the owner confirmed the decisions marked
+*owner* in the manual test of 2026-11-10.
 
 **Context.** The 2D survey for the promo material found that an example opened in the evening is
 drawn at night, on today's date; its Harvest and Seed Inventory tabs are empty; Plant Details show
@@ -10738,7 +10738,7 @@ clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout ca
 
 ### ADR-059 / ADR-070 addendum — open frames are weighted, not solid (#698, 2026-11-09)
 
-**Status**: Decided in the visual-polish package on #440's precedent; **the owner may veto**
+**Status**: Shipped in v1.38.0 (PR #838), confirmed in the owner's manual test of 2026-11-10; decided on #440's precedent, and **the owner may still veto**
 (per kind: move its name from `OPEN_FRAME_TYPE_NAMES` to `SOLID_2D_DECISIONS`, with the
 reason; the rows of the shadow table follow) | **Context**: issue #698. The
 owner's part of it — a string of lights — was answered in the addendum above (no 2D
@@ -11651,7 +11651,7 @@ decided and what was rejected.
    (PF-CAN-48).
 ## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
-**Status**: Accepted (visual-polish package, 2026-11-09)
+**Status**: Accepted (visual-polish package, 2026-11-09); shipped in v1.38.0 (PR #838)
 
 **Context**: every export paints the same `QGraphicsScene`, each through a different
 paint device, and each device had its own way of being wrong. The SVG of the
@@ -11782,7 +11782,7 @@ FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
 
 ## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
 
-**Status**: Accepted (visual-polish package, 2026-11-10)
+**Status**: Accepted (visual-polish package, 2026-11-10); shipped in v1.38.0 (PR #838)
 
 **Context**: the app let the user choose a UI language and never told Qt a locale. Spin
 boxes, date edits and every bare `QLocale()` formatted in the SYSTEM locale; Python
