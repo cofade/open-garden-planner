@@ -4099,7 +4099,7 @@ fix the crash, and add a partly cloudy weather. What changed:
 
 ### Addendum L7.1 — the atmosphere sky meets the painted horizon (2026-11-09, #716, #719)
 
-**Status**: Proposed (branch `vp/716-719-sky`, in the visual-polish package). Both issues
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11). Both issues
 are one problem: at and below the 6° haze band the painted sky shows, so the fog meets the
 same horizon in every direction (unchanged), and above it nothing tied the atmosphere's
 LEVEL to that horizon. The clear sky's low band was too bright (#716), the cloud deck too
@@ -4258,7 +4258,7 @@ the 6° plateau is 169 px at 5.96°, the 12° plateau 130 px at 12.05°. The pai
 
 ### Addendum #798 — the meadow's grass (2026-11-10)
 
-**Status**: Proposed (branch `vp/798-meadow`, in the visual-polish package). The 3D survey's top
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11). The 3D survey's top
 visual defect: from the app's default framing 73–80 % of the picture was flat green (local luma
 std under 1.5 over 9 × 9 px; the survey read 80 % on the family garden, measured here 79.0 %),
 the meadow's own texture a luma std of 0.54–0.62, and at eye height the plan's open ground a
@@ -12219,7 +12219,7 @@ the real window).
 
 ### ADR-072 addendum: photo mode's own depth of field (#743, #744)
 
-**Status**: proposed in the visual-polish package; not yet accepted by the owner.
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11).
 
 **Context**: decision 5 promises that the view previews what is saved, and the consequences above
 record where it failed. Qt's `depthOfField*` blurs a half-resolution copy with three taps
@@ -12315,8 +12315,8 @@ the shared shader code, the silhouette weight, the shader paths).
 
 ### ADR-072 addendum: review-grade video, and an orbit's ease and tilt (#807)
 
-**Status**: proposed in the visual-polish package; not yet accepted by the owner. Decisions 5, 6
-and 7 are the owner's to confirm (each is one constant).
+**Status**: Accepted; shipped in v1.39.0 (PR #882, visual-polish package; owner's manual test 2026-11-11).
+Decisions 5, 6 and 7 were the owner's to confirm (each is one constant) and stand as built.
 
 **Context**: the 3D promo survey found the MP4 review-grade only: H.264 Constrained Baseline at
 0.2 bit/px (12 Mbit/s at 1080p30), no colour tags, and an orbit that starts and stops at full
