@@ -20,12 +20,15 @@ to rotation is zero at rotation 0.
 
 from __future__ import annotations
 
+import base64
+import re
 from collections.abc import Callable
 
 import numpy as np
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QImage, QPixmapCache
+from PyQt6.QtGui import QImage, QPainter, QPixmapCache
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QGraphicsItem
 
 from open_garden_planner.agent_api.render import render_canvas_image
@@ -96,6 +99,17 @@ def _upscaled(image: QImage, factor: float) -> np.ndarray:
             Qt.TransformationMode.SmoothTransformation,
         )
     )
+
+
+def _largest_picture(svg_path) -> QImage:
+    """The largest picture embedded in an SVG file (by pixel count)."""
+    text = svg_path.read_text(encoding="utf-8")
+    pictures = [
+        QImage.fromData(base64.b64decode(data))
+        for data in re.findall(r'href="data:image/png;base64,([^"]*)"', text)
+    ]
+    assert pictures, "the SVG embeds no picture"
+    return max(pictures, key=lambda picture: picture.width() * picture.height())
 
 
 def _build(kind: str, rotation: float) -> tuple[CanvasScene, QGraphicsItem, float, float]:
@@ -210,6 +224,67 @@ class TestExportsAreSharp:
         ratio = _gradient_energy(shown) / _gradient_energy(before)
         assert ratio >= gain, f"{kind} rotated {rotation:g}: gain {ratio:.2f}"
 
+    @pytest.mark.parametrize("rotation", [0.0, 30.0])
+    @pytest.mark.parametrize("kind", ["plant-circle", "furniture-rectangle"])
+    def test_an_svg_embeds_its_sprites_at_print_resolution(
+        self, qtbot, tmp_path, kind: str, rotation: float
+    ) -> None:
+        """The SVG export records the plan in 1/300-inch units (#787), so the
+        sprite it embeds is the one a 300-dpi PNG of that width gets: on 40 cm of
+        paper 3.94 units per cm, rasterised at 4 px per cm — four times the
+        pixels a side of the file that has one unit per cm.
+
+        Read from the file, not from ``QSvgRenderer``'s raster of it: that
+        enlarges an embedded picture without smoothing, and the blocks of a
+        coarse sprite then measure as detail (the unfixed export passed the
+        gain bar of the PNG test)."""
+        scene, _item, _half, _gain = _build(kind, rotation)
+        fine_path, coarse_path = tmp_path / "fine.svg", tmp_path / "coarse.svg"
+        ExportService.export_to_svg(scene, fine_path, output_width_cm=40.0)
+        # 1200 units wide: one unit — and one bitmap pixel — per cm
+        ExportService.export_to_svg(scene, coarse_path, output_width_cm=10.16)
+        fine, coarse = _largest_picture(fine_path), _largest_picture(coarse_path)
+        assert coarse.width() > 0
+        assert fine.width() == pytest.approx(4 * coarse.width(), abs=4)
+        assert fine.height() == pytest.approx(4 * coarse.height(), abs=4)
+
+    @pytest.mark.parametrize("rotation", [0.0, 30.0])
+    def test_an_svg_fill_carries_the_detail_tile(self, qtbot, tmp_path, rotation: float) -> None:
+        """... and its textured fill is painted with the 2-px-per-cm tile, in the
+        frame the fill has (the recorder moves a brush's own transform into the
+        world transform; the detail tile's half scale rides along)."""
+        kind = "textured-polygon"
+        scene, _item, half, gain = _build(kind, rotation)
+        fine_path, coarse_path = tmp_path / "fine.svg", tmp_path / "coarse.svg"
+        ExportService.export_to_svg(scene, fine_path, output_width_cm=40.0)
+        ExportService.export_to_svg(scene, coarse_path, output_width_cm=10.16)
+        scale = 40.0 / 2.54 * 300 / CANVAS_W
+
+        def interior(path, px_per_cm: float) -> QImage:
+            """The item's interior, that file rasterised at ``px_per_cm``."""
+            renderer = QSvgRenderer(str(path))
+            assert renderer.isValid()
+            image = QImage(
+                round(CANVAS_W * px_per_cm), round(CANVAS_H * px_per_cm),
+                QImage.Format.Format_ARGB32_Premultiplied,
+            )
+            image.fill(Qt.GlobalColor.white)
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            renderer.render(painter, QRectF(0, 0, image.width(), image.height()))
+            painter.end()
+            side = int(2 * half * px_per_cm)
+            return image.copy(
+                int((600 - half) * px_per_cm), int((450 - half) * px_per_cm), side, side
+            )
+
+        shown = _pixels(interior(fine_path, scale))
+        # the coarse file at its own resolution, enlarged: what the fine file's
+        # fill was before it was painted for it
+        before = _upscaled(interior(coarse_path, 1.0), shown.shape[0] / (2 * half))
+        ratio = _gradient_energy(shown) / _gradient_energy(before)
+        assert ratio >= gain, f"{kind} rotated {rotation:g}: gain {ratio:.2f}"
+
     @pytest.mark.parametrize("kind", ["plant-circle", "furniture-rectangle"])
     def test_the_agent_api_render_is_rasterised_for_its_own_image(self, qtbot, kind: str) -> None:
         scene, _item, half, gain = _build(kind, 0.0)
@@ -240,8 +315,6 @@ class TestExportsAreSharp:
         sprite_raster.clear_sprite_cache()
         image = QImage(120, 90, QImage.Format.Format_ARGB32_Premultiplied)
         image.fill(0)
-        from PyQt6.QtGui import QPainter
-
         painter = QPainter(image)
         scene.render(painter, QRectF(0, 0, 120, 90), QRectF(0, 0, CANVAS_W, CANVAS_H))
         painter.end()

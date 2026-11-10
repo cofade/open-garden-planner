@@ -306,11 +306,12 @@ def _luminance(image: QImage) -> np.ndarray:
     buffer.setsize(image.sizeInBytes())
     rows = np.frombuffer(buffer, dtype=np.uint8).reshape(height, image.bytesPerLine() // 4, 4)
     pixels = rows[:, :width, :]
-    return (
+    luminance: np.ndarray = (
         0.114 * pixels[:, :, 0].astype(np.float32)
         + 0.587 * pixels[:, :, 1].astype(np.float32)
         + 0.299 * pixels[:, :, 2].astype(np.float32)
     )
+    return luminance
 
 
 def _mean_luminance(image: QImage) -> float:

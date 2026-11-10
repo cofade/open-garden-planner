@@ -144,8 +144,10 @@ class TestDeviceScale:
         painter.end()
 
     def test_a_recording_painter_keeps_one_pixel_per_cm(self, qtbot) -> None:
-        """An SVG is replayed at a size nobody knows: its bitmaps stay as they
-        were before #785 (and its pattern post-processing sees 256-px tiles)."""
+        """A painter on a ``QSvgGenerator`` is replayed at a size nobody knows:
+        its bitmaps stay as they were before #785. (The app's SVG export paints
+        on its own recording device, which states its scale —
+        ``tests/integration/test_canvas_sharpness.py``.)"""
         buffer = QBuffer()
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         generator = QSvgGenerator()

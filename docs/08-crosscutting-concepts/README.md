@@ -611,10 +611,11 @@ at paint time, in **one place**.
    mirroring and the device pixel ratio together (`QPainter.deviceTransform()`
    includes the ratio; `worldTransform()` does not). The larger axis, signs
    dropped. Two painters are not taken at their word: a device finer than
-   300 dpi (a printer at 1200) counts as 300, and a painter that records
-   instead of rasterising (SVG, `QPicture`) keeps 1 px per cm, because it is
-   replayed at a size nobody knows — and the SVG export's pattern
-   post-processing expects 256-px tiles.
+   300 dpi (a printer at 1200) counts as 300, and a painter on a
+   `QSvgGenerator` or a `QPicture` keeps 1 px per cm, because it is replayed at
+   a size nobody knows. The SVG export is not such a painter: it records the
+   plan on a device of 1/300-inch units (§8.36), so it embeds the bitmaps a
+   300-dpi PNG of that width gets.
 2. `raster_level(scale)`: that scale rounded **up** to a power of two, never
    below 1. A bitmap is therefore never enlarged and is reduced by less than
    two, where bilinear filtering does not alias; a smooth zoom makes a new

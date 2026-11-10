@@ -5142,10 +5142,11 @@ two levels are one picture.
 **Consequences.** Fills are twice as fine, not unboundedly fine: at 1000 % a
 texture pixel still covers 5 screen pixels, where a sprite is exact. The 24
 detail tiles are generated, gated (`--check`, `TestDetailTiles`, tileability)
-and recorded in `PROVENANCE.md` like the tiles they come from. The SVG export
-and the 3D ground bake keep the 256-px tile (a recording painter is not asked
-its scale; the bake's grid is 1 px per cm at most). Tinted detail tiles are
-cached per (pattern, colour) within 48 MB.
+and recorded in `PROVENANCE.md` like the tiles they come from. The 3D ground bake
+keeps the 256-px tile (its grid is 1 px per cm at most). The SVG export records
+the plan in 1/300-inch units (ADR-076), so above 1 unit per cm it embeds the
+detail tile, as a 300-dpi PNG does. Tinted detail tiles are cached per
+(pattern, colour) within 48 MB.
 
 ### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
 

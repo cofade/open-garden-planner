@@ -25,9 +25,12 @@ Two painters are not asked for their scale:
 - a device finer than ``MAX_PRINT_DPI`` (a printer at 1200 dpi) is treated as
   that many dots per inch: a sprite on paper is rasterised at 300 dpi, not at
   the spool-filling resolution of the print head;
-- a painter that *records* instead of rasterising (SVG, ``QPicture``) is
-  replayed at a size nobody knows yet, so it keeps the 1 px per cm it always
-  had (``RECORDED_SCALE``).
+- a painter on a ``QSvgGenerator`` or a ``QPicture`` records instead of
+  rasterising and is replayed at a size nobody knows yet, so it keeps the 1 px
+  per cm it always had (``RECORDED_SCALE``). The app's own SVG export is not
+  such a painter: ``services/svg_export.py`` records the plan on a device of
+  1/300-inch units (#787) whose transform is the true output scale, so an SVG
+  embeds the bitmaps a 300-dpi PNG of that width gets.
 
 This module holds no cache and no pixmap: ``core.sprite_raster`` (sprites) and
 ``core.fill_patterns`` (fill tiles) apply the rule.
@@ -68,8 +71,8 @@ LEVEL_TOLERANCE: Final = 0.01
 #: (1200 / 300)² = 16 times the pixels.
 MAX_PRINT_DPI: Final = 300.0
 
-#: The scale a recording painter (SVG, QPicture) is given: the 1 px per cm every
-#: bitmap had before #785.
+#: The scale a painter on a QSvgGenerator or a QPicture is given: the 1 px per cm
+#: every bitmap had before #785.
 RECORDED_SCALE: Final = 1.0
 
 _RECORDING_ENGINES: Final = (QPaintEngine.Type.SVG, QPaintEngine.Type.Picture)
