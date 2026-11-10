@@ -1148,7 +1148,7 @@
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
           "sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc",
-          "current_sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc"
+          "current_sha256": "11ed69b6a8cb2219334eb59d9c70de2761a8be030d2e18ad403314f13b42e848"
         }
       ]
     },
@@ -2548,7 +2548,7 @@
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
           "sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13",
-          "current_sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13"
+          "current_sha256": "eea52f6fabba83d06c376fbc58513e6d054d23ab1fda5ac41e5a492dea6dd320"
         }
       ]
     },
@@ -2975,6 +2975,14 @@
         ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
         ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
         ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
+      ]
+    },
+    {
+      "issue": 787,
+      "reason": "The review of the 2D visual-polish branch found a source-anchor grep in the debugging playbook for two helpers that #787 deleted (_fix_svg_pattern_yflip, _fix_svg_qt_texture_clipping). Replace it with the anchors of services/svg_export.py in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
+        ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md"
       ]
     }
   ]
