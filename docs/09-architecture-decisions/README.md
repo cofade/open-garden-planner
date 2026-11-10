@@ -4097,6 +4097,323 @@ fix the crash, and add a partly cloudy weather. What changed:
 - **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
   machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
+### Addendum L7.1 — the atmosphere sky meets the painted horizon (2026-11-09, #716, #719)
+
+**Status**: Proposed (branch `vp/716-719-sky`, in the visual-polish package). Both issues
+are one problem: at and below the 6° haze band the painted sky shows, so the fog meets the
+same horizon in every direction (unchanged), and above it nothing tied the atmosphere's
+LEVEL to that horizon. The clear sky's low band was too bright (#716), the cloud deck too
+dark (#719). The painted sky, the default, is untouched: the painted board's seven shots
+are identical to `master`'s to the level (max difference 0). The sun's azimuth and
+elevation, the shadows and every truth gate are untouched: the key light and the probe are
+the painted sky's, as since L7's revision.
+
+**Measured with a new board phase** (`render_beauty_board.py --sky-bands`): sky-only frames
+over the empty meadow at a 300° sun, toward, across and away from it, Medium, 640 × 360, RTX
+4070, binned by WORLD elevation in 0.5° bands within ±4° of the bearing
+(`board_probes.sky_profile`; an image row is a plane, PF-L3D-19). The render tier gates it on
+both skies (`test_view3d_looks_render.py`); every gate below was observed failing on `master`
+with the same phase first.
+
+**#716 — one gain, redistributed per elevation.** `atmosphere_gain` scaled the whole sky by
+one number, so the atmosphere's steep fall from horizon to zenith stayed: its 6–15° band read
+1.37–1.60× the painted sky's luminance over the azimuth (up to 2.1× toward a low sun), its
+zenith 0.5–0.8× (Python model of the drawn sky), and its bright low band stood over the
+painted horizon of the haze band, so the sky darkened toward 0.5°. The reviewer's proposal —
+one `lowBandScale` faded out between 6° and 25°, the gain re-integrated over the sky as drawn —
+was modelled first and not built: it removes the darkening, but with the light kept the gain
+rises and the faded band becomes a bright belt (rings at 1.3–1.5× the painted sky at 25°),
+the 6–15° band stays at 1.10–1.19× (over 1.15 at 6°, 2° and 0.5°) and the zenith at
+0.57–0.83×. Instead `atmosphere_lut.sky_profile` gives every ring of the clear
+atmosphere the mean luminance of the painted sky's GRADIENT at its elevation (the painted
+sky without its sun) × one glow factor, and rides in the sky-view table's alpha, relative to
+the gain. Normalising on the painted ring MEANS was modelled first and rejected: the painted
+disc's glow spread round the ring at the sun's elevation (+10 % at a 60° sun, PF-L3D-22). The
+gain and the glow factor are integrated over the sky as drawn (each direction weighted by the
+atmosphere's haze share), so the drawn sky still sends the painted sky's light onto a
+horizontal surface (model: 1.0002–1.0003; the gain moves by at most 0.9 % against L7's).
+
+| Clear sky, 300° sun | `master` | branch | painted |
+|---|---|---|---|
+| darkening 20° → 0.5°, away (luma), suns 60 / 15 / 6 / 2 / 0.5° | 1.7 / 18.3 / 21.9 / 20.8 / 16.7 | 0.0 at every sun | 0.0 |
+| darkening 20° → 0.5°, across | 0.1–0.7 | 0.0 | 0.0 |
+| 6–15° band over the azimuth (1 : 2 : 1), over the painted sky's | 1.37 / 1.44 / 1.49 / 1.59 / 1.60 | 1.05 / 0.94 / 0.96 / 0.99 / 0.99 | 1 |
+| … toward the sun at 2° / 0.5° | 1.98 / 2.10 | 1.35 / 1.42 | 1 |
+| meadow under the frames, atmosphere minus painted (luma) | 0.00 | 0.00 | — |
+
+Toward a low sun the sky still darkens below the sun's glow into the painted horizon (24–26
+luma at 6–0.5°; `master` 39–46; the painted sky 10 at a 15° sun): that is the disc's own glow
+meeting a horizon that must be the same in every direction, and is not gated. The issue's
+grass criterion (±1 luma at 60°, 15°, 2°) holds trivially: the painted probe lights the garden
+under both models since L7's revision (PF-E3D-17), so `atmosphere_gain` no longer reaches the
+ground; the meadow under the sky-band frames is identical on `master` and the branch
+(mean luma of the −6…−3° bands, away: 200.99 / 150.35 / 69.01 at 60° / 15° / 2°, the same
+under both skies).
+
+**#719 — the deck anchored on the painted haze band.** The deck 10° up read 11–14 luma under
+the painted band from noon down to a 6° sun and 37–45 at sunset (its light is the example's
+sun through a ground airmass, which dies faster than the painted sky dims: 0.29 of its noon
+luminance at a 0° sun against the painted sky's 0.6; then the clear sky's gain lifted it again
+in twilight, the "rise after sunset"). Two changes, both measured:
+
+- **the sun side of the clouds' ambient diffuses with the cover** (`atmosphere.frag`, a fourth
+  marked change to the example's `raymarchClouds`: `sunFacing` toward 0.5 by
+  `CLOUD_DIFFUSION × cover`, as the forward lobe already did). Its sample is the clear sky's
+  aerosol glow beside a low sun: a closed deck read 138 / 120 / 102 luma toward / across / away
+  at a 0.5° sun, 126 / 120 / 119 after. One scale cannot meet a band with a spread of 36 luma;
+- **a deck's light takes an anchor** (`quick3d.look.deck_anchor`, on `cloudLightGain`):
+  `ATMOSPHERE_DECK_LEVEL` 1.48 by day, to the power of how closed the deck is (0.5 → 1, as
+  `sunAlpha`; Snow is 0.7), times `ATMOSPHERE_DECK_SUNSET` per sun elevation (1 by day, 2.08 at
+  0°, 0.53 at −4°; log-linear) for every deck (cloud ≥ 0.5, the overcast mood's boundary).
+  Partly cloudy takes neither. Measured in the frame: the deck rendered at factors 1 and 2 at
+  14 suns from 60° to −5°, the factor solved from the local response so that under a full
+  Overcast the deck 10° up reads the painted sky's luminance over the azimuth, then checked.
+  A two-source CPU model of the deck through `skyExposed` missed by −74 % to +23 % (the frame
+  passes the scene's tone mapping after the shader, PF-L3D-23). The reviewer's proposal — a
+  factor table on `cloud_light_gain` — is what was built, plus the diffusion it lacked; the
+  failed slant clamp (deck 231 at a 0° sun) was not repeated: the slant is unchanged.
+  Snow's own sunset needed the shape in full and its level only by closure (with both by
+  closure its across view read 13.4 at 0.5°).
+
+| Band (3°) minus deck (10°), luma, toward / across / away | `master` | branch | painted |
+|---|---|---|---|
+| Overcast and Rain, 6° sun | 9.9 / 14.0 / 16.9 | −0.9 / 0.8 / 0.0 | 3.0 / 5.7 / 5.7 |
+| Overcast and Rain, 0.5° sun | 26.5 / 37.5 / 51.0 | 1.1 / 3.9 / 5.6 | 6.2 / 6.0 / 6.0 |
+| Snow, 6° sun | 1.5 / 13.9 / 4.3 | −4.4 / 4.2 / −8.1 | 4.1 / 7.4 / 7.4 |
+| Snow, 0.5° sun | 19.2 / 37.6 / 38.4 | −1.9 / 8.0 / −0.1 | 8.9 / 8.6 / 8.6 |
+| Overcast, 14 suns 60° … −5° (before: the diffusion alone) | up to 44.8 (0°) | −1.7 … 7.6 | 1.2 … 7.2 |
+| Snow, 14 suns 60° … −5° (before: the diffusion alone) | up to 43.1 (0°) | −8.1 … 9.7 | 2.7 … 9.6 |
+
+The colour step at the haze line went down with it (ΔE76 band against deck, toward a 0.5° sun:
+Overcast 9.9 → 0.3, Snow 8.8 → 3.5 before the hue share below; the painted sky's own 4.1).
+
+**Cost**: none measurable — the profile reuses the gain's pass and the cached table (a new sun's
+Python work 244–270 ms median against `master`'s 259–275 ms; a new weather at the same sun
+1.9 ms).
+
+**Snow's deck at a low sun** (the owner's note on this addendum's first build; fixed and
+measured). The clouds' hue share was the cover alone, so Snow's 0.85 kept 15 % of the deck's
+own colour, lit by the example's sun through a ground airmass, which is nearly pure red at a low
+sun. The blend keeps luminance, so a pure red brings a large red channel: the deck read pink over
+a grey haze band. `quick3d.look.cloud_hue_share` now keeps a cloud's own colour only where the
+cloud is thin AND the deck open: 1 − (1 − cover) × (1 − closed). `deck_closure` is the one
+measure of "closed" for the disc (`sunAlpha`), the anchor and the hue. Partly cloudy keeps 0.4,
+Overcast and Rain 1, Snow 0.955. A share of 1 was measured too (the weather's neutral grey,
+C*ab 1.3–1.5). 0.955 is continuous in the cover and keeps the painted deck's chroma; how warm a
+snowy sunset may be stays the owner's call.
+
+| Snow deck 10° up (`--sky-bands`), sun 1 / 0.5 / 0 / −1° | `master` (0.5°) | before | after | painted (0.5°) |
+|---|---|---|---|---|
+| chroma C*ab, toward / across / away | 8.7–11.5 | 7.3–9.7, hue 14–32° | 3.2–4.0, hue 359–27° | 3.3–3.6 |
+| ΔE76 deck against the band (3°) | 8.4–20.5 | 3.1–6.5 | 1.0–4.8 | 4.2–4.3 |
+| deck chroma at any of the 14 suns 60° … −5° | — | up to 9.7 | up to 4.0 | — |
+| band minus deck (luma) over the 14 suns | — | −8.1 … 9.7 | −7.5 … 9.6 | 2.7 … 9.6 |
+
+Both columns were rendered on the same tree, "before" with the old share patched in. The deck's
+lightness moved by at most 0.3 L* at every one of the 14 suns.
+
+**Render tier on the merged tree** (this branch with `feature/3d-visual-polish`: `master`
+v1.37.10, #737, #743/#744; RTX 4070, 2026-11-10):
+
+- `test_living_garden_render.py::test_the_living_board_renders_every_shot` passes on both skies
+  (the atmosphere again after the hue share). L5 on the atmosphere, branch against `master`:
+  cloudy sunset over noon 0.737 / 0.776 / 0.796 / 0.720 against 0.772 / 0.770 / 0.792 / 0.712
+  (Partly cloudy / Overcast / Rain / Snow; gate < 0.85). Every cloudy dusk is monotone, with
+  `sky_dusk_ok` everywhere. The hue share moved only Snow (0.719 → 0.720). Under Overcast, Rain
+  and Snow the garden's ground luminance, atmosphere over painted, is 1.000 at noon, golden hour
+  and sunset. #719's "0.87–0.99" predates L7's revision: the painted probe lights the garden under
+  both models since then;
+- `test_quick3d_selftest.py`: 11 passed, on the GPU and on WARP. The atmosphere frames lie 82.3
+  off the plain background (bound 11) and the cloudy band (cloud 0.7, hue share 0.82) lies 26.1
+  off the clear one (bound 7; 27.6 with the old share);
+- `test_view3d_looks_render.py`, the board, moods, night and sky-band subset (26 tests): 22
+  passed. On this machine an offscreen grab takes 2.0–3.3 s per 640 × 360 frame (with and
+  without `QT_D3D_NO_VBLANK_THREAD`, on any tree), so the production board needs 935–1004 s
+  against the tier's 780 s watchdog. The run lengthened only the timeouts, with a pytest plugin
+  outside the repository; the bounds were not touched. The sky-band gates on the merged tree:
+  darkening 0.0 across and away at every sun; the 6–15° band at 1.05 / 0.94 / 0.96 / 0.99 / 0.99;
+  band minus deck −0.9 … 5.6 (Overcast, Rain) and −7.5 … 7.4 (Snow); the meadow unchanged. The
+  night/day test reads the night 0.000 luma off the painted night at every preset and the day
+  sky 15.66 off the painted one (bound 5; 17.7 before the profile). The four failures:
+  - G4 on the atmosphere, in two tests: the 6° disc read 0.49° low. The finder was at fault, not
+    the disc (next paragraph). After the fix the night/day test passes, with the atmosphere's
+    worst errors at 0.06° bearing and 0.07° elevation. The production board was not rendered
+    again; its own 48 sky views, read again offline by the new finder, give 0.07° (atmosphere)
+    and 0.13° (painted) at worst;
+  - `test_dusk_fades_and_sunset_is_no_cliff` on BOTH skies: at Medium, High and Ultra the night
+    frame reads 0.004 above the −5° frame (0.0402 → 0.0445 painted). This change did not cause
+    it. The merged base's own full painted board (`d319bce0`) shows the same rise to the digit
+    (+0.00425 / +0.00400 / +0.00412). The `--dusk` phase alone is monotone and identical on the
+    base and on the branch (night 0.0300), and inside the full board the night reads 0.0445, so
+    an earlier phase leaves state behind. It is left for a follow-up.
+
+**The sun-disc finder (G4) keys on a clipped core.** It took a plateau of pixels with every
+channel ≥ 250. Whether a warm core clips blue depends on the sky behind the disc. The
+atmosphere's 6° core read (255, 255, 252) on `master` and on the merged base, and
+(255, 255, 243) once the profile dimmed the sky round a low sun. The disc stood where it was,
+but no plateau was found, and the warm fallback read it 0.49° low over the haze band.
+`board_probes.sun_disc` now takes luma ≥ 250, because a warm core clips red and green first:
+the 6° plateau is 169 px at 5.96°, the 12° plateau 130 px at 12.05°. The painted discs peak at
+200–216, keep the fallback and read as before.
+
+### Addendum #798 — the meadow's grass (2026-11-10)
+
+**Status**: Proposed (branch `vp/798-meadow`, in the visual-polish package). The 3D survey's top
+visual defect: from the app's default framing 73–80 % of the picture was flat green (local luma
+std under 1.5 over 9 × 9 px; the survey read 80 % on the family garden, measured here 79.0 %),
+the meadow's own texture a luma std of 0.54–0.62, and at eye height the plan's open ground a
+football pitch against the textured lawn beside it. Cause, confirmed in the code: the endless
+meadow and the bare plan rectangle were `PrincipledMaterial`s with only `baseColor:
+root.meadowColor` (`look.MEADOW_ALBEDO`), and the bake paints uncovered plan ground in the same
+flat colour (`ground.MEADOW_RGB`). The issue's references held but one: `MEADOW_ALBEDO` is
+defined in `core/scene3d/look.py`; `quick3d/look.py` only maps it onto `meadowColor`.
+
+**Decisions.**
+
+1. **One shader for every piece of ground.** `ground.frag` draws the baked tiles, the bare plan
+   rectangle and the meadow (three `CustomMaterial`s with the same inputs, pinned by
+   `test_quick3d_qml.py`). The plan's edge is therefore the same function on both sides, and its
+   step is zero by construction instead of a tuned match. The issue proposed a separate
+   `meadow.frag`; rejected: a second shader is a second function at the edge.
+2. **The grass is the canvas's own GRASS texture**, untinted (`resources/textures/grass.png`, no
+   new asset), laid in world space at the canvas's scale (one texel a centimetre), uploaded once
+   per host as its LINEAR colour over its own mean (`core/scene3d/meadow.grass_detail`, RGBA16F,
+   `GrassDetailTexture`). The mips of a linear float texture keep the mean; the mips of the sRGB
+   bytes would darken minified grass to 0.983 of its luminance (about a code) and shift its hue
+   (PF-L3D-30). The texture's linear mean IS `MEADOW_ALBEDO` (to the code, by the sRGB curve,
+   as L0 derived it; within 1.2 % per channel by the engine's polynomial), and dividing the
+   texture's own mean out keeps the edge even for a changed texture.
+3. **No visible repeat.** Round 1 (the texture as it lies and turned 37° at 1.618×, summed
+   around the mean so the variance stays; 9 m and 41 m octaves) drew a lattice from above: the
+   texture's mottle repeats every 2.56 m (folded amplitude 2.15 luma at 60 m height). The
+   detail is high-passed (Gaussian sigma 16 cm, wrapped: the blades stay), and a 3.1 m octave of
+   value noise takes the mottle's place; every octave is turned its own way. Brightness 4 / 6 /
+   7 % at 3.1 / 9 / 41 m, hue 3.5 % at 17 m (`GRASS_VARIATION`), all of mean 1. After: 0.86 luma,
+   no visible lattice. A value noise has no mips: each octave fades as a pixel's reach on the
+   ground (`fwidth` of the world position) grows from 0.05 to 0.15 of its wavelength
+   (`meadowOctave`). Without that the board's distant-horizon rows failed their gate: 3.80 luma
+   at 403 m and 15° against 3.48 on the flat meadow (bound 3.6; at 0.15–0.4 of the wavelength
+   still 3.58); with it 3.48, and the far meadow is the flat mean, as before.
+4. **Open plan ground is marked by the bake's alpha.** The bake starts each tile as the meadow's
+   colour at alpha 0 (`ground_bake.OPEN_ALPHA`) and `QPainter`'s premultiplied source-over leaves
+   every colour byte as it was (of the bake's 477 tests only the one that pinned the bare
+   alpha changed) while the alpha becomes
+   the items' coverage; `ground.frag` adds the grass's deviation in proportion to `1 − alpha`
+   (PF-L3D-31). Rejected: painting the grass into the bake on the CPU — two implementations of one
+   function, a plan baked at ½ or ¼ px/cm would be blurrier than the meadow at its own edge, and
+   every bare tile would need bytes of its own.
+5. **The owner's call — the plan's open ground takes the grass too** (`look.OPEN_GROUND_GRASS`
+   = True, `LookSpec.open_ground_grass`, `Garden.qml`'s `openGroundGrass`). At L0 the owner
+   answered question 6 ("Meadow grass as now (a flat colour, an honest 'no lawn here'), meadow
+   with subtle value noise …, a neutral mown texture, or bare soil?") with "keep as-is". This
+   build changes the meadow outside (what #798 asks) and, by default, the open ground inside;
+   setting the constant to False is the veto: open plan ground keeps the flat colour and only
+   the meadow is grass. Both variants are rendered for the handoff.
+6. **The truth view keeps the flat colour** (`groundSurface` 0 in `topDown`): shadow IoU and the
+   orientation probe are unchanged.
+7. **The weather reaches the meadow in the shader only.** `apply_weather` no longer weathers
+   `meadow_albedo` (it darkened and snowed the flat meadow in Python while the tiles were
+   weathered in `ground.frag`); the meadow now takes the ground's one tint and cover, as the
+   tiles do. The twilight fill (#802) lights it like the tiles (default lighting of a custom
+   material).
+8. **The Low preset draws the grass without its variation** (`PresetSpec.meadow_surface = MEADOW_GRASS`;
+   Medium and up `MEADOW_GRASS_VARIED`). The issue allowed a cheaper Low past about 1 ms. On
+   the software adapter (WARP, the compatibility mode, which is Low; 960 × 540, the family
+   garden) the full surface cost +3.65 ms over the base's 47.3 (paired median of six rounds,
+   IQR +1.6 … +5.2): the variation's value noise 2.1 ms of it, the grass's two fetches 0.4.
+   Without the variation: +1.63 ms over 44.3 (IQR +0.7 … +3.5). The default framing's flat
+   share at Low stays 0.135 (0.125 with the variation).
+
+**Measured with a new board phase** (`render_beauty_board.py --meadow`; `board_probes.flat_share`,
+`meadow_mask`, `track_luma` / `temporal_noise`, `repeat_amplitude`, each with a positive control in
+`test_board_probes.py`): the app's default framing (`camera.frame_pose`) and the walk shot's eye
+level at the noon shot's sun (21 June, 11:00 UTC), High, 1280 × 720, RTX 4070; "before" is the
+production board on the base (`56ab8e0c`, an archive), "after" the final surface as the render
+tier measured it on the merged tree (`test_meadow_render.py`). The far-meadow flicker follows up to 400
+ground points 30–150 m out (nearer for a small plan's view) through ten frames of the default
+framing orbiting 0.5° a frame and of a flight 2.5 m high along the plan's south side, 25 cm a frame
+(7.5 m/s at 30 fps).
+
+| | family garden | food forest | raised bed | balcony |
+|---|---|---|---|---|
+| flat green, default framing (before → after) | 0.790 → 0.137 | 0.804 → 0.092 | 0.734 → 0.001 | 0.753 → 0.000 |
+| flat green, eye level | 0.112 → 0.005 | 0.091 → 0.041 | 0.262 → 0.073 | 0.242 → 0.071 |
+| meadow's texture (mean local luma std) | 0.54 → 5.66 | 0.55 → 6.37 | 0.62 → 9.72 | 0.56 → 9.16 |
+| meadow's mean luma | 155.18 → 154.93 | 154.81 → 154.61 | 150.18 → 151.27 | 154.26 → 155.78 |
+| at 1920 × 1080: flat green, default / eye | 0.804 → 0.059 / 0.129 → 0.011 | 0.814 → 0.026 / 0.099 → 0.041 | 0.745 → 0.001 / 0.269 → 0.062 | 0.762 → 0.000 / 0.278 → 0.062 |
+| far-meadow zigzag, orbit (luma RMS) | 0.094 → 0.231 | 0.098 → 0.231 | 0.085 → 0.241 | 0.088 → 0.332 |
+| far-meadow zigzag, flight | 0.027 → 0.099 | 0.027 → 0.094 | 0.032 → 0.099 | 0.036 → 0.101 |
+
+What is left flat in the default framing is the fogged band at the top of the frame (the family
+garden's rows 0–120 read 62–88 % flat, the rest under 7 %): the haze flattens it, as it should.
+The repeat from 60 m above, folded onto one 2.56 m period: flat 0.002 luma, round 1 2.15 (the
+lattice, visible), after 0.86 (not visible); the grass without mipmaps (a mutated `Garden.qml`,
+the flicker gate's positive control) reads 3.38 / 5.40 zigzag in the orbit / flight. The
+meadow's mean luma moves within ±0.4 in every mood of the board's shots and living shots on the
+family garden (noon, golden hour, sunset, morning, December noon, night, walk; overcast, rain,
+snow, dew, the lights' night), e.g. snow 163.83 → 164.22, rain 85.02 → 85.09, night 41.07 → 41.15.
+The track was first read on whole pixels and flickered on its own (0.91 luma on the same frames,
+debug-verbose case study 227).
+
+**Gates on the merged tree** (base `1138b0aa` against this branch; bench plan, 640 × 360, RTX
+4070, the painted sky unless said; the board's phases run one at a time with a longer watchdog,
+this machine's offscreen grab taking 4–5 s, and judged with the render tier's own assertions):
+
+| Gate | before (Low / High) | after (Low / Medium / High / Ultra) |
+|---|---|---|
+| plan edge, frame less its plan-free twin: step / line | 0.00 / 0.72 | 0.00 / 0.93 (atmosphere sky 0.00 / 0.72) |
+| plan edge on the frame itself (the grass's pattern): step / line | 0.21 / 1.64 | 2.12 / 3.93 |
+| horizon, per mood (gate 3.6): step / dip / ridge | 3.12 / 0.08 / 0.82 | 3.12 / 0.20 / 0.82 (atmosphere 3.52 / 0.08 / 1.31) |
+| distant horizon rows (gate 3.6) | 3.48 | 3.49 (3.80 before the octave clamp) |
+| shadow IoU 15 / 35 / 60° | 0.918 / 0.967 / 0.962; 0.985 / 0.968 / 0.962 | 0.920 / 0.962 / 0.953; 0.922 / 0.967 / 0.960; 0.984 / 0.967 / 0.961; 0.985 / 0.969 / 0.962 |
+| north-up NCC (identity) | 0.7637 | 0.7637 |
+| sky disc azimuth error | 0.08° | 0.08° (atmosphere 0.06°) |
+| night over noon | 0.0998 / 0.0926 | 0.0998 / 0.0931 / 0.0927 / 0.0931 |
+| dusk monotone, garden monotone, sunset step under the day ramp | yes, yes, yes | yes, yes, yes at every preset |
+
+On the tree merged again with #800/#805 (its AO floor and plant sway; Low / Medium / High /
+Ultra): plan edge (twin) 0.00 / 0.03 / 0.01 / 0.02, line 0.93 at most; distant horizon rows
+3.48; per-mood horizon 3.12; IoU 0.920–0.985; north-up 0.7637; night over noon 0.094–0.100;
+every dusk and garden dusk monotone; the fence's aliasing at Low 8.11 against Medium's 8.79
+(base 8.05 / 8.91). Render tier: `test_meadow_render.py` 4 passed, `test_quick3d_selftest.py`
+11, `test_quick3d_render.py` 51, `test_scene3d_ground_render.py` 27 (its WARP keep-alive
+soak failed its own precondition — a cycle presenting one frame — on the base and the branch
+alike while other agents rendered, and passed on the next run).
+
+The plan's edge cannot be judged on the frame any more: a 2 m line of grass is not flat, and the
+fits read its pattern (the same in every preset and mood: −2.1 on one view). The board renders
+every edge view a second time without a plan (`ground=None`) and measures the difference
+(`board_probes.difference_frame`): the plan's ground and the meadow are the same picture to
+0.00 luma. Its positive control is the owner's veto itself: with the plan's open ground flat
+(`--open-ground flat`) the same probe reads a step of 1.84 and a line of 7.5 — the flat colour
+beside the varied grass. Under the veto the edge gate as it stands would fail; its
+`raw_step` on the frame itself reads ±1.6 there (see the handoff). The software adapter (WARP,
+the compatibility mode) renders it with no Qt message (the family garden's default framing
+0.79 → 0.30 flat green at 640 × 360, no light probe there). OpenGL on Mesa llvmpipe could not be
+checked on Windows: the `opengl32sw.dll` PyQt6 ships is Mesa with LLVM 3.6, OpenGL 3.0, and the
+base fails on it as the branch does (Qt Quick's own shaders need GLSL 150).
+
+**Cost** (RTX 4070, Direct3D 11, 1920 × 1080, the family garden's default framing at noon; one
+process holding two hosts — the base's `Garden.qml` and this branch's — shown in turn; per
+round the median readback time of twelve NEW frames, the camera nudged 0.01 cm between them):
+
+| Preset | run 2: base → branch (paired median, IQR) | run 3: base → branch (paired median, IQR) |
+|---|---|---|
+| Low | 8.66 → 8.94 ms (−0.12, −1.1 … +0.4) | 15.07 → 17.12 (+0.69, −0.3 … +2.0) |
+| Medium | 11.65 → 11.36 (−0.70, −2.1 … +1.0) | 15.00 → 18.55 (+0.62, −1.0 … +5.9) |
+| High | 16.60 → 25.18 (+1.82, −0.2 … +8.1) | 21.27 → 25.09 (+2.14, −1.2 … +5.4) |
+| Ultra | 21.49 → 22.08 (−0.80, −1.8 … +2.7) | — (the run's timeout came first) |
+
+Two other agents rendered on the same GPU throughout, and both sides drifted 10 → 18 ms within
+run 3: no difference stands out of that noise. The ground shader is the same at Medium, High
+and Ultra (surface 2, relief 3), so a difference that depends on the preset is the shared
+GPU's; the branch's best frames per side were not slower (Low 7.30 against 8.77 ms, Medium 7.08
+against 7.28; High 15.10 against 13.58). Measured where it does show, on the software adapter:
+the Low decision above. Memory: one 256² RGBA16F texture per host — 512 KiB, about 683 KiB with
+its mips on the GPU — and its 512 KiB of upload data, for the host's life. Vsync could not be
+switched off for a windowed Direct3D 11 view (`QSurfaceFormat.setSwapInterval(0)`: every
+side presented at 16.0 ms), so presented frames could not measure it.
+
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
 **Status**: Accepted (2026-10, #414 / #416, task-date correctness package)
@@ -6908,6 +7225,473 @@ with `view3d_looks_driver.py` (§8.10.11).
   bound — ADR-060 addendum "the default and the removal".)*
   The looks' render gates are not in CI's render job; L1.9 decides, with L1.8's selection file.
 
+### ADR-059 addendum: low-sun shadows — a still frame's map fitted to the casters, pickets without a ramp (#734)
+
+**Context.** At golden hour the family garden's outer fence threw a long shadow onto the meadow
+whose edge showed coarse stair steps; at the 5.9° sunset the meadow behind it was strewn with
+bright streaks; both reached promotional 4K pictures and the first frames of a time-lapse. The
+issue asked which shadow setting decides it. Measured one variable at a time (`ogp-3d-renderer`
+§23, `ogp-lush-cinematic` reference 13, the board's new `--stairs` probe): two mechanisms.
+
+1. **The builder.** The L0 picket fence lowered each picket by `index * 7919 % 13 / 13 × 4` cm.
+   `7919 mod 13 = 2`: a ramp of seven pickets climbing 0.6 cm, then a drop, every 13. A low
+   sun turns each centimetre into `1 / tan(elevation)` of shadow (3.7 at 15°), so the fence's
+   long shadow carried a regular staircase whatever the map — a 4096 map, a tighter reach
+   and a 32-bit map left it pixel for pixel. Every picket fence of every plan was the same.
+   This was the issue's staircase.
+2. **The cascade fit.** `lockShadowmapTexels: true` sizes each cascade by the bounding sphere of
+   its whole frustum slice (Qt 6.12's `setupCascadingCamerasForShadowMap`): with
+   `shadowMapFar` ≥ 9000 cm, High's last cascade spans about 170 m on 2048 texels — 8.3 cm. A
+   long edge 20–40 m out stepped, the foot of every caster showed lit teeth one texel tall in
+   light space (`texel / sin(elevation)` long on the ground: the ground does not cast), and
+   the 0.5 cm slits an oblique sun leaves between 2.2 cm thick pickets aliased into streaks.
+   `pcfFactor` is a radius in scene units (2 cm by day) for every cascade; it cannot hide a
+   larger texel. Unlocked, Qt spans each cascade by the casters' box clipped to the slice —
+   about 1 cm texels on a 24 m plan — but that box moves with the camera: through the
+   product's capture path, orbiting the family garden 0.5° a frame, the fence's edge crawled
+   0.69 / 0.38 px a frame 0–10 / 10–20 m out (averaged over 30 cm) against 0.16 / 0.17 locked.
+   A single cascade crawled as far (0.32 / 0.39): the hero view never holds the whole plan.
+
+**Decision.**
+
+1. **A frame whose camera does not move fits the shadow map to the casters; a moving camera
+   keeps the locked fit.** `Garden.qml`: `lockShadowmapTexels: root.topDown ||
+   !root.fittedShadows`. `Quick3DHost.capture(..., fitted_shadows=False)`: the default is the
+   view's fit, so a capture that does not ask is the view to the level — the self-test's check,
+   which a fitted default failed on the renderer by 24 levels. The still pictures ask by name:
+   `WorkspaceCaptureCoordinator.write_photo`, `agent_picture` and the frames of a `HeldCamera`
+   tour (a time-lapse: the light turns under either fit, and the fitted grid crawls less —
+   measured below). An orbit, a flight and the live view keep the locked fit. The flag holds
+   for the capture's own frame and is put back in its `finally`, like its AO scale (a capture's
+   frame is never presented). `set_fitted_shadows` is the host's call for it;
+   `render_records(fitted_shadows=)` and the board's `--photo-shadows` render a picture's fit.
+   The orthographic truth view stays locked. `shadowMapFar`, the splits, the maps, the filters
+   and the bias are unchanged.
+2. **Each picket stops its own 0.5–1.5 cm under the posts** (`fences.PICKET_DROP_CM`), drawn
+   by a hash of the item's seed (`unit_hash`, `picket_seed`): the posts stay proud, no two
+   neighbours level, no period, no two fences alike. The fence's height (the posts) is the
+   plan's; nothing in the data moved. It holds in every frame, the view's included.
+
+**Measured** (RTX 4070, Direct3D 11, `--stairs` on bench_small at 1920 × 1080; the panel's edge
+20–40 m out in the default framing, spread across it; the foot: the lit share of a line 15 cm
+out from the panel's shaded face at 5.9°; streaks: the picket fence's 5.9° shadow,
+one-pitch-filtered, over the shadow's contrast, the worse of two cameras):
+
+| Setting (High, one at a time) | edge 15.2° | edge 5.9° | foot | streaks | cost / catch |
+|---|---|---|---|---|---|
+| locked, ≥ 9000 cm (the view, as before) | 5 cm / 2.24 px | 11 cm / 6.23 px | 0.339 | 0.49 | — |
+| reach without the 9000 cm floor | 3 cm / 1.68 px | 9 cm / 5.70 px | — | — | the golden-hour camera's 10–20 m band worse (1.08 → 2.04 px) |
+| `pcfFactor` 4 / 6 | 4 / 4 cm | 5 / 3 cm | — | smeared into bands | every contact softer |
+| 4096 map | 2 cm / 0.99 px | 3 cm / 1.70 px | — | 0.29 | 4 × the shadow passes' texels |
+| `csmSplit2` 0.45 | 3 cm | 5 cm | — | 0.76 | worse near (2.19 px at 10–20 m) |
+| **fitted to the casters (a still frame)** | **1 cm / 0.32 px** | **2 cm / 1.40 px** | **0.011** | **0.12** | no measurable frame cost (below); crawls with a moving camera |
+
+Ultra locked 1 / 2 cm, foot 0.011, streaks 0.30; fitted 1 / 2 cm, 0.011, 0.10. Low and medium
+fitted: 1 / 2 cm, 0.009–0.011, 0.13–0.21. What is left at 5.9° is Qt's per-pixel PCF dither,
+not texels. The final design in the render gate (2026-11-10, High / Ultra, every frame a still
+picture's fit): the panel's far edge 0.64 / 0.63 cm at 15.2° and 2.24 / 2.27 cm at 5.9°, the
+foot lit 0.023 at worst, streaks 0.165 / 0.136 at worst. The `--stairs` orbit (the golden-hour
+camera round the plan, the panel and a 10 m column at each plan corner, 0.5° a frame, averaged
+over 30 cm): locked 0.079 / 0.094 px at 0–10 / 10–20 m (Ultra 0.082 / 0.087), fitted 0.21 /
+0.146 (Ultra 0.106 / 0.117). The `--stairs` time-lapse (the same scene, that camera held, the
+sun stepping 0.4° / 0.55° a frame, each frame against its own sun's edge): 8 frames from 15.2° to 12.4°, locked 0.336 / 0.682 px at 0–10 / 10–20 m (Ultra 0.175 / 0.321), fitted 0.265 / 0.517 (Ultra 0.167 / 0.298); 24
+frames from golden hour to sunset in the same scene: locked 0.66 / 0.79 px, fitted 0.35 /
+0.37. The picket fence's golden-hour edge in the hero camera, 0–10 m: 6.65 px (the ramp) →
+4.59 px (the posts' bumps, 0.5–1.5 cm proud; level pickets 2 cm under read 5.39). In a fitted
+frame the far tree shadows show Qt's dither (high-pass spread in their penumbra 1.79 → 2.14
+luma at 4K; the near shadows' 6.01 → 6.03). The picket fence against its 2D caster model
+(`scripts/measure_built_world_shadows.py`): area ratio 1.01 / 1.01 / 1.00, IoU 0.66 / 0.67 /
+0.68, tip +2.0 / +2.0 / +2.4 cm (before 1.00 / 1.00 / 1.00, 0.65 / 0.66 / 0.68, the same tips).
+The family garden's board on the view's path against the base (High, 1920 × 1080, seven
+shots): 0.03–0.12 levels mean, at most 0.27 % of pixels more than 8 apart (the fences' tops),
+luma, clipping and dark-pixel counts unchanged; on the photo's path against the view's: 0.2–2.1
+levels mean, 0.01–7.9 % of pixels (December noon's long shadows and the lawn blades' own).
+
+**Cost.** Fitting changes which texels a cascade covers, not how many passes or pages there
+are. Captures of the family garden at golden hour, fitted and locked strictly alternating in
+one process, two warm-ups, the minimum of 12 each (the GPU was shared with two other renders,
+which only add time): 1920 × 1080 fitted − locked −0.7 ms (low, 17.8 ms locked), +2.3 (medium,
+21.0), −0.6 (high, 25.3), +2.1 (ultra, 40.3); 3840 × 2160 on High +2.9 ms minimum, +0.7 ms
+median (54.2 / 57.0 against 51.3 / 56.3 ms, 12 pairs). No cost beyond that noise; the live
+view's frames are the base's (it keeps the locked fit). The board's `--fps-seconds` readback
+A/B swung 3 × between rounds under the shared GPU and decided nothing.
+
+**Truth gates.** The view's fit is the base's: its shadow IoU in perspective with each preset's
+cascades (640 × 360) stays low 0.919 / 0.967 / 0.962, medium 0.919 / 0.969 / 0.958, high
+0.985 / 0.968 / 0.962, ultra 0.986 / 0.970 / 0.965 at 15° / 35° / 60° (gate 0.85). In a
+picture's fit: low 0.985 / 0.975 / 0.970, medium 0.985 / 0.975 / 0.961, high 0.986 / 0.980 /
+0.967, ultra 0.986 / 0.981 / 0.968; far plan (bench_large, 2× / 4× framing, High) 3,768 /
+3,761 shadowed samples against 3,512 / 3,420, the outer row step 0.77 / 1.55 either way (gate 3.0).
+
+**Consequences.** A picture's shadows are sharper than the view's at a low sun, the photo-mode
+preview's included: ADR-072 decision 5's "all off is the view" holds for a capture that does
+not ask (amended there). A recording that moves its camera shows the view's shadows. A fitted
+map's texels depend on the plan's extent (a 50 m plan about 2.5 cm), not on the camera's
+distance. Open: the live view at rest could take the fitted map too, at the cost of a visible
+sharpening when the camera stops — a taste question for the owner (follow-up). The render
+tier's `test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks` gates a
+picture's fit, the view's orbit and the measured reasons for the routing (observed failing on
+the base: 4.97 cm against 2.5 at High, 15.2°); the builder pin
+`test_picket_tops_repeat_no_pattern_and_follow_the_items_seed` gates the ramp and the clones;
+`test_directors_cut.py::test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views`
+the routing; `test_directors_cut_render.py::test_a_still_pictures_fitted_shadows_change_only_its_own_frame`
+and the self-test that a fitted capture changes only its own frame and a default one is the
+view. PF-L3D-24, PF-L3D-25.
+
+### ADR-059 addendum: a recorded frame's own sky and the twilight fill (#799, #802)
+
+**Status**: Accepted (2026-11-10, visual-polish package; the owner decided #802's direction:
+"build the ground-only twilight fill; the night rig and the sunset shot stay"). Amends
+decisions 1 and 5 of the L1.4 addendum above.
+
+**Context.** Two faults of a day time-lapse, both found by the 3D promo-readiness survey and
+re-measured on the family garden's default view (Berlin, 21 June, high, 640 × 360):
+
+- *#799, flicker.* A 10 s, 30 fps lapse of 04:00–23:00 moves the sun 0.5–0.7° a frame. The
+  tour's `settle_sky` used decision 5's 1° rule, so the sky texture, its light probe and the fog
+  that follows the shown sky's horizon changed on alternate frames while the key light and the
+  exposure changed every frame: the sky band's zigzag RMS was 3.86 luma at dawn (max 7.3),
+  1.73 at dusk, 0.07 by day.
+- *#802, a brighter night.* The garden's own light ROSE after sunset (ground luminance 0.0196 at
+  a 0.5° sun, 0.0188 at −1°, 0.0379 at night) while the board's `--dusk` gate, which reads the
+  whole frame (mostly sky), passed. The survey blamed the twilight ramp's linear moon and
+  exposure. The cause is the anchors: the night rig is "day for night" (moon 0.32 at 38°,
+  exposure 2.4) and lights flat ground about 0.95 EV above what a 0.5° sun's sky gives
+  (probe 0.42, exposure 1.25; the 0.5° anchor is frozen against the L0 spike). With both
+  anchors fixed no ramp between them can fall monotonically. A square-root moon ramp (the
+  survey's proposal) only moves the rise earlier; a moon already on at sunset is a step up;
+  more exposure or probe at the low sun brightens the sunset sky above the 6° sky; a darker
+  night breaks the night rig the owner accepted.
+
+**Decision.**
+
+1. **A recorded frame gets the sky of its own sun exactly.** `sky_is_stale(shown, wanted,
+   threshold_deg)` with a threshold of 0 or less rebuilds whenever the wanted sky differs from
+   the shown one (`RECORDING_SKY_REBUILD_DEG` = 0); the same sky is never rebuilt and the night
+   sky still never follows the sun's position. `LookController.settle_sky` — called only by a
+   tour's frame (`workspace_capture._tour_settled`) — asks for it; the live settle timer and the
+   1 s ceiling keep decision 5's 1°. A finer threshold is no cheaper: at dawn a 1° lag moved the
+   band 10–16 luma, so an alternation under 0.3 luma needs a lag under about 0.03°.
+2. **The twilight fill.** `LookSpec.twilight_fill_linear` is a flat ambient in the colour of the
+   sky's top (what the probe gives the ground). `Garden.qml`'s existing fill light carries it
+   where a sky lights the view (`ambientColor: view.skyShown ? root.twilightFill :
+   root.fillColor`), so it lights the garden and never the skybox, adds no light count, no shadow
+   and no direction; the compatibility mode and the top-down truth view keep their flat fill
+   without it. It lifts a MODEL of the light on open ground (`look.ground_light`: the key at its
+   height, the probe as 1.15 × probe exposure × sky energy × the sky top's luminance, an ambient
+   at 1.2 × itself, all read as the meadow's albedo reflects them, × exposure) to a target in
+   units of the SAME weather's night light (`look.twilight_fill`, the weather's anchors cached
+   per `WeatherSpec`): in twilight a line through 1.07 at sunset, 1.05 at −3° and 1 at −6°; by
+   day the sunset level plus 40 % of how far the look's own light lies above the weather's
+   sunset light, so the ground keeps 40 % of its own fall. Black from 6° up and at night: the
+   board's sunset shot (5.89°; the clear fill begins at about 5.65°) and the night keep the
+   rig's own light. An overcast, rain and snow need none (their own light stays above their
+   darker night). Unlit particles take the fill into their light.
+3. **The garden's light is a gate.** The board's `--dusk` records `ground_luminance` (the rows
+   below the horizon) per row: `ground_monotone` joins `monotone`, by the same noise rule
+   (0.2 % + 1e-5), on both skies and in every weather of `--living`. The clear evening is also
+   rendered from the view's own default framing for the first preset (`default_monotone`) —
+   once per board, so `--living` stays inside its render-tier timeout. The board's presets
+   after the first had been rendered from the set-sun probe's sky camera (the loop rebound
+   `camera`); each now takes the golden-hour camera, as documented.
+
+**Alternatives rejected.** For #799: interpolating two built skies (Qt cannot blend two light
+probes) and a finer threshold (decision 1). For #802: the levers in the context; a fill shaped
+like the moon (a second directional light from the night rig's moon): composition-proof in
+twilight, but with the probe's 0.58 of the night still present at sunset it puts the sunset
+ground above the 5.89° anchor; and a flat fill target near the night level (the first
+prototype), which held the default framing but brightened the golden-hour camera 14 % from 4°
+to 1°: that camera's vertical faces take 1.12 × the modelled lift while its fogged rows fall
+only 0.8 × as fast, so the fill may make up only part of the day's own fall.
+
+**Consequences.**
+
+- A recorded lapse builds a sky per frame in twilight and by day: 147 → 291 builds and 158 →
+  198 s of wall time for the 300-frame lapse (sky build median 139 ms). Flights build none.
+- The garden at sunset and through twilight is brighter than before (default framing at 0.5°:
+  0.0196 → 0.0421, 2.1 × — the ground now stands a little above the night it ends in) and the
+  evening reads as a blue hour; the sky is unchanged. The owner has not judged this look yet.
+- The fill is open-loop: the model fits the family garden's default framing; a view that is
+  mostly open meadow takes less lift (balcony, raised bed: up to 1.2 % rise a step in twilight;
+  before up to 140 %), and a view whose night outshines its own 6° frame (the balcony from the
+  board's golden-hour camera: 0.0371 against 0.0316) cannot be monotone while both anchors
+  stay. PF-L3D-29.
+- The board's `--dusk` renders 16 more frames (the default framing, once): about 70 s at the
+  4.4 s a frame measured with other agents on the GPU. Under that load the looks render tier's
+  full board (`test_view3d_looks_render.py`, watchdog 780 s) reached its watchdog in the `high`
+  dusk run; by its own timeline it would have needed about 820 s without these frames too.
+
+**Evidence** (RTX 4070, Direct3D 11; family garden unless named; 640 × 360, high, painted).
+
+| What | Before | After |
+|---|---|---|
+| #799 300-frame lapse: sky-band zigzag RMS dawn / dusk (luma) | 3.863 / 1.728 | 0.794 / 0.285 |
+| #799 alternation, sky band, dawn / dusk (third difference / 8, outside the rig's corners) | 1.855 / 0.848 | 0.084 / 0.041 |
+| #799 render tier, 42-frame dawn / dusk lapses: sky builds; alternation (sky band, frame) | 18 / 19 builds; 1.74, 0.80 / 0.89, 0.66 | 34 / 36 (every twilight and day frame); 0.04–0.07 |
+| #802 ground at sunset → an hour later, lapse frame mean (luma) | 37.2 → 51.5 (+38 %) | 53.6 → 51.8 (−3 %) |
+| #802 sweeps with a rise beyond noise: family default / golden, dusk + dawn | 16 / 11 | 0 / 0 |
+| … December, 60° N, atmosphere sky, partly cloudy, bench_small, food forest (four series each) | 19–30 per run | 0 |
+| … overcast | 0 (no fill: 108 frames pixel-identical) | 0 |
+| … balcony default, raised bed default | 26, 23 | 17, 5 (worst −1.21 %, −0.52 % a step) |
+| #802 board `--dusk`, bench_small high: ground monotone, golden / default | no / no | yes / yes |
+| #802 board `--dusk`, all four presets, painted and atmosphere: frame, ground and (low) default monotone | — | yes on all 8 (sunset step 0.0053–0.0075 ≤ day ramp 0.0184–0.0201; 0 Qt errors) |
+| #802 living board (medium), both skies: ground monotone under partly cloudy, overcast, rain, snow, clear | — | yes on all 10; render-tier test 2 passed |
+| #802 board: sunset step against the largest day-ramp step | 0.0066 ≤ 0.0293 | 0.0053 ≤ 0.0199 |
+| #802 night and 6° frames, sweeps and board | — | pixel-identical (max difference 0) |
+
+Tests: `tests/unit/test_scene3d_look.py` (`TestSkyStaleness`, `TestTheTwilightFill`),
+`tests/integration/test_view3d_look_controller.py`
+(`test_a_recorded_frame_builds_the_sky_of_its_own_sun`), `tests/unit/test_quick3d_qml.py`; render
+tier `tests/integration/test_directors_cut_render.py::test_a_day_lapse_does_not_flicker_at_dawn_or_dusk`
+(the `daylapse` scenario), `test_view3d_looks_render.py::test_dusk_fades_and_sunset_is_no_cliff`,
+`test_living_garden_render.py::test_the_living_board_renders_every_shot`. Pitfalls PF-L3D-28,
+PF-L3D-29.
+
+### ADR-059 addendum: the wind that shows, and the leaves' stripes (#800, #805)
+
+**Status**: Accepted (2026-11-10, visual-polish package). Amends decision 6 of the L1.4 addendum
+(the wind) and the #687 addendum's "clear keeps 55 / 14 / 0". The amplitude share, the AO floor's
+effect on every clear frame and the leaf size are open to the owner (below).
+
+**Context.** The 3D promo-readiness survey found two foliage faults that a camera tour shows at
+once. *#800*: with the camera held for 2 s on the family garden's 9.5 m birch about 11 m out the
+crown did not move. Measured (960 × 540, 4 s, the tour's clock): 0.03 px of sway; a 60 cm basil
+3 m out moved more (0.32 px). `foliage.vert` moved every leaf by `windStrength × 0.35` = 0.875 cm
+times its height fraction squared — the same for every plant — and took the phase from `0.011 ×`
+the vertex's world x, 13 rad across a 12 m crown, so a crown rippled in place; the wood (a
+PrincipledMaterial) did not move at all. *#805*: diagonal stripes 2–4 px apart across backlit
+leaves at golden hour on High and Ultra, which the survey called shadow acne from the back-light
+term at shadow bias 10.
+
+**Decision.**
+
+1. **A plant sways by its own size, as one** (`core/scene3d/wind.py`, the numpy statement of
+   the shaders' `plantSway`, one text in `foliage.vert`, `foliage_door.vert` and
+   `plant_sway.vert`, pinned to each other and to the module's numbers). In the engine frame,
+   item-local: the amplitude at the top is `SWAY_SHARE` = 0.5 % of the plant's height under a
+   clear day's wind, linear in the look's strength (`windSway` = downwind × strength / 2.5:
+   calm still, rain × 2, snow × 0.6); a cantilever (`(y/h)²`: the foot stays where the plan
+   puts it); the whole plant leans downwind (0.35 of the swing) and swings at
+   `1.2 Hz / √(h / 1 m)` within 0.25–2.5 Hz, spread ±10 % by its phase, with a figure-of-eight
+   across the wind at 0.71 of that; a branch term (0.45 of the amplitude at the outer top, a
+   field smooth in space, so a twig and its leaves move together); a leaf flutter along its
+   normal (0.25, 2–5.1 Hz — at least six frames a cycle at 30 fps); a gust (14 s, ±35 %)
+   travelling downwind across the garden. Every frequency is a whole number of cycles an hour,
+   so the clock's 3602 → 2 s wrap is seamless. At clock 0 every term is 0 (the rest ramp).
+2. **Every part of an item with leaves takes the same frame.** `wind.sway_frame` gives an item
+   with a `foliage` part its height (the top of its meshes — fitted to the data, so the data's),
+   its reach and its phase (from its item id, never from its position); the adapter hands it
+   on in `PartSpec.sway`, the host sets `swayFrame` on the foliage and vc Models. A plant's
+   wood and fruit draw through `plant_sway.vert` + `built_snow.frag` (snow on bare branches
+   included) **only while the clock runs** — `materials: … swayFrame.x > 0.0 && root.windBlowing ? [vcSway] : …`, a bool that
+   changes only when the wind starts or rests (a binding on `windTime` itself would reassign
+   every plant part's materials on every frame) — so every frame at rest is the principled
+   look; the swap measured invisible. No vertex attribute was added; the frame is a uniform per Model. The lawn's blades
+   keep their own wind (`windStrength`). The particles drift from the same direction
+   (`wind.WIND_FROM_DEG`, moved from `weather.py`).
+3. **The stripes are ambient occlusion, and the fix is its bias.** The stripes did not change
+   with the shadow bias (10 / 14 / 20 / 40 cm) or with a still picture's fitted map and vanished
+   with AO off; Low (no AO) never had them. Qt's SSAO takes a camera-facing normal, so a FLAT
+   micro-leaf seen at a slant occludes itself in bands — #687's flat-ground self-occlusion on
+   every leaf. `look.AO_FLAT_BIAS_CM` = 1 cm is the floor of every look's AO bias (a weather's
+   own, 21 cm × its light share, stays where larger). The shadow bias, maps, cascades and IoU
+   are untouched.
+
+**Alternatives rejected.** The issue's shadow bias 10 → 14 (measured: no change); a normal-offset
+of the leaf's shadow lookup and leaving the back-light share out of the self-shadow test (the
+stripes are not in the shadow term); AO dither (bands became noise, 0.545); AO softness 90
+(0.212, every contact softer); AO bias 2 cm (stripes 0.175, but a box caster's lit-side contact
+halved, 0.0223 → 0.0086). For the wind: an attribute per vertex for the branch weight (the
+position and the frame give it at no memory cost); a phase from the plant's position (the
+id's phase is the same on every machine and in every pass); swaying only the leaves (they slid
+over still twigs; the wood takes the same function).
+
+**Consequences.**
+
+- A tour, a held shot and the live view show the garden moving: the birch's upper crown sways
+  about 1.4 px of a 1080-row picture at 11 m (the top leaves several px), slowly; a shrub
+  less, a herb barely. Taste: whether 0.5 % reads strong enough on the owner's screen is the
+  owner's to judge from the clips (the share is one constant).
+- Every clear frame from Medium up is a little brighter on open flat ground (its self-occlusion
+  16.9 → 11.4 levels at High) and in crowns (8 levels on a backlit crown) — what #687 left
+  open ("whether clear gets the AO bias too"), decided here by the leaves; the owner may veto.
+- X-ray: a faded plant's leaves sway (their screen door is the same shader), its wood not
+  (`screen.vert` has no sway) — a small mismatch in an analysis view, left as is.
+- A tour's first windy frame compiles nothing new (the shader warmer draws `plant_sway.vert`).
+- The foliage render tier (`test_view3d_foliage_render.py`) is not in CI's `render3d` file list
+  (a 3 s sequence on llvmpipe would take minutes); CI compiles both new shader paths through
+  `test_quick3d_render.py` (the broken-shader controls and the rest controls).
+
+**Evidence** (RTX 4070, Direct3D 11, family garden, painted sky; probes in the story's scratch,
+the tier in the test).
+
+| What | Before | After |
+|---|---|---|
+| Birch 9.5 m at 11 m: upper crown's downwind sway, half a swing (960 × 540, 30 / 60 fps) | 0.03 / 0.03 px | 0.86 / 0.86 px (1.7 px of a 1080-row picture) |
+| … its period (zero crossings; rule 1 / 0.389 Hz ± 10 %) | — | 2.67 s |
+| Lilac 1.74 m at 5 m / basil 0.6 m at 3 m: sway | 0.017 / 0.32 px | 0.78 / 0.38 px, periods 1.11 / 0.65 s |
+| Render tier (640 × 360, 3 s): birch / lilac / basil, px of a 1080-row picture; cm | — | 1.43 / 1.58 / 0.84 px; 1.30 / 0.54 / 0.19 cm |
+| Largest step a frame, 30 / 60 fps (960 × 540): birch, lilac, basil | — | 0.12 / 0.06, 0.19 / 0.10, 0.15 / 0.08 px |
+| Motion above a third of the frame rate; zigzags on the downwind track | — | ≤ 0.2 % of the energy; 0 |
+| Frame i at 30 fps against frame 2i at 60 fps; the same index twice | — | identical; 0 levels |
+| Wind clock 0, three cameras (960 × 540), base against after | — | max difference 0 |
+| The wood's swaying shader at zero amplitude against the principled look (1080p, four presets) | — | 0 levels (one pixel 1 level, Medium) |
+| Shadow follows the crown (wind × 20): ground px changed, look / shadow pass without sway | — | 5,777 / 7,015 against 872 / 1,661 |
+| Stripes inside the cherry's crown, golden hour, High, 1080p: look / AO off / AO bias 0 | 0.326 / 0.164 / — | 0.184 |
+| Stripes, whole crop, High / Ultra at golden hour and sunset, locked and fitted | 0.127–0.177 | 0.093–0.126 (Low 0.089–0.134, unchanged) |
+| Render tier (1280 × 720): look / AO off / bias 0, High and Ultra | — | 0.202 / 0.172 / 0.301, 0.195 / 0.172 / 0.302 |
+| Clear AO on bench_small (1280 × 720, High): rim, far self-occlusion, open-ground darkening | 7.57, 12.5, 16.86 | 6.72, 9.93, 11.36 |
+| … a box caster's contact, lit foot / shaded side | 0.0223 / 0.487 | 0.0214 / 0.478 |
+| Frame cost 1080p with the wind running, minimum of 12 (then 16) captures strictly alternating in one process, the GPU shared with other renders: low / medium / high / ultra | 24.5 / 28.3 / 28.4 / 47.7 ms (20.3 / 26.6 / 38.4 / 52.6) | 26.2 / 28.4 / 30.8 / 49.7 ms (22.5 / 28.3 / 33.6 / 56.6): +0.1 to +4.0 ms, high once −4.8 — inside the run-to-run spread |
+| Vertex data, family garden (the largest example, LOD0): 598,582 vertices × 48 B | 28.73 MB | 28.73 MB (+16 B of uniform per Model) |
+
+**Open for the owner.** (1) The leaf size: at L0 the owner kept small-leaved crowns as they
+are; the forge's LOD0 leaves are large because the coverage rule meets the crown's area with
+few leaves (birch 1,857 leaves, median 42 cm long, 3,714 of its 25,000 triangles; cherry 2,507
+at 31 cm) — halving the length at LOD0 would cost about four times the leaf triangles (still
+inside the budget), lobed leaf meshes near the camera are the bigger step; kept as built. No
+leaf lies isolated (nearest neighbour over two leaf lengths: 0 of 1,857–2,838) and at most
+0.2 % touch the reach clamp, so "loose quads outside the silhouette" are the outer leaves of
+that size, not strays. (2) The sway share 0.5 %. (3) The AO floor on clear frames.
+
+Tests: `tests/unit/test_scene3d_wind.py`, `test_quick3d_adapter.py`
+(`test_an_item_with_leaves_sways_as_a_whole_and_a_built_one_not_at_all`), `test_quick3d_qml.py`
+(`test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind`), `test_scene3d_weather.py`;
+render tier `test_view3d_foliage_render.py` (sway, smoothness and determinism, rest and the
+wood's swap, the shadow with its control, the stripes with their control) and
+`test_quick3d_render.py` (the rest control and a broken-shader control for `plant_sway.vert`). On
+the base shaders the sway gate and the smoothness gate fail; the stripe gate's control (the bias
+at 0) fails it. PF-L3D-32, PF-L3D-33.
+
+### ADR-059 addendum: what built parts are made of — surfaces, roof tiles and wall pictures (#801, #803)
+
+**Status**: Accepted (2026-11-10, visual-polish package; the surface values, the wall pictures and
+the gate's definition are the creator's and open to the owner — see Consequences). Amends the
+L1.6 builders addendum (one look for every vertex-coloured part) and ADR-065's roof and wall
+materials.
+
+**Context.** The 3D promo-readiness survey: every built part reflected with ONE roughness (0.78)
+and specular amount (0.35), so the family garden's black trampoline mat (#303336) read tan facing
+a golden-hour sun (luma 99, hue 23°) and its blue pad 32° off; the pond's morning glint was a
+clipped white blob; the roofs were flat plates (noon luma std 0.57 against the 2D roof's 20.2)
+and walls slabs (the balcony's wall a navy slab, luma 32, std 1.7). Measured here before deciding:
+
+- Qt's `PrincipledMaterial` switches specular OFF at an amount of 0.01 or less, and above it the
+  amount hardly scales a grazing highlight: the black mat facing a 15.2° sun read luma 25.4 at
+  0.01, 62.8 at 0.015, 62.8 at 0.05, 63.5 at 0.35 (PF-E3D-32). The issue's proposed 0.05 for
+  rubber would not have fixed the mat.
+- The pond's blob is the direct light's GGX at roughness 0.02 (the sky reflection off changed
+  the clipped share 4.48 → 4.47 %).
+- The canvas lays its roof picture at 256 cm (1 px = 1 cm): tiles 16 cm wide and 21.3 cm a
+  course in plan — not the issue's "25 cm along the eave, 18 cm up the slope".
+- Facing a 15° sun the light alone moves a part's hue off its 2D colour (a plaster wall under the
+  blue sky 27.6°, a red canvas 12.8°, measured with every specular off): the issue's line "every
+  built part's hue within 10° of its 2D colour" cannot hold for every part (PF-L3D-34).
+
+**Decision.**
+
+1. **Surfaces.** `core/scene3d/materials.SURFACES` names what a built part is made of — default
+   (0.78 / 0.35, the old look), wood, wood cladding, steel, iron, enamel, plastic (1.0 / 0.20),
+   rubber and canvas (0.95 / 0: specular OFF), terracotta, stone, masonry, plaster, concrete,
+   soil, roof tile, shingle, glass pane, water, leaf, ember — each with its roughness, specular
+   amount and optional detail picture. ONE path carries a surface to the engine: a palette entry
+   names it (`PaletteColor.surface`); a tinted part names its own in its builder; a part of
+   several surfaces keeps ONE `MeshPart` with `surface_runs` (its triangles grouped run by run,
+   `builders.common.with_surfaces`), and the sink creates one Model per run
+   (`mesh.surface_pieces`) carrying its surface in `PartSpec`; the host writes
+   `quick3d.materials.surface_look` on the Model. `Garden.qml` holds no table — every material of
+   `vcPart` / `roofPart` reads `surfaceRough` / `surfaceSpecular` — and
+   `tests/unit/test_scene3d_surfaces.py` fails when a palette entry has no surface, when a
+   surface writes a property the scene file does not declare, or when a literal roughness or
+   specular is left in those components.
+2. **Roof tiles.** A roof's tile faces (and its ridge tile) carry uvs in centimetres: a gable's
+   are the 2D brush's frame (`roof_paint.paint_roof_with_ridge`: u along the ridge from its
+   middle, v the plan distance from the ridge line, the far half mirrored as the canvas mirrors
+   it), so seen from above the 3D roof is the plan's picture tile for tile, and on a 38° slope a
+   course is 27 cm long; a hip's faces and a shed's plane run u along their own eave and v down
+   their own slope (the canvas draws no hips). The picture is the canvas's `ROOF_TILES` (a
+   shed's shingles its `SLATE`), at 256 cm (shingles 100 cm).
+3. **Wall pictures.** A house's walls are `plaster` (the canvas's `CONCRETE`), a shed's
+   `wood_cladding` (`WOOD`, in the item's colour), a garden wall and a stone-wall fence `masonry`
+   (`STONE`): laid by the face's own plane in the item's frame (`built_detail.vert`), courses
+   level round a corner. No new asset: every picture is one the canvas ships (asset forge).
+4. **The detail shader** (`built_detail.vert/.frag`): the picture reduced to a linear albedo
+   multiplier of mean 1 and height slopes (`core/scene3d/surface_detail.py`, PF-L3D-35), one
+   `Texture` per picture per scene; a cotangent frame from screen derivatives; the detail normal
+   faded by camera distance, the albedo by its mipmaps (Qt's `Texture` has no anisotropy); per
+   surface a contrast (roof 0.6, masonry 0.8, plaster 0.85) and a normal strength. It takes the
+   ground's rain tint and the rain's roughness / specular shift (`wetRoughShift`,
+   `wetSpecularShift`) and the living garden's snow on what faces up (`builtSnow`, the rule of
+   `built_snow.frag`); any other built top keeps `built_snow.frag` under snow.
+5. **The pond's glint**: `water.frag` writes the direct light's specular itself
+   (`SPECULAR_LIGHT`): GGX with Schlick's Fresnel for water at roughness 0.02, soft-capped at
+   0.6 / exposure (`uGlintCap`).
+6. **The gate** (`tests/integration/test_built_materials_render.py`, in CI's render job): a
+   class row facing the family garden's golden-hour sun, every part judged against ITS OWN frame
+   with every specular off — the hue within 10° for a part whose 2D colour has a hue, a matte
+   part at most 1.5x its specular-free luma — and the trampoline's pad held to the issue's own
+   10° line against its 2D blue; the gable's tiles at noon and at a low sun, its noon colour, a
+   hip's and a shed roof's tiles, a glasshouse untouched, three walls on their shaded side and the
+   pond's glint — each against the same frame without the change.
+
+**Alternatives rejected.** Splitting a part into one `MeshPart` per surface in the builders
+(the first build): 94 tests destructure a building's parts by name, and the pick oracle, the
+shadow walk and the height gates read parts — the split belongs at the sink, where one Model has
+one material. A per-vertex roughness in the vertex layout (a stride change for every mesh of the
+scene, plants included). A table of surface values in the QML (a second table that drifts). Roof
+uvs computed from world position in the shader (the tiles slide when a house moves, and the
+2D phase is lost). The issue's 25 × 18 cm tiles and its specular 0.05 for rubber (measured
+above). A new plaster texture through the asset forge: the canvas's concrete reads as render,
+and no new asset is needed.
+
+**Consequences.**
+
+- Models: the family garden's built records 43 → 71, `bench_large`'s 87 → 169 (one per surface);
+  vertices and upload bytes unchanged (151,182 / 8.22 MB; 290,065 / 15.76 MB): the uvs ride in
+  the slot every vertex had. Building the built records: the family garden 73.1 → 77.2 ms (+6 %), `bench_large` 125.2 → 137.7 ms (+10 %; medians of three alternating rounds of seven builds — `with_surfaces` finding the runs). A frame (the family garden at golden hour, a finished readback of a new frame, rounds alternating before / after): on the RTX 4070 at 1920 × 1080 Low 14.1 → 11.3 ms, Medium 13.5 → 10.7, High 15.2 → 13.8, Ultra 18.6 → 19.8 (medians of three rounds, inside their own spread of 8-31 ms); on WARP at 1280 × 720 Low 97 → 100 ms, Medium 152 → 152, High 222 → 213 (two rounds). A never-shown host's first frame, which compiles every pipeline it draws, 4.1 → 4.6 s median over the living board's 171 frames (810 → 850 s in all, one leg each on a shared machine) — likely the detail material's own shaders, not isolated: in one process, alternating, the frames with and without the pictures differed by less than their spread; a live view would pay such a cost once.
+- Five 256² RGBA8 detail textures per scene (about 1.3 MB with mipmaps), made on first use.
+- Looks that change by decision: a black mat reads dark and neutral; plastic is fully rough;
+  windows (`glass_pane` 0.40 / 0.40) mirror the sky (luma 43 → 85 at golden hour); a low-sun roof
+  reads 1-2 luma lighter (its tiles' edges catch the grazing sun); a garage shed filled
+  "concrete" in 2D is boarded like a tool shed in 3D (a shed's walls are always cladding).
+- The issue's acceptance is met as defined in decision 6; the literal "within 10° of the 2D
+  colour" holds for the pad (8.0°), wood (1.3°), terracotta (1.7°), cladding (0.3°) and the
+  windows (9.6°) in the class row, not for a plaster wall (13.6°, the light) or a near-grey part.
+- Open to the owner: the plaster's speckle (the canvas's concrete picture), the masonry's dark
+  joints in shade, plastic fully rough, the windows' reflection, cladding on a concrete shed.
+- Not done: the hip roof's 2D picture is still the gable's (the canvas draws no hips).
+
+**Evidence** (RTX 4070, Direct3D 11, high; render tier 640 × 360 unless named; the render tier passed every gate on WARP and
+on OpenGL too).
+
+| What | Before | After |
+|---|---|---|
+| Black mat facing a 15.2° sun: luma / its specular-free luma (class row) | 4.08x, hue 128° off (0.78 / 0.35 everywhere) | 1.00x |
+| Pad: hue against #427bc2, saturation (class row) | 17.7°, 0.34 | 8.0°, 0.60 |
+| Pond at the mirror angle of a 10 / 20 / 30° sun (1280 × 720): clipped share of the water, peak luma | 6.14 / 4.48 / 2.73 %, 255 | 0 %, 212.6 / 227.0 / 237.2 |
+| Noon roof close-up: luma std (render tier) | 2.2 | 10.8 |
+| Low-sun roof close-up: luma std | 2.3 | 6.8 |
+| Noon roof's mean colour | (239.5, 136.1, 86.7) flat | (238.1, 135.3, 86.3): −0.6 % luma, 0.0° hue |
+| Walls on their shaded side, luma std: masonry / plaster / cladding | 1.2 / 0.8 / 1.2 | 7.0 / 2.1 / 7.3 |
+| Hip / shed roof at noon: fine luma detail (about the 5 × 5 local mean) | 1.5 / 0.9 (no picture) | 4.1 / 5.2 |
+| Glasshouse with and without every picture: largest pixel difference | — | 0 (a pictured roof's box: 22-25) |
+| Noon orbit of the family garden's roof, 12 frames 0.5° apart: temporal \|d²\| of the roof's luma, native 1280 × 720 against the 1920 × 1080 frames box-reduced to it | flat roof 2.5 (1080p) | 6.4 against 7.3 (0.87: the native frame shimmers less than the supersampled one — no aliasing beyond the tiles' own detail) |
+| Beauty Board, 4 examples × 7 shots (high, 1280 × 720): mean luma per shot | — | −0.85 … +0.08 |
+| Family garden at noon (board): clipped share | 0.41 % | 0.62 % (the roof's lit tile edges) |
+| Family garden golden hour (1280 × 720): the mat's mean colour | (131, 105, 86), luma 109 | (26, 24, 29), luma 25 |
+| Balcony golden hour (board): the wall, luma / std | 31.9 / 1.6 | 30.5 / 4.9 |
+| Raised bed golden hour (1280 × 720): the tool shed's walls, luma std | 2.4 | 6.2 |
+| Truth gates (family garden, 1280 × 720): shadow IoU of the box caster at 15 / 35 / 60°, Low; High | 0.928 / 0.976 / 0.970; 0.985 / 0.985 / 0.974 | the same to the fourth decimal |
+| North-up (plan against top-down, NCC) and the sky's sun in 24 views: bearing / elevation error | 0.7786 identity; ≤ 0.07° / 0.13° | the same |
+| Built geometry: 491 builder records' triangles, normals and part names | — | identical (at 0.001 cm) |
+
+Tests: `tests/unit/test_scene3d_surfaces.py`, `tests/unit/test_scene3d_roof_uvs.py`,
+`tests/unit/test_scene3d_surface_detail.py`, `tests/unit/test_quick3d_qml.py`; render tier
+`tests/integration/test_built_materials_render.py` (observed failing first: with every surface at
+0.78 / 0.35 and the old water shaders, 8 of its first 10 tests fail; the roof kinds' tests
+compare against the same frame without the picture, and before there was none). Pitfalls PF-L3D-34, PF-L3D-35,
+PF-E3D-32.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first
@@ -7288,7 +8072,8 @@ with the baker in (two of their assertions said "a bare plan rectangle" and say 
 - **The sky probe spans the day.** Gate G4's instrument now measures four sun elevations
   (6°, 12°, 30°, 60°) × three azimuths × two offsets on both sky models — 24 views. Its
   disc finder first takes the largest connected, compact white plateau (at least 20
-  pixels, every channel ≥ 250, bounding box at most 4:1, at least 40 % filled) and its
+  pixels, every channel ≥ 250 — luma ≥ 250 since #716, addendum L7.1 of ADR-048 — bounding
+  box at most 4:1, at least 40 % filled) and its
   centroid, falling back to the old bright-and-warm peak: at a low sun the warm
   horizon band outscored the disc (#717), and the centroid of every white pixel merged
   two blobs into a false sun between them. Measured on the RTX 4070 at 640 × 360: worst
@@ -10387,7 +11172,7 @@ cost (nothing animates there), and one canonical path per behaviour.
    materials bind the same `groundRoughness` / `groundSpecular` / `groundTint` (and the tile
    shader `snowCover`), so the plan meets the meadow without a step in every weather (the L1.4
    plan-edge rule). Roofs and a bed's soil (principled `vc` parts) are not snow-covered — an
-   accepted limitation.
+   accepted limitation (amended by the #687 addendum below: built tops lie under snow).
 7. **Today's weather follows the app's forecast, only on today.** The Planting Calendar's
    weather widget already fetches Open-Meteo's daily forecast; `forecast_days_ready` fans its
    `(ISO date, WMO code)` days out to the workspace (no second fetch, nothing from the 3D view to
@@ -10736,6 +11521,108 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
 Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
 clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).
 
+**Addendum (#687, the L5 polish: occlusion under cloud, snow on built tops, leaves, lamp
+pools, the dew mist).** The five deferred P2 findings of the L5 review and the snow comment
+of the 3D survey. Measured on the board's `--living` shots (high, 1280 x 720, family garden)
+with its new `living_occlusion` phase, and through `Quick3DHost.capture` for #831. Truth is
+untouched: no sun, shadow, plant or date moves, and every clear frame is the same to the
+level (the board's clear shots and every Low frame: max difference 0).
+
+1. **Under cloud the ambient occlusion is the weather's.** Qt's pass reads a camera-facing
+   normal (`ogp-3d-renderer` reference 24): flat ground seen at a slant occludes itself
+   wherever no nearer object stands in its samples. At the clear values every open surface
+   under cloud was grey (snow's lawn 17 levels under Low — the survey's 160 against 180 —,
+   the overcast lawn 15.6 under its own frame without occlusion) and the meadow straight
+   above every silhouette was 9.5-10 levels LIGHTER than far away: the survey's light rim.
+   The issue's proposal (strength 99, reach 35, no bias) made both worse (snow -49). A weather
+   now takes its light share (`WeatherSpec.light`) of strength 55 → 99, reach 14 → 70 cm and
+   bias 0 → 21 cm (`AtmosphereSpec.ao_*`), and the bias follows the capture's AO scale. At 0.3
+   of the reach the bias ends the self-occlusion near and far (0.16: rim 6-8; 0.25: 3.1 on
+   snow; 0.5: no occlusion at all, a caster's lit-side foot 0.004). Result: rim 1.92 / 1.21 /
+   2.07 (overcast / rain / snow), far self-occlusion 2.64 / 1.93 / 2.79, snow's lawn 2.93
+   under Low, partly cloudy rim 4.92 (its 0.15 share); at 1080p 1.00 / 1.00 / 0.28, snow 0.58
+   over Low. The cloudy frames are brighter for it (1080p board luma: overcast 116.9 → 126.1,
+   rain 132.7 → 137.8, snow 154.2 → 174.9, the snow tops included). Clear, the dew and an Analyze drape
+   keep 55 / 14 / 0 — the clear look keeps its own 8-level rim (below).
+2. **The overcast contact gate compares the LIT sides — decided on the evidence.** The issue
+   asked for "contact darkness under overcast at least that of the clear look at 15°". On the
+   box caster's shadow side the clear look's 0.49 is its cast shadow; an occlusion that
+   matched it would be a dark ring on every side, a shadow the sun does not cast. On the lit
+   side occlusion alone darkens in both looks. So the gate: the lit-side foot under overcast
+   ≥ the clear look's (0.040 ≥ 0.022 at 720p; at the render tier's 360 px ≥ 2× clear: 0.144
+   against 0.044), with the rim ≤ 3 and the far self-occlusion ≤ 3 (720p) / 0.75 (360 px) for
+   overcast, rain and snow. Stated plainly: today's 0.031 already passed the literal lit-side
+   comparison, because the old "contact" was mostly the self-occluded ground round it; the
+   shadow side reads 0.044 (was 0.063) for the same reason. The geometry of a 1 x 1 x 2 m box
+   under a sky-lit day predicts 0.10-0.17 (sky view factor of its foot ring against the open
+   ground, display luma); Qt's pass cannot give more without the rim. Looked at, the overcast
+   box stands on darker ground at its foot and the ground round it is no longer grey. **At
+   1080p the gate FAILS by a hair**: Qt's foot shrinks with the picture in every look (clear
+   0.044 / 0.022 / 0.0096 at 360 px / 720p / 1080p), and the overcast foot reads 0.0065 against
+   clear's 0.0096 (today's values 0.0156) — about 0.4 levels, while the rim falls 11.71 → 1.00,
+   the open overcast ground's self-occlusion 15.63 → 0.21 and snow against Low -17.42 → +0.58.
+   An open question for the review: a foot that is invisible at 1080p in both looks, or a grey
+   ground with a rim.
+3. **Snow lies on built tops** (decision 6 amended). While snow lies (`AtmosphereSpec.built_snow`
+   = min(1, snow cover / 0.75): smooth tops lie white where the meadow's 0.75 still shows
+   grass — at 0.75 a terracotta roof read pink and the mat lilac), every `vc` part and roof
+   swaps to ONE material (`built_snow.vert/.frag`; no shader per part, ADR-060); snowless, every
+   frame is the principled look. Its albedo is the principled look's: the vertex colour through
+   its own vertex stage (read as `VAR_COLOR` a roof pixel came out 136 / 46 / 39 against the
+   principled 187 / 99 / 71; through `COLOR` 187 / 99 / 71), the tint and fill picture through
+   the engine's polynomial; snow mixes in by `built_snow × smoothstep(0.35, 0.75, NORMAL.y)`
+   with the snowy ground's roughness and specular. A building's floor (under its roof, shown
+   by Cutaway), glass (heated or not is not in the plan), water (frozen or not likewise) and an
+   X-ray door stay as they are. The board's snow shot whitens 2 % or more of the frame against
+   the same frame with bare tops (render gate).
+4. **A falling leaf is its crown's colour.** `ambient_emitters` gives each dropping tree eight
+   samples of the Forge's leaf colours for its own palette (outer, upper leaves) times the
+   season's tint (`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id;
+   `LEAF_PALETTE` is gone. A red maple drops red leaves (hue under 20°), every leaf within 10° of
+   its crown's mean hue (unit test), two trees of one species drop different samples. In the
+   frame a falling leaf reads 8-12° yellower than its crown (the board's autumn shot, the best
+   measured tree: 47.8° against 36.0°; the literal's amber read 39.6° there by chance): the
+   colour data are the crown's (39.7° against 39.1°), but a leaf particle is drawn in the
+   look's flat particle light while the crown's own leaves are shaded and occluded — a
+   follow-up for the particle light, not for the colours.
+5. **Lamp pools fade at the edge of the lit six, and a picture lights its own.** Each lit
+   lamp is weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest
+   lamp left out (`lights.lit_lamps`): at a swap both are dark, so no pool switches in a frame;
+   no clock, so a recorded tour repeats; six lamps or fewer keep weight 1; a slot never turns
+   invisible, so no shader recompiles. Measured with a fixed night camera over ten lanterns and
+   the lamp target walking along them: the largest frame-to-frame step of a pool, 60 cm of
+   target travel a frame, 61.3 levels with the hard set and 49.0 faded; at 15 cm a frame (a
+   pan, a tour's path) 61.3 against 14.9 (p99 41.4 / 13.1) — the fade's step grows with the
+   travel per frame (up to 1.5 × 2 × travel / 200 cm of a pool), the hard set's does not. Found while designing it: a camera tour's frames were lit
+   by the six lamps of the PANE's target (`camera_moved` follows the view only). A tour's frame
+   and an agent's `render_3d_view` with a camera now light by their own target
+   (`WorkspaceCaptureCoordinator` → `WorkspaceLivingCoordinator.aim_lamps`; PF-E3D-29).
+6. **No dew mist.** Qt 6.12's height fog is a slab: on the morning-dew shot the ground at the
+   camera's feet +121.6 levels (fully fogged), the far rows +0.8, and density 1 / 0.3 and curve
+   1 / 4 drew the same frame. A sheet mist would be a new blended Model sorted against the
+   particles and the glass, and a post effect cannot join a chain that already holds the photo
+   blur with glow on (PF-E3D-21): left out, the morning dew stays "a nearer haze and a sheen".
+7. **Picture size (#831), measured, not fixed.** Pane-sized (640 x 360) against 1080p of the
+   same camera, overcast at medium (#831's setup): the mean gap +4.14 → +0.73, but the 40-row
+   bands now swing both ways (+13.4 / -11.7 at 360 px, +5.1 / -7.5 at 720p, +11.1 / -7.9 at 4K;
+   at the clear values +10.5 / 0, +3.9 / 0, +2.1 / -4.0): the self-occlusion the bias leaves
+   lies in a ring of far meadow whose distance moves with the picture (PF-E3D-28). Not scaling
+   the bias at 4K: +4.51 mean. A bias scaled by 1080/height below 1080p over-corrected. The
+   clear look (#831's own numbers +4.74 / +12.27) is unchanged.
+
+Taste calls left to the owner: full snow on built tops against the meadow's 0.75; partly
+cloudy's 4.9-level rim; whether the clear look should take the bias too (its 8-level rim
+would go, every clear frame would change, and its far meadow would brighten by up to 13
+levels). Rejected: the issue's 99 / 35 without a bias (above), a bias without the stronger
+pass (55 / 14 / 3: the contact went from 0.022 to 0.007), Qt's height fog (a slab). Tests:
+`test_scene3d_weather.py` (the occlusion and the built snow per weather), `test_quick3d_qml.py`
+(the bindings, the one snow shader, its warmer, the bias's capture scale),
+`test_scene3d_particles.py` (a leaf's crown colour, the lamp fade's continuity),
+`test_scene3d_living.py`, `test_directors_cut.py` (a tour's lamps), `test_board_probes.py`
+(the rim, open ground, a caster's foot), and the render tier
+`test_living_garden_render.py` (the 360 px occlusion bounds, the built snow, and
+`test_under_cloud_open_snow_has_no_rim_and_stays_with_low` at 720p). Lessons PF-L3D-26,
+PF-L3D-27, PF-E3D-28, PF-E3D-29; debug-verbose case study 216.
 ### ADR-059 / ADR-070 addendum — open frames are weighted, not solid (#698, 2026-11-09)
 
 **Status**: Shipped in v1.38.0 (PR #838), confirmed in the owner's manual test of 2026-11-10; decided on #440's precedent, and **the owner may revisit it**
@@ -11006,6 +11893,10 @@ view on any steady path.
    point becomes a depth along the view's axis), a vignette towards black and a colour grade, all `ExtendedSceneEnvironment` features on the one environment, so the view previews
    what is saved. All off is the view, pixel for pixel. A click sets the focus while photo mode
    is on: selection has its 2D side. No setting is saved in the plan.
+   *(#734: a saved photo, an agent's picture and a held camera's frames fit the shadow map to
+   the casters; all off, such a picture differs from the view along shadow edges only, and a
+   low sun's long shadows are sharper in it than in the preview — ADR-059 addendum "low-sun
+   shadows". A capture that does not ask for it is still the view, pixel for pixel.)*
 
 6. **A grade is a procedural table, and it carries the look's saturation and contrast.** Qt
    applies them unclamped right before its table lookup, and that lookup is a `texelFetch` whose
@@ -11078,19 +11969,21 @@ view on any steady path.
   data (follow-up: keep tours in the file as additive metadata).
 - A year's time-lapse still spends #531's 2 MB per regrowth; a 12 s video about 200 MB.
 - An MP4 carries no colour tag: the writer relies on the HD convention (decision 9), which the
-  owner's manual test confirms in real players. Qt offers no way to set the tag.
+  owner's manual test confirms in real players. Qt offers no way to set the tag. *(Superseded by
+  the addendum "review-grade video" (#807): the app writes the tags into the finished file.)*
 - **The blur is only roughly the same in the pane and in a saved photo.** Qt blurs a half-resolution copy
   with three taps, so the blur is about 2 px at any picture size: a 4K photo looks sharper than its
   preview (gradient ratio in the middle of the garden at blur 0.8: 0.66 in the pane, 0.91 in a 4K save
   seen at the same size), and Qt's amount is capped at its 1080p value because more only shows the taps
   as copies. The slider moves the width of the sharp band, not the amount (owner's manual test: with a
   band of 40 % a high and a low blur gave one picture). A picture-relative blur needs a custom depth
-  of field `Effect` (follow-up).
+  of field `Effect` (follow-up). Done by the addendum "photo mode's own depth of field" (#743).
 - **Screen-space reflections stand down while the blur is drawn.** On Ultra, reflections + depth of
   field + glow in one effect chain took Qt's render thread down in `d3d11.dll` at the owner's first
   focus click (two crashes, one address; PF-E3D-21), and it showed on the owner's `quality = ultra`
   only. Ultra's photos have no reflections; Low to High never had any. Finding the Qt-side cause, to
-  give them back, is #744.
+  give them back, is #744 (generalised and reproduced without project code in the addendum "photo
+  mode's own depth of field"; the workaround stays).
 - **The blur needs a focused point, so the first blur sets one.** The slider used to do nothing before
   the first click on the view (owner's manual test: "no difference between a high and a low blur").
   Three edges of that first focus (another plan, walk mode, one invariant) are #745.
@@ -11179,7 +12072,8 @@ Two decisions #729 left open, and the measured cause of a look that differed by 
    reads an untagged HD stream as BT.709 reads what the frames are (decision 9). The
    assumption is now pinned: `test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd`.
    A player that gets it wrong is a bug report with a named player, not a reason to invent
-   a second colour path.
+   a second colour path. *(#807: the frames are unchanged, and the finished file now states
+   them in its `colr` box and every SPS - addendum "review-grade video".)*
 3. **A bigger picture keeps 1080p's look by scaling the occlusion, not the glow.** #733
    read a 4K picture's horizon band as about 9 levels darker than 1080p and suspected Qt's
    pixel-sized glow. Measured on the family garden at the sunset anchor, the glow is not the
@@ -11211,6 +12105,348 @@ render-only input (the view's own 1.0 is untouched). Pinned by the tests named a
 row for `look.ao_distance_scale`, `tests/ui/test_quick3d_host.py`'s no-camera and
 raising-resting-frame rows, and the tour-hygiene tests of #738 (including the workspace-level
 hidden-view guard and the closing-dialog twin).
+
+### ADR-072 addendum: camera tours kept in the plan (#737)
+
+**Status:** implemented for issue #737; the release that ships it is named by its version sync.
+It replaces the consequence above that "keys of a tour live in the session".
+
+A tour's keyframes and settings lived only as long as the dialog, so a user could not come back
+next week, after changing the garden, and render the same flight again.
+
+1. **The plan owns its tours.** `ProjectManager.camera_tours` is a tuple of immutable
+   `SavedTour` objects (`core/camera_tours.py`, Qt-free). The dialog's controls are a draft:
+   "Save Tour" / "Save Tour As" keep the draft in the plan under a name, choosing a saved
+   tour puts it back into the controls. Names are unique whatever their case, one clean line
+   of at most 60 characters. A new, opened or recovered plan replaces the list and clears the
+   draft (its keyframes were points of the old plan); Save As, a template (`camera_tours` is
+   a kept field of ADR-066: a path through kept geometry, no site data) and a new season keep
+   the tours.
+2. **A saved tour holds a camera and a clock, and nothing of the garden.** What is written is
+   what the dialog needs to make the same video: the motion, its keyframes (kept whatever the
+   motion is: they are the user's work), the loop flag, the frame's duration, rate and size,
+   and a day's or a year's range. Rendering it later renders the garden as it is then. Not
+   written: the output path, the wind (reduced motion is the machine's setting), and the
+   look: photo mode's development, the weather and the quality preset stay the view's at the
+   time of the render, as for every picture (addendum above, decision 1).
+3. **A saved orbit or held view carries the view it started from.** The dialog's orbit "starts
+   where the view is now"; saved like that it would be another video on every render. The
+   orbit's pose (target, distance, yaw, pitch, field of view, turns, direction) and the held
+   camera are saved, the dialog says that the tour starts at its saved view, and "Use Current
+   View" lets it go.
+4. **The format is one additive top-level key, and `FILE_VERSION` stays `"1.4"`.**
+
+   ```json
+   "camera_tours": [
+     {
+       "name": "Promo Flight",
+       "motion": "path",
+       "keys": [
+         {"eye": [6370.2, -2718.9, 3521.4], "target": [1200.0, 800.0, 0.0], "fov_deg": 40.0},
+         {"eye": [3208.7, -3921.0, 3912.3], "target": [1200.0, 800.0, 0.0], "fov_deg": 40.0}
+       ],
+       "closed": true,
+       "date_range": ["2027-03-01", "2027-10-31"],
+       "duration_s": 12.0,
+       "fps": 30,
+       "size": [1920, 1080]
+     },
+     {
+       "name": "Drone",
+       "motion": "orbit",
+       "orbit": {"target": [1200.0, 800.0], "distance_cm": 2150.75, "yaw_deg": 33.5,
+                 "pitch_deg": 28.25, "fov_deg": 40.0, "turns": 2, "clockwise": false},
+       "duration_s": 12.0,
+       "fps": 30,
+       "size": [1920, 1080]
+     }
+   ]
+   ```
+
+   `motion` is `orbit`, `path` or `hold` (`held`: one key); `time_range` is `["06:00", "21:00"]`;
+   points are scene centimetres (east, north, up). The key is absent when the plan has no tour.
+   No bump, because an older build can ignore it safely (architecture contract, row 9): its
+   loader reads the keys it knows, the plan validator checks numbers only, and the version
+   guard refuses only a file newer than its own. Proven on the real thing: release v1.37.9's
+   own code loads a plan written with tours and loses nothing but the tours
+   (`test_a_file_with_tours_opens_in_the_last_release_that_did_not_know_them`). The degrade is
+   the one of every additive key: an older build that saves the plan writes it back without
+   the tours. The same holds one level down: a field of a tour this build does not know is
+   left out when the tour is saved again.
+5. **Every edit is one undo step through one writer.** `SaveCameraTourCommand` (a new name is
+   added at the end, a known name replaces that tour in place), `RenameCameraTourCommand` and
+   `DeleteCameraTourCommand` go through `CommandManager.execute`; each keeps the whole list
+   before and after, so undo and redo restore exactly what was there, in its order.
+   `ProjectManager.set_camera_tours` is the only writer besides load and new, and marks the
+   plan dirty. Changing the draft, choosing a tour and a cancelled name dialog are no step. A
+   command that cannot be built (unknown name, name taken, more than 50 tours) raises before
+   anything reaches the stack. The commands say they change neither the ground band nor
+   containment, so the canvas skips both restack scans.
+6. **The reader is a trust boundary.** `load_tours` is the one reader. One broad `except` per
+   entry (architecture contract, row 14): what is not a tour this build can render is skipped,
+   logged and counted, and the load of the plan goes on. Geometry is never repaired (a path
+   with one key changed is another video): a wrong type, a number that is no camera (not
+   finite, beyond 10 km, a field of view outside 0 to 180, an eye on its target), fewer than
+   two different keys, a range that runs backwards and both ranges at once skip the tour.
+   Settings are put back into their range: duration 1 to 600 s (default 12), a frame rate
+   and a size the dialog offers (defaults otherwise), whole turns 1 to 4. Caps: 50 tours per
+   plan, 100 keyframes per tour; a second tour of a name is skipped. The status bar says how
+   many tours could not be read, since they are gone with the next save. The document's
+   numeric boundary is unchanged: a NaN or an infinity anywhere in the file, a tour included,
+   refuses the whole document before any tour is read (`plan_io`, AUD-041). A tour's name is
+   shown as plain text wherever it appears.
+7. **The agent surface is unchanged.** `snapshot_dict` is the plan as the file holds it, so the
+   tours are in it; the curated agent schema names none of them, and no tool was added.
+
+**Alternatives rejected:** an id per tour with per-tour restore methods (the journal-note
+pattern): the name is the identity the user sees, and a whole-list snapshot is exact and
+small; the tours in `QSettings` (they would stay on one machine and not travel with the
+plan); nesting them under the file's `metadata` (a template drops it, and every other
+plan-scoped store is top-level); saving an orbit as "from wherever the view is" (not the same
+video twice); clamping a hostile coordinate into range; keeping unread entries and writing
+them back verbatim (unvalidated data would pass the boundary on every save); a `FILE_VERSION`
+bump (it locks every older install out of data it can ignore).
+
+**Consequences:** 23 new UI strings in every registered locale. A year's range is absolute
+dates, so a tour carried into a new season still names last year's dates until the user
+changes them. The autosave file holds the scene only, so a plan recovered after a crash has
+no tours, like the rest of the plan's metadata (location, soil tests, tasks); that is older
+than tours and is not changed here. Pinned by `tests/unit/test_camera_tours.py` (the model,
+one probe per class of hostile entry, the three commands' step counts) and
+`tests/integration/test_tour_persistence.py` (the dialog's own controls, save and reopen, the
+same frames, the changed garden along the saved path, another plan, the previous release,
+the real window).
+
+### ADR-072 addendum: photo mode's own depth of field (#743, #744)
+
+**Status**: proposed in the visual-polish package; not yet accepted by the owner.
+
+**Context**: decision 5 promises that the view previews what is saved, and the consequences above
+record where it failed. Qt's `depthOfField*` blurs a half-resolution copy with three taps
+`0.53 x amount` px apart, about 2 px at any picture size. Measured on bench_small's hero camera at
+blur 0.8 (60 px tiles, gradient kept against the sharp picture): the 640 x 360 preview kept 0.53 of
+its detail, a 4K save shrunk to the same size 0.92. On a bench with known answers
+(`tests/integration/photoblur_bench.qml`) Qt's blur put a 7 to 8 level fringe of an in-focus bar on
+the blurred wall beside it at 4K, drew a thin far line 3.6 times wider (as a share of the picture)
+at 360 px than at 4K, and left a blurred near bar's edge 1 px wide at 4K.
+
+**Decision**:
+
+1. **The app blurs, not Qt.** `qml/PhotoBlur.qml` is an `Effect` in the environment's `effects`,
+   only while the blur is drawn (`depthOfFieldActive`), so blur 0 is the view to the level. A user
+   effect runs on the scene's linear colour, before exposure, tone mapping, glow, the grade and the
+   vignette (measured: a constant 0.25 written there came out tone-mapped), so a blurred highlight
+   still glows.
+2. **The blur is a share of the picture's height.** The Gaussian's sigma is `blur x
+   BLUR_SIGMA_SHARE (0.006) x height`: 6.5 px at 1080p at the slider's end, 13 px at 4K, 2 px in a
+   328 px pane. Nothing in `photo_properties` depends on a picture's size any more; `blur_amount`,
+   `BLUR_MAX` and the 1080p cap are gone.
+3. **Two layers, premultiplied, at two sizes.** Out of focus is 0 inside the band and grows to 1
+   one band beyond its edge. What lies behind the band and what lies in front of it are separate
+   layers; each is premultiplied by its weight and blurred at sigma and at a third of it, rows then
+   columns, each tap a bilinear pair of texels (exact for premultiplied data, no texel skipped: no
+   copies). A far pixel takes the average of its own layer only (no fringe); the near layer covers
+   its own pixels and spreads past its edge (soft against a sharp background). Up to a third out of
+   focus the small blur takes over from the sharp pixel, beyond that the full blur from the small one:
+   lerping a sharp pixel with the full blur drew sharp leaves inside a haze. A layer's silhouette
+   pixel counts for a fifth (PF-E3D-27): its colour is multisampled, its depth one sample.
+4. **The sharp band keeps a whole plant and loses the scale model** (decided in this package; the
+   owner may veto either constant): `FOCUS_RANGE_MIN_CM` stays the owner's 60 cm (the band is now
+   sharp to its edge, half in front of the point and half behind), and the band is never thinner
+   than `FOCUS_RANGE_FLOOR_SHARE` (8 %) of the depth at `FOCUS_RANGE_FLOOR_AT_CM` (25 m), growing
+   with the square of the depth as a lens's depth of field does: 2 m (8 %) at 25 m, 4.6 m (12 %)
+   at 38 m, 5.7 m (13.5 %) at the family garden's 42 m camera, where the strongest blur left about a metre (3D
+   review of #729). Below about 9 m the floor is under the strong share and changes nothing. The
+   slider moves the band and the blur together.
+5. **Ultra's reflections still stand down under the blur** (#744). With the app's blur in Qt's
+   place the crash stayed: reflections kept under the blur on Ultra died at the first blurred frame,
+   3 of 3; with the workaround 10 of 10 rounds drew. With glow on, any two effects ahead of Qt's
+   own scene effect break its chain (PF-E3D-21): reflections with Qt's depth of field, reflections
+   with one user effect, two pass-through user effects (a wrong picture, or a crash). One effect
+   ahead of it, with any number of passes and buffers, is fine. A reproducer without project code is
+   in `adr-048-evidence/qt-effect-chain-glow/` with a bug-report draft; filing it needs the owner's
+   Qt account. Re-test on every Qt bump; when it is fixed, drop the `depthOfFieldActive` term from
+   `ssrEnabled` and invert the `ultra_blur` gate.
+
+**Measured** (dev box, RTX 4070, Direct3D 11, medium preset unless named; GPU shared with other
+work, so costs are ranges of A/B rounds interleaved):
+
+| | Qt's blur (base `53b48405`) | PhotoBlur |
+|---|---|---|
+| preview 640 x 360 against a 4K save at blur 0.8, mean gradient ratio of 41 tiles | 0.528 / 0.919 (0.391 apart) | 0.428 / 0.435 (0.033 apart) |
+| the same, middle third | 0.539 / 0.944 | 0.426 / 0.462 |
+| slider 0.05 against 1.0: share of 60 px tiles below 0.8, focus tile kept | 0.137 / 0.657; 1.20 / 0.93 | 0.000 / 0.652; 1.00 / 0.97 |
+| bench: fringe of an in-focus bar on the blurred wall, 4K | 7 to 8 levels | 0.0 |
+| bench: a 2 cm far line's width, share of the height, 360 px / 4K | 0.0083 / 0.0023 | 0.0139 / 0.0153 (one hump) |
+| bench: a near bar's 10-90 % edge, share of the height, 360 px / 4K | 0.0056 / 0.0005 | 0.0083 / 0.0069 |
+| frame at 1280 x 720, blur off / on, median of 60 grabs | | low 8.0 / 10.2 ms, medium 9.4 / 11.0, high 8.9 / 7.3, Ultra 3.1-4.2 / 3.5-5.7 |
+| a 4K capture, blur off / on, median of 8 | | medium 781 / 1245 ms (one run), Ultra 1691 / 1692 ms |
+
+Blur 0 with a focus set: 0 levels from the view. The memory loop of 30 1080p captures: +73 MB
+before, -88 MB after (noise). The five buffers are RGBA16F at the picture's size, about 330 MB
+during a 4K capture; the capture view rests small afterwards and gives them back (decision 4).
+
+**Alternatives rejected**: the issue's single pass weighted by each tap's own circle of confusion
+(no near spread: a blurred picket keeps its hard edge); scatter-as-gather with a per-tap sigma (not
+separable, and its approximations draw their own halos); a half-resolution layer for the full blur
+(a 2 px sigma in the pane would be 1 px, and the preview would part from the save again); lerping
+the sharp pixel with one full blur (sharp leaves inside a haze, round 1 of the look-dev); turning
+glow off on Ultra under the blur instead of reflections (glow changes the whole picture's
+brightness, reflections only water and glass).
+
+**Not fixed here, measured** (#743's "separate" bullet): with photo mode off, the 360 px pane reads
++4.75 luma (mean) and up to +12.3 in a 40-row band brighter than 1080p and a 4K capture of the same
+camera (family garden, medium). It is ambient occlusion, not glow: with AO off the gap is 0.25 mean
+and 1.0 worst band; glow on or off moves it by 0.15. Scaling AO's distance by 1080/height below
+1080p, the #733 lever, does not help (+4.86). `aoSoftness` is the pixel-sized term: at 360 px a
+softness of 25 instead of 45 zeroes the mean (+0.5) but a 40-row band stays 8.9 brighter, so no
+single knob gives the pane a 4K save's occlusion. Proposed: while photo mode is on, render the pane
+at a 1080p-equivalent internal height and show it scaled (the preview then is a save), or retune
+SSAO per height (softness and distance together) with the owner's eye on the everyday view. Both
+change the pane's look or its cost and are left to a follow-up.
+
+**Consequences**: no `.ogp` change, no `FILE_VERSION` bump, no new dependency, no user-visible
+string. The 3D view's look with photo mode off is untouched. Pinned by
+`tests/integration/test_directors_cut_render.py` (`test_a_saved_photo_has_the_blur_its_preview_shows`
+failed on Qt's blur at 0.394 apart; the slider; blur 0; the bench; `ultra_blur` now asserts that
+reflections stand down under the blur and come back without it), `tests/unit/test_scene3d_photo.py`
+(the sigma share and the band floors), and `tests/unit/test_quick3d_qml.py` (the effect's wiring,
+the shared shader code, the silhouette weight, the shader paths).
+
+### ADR-072 addendum: review-grade video, and an orbit's ease and tilt (#807)
+
+**Status**: proposed in the visual-polish package; not yet accepted by the owner. Decisions 5, 6
+and 7 are the owner's to confirm (each is one constant).
+
+**Context**: the 3D promo survey found the MP4 review-grade only: H.264 Constrained Baseline at
+0.2 bit/px (12 Mbit/s at 1080p30), no colour tags, and an orbit that starts and stops at full
+speed, tilted 31.6 degrees, one degree a frame. The owner will record a promo video with the
+Camera Tour, so the file must be good enough to publish as it is. Measured on 1080p30 PNG
+frames rendered on Ultra (RTX 4070, 2026-11-10): a foliage-heavy held shot (food forest, wind,
+180 frames) and a slow orbit (family garden, 0.5 degrees a frame, 180 frames), each encoded
+through the app's own writer and read back through Qt's decoder against the very YUV the writer
+fed the encoder. Detail is the mean gradient decoded/source over 32 px tiles whose source
+gradient is 8 levels or more (leaves, mulch, pickets); colour is the 32 px tile means through the
+BT.709 oracle (the 4:2:0 round trip alone reads 0.70-0.73 at worst) and the frame mean.
+
+| | before (0.2 bit/px) | 0.35 bit/px (the issue) | Standard | Best |
+|---|---|---|---|---|
+| orbit: Mbit/s (MB per minute) | 12.0 (90) | 19.4 (146) | 26.5 (199) | 35.7 (268) |
+| orbit: Y-PSNR mean / worst frame | 42.6 / 41.8 dB | 45.3 / 42.0 | 47.5 / 47.1 | 49.5 / 49.2 |
+| orbit: detail kept, mean / worst frame | 0.966 / 0.941 | 0.978 / 0.941 | 0.983 / 0.969 | 0.986 / 0.978 |
+| orbit: colour, frame mean / worst tile | 0.59 / 3.35 levels | | 0.35 / 1.80 | 0.63 / 2.06 |
+| foliage: Mbit/s (MB per minute) | 10.0 (75) | 10.6 (79) | 7.9 (59) | 11.4 (86) |
+| foliage: Y-PSNR mean / worst frame | 46.7 / 40.4 dB | 47.2 / 40.4 | 46.0 / 45.8 | 48.2 / 48.1 |
+| foliage: detail kept, mean / worst frame | 0.988 / 0.957 | 0.989 / 0.957 | 0.986 / 0.977 | 0.992 / 0.985 |
+| foliage: colour, frame mean / worst tile | 0.27 / 2.57 levels | | 0.06 / 1.51 | 0.27 / 1.71 |
+| profile / level | Constrained Baseline 4.0 | 4.0 | 4.0 (4.1 when it needs it) | 4.1 |
+| colour tags, as Qt reads them | none (`ColorSpace_Undefined`) | none | BT.709, limited | BT.709, limited |
+| timing | 180 of 180 frames at 33.333 ms everywhere | | | |
+
+The new default orbit (decisions 5 to 7) recorded end to end at 1080p30, Best: 30 s, 900 of 900
+frames at 33.333 ms, 24.8 Mbit/s (186 MB per minute), 50.5 / 49.9 dB, detail 0.986 / 0.972,
+colour 0.51 frame mean, level 4.1, BT.709 limited.
+
+**4K, once, end to end** (the slow orbit at 3840 x 2160, Ultra, one run writing the MP4 at Best
+and a PNG of every frame, nothing else of the slice running): 180 of 180 frames in 61.9 s, every
+one 33.333 ms; the process's peak working set 3.3 GB and peak commit 7.1 GB (the PNG writers'
+queue included), the GPU from 0.76 to 3.65 GB; no out-of-memory error (#809 records one on a
+machine short of commit). The same frames, before / Standard / Best: 44.6 / 76.7 / 109.9 Mbit/s
+(335 / 575 / 824 MB per minute), 45.1 / 43.0, 48.1 / 47.7 and 50.0 / 49.7 dB (mean / worst frame),
+detail 0.973 / 0.938, 0.984 / 0.967 and 0.987 / 0.978, colour 0.59, 0.34 and 0.66 levels (frame
+mean); level 5.1, BT.709 limited.
+
+**Decision**:
+
+1. **Constant quality, not a bit rate.** Qt's `AverageBitRateEncoding` reaches Windows' encoder
+   (`h264_mf`) as CBR (the average and the CBR modes wrote byte-identical files): the first 18
+   frames of every video read 40.4 to 42.0 dB at any rate from 0.2 to 1.0 bit/px, and above 0.7
+   bit/px it spent no more (31.0, then 32.1 Mbit/s). `Mp4Writer` asks for
+   `ConstantQualityEncoding`; the dialog's **Video quality** offers **Standard** (Qt's
+   `HighQuality`, Media Foundation's quality 90) and **Best, for Publishing** (`VeryHighQuality`,
+   100). A choice beats one fixed setting here: Best costs 1.35 to 1.45 times the size for about
+   2 dB. Standard is the default. The quality is not part of a saved tour: like the look, it is the
+   render's (addendum #737, decision 2), and it lives as long as the dialog. `BITS_PER_PIXEL` is gone.
+2. **The profile is what Windows writes: Constrained Baseline.** `QMediaRecorder` has no profile
+   setting, Qt 6.12 hands `h264_mf` only `rate_control` and `quality` (the strings in
+   `ffmpegmediaplugin.dll`), and FFmpeg's Media Foundation encoder takes an unset profile as
+   Baseline. High (CABAC, 8x8 transforms, B-frames) would need a Qt change, FFmpeg called around Qt,
+   or an encoder of our own: a new dependency, which #807 rules out. The constant quality pays for
+   the profile in bits. The writer logs the profile and level every file got.
+3. **The file states its colour.** Qt's recorder writes no colour description, and Qt's own
+   decoder read the file as `ColorSpace_Undefined`. `core/mp4_stream.py` (Qt-free) rewrites the
+   finished part once, on a worker thread, before it gets the user's name: a `colr` box (`nclx`
+   1/1/1, `full_range_flag` 0) in the sample entry, and the same values as `video_signal_type` in
+   every SPS (Media Foundation repeats the SPS at each IDR frame, once a second; a tag in `avcC`
+   alone would be overruled in the stream). Every other bit stays. The range is limited because the
+   frames are (decision 9). Checked without new tools: Qt's player prints FFmpeg's stream line,
+   `yuv420p(progressive)` before and `yuv420p(tv, bt709, progressive)` after; its frames report
+   BT.709 / BT.709 / video range; the decoded planes were identical, 180 of 180. A file the module
+   cannot rewrite (an MP4 layout other than FFmpeg's, a full disk) is saved untagged and the log
+   says so: the tags are a statement about a render, never a reason to lose it.
+4. **The file states the level its frames need.** Asked for constant quality, Media Foundation is
+   given no bit rate and labels a 1080p30 stream level 4.0 at any rate (36 Mbit/s as 4.0, whose
+   Baseline limit is 24). The same rewrite raises the level, never lowers it, to the lowest one
+   whose frame size, macroblock rate and coded picture buffer the samples fit (H.264 Table A-1,
+   the buffer as Annex C's leaky bucket, full at the start): Best's orbit says 4.1.
+5. **A new orbit eases in and out; a looping one does not** (owner's to confirm). `DroneOrbit.ease`
+   follows a raised cosine over the first and last `ORBIT_EASE_SHARE` (0.15) of the time, the share
+   a keyframe path eases over: the speed rises from 0 with no kick and joins the cruise with no kick,
+   and the cruise is 1.18 times the even speed. An eased orbit is not a loop: it ends at rest on its
+   first view. The dialog's **Start and stop smoothly** is on for a new orbit and off for a loop.
+   It is a stored, additive, defaulted field of a saved orbit (`"ease": true`, written only when
+   set): an orbit saved before it has no field, loads as the even loop, flies the frames it flew
+   (pinned frame by frame on the pre-#807 entry), and is written back unchanged. A keyframe path
+   keeps its linear ramp: changing it would move every saved path's frames.
+6. **The orbit has a tilt control, 18 degrees for a new orbit** (owner's to confirm). The view's
+   31.6 degrees shows no sky at all (the survey's 0.7-2.8 % were blue pixels below the horizon:
+   the pond, the trampoline, the haze); at 18 degrees the sky is 5.4 % of the picture (measured 5.37,
+   analytic 5.36 at 40 degrees' field of view), the horizon sits in the top fifth and every bed
+   still shows at every turn of the family garden; at 12 degrees the house hides the garden from
+   behind. The range is the view's own, 5 to 89 degrees, and never so low that the eye comes closer
+   than `MIN_EYE_CM` (20 cm) to the ground (`orbit_pitch_range`: at a 1 m orbit the floor is 11.5
+   degrees). The tilt is one value: the control shows it, a saved tour brings its own exactly (not
+   the control's rounding), and **Use Current View**, now always on the orbit page, puts the view's
+   own tilt into it so the first frame is the view. The orbit's place and distance still come from
+   the view (or the saved tour).
+7. **A new orbit takes 30 s a turn** (owner's to confirm). At 12 s a turn the horizon a lower tilt
+   brings into view moves 26 px a frame across a 1080p picture; at 30 s 10 px (12 px at the eased
+   cruise). The duration follows the camera until the user sets one: 30 s a turn for an orbit that
+   leaves the clock alone, 12 s for everything else, because a year's regrowths cost a second and
+   2 MB each, eight per second of video (#531). A file that names no duration still gets 12 s.
+8. **A moving camera keeps the view's locked shadow map** (decision 5 of this ADR, #734). An eased
+   orbit's slow ends crawl less, not more: the board's `--stairs` orbit, locked, High, 1080p, the
+   shadow's edge 0-10 / 10-20 m out: 0.079 / 0.094 px a frame at 0.5 degrees a frame (the reference),
+   0.071 / 0.064 at 0.05, 0.043 / 0.036 at 0.01.
+
+The second proposal of the issue, a PNG sequence for an external master-quality encode, has been
+there since L6.2: **Save PNG Sequence...** writes every frame losslessly (`frame_000001.png`, ...).
+
+**Alternatives rejected**: a higher bit rate in the average mode (the first second stays starved,
+and the encoder stops spending near 32 Mbit/s); one fixed quality (Best everywhere costs 1.4 times
+Standard's size for files that are not published); High profile through `ctypes` into the wheel's
+`avcodec` (version-specific structure layouts, a second encoder path to keep in step with Qt's);
+an `ffmpeg.exe` or `imageio-ffmpeg` (rejected again, ADR-072); tagging only the `colr` box (a decoder
+that reads only the bit stream would still guess); tagging only `avcC` (the in-band SPS at every IDR
+frame overrules it); easing every orbit (a looped video would stop at its seam); easing paths with
+the new curve (saved paths would fly other frames); a tilt saved apart from the orbit's pose (two
+truths for one number); a 30 s default for every tour (a year's time-lapse would cost 2.5 times the
+regrowths and #531's memory).
+
+**Consequences**: no `FILE_VERSION` change: one additive field inside a saved orbit, which an
+older build ignores (and drops when it saves the tour again, like any field it does not know).
+A finished video costs one extra copy of the file on disk while it is tagged (about 1 GB a minute
+at 4K Best, see below), and the delivery waits for it. 12 new UI strings. The consequences above
+that say "an MP4 carries no colour tag" (this ADR) and "the MP4 keeps relying on the HD
+convention" (addendum #733, decision 2) are superseded: the frames are still HD and BT.709, and the
+file now says so. Pinned by `tests/unit/test_mp4_stream.py` (every SPS variant, the box rewrite,
+the level, the refusals), `tests/unit/test_camera_path.py` (the even orbit's old frames, the eased
+one's rest and smoothness, the tilt range), `tests/unit/test_camera_tours.py` (the pre-#807 orbit,
+the new field, the default duration), `tests/integration/test_video_writer.py` (constant quality, the
+tags read back by Qt, the untagged fallback, the kept render), `tests/integration/test_directors_cut.py`
+(the dialog's defaults, the tilt clamp, Use Current View, Save Video end to end) and
+`tests/integration/test_tour_persistence.py` (the older orbit through the dialog, an eased tilted
+orbit kept and flown again); the render tier's tour scenario probes its MP4.
 
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 

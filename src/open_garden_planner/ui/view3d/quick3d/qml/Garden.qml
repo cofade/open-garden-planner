@@ -44,6 +44,9 @@ Item {
     // sky: the software fallback, the self-test): a plain background and a flat fill
     property color skyColor: "#8f9ca8"
     property color fillColor: "#56657c"
+    // #802: where a sky lights the view, a flat ambient that keeps open ground from falling
+    // below the night it ends in (core/scene3d/look.twilight_fill). Black by day and at night
+    property color twilightFill: "#000000"
     property color meadowColor: "#487f34"   // ONE albedo for the meadow and for bare plan ground
     // the key light's shadows: the preset's cost, the mood's softness
     property string shadowMapQuality: "very_high"   // high | very_high | ultra
@@ -63,6 +66,9 @@ Item {
     property bool fog: true
     // wind
     property real windStrength: 2.5
+    // #800: downwind (engine frame) x the wind's strength over a clear day's - what sways a
+    // plant by its own size (core/scene3d/wind.py; the lawn's blades keep windStrength)
+    property vector3d windSway: Qt.vector3d(0.9396926, 0, -0.3420201)
     // the shaders' clock, in seconds. At 0 the wind is at REST: every vertex is exactly
     // where its mesh puts it (the shaders ease the sway in over the first two seconds),
     // so what is drawn is what the CPU measured. ONLY at 0: a clock paused anywhere
@@ -77,6 +83,12 @@ Item {
     property bool lawnBlades: true
     // L4.5: the ground's detail normals (0 = flat), see the groundTile component
     property real detailNormals: 3.0
+    // #798: the meadow's surface (ground.frag): 0 its flat colour, 1 the grass texture,
+    // 2 the grass with its slow variation - the preset's; the truth view is always flat
+    property int meadowSurface: 2
+    // #798: the plan's OPEN ground (no item covers it) takes the meadow's grass too -
+    // the owner's call (look.OPEN_GROUND_GRASS); false: it keeps the flat colour
+    property bool openGroundGrass: true
     // ---- the living garden (Phase 17 L5, ADR-070; look.AtmosphereSpec) ----
     // A LOOK and nothing else: no property here moves the sun, a shadow or a plant.
     // The defaults are look.CLEAR_STILL: clear, dry and still.
@@ -88,6 +100,10 @@ Item {
     property color groundTint: "#ffffff"
     property real groundRoughness: 1.0
     property real groundSpecular: 0.15
+    // #801: how far the rain moves the ground's roughness and specular from the dry
+    // ground's - what a built surface with a detail picture takes too (built_detail.frag)
+    property real wetRoughShift: 0.0
+    property real wetSpecularShift: 0.0
     property int precipKind: 0              // 0 none, 1 rain, 2 snow
     property real precipDensity: 0.0        // the share of the precipitation's particles drawn
     property vector3d windDrift: Qt.vector3d(0, 0, 0)       // cm/s, engine frame
@@ -96,6 +112,14 @@ Item {
     property real butterflyLife: 0.0
     property real fireflyLife: 0.0
     property real lampGlow: 0.0             // the garden lights: off by day, on at night
+    // the ambient occlusion under the weather (#687): factors on the spike's strength and
+    // reach, and the bias (cm) that keeps open flat ground from occluding itself
+    property real aoStrengthGain: 1.0
+    property real aoDistanceGain: 1.0
+    // (#805: at least look.AO_FLAT_BIAS_CM in every look - Qt's camera-facing normal drew
+    // diagonal bands of self-occlusion across every flat micro-leaf)
+    property real aoBias: 1.0
+    property real builtSnow: 0.0            // snow on built TOPS: a roof, a bed's soil (#687)
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -109,6 +133,15 @@ Item {
     // true while baked tiles lie on the plan (quick3d/ground_tiles.py, L1.5): the bare
     // rectangle below is then not drawn — two coplanar surfaces would fight for the depth
     property bool groundTiled: false
+    // #798: the meadow's grass, set once by the host (core/scene3d/meadow.py): the canvas's
+    // GRASS texture as its linear colour over its mean less its mottle (RGBA16F), the
+    // relief's scale and the variation (brightness at 3.1, 9 and 41 m, hue) - ONE Texture for the scene's
+    // life (grassTexture), never re-pointed (ogp-3d-renderer section 5)
+    property var grassDetail: null
+    property real grassRelief: 0.0
+    property vector4d grassVariation: Qt.vector4d(0, 0, 0, 0)
+    // what every piece of ground draws: the truth view keeps the flat colour
+    readonly property int groundSurface: topDown || grassDetail === null ? 0 : meadowSurface
 
     // ---- the living garden's host side (Quick3DHost, L5) ----
     // where the precipitation falls: a box around the camera's target, engine frame
@@ -165,11 +198,13 @@ Item {
     property real photoVignette: 0.0        // Qt's vignetteRadius; 0 is off
     property real photoFocusDistance: 600.0 // cm, from the camera to the focused point
     property real photoFocusRange: 100.0    // cm that stay sharp around it
-    property real photoBlur: 0.0            // Qt's depthOfFieldBlurAmount; 0 is off
+    // the blur's sigma as a share of the picture's height (PhotoBlur.qml, #743); 0 is off
+    property real photoBlur: 0.0
     property bool photoGraded: false        // a colour grade is on (showPhotoGrade)
-    // The blur is drawn (it is never in the truth view). Screen-space reflections stand down
-    // while it is: SSR + depth of field + glow in one effect chain crashed Qt's render thread
-    // in d3d11.dll (OMSetRenderTargets on a released view) on the Ultra preset
+    // The blur is drawn (it is never in the truth view): PhotoBlur is in the effect chain only
+    // then. Screen-space reflections stand down while it is (PF-E3D-21): with glow on, Qt
+    // 6.12's chain breaks as soon as TWO effects run ahead of its own scene effect - SSR and
+    // the blur here - (a crash in d3d11.dll at OMSetRenderTargets, or a wrong picture)
     readonly property bool depthOfFieldActive: !root.topDown && root.photoBlur > 0
 
     // A grade's table: ONE Texture per grade, with its data object, for the host's life
@@ -213,6 +248,9 @@ Item {
     // (measured, #733 - not the glow the review suspected). A capture shrinks the radius
     // in proportion to its height, so the occlusion's footprint stays 1080p's.
     property real captureAoDistanceScale: 1.0
+    // A frame whose camera does not move - a picture, a held camera's time-lapse - fits
+    // the shadow map to the casters (the key light, #734); the view never does.
+    property bool fittedShadows: false
     // the height the screen-sized measures go by (a particle's and the ring's minimum size)
     readonly property real pictureHeight: captureWanted ? captureHeight / capturePixelRatio
                                                         : view.height
@@ -226,6 +264,11 @@ Item {
     // goes on where it was) and has no timer of its own while it is not running.
     // Wrap periodically at 1 hour above 2 s (the foliage/grass rest-ramp threshold)
     // so single-precision float uniforms in shaders preserve precision indefinitely (#689).
+    // #800: whether the wind's clock stands anywhere but at rest. A plant's wood swaps to its
+    // swaying shader on THIS, which changes only when the wind starts or rests: a binding that
+    // read windTime itself would be evaluated - and reassign every plant part's materials -
+    // on every frame the clock ticks
+    readonly property bool windBlowing: windTime > 0.0
     FrameAnimation {
         running: root.windRunning
         onTriggered: {
@@ -599,16 +642,39 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #803: what the part is made of - its surface's roughness and specular, written
+            // by the host from core/scene3d/materials.SURFACES (defaults: DEFAULT_SURFACE)
+            property real surfaceRough: 0.78
+            property real surfaceSpecular: 0.35
+            // #801: the surface's detail picture (a wall's plaster, courses or boards), or
+            // null; how it is laid (1 the mesh's uvs, 2 the face's plane), how many cm one
+            // picture spans, the detail normal's strength and the distance it fades by
+            property var detailMap: null
+            property real detailMode: 0
+            property real detailTile: 256
+            property real detailNormal: 0.0
+            property real detailFade: 4000
+            property real detailContrast: 1.0
+            // #800: a plant's wood and fruit sway with its leaves (foliagePart's swayFrame)
+            property vector3d swayFrame: Qt.vector3d(0, 0, 0)
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
-            materials: fade < 1.0 ? [vcScreen] : [vcLook]
+            // #801: a part with a detail picture shades by built_detail.frag, its snow included;
+            // #800: a plant's wood and fruit take the snowy shader with the plant's sway
+            // (plant_sway.vert) - only while the wind's clock runs, so every frame at rest is
+            // the principled look; #687: under snow any other top lies under the ground's snow
+            // (built_snow.frag) - only while it snows, so a snowless frame is the principled
+            // look; a building's floor lies under its roof (Cutaway shows it) and stays bare
+            materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail]
+                       : swayFrame.x > 0.0 && root.windBlowing ? [vcSway]
+                       : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
                 vertexColorsEnabled: true
                 baseColor: Qt.rgba(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z, 1)
                 baseColorMap: patternMap ? patternMap : null
-                roughness: 0.78
-                specularAmount: 0.35
+                roughness: surfaceRough
+                specularAmount: surfaceSpecular
                 // Cutaway: the inner faces of a roofless house's walls
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
             }
@@ -616,12 +682,76 @@ Item {
                 id: vcScreen
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uOpacity: fade
-                property real uRough: 0.78
-                property real uSpecular: 0.35
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: vcDetail
+                property TextureInput uDetailMap: TextureInput {
+                    texture: detailMap ? detailMap : null
+                }
+                property real uDetailMode: detailMode
+                property real uDetailTile: detailTile
+                property real uDetailNormal: detailNormal
+                property real uDetailFade: detailFade
+                property real uDetailContrast: detailContrast
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                // the weather as the ground takes it (ground.frag): the rain's tint and shift
+                property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uWetRough: root.wetRoughShift
+                property real uWetSpecular: root.wetSpecularShift
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "built_detail.vert"
+                fragmentShader: "built_detail.frag"
+            }
+            CustomMaterial {
+                id: vcSnow
+                // #687: the principled look's albedo through the engine's polynomial (sRGB in)
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
+            }
+            CustomMaterial {
+                id: vcSway
+                // vcSnow's look (snow on bare branches too), moved by the plant's sway
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                property real uTime: root.windTime
+                property vector3d uSwayFrame: swayFrame
+                property vector3d uWindSway: root.windSway
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "plant_sway.vert"
+                fragmentShader: "built_snow.frag"
             }
         }
     }
@@ -641,28 +771,76 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #803 / #801: as vcPart - the surface's numbers and its detail picture (a
+            // roof's tiles laid by the mesh's uvs); a roof's timber is a roof part too
+            property real surfaceRough: 0.78
+            property real surfaceSpecular: 0.35
+            property var detailMap: null
+            property real detailMode: 0
+            property real detailTile: 256
+            property real detailNormal: 0.0
+            property real detailFade: 4000
+            property real detailContrast: 1.0
             receivesShadows: true
             pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
-            materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]
+            materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail]
+                       : root.builtSnow > 0.0 ? [roofSnow] : [roofLook]   // #687: snow on the roof
             // roof tiles and shingles (ogp-lush-cinematic 4: roughness 0.70-0.85)
             PrincipledMaterial {
                 id: roofLook
                 vertexColorsEnabled: true
                 baseColor: tint
-                roughness: 0.80
-                specularAmount: 0.15
+                roughness: surfaceRough
+                specularAmount: surfaceSpecular
             }
             CustomMaterial {
                 id: roofScreen
                 property vector3d uTint: tintLinear
                 property real uOpacity: root.roofsHidden ? 0.0 : fade
-                property real uRough: 0.80
-                property real uSpecular: 0.15
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: roofDetail
+                property TextureInput uDetailMap: TextureInput {
+                    texture: detailMap ? detailMap : null
+                }
+                property real uDetailMode: detailMode
+                property real uDetailTile: detailTile
+                property real uDetailNormal: detailNormal
+                property real uDetailFade: detailFade
+                property real uDetailContrast: detailContrast
+                property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uWetRough: root.wetRoughShift
+                property real uWetSpecular: root.wetSpecularShift
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                vertexShader: "built_detail.vert"
+                fragmentShader: "built_detail.frag"
+            }
+            CustomMaterial {
+                id: roofSnow
+                property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property TextureInput uFill: TextureInput { texture: null }
+                property real uHasFill: 0.0
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
             }
         }
     }
@@ -733,6 +911,10 @@ Item {
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
+                // #803: the glint's peak (linear, before the look's exposure) is soft-capped
+                // here: Qt's own glint clipped a white blob over 3-6 % of a pond seen at the
+                // mirror angle of a morning sun; 0.6 peaks at luma 212-237, unclipped
+                property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 shadingMode: CustomMaterial.Shaded
                 fragmentShader: "water.frag"
             }
@@ -748,6 +930,7 @@ Item {
                 property real uBody: 0.5
                 property real uReflect: 0.15
                 property real uRough: 0.02
+                property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 property real uOpacity: fade
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
@@ -783,28 +966,28 @@ Item {
                 generateMipmaps: true
                 mipFilter: Texture.Linear
             }
-            // L4.5: from the Medium preset up the ground shades with detail normals of its
-            // own picture (ground.frag); Low and the compatibility mode keep the flat look
-            // — unless snow lies on it (L5): a texture is only multiplied by a principled
-            // material, and snow is a mix
-            materials: root.detailNormals > 0.0 || root.snowCover > 0.0 ? [tileDetail] : [tileFlat]
-            PrincipledMaterial {
-                id: tileFlat
-                baseColorMap: tileTexture
-                baseColor: root.groundTint     // L5: the rain darkens the ground (white: as it is)
-                // the endless meadow's values (below): PrincipledMaterial scales the
-                // sky's diffuse light by (1 - specularAmount), so any other pair puts a
-                // luma step where a baked lawn meets the meadow at the plan's edge
-                // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2). L5: the
-                // weather changes them for every piece of ground at once
-                roughness: root.groundRoughness
-                specularAmount: root.groundSpecular
-            }
+            // ground.frag at every preset (#798): the tile's picture, its open ground (alpha
+            // 0) the meadow's grass; from Medium up with detail normals of its own picture
+            // (L4.5) - Low (detailNormals 0) and the compatibility mode keep the flat relief
+            materials: [tileDetail]
             CustomMaterial {
                 id: tileDetail
                 property TextureInput uBaseMap: TextureInput { texture: tileTexture }
+                property real uHasTile: 1.0
                 property real uDetail: root.detailNormals
-                // L5: the weather (ground.frag) - the same values the meadow takes
+                // #798: the meadow's grass where the tile is open ground - and only if the
+                // plan's open ground takes it (the owner's call)
+                property TextureInput uGrass: TextureInput { texture: grassTexture }
+                property real uGrassRelief: root.grassRelief
+                property vector4d uMeadowVariation: root.grassVariation
+                property real uSurface: root.groundSurface
+                property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
+                property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
+                // L5: the weather (ground.frag) - the same values the meadow takes. The
+                // endless meadow's roughness and specular: PrincipledMaterial-style
+                // lighting scales the sky's diffuse light by (1 - specularAmount), so any
+                // other pair puts a luma step where a baked lawn meets the meadow at the
+                // plan's edge (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
                 property real uRough: root.groundRoughness
                 property real uSpecular: root.groundSpecular
@@ -830,6 +1013,9 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #800: the plant's (height, canopy radius) in cm and its phase 0..1 - the same for
+            // every part of one item (Quick3DHost.create_part); height 0: it does not sway
+            property vector3d swayFrame: Qt.vector3d(0, 0, 0)
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
@@ -840,7 +1026,8 @@ Item {
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
                 property real uTime: root.windTime
-                property real uWind: root.windStrength * 0.35
+                property vector3d uSwayFrame: swayFrame
+                property vector3d uWindSway: root.windSway
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "foliage.vert"
@@ -853,7 +1040,8 @@ Item {
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
                 property real uTime: root.windTime
-                property real uWind: root.windStrength * 0.35
+                property vector3d uSwayFrame: swayFrame
+                property vector3d uWindSway: root.windSway
                 property real uOpacity: fade
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
@@ -1001,8 +1189,14 @@ Item {
             // 0 wherever AO is off: Qt's setAoStrength turns AO on whenever the strength
             // is not 0, whatever aoEnabled says (3D review of L4's second owner pass: Low
             // drew SSAO once the fade had changed it)
-            aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
-            aoDistance: 14 * root.captureAoDistanceScale
+            aoStrength: 55 * root.aoStrengthGain * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
+            // the weather's reach and bias (#687): under cloud the sky is the light and what
+            // hides it grounds an object; the bias keeps flat ground seen at a slant from
+            // occluding itself (Qt's normal faces the camera: open snow greyed, a light rim
+            // round every object). A capture's scale shrinks both: the bias is a share of
+            // the reach, and the rim comes back below 0.3 of it
+            aoDistance: 14 * root.aoDistanceGain * root.captureAoDistanceScale
+            aoBias: root.aoBias * root.captureAoDistanceScale
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
             glowEnabled: !root.topDown && root.glow
@@ -1057,10 +1251,17 @@ Item {
             vignetteStrength: 15
             vignetteRadius: root.photoVignette
             lutEnabled: !root.topDown && root.photoGraded
-            depthOfFieldEnabled: root.depthOfFieldActive
-            depthOfFieldFocusDistance: root.photoFocusDistance
-            depthOfFieldFocusRange: root.photoFocusRange
-            depthOfFieldBlurAmount: root.photoBlur
+            // photo mode's depth of field (#743): the app's own picture-relative blur, never
+            // Qt's depthOfField* (a half-resolution copy, about 2 px at any picture size). In
+            // the chain only while it is drawn, so blur 0 is the view to the level
+            effects: root.depthOfFieldActive ? [photoBlur] : []
+        }
+
+        PhotoBlur {
+            id: photoBlur
+            focusDistance: root.photoFocusDistance
+            focusRange: root.photoFocusRange
+            blurShare: root.photoBlur
         }
 
         PerspectiveCamera {
@@ -1110,14 +1311,24 @@ Item {
             // the camera, a framed plan beyond 90 m lay clear and shadowless (3D review).
             // The top-down truth view keeps the measured 9000.
             shadowMapFar: root.topDown ? 9000 : root.shadowFar
-            lockShadowmapTexels: true
+            // #734: a still frame fits each cascade to what CASTS in its slice (the plan's
+            // own items, ~1 cm texels) - not the slice's whole bounding sphere (8.3 cm on
+            // High at the board's golden hour: long edges stepped, lit teeth under every
+            // caster, a picket fence's slits streaked at a low sun). A moving camera keeps
+            // the sphere: a fitted map moves with the view and crawled two to four times as
+            // far in an orbit (ADR-059 addendum, #734). The truth view keeps the fit it was
+            // measured with.
+            lockShadowmapTexels: root.topDown || !root.fittedShadows
         }
-        // The flat fill - ONLY where no sky texture lights the view (the truth view, a
-        // host without a sky). No direct light of its own; separate from the key light
-        // so that a frame without one is dim, not black. With a sky, the sky is the fill.
+        // The flat fill - where no sky texture lights the view (the truth view, a host
+        // without a sky). No direct light of its own; separate from the key light so that
+        // a frame without one is dim, not black. With a sky, the sky is the fill - and in
+        // twilight this light carries the look's twilight fill (#802): an ambient lights
+        // the garden and never the skybox, so the ground keeps up with the night while the
+        // sky darkens as it did. Black by day and at night.
         DirectionalLight {
             brightness: 0
-            ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor
+            ambientColor: view.skyShown ? root.twilightFill : root.fillColor
             castsShadow: false
         }
 
@@ -1126,24 +1337,50 @@ Item {
         // review of #388: one quad under the plan lost the depth test to it). Its ONE
         // geometry is the host's: loaded at start and whenever the plan's rectangle
         // changes, as the selection ring's (Quick3DHost._show_meadow).
+        // #798: the meadow's grass - the canvas's GRASS texture as linear colour over its
+        // mean, one texel a centimetre, repeated in world space (ground.frag samples it
+        // twice); its mips keep the mean (RGBA16F: they average linear light)
+        Texture {
+            id: grassTexture
+            textureData: root.grassDetail
+            tilingModeHorizontal: Texture.Repeat
+            tilingModeVertical: Texture.Repeat
+            generateMipmaps: true
+            mipFilter: Texture.Linear
+        }
         Model {
             id: meadow
             visible: geometry !== null
             pickable: false
             receivesShadows: true
             castsShadows: false
-            materials: PrincipledMaterial {
-                baseColor: root.meadowColor
-                roughness: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
-                specularAmount: root.groundSpecular // 0.15 dry
+            // ground.frag without a tile: the meadow's grass everywhere (#798) - the same
+            // function as the plan's open ground, so the plan's edge has no step
+            materials: CustomMaterial {
+                property TextureInput uBaseMap: TextureInput { texture: null }
+                property real uHasTile: 0.0
+                property real uDetail: root.detailNormals
+                property TextureInput uGrass: TextureInput { texture: grassTexture }
+                property real uGrassRelief: root.grassRelief
+                property vector4d uMeadowVariation: root.grassVariation
+                property real uSurface: root.groundSurface
+                property real uGrassShare: 1.0
+                property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
+                property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
+                property real uSpecular: root.groundSpecular   // 0.15 dry
+                property real uSnowCover: root.snowCover
+                shadingMode: CustomMaterial.Shaded
+                fragmentShader: "ground.frag"
             }
         }
 
-        // the plan rectangle, bare: ground in the meadow's albedo. Drawn only while no
-        // baked tiles lie on the plan (L1.5: the groundTile component above). The
-        // MEADOW's material too (roughness 1.0, specular 0.15): at 0.92 / 0.2 its sheen
-        // made the plan read as a darker or brighter rectangle under a grazing view
-        // (-8.9 luma at golden hour; L1.4 fix round 1); the tiles keep these values.
+        // the plan rectangle, bare: open ground. Drawn only while no baked tiles lie on
+        // the plan (L1.5: the groundTile component above). The MEADOW's material
+        // (roughness 1.0, specular 0.15: at 0.92 / 0.2 its sheen made the plan read as a
+        // darker or brighter rectangle under a grazing view, -8.9 luma at golden hour;
+        // L1.4 fix round 1) - since #798 its very shader: the grass where the plan's open
+        // ground takes it, the flat colour where it does not.
         Model {
             source: "#Rectangle"
             position: Qt.vector3d(root.groundCenter.x, 0, root.groundCenter.z)
@@ -1152,10 +1389,22 @@ Item {
             receivesShadows: true
             castsShadows: false
             visible: root.groundVisible && !root.groundTiled
-            materials: PrincipledMaterial {
-                baseColor: root.meadowColor
-                roughness: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
-                specularAmount: root.groundSpecular // 0.15 dry
+            materials: CustomMaterial {
+                property TextureInput uBaseMap: TextureInput { texture: null }
+                property real uHasTile: 0.0
+                property real uDetail: root.detailNormals
+                property TextureInput uGrass: TextureInput { texture: grassTexture }
+                property real uGrassRelief: root.grassRelief
+                property vector4d uMeadowVariation: root.grassVariation
+                property real uSurface: root.groundSurface
+                property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
+                property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
+                property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
+                property real uSpecular: root.groundSpecular   // 0.15 dry
+                property real uSnowCover: root.snowCover
+                shadingMode: CustomMaterial.Shaded
+                fragmentShader: "ground.frag"
             }
         }
 
@@ -1387,6 +1636,49 @@ Item {
                     fragmentShader: "screen.frag"
                 }
             }
+            Model {   // #687: the snow on built tops, so the first snowy frame compiles nothing
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property TextureInput uFill: TextureInput { texture: null }
+                    property real uHasFill: 0.0
+                    property real uRough: 0.78
+                    property real uSpecular: 0.35
+                    property real uSnowCover: 0.0
+                    property real uSnowRough: 1.0
+                    property real uSnowSpecular: 0.15
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
+                }
+            }
+            Model {   // #800: a plant's swaying wood, so the first windy frame compiles nothing
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property TextureInput uFill: TextureInput { texture: null }
+                    property real uHasFill: 0.0
+                    property real uRough: 0.78
+                    property real uSpecular: 0.35
+                    property real uSnowCover: 0.0
+                    property real uSnowRough: 1.0
+                    property real uSnowSpecular: 0.15
+                    property real uTime: 0.0
+                    property vector3d uSwayFrame: Qt.vector3d(0, 0, 0)
+                    property vector3d uWindSway: Qt.vector3d(0, 0, 0)
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "plant_sway.vert"
+                    fragmentShader: "built_snow.frag"
+                }
+            }
             Model {
                 source: "#Rectangle"
                 pickable: false
@@ -1398,7 +1690,8 @@ Item {
                     property real uSnow: 0.0
                     property real uWet: 0.0
                     property real uTime: 0.0
-                    property real uWind: 0.0
+                    property vector3d uSwayFrame: Qt.vector3d(0, 0, 0)
+                    property vector3d uWindSway: Qt.vector3d(0, 0, 0)
                     property real uOpacity: 0.0
                     shadingMode: CustomMaterial.Shaded
                     cullMode: Material.NoCulling
@@ -1437,6 +1730,7 @@ Item {
                     property real uBody: 0.5
                     property real uReflect: 0.15
                     property real uRough: 0.02
+                    property real uGlintCap: 0.6
                     property real uOpacity: 0.0
                     shadingMode: CustomMaterial.Shaded
                     vertexShader: "screen.vert"

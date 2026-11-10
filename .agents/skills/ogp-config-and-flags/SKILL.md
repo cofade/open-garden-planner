@@ -235,7 +235,9 @@ satellite-picker scale/coords), `season_year` + `linked_seasons`,
 `pest_disease_logs`, `shopping_list_prices`, `excluded_shopping_items`,
 `enabled_amendments` (`None` = "all bundled amendments enabled" default) +
 `prefer_organic` (default `True`), `succession_plans`,
-`garden_journal_notes`, `manual_tasks`, `task_states`, `harvest_logs`.
+`garden_journal_notes`, `manual_tasks`, `task_states`, `harvest_logs`,
+`camera_tours` (saved camera tours; `core/camera_tours.load_tours` is the
+one reader, hostile entries are dropped).
 
 Rule of thumb: user preference about the *app* → §1 QSettings; data or
 preference about *this garden* → `ProjectData`.

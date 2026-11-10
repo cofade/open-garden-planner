@@ -23,6 +23,17 @@ Truth:
 
 The plan holds a ridge HEIGHT but no pitch: the slope is the style's, flattened
 where it would push the eaves under ``eave_floor_cm`` (a door still fits).
+
+Tiles (#801): the tile faces (and the ridge tile) carry uvs in CENTIMETRES, which
+``built_detail.vert`` lays the surface's picture by. A gable's are the 2D brush's
+frame (``ui/canvas/items/roof_paint.paint_roof_with_ridge``): u along the ridge from
+its middle, v the plan distance from the ridge line on either side — the canvas
+mirrors its picture across the ridge, and so does |d| — so a roof seen from above IS
+the plan's picture, tile for tile; on the slope a course is 1 / cos(pitch) longer
+than in plan, as a real tile is longer than its shadow on the plan. A hip's faces
+and a shed's plane run u along their own eave (the outline's counter-clockwise
+direction, from its centre) and v down the face from its top (``face_tile_uvs``):
+the canvas draws no hips, so there size and lap direction agree, not the phase.
 Ported from the spike's ``gable_house_parts``, which handled convex footprints
 at scene positions and left the slab's edges open.
 """
@@ -267,12 +278,20 @@ def gable_roof(footprint: ArrayLike, ridge: tuple[tuple[float, float], tuple[flo
         for index, apex_point, facing in ((0, apex0, -1.0), (1, apex1, 1.0)):
             cap_triangles.append(np.stack([feet[1.0][index], apex_point, feet[-1.0][index]]))
             cap_out.append((facing * along[0], facing * along[1], 0.0))
-    roof = Mesh.merge([
-        flat_mesh(lifted(slab, 0.0), style.tile.linear, outward=up),
+    middle = (start + end) / 2.0
+
+    def tile_uvs(points: F64) -> F64:
+        """The 2D brush's frame (#801, module docstring "Tiles")."""
+        plan = points[..., :2]
+        return np.stack([(plan - middle) @ along, np.abs((plan - start) @ normal)], axis=-1)
+
+    caps = np.stack(cap_triangles)
+    roof = Mesh.merge([   # the tiles' faces first, then the timber's: one run per surface (#803)
+        flat_mesh(lifted(slab, 0.0), style.tile.linear, outward=up, vertex_uvs=tile_uvs(lifted(slab, 0.0))),
+        flat_mesh(caps, style.cap.linear, outward=np.asarray(cap_out), vertex_uvs=tile_uvs(caps)),
         flat_mesh(lifted(slab, style.slab_cm), style.timber.linear, outward=down),
         flat_mesh(fascia[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3, 3), style.timber.linear,
                   outward=np.repeat(fascia_out, 2, axis=0)),
-        flat_mesh(np.stack(cap_triangles), style.cap.linear, outward=np.asarray(cap_out)),
     ])
 
     # ── walls: one trapezoid per footprint edge, up to the slab's underside ──
@@ -333,14 +352,28 @@ def _fascia(outline: F64, top_at: Callable[[F64], F64], slab: float, color: Arra
 
 
 def _slab(triangles: F64, top_at: Callable[[F64], F64], slab: float, tile: ArrayLike,
-          under: ArrayLike) -> Mesh:
-    """Plan triangles (t, 3, 2) lifted onto the roof's top (``tile``, facing up) and,
-    ``slab`` lower, onto its underside (``under``, facing down)."""
+          under: ArrayLike, uvs: F64 | None = None) -> Mesh:
+    """Plan triangles (t, 3, 2) lifted onto the roof's top (``tile``, facing up, with the
+    tiles' ``uvs`` (t, 3, 2) when given) and, ``slab`` lower, onto its underside
+    (``under``, facing down)."""
     flat = np.asarray(triangles, dtype=np.float64).reshape(-1, 2)
     top = np.concatenate([flat, top_at(flat)[:, None]], axis=1).reshape(-1, 3, 3)
     bottom = top - np.array([0.0, 0.0, slab])
-    return Mesh.merge([flat_mesh(top, tile, outward=(0.0, 0.0, 1.0)),
+    return Mesh.merge([flat_mesh(top, tile, outward=(0.0, 0.0, 1.0), vertex_uvs=uvs),
                        flat_mesh(bottom, under, outward=(0.0, 0.0, -1.0))])
+
+
+def face_tile_uvs(points: F64, eave_direction: F64, origin: F64, top_distance: float,
+                  inward: F64, eave_offset: float) -> F64:
+    """The tiles' uvs (cm) of plan ``points`` (..., 2) on a roof face that falls toward
+    ONE eave (#801): u along the eave's direction from ``origin``, v down the face from its
+    top — ``top_distance`` minus the point's distance in from the eave line (``inward`` ·
+    p − ``eave_offset``). A hip's faces and a shed's plane; a gable keeps the 2D brush's
+    frame (``gable_roof``)."""
+    plan = np.asarray(points, dtype=np.float64)[..., :2]
+    u = (plan - origin) @ eave_direction
+    v = top_distance - (plan @ inward - eave_offset)
+    return np.stack([u, v], axis=-1)
 
 
 def _floor(style: RoofStyle, top_cm: float) -> float:
@@ -429,9 +462,15 @@ def hip_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoof
         heights: F64 = eave + slope * np.maximum(nearest, 0.0)
         return heights.reshape(plan.shape[:-1])
 
-    triangles = np.concatenate([np.stack([np.stack([face[0], face[k], face[k + 1]])
-                                          for k in range(1, len(face) - 1)]) for _i, face in faces])
-    roof = Mesh.merge([_slab(triangles, top_at, style.slab_cm, style.tile.linear, style.timber.linear),
+    per_face = [np.stack([np.stack([face[0], face[k], face[k + 1]]) for k in range(1, len(face) - 1)])
+                for _i, face in faces]
+    triangles = np.concatenate(per_face)
+    centre = outline.mean(axis=0)
+    # each face's tiles run along its own eave and lap down its own slope (#801)
+    uvs = np.concatenate([face_tile_uvs(tris, edge[i], centre, reach, inward[i], offsets[i])
+                          for (i, _face), tris in zip(faces, per_face, strict=True)])
+    roof = Mesh.merge([_slab(triangles, top_at, style.slab_cm, style.tile.linear, style.timber.linear,
+                             uvs),
                        _fascia(outline, top_at, style.slab_cm, style.timber.linear)])
     wall_z = eave + slope * style.overhang_cm - style.slab_cm
 
@@ -467,8 +506,11 @@ def shed_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle,
         under: F64 = top_at(points) - style.slab_cm
         return under
 
-    roof = Mesh.merge([_slab(polygon_triangles(outline), top_at, style.slab_cm, style.tile.linear,
-                             style.timber.linear),
+    plane = polygon_triangles(outline)
+    # one face, falling away from ``high``: its eave runs square to it (#801)
+    low = float((outline @ up).min())
+    uvs = face_tile_uvs(plane, np.array([up[1], -up[0]]), outline.mean(axis=0), peak - low, up, low)
+    roof = Mesh.merge([_slab(plane, top_at, style.slab_cm, style.tile.linear, style.timber.linear, uvs),
                        _fascia(outline, top_at, style.slab_cm, style.timber.linear)])
     return GableRoof(_walls_under(ring, wall_top), roof, (), slope, top_cm - slope * span, wall_top)
 

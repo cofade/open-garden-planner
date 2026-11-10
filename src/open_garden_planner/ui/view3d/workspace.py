@@ -1634,6 +1634,7 @@ class Workspace(QWidget):
             is_walking=lambda: self.walking,
             default_path=lambda name: self.default_save_path(name),
             parent=self,
+            aim_lamps=self._living.aim_lamps,   # a picture's own lamps (#687)
         )
         self._capture.photo_mode_changed.connect(lambda _on: self._refresh_notices())
         self._selection_coordinator.take_click = self._capture.take_click

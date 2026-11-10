@@ -46,6 +46,7 @@ from ...container_model import (
 )
 from ...object_height import soil_surface_cm
 from ..build import BuilderRegistry, uv_origin_of
+from ..materials import STEEL_SURFACE
 from ..mesh import Mesh, MeshPart
 from ..record import PARAM_CONTAINER_MATERIAL, PARAM_RADIUS_CM, SHAPE_CIRCLE, Record
 from . import palette
@@ -162,6 +163,11 @@ def _raised_bed(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     return (MeshPart(bed, "vc", name="bed"),)
 
 
+#: What a container's walls are made of (#803): the surface of the container model's own
+#: material — the same name, and metal is steel (``core.scene3d.materials.SURFACES``).
+CONTAINER_SURFACES: Final = {TERRACOTTA: TERRACOTTA, PLASTIC: PLASTIC, WOOD: WOOD, METAL: STEEL_SURFACE}
+
+
 def _material(record: Record) -> str:
     """The container's material as the container model itself resolves it: an
     unknown or missing value is the model's default, never a guess made here."""
@@ -185,10 +191,11 @@ def _box(record: Record, height_cm: float, material: str, *,
                    foot_inset_cm=foot, face=palette.TINT, groove=palette.TINT)
     soil_part = soil_mesh(ring, thickness, soil, fill_texture=soil_fill_texture,
                           uv_origin=uv_origin_of(record))
+    surface = CONTAINER_SURFACES[material]
     if soil_fill_texture:  # a garden bed's soil IS its 2D substrate: colour and pattern
-        return (MeshPart(walls, "vc", tinted=True, name="walls"),
+        return (MeshPart(walls, "vc", tinted=True, name="walls", surface=surface),
                 MeshPart(soil_part, "vc", fill_texture=True, name="soil"))
-    return (MeshPart(walls, "vc", tinted=True, name="walls"),
+    return (MeshPart(walls, "vc", tinted=True, name="walls", surface=surface),
             MeshPart(soil_part, "vc", name="soil"))
 
 
@@ -245,7 +252,8 @@ def _round_container(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
         angle = np.arange(LATHE_SEGMENTS) * (2.0 * np.pi / LATHE_SEGMENTS)
         ring = np.stack([inner * np.cos(angle), inner * np.sin(angle)], axis=1)
         soil_part = polygon_cap(ring, soil, palette.SOIL.linear)
-    return (MeshPart(walls, "vc", tinted=True, name="walls"), MeshPart(soil_part, "vc", name="soil"))
+    return (MeshPart(walls, "vc", tinted=True, name="walls", surface=CONTAINER_SURFACES[material]),
+            MeshPart(soil_part, "vc", name="soil"))
 
 
 build_raised_bed: Final = BuiltBuilder(_raised_bed, "raised bed")

@@ -28,10 +28,12 @@ What the sink guarantees:
   somebody else: the constructor and ``attach`` refuse it
   (``SinkProtocolError``). Two sinks on one scene would draw both sinks' items,
   and the first ``clear()`` would destroy the other one's Models.
-- **One Model per mesh part, one geometry per Model lifetime.** ``add`` creates
-  the Models, ``remove`` destroys them, ``replace_geometry`` destroys and
-  creates. A geometry object is never handed to a second Model: the L0 spike
-  measured a blank frame and 0/20 picks for that (``ogp-3d-renderer`` §2).
+- **One Model per mesh part and surface, one geometry per Model lifetime.** ``add``
+  creates the Models, ``remove`` destroys them, ``replace_geometry`` destroys and
+  creates. A part made of several surfaces (``MeshPart.surface_runs``, #803) is drawn
+  as one Model per surface (``mesh.surface_pieces``): a Model has one material. A
+  geometry object is never handed to a second Model: the L0 spike measured a blank
+  frame and 0/20 picks for that (``ogp-3d-renderer`` §2).
 - **A move or a recolour uploads nothing.** ``update_transform`` re-poses,
   ``update_material`` re-colours (``materials.part_tint`` — the one rule a fill part
   changes: its picture carries the colour); ``geometry_uploads`` counts every buffer
@@ -41,6 +43,10 @@ What the sink guarantees:
   and tint; the picture is one per (pattern, colour), shared, and the sink refcounts
   it (``release_fill`` with the last Model that shows it). A recolour swaps the
   picture and uploads no geometry.
+- **A plant sways as a whole (#800).** Every part of an item with leaves gets the same
+  ``PartSpec.sway`` (``core.scene3d.wind.sway_frame``: its height and reach from its own
+  meshes, its phase from its id), so its leaves, wood and fruit move by one function;
+  any other item gets none. A move re-poses and recomputes nothing.
 - **Errors are loud.** A protocol breach raises ``SinkProtocolError`` before the
   engine is touched; an engine error propagates (``SceneSync`` poisons itself).
 - **The selection ring is one mesh in one Model that is never destroyed (L1.8).**
@@ -81,7 +87,9 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
+from open_garden_planner.core.scene3d.mesh import surface_pieces
 from open_garden_planner.core.scene3d.selection import EMPTY_SELECTION, Selection
+from open_garden_planner.core.scene3d.wind import NO_SWAY, SWAY_KINDS, sway_frame
 
 from .materials import part_tint
 
@@ -98,6 +106,12 @@ class PartSpec:
     name: str = ""
     #: ``MeshPart.ground_detail`` (L4): relief on painted ground — never picked.
     ground_detail: bool = False
+    #: ``MeshPart.surface`` (#803): what the part is made of — a key of
+    #: ``core.scene3d.materials.SURFACES``; empty is ``DEFAULT_SURFACE``.
+    surface: str = ""
+    #: #800: the item's ``core.scene3d.wind.SwayFrame`` (height cm, canopy radius cm,
+    #: phase 0..1) — the same for every part of one item; all 0: the part does not sway.
+    sway: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +199,10 @@ class _Held:
     parts: tuple[MeshPart, ...]
     transform: Transform
     material: Material
-    handles: list[object | None]  # one per part; None = that part has nothing to draw
+    #: One per engine Model: (the piece of a part it draws, its handle). A part of one
+    #: surface is one piece, a part of several one piece per surface (#803,
+    #: ``mesh.surface_pieces``); a piece without triangles has no Model and no entry.
+    handles: list[tuple[MeshPart, object]]
 
 
 #: A fill picture the engine holds for a fill_texture part: its pattern (None for
@@ -270,7 +287,7 @@ class Quick3DSink:
 
     def part_count(self, item_id: str) -> int:
         """Engine Models the item has (parts without triangles have none)."""
-        return sum(handle is not None for handle in self._items[item_id].handles)
+        return len(self._items[item_id].handles)
 
     def clear(self) -> None:
         """Tear the engine scene down: no item, no sun, no ground, no transaction.
@@ -355,18 +372,15 @@ class Quick3DSink:
         held = self._require_known("update_transform", item_id)
         held.transform = transform
         pose = engine_pose(transform)
-        for handle in held.handles:
-            if handle is not None:
-                self._scene.pose_part(handle, pose)
+        for _piece, handle in held.handles:
+            self._scene.pose_part(handle, pose)
 
     def update_material(self, item_id: str, material: Material) -> None:
         held = self._require_known("update_material", item_id)
         previous = held.material
         held.material = material
         released: list[FillKey] = []
-        for part, handle in zip(held.parts, held.handles, strict=True):
-            if handle is None:
-                continue
+        for part, handle in held.handles:
             if part.tinted:
                 self._scene.tint_part(handle, part_tint(part, material))
             if part.fill_texture:
@@ -429,28 +443,30 @@ class Quick3DSink:
 
     def _create(self, item_id: str, held: _Held) -> None:
         pose = engine_pose(held.transform)
-        for index, part in enumerate(held.parts):
-            buffers = engine_buffers(part.mesh)
-            if buffers.is_empty:
-                held.handles.append(None)
-                continue
-            spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name,
-                            part.ground_detail)
-            handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
-            held.handles.append(handle)  # before the fill: clear() must be able to destroy it
-            self.geometry_uploads += 1
-            key = _fill_key(part, held.material)
-            if key is not None:
-                self._scene.set_part_fill(handle, *key)
-                self._acquire(key)
+        # #800: an item with leaves sways as a whole - every part takes the same frame
+        frame = sway_frame(item_id, held.parts)
+        for index, whole in enumerate(held.parts):
+            sway = (frame.as_tuple() if frame.sways and whole.material_kind in SWAY_KINDS
+                    else NO_SWAY.as_tuple())
+            for part in surface_pieces(whole):  # one Model per surface (#803)
+                buffers = engine_buffers(part.mesh)
+                if buffers.is_empty:
+                    continue
+                spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow,
+                                part.name, part.ground_detail, surface=part.surface, sway=sway)
+                handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
+                held.handles.append((part, handle))  # before the fill: clear() can destroy it
+                self.geometry_uploads += 1
+                key = _fill_key(part, held.material)
+                if key is not None:
+                    self._scene.set_part_fill(handle, *key)
+                    self._acquire(key)
 
     def _fill_keys(self, held: _Held) -> list[FillKey]:
         """The fill pictures *held*'s Models show, in part order (released after the
         Models that show them are gone — a picture freed under a live Model is white)."""
         keys: list[FillKey] = []
-        for part, handle in zip(held.parts, held.handles, strict=True):
-            if handle is None:
-                continue
+        for part, _handle in held.handles:
             key = _fill_key(part, held.material)
             if key is not None:
                 keys.append(key)
@@ -469,9 +485,8 @@ class Quick3DSink:
 
     def _destroy(self, held: _Held) -> None:
         handles, held.handles = held.handles, []
-        for handle in handles:
-            if handle is not None:
-                self._scene.destroy_part(handle)
+        for _piece, handle in handles:
+            self._scene.destroy_part(handle)
 
     def _require_open(self, op: str) -> None:
         if not self._open:

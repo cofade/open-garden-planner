@@ -1064,6 +1064,16 @@
     "state": "CLOSED",
     "title": "3D: a filleted fence/wall corner renders as a solid curved block (posts must follow the arc at straight-run spacing)"
   },
+  "687": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
+  },
+  "689": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
   "690": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1139,6 +1149,21 @@
     "state": "CLOSED",
     "title": "4K pictures: the horizon band is 9 levels darker than at 1080p (glow is pixel-sized)"
   },
+  "734": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Low sun: a long fence shadow on the meadow shows stair steps"
+  },
+  "743": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Photo mode: the saved 4K photo is sharper than its preview (Qt's blur pass is half-resolution)"
+  },
+  "744": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ultra: reflections + blur + glow in one effect chain crash Qt's render thread in d3d11.dll (workaround drops reflections under blur)"
+  },
   "768": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1176,62 +1201,112 @@
   },
   "784": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D canvas: the sun-shadow overlay makes every repaint cost ~130-160 ms (pan, zoom and timeline scrub stutter)"
   },
   "785": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D canvas: sprites and fill textures are rasterised at 1 px per cm - blurry above 100 % zoom and in high-resolution exports"
   },
   "786": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Spacing-overlap warnings are filled red discs that flood the family-garden example and every export"
   },
   "787": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "SVG export: parametric roof and glasshouse textures are not clipped; wrong physical size; shadow feathers as dark outlines"
   },
   "789": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Raster exports force one point size on authored text notes"
   },
   "790": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Selection handles of a plant span its spacing ring; position and diameter labels overlap"
   },
   "791": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Theme gaps: planting calendar and rulers ignore the dark theme; light theme on dark-mode Windows has unreadable text and invisible checkboxes"
   },
   "793": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas legibility: scale-bar and object labels have no halo, note kerning breaks at zoom, grid draws over sprites"
   },
   "794": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Hours-of-sun map in 2D: no legend, blurry mismatch badges, shadows drawn over it"
   },
   "795": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Bundled examples open in a poor showcase state (night-dimmed by wall clock, empty seed and harvest tabs)"
   },
   "796": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "UI polish: 1280x720 toolbar overflow, clipped panel fields, calendar task rows and other layout nits"
+  },
+  "798": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the meadow and the uncovered plan ground are one flat colour (a model on a green felt table)"
+  },
+  "799": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a day time-lapse flickers on alternate frames at dawn and dusk (sky and ambient light rebuilt only every 1° of sun)"
+  },
+  "800": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: wind is invisible on tree crowns (0.9 cm sway for a herb and a 12 m poplar alike)"
+  },
+  "801": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: roofs and walls are flat untextured plates while the 2D plan shows tiles"
+  },
+  "802": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the garden gets brighter as night falls (ground luma rises after sunset)"
+  },
+  "803": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: one roughness and specular for every built part - a black trampoline mat turns tan facing a low sun"
+  },
+  "805": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D foliage: backlit leaves show shadow acne; crowns read as paper confetti at close range"
+  },
+  "807": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Tour video: review-grade H.264 only (Constrained Baseline, 0.2 bit/px, no colour tags); orbit has no easing and no pitch control"
+  },
+  "809": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: no recovery when the graphics device is lost or memory runs out - frames silently miss scene parts"
+  },
+  "831": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a small pane is 5-12 levels brighter than a 4K capture of the same camera (ambient occlusion depends on picture size)"
   },
   "836": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   }
 }

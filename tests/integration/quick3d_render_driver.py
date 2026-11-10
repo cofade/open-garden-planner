@@ -83,6 +83,7 @@ from open_garden_planner.ui.view3d.quick3d.shots import (  # noqa: E402
     TopDownShot,
     top_down_pixel,
 )
+from tests.integration.built_materials_scenes import scenario_built_materials  # noqa: E402
 
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
 QT_ERRORS_EXIT = 4
@@ -187,8 +188,9 @@ def swatch_registry() -> BuilderRegistry:
     return registry
 
 
-#: The wind strength of the rest probe, in the shaders' units: 35 cm of sway for
-#: foliage and 100 cm for grass if the shader moved a vertex at rest (40 x the look's).
+#: The wind strength of the rest probe, in the shaders' units (40 x the look's): 100 cm
+#: for grass and, since #800, 0.5 % of the foliage box's 60 cm height x 40 = 12 cm at its
+#: top if a shader moved a vertex at rest.
 REST_WIND = 100.0
 REST_SIDE, REST_HEIGHT = 100.0, 60.0
 
@@ -1141,6 +1143,8 @@ SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "shown_materials": scenario_shown_materials,
     "integration": scenario_integration,
     "embed": scenario_embed,
+    # #801 / #803: the built world's materials (its scenes: built_materials_scenes.py)
+    "built_materials": scenario_built_materials,
 }
 
 

@@ -109,6 +109,7 @@ def _register_calls() -> None:
         # the analysis overlays, Cutaway and X-ray (L2, #386)
         "set_overlay": lambda host, _part: host.set_overlay("drape", None),
         "set_roofs_hidden": lambda host, _part: host.set_roofs_hidden(True),
+        "set_fitted_shadows": lambda host, _part: host.set_fitted_shadows(True),   # #734
         "set_faded_items": lambda host, _part: host.set_faded_items(frozenset()),
         "set_plant_seasons": lambda host, _part: host.set_plant_seasons({}),
         # the living garden (L5, #389): the garden's life, its switch and the lamps

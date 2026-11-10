@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -301,6 +302,38 @@ def test_a_low_suns_disc_beats_a_brighter_warm_horizon_band() -> None:
     assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
 
 
+def test_a_warm_clipped_disc_is_still_the_discs_own_plateau() -> None:
+    """#716: the atmosphere's 6° disc core read (255, 255, 243) once the profile dimmed the
+    sky round a low sun (master's (255, 255, 252) clipped blue too, from the brighter sky
+    behind it). A warm core clips red and green first, so "every channel >= 250" found no
+    plateau, and the warm fallback locked 0.49° low onto the haze band below. A clipped core
+    is luma >= 250; the band (luma ~206) stays out."""
+    azimuth, elevation = 180.0, 6.0
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(elevation + 2.0))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    frame[rays[..., 2] < 0.0] = (70.0, 110.0, 60.0)
+    elevation_deg = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    frame[(elevation_deg > 0.2) & (elevation_deg < 5.5)] = (255.0, 200.0, 120.0)
+    sun = np.asarray(sun_direction_scene(elevation, azimuth))
+    disc = np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0))) < 1.0
+    frame[disc] = (255.0, 255.0, 243.0)
+    assert int(disc.sum()) >= 20 and not np.all(frame[disc] >= 250.0)
+    found = P.sun_disc(frame, camera)
+    assert found["found"] and found.get("plateau_px", 0) >= 20, found
+    assert abs(P.bearing_error_deg(found["bearing_deg"], azimuth)) < 0.25, found
+    assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
+
+
 def test_two_white_blobs_do_not_make_a_sun_between_them() -> None:
     """#717 review: the white path took the centroid of EVERY white pixel, so two
     clouds at 160° and 200° read as a sun at 180°. It takes the largest connected
@@ -406,6 +439,80 @@ def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
     cloudy[(sky_elevation > 5.5) & (sky_elevation < 7.5)] = 20.0
     ignored = P.sun_dip(cloudy, camera, azimuth, sun_elevation_deg=elevation)
     assert ignored["dip_luma"] > -10.0, ignored
+
+
+def _elevation_sky(camera: P.Pinhole, luma_of: Any) -> tuple[np.ndarray, np.ndarray]:
+    """A grey frame whose value is a function of each pixel's WORLD elevation."""
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    value = np.clip(luma_of(elevation), 0.0, 255.0)
+    return np.repeat(value[..., None], 3, axis=2), elevation
+
+
+def _band_camera(bearing: float = 120.0) -> P.Pinhole:
+    look = math.radians(bearing)
+    return P.Pinhole(eye=(0.0, 0.0, 160.0),
+                     target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                             160.0 + 1000.0 * math.tan(math.radians(10.0))),
+                     fov_deg=40.0, size=SIZE)
+
+
+def test_the_sky_profile_bins_by_world_elevation_not_by_row() -> None:
+    """#716/#719 (PF-L3D-19): a sky that only rises toward the horizon reads as rising in
+    every band, and a band's value is the sky's AT that elevation — off-axis pixels of one
+    row of a pitched camera sit higher, so a row mean would blur the bands together."""
+    camera = _band_camera()
+    frame, elevation = _elevation_sky(camera, lambda e: 200.0 - 4.0 * np.maximum(e, 0.0))
+    profile = P.sky_profile(frame, camera, 120.0, half_width_deg=4.0)
+    assert P.profile_at(profile, 3.0) == pytest.approx(188.0, abs=1.0)
+    assert P.profile_at(profile, 10.0) == pytest.approx(160.0, abs=1.0)
+    assert P.profile_at(profile, 40.0) is None, "outside the frame: not measured"
+    assert P.profile_mean(profile, 6.0, 15.0, key="luma") == pytest.approx(158.0, abs=1.0)
+    clean = P.horizon_inversion(profile)
+    assert clean["measured"] is True and clean["inversion_luma"] == 0.0, clean
+    # the image row through 25° in the middle spans several degrees across the frame:
+    # its mean is not the sky at 25° (the profile's band is)
+    row = int(np.argmin(np.abs(elevation[:, SIZE[0] // 2] - 25.0)))
+    assert float(np.ptp(elevation[row])) > 2.0
+    assert abs(float(frame[row, :, 0].mean()) - 100.0) > 2.0
+    assert P.profile_at(P.sky_profile(frame, camera, 120.0, highest_deg=30.0), 25.0) == pytest.approx(
+        100.0, abs=1.0)
+
+
+def test_a_bright_band_above_the_horizon_is_an_inversion_and_a_deck_step_is_measured() -> None:
+    """#716's symptom: the sky peaks at 4-5° and darkens toward 0.5°. #719's: a bright band
+    under a darker deck — band (3°) minus deck (10°)."""
+    camera = _band_camera()
+    peaked, _ = _elevation_sky(camera, lambda e: np.where(e < 4.5, 190.0 + 8.0 * e, 226.0 - 2.0 * (e - 4.5)))
+    found = P.horizon_inversion(P.sky_profile(peaked, camera, 120.0))
+    assert found["inversion_luma"] == pytest.approx(32.0, abs=2.5), found
+    assert found["above_deg"] == pytest.approx(4.5, abs=0.5) and found["at_deg"] == pytest.approx(0.5)
+    deck, _ = _elevation_sky(camera, lambda e: np.where(e < 6.0, 180.0, 130.0))
+    profile = P.sky_profile(deck, camera, 120.0)
+    assert P.profile_at(profile, 3.0) - P.profile_at(profile, 10.0) == pytest.approx(50.0)
+    # nothing measured is not a pass
+    empty = P.horizon_inversion({"elevation_deg": [], "luma": [], "luminance": [], "count": []})
+    assert empty["measured"] is False
+
+
+def test_the_sky_profile_leaves_the_disc_out() -> None:
+    """The sun's disc is not the sky's brightness: within the given radius of the sun its
+    pixels are not counted, so a white core cannot pull two skies' means together."""
+    camera = _band_camera(300.0)
+    frame, _ = _elevation_sky(camera, lambda e: np.full_like(e, 120.0))
+    cols, rows = np.meshgrid(np.arange(SIZE[0]) + 0.5, np.arange(SIZE[1]) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    sun = np.asarray(sun_direction_scene(8.0, 300.0))
+    frame[np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0))) < 1.5] = 255.0
+    with_disc = P.sky_profile(frame, camera, 300.0)
+    without = P.sky_profile(frame, camera, 300.0, sun=(300.0, 8.0), sun_radius_deg=3.0)
+    assert P.profile_mean(with_disc, 7.0, 9.0) > P.profile_mean(without, 7.0, 9.0)
+    assert P.profile_mean(without, 7.0, 9.0) == pytest.approx(
+        float(P.luminance(np.array([120.0] * 3))), rel=1e-4)
 
 
 def test_a_sky_without_a_disc_is_not_a_measurement() -> None:
@@ -624,3 +731,348 @@ def test_pickets_that_alias_are_measured_against_their_resolved_texture() -> Non
     assert aliased["pixels"] == resolved["pixels"] == 20 * cols
     assert P.thin_geometry_moire(meadow, meadow) == {"pixels": 0, "dark_share": 0.0,
                                                      "laplacian": 0.0, "alias_error": None}
+
+
+# ── a long shadow's edge and the streaks in it (#734) ────────────────────────
+
+#: An oblique camera over a shadow edge along ``north = EDGE_NORTH`` (the shadow north
+#: of it), the edge's stations from about 8 m to 49 m deep — the board's ``--stairs``.
+EDGE_CAMERA = P.Pinhole(eye=(1300.0, -900.0, 450.0), target=(-600.0, 300.0, 0.0), fov_deg=46.0,
+                        size=(960, 540))
+EDGE_NORTH = -130.0
+
+
+def _ground(camera: P.Pinhole) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(east, north) of the ground under every pixel centre, and which pixels hit it."""
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    eye = np.asarray(camera.eye)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(rays[..., 2] < -1e-9, -eye[2] / rays[..., 2], np.nan)
+    return eye[0] + t * rays[..., 0], eye[1] + t * rays[..., 1], np.isfinite(t)
+
+
+def _edge_frame(edge_north: np.ndarray | float, *, supersample: int = 2) -> np.ndarray:
+    """The meadow with a shadow north of ``edge_north`` (a function of east, or a
+    constant), anti-aliased by ``supersample`` x ``supersample`` sub-pixels."""
+    width, height = EDGE_CAMERA.size
+    big = P.Pinhole(EDGE_CAMERA.eye, EDGE_CAMERA.target, EDGE_CAMERA.fov_deg,
+                    (width * supersample, height * supersample))
+    east, north, ground = _ground(big)
+    line = edge_north(east) if callable(edge_north) else edge_north
+    frame = np.empty(east.shape + (3,))
+    frame[:] = (150.0, 190.0, 230.0)
+    frame[ground] = MEADOW
+    frame[ground & (north > line)] = SHADE
+    return frame.reshape(height, supersample, width, supersample, 3).mean(axis=(1, 3))
+
+
+def _trace(frame: np.ndarray, line_north: float = EDGE_NORTH) -> dict:
+    return P.shadow_edge_trace(frame, EDGE_CAMERA, (-4000.0, line_north), (1800.0, line_north),
+                               (0.0, -1.0), half_width_cm=60.0)
+
+
+def test_a_straight_shadow_edge_where_the_line_is_has_no_staircase() -> None:
+    trace = _trace(_edge_frame(EDGE_NORTH))
+    rows = [row for row in P.edge_staircase(trace) if "wobble_px" in row]
+    assert {tuple(row["depth_m"]) for row in rows} >= {(0.0, 10.0), (10.0, 20.0), (20.0, 40.0)}
+    for row in rows:
+        assert abs(row["offset_cm"]) < 1.5, row
+        # the instrument's floor on a 3x-supersampled frame: 0.28 px (0.56 cm) near
+        assert row["wobble_px"] < 0.4 and row["jump_px"] < 0.45, row
+
+
+def test_a_shadow_that_ends_short_reads_its_offset_and_still_no_staircase() -> None:
+    """A constant offset is bias (or the caster's own shape), not steps: it is reported
+    and detrended away. Negative: the shadow ends short of the line (positive: past it,
+    toward the lit side)."""
+    trace = _trace(_edge_frame(EDGE_NORTH + 15.0))
+    for row in (row for row in P.edge_staircase(trace) if "wobble_px" in row):
+        assert row["offset_cm"] == pytest.approx(-15.0, abs=1.5), row
+        assert row["wobble_px"] < 0.4, row
+
+
+def test_a_stepped_edge_is_measured_as_steps_of_its_own_size() -> None:
+    """The positive control: a sawtooth staircase (20 cm deep, a riser every 50 cm along
+    the edge, a ramp between) reads as about 20 cm of wobble, in pixels as the camera
+    shows it — larger near, smaller far — and its risers are jumps. From 10 m out the
+    steps are a few pixels deep and the pixels soften them: what is measured is what
+    the screen shows (at 960 x 540: 14.7 cm at 10-20 m, less further out)."""
+    def stepped(east: np.ndarray) -> np.ndarray:
+        return EDGE_NORTH + 20.0 * (np.mod(east, 50.0) / 50.0)
+    straight = P.edge_staircase(_trace(_edge_frame(EDGE_NORTH)))
+    steps = P.edge_staircase(_trace(_edge_frame(stepped)))
+    rows = [(flat, row) for flat, row in zip(straight, steps, strict=True)
+            if "wobble_px" in row and row["depth_m"][1] <= 40.0]
+    assert len(rows) == 3
+    for flat, row in rows:
+        if row["depth_m"][1] <= 10.0:
+            assert row["wobble_cm"] == pytest.approx(18.0, abs=3.0), row  # p95 - p5 of a ramp
+        assert row["wobble_cm"] > 8.0, row
+        assert row["wobble_px"] > 3.0 * flat["wobble_px"] + 0.5, (flat, row)
+        assert row["jump_px"] > flat["jump_px"] + 0.3, (flat, row)
+    near, far = rows[0][1], rows[-1][1]
+    assert near["wobble_px"] > far["wobble_px"], "the same steps look smaller further away"
+
+
+def test_a_station_whose_line_leaves_the_frame_is_not_judged() -> None:
+    trace = _trace(_edge_frame(EDGE_NORTH))
+    assert trace["valid"].any() and not trace["valid"].all()
+    kept = P.edge_staircase(trace, keep=np.zeros(len(trace["valid"]), dtype=bool))
+    assert all("wobble_px" not in row and row["stations"] == 0 for row in kept)
+    assert trace["valid"].any(), "the trace is the caller's: judging it leaves it as it was"
+
+
+def _striped(lit_slits: np.ndarray | None) -> np.ndarray:
+    """The meadow in a fence's shadow south of ``north = 0`` (to -500 cm), with slits of
+    light 4 cm wide every 12 cm along east — every one of them (``lit_slits`` None) or
+    those the mask lets through (indexed by slit)."""
+    width, height = EDGE_CAMERA.size
+    east, north, ground = _ground(P.Pinhole(EDGE_CAMERA.eye, EDGE_CAMERA.target,
+                                            EDGE_CAMERA.fov_deg, (width * 2, height * 2)))
+    frame = np.empty(east.shape + (3,))
+    frame[:] = (150.0, 190.0, 230.0)
+    frame[ground] = MEADOW
+    band = ground & (north < 0.0) & (north > -500.0)
+    slot = np.floor(np.nan_to_num(east) / 12.0).astype(np.int64)
+    in_slit = np.mod(np.nan_to_num(east), 12.0) < 4.0
+    if lit_slits is not None:
+        in_slit &= lit_slits[np.mod(slot, len(lit_slits))]
+    frame[band & ~in_slit] = SHADE
+    return frame.reshape(height, 2, width, 2, 3).mean(axis=(1, 3))
+
+
+def test_regular_picket_stripes_do_not_streak_and_aliased_slits_do() -> None:
+    """True stripes repeat with the pickets and cancel in the one-pitch filter; slits
+    of which a random few leak light (a shadow map's texels aliasing them) beat."""
+    def streak(frame: np.ndarray) -> float:
+        lit = P.shadow_streaks(frame, EDGE_CAMERA, (-300.0, 150.0), (1300.0, 150.0),
+                               period_cm=12.0, lit_luma=0.0)["mean_luma"]
+        out = P.shadow_streaks(frame, EDGE_CAMERA, (-300.0, -200.0), (1300.0, -200.0),
+                               period_cm=12.0, lit_luma=float(lit))
+        assert out["samples"] > 150, out
+        return float(out["streak"])
+
+    regular = streak(_striped(None))
+    leaking = streak(_striped(np.random.default_rng(734).random(97) < 0.25))
+    assert regular < 0.1, regular
+    assert leaking > 0.25 and leaking > 3 * regular, (regular, leaking)
+
+
+def test_an_edge_that_stays_put_while_the_camera_moves_does_not_swim_and_one_that_moves_does() -> None:
+    """``edge_swim`` compares consecutive frames on one WORLD grid along the edge: a camera
+    move changes where the stations are on screen, never where the edge is."""
+    def framed(camera: P.Pinhole, edge: float) -> dict:
+        width, height = camera.size
+        big = P.Pinhole(camera.eye, camera.target, camera.fov_deg, (width * 2, height * 2))
+        east, north, ground = _ground(big)
+        frame = np.empty(east.shape + (3,))
+        frame[:] = (150.0, 190.0, 230.0)
+        frame[ground] = MEADOW
+        frame[ground & (north > edge)] = SHADE
+        rgb = frame.reshape(height, 2, width, 2, 3).mean(axis=(1, 3))
+        return P.shadow_edge_trace(rgb, camera, (-4000.0, EDGE_NORTH), (1800.0, EDGE_NORTH),
+                                   (0.0, -1.0), half_width_cm=60.0)
+
+    moved = P.Pinhole((1330.0, -880.0, 450.0), EDGE_CAMERA.target, EDGE_CAMERA.fov_deg, EDGE_CAMERA.size)
+    still = P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH), framed(moved, EDGE_NORTH)])
+    crawled = P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH), framed(moved, EDGE_NORTH + 4.0)])
+    judged = [(a, b) for a, b in zip(still, crawled, strict=True)
+              if "swim_cm" in a and a["pairs"] >= 200]
+    assert judged
+    for a, b in judged:
+        assert a["swim_cm"] < 1.5, a        # the instrument's floor: 1.0 cm at 960 x 540
+        assert b["swim_cm"] == pytest.approx(4.0, abs=1.0), b
+        assert b["swim_px"] > 2.0 * a["swim_px"], (a, b)
+    assert P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH)]) == []
+
+
+# ── the meadow (#798) ────────────────────────────────────────────────────────
+
+#: A camera at a viewer's height south of a plan of 20 x 10 m (east 0..2000, north 0..1000),
+#: looking north at its middle.
+MEADOW_CAMERA = P.Pinhole(eye=(1000.0, -1500.0, 400.0), target=(1000.0, 500.0, 0.0), fov_deg=50.0,
+                          size=(320, 180))
+MEADOW_PLAN = (0.0, 0.0, 2000.0, 1000.0)
+
+
+def test_a_felt_table_is_flat_and_green_and_grass_is_not() -> None:
+    """The survey's instrument (#798): a flat green frame is all flat green; the same
+    green with a texture of std 10 is not flat; a flat grey sky is flat but not green; a
+    mask confines the count."""
+    rng = np.random.default_rng(798)
+    felt = np.zeros((90, 160, 3)) + MEADOW
+    grass = felt + rng.normal(0.0, 10.0, felt.shape[:2])[..., None]
+    sky = np.zeros_like(felt) + 170.0
+    assert P.flat_share(felt) == {"flat_green": 1.0, "flat": 1.0, "local_std": 0.0, "pixels": 14400}
+    textured = P.flat_share(grass)
+    assert textured["flat_green"] < 0.01 and textured["local_std"] > 7.0, textured
+    assert P.flat_share(sky)["flat"] == 1.0 and P.flat_share(sky)["flat_green"] == 0.0
+    half = np.zeros(felt.shape[:2], dtype=bool)
+    half[:, :80] = True
+    mixed = np.where(half[..., None], felt, grass)
+    assert P.flat_share(mixed, half)["flat_green"] > 0.9       # the window reaches 4 px over
+    assert P.flat_share(mixed, ~half)["flat_green"] < 0.05
+    assert P.flat_share(mixed, np.zeros_like(half))["pixels"] == 0
+
+
+def test_the_local_spread_of_a_step_is_seen_only_near_it() -> None:
+    values = np.zeros((40, 40))
+    values[:, 20:] = 10.0
+    spread = P.local_std(values, 9)
+    assert spread[:, :15].max() == pytest.approx(0.0, abs=1e-9)
+    assert spread[:, 25:].max() == pytest.approx(0.0, abs=1e-6)
+    assert spread[20, 19] == pytest.approx(5.0, abs=0.6)       # half and half: std 5
+
+
+def test_the_meadow_mask_sees_the_meadow_and_never_the_plan_or_what_lies_behind_it() -> None:
+    east, north, distance = P.ground_hits(MEADOW_CAMERA)
+    mask = P.meadow_mask(MEADOW_CAMERA, MEADOW_PLAN, margin_cm=100.0)
+    with np.errstate(invalid="ignore"):
+        on_plan = (east >= -100) & (east <= 2100) & (north >= -100) & (north <= 1100)
+        behind = (north > 1100) & (east > 0) & (east < 2000)    # seen across the plan
+    assert mask.any() and not (mask & on_plan).any() and not (mask & behind).any()
+    assert not mask[:int(MEADOW_CAMERA.horizon_row())].any()   # no sky
+    assert mask[-1, :].all()                                    # the meadow at the camera's feet
+    assert np.nanmax(distance[mask]) < np.inf
+    near = P.meadow_mask(MEADOW_CAMERA, MEADOW_PLAN, margin_cm=100.0, far_cm=1000.0)
+    assert near.sum() < mask.sum() and not (near & (distance > 1000.0)).any()
+    # the camera's foot inside the grown plan: every line of sight crosses it
+    above = P.Pinhole((1000.0, 500.0, 2000.0), (1000.0, 2500.0, 0.0), 50.0, (320, 180))
+    assert not P.meadow_mask(above, MEADOW_PLAN).any()
+
+
+def test_a_still_or_smooth_move_does_not_flicker_and_aliasing_does() -> None:
+    """``track_luma`` follows fixed ground points through camera moves; ``temporal_noise``
+    tells a smooth change (a move) from a frame-to-frame one (crawl, shimmer)."""
+    rng = np.random.default_rng(799)
+    east, north, _distance = P.ground_hits(MEADOW_CAMERA)
+    points = np.column_stack([np.linspace(400.0, 1600.0, 40), np.full(40, -600.0)])
+
+    def frame(level: float, noise: float) -> np.ndarray:
+        rgb = np.zeros(east.shape + (3,)) + level
+        return rgb + rng.normal(0.0, noise, east.shape)[..., None] if noise else rgb
+
+    cameras = [MEADOW_CAMERA] * 6
+    still = P.temporal_noise(P.track_luma([frame(120.0, 0.0)] * 6, cameras, points))
+    ramp = P.temporal_noise(P.track_luma([frame(120.0 + 2.0 * i, 0.0) for i in range(6)], cameras,
+                                         points))
+    shimmer = P.temporal_noise(P.track_luma([frame(120.0, 6.0) for _ in range(6)], cameras, points))
+    assert still["zigzag_rms"] == 0.0 and still["step_mean"] == 0.0 and still["points"] == 40
+    assert ramp["zigzag_rms"] == pytest.approx(0.0, abs=1e-9) and ramp["step_mean"] == 2.0
+    assert shimmer["zigzag_rms"] > 1.5 and shimmer["step_mean"] > 1.5, shimmer
+    # a point the camera cannot see is never counted
+    hidden = P.track_luma([frame(120.0, 0.0)] * 3, cameras[:3], [(1000.0, -5000.0)])
+    assert np.isnan(hidden).all() and P.temporal_noise(hidden)["points"] == 0
+    assert P.temporal_noise(np.zeros((2, 4)))["zigzag_rms"] is None
+
+
+def test_a_repeated_tile_folds_onto_its_period_and_noise_does_not() -> None:
+    """``repeat_amplitude`` folds a picture onto one period: a tiled pattern keeps its
+    amplitude there, fresh noise of the same strength averages away, and a gradient across
+    the frame (the light) is taken out first."""
+    rng = np.random.default_rng(256)
+    tile = rng.normal(0.0, 8.0, (32, 32))
+    tile = P.box_mean(np.tile(tile, (3, 3)), 5)[32:64, 32:64]   # a pattern, not pixel noise
+    gradient = np.linspace(0.0, 60.0, 512)[None, :] + np.zeros((384, 512))
+    tiled = np.tile(tile, (12, 16)) + gradient
+    fresh = P.box_mean(rng.normal(0.0, 8.0, (384, 512)), 5) + gradient
+    repeated = P.repeat_amplitude(tiled, 32.0)
+    noise = P.repeat_amplitude(fresh, 32.0)
+    assert repeated["periodic"] > 0.6 * repeated["residual"] > 0.3, repeated
+    assert repeated["control"] < 0.3 * repeated["periodic"], repeated
+    assert noise["periodic"] < 0.3 * repeated["periodic"], (noise, repeated)
+    flat = P.repeat_amplitude(gradient, 32.0)
+    assert flat["periodic"] < 0.1 and flat["residual"] < 0.5, flat
+
+
+# ── ambient occlusion under a weather (#687) ─────────────────────────────────
+
+
+def _rim_frames(*, rim: float, far: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """An empty meadow, the same with a dark block standing on it (no occlusion), and the
+    block's frame WITH an occlusion that darkens open ground by ``far`` — but only by
+    ``far - rim`` in the six rows straight above the block (where a real pass loses its
+    self-occlusion beside a nearer object)."""
+    empty = np.full((120, 200, 3), 150.0)
+    without = empty.copy()
+    without[70:100, 60:140] = 40.0                      # the object
+    with_ao = without.copy()
+    ground = np.ones((120, 200), dtype=bool)
+    ground[70:100, 60:140] = False
+    with_ao[ground] -= far
+    with_ao[64:70, 60:140] = without[64:70, 60:140] - (far - rim)
+    return with_ao, without, empty, ground
+
+
+def test_a_light_band_above_a_silhouette_is_a_rim_and_even_darkening_is_not() -> None:
+    """The snow survey's rim (#687): open ground greyed by self-occlusion everywhere but
+    beside a nearer object. The rim is the far ground's darkening minus the least
+    darkening in the rows above a silhouette; ground the pass does not touch has none."""
+    with_ao, without, empty, ground = _rim_frames(rim=9.0, far=12.0)
+    found = P.occlusion_rim(with_ao, without, empty, ground, horizon_row=-50.0)
+    assert found["far_darkening"] == pytest.approx(12.0, abs=0.01)
+    assert found["rim"] == pytest.approx(9.0, abs=0.01)
+    assert found["profile"][0] == pytest.approx(3.0, abs=0.01)
+    clean = P.occlusion_rim(*_rim_frames(rim=0.0, far=2.0), horizon_row=-50.0)
+    assert clean["far_darkening"] == pytest.approx(2.0, abs=0.01) and clean["rim"] == pytest.approx(0.0, abs=0.01)
+    # a horizon INSIDE the frame takes its sky rows out (a negative row is above the frame:
+    # slicing with it took 85 % of a board frame for sky, #687's first metric)
+    above = P.occlusion_rim(with_ao, without, empty, ground, horizon_row=90.0)
+    assert above["far_darkening"] is None or above["far_px"] < found["far_px"]
+
+
+def test_the_open_ground_is_read_away_from_every_object() -> None:
+    with_ao, without, empty, ground = _rim_frames(rim=9.0, far=12.0)
+    found = P.open_ground_luma(with_ao, without, empty, ground)
+    assert found["luma_without_ao"] == pytest.approx(150.0) and found["darkening"] == pytest.approx(12.0)
+    assert not found["mask"][60:110, 44:156].any(), "16 px from the object, the band above it included"
+
+
+def test_a_box_whose_foot_is_darker_has_contact_on_the_sides_the_camera_sees() -> None:
+    """Painted with the camera's own arithmetic: the ground 0-26 cm out from the box is a
+    third darker than the open ground beyond — every seen side reads 1 - 100/150."""
+    east, north, hit = _ground(CAMERA)
+    frame = np.empty(east.shape + (3,))
+    frame[:] = (150.0, 190.0, 230.0)
+    frame[hit] = 150.0
+    outside = np.maximum(np.abs(east), np.abs(north)) - 50.0
+    frame[hit & (outside <= 26.0)] = 100.0    # the footprint too: no box is drawn
+    found = P.caster_contact(frame, CAMERA, (0.0, 0.0), 50.0)
+    seen = {side: row["contact"] for side, row in found.items() if row["contact"] is not None}
+    assert {"S", "E"} <= set(seen), found        # the camera stands south-east of the box
+    for side, contact in seen.items():
+        assert contact == pytest.approx(1.0 - 100.0 / 150.0, abs=0.02), (side, found)
+    frame[hit] = 150.0
+    assert all(row["contact"] in (None, 0.0) for row in P.caster_contact(frame, CAMERA, (0.0, 0.0), 50.0).values())
+
+
+def test_the_ground_polygon_mask_is_where_the_ground_inside_shows() -> None:
+    east, north, hit = _ground(CAMERA)
+    polygon = [(0.0, 0.0), (500.0, 0.0), (500.0, 400.0), (0.0, 400.0)]
+    mask = P.ground_polygon_mask(CAMERA, polygon)
+    truth = hit & (east > 0.0) & (east < 500.0) & (north > 0.0) & (north < 400.0)
+    assert (mask != truth).sum() <= 0.01 * truth.sum() + 2 * (SIZE[0] + SIZE[1]), "a pixel of edge at most"
+
+
+def test_a_textured_edge_is_judged_on_the_difference_with_its_plan_free_twin() -> None:
+    """#798: with the grass on both sides a 2 m line of ground is not flat, and the fits read
+    the texture's own pattern as a step. The board renders the same view without the plan;
+    on the DIFFERENCE (``difference_frame``) the texture cancels and a real step stays."""
+    camera = P.Pinhole(eye=(0.0, -700.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
+    along = [500.0, 650.0, 800.0, 950.0, 1100.0]
+    rng = np.random.default_rng(798)
+    grain = P.box_mean(rng.normal(0.0, 14.0, (SIZE[1], SIZE[0])), 3)[..., None]
+    twin = _ground_frame(camera, 0.0, 0.014) + grain        # the meadow alone, textured
+    same = _ground_frame(camera, 0.0, 0.014) + grain        # the plan's ground: the same function
+    darker = _ground_frame(camera, -1.5, 0.014) + grain     # a material 1.5 luma darker
+    raw = P.plan_edge_step(same, camera, axis="east", at=0.0, along=along)
+    assert raw["line"] > 2.0, raw                            # the grain fools the line
+    clean = P.plan_edge_step(P.difference_frame(same, twin), camera, axis="east", at=0.0, along=along)
+    assert clean["step"] == pytest.approx(0.0, abs=0.01) and clean["line"] < 0.01, clean
+    stepped = P.plan_edge_step(P.difference_frame(darker, twin), camera, axis="east", at=0.0,
+                               along=along)
+    assert stepped["step"] == pytest.approx(-1.5, abs=0.2), "the positive control"
+    with pytest.raises(ValueError, match="one shape"):
+        P.difference_frame(same, twin[:10])

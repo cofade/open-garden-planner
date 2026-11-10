@@ -274,9 +274,11 @@ def _floor(record: Record) -> Mesh:
     return Mesh.from_arrays(cap.positions, cap.normals, colors, cap.uvs, cap.indices)
 
 
-def _building(record: Record, height_cm: float, base: RoofStyle) -> tuple[MeshPart, ...]:
+def _building(record: Record, height_cm: float, base: RoofStyle,
+              walls_surface: str) -> tuple[MeshPart, ...]:
     """Walls in the item's fill colour (``tinted``), the roof and the facade — or the
-    block, where no roof can be built."""
+    block, where no roof can be built. ``walls_surface`` (#801): what the walls are made
+    of — a house's rendered plaster, a shed's boards."""
     if not has_one_plain_ring(record):  # checked here too: never a roof on footprints[0]
         return _block(record, height_cm)
     built = _roof(record, height_cm, base)
@@ -284,18 +286,24 @@ def _building(record: Record, height_cm: float, base: RoofStyle) -> tuple[MeshPa
         return _block(record, height_cm)
     front = facade(record.kind, footprint_of(record), built.wall_top, door_wall_of(record))
     floor = _floor(record)
-    return (MeshPart(built.walls, "vc", tinted=True, name="walls"),
+    return (MeshPart(built.walls, "vc", tinted=True, name="walls", surface=walls_surface),
             MeshPart(built.roof, "roof", name="roof"),
             MeshPart(front, "vc", name="facade"),
             MeshPart(floor, "vc", tinted=False, name="floor"))
 
 
+#: What the walls of each building are made of (#801): a house is rendered (plaster), a
+#: shed boarded (its wood cladding, in the item's own colour).
+HOUSE_WALL_SURFACE: Final = "plaster"
+SHED_WALL_SURFACE: Final = "wood_cladding"
+
+
 def _house(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
-    return _building(record, height_cm, HOUSE_ROOF)
+    return _building(record, height_cm, HOUSE_ROOF, HOUSE_WALL_SURFACE)
 
 
 def _shed(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
-    return _building(record, height_cm, SHED_ROOF)
+    return _building(record, height_cm, SHED_ROOF, SHED_WALL_SURFACE)
 
 
 def _house_walls(parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:

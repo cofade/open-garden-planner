@@ -593,7 +593,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 **US-E6 — the 3D view** (since Phase 17 L1.9 the 3D pane of the main window's workspace, engine Qt Quick 3D per ADR-048 / ADR-060; the US-E6 viewer window on Qt 3D, ADR-038, is retired; no `FILE_VERSION` change):
 
-- **FR-SUN-06**: **View → "3D View"** shows the plan in 3D inside the main window: from Plan mode it switches the workspace to **Split** — the plan and the 3D view side by side — and in 3D or Split mode it changes nothing (the workspace's own modes Plan / 3D / Split, Alt+1 / Alt+2 / Alt+3, are FR-3D-WS-01; no separate window opens). Every visible object with a footprint stands at its **effective height** (FR-SUN-02) on the same footprint the 2D shadow overlay uses — a building with its roof, a fence with its posts and pickets, a wall, a bed, a hedge as built shapes, a plant as the silhouette of its sprite's archetype (FR-3D-PLANT-01…04), anything else as a prism in its fill colour; objects without a height (lawns, paths, in-ground beds …) lie on the ground as on the plan (the ground bake, FR-3D-GROUND-*) — on a ground the size of the canvas, in a meadow. The camera orbits (FR-3D-WS-06) and starts framed on the plan. The light is the plan's sun — location, date and time of the one simulation clock (FR-SUN-04) — with shadows whose ground coverage matches the 2D overlay's (FR-3D-LOOK-01, FR-3D-LOOK-06); without a garden location a fixed southern midday sun (50° high, azimuth 180°) lights it, and after sunset the view fades through twilight into a moonlit night. The view follows **every** edit of the plan at once (FR-3D-WS-03) — there is no Refresh — and a date change regrows the dated plants (FR-SUN-08). It is a viewer: a click selects (FR-3D-SELECT-01…05), nothing is edited in 3D, and nothing 3D is written to the `.ogp` (camera, mode and walk state are not saved with the plan; the Split position is a window setting). Detail: FR-33.
+- **FR-SUN-06**: **View → "3D View"** shows the plan in 3D inside the main window: from Plan mode it switches the workspace to **Split** — the plan and the 3D view side by side — and in 3D or Split mode it changes nothing (the workspace's own modes Plan / 3D / Split, Alt+1 / Alt+2 / Alt+3, are FR-3D-WS-01; no separate window opens). Every visible object with a footprint stands at its **effective height** (FR-SUN-02) on the same footprint the 2D shadow overlay uses — a building with its roof, a fence with its posts and pickets, a wall, a bed, a hedge as built shapes, a plant as the silhouette of its sprite's archetype (FR-3D-PLANT-01…04), anything else as a prism in its fill colour; objects without a height (lawns, paths, in-ground beds …) lie on the ground as on the plan (the ground bake, FR-3D-GROUND-*) — on a ground the size of the canvas, in a meadow. The camera orbits (FR-3D-WS-06) and starts framed on the plan. The light is the plan's sun — location, date and time of the one simulation clock (FR-SUN-04) — with shadows whose ground coverage matches the 2D overlay's (FR-3D-LOOK-01, FR-3D-LOOK-06); without a garden location a fixed southern midday sun (50° high, azimuth 180°) lights it, and after sunset the view fades through twilight into a moonlit night. The view follows **every** edit of the plan at once (FR-3D-WS-03) — there is no Refresh — and a date change regrows the dated plants (FR-SUN-08). It is a viewer: a click selects (FR-3D-SELECT-01…05), nothing is edited in 3D, and nothing 3D is written to the `.ogp` except the camera tours the user chose to keep in the plan (FR-3D-TOUR-04; camera, mode and walk state are not saved with the plan; the Split position is a window setting). Detail: FR-33.
 
 **US-E7 — first-person walkthrough** (a camera mode of the 3D view — since Phase 17 L1.9 the workspace's, FR-3D-WALK-01…03; no `FILE_VERSION` change):
 
@@ -799,7 +799,7 @@ Acceptance (L1.4): `tests/unit/test_scene3d_look.py` (the rig against the L0 spi
 Acceptance (L7, FR-3D-LOOK-08 and FR-3D-LOOK-04's operating-system half): `tests/integration/test_view3d_atmosphere_sky.py` (§8.10 — Preferences → 3D View → Sky in the real main window, and compatibility mode), `tests/integration/test_view3d_look_controller.py` (the model switch, the noise worker, the fallbacks, the operating system's motion preference), `tests/unit/test_scene3d_atmosphere_sky.py`, `tests/unit/test_scene3d_cloud_noise.py`, `tests/unit/test_quick3d_qml.py` (the atmosphere asks Qt for no cube, PF-E3D-17), `tests/ui/test_quick3d_host.py` (`TestSky`: the painted sky built and lighting under the atmosphere), `tests/unit/test_scene3d_weather.py` (Partly cloudy), `tests/unit/test_view3d_look_settings.py`; on a real graphics device `tests/integration/test_view3d_looks_render.py` (every board gate on both skies, the painted night kept, the atmosphere on a live host against a fresh host per sun, a sky rebuilt after its predecessors are deleted) and `tests/integration/test_living_garden_render.py` (the weather's gates on both skies); the frozen self-test's point 8.
 
 - **FR-3D-GROUND-01** (L1.5): Every flat surface of the plan — lawn, terrace, driveway, path, in-ground bed, flat furniture, any item without a 3D solid except a plant — is shown on the 3D ground as the plan paints it: the same fill texture and tint anchored the same way, the same outline pen, the same path or fence style, the same furniture sprite, in the plan's stacking order, north up. Measured against the plan's own full-detail render of the same items: the mean difference per channel is at most 6 of 255 for each of the 24 fill patterns, tinted and untinted, turned and not (measured: 0 not turned, ≤ 0.0002 turned). A plant is never painted on the ground.
-- **FR-3D-GROUND-02** (L1.5): An item that has a 3D solid is not painted; under it the ground shows whatever flat surface was drawn there, else meadow. Plan ground no item covers is meadow in the colour of the ground around the plan.
+- **FR-3D-GROUND-02** (L1.5): An item that has a 3D solid is not painted; under it the ground shows whatever flat surface was drawn there, else meadow. Plan ground no item covers is meadow in the colour of the ground around the plan. Since #798 the meadow round the plan and — by the look's switch `OPEN_GROUND_GRASS`, on by default — the plan ground no item covers are one grass surface (the plan's own GRASS texture with a slow variation, its mean the meadow's colour), so the plan's edge shows no step; in the top-down truth view the meadow stays its flat colour. From the app's default framing at most 20 % of the picture is flat green on every bundled example (measured 0.0–13.7 % at 1280 × 720, against 73–80 % before); the far meadow does not shimmer in a camera move and the grass's repeat does not show (`tests/integration/test_meadow_render.py`).
 - **FR-3D-GROUND-03** (L1.5): Editing the plan never disturbs the 2D view: baking the ground changes no selection, hides no item and does not touch the scene. One small edit — an item of up to 3 m moved by up to 2 m — re-paints at most four ground tiles. On the two bench plans, an edit of up to two tiles takes at most 10 ms in the median, in one pass; an edit of more than two tiles is held to a median of 20 ms in at most two passes (owner decision on #615, 2026-10-29). Readings are in ADR-065; the gate is `tests/integration/test_scene3d_ground_bake.py::TestOneSmallEdit`. A longer move re-paints the tiles of the old and of the new place, up to eight. After any sequence of edits the ground equals one baked from scratch, bit for bit.
 - **FR-3D-GROUND-04** (L1.5): A flat item whose outline is too large to be built as a solid (a path of thousands of points, a traced lawn) is still on the ground exactly as drawn. An outline above 16,384 vertices is on neither. No item of a plan file — however long, large or numerous — makes the ground hold or count more than a stated bound per ground tile. Where a bound cuts something off, what is lost is stated and the tile is reported (`GroundBaker.capped`) rather than silently incomplete: a 5 m tile shows at most 256 surfaces, and one that holds more loses its SMALLEST — those whose painted box overlaps the least of the tile, the lower of two equals first — never a large one: a lawn under any number of pavers stays on the ground wherever its edge runs, and what is missing are the smallest pavers (measured against the plan's own render for a lawn 10 cm inside the plan's edge under 2,000 pavers: no lawn pixel bare; the pavers of 145 of 400 places missing). What the ranking does not know is a shape: a thin diagonal line counts as large, and a small surface on top of 256 larger ones is among those left out. Beyond 16,384 style elements or 32,768 dashes in a tile the rest is left out or drawn solid.
 - **FR-3D-GROUND-05** (L1.5): The ground shows no seam between its tiles (measured luma spread across every tile border ≤ 0.7 of 255), a re-baked tile shows its new picture whichever tiles were re-baked before or after it, and the ground's memory does not grow with re-bakes: per tile one texture is held, plus the one it replaced until the next frame is shown. Measured for twenty full re-bakes of a 16 MB ground in the two cells the development machine offers: a software-rasteriser window that presents its frames (WARP, 40 frames presented in the twenty cycles: −0.02 to +0.03 MB a cycle, where keeping every replaced texture reads +32 MB) and a hardware-adapter window that presented NO frame (RTX 4070, 0 frames presented: −0.10 to +0.01 MB a cycle) — in which nothing is rendered, so that cell shows only that re-baking does not grow the process side. A hardware window that presents its frames is not automated; it is an item of the story's manual checklist (watch the process's commit size while dragging a lawn with the display on). *Known limit:* repeatedly taking a still frame from a live 3D view (`grab()`) whose window presents nothing grows a Direct3D 11 process by what each frame uploaded, until the view is closed; a screenshot is therefore taken through the offscreen path.
@@ -1018,13 +1018,16 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   are. Partly cloudy: the sun stays out, its shadows crisp and only a little fainter, the
   sky a little greyer; with the atmosphere sky (FR-3D-LOOK-08) scattered white clouds cross
   it, golden toward sunset.
-  Overcast: a grey sky, no sun disc, soft and faint shadows. Rain: overcast, wet
-  leaves and ground, a nearer haze, stronger wind and falling rain. Snow: a pale sky, snow
-  on the ground and the leaves, falling snow, little wind. A new weather shows at once.
-  Not stored: every session starts clear.
+  Overcast: a grey sky, no sun disc, soft and faint shadows; what an object hides of the sky
+  darkens the ground at its foot (a stronger ambient occlusion under cloud, #687) while open
+  ground stays as bright as it is. Rain: overcast, wet leaves and ground, a nearer haze,
+  stronger wind and falling rain. Snow: a pale sky, snow on the ground and the leaves, and
+  on the TOPS of what is built — roofs, a bed's soil, decks, the trampoline's mat, a bench's
+  seat (#687; walls, glass and water stay as they are) — falling snow, little wind. A new
+  weather shows at once. Not stored: every session starts clear.
 - **FR-3D-LIVE-04** (L5.2): Particles: rain and snow around the point the camera looks at;
   **falling leaves** under trees and shrubs that are dropping their leaves on the plan
-  date; **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
+  date, each in its own tree's turned colour (a red maple drops red leaves, #687); **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
   **fireflies** among the plants on summer evenings (the hemisphere's June–August or
   December–February, from dusk). At most **5,000** particles at once. "Wildlife and Falling
   Leaves" in the Weather menu switches the leaves, butterflies and fireflies off and on.
@@ -1054,7 +1057,10 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   3D; saved there, it stays a fence.
 - **FR-3D-LIVE-08** (L5.4): From dusk on, every bulb of a garden light **glows** in 3D and
   the six lights nearest to the point the camera looks at **light** the garden around them
-  (leaves, lawn and ground included); the lights go off at sunrise. In 2D a garden light
+  (leaves, lawn and ground included); a light at the edge of those six fades as the camera
+  turns away, so no pool switches on or off in one frame, and a camera tour's frame or an
+  agent's picture is lit by the lights nearest the point IT looks at (#687); the lights go
+  off at sunrise. In 2D a garden light
   casts the usual solid-footprint shadow (ADR-059's table); a **string of lights casts no 2D
   shadow** — not in the overlay, the hours-of-sun map or a plant's sun estimate (the owner's
   decision: the shade of a wire is no planning fact). In 3D both cast their own thin
@@ -1069,7 +1075,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   Mode**: a line of controls for exposure, vignette, blur and a colour grade (Golden Hour, Crisp Day,
   Cool Morning, Soft Film, Black and White). The view previews them at once. They change how the
   picture looks, never what stands in the garden, and with photo mode off the view is the view
-  again, pixel for pixel.
+  again, pixel for pixel. The blur is a share of the picture's height, so a saved photo of any size
+  shows the blur the view previewed (#743: seen at the preview's size, within 0.06 of the detail a
+  60 px tile keeps).
 - **FR-3D-PHOTO-02** (L6.1): In photo mode a **click sets the focus** on what is under it (or on the
   ground) instead of selecting, and the line says how far away it is. The focus is a point: it stays
   on the plant when the camera moves. **Blur above 0 always has a point**: setting the blur without a
@@ -1088,7 +1096,12 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   at all; and the clock not at all, through **a day**, or **through the year**. Duration 1 to 600 s, 24
   to 60 frames per second, 720p to 4K. A **year** tour holds the UTC time, not the wall time: the sun
   moves evenly through both daylight-saving changes, the local clock shifts by the offset, and the
-  dates the dialog names are the dates of the first and last frame.
+  dates the dialog names are the dates of the first and last frame. *(#807)* The orbit has a
+  **Camera tilt** (5 to 89 degrees; the eye never closer than 20 cm to the ground) and **Start and
+  stop smoothly**: an orbit that eases starts and ends at rest on its first view; one that does not
+  turns at one speed and loops without a jump. A new orbit tilts 18 degrees (the horizon and a band
+  of sky in view), eases, and takes 30 s a turn until the user sets a duration (a time-lapse keeps
+  12 s). **Use Current View** starts the orbit exactly at the view, its tilt included.
 - **FR-3D-TOUR-02** (L6.2): A tour is saved as an **MP4 video** (H.264 where the system has an encoder,
   else MPEG-4) or a **PNG sequence**. It is rendered frame by frame, so a slower computer takes
   longer and writes the same video. A progress bar shows each frame, Cancel stops it, and a cancelled
@@ -1099,12 +1112,39 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   running. Closing the app ends a running recording and waits (bounded) for its file to close; if
   the encoder cannot close in time, it names the unfinished output so the user can find it. If
   the 3D view stops being visible, the recording waits and goes on. Frames are limited-range
-  BT.709 YUV computed by the app, and every offered size is HD; Qt's MP4 writer adds no colour
-  tag, so players follow the HD convention (ADR-072 addendum), pinned by a test.
+  BT.709 YUV computed by the app, and every offered size is HD. *(#807)* A video is encoded at
+  constant quality, **Standard** or **Best, for Publishing** (the dialog's **Video quality**, not
+  kept in a saved tour), so its first second is as good as the rest; the finished file states
+  BT.709 limited range in its container and in its stream, and the H.264 level its frames need
+  (ADR-072 addendum "review-grade video"). The H.264 profile is Constrained Baseline, the one
+  Windows' encoder writes through Qt. A PNG sequence keeps every frame losslessly, for an external
+  master-quality encode.
 - **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the
   clock holds and restores it: a date the user sets during a **flight preview** survives its end.
+- **FR-3D-TOUR-04** *(issue #737)*: A tour can be **kept in the plan under a name** and rendered
+  again later. The dialog's first group lists the plan's tours: **Save Tour As** keeps the
+  controls as a new tour (a name the plan already has is asked about before it is replaced),
+  **Save Tour** writes changed controls back to the tour they came from, **Rename** and
+  **Delete** do what they say, and choosing a tour puts its camera, time range, duration, frame
+  rate and size back into the controls. Saving, changing, renaming and deleting a tour are
+  **one undo step each** and mark the plan as changed; setting up a tour without saving it, and
+  choosing one, change nothing. A saved tour holds a camera and a clock and nothing of the
+  garden, so rendering it after the garden changed shows the changed garden along the saved
+  path. A saved drone orbit or held view starts from the view it was saved with, and the dialog
+  says so; **Use Current View** starts it from the view again. A saved orbit keeps its tilt and
+  whether it eases; an orbit saved before #807 loads as the even loop it was and flies the same
+  frames. Choosing another tour asks
+  before it discards unsaved keyframes or unsaved changes. The tours are saved with the plan
+  file and belong to it: a new or opened plan shows its own tours and none of the last plan's;
+  Save As, a template and a new season keep them. A plan keeps up to 50 tours of up to 100
+  keyframes each. The file's format version does not change: a release from before this
+  feature opens a plan with tours and ignores them (and writes the plan back without them if it
+  saves). A tour in a file that cannot be read is skipped, the rest of the plan loads, and the
+  status bar says how many were skipped. The look of the picture (photo mode, weather, quality)
+  is not part of a tour: it is the view's when the tour is rendered. Not included: a tour is not
+  kept in the crash-recovery file (which holds the drawing only).
 - **FR-AGENT-31** (L6.3, #390, ADR-072): **`render_3d_view`** renders a PNG of the 3D view for an
   agent, from the owner's camera or one of its own, and reports what it shows (plan date, time, sun,
   weather, quality, roofs, overlays). It is read-only and needs no token; it never moves the
@@ -1118,8 +1158,9 @@ the dialog, a recording end to end, every refusal, the blur/point invariant, the
 a tour, the clock-change hold), `test_agent_api_render_3d.py` (the real MCP transport),
 `test_video_writer.py` (a real encode, read back; a kept render survives the next recording), the
 unit suites `test_camera_path.py`, `test_video_yuv.py` and `test_scene3d_photo.py`, the render tier
-`test_directors_cut_render.py` (including the two-week clock-change luma gate), and `--selftest`,
-which captures and encodes from the bundle.
+`test_directors_cut_render.py` (including the two-week clock-change luma gate, and since #743 the
+preview-against-4K blur parity and the slider's blur 0.05 against 1.0), and `--selftest`, which
+captures and encodes from the bundle.
 
 Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
 year playback through the real app and its clock; the Weather menu, the life switch and

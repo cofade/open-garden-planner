@@ -270,6 +270,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     export or a number or date field. Scene-wide paint state is kept and invalidated
     through the scene's paint revision, never rebuilt inside a paint; UI numbers and
     dates go through `core/i18n.py`, `ui/number_fields.py` and `ui/date_fields.py`.
+  - 3D look (#687-#807): read the ADR-059 and ADR-072 addenda and the
+    `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
+    part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
+    the tour video. One shader draws all ground; a still fits its own shadow map.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

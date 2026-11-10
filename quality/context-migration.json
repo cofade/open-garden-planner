@@ -898,7 +898,7 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040"
+          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -943,7 +943,7 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
           "sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de",
-          "current_sha256": "74b4723c8b5b603b507a5fa0ec534f55514dbb486566ffc3e5c08abf5a571031"
+          "current_sha256": "54c2b2311c008b4a0e17f32973fbbf2cff584dbda7e5a9916fd30762d3212d38"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md",
@@ -1117,7 +1117,7 @@
         },
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
-          "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
+          "sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81",
           "current_sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81"
         },
         {
@@ -1147,7 +1147,7 @@
         },
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
-          "sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc",
+          "sha256": "11ed69b6a8cb2219334eb59d9c70de2761a8be030d2e18ad403314f13b42e848",
           "current_sha256": "11ed69b6a8cb2219334eb59d9c70de2761a8be030d2e18ad403314f13b42e848"
         }
       ]
@@ -1232,7 +1232,7 @@
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
-          "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
+          "sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7",
           "current_sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7"
         },
         {
@@ -1307,23 +1307,23 @@
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
-          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+          "sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66",
+          "current_sha256": "0fd8605da8d3e470ca2049c2060b0d665fe4cbef06a6934baa58e5ffaf8e1c15"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
           "sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477",
-          "current_sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477"
+          "current_sha256": "1ba36527727df60d90ab2a829bd9c65e2b7715a889088083b8247150501a0ecf"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/004-4-material-value-ranges-pbr-roughness-0-1.md",
           "sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e",
-          "current_sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e"
+          "current_sha256": "92b6981833a32cff6a216a5396a19405793fd87a6a03f160a44b5870018c83af"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
           "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
-          "current_sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66"
+          "current_sha256": "2799e9c742efb298054d8e4e1768667a5a5bb966d931dc44048713f344faf8e5"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
@@ -1332,8 +1332,8 @@
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
-          "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25"
+          "sha256": "b214154e268d4982b65b10436bdac418724cff9811e81b6ae9e211195dab0e09",
+          "current_sha256": "4b60b320af747f0354e13c61329fa440dac2cd0842dee3203f4a827f732a4903"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
@@ -1362,7 +1362,7 @@
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
-          "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
+          "sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c",
           "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
         },
         {
@@ -1372,7 +1372,7 @@
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
-          "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
+          "sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17",
           "current_sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17"
         },
         {
@@ -2298,7 +2298,7 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040"
+          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -2343,7 +2343,7 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
           "sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de",
-          "current_sha256": "74b4723c8b5b603b507a5fa0ec534f55514dbb486566ffc3e5c08abf5a571031"
+          "current_sha256": "54c2b2311c008b4a0e17f32973fbbf2cff584dbda7e5a9916fd30762d3212d38"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md",
@@ -2517,7 +2517,7 @@
         },
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
-          "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
+          "sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81",
           "current_sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81"
         },
         {
@@ -2547,7 +2547,7 @@
         },
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
-          "sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13",
+          "sha256": "eea52f6fabba83d06c376fbc58513e6d054d23ab1fda5ac41e5a492dea6dd320",
           "current_sha256": "eea52f6fabba83d06c376fbc58513e6d054d23ab1fda5ac41e5a492dea6dd320"
         }
       ]
@@ -2632,7 +2632,7 @@
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
-          "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
+          "sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7",
           "current_sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7"
         },
         {
@@ -2707,23 +2707,23 @@
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",
-          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+          "sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66",
+          "current_sha256": "0fd8605da8d3e470ca2049c2060b0d665fe4cbef06a6934baa58e5ffaf8e1c15"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
           "sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477",
-          "current_sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477"
+          "current_sha256": "1ba36527727df60d90ab2a829bd9c65e2b7715a889088083b8247150501a0ecf"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/004-4-material-value-ranges-pbr-roughness-0-1.md",
           "sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e",
-          "current_sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e"
+          "current_sha256": "92b6981833a32cff6a216a5396a19405793fd87a6a03f160a44b5870018c83af"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
           "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
-          "current_sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66"
+          "current_sha256": "2799e9c742efb298054d8e4e1768667a5a5bb966d931dc44048713f344faf8e5"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
@@ -2732,8 +2732,8 @@
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
-          "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25"
+          "sha256": "b214154e268d4982b65b10436bdac418724cff9811e81b6ae9e211195dab0e09",
+          "current_sha256": "4b60b320af747f0354e13c61329fa440dac2cd0842dee3203f4a827f732a4903"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
@@ -2762,7 +2762,7 @@
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
-          "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
+          "sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c",
           "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
         },
         {
@@ -2772,7 +2772,7 @@
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
-          "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
+          "sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17",
           "current_sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17"
         },
         {
@@ -3007,6 +3007,28 @@
         ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
         ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
         ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md"
+      ]
+    },
+    {
+      "issue": "799, 802",
+      "reason": "A recorded tour frame builds the sky of its own sun (#799) and the twilight fill keeps the garden from brightening as night falls (#802): record the measured facts in the light-rig table (lush-cinematic 3), the board's --dusk gate (lush-cinematic 5) and the looks/sky reference (3d-renderer 14) of both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
+        ".agents/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
+        ".claude/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
+        ".claude/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
+        ".agents/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
+        ".claude/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md"
+      ]
+    },
+    {
+      "issue": "801, 803",
+      "reason": "Built parts reflect by what they are made of (#803) and roofs and walls show the canvas's own pictures (#801): record the surfaces' ranges in the material table (lush-cinematic 4) and the defects and fixes in the artifact log (lush-cinematic 7) of both libraries; the measured values went to the new references 19 (lush-cinematic) and 29 (3d-renderer). Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-lush-cinematic/references/004-4-material-value-ranges-pbr-roughness-0-1.md",
+        ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
+        ".claude/skills/ogp-lush-cinematic/references/004-4-material-value-ranges-pbr-roughness-0-1.md",
+        ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md"
       ]
     }
   ]

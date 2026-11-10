@@ -43,6 +43,27 @@ def test_distant_horizon_cameras_exercise_the_fog_distance_and_low_pitch() -> No
     assert fog_depth_cm(600 * 100.0)[0] > fog_depth_cm(67 * 100.0)[0]
 
 
+@pytest.mark.parametrize(("label", "turn"), board.SKY_BAND_DIRECTIONS)
+def test_the_sky_band_cameras_see_every_band_they_judge(label: str, turn: float) -> None:
+    """#716/#719: the sky-band frames must hold the meadow (−6…−3°), the haze band (3°),
+    the deck (10°), the low band (6–15°) and the top of the inversion range (20°) in the
+    probe's own window round the bearing — at the render tier's size."""
+    from scripts import board_probes as probes
+
+    size = (640, 360)
+    bearing = (board.SKY_BAND_AZIMUTH + turn) % 360.0
+    camera = board.sky_band_camera(bearing, size)
+    flat = np.full((size[1], size[0], 3), 128.0)
+    profile = probes.sky_profile(flat, camera, bearing, lowest_deg=-10.0, highest_deg=30.0)
+    for elevation in (-6.0, -3.0, board.SKY_BAND_INVERSION_RANGE[0], board.SKY_BAND_HAZE_DEG,
+                      board.SKY_BAND_LOW[0], board.SKY_BAND_DECK_DEG, board.SKY_BAND_LOW[1],
+                      board.SKY_BAND_INVERSION_RANGE[1]):
+        assert probes.profile_at(profile, elevation) == 128.0, (label, elevation)
+    assert min(profile["count"]) >= 20
+    args = board._parse(["--sky-bands", "--sky", "atmosphere"])
+    assert args.sky_bands is True and args.sky == "atmosphere"
+
+
 @pytest.mark.parametrize("size", [(2400.0, 1600.0), (5000.0, 4000.0), (800.0, 3000.0)])
 def test_the_shots_are_the_spikes(size: tuple[float, float]) -> None:
     """Same dates, times and cameras as the L0 board (frozen when L1.10 deleted the
@@ -233,3 +254,134 @@ def test_the_date_row_can_fail(qtbot, tmp_path: Path) -> None:  # noqa: ARG001 -
     assert board.records_digest(june) == digests["2026-06-21"]
     with pytest.raises(KeyError):
         run.snapshot_day(dict(june))                  # records nobody snapshotted
+
+
+def _painted_edge(camera, elevation: float, azimuth: float, width: float) -> np.ndarray:
+    """A frame of bare ground with the ``--stairs`` panel's analytic shadow painted dark:
+    everything between its face and its far edge (no engine — the cameras' geometry)."""
+    cols, rows = np.meshgrid(np.arange(camera.size[0]) + 0.5, np.arange(camera.size[1]) + 0.5)
+    rays = camera.rays(cols, rows)
+    eye = np.asarray(camera.eye)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = np.where(rays[..., 2] < -1e-9, -eye[2] / rays[..., 2], np.nan)
+    north = eye[1] + t * rays[..., 1]
+    reach = board.STAIRS_HEIGHT_CM / math.tan(math.radians(elevation))
+    edge = board.STAIRS_NORTH_CM - board.STAIRS_PANEL_CM / 2.0 + math.cos(math.radians(azimuth + 180.0)) * reach
+    frame = np.full(rays.shape[:2] + (3,), 120.0)
+    frame[np.isfinite(t) & (north > edge) & (north < board.STAIRS_NORTH_CM)] = 50.0
+    return frame
+
+
+def test_the_stairs_probe_sees_the_edges_its_gate_judges() -> None:
+    """#734 (PF-L3D-20): a gate that reads a shadow edge outside its frame reads nothing.
+    The board's two cameras see the panel's long shadow edge where the render tier judges
+    it (20-40 m out in the default framing, under both suns; the golden-hour camera up
+    close at 15.2°), and at 1080p a picket pitch spans the streak instrument's 8 px on the
+    lines it reads inside the fence's 6° shadow."""
+    width, depth, size = 2400.0, 1600.0, (1920, 1080)
+    cameras = board.stairs_cameras(width, depth, size)
+    assert set(cameras) == {"hero", "framed"}
+    for elevation, azimuth in board.STAIRS_SUNS:
+        frame = _painted_edge(cameras["framed"], elevation, azimuth, width)
+        rows = board.stairs_measure(frame, cameras["framed"], "PLAIN", elevation, azimuth, width)
+        (far,) = [row for row in rows["edge"] if row["depth_m"] == [20.0, 40.0]]
+        assert far["stations"] > 500 and far["wobble_cm"] < 1.5, (elevation, far)
+        assert rows["foot"]["samples"] > 300 and rows["foot"]["lit_share"] < 0.02, rows["foot"]
+    golden = max(board.STAIRS_SUNS)
+    hero = board.stairs_measure(_painted_edge(cameras["hero"], *golden, width), cameras["hero"],
+                                "PLAIN", *golden, width)
+    assert sum(row["stations"] for row in hero["edge"] if row["depth_m"][1] <= 20.0) > 500
+    sunset = min(board.STAIRS_SUNS)
+    lines = [board.probes.shadow_streaks(
+        np.full((size[1], size[0], 3), 80.0), cameras["hero"], (board.STAIRS_INSET_CM, -offset),
+        (width - board.STAIRS_INSET_CM, -offset), period_cm=12.0, lit_luma=120.0)
+        for offset in board.STAIRS_STREAK_OFFSETS_CM]
+    assert sum(line["streak"] is not None for line in lines) >= 2, (sunset, lines)
+    record = board.stairs_record("WOODEN_FENCE", board.STAIRS_INSET_CM, width - board.STAIRS_INSET_CM)
+    assert record.kind == "FENCE" and record.height_cm == board.STAIRS_HEIGHT_CM
+    assert record.params["path_style"] == "WOODEN_FENCE"
+    (start, end) = record.path
+    assert end[0] - start[0] == pytest.approx(width - 2 * board.STAIRS_INSET_CM)
+
+
+def test_the_stairs_timelapse_holds_its_camera_while_the_sun_steps() -> None:
+    """#734: a held camera's time-lapse is fitted because the fitted grid crawls less while
+    the light turns; the board measures that with the golden-hour camera held. Its suns start
+    at the golden hour and step a day's time-lapse frame, staying above the sunset anchor, and
+    the held camera sees the panel's edge under every one of them (each frame is traced
+    against its own sun), in the scene the orbit moves through."""
+    width, depth, size = 2400.0, 1600.0, (1920, 1080)
+    suns = board.stairs_timelapse_suns()
+    assert len(suns) == board.STAIRS_ORBIT_FRAMES
+    assert suns[0] == max(board.STAIRS_SUNS)
+    steps = np.diff(np.asarray(suns), axis=0)
+    assert np.allclose(steps, board.STAIRS_TIMELAPSE_STEP_DEG, atol=2e-3)
+    assert suns[-1][0] > min(board.STAIRS_SUNS)[0]
+    hero = board.stairs_cameras(width, depth, size)["hero"]
+    for elevation, azimuth in suns:
+        trace = board.stairs_trace(_painted_edge(hero, elevation, azimuth, width), hero, "PLAIN",
+                                   elevation, azimuth, width)
+        near = np.asarray(trace["valid"], dtype=bool) & (np.asarray(trace["depth_cm"]) <= 2000.0)
+        assert near.sum() > 500, (elevation, int(near.sum()))
+        assert np.nanpercentile(np.abs(np.asarray(trace["offset_cm"])[near]), 95) < 1.5, elevation
+    records = board.stairs_motion_records(width, depth)
+    assert set(records) == {"stairs", "column_0", "column_1", "column_2", "column_3"}
+    corners = {(r.transform.east_cm, r.transform.north_cm) for key, r in records.items() if key != "stairs"}
+    assert corners == {(0.0, 0.0), (width, 0.0), (0.0, depth), (width, depth)}
+
+
+@pytest.mark.parametrize("plan", [(2400.0, 1600.0, 900.0), (2000.0, 1000.0, 1200.0),
+                                  (900.0, 650.0, 400.0), (600.0, 300.0, 250.0)])
+def test_the_meadow_probes_see_the_meadow_they_judge(plan: tuple[float, float, float]) -> None:
+    """#798: the default framing sees a large field of meadow; the orbit and the flight see
+    far meadow in their first frame and keep at least 100 of those points in every frame;
+    the camera above looks straight down at the meadow, one grass repeat ~42 px at 720p.
+    Sizes: the bench plan and the family garden (24 x 16 m), the food forest, the raised
+    bed and the balcony (with about their tallest parts)."""
+    from scripts import board_probes as probes
+
+    width, depth, top = plan
+    size = (1280, 720)
+    cameras = board.meadow_cameras(width, depth, top, size)
+    box = (0.0, 0.0, width, depth)
+    meadow = probes.meadow_mask(cameras["default"], box, margin_cm=board.meadow_margin(width, depth))
+    assert meadow.mean() > 0.2, meadow.mean()          # the felt table is most of the view
+    for move in ("orbit", "flight"):
+        views = cameras[move]
+        assert len(views) == board.MEADOW_FRAMES
+        far = board.far_meadow_points(views[0], box, board.meadow_margin(width, depth))
+        assert len(far) == board.MEADOW_TRACK_POINTS, (move, len(far))
+        points = np.column_stack([far, np.zeros(len(far))])
+        kept = np.ones(len(points), dtype=bool)
+        for view in views:   # in view in EVERY frame (a small plan's far band is the top rows)
+            x, y, front = view.project(points)
+            kept &= front & (x >= 1) & (x < size[0] - 1) & (y >= 1) & (y < size[1] - 1)
+        assert kept.sum() >= 100, (move, int(kept.sum()))
+    # the orbit turns about the plan's middle, the flight flies level and east
+    assert cameras["orbit"][1].target == cameras["orbit"][0].target
+    assert {view.eye[2] for view in cameras["flight"]} == {board.MEADOW_FLIGHT_EYE_CM}
+    assert cameras["flight"][1].eye[0] - cameras["flight"][0].eye[0] == board.MEADOW_FLIGHT_STEP_CM
+    above = cameras["above"]
+    assert above.horizon_row() < 0 and above.eye[2] == board.MEADOW_REPEAT_HEIGHT_CM
+    period = board.MEADOW_REPEAT_CM * above._focal / board.MEADOW_REPEAT_HEIGHT_CM
+    assert 40.0 < period < 45.0, period
+    walk = next(shot for shot in board.default_shots(width, depth) if shot.name == "walk")
+    assert (cameras["eye"].eye, cameras["eye"].target) == (walk.eye, walk.target)
+
+
+def test_the_meadow_overrides_change_only_what_they_name() -> None:
+    """#798: ``--open-ground`` sets the owner's switch and ``--meadow-surface`` the preset's
+    surface in every frame of a run; without them the look is the look."""
+    from open_garden_planner.core.scene3d import SunState
+    from open_garden_planner.core.scene3d.look import look_for
+
+    look = look_for(SunState(elevation_deg=40.0, azimuth_deg=180.0), "high")
+    plain = board.Board(board._parse([]), Path("."), lambda *_a, **_k: None, {})
+    assert plain.with_meadow(look) is look
+    varied = board.Board(board._parse(["--open-ground", "flat", "--meadow-surface", "1"]),
+                         Path("."), lambda *_a, **_k: None, {})
+    changed = varied.with_meadow(look)
+    assert changed.open_ground_grass is False and changed.preset.meadow_surface == 1
+    assert changed.preset.name == look.preset.name and changed.mood == look.mood
+    with pytest.raises(SystemExit):
+        board._parse(["--meadow-surface", "3"])

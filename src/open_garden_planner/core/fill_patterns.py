@@ -497,6 +497,45 @@ def pattern_from_name(name: str | None) -> FillPattern | None:
     return pattern
 
 
+def pattern_pixels(pattern: FillPattern) -> tuple[int, int, bytes] | None:
+    """A fill pattern's own texture, UNTINTED — RGBA8, top-down, opaque, rows as the
+    image's (row 0 its top); one tile is 256 cm wide in the plan's coordinates.
+
+    What the 3D meadow's grass is made of (#798: ``core.scene3d.meadow.grass_detail``):
+    the canvas's GRASS picture as the asset forge drew it, not a recolouring of it.
+    Read with ``QImage`` (no ``QPixmap``), so it needs no running application. ``None``
+    for SOLID or a missing texture."""
+    filename = _TEXTURE_FILES.get(pattern)
+    if filename is None:
+        return None
+    image = QImage(str(_TEXTURES_DIR / f"{filename}.png"))
+    if image.isNull():
+        return None
+    image = image.convertToFormat(QImage.Format.Format_RGBA8888)
+    width, height = image.width(), image.height()
+    buffer: Any = image.constBits()
+    buffer.setsize(image.sizeInBytes())
+    if image.bytesPerLine() != width * 4:  # RGBA8888 is packed; a padded row would shear it
+        raise ValueError(f"the {pattern.name} texture has {image.bytesPerLine()} bytes a row "
+                         f"for {width} pixels")
+    data = bytearray(buffer)
+    data[3::4] = b"\xff" * (width * height)
+    return width, height, bytes(data)
+
+
+def pattern_rgb(pattern: FillPattern) -> np.ndarray | None:
+    """A fill pattern's own picture, untinted: (rows, columns, 3) uint8, row 0 the
+    image's top — or None for SOLID or a missing texture. What a 3D surface's detail
+    picture is made from (#801, ``core.scene3d.surface_detail``). The same read as
+    ``pattern_pixels`` (the meadow's grass, #798), without its alpha channel."""
+    pixels = pattern_pixels(pattern)
+    if pixels is None:
+        return None
+    width, height, data = pixels
+    rgba = np.frombuffer(data, dtype=np.uint8).reshape(height, width, 4)
+    return np.array(rgba[:, :, :3])
+
+
 def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int, bytes] | None:
     """A fill pattern exactly as the canvas paints it — RGBA8, top-down, opaque.
 

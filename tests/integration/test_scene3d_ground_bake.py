@@ -50,7 +50,7 @@ from open_garden_planner.ui.canvas.items import (
     PolylineItem,
     RectangleItem,
 )
-from open_garden_planner.ui.view3d.ground_bake import GroundBaker
+from open_garden_planner.ui.view3d.ground_bake import OPEN_ALPHA, GroundBaker
 from open_garden_planner.ui.view3d.snapshot import SkipReason
 from tests.integration.ground_bake_support import (
     Bake,
@@ -487,7 +487,12 @@ class TestWhatIsPainted:
         bake = Bake(scene)  # the product's default: no colour handed in
         bake.step()
         image = bake.image()
+        # OPEN (#798): the meadow's colour at alpha 0, where the engine lays its grass
         assert {tuple(int(c) for c in pixel) for pixel in image.reshape(-1, 4)[::997]} == {
+            (*MEADOW_RGB, OPEN_ALPHA)}
+        # … and the whole ground as one picture is opaque, in the same colour
+        whole = ground_rgba(bake.baker.image())
+        assert {tuple(int(c) for c in pixel) for pixel in whole.reshape(-1, 4)[::997]} == {
             (*MEADOW_RGB, 255)}
         assert GroundBaker().bare_rgb == MEADOW_RGB
         assert "#{:02x}{:02x}{:02x}".format(*MEADOW_RGB) == NEUTRAL_DAY.meadow_albedo \

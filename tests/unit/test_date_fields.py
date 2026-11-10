@@ -117,10 +117,22 @@ def test_the_plan_strip_and_plant_details_fields_in_an_english_ui(qtbot, speak) 
 
 
 def test_the_camera_tours_fields_in_an_english_ui(qtbot, speak) -> None:
+    from PyQt6.QtCore import QObject, pyqtSignal
+
     from open_garden_planner.ui.view3d.tour_dialog import TourDialog
 
-    class Capture:
+    class Capture(QObject):
+        tours_changed = pyqtSignal()
         recording = False
+        tours_connected = False   # a property, not a call (#737)
+
+        def saved_tours(self) -> list:
+            return []
+
+        def orbit_pose(self):
+            from open_garden_planner.core.scene3d.camera import CameraPose
+
+            return CameraPose((0.0, 0.0), 1500.0, 0.0, 20.0)
 
         def plan_date(self) -> datetime.date:
             return datetime.date(2026, 6, 7)

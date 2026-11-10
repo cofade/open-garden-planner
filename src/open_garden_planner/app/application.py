@@ -2267,6 +2267,9 @@ class GardenPlannerApp(QMainWindow):
         # the director's cut (L6): a tour plays the clock itself, and saves like everything else
         self._workspace.capture.clock_wanted.connect(self._sun_toolbar.stop_animation)
         self._workspace.default_save_path = self._default_save_path
+        # #737: named tours live in the plan, and every edit of them is one undo step
+        self._workspace.capture.connect_tours(
+            self._project_manager, self.canvas_view.command_manager)
         workspace_menu = self._workspace.create_menu(self._view_menu)
         # every menu action carries an icon (#310) — the workspace's too, now that it is
         # in every window (L1.9); its own buttons keep their words (ToolButtonTextOnly)
@@ -3347,13 +3350,19 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_scene.update_dimension_lines()
         self.constraints_panel.refresh()
         skipped = self._project_manager.last_load_skipped_items_count
-        if skipped > 0:
-            self.statusBar().showMessage(
-                self.tr(
+        skipped_tours = self._project_manager.last_load_skipped_tours_count
+        if skipped > 0 or skipped_tours > 0:
+            # What was skipped is gone with the next save: say so, for both kinds (#737).
+            warnings = []
+            if skipped > 0:
+                warnings.append(self.tr(
                     "Warning: {count} unrecognized item(s) could not be loaded and were skipped."
-                ).format(count=skipped),
-                8000,
-            )
+                ).format(count=skipped))
+            if skipped_tours > 0:
+                warnings.append(self.tr(
+                    "Warning: {count} camera tour(s) could not be read and were skipped."
+                ).format(count=skipped_tours))
+            self.statusBar().showMessage(" ".join(warnings), 8000)
         else:
             # A copy has no file; the bundled source's path inside the app tells a
             # reader nothing, its name does (#795).

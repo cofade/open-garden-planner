@@ -17,6 +17,7 @@ Scenarios:
 ``tour``      The workspace's own recording: a drone orbit into an MP4, read back with Qt.
 ``detail``    A recording close to the plants: its frames have the flight's plant detail.
 ``timelapse`` A day and a stretch of the year: the clock is put back, frames follow it.
+``daylapse``  A held-camera day lapse through dawn and dusk (#799): per frame the sky band.
 ``agent``     The MCP tool's provider on the real workspace: its refusals and its picture.
 """
 
@@ -64,6 +65,19 @@ PHOTO_SUN = (5.9, 250.0)
 #: reported horizon band.
 PICTURE_BAND = (0.36, 0.44)
 PICTURE_SKY = 0.18
+#: The blur's measuring tile (#743): 60 px of the picture it is measured in. A tile whose sharp
+#: picture has less gradient than this (levels per pixel) is flat (sky, a lawn far off) and says
+#: nothing about blur.
+BLUR_TILE = 60
+BLUR_FLAT = 1.0
+#: The picture the slider is pinned in, and the save the preview is compared with (a whole
+#: multiple of the view's own size, so that the save shrinks to the preview by area means).
+SLIDER_PICTURE = (1280, 720)
+SAVE_HEIGHT = 2160
+#: Where the slider's focus is clicked in the view (logical px): the crown of the tree left of
+#: the house, about 21 m out, a body that fills its tile. A click on the poplar's trunk in the
+#: middle kept 0.67 of its tile at blur 1, rightly: the tile is mostly lawn metres behind it.
+FOCUS_CLICK = (180.0, 150.0)
 
 
 def pump(ms: float) -> None:
@@ -93,6 +107,97 @@ def difference(first: Any, second: Any) -> dict[str, float]:
     delta = np.abs(first - second)
     return {"mean": round(float(delta.mean()), 3), "p99": float(np.percentile(delta, 99)),
             "max": int(delta.max())}
+
+
+def luma_of(pixels: Any) -> Any:
+    return (0.2126 * pixels[..., 0] + 0.7152 * pixels[..., 1]
+            + 0.0722 * pixels[..., 2]).astype(np.float64)
+
+
+def shrink(luma: Any, factor: int) -> Any:
+    """Area means of ``factor`` x ``factor`` blocks: a big picture seen at a small size."""
+    height, width = luma.shape[0] // factor, luma.shape[1] // factor
+    return luma[:height * factor, :width * factor].reshape(height, factor, width, factor).mean(axis=(1, 3))
+
+
+def gradient_tiles(luma: Any, tile: int) -> Any:
+    """The mean absolute luma step to the right and downwards, per ``tile`` x ``tile`` block."""
+    step = np.zeros_like(luma)
+    step[:, :-1] += np.abs(np.diff(luma, axis=1))
+    step[:-1, :] += np.abs(np.diff(luma, axis=0))
+    rows, columns = luma.shape[0] // tile, luma.shape[1] // tile
+    return step[:rows * tile, :columns * tile].reshape(rows, tile, columns, tile).mean(axis=(1, 3))
+
+
+def gradient_ratios(blurred: Any, sharp: Any, tile: int = BLUR_TILE) -> Any:
+    """Per tile: how much of the sharp picture's detail the blurred one keeps (1 = all of it).
+    NaN where the sharp tile is flat."""
+    kept, there = gradient_tiles(blurred, tile), gradient_tiles(sharp, tile)
+    return np.where(there >= BLUR_FLAT, kept / np.maximum(there, 1e-9), np.nan)
+
+
+def blur_answers(host: Any, size: tuple[int, int], out: Path) -> dict[str, Any]:
+    """#743: what the blur does to a picture, measured in tiles of the picture's detail.
+
+    - ``parity``: the preview's size and a save of ``SAVE_HEIGHT`` of one camera and one blur,
+      the save shrunk to the preview's size by area means: the gradient ratio per tile of each
+      against its own sharp picture. Qt's half-resolution blur gave 0.66 in the pane and 0.91 in a
+      4K save at blur 0.8 (3D review of #729).
+    - ``slider``: blur 0.05 and 1.0 with one focus, in ``SLIDER_PICTURE``: the share of tiles
+      that lost a fifth of their detail, and the ratio of the tile under the focus.
+    - ``zero``: blur 0 with a focus is the view, not a level apart.
+    """
+    from open_garden_planner.core.scene3d.photo import NO_PHOTO, PhotoSettings
+
+    host.grab("before the click")   # the engine picks in the frame it drew last: the view's
+    hit = host.pick(*FOCUS_CLICK)
+    focus = hit.point if hit is not None else HERO[1]
+    answers: dict[str, Any] = {"focus": [round(value, 1) for value in focus],
+                               "focus_item": hit.item_id if hit is not None else None}
+    host.set_photo(PhotoSettings(blur=0.0, focus_scene=focus))
+    answers["zero"] = difference(rgb(host.capture(size, photo=NO_PHOTO, label="sharp")),
+                                 rgb(host.capture(size, label="blur 0")))
+    factor = max(1, round(SAVE_HEIGHT / size[1]))
+    save = (size[0] * factor, size[1] * factor)
+    sharp_small = luma_of(rgb(host.capture(size, photo=NO_PHOTO, label="sharp")))
+    sharp_save = shrink(luma_of(rgb(host.capture(save, photo=NO_PHOTO, label="sharp save"))), factor)
+    host.set_photo(PhotoSettings(blur=0.8, focus_scene=focus))
+    preview = host.capture(size, label="preview")
+    saved = host.capture(save, label="save")
+    preview.save(str(out / "blur_preview.png"))
+    saved.scaled(size[0], size[1]).save(str(out / "blur_save_shrunk.png"))
+    small = gradient_ratios(luma_of(rgb(preview)), sharp_small)
+    large = gradient_ratios(shrink(luma_of(rgb(saved)), factor), sharp_save)
+    both = ~(np.isnan(small) | np.isnan(large))
+    rows, columns = small.shape
+    middle = np.zeros_like(both)
+    middle[rows // 3:rows - rows // 3, columns // 3:columns - columns // 3] = True
+    answers["parity"] = {
+        "save": list(save), "tiles": int(both.sum()),
+        "preview_mean": round(float(small[both].mean()), 3),
+        "save_mean": round(float(large[both].mean()), 3),
+        "mean_abs_difference": round(float(np.abs(small - large)[both].mean()), 3),
+        "worst_tile": round(float(np.abs(small - large)[both].max()), 3),
+        "preview_middle": round(float(small[both & middle].mean()), 3),
+        "save_middle": round(float(large[both & middle].mean()), 3)}
+    # the slider: one focus, a faint blur and the strongest
+    sharp = luma_of(rgb(host.capture(SLIDER_PICTURE, photo=NO_PHOTO, label="slider sharp")))
+    x, y = host.project(*focus)
+    column = int(x * SLIDER_PICTURE[0] / VIEW[0]) // BLUR_TILE
+    row = int(y * SLIDER_PICTURE[1] / VIEW[1]) // BLUR_TILE
+    slider: dict[str, Any] = {"focus_tile": [row, column]}
+    for blur in (0.05, 1.0):
+        host.set_photo(PhotoSettings(blur=blur, focus_scene=focus))
+        image = host.capture(SLIDER_PICTURE, label=f"slider {blur}")
+        image.save(str(out / f"blur_{blur}.png"))
+        ratios = gradient_ratios(luma_of(rgb(image)), sharp)
+        valid = ~np.isnan(ratios)
+        slider[str(blur)] = {"soft_share": round(float((ratios[valid] < 0.8).mean()), 3),
+                             "focus_ratio": round(float(ratios[row, column]), 3),
+                             "tiles": int(valid.sum())}
+    answers["slider"] = slider
+    host.set_photo(NO_PHOTO)
+    return answers
 
 
 def shown_host(out: Path, preset: str = "medium", *,
@@ -198,6 +303,16 @@ def scenario_host(out: Path) -> dict[str, Any]:
         result["camera_kept"] = bool(camera_before == (host.scene_property("camPos"),
                                                        host.scene_property("camTarget")))
         result["capture_off_after"] = host.scene_property("captureWanted") is False
+        # #734: a still picture's shadow map fitted to the casters differs from the view only
+        # where a shadow's edge is, and only in its own frame - the view after it is the view
+        fitted_image = host.capture(size, label="fitted", fitted_shadows=True)
+        fitted_image.save(str(out / "fitted.png"))
+        fitted = rgb(fitted_image)
+        fitted_delta = np.abs(fitted - view).max(axis=-1)
+        result["fitted"] = {**difference(view, fitted),
+                            "changed_share": round(float((fitted_delta > 8).mean()), 5),
+                            "view_after": difference(view, rgb(host.grab("after fitted"))),
+                            "flag_after": host.scene_property("fittedShadows")}
         # the same camera set on the view: the capture of a shot IS the view from there
         host.set_camera(*OTHER)
         result["other_vs_view_moved"] = difference(rgb(host.grab("moved")), rgb(other))
@@ -222,6 +337,7 @@ def scenario_host(out: Path) -> dict[str, Any]:
         result["photo_override"] = difference(view, plain)
         result["photo_kept"] = host.photo.exposure_ev == 1.0
         host.set_photo(NO_PHOTO)
+        result["blur"] = blur_answers(host, size, out)
         # memory: 30 pictures of a moving camera, with the view presenting
         before = committed_mb()
         spent = []
@@ -324,9 +440,11 @@ def scenario_grades(out: Path) -> dict[str, Any]:
 def scenario_ultra_blur(out: Path) -> dict[str, Any]:
     """The Ultra preset draws screen-space reflections, a high-quality glow and ambient occlusion.
     With depth of field in the same effect chain Qt's render thread crashed in d3d11.dll
-    (OMSetRenderTargets on a released view) at the first focus click of an owner's manual test
+    (a read at address 0x16d in OMSetRenderTargets, #744) at the first focus click of an owner's manual test
     of #390. The picture is blurred in the shown window and in a capture, over and over, and
     the blur is really there."""
+    from PyQt6.QtCore import QObject
+
     from open_garden_planner.core.scene3d.photo import NO_PHOTO, PhotoSettings
 
     host, _sync = shown_host(out, "ultra")
@@ -336,6 +454,10 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
         size = (round(VIEW[0] * ratio), round(VIEW[1] * ratio))
         sharp = rgb(host.capture(size, label="sharp"))
         focus = HERO[1]   # what the hero camera looks at
+        # the environment's own switch: Ultra's reflections, and whether they stand down (#744)
+        environment = next(child for child in host._root.findChildren(QObject)
+                           if "ExtendedSceneEnvironment" in child.metaObject().className())
+        reflections = bool(environment.property("ssrEnabled"))
         rows: dict[str, Any] = {}
         for blur in (0.3, 1.0, 0.0, 1.0):
             host.set_photo(PhotoSettings(blur=blur, focus_scene=focus))
@@ -346,13 +468,96 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
             agent = rgb(host.capture(size, photo=NO_PHOTO, label=f"agent {blur}"))
             rows[str(blur)] = {"capture_vs_sharp": difference(sharp, made),
                                "agent_vs_sharp": difference(sharp, agent),
-                               "blur_drawn": bool(host._root.property("depthOfFieldActive"))}
+                               "blur_drawn": bool(host._root.property("depthOfFieldActive")),
+                               "reflections_drawn": bool(environment.property("ssrEnabled"))}
         host.set_photo(PhotoSettings())
         pump(300)
-        return {"rows": rows, "after": difference(sharp, rgb(host.capture(size, label="after")))}
+        return {"rows": rows, "reflections_without_blur": reflections,
+                "after": difference(sharp, rgb(host.capture(size, label="after")))}
     finally:
         host.close()
         pump(100)
+
+
+BENCH = Path(__file__).with_name("photoblur_bench.qml")
+
+
+def _bench_picture(size: tuple[int, int], blur_on: bool, out: Path) -> Any:
+    """One picture of ``photoblur_bench.qml`` at ``size``, read as luma (a shown window, an
+    explicit-size View3D, ``grabToImage`` driven by ``grabWindow``: the capture path's way)."""
+    from PyQt6.QtCore import QCoreApplication, QSize
+    from PyQt6.QtQuick import QQuickItem, QQuickView
+
+    view = QQuickView()
+    view.setResizeMode(QQuickView.ResizeMode.SizeViewToRootObject)
+    view.setInitialProperties({"pictureWidth": size[0], "pictureHeight": size[1], "blurOn": blur_on})
+    view.setSource(QUrl.fromLocalFile(str(BENCH)))
+    if view.errors():
+        raise RuntimeError("; ".join(error.toString() for error in view.errors()))
+    view.show()
+    try:
+        if wait_until(lambda: view.isExposed() and view.isSceneGraphInitialized(), 20.0) is None:
+            raise RuntimeError("the bench window never got a frame")
+        pump(50)
+        item = view.rootObject().findChild(QQuickItem, "bench")
+        result = item.grabToImage(QSize(*size))
+        view.grabWindow()
+        QCoreApplication.sendPostedEvents(result, 0)
+        image = result.image()
+        image.save(str(out / f"bench_{size[1]}_{'blur' if blur_on else 'sharp'}.png"))
+        return luma_of(rgb(image))
+    finally:
+        view.close()
+        view.deleteLater()
+        pump(50)
+
+
+def _bench_answers(sharp: Any, blurred: Any) -> dict[str, Any]:
+    """The bench's measures, positions given in a 2160 px picture and scaled to this one."""
+    scale = sharp.shape[0] / 2160.0
+
+    def at(value: float) -> int:
+        return round(value * scale)
+
+    rows = slice(at(950), at(1250))
+    # in-focus white bar on the far wall: the wall's first pixels beside it, against the wall
+    profile = sharp[rows].mean(axis=0)
+    right = at(1400) + int(np.argmax(profile[at(1400):] < 100.0))
+    left = at(1300) + int(np.argmax(profile[at(1300):] > 200.0)) - 1
+    wall = float(blurred[rows, right + at(90):right + at(90) + 10].mean())
+    fringe = max(float((blurred[rows, right:right + 3].mean(axis=0) - wall).max()),
+                 float((blurred[rows, left - 2:left + 1].mean(axis=0) - wall).max()))
+    # the thin line on the far wall: its width and its humps
+    line = blurred[at(900):at(1000), at(2482):at(2782)].mean(axis=0)
+    line = np.convolve(line, np.ones(3) / 3.0, mode="same")[2:-2]
+    base = float(np.median(np.r_[line[:5], line[-5:]]))
+    top = float(line.max()) - base
+    above = np.where(line - base >= 0.5 * top)[0]
+    humps = sum(1 for index in range(1, len(line) - 1)
+                if line[index] > line[index - 1] and line[index] >= line[index + 1]
+                and line[index] - base > 0.3 * top)
+    # the near bar's right edge over the sharp panel: 10-90 % rise; and the bar's own rim
+    edge = blurred[at(1485):at(1565), at(2180):at(2420)].mean(axis=0)
+    low, high = float(edge.min()), float(edge.max())
+    rise = int(np.argmax(edge > low + 0.9 * (high - low))) - int(np.argmax(edge > low + 0.1 * (high - low)))
+    inner = blurred[at(1485):at(1565), at(2173):at(2261)].mean(axis=0)
+    return {"fringe": round(fringe, 2), "line_width_share": round(float(above[-1] - above[0] + 1) / sharp.shape[0], 5),
+            "line_humps": humps, "near_edge_share": round(rise / sharp.shape[0], 5),
+            "near_rim": round(float(inner.max() - inner[len(inner) // 2]), 2)}
+
+
+def scenario_blur_bench(out: Path) -> dict[str, Any]:
+    """#743's three defects of Qt's blur on a bench with known answers, at a preview's size and
+    at 4K: an in-focus colour reaching the blurred wall (fringe), a thin line drawn as copies,
+    and a blurred near bar with a hard edge (or a light rim, PF-E3D-27). And the same measures
+    in both sizes, as shares of the picture's height."""
+    answers: dict[str, Any] = {}
+    for size in ((640, 360), (3840, 2160)):
+        sharp = _bench_picture(size, False, out)
+        blurred = _bench_picture(size, True, out)
+        answers[str(size[1])] = {"blurred": _bench_answers(sharp, blurred),
+                                 "sharp": _bench_answers(sharp, sharp)}
+    return answers
 
 
 def scenario_soak(out: Path) -> dict[str, Any]:
@@ -425,8 +630,8 @@ def committed_mb() -> float:
     return counters.private / 1e6
 
 
-def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
-    """The app's real window on the plan, in 3D (the settings store is this process's).
+def main_window_on_plan(clock_zone: Any = None, plan: Path = PLAN) -> tuple[Any, Any]:
+    """The app's real window on ``plan``, in 3D (the settings store is this process's).
 
     ``clock_zone`` builds the one SimClock through its public ``tz`` constructor instead of
     the system zone - a test seam, not a private attribute write."""
@@ -449,7 +654,7 @@ def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
         assert window._sim_clock.tz is clock_zone, "the test clock zone did not reach the app"
     window.resize(1100, 700)
     window.show()
-    window._project_manager.load(window.canvas_scene, PLAN)
+    window._project_manager.load(window.canvas_scene, plan)
     window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
     workspace = window._workspace
     workspace.set_mode(WorkspaceMode.VIEW3D)
@@ -508,6 +713,17 @@ def scenario_tour(out: Path) -> dict[str, Any]:
                             "unsettled": tour.unsettled}
         result["expected_frames"] = frame_count(spec)
         result["part_left"] = (out / "tour.part.mp4").exists()
+        from open_garden_planner.core.mp4_stream import read_stream
+
+        stream = read_stream(path)   # what the file states (#807)
+        result["stream"] = {
+            "codec": stream.codec, "profile": stream.sps.profile if stream.sps else None,
+            "level": stream.sps.level if stream.sps else None, "samples": stream.samples,
+            "deltas": sorted({delta for _count, delta in stream.durations}),
+            "timescale": stream.timescale, "mbit_s": round(stream.bit_rate / 1e6, 2),
+            "tagged": None if stream.tagged is None else [
+                stream.tagged.primaries, stream.tagged.transfer, stream.tagged.matrix,
+                stream.tagged.full_range]}
         read = read_video(path)
         first, last = read.pop("first"), read.pop("last")
         result["video"] = read
@@ -654,6 +870,73 @@ def scenario_timelapse(out: Path) -> dict[str, Any]:
         pump(100)
 
 
+#: #799: the day lapse's dawn and dusk, wall times of the family garden's day (Berlin, 21 June,
+#: CEST): the sun from below -8° to above +8°. 42 frames over 2 h 40 min is 3.9 min of clock
+#: a frame - the survey's 10 s, 30 fps lapse of 04:00-23:00 (3.8 min): 0.33-0.51° of
+#: elevation a frame, 0.5-0.7° of great circle.
+DAYLAPSE_WINDOWS = (("dawn", day_time(3, 20), day_time(6, 0)),
+                    ("dusk", day_time(20, 10), day_time(22, 50)))
+DAYLAPSE_SECONDS, DAYLAPSE_FPS = 1.75, 24
+#: The bands of a frame the lapse statistics read (the survey's): the top 12 % of rows (the
+#: horizon's fog under the default framing, which follows the SHOWN sky) and the whole frame.
+SKY_BAND_SHARE = 0.12
+
+
+def scenario_daylapse(out: Path) -> dict[str, Any]:
+    """#799: a held-camera day lapse through dawn and dusk on the family garden's default
+    framing, the workspace's own recording path. Raw answers per frame: the mean luma of the
+    sky band and of the frame, the frame's sun, the sun the sky on screen draws, and the skies
+    built (the test computes the zigzag)."""
+    from open_garden_planner.core.camera_path import HeldCamera, TourSpec
+    from open_garden_planner.ui.view3d.video_writer import PngSequenceWriter
+    from tests.integration.quick3d_render_support import EU_DST, load_rgb, luma
+
+    window, workspace = main_window_on_plan(EU_DST, plan=FAMILY_GARDEN)
+    try:
+        result: dict[str, Any] = {"settled_s": settled(workspace, 180.0)}
+        capture, look = workspace.capture, workspace.look
+        runs: dict[str, Any] = {}
+        for name, start, end in DAYLAPSE_WINDOWS:
+            settled(workspace, 120.0)
+            spec = TourSpec(HeldCamera(capture.camera_key()), DAYLAPSE_SECONDS, DAYLAPSE_FPS,
+                            time_range=(start, end))
+            folder = out / name
+            frames: list[dict[str, Any]] = []
+            built = [look.sky_rebuilds]
+
+            def note(*_arguments: Any, frames: list[dict[str, Any]] = frames,
+                     built: list[int] = built) -> None:
+                sun, shown = look._sun, look.sky
+                frames.append({"elev": round(sun.elevation_deg, 4), "az": round(sun.azimuth_deg, 3),
+                               "sky_elev": None if shown is None else round(shown.sun_elevation_deg, 4),
+                               "sky_builds": look.sky_rebuilds - built[0]})
+                built[0] = look.sky_rebuilds
+
+            outcome: list[Any] = []
+            recorder = capture.start_tour(spec, (640, 360), PngSequenceWriter(folder))
+            recorder.progress.connect(note)
+            recorder.finished.connect(outcome.append)
+            started = time.monotonic()
+            wait_until(outcome.__len__, 400.0)
+            tour = outcome[0] if outcome else None
+            files = sorted(folder.glob("frame_*.png"))
+            for row, path in zip(frames, files, strict=False):
+                values = luma(load_rgb(path))
+                row["sky_luma"] = round(float(values[:max(1, round(values.shape[0] * SKY_BAND_SHARE))].mean()), 4)
+                row["frame_luma"] = round(float(values.mean()), 4)
+            runs[name] = {"ok": tour.ok if tour else None, "frames": tour.frames if tour else None,
+                          "unsettled": tour.unsettled if tour else None,
+                          "message": tour.message if tour else "no end",
+                          "wall_s": round(time.monotonic() - started, 1), "files": len(files),
+                          "rows": frames}
+        result["runs"] = runs
+        return result
+    finally:
+        workspace.shutdown()
+        window.close()
+        pump(100)
+
+
 def scenario_daysoak(out: Path) -> dict[str, Any]:
     """Memory over a long time-lapse of a day and of a year (a sky per sun, plants per date):
     committed memory every 60 frames, and what is left a moment after each."""
@@ -755,9 +1038,10 @@ def scenario_agent(out: Path) -> dict[str, Any]:
 SCENARIOS: dict[str, Callable[[Path], dict[str, Any]]] = {
     "host": scenario_host, "grades": scenario_grades, "tour": scenario_tour,
     "detail": scenario_detail,
-    "timelapse": scenario_timelapse, "agent": scenario_agent, "soak": scenario_soak,
+    "timelapse": scenario_timelapse, "daylapse": scenario_daylapse, "agent": scenario_agent,
+    "soak": scenario_soak,
     "daysoak": scenario_daysoak, "ultra_blur": scenario_ultra_blur,
-    "picture": scenario_picture,
+    "picture": scenario_picture, "blur_bench": scenario_blur_bench,
 }
 
 

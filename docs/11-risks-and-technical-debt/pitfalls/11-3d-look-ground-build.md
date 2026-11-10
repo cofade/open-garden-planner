@@ -332,3 +332,143 @@ Symptom: `--analysis` on `bench_built` raised "the probe pin shows in 38 pixels 
 - **Legacy:** none (new entry)
 
 The old pergola was a 300 x 300 SVG stretched into the item's rectangle, while the 3D builder had its own post/rafter constants (two beams, no purlins): the owner saw a picture that did not match the model and could not scale it. `core/pergola.py` is now the one layout (four posts, four beams, nine rafters, five purlins, with the purlins' top at the item's height); `ui/canvas/items/pergola_paint.py`, the gallery thumbnail and `builders/structures._pergola` all consume it. The same rule made the glasshouse's glazing bays one constant (`core/greenhouse.py`) shared by the 2D bars and the 3D frame, and its ridge one linked `ROOF_RIDGE` rather than a fixed symbol.
+
+### PF-L3D-22
+
+- **Rule:** To give one sky another sky's brightness per elevation, match each ring to the other sky's GRADIENT without its sun, never to its ring means: a sun's glow in a reference ring is spread round the whole ring.
+- **Pinned by:** `tests/unit/test_scene3d_atmosphere_sky.py::test_every_ring_of_the_drawn_atmosphere_is_as_bright_as_the_painted_gradient`
+- **Source:** #716
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the first model of the atmosphere's per-elevation profile, which matched every ring of the atmosphere to the painted sky's mean over the azimuth, put a bright ring round the sky at the sun's elevation: away from a 60° sun the drawn sky rose from 0.0845 at 50° to 0.0996 at 60° and fell to 0.0910 at 75° (exposed units, about 10 %). Root cause: the painted sky's disc glow sits within about 25° of the sun, so its ring mean at the sun's elevation is higher than the rings beside it, and the normalisation copies that bump to every azimuth of the atmosphere. Fix: `atmosphere_lut.sky_profile` matches each ring to `painted_gradient` (the painted sky without its sun) times one glow factor from `_balance`, so the light on the ground is still the painted sky's; the atmosphere keeps its own halo round the sun.
+
+### PF-L3D-23
+
+- **Rule:** Do not derive a drawn sky's level by inverting its shader's exposure curve: the frame passes the scene's tone mapping after it. Calibrate a sky level in the frame, from the response to two known scales.
+- **Pinned by:** `tests/integration/test_view3d_looks_render.py::test_the_cloud_deck_meets_the_painted_horizon_without_a_band`
+- **Source:** #719
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: a two-source model of the cloud deck's level (the example's sun through its airmass, and the sky-view table's ambient samples, both computable on the CPU) fitted its constants to the deck's radiance recovered through `1 − exp(−x × probeExposure)` and missed by −74 % to +23 % over the sun. The same inversion gave the painted Overcast at 10° a lower radiance than the deck, although the frame shows it 19 luma brighter. Root cause: at the noon Overcast the painted sky's radiance there predicts 0.39 through the curve, and the frame reads 0.62: the scene's exposure and tone mapping act on the sky after `skyExposed`. Fix: the deck's anchor (`look.ATMOSPHERE_DECK_LEVEL` and `ATMOSPHERE_DECK_SUNSET`) is measured by rendering the deck at two known factors per sun elevation and solving for the factor in the frame (ADR-048 addendum on #716/#719).
+
+### PF-L3D-24
+
+- **Rule:** A shadow map fitted to the casters (`lockShadowmapTexels: false`) is sharp at a low sun but follows the camera: fit it only for a frame whose camera holds still — a photo, an agent's picture and a held camera's time-lapse ask `Quick3DHost.capture(fitted_shadows=True)` by name — and keep the texel-locked sphere for the live view, an orbit, a flight and any capture that does not ask; locked, a cascade spans the sphere of its whole slice up to `shadowMapFar`, and `pcfFactor` is a radius in scene units that cannot hide a texel larger than it.
+- **Pinned by:** `tests/integration/test_view3d_looks_render.py::test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks`; `tests/integration/test_directors_cut.py::test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views`; `tests/integration/test_directors_cut_render.py::test_a_still_pictures_fitted_shadows_change_only_its_own_frame`; `tests/unit/test_board_probes.py::test_a_stepped_edge_is_measured_as_steps_of_its_own_size`
+- **Source:** #734; ADR-059 addendum (#734)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: in the app's default framing, a solid panel's shadow 20–40 m out stepped by 5 cm across its edge at 15° and 11 cm at 5.9° on High (2.2 / 6.2 px at 1080p), every caster's foot showed lit teeth up to 81 cm long at sunset (34 % of a line 15 cm out lit), and a picket fence's sunset shadow was strewn with bright streaks. Root cause (Qt 6.12's `setupCascadingCamerasForShadowMap`): locked, the last cascade spans a 170 m sphere — 8.3 cm texels on a 2048 page — and the day's `pcfFactor` 2 is 2 cm of light space for every cascade; at an oblique sun the pickets close their slits to 0.5 cm, far under a texel. Unlocked, Qt spans each cascade by the casters' box clipped to the camera's slice — about 1 cm texels on a 24 m plan, no measurable cost — but that box moves with every camera move. Fix: `lockShadowmapTexels: root.topDown || !root.fittedShadows`; `capture` defaults to the view's fit and puts the flag back after its frame; `write_photo`, `agent_picture` and a `HeldCamera` tour's frames pass `fitted_shadows=True` (the panel's far edge 0.64 / 2.24 cm, foot 0.023, streaks 0.165 in the render gate). Two wrong fixes: fitting the live view (a lone synthetic panel showed no extra crawl; the family garden orbited through the capture path crawled 0.69 / 0.38 px a frame fitted against 0.16 / 0.17 locked, 0–10 / 10–20 m) and fitting every capture by default (the self-test's capture-equals-the-view check failed by 24 levels: the frozen exe's `--selftest` would have failed). Dead ends, measured one at a time: a 4096 map halves the steps for four times the texels; a reach without the 9000 cm floor moved the golden-hour camera's 10–20 m band into the coarser cascade; a larger `pcfFactor` smeared the streaks into bands and softened every contact; moving `csmSplit2` traded near for far.
+
+### PF-L3D-25
+
+- **Rule:** Before blaming a renderer for a pattern in a shadow, check that it changes when the shadow map does: a "jitter" made from a multiplicative step modulo a small number is a RAMP, and a low sun stretches a ramp in a caster's height into a regular staircase along its shadow.
+- **Pinned by:** `tests/unit/test_scene3d_builders.py::test_picket_tops_repeat_no_pattern_and_follow_the_items_seed`
+- **Source:** #734
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the family garden's fence shadow at golden hour showed regular stair steps, identical with a 4096 map, a tighter cascade and a 32-bit map. Root cause: the L0 picket fence lowered its pickets by `index * 7919 % 13 / 13 * 4` cm — and `7919 mod 13 = 2`, so the tops climbed 0.6 cm a picket for seven pickets and dropped, repeating every 13; at 15° every centimetre is 3.7 cm of shadow. The same formula made every picket fence in every plan a clone. Fix: each picket's drop is a hash of the item's seed (`fences.unit_hash`, `picket_seed`), 0.5–1.5 cm (`PICKET_DROP_CM`). The test checks the autocorrelation of the tops at lags 1–20 (the ramp reads 1.0 at lag 13) — one frame's look cannot tell a ramp from noise.
+
+### PF-L3D-26
+
+- **Rule:** Under a weather whose sky is the light, ambient occlusion takes the weather's LIGHT share of a stronger, wider pass AND a bias of at least 0.3 of its reach (`weather.AO_STRENGTH_UNDER_CLOUD` 99/55, `AO_DISTANCE_UNDER_CLOUD` 70/14, `AO_BIAS_UNDER_CLOUD_CM` 21): Qt's pass reads a camera-facing normal, so flat ground seen at a slant occludes itself everywhere except beside a nearer object — a grey ground with a light rim round every silhouette. Never raise strength or reach without the bias; keep the bias a share of the reach at every picture size (`aoBias: root.aoBias * root.captureAoDistanceScale`). Clear keeps the spike's 55 / 14 over the flat-surface floor of 1 cm (`look.AO_FLAT_BIAS_CM`, PF-L3D-33).
+- **Pinned by:** `tests/unit/test_scene3d_weather.py::test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_the_spikes`; `tests/unit/test_quick3d_qml.py::test_the_environments_constants_are_the_spikes`; `tests/integration/test_living_garden_render.py::test_under_cloud_open_snow_has_no_rim_and_stays_with_low`; `tests/integration/test_living_garden_render.py::test_the_living_board_renders_every_shot`
+- **Source:** #687 (items 1 and the snow comment); ADR-070 addendum (#687)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: under Snow on High, open snow read 160 against 180 on Low and a light band ran round the raised beds; under Overcast an object barely touched the ground. Measured with the board's `--living` occlusion probe (High, 1280 x 720, family garden): at the clear values every open surface under cloud occluded itself (snow lawn 25 levels darker than without AO, 17 under Low; the overcast lawn 15.6), and the meadow straight above a silhouette was 9.5-10 levels lighter than far from objects — the rim. The issue's proposal (strength 99, reach 35, no bias) made both worse (snow -49). A bias moves the samples towards the camera: at 0.16 of the reach the rim stayed 6-8, at 0.25 3.1 on snow, at 0.3 1.2-2.1 (overcast 1.92, rain 1.21, snow 2.07; far self-occlusion 1.9-2.8; snow lawn 2.93 under Low); at 0.5 the pass did nothing at all (an overcast box's lit-side foot 0.004 against the clear look's 0.022). At 0.3 the box's lit-side foot reads 0.040 (was 0.031). Not scaling the bias at a 4K capture put the picture 4.5 levels over 1080p (scaled: 1.25). Left as measured: the self-occlusion that is left lies in a ring of the far meadow whose distance moves with the picture's size (PF-E3D-28).
+
+### PF-L3D-27
+
+- **Rule:** Clamp every array bound a probe computes from a camera before slicing with it: a horizon row above the frame is NEGATIVE, and `mask[:row]` with a negative `row` takes every row but the last ones — the "sky" mask of a downward camera covered 82 % of the frame and the probe judged only its bottom sixth.
+- **Pinned by:** `tests/unit/test_board_probes.py::test_a_light_band_above_a_silhouette_is_a_rim_and_even_darkening_is_not`
+- **Source:** #687; debug-verbose case study 216
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the owner's survey saw a light rim round the beds on snow; two probes of the first #687 session reported none at any AO setting, and the session concluded the survey had misread the frame. `camera.horizon_row()` was -131 on the board's overcast and snow cameras; `obj[:horizon_row + 4] = True` marked rows 0-592 of 720 as sky. Fix: `occlusion_rim` takes sky rows only when the horizon row lies inside the frame. With the bound right the rim measured 9.5-10 levels (PF-L3D-26).
+
+### PF-L3D-28
+
+- **Rule:** A recorded frame shows its own moment: whatever the live view lets lag behind a threshold (the sky texture and its light probe follow the sun by 1°) is rebuilt EXACTLY on the recording path, or a lapse whose per-frame step is under the threshold updates it on alternate frames and flickers at half the frame rate.
+- **Pinned by:** `tests/unit/test_scene3d_look.py::test_a_recorded_frame_asks_for_the_sky_of_its_own_sun`; `tests/integration/test_view3d_look_controller.py::test_a_recorded_frame_builds_the_sky_of_its_own_sun`; `tests/integration/test_directors_cut_render.py::test_a_day_lapse_does_not_flicker_at_dawn_or_dusk`
+- **Source:** #799
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: a day time-lapse (04:00-23:00, 300 frames) stepped every second frame at dawn and dusk: the sky band of the family garden's default view zigzagged at RMS 3.86 luma (max 7.3), the frame-difference autocorrelation peaked at lag 2, the day was clean. Root cause: the tour's `settle_sky` used the live view's `SKY_REBUILD_DEG` 1°; the sun moves 0.5-0.7° a frame, so the sky and its probe (and the fog, which follows the SHOWN sky's horizon) were rebuilt on alternate frames while the key light and the exposure followed every frame. Fix: `sky_is_stale(..., threshold_deg=0)` is exact and `settle_sky` asks for it (`RECORDING_SKY_REBUILD_DEG`); the live timer keeps 1°. Measured: the alternation (third difference over eight, outside the rig's corners) 1.86 → 0.08 at dawn; the cost is a sky build a frame, 147 → 291 builds and 158 → 198 s for the 300-frame lapse. The survey's zigzag RMS still reads 0.79 at dawn after the fix: it also counts a smooth curve's bend and the rig's deliberate corners (0.5°, ±6°, the dew's −2°), which is why the gate measures the alternation.
+
+### PF-L3D-29
+
+- **Rule:** Judge a dusk on the GARDEN's light (the rows below the horizon), never only the whole frame — a sky-filled frame fades while the ground brightens — and size any light that is computed from a model on more than one framing: a flat ambient lifts a view full of vertical faces about 1.4x as much as a view of open meadow.
+- **Pinned by:** `tests/unit/test_scene3d_look.py::test_the_garden_never_brightens_from_the_last_sun_into_the_night`; `tests/integration/test_view3d_looks_render.py::test_dusk_fades_and_sunset_is_no_cliff`; `tests/integration/test_living_garden_render.py::test_the_living_board_renders_every_shot`
+- **Source:** #802
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the garden grew brighter as night fell (family garden, default framing: ground luminance 0.0196 at a 0.5° sun, 0.0188 at −1°, 0.0379 at night) while the board's `--dusk` gate, which reads the whole frame, passed. Root cause: not the twilight ramp's shape (the survey's guess): the night rig is "day for night" and lights flat ground about 0.95 EV above a 0.5° sun's sky, so the two anchors conflict and no ramp between them can fall monotonically. Fix: the twilight fill (`look.twilight_fill`): an ambient in the sky top's colour, carried by `Garden.qml`'s fill light where a sky lights the view, lifting a calibrated model of the light on open ground (`look.ground_light`) to a target that falls from the golden anchor into the night; both anchors keep the rig's own light. The first prototype held the default framing level but brightened the board's golden-hour camera by 14 % from 4° to 1° (the fill lit its vertical faces 1.12x as much while its fogged rows fell only 0.8x as fast): the day part keeps 40 % of the ground's own fall. On the small examples whose default framing is mostly meadow (balcony, raised bed) the fill lifts less than modelled and twilight still rises by up to 7 % (before: up to 140 %); on the balcony's golden-hour camera the night is brighter than its own 6° frame, which no fill can change while both anchors stay.
+
+### PF-L3D-30
+
+- **Rule:** A detail texture whose MEAN must hold at every distance is uploaded in linear light as floats (RGBA16F, over its own mean), so its mips average light: the mips of 8-bit sRGB codes average codes, and the engine's linearisation of that average is darker than the average of the light.
+- **Pinned by:** `tests/unit/test_scene3d_meadow.py::test_the_grass_detail_has_mean_one_in_every_channel_and_at_every_mip`; `tests/unit/test_scene3d_meadow.py::test_the_grass_textures_linear_mean_is_the_meadows_albedo`
+- **Source:** #798; ADR-048 addendum "the meadow's grass"
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (designed out, then measured on the texture): the meadow's grass is the canvas's GRASS texture laid over the meadow's flat colour, and the plan's edge and the horizon hold only while the grass's mean IS that colour at every distance. Root cause: the engine linearises 8-bit texture bytes in the shader after the sampler has filtered them (`ground.frag`'s `groundLinear`, the polynomial PrincipledMaterial uses), so a minified texture is the linearised average of its CODES — for `grass.png` 0.973 / 0.984 / 0.983 of its light in r / g / b, 0.983 of its luminance (about one sRGB code darker, and a hue shift), growing with the texture's contrast. Fix: `core/scene3d/meadow.grass_detail` linearises the texture on the CPU and divides out its own mean (1 in every channel), and the host uploads it as RGBA16F (`GrassDetailTexture`): the mips average light, the mean is 1 at every level, and the far meadow keeps `MEADOW_ALBEDO`. A changed texture cannot move the edge either: its own mean is divided out, and the test holds its mean to the albedo to the code.
+
+### PF-L3D-31
+
+- **Rule:** Mark the plan's open ground in a baked tile by its ALPHA (the coverage of the items painted over it), never by a colour key, and write it as raw bytes: `QImage.fill` with a transparent colour premultiplies it to black, and a conversion to a straight format divides the colour by the alpha.
+- **Pinned by:** `tests/integration/test_scene3d_ground_rules.py::TestOpenGround`; `tests/integration/test_scene3d_ground_bake.py::test_bare_ground_is_the_one_meadow_albedo`; `tests/unit/test_quick3d_qml.py::test_every_piece_of_ground_draws_the_one_ground_shader_with_the_same_inputs`
+- **Source:** #798; ADR-048 addendum "the meadow's grass"
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (the trap met while building it): for the plan's open ground to take the meadow's grass — the same function as the meadow beyond the edge — `ground.frag` must know which pixels of a tile no item covers. A colour key does not survive linear filtering and mips; the bake's tests compare its colour bytes with the canvas's (476 of its 477 tests stayed green; the one that pinned the bare alpha changed), so they had to stay. Root cause of the trap: the tiles are `Format_RGBA8888_Premultiplied`; `QImage.fill(QColor(72, 127, 52, 0))` writes (0, 0, 0, 0), and `convertToFormat` to a straight format turns a pixel (72, 127, 52, 0) into black and a half-covered (66, 133, 56, 128) into (131, 255, 112, 128) (measured, PyQt6 6.12). Fix: open ground starts as the raw bytes (meadow colour, alpha 0) (`ground_bake.OPEN_ALPHA`); `QPainter`'s premultiplied source-over leaves them where nothing is painted and blends the colour exactly as over an opaque meadow (`src + dst (1 - src_alpha)`: the destination's alpha never enters the colour), so every colour byte is what it was and the alpha becomes the coverage. `ground.frag` adds the grass's deviation in proportion to `1 - alpha` — the meadow, the bare plan rectangle and the tiles draw that one shader with the same inputs. `GroundBaker.image()`, the test and tool picture of the whole ground, copies the tiles (composition mode Source) and is made opaque.
+
+### PF-L3D-32
+
+- **Rule:** A plant's wind is a function of the PLANT — its height, its place in the plant, its own phase — evaluated identically for every part of it in every pass: an amplitude in fixed centimetres moves a herb and a 12 m tree alike, a phase taken from each vertex's world position breaks a crown into shimmer that never sways, and a leaf part that sways over static wood, or a colour pass that sways over a static shadow pass, comes apart.
+- **Pinned by:** `tests/unit/test_scene3d_wind.py::TestTheRule`; `tests/unit/test_scene3d_wind.py::test_the_shaders_carry_one_sway_block_with_the_modules_numbers`; `tests/unit/test_quick3d_adapter.py::TestAdd`; `tests/unit/test_quick3d_qml.py::test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind`; `tests/integration/test_view3d_foliage_render.py::test_a_tree_sways_visibly_and_slowly_a_shrub_less_and_a_herb_barely`; `tests/integration/test_view3d_foliage_render.py::test_a_crowns_shadow_moves_with_its_crown`
+- **Source:** #800; ADR-059 addendum (#800, #805); debug-verbose case study 228
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: with the camera held on the family garden's 9.5 m birch about 11 m out, its crown did not move (0.03 px of sway at 960 x 540; a 60 cm basil moved more, 0.32 px). Root cause: `foliage.vert` moved every leaf by `windStrength x 0.35` = 0.875 cm times its height fraction squared, the same for every plant, and took the phase from `0.011 x` the vertex's world x — 13 rad across a 12 m crown, so the crown rippled in place instead of swaying; the wood (a PrincipledMaterial) did not move at all. Fix: one function, `plantSway`, in `foliage.vert`, its screen door and `plant_sway.vert`, stated and tested in numpy by `core/scene3d/wind.py`: 0.5 % of the plant's height at its top under a clear day's wind (linear in the look's strength), a cantilever (`(y/h)^2`), a swing whose frequency falls with the root of the height and spreads 10 % by the item's phase, a branch term by the reach from the axis, a leaf flutter along the normal, a travelling gust; every part of an item with leaves gets the same per-part frame (`PartSpec.sway`: height, reach, phase from the item id), and a plant's wood and fruit take `plant_sway.vert` with `built_snow.frag` only while the clock runs. Measured: the birch 1.43 px of a 1080-row picture (0.06 before), period 3.0 s; the lilac 1.58 px, 1.0 s; the basil 0.84 px, 0.7 s; frame i at 30 fps is frame 2i at 60 fps; the shadow moves with the crown (a control without the sway in the shadow pass leaves the ground). At clock 0 every frame is the base's to the level.
+
+### PF-L3D-33
+
+- **Rule:** Before treating stripes on a surface as shadow acne, check that they change with the shadow bias and the map's fit: diagonal bands across FLAT micro-leaves that stay put under both and vanish with ambient occlusion off are Qt's SSAO occluding a flat surface with its own camera-facing normal — the fix is the AO bias, never the shadow bias.
+- **Pinned by:** `tests/integration/test_view3d_foliage_render.py::test_backlit_leaves_show_no_stripes_on_high_and_ultra`; `tests/unit/test_scene3d_weather.py::test_every_field_of_the_atmosphere_has_a_neutral_default`
+- **Source:** #805; ADR-059 addendum (#800, #805)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: diagonal stripes, 2-4 px apart, across backlit leaves at golden hour on High and Ultra (the 3D survey's "acne"). The survey blamed the back-light term passing the leaf's own shadow test at shadow bias 10. Measured on the family garden's cherry (1920 x 1080, High, a camera looking into a 15.2° sun; stripe share = interior pixels of flat leaves more than 1.5 levels off their 3 x 3 mean): shadow bias 10 / 14 / 20 / 40 cm 0.326 / 0.326 / 0.324 / 0.320, the still picture's fitted map 0.330, ambient occlusion off 0.164, the Low preset (no AO) clean; AO dither made them noise (0.545), softness 90 0.212, AO bias 1 / 2 cm 0.184 / 0.175. Fix: `look.AO_FLAT_BIAS_CM` (1 cm) is the floor of every look's AO bias. A box caster's contact holds (lit foot 0.0223 -> 0.0214, shaded side 0.487 -> 0.478 at High); open ground's self-occlusion falls 16.9 -> 11.4 levels; 2 cm halved the contact and was not taken.
+
+### PF-L3D-34
+
+- **Rule:** Judge a built part's material under a low sun against the SAME part rendered with every specular off, never only against its 2D colour: the light alone moves a hue (a plaster wall under the blue sky 27.6°, a red canvas 12.8°), while a specular sheen in the sun's colour is what repaints a part (a black mat read 4.08x its diffuse luma and 128° off - tan).
+- **Pinned by:** `tests/integration/test_built_materials_render.py::test_no_material_repaints_or_washes_out_a_part_facing_a_low_sun`; `tests/integration/test_built_materials_render.py::test_the_trampoline_s_mat_stays_dark_and_its_pad_blue`
+- **Source:** #803; ADR-059 addendum (#801, #803)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the 3D promo survey read the family garden's black trampoline mat (#303336) as tan facing a golden-hour sun (luma 99, hue 23°) and its blue pad 32° off (#427bc2). The issue's acceptance - every built part's hue within 10° of its 2D colour under a low sun facing the camera - cannot hold for every part: in the class row of the render tier (a sun 15.2° up, the camera facing it), with every specular OFF a plaster wall reads 27.6° off its sandstone (blue sky, green meadow light), a red canvas 12.8°, the mat's near-grey (saturation 0.11) has no hue to keep. Root cause of the defect: the material - every built part reflected with roughness 0.78 and specular 0.35, a broad warm sheen at grazing. Fix: surfaces (`core/scene3d/materials.SURFACES`, one per palette entry, PF-E3D-32 for rubber and canvas); the gate compares each part with its own diffuse frame (hue within 10° for a chromatic 2D colour, a matte part at most 1.5x its diffuse luma) and holds the pad to the issue's own line (8.0°). Positive control: every surface at the old 0.78 / 0.35 fails the gate (mat 4.08x and 128° off, pad 1.52x and 13.8°).
+
+### PF-L3D-35
+
+- **Rule:** A picture laid on a 3D surface keeps the surface's mean colour: its albedo is a LINEAR multiplier of mean 1 (`surface_detail.albedo_multiplier`), so the mipmaps reach the flat colour far away and every gate that reads the surface's colour holds; a face lit near the tone curve's top takes less of the picture's contrast (`SurfaceDetail.contrast`), or its light texels clip.
+- **Pinned by:** `tests/unit/test_scene3d_surface_detail.py::test_every_detail_picture_keeps_the_surface_s_mean_colour`; `tests/integration/test_built_materials_render.py::test_the_roof_keeps_its_noon_colour`
+- **Source:** #801; ADR-059 addendum (#801, #803)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (first build of #801's roof): the canvas's own recolour rule (`fill_patterns._tint_texture`: colour x lum / mean(lum), in sRGB) taken into linear light brightens a surface by mean(s^2.2) - and on the noon roof, whose red channel sat at 239, 15.4 % of the roof's pixels clipped red at full contrast. Fix: the texel stores s^2.2 / mean(s^2.2) x 0.4 (R; linear, mean 1), slopes in G and B; the roof takes 0.6 of the contrast (5.3 % red-clipped, which is the flat roof's own 239 lifted by its lightest tiles), masonry 0.8, plaster 0.85. Measured: the noon roof's mean -0.6 % luma, 0.0° hue against the same roof without the picture; the far roof mips to the flat colour, so the shadow, IoU and board colour gates did not move.

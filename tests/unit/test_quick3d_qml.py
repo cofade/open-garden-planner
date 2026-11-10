@@ -96,8 +96,9 @@ def user_visible_strings(text: str) -> list[str]:
 
 
 def test_there_is_qml_to_scan() -> None:
-    # Garden.qml, and since L7 (#391) the atmosphere sky it creates
-    assert [path.name for path in sorted(QML_DIR.glob("*.qml"))] == ["AtmosphereSky.qml", "Garden.qml"]
+    # Garden.qml, since L7 (#391) the atmosphere sky it creates, and photo mode's blur (#743)
+    assert [path.name for path in sorted(QML_DIR.glob("*.qml"))] == [
+        "AtmosphereSky.qml", "Garden.qml", "PhotoBlur.qml"]
 
 
 @pytest.mark.parametrize("path", sorted(QML_DIR.glob("*.qml")), ids=lambda p: p.name)
@@ -205,7 +206,12 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
             continue
         assert "sourceBlend" not in block and "opacity: fade" not in block, name
         assert "visible:" not in block, name     # nothing hides a part to cut or fade it
-    assert "materials: fade < 1.0 ? [vcScreen] : [vcLook]" in blocks["vcPart"]
+    # #801: a detail picture first (its shader carries the snow); #800: a plant's wood sways
+    # while the wind blows; #687: snow swaps in only where no screen door is drawn
+    # (test_snow_lies_on_the_built_tops...)
+    assert ("materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+            "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
+            "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
@@ -219,11 +225,14 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     for name in ("screen.vert", "foliage_door.vert", "grass_door.vert"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "#if QSSG_ENABLE_DEPTH_PASS" in source and "if (uOpacity < 1.0)" in source, name
-    assert "materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]" in blocks["roofPart"]
+    assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail] "
+            ": root.builtSnow > 0.0 ? [roofSnow] : [roofLook]") in " ".join(blocks["roofPart"].split())
     assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
     assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
-    # the roofless house reads as a room: its walls drop back-face culling
-    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 2
+    # the roofless house reads as a room: its walls drop back-face culling (the look, the
+    # door, the detail material of #801, the snowy look of #687 and a plant's swaying wood
+    # of #800, as its look)
+    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 5
     for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "screenDoor(FRAGCOORD.xy) >= uOpacity" in source and "discard;" in source, name
@@ -261,15 +270,16 @@ def test_a_destroyed_model_is_retired_not_merely_hidden() -> None:
     assert "p.visible)" not in listing and "!p.visible" not in listing, "visibility must not filter"
 
 
-@pytest.mark.parametrize("shader", ["foliage.vert", "grass.vert"])
+@pytest.mark.parametrize("shader", ["foliage.vert", "grass.vert", "plant_sway.vert"])
 def test_the_wind_shaders_move_nothing_at_rest(shader: str) -> None:
     """Review P2-11, read from the source (the render tier measures it in pixels): every
     displacement is multiplied by ``rest``, which is exactly 0 while the scene's clock
-    stands at 0 — and the clock's default IS 0."""
+    stands at 0 — and the clock's default IS 0. The lawn's blades move by two lines; a
+    plant (#800) by one, the whole ``plantSway`` (test_scene3d_wind.py pins its text)."""
     source = (QML_DIR / shader).read_text(encoding="utf-8")
     assert "float rest = smoothstep(0.0, 2.0, uTime);" in source
-    moves = [line.strip() for line in source.splitlines() if re.match(r"\s*VERTEX\.\w\s*\+=", line)]
-    assert len(moves) == 2, moves
+    moves = [line.strip() for line in source.splitlines() if re.match(r"\s*VERTEX(\.\w)?\s*\+=", line)]
+    assert len(moves) == (2 if shader == "grass.vert" else 1), moves
     assert all(line.endswith("* rest;") for line in moves), moves
     assert re.search(r"property real windTime:\s*0\s*$", _scene(), re.MULTILINE)
 
@@ -310,7 +320,8 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
     """A shader the scene names but the bundle lacks only fails when a Model uses it —
     in front of a user. The data loop of ``installer/ogp.spec`` ships this directory."""
     sky = strip_comments((QML_DIR / "AtmosphereSky.qml").read_text(encoding="utf-8"))
-    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene() + sky))
+    blur = strip_comments((QML_DIR / "PhotoBlur.qml").read_text(encoding="utf-8"))
+    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene() + sky + blur))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
     assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
                                 # the atmosphere sky's: L7 (#391; its two look-up
@@ -323,10 +334,18 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "foliage_door.vert", "grass_door.vert",
                                 "ground.frag", "lawn.frag",         # detail normals and lawn lighting
                                 "precipitation.vert", "precipitation.frag",   # rain, snow: L5
-                                "ambient.vert", "ambient.frag"}     # leaves, butterflies, fireflies, bulbs
+                                "ambient.vert", "ambient.frag",     # leaves, butterflies, fireflies, bulbs
+                                # photo mode's depth of field (#743)
+                                "photoblur_layer.frag", "photoblur_rows.frag",
+                                "photoblur_compose.frag",
+                                # a built surface's detail picture: roof tiles, wall courses (#801)
+                                "built_detail.vert", "built_detail.frag",
+                                "built_snow.frag", "built_snow.vert",   # snow on built tops (#687)
+                                "plant_sway.vert"}   # a plant's wood and fruit in the wind (#800)
     # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {
-        "Garden.qml", "AtmosphereSky.qml", "PROVENANCE.md", "LICENSE-qt-skymaterial.txt"}
+        "Garden.qml", "AtmosphereSky.qml", "PhotoBlur.qml", "PROVENANCE.md",
+        "LICENSE-qt-skymaterial.txt"}
 
 
 def test_the_ground_detail_shader_flips_v_itself() -> None:
@@ -336,7 +355,10 @@ def test_the_ground_detail_shader_flips_v_itself() -> None:
     code = "\n".join(line.split("//")[0] for line in
                      (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
     assert re.search(r"\buv\s*=\s*vec2\(\s*UV0\.x\s*,\s*1\.0\s*-\s*UV0\.y\s*\)", code)
-    samples = re.findall(r"texture\(\s*uBaseMap\s*,\s*([^;]*?)\)\s*\.rgb", code)
+    # the tile itself (rgba: its alpha says where the ground is open, #798) and its four
+    # neighbours for the detail normals - every one through the flipped coordinate
+    starts = [found.end() for found in re.finditer(r"texture\(\s*uBaseMap\s*,\s*", code)]
+    samples = [code[start:code.index(")", start)] for start in starts]
     assert len(samples) == 5 and all(sample.startswith("uv") for sample in samples), samples
 
 
@@ -450,13 +472,18 @@ def test_the_look_rules_the_spike_paid_for() -> None:
     assert "root.topDown ? SceneEnvironment.TonemapModeNone" in code
     assert "csmNumSplits: root.topDown ? 0 : root.shadowCascades" in code
     assert '(root.topDown || root.antialiasing === "msaa")' in code
-    # reflections, blur and glow in one chain took Qt's render thread down on Ultra (PF-E3D-21)
+    # reflections, blur and glow in one chain took Qt's render thread down on Ultra (PF-E3D-21):
+    # with glow on, two effects ahead of Qt's own scene effect break the chain (#744)
     assert re.search(r"ssrEnabled:\s*!root\.topDown\s*&&\s*root\.reflections\s*&&\s*"
                      r"!root\.depthOfFieldActive", code), "reflections stand down under blur"
-    assert re.search(r"depthOfFieldEnabled:\s*root\.depthOfFieldActive", code)
     assert "readonly property bool depthOfFieldActive: !root.topDown && root.photoBlur > 0" in code
-    # with a sky the sky is the fill; without one, the look's flat fill
-    assert "ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor" in code
+    # photo mode's blur is the app's own (#743), in the chain only while it is drawn; Qt's
+    # half-resolution depth of field is never switched on
+    assert "effects: root.depthOfFieldActive ? [photoBlur] : []" in code
+    assert "depthOfField" not in code.replace("depthOfFieldActive", ""), "Qt's blur is not used"
+    # with a sky the sky is the fill (and in twilight the look's twilight fill, #802: an
+    # ambient lights the garden, never the skybox); without one, the look's flat fill
+    assert "ambientColor: view.skyShown ? root.twilightFill : root.fillColor" in code
 
 
 def test_the_sky_is_built_on_request_and_never_bound_live() -> None:
@@ -596,7 +623,13 @@ def test_the_environments_constants_are_the_spikes() -> None:
     # it in view); the top-down camera keeps the spike's far plane
     (shadow_far,) = environment["shadowMapFar"]
     assert f"shadowMapFar: root.topDown ? {shadow_far:g} : root.shadowFar" in code
-    assert "aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)" in code
+    # #687: the weather scales the spike's strength and reach and adds a bias (the look's
+    # ``ao*`` properties, 1 / 1 / 0 when clear); the capture's scale stays on the reach
+    assert ("aoStrength: 55 * root.aoStrengthGain * (!root.topDown && root.ambientOcclusion "
+            "? root.aoFade : 0)") in code
+    assert "aoDistance: 14 * root.aoDistanceGain * root.captureAoDistanceScale" in code
+    assert "aoBias: root.aoBias * root.captureAoDistanceScale" in code, (
+        "the weather's bias reaches the pass, a share of the reach at every picture size")
     assert "aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0" in code
     assert "(9000 - camPos.minus(camTarget).length()) / 4500" in code
     from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
@@ -658,3 +691,242 @@ def test_a_door_vertex_shader_is_its_look_shader_with_the_collapse_added(look: s
                 "#if QSSG_ENABLE_DEPTH_PASS\n    if (uOpacity < 1.0)\n        POSITION = vec4(0.0);\n"
                 "#endif\n")
     assert body.replace(collapse, "", 1) == source
+
+
+def _shared_blocks(name: str) -> dict[str, str]:
+    """The ``// ---- shared with <file> ... ----`` blocks of a photo blur shader, by partner."""
+    text = (QML_DIR / name).read_text(encoding="utf-8")
+    found = re.findall(r"// ---- shared with (\S+) .*?----\n(.*?)// ---- end of shared ----",
+                       text, re.S)
+    return dict(found)
+
+
+def test_the_photo_blurs_shared_shader_code_is_one_text() -> None:
+    """#743: an effect shader includes no file of the app's, so the depth, the amount out of
+    focus and the Gaussian are copied between the passes. A copy that drifted would weigh a
+    layer by another band than the composition reads, or blur the rows unlike the columns."""
+    layer, rows, compose = (_shared_blocks(name) for name in (
+        "photoblur_layer.frag", "photoblur_rows.frag", "photoblur_compose.frag"))
+    assert set(layer) == {"photoblur_compose.frag"} and set(rows) == {"photoblur_compose.frag"}
+    assert set(compose) == {"photoblur_layer.frag", "photoblur_rows.frag"}
+    assert layer["photoblur_compose.frag"] == compose["photoblur_layer.frag"]
+    assert rows["photoblur_compose.frag"] == compose["photoblur_rows.frag"]
+
+
+def test_the_photo_blur_is_picture_relative_premultiplied_and_reads_every_texel() -> None:
+    """#743's defects of Qt's blur, read from the source: the sigma is a share of the picture's
+    height (not pixels of a half-resolution copy), a layer is premultiplied by its weight (no
+    in-focus colour reaches a blurred average), every buffer is at the picture's own size, and
+    the kernel's REACH is capped, never its spacing (wider taps showed as copies)."""
+    rows = (QML_DIR / "photoblur_rows.frag").read_text(encoding="utf-8")
+    layer = (QML_DIR / "photoblur_layer.frag").read_text(encoding="utf-8")
+    compose = (QML_DIR / "photoblur_compose.frag").read_text(encoding="utf-8")
+    assert "float sigma = blurShare * sigmaScale * OUTPUT_SIZE.y;" in rows
+    assert "float sigma = blurShare * OUTPUT_SIZE.y;" in compose
+    assert "FRAGCOLOR = vec4(colour * weight, weight);" in layer
+    assert "for (int i = 1; i <= reach; i += 2)" in rows
+    blur = strip_comments((QML_DIR / "PhotoBlur.qml").read_text(encoding="utf-8"))
+    assert blur.count("Buffer {") == blur.count("sizeMultiplier: 1.0") == 5
+
+
+def test_the_photo_blur_weighs_a_layers_silhouette_for_a_fifth() -> None:
+    """PF-E3D-27: a silhouette pixel's colour is multisampled while the depth pass puts all of it
+    in one layer. At full weight a dark blurred bar took a 47-level light rim from the sharp
+    panel beside it (360 px picture). The layer pass looks at the four cross neighbours."""
+    layer = (QML_DIR / "photoblur_layer.frag").read_text(encoding="utf-8")
+    assert "const float SILHOUETTE_WEIGHT = 0.2;" in layer
+    for offset in ("+ vec2(pixel.x, 0.0)", "- vec2(pixel.x, 0.0)", "+ vec2(0.0, pixel.y)",
+                   "- vec2(0.0, pixel.y)"):
+        assert f"layerAmount(INPUT_UV {offset})" in layer, offset
+    assert "if (inside <= 0.0)\n            weight *= SILHOUETTE_WEIGHT;" in layer
+
+
+def test_the_photo_blur_finds_its_shaders_beside_itself() -> None:
+    """Measured (#743): a ``Shader``'s plain relative path in an Effect component resolves against
+    the file that INSTANTIATES the component - the bench fixture in tests/ read no shader at
+    all. ``Qt.resolvedUrl`` resolves against PhotoBlur.qml's own directory."""
+    blur = strip_comments((QML_DIR / "PhotoBlur.qml").read_text(encoding="utf-8"))
+    shaders = re.findall(r"shader:\s*(.+)", blur)
+    assert len(shaders) == 3
+    assert all(re.fullmatch(r'Qt\.resolvedUrl\("photoblur_\w+\.frag"\)', value.strip()) for value in shaders)
+
+
+# ── #798: one ground shader, the meadow's grass ───────────────────────────────
+
+
+def _ground_material_blocks() -> dict[str, str]:
+    """The ``CustomMaterial`` bodies of the three pieces of ground: the baked tile, the
+    endless meadow and the bare plan rectangle (comments stripped)."""
+    code = strip_comments(SCENE.read_text(encoding="utf-8"))
+
+    def body(text: str, start: int) -> str:
+        opening = text.index("{", start)
+        depth, index = 1, opening + 1
+        while depth:
+            depth += {"{": 1, "}": -1}.get(text[index], 0)
+            index += 1
+        return text[opening + 1:index - 1]
+
+    models = [body(code, found.start()) for found in re.finditer(r"\bModel\s*\{", code)]
+    (meadow_model,) = [model for model in models if re.search(r"\bid:\s*meadow\b", model)]
+    (bare_model,) = [model for model in models
+                     if "visible: root.groundVisible && !root.groundTiled" in model]
+    blocks = {"tile": body(code, code.index("CustomMaterial", code.index("id: tileDetail") - 60))}
+    for name, model in (("meadow", meadow_model), ("bare", bare_model)):
+        blocks[name] = body(model, model.index("CustomMaterial"))
+    return blocks
+
+
+def test_every_piece_of_ground_draws_the_one_ground_shader_with_the_same_inputs() -> None:
+    """#798: the plan's edge is the SAME function on both sides — the tile (its open ground,
+    alpha 0), the bare rectangle and the meadow all draw ``ground.frag`` with the same grass,
+    surface, meadow colour and weather. Only two inputs differ: whether there is a tile,
+    and whether the open ground takes the grass (always on the meadow; on the plan the
+    owner's switch)."""
+    blocks = _ground_material_blocks()
+    shared = ['fragmentShader: "ground.frag"', "shadingMode: CustomMaterial.Shaded",
+              "property TextureInput uGrass: TextureInput { texture: grassTexture }",
+              "property real uGrassRelief: root.grassRelief",
+              "property vector4d uMeadowVariation: root.grassVariation",
+              "property real uSurface: root.groundSurface",
+              "property real uDetail: root.detailNormals",
+              "property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, "
+              "root.meadowColor.b)",
+              "property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, "
+              "root.groundTint.b)",
+              "property real uRough: root.groundRoughness",
+              "property real uSpecular: root.groundSpecular",
+              "property real uSnowCover: root.snowCover"]
+    for name, block in blocks.items():
+        flat = " ".join(block.split())
+        for line in shared:
+            assert line in flat, (name, line)
+    assert "property real uHasTile: 1.0" in blocks["tile"]
+    assert "property real uHasTile: 0.0" in blocks["meadow"] and "uHasTile: 0.0" in blocks["bare"]
+    assert "property real uGrassShare: 1.0" in blocks["meadow"]
+    for name in ("tile", "bare"):
+        assert "property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0" in blocks[name], name
+
+
+def test_the_truth_view_keeps_the_flat_meadow_and_the_grass_is_one_texture_for_life() -> None:
+    """The top-down truth view (shadow IoU, north-up) draws the flat colour, as before
+    #798; the grass texture is ONE ``Texture`` whose data the host sets once, repeated
+    and mipmapped."""
+    code = strip_comments(SCENE.read_text(encoding="utf-8"))
+    assert re.search(r"readonly property int groundSurface:\s*topDown\s*\|\|\s*grassDetail\s*===\s*null"
+                     r"\s*\?\s*0\s*:\s*meadowSurface", code)
+    start = code.index("id: grassTexture")
+    texture = code[start:code.index("}", start)]
+    assert "textureData: root.grassDetail" in texture
+    assert "tilingModeHorizontal: Texture.Repeat" in texture
+    assert "tilingModeVertical: Texture.Repeat" in texture
+    assert "generateMipmaps: true" in texture and "mipFilter: Texture.Linear" in texture
+    assert len(re.findall(r"\bid:\s*grassTexture\b", code)) == 1
+    assert len(re.findall(r"textureData:\s*root\.grassDetail\b", code)) == 1
+    # no ground piece keeps a PrincipledMaterial of its own (the meadow had one before #798)
+    assert len(re.findall(r'fragmentShader:\s*"ground\.frag"', code)) == 3
+
+
+def test_the_ground_shader_lays_grass_only_where_the_ground_is_open() -> None:
+    """``ground.frag``: the grass's deviation from the flat colour is added in proportion to
+    the OPEN share of the point — ``1 - tile alpha``, times the switch — so an item's own
+    picture is never textured over, and its mean is the flat colour's."""
+    code = "\n".join(line.split("//")[0] for line in
+                     (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
+    assert "float open = (1.0 - tile.a) * uGrassShare;" in code
+    assert "albedo += open * groundLinear(uMeadow) * (grass - 1.0);" in code
+    assert "vec4 tile = uHasTile > 0.5 ? texture(uBaseMap, uv) : vec4(uMeadow, 0.0);" in code
+    # the grass is laid in WORLD space, the same on the meadow and on the plan
+    assert "meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope)" in code
+    # every octave of the variation is clamped by the pixel's reach (it has no mips)
+    assert code.count("meadowOctave(") == 5 and "vec2 reach = fwidth(VAR_WORLD_POSITION.xz);" in code
+    # the snow and the rain still come after it, for every piece of ground at once
+    assert code.index("albedo += open") < code.index("albedo *= groundLinear(uGroundTint)") < code.index(
+        "mix(albedo, vec3(0.80, 0.84, 0.89), uSnowCover)")
+
+
+def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() -> None:
+    """#687 (ADR-070 decision 6 as amended): under snow a roof, a bed's soil, a deck or the
+    trampoline's mat lie under the ground's snow. The built parts and the roofs swap to ONE
+    shared material (``built_snow.frag``, no shader per part: ADR-060) only while
+    ``snowCover`` > 0 — every snowless frame is the principled look; an X-ray door or a cut
+    roof keeps its screen door, and a building's floor (under its roof, seen in Cutaway)
+    stays bare. Glass and water are unchanged (whether a glasshouse is heated or a pond
+    frozen is not in the plan). The snow is ``weather.SNOW_LINEAR`` (drift guard, as the
+    ground's) and the albedo goes through the engine's own polynomial, like
+    ``ground.frag``'s."""
+    from open_garden_planner.core.scene3d.weather import SNOW_LINEAR
+
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
+    vc, roof = blocks["vcPart"], blocks["roofPart"]
+    # #801: a part with a detail picture (a roof's tiles, a wall) shades by built_detail.frag,
+    # which lays the SAME snow (below) - so the snowy look is the rest's
+    assert ("materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : swayFrame.x > 0.0 "
+            "&& root.windBlowing ? [vcSway] : root.builtSnow > 0.0 && partName !== \"floor\" "
+            "? [vcSnow] : [vcLook]") in " ".join(vc.split())
+    assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail] "
+            ": root.builtSnow > 0.0 ? [roofSnow] : [roofLook]") in " ".join(roof.split())
+    for block, tint in ((vc, "Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, "
+                             "tint.b * seasonTint.z)"),
+                        (roof, "Qt.vector3d(tint.r, tint.g, tint.b)")):
+        # the snowy look, and (#800) a plant's swaying wood, which carries the snow too
+        assert block.count('fragmentShader: "built_snow.frag"') == (2 if block is vc else 1)
+        assert block.count('vertexShader: "built_snow.vert"') == 1   # the colour as COLOR
+        # ... and (#801) the detail material, which lays the same snow
+        n = 3 if block is vc else 2
+        assert block.count(f"property vector3d uTintSrgb: {tint}") == n
+        assert block.count("property real uSnowCover: root.builtSnow") == n
+        assert block.count("property real uSnowRough: root.groundRoughness") == n
+        assert block.count("property real uSnowSpecular: root.groundSpecular") == n
+    assert "texture: patternMap ? patternMap : null" in vc.split("id: vcSnow")[1]
+    for kind in ("glassPart", "waterPart", "foliagePart"):
+        assert "built_snow" not in blocks[kind], kind
+    shader = (QML_DIR / "built_snow.frag").read_text(encoding="utf-8")
+    found = re.search(r"mix\(albedo, vec3\(([^)]*)\), lying\)", shader)
+    assert found and tuple(float(v) for v in found.group(1).split(",")) == SNOW_LINEAR
+    assert "c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878)" in shader
+    assert "smoothstep(0.35, 0.75, NORMAL.y)" in shader and "VAR_COLOR" not in shader.split("void MAIN")[1]
+    assert "vColor = COLOR;" in (QML_DIR / "built_snow.vert").read_text(encoding="utf-8")
+    detail = (QML_DIR / "built_detail.frag").read_text(encoding="utf-8")
+    found = re.search(r"mix\(albedo, vec3\(([^)]*)\), lying\)", detail)
+    assert found and tuple(float(v) for v in found.group(1).split(",")) == SNOW_LINEAR
+    assert "smoothstep(0.35, 0.75, n.y)" in detail and "uSnowCover" in detail
+    for block in (vc.split("id: vcDetail")[1].split("CustomMaterial")[0],
+                  roof.split("id: roofDetail")[1].split("CustomMaterial")[0]):
+        assert "property real uSnowCover: root.builtSnow" in block
+        assert "property real uSnowRough: root.groundRoughness" in block
+    # the first snowy frame compiles nothing new: the warmer draws it with no pixel
+    warmer = code[code.index("id: shaderWarmer"):]
+    assert 'fragmentShader: "built_snow.frag"' in warmer
+
+
+def test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind() -> None:
+    """#800: the leaves (and their screen door) and a plant's wood and fruit read the SAME
+    per-part frame (``swayFrame``, set by ``Quick3DHost.create_part`` from
+    ``core.scene3d.wind.sway_frame``), the look's ``windSway`` and the clock; the wood
+    swaps to its swaying shader only while the clock runs (every frame at rest is the
+    principled look). The lawn's blades keep the strength they had; the first windy frame
+    compiles nothing new (the warmer draws the wood's shader)."""
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
+    foliage, vc, grass = blocks["foliagePart"], blocks["vcPart"], blocks["grassPart"]
+    for block in (foliage, vc):
+        assert "property vector3d swayFrame: Qt.vector3d(0, 0, 0)" in block
+    for block, materials in ((foliage, ("id: foliageLook", "id: foliageDoor")), (vc, ("id: vcSway",))):
+        for material in materials:
+            body = block.split(material, 1)[1].split("CustomMaterial", 1)[0]
+            assert "property vector3d uSwayFrame: swayFrame" in body, material
+            assert "property vector3d uWindSway: root.windSway" in body, material
+            assert "property real uTime: root.windTime" in body, material
+    assert "uWind:" not in foliage
+    # the swap follows a bool that changes only at start and rest, never the clock itself
+    # (a binding on windTime would reassign the materials on every frame)
+    assert re.search(r"readonly property bool windBlowing:\s*windTime > 0\.0", code)
+    assert "root.windTime" not in vc.split("materials:", 1)[1].split("PrincipledMaterial", 1)[0]
+    sway = vc.split("id: vcSway", 1)[1]
+    assert 'vertexShader: "plant_sway.vert"' in sway and 'fragmentShader: "built_snow.frag"' in sway
+    assert grass.count("property real uWind: root.windStrength") == 2
+    warmer = code[code.index("id: shaderWarmer"):]
+    assert 'vertexShader: "plant_sway.vert"' in warmer
+    assert "uWind:" not in warmer.split('vertexShader: "foliage_door.vert"')[0].rsplit("Model {", 1)[1]

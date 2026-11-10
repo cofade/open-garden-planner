@@ -40,10 +40,13 @@ from open_garden_planner.core.scene3d.color import srgb_to_linear
 from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_direction_scene
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_CLOUD_GAIN,
+    ATMOSPHERE_DECK_LEVEL,
+    ATMOSPHERE_DECK_SUNSET,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     ATMOSPHERE_THIN_CLOUD_LIFT,
     NEUTRAL_DAY,
+    AtmosphereSpec,
     LookSpec,
     SkySpec,
     sky_phase,
@@ -51,28 +54,35 @@ from open_garden_planner.core.scene3d.look import (
 from open_garden_planner.core.scene3d.photo import (
     VIGNETTE_MAX,
     PhotoSettings,
-    blur_amount,
+    blur_sigma_share,
     exposure_gain,
     focus_distance_cm,
     focus_range_cm,
 )
+from open_garden_planner.core.scene3d.wind import wind_sway_scene
 
 __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
            "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
            "atmosphere_properties", "atmosphere_sun_direction", "engine_hex", "engine_linear",
-           "cloud_light_gain", "painted_sky", "photo_properties",
+           "cloud_hue_share", "cloud_light_gain", "deck_anchor", "deck_closure", "painted_sky",
+           "photo_properties",
            "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
 COLOR_PROPERTIES: Final = frozenset({"sunColor", "meadowColor"})
 #: … and the ones the look derives in LINEAR light: handed over as the sRGB-space
 #: triple the engine's own linearisation turns back into that value (``engine_srgb``).
-LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor", "groundTint"})
+LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor", "groundTint",
+                                           "twilightFill"})
 #: … and the ones that are ``vector3d`` (handed over as ``QVector3D``): the wind's drift
-#: (engine frame) and the light an unlit particle is drawn in (linear rgb) — L5.
-VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight"})
+#: (engine frame) and the light an unlit particle is drawn in (linear rgb) — L5 — and the
+#: wind that sways a plant by its own size (engine frame, #800).
+VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight", "windSway"})
 #: ``AtmosphereSpec.precipitation`` as the scene's ``precipKind``.
 PRECIP_KINDS: Final = {"none": 0, "rain": 1, "snow": 2}
+#: The dry atmosphere (every look of L1-L4): the ground's roughness and specular the
+#: rain's shift is measured from (#801).
+_DRY: Final = AtmosphereSpec()
 
 # Qt Quick 3D linearises a colour PROPERTY with a polynomial, not with the sRGB curve
 # (measured, L1.4: a flat ambient light of colour c on a white box, read from the
@@ -134,6 +144,8 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         # where no sky texture lights the view
         "skyColor": engine_srgb(look.plain_sky_linear),
         "fillColor": engine_srgb(look.fill_linear),
+        # where a sky lights it: the twilight fill (#802), an ambient on the garden only
+        "twilightFill": engine_srgb(look.twilight_fill_linear),
         "meadowColor": look.meadow_albedo,
         # shadows
         "shadowMapQuality": shadow.map_quality,
@@ -153,11 +165,22 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         "fog": bool(preset.fog),
         "lawnBlades": bool(preset.lawn_blades),
         "detailNormals": float(preset.detail_normals),
-        # wind
+        "meadowSurface": int(preset.meadow_surface),      # #798: the meadow's grass
+        "openGroundGrass": bool(look.open_ground_grass),  # #798: the owner's call
+        # wind: the lawn's blades take the strength, a plant the sway vector (#800)
         "windStrength": float(look.wind_strength),
+        "windSway": _wind_sway(look.wind_strength),
         # the living garden (L5, ADR-070)
         **_atmosphere_properties(look),
     }
+
+
+def _wind_sway(wind_strength: float) -> tuple[float, float, float]:
+    """``wind.wind_sway_scene`` in the engine frame: downwind times the wind's strength
+    over a clear day's (a plant's sway, ``plantSway`` in the foliage shaders)."""
+    east, north = wind_sway_scene(wind_strength)
+    sway = scene_to_engine_vectors(np.array((east, north, 0.0), dtype=np.float64))
+    return (float(sway[0]), float(sway[1]), float(sway[2]))
 
 
 def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
@@ -174,6 +197,10 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
         "groundTint": engine_srgb(atmosphere.ground_tint_linear),
         "groundRoughness": float(atmosphere.ground_roughness),
         "groundSpecular": float(atmosphere.ground_specular),
+        # #801: the rain's shift of the ground's roughness and specular from the dry
+        # ground's - a built surface's detail material takes the same shift
+        "wetRoughShift": float(atmosphere.ground_roughness - _DRY.ground_roughness),
+        "wetSpecularShift": float(atmosphere.ground_specular - _DRY.ground_specular),
         "precipKind": PRECIP_KINDS[atmosphere.precipitation],
         "precipDensity": float(atmosphere.precip_density),
         "windDrift": (float(drift[0]), float(drift[1]), float(drift[2])),
@@ -182,22 +209,27 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
         "butterflyLife": float(atmosphere.butterflies),
         "fireflyLife": float(atmosphere.fireflies),
         "lampGlow": float(atmosphere.lamps),
+        # the ambient occlusion under the weather (#687): on the spike's 55 / 14, plus a bias
+        "aoStrengthGain": float(atmosphere.ao_strength_gain),
+        "aoDistanceGain": float(atmosphere.ao_distance_gain),
+        "aoBias": float(atmosphere.ao_bias_cm),
+        "builtSnow": float(atmosphere.built_snow),   # snow on built tops (#687)
     }
 
 
 def photo_properties(settings: PhotoSettings, eye: tuple[float, float, float],
-                     target: tuple[float, float, float],
-                     picture_height_px: float) -> dict[str, float]:
+                     target: tuple[float, float, float]) -> dict[str, float]:
     """``settings`` as the scene's photo properties, for a camera at ``eye`` looking at
-    ``target`` and a picture this many device pixels high (L6.1). The grade is not here: it is
-    a texture, and the host owns those (``Quick3DHost.set_photo``)."""
+    ``target`` (L6.1). None depends on the picture's size: the blur is a share of the
+    picture's height (#743). The grade is not here: it is a texture, and the host owns
+    those (``Quick3DHost.set_photo``)."""
     distance = focus_distance_cm(settings, eye, target)
     return {
         "photoExposure": exposure_gain(settings.exposure_ev),
         "photoVignette": float(settings.vignette) * VIGNETTE_MAX,
         "photoFocusDistance": distance,
         "photoFocusRange": focus_range_cm(distance, settings.blur),
-        "photoBlur": blur_amount(settings, picture_height_px) if settings.depth_of_field else 0.0,
+        "photoBlur": blur_sigma_share(settings),
     }
 
 
@@ -271,6 +303,46 @@ def painted_sky(sky: SkySpec) -> PaintedSky:
                       ground_curve=float(sky.ground_curve))
 
 
+#: The cloud from which the weather's clouds are a deck: the overcast mood's own
+#: boundary (``weather.mood_of``), where the disc starts to go (``sunAlpha``).
+DECK_FROM_CLOUD: Final = 0.5
+
+
+def deck_closure(cloud: float) -> float:
+    """How closed the weather's clouds are as a deck: 0 up to ``DECK_FROM_CLOUD``, 1 at a
+    full cover, linear between (Snow's 0.85 is 0.7 closed). The one measure the disc
+    (``sunAlpha``), the deck's anchor and its hue share take."""
+    closed = (float(cloud) - DECK_FROM_CLOUD) / (1.0 - DECK_FROM_CLOUD)
+    return min(max(closed, 0.0), 1.0)
+
+
+def cloud_hue_share(cloud: float) -> float:
+    """How far the clouds take the look's horizon hue (``atmosphere.frag``: the weather's
+    own grey under a weather) instead of their own colour: 1 − (1 − cover) × (1 − closed).
+    A cloud keeps its own colour only where it is thin AND the deck open: scattered clouds
+    (Partly cloudy, closed 0) keep the cover's 0.4, a full cover is the weather's grey.
+    With the cover alone Snow's 0.85 kept 15 % of a deck lit by the example's sun through a
+    ground airmass — nearly pure red at a low sun — and read pink under a sun below 1°
+    (C*ab 8–10 at 10° up against the painted Snow deck's 3.6; 0.955 gives 3.2–4.0)."""
+    cover = min(max(float(cloud), 0.0), 1.0)
+    return 1.0 - (1.0 - cover) * (1.0 - deck_closure(cover))
+
+
+def deck_anchor(sky: SkySpec) -> float:
+    """How much more light a cloud DECK takes at this sun (#719): ``ATMOSPHERE_DECK_LEVEL``
+    to the power of how closed the deck is (``deck_closure``: 0 at a cloud of 0.5, 1 at a
+    full cover), times ``ATMOSPHERE_DECK_SUNSET`` at the sun's elevation (log-linear between
+    its rows, held beyond them). 1 below a deck: Partly cloudy's scattered clouds keep
+    their light."""
+    cloud = float(sky.cloud)
+    if cloud < DECK_FROM_CLOUD:
+        return 1.0
+    closed = deck_closure(cloud)
+    elevations, factors = zip(*ATMOSPHERE_DECK_SUNSET, strict=True)
+    sunset = float(np.exp(np.interp(float(sky.sun_elevation_deg), elevations, np.log(factors))))
+    return float(float(ATMOSPHERE_DECK_LEVEL) ** closed * sunset)
+
+
 def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None = None) -> float:
     """The clouds' light in the painted sky's units: ``ATMOSPHERE_CLOUD_GAIN`` × the clear
     sky's gain at this sun (``sky_gain``: ``atmosphere_gain`` of this sky, when the caller
@@ -280,11 +352,12 @@ def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None =
     scattering, which ``atmosphere.frag`` now fades with the cover). The gain was
     calibrated on a full deck: separate clouds take ``ATMOSPHERE_THIN_CLOUD_LIFT`` × (1 −
     cover)² more on top, or Partly cloudy's noon clouds read as dark smoke on a brighter
-    sky (3D review of the owner's Partly cloudy: luma 167 on gaps of 207)."""
+    sky (3D review of the owner's Partly cloudy: luma 167 on gaps of 207). A closed deck
+    takes ``deck_anchor`` on top: its level meets the painted sky at the haze band (#719)."""
     gain = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
     cover = min(max(float(sky.cloud), 0.0), 1.0)
     return (float(ATMOSPHERE_CLOUD_GAIN) * float(gain)
-            * (1.0 + float(ATMOSPHERE_THIN_CLOUD_LIFT) * (1.0 - cover) ** 2))
+            * (1.0 + float(ATMOSPHERE_THIN_CLOUD_LIFT) * (1.0 - cover) ** 2) * deck_anchor(sky))
 
 
 def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
@@ -308,7 +381,7 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
         "sunDirection": sun,
         # the clouds themselves hide the disc (atmosphere.frag: cloudT): in the gaps of
         # a partial cover it stays whole, and it goes only as the deck closes
-        "sunAlpha": (1.0 - max(cloud - 0.5, 0.0) / 0.5) if day else 0.0,
+        "sunAlpha": (1.0 - deck_closure(cloud)) if day else 0.0,
         "sunDiscColor": _linear(sky.sun_disc, sky.sun_energy * ATMOSPHERE_DISC_ENERGY),
         "paintedTop": painted.top,
         "paintedHorizon": painted.horizon,
@@ -321,7 +394,7 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
         "hazeDeg": float(ATMOSPHERE_HAZE_DEG),
         "atmosphereGain": gain,
         "cloudLightGain": cloud_light_gain(sky, painted, gain) if cloud > 0.0 else 0.0,
-        "cloudHueShare": cloud,
+        "cloudHueShare": cloud_hue_share(cloud),
         "cloudsEnabled": cloud > 0.0,
         "cloudCoverage": cloud,
     }

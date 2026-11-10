@@ -41,7 +41,8 @@ RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_selftest.py",
                 "tests/integration/test_quick3d_lifecycle.py",
                 "tests/integration/test_scene3d_ground_render.py",  # the baked ground (L1.5)
-                "tests/integration/test_directors_cut_render.py")   # the capture view (L6)
+                "tests/integration/test_directors_cut_render.py",   # the capture view (L6)
+                "tests/integration/test_built_materials_render.py")  # roofs, walls, surfaces (#801, #803)
 #: The default workspace's real-host gates (#540) — close and compatibility only in CI.
 WORKSPACE_RENDER = "tests/integration/test_view3d_workspace_render.py"
 #: The subset: G5's close rows (with the frozen-exe variants, which skip without the exe)
@@ -82,10 +83,15 @@ class TestSpec:
             # the atmosphere sky (L7, #391) with its provenance and Qt's licence texts:
             # they ship beside the files they cover (MIT asks for the notice in copies)
             "AtmosphereSky.qml", "Garden.qml", "LICENSE-qt-skymaterial.txt", "PROVENANCE.md",
+            "PhotoBlur.qml",                  # photo mode's depth of field (#743)
             "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
             "atmosphere.frag",
+            "built_detail.frag", "built_detail.vert",   # roof tiles, wall courses (#801)
+            "built_snow.frag", "built_snow.vert",   # snow on built tops (#687)
             "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
             "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
+            "photoblur_compose.frag", "photoblur_layer.frag", "photoblur_rows.frag",
+            "plant_sway.vert",                # a plant's wood and fruit in the wind (#800)
             "precipitation.frag", "precipitation.vert",    # rain and snow: L5 (#389)
             "ring.frag", "ring.vert",
             "screen.frag", "screen.vert", "water.frag", "water_door.frag"]

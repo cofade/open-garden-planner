@@ -2985,8 +2985,27 @@ audit evidence for the command, machine and measured limitations.
 - **The recorder's seams are callables** (`capture`, `set_clock`, `settled`), so its waits, pause,
   back-pressure and failures are pinned without a GPU; the render tier then runs the real thing
   through `view3d_capture_driver.py`.
+- **A flicker is measured as an alternation, not a zigzag** (#799). The `daylapse` scenario records
+  a held-camera dawn and dusk at the survey's 3.9 min of clock a frame and the test reads the third
+  difference over eight (exactly ±a for a step every second frame, 0 for any quadratic trend),
+  leaving out the rig's deliberate corners; the survey's zigzag RMS also counts a curve's bend and
+  read 0.79 at dawn after the fix. The test also asserts the cause: every twilight and day frame
+  was taken under the sky of its own sun.
 - **`QComboBox.findData` does not find a tuple** (PyQt wraps it): the size combo started on
   "nothing", and only an end-to-end test through the dialog met it.
+- **A blur is measured in tiles of detail, at two sizes of one shot** (#743). The gradient a 60 px
+  tile keeps against its own sharp picture is a measure that does not care what the scene is; a
+  save shrunk to the preview's size by area means must keep what the preview keeps. The old pin
+  (`mean > 1.0` against the sharp view) passed while the owner saw no difference. The parity test
+  was observed failing on Qt's blur (0.394 apart) before the fix.
+- **A bench with known answers for a post effect** (`tests/integration/photoblur_bench.qml`, the
+  `blur_bench` scenario). Unlit flat panels at chosen depths turn "a fringe", "copies" and "a hard
+  near edge" into single numbers that a real garden blurs together; it found the multisampled
+  silhouette rim (PF-E3D-27) that no garden shot showed clearly. A fixture QML that uses a product
+  component imports the product's directory by a relative path, and the component must resolve
+  its own files with `Qt.resolvedUrl`.
+- **A pick after a capture needs a frame of the view first**: the engine picks in the frame it drew
+  last, and that was the capture view's resting frame (the click landed metres away).
 
 ### 8.10.16 Patterns from the living garden (Phase 17 L5, #389)
 
@@ -6507,6 +6526,7 @@ no key light.
 | Part | Engine? | What it does |
 |---|---|---|
 | `core/scene3d/look.py` | Qt-free | the rig by sun elevation (three day anchors and their ramps; night below 0.5°), the presets, `look_for`, `sky_is_stale`, `AutoPreset` |
+| `core/scene3d/wind.py` | Qt-free | a plant's sway (#800): the amplitude rule, `sway_frame`, `wind_sway_scene`, `sway_offsets` (the shaders' `plantSway` in numpy) |
 | `ui/view3d/look_controller.py` | no | `LookController`: the sun, the settings and the frame count in; `set_look` / `set_sky` / the wind out |
 | `ui/view3d/quick3d/look.py` | no | `scene_properties` / `sky_properties` — the mapping onto `Garden.qml`'s properties; `engine_srgb` |
 | `ui/view3d/quick3d/host.py` | **yes** | `set_look`, `set_sky`, `set_wind_running`, `rest_wind`, `_apply_light` |
@@ -6525,6 +6545,19 @@ saturation 1.06 -> 0.6, the sky draws no sun, and the key light is the moon fadi
 the fraction: no key and no shadow just under 0.5°). Below −6°, night. The key light is never brighter than at noon; a low sun is
 warmer and more exposed, not stronger; the light never rises as the sun sinks.
 
+**The garden never brightens as night falls (#802).** The night rig is "day for night" (a 0.32
+moon 38° high, exposure 2.4), so a garden lit by a 0.5° sun's sky alone lay about 0.95 EV under
+the night it ends in, and twilight sank further before the moon rose to it. Neither anchor
+moves: the twilight fill (`look.twilight_fill`, `LookSpec.twilight_fill_linear`) is a flat
+ambient in the sky top's colour that `Garden.qml`'s fill light carries where a sky lights the
+view — it lights the garden, never the skybox. It lifts a model of the light on open ground
+(`look.ground_light`) to a target in units of the same weather's night: in twilight a line
+from 1.07 at sunset through 1.05 at −3° to 1 at −6°; by day the ground keeps 40 % of its own
+fall down to that sunset level. Black from 6° up (the sunset shot keeps the rig's own light)
+and at night; an overcast, rain and snow need none. The compatibility mode and the top-down
+truth view keep their flat fill without it. ADR-059 addendum "a recorded frame's own sky and
+the twilight fill".
+
 **Presets are cost, never mood.** `low` / `medium` / `high` / `ultra` (`PRESET_SPECS`) differ in
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
 screen-space reflections — and no preset costs less than the one below it in any of them
@@ -6537,6 +6570,26 @@ target, floors 26 m / 160 m, full by 760 m, inside the meadow's 10 km edge and t
 change applies one `set_look` call without moving the camera or rebuilding sky.
 Crossing the Medium/High boundary also updates lawn-blade admission through the
 existing scene diff (#607).
+
+**Shadows at a low sun (#734).** A low sun stretches two things: every centimetre of a
+caster's height into `1 / tan(elevation)` of shadow (3.7 at 15°, 9.7 at 6°), and a shadow
+map's texel into `texel / sin(elevation)` on the ground. A frame whose camera does not move
+— a picture, the agent's picture, a held camera's time-lapse — fits its cascades to what
+CASTS: those paths pass `Quick3DHost.capture(fitted_shadows=True)` by name (the QML
+`fittedShadows`, for that frame only), and a capture that does not ask keeps the view's fit
+and is the view to the level (the self-test checks it). Qt spans each
+cascade by the casters' box in its slice, the plan's own items, about 1 cm texels on a 24 m
+plan at every preset, instead of the bounding sphere of the whole slice (8.3 cm on High at the
+board's golden hour: long edges stepped, the foot of every caster showed lit teeth, and a
+picket fence's slits aliased into streaks at sunset). The live view and a tour whose camera
+moves keep the texel-locked sphere: a fitted map moves with the camera through the casters
+and its edges crawled two to four times as far in an orbit of the family garden (0.38 / 0.69
+px a frame against 0.17 / 0.16). `pcfFactor` is a radius in scene units for
+every cascade; Qt turns its kernel per screen pixel, so a moving camera re-dithers a soft
+edge — the floor of any frame-to-frame comparison. A caster's own shape is the other half: a
+picket fence's tops differ by a hash of the item's seed (0.5–1.5 cm under the posts), never by
+a ramp. The board's `--stairs` probe measures both (`--photo-shadows` renders every frame in a
+picture's fit); the numbers are the ADR-059 addendum (#734), the rules PF-L3D-24 / PF-L3D-25.
 
 **Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
 medium and high from the frames the view PRESENTS (`health().frames_presented`, Qt's own frame
@@ -6567,7 +6620,10 @@ the old 150 ms timer fired between every two steps (#722); a change of the sky's
 (`sky_phase`: day with a sun disc, twilight, night) is
 built at once — sunset at 0.5°, nightfall at −6°, dawn; through twilight the sky follows the sun
 by the degree (its colours do); a night sky is never rebuilt for the sun's position (it draws no
-disc). A sky the engine cannot build is logged once and the session goes on with the plain sky
+disc). A RECORDED frame (a camera tour, `LookController.settle_sky`) is the exception: it gets
+the sky of its own sun exactly (`RECORDING_SKY_REBUILD_DEG` 0, #799) — under the 1° rule a day
+lapse, whose sun moves 0.5–0.7° a frame, rebuilt the sky and its probe every second frame and
+flickered at dawn and dusk; a flight with a held clock builds nothing. A sky the engine cannot build is logged once and the session goes on with the plain sky
 and the flat fill — the look itself is sent separately, so a failing sky never keeps it from
 the screen. Light, exposure and fog follow every instant — the fog is computed for the sky
 ON SCREEN while the sky lags, so it still meets the horizon. Every build is a FRESH `Texture`
@@ -6600,6 +6656,28 @@ trust "hidden"). Reduced motion (Preferences → 3D View; Qt exposes no operatin
 for it) RESTS the clock at 0: every vertex is drawn where its mesh puts it. A paused non-zero
 clock is not rest — truth probes and the board pin the clock to 0.
 
+**A plant sways by its own size, as one (#800).** The lawn's blades keep L1.4's sway
+(`grass.vert`, `windStrength`); a plant — every part of an item with leaves — is moved by ONE
+function, `plantSway` (`foliage.vert`, its screen door, `plant_sway.vert`), which
+`core/scene3d/wind.py` states and tests in numpy: 0.5 % of the plant's height at its top under
+a clear day's wind (`SWAY_SHARE`, linear in the look's `windSway` = downwind × strength over
+the clear day's: calm is still, rain doubles it), a cantilever (`(y/h)²`), a lean and a swing
+whose frequency falls with the root of the height (a 9.5 m birch 0.39 Hz, a shrub about 1 Hz,
+a herb about 1.5 Hz, each plant ±10 % by its id's phase), a branch term by the reach from the
+axis, a leaf flutter along its normal (2–5.1 Hz) and a gust travelling downwind. The per-part
+frame (`PartSpec.sway`: height, reach, phase — `wind.sway_frame`, the same for leaves, wood and
+fruit) is a uniform, not a vertex attribute. A plant's wood and fruit swap to
+`plant_sway.vert` + `built_snow.frag` only while the clock runs, so a frame at rest is the
+principled look to the level; the shadow pass runs the same sway, so a crown's shadow moves
+with it. Every frequency is a whole number of cycles an hour: the clock's wrap is seamless.
+ADR-059 addendum "the wind that shows, and the leaves' stripes"; PF-L3D-32.
+
+**Ambient occlusion has a floor under its bias (#805).** Qt's SSAO normal faces the camera, so a
+flat surface seen at a slant occludes itself — on the ground (#687) and in diagonal bands across
+every micro-leaf from Medium up, which the survey took for shadow acne (the shadow bias and the
+map's fit do not change them). `look.AO_FLAT_BIAS_CM` = 1 cm is the floor of every look's AO
+bias; a weather's own bias is larger. PF-L3D-33.
+
 **Wiring.** The workspace hands the look controller the sun the pipeline last sent
 (`Scene3DController.sync.sun`) after every pass, so the light and the look are computed from one
 moment and one solar path; a time-of-day change is a light-only pass — no snapshot of the plan.
@@ -6618,8 +6696,8 @@ frame rate. Procedure:
 `ogp-lush-cinematic` §5.
 
 The sky probe (G4) spans the day: four sun elevations (6°, 12°, 30°, 60°) × three
-azimuths × two offsets on both sky models, its disc found by a white plateau of at least
-20 pixels first — at a low sun the warm horizon band outscored the disc (#717) — with the
+azimuths × two offsets on both sky models, its disc found by a clipped plateau (luma ≥ 250) of
+at least 20 pixels first — at a low sun the warm horizon band outscored the disc (#717) — with the
 0.25° accuracy gated. The dusk probe also renders a sky-only camera at the sun's own
 bearing at +1.0, +0.4, 0.0, −1.0 and −3° under every weather and fails when a pixel
 within 10° of that bearing and 1.5° of the sun's elevation is more than 10 luma under the
@@ -6628,7 +6706,11 @@ poplar; the elevation window keeps an isolated cumulus from reading as a black s
 The far-row bound is
 3.6 luma at 640 × 360, re-derived from the current scene's 3.44 / 3.48 / 3.11 (#714), and
 the clear look's per-mood step is gated at the same bound (covering #696's 3.13 low
-sunset). The atmosphere sky's own low band and cloudy deck band remain #716 and #719.
+sunset). `--sky-bands` (#716, #719) renders sky-only frames toward, across and away from a
+300° sun, clear and under every closed weather, and bins them by world elevation: the
+render tier gates, on both skies, that the clear sky never darkens from 20° down to 0.5°,
+that its 6–15° band is at most 1.15× the painted sky's, and that the haze band (3°) is at
+most 10 luma brighter than the cloud deck (10°) at a 6° and a 0.5° sun.
 `--analysis` places its probe pin on open ground whose whole height is clear and sizes it
 from the shot's camera (the dome share raised to at least 60 px, capped at 4×), because
 `bench_built`'s distant noon camera showed the product's 52 cm pin in 38 px under the
@@ -6646,8 +6728,10 @@ Decision record: the ADR-059 addendum "ground bake". Traps: PF-L3D-03, PF-L3D-04
 (`Material.paint` — every item but a plant) **and** the scene holds no solid for it
 (`SceneSync.solid_ids`). A lawn is on the ground; a house is not, and what lies UNDER a house is
 whatever flat item was drawn there, or meadow (`MEADOW_RGB`, the one albedo the engine's bare
-ground has). Records are painted bottom to top in the snapshot's order — the canvas's stacking
-order. An item beside the plan rectangle is not on the ground. Not painted, by decision: the
+ground has). Ground no item covers is OPEN: its alpha is 0 (`ground_bake.OPEN_ALPHA`, #798) and
+the engine lays the meadow's grass there; an item's pixels carry its coverage in the alpha, and
+every colour byte is what it was before the alpha meant anything (PF-L3D-31). Records are
+painted bottom to top in the snapshot's order — the canvas's stacking order. An item beside the plan rectangle is not on the ground. Not painted, by decision: the
 selection, labels, the canvas's drop shadows, a bed's square-foot grid and the diagnostic borders
 and badges — they are the 2D view's overlays, not the garden's surface.
 
@@ -6954,7 +7038,9 @@ exist on the C++ side.
 - **The tile's material is the meadow's** — roughness 1.0, specular amount 0.15
   (`Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
   (1 − specular amount), so other values put a luma step where a baked lawn meets the endless
-  meadow at the plan's edge (the L1.4 look review measured 2 to 8 luma for 0.92 / 0.2).
+  meadow at the plan's edge (the L1.4 look review measured 2 to 8 luma for 0.92 / 0.2). Since
+  #798 it is the meadow's very shader: `ground.frag` draws the tiles, the bare plan rectangle
+  and the meadow at every preset (§8.29.12, "The meadow's grass").
 - **The frozen `--selftest`** bakes one flat lawn with the product's baker (budget 0, 128-px
   tiles: twelve tiles over as many passes) and judges the lawn's colour where it lies.
 
@@ -8366,6 +8452,27 @@ flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
 (measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
 L2's multiply drapes (ADR-065 decision 9).
 
+**The meadow's grass (#798, ADR-048 addendum "the meadow's grass").** The meadow and the plan's
+open ground are no longer one flat colour (73–80 % of the default framing was flat green): ONE
+shader, `ground.frag`, draws the baked tiles, the bare plan rectangle and the meadow, so the
+plan's edge is the same function on both sides. Where ground is open — all of the meadow, and on
+the plan the pixels the bake leaves at alpha 0 — it adds the deviation of the meadow's grass
+from the flat colour: the canvas's GRASS texture (`resources/textures/grass.png`, untinted, one
+texel a centimetre, laid in world space), uploaded once per host as its linear colour over its
+own mean less its 2.56 m mottle (`core/scene3d/meadow.grass_detail`, RGBA16F, so every mip keeps
+the mean: PF-L3D-30), sampled as it lies and turned 37° at 1.618×, times a variation of mean 1
+(brightness at 3.1, 9 and 41 m, hue at 17 m; `GRASS_VARIATION`). Its mean is `MEADOW_ALBEDO`, so
+the far meadow, the fog and the horizon keep their colour. The preset chooses the surface
+(`PresetSpec.meadow_surface`: flat, grass, grass with its variation); the truth view is always
+flat. Whether the plan's open ground takes the grass is the owner's switch
+(`look.OPEN_GROUND_GRASS`, `LookSpec.open_ground_grass`); off, open plan ground keeps the flat
+colour and only the meadow is grass. The weather reaches the meadow only through the ground's
+one tint and cover (`apply_weather` no longer weathers `meadow_albedo`). Measured by the board's
+`--meadow` phase (flat share of the default framing and of the walk camera, the meadow's
+texture, far-meadow flicker in an orbit and a low flight, the repeat from 60 m above) and gated
+per bundled example in `tests/integration/test_meadow_render.py`. Values: `ogp-lush-cinematic`
+reference 017.
+
 **Paths.** A line's stroke is its width on the ground in cm: presets 70–100 cm, PATH
 default 80 cm, the properties panel up to `MAX_LINE_WIDTH_CM` (500 cm, suffix "cm");
 shapes keep `MAX_STROKE_WIDTH` (20 px). Bench plans older than L4 keep their widths
@@ -8471,6 +8578,36 @@ local pitched-roof triangles (64 entries, keyed by the complete geometry), so 15
 identical sheds build one roof; the per-owner pyclipper union stays, because removing it
 made the global union of unmerged triangle paths slower (3.25 s against 1.48 s).
 
+**Materials (#801, #803; ADR-059 addendum "what built parts are made of").** A built
+part reflects by what it is MADE of: `core/scene3d/materials.SURFACES` names each surface's
+roughness and specular amount and, for roofs and walls, a detail picture. ONE path carries
+it: a palette entry names its surface (`builders/palette.py`, `SURFACE_BY_COLOUR`), a tinted
+part names its own in its builder (a house's walls `plaster`, a shed's `wood_cladding`, a
+garden wall `masonry`, a fence by its style, a container by its material, a deck `wood`),
+`builders.common.with_surfaces` writes a part's `surface` or — a trampoline is a rubber mat,
+a plastic pad and a steel frame — its `surface_runs` (its triangles grouped run by run; it
+stays one part for everything that reads parts), the sink creates one Model per run
+(`mesh.surface_pieces`) with the surface in its `PartSpec`, and the host writes
+`quick3d.materials.surface_look` on the Model. `Garden.qml`'s `vcPart` / `roofPart` hold no
+table: every material reads `surfaceRough` / `surfaceSpecular`, whose defaults are
+`DEFAULT_SURFACE` (0.78 / 0.35, the look every part had before). Qt switches a principled
+material's specular off at 0.01 or less and barely scales a grazing highlight above it
+(PF-E3D-32): a dull dark surface is specular 0. The detail picture is the canvas's own
+texture (`core.scene3d.surface_detail`: a linear albedo multiplier of mean 1 and height
+slopes, PF-L3D-35), one `Texture` per picture per scene, drawn by `built_detail.vert/.frag`:
+a roof's tile faces carry uvs in cm — a gable's are the 2D brush's frame (u along the ridge
+from its middle, v from the ridge, mirrored as the canvas mirrors it), a hip's faces and a
+shed's plane run along their own eave — and a wall's face lays its picture by its own plane in
+the item's frame; the detail normal fades with distance, the albedo by its mipmaps (Qt's
+`Texture` has no anisotropy). The detail material takes the ground's rain tint and the rain's
+roughness / specular shift (`wetRoughShift`, `wetSpecularShift`) and the living garden's
+snow (`builtSnow`, the same rule as `built_snow.frag`). The pond's glint is GGX soft-capped in
+`water.frag` (`SPECULAR_LIGHT`, `uGlintCap`). How to add a surface: an entry in `SURFACES`
+(§4 of `ogp-lush-cinematic` for its range), the palette entries or the builder that name it,
+and — with a picture — a pattern the canvas ships; the drift guard is
+`test_scene3d_surfaces.py`, the look gate `test_built_materials_render.py` (judged against the
+part's own specular-free frame, PF-L3D-34).
+
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on
 hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → snapshot →
@@ -8480,21 +8617,22 @@ frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle
 
 ### 8.29.13 The living garden — playback, weather, particles, garden lights (L5, #389, ADR-070)
 
-The decisions and the measurements are **ADR-070**; the requirements FR-3D-LIVE-01 … 09; the
-test patterns §8.10.16; the lesson PF-L3D-18.
+The decisions and the measurements are **ADR-070** (and its #687 addendum); the requirements
+FR-3D-LIVE-01 … 09; the test patterns §8.10.16; the lessons PF-L3D-18, PF-L3D-26, PF-L3D-27,
+PF-E3D-28 and PF-E3D-29.
 
 | Part | Engine? | What it does |
 |---|---|---|
 | `core/playback.py` | Qt-free | one step of the day or the year playback (`next_step`): the day wraps onto the same date, the year inside its year |
 | `ui/widgets/sun_sim_toolbar.py` | no | Animate's menu (The Day / The Year, Slow / Normal / Fast); writes the clock through its slider and `date_requested` |
-| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather` |
+| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather`; the occlusion under cloud (`AO_*_UNDER_CLOUD`) and the snow on built tops (`BUILT_SNOW_FULL_AT`, #687) |
 | `core/scene3d/look.py` | Qt-free | `AtmosphereSpec` (`CLEAR_STILL` is every look of L1–L4), `SkySpec.cloud`, `sky_must_build_now`, `sky_phase` by elevation |
-| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters`, `precipitation_volume`, the caps |
-| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps` |
+| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters` (a leaf in its own crown's colours, #687), `precipitation_volume`, the caps |
+| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps`, `lit_lamps` (the slots' faded lights, #687) |
 | `ui/view3d/look_controller.py` | no | `set_weather`, `set_todays_weather`, `set_analysing`, `set_southern` (where the place's noon stands: the dew's fade, the fireflies' midnight), `mood` / `mood_changed`: the look is `living_look` |
-| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the nearest lamps, the forecast |
+| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the lamps that light (`aim_lamps`: a picture's own, #687), the forecast |
 | `ui/view3d/quick3d/host.py` | **yes** | `set_ambient`, `set_life_enabled`, `set_lamps`, the precipitation's one load, the rain's volume with every `set_camera` |
-| `qml/Garden.qml`, `precipitation.*`, `ambient.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values |
+| `qml/Garden.qml`, `precipitation.*`, `ambient.*`, `built_snow.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values, its occlusion (`aoStrengthGain`, `aoDistanceGain`, `aoBias`) and the snow on built tops (`builtSnow`) |
 
 **Truth stays where it was.** A weather is a look: `apply_weather` changes the sky's colours
 and energy, the key light's strength, the shadows' darkness and softness, the grade, the fog,
@@ -8524,6 +8662,34 @@ per vertex (some corners beyond the far plane tear it into a sliver). Rain and s
 box around the camera's target, world-anchored: the box slides, the drops do not. In the
 top-down truth view no particle is drawn.
 
+**Under cloud the occlusion is the weather's (#687).** The sky is the light under cloud, and
+what an object hides of it is what grounds it; but Qt's pass reads a camera-facing normal, so
+flat ground seen at a slant occludes ITSELF everywhere except beside a nearer object — the
+clear values greyed open snow 17 levels under Low and drew a 10-level light rim round every
+silhouette. A weather takes its light share (`WeatherSpec.light`) of a stronger, wider pass
+WITH a bias of 0.3 of its reach (`AtmosphereSpec.ao_strength_gain`, `ao_distance_gain`,
+`ao_bias_cm`: 99 / 70 / 21 cm at a full overcast), and the bias follows the capture's AO scale
+at every picture size (PF-L3D-26). Clear, the dew and an Analyze drape keep the spike's 55 / 14
+/ 0, so no clear frame changes. The board's `--living` measures it (`living_occlusion`: rim,
+self-occlusion, open ground, snow against Low, a box caster's foot per weather) and runs
+`--far-plan` and `--edge` under every cloudy weather. What Qt's pass leaves is a ring of
+self-occluded far meadow whose distance moves with the picture's size (PF-E3D-28, #831).
+
+**Snow lies on built tops (#687).** While snow lies (`AtmosphereSpec.built_snow`, 1 under the
+snow weather: smooth tops lie white where the meadow's 0.75 still shows grass), every `vc` part
+and every roof swaps to ONE material, `built_snow.vert/.frag`; snowless, every frame keeps the
+principled look. The albedo is the principled look's (the vertex colour through its own vertex
+stage — `VAR_COLOR` is not it —, the tint and fill picture through the engine's polynomial);
+snow mixes in by `built_snow × smoothstep(0.35, 0.75, NORMAL.y)` with the snowy ground's
+roughness and specular. A building's floor (under its roof, shown by Cutaway), glass, water and
+an X-ray door stay as they are. The material is in the shader warmer.
+
+**A falling leaf is its crown's colour (#687).** `ambient_emitters` gives each dropping tree's
+emitter eight samples of the Forge's leaf colours for its own palette
+(`plant_forge.palette_leaf_colors`, outer and upper leaves) times the season's tint
+(`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id: a red maple drops red
+leaves, and no palette literal is left.
+
 **When the ambient buffer is rebuilt.** On the Plant Forge's phenology (`season_sink`: a plan
 or date change — at most twice a second during the year playback) and when a pass changed the
 garden lights; never for a time of day. Equal emitters are not sent again.
@@ -8545,8 +8711,12 @@ thin shadow (ADR-070's owner addendum).
 
 **The lamp pool.** Six `PointLight`s are made once by the scene (`lampSlots`), each bound to
 one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill
-them follows the camera's target (`nearest_lamps`), so a large plan's lights are lit where one
-looks. The foliage and lawn shaders light leaves from a point light as from the sun
+them follows the camera's target, so a large plan's lights are lit where one looks; each is
+weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest lamp left
+out (`lit_lamps`, #687), so a pool fades in and out as the camera turns instead of switching in
+one frame — with no clock, so a recorded tour repeats exactly, and with six lamps or fewer every
+weight is 1. A picture from another camera (a tour's frame, an agent's view) is lit by ITS
+target's lamps (`aim_lamps`, PF-E3D-29). The foliage and lawn shaders light leaves from a point light as from the sun
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
 1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light
@@ -8597,13 +8767,26 @@ applies no exposure under our post effects, so `atmosphere.frag` applies the sky
 sky (Qt's generator formula, `paintedSky()`) and mixes the atmosphere over it by
 `(1 − twilight) × smoothstep(0, 6°, elevation)`: the horizon the fog meets and the night are the
 painted sky's in every direction. Its scale is not a constant: `atmosphere_lut.atmosphere_gain`
-gives it the painted sky's cosine-weighted light on a horizontal surface at every sun, so its
-brightness matches the light the painted probe casts. The weather's cloud is the clouds' cover
+gives it the painted sky's cosine-weighted light on a horizontal surface at every sun, over the
+sky as drawn (through the haze band only its share counts), so its brightness matches the light
+the painted probe casts. The gain is redistributed per elevation (#716): the sky-view table's
+alpha is the sky's profile (`atmosphere_lut.sky_profile`), which gives every ring of the clear
+atmosphere the mean luminance of the painted sky's gradient at that elevation (the painted sky
+without its sun — normalising on its ring means spread its disc's glow into a bright ring,
+PF-L3D-22) times one glow factor that keeps the light on the ground. The atmosphere keeps its
+hue and its structure round the azimuth; through the haze band two skies of the same mean
+brightness mix, so the sky never darkens toward the horizon. The weather's cloud is the clouds' cover
 (Partly cloudy 0.4: scattered clouds; Overcast and Rain 1.0; Snow 0.85); their light is `ATMOSPHERE_CLOUD_GAIN` × the same gain
-(`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering
-and silver lining fade with the cover (a thick deck diffuses, so a cloudy evening dims as under
-the painted sky), they lose the sun through civil twilight and take the look's horizon hue in
-proportion to the cover. Custom materials that may run under a `SkyMaterial` keep the
+(`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering,
+silver lining and the sun side of their ambient fade with the cover (a thick deck diffuses, so a
+cloudy evening dims as under the painted sky), they lose the sun through civil twilight and take
+the look's horizon hue except where the cloud is thin and the deck open (`cloud_hue_share`:
+1 − (1 − cover) × (1 − closed), Snow 0.955; with the cover alone a Snow deck read pink under a
+sun below 1°). A deck (cloud ≥ 0.5, the overcast mood's
+boundary) takes an anchor on top (#719, `deck_anchor`): `ATMOSPHERE_DECK_LEVEL` by how closed it
+is and `ATMOSPHERE_DECK_SUNSET` per sun elevation, measured in the frame (PF-L3D-23) so that the
+deck 10° up reads the painted sky's luminance there and the painted haze band meets it without a
+band at any sun. Partly cloudy takes neither. Custom materials that may run under a `SkyMaterial` keep the
 widened probe guard (PF-E3D-15). The app no longer reaches it, because the painted probe is
 always set.
 
@@ -8635,8 +8818,12 @@ models (`test_view3d_looks_render.py`'s `board` fixture is parametrized by sky m
 atmosphere on ONE live host against a fresh host per sun — the sky-view table refilled in place,
 model switches both ways, a top-down round trip, a cloud deck coming and going
 (`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) —, the weather's gates on both
-skies (`test_living_garden_render.py`) and the frozen self-test's point 8 (the atmosphere from the
-bundle, clear and cloudy).
+skies (`test_living_garden_render.py`), where the atmosphere meets the painted horizon on both
+skies (`--sky-bands`: `test_the_clear_sky_never_darkens_on_the_way_down_to_the_horizon`,
+`test_the_atmospheres_low_band_is_as_bright_as_the_painted_skys`,
+`test_the_cloud_deck_meets_the_painted_horizon_without_a_band`; the profile's definition and the
+light it keeps in the model: `test_scene3d_atmosphere_sky.py`) and the frozen self-test's point 8
+(the atmosphere from the bundle, clear and cloudy).
 
 ### 8.29.15 The director's cut — pictures, photo mode, tours and video (L6, #390, ADR-072)
 
@@ -8653,19 +8840,27 @@ what the owner has on, and the agent's metadata says which.
 **Photo mode** (`3D ▸ Capture ▸ Photo Mode`, or View ▸ Workspace) adds a line of controls to the
 pane's notices and turns a click into "focus here". `core/scene3d/photo.py` is the Qt-free truth:
 `PhotoSettings` (exposure in stops, vignette, grade, blur, a focused POINT), `NO_PHOTO`, and the
-procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene. Blur is
-scaled to the picture's height, because Qt's is in pixels; the focused point becomes a depth along
-the view's axis, because that is what Qt compares. The slider moves the width of the sharp band
-(`focus_range_cm`: 60 % of the depth at a faint blur, 3 % at the strongest): a pixel outside the band
-gets Qt's half-resolution blur in full whatever the amount, which is capped at its 1080p value (more
-shows the three taps as copies). At 40 % the whole garden lay inside the band and the owner saw no
-difference between a high and a low blur (manual test); a 4K photo is sharper than its preview (ADR-072,
-consequences). There is no depth of field without a focused point, so the first blur above 0 focuses what
+procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene; nothing in
+the mapping depends on a picture's size. The blur is the app's own effect, `qml/PhotoBlur.qml` (#743,
+ADR-072 addendum "photo mode's own depth of field"), never Qt's `depthOfField*`: a Gaussian whose
+sigma is a share of the picture's height (`BLUR_SIGMA_SHARE` 0.006 at the slider's end: 6.5 px at
+1080p, 13 px at 4K), so the pane previews what a 4K save holds. It splits what lies behind the sharp
+band from what lies in front of it, weights each layer by how far out of focus it is, blurs the
+premultiplied layers at sigma and at a third of it, and composes them over the sharp scene: no
+in-focus colour bleeds into a blurred neighbour, and a blurred foreground edge is soft against a sharp
+background. It is in the effect chain only while the blur is drawn, so blur 0 is the view to the level.
+The focused point becomes a depth along the view's axis, because that is what the blur compares. The
+slider moves the blur and the width of the sharp band together (`focus_range_cm`: 60 % of the depth at a
+faint blur, 3 % at the strongest, never under 60 cm, and never under 8 % of the depth at 25 m growing with
+the square of the depth beyond: no tilt-shift scale model at the whole-plan camera). At 40 % the whole
+garden lay inside the band and the owner saw no difference between a high and a low blur (manual test).
+There is no depth of field without a focused point, so the first blur above 0 focuses what
 the camera looks at (a click moves it; while walking, the ground under the view's centre), and a new
 plan gives the kept blur its point once the new camera is framed. While the blur is drawn the Ultra
-preset's screen-space
-reflections stand down: reflections, blur and glow in one chain killed the render thread in `d3d11.dll`
-(PF-E3D-21). Grades come through
+preset's screen-space reflections stand down: with glow on, Qt 6.12's effect chain breaks as soon as two
+effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744). The pane is
+still a few levels brighter than a save below 1080p: Qt's ambient occlusion is pixel-sized (ADR-072
+addendum, open). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
 life, and re-chosen when the look's adjustments change.
 
@@ -8693,20 +8888,35 @@ close, naming the unfinished output if it cannot.
 `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
 shown pauses it the same way.
 
+**An orbit** (#807) turns at one speed and loops, or eases (`DroneOrbit.ease`: a raised-cosine
+speed over the first and last 15 % of its time) and ends at rest on its first view; it never does
+both, or a looped video would stop at its seam. Its tilt is one value in the dialog
+(`TourDialog._orbit_pitch`), shown by the tilt control, brought exactly by a saved tour, set from
+the view by Use Current View, and kept inside `orbit_pitch_range` (the view's 5-89 degrees, the eye
+20 cm or more above the ground). A new orbit tilts `DEFAULT_ORBIT_PITCH_DEG` (18) and lasts
+`ORBIT_SECONDS_PER_TURN` (30 s) a turn until the user sets a duration (`default_duration_s`; a
+time-lapse keeps 12 s). A moving camera keeps the view's locked shadow map (#734): an eased orbit's
+slow ends crawl less than its cruise.
+
 **Where the frames go** (`video_writer.py`, the only module that imports Qt Multimedia, on first
 use): `Mp4Writer` writes the first free `<stem>.part[<n>].mp4` and renames it on success, so a
 cancelled or failed tour never replaces a good video and a render kept because its target was held
 open is never deleted by a later recording; `PngSequenceWriter` writes `frame_000001.png` on two
 workers and refuses a folder that holds another tour's frames; `NullWriter` is a preview's.
-`best_codec` picks from `CODECS`.
+`best_codec` picks from `CODECS`. The encoder runs at constant quality (`VIDEO_QUALITIES`, Qt's High
+or Very High: PF-E3D-30); Qt asks for no profile, so H.264 is Constrained Baseline. Before the part
+gets the user's name, a worker thread rewrites it once through `core/mp4_stream.py`: BT.709 limited
+range in the `colr` box and every SPS, and the level the samples need (PF-E3D-31). A part it cannot
+rewrite is renamed as it is; the log names profile, level, bit rate, quality and colour of every
+delivered file.
 
 **The agent's picture.** `capture_blocker()` decides without waiting; `agent_picture` renders with
 `photo=NO_PHOTO` and reports what the picture shows. See §8.19.
 
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
-detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
-colour tag; a year tour started within an hour of midnight uses the nearest reading within the
+detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the H.264
+profile is Constrained Baseline (no Qt API for another); a year tour started within an hour of midnight uses the nearest reading within the
 missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
 sun moves by at most that hour).
 

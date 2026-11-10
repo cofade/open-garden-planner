@@ -26,3 +26,10 @@ from dated measurements. New lessons belong in a new reference and index row.
 | The living garden — weather, dew and life values (L5) | [Read](references/010-living-garden-weather-l5.md) |
 | The atmosphere sky — values and open taste questions (L7) | [Read](references/011-atmosphere-sky-l7.md) |
 | Photo mode and tours — the values (L6) | [Read](references/012-photo-mode-and-tours-l6.md) |
+| Low-sun shadow edges — steps, lit teeth, streaks and the `--stairs` probe (#734) | [Read](references/013-low-sun-shadow-edges-734.md) |
+| The living garden's polish — occlusion under cloud, snow on built tops, leaves, lamp pools, no dew mist (#687) | [Read](references/014-living-garden-polish-687.md) |
+| A tour video good enough to publish, and the orbit that films it — how to measure, the numbers, promo settings (#807) | [Read](references/015-review-grade-video-and-the-promo-orbit-807.md) |
+| The atmosphere sky at the painted horizon — profile and deck anchor (#716, #719) | [Read](references/016-atmosphere-horizon-716-719.md) |
+| The meadow's grass — one ground shader, the texture, its variation and the owner's open-ground switch (#798) | [Read](references/017-meadow-grass-798.md) |
+| Foliage in motion, the leaves' stripes and the autumn crown — the wind's values, AO not acne, the leaf-size options, why the autumn crown is muddy (#800, #805) | [Read](references/018-foliage-wind-leaf-stripes-and-autumn-800-805.md) |
+| What built parts are made of — surfaces (roughness, specular), the roof's 2D tiles, wall pictures, the hue gate against a part's own specular-free frame, the pond's glint (#801, #803) | [Read](references/019-built-materials-801-803.md) |
