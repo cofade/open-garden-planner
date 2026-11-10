@@ -22,8 +22,11 @@ from open_garden_planner.models.seed_inventory import get_seed_inventory
 from open_garden_planner.services.example_library import bundled_examples
 from open_garden_planner.ui.canvas.sun_shadow_controller import STATE_ACTIVE, STATE_NIGHT
 
-#: The wall reading the session starts at: 22:30 on a November evening.
-LATE = datetime(2026, 11, 10, 22, 30)
+#: The instant the session starts at: 22:30 on a November evening in Germany, where all
+#: four gardens lie. An instant and not a wall reading: the sun is down over the gardens
+#: then on a machine in any time zone, so no assertion below depends on where the suite
+#: runs (the clock reads wall time in the machine's zone).
+LATE = datetime(2026, 11, 10, 21, 30, tzinfo=UTC)
 #: Each example's reference date (its sidecar's ``showcase_date``).
 REFERENCE = {"family-garden": date(2026, 6, 21), "food-forest": date(2026, 9, 21),
              "raised-bed": date(2026, 9, 21), "balcony": date(2026, 9, 21)}
@@ -32,15 +35,15 @@ SLUGS = tuple(REFERENCE)
 
 @pytest.fixture
 def window(qtbot, monkeypatch, tmp_path):
-    # ``astimezone`` reads the naive wall reading in the machine's zone, as the
-    # clock does: the session starts at 22:30 local time wherever the test runs.
-    monkeypatch.setattr(sim_clock, "_now_to_the_minute", lambda: LATE.astimezone().astimezone(UTC))
+    monkeypatch.setattr(sim_clock, "_now_to_the_minute", lambda: LATE)
     monkeypatch.setattr("open_garden_planner.services.example_library.user_templates_dir", lambda: tmp_path)
     get_settings().show_welcome_on_startup = False
     win = GardenPlannerApp()
     monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
     qtbot.addWidget(win)
-    assert win._sim_clock.wall == LATE
+    assert win._sim_clock.utc == LATE
+    #: the wall reading the user's session started with, in this machine's zone
+    win.started_at = win._sim_clock.wall
     return win
 
 
@@ -100,7 +103,7 @@ def test_the_next_document_gets_the_users_own_reading_back(window, tmp_path):
     # a new plan after an example: the evening the session started at
     open_example(window, "family-garden")
     window._new_project_document(width_cm=1000, height_cm=800)
-    assert clock.wall == LATE
+    assert clock.wall == window.started_at and clock.utc == LATE
 
     # the user's own setting, two examples in a row, a scrub inside the example
     mine = datetime(2026, 5, 1, 9, 15)
@@ -137,7 +140,7 @@ def test_a_plan_saved_from_an_example_is_the_users_plan(window, tmp_path):
     window._new_project_document(width_cm=1000, height_cm=800)
     window._open_project_file(str(saved))
     assert window._project_manager.current_file == saved
-    assert clock.wall == LATE
+    assert clock.wall == window.started_at and clock.utc == LATE
     assert window._sun_controller.state == STATE_NIGHT
 
 
