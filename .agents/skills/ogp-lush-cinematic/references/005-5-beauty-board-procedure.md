@@ -18,8 +18,9 @@ venv/Scripts/python.exe scripts/render_beauty_board.py --out <dir>   --presets l
 (`bench_large.ogp`), `--size` the frame (`960x540` is what the L0 and L1.4 boards were judged
 at), `--dusk` the evening from 6° to −7° on the golden-hour camera (must fade monotonically;
 sunset no larger a step than a half degree of the day ramp; since #802 the garden's own
-light too — `ground_luminance`, the rows below the horizon — on that camera and on the
-view's default framing, `ground_monotone` / `default_monotone`), `--fence` the plan's fences alone
+light too — `ground_luminance`, the rows below the horizon — on that camera, and for the
+clear evening's first preset on the view's default framing: `ground_monotone` /
+`default_monotone`), `--fence` the plan's fences alone
 against a 2x-supersampled render (aliasing), `--edge` the plan ground against the meadow along
 its edges (a step ≤ 1 luma), `--software` renders on the graphics API's software adapter (WARP: the workspace's
 compatibility mode — no sky texture, a plain sky and a flat fill), `--fps-seconds N` shows a

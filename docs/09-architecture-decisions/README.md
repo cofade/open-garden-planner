@@ -6889,9 +6889,12 @@ re-measured on the family garden's default view (Berlin, 21 June, high, 640 × 3
    rig's own light. An overcast, rain and snow need none (their own light stays above their
    darker night). Unlit particles take the fill into their light.
 3. **The garden's light is a gate.** The board's `--dusk` records `ground_luminance` (the rows
-   below the horizon) per row and renders the evening also from the view's own default framing
-   (first preset): `ground_monotone` and `default_monotone` join `monotone`, by the same noise
-   rule (0.2 % + 1e-5), on both skies and in every weather of `--living`.
+   below the horizon) per row: `ground_monotone` joins `monotone`, by the same noise rule
+   (0.2 % + 1e-5), on both skies and in every weather of `--living`. The clear evening is also
+   rendered from the view's own default framing for the first preset (`default_monotone`) —
+   once per board, so `--living` stays inside its render-tier timeout. The board's presets
+   after the first had been rendered from the set-sun probe's sky camera (the loop rebound
+   `camera`); each now takes the golden-hour camera, as documented.
 
 **Alternatives rejected.** For #799: interpolating two built skies (Qt cannot blend two light
 probes) and a finer threshold (decision 1). For #802: the levers in the context; a fill shaped

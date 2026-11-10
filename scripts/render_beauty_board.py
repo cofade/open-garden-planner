@@ -1113,9 +1113,9 @@ class Board:
         #802: the GARDEN must fade too — the frame is mostly sky, and the ground rose
         after sunset while the frame fell. Every row carries ``ground_luminance`` (the
         rows below the horizon) and ``ground_monotone`` judges it by the same noise rule;
-        for the first preset the evening is also rendered from the view's own default
-        framing of the plan (``default_rows``, ``default_monotone``), where the issue
-        was measured."""
+        for the first preset of the clear evening it is also rendered from the view's own
+        default framing of the plan (``default_rows``, ``default_monotone``), where the
+        issue was measured (once per board: ``--living`` would add 16 frames per weather)."""
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.core.scene3d.camera import FOV_DEG, Bounds, frame_pose
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
@@ -1189,7 +1189,7 @@ class Board:
                            "ground_rises": ground_rises, "ground_monotone": not ground_rises,
                            "day_ramp_max_step": round(max(day_steps), 5) if day_steps else None,
                            "sunset_step": None if crossing is None else round(crossing, 5)}
-            if preset == presets[0]:
+            if preset == presets[0] and weather == "clear":   # the render tier's time: once
                 default_rows = evening("dusk_default", preset, default_view)
                 default_rises = rises_of([row["ground_luminance"] for row in default_rows])
                 out[preset].update(default_rows=default_rows, default_rises=default_rises,

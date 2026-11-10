@@ -1323,7 +1323,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
           "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
-          "current_sha256": "02abd10a3ce0a47fb077447098179c389d7625f958bba20ead9ab7030791861a"
+          "current_sha256": "8d76ee5086426c88e895c49a3011d07841b84749ac3aaf9a21227186fb9178eb"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
@@ -2723,7 +2723,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
           "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
-          "current_sha256": "02abd10a3ce0a47fb077447098179c389d7625f958bba20ead9ab7030791861a"
+          "current_sha256": "8d76ee5086426c88e895c49a3011d07841b84749ac3aaf9a21227186fb9178eb"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
