@@ -95,6 +95,9 @@ Item {
     // ground's - what a built surface with a detail picture takes too (built_detail.frag)
     property real wetRoughShift: 0.0
     property real wetSpecularShift: 0.0
+    // snow on built TOPS (a roof, a deck), 0..1: the living garden's (#687) - a smooth
+    // top lies white where the meadow's cover still shows grass; 0 keeps them bare
+    property real builtSnow: 0.0
     property int precipKind: 0              // 0 none, 1 rain, 2 snow
     property real precipDensity: 0.0        // the share of the precipitation's particles drawn
     property vector3d windDrift: Qt.vector3d(0, 0, 0)       // cm/s, engine frame
@@ -665,7 +668,7 @@ Item {
                 property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
                 property real uWetRough: root.wetRoughShift
                 property real uWetSpecular: root.wetSpecularShift
-                property real uSnowCover: root.snowCover
+                property real uSnowCover: root.builtSnow
                 property real uSnowRough: root.groundRoughness
                 property real uSnowSpecular: root.groundSpecular
                 shadingMode: CustomMaterial.Shaded
@@ -740,7 +743,7 @@ Item {
                 property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
                 property real uWetRough: root.wetRoughShift
                 property real uWetSpecular: root.wetSpecularShift
-                property real uSnowCover: root.snowCover
+                property real uSnowCover: root.builtSnow
                 property real uSnowRough: root.groundRoughness
                 property real uSnowSpecular: root.groundSpecular
                 shadingMode: CustomMaterial.Shaded

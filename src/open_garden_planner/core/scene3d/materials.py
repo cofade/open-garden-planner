@@ -106,15 +106,15 @@ SURFACES: Final = MappingProxyType(dict((
     _surface("steel", 0.45, 0.50),         # §4 aluminium frames 0.30-0.50
     _surface("iron", 0.60, 0.35),
     _surface("enamel", 0.60, 0.15),
-    _surface("plastic", 0.95, 0.20),
+    _surface("plastic", 1.0, 0.20),       # a pad facing a low sun: 8.0 degrees off its blue
     _surface("rubber", 0.95, 0.0),         # specular off (SPECULAR_OFF_AT): no grazing sheen
     _surface("canvas", 0.95, 0.0),
     _surface("terracotta", 0.85, 0.20),    # §4 terracotta pots 0.80-0.90
     _surface("stone", 0.90, 0.15),
     _surface("masonry", 0.90, 0.15,        # a garden wall's courses (#801)
-             SurfaceDetail("STONE", DETAIL_PLANAR, 256.0, 2.0, 4000.0)),
+             SurfaceDetail("STONE", DETAIL_PLANAR, 256.0, 2.0, 4000.0, 0.8)),
     _surface("plaster", 0.90, 0.15,        # §4 plaster walls 0.85-0.95 (#801)
-             SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0)),
+             SurfaceDetail("CONCRETE", DETAIL_PLANAR, 128.0, 1.0, 2000.0, 0.85)),
     _surface("concrete", 0.90, 0.15),
     _surface("soil", 0.95, 0.10),          # §4 bark, soil, mulch 0.85-0.95
     _surface("roof_tile", 0.80, 0.15,      # §4 roof tiles 0.70-0.85 (roofMat's values)

@@ -41,7 +41,8 @@ RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_selftest.py",
                 "tests/integration/test_quick3d_lifecycle.py",
                 "tests/integration/test_scene3d_ground_render.py",  # the baked ground (L1.5)
-                "tests/integration/test_directors_cut_render.py")   # the capture view (L6)
+                "tests/integration/test_directors_cut_render.py",   # the capture view (L6)
+                "tests/integration/test_built_materials_render.py")  # roofs, walls, surfaces (#801, #803)
 #: The default workspace's real-host gates (#540) — close and compatibility only in CI.
 WORKSPACE_RENDER = "tests/integration/test_view3d_workspace_render.py"
 #: The subset: G5's close rows (with the frozen-exe variants, which skip without the exe)
