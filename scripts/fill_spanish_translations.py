@@ -28,6 +28,7 @@ from scripts.translations_es.dialogs import TRANSLATIONS as T_DIALOGS
 from scripts.translations_es.objects_gallery import TRANSLATIONS as T_OG
 from scripts.translations_es.panels import TRANSLATIONS as T_PANELS
 from scripts.translations_es.view3d import TRANSLATIONS as T_VIEW3D
+from scripts.translations_examples import ES as T_EXAMPLES
 from scripts.translations_exports import ES as T_EXPORTS
 from scripts.translations_f4 import ES as T_F4
 from scripts.translations_l2 import ES as T_L2
@@ -52,7 +53,7 @@ TS_FILE = (
 def get_spanish_translations() -> dict[str, dict[str, str]]:
     """Assemble modular Spanish translations into a unified dictionary."""
     assembled: dict[str, dict[str, str]] = {}
-    for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_F4, T_L2, T_L4, T_L5, T_L6, T_L7, T_EXPORTS):
+    for module_trans in (T_CS, T_OG, T_CT, T_PANELS, T_DIALOGS, T_APP, T_VIEW3D, T_F4, T_L2, T_L4, T_L5, T_L6, T_L7, T_EXPORTS, T_EXAMPLES):
         for ctx, mapping in module_trans.items():
             assembled.setdefault(ctx, {}).update(mapping)
     return assembled

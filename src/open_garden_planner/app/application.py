@@ -2163,6 +2163,7 @@ class GardenPlannerApp(QMainWindow):
         self._minimap = MinimapWidget(self.canvas_view, self.canvas_scene)
 
         # ── Sun & shade simulation (US-E3) ─────────────────────────────
+        from open_garden_planner.core.showcase_moment import ShowcaseMoment
         from open_garden_planner.core.sim_clock import SimClock
         from open_garden_planner.ui.canvas.sun_shadow_controller import (
             SunShadowController,
@@ -2175,6 +2176,9 @@ class GardenPlannerApp(QMainWindow):
         # they hold bound methods weakly but do NOT disconnect a destroyed
         # QObject, so every subscriber lives as long as this window.
         self._sim_clock = SimClock()
+        # A shipped example is seen at its own moment and the user's reading
+        # comes back with the next document (#795); it writes this one clock.
+        self._showcase_moment = ShowcaseMoment(self._sim_clock)
         self.canvas_scene.bind_plan_clock(self._sim_clock)
         self._sun_controller = SunShadowController(
             self.canvas_scene,
@@ -2959,6 +2963,7 @@ class GardenPlannerApp(QMainWindow):
         """
         try:
             self._project_manager.load(self.canvas_scene, recovery_path)
+            self._showcase_moment.document_opened(None)
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.canvas_scene.update_dimension_lines()
@@ -3178,6 +3183,7 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.clear()
         self.constraints_panel.refresh()
         self._project_manager.new_project()
+        self._showcase_moment.document_opened(None)
 
         # Apply optional garden year chosen in dialog
         if garden_year is not None:
@@ -3314,6 +3320,14 @@ class GardenPlannerApp(QMainWindow):
                 self._update_window_title()
             raise
 
+        # A shipped example opens at the daytime moment its sidecar names, however
+        # late the wall clock is; every other document gets the user's own reading
+        # back (#795, ADR-066 addendum). Session state only: nothing is saved.
+        from open_garden_planner.core.templates import example_showcase_moment
+
+        self._showcase_moment.document_opened(
+            example_showcase_moment(Path(file_path)) if as_template else None)
+
         if hasattr(self, 'calendar_view') and self.calendar_view is not None:
             self.calendar_view.clear_frost_alerts()
 
@@ -3333,7 +3347,12 @@ class GardenPlannerApp(QMainWindow):
                 8000,
             )
         else:
-            self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
+            # A copy has no file; the bundled source's path inside the app tells a
+            # reader nothing, its name does (#795).
+            self.statusBar().showMessage(
+                self.tr("Opened as an untitled copy: {name}").format(
+                    name=self._project_manager.display_name)
+                if as_template else self.tr("Opened: {path}").format(path=file_path))
         # Load compare overlay if previous seasons are linked (US-10.7)
         self._load_compare_overlay_from_previous_season()
         self.tasks_view.refresh()

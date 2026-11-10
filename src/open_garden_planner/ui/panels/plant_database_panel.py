@@ -243,6 +243,11 @@ class EditableField(QWidget):
             self.value_changed.emit()
 
 
+#: Edge of the plant drawing in the profile's 96 px tile, in logical pixels: the
+#: tile less its border and a small margin.
+_PROFILE_SPRITE_PX = 88
+
+
 class _ThumbnailWorker(QThread):
     """Off-thread loader for plant profile thumbnails (US-G2, issue #765)."""
 
@@ -2206,7 +2211,8 @@ class PlantDatabasePanel(QWidget):
         self._profile_links.setText(" · ".join(links) if links else "")
         self._profile_links.setVisible(bool(links))
 
-        # Thumbnail
+        # Thumbnail: the provider's photo when the species has one; until it is
+        # there, and for a species without one, the plant's own drawing.
         thumb_url = plant_data.thumbnail_url or plant_data.image_url
         if thumb_url:
             cached = get_cached_thumbnail(thumb_url)
@@ -2221,13 +2227,12 @@ class PlantDatabasePanel(QWidget):
                     )
                     self._profile_thumbnail.setPixmap(scaled)
                 else:
-                    self._profile_thumbnail.setText("🌱")
+                    self._show_drawn_thumbnail()
             else:
-                # Show placeholder while loading
-                self._profile_thumbnail.setText("🌱")
+                self._show_drawn_thumbnail()
                 self._start_thumbnail_fetch(thumb_url)
         else:
-            self._profile_thumbnail.setText("🌱")
+            self._show_drawn_thumbnail()
 
         # Show the header if there's any content
         has_content = bool(
@@ -2241,6 +2246,41 @@ class PlantDatabasePanel(QWidget):
         # Update favorite button
         self._current_plant_data = plant_data
         self._update_favorite_button()
+
+    def _show_drawn_thumbnail(self) -> None:
+        """Show the selected plant as the plan draws it, where no photo is shown.
+
+        The 118 bundled species carry no picture URL, so their profile showed a
+        seedling emoji in an empty tile (#795). The app ships a drawing of every
+        plant: the sprite on the canvas, resolved by the same rule
+        (``core.plant_renderer.render_plant_pixmap``: species, then category,
+        then the object type's default) and tinted like the item. Upright, not
+        with the item's own turn. The emoji stays for an item that is no plant.
+        """
+        from PyQt6.QtGui import QPixmap
+
+        from open_garden_planner.core.plant_renderer import is_plant_type, render_plant_pixmap
+
+        item = self._current_plant_item
+        object_type = getattr(item, "object_type", None)
+        ratio = self._profile_thumbnail.devicePixelRatioF()
+        sprite = None
+        if item is not None and object_type is not None and is_plant_type(object_type):
+            sprite = render_plant_pixmap(
+                object_type,
+                _PROFILE_SPRITE_PX * ratio,
+                species=getattr(item, "plant_species", "") or "",
+                category=getattr(item, "plant_category", None),
+                tint_color=getattr(item, "fill_color", None),
+            )
+        if sprite is None:
+            self._profile_thumbnail.setText("🌱")
+            return
+        # A copy: the renderer's cache hands the same pixmap to the canvas, which
+        # must not get it back with this label's device pixel ratio.
+        drawn = QPixmap(sprite)
+        drawn.setDevicePixelRatio(ratio)
+        self._profile_thumbnail.setPixmap(drawn)
 
     def shutdown(self) -> None:
         """Clean up background thumbnail worker on teardown (PF-LIF-12)."""

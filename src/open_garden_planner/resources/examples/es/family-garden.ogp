@@ -153,7 +153,7 @@
       "name": "Camino de grava",
       "label_visible": false,
       "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
+      "stroke_width": 80.0,
       "path_fence_style": "GRAVEL_PATH",
       "stack_order": 15360
     },
@@ -182,7 +182,7 @@
       "name": "Pasaderas",
       "label_visible": false,
       "stroke_color": "#ffa0a09b",
-      "stroke_width": 6.0,
+      "stroke_width": 50.0,
       "path_fence_style": "STEPPING_STONES",
       "stack_order": 16384
     },
@@ -4699,5 +4699,125 @@
       "first_fall_frost": "10-31"
     },
     "timezone": "Europe/Berlin"
+  },
+  "harvest_logs": {
+    "fa533cd1-0e3b-409c-97b4-9aa9ece041b0": {
+      "target_id": "fa533cd1-0e3b-409c-97b4-9aa9ece041b0",
+      "records": [
+        {
+          "id": "904ee60f-4f85-5944-8704-0cb5ba653e57",
+          "date": "2026-05-30",
+          "quantity": 180,
+          "unit": "g",
+          "quality": "hojas exteriores",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "c179fe65-bd2b-5b96-a35b-25995be0d17a",
+          "date": "2026-06-12",
+          "quantity": 220,
+          "unit": "g",
+          "quality": "crujiente",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "lactuca sativa",
+      "species_name": "Lechuga"
+    },
+    "924b938b-5695-4356-be5c-2d9167d3dc17": {
+      "target_id": "924b938b-5695-4356-be5c-2d9167d3dc17",
+      "records": [
+        {
+          "id": "c1b46844-6152-561e-9351-0904f09f4310",
+          "date": "2026-05-22",
+          "quantity": 250,
+          "unit": "g",
+          "quality": "tierno",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "d1240afe-72f0-501e-9c76-7274ae7a90b6",
+          "date": "2026-06-05",
+          "quantity": 300,
+          "unit": "g",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "spinacia oleracea",
+      "species_name": "Espinaca"
+    },
+    "242eb70e-122e-4aed-a86d-82e9ef5558de": {
+      "target_id": "242eb70e-122e-4aed-a86d-82e9ef5558de",
+      "records": [
+        {
+          "id": "b8cfb08d-20f8-54d6-b47e-6f126fe14467",
+          "date": "2026-05-15",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "956df407-d2b6-5e40-969d-cf188325d75c",
+          "date": "2026-06-08",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "allium schoenoprasum",
+      "species_name": "Cebollino"
+    },
+    "8562efa2-ebee-432b-897a-2ee3944fbbe4": {
+      "target_id": "8562efa2-ebee-432b-897a-2ee3944fbbe4",
+      "records": [
+        {
+          "id": "31b1217e-97ff-5c95-b4e1-adc39ab4b2c7",
+          "date": "2026-06-02",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "petroselinum crispum",
+      "species_name": "Perejil"
+    },
+    "77305f4c-b490-4fcc-90cc-a328d2e0dfcd": {
+      "target_id": "77305f4c-b490-4fcc-90cc-a328d2e0dfcd",
+      "records": [
+        {
+          "id": "a38e0070-7712-5332-a99a-2e525c35ccf3",
+          "date": "2026-06-14",
+          "quantity": 1,
+          "unit": "bunch",
+          "quality": "arom\u00e1tico",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "ocimum basilicum",
+      "species_name": "Albahaca"
+    },
+    "8e0b1e77-4042-40ef-8ea5-cf23e53f0340": {
+      "target_id": "8e0b1e77-4042-40ef-8ea5-cf23e53f0340",
+      "records": [
+        {
+          "id": "0dd9361c-ac19-52b9-a1ed-9405c11de58e",
+          "date": "2026-06-13",
+          "quantity": 2.5,
+          "unit": "kg",
+          "quality": "primera recogida",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "2a859d22-c392-5142-9ae0-1621224724c0",
+          "date": "2026-06-19",
+          "quantity": 4,
+          "unit": "kg",
+          "quality": "dulce",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "prunus avium",
+      "species_name": "Cerezo"
+    }
   }
 }

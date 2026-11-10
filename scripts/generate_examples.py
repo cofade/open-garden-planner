@@ -11,6 +11,7 @@ and with that fixture's item ids, because a plant's procedural shape is seeded b
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -33,12 +34,13 @@ from open_garden_planner.core.commands import CreateItemsCommand
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.growth_model import years_to_maturity
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
-from open_garden_planner.core.item_look import restore_stored_look
+from open_garden_planner.core.item_look import adopt_pen, restore_stored_look
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.plan_io import write_plan
 from open_garden_planner.core.project import ProjectManager
+from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
 from open_garden_planner.models.layer import Layer
-from open_garden_planner.models.plant_data import PermacultureLayer
+from open_garden_planner.models.plant_data import PermacultureLayer, species_key
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
 from open_garden_planner.models.succession import SuccessionEntry, SuccessionPlan
 from open_garden_planner.services.bundled_species_db import get_species_db
@@ -46,6 +48,7 @@ from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 from open_garden_planner.ui.canvas.items import CircleItem, PolylineItem, RectangleItem, TextItem
 from open_garden_planner.ui.plant_creation import build_species_plant
 
@@ -73,7 +76,12 @@ TRANSLATIONS = {}
 
 
 def text(en, de, es):
-    TRANSLATIONS[en] = {"de": de, "es": es}
+    """Register one English string's translations. One string has ONE translation per
+    language: every plan is localized from this single table, so a second, different
+    entry would silently win for whichever plan is authored later (it turned the
+    showcase's "Compostador" into "Compost" whenever all four plans were regenerated)."""
+    entry = {"de": de, "es": es}
+    assert TRANSLATIONS.setdefault(en, entry) == entry, (en, TRANSLATIONS[en], entry)
     return en
 
 
@@ -127,9 +135,15 @@ def _line(scene, points, kind, name, height_cm, preset=PathFenceStyle.NONE):
     return item
 
 
-def _note(scene, x, y, content, size=0.42):
-    item = TextItem(x, y, content=content, font_size=size,
-                    text_color=QColor("#243528"), layer_id=scene.active_layer.id)
+#: A tutorial note's ink. A note has no halo and no card of its own, so its colour has to
+#: suit the ground it lies on: dark on the balcony's pale boards, light on a lawn, where the
+#: dark ink sank into the grass texture (#795).
+NOTE_ON_PALE, NOTE_ON_LAWN = "#243528", "#fdfbee"
+
+
+def _note(scene, x, y, content, size=0.42, ink=NOTE_ON_PALE, bold=False):
+    item = TextItem(x, y, content=content, font_size=size, bold=bold,
+                    text_color=QColor(ink), layer_id=scene.active_layer.id)
     scene.addItem(item)
     return item
 
@@ -148,6 +162,49 @@ def _soil(manager, bed, ph=6.5):
         date="2026-05-20", ph=ph, n_level=1, p_level=2, k_level=3,
         soil_texture="loamy", notes=note)])
     manager.set_soil_test_history(str(bed.item_id), history)
+
+
+def _first(scene, key):
+    """The plant of species ``key`` nearest the plan's south-west corner: one fixed plant
+    of a species carries that species' harvest history."""
+    plants = [item for item in scene.items()
+              if species_key((getattr(item, "metadata", None) or {}).get("plant_species") or {}) == key]
+    assert plants, key
+    return min(plants, key=lambda item: (item.sceneBoundingRect().center().x(),
+                                         item.sceneBoundingRect().center().y()))
+
+
+def _harvest(manager, slug, plant, entries):
+    """A fictional harvest history on ``plant``: ``(date, quantity, unit[, quality])`` rows.
+
+    The same record the Log Harvest dialog writes, with the species identity it caches
+    (the canonical ``species_key`` and the common name). No journal note is linked: an
+    example copy carries no journal.
+    """
+    note = text("Fictional example entry; not a real harvest record.",
+                "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung.",
+                "Entrada ficticia de ejemplo; no es un registro real de cosecha.")
+    species = plant.metadata["plant_species"]
+    target = str(plant.item_id)
+    for day, *_rest in entries:
+        assert day >= plant.metadata["plant_instance"]["planting_date"], (slug, species["common_name"], day)
+    records = [HarvestRecord(
+        id=str(uuid5(NAMESPACE_URL, f"ogp-example/{slug}/harvest/{species_key(species)}/{day}")),
+        date=day, quantity=quantity, unit=unit, quality=quality[0] if quality else "", notes=note)
+        for day, quantity, unit, *quality in entries]
+    manager.set_harvest_history(target, HarvestHistory(
+        target, records, species_key=species_key(species), species_name=species["common_name"]))
+
+
+#: Free-text quality remarks of the fictional harvests.
+SWEET = text("sweet", "süß", "dulce")
+CRISP = text("crisp", "knackig", "crujiente")
+AROMATIC = text("aromatic", "aromatisch", "aromático")
+TENDER = text("tender", "zart", "tierno")
+FIRST_PICK = text("first pick", "erste Pflücke", "primera recogida")
+THINNINGS = text("thinnings", "ausgedünnte Jungpflanzen", "aclareo")
+OUTER_LEAVES = text("outer leaves", "äußere Blätter", "hojas exteriores")
+PETALS = text("flowers for the kitchen", "Blüten für die Küche", "flores para la cocina")
 
 
 def food_forest():
@@ -220,9 +277,26 @@ def food_forest():
     _note(scene, 70, 95, text(
         "21 Sep 2026 · 1  Apple guild: select apple → Guilds; inspect grouped plants and the unfilled fixer role.\n2  Plan & Sun: scrub 2014–2026; inspect the established trees (planted 2014 / 2016).\n3  Hours of Sun: compare the south edge with the tree shade. Bonn reference; frost dates are fictional.",
         "21.09.2026 · 1  Apfelgilde: Apfelbaum → Gilden; Pflanzgruppen und die unbesetzte Stickstoffbinder-Rolle prüfen.\n2  Plan & Sonne: 2014–2026 durchgehen; alte Bäume prüfen (gepflanzt 2014 / 2016).\n3  Sonnenstunden: Südsaum mit Baumschatten vergleichen. Referenz Bonn; Frostdaten sind fiktiv.",
-        "21 sep 2026 · 1  Gremio: manzano → Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014–2026; observe los árboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias."), 0.65)
+        "21 sep 2026 · 1  Gremio: manzano → Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014–2026; observe los árboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias."), 0.65, NOTE_ON_LAWN, bold=True)
     manager = ProjectManager()
     _site(manager, "Bonn", 50.7374, 7.0982)
+    # Two seasons of the perennials, one of this year's sowings; nothing after 21 September.
+    for key, entries in (
+        ("malus domestica", [("2025-09-20", 38, "kg"), ("2025-10-04", 22, "kg", SWEET),
+                             ("2026-09-12", 31, "kg", FIRST_PICK)]),
+        ("prunus persica", [("2025-08-16", 14, "kg"), ("2026-08-12", 9, "kg", SWEET),
+                            ("2026-08-22", 7.5, "kg")]),
+        ("ribes rubrum", [("2025-07-06", 3.2, "kg"), ("2026-07-04", 2.8, "kg"),
+                          ("2026-07-11", 1.6, "kg")]),
+        ("fragaria ananassa", [("2025-06-10", 1.8, "kg"), ("2025-06-20", 2.4, "kg", SWEET),
+                               ("2026-06-08", 2.1, "kg"), ("2026-06-17", 2.9, "kg", AROMATIC)]),
+        ("phaseolus coccineus", [("2026-08-05", 1.2, "kg", TENDER), ("2026-08-26", 1.9, "kg"),
+                                 ("2026-09-14", 1.1, "kg")]),
+        ("allium schoenoprasum", [("2025-05-10", 4, "bunch"), ("2026-05-02", 3, "bunch"),
+                                  ("2026-07-25", 2, "bunch")]),
+        ("daucus carota", [("2026-09-18", 1.4, "kg", THINNINGS)]),
+    ):
+        _harvest(manager, "food-forest", _first(scene, key), entries)
     return scene, manager
 
 
@@ -252,7 +326,7 @@ def raised_bed():
     _rect(scene, 70, 535, 150, 55, ObjectType.BENCH, text("Garden bench", "Gartenbank", "Banco de jardín"))
     _rect(scene, 15, 240, 120, 100, ObjectType.TOOL_SHED,
           text("Tool shed: afternoon shadow", "Geräteschuppen: Nachmittagsschatten", "Caseta: sombra de tarde"), 210)
-    _rect(scene, 270, 535, 90, 80, ObjectType.COMPOST_BIN, text("Compost", "Kompost", "Compost"), 90)
+    _rect(scene, 270, 535, 90, 80, ObjectType.COMPOST_BIN, text("Compost", "Kompost", "Compostador"), 90)
     entries = [SuccessionEntry(species_key=key, common_name=name, scientific_name=key,
                               start_date=start, end_date=end)
                for key, name, start, end in [
@@ -266,7 +340,18 @@ def raised_bed():
     _note(scene, 80, 145, text(
         "21 Sep 2026 · 1  16 lettuces + 60 carrots + 88 radishes; sow radish sections in batches.\n2  Right-click the bed: Succession Plan (2027), then Soil Test (fictional sample).\n3  Plan & Sun: 21 Sep, 17:30 → shed shade on the bed. Berlin / frost: demo data.",
         "21.09.2026 · 1  16 Salate + 60 Möhren + 88 Radieschen; Radieschen abschnittsweise säen.\n2  Rechtsklick aufs Beet: Nachfolgeplanung (2027), dann Bodentest (fiktive Probe).\n3  Plan & Sonne: 21.09., 17:30 Uhr → Beetschatten. Berlin / Frost: Beispieldaten.",
-        "21 sep 2026 · 1  16 lechugas + 60 zanahorias + 88 rábanos; siembre rábanos por tandas.\n2  Clic derecho en bancal: sucesión (2027), después análisis de suelo (muestra ficticia).\n3  Plan y sol: 21 sep, 17:30 → sombra sobre el bancal. Berlín / heladas: ejemplo."), 0.47)
+        "21 sep 2026 · 1  16 lechugas + 60 zanahorias + 88 rábanos; siembre rábanos por tandas.\n2  Clic derecho en bancal: sucesión (2027), después análisis de suelo (muestra ficticia).\n3  Plan y sol: 21 sep, 17:30 → sombra sobre el bancal. Berlín / heladas: ejemplo."), 0.47, NOTE_ON_LAWN, bold=True)
+    # The bed stays fully planted on 21 September: what was taken so far are leaves and
+    # thinnings, and the border's perennial chives have a season behind them.
+    for key, entries in (
+        ("lactuca sativa", [("2026-09-05", 350, "g", OUTER_LEAVES), ("2026-09-16", 420, "g", CRISP)]),
+        ("daucus carota", [("2026-09-10", 1.1, "kg", THINNINGS), ("2026-09-19", 1.6, "kg", SWEET)]),
+        ("allium schoenoprasum", [("2025-05-18", 3, "bunch"), ("2025-08-09", 2, "bunch"),
+                                  ("2026-04-28", 2, "bunch"), ("2026-06-15", 2, "bunch"),
+                                  ("2026-08-30", 1, "bunch")]),
+        ("calendula officinalis", [("2026-07-12", 30, "pcs", PETALS), ("2026-08-18", 25, "pcs")]),
+    ):
+        _harvest(manager, "raised-bed", _first(scene, key), entries)
     return scene, manager
 
 
@@ -297,7 +382,11 @@ def balcony():
     for x in (120, 292):
         chair = _rect(scene, x, 215, 42, 42, ObjectType.CHAIR,
                       text("Balcony chair", "Balkonstuhl", "Silla de balcón"))
-        chair.setRotation(90 if x == 120 else -90)
+        # Through the canonical rotate path, about the seat's centre. A bare
+        # ``setRotation`` turned about the item's origin and was never saved as the
+        # item's angle: the shipped chairs stood unrotated, and a regeneration under the
+        # current serializer moved them off the balcony.
+        apply_rotation(chair, 90 if x == 120 else -90)
     parasol = CircleItem(center_x=410, center_y=215, radius=72,
                         object_type=ObjectType.PARASOL,
                         name=text("Parasol: 21 June at 15:00", "Sonnenschirm: 21. Juni um 15 Uhr", "Sombrilla: 21 de junio a las 15:00"), layer_id=scene.active_layer.id)
@@ -310,6 +399,14 @@ def balcony():
         "21 Sep 2026 · 4 basil / 6 parsley / 4 thyme; water separately.\nBasil trough → Soil Test: fictional sample; Freiburg / frost: demo data.\nPlan & Sun: 21 June, 15:00 → compare wall, rails and parasol shadows.",
         "21.09.2026 · 4 Basilikum, 6 Petersilien, 4 Thymiane; getrennt gießen.\nBasilikumtrog → Bodentest: Übungsprobe; Freiburg / Frost: fiktiv.\nPlan & Sonne: 21. Juni, 15 Uhr → Wand, Geländer und Schirm.",
         "21 sep 2026 · 4 albahacas, 6 perejiles, 4 tomillos; riego separado.\nAlbahaca → Análisis de suelo: ficticio; Friburgo / heladas: ejemplo.\nPlan y sol: 21 junio, 15:00 → pared, barandilla y sombrilla."), 0.24)
+    for key, entries in (
+        ("ocimum basilicum", [("2026-06-28", 1, "bunch", FIRST_PICK), ("2026-07-19", 2, "bunch", AROMATIC),
+                              ("2026-08-15", 2, "bunch"), ("2026-09-06", 1, "bunch")]),
+        ("thymus vulgaris", [("2025-06-14", 2, "bunch"), ("2025-08-23", 1, "bunch"),
+                             ("2026-06-06", 2, "bunch", AROMATIC), ("2026-08-29", 1, "bunch")]),
+        ("petroselinum crispum", [("2026-09-14", 1, "bunch", FIRST_PICK)]),
+    ):
+        _harvest(manager, "balcony", _first(scene, key), entries)
     return scene, manager
 
 
@@ -373,15 +470,38 @@ def _establish(item):
         instance["planting_date"] = ESTABLISHED
 
 
+#: The showcase's two paths, as wide as a path one walks on. The bench fixture keeps the
+#: 8 and 6 cm it was made with (``make_bench_plans.LEGACY_PATH_WIDTH_CM``: its pinned
+#: numbers), and they were hairlines in the plan and in 3D (#795).
+FAMILY_PATH_WIDTH_CM = {"Gravel path": 80.0, "Stepping stones": 50.0}
+
+
 def family_garden():
     """The bench plan as an example: ``make_bench_plans.build_small``, one builder for both."""
     from make_bench_plans import BERLIN, build_small
 
     builder = build_small()
+    widened = set()
     for item in builder.scene.items():
         _establish(item)
+        if getattr(item, "object_type", None) is ObjectType.PATH and item.name in FAMILY_PATH_WIDTH_CM:
+            pen = item.pen()
+            pen.setWidthF(FAMILY_PATH_WIDTH_CM[item.name])
+            adopt_pen(item, pen)
+            widened.add(item.name)
+    assert widened == set(FAMILY_PATH_WIDTH_CM), widened
     manager = ProjectManager()
     manager.set_location(dict(BERLIN) | {"timezone": "Europe/Berlin"})
+    # What a Berlin garden planted on 15 April (its trees stood before) has given by 21 June.
+    for key, entries in (
+        ("lactuca sativa", [("2026-05-30", 180, "g", OUTER_LEAVES), ("2026-06-12", 220, "g", CRISP)]),
+        ("spinacia oleracea", [("2026-05-22", 250, "g", TENDER), ("2026-06-05", 300, "g")]),
+        ("allium schoenoprasum", [("2026-05-15", 1, "bunch"), ("2026-06-08", 2, "bunch")]),
+        ("petroselinum crispum", [("2026-06-02", 1, "bunch")]),
+        ("ocimum basilicum", [("2026-06-14", 1, "bunch", AROMATIC)]),
+        ("prunus avium", [("2026-06-13", 2.5, "kg", FIRST_PICK), ("2026-06-19", 4, "kg", SWEET)]),
+    ):
+        _harvest(manager, "family-garden", _first(builder.scene, key), entries)
     return builder.scene, manager
 
 
@@ -401,46 +521,56 @@ def localized_plan(plan, language):
     return localize(plan)
 
 
+#: The moment an example opens at (``core/templates.example_showcase_moment``): its
+#: reference date, and a UTC time of day at which the sun stands well up over every one of
+#: the four gardens. All four lie in Europe/Berlin, on summer time on both dates:
+#: 11:00 UTC is 13:00 on their wall clocks, a quarter of an hour before solar noon in Berlin.
+TEACHING_DATE, SHOWCASE_UTC_TIME = "2026-09-21", "11:00"
+
 METADATA = {
     "family-garden": {
         "name_en": "Family garden - 24 x 16 m", "name_de": "Familiengarten - 24 x 16 m",
         "name_es": "Jardín familiar - 24 x 16 m",
         "name_ru": "Семейный сад - 24 x 16 м",
-        "description_en": "A whole garden to explore in 3D: house, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised vegetable beds, fruit trees, hedge and fences. 61 plants. Berlin reference; set Plan & Sun to 21 June 2026, then open 3D. Illustrative layout.",
-        "description_de": "Ein ganzer Garten zum Erkunden in 3D: Haus, Gewächshaus, Schuppen, Terrasse mit Pergola, Rasen mit Teich und Trampolin, drei Hochbeete, Obstbäume, Hecke und Zäune. 61 Pflanzen. Referenz Berlin; Plan & Sonne auf den 21. Juni 2026 stellen, dann 3D öffnen. Beispielentwurf.",
-        "description_es": "Un jardín entero para explorar en 3D: casa, invernadero, cobertizo, terraza con pérgola, césped con estanque y cama elástica, tres bancales elevados, frutales, seto y vallas. 61 plantas. Referencia Berlín; ajuste Plan y sol al 21 de junio de 2026 y abra 3D. Diseño ilustrativo.",
-        "description_ru": "Целый сад для изучения в 3D: дом, теплица, сарай, терраса с перголой, газон с прудом и батутом, три высокие грядки с овощами, плодовые деревья, живая изгородь и заборы. 61 растение. Ориентир: Берлин; установите «План и солнце» на 21 июня 2026 года, затем откройте 3D. Примерный проект.",
+        "description_en": "A whole garden to explore in 3D: house, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised vegetable beds, fruit trees, hedge and fences. 61 plants. Berlin reference; opens on 21 June 2026 in daylight, ready for the 3D view. Illustrative layout.",
+        "description_de": "Ein ganzer Garten zum Erkunden in 3D: Haus, Gewächshaus, Schuppen, Terrasse mit Pergola, Rasen mit Teich und Trampolin, drei Hochbeete, Obstbäume, Hecke und Zäune. 61 Pflanzen. Referenz Berlin; öffnet am 21. Juni 2026 bei Tageslicht, bereit für die 3D-Ansicht. Beispielentwurf.",
+        "description_es": "Un jardín entero para explorar en 3D: casa, invernadero, cobertizo, terraza con pérgola, césped con estanque y cama elástica, tres bancales elevados, frutales, seto y vallas. 61 plantas. Referencia Berlín; se abre el 21 de junio de 2026 con luz de día, listo para la vista 3D. Diseño ilustrativo.",
+        "description_ru": "Целый сад для изучения в 3D: дом, теплица, сарай, терраса с перголой, газон с прудом и батутом, три высокие грядки с овощами, плодовые деревья, живая изгородь и заборы. 61 растение. Ориентир: Берлин; открывается на 21 июня 2026 года при дневном свете, готов к просмотру в 3D. Примерный проект.",
         "tags": ["showcase", "3d", "family-garden"],
+        "showcase_date": "2026-06-21", "showcase_utc_time": SHOWCASE_UTC_TIME,
     },
     "food-forest": {
         "name_en": "Food forest - 200 m²", "name_de": "Waldgarten - 200 m²",
         "name_es": "Bosque comestible - 200 m²",
         "name_ru": "Лесосад - 200 м²",
-        "description_en": "Established trees, a grouped apple guild, accessible mulched beds and a sunny edible edge. Set Plan & Sun to 21 September 2026; Bonn reference coordinates and fictional frost dates. Illustrative layout; adapt species and spacing to your site.",
-        "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Plan & Sonne auf den 21. September 2026 stellen; Referenzkoordinaten Bonn und fiktive Frostdaten. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
-        "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Ajuste Plan y sol al 21 de septiembre de 2026; coordenadas de referencia de Bonn y heladas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
-        "description_ru": "Взрослые деревья, гильдия яблони в группах посадки, мульчированные грядки с проходами и солнечная съедобная опушка. Установите «План и солнце» на 21 сентября 2026 года; координаты Бонна и условные даты заморозков. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
+        "description_en": "Established trees, a grouped apple guild, accessible mulched beds and a sunny edible edge. Opens on 21 September 2026 in daylight; Bonn reference coordinates, fictional frost dates and harvest log. Illustrative layout; adapt species and spacing to your site.",
+        "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Öffnet am 21. September 2026 bei Tageslicht; Referenzkoordinaten Bonn, fiktive Frostdaten und fiktives Erntebuch. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
+        "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Se abre el 21 de septiembre de 2026 con luz de día; coordenadas de referencia de Bonn, heladas y cosechas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
+        "description_ru": "Взрослые деревья, гильдия яблони в группах посадки, мульчированные грядки с проходами и солнечная съедобная опушка. Открывается на 21 сентября 2026 года при дневном свете; координаты Бонна, условные даты заморозков и условный журнал урожая. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
         "tags": ["food-forest", "guild", "timeline"],
+        "showcase_date": TEACHING_DATE, "showcase_utc_time": SHOWCASE_UTC_TIME,
     },
     "raised-bed": {
         "name_en": "Raised-bed polyculture - 4 x 2 m", "name_de": "Hochbeet-Mischkultur - 4 x 2 m",
         "name_es": "Policultivo en bancal elevado - 4 x 2 m",
         "name_ru": "Поликультура в высокой грядке - 4 x 2 м",
-        "description_en": "164 crops in a 4 x 2 m bed: 16 lettuces, 60 carrots and 88 radishes. Autumn crops, a 2027 succession and fictional soil sample. Set Plan & Sun to 21 September 2026; Berlin reference. Dates are illustrative calendar dates, not a local frost forecast.",
-        "description_de": "164 Pflanzen im 4 x 2 m Beet: 16 Salate, 60 Möhren und 88 Radieschen. Herbstbestand, Nachfolgeplan 2027 und fiktive Bodenprobe. Plan & Sonne: 21. September 2026; Referenz Berlin. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
-        "description_es": "164 plantas en un bancal de 4 x 2 m: 16 lechugas, 60 zanahorias y 88 rábanos. Sucesión de 2027 y muestra ficticia de suelo. Plan y sol: 21 de septiembre de 2026; referencia Berlín. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
-        "description_ru": "164 культуры на грядке 4 x 2 м: 16 салатов, 60 морковей и 88 редисов. Осенние посадки, севооборот на 2027 год и условный образец почвы. Установите «План и солнце» на 21 сентября 2026 года; координаты Берлина. Указаны примерные календарные даты, а не прогноз местных заморозков.",
+        "description_en": "164 crops in a 4 x 2 m bed: 16 lettuces, 60 carrots and 88 radishes. Autumn crops, a 2027 succession, a fictional soil sample and harvest log. Opens on 21 September 2026 in daylight; Berlin reference. Dates are illustrative calendar dates, not a local frost forecast.",
+        "description_de": "164 Pflanzen im 4 x 2 m Beet: 16 Salate, 60 Möhren und 88 Radieschen. Herbstbestand, Nachfolgeplan 2027, fiktive Bodenprobe und fiktives Erntebuch. Öffnet am 21. September 2026 bei Tageslicht; Referenz Berlin. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
+        "description_es": "164 plantas en un bancal de 4 x 2 m: 16 lechugas, 60 zanahorias y 88 rábanos. Sucesión de 2027, muestra de suelo y cosechas ficticias. Se abre el 21 de septiembre de 2026 con luz de día; referencia Berlín. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
+        "description_ru": "164 культуры на грядке 4 x 2 м: 16 салатов, 60 морковей и 88 редисов. Осенние посадки, севооборот на 2027 год, условные образец почвы и журнал урожая. Открывается на 21 сентября 2026 года при дневном свете; координаты Берлина. Указаны примерные календарные даты, а не прогноз местных заморозков.",
         "tags": ["raised-bed", "polyculture", "succession"],
+        "showcase_date": TEACHING_DATE, "showcase_utc_time": SHOWCASE_UTC_TIME,
     },
     "balcony": {
         "name_en": "Balcony herb containers", "name_de": "Balkon mit Kräutergefäßen",
         "name_es": "Macetas de hierbas en el balcón",
         "name_ru": "Балкон с контейнерами для трав",
-        "description_en": "A furnished 5 x 3 m balcony: 4 basil, 6 parsley and 4 thyme plants, three rails, a north wall and a parasol. Soil-test and shadow tutorial; Freiburg reference. Teaching date: 21 September 2026. Illustrative layout; check the site's light and load limits.",
-        "description_de": "Ein möblierter 5 x 3 m Balkon: 4 Basilikum-, 6 Petersilien- und 4 Thymianpflanzen, drei Geländerseiten, Nordwand und Schirm. Bodentest- und Schattenübung; Referenz Freiburg. Übungsdatum: 21. September 2026. Beispielentwurf; Licht und Tragfähigkeit vor Ort prüfen.",
-        "description_es": "Un balcón amueblado de 5 x 3 m: 4 albahacas, 6 perejiles y 4 tomillos, tres barandillas, pared norte y sombrilla. Tutorial de suelo y sombras; referencia Friburgo. Fecha didáctica: 21 de septiembre de 2026. Diseño ilustrativo; compruebe la luz y la capacidad de carga del lugar.",
-        "description_ru": "Обустроенный балкон 5 x 3 м: 4 базилика, 6 петрушек и 4 тимьяна, три ограждения, северная стена и зонт. Обучение анализу почвы и теням; координаты Фрайбурга. Учебная дата: 21 сентября 2026 года. Пример планировки; проверьте освещенность и допустимую нагрузку на месте.",
+        "description_en": "A furnished 5 x 3 m balcony: 4 basil, 6 parsley and 4 thyme plants, three rails, a north wall and a parasol. Soil-test and shadow tutorial; Freiburg reference. Opens on its teaching date, 21 September 2026, in daylight. Illustrative layout; check the site's light and load limits.",
+        "description_de": "Ein möblierter 5 x 3 m Balkon: 4 Basilikum-, 6 Petersilien- und 4 Thymianpflanzen, drei Geländerseiten, Nordwand und Schirm. Bodentest- und Schattenübung; Referenz Freiburg. Öffnet am Übungsdatum, dem 21. September 2026, bei Tageslicht. Beispielentwurf; Licht und Tragfähigkeit vor Ort prüfen.",
+        "description_es": "Un balcón amueblado de 5 x 3 m: 4 albahacas, 6 perejiles y 4 tomillos, tres barandillas, pared norte y sombrilla. Tutorial de suelo y sombras; referencia Friburgo. Se abre en su fecha didáctica, el 21 de septiembre de 2026, con luz de día. Diseño ilustrativo; compruebe la luz y la capacidad de carga del lugar.",
+        "description_ru": "Обустроенный балкон 5 x 3 м: 4 базилика, 6 петрушек и 4 тимьяна, три ограждения, северная стена и зонт. Обучение анализу почвы и теням; координаты Фрайбурга. Открывается на учебную дату, 21 сентября 2026 года, при дневном свете. Пример планировки; проверьте освещенность и допустимую нагрузку на месте.",
         "tags": ["balcony", "containers", "herbs"],
+        "showcase_date": TEACHING_DATE, "showcase_utc_time": SHOWCASE_UTC_TIME,
     },
 }
 
@@ -459,48 +589,91 @@ def _thumbnail(scene, path):
     assert image.save(str(path))
 
 
+AUTHORS = {"food-forest": food_forest, "raised-bed": raised_bed, "balcony": balcony,
+           "family-garden": family_garden}
+LANGUAGES = ("de", "es")
+ATTRIBUTION = {
+    "license": "CC-BY-SA-4.0",
+    "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+    "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+    "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+    "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
+    "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md.",
+}
+
+
+def example_content(slug):
+    """What ships for ``slug``, as data: ``{file name under examples/: JSON content}``.
+
+    The canonical English plan, its ``de/`` and ``es/`` copies and the sidecar. The one
+    place the shipped files come from: ``main`` writes it, ``--check`` and
+    ``tests/unit/test_example_content.py`` compare the shipped files with it.
+    """
+    scene, manager = AUTHORS[slug]()
+    for item in scene.items():
+        if hasattr(item, "label_visible"):
+            item.label_visible = False
+    raw = manager._build_project_data(scene).to_dict()
+    raw["metadata"] = {"modified": "2026-10-26T00:00:00+00:00"}
+    scene.clear()
+    # the showcase keeps the bench plan's ids: they seed its plants' shapes
+    plan = raw if slug == "family-garden" else _stable_ids(raw, slug)
+    content = {slug + ".ogp": plan, slug + ".meta.json": METADATA[slug] | ATTRIBUTION}
+    for language in LANGUAGES:
+        content[f"{language}/{slug}.ogp"] = localized_plan(plan, language)
+    return content
+
+
+def stale_files(slugs):
+    """The shipped plan and sidecar files that are not what the generator makes now."""
+    stale = []
+    for slug in slugs:
+        for name, expected in example_content(slug).items():
+            shipped = BUNDLED_EXAMPLES / name
+            if not shipped.is_file() or json.loads(shipped.read_text(encoding="utf-8")) != expected:
+                stale.append(name)
+    return stale
+
+
 def main(argv=None):
     script_isolation.isolate()
-    # the example plans named on the command line, or all of them
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("slugs", nargs="*", metavar="slug",
+                        help="the example plans to regenerate (default: all): " + ", ".join(AUTHORS))
+    parser.add_argument("--check", action="store_true",
+                        help="compare the shipped plans and sidecars with what the generator makes; "
+                             "write nothing (thumbnails are not compared: fonts differ by machine)")
+    args = parser.parse_args(argv)
+    if unknown := set(args.slugs) - set(AUTHORS):
+        parser.error(f"no such example: {', '.join(sorted(unknown))}")
     app = QApplication.instance() or QApplication([])
+    slugs = args.slugs or list(AUTHORS)
+    if args.check:
+        stale = stale_files(slugs)
+        for name in stale:
+            print(f"STALE: {name} - rerun scripts/generate_examples.py")
+        print("examples: " + ("FAIL" if stale else "OK"))
+        return 1 if stale else 0
     BUNDLED_EXAMPLES.mkdir(parents=True, exist_ok=True)
-    only = set(sys.argv[1:] if argv is None else argv)
-    for slug, author in [("food-forest", food_forest), ("raised-bed", raised_bed), ("balcony", balcony),
-                         ("family-garden", family_garden)]:
-        if only and slug not in only:
-            continue
-        scene, manager = author()
-        for item in scene.items():
-            if hasattr(item, "label_visible"):
-                item.label_visible = False
-        raw = manager._build_project_data(scene).to_dict()
-        raw["metadata"] = {"modified": "2026-10-26T00:00:00+00:00"}
-        # the showcase keeps the bench plan's ids: they seed its plants' shapes
-        plan = raw if slug == "family-garden" else _stable_ids(raw, slug)
-        write_plan(BUNDLED_EXAMPLES / (slug + ".ogp"), plan)
-        for language in ("de", "es"):
-            folder = BUNDLED_EXAMPLES / language
-            folder.mkdir(exist_ok=True)
-            write_plan(folder / (slug + ".ogp"), localized_plan(plan, language))
+    manager = ProjectManager()
+    scene = CanvasScene()
+    for slug in slugs:
+        for name, content in example_content(slug).items():
+            path = BUNDLED_EXAMPLES / name
+            path.parent.mkdir(exist_ok=True)
+            if path.suffix == ".ogp":
+                write_plan(path, content)
+            else:
+                path.write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         # Render the saved content itself, including its stable sprite seed IDs.
-        manager.load(scene, BUNDLED_EXAMPLES / (slug + ".ogp"), as_template=True)
-        meta = METADATA[slug] | {
-            "license": "CC-BY-SA-4.0",
-            "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
-            "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
-            "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
-            "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
-        }
-        (BUNDLED_EXAMPLES / (slug + ".meta.json")).write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        _thumbnail(scene, BUNDLED_EXAMPLES / (slug + ".png"))
-        for language in ("de", "es"):
-            localized_path = BUNDLED_EXAMPLES / language / (slug + ".ogp")
-            manager.load(scene, localized_path, as_template=True)
-            _thumbnail(scene, localized_path.with_suffix(".png"))
+        for folder in ("", *LANGUAGES):
+            path = BUNDLED_EXAMPLES / folder / (slug + ".ogp")
+            manager.load(scene, path, as_template=True)
+            _thumbnail(scene, path.with_suffix(".png"))
         scene.clear()
     app.processEvents()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

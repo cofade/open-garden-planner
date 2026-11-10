@@ -19,6 +19,7 @@ from scripts.i18n_catalog import Key
 from scripts.i18n_sources import inventory
 from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS
 from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS
+from scripts.translations_examples import DE as _EXAMPLES_TRANSLATIONS
 from scripts.translations_exports import DE as _EXPORTS_TRANSLATIONS
 from scripts.translations_f4 import DE as _F4_TRANSLATIONS
 from scripts.translations_l2 import DE as _L2_TRANSLATIONS
@@ -3572,6 +3573,10 @@ for _ctx, _strings in _L7_TRANSLATIONS.items():
 
 # ── Export fixes: PDF report pages and legend (#787, #788, #789) ──
 for _ctx, _strings in _EXPORTS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Examples' showcase state: status line, empty seed inventory, folded sun rows (#795) ──
+for _ctx, _strings in _EXAMPLES_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
