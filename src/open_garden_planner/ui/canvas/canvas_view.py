@@ -242,6 +242,15 @@ class CanvasView(QGraphicsView):
     # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
     # regular items and is undoable). Args: list[str] of note ids.
     journal_notes_batch_delete_requested = pyqtSignal(list)
+
+    #: Where the sun map's key was last painted. A class attribute as well as
+    #: an instance one, like ``CanvasScene._paint_revision``: when the cyclic
+    #: collector takes a dropped view with its scene, it clears this object's
+    #: attributes first, and Qt, destroying the scene, takes it from the view —
+    #: which moves the scroll bars and calls ``scrollContentsBy`` on a view
+    #: that has none of its own left. An ``AttributeError`` in a virtual that
+    #: Qt calls ends the process (PyQt calls ``qFatal``; PF-CAN-61).
+    _sun_legend_rect = QRect()
     # US-12.9: emitted when the sidebar requests viewport centering on a pin.
     journal_note_focus_requested = pyqtSignal(str)
     #: Set by ``GardenPlannerApp``: note ids -> the ProjectData-linked note
