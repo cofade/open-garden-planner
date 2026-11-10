@@ -6,11 +6,12 @@ The view handles the Y-flip for display.
 """
 
 import contextlib
-from collections.abc import Iterator
+import weakref
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import (
@@ -20,8 +21,9 @@ from PyQt6.QtCore import (
     QRectF,
     Qt,
     pyqtSignal,
+    pyqtSlot,
 )
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QTransform
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -29,6 +31,7 @@ from PyQt6.QtWidgets import (
     QGraphicsLineItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
+    QWidget,
 )
 
 from open_garden_planner.core import stacking
@@ -36,7 +39,14 @@ from open_garden_planner.core.object_height import lies_on_ground
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
+from open_garden_planner.core.sprite_raster import clear_sprite_cache
 from open_garden_planner.models.layer import Layer, create_default_layers
+
+from .item_cache import ensure_item_cache_budget
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+    from open_garden_planner.ui.canvas.plan_labels import LabelPass, ShownLabel
 
 #: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
 #: path, a terrace, an in-ground bed with no height): above the background image
@@ -66,6 +76,74 @@ def on_ground(item: QGraphicsItem) -> bool:
         members = [child for child in item.childItems() if stacking.supports_stacking(child)]
         return bool(members) and all(on_ground(child) for child in members)
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
+
+
+def is_standing_object(item: QGraphicsItem) -> bool:
+    """Whether ``item`` is a drawn object that stands on the ground and is shown.
+
+    A body: a rectangle, circle, ellipse, polygon or polyline that is no ground
+    surface (``on_ground``). A text note, a callout or a pin is writing on the
+    plan, not a body; a group is its members. What such an object covers of the
+    plan is its ``grid_cover_path()``. The canvas grid is cut out under these
+    (``CanvasView._draw_grid``) and the hours on the sun map's contours keep
+    clear of them (``sun_heatmap``): one definition of "something stands here",
+    and one walk that collects it (``collect_standing_covers``).
+    """
+    from open_garden_planner.ui.canvas.items import (
+        CircleItem,
+        EllipseItem,
+        PolygonItem,
+        PolylineItem,
+        RectangleItem,
+    )
+
+    return (
+        isinstance(item, (RectangleItem, CircleItem, EllipseItem, PolygonItem, PolylineItem))
+        and item.isVisible()
+        and not on_ground(item)
+    )
+
+
+def in_plan_picture(item: QGraphicsItem) -> bool:
+    """Whether what the scene keeps for painting can be taken from ``item``:
+    whether adding or removing it moves ``CanvasScene.paint_revision``.
+
+    Not an overlay. An overlay is an item without a stacking rank
+    (``core.stacking.supports_stacking``, the one predicate that tells an item
+    of the plan from a tool's preview, a rubber band, a handle, a highlight or
+    a dimension line) and without children: a label of the plan is a child of
+    its object or of the sun map, and says itself when it enters or leaves a
+    scene (``halo_text.note_label_changed``). Something stated to block labels
+    (``plan_label_blocker``) counts as well.
+    """
+    return (
+        stacking.supports_stacking(item)
+        or bool(item.childItems())
+        or hasattr(item, "plan_label_blocker")
+    )
+
+
+#: What one standing object covers of the plan, in scene coordinates, and the
+#: rectangle round it. The path keeps its own fill rule: a closed fence is a
+#: ring, and two objects' outlines never cancel each other.
+StandingCover = tuple[QRectF, QPainterPath]
+
+
+def collect_standing_covers(scene: QGraphicsScene) -> list[StandingCover]:
+    """What stands on the plan right now: one entry for every standing object.
+
+    A walk over every item of ``scene``, so it is taken when the plan changed
+    and never for a paint: ``CanvasScene.standing_covers()`` keeps the answer.
+    """
+    covers: list[StandingCover] = []
+    for item in scene.items():
+        if is_standing_object(item):
+            covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+            if covered.isEmpty():
+                continue  # an outline above the paint bound covers nothing (#472)
+            cover = item.sceneTransform().map(covered)
+            covers.append((cover.boundingRect(), cover))
+    return covers
 
 
 @dataclass
@@ -117,6 +195,39 @@ class CanvasScene(QGraphicsScene):
     A writer that announces nothing is still not lost: the 3D pipeline reconciles
     after a quiet time and counts what it found (``Scene3DController``). The revision
     is never saved and means nothing across documents; it only ever grows.
+
+    The paint revision (§8.37). A paint must not walk the scene: what a paint needs
+    of the WHOLE plan (what stands on it, for the grid's cut-out; which labels have
+    room, for the label pass) is taken once and kept until ``paint_revision`` moves.
+    It moves where something those answers are taken from changes, and each of
+    those places says so itself, at once:
+
+    - every plan change (``plan_changed``: a move, a turn, an object shown or
+      hidden, a command, a layer, THE nudge);
+    - a selection change (a selected object's label is always shown);
+    - an item of the plan added or removed (``addItem`` / ``removeItem``), the
+      scene cleared;
+    - a label or a succession badge that changed its text, size, visibility or
+      scene (``halo_text.note_label_changed``);
+    - the plan date (``refresh_timeline``: a plant that is not planted yet does
+      not stand on the plan — and that is no plan change);
+    - what an object IS (the ``object_type`` setter: a terrace is ground, a
+      shed stands on it);
+    - and ``note_paint_changed()`` for a writer that goes round all of those.
+
+    A pan, a zoom and a repaint do not move it: they change the view, not the
+    scene, and what is kept is in plan coordinates. And Qt's ``changed`` does
+    NOT move it, although it did until the second review of the 2D branch: that
+    signal says "a rectangle of the scene must be repainted" and cannot tell an
+    edit from a tool's preview, a hover or the sun's shadow moving — a rubber
+    band took both kept answers again at every mouse move (15 rebuilds in 30
+    moves on a plan of 853 objects). An overlay item — one without a stacking
+    rank (``core.stacking.supports_stacking``): a tool's preview, a handle, a
+    dimension line — is no part of either answer, and adding or removing one
+    does not move the revision either. What Qt's signal used to catch besides
+    was measured before it was let go (4,331 canvas tests, each ``changed``
+    compared against what was kept): the plan date and a bare write to
+    ``object_type``, both in the list above.
     """
 
     # Default canvas colors (overridden by apply_theme_colors)
@@ -128,6 +239,14 @@ class CanvasScene(QGraphicsScene):
     #: Plan content changed; the argument is the new ``plan_revision``.
     plan_changed = pyqtSignal(int)
     document_replaced = pyqtSignal()
+
+    #: The paint revision (class docstring). A class attribute as well as an
+    #: instance one: Qt emits signals while it destroys a scene (the selection
+    #: changes as its items go), and by then the garbage collector may have
+    #: cleared the Python object's attributes — the slot must still find
+    #: something to count on (the #230 teardown trap; seen as "'CanvasScene'
+    #: object has no attribute" in the group menu tests; PF-CAN-61).
+    _paint_revision = 0
     diagnostics_changed = pyqtSignal()
     timeline_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
@@ -147,6 +266,9 @@ class CanvasScene(QGraphicsScene):
             parent: Parent object
         """
         super().__init__(parent)
+        # Qt keeps the items' device caches in QPixmapCache, 10 MB by default:
+        # one plan's worth does not fit, and the cache thrashes (#784).
+        ensure_item_cache_budget()
         self._plan_clock: SimClock | None = None
         self._painted_plan_date: date | None = None
 
@@ -175,6 +297,24 @@ class CanvasScene(QGraphicsScene):
         # Spacing circles visibility state
         self._spacing_circles_visible = True
 
+        # Whether garden items paint their diagnostic decorations (spacing ring,
+        # companion ring, warning badges, soil and rotation borders). Runtime only:
+        # an export switches it off for the length of its render (§8.9.16).
+        self._diagnostic_overlays_visible = True
+
+        # The label pass, with each viewport's kept layout (``plan_labels``);
+        # made at the first paint.
+        self._label_pass: LabelPass | None = None
+        # What each viewport's view draws over it that no label may touch
+        # (``set_label_blockers``), by the viewport itself, held weakly: an
+        # entry goes with its widget. Not by ``id(viewport)``, as it was: an id
+        # is an address, and a new widget at a dead one's address was handed
+        # the dead one's blockers. And not dropped from a slot on the widget's
+        # ``destroyed``: a Python callable there runs during teardown.
+        self._label_blockers: weakref.WeakKeyDictionary[QWidget, tuple[QRectF, ...]] = (
+            weakref.WeakKeyDictionary()
+        )
+
         # Layer management
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
@@ -186,6 +326,18 @@ class CanvasScene(QGraphicsScene):
         # The plan revision (class docstring). A layer change is plan content.
         self._plan_revision = 0
         self.layers_changed.connect(self.note_plan_changed)
+
+        # The paint revision (class docstring) and what is kept until it moves.
+        # Connected here, before any view exists: a slot runs in the order it
+        # was connected, so this one runs before any other listener repaints.
+        # Not connected: Qt's ``changed`` (class docstring).
+        self._paint_revision = 0
+        self._standing_covers: tuple[int, list[StandingCover]] | None = None
+        #: How often what stands on the plan was collected — the instrument of
+        #: the grid's cut-out (counted, never timed: §8.10.10).
+        self.standing_cover_builds = 0
+        self.plan_changed.connect(self.note_paint_changed)
+        self.selectionChanged.connect(self.note_paint_changed)
 
         # Constraint graph for distance constraints
         from open_garden_planner.core.constraints import ConstraintGraph
@@ -241,6 +393,67 @@ class CanvasScene(QGraphicsScene):
         # Then draw canvas area (beige rectangle) on top
         canvas_rect = QRectF(0, 0, self._width_cm, self._height_cm)
         painter.fillRect(canvas_rect, QBrush(self.CANVAS_COLOR))
+
+    #: Object labels (``PlanLabelItem``) are painted by ``drawForeground`` here,
+    #: after every item, and not by the label items themselves.
+    paints_plan_labels = True
+
+    def drawForeground(self, painter: QPainter | None, rect: QRectF) -> None:
+        """Paint the object labels above every item (§8.9.15, #793).
+
+        A scene-level hook on purpose: the view paints through it and so does
+        ``scene.render()``, so an export, a print and the Agent API's picture
+        carry the same labels as the canvas.
+        """
+        super().drawForeground(painter, rect)
+        if painter is None:
+            return
+        if self._label_pass is None:
+            from open_garden_planner.ui.canvas.plan_labels import LabelPass
+
+            self._label_pass = LabelPass()
+        self._label_pass.paint(self, painter, rect)
+
+    @property
+    def label_layouts(self) -> int:
+        """How often the labels were laid out for a viewport — the instrument
+        of the label pass (counted, never timed: §8.10.10)."""
+        return self._label_pass.layouts if self._label_pass is not None else 0
+
+    def plan_labels_shown(
+        self, world: QTransform, blocked: "Sequence[QRectF]" = ()
+    ) -> "list[ShownLabel]":
+        """The object labels a paint with the transform ``world`` shows (``plan_labels``)."""
+        from open_garden_planner.ui.canvas.plan_labels import plan_labels_shown
+
+        return plan_labels_shown(self, world, blocked)
+
+    def set_label_blockers(self, viewport: QWidget, rects: "Sequence[QRectF]") -> bool:
+        """State what a view draws over ``viewport`` that no label may touch (device
+        pixels: the key of the sun map). True when that changed — the view then
+        paints once more, with the labels that have room now."""
+        new = tuple(QRectF(rect) for rect in rects if not rect.isEmpty())
+        if self._label_blockers.get(viewport, ()) == new:
+            return False
+        if new:
+            self._label_blockers[viewport] = new
+        else:
+            self._label_blockers.pop(viewport, None)
+        return True
+
+    @property
+    def label_viewports_kept(self) -> int:
+        """For how many viewports the label pass keeps a layout right now."""
+        return self._label_pass.viewports if self._label_pass is not None else 0
+
+    @property
+    def label_blocker_viewports(self) -> int:
+        """For how many viewports a view has stated blockers right now."""
+        return len(self._label_blockers)
+
+    def label_blockers(self, viewport: QWidget) -> "tuple[QRectF, ...]":
+        """What ``set_label_blockers`` stated for ``viewport``."""
+        return self._label_blockers.get(viewport, ())
 
     # Shadow management (painted shadows — no QGraphicsEffect overhead)
 
@@ -319,6 +532,31 @@ class CanvasScene(QGraphicsScene):
             if isinstance(item, GardenItemMixin):
                 item.spacing_circles_visible = visible
 
+    @property
+    def diagnostic_overlays_visible(self) -> bool:
+        """Whether garden items paint their diagnostic decorations."""
+        return self._diagnostic_overlays_visible
+
+    def set_diagnostic_overlays_visible(self, visible: bool) -> None:
+        """Switch every item's painted diagnostic decoration on or off.
+
+        A spacing ring, a companion ring, an antagonist or capacity badge and a
+        soil or crop-rotation border are painted by the garden item they belong
+        to, so there is no scene item to hide for a picture of the plan. The
+        export seam (``ExportService._hide_overlay_items``) switches them off
+        here instead and switches them on again afterwards. The diagnostics
+        themselves are untouched: this changes what is painted, never the
+        flags, the plan or its revision.
+        """
+        if self._diagnostic_overlays_visible == visible:
+            return
+        self._diagnostic_overlays_visible = visible
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        for item in self.items():
+            if isinstance(item, GardenItemMixin) and item.has_diagnostic_decoration():
+                item.update()
+
     def addItem(self, item: QGraphicsItem) -> None:
         """Add an item to the scene, applying shadow and label state.
 
@@ -329,6 +567,8 @@ class CanvasScene(QGraphicsScene):
             item: The graphics item to add
         """
         super().addItem(item)
+        if in_plan_picture(item):
+            self._paint_revision += 1
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -455,7 +695,10 @@ class CanvasScene(QGraphicsScene):
         items does not go through here.
         """
         self._provisional_z.pop(getattr(item, "layer_id", None), None)
+        concerned = in_plan_picture(item)
         super().removeItem(item)
+        if concerned:
+            self._paint_revision += 1
 
     def _needs_synchronous_z_refresh(self, item: QGraphicsItem) -> bool:
         """Whether adding *item* can re-order items already in its layer.
@@ -771,6 +1014,30 @@ class CanvasScene(QGraphicsScene):
         """
         self._plan_revision += 1
         self.plan_changed.emit(self._plan_revision)
+
+    @property
+    def paint_revision(self) -> int:
+        """Moves whenever a picture of the scene may differ (class docstring)."""
+        return self._paint_revision
+
+    @pyqtSlot()
+    def note_paint_changed(self) -> None:
+        """Something that is kept for painting was taken from has changed (class
+        docstring): it is taken again at the next paint. One integer; it
+        repaints nothing — a writer whose change shows on the canvas still
+        calls ``item.update()`` itself."""
+        self._paint_revision += 1
+
+    def standing_covers(self) -> list[StandingCover]:
+        """What stands on the plan (``collect_standing_covers``), kept until the
+        paint revision moves: a paint, a pan and a zoom read it, an edit
+        rebuilds it."""
+        kept = self._standing_covers
+        if kept is None or kept[0] != self._paint_revision:
+            kept = (self._paint_revision, collect_standing_covers(self))
+            self._standing_covers = kept
+            self.standing_cover_builds += 1
+        return kept[1]
 
     @property
     def guide_lines(self) -> list[GuideLine]:
@@ -1647,6 +1914,9 @@ class CanvasScene(QGraphicsScene):
             self._update_items_visibility()
         finally:
             self._applying_timeline_visibility = previous
+        # ... but which plants stand on the plan, and how large, is what the
+        # grid's cut-out and the labels are kept from.
+        self.note_paint_changed()
         self.timeline_changed.emit()
 
     def _apply_item_visibility(self, item: QGraphicsItem) -> None:
@@ -1840,6 +2110,10 @@ class CanvasScene(QGraphicsScene):
         ``_compare_overlay_visible``) and image calibration
         (``_calibration_markers``, ``_calibration_points``,
         ``_calibration_image``, ``_calibration_mode``).
+
+        What was kept for painting the plan goes here too: the standing
+        covers, the label layouts and the plan's sprites
+        (``core.sprite_raster.clear_sprite_cache``).
         """
         self.reset_document_diagnostics()
         self._compare_items.clear()
@@ -1851,6 +2125,14 @@ class CanvasScene(QGraphicsScene):
         # #450: both caches describe items this call destroys.
         self._next_rank_cache = {}
         self._provisional_z = {}
+        # What is kept for painting describes them too.
+        self._standing_covers = None
+        if self._label_pass is not None:
+            self._label_pass.clear()
+        self._paint_revision += 1
+        # ... and so do their sprites: the plan is closed or replaced, and
+        # what it painted must not stay until the next plan pushes it out.
+        clear_sprite_cache()
         super().clear()
         self.timeline_changed.emit()  # readers must see the empty, completed document
 

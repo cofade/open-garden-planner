@@ -19,7 +19,7 @@ from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.config.settings import get_settings
+from open_garden_planner.config.settings import active_language, get_settings
 from open_garden_planner.core import camera_tours as plan_tours
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.item_look import (
@@ -282,6 +282,8 @@ class ProjectManager(QObject):
         """Initialize the project manager."""
         super().__init__(parent)
         self._current_file: Path | None = None
+        # The title of the example or template this unsaved plan was opened from.
+        self._template_title: str | None = None
         self._dirty = False
         self._location: dict[str, Any] | None = None
         self._task_completions: set[str] = set()
@@ -324,10 +326,43 @@ class ProjectManager(QObject):
 
     @property
     def project_name(self) -> str:
-        """Display name for the project."""
+        """Display name for the project, in the UI language.
+
+        A plan that was never saved has no name of its own; the word it gets is
+        the UI language's (#836). It is on a report's cover, a printout's
+        footer, the window title and in the file name a save dialog SUGGESTS to
+        the user. The Agent API does not build file names from it:
+        :attr:`file_stem`.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return self.tr("Untitled")
+
+    @property
+    def file_stem(self) -> str:
+        """The stem the Agent API builds a default export file name from.
+
+        The file's stem, like :attr:`project_name`; for a plan that was never
+        saved the untranslated ``Untitled``. A file an agent asks for without a
+        path must have one name in every UI language: "Unbenannt.pdf" under a
+        German UI is a file the agent's next call cannot predict.
+        """
         if self._current_file:
             return self._current_file.stem
         return "Untitled"
+
+    @property
+    def display_name(self) -> str:
+        """The plan's title for a reader: a report's cover, a print legend.
+
+        The file's stem once the plan has a file. A plan opened from an example
+        or a template has none yet and carries that template's title (#788) —
+        ``project_name`` stays the name a save dialog suggests and ``file_stem``
+        the one the Agent API's default file names are built from.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return self._template_title or self.project_name
 
     @property
     def location(self) -> dict[str, Any] | None:
@@ -912,6 +947,7 @@ class ProjectManager(QObject):
     def new_project(self) -> None:
         """Start a new untitled project."""
         self._current_file = None
+        self._template_title = None
         self._dirty = False
         self._location = None
         self._task_completions = set()
@@ -1213,7 +1249,11 @@ class ProjectManager(QObject):
             self._sync_custom_plants(scene)
 
             self._current_file = None if as_template else file_path
+            self._template_title = None
             if as_template:
+                from open_garden_planner.core.templates import template_title
+
+                self._template_title = template_title(file_path, active_language())
                 self.mark_dirty()
             else:
                 self.mark_clean()
@@ -1224,6 +1264,7 @@ class ProjectManager(QObject):
         except Exception:
             if scene_mutated:
                 self._current_file = None
+                self._template_title = None
                 self.mark_dirty()
                 self.project_changed.emit(None)
             raise

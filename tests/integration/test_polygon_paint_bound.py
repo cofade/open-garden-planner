@@ -20,11 +20,12 @@ degrade was unreachable in the product — Qt passes `widget = 0` for every
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QPointF, QRectF
+from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter
 from PyQt6.QtWidgets import QApplication, QGraphicsItem, QGraphicsScene
 
@@ -40,6 +41,8 @@ from open_garden_planner.ui.canvas.items.polygon_item import (
     MAX_POLYGON_VERTICES,
     PolygonItem,
 )
+from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 # A colour that appears nowhere else (not the page, not a pen, not a texture),
 # so counting it measures exactly "did the fill paint?".
@@ -458,3 +461,143 @@ class TestAgentAddVertexBound:
         agent = AgentHost(DummyHost())  # type: ignore[arg-type]
         with pytest.raises(ValueError, match="limit is 4"):
             agent._do_agent_add_vertex(str(polyline.item_id), 0, 5.0, 5.0)
+
+
+# --------------------------------------------------------------------------
+# The bound with the grid on (second review of the 2D branch, P1-2)
+# --------------------------------------------------------------------------
+#
+# The canvas grid is painted after the items and every standing object is cut
+# out of it (§8.9.17). The cut-out filled each object's exact outline on every
+# paint, so the degrade above did not hold with the grid on: one zigzag line of
+# 16,000 vertices took 2.7 s a repaint (24 ms on master), and 16,000 is inside
+# the load ceiling. Counted here, never timed (§8.10.10): how many outlines the
+# cut-out fills, and how many path elements they have.
+
+
+def _zigzag_line(vertices: int) -> PolylineItem:
+    """The review's hostile line: a fence that zigzags 3 m up and down."""
+    points = [
+        QPointF(100 + 1800 * k / vertices, 1000 + 300 * math.sin(k * 1.7))
+        for k in range(vertices)
+    ]
+    return PolylineItem(points, object_type=ObjectType.FENCE)
+
+
+def _zigzag_ring(vertices: int) -> PolygonItem:
+    """... and the hostile outline: a hedge whose edge zigzags 3 m in and out."""
+    points = []
+    for k in range(vertices):
+        radius = 600 + 300 * math.sin(k * 0.9)
+        angle = 2 * math.pi * k / vertices
+        points.append(QPointF(1000 + radius * math.cos(angle), 1000 + radius * math.sin(angle)))
+    return PolygonItem(points, object_type=ObjectType.HEDGE_SECTION)
+
+
+def _shown_with_grid(qtbot: object, *items: QGraphicsItem) -> tuple[CanvasView, CanvasScene]:
+    scene = CanvasScene(width_cm=2000, height_cm=2000)
+    scene.set_shadows_enabled(False)
+    for item in items:
+        scene.addItem(item)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)  # type: ignore[attr-defined]
+    view.resize(700, 700)
+    view.show()
+    qtbot.waitExposed(view)  # type: ignore[attr-defined]
+    view.fit_in_view()
+    view.set_grid_visible(True)
+    QApplication.processEvents()
+    view.viewport().repaint()
+    return view, scene
+
+
+def _grid_pixels_in(view: CanvasView, plan_rect: QRectF) -> int:
+    """How many viewport pixels the grid changes inside ``plan_rect``."""
+    def grab() -> QImage:
+        return view.viewport().grab().toImage().convertToFormat(QImage.Format.Format_RGB32)
+
+    view.set_grid_visible(True)
+    with_grid = grab()
+    view.set_grid_visible(False)
+    without = grab()
+    view.set_grid_visible(True)
+    box = view.mapFromScene(plan_rect).boundingRect().adjusted(3, 3, -3, -3)
+    return sum(
+        1
+        for y in range(box.top(), box.bottom())
+        for x in range(box.left(), box.right())
+        if with_grid.pixel(x, y) != without.pixel(x, y)
+    )
+
+
+class TestTheGridCutOutIsBounded:
+    @pytest.mark.parametrize("make", [_zigzag_line, _zigzag_ring], ids=["line", "outline"])
+    def test_an_outline_above_the_bound_is_not_filled_into_the_cut_out(
+        self, qtbot: object, make: object
+    ) -> None:
+        item = make(16_000)  # type: ignore[operator]
+        view, _scene = _shown_with_grid(qtbot, item)
+        for _ in range(3):
+            view.viewport().repaint()
+        assert view.grid_cover_elements == 0, (
+            f"the grid's cut-out filled {view.grid_cover_elements} path elements of an "
+            f"outline above the paint bound"
+        )
+        assert item.grid_cover_path().isEmpty()
+
+    def test_the_cut_out_follows_the_rule_of_the_degraded_paint(self, qtbot: object) -> None:
+        """One bound, the item's own: at it the body is cut out of the grid,
+        above it the item paints a hairline and covers nothing."""
+        at_bound = PolygonItem(
+            _subdivided_square(MAX_FULL_DETAIL_VERTICES), object_type=ObjectType.HEDGE_SECTION
+        )
+        above = PolygonItem(
+            _subdivided_square(MAX_FULL_DETAIL_VERTICES + 4), object_type=ObjectType.HEDGE_SECTION
+        )
+        above.setPos(900.0, 900.0)
+        view, _scene = _shown_with_grid(qtbot, at_bound, above)
+        assert _grid_pixels_in(view, QRectF(0, 0, SIDE, SIDE)) == 0
+        assert _grid_pixels_in(view, QRectF(900, 900, SIDE, SIDE)) > 20
+
+    def test_a_repaint_fills_nothing_and_a_pan_fills_once(self, qtbot: object) -> None:
+        sheds = [
+            RectangleItem(200.0 + 300.0 * k, 300.0 + 150.0 * k, 180.0, 120.0,
+                          object_type=ObjectType.GARAGE_SHED)
+            for k in range(5)
+        ]
+        view, scene = _shown_with_grid(qtbot, *sheds)
+        view.set_zoom(view.zoom_factor * 3.0)             # something to scroll
+        view.centerOn(1000.0, 1000.0)
+        QApplication.processEvents()
+        view.viewport().repaint()
+        fills, builds, revision = view.grid_cover_fills, view.grid_layer_builds, scene.paint_revision
+        assert fills > 0 and builds > 0
+
+        for _ in range(5):
+            view.viewport().repaint()
+        view.viewport().repaint(QRect(QPoint(100, 100), QPoint(160, 160)))
+        assert view.grid_cover_fills == fills, "a repaint filled outlines again"
+        assert view.grid_layer_builds == builds
+
+        bar = view.horizontalScrollBar()
+        assert bar is not None
+        for _ in range(6):                                # 240 px: inside one margin
+            bar.setValue(bar.value() + 40)
+            QApplication.processEvents()
+            view.viewport().repaint()
+        assert scene.paint_revision == revision           # a pan is no scene change
+        assert view.grid_layer_builds == builds + 1, (
+            "six pan steps of 40 px must make the layer once (with its margin), "
+            f"not {view.grid_layer_builds - builds} times"
+        )
+        assert view.grid_cover_fills <= fills + len(sheds)
+
+    def test_what_is_kept_is_bounded_and_dropped_with_the_grid(self, qtbot: object) -> None:
+        view, _scene = _shown_with_grid(qtbot, _zigzag_line(1024))
+        viewport = view.viewport()
+        assert viewport is not None
+        ratio = viewport.devicePixelRatioF()
+        pixels = viewport.width() * viewport.height() * ratio * ratio
+        assert 0 < view.grid_layer_bytes <= 4 * pixels
+        view.set_grid_visible(False)
+        assert view.grid_layer_bytes == 0

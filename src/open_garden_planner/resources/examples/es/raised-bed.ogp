@@ -12196,7 +12196,7 @@
       "width": 90.0,
       "height": 80.0,
       "object_type": "COMPOST_BIN",
-      "name": "Compost",
+      "name": "Compostador",
       "metadata": {
         "object_height_cm": 90
       },
@@ -12217,9 +12217,9 @@
       "content": "21 sep 2026 \u00b7 1  16 lechugas + 60 zanahorias + 88 r\u00e1banos; siembre r\u00e1banos por tandas.\n2  Clic derecho en bancal: sucesi\u00f3n (2027), despu\u00e9s an\u00e1lisis de suelo (muestra ficticia).\n3  Plan y sol: 21 sep, 17:30 \u2192 sombra sobre el bancal. Berl\u00edn / heladas: ejemplo.",
       "font_family": "Arial",
       "font_size": 0.47,
-      "bold": false,
+      "bold": true,
       "italic": false,
-      "text_color": "#ff243528",
+      "text_color": "#fffdfbee",
       "layer_id": "5b3dfb84-40e6-5447-bdb2-16a232955f6d",
       "stack_order": 186368
     }
@@ -12281,6 +12281,118 @@
           "scientific_name": "lactuca sativa"
         }
       ]
+    }
+  },
+  "harvest_logs": {
+    "3c35421c-f108-5adf-8d68-aa9bc63f4d35": {
+      "target_id": "3c35421c-f108-5adf-8d68-aa9bc63f4d35",
+      "records": [
+        {
+          "id": "5e915bbf-a364-50f1-9e0c-94561211b920",
+          "date": "2026-09-05",
+          "quantity": 350,
+          "unit": "g",
+          "quality": "hojas exteriores",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "456d91c7-833b-5296-bc2b-fbcd33f16c6e",
+          "date": "2026-09-16",
+          "quantity": 420,
+          "unit": "g",
+          "quality": "crujiente",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "lactuca sativa",
+      "species_name": "Lechuga"
+    },
+    "62b70ca6-a29a-55ba-8367-96b1a0d3edf0": {
+      "target_id": "62b70ca6-a29a-55ba-8367-96b1a0d3edf0",
+      "records": [
+        {
+          "id": "47263a57-1619-5664-bae7-b8c07b027319",
+          "date": "2026-09-10",
+          "quantity": 1.1,
+          "unit": "kg",
+          "quality": "aclareo",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "c14a1752-dd47-5d3e-9c01-766b6991b7e8",
+          "date": "2026-09-19",
+          "quantity": 1.6,
+          "unit": "kg",
+          "quality": "dulce",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "daucus carota",
+      "species_name": "Zanahoria"
+    },
+    "ae764cf8-d5dc-5305-9cf1-9cb0cafda2bd": {
+      "target_id": "ae764cf8-d5dc-5305-9cf1-9cb0cafda2bd",
+      "records": [
+        {
+          "id": "16878d4e-9b02-5a07-8a38-44c2eb096739",
+          "date": "2025-05-18",
+          "quantity": 3,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "1b9dc77e-7f43-5bd9-ac32-28e61f170366",
+          "date": "2025-08-09",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "38dfcf55-de77-5366-8f33-0cc6775789cd",
+          "date": "2026-04-28",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "e202202e-f6fe-59d9-a6cb-76cefc0c432d",
+          "date": "2026-06-15",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "4b196de8-3325-5b12-80c1-930c999c7eb0",
+          "date": "2026-08-30",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "allium schoenoprasum",
+      "species_name": "Cebollino"
+    },
+    "53f729d8-0b58-5e7c-b9cc-efad958d8f6f": {
+      "target_id": "53f729d8-0b58-5e7c-b9cc-efad958d8f6f",
+      "records": [
+        {
+          "id": "16e51c0c-d38e-5f10-a270-74fe72359fcf",
+          "date": "2026-07-12",
+          "quantity": 30,
+          "unit": "pcs",
+          "quality": "flores para la cocina",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "14c3a588-09b4-5fb1-ab26-cfc4e84da041",
+          "date": "2026-08-18",
+          "quantity": 25,
+          "unit": "pcs",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "calendula officinalis",
+      "species_name": "Cal\u00e9ndula"
     }
   }
 }

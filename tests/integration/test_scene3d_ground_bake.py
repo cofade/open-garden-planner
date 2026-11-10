@@ -1878,12 +1878,23 @@ class TestHostilePlans:
     def test_a_sprite_of_nine_kilometres_is_rendered_with_a_bounded_image(
             self, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         """A furniture item's sprite is rendered at the item's size — the PLAN's
-        number. Within the bound it is asked for exactly as the canvas asks; beyond,
-        with ``SPRITE_MAX_PIXELS`` at most, and stretched over every tile."""
+        number. Within the bound it is painted by the canvas's own sprite painter
+        (#785: the same picture, the same cache entry); beyond, with
+        ``SPRITE_MAX_PIXELS`` at most, and stretched over every tile."""
+        from open_garden_planner.core import sprite_raster
         from open_garden_planner.ui.view3d import ground_bake
         from open_garden_planner.ui.view3d.ground_bake import SPRITE_MAX_PIXELS
 
         assert SPRITE_MAX_PIXELS == 262_144
+        made: list[tuple[int, int]] = []
+        real_rasterise = sprite_raster.rasterise
+
+        def rasterising(width: int, height: int, draw: Any, tint: Any = None) -> Any:
+            made.append((width, height))
+            return real_rasterise(width, height, draw, tint)
+
+        monkeypatch.setattr(sprite_raster, "rasterise", rasterising)
+        sprite_raster.clear_sprite_cache()
         asked: list[tuple[float, float]] = []
         real = ground_bake.render_furniture_pixmap
 
@@ -1898,8 +1909,9 @@ class TestHostilePlans:
         scene.addItem(RectangleItem(100.0, 100.0, 300.0, 200.0, object_type=ObjectType.WHEELBARROW))
         bake = Bake(scene, registry=objects_unbuilt())
         bake.step()
-        assert set(asked) == {(300.0, 200.0)}  # control: the canvas's own size
-        asked.clear()
+        # control: the canvas's own painter, at the canvas's own size (1 px per cm)
+        assert asked == [] and made == [(300, 200)]
+        made.clear()
 
         scene.addItem(RectangleItem(-450_000.0, -450_000.0, 900_000.0, 900_000.0,
                                     object_type=ObjectType.WHEELBARROW))
@@ -1909,10 +1921,11 @@ class TestHostilePlans:
         assert bake.skipped == [] and bake.baker.failures == {}
         assert bake.baker.records_painted - painted >= 20 + 5 + 1  # every tile, a row, the first
         sizes = {(max(int(w), 4), max(int(h), 4)) for w, h in asked}
-        assert len(sizes) == 3 and {(300, 200), (65_536, 4)} < sizes
-        (square,) = sizes - {(300, 200), (65_536, 4)}
+        assert len(sizes) == 2 and (65_536, 4) in sizes
+        (square,) = sizes - {(65_536, 4)}
         assert square[0] == square[1] and 510 <= square[0] <= 512  # not 900,000 a side
         assert all(w * h <= SPRITE_MAX_PIXELS for w, h in sizes)
+        assert made == []  # and the canvas's painter was not asked for either
         assert not np.any(np.all(bake.image()[..., :3] == np.array(MEADOW_RGB), axis=2))
 
     def test_a_textured_surface_of_nine_kilometres_costs_its_tiles(self, qtbot: Any) -> None:

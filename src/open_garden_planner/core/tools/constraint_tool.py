@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.commands import AddConstraintCommand
 from open_garden_planner.core.constraints import AnchorRef, ConstraintGraph, ConstraintType
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.measure_snapper import (
     AnchorPoint,
     AnchorType,
@@ -89,7 +90,7 @@ class DistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "DistanceInputDialog",
                 "Current distance: {distance:.2f} m",
-            ).format(distance=current_distance_cm / 100.0)
+            ).format(distance=LocalizedNumber(current_distance_cm / 100.0))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -1060,7 +1061,7 @@ class AngleInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "AngleInputDialog", "Current angle: {angle:.1f}°"
-            ).format(angle=current_angle_deg)
+            ).format(angle=LocalizedNumber(current_angle_deg))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3830,7 +3831,7 @@ class HDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "HDistanceInputDialog",
                 "Current horizontal distance: {distance:.2f} m",
-            ).format(distance=current_h_dist_cm / 100.0)
+            ).format(distance=LocalizedNumber(current_h_dist_cm / 100.0))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3880,7 +3881,7 @@ class VDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "VDistanceInputDialog",
                 "Current vertical distance: {distance:.2f} m",
-            ).format(distance=current_v_dist_cm / 100.0)
+            ).format(distance=LocalizedNumber(current_v_dist_cm / 100.0))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")

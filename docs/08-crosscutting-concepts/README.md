@@ -63,6 +63,48 @@ Full commands, source declaration rules and new-language steps: [translation gui
 Latin scientific names, provider/user text and machine identifiers are not catalog prose;
 finite bundled common names are extracted from the actual bundled species JSON.
 
+### Locale: the UI language decides (#792, ADR-077)
+
+`core/i18n.load_translator` is the one place that decides the application's locale, and it
+makes it Qt's default (`QLocale.setDefault`) before any widget is built — a widget keeps the
+locale it was created with. The language decides; the operating system contributes its region
+only when it speaks the same language (`de` on an Austrian system is `de_AT`, `en` on a German
+one is `en_US`).
+
+- **A number in UI text** is written by `format_decimal(value, decimals)` — never an f-string
+  with `:.2f`. `format_trimmed` drops trailing zeros, `format_integer` adds group separators to
+  a count. A translated template that carries its precision keeps it and is handed a
+  `LocalizedNumber`: `self.tr("{d:.2f} m").format(d=LocalizedNumber(x))`.
+- **A month or a day**: `month_abbreviation(m)` for a column header, `format_day_month(date)`
+  for a day without its year and `format_short_date(date)` for a whole date in text
+  ("7 Jun 2026"; the order is a translated Qt pattern, context `DateFormat`). Never
+  `QLocale().toString(date, ShortFormat)`: a numeric day/month pair follows the territory,
+  and an English UI on a German system is `en_US` ("6/7/26").
+- **A date or time field**: build it inside `ui/date_fields.as_date_field(QDateEdit(...))` or
+  `as_time_field(QTimeEdit(...))`. They give ISO (`yyyy-MM-dd`), 24 hours (`HH:mm`), a
+  calendar popup and a week that starts on Monday in every language; `without_year=True` is
+  the planting calendar's `dd MMM`, `calendar=` a calendar widget of the field's own. No other
+  code sets a display format or a week start (`tests/unit/test_date_fields.py` walks the
+  source). Date keys stay ISO.
+- **A typed or pasted number**: a `QDoubleSpinBox` needs nothing. `ui/number_fields` (installed
+  on the application by `main()`) puts a validator in front of the focused field's own, and a
+  number with ONE mark has it read as the decimal mark, whether it was typed, pasted with
+  Ctrl+V or pasted from the context menu. Free text is read with `parse_decimal`: a sign, ASCII
+  digits, at most one mark; it raises `ValueError` for a group separator, an exponent, `nan`
+  and `inf`. What the UI shows, it accepts back.
+- **`core/i18n.py` imports QtCore only.** Qt-free services ask it for a formatter. Widget code
+  for numbers and dates lives in `ui/number_fields.py` and `ui/date_fields.py`;
+  `scripts/check_import_boundaries.py` fails when a `QT_CORE_ONLY` module reaches a widget
+  module through its eager imports.
+- **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
+  in every language (`tests/integration/test_locale_chrome.py`).
+- **In tests** the locale is process-wide state. `conftest._app_locale` starts every test in
+  English on a pinned system locale; a test that needs another replaces `i18n._system_locale`
+  and calls `load_translator` (the `speak` fixture of `tests/unit/test_app_locale.py`).
+
+Numbers drawn on the plan (dimension lines, vertex labels, the scale bar) still write a decimal
+point. Pitfall: PF-I18-09.
+
 ### Translation rules
 
 - **Always use `self.tr("string")`** for every user-visible string in any `QWidget` subclass.
@@ -106,6 +148,8 @@ Base/surface/text/border/accent/status tokens plus the #279 semantic additions: 
 
 **The no-hex rule**: widget code never hardcodes a chrome color. Styling comes either from the generated stylesheet (via the dynamic properties below) or from the live-palette helpers `theme_color()` / `theme_qcolor()` / `rgba(token, alpha)`. Enforced mechanically by `tests/unit/test_no_hardcoded_qss_colors.py` — the allowlist is EMPTY and stays that way without an ADR-039-documented reason.
 
+**A widget that paints** (a chart, a ruler, a delegate) reads `theme_qcolor(token)` inside its paint — a module constant is a light picture in the dark theme, which is what the Planting Calendar chart, the soil sparkline and the canvas rulers were (#791). A DATA colour that keeps its hue in both themes (a chart series) goes through `readable_on(color, surface)`, which shades it until it stands out on the theme's surface. The same test file holds a second gate, `PAINTED_LITERALS`: every painted colour literal left in chrome, by file and count, with the reason it is not chrome (drawn on the plan, on paper, on a photo, or data). `palette(...)` in a widget stylesheet is a theme colour since the app owns the palette.
+
 ### 8.4.2 Typography & widget roles (dynamic properties)
 
 Styled centrally in the generated stylesheet, assigned via `theme.set_text_role(widget, role, color_role)` (which re-polishes, so post-polish changes apply — the §8.17.6 gotcha):
@@ -113,6 +157,7 @@ Styled centrally in the generated stylesheet, assigned via `theme.set_text_role(
 - `QLabel[textRole="h1"/"h2"/"hint"/"small"/"placeholder"]` — size/weight/style
 - `QLabel[colorRole="success"/"warning"/"error"/"info"/"caution"/"disabled"/"secondary"]` — semantic text color (orthogonal to textRole; combinable)
 - `QPushButton[buttonRole="primary"/"secondary"]` — accent-branded dialog CTAs (welcome dialog)
+- `QPushButton[compact="true"]` — a button in a row, a header or a table, via `theme.set_compact(button)` (§8.4.5)
 - `QLineEdit[inputError="true"]`, `QFrame[weatherCard="true"][frostSeverity="orange"/"red"]`
 - objectName rules: `#TaskReminderBar` (warning_bg banner), `#UpdateBar` (info_bg), `#constraintsDeleteAllBtn`
 
@@ -122,11 +167,34 @@ Weight uses `font-weight: 600` (support pinned by `test_theme_tokens.py`; docume
 
 ### 8.4.3 Theme propagation contract
 
-`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live), notifies `register_theme_listener` subscribers (the icon provider clears its cache), restyles via `app.setStyleSheet`, then walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
+`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live, so a widget re-polished by the restyle already sees the new values), then sets ALL THREE carriers of light-or-dark (#791, PF-UI-37): Qt's colour scheme (`_pin_color_scheme` — the native style draws what no stylesheet rule covers in it), the application palette (`build_palette(colors)` — `palette(...)` in a widget stylesheet, rich-text links and placeholder text read it) and the stylesheet (`app.setStyleSheet`). Only THEN does it notify `register_theme_listener` subscribers (the icon provider clears its cache): a listener finds the palette and the stylesheet of the new theme already in place (`test_a_theme_listener_is_told_after_the_three_carriers_are_set`). Nothing that detects the system's mode may read `QApplication.palette()`: it is the app's own. Last, it walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
 
 ### 8.4.4 QSS capability limits
 
 No box-shadow, no transitions, no outline focus rings — focus is a 2 px border swap with 1 px padding compensation (no layout jump). Tabs are underline-style (documentMode: style `QTabBar::tab` directly, `::pane` is partially ignored). Outer popup frames (QMenu/QToolTip) stay square on Windows (rounded corners artifact); only inner menu-item pills get radii.
+
+### 8.4.5 Sizes the stylesheet decides (#796)
+
+A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF-UI-39):
+
+- **`QPushButton` has a dialog-button minimum** (80 px plus padding and border: 110 px), and it
+  replaces the minimum `setFixedWidth` / `setFixedSize` set. An icon button or a row button calls
+  `set_compact(button)`. A compact button with a translated text gets no fixed width; columns of
+  such buttons are aligned by measuring (`TasksView._align_action_columns`), never by a constant.
+- **A list row that is a widget** (`setItemWidget`) gets the row's rectangle minus the item
+  padding: size the row with `list_row_size_hint(widget)`.
+- **A one-line text in a row of fixed columns** is an `ElidedLabel`
+  (`ui/widgets/elided_label.py`): a plain `QLabel` is never narrower than its text, so one
+  long task title pushed the date, the arrow and the buttons of every row out of view.
+- **A scroll area that must be as tall as its rows** cannot use `QScrollArea.sizeHint()`, which
+  remembers the first answer; and a row added to a visible parent counts in no hint until the
+  event loop has turned. `_FittedScrollArea` (the calendar dashboard) is the pattern.
+- **The tool toolbars wrap** (`ui/widgets/toolbar_rows.py`): a toolbar that does not fit the
+  window starts a new row instead of losing buttons to the overflow popup. A toolbar added to
+  that row later joins it with `ToolbarRows.append`.
+- **The sidebar is 450 px by default, on purpose.** A share of the window was built and
+  measured: the Properties form has no horizontal scroll bar and its German rows need 388 to
+  406 px (`test_the_sidebar_keeps_the_width_its_widest_form_needs`).
 
 ## 8.5 Graphics Asset Pipeline
 
@@ -138,11 +206,12 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Plant SVGs (`resources/plants/`, ADR-040)
 - **Generated, never hand-edited**: all 108 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
 - Top-down, rotation-safe radial shading; QtSvg-subset only; contract in `resources/plants/README.md`, provenance in `resources/plants/PROVENANCE.md`
-- Consumed unchanged by `core/plant_renderer.py` (cached pixmaps, stable per-item rotation, optional tint)
+- Consumed unchanged by `core/plant_renderer.py` (stable per-item rotation, optional tint); the canvas paints them through `paint_plant`, rasterised at the painter's resolution (§8.9.14)
 
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
-- 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
+- 256×256 px RGB, **1 px = 1 cm** on the canvas; strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
+- Each texture also ships a **detail tile** `resources/textures/x2/<name>.png` (512×512, 2 px per cm): the generator's own canvas before the box downsample that makes the 256-px tile, under the same pixel gate. The canvas paints a fill with it above 100 % zoom (`brush_for_painter`, §8.9.14); at 100 % and below the 256-px tile is used unchanged
 - Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives - #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
 - A filled object may **turn, scale and shift its own texture** without touching its geometry: `FillTransform` (`core/fill_patterns.py`) is an additive per-object `fill_transform` block applied as a brush transform (ADR-071, FR-EDIT-23). The identity is never saved; roof tiles compose the transform inside the canonical ridge frame. `core/item_look.fill_brush` / `restore_stored_look` / `_LOOK_ATTRIBUTES` are the one copy/restore path for it
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
@@ -150,7 +219,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
 - **Generated, never hand-edited**: all 26 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
 - Top-down, light from straight above, **no baked shadow** (the item-level painted shadow is the single source — furniture rotation is user-controlled); QtSvg-subset only; viewBox = nominal footprint in cm (gate-read table); contract in `resources/objects/README.md`, provenance in `resources/objects/PROVENANCE.md`
-- Consumed unchanged by `core/furniture_renderer.py` (cached pixmaps, stretched to the item rect); gallery thumbnails letterbox by viewBox aspect
+- Consumed unchanged by `core/furniture_renderer.py` (stretched to the item rect); the canvas and the ground bake paint them through `paint_furniture`, rasterised at the painter's resolution (§8.9.14); gallery thumbnails letterbox by viewBox aspect
 
 ## 8.6 Development Workflow
 
@@ -374,6 +443,12 @@ sb = CanvasView.SCALE_BAR_RESERVED_PX if self._canvas_view.scale_bar_visible els
 y = vp.bottom() - self.height() - MARGIN - sb
 ```
 
+Reposition on the **viewport's** `Resize` as well as the view's. A scrollbar that
+appears when the plan is zoomed in shrinks the viewport and does not resize the
+view; an overlay that listened to the view alone sat a scrollbar's height inside
+the scale bar's band (#793). The scale bar's label and its halo fit in the reserved
+band (`test_the_scale_bar_stays_inside_the_band_reserved_for_it`).
+
 ### 8.9.5 Scene thumbnail rendering — Y-flip and item filtering
 
 `QGraphicsScene.render()` renders in raw scene coordinates (Y increases downward). The canvas view applies a Y-flip transform. Flip the resulting pixmap:
@@ -406,6 +481,14 @@ for item in hidden:
 **The hide/restore itself emits `scene.changed` — asynchronously — for transformable items.** A `setVisible()` on a transformable item queues `changed([rect])` and then a trailing `changed([])`, delivered on *two separate later event-loop turns* — both *after* the render method has returned; a `setVisible()` on an `ItemIgnoresTransformations` item emits nothing (measured, Qt 6.11 — every handle/label/badge in this app carries the flag, so in production only the curve-edit connector lines are affected). If the thumbnail refresh is (as it should be) driven by `scene.changed`, this is a self-sustaining loop: with a single transformable overlay item on the scene the minimap re-rendered the whole plan ~9×/s forever while idle (issue #305, §11.4). A plain in-call re-entrancy flag does **not** cover it, and a timing window (`singleShot(0)`) is both fragile across Qt versions and drops genuine changes that share the turn. The shipped pattern in `MinimapWidget` is **content-based**: `_do_update()` records `sceneBoundingRect()` of every *transformable* item it hid (the only ones that emit); the `changed` slot (`_on_scene_changed`) ignores an emission iff every rect lies inside one of those (an empty rect list is Qt's trailing no-op — measured, every genuine mutation carries ≥ 1 rect) and schedules a render otherwise. A toggled-off minimap early-returns before rendering at all.
 
 **Rule — every slot connected to `scene.changed` (directly or via a debounce timer it restarts) must be idempotent: compute the final state per item, then apply it once.** Never call `update()`, `setVisible()`, `prepareGeometryChange()`, or add/remove items from such a slot unless the underlying value actually changed, and never do a "clear everything, then set" pass — the item setters' early-return guards (`GardenItemMixin.set_companion_highlight()`/`set_spacing_overlap()`/`set_antagonist_warning()`) cannot help when the handler forces the value through `None` each tick. Both patterns were live in #305: `CanvasView._update_soil_mismatches()` with an unconditional `item.update()` (one bed → loop), and `_update_spacing_overlaps()`/`_update_companion_highlights()` with a clear pass (one gallery-dropped plant → loop). `_update_container_capacity()` is the model to copy. To check a change for a new loop: settle the app for 1.5 s, then assert 0 `scene.changed` emissions and 0 `QGraphicsScene.render` calls over the next 2 s (`tests/integration/test_idle_scene_quiescence.py`).
+
+**A viewport change never renders the thumbnail (#784).** The thumbnail is the
+whole plan; a pan or a zoom only moves the frame drawn over it, so
+`MinimapWidget._on_viewport_changed` repaints the widget and re-checks the
+auto-hide, and only `scene.changed` schedules a render. A render is not just
+its own cost: `scene.render` needs every item's cache off, and switching an
+item's cache mode drops its device picture — the canvas then paints every
+visible item again at the next step of the pan that caused it (§8.37).
 
 ### 8.9.6 Coordinate mapping with Y-flip
 
@@ -458,8 +541,10 @@ it:
 - **The top-level window stays a raster window** (`surfaceType() == RasterSurface`, asserted in
   the render tier): embedding the container did not switch the main window to a composited
   path, and a 2D pan step costs the same with the view beside it (×1.04).
-- The floating mode switch of the workspace follows §8.9.1 to §8.9.3 — but it is parented to the
-  WORKSPACE and floats over the canvas only; in 3D mode it moves into the pane's strip.
+- The mode switch of the workspace floats over the canvas only where nothing hosts the
+  workspace (it then follows §8.9.1 to §8.9.3, parented to the WORKSPACE). The main window
+  adopts it (`Workspace.adopt_mode_switch`) and lays it out on the tab bar's row, where it
+  covers nothing of the plan (#796, ADR-060 addendum); in 3D mode the pane's strip has its own.
 
 ### 8.9.10 Selection transparency preserves interactive handles (#522)
 
@@ -580,7 +665,7 @@ rectangle. Two patterns replace that:
    ridge is the plan's linked `ROOF_RIDGE` rather than a symbol.
 2. **Aspect is a turn, not a stretch.** `core/sprite_orientation.py` states each
    sprite's natural footprint and `sprite_turn_deg`; `core/furniture_renderer.py`
-   renders at the swapped size and rotates the pixmap, while
+   draws the sprite at the swapped size, turned a quarter (`_draw_furniture`), while
    `builders/kit.object_box`/`placed` build the same quarter-turned mesh. One rule
    keeps the picture and the model facing the same way.
 
@@ -590,6 +675,591 @@ picture is parametric declares `paints_picture` (it stores no pen or brush of it
 own), so a missing picture paints nothing rather than a plain fill. Pin:
 `tests/integration/test_parametric_structures.py`,
 `tests/unit/test_sprite_orientation.py`, PF-CAN-44/45, PF-L3D-21.
+
+### 8.9.14 A bitmap is rasterised for the painter that draws it (#785)
+
+A plant sprite, an object sprite and a fill-texture tile are bitmaps, and a
+bitmap has a resolution. Until #785 every one was made at **1 pixel per
+centimetre of plan** — the paint code handed the renderer the item's size in
+centimetres where it expected pixels — so anything above 100 % zoom, on a
+high-density display or in a 300-dpi export was an enlarged bitmap beside
+crisp vector outlines. An item is painted by many painters (the canvas at this
+zoom, an export at that scale, the minimap, the Agent API render, a printer),
+so the resolution cannot be a property of the item: it is asked of the painter,
+at paint time, in **one place**.
+
+**The rule — `core/raster_resolution.py`, and nowhere else:**
+
+1. `device_scale(painter)`: the device pixels one centimetre covers under the
+   painter's *device* transform — world scale, item and group rotation,
+   mirroring and the device pixel ratio together (`QPainter.deviceTransform()`
+   includes the ratio; `worldTransform()` does not). The larger axis, signs
+   dropped. Two painters are not taken at their word: a device finer than
+   300 dpi (a printer at 1200) counts as 300, and a painter on a
+   `QSvgGenerator` or a `QPicture` keeps 1 px per cm, because it is replayed at
+   a size nobody knows. The SVG export is not such a painter: it records the
+   plan on a device of 1/300-inch units (§8.36), so it embeds the bitmaps a
+   300-dpi PNG of that width gets.
+2. `raster_level(scale)`: that scale rounded **up** to a power of two, never
+   below 1. A bitmap is therefore never enlarged and is reduced by less than
+   two, where bilinear filtering does not alias; a smooth zoom makes a new
+   bitmap once per doubling, not once per wheel step; and the level — through
+   the pixel size it yields — is part of every cache key.
+
+**Who asks it:**
+
+| Bitmap | Paint with | What it does |
+|---|---|---|
+| Plant sprite | `core.plant_renderer.paint_plant(painter, rect, …)` | turns and tints, then `sprite_raster.paint_sprite` |
+| Object sprite | `core.furniture_renderer.paint_furniture(painter, rect, type)` | undoes the canvas Y-flip, quarter-turns (#776), then `paint_sprite` |
+| Fill tile | `ui.canvas.items.fill_paint.paint_shape(item, painter, option, widget, super().paint)` | `fill_patterns.brush_for_painter`: the 512-px detail tile under a brush transform scaled by 1/2 when the level is above 1; otherwise the item's own Qt paint, untouched |
+
+`RectangleItem`, `CircleItem`, `EllipseItem` and `PolygonItem` call these; the
+ridge roof (`roof_paint`) and a textured path (`path_style_paint`, the canvas
+only) refine their own brushes with `brush_for_painter`; the 3D ground bake
+paints a sprite through `paint_furniture` (its grid is 1 px per cm at most, so
+its level is the canvas's at 100 %). `render_plant_pixmap` and
+`render_furniture_pixmap` remain for a caller that wants a pixmap of a pixel
+size it states itself (a list icon, a thumbnail) — **never pass them a size in
+centimetres**.
+
+**What `paint_sprite` guarantees** (`core/sprite_raster.py`):
+
+- A sprite whose level asks for at most 1024 px a side is a pixmap in
+  `SPRITE_CACHE` (least recently used out; 64 MB, more for a viewport above
+  two megapixels — §8.37; each entry 4 MB at most),
+  drawn into its **exact** rectangle — not `toAlignedRect()`, which enlarged a
+  10 cm seedling by up to a centimetre and put a bench up to 0.3 cm off its
+  rectangle.
+- A sprite whose level asks for more, while the device shows at most 1024 px
+  of it (a 3.45 m tree at 224 %: 773 device pixels, 1380 at level 4), is
+  rasterised at 1024 px: never enlarged, and cached. Without this band four
+  such trees were drawn from the vector at every zoom step (20 ms a step on the
+  family-garden example at 224 %).
+- A sprite the device shows more than 1024 px of (a 5 m tree at 400 %) is
+  **never rasterised whole**. Only the part the device shows is drawn, from the
+  vector, into a transient layer in device pixels (16 megapixels at most), and
+  that layer is laid down untransformed. Measured: a 9000-px tree clipped to a
+  1500×900 window costs 6–16 ms; the 2048-px pixmap it replaces costs 66 ms and
+  16 MB and would still be shown 4.4 times too large. Nothing is cached for it
+  — Qt's device cache already keeps the item's picture between paints — so it
+  is drawn again at every zoom step, at a cost that grows with the window.
+- Both routes draw the sprite with one callback (`draw(painter, rect)`), so they
+  cannot disagree about a turn, a flip or a tint, and a zoom that crosses the
+  1024-px threshold does not move the picture
+  (`TestCachedAndExposedAgree`, `TestOversizedSprite`).
+
+**Zoomed out, nothing changes.** The level is never below 1: below 100 % a
+bitmap is the 1-px-per-cm one, minified by the painter exactly as before. Coarser
+levels were built and measured — they remove the moire of bricks and roof tiles
+(rms error against the area average 12.3 → 5.5 at 30 %) but also the contrast a
+texture and a leaf outline read by at that size (a fill's luminance spread at
+10 % falls from 18.1 to 6.5, under the floor `TestTexturesAreNeverDropped`
+guards) — and 20–25 % is where the owner works. That is a change of look, for
+the owner to make (`raster_resolution.MIN_LEVEL`).
+
+**Drawing a picture in device pixels.** Both `paint_sprite`'s layer and the
+sun overlay's kept picture (§8.37) are laid down with
+`painter.setWorldTransform(to_device.inverted()[0] * painter.worldTransform())`,
+which makes the painter's device transform the identity whatever view transform
+and pixel ratio lie between world and device. A pixmap drawn into an item-space
+rectangle instead is mirrored by the canvas's Y-flip — the first version of the
+overlay's zoom picture was, and `test_the_picture_of_a_step_is_the_shadow_scaled`
+is what caught it.
+
+Pinned by `tests/unit/test_raster_resolution.py`, `tests/unit/test_sprite_raster.py`,
+`tests/unit/test_fill_pattern_levels.py` and, through a real `CanvasView`, the
+the PNG and SVG exports and the Agent API render,
+`tests/integration/test_canvas_sharpness.py` (29 of its 31 cases fail on the
+branch without the fix). PF-CAN-50.
+
+### 8.9.15 Text on the canvas — a halo, and object labels above the objects (#793)
+
+A label lies on whatever the plan holds: a red roof, dark soil, a bright lawn, the
+grey around the plan. No label may rely on what is under it.
+
+**One halo for every label.** `ui/canvas/items/halo_text.py` strokes the glyph
+*outline path* in a halo colour and paints the text over it. `QPainter.drawText`
+with a wide pen outlines nothing; that was the scale bar's "halo" for years.
+
+**The outline comes from the layout that draws the glyphs.** `text_outline` lays
+the text out as `QGraphicsSimpleTextItem` does and takes each glyph's outline at
+the place that layout gives it (`QTextLayout.glyphRuns`, `QRawFont.pathForGlyph`).
+`QPainterPath.addText` lays the text out a second time by other rules: a hinted
+layout rounds every advance to a whole pixel, and a bold face came out at the
+regular width. A bold 10 pt "Perennial border" ended 3.9 px past such an outline
+on Windows, where the halo reaches 2.5 px, and 6.4 px at an export's 7 pt.
+`paint_halo_text` strokes and fills one path, so it cannot disagree with itself.
+
+| Use | API |
+|---|---|
+| Immediate painting (the scale bar) | `paint_halo_text(painter, baseline, text, font, colour)` |
+| A scene label (dimension and constraint text) | `HaloTextItem` |
+| An object's name or area label | `PlanLabelItem` |
+
+Both item classes stay `QGraphicsSimpleTextItem`: the export paths find text by
+that type to resize it (PF-CAN-08). A constant-size item that draws its text by
+hand (the succession badge) offers `font()` / `setFont()` and is named in
+`retarget_constant_size_text` instead (#836).
+
+**Stated contrast.** `core/legibility.py` holds the arithmetic (WCAG relative
+luminance and contrast ratio). `MIN_TEXT_CONTRAST = 4.5` is what a label shows as
+painted, measured on pixels between the ink and what surrounds it.
+`INK_CONTRAST_TARGET = 7.0` is what the ink *colour* is given against its halo
+colour: a thin glyph's anti-aliased edge costs about a third of the colour
+contrast (the constraint blue is 4.6:1 on white as colours and 3.5:1 as painted).
+`setBrush` on a halo item keeps its meaning; a colour below the target is darkened,
+hue kept, so a dimension's text is a darker shade of its line. A dark ink gets the
+light halo, a light ink the dark one. The halo is opaque and its width follows the
+font (`HALO_WIDTH_RATIO` of the ascent), because an export gives the labels
+another font size.
+
+**Object labels are painted after the items.** A child item is drawn with its
+parent, so the lawn's label lay under every object placed on the lawn.
+`PlanLabelItem.paint` therefore does nothing in a `CanvasScene`;
+`CanvasScene.drawForeground` paints all labels after the item pass. It is a
+scene-level hook on purpose: `scene.render()` runs it too, so every export shows
+the labels the canvas shows. The label stays a child item, which keeps its place,
+visibility, opacity, lifetime and export font size for free. The pass skips a
+label with `ItemHasNoContents`: that flag is how the minimap blanks screen-space
+items (§8.9.5).
+
+**A bed's succession badge is painted in the same pass (#836)**, before the labels
+(`plan_labels.LabelPass`): as a child item it was drawn with its bed,
+and the plants growing in the bed covered it. It hangs on the corner of the bed's
+outline (`_position_succession_badge`, called with `_position_label` on every change
+of the outline) and is shown only where it has room on its bed
+(`label_layout.badge_has_room`, in device pixels, so the canvas at any zoom and an
+export at any resolution decide alike).
+
+**A label centres itself.** An `ItemIgnoresTransformations` label has its position
+in plan units and its size in pixels. An offset of half its size written into its
+position is right at one zoom only. `HaloTextItem(centered=True)` shifts its own
+rect instead; the inline name editor uses its own transform for the same reason.
+Labels of one object are stacked by `stack_under`, in pixels.
+
+**Labels that have no room are left out.** `core/label_layout.place_labels`
+(Qt-free) decides in screen pixels: an object smaller than `LABEL_MIN_OWNER_PX`
+on screen gets no label, and of two labels that would touch the larger object's
+wins. A selected object's labels are exempt and placed first. The name and the
+area of one object are a stack, not neighbours (`LabelCandidate.owner`): they lie
+closer than the gap and do not exclude each other, and when the name has no room
+the area is left out with it. The layout always
+looks at every label of the scene, never only at a repainted region, or a partial
+repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
+returns the result for a given transform, taken fresh.
+
+**The layout is kept, not taken for a paint.** It walks every item of the scene
+(9 ms on a plan of 853 labelled objects), and until the review of #793 every
+paint took it again, a 40-pixel repaint as a full one. `plan_labels.LabelPass`
+keeps each viewport's layout and takes it again only when what it was taken from
+has changed:
+
+| What changed | How the pass knows |
+|---|---|
+| The scene: an edit, a move under way, a selection (a selected object's labels are pinned), a rename, a label hidden or shown | `CanvasScene.paint_revision` (§8.37), which every such change moves itself. The label items do too: `halo_text.note_label_changed`, from `PlanLabelItem` and `SuccessionBadgeItem` on a change of text, font, stacking, visibility, parent or scene. A tool's preview, a hover and the sun's shadow moving do not move it |
+| The zoom | the scale of the paint transform: a label keeps its size on screen while its object changes its own |
+| What the view states no label may touch | the tuple of `set_label_blockers` |
+
+A pan is none of these: which labels have room does not depend on where the plan
+lies in the viewport, so the kept layout is painted moved by the pan. Only a view
+with a blocker lays out again on a pan (the sun map's key stays where it is while
+the labels move under it). A picture of the plan (an export, the minimap, the
+Agent API's render) is laid out for itself and kept by nobody. What is kept for a
+viewport — its layout, and the blockers its view stated — is keyed by the
+viewport widget itself, held weakly, so it goes with the widget; an
+`id(viewport)` is an address, and a new widget at a dead one's address was
+handed the dead one's entries (`tests/integration/test_label_viewport_entries.py`).
+
+**A label that gains or loses its room may lie outside what is being repainted**
+(an object dragged away frees its neighbour's name; Qt repaints the object). The
+pass used to answer every change of the choice with a full repaint of the
+viewport, which painted every zoom step twice: a zoom changes the choice at each
+step and repaints the viewport in full anyway. `_repaint_what_changed` asks for
+the rectangles of exactly the labels that entered or left the choice, and for
+none when the paint covers the viewport. A test of this reads the window's
+backing store (`screen().grabWindow`), never `QWidget.grab()`: a grab paints the
+widget afresh and cannot show a pixel a partial repaint left behind.
+
+Measured on the 853-object plan (1469 × 901, at fit): the pass inside a 40-pixel
+repaint 10–12 ms → 0.1 ms; scene foreground passes per zoom step 2 → 1. What a
+40-pixel repaint still costs with labels on over labels off (2.2 ms: 4.9–5.7
+against 2.8–3.1 ms) is not the pass: Qt keeps items that ignore transformations
+out of its spatial index and walks the owner of every such item on every paint.
+
+**A label of no object states its own weight.** The hours on the sun map's
+contours are `PlanLabelItem`s with no owner (`sun_heatmap.SunMapLabelItem`, #794):
+they have no object whose size could earn them room, so `free_extent_px` says what
+they count as — the smallest object that still gets a label, rank 2 — and they are
+placed after every object's own labels. An ownerless label with `free_extent_px`
+0, the default, is never shown.
+
+**What is not a label can take room too.** A rectangle no label may touch is a
+*blocker*: a scene item states one with `plan_label_blocker()`, and a view states
+what it draws over its viewport with `CanvasScene.set_label_blockers(viewport,
+rects)`. The sun map's key is both (§8.9.18). Blockers are placed before every
+label and are never painted by the pass.
+
+**A label shows a bounded text.** An object's name comes from a plan file, which
+is untrusted input (§8.11), and a label lays its text out and strokes every
+glyph's outline. `PlanLabelItem` therefore shows `halo_text.label_text` of what
+it is given, at both places it gets a text (its constructor and `setText`):
+`core.plain_text.clip_line` — one line, `NAME_MAX_CHARS` (80) characters, an
+ellipsis where something was cut, control characters replaced. That is the name
+as the 3D info card and the problems list show it, so a name that was pasted
+with a line break in it reads the same on the plan as in the panels. The name
+itself is untouched (`item.name`, the file, the name editor). The succession
+badge clips each crop name the same way (`SuccessionBadgeItem.set_lines`): it
+measures and draws its rows by hand at every paint. Measured with a real font,
+a raised bed whose name is a million characters: the first paint of the canvas
+46.9 s → 20 ms; with a million and a half, an access violation in Qt's stroker →
+21 ms. A text note or a callout is not a label: its text is the user's own and
+may be long, Qt lays its document out once and the item's device cache paints
+it (a note of a million characters: 0.2 s to make, 1 ms a repaint, 126 ms a
+repaint while it is selected and uncached).
+
+**A label takes no click.** `PlanLabelItem.shape()` and
+`SuccessionBadgeItem.shape()` are empty. Whether a label is painted is the pass's
+decision, per paint and per view; the item knows nothing of it. With its rectangle
+as its shape, a label that was left out still covered the plan: on a plan of 853
+named plants at fit a third of the plan's points lay on a label nobody could see
+(measured by the review of #793), and a press there selected nothing and started
+no box selection. A label is writing on the plan, not a body. What lies under it
+takes the press, the double click (the name editor opens from the object), the
+context menu and the tooltip. No label ever selected its object, so nothing is
+lost: over its object's body the object took the click before, and still does.
+
+**Text notes scale with the view.** A `TextItem` or a callout is laid out once and
+scaled by the zoom, so its font is unhinted (`PreferNoHinting`, set with #789;
+PF-CAN-52). An exact point size and the document's design metrics were measured on
+top of that and change nothing: the letter gaps of a rendered note are the same to
+0.01 px at every zoom.
+
+Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
+`tests/unit/test_label_layout.py`, `tests/integration/test_plan_label_hits.py`,
+`tests/integration/test_label_layout_cache.py`,
+`tests/integration/test_plan_label_text_bound.py`. PF-CAN-52, PF-CAN-60.
+
+### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
+
+A picture of the plan (PNG, SVG, PDF report, print, the Agent API's
+`render_canvas_image`, an example thumbnail) shows the plan. It does not show
+editing aids or warnings. **One seam decides what is left out:**
+`ExportService._hide_overlay_items` with `_restore_overlay_items`.
+`scene_rendering.render_scene_region(hide_overlays=True)` calls the same pair, so
+there is one list, not two.
+
+| What | How the seam removes it |
+|---|---|
+| Handles, lock / soil / sun-mismatch / guild badges | scene items of a dedicated type: hidden one by one |
+| Selection outlines | the selection is cleared and restored |
+| Spacing ring, companion ring, antagonist badge, capacity badge, soil border, crop-rotation border | painted by their garden item: `CanvasScene.set_diagnostic_overlays_visible(False)` |
+
+The third row has no item to hide. The scene switch stands in the returned list as
+one entry, so restoring the list switches the decorations back on and no caller
+changes. A new paint-time decoration asks `GardenItemMixin._diagnostics_painted()`
+before it draws and is listed in `has_diagnostic_decoration()`; a new badge item
+gets its own type and joins the tuple in `_hide_overlay_items`. The switch changes
+what is painted, never a flag, the plan or its revision; `get_diagnostics` reads
+the same warnings whether or not they are painted.
+
+**The seam is checked on every shape of the bed gate (§8.14).** The decorations are
+painted from three places (the mixin for the soil border and the capacity badge,
+`RectangleItem` and `PolygonItem` for the crop-rotation border), which is the
+arrangement that twice shipped a bed feature on some shapes only.
+`test_no_plant_parent_shape_carries_a_decoration_into_an_export` therefore runs
+over `BED_SHAPES` of `tests/integration/test_bed_context_menu.py`: with every
+diagnostic flag raised, the exported picture of each shape equals the picture of
+the bare shape. A shape added to the bed gate is checked here with no further
+step.
+
+The succession badge is not in the list above: it states what the plan says (the
+crops that follow in a bed), not a warning about it, and is in every picture of the
+plan, drawn to the picture's scale (§8.36, ADR-076 addendum of #836).
+
+Decision (ADR-028 addendum): the spacing ring is a planning aid and is in no
+exported picture, warning or not. View-level overlays (grid, rulers, scale bar,
+soil-health tint) were never in an export, because `scene.render()` does not reach
+`CanvasView`.
+
+**The seam also puts one thing in (#794).** The key of the hours-of-sun map is
+drawn by the view over its viewport, so a picture would have none. It is a scene
+item that stays hidden on the canvas (`sun_legend.SunMapLegendItem`);
+`_hide_overlay_items` shows it for the render and appends a `_PictureOnly` entry
+whose "show again" hides it. The pair of functions stays the one place that says
+what a picture holds, in both directions; a second item of that kind joins the
+same branch (§8.9.18).
+
+Pin: `tests/integration/test_spacing_warning_overlay.py`,
+`tests/integration/test_export_overlay_hide.py`,
+`tests/integration/test_sun_map_legend.py::test_every_export_path_shows_the_key_through_the_one_seam`.
+
+### 8.9.17 Handles sit on the outline; the grid lies under the objects (#790, #793)
+
+**`boundingRect()` is the repaint region, not the object.** It holds the outline
+plus the drop shadow, the pen, a plant sprite's leaf overflow, a companion ring, a
+warning badge and the spacing ring. Anything that marks *the object* reads
+`handle_geometry.selection_frame_rect(item)`: `rect()` for a circle, rectangle or
+ellipse, the vertex hull for a polygon, the bounding rect only for an item with
+neither. Resize handles, the rotation handle and the label anchor use it. The
+rotation pivot already did (§8.9.8).
+
+**Several labels of one item hang on one anchor.** An annotation label is
+`ItemIgnoresTransformations`; two of them anchored at two plan points overlap as
+soon as the points are closer on screen than the text is wide. A circle's position
+and diameter labels share the right-edge midpoint and are stacked with
+`AnnotationLabel.set_screen_offset`.
+
+**The canvas grid is cut out, not reordered.** It is a view-level pass (no export
+carries it) and is painted after the items. It must still read as lying under the
+objects, and it must stay visible on a lawn or a terrace, which a background grid
+would not. `CanvasView._draw_grid` therefore draws the lines into a layer in
+device pixels (`core.sprite_raster.paint_layer`, the sprites' own route) and
+clears from that layer every drawn object that is not a ground surface
+(`canvas_scene.on_ground`), each with its own fill rule and on whole pixels. A
+plant cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
+
+**What stands on the plan is kept by the scene, not asked for a paint.**
+`CanvasScene.standing_covers()` holds one path per standing object, in plan
+coordinates, with the rectangle round it. It is taken again when
+`paint_revision` has moved (§8.37) and at no other time: a repaint, a pan and a
+zoom read the same list, because plan coordinates do not change with the view.
+A tool's preview does not move the revision (§8.37): a rubber band over 853
+objects used to take the list again at every other mouse move.
+Until the review of #793 the view asked every object on every paint and united
+one `QRegion` per object in Python: 70 ms of a 120 ms repaint on a plan of 853
+objects (now 26 ms, against 24 ms for the lines with no cut-out at all). A
+layer, not a clip: the lines under a clip region of fourteen thousand rectangles
+cost 20 ms more than the lines themselves, and the paths of two objects in one
+clip path cancel where they overlap with opposite winding. The layer's painter
+is given a clip rectangle, though: Qt's raster engine draws a cosmetic line
+without one ten times slower (196 lines, 28 ms against 2.5 ms).
+
+**"Something stands here" is one predicate and one walk.**
+`canvas_scene.is_standing_object` (a visible rectangle, circle, ellipse, polygon
+or polyline that is no ground surface) and the item's `grid_cover_path()` answer
+it, and `canvas_scene.collect_standing_covers` collects it, for the grid and for
+the hour labels of the sun map (§8.9.18). **A line covers its stroke, not what it
+encloses**: `shape()` of a path item is its stroke united with the path *filled*,
+and a fill closes an open line from its end back to its start. A railing round
+three sides of a balcony covered the whole balcony — the grid was cut out of it
+and no label found a free place — so `PolylineItem.grid_cover_path` returns the
+stroke alone (#794).
+
+**The finished layer is kept by the view** (second review of the 2D branch).
+The lines with the objects cut out are the same picture until the scene, the
+zoom or the grid itself changes, and until that review they were made afresh
+for every paint: the layer, the lines and one fill per object — 25 ms of a
+55 ms repaint in a 3824 × 1984 viewport. `CanvasView` keeps the layer
+(`core.sprite_raster.KeptLayer`) under a key of the scene's paint revision, the
+grid's size and colours and the plan's rectangle, with the painter's transform:
+
+| Paint | What it does |
+|---|---|
+| A repaint, whole or partial | lays the exposed part of the kept layer down: no allocation, no line, no fill |
+| A pan | lays it down moved by the pan, in whole device pixels. A layer made after a scene change or a zoom step covers the viewport only, so the first pan step that runs out of it makes one that reaches 256 px further on every side (six 40-pixel steps); the next is made when a pan leaves that |
+| A pan by part of a device pixel (a fractional display scaling, an odd number of logical pixels) | is drawn afresh, as every paint was: nothing is resampled |
+| A scene change or a zoom step that repaints the viewport | makes the layer again, once |
+| A partial repaint after a scene change (a drag repaints two small rectangles a frame) | is painted for its rectangle through `paint_layer`'s own route, as before, and makes no layer: it must not pay a viewport |
+| A picture of the viewport that is not the viewport (`render()` into an image) | is painted through the same `draw`, for itself, and kept by nobody |
+
+Kept: 4 bytes for each device pixel of the plan in the viewport (4.1 MB on the
+family-garden example in a 1453 × 913 viewport, 18 MB in 3373 × 1833), with the
+margin up to (W + 512) × (H + 512) × 4, never over 64 MB
+(`MAX_LAYER_PIXELS`: a viewport that large gets no margin, a larger one no kept
+layer at all), and dropped when the grid is switched off. Every layer — the
+kept one, a sprite's, the soft edge's — is made by one function and laid down
+by one (`_render_layer`, `_lay_layer`).
+
+**The cut-out is bounded like the picture (#472).** The cut-out FILLS each
+object's outline, and so does the raster the sun map's labels read (§8.9.18).
+`MAX_FULL_DETAIL_VERTICES` bounds what the canvas fills of a polygon: above it
+an unselected polygon is painted as a one-pixel outline, because the fill of a
+reflex-heavy outline is quadratic. That bound did not reach the cut-out: one
+zigzag line of 16,000 vertices (inside the load ceiling, so a plan file can
+hold it) made every repaint with the grid on 2.7 s, an outline of as many
+1.3 s, against 24 ms on master. An outline above the bound now answers
+`grid_cover_path()` with an EMPTY path (`PolygonItem`, `PolylineItem`): the one
+bound, the item's own — it covers what its degraded picture covers, a
+hairline. Consequences, stated: the grid is drawn across such an outline (also
+across a selected one, which paints its fill), and the hours on the sun map's
+contours do not keep clear of it. *Rejected*: its bounding rectangle as a
+stand-in (a fence that zigzags across the plan would blank the grid over the
+whole plan — the railing of #794 again); a second, simplified outline (a second
+bound).
+
+Pin: `tests/integration/test_selection_frame.py`,
+`tests/integration/test_canvas_legibility.py`,
+`tests/integration/test_grid_cover_cache.py`,
+`tests/integration/test_polygon_paint_bound.py::TestTheGridCutOutIsBounded`,
+`tests/integration/test_tool_preview_repaint.py`,
+`tests/integration/test_sun_map_labels.py::test_an_open_fence_covers_its_line_not_the_ground_it_encloses`;
+PF-CAN-51, PF-CAN-60.
+
+### 8.9.18 The sun map's key and labels, and the shadow's soft edge (#794, #793)
+
+What is painted with the sun study besides the shadows and the map themselves,
+and by which of the canvas's mechanisms. Decisions: ADR-037 addendum "the sun
+map's key, its labels and what is painted with it".
+
+**The key is a description first.** `core.heatmap_render.sun_legend(daylight)`
+(Qt-free) says what the key shows: the map's own tints row for row
+(`build_sun_lut`), a mark at 0 h and at every hour the map contours
+(`hour_levels`), and which hours are numbered (`hour_is_labelled`, which the
+contours ask too). The map's pixels and the key look a tint up through one
+function, `ramp_index`. So the key cannot name an hour or show a colour the map
+does not; `tests/unit/test_heatmap_render.py::TestSunLegend` is the drift guard,
+down to a search of the sources for a second copy of the ramp.
+
+**One painter, two places.** `sun_legend.paint_sun_legend(painter, top_left, key,
+font, ink, ground)` takes every measure from the font it is given, paints its text
+with `halo_text.paint_halo_text` and lays the bar's tints on the bare plan's
+colour (the map is translucent: on a lawn its colours are the lawn's too, which no
+key can show).
+
+| Where | Who draws it | Size and colours |
+|---|---|---|
+| The canvas | `CanvasView._draw_sun_legend`, over the viewport, after the scene (`set_sun_legend`; the application passes `SunHeatmapController.legend_key()` on the controller's `computed`); drawn from one kept picture (`sun_legend_picture`), remade when the key, the colours, the pixel ratio or the language change | the scale bar's font; the theme's `scale_bar_fg`, its halo following from it |
+| A picture of the plan (PNG, SVG, PDF report, print, the Agent API's render) | `SunMapLegendItem`, a scene item at the plan's south-west corner that the export seam shows for the render only (§8.9.16) | a `HaloTextItem`, so the export retargets its font with every other constant-size text (PF-CAN-08) and the key grows with it; dark ink on the light halo |
+
+The key's title names the day the map is of, written as every label, card and
+legend writes a date (`core.i18n.format_short_date`: "21 Jun 2026", "21. Juni
+2026") — on the canvas and in a picture alike. ISO is for a date field, a file
+and the Agent API (§8.3).
+
+On the canvas the key lies in the bottom-left corner, in the strip the scale bar
+stands in (`SCALE_BAR_RESERVED_PX`, which the overlay widgets already keep clear,
+§8.9.4). Where it does not fit beside the scale bar it is drawn without its title,
+then one strip higher; where even that would lie on the scale bar or an overlay
+widget (the minimap) it is not drawn. The scroll area's own scroll-bar containers
+are no overlay widgets: they keep a rectangle and stay "visible" while their bar
+is hidden. In a picture the key lies inside the plan: a picture is exactly the
+plan, so there is no margin for it, and widening the picture would break the
+pixel-to-plan mapping the Agent API documents (§8.19).
+
+**Two traps of a key drawn over the viewport.** Qt scrolls a viewport's pixels on
+a pan and repaints only the strip that came into view, so anything drawn in
+viewport coordinates is carried off with the plan unless it asks for its own
+rectangle again: `scrollContentsBy` updates the key's rectangle and where the
+scroll moved it to. (Measured: in the application's window a pan repaints the
+whole viewport, with the minimap shown or switched off, which is why the scale
+bar and the rulers have never shown this; a bare `CanvasView` repaints the
+40-px strip of a 40-px pan.) And the labels of the plan are
+painted before the key in the same paint, so the view tells the scene where the
+key lies (`set_label_blockers`, §8.9.15) and paints once more when that changed.
+
+**The hours on the contours** are placed when the map is built, in plan
+coordinates, for the zoom at which the plan fits a window 1100 px wide
+(`_NOMINAL_VIEW_PX`): each evenly spaced place along a contour is tried first,
+then the places along the line to either side, nearest first
+(`heatmap_render.label_candidates_along`). A place is passed over when the
+label's rectangle there would touch a standing object (§8.9.17), lie within a
+ruler's width of the plan's edge, or be closer than 160 cm to a label already
+placed. A contour that is covered all the way has no label. "Touches a standing
+object" is read from one raster of the plan (`sun_heatmap.StandingMask`, cells of
+2.5 cm, painted once per map): asking the scene for each place cost 0.6 s on the
+food-forest example, where contours hug many crowns; with the raster, building
+the contours and labels costs what it did before the labels avoided anything
+(family garden 129 → 118 ms, food forest 68 → 65 ms). At paint time they are
+ordinary labels of the plan (§8.9.15): above every item, one halo, and left out
+where two labels would touch — an object's own name wins over an hour.
+
+**With the map shown, the time-of-day shadows are not painted.** The map lies
+above the shadow overlay (z -450 over -500), but it is translucent: alpha 32
+where the ground is sunny all day. The shadow of one instant showed through it —
+on the family-garden example it changed a third of the viewport's pixels — and a
+14-hour spot read as a 6-hour one. `SunShadowController.set_map_shown(True)`
+hides the overlay's picture and nothing else: state, solves, `drape_polygons()`
+and `shadows_changed` are what they are without a map, so the 3D view's shadow
+drape and every other reader do not notice. The controller's "is there a solve to
+show" is its own flag (`_overlay_wanted`), never `overlay.isVisible()`.
+
+**The sun-mismatch badge** lies on the plan and is scaled with its plant, so it is
+painted for the painter like every bitmap of the canvas (§8.9.14):
+`SunBadgeItem.set_icon` names the icon and `ui.icons.paint_icon(painter, name,
+rect)` draws it through `core.sprite_raster.paint_sprite`. A pixmap of a stated
+pixel size (`get_pixmap`) is for chrome, where a pixel is a pixel. The badge stays
+out of every picture of the plan (§8.9.16).
+
+**The shadow's soft edge is a field, not strokes.** Until #793 it was four stacked
+strokes of 14, 9, 5 and 2.5 cm: four flat bands, each 1.25 to 2.5 cm wide —
+invisible at 100 % zoom, four stripes from 200 % on, and the innermost 15 levels
+darker than the shade it edged. A stroke has one tone, so no number of strokes
+is a falloff. `core/soft_edge.py` (Qt-free, numpy) computes one instead:
+
+1. The shade is rasterised on a coarse lattice anchored in the plan
+   (`feather_grid`): cells of two device pixels when zoomed out, twelve cells to
+   the 7 cm reach when zoomed in. Anchored in the plan, and its pitch a function
+   of the device's scale alone, so that a pan's strip and a tile of a print
+   compute the cells the whole picture computes. A field of more than
+   `MAX_FIELD_CELLS` is computed in bands of that many cells on the same
+   lattice; until the second review it was computed on a coarser one, coarser
+   by what that one paint exposed, and two tiles met at a seam (6 levels,
+   measured with the bound lowered).
+2. The raster is blurred with two box passes (`box_sums`: exact integers in
+   32-bit running sums that may wrap; four times as fast as floating-point sums,
+   measured). The blurred coverage of a cell is read as its distance to the
+   shade: one half on the edge, nothing at the blur's reach.
+3. `falloff_lut` maps that to the falloff's weight: 1 at the edge, linear to 0
+   at 7 cm, and continued above 1 inside the shade, because the cells there are
+   what the enlargement interpolates from just outside the edge. Where regions
+   differ in tone (#698) a second blur gives each cell the tone of the shade
+   beside it, so a light shade's edge starts at its own tone
+   (`feather_fields`: the weight and the tone, two factors).
+4. `ui/canvas/shadow_feather.paint_feather` composes the edge in a layer in
+   device pixels (`core.sprite_raster.paint_layer`, the sprites' own route): the
+   weight enlarged as a mask in which the shade's own tone is half a byte; the
+   mask added to itself with saturation, which is the weight clamped to 1; the
+   shade's colour laid into the mask (one colour for a solid shade, the
+   enlarged tone where regions differ); and the shade cut out, with its exact
+   outline. No painter is handed a clip, so an SVG still holds no `<clipPath>`
+   (PF-CAN-53).
+
+**No pixel of the edge is darker than the shade** (second review of the 2D
+branch). Blurred coverage is a distance beside a STRAIGHT edge only. In the
+inside corner of an L, in the cusp between two round shades, in a sunlit hole
+and in a narrow sunlit gap, more than half of what surrounds a sunlit point is
+shade: the "distance" comes out negative and the weight above 1. Such ground
+was painted darker than the shade it lies beside — up to 41 of the shade's 97
+levels, measured on every pixel of the painted overlay, and along the whole
+length of a 4 cm gap. The invariant now, at every zoom and in every picture:
+
+- no pixel of the falloff is darker than the shade's own tone — outside the
+  shade and on its outline;
+- where the shade has regions of different tone, none is darker than the
+  darkest shade within the blur's reach of it, and beside one region alone
+  none is darker than that region;
+- beside a straight edge the falloff is what it was: from the shade's tone,
+  monotone, to nothing at 7 cm.
+
+The clamp is step 4's, after the enlargement, and not on the lattice — both
+lattice clamps were tried and measured. Clamping the cells the shade does not
+cover leaves a cell's width of too-dark ground along every concave outline
+(still 29 levels in an 8 cm hole), because the enlargement interpolates from
+the cells beside them. Clamping every cell starts every falloff under the
+shade's tone (a step of 3 levels and then three pixels standing still at
+1000 %: a band). What a concave place shows instead is the shade's own tone:
+an inside corner is rounded by the reach, and the two soft edges of a sunlit
+gap meet in it. Measured in the middle of a gap between two shades, as a share
+of the shade's tone: 1.00 up to 4 cm, 0.93 at 5 cm, 0.82 at 6 cm, 0.63 at 8 cm,
+0.42 at 10 cm, 0.22 at 12 cm, nothing from 14 cm (twice the reach) on. A gap of
+4 cm that the geometry says is lit is therefore painted as shade — the picture
+of a 7 cm soft edge on either side of it, and the owner's to confirm (ADR-037
+addendum, decision 7).
+
+The shade's geometry is untouched: the full tone is the outline's fill, to the
+pixel. Beside an edge at 45 degrees the falloff is within 8 % of the tone of the
+one beside an upright edge (two passes are a tent, not a Gaussian; three cost
+half as much again and were no closer). Cost and numbers: §8.37.
+
+Pin: `tests/integration/test_sun_map_legend.py`,
+`tests/integration/test_sun_map_labels.py`,
+`tests/integration/test_sun_map_and_time_shadows.py`,
+`tests/integration/test_sun_badge_sharpness.py`,
+`tests/integration/test_shadow_feather.py`,
+`tests/integration/test_shadow_feather_concave.py`, `tests/unit/test_soft_edge.py`,
+`tests/unit/test_heatmap_render.py` and, through the real window,
+`tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
 ## 8.10 Integration Test Policy
 
@@ -2525,7 +3195,14 @@ The rule, and the one helper (`core/plain_text.py`, standard library only):
    `core/scene3d/sync.py`, the `record_failed` and refusal records in `ui/view3d/snapshot.py`
    — still attach the exception at ERROR or write its message as it came: that story's
    records, pinned by its tests, and an open item.
-4. **Do not write invisible characters into source.** An editing tool turned three `\u`
+4. **What is PAINTED from plan text is capped too.** The rule was written for tooltips, labels
+   and log lines, and the canvas was not on the list: an object's name went into its label on
+   the plan as it came, and the label strokes every glyph's outline. A name of a million
+   characters froze the canvas for 47 s at its first paint; one of a million and a half crashed
+   Qt's stroker. `ui/canvas/items/halo_text.label_text` is `clip_line`, applied where a plan
+   label and a succession badge get their text (§8.9.15, PF-CAN-52). A consumer that does work
+   for every character of a plan string is a consumer of this rule, whatever it does with it.
+5. **Do not write invisible characters into source.** An editing tool turned three `\u`
    escapes into the characters themselves, in the very module that defines the separators.
    Named escapes (`\N{LINE SEPARATOR}`), and `tests/unit/test_plain_text.py` scans `src/` and
    `tests/` for characters a reader cannot see.
@@ -2533,8 +3210,9 @@ The rule, and the one helper (`core/plain_text.py`, standard library only):
 Pinned by `tests/unit/test_plain_text.py` (each separator in turn yields the same capped result;
 the positive control — the old splitter — fails),
 `tests/integration/test_view3d_workspace_widget.py::test_a_hostile_name_is_shown_as_its_characters_everywhere`
-(checked against Qt's own renderer, with the unescaped string as the control) and
-`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`.
+(checked against Qt's own renderer, with the unescaped string as the control),
+`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`
+and `tests/integration/test_plan_label_text_bound.py` (the canvas's labels, with the suite's real font).
 
 **Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
@@ -3233,7 +3911,9 @@ shared path-resolution helper: with no `file_path`, it uses the same
 project, or `<Documents>/Open Garden Planner`); with an explicit `file_path`,
 it force-applies the correct suffix and requires the parent directory already
 exist (a typo'd path fails clearly rather than silently creating a directory
-tree). `save_plan` with no `file_path` and no project open raises rather than
+tree). The default name is built from `ProjectManager.file_stem` (the file's stem,
+or `Untitled` in every UI language), never from the translated `project_name` a
+save dialog suggests. `save_plan` with no `file_path` and no project open raises rather than
 inventing an `Untitled.ogp` — mirrors the GUI, where a brand-new project always
 needs an explicit Save-As first; given a path, it becomes the project's file
 going forward (Save As semantics), and `ExportResult.previous_file_path` reports
@@ -3956,6 +4636,13 @@ heatmap): precompute on change — `scene.changed` debounced (150 ms) +
 let `paint()` only draw the cached path. Guard every timer start with
 `contextlib.suppress(RuntimeError)` (#230).
 
+**What is painted with the sun study** (#794, #793; §8.9.18): the hours-of-sun
+map has a key — over the viewport on the canvas, a scene item in a picture — and
+its hour labels are labels of the plan; while a map is shown the time-of-day
+shadows are solved but not painted (`SunShadowController.set_map_shown`: the map
+is translucent, and a shadow of one instant under it reads as fewer hours); the
+shadow's soft edge is a blurred field, not strokes.
+
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread
 (`collect_exposure_snapshot` → `collect_identified_casters` — never live QGraphicsItems across threads),
@@ -4304,7 +4991,7 @@ FILE_VERSION bump) is pinned by `tests/unit/test_project_unknown_object_type.py`
 
 ## 8.24 Texture Forge Pipeline (#309, ADR-042)
 
-### 8.24.1 One generator, 24 artifacts
+### 8.24.1 One generator, 24 textures (two tiles each)
 
 Every PNG under `resources/textures/` is produced by
 `scripts/generate_asset_forge_textures.py`: one `generate_<name>(rng)` recipe
@@ -4339,6 +5026,19 @@ Pillow filter is involved — Pillow only encodes/decodes PNG. The binding
 style contract ("Lush": visible detail, radial shading, concentric occlusion,
 tint-readable contrast, no directional light) is the `ogp-asset-forge`
 skill's §1; provenance is `resources/textures/PROVENANCE.md`.
+
+**The detail tile (#785).** The painter's canvas is 512 × 512; the 256-px tile
+is its 2 × 2 box average. `Tile.finish` now also keeps that canvas, rounded, and
+the generator writes it as `resources/textures/x2/<name>.png` — the same picture
+at 2 px per cm, from the same run of the same recipe, with no recipe knowing
+about it. `--check` compares both files of every texture; the 256-px tile is
+byte-for-byte what it was. The conformance gate (`TestDetailTiles`) pins
+registry ↔ files, 512² RGB, the pixels, that the detail tile averages back to
+the tile (0.75 of a level at most where neither is clipped) and the rounding-tie
+margin; `tests/unit/test_fill_pattern_levels.py` holds every detail tile to the
+tileability gate. The 24 detail tiles add 5.17 MB to the repository and the
+installer (the 24 tiles are 1.70 MB). ADR-042 addendum (#785) records why 2 px
+per cm and not 4.
 
 ### 8.24.2 The three invariants
 
@@ -5633,7 +6333,8 @@ below it, the notices, one per line — the status line, "N objects are not show
 > **Rule: nothing overlays the 3D view.** It is a native window; a sibling widget does not paint
 > over it. A control or a notice for 3D goes into the strip above the view, beside it, or in its
 > place — never on top. (The one floating thing in the workspace is the mode switch in Plan and
-> Split, and it floats over the canvas.)
+> Split, and it floats over the canvas — unless the hosting window adopted it, as the main
+> window does: ADR-060 addendum, #796.)
 
 **The life of the 3D pane** (`View3DState`): `not_started` → (first switch to 3D or Split: the
 start marker is written, the engine factory runs) → `starting` → (the health poll sees the first
@@ -6755,12 +7456,47 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | −16.7 / −7.5 / −3.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | −7.0 / −7.0 / −6.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | −71.0 / −71.0 / −70.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | −56.3 / −56.3 / −56.0 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | −18.4 / −12.0 / −9.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
 fence by that transmittance (the table's ratio column). For the complete per-kind narrative of
 reach differences, nominal sections and pre-#440 gable geometry, see ADR-059 addendum "builders v0"
 ("Where the tip is").
+
+**Open frames (#698).** A pergola, a trellis, a swing, a hammock and a garden light are mostly
+air, and the 2D analysis casts them as their footprint prism WEIGHTED by a transmittance — the
+rule a new object kind has to be placed under:
+
+- **Which kinds** is a recorded decision in `core/object_height.py`: `OPEN_FRAME_TYPE_NAMES`
+  (weighted), `SOLID_2D_DECISIONS` (mostly air in 3D, solid in 2D, each with its reason — the
+  parasol, the greenhouse, the low furniture) and `NO_2D_SHADOW_TYPE_NAMES` (a string of
+  lights). `tests/unit/test_open_frames.py` measures every object kind and fails for one whose
+  3D model shades less than half of its prism and that is on none of the three lists. A kind
+  belongs on the open-frame list when its shade is thin members spread over the whole prism; a
+  solid top on a pole or on legs does not — its shade is dark and lies somewhere else.
+- **The weight is measured, not tabulated**: `1 − A(frame) ÷ A(prism)` for the item's own size,
+  height and turn and the sun of the moment (`core.shadow_geometry.open_frame_transmittance`),
+  from the 3D builder's own members (`core/scene3d/builders/open_frames.py`; a pergola's from
+  `core/pergola.layout`). To make a kind an open frame, add its name and nothing else — its
+  production builder is read. Do not add a table of shares: the members' sizes are capped, so
+  a share that is right for one footprint is wrong for the next.
+- **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
+  the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
+  hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks
+  a caster for its height and footprint alone casts it solid — ask the hook.
+- **Identical items share one frame.** The walk hands every item of the same geometry and
+  turn the same `OpenFrame` object, so it is weighed once per sun position and its shades
+  merge into one weighted region. Do not pose a frame into the scene or give it a per-item
+  field: fifty garden lights then cost fifty weighings and fifty regions a sample (measured:
+  36 ms a sun position against 6 ms).
+- **Testing it**: against the measuring script's own projection, over sizes and suns; and at a
+  turn other than 0 (a frame turned with the sun shades the same, turned against it does not —
+  a defect proportional to the turn is invisible at 0).
 
 **What the numbers are for.** They are analytic references for the builders: one item, the sun
 square to a straight 10 m line (a building: square to or along its ridge), the mesh projected
@@ -8393,7 +9129,8 @@ existing scheduler. Date navigation remains available without a location.
 
 Four examples ship: three teaching plans and `family-garden`, the 3D view's showcase (the plan of
 the Beauty Board, ADR-066 addendum). `scripts/generate_examples.py [slug ...]` regenerates the
-named ones, or all.
+named ones, or all; `--check` compares the shipped plans and sidecars with what the generator
+makes and writes nothing.
 
 Welcome's Examples & templates tab and File > New from example share
 `TemplateGallery`; File > New from template accepts any `.ogp`. Both call the one
@@ -8404,6 +9141,10 @@ the gallery. Export does not rename or clean the live project.
 
 To author a bundled example, edit `scripts/generate_examples.py`, run it in the
 locked environment, inspect all three rendered previews and add its provenance.
+The shipped `.ogp` and `.meta.json` files are never edited by hand:
+`tests/integration/test_example_generation.py` fails when one differs from the
+generator's `example_content(slug)`. Thumbnails are written by the plain run and
+are not compared (they are rendered with the machine's fonts).
 Use the ordinary constructors and CreateItemsCommand so bed links and child lists
 agree. Parents and children must share a layer for the z-order clamp. IDs are
 normalized before the saved plan is reloaded and rendered. Every registered locale
@@ -8415,6 +9156,47 @@ must be explicitly kept or stripped; unknown serialized top-level keys are dropp
 The filter is not a free-text anonymizer. Succession dates are retained calendar
 dates, so authors state their example year rather than claiming climate adaptation.
 See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gallery.py`.
+
+### Showcase state (#795)
+
+An example opens as it is meant to be seen, however late it is on the wall clock.
+
+| Part | Where it lives | Rule |
+|---|---|---|
+| The moment | sidecar `showcase_date` + `showcase_utc_time`; `core/templates.example_showcase_moment`; `core/showcase_moment.ShowcaseMoment` | `_load_project_file` hands the moment of an example opened as a template to `ShowcaseMoment`, which writes the one `SimClock` (`set_utc_time_on`) as the LAST step of the document change (the clock re-raises a listener's error). The showcase ends, and the clock returns to the reading the user had before the first example, with the next document (New, Open, a recovery) and with a successful Save or Save As of the copy (`_end_showcase_after_save`, also the agent's `save_plan`); the status bar says so. An autosave and "Save as template" leave it running. The moment is never persisted: no setting and no plan key. A plant added to the still unsaved copy is planted on the example's date (the plan-date rule) and keeps it; one added after the save gets the user's date. A camera tour's clock hold is the inner holder: the showcase reads and re-bases it (`InnerClockHold`). |
+| Harvest history | generator `_harvest`; `core/templates.EXAMPLE_DEMO_FIELDS` | A few fictional records on ONE plant per species, between that plant's planting date and the reference date, with the canonical `species_key` and the common name the Log Harvest dialog caches. Every record's note says it is fictional. No journal note is linked: an example copy carries no journal. An example copy keeps `location`, `soil_tests` and `harvest_logs`; any other template keeps none of them. |
+| Seed inventory | none | The user's own store outside every plan. An example never fills it; the empty Seed Inventory tab says what it is and how to start. |
+| Plant picture | `PlantDatabasePanel._show_drawn_thumbnail` | The bundled species have no photo. Plant Details show the plant as the plan draws it (`render_plant_pixmap`: species, then category, then the type's default), also while a provider's photo is still loading. No third-party image ships. |
+
+The moment is a UTC time of day on the plan's LOCAL reference date, not a wall
+time: the clock reads wall time in the computer's zone (ADR-053), and midday on a
+wall clock in Auckland is night over a garden in Berlin. All four examples use
+11:00 UTC, which is 13:00 on a wall clock in their own place.
+
+Data rules the content tests hold (`tests/unit/test_example_content.py`):
+
+- A path is as wide as a path one walks on (40 cm or more). The showcase's two
+  polyline paths are 80 and 50 cm; the bench fixture keeps the 8 and 6 cm its
+  pinned numbers were measured with.
+- Nothing stands in the showcase's stepping-stone walk but the ground it is laid
+  on or through (lawn, terrace, the perennial border): every other object keeps
+  5 cm or more from its edge. Widening a path is a reason to look at what stands
+  beside it; the generator moves four items of the bench plan (`FAMILY_MOVED_CM`).
+- A harvest fits the age of its plant: a tree's first record is three years or
+  more after its planting date, a shrub's one year, and a year's total is at most
+  7 kg per year since planting.
+- A tutorial note has no halo, so its ink suits its ground: light and bold on a
+  lawn, dark on the balcony's boards.
+- An item is turned with `geometry_apply.apply_rotation`, never a bare
+  `setRotation` (PF-CAN-56).
+- One English string has one translation per language in the generator's table
+  (`text()` asserts it).
+
+End to end: `tests/integration/test_example_showcase.py` opens every example
+through the gallery's path in a window whose clock was seeded at 22:30. It saves
+the copy through File > Save, drops a plant through the canvas's creation path and
+reads the planting date back from the file; a test of "nothing of the example is
+saved" that only looks for key names cannot fail and was replaced by these.
 
 The gallery tab hides Welcome's large banner. A bounded, scrollable details area
 keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;
@@ -8557,3 +9339,414 @@ toggles flags on arbitrary scene items has to make the same exception. Test
 drill-down in the running window (`GardenPlannerApp`), past a minimap refresh,
 with members that were selected before they were grouped; a bare canvas has no
 minimap.
+## 8.36 Exports — one picture in every format (#787, #788, #789, #836, ADR-076)
+
+PNG, SVG, the PDF report, the printout and the Agent API render all paint the same
+scene. Seven rules keep them the same picture.
+
+| Rule | Where | Pinned by |
+|---|---|---|
+| The scene is prepared for an export in one way: overlays hidden (`ExportService._hide_overlay_items`), item caches off, constant-pixel-size text given a point size for the output | `services/scene_rendering.py`, `ExportService` | `tests/integration/test_export_overlay_hide.py`, `tests/integration/test_export_text_notes.py` |
+| Only text that `draws_at_constant_pixel_size` (`ItemIgnoresTransformations` on the item or an ancestor) is retargeted; a text note or a callout keeps its plan size | `scene_rendering.retarget_constant_size_text` | `tests/integration/test_export_text_notes.py` |
+| The painter the scene is rendered with carries the true output scale in its world transform — a 300-dpi `QImage` for PNG and for the report's plan pages, 1/300-inch units for SVG, the printer's resolution for print | `ExportService.export_to_png`, `pdf_report_service._scene_to_image`, `svg_export.record_scene`, `GardenPrintManager` | `tests/integration/test_pdf_report_pages.py` |
+| The SVG is recorded and replayed, never painted into `QSvgGenerator` directly | `services/svg_export.py` (PF-CAN-53) | `tests/integration/test_svg_export_fidelity.py` |
+| Nothing is painted outside its frame: a `paint()` clips with `IntersectClip`, a print tile is an explicit clip, a report picture is its frame | PF-CAN-54 | `tests/integration/test_pdf_report_pages.py` |
+| Plan content that is drawn at a constant pixel size by hand (the succession badge) is sized by its font alone, joins the retargeted text through `font()` / `setFont()`, and draws its text with a font sized in pixels | `scene_rendering.retarget_constant_size_text`, `ui/canvas/layout_font.py` (PF-CAN-59) | `tests/integration/test_succession_badge_export.py` |
+| A section of the report is cut into its pages by `plan_pages`; no renderer opens a page or stops at the foot of one | `pdf_report_service._section_pages`, `_notes_pages` | `tests/integration/test_export_followups.py` |
+
+**How to test an export.** Measure the rendered output, not the calls: rasterise it and
+compare ink. A PDF is rasterised with `QPdfDocument`; an SVG with `QSvgRenderer`, which
+is **not a browser** — it ignores `clip-path` and sets large text up to 6 % wide — so
+assert a remaining `<clipPath>` and a font size on the file's structure, and check a
+browser by hand (`scripts/svg_preview.py`, or headless Edge) when the SVG writer
+changes. A texture is resampled differently by every rasteriser: compare block averages
+(4 x 4 pixels), not single pixels. Find ink by a colour nothing else has, and take the
+extent of an area from lines that are at least a fifth set — a footer's grey text and
+hairline rule have a shadow's grey in their antialiasing.
+
+**The report's pages.** `PdfReportService.plan_pages(scene, options, page_rect)` lists
+every page as `(type, data)`; `render_page` paints one. A test renders a page into a
+`QImage` of one pixel per point and reads it. Bed-detail frames come from `_bed_frame`
+(padding, 150 cm minimum extent, minimum aspect, moved into the plan) and `_bed_groups`
+(small beds whose frames touch share a page). The plant list names a plant as the plant
+panels do: its own name, else `ui.plant_traits.species_display_name`.
+
+**Every list of the report is paged the same way (#836).** The plant list, the Harvest
+Summary and the legend are rows cut by `_section_pages(rows, per_page)`; the two tables
+are painted by one `_render_table_page`. The Garden Notes are lines of unequal height,
+laid out and cut by `_notes_pages`. Each page is one entry of `plan_pages`, so the
+page count, the progress callback, the "page 2 of 3" in the title and whatever
+`generate` adds to every page (the plan-date stamp) agree. A new section follows the
+same shape: rows or lines first, pages second, paint last. Text that is measured before
+a painter exists is measured with `_page_metrics`: the page is laid out at 72 units per
+inch, and `QFontMetricsF(font)` answers for the screen's 96, a third wider (the notes
+wrapped at three quarters of the page). The rasterised PDF is what a test of a section
+reads; a page painted into a `QImage` sets the same fonts a third larger.
+
+**The succession badge is plan content (#836).** It names the crops that follow in a
+bed, so it is in every picture of the plan, unlike the diagnostic decorations of
+§8.9.16. Its text has the object labels' size in an export. On the canvas it keeps
+its 7 pt, is painted in the label pass (§8.9.15) and is left out where it would not lie
+inside its bed or would cover more than a quarter of it (`label_layout.badge_has_room`).
+
+**A printout's page.** `print_dialog.default_page_layout()` is A4 landscape with
+`PRINT_MARGIN_MM` (10 mm) on every side, stated in millimetres. A `QPageLayout` built
+without a unit is in points: the 10 that stood there was 3.5 mm, less than most desktop
+printers print to. `tile_grid` counts the sheets of a fixed scale for the printout and
+for the Print Options dialog, which counts with the legend's height when the legend is
+on. A fitted printout states the scale it was fitted at (`_paper_cm_per_plan_cm`), by
+its width or by its height (PF-CAN-55).
+
+**A text note has two sizes (#836).** `TextItem.font_size` is the number in the plan
+file: the font's point size divided by 28.35, rounded to a whole point. It is not a
+length on the plan and its meaning is frozen. `TextItem.em_height_cm` is the note's
+size on the plan: a scene item's points are laid out at 96 pixels per inch, and a pixel
+of the item is a plan centimetre, so a stored 1.0 is a 28 pt font with an em of 37 cm
+(capital letters 27 cm). The Properties panel shows and takes `em_height_cm` and
+converts with `font_size_for_em_height`; showing a note writes nothing, and retyping the
+shown size keeps the font. Fonts come in whole points (1.33 cm apart), so the field
+shows the size the note has after an edit. `ui/canvas/layout_font.py` holds the
+arithmetic. The 96 is the screen's logical resolution (`layout_dpi`): on a system that
+reports another value a stored size is drawn at another height, as it always was.
+
+## 8.37 Canvas raster caches and repaint cost (#784, #785)
+
+What the plan canvas keeps between paints, what bounds it, and what a frame costs.
+
+**What was measured where.** The two tables below are ONE plan, ONE window and
+ONE display: the bundled family-garden example (101 visible items) in a
+1453 × 898 viewport at a device pixel ratio of 1 (fit is 56 %), spacing rings
+on, sun overlay on / off — medians of the real application on a machine that
+was rendering other things, each pair measured in one session, so read the
+ratios. "Before" is the same branch without #784 / #785. A cost that grows with
+the number of objects or with the viewport's device pixels does not show on
+that plan and window. The review of the branch measured both; what it found and
+what was done about it is under **"A large plan, a large viewport"** below. Not
+measured anywhere: a real high-density display (the ratio 1.5 below is
+`QT_SCALE_FACTOR` on the offscreen platform), and the frozen executable.
+
+| At zoom | Repaint, before → after | 40-px pan step | ×1.1 zoom step |
+|---|---|---|---|
+| 56 % (fit) | 85 / 27 → 5.2 / 4.9 ms | 94 / 30 → 5.1 / 8.5 ms | 93 / 26 → 32 / 25 ms |
+| 112 % | 94 / 33 → 4.2 / 3.8 ms | 97 / 32 → 16 / 6.2 ms | 90 / 30 → 32 / 31 ms |
+| 224 % | 40 / 17 → 3.1 / 3.1 ms | 63 / 20 → 16 / 15 ms | 52 / 21 → 37 / 16 ms |
+| 447 % | 19 / 9.1 → 2.9 / 2.6 ms | 17 / 9.0 → 14 / 9.2 ms | 18 / 11 → 17 / 9.2 ms |
+| 1006 % | 14 / 8.2 → 2.9 / 2.7 ms | 14 / 10 → 14 / 10 ms | 21 / 8.8 → 15 / 8.5 ms |
+
+| Interaction | Before | After | Why |
+|---|---|---|---|
+| Repaint at fit, overlay on / off | 106 / 44 ms (2.7×) | 10.6 / 9.5 ms (1.1×) | the overlay and the items are blits |
+| The same, spacing rings off | 90 / 7.3 ms (12×) | 6.9 / 7.3 ms (1.0×) | |
+| 60-step zoom sweep, fit → 17 × fit → fit | 2.9–3.8 s | 1.7–2.3 s | the overlay shows its last picture until the zoom settles |
+| Timeline scrub step at fit | 100–106 ms | 82–84 ms | unchanged within the noise: one rasterisation per solve is the floor |
+| Pan gesture at twice fit, 40 steps at 33 Hz, event loop running | 114 ms a step | 21 ms a step | the minimap no longer renders, and drops every item cache, on a pan |
+| Zoom gesture from twice fit, the same | 106 ms a step | 50 ms a step | |
+
+**What is kept, each with a stated bound:**
+
+| Kept | Holds | Bound |
+|---|---|---|
+| `QPixmapCache` (Qt's, process-wide) | every `DeviceCoordinateCache` item's device picture, the sun overlay's among them | 256 MB — `ui/canvas/item_cache.ITEM_CACHE_BUDGET_KB`, set by `CanvasScene` |
+| `core.sprite_raster.SPRITE_CACHE` | plant and object sprites per raster level | 32 bytes for each device pixel of the largest viewport painted, never under 64 MB, never over 256 MB (`sprite_cache_budget`); 4096 entries, 1024 × 1024 px (4 MB) an entry |
+| `core.fill_patterns._level_tiles` | tinted detail tiles per (pattern, colour) | 48 MB, 1 MB an entry |
+| `SunShadowOverlayItem._picture` | the overlay's last rasterisation, or a reduced picture of it | 2048 px a side, 16 MB |
+| `CanvasView._grid_layer` (`sprite_raster.KeptLayer`) | the grid with every standing object cut out of it (§8.9.17) | 4 bytes for each device pixel of the plan in the viewport, with a pan's margin (256 px a side); never over 64 MB (`MAX_LAYER_PIXELS`); dropped with the grid |
+| `CanvasScene.standing_covers()` | one path per standing object, plan coordinates (the grid's cut-out, §8.9.17) | grows with the plan: about 0.5 MB for 853 objects; no outline above the paint bound of #472 |
+| `plan_labels.LabelPass` | each viewport's label layout (§8.9.15) | one entry per label shown: about 0.1 MB for 170 labels; an entry goes with its viewport |
+| `render_plant_pixmap`'s and `render_furniture_pixmap`'s own caches | list icons and thumbnails (chrome, not the canvas) | 32 MB and 64 MB |
+
+**The ceilings summed, and what a session uses.** The bounds above are stated
+one by one; together they are 256 (item caches) + 256 (sprites) + 48 (tiles) +
+16 (overlay) + 64 (grid layer) + 96 (list icons) = **736 MB**, each constant
+read from the code for this sum (second review of the 2D branch; before it the
+sum was 672 MB plus a transient grid layer per paint). Every one is a ceiling,
+not an allocation, and the two largest follow the viewport. What is actually
+held, measured in the real application window on the family-garden example
+(101 visible items), offscreen platform, ratio 1, grid and sun overlay on:
+
+| | 1920 × 1080 window (viewport 1453 × 913, fit 57 %) | 3840 × 2000 window (viewport 3373 × 1833, fit 114 %) |
+|---|---|---|
+| At fit: item caches (estimate) / sprites / tiles / overlay / grid layer | 17.4 / 5.4 / 0 / 4.9 / 4.1 MB = **32 MB** | 71.4 / 27.1 / 11.0 / 10.7 / 17.9 MB = **138 MB** |
+| After two zoom sweeps fit → 8 × fit → fit and pans, at twice fit | 21.0 / 59.6 / 8.0 / 4.9 / 4.1 MB = **98 MB** | 103.9 / 89.2 / 11.0 / 10.7 / 19.1 MB = **234 MB** |
+| After File → New (the plan closed) | 12 MB (tiles 8.0, the empty plan's grid layer 4.2) | 31 MB (tiles 11.0, grid layer 19.8) |
+| The sprite cache's bound at that viewport | 64 MB | 191 MB |
+| Working set of the process: start / empty window / at fit / after the sweeps / after New | 86 / 148 / 270 / 556 / 449 MB | 86 / 169 / 410 / 686 / 410 MB |
+
+The item-cache figure is an estimate (the visible cached items' device
+rectangles, 4 bytes a pixel): Qt has no accessor for what `QPixmapCache`
+holds. The list-icon caches were empty in this session (no plant panel was
+opened). So a typical session on a plan of a hundred objects keeps 30 to 100 MB
+for the canvas at 1920 × 1080 and 140 to 240 MB at 4K; the 736 MB are reached
+only by a plan of many hundreds of sprites, zoomed through every level in a 4K
+viewport, with the plant and object panels browsed.
+
+**A closed plan's sprites go with it.** `CanvasScene.clear()` — the one
+teardown New, Open and New from example go through — clears the sprite cache
+(`clear_sprite_cache()`, which had no caller until the second review: 60 and
+89 MB stayed in the two sessions above until the next plan's sprites pushed
+them out). Qt drops the item caches with the items; the tiles are per pattern
+and colour, not per plan, and stay.
+
+The covers, the layouts and the grid layer are not caches of pixels that were
+painted before. They are what a paint needs of the WHOLE scene, kept until
+**`CanvasScene.paint_revision`** moves — the rule of this section, and the sun
+overlay's since US-E3: **scene-wide state is taken again at most once per
+paint revision, never once per paint.** It is taken lazily: the first paint
+after the revision moved collects the covers, lays the labels out and (when it
+covers the viewport) makes the grid layer, inside that paint; every later
+paint and pan reads what is kept, and so does a zoom for the covers (the
+labels and the grid layer are in device pixels and are taken again for a new
+zoom). (The text here used to say "never inside a paint", which the code never
+did.)
+
+The revision moves where something those answers are taken from changes, and
+each of those places says so itself: every plan change (`plan_changed`), a
+selection change, an item of the plan added or removed, `clear`, a label or
+badge that says it changed (§8.9.15), the plan date (`refresh_timeline`: a
+plant that is not planted yet does not stand on the plan, and that is no plan
+change) and what an object is (the `object_type` setter). A repaint, a pan and
+a zoom do not move it. **Neither does Qt's `changed`**, which moved it until
+the second review: that signal says "a rectangle of the scene must be
+repainted" and cannot tell an edit from a tool's preview, a hover or the sun's
+shadow moving. An overlay item — one without a stacking rank
+(`core.stacking.supports_stacking`): a rubber band, a shape being drawn, a
+snap mark, a handle, a dimension line — is no part of either answer, and
+adding or removing one does not move the revision. What the signal used to
+catch besides was measured before it was let go: a copy of the tree compared,
+at every `changed`, what was kept with a fresh answer, over 4,331 canvas tests
+of `tests/integration` and `tests/ui`, with the covers kept for every scene.
+The signal was the only notice in three tests: the plan date and a bare write
+to `object_type` (both chokepoints now), and a test oracle that writes a
+line's pen with no command (a product path only through a command, which
+announces). A writer that goes round all of them calls
+`CanvasScene.note_paint_changed()`; one that does not leaves a stale cut-out
+or label until the next announced change — a wrong picture, never wrong data.
+PF-CAN-60.
+
+**Qt's item cache lives in `QPixmapCache`, and its default limit is 10 MB**
+(PF-CAN-49). #430 made every unselected item `DeviceCoordinateCache`; one lawn
+covering this viewport is 5.2 MB and the plan's 101 visible items need 17 MB. Past
+the limit Qt evicts, an evicted item is painted again on the next frame, and
+the cache thrashes: the 27–44 ms of "repaint with the overlay off" above is what
+a hundred *paints* cost, and the 40 ms the survey attributed to the spacing rings
+was this too (with room in the cache, rings on and off read 11 and 7 ms). A
+picture larger than the whole limit — the lawn on a 4K display is 33 MB — was
+never kept at all. `CanvasScene.__init__` calls `ensure_item_cache_budget()`,
+which raises the limit to 256 MB (never lowers it). That is a ceiling: the cache
+holds what the visible items need (17 MB here, about 110 MB at 4K) and evicts
+beyond it.
+
+**The sun-shadow overlay is rasterised once per solve and zoom.** When this
+section was measured (#784) its paint was four antialiased wide strokes of the
+whole shadow outline, clipped to the area outside the shadow, then the core:
+60–130 ms on this plan at fit, 95 % of it the strokes, and almost all of that
+Qt's antialiased rasterisation (the stroker took 0.5 ms; the same strokes without
+antialiasing 3–5 ms). #784 did not make it cheaper — it made it rarer, as the
+list below says, and the numbers in that list are of the strokes. Since #793 the
+soft edge is a blurred field (§8.9.18), which is a different cost. Measured on
+this plan, the exact paint into 1149 × 821 device pixels, strokes → field, two
+alternating rounds: 48 → 17 ms at fit (47 %), 25 → 17 ms at 100 %, 14 → 14 ms
+at 200 %, 3.3 → 10 ms at 400 %, 3.4 → 3.7 ms at 1000 %; a 300-dpi A4 picture
+196–242 → 165–175 ms. Cheaper where it was dear and dearer where it was cheap:
+zoomed in, the strokes covered little, and the field still has the viewport's
+lattice to sum. A scrub step at fit should therefore be lighter than the
+"60–130 ms" of the list below; that was not measured again in the application.
+
+- `SunShadowOverlayItem` is `DeviceCoordinateCache`: a repaint, a pan and another
+  item's update blit its picture (0.3–0.6 ms). Against the direct paint the
+  cached picture differs by the rounding of premultiplied alpha, 3 levels at
+  most (`TestPixelsUnchanged`: three zooms, two sun positions); an export, a
+  print, the minimap and the Agent API render disable item caches first and get
+  the direct paint, bit for bit.
+- A **zoom** invalidates a device cache at every wheel step. While steps keep
+  coming the overlay paints the picture of its last rasterisation, scaled, and
+  asks its controller's 120-ms single-shot timer for `settle()`; then it is
+  rasterised for the new zoom, once (`TestZoomGesture`). The kept picture is
+  at most 2048 px a side (16 MB: that bound is unchanged) and stands in only
+  while it is enlarged at most 4 times — past that it is a blur and the
+  rasterisation is cheap, because little of the shadow is in view (the
+  overlay's share of a zoom step: 60–130 ms at fit, 25–45 ms at 4 × fit,
+  6–13 ms at 8 × fit); a new solve is never shown with an old picture (a scrub
+  rasterises at once); an overlay without a controller never defers.
+- An overlay **larger than 2048 px** that the device holds whole is painted
+  directly, exact, and keeps a picture of itself *reduced* to 2048 px
+  (`TestAboveTheCap`). That is every viewport of about 2100 device pixels and
+  more at fit: a 4K window, and a 150 % display from about 1365 logical pixels
+  (`QPainter.deviceTransform()` carries the ratio). Until the review of #784
+  nothing was kept there and every wheel step rasterised the overlay again. The
+  reduced picture is not made with the rasterisation but when the settle timer
+  next fires with no zoom under way (120 ms later), so a scrub — a
+  rasterisation per solve — pays nothing for it; a zoom that begins before then
+  makes it at its first step. Its reduction counts as enlargement already
+  spent, so it stands in for a shorter zoom than an exact picture would.
+  Zoomed in far, where Qt's cache holds only the part in view, nothing is kept
+  and every step is rasterised, as before: a picture of the whole overlay would
+  cost more there than what it stands in for. Measured on a plan of 60 casters
+  and 40 trees (3000 × 1800 cm), 8 wheel steps of 5 %, offscreen platform:
+
+  | Viewport (logical), ratio | Overlay, device px | Before: rasterisations, ms a step | After |
+  |---|---|---|---|
+  | 1469 × 901, 1.0 | 1380 × 845 | 0, 8 ms | 0, 8 ms |
+  | 2560 × 1300, 1.0 | 2032 × 1244 | 0, 14 ms | 0, 17 ms |
+  | 3840 × 2000, 1.0 | 3143 × 1925 | 8, 72 ms | 0, 31 ms |
+  | 1469 × 901, 1.5 | 2070 × 1268 | 8, 51 ms | 0, 15 ms |
+  | 2560 × 1300, 1.5 | 3047 × 1867 | 8, 70 ms | 0, 23 ms |
+
+  A scrub step on the same plan is unchanged (21 → 22 ms at 3840 × 2000,
+  23 → 24 ms at 2560 × 1300 and 150 %), and no stand-in is made during one.
+  The ratio 1.5 is `QT_SCALE_FACTOR` on the offscreen platform; a real
+  high-density display was not measured.
+
+**The minimap renders the plan on a scene change, never on a pan or a zoom.**
+Its render disables every item's cache (`scene.render` is not a viewport
+paint), and switching a cache mode drops the item's device picture. Wired to
+the scroll bars it did that 100 ms into every pan: the next step painted every
+item the exposed strip touched in full, the overlay among them — 52 ms a step
+on average and up to 150 ms at twice fit (21 ms and up to 64 since), which a
+probe that repaints without running the event loop never shows. Still true
+after any scene change (a scrub, an edit, the overlay's own settle): the next
+frame that touches an item paints it once.
+`tests/unit/test_minimap_widget.py::TestViewportChangesDoNotRender`.
+
+**A large plan, a large viewport (review of the branch).** Measured on a plan of
+853 named objects built in code (`tests/large_plan.py`: 746 perennials, 107
+raised beds, 50 m × 30 m) at fit in a 1469 × 901 viewport, ratio 1, offscreen
+platform, medians of 11 in three interleaved rounds, before and after in one
+session on a shared machine — read the ratios:
+
+| | Before the review | After | What changed |
+|---|---|---|---|
+| Full repaint, grid on | 126–139 ms | 26 ms | the cut-out is kept by the scene (§8.9.17) |
+| ... the grid's lines with no cut-out | 36–37 ms | 24–26 ms | (the reference: 1.0–1.1 times it now, 3.5–3.8 before) |
+| ... grid off | 27–29 ms | 18–19 ms | no label layout in the repaint |
+| 40-px repaint, labels on / off | 14–17 / 3.5–6.7 ms | 5.1–6.7 / 2.8–3.9 ms | the label layout is kept (§8.9.15): the pass itself 10–12 → 0.1 ms |
+| 40-px repaint, labels and grid on | 19–23 ms | 5.5–6.3 ms | |
+| Scene foreground passes per zoom step | 2 | 1 | the pass asks for the labels that changed, not for the viewport |
+| Zoom step of 3 %, labels and grid on | 116 ms | 51 ms | what is left is every visible item's device cache, as on any plan |
+| 40-px pan step at 1.5 × fit | 33 ms | 13 ms | a pan reads both kept answers |
+| A press on a point of the plan lands on a label nobody sees | 35 % of the plan | none | a label takes no click (§8.9.15) |
+
+The sun overlay above 2048 device pixels is in the list above (72 → 31 ms a
+zoom step in a 3840 × 2000 viewport, 70 → 23 ms at 2560 × 1300 and 150 %).
+
+**The second review** measured what the first round's own changes cost where
+its measurements had not looked. Same machine, one session, offscreen
+platform, before → after its fixes; grid off beside it where that is the
+reference:
+
+| | Before | After | What changed |
+|---|---|---|---|
+| Full repaint, grid on, one zigzag line of 16,000 vertices | 2,742 ms (master 24 ms) | 1.4 ms (grid off 1.1) | an outline above the paint bound is not filled into the cut-out, and the layer is kept (§8.9.17) |
+| ... one zigzag outline of 16,000 vertices | 1,283 ms | 1.5 ms (1.1) | |
+| ... one line of 60,000 vertices | 1,448 ms | 1.5 ms (1.2) | |
+| Full repaint, 853 objects, 1469 × 901, grid on / off | 26 / 18–19 ms | 17.4 / 16.7 ms | the kept grid layer: a repaint blits it |
+| ... 3808 × 1968 | 55.9 / 37.5 ms | 31.5 / 30.5 ms | |
+| ... 2544 × 1284 at 150 % (`QT_SCALE_FACTOR`) | 69.9 / 41.1 ms | 46.6 / 42.9 ms | |
+| Zoom step of 3 %, grid on, 3808 × 1968 | 114 ms | 85 ms | the step still makes the layer once; where the rest of the difference comes from was not analysed |
+| Rubber band over 853 objects, a mouse move | 13.2 ms, 15 cover and 15 label rebuilds in 30 moves | 2.8 ms, none | a preview does not move the paint revision |
+| Dragging a new rectangle, a move | 68.6 ms, 25 + 25 rebuilds | 38.4 ms, none (39.4 with the grid off) | |
+| Measure tool hovering, a move | 27.7 ms, 15 + 15 rebuilds | 15.4 ms, none | |
+| The overlay's exact paint, 1149 × 821 px, 40 round and 60 square shades: 100 % / 400 % / 1000 % | 11.9 / 8.2 / 4.6 ms | 12.3 / 9.5 / 5.7 ms | the clamp of the soft edge (§8.9.18): a copy, a saturating add and a fill of the layer |
+| ... with two tones | 16 / 13 / 5.8 ms | 18 / 14.5 / 7 ms | ... and a second enlargement, of the tone |
+
+**The sprite cache has to hold one frame.** A sprite is rasterised at the level
+its painter shows it at — the zoom rounded UP to a power of two — so one frame's
+sprites take up to four pixmap pixels for each device pixel they cover. With the
+cache at a fixed 64 MB a frame of a large viewport did not fit and evicted its
+own sprites: every zoom step, inside one level, rasterised them again. Measured
+in a 3840 × 2000 viewport over a zoom sweep from fit to 8 × fit and back, 45
+steps of 10 %, each step painted twice at one level:
+
+| Plan | 64 MB: steps that rasterised again, worst step | Bound by the viewport (232 MB here) |
+|---|---|---|
+| Family garden (61 plants) | 0 of 45; the cache full at 64.0 MB | 0 of 45 |
+| Food forest | 0 of 45; full at 63.9 MB | 0 of 45 |
+| 853 objects | 8 of 45; 134 sprites at 207 %, 1.3–1.5 s a step | 0 of 45; 74–107 ms a step |
+| 1500 touching crowns | 27 of 45; 523 sprites at 106 %, 2–3.9 s a step | 0 of 45; 88–133 ms a step |
+
+The bound therefore follows the viewport (`sprite_raster.sprite_cache_budget`,
+stated by `CanvasView.paintEvent`): 32 bytes for each device pixel — 4 bytes a
+pixmap pixel, 4 pixmap pixels a device pixel, sprites two deep (a sprite
+reaches past its plant, plants stand under trees). 64 MB up to two megapixels,
+as before; 102 MB at 2560 × 1300; 234 MB at 3840 × 2000; never over 256 MB. It
+is a ceiling: after the sweep the cache held 229 MB on the 853-object plan and
+231 MB on the dense one, and on a plan of a hundred objects it holds what that
+plan's sprites are. Raised, never lowered, like the item cache's.
+
+Rejected, with measurements: replacing the strokes by pre-offset ring polygons
+(`pyclipper`, once per solve) halves the paint (71 → 32 ms) for 6–34 ms more per
+solve and moves pixels by up to 16–52 levels at edges; `QPainterPath.simplified()`
+on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
+
+**What still costs, and is not hidden:**
+
+- A zoom step repaints every visible item's device cache: 25–32 ms near fit on
+  this plan, overlay on or off (48–64 ms on the machine under load). With the
+  spacing rings off it is lower; how the rings are drawn is another change's.
+- A zoom step that returns to a zoom the overlay was rasterised for (one of
+  the last four) rasterises it at once instead of showing the kept picture:
+  95–99 ms at 112 % on this plan. The table's zoom steps are steps to a new
+  zoom.
+- The **first** zoom across a raster level (100 %, 200 %, 400 % …) rasterises
+  each visible sprite at the new level and tints the detail tiles in use: one
+  frame of 0.2–0.5 s on this plan (61 plants; 0.7 s measured once under load),
+  once per level while the sprites stay in the cache (42 MB of its 64 after a
+  sweep from fit to 17 × fit). Zooming back and forth afterwards is blits. The
+  candidate, not built: rasterise the next level in idle time after a zoom
+  settles.
+- A sprite the device shows more than 1024 px of is drawn from the vector at
+  every zoom step, at a cost that grows with the window (10–16 ms per
+  megapixel shown): a canopy filling a 4K window is the worst case, not measured.
+- **A scrub step is unchanged.** #784 is titled after the stutter of a scrub,
+  and this branch does not remove it: a scrub step still rasterises the
+  overlay once per solve (60–130 ms at fit with the strokes, 7–25 ms zoomed
+  in; 82–84 ms against 100–106 ms in the table above, which is within the
+  noise). What #784 removed is the cost of everything ELSE while the overlay
+  is on. The candidate, not built: a half-resolution picture while solves keep
+  arriving, settled the way a zoom is — it changes the pixels of a scrub
+  frame, so it is the owner's to ask for. The reduced picture kept for a zoom
+  above 2048 px is deliberately not made during a scrub.
+- A zoom step on a large plan is every visible item's device cache: 51 ms
+  on the 853-object plan with nothing else left in it.
+- Labels as items: Qt keeps an item that ignores transformations out of its
+  spatial index and walks the owner of every such item on every paint. With
+  853 labels shown that is 2.2 ms of a 40-pixel repaint (4.9–5.7 ms with the
+  label pass switched off, against 2.8–3.1 ms with the labels hidden), before
+  and after this branch.
+- A pan with the sun map's key on screen lays the labels out at every step:
+  the key stays where it is while the labels move under it.
+- An edit under way (a drag of an object, a handle) moves the paint revision
+  at every step, so both kept answers are taken again per frame: 5 ms for the
+  cut-out and 9 ms for the layout on 853 objects — once a frame, where it was
+  once a paint (and the layout twice). A tool's preview, a hover and a sun
+  scrub no longer do.
+- The grid layer is made again at every zoom step and after every scene change
+  that repaints the viewport (what every paint cost before); a pan pays for it
+  once per 256 px, and at a fractional display scaling a pan by an odd number
+  of logical pixels pays for it at that step.
+- An outline of more than 256 vertices is not cut out of the grid and does not
+  keep the sun map's hour labels off it (§8.9.17). A traced fence of 300 points
+  is such an outline.
+- A LINE has no degraded picture above that bound (a polygon has: #472): a
+  zoom step rasterises the whole stroke of a 16,000-vertex zigzag line, 330 ms
+  here and on master alike. Not touched by this branch.
+- The rectangle tool's hover and drag cost 16 and 38 ms a move on 853 objects
+  with nothing rebuilt — the same with the grid and the labels off. Not looked
+  into here: it is not what is kept.
+
+Pinned as a ratio, never in milliseconds: `tests/perf/test_sun_overlay_repaint.py`
+(marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.06–1.14 with
+the fix, 16.9 before) and `tests/perf/test_canvas_repaint_ratios.py` (on the
+853-object plan: a repaint with the grid's cut-out ≤ 2 × the lines alone,
+measured 1.09–1.11 and 1.47 once under load, 3.5 before, and 0.70–0.86 since
+the view keeps the finished layer; a 40-pixel repaint with the label pass
+≤ 2 × without, measured 1.02–1.09, 2.8 before). Counted, on
+any machine: `tests/integration/test_sun_overlay_cache.py`,
+`tests/integration/test_grid_cover_cache.py`,
+`tests/integration/test_label_layout_cache.py`,
+`tests/integration/test_polygon_paint_bound.py::TestTheGridCutOutIsBounded`,
+`tests/integration/test_tool_preview_repaint.py`,
+`tests/integration/test_label_viewport_entries.py`,
+`tests/integration/test_sprite_cache_teardown.py`, `TestPanIsCheap` and
+`TestALargeViewportKeepsItsSprites` in `tests/integration/test_canvas_sharpness.py`
+and `TestViewportChangesDoNotRender` in `tests/unit/test_minimap_widget.py`.

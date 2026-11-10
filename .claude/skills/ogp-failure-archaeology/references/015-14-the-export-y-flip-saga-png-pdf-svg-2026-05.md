@@ -23,6 +23,20 @@ sequential incidents from the CAD-style `scale(zoom, -zoom)` canvas (ADR-002):
   anything beyond shape+fill+stroke must be recovered in post-processing.
 - Status: closed. Related tests: `tests/unit/test_export.py`,
   `tests/unit/test_scene_rendering.py`.
+- **Re-opened and settled differently, 2026-11 (#787).** Incidents 3 and 4 were
+  "fixed" by rewriting the written file by pattern. The clip pairing matched one
+  painter's output; the parametric roof and glasshouse (#768/#769) did not write
+  that shape, nothing was paired, and the roof texture flooded the drawing again.
+  The pattern flip turned out to be unnecessary when measured against the PNG.
+  Both post-processors are gone: the export records the scene below the painter
+  (`services/svg_export.py`) and replays it with clips cut into the geometry and
+  brush transforms moved into the world transform (PF-CAN-53, debug-verbose case
+  study 219). The same slice found that a `paint()` which sets a clip without
+  `IntersectClip` paints on a print tile's margin (PF-CAN-54), and that exports
+  must retarget only constant-pixel-size text (PF-CAN-08, #789). Pinned by
+  `tests/integration/test_svg_export_fidelity.py`,
+  `tests/integration/test_pdf_report_pages.py` and
+  `tests/integration/test_export_text_notes.py`.
 
 ---
 

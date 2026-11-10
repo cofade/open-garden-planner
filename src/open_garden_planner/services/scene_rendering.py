@@ -17,50 +17,43 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Protocol
 
 from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QFont, QPainter
 from PyQt6.QtWidgets import (
+    QGraphicsItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
     QGraphicsTextItem,
 )
 
 
+class FontCarrier(Protocol):
+    """An item whose text size is its font: what an export retargets."""
+
+    def font(self) -> QFont: ...
+
+    def setFont(self, font: QFont) -> None: ...
+
+
 @contextmanager
 def _hidden_overlay_items(scene: QGraphicsScene) -> Iterator[None]:
-    """Temporarily hide selection handles + soil reminder badges."""
-    from open_garden_planner.ui.canvas.items.resize_handle import (
-        MidpointHandle,
-        RectCornerHandle,
-        ResizeHandle,
-        RotationHandle,
-        VertexHandle,
-    )
-    from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
+    """Temporarily hide selection handles, badges and diagnostic decorations.
 
-    handle_types = (
-        ResizeHandle,
-        RotationHandle,
-        MidpointHandle,
-        RectCornerHandle,
-        VertexHandle,
-        SoilBadgeItem,
-    )
-    hidden: list[object] = []
-    previously_selected = list(scene.selectedItems())
-    for item in scene.items():
-        if isinstance(item, handle_types) and item.isVisible():
-            item.setVisible(False)
-            hidden.append(item)
-    scene.clearSelection()
+    One list of what a picture of the plan leaves out, for every export path:
+    ``ExportService._hide_overlay_items`` owns it (SVG, PDF report and print
+    call it directly), and PNG, the thumbnails and the Agent API's render tool
+    reach it through here. Until #786 this function kept a second copy of the
+    type list, which had already fallen behind (no lock badge).
+    """
+    from open_garden_planner.services.export_service import ExportService
+
+    hidden, previously_selected = ExportService._hide_overlay_items(scene)
     try:
         yield
     finally:
-        for item in hidden:
-            item.setVisible(True)
-        for item in previously_selected:
-            item.setSelected(True)
+        ExportService._restore_overlay_items(hidden, previously_selected)
 
 
 @contextmanager
@@ -86,29 +79,77 @@ def _hidden_construction_items(scene: QGraphicsScene) -> Iterator[None]:
             item.setVisible(True)
 
 
+def draws_at_constant_pixel_size(item: QGraphicsItem) -> bool:
+    """True when *item* is drawn in device pixels, whatever the scale of the plan.
+
+    An item with ``ItemIgnoresTransformations`` — an object label, a dimension
+    text, a badge — and every child of one keep their pixel size under any zoom
+    and in any ``scene.render()``. A text note or a callout does not: its font
+    is in plan centimetres and it scales with the plan like any other shape.
+    """
+    flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+    current: QGraphicsItem | None = item
+    while current is not None:
+        if current.flags() & flag:
+            return True
+        current = current.parentItem()
+    return False
+
+
+def retarget_constant_size_text(
+    scene: QGraphicsScene, point_size: int
+) -> list[tuple[FontCarrier, QFont]]:
+    """Give every constant-pixel-size text of *scene* the font size *point_size*.
+
+    Only text that ``draws_at_constant_pixel_size``: outside a view nothing
+    scales it, so its point size has to be chosen for the output. Text the user
+    sized in plan units is left alone — forcing one point size on it made a
+    note four times too large on one plan and unreadable on another (#789).
+
+    Qt's two text items, and a bed's succession badge: it is content of the
+    plan drawn at a constant pixel size, and it is sized by its font alone, so
+    it gets the object labels' size in the output (#836).
+
+    Returns ``(item, original font)`` pairs for ``restore_text_fonts``.
+    """
+    from open_garden_planner.ui.canvas.items.garden_item import SuccessionBadgeItem
+
+    carriers = (QGraphicsSimpleTextItem, QGraphicsTextItem, SuccessionBadgeItem)
+    saved: list[tuple[FontCarrier, QFont]] = []
+    for item in scene.items():
+        if not isinstance(item, carriers):
+            continue
+        if not draws_at_constant_pixel_size(item):
+            continue
+        saved.append((item, QFont(item.font())))
+        font = QFont(item.font())
+        font.setPointSize(max(4, point_size))
+        item.setFont(font)
+    return saved
+
+
+def restore_text_fonts(saved: list[tuple[FontCarrier, QFont]]) -> None:
+    """Undo ``retarget_constant_size_text``."""
+    for item, original in saved:
+        item.setFont(original)
+
+
 @contextmanager
 def _scaled_text(scene: QGraphicsScene, point_size: int) -> Iterator[None]:
-    """Temporarily resize all text items to ``point_size``.
+    """Temporarily resize the constant-pixel-size text items to ``point_size``.
 
-    Text in the source scene is set up for screen viewing; in a smaller
-    paper-space viewport the same font would dominate. Callers pass an
-    explicit point size so the same helper works at any zoom.
+    Labels in the source scene are set up for screen viewing; in an export the
+    same pixel size would dominate a small picture and vanish in a large one.
+    Callers pass an explicit point size so the same helper works at any scale.
     """
-    saved: list[tuple[object, QFont]] = []
-    for item in scene.items():
-        if isinstance(item, (QGraphicsSimpleTextItem, QGraphicsTextItem)):
-            saved.append((item, QFont(item.font())))
-            f = QFont(item.font())
-            f.setPointSize(max(4, point_size))
-            item.setFont(f)
+    saved = retarget_constant_size_text(scene, point_size)
     try:
         yield
     finally:
-        for item, original in saved:
-            item.setFont(original)
+        restore_text_fonts(saved)
 
 
-def compute_export_font_size(scale: float, dpi: int) -> int:
+def compute_export_font_size(scale: float, dpi: float) -> int:
     """Return the point size text items should use when rendered for export.
 
     For 1:100 scale at 150 DPI, 10pt is the reference. Smaller scale
@@ -154,9 +195,11 @@ def render_scene_region(
         hide_overlays: If True, hide selection handles and soil badges
             for the duration of the render.
         hide_construction: If True, hide construction-geometry items.
-        text_point_size: If set, force all text items to this point size.
-            Pass ``None`` (default) to leave the source scene's fonts
-            untouched — useful when the caller has already prepared them.
+        text_point_size: If set, give the constant-pixel-size text items
+            (labels, dimension texts) this point size; a text note keeps the
+            size it has on the plan. Pass ``None`` (default) to leave the
+            source scene's fonts untouched — useful when the caller has
+            already prepared them.
         y_flip: If True, apply the standard Y-flip so scene "up" maps to
             target "up".
     """

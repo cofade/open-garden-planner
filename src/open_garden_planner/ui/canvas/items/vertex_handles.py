@@ -3,7 +3,7 @@ import math
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, cast
 
-from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, QSizeF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
@@ -438,6 +438,10 @@ class AnnotationLabel(QGraphicsItem):
         self._bg_color = ANNOTATION_BG_COLOR
         self._border_color = ANNOTATION_BORDER_COLOR
         self._padding = 3.0
+        # A shift of the whole label from its anchor, in screen pixels: it lets
+        # several labels of one item be laid out beside each other at every
+        # zoom (the anchor is in plan units, the label is not).
+        self._screen_offset = QPointF(0.0, 0.0)
 
     def set_text(self, text: str) -> None:
         """Update the displayed text."""
@@ -445,17 +449,34 @@ class AnnotationLabel(QGraphicsItem):
         self.prepareGeometryChange()
         self.update()
 
-    def boundingRect(self) -> QRectF:
-        """Return the bounding rectangle for the label."""
+    def set_screen_offset(self, dx: float, dy: float) -> None:
+        """Shift the label ``(dx, dy)`` screen pixels from its anchor (x right, y down).
+
+        Unshifted, the plate's top-left corner sits one padding up and left of
+        the anchor.
+        """
+        offset = QPointF(dx, dy)
+        if offset == self._screen_offset:
+            return
+        self.prepareGeometryChange()
+        self._screen_offset = offset
+        self.update()
+
+    def plate_size(self) -> QSizeF:
+        """Size of the label's plate in screen pixels."""
         from PyQt6.QtGui import QFontMetricsF
 
-        fm = QFontMetricsF(self._font)
-        text_rect = fm.boundingRect(self._text)
+        text_rect = QFontMetricsF(self._font).boundingRect(self._text)
+        p = self._padding
+        return QSizeF(text_rect.width() + 2 * p, text_rect.height() + 2 * p)
+
+    def boundingRect(self) -> QRectF:
+        """Return the bounding rectangle for the label."""
+        size = self.plate_size()
         p = self._padding
         return QRectF(
-            -p, -p,
-            text_rect.width() + 2 * p,
-            text_rect.height() + 2 * p,
+            self._screen_offset.x() - p, self._screen_offset.y() - p,
+            size.width(), size.height(),
         )
 
     def paint(self, painter: Any, _option: Any, _widget: Any = None) -> None:
@@ -463,22 +484,14 @@ class AnnotationLabel(QGraphicsItem):
         from PyQt6.QtGui import QFontMetricsF
 
         fm = QFontMetricsF(self._font)
-        text_rect = fm.boundingRect(self._text)
-        p = self._padding
-
-        bg_rect = QRectF(
-            -p, -p,
-            text_rect.width() + 2 * p,
-            text_rect.height() + 2 * p,
-        )
 
         painter.setPen(QPen(self._border_color, 0.5))
         painter.setBrush(QBrush(self._bg_color))
-        painter.drawRoundedRect(bg_rect, 2, 2)
+        painter.drawRoundedRect(self.boundingRect(), 2, 2)
 
         painter.setFont(self._font)
         painter.setPen(self._text_color)
-        painter.drawText(QPointF(0, fm.ascent()), self._text)
+        painter.drawText(self._screen_offset + QPointF(0, fm.ascent()), self._text)
 
 
 def _format_coordinate(x_cm: float, y_cm: float) -> str:

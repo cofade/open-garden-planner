@@ -30,7 +30,7 @@ surface.
 How it is painted — ONE implementation with the canvas wherever the canvas has
 more than a primitive: the fill brush is ``core.fill_patterns.
 create_pattern_brush``, a furniture sprite ``core.furniture_renderer.
-render_furniture_pixmap``, a styled path ``ui.canvas.items.path_style_paint``.
+paint_furniture``, a styled path ``ui.canvas.items.path_style_paint``.
 The item's own ``paint()`` is mirrored only where it is one call
 (``drawRect`` / ``drawEllipse`` / ``drawPolygon`` / ``drawPath``), and
 ``tests/integration/test_scene3d_ground_bake.py`` holds every pattern, shape and
@@ -140,9 +140,11 @@ Bounded elsewhere: the vertices of one outline (the snapshot refuses an item
 above ``MAX_ITEM_VERTICES`` before one vertex is read), the tiles and pixels of
 a plan (``GroundGrid``: 256 tiles, 4096 × 4096 px), the fill-brush cache of
 ``core.fill_patterns`` (200 textures of 256 × 256 px, whatever the plan's
-colours) and the sprite cache of ``core.furniture_renderer`` (200 sprites; one
-made for the bake is at most ``SPRITE_MAX_PIXELS``, 1 MB). A fill, a solid
-stroke or a sprite that reaches far beyond a tile costs the tile's pixels:
+colours) and the sprite caches (``core.sprite_raster.SPRITE_CACHE``: 64 MB,
+up to 256 MB for a canvas viewport above two megapixels, a
+sprite of 1024 px a side at most; ``core.furniture_renderer``'s 200 sprites for
+the one this module stretches — at most ``SPRITE_MAX_PIXELS``, 1 MB). A fill, a
+solid stroke or a sprite that reaches far beyond a tile costs the tile's pixels:
 ``QPainter`` clips to the image.
 
 Memory: the tiles of the largest ground are 64 MB (``MAX_GROUND_PIXELS`` × 4
@@ -172,6 +174,7 @@ from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPainterPath, QPen, QP
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import (
     is_furniture_type,
+    paint_furniture,
     paints_picture,
     render_furniture_pixmap,
 )
@@ -435,16 +438,20 @@ def _scale(painter: QPainter) -> float:
 
 def _paint_sprite(painter: QPainter, object_type: ObjectType | None, rect: QRectF) -> bool:
     """A furniture item's sprite, as ``RectangleItem.paint`` / ``CircleItem.paint``
-    draw it: rendered at the item's size, blitted into the rect aligned to whole
-    centimetres, flipped about its centre (the canvas is drawn through a
-    Y-flip). False — nothing painted — for a type without a sprite.
+    draw it. False — nothing painted — for a type without a sprite.
 
-    The size is the PLAN's: it is bounded before the renderer is asked. A sprite
-    of more than ``SPRITE_MAX_PIXELS`` is rendered with that many, in its own
-    proportions, and stretched into its rect — an image of the item's own size
-    would be the item's area in pixels, whatever a tile is (and would sit in the
-    renderer's cache). A sprite within the bound is asked for exactly as the
-    canvas asks for it: the same image, the same cache entry."""
+    The size is the PLAN's: it is bounded before a renderer is asked. A sprite
+    within ``SPRITE_MAX_PIXELS`` is painted by the canvas's own sprite painter
+    (``core.furniture_renderer.paint_furniture``, #785): the same picture in the
+    same place, the same cache entry — and that painter never makes a pixmap of
+    more than 1024 px a side (a longer sprite is drawn for the tile's part only).
+    The bake's grid is 1 px per cm at most, so its level is the canvas's at 100 %.
+
+    A sprite of more than ``SPRITE_MAX_PIXELS`` is rendered with that many, in
+    its own proportions, and stretched into its rect aligned to whole
+    centimetres, flipped about its centre (the canvas is drawn through a Y-flip)
+    — an image of the item's own size would be the item's area in pixels,
+    whatever a tile is."""
     if object_type is None or not is_furniture_type(object_type):
         return False
     width, height = rect.width(), rect.height()
@@ -452,15 +459,16 @@ def _paint_sprite(painter: QPainter, object_type: ObjectType | None, rect: QRect
         return False
     # what the renderer would make of it: no side below its minimum
     wide, high = max(width, _SPRITE_MIN_SIDE), max(height, _SPRITE_MIN_SIDE)
-    if wide * high > SPRITE_MAX_PIXELS:
-        factor = math.sqrt(SPRITE_MAX_PIXELS / (wide * high))
-        wide, high = max(wide * factor, _SPRITE_MIN_SIDE), max(high * factor, _SPRITE_MIN_SIDE)
-        if wide * high > SPRITE_MAX_PIXELS:  # a sliver: its short side is at the minimum
-            if wide > high:
-                wide = SPRITE_MAX_PIXELS / high
-            else:
-                high = SPRITE_MAX_PIXELS / wide
-        width, height = wide, high
+    if wide * high <= SPRITE_MAX_PIXELS:
+        return paint_furniture(painter, rect, object_type)
+    factor = math.sqrt(SPRITE_MAX_PIXELS / (wide * high))
+    wide, high = max(wide * factor, _SPRITE_MIN_SIDE), max(high * factor, _SPRITE_MIN_SIDE)
+    if wide * high > SPRITE_MAX_PIXELS:  # a sliver: its short side is at the minimum
+        if wide > high:
+            wide = SPRITE_MAX_PIXELS / high
+        else:
+            high = SPRITE_MAX_PIXELS / wide
+    width, height = wide, high
     pixmap = render_furniture_pixmap(object_type=object_type, width=width, height=height)
     if pixmap is None:
         return False

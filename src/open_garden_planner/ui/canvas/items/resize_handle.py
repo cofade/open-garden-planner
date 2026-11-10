@@ -47,6 +47,9 @@ from .handle_geometry import (
 from .handle_geometry import (
     scene_point_of as scene_point_of,
 )
+from .handle_geometry import (
+    selection_frame_rect as selection_frame_rect,
+)
 from .vertex_handles import (
     _CURVE_TANGENT_KINDS as _CURVE_TANGENT_KINDS,
 )
@@ -411,11 +414,11 @@ class ResizeHandle(QGraphicsRectItem):
         return self._position
 
     def update_position(self) -> None:
-        """Update handle position based on parent's bounding rect."""
+        """Update handle position on the parent's own outline (#790)."""
         if self._parent_item is None:
             return
 
-        rect = self._parent_item.boundingRect()
+        rect = selection_frame_rect(self._parent_item)
 
         # Calculate position based on handle position
         positions = {
@@ -857,11 +860,11 @@ class RotationHandle(QGraphicsEllipseItem):
         self.setZValue(10_001)
 
     def update_position(self) -> None:
-        """Update handle position above the parent's bounding rect center-top."""
+        """Update handle position above the center-top of the parent's own outline."""
         if self._parent_item is None:
             return
 
-        rect = self._parent_item.boundingRect()
+        rect = selection_frame_rect(self._parent_item)
 
         # Position above the top center
         # Since we use ItemIgnoresTransformations, we need to account for view scale
@@ -904,9 +907,10 @@ class RotationHandle(QGraphicsEllipseItem):
         self._is_dragging = True
         self._drag_start_pos = QPointF(scene_pos)
 
-        # Store initial rotation angle and calculate center
+        # Store initial rotation angle and calculate center: of the item's own
+        # outline, never of its repaint region (#790).
         if self._parent_item is not None:
-            rect = self._parent_item.boundingRect()
+            rect = selection_frame_rect(self._parent_item)
             self._center = (
                 self._parent_item.mapToParent(rect.center())
                 if parent_frame

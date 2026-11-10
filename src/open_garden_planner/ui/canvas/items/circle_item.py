@@ -5,7 +5,7 @@ from datetime import date
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -17,16 +17,17 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
-from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
+from open_garden_planner.core.furniture_renderer import is_furniture_type, paint_furniture
 from open_garden_planner.core.growth_model import grown_spread_cm
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.core.plant_renderer import (
     PlantCategory,
     is_plant_type,
-    render_plant_pixmap,
+    paint_plant,
 )
-from open_garden_planner.core.plant_sizing import sizing_for_item
+from open_garden_planner.core.plant_sizing import sizing_for_item, spacing_conflict_arcs
 
+from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin
 from .resize_handle import (
     MINIMUM_SIZE_CM,
@@ -262,14 +263,19 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
     _HIGHLIGHT_MARGIN = 3.0  # half stroke + tiny gap
     # Antagonist warning badge dimensions (cm); proportional to radius, capped
     _WARNING_MAX_SIZE = 12.0
-    # Spacing circle rendering constants
-    _SPACING_STROKE_WIDTH = 1.5
-    _SPACING_FILL_GREEN = QColor(60, 200, 60, 40)
-    _SPACING_FILL_RED = QColor(220, 60, 60, 50)
-    _SPACING_FILL_NEUTRAL = QColor(100, 150, 200, 30)
-    _SPACING_STROKE_GREEN = QColor(60, 200, 60, 160)
-    _SPACING_STROKE_RED = QColor(220, 60, 60, 160)
-    _SPACING_STROKE_NEUTRAL = QColor(100, 150, 200, 120)
+    # Spacing ring (#786): an outline, never a fill. A filled translucent disc
+    # per plant washed the whole plan red; the ring is a thin dashed line over a
+    # light casing, so it reads on lawn, soil, roof and paving alike.
+    _SPACING_RING_PX = 1.6        # stroke width on screen
+    _SPACING_CASING_PX = 3.4      # the light line under it
+    # The stroke is given in plan units so the item's cache and bounding rect
+    # can hold it; it stops growing here when the plan is zoomed far out.
+    _SPACING_RING_MAX_CM = 8.0
+    _SPACING_DASH_PATTERN = (5.0, 4.0)   # in stroke widths
+    _SPACING_COLOR_OVERLAP = QColor(200, 62, 28, 235)
+    _SPACING_COLOR_IDEAL = QColor(46, 125, 50, 220)
+    _SPACING_COLOR_NEUTRAL = QColor(60, 105, 165, 220)
+    _SPACING_CASING_COLOR = QColor(255, 255, 255, 175)
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for plant SVG overflow, shadow, and companion ring."""
@@ -306,16 +312,98 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             s = min(self._radius * 0.45, self._WARNING_MAX_SIZE)
             overflow = s * 0.3
             base = base.adjusted(0, 0, overflow, overflow)
-        if (
-            self._spacing_circles_visible
-            and is_plant_type(self.object_type)
-            and (self.isSelected() or self._spacing_overlap is not None)
-        ):
-            spacing_r = sizing_for_item(self).spacing_ring_radius_cm
-            if spacing_r is not None:
-                extra = spacing_r - self._radius + self._SPACING_STROKE_WIDTH
-                base = base.adjusted(-extra, -extra, extra, extra)
+        spacing_r = self._painted_spacing_ring_cm()
+        if spacing_r is not None:
+            extra = spacing_r - self._radius + self._SPACING_RING_MAX_CM
+            base = base.adjusted(-extra, -extra, extra, extra)
         return base
+
+    def grid_cover_path(self) -> QPainterPath:
+        """A plant covers what its sprite covers: the leaves reach past the circle."""
+        if not is_plant_type(self.object_type):
+            return super().grid_cover_path()
+        rect = self.rect()
+        radius = self._visual_plant_diameter_cm(rect.width()) * self._PLANT_FILL_SCALE / 2.0
+        path = QPainterPath()
+        path.addEllipse(rect.center(), radius, radius)
+        return path
+
+    def _painted_spacing_ring_cm(self) -> float | None:
+        """Radius of the spacing ring this plant shows right now, or ``None``.
+
+        The ring is shown for a plant that is too close to a neighbour (the
+        warning) and for the selected plant (the planning aid). A plant whose
+        spacing is fine and that is not selected shows nothing: a good state
+        needs no mark on the plan (#786). ``core.plant_sizing`` decides the
+        radius and hides a ring that would sit inside the drawn footprint.
+        """
+        if not self._spacing_circles_visible or not is_plant_type(self.object_type):
+            return None
+        if not (self.isSelected() or self._spacing_overlap == "overlap"):
+            return None
+        return sizing_for_item(self).spacing_ring_radius_cm
+
+    def _spacing_ring_path(self, spacing_r: float) -> QPainterPath:
+        """The part of the spacing ring to draw, in item coordinates.
+
+        The selected plant shows its whole ring. An unselected plant that is
+        too close to a neighbour shows only the arcs of its ring that lie
+        inside that neighbour's ring, so the mark sits on the crowded spot
+        (``core.plant_sizing.spacing_conflict_arcs``). When the two rings do
+        not meet in the plane (a trellis measures along its bar only) the
+        whole ring is the mark.
+        """
+        center = self.rect().center()
+        ring = QRectF(
+            center.x() - spacing_r, center.y() - spacing_r, spacing_r * 2.0, spacing_r * 2.0
+        )
+        path = QPainterPath()
+        arcs: list[tuple[float, float]] = []
+        if not self.isSelected() and self._spacing_conflicts:
+            neighbours = []
+            for x, y, radius in self._spacing_conflicts:
+                local = self.mapFromScene(QPointF(x, y))
+                neighbours.append((local.x(), local.y(), radius))
+            arcs = spacing_conflict_arcs((center.x(), center.y()), spacing_r, neighbours)
+        if not arcs or arcs == [(0.0, 360.0)]:
+            path.addEllipse(ring)
+            return path
+        for start, span in arcs:
+            # QPainterPath measures angles the other way round in these
+            # coordinates (its "counter-clockwise" assumes y pointing down).
+            path.arcMoveTo(ring, -start)
+            path.arcTo(ring, -start, -span)
+        return path
+
+    def _paint_spacing_ring(self, painter: QPainter, spacing_r: float) -> None:
+        """Draw the spacing ring: a dashed line in the state's colour on a light casing."""
+        path = self._spacing_ring_path(spacing_r)
+        if self._spacing_overlap == "overlap":
+            color = self._SPACING_COLOR_OVERLAP
+        elif self._spacing_overlap == "ideal":
+            color = self._SPACING_COLOR_IDEAL
+        else:
+            color = self._SPACING_COLOR_NEUTRAL
+        # Pixels per plan unit at this paint (the view's zoom, an export's
+        # scale): the stroke keeps its width on screen up to the cap.
+        lod = QStyleOptionGraphicsItem.levelOfDetailFromTransform(painter.worldTransform())
+        px = 1.0 / lod if lod > 0 else 1.0
+        width = min(self._SPACING_RING_PX * px, self._SPACING_RING_MAX_CM)
+        casing_width = min(self._SPACING_CASING_PX * px, self._SPACING_RING_MAX_CM)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        casing = QPen(self._SPACING_CASING_COLOR)
+        casing.setWidthF(casing_width)
+        painter.setPen(casing)
+        painter.drawPath(path)
+        pen = QPen(color)
+        pen.setWidthF(width)
+        pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        pen.setDashPattern(list(self._SPACING_DASH_PATTERN))
+        painter.setPen(pen)
+        painter.drawPath(path)
+        painter.restore()
 
     def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
         """The diameter (cm) the plant's SVG icon should render at the plan date.
@@ -386,30 +474,29 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             # Render at a larger size so organic shapes fill the circle
             render_diameter = diameter * self._PLANT_FILL_SCALE
 
-            pixmap = render_plant_pixmap(
+            # Centered on the footprint rect regardless of how far
+            # render_diameter has diverged from it (a young plant's icon
+            # can now be considerably smaller than the footprint, #298
+            # follow-up) -- equivalent to the old overflow-based offset
+            # when diameter == rect.width(), see _visual_plant_diameter_cm.
+            center = rect.center()
+            draw_rect = QRectF(
+                center.x() - render_diameter / 2.0,
+                center.y() - render_diameter / 2.0,
+                render_diameter,
+                render_diameter,
+            )
+            # The sprite is rasterised at the painter's own resolution (#785):
+            # paint_plant asks core.raster_resolution, this item states cm only.
+            if paint_plant(
+                painter,
+                draw_rect,
                 object_type=self.object_type,
-                diameter=render_diameter,
                 item_id=str(self._item_id),
                 species=self._plant_species,
                 category=self._plant_category,
                 tint_color=self.fill_color,
-            )
-
-            if pixmap is not None:
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-                # Centered on the footprint rect regardless of how far
-                # render_diameter has diverged from it (a young plant's icon
-                # can now be considerably smaller than the footprint, #298
-                # follow-up) -- equivalent to the old overflow-based offset
-                # when diameter == rect.width(), see _visual_plant_diameter_cm.
-                center = rect.center()
-                draw_rect = QRectF(
-                    center.x() - render_diameter / 2.0,
-                    center.y() - render_diameter / 2.0,
-                    render_diameter,
-                    render_diameter,
-                )
-                painter.drawPixmap(draw_rect.toAlignedRect(), pixmap)
+            ):
 
                 # Draw selection highlight
                 if self.isSelected():
@@ -420,36 +507,15 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                     painter.drawEllipse(rect)
 
-                # Draw spacing circle (behind companion ring)
-                if self._spacing_circles_visible and (
-                    self.isSelected() or self._spacing_overlap is not None
-                ):
-                    spacing_r = sizing_for_item(self).spacing_ring_radius_cm
-                    if spacing_r is not None:
-                        center = rect.center()
-                        spacing_rect = QRectF(
-                            center.x() - spacing_r,
-                            center.y() - spacing_r,
-                            spacing_r * 2,
-                            spacing_r * 2,
-                        )
-                        if self._spacing_overlap == "overlap":
-                            fill_c = self._SPACING_FILL_RED
-                            stroke_c = self._SPACING_STROKE_RED
-                        elif self._spacing_overlap == "ideal":
-                            fill_c = self._SPACING_FILL_GREEN
-                            stroke_c = self._SPACING_STROKE_GREEN
-                        else:
-                            fill_c = self._SPACING_FILL_NEUTRAL
-                            stroke_c = self._SPACING_STROKE_NEUTRAL
-                        painter.save()
-                        pen = QPen(stroke_c)
-                        pen.setWidthF(self._SPACING_STROKE_WIDTH)
-                        pen.setStyle(Qt.PenStyle.DashLine)
-                        painter.setPen(pen)
-                        painter.setBrush(QBrush(fill_c))
-                        painter.drawEllipse(spacing_rect)
-                        painter.restore()
+                # The diagnostic decorations below are left out of a picture of
+                # the plan (CanvasScene.set_diagnostic_overlays_visible, #786).
+                if not self._diagnostics_painted():
+                    return
+
+                # Draw spacing ring (behind companion ring)
+                spacing_r = self._painted_spacing_ring_cm()
+                if spacing_r is not None:
+                    self._paint_spacing_ring(painter, spacing_r)
 
                 # Draw companion planting highlight ring
                 if self._companion_highlight is not None:
@@ -502,23 +568,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
         if is_furniture_type(self.object_type):
             rect = self.rect()
-            diameter = rect.width()
-            pixmap = render_furniture_pixmap(
-                object_type=self.object_type,
-                width=diameter,
-                height=diameter,
-            )
-            if pixmap is not None:
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-                # Undo the canvas/export Y-flip so the sprite reads upright
-                # (see RectangleItem.paint, #308 manual test: fire-pit flames).
-                painter.save()
-                painter.translate(rect.center())
-                painter.scale(1.0, -1.0)
-                painter.translate(-rect.center())
-                painter.drawPixmap(rect.toAlignedRect(), pixmap)
-                painter.restore()
-
+            # Upright (the canvas/export Y-flip undone, #308) and at the
+            # painter's own resolution (#785) — both are paint_furniture's.
+            if paint_furniture(painter, rect, self.object_type):
                 # Draw selection highlight
                 if self.isSelected():
                     pen = QPen(QColor(0, 120, 215, 180))
@@ -530,7 +582,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
                 return
 
         # Fall back to standard ellipse painting for non-plant/furniture circles
-        super().paint(painter, option, widget)
+        # (the fill tile at the painter's resolution, #785)
+        paint_shape(self, painter, option, widget, super().paint)
 
         # Draw soil mismatch border for circular beds (US-12.10d)
         self._draw_soil_mismatch_border(painter)
@@ -632,16 +685,44 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         if self._center_label is None:
             self._center_label = AnnotationLabel(self)
         self._center_label.set_text(_format_coordinate(center_scene.x(), center_scene.y()))
-        self._center_label.setPos(center_item.x(), center_item.y())
         self._center_label.show()
 
-        # Diameter label at the right edge midpoint
-        right_mid = QPointF(rect.right(), rect.y() + rect.height() / 2)
+        # Diameter label
         if self._diameter_label is None:
             self._diameter_label = AnnotationLabel(self)
         self._diameter_label.set_text(f"\u2300 {_format_edge_length(diameter_cm)}")
-        self._diameter_label.setPos(right_mid.x(), right_mid.y())
         self._diameter_label.show()
+        self._layout_circle_annotations()
+
+    # Screen pixels between the right-edge handle and the annotation labels,
+    # and between the two labels.
+    _ANNOTATION_HANDLE_GAP_PX = 12.0
+    _ANNOTATION_STACK_GAP_PX = 3.0
+
+    def _layout_circle_annotations(self) -> None:
+        """Stack the position and diameter labels beside the right edge.
+
+        Both hang on ONE anchor (the right-edge midpoint) and are stacked in
+        screen pixels, so they cannot run into each other at any zoom. Before
+        #790 the position label was anchored at the centre and the diameter
+        label at the edge: on a plant narrower on screen than the position
+        text the two overlapped.
+        """
+        if self._center_label is None or self._diameter_label is None:
+            return
+        rect = self.rect()
+        right_mid = QPointF(rect.right(), rect.y() + rect.height() / 2)
+        position_h = self._center_label.plate_size().height()
+        diameter_h = self._diameter_label.plate_size().height()
+        top = -(position_h + self._ANNOTATION_STACK_GAP_PX + diameter_h) / 2.0
+        pad = 3.0  # the plate reaches one padding up and left of the label's origin
+        x = self._ANNOTATION_HANDLE_GAP_PX + pad
+        self._center_label.setPos(right_mid)
+        self._center_label.set_screen_offset(x, top + pad)
+        self._diameter_label.setPos(right_mid)
+        self._diameter_label.set_screen_offset(
+            x, top + position_h + self._ANNOTATION_STACK_GAP_PX + pad
+        )
 
     def _hide_circle_annotations(self) -> None:
         """Hide diameter and center coordinate annotations."""
@@ -661,12 +742,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         center_scene = self.mapToScene(center_item)
 
         self._center_label.set_text(_format_coordinate(center_scene.x(), center_scene.y()))
-        self._center_label.setPos(center_item.x(), center_item.y())
-
-        right_mid = QPointF(rect.right(), rect.y() + rect.height() / 2)
         if self._diameter_label is not None:
             self._diameter_label.set_text(f"\u2300 {_format_edge_length(diameter_cm)}")
-            self._diameter_label.setPos(right_mid.x(), right_mid.y())
+        self._layout_circle_annotations()
 
     def _on_resize_start(self) -> None:
         """Called when a resize operation starts. Store initial geometry."""

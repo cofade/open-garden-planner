@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.services.companion_planting_service import (
     CompanionPlantingService,
     CompanionRelationship,
@@ -562,7 +563,7 @@ class CompatibleSetDialog(QDialog):
                 suffix = self.tr("replaces what is planted")
             item = QListWidgetItem(
                 self.tr("{members}  (score: {score:.1f}) — {note}").format(
-                    members=members_str, score=score, note=suffix
+                    members=members_str, score=LocalizedNumber(score), note=suffix
                 )
             )
             item.setData(Qt.ItemDataRole.UserRole, entry["members"])

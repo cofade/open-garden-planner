@@ -2,20 +2,22 @@
   "name_en": "Food forest - 200 m²",
   "name_de": "Waldgarten - 200 m²",
   "name_es": "Bosque comestible - 200 m²",
-  "description_en": "Established trees, a grouped apple guild, accessible mulched beds and a sunny edible edge. Set Plan & Sun to 21 September 2026; Bonn reference coordinates and fictional frost dates. Illustrative layout; adapt species and spacing to your site.",
-  "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Plan & Sonne auf den 21. September 2026 stellen; Referenzkoordinaten Bonn und fiktive Frostdaten. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
-  "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Ajuste Plan y sol al 21 de septiembre de 2026; coordenadas de referencia de Bonn y heladas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
+  "name_ru": "Лесосад - 200 м²",
+  "description_en": "Established trees, a grouped apple guild, accessible mulched beds and a sunny edible edge. Opens on 21 September 2026 in daylight; Bonn reference coordinates, fictional frost dates and harvest log. Illustrative layout; adapt species and spacing to your site.",
+  "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Öffnet am 21. September 2026 bei Tageslicht; Referenzkoordinaten Bonn, fiktive Frostdaten und fiktives Erntebuch. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
+  "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Se abre el 21 de septiembre de 2026 con luz de día; coordenadas de referencia de Bonn, heladas y cosechas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
+  "description_ru": "Взрослые деревья, гильдия яблони в группах посадки, мульчированные грядки с проходами и солнечная съедобная опушка. Открывается на 21 сентября 2026 года при дневном свете; координаты Бонна, условные даты заморозков и условный журнал урожая. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
   "tags": [
     "food-forest",
     "guild",
     "timeline"
   ],
+  "showcase_date": "2026-09-21",
+  "showcase_utc_time": "11:00",
   "license": "CC-BY-SA-4.0",
   "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
   "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
   "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
   "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
-  "name_ru": "Лесосад - 200 м²",
-  "description_ru": "Взрослые деревья, гильдия яблони в группах посадки, мульчированные грядки с проходами и солнечная съедобная опушка. Установите «План и солнце» на 21 сентября 2026 года; координаты Бонна и условные даты заморозков. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
   "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md."
 }

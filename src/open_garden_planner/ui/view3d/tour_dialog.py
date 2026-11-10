@@ -85,6 +85,7 @@ from open_garden_planner.core.camera_tours import (
     default_duration_s,
     find_tour,
 )
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.camera import (
     FOV_DEG,
@@ -92,6 +93,7 @@ from open_garden_planner.core.scene3d.camera import (
     MIN_PITCH_DEG,
     CameraPose,
 )
+from open_garden_planner.ui.date_fields import as_date_field, as_time_field
 
 from .tour_recorder import TourRecorder, TourResult, translated_failure
 from .video_writer import (
@@ -321,8 +323,10 @@ class TourDialog(QDialog):
         day = QWidget(group)
         day_form = QHBoxLayout(day)
         day_form.setContentsMargins(0, 0, 0, 0)
-        self.time_from = QTimeEdit(QTime(DEFAULT_DAY[0].hour, DEFAULT_DAY[0].minute), day)
-        self.time_to = QTimeEdit(QTime(DEFAULT_DAY[1].hour, DEFAULT_DAY[1].minute), day)
+        self.time_from = as_time_field(
+            QTimeEdit(QTime(DEFAULT_DAY[0].hour, DEFAULT_DAY[0].minute), day))
+        self.time_to = as_time_field(
+            QTimeEdit(QTime(DEFAULT_DAY[1].hour, DEFAULT_DAY[1].minute), day))
         day_form.addWidget(QLabel(self.tr("From:"), day))
         day_form.addWidget(self.time_from)
         day_form.addWidget(QLabel(self.tr("To:"), day))
@@ -332,10 +336,8 @@ class TourDialog(QDialog):
         year = QWidget(group)
         year_form = QHBoxLayout(year)
         year_form.setContentsMargins(0, 0, 0, 0)
-        self.date_from = QDateEdit(year)
-        self.date_from.setCalendarPopup(True)
-        self.date_to = QDateEdit(year)
-        self.date_to.setCalendarPopup(True)
+        self.date_from = as_date_field(QDateEdit(year))
+        self.date_to = as_date_field(QDateEdit(year))
         year_form.addWidget(QLabel(self.tr("From:"), year))
         year_form.addWidget(self.date_from)
         year_form.addWidget(QLabel(self.tr("To:"), year))
@@ -433,8 +435,9 @@ class TourDialog(QDialog):
     def _key_text(self, number: int, key: CameraKey) -> str:
         return self.tr("View {number}: from {east:.1f} / {north:.1f} m, "
                        "{height:.1f} m high").format(
-            number=number, east=key.eye[0] / 100.0, north=key.eye[1] / 100.0,
-            height=key.eye[2] / 100.0)
+            number=number, east=LocalizedNumber(key.eye[0] / 100.0),
+            north=LocalizedNumber(key.eye[1] / 100.0),
+            height=LocalizedNumber(key.eye[2] / 100.0))
 
     def _show_keys(self) -> None:
         """The list says what the keys are (a saved tour or another plan came)."""

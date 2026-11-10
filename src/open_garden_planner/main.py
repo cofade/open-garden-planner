@@ -480,6 +480,7 @@ def main() -> int:
     )
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.core.logging_config import setup_logging
+    from open_garden_planner.ui.number_fields import install_decimal_marks
     from open_garden_planner.ui.theme import apply_theme, refresh_window_theme
 
     if startup_probe:
@@ -491,6 +492,10 @@ def main() -> int:
     app.setApplicationName(APPLICATION_NAME)
     app.setOrganizationName(ORGANIZATION_NAME)
     app.setOrganizationDomain("github.com/cofade")
+    # Either decimal mark is the decimal mark in a number field, typed or
+    # pasted (#792, ADR-077): the locale follows the UI language, the keyboard
+    # and the clipboard do not.
+    install_decimal_marks(app)
 
     # Initialize persistent application logging (AUD-063, TD-023, #405)
     setup_logging()

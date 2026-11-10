@@ -6,7 +6,7 @@ from typing import Any
 
 from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtGui import QColor, QPen
-from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsSimpleTextItem
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsSimpleTextItem
 
 from open_garden_planner.core.guild_commands import guild_plant_bounds
 from open_garden_planner.core.object_types import is_plant_type
@@ -15,6 +15,7 @@ from open_garden_planner.services.guild_service import (
     compute_guilds,
     guild_diagnostics,
 )
+from open_garden_planner.ui.canvas.items.garden_item import GuildBadgeItem
 from open_garden_planner.ui.widgets.trait_filters import trait_label
 
 
@@ -85,7 +86,7 @@ class GuildCoordinator(QObject):
                     continue
                 item._guild_badge_signature = deepcopy(signature)
                 if missing and badge is None:
-                    badge = QGraphicsEllipseItem(-8, -8, 16, 16, item)
+                    badge = GuildBadgeItem(-8, -8, 16, 16, item)
                     badge.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
                     badge.setBrush(QColor("#e3a234"))
                     badge.setPen(QPen(Qt.PenStyle.NoPen))

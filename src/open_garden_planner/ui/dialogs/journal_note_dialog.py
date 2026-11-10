@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import default_dialog_dir
 from open_garden_planner.models.journal_note import JournalNote
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.theme import theme_color
 
 
@@ -79,9 +80,7 @@ class JournalNoteDialog(QDialog):
         layout = QVBoxLayout(self)
 
         form = QFormLayout()
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         form.addRow(self.tr("Date"), self._date_edit)
         layout.addLayout(form)
 

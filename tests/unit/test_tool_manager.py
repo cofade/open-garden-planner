@@ -93,6 +93,7 @@ class TestToolManager:
         mock_tool = MagicMock()
         mock_tool.tool_type = ToolType.RECTANGLE
         mock_tool.display_name = "Rectangle"
+        mock_tool.localized_name.return_value = "Rectangle"
         tool_manager.register_tool(mock_tool)
 
         # Activate rectangle tool

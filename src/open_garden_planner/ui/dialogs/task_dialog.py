@@ -31,6 +31,7 @@ from open_garden_planner.core.object_types import (
     is_bed_type,
 )
 from open_garden_planner.models.task import ManualTask
+from open_garden_planner.ui.date_fields import as_date_field
 
 
 class TaskDialog(QDialog):
@@ -71,9 +72,7 @@ class TaskDialog(QDialog):
 
         form = QFormLayout()
 
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         form.addRow(self.tr("Due Date"), self._date_edit)
 
         self._title_edit = QLineEdit()

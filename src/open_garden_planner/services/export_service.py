@@ -4,15 +4,50 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, QRectF, QSize, Qt
+from PyQt6.QtCore import QCoreApplication, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter
-from PyQt6.QtSvg import QSvgGenerator
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsScene,
-    QGraphicsSimpleTextItem,
-    QGraphicsTextItem,
 )
+
+
+class _PaintedDiagnostics:
+    """A scene's painted diagnostic decorations, as one entry of the hidden-overlay list.
+
+    ``ExportService._hide_overlay_items`` hides overlay ITEMS one by one and
+    returns them; ``_restore_overlay_items`` shows each entry again. A spacing
+    ring or a soil border is painted by its garden item, so there is nothing to
+    hide per item: the scene switches them off together. This entry stands for
+    that switch, so showing it again switches the decorations back on and no
+    caller of the pair has to know about them (#786, §8.9.16).
+    """
+
+    def __init__(self, scene: QGraphicsScene) -> None:
+        self._scene = scene
+
+    def setVisible(self, visible: bool) -> None:
+        self._scene.set_diagnostic_overlays_visible(visible)
+
+
+class _PictureOnly:
+    """An item only a picture of the plan shows, as one entry of the hidden-overlay list.
+
+    The seam's other direction (#794). The key of the hours-of-sun map is
+    drawn by the canvas view over its viewport, where it stays in sight at any
+    zoom; a picture has no viewport, so the key is a scene item
+    (``ui.canvas.sun_legend.SunMapLegendItem``) that stays hidden on the
+    canvas. ``_hide_overlay_items`` shows it for the render and appends this
+    entry; "showing" the entry again afterwards hides the item, so the pair of
+    functions stays the one place that says what a picture holds and no caller
+    changes.
+    """
+
+    def __init__(self, item: QGraphicsItem) -> None:
+        self._item = item
+
+    def setVisible(self, visible: bool) -> None:
+        self._item.setVisible(not visible)
 
 
 class ExportService:
@@ -68,7 +103,9 @@ class ExportService:
             the selection state can be restored after the render.
         """
         from open_garden_planner.ui.canvas.items.garden_item import (
+            GuildBadgeItem,
             LockBadgeItem,
+            SunBadgeItem,
         )
         from open_garden_planner.ui.canvas.items.resize_handle import (
             MidpointHandle,
@@ -89,12 +126,28 @@ class ExportService:
             VertexHandle,
             SoilBadgeItem,
             LockBadgeItem,
+            SunBadgeItem,
+            GuildBadgeItem,
         )
+        from open_garden_planner.ui.canvas.sun_legend import SunMapLegendItem
+
         hidden: list[object] = []
         for item in scene.items():
             if isinstance(item, handle_types) and item.isVisible():
                 item.setVisible(False)
                 hidden.append(item)
+            elif isinstance(item, SunMapLegendItem) and not item.isVisible():
+                # The other direction: the key of a shown hours-of-sun map is
+                # in every picture of the plan and in no canvas (#794).
+                item.setVisible(True)
+                hidden.append(_PictureOnly(item))
+
+        # The diagnostic decorations a garden item paints itself (spacing ring,
+        # companion ring, antagonist / capacity badge, soil and rotation border)
+        # are no scene items: the scene switches them off as one (#786).
+        if getattr(scene, "diagnostic_overlays_visible", False):
+            scene.set_diagnostic_overlays_visible(False)
+            hidden.append(_PaintedDiagnostics(scene))
 
         previously_selected = list(scene.selectedItems())
         scene.clearSelection()
@@ -145,70 +198,43 @@ class ExportService:
                 item.setCacheMode(mode)
 
     @staticmethod
-    def _prepare_text_for_export(scene: QGraphicsScene, scale: float, dpi: int) -> list[tuple[object, bool, QFont | None]]:
-        """Prepare text items for export by adjusting fonts.
+    def _prepare_text_for_export(
+        scene: QGraphicsScene, scale: float, dpi: float
+    ) -> list[tuple[Any, QFont]]:
+        """Give the constant-pixel-size text of *scene* its size for an export.
+
+        A label with ``ItemIgnoresTransformations`` is drawn in device pixels:
+        outside a view nothing scales it, so its point size is chosen for the
+        output (``compute_export_font_size``). A text note is sized in plan
+        centimetres and is not touched (#789).
 
         Args:
             scene: The QGraphicsScene containing text items
             scale: Scale factor (output_width / canvas_width)
-            dpi: Output DPI (used to scale font size proportionally)
+            dpi: Output DPI (the font size is proportional to it)
 
         Returns:
-            List of (item, had_ignore_transform_flag, original_font) for restoration
+            The saved fonts, for ``_restore_text_after_export``
         """
-        saved_state = []
+        from open_garden_planner.services.scene_rendering import (
+            compute_export_font_size,
+            retarget_constant_size_text,
+        )
 
-        # Calculate appropriate font size for export
-        # We want text to be readable but not dominant
-        # For a 1:100 scale, 10pt looks good. Scale accordingly.
-        reference_scale = 0.01  # 1:100
-        reference_font_size = 10
-
-        # Adjust font size based on scale - smaller scale (more zoomed out) needs slightly larger fonts
-        # Use square root to moderate the scaling effect
-        import math
-        scale_ratio = scale / reference_scale
-        base_font_size = reference_font_size * math.sqrt(scale_ratio)
-        base_font_size = max(6, min(14, base_font_size))  # Clamp between 6pt and 14pt
-
-        # Scale font size proportionally with DPI to maintain same physical size
-        # At 150 DPI (reference), use base size. At 300 DPI, double it. At 72 DPI, scale down.
-        reference_dpi = 150
-        target_font_size = int(base_font_size * (dpi / reference_dpi))
-        target_font_size = max(4, target_font_size)  # Minimum 4pt
-
-        # Keep the ItemIgnoresTransformations flag ON - this makes text render
-        # at a fixed point size in the output image, not scaled with scene
-
-        for item in scene.items():
-            if isinstance(item, (QGraphicsSimpleTextItem, QGraphicsTextItem)):
-                # Save original state
-                had_flag = bool(item.flags() & item.GraphicsItemFlag.ItemIgnoresTransformations)
-                original_font = item.font()
-                saved_state.append((item, had_flag, QFont(original_font)))
-
-                # Set font to calculated size for output
-                new_font = QFont(original_font)
-                new_font.setPointSize(target_font_size)
-                item.setFont(new_font)
-
-        return saved_state
+        return list(
+            retarget_constant_size_text(scene, compute_export_font_size(scale, dpi))
+        )
 
     @staticmethod
-    def _restore_text_after_export(saved_state: list[tuple[object, bool, QFont | None]]) -> None:
+    def _restore_text_after_export(saved_state: list[tuple[Any, QFont]]) -> None:
         """Restore text items to their original state after export.
 
         Args:
             saved_state: List returned from _prepare_text_for_export
         """
-        for item, had_flag, original_font in saved_state:
-            # Restore original font
-            if original_font is not None:
-                item.setFont(original_font)
+        from open_garden_planner.services.scene_rendering import restore_text_fonts
 
-            # Restore ignore transformations flag
-            if had_flag:
-                item.setFlag(item.GraphicsItemFlag.ItemIgnoresTransformations, True)
+        restore_text_fonts(saved_state)
 
     @staticmethod
     def export_to_png(
@@ -326,45 +352,33 @@ class ExportService:
         aspect_ratio = canvas_height / canvas_width
         output_height_cm = output_width_cm * aspect_ratio
 
-        # For SVG, use 96 DPI as standard (common screen DPI)
-        svg_dpi = 96
-        width_px = int((output_width_cm / 2.54) * svg_dpi)
-        height_px = int((output_height_cm / 2.54) * svg_dpi)
+        from open_garden_planner.services.svg_export import (
+            SVG_UNITS_PER_INCH,
+            record_scene,
+            write_svg,
+        )
+
+        # The drawing is laid out in print-resolution units: what a 300-dpi PNG
+        # of the same width paints, as vectors.
+        width = output_width_cm / 2.54 * SVG_UNITS_PER_INCH
+        height = output_height_cm / 2.54 * SVG_UNITS_PER_INCH
 
         # Calculate scale for text adjustment
         scale = output_width_cm / canvas_width
 
-        # Prepare text items, overlays, and suppress device item caches for export.
-        # Note: export_to_svg renders directly to a vector QSvgGenerator device rather
-        # than a raster QImage, so it cannot delegate to render_scene_region (ADR-023).
-        saved_text_state = ExportService._prepare_text_for_export(scene, scale, svg_dpi)
+        # The scene is painted into a recording engine and replayed into the
+        # QSvgGenerator, which on its own drops clips and brush transforms
+        # (services/svg_export.py, #787). It is a vector device, so it cannot
+        # delegate to render_scene_region (ADR-023).
+        saved_text_state = ExportService._prepare_text_for_export(
+            scene, scale, SVG_UNITS_PER_INCH
+        )
         hidden_construction = ExportService._hide_construction_items(scene)
         hidden_overlay, prior_selection = ExportService._hide_overlay_items(scene)
         cached_items = ExportService._disable_item_caches(scene)
 
         try:
-            # Create SVG generator
-            generator = QSvgGenerator()
-            generator.setFileName(str(file_path))
-            generator.setSize(QSize(width_px, height_px))
-            generator.setViewBox(QRectF(0, 0, width_px, height_px))
-            generator.setTitle(title)
-            generator.setDescription(description)
-
-            # Create painter and render scene
-            painter = QPainter(generator)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-
-            # Pre-flip Y so scene Y=0 (visual bottom in OGP's Y-up view) maps to
-            # output bottom. translate(0, H) then scale(1,-1) maps scene y → H - y·scale.
-            painter.save()
-            painter.translate(0, height_px)
-            painter.scale(1.0, -1.0)
-            scene.render(painter, QRectF(0, 0, width_px, height_px), canvas_rect)
-            painter.restore()
-
-            painter.end()
+            ops = record_scene(scene, canvas_rect, width, height)
         finally:
             # Always restore items to original state
             ExportService._restore_text_after_export(saved_text_state)
@@ -372,172 +386,7 @@ class ExportService:
             ExportService._restore_overlay_items(hidden_overlay, prior_selection)
             ExportService._restore_item_caches(cached_items)
 
-        # Post-process SVG: the Y-flip painter transform causes pattern tile images to
-        # appear vertically inverted. Add patternTransform to each <pattern> element to
-        # compensate (flip the tile back so it renders correctly in browsers).
-        ExportService._fix_svg_pattern_yflip(file_path)
-        # Qt's QSvgGenerator does not serialize the painter clip region. Texture-filled
-        # shapes are emitted as a large unconstrained <rect> that bleeds across the
-        # canvas. Wrap each such group in a <clipPath> derived from the preceding
-        # "shadow" group's actual polygon path.
-        ExportService._fix_svg_qt_texture_clipping(file_path)
-
-    @staticmethod
-    def _fix_svg_pattern_yflip(file_path: Path) -> None:
-        """Post-process a Qt-generated SVG to fix pattern tile orientation.
-
-        Qt's Y-flip painter transform causes texture tile images inside <pattern>
-        elements to render upside-down in SVG viewers. Adding patternTransform
-        with a matching Y-flip compensates so tiles render correctly.
-        """
-        import re
-        text = file_path.read_text(encoding="utf-8")
-
-        def add_pattern_transform(m: re.Match) -> str:
-            tag = m.group(0)
-            # Extract height attribute to build the flip matrix (flip around y=height/2)
-            h_match = re.search(r'height="([^"]+)"', tag)
-            h = float(h_match.group(1)) if h_match else 256.0
-            # Avoid adding a duplicate patternTransform
-            if "patternTransform" in tag:
-                return tag
-            # Insert patternTransform before the closing >
-            return tag.rstrip(">") + f' patternTransform="matrix(1,0,0,-1,0,{h})">'
-
-        text = re.sub(r'<pattern\b[^>]+>', add_pattern_transform, text)
-        file_path.write_text(text, encoding="utf-8")
-
-    @staticmethod
-    def _fix_svg_qt_texture_clipping(file_path: Path) -> None:
-        """Wrap Qt-emitted texture groups in SVG clipPath elements.
-
-        Qt's QSvgGenerator emits each textured QGraphicsItem as a "shadow" group
-        (`fill="#000000"` + `<path d="..."/>`) carrying the real polygon outline,
-        followed (after Qt's empty bookkeeping groups) by a texture group
-        (`fill="url(#...)"` + a large `<rect>`). The painter's clip region — which
-        constrains the rect to the polygon shape during native rendering — is *not*
-        serialized. The result in SVG viewers is a large rect that bleeds across
-        the canvas.
-
-        The fix: pair non-empty shadow groups with the next non-empty texture
-        group in document order, build a `<clipPath>` from the shadow's path
-        (with its transform) and wrap the texture group with `clip-path=...`.
-        """
-        import re
-
-        text = file_path.read_text(encoding="utf-8")
-
-        # Items smaller than this are not worth clipping (e.g. text glyphs).
-        LARGE_THRESHOLD = 400.0  # cm
-
-        shadow_re = re.compile(
-            r'<g\b(?P<attrs>[^>]*)\bfill="#000000"[^>]*>\s*'
-            r'(?P<path><path\b[^/]*/?>)\s*</g>',
-            re.DOTALL,
-        )
-        texture_re = re.compile(
-            r'<g\b(?P<tattrs>[^>]*)\bfill="url\(#[^)]+\)"[^>]*>\s*'
-            r'(?P<rect><rect\b[^/]*/>)\s*</g>',
-            re.DOTALL,
-        )
-
-        # Collect ALL shadow groups (sorted by position) and all texture groups
-        # (sorted by position). Walk both in lockstep so each texture is matched
-        # to exactly one shadow.
-        shadows = list(shadow_re.finditer(text))
-        textures = list(texture_re.finditer(text))
-
-        clip_defs: list[str] = []
-        replacements: list[tuple[int, int, str]] = []
-        cp_id = 0
-
-        used_textures: set[int] = set()
-
-        for shadow_m in shadows:
-            d_m = re.search(r'\bd="([^"]+)"', shadow_m.group("path"))
-            if not d_m:
-                continue
-            path_d = d_m.group(1)
-            tr_m = re.search(r'\btransform="([^"]+)"', shadow_m.group("attrs"))
-            transform = tr_m.group(1) if tr_m else None
-
-            # First unused texture starting after this shadow ends.
-            tex_m = None
-            for idx, t in enumerate(textures):
-                if idx in used_textures:
-                    continue
-                if t.start() < shadow_m.end():
-                    continue
-                tex_m = t
-                tex_idx = idx
-                break
-            if tex_m is None:
-                continue
-
-            rect_attrs = tex_m.group("rect")
-            w_m = re.search(r'\bwidth="([0-9.+\-eE]+)"', rect_attrs)
-            x_m = re.search(r'\bx="([0-9.+\-eE]+)"', rect_attrs)
-            y_m = re.search(r'\by="([0-9.+\-eE]+)"', rect_attrs)
-            if not (w_m and x_m and y_m):
-                continue
-
-            rect_w = float(w_m.group(1))
-            rect_x = float(x_m.group(1))
-            rect_y = float(y_m.group(1))
-
-            # Skip without consuming: small rects (already shape-bounded) and
-            # the canvas background rect (origin at 0,0 — that rect IS the
-            # canvas, no clipping wanted). Leaving the index unconsumed means
-            # the next shadow re-evaluates it; the position check
-            # (t.start() < shadow.end()) filters it out naturally and any
-            # genuinely later texture group remains available.
-            if rect_w < LARGE_THRESHOLD:
-                continue
-            if abs(rect_x) < 1.0 and abs(rect_y) < 1.0:
-                continue
-
-            used_textures.add(tex_idx)
-            cp_id += 1
-            cp_name = f"ogp_clip_{cp_id}"
-
-            if transform:
-                clip_defs.append(
-                    f'<clipPath id="{cp_name}" clipPathUnits="userSpaceOnUse">'
-                    f'<g transform="{transform}">'
-                    f'<path fill-rule="evenodd" d="{path_d}"/>'
-                    f'</g></clipPath>'
-                )
-            else:
-                clip_defs.append(
-                    f'<clipPath id="{cp_name}" clipPathUnits="userSpaceOnUse">'
-                    f'<path fill-rule="evenodd" d="{path_d}"/>'
-                    f'</clipPath>'
-                )
-
-            abs_start = tex_m.start()
-            abs_end = tex_m.end()
-            full_texture_group = text[abs_start:abs_end]
-            replacements.append(
-                (abs_start, abs_end,
-                 f'<g clip-path="url(#{cp_name})">{full_texture_group}</g>')
-            )
-
-        # Apply replacements back-to-front so earlier offsets stay valid.
-        for start, end, rep in sorted(replacements, key=lambda r: -r[0]):
-            text = text[:start] + rep + text[end:]
-
-        if clip_defs:
-            defs_close = text.find("</defs>")
-            if defs_close >= 0:
-                text = text[:defs_close] + "\n" + "\n".join(clip_defs) + "\n" + text[defs_close:]
-            else:
-                svg_open = re.search(r'<svg\b[^>]*>', text)
-                if svg_open is not None:
-                    insert_at = svg_open.end()
-                    defs_block = "\n<defs>\n" + "\n".join(clip_defs) + "\n</defs>\n"
-                    text = text[:insert_at] + defs_block + text[insert_at:]
-
-        file_path.write_text(text, encoding="utf-8")
+        write_svg(ops, file_path, width, height, title=title, description=description)
 
     @staticmethod
     def calculate_image_size(

@@ -19,9 +19,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
+    QGraphicsEllipseItem,
     QGraphicsItem,
+    QGraphicsPixmapItem,
     QGraphicsSimpleTextItem,
     QGraphicsTextItem,
     QStyleOptionGraphicsItem,
@@ -29,11 +31,19 @@ from PyQt6.QtWidgets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
+from open_garden_planner.ui.canvas.items.halo_text import (
+    LABEL_LAYOUT_CHANGES,
+    label_text,
+    note_label_changed,
+)
+from open_garden_planner.ui.canvas.layout_font import device_independent
 
 
 @dataclass(slots=True)
@@ -59,19 +69,88 @@ class LockBadgeItem(QGraphicsSimpleTextItem):
     """
 
 
-class SuccessionBadgeItem(QGraphicsItem):
-    """Multi-line succession-plan badge that renders upright on the Y-flipped canvas.
+class SunBadgeItem(QGraphicsPixmapItem):
+    """Sun-mismatch badge on a plant (``ui.sun_exposure_coordinator``).
 
-    Set ``ItemIgnoresTransformations`` so the badge stays at a constant pixel
-    size and is not mirrored by the view's ``scale(zoom, -zoom)`` (US-12.8).
-    Its bounding rect extends *upward* from its anchor point so positioning at
-    the bed's scene-coordinate ``rect.top()`` (which is the visual bottom-left
-    after the Y-flip) places the badge inside the bed.
+    A dedicated type for the same reason as ``LockBadgeItem``: the export seam
+    recognises a diagnostic badge by its type and keeps it out of a picture of
+    the plan (#786).
+
+    The badge lies on the plan and is scaled with its plant (four tenths of the
+    footprint), so a pixmap of a fixed pixel size is the wrong picture of it at
+    every zoom but one: the 24-pixel one it had was enlarged 19 times on a
+    1.1 m plant at 400 %. ``set_icon`` names the icon instead and ``paint``
+    draws it for the painter (``ui.icons.paint_icon``, §8.9.14). The pixmap
+    stays what gives the item its size: 24 units a side.
     """
 
-    _PADDING = 5.0
-    _LINE_HEIGHT = 12.0
-    _ROW_GAP = 1.0
+    def __init__(self, parent: QGraphicsItem | None = None) -> None:
+        super().__init__(parent)
+        self._icon_name: str | None = None
+
+    def set_icon(self, name: str | None) -> None:
+        """Name the themed icon the badge shows (``None``: its pixmap as it is)."""
+        if name != self._icon_name:
+            self._icon_name = name
+            self.update()
+
+    def paint(
+        self,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
+        widget: QWidget | None = None,
+    ) -> None:
+        if painter is None:
+            return
+        if self._icon_name is not None:
+            from open_garden_planner.ui.icons import paint_icon
+
+            size = self.pixmap().deviceIndependentSize()
+            if paint_icon(painter, self._icon_name, QRectF(self.offset(), size)):
+                return
+        super().paint(painter, option, widget)
+
+
+class GuildBadgeItem(QGraphicsEllipseItem):
+    """Missing-guild-role badge on a guild's centre plant (``ui.guild_coordinator``).
+
+    A dedicated type so the export seam can keep it out of a picture (#786).
+    """
+
+
+class SuccessionBadgeItem(QGraphicsItem):
+    """The crops that follow in a bed, as a small tag in the bed's corner (US-12.8).
+
+    **It is content of the plan** (#836): which crop comes next is what a
+    succession plan says, and a picture of the plan carries it. So it is not
+    hidden by the export seam; it is drawn to the picture's scale instead.
+
+    * ``ItemIgnoresTransformations``: a constant size on screen, upright under
+      the view's Y-flip. Its anchor (the item's position) is the bed's corner.
+    * **Sized by its font, and by nothing else.** Every measure is a share of
+      the font's line height, so an export that gives the constant-size text
+      its size for the output (``scene_rendering.retarget_constant_size_text``,
+      through ``font()`` / ``setFont()``) scales the whole tag with it.
+    * **Its text is drawn with a font sized in pixels** (``layout_font``,
+      PF-CAN-59). A font in points is resolved by each painter for its own
+      device: on a 1200-dpi printer the 7 pt text was 117 pixels tall in rows
+      of 13, three crop names overprinting one another.
+    * **Painted in the scene's label pass**, after every item
+      (``plan_labels.LabelPass``): a child item is drawn with its
+      bed, so the plants growing in the bed used to cover it. The pass also
+      decides whether it has room (``core.label_layout.badge_has_room``): on a
+      plan zoomed far out a tag of constant size is larger than its bed. In a
+      scene that runs no label pass it paints itself.
+    """
+
+    #: The canvas font size, points: smaller than an object's name (10 pt).
+    SCREEN_POINT_SIZE = 7
+    # Shares of the font's line height (12 px at the canvas size).
+    _PADDING = 5.0 / 12.0
+    _ROW_GAP = 1.0 / 12.0
+    _RADIUS = 4.0 / 12.0
+    #: Distance from the bed's corner, in the same unit.
+    _MARGIN = 4.0 / 12.0
     _BG = QColor(46, 125, 50, 215)
     _COLOR_CURRENT = QColor(255, 255, 255)
     _COLOR_FUTURE = QColor(225, 240, 225)
@@ -84,19 +163,43 @@ class SuccessionBadgeItem(QGraphicsItem):
         self._lines: list[tuple[str, bool]] = []
         self._max_rows: int = 4
         self._font = QFont()
-        self._font.setPointSize(7)
-        self._font_bold = QFont(self._font)
-        self._font_bold.setBold(True)
+        self._font.setPointSize(self.SCREEN_POINT_SIZE)
         self._cached_w: float = 0.0
         self._cached_h: float = 0.0
+        self._line_h: float = 0.0
+        self._ascent: float = 0.0
+
+    def font(self) -> QFont:
+        """The font the tag is sized by (an export retargets it, PF-CAN-08)."""
+        return QFont(self._font)
+
+    def setFont(self, font: QFont) -> None:
+        """Size the tag for *font*: every measure follows its line height."""
+        self.prepareGeometryChange()
+        self._font = QFont(font)
+        self._recompute_size()
+        self.update()
+        note_label_changed(self)
 
     def set_lines(self, lines: list[tuple[str, bool]]) -> None:
+        """Set the crops the tag names, each as a label shows a name
+        (``label_text``): a crop's name comes from the plan's species data, and
+        the tag measures and draws every row by hand at every paint."""
+        lines = [(label_text(name), current) for name, current in lines]
         if lines == self._lines:
             return
         self.prepareGeometryChange()
-        self._lines = list(lines)
+        self._lines = lines
         self._recompute_size()
         self.update()
+        note_label_changed(self)
+
+    def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
+        # The scene keeps what its label pass shows between paints, and hiding
+        # a tag that ignores transformations emits no ``changed``.
+        if change in LABEL_LAYOUT_CHANGES:
+            note_label_changed(self)
+        return super().itemChange(change, value)
 
     def _rendered_rows(self) -> list[tuple[str, bool, bool]]:
         """Return (text, is_current, is_overflow) for each row that will be drawn."""
@@ -106,8 +209,16 @@ class SuccessionBadgeItem(QGraphicsItem):
         ]
         remainder = len(self._lines) - len(visible)
         if remainder > 0:
-            rendered.append((f"+{remainder} more", False, True))
+            more = QCoreApplication.translate("SuccessionBadgeItem", "+{count} more")
+            rendered.append((more.format(count=remainder), False, True))
         return rendered
+
+    def _paint_fonts(self) -> tuple[QFont, QFont]:
+        """(regular, bold) in pixels: one size on a screen, a picture and a printer."""
+        regular = device_independent(self._font)
+        bold = QFont(regular)
+        bold.setBold(True)
+        return regular, bold
 
     def _recompute_size(self) -> None:
         rendered = self._rendered_rows()
@@ -115,25 +226,37 @@ class SuccessionBadgeItem(QGraphicsItem):
             self._cached_w = 0.0
             self._cached_h = 0.0
             return
-        fm = QFontMetricsF(self._font)
-        fm_bold = QFontMetricsF(self._font_bold)
+        regular, bold = self._paint_fonts()
+        fm = QFontMetricsF(regular)
+        fm_bold = QFontMetricsF(bold)
+        self._line_h = fm.height()
+        self._ascent = fm.ascent()
         max_w = max(
             (fm_bold if cur else fm).horizontalAdvance(text)
             for text, cur, _ in rendered
         )
-        self._cached_w = max_w + self._PADDING * 2
+        padding = self._PADDING * self._line_h
+        self._cached_w = max_w + padding * 2
         self._cached_h = (
-            len(rendered) * self._LINE_HEIGHT
-            + (len(rendered) - 1) * self._ROW_GAP
-            + self._PADDING * 2
+            len(rendered) * self._line_h
+            + (len(rendered) - 1) * self._ROW_GAP * self._line_h
+            + padding * 2
         )
 
     def boundingRect(self) -> QRectF:
         if not self._lines:
             return QRectF(0.0, 0.0, 0.0, 0.0)
-        # Extend upward from anchor so the badge sits ABOVE its anchor point on
-        # screen — letting callers anchor at the bed's visual bottom-left.
-        return QRectF(0.0, -self._cached_h, self._cached_w, self._cached_h)
+        # Up and to the right of the anchor, which is the bed's visual
+        # bottom-left corner: the tag lies inside the bed.
+        margin = self._MARGIN * self._line_h
+        return QRectF(margin, -self._cached_h - margin, self._cached_w, self._cached_h)
+
+    def shape(self) -> QPainterPath:
+        """Nothing: the tag takes no click, like every label of the plan
+        (``PlanLabelItem``). Where it is painted it lies on its bed, which
+        takes the click; where the pass leaves it out it reaches past a bed
+        too small for it and must not cover the plan there."""
+        return QPainterPath()
 
     def paint(
         self,
@@ -141,17 +264,28 @@ class SuccessionBadgeItem(QGraphicsItem):
         option: "QStyleOptionGraphicsItem",  # noqa: ARG002
         widget: "QWidget | None" = None,  # noqa: ARG002
     ) -> None:
+        # In a CanvasScene the label pass paints it, above the plants (#836).
+        if getattr(self.scene(), "paints_plan_labels", False):
+            return
+        self.paint_badge(painter)
+
+    def paint_badge(self, painter: QPainter) -> None:
+        """Draw the tag in its own (pixel) coordinates."""
         if not self._lines:
             return
         rect = self.boundingRect()
+        painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(self._BG)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(rect, 4.0, 4.0)
-        rendered = self._rendered_rows()
-        y = rect.top() + self._PADDING + self._LINE_HEIGHT - 2.0
-        for text, is_current, is_overflow in rendered:
-            painter.setFont(self._font_bold if is_current else self._font)
+        radius = self._RADIUS * self._line_h
+        painter.drawRoundedRect(rect, radius, radius)
+        regular, bold = self._paint_fonts()
+        padding = self._PADDING * self._line_h
+        x = rect.left() + padding
+        y = rect.top() + padding + self._ascent
+        for text, is_current, is_overflow in self._rendered_rows():
+            painter.setFont(bold if is_current else regular)
             if is_overflow:
                 colour = self._COLOR_OVERFLOW
             elif is_current:
@@ -159,8 +293,9 @@ class SuccessionBadgeItem(QGraphicsItem):
             else:
                 colour = self._COLOR_FUTURE
             painter.setPen(QPen(colour))
-            painter.drawText(int(self._PADDING), int(y), text)
-            y += self._LINE_HEIGHT + self._ROW_GAP
+            painter.drawText(QPointF(x, y), text)
+            y += self._line_h * (1.0 + self._ROW_GAP)
+        painter.restore()
 
 
 # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
@@ -536,6 +671,9 @@ class GardenItemMixin(PositionLockMixin):
         self._spacing_radius_cm: float | None = None  # User-override spacing radius (cm)
         self._frost_protection_needed: bool | None = None  # Per-plant frost override (US-12.2)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
+        # The neighbours an "overlap" plant is too close to: (scene x, scene y, radius cm)
+        self._spacing_conflicts: tuple[tuple[float, float, float], ...] = ()
+        self._spacing_conflict_place: tuple[float, float] | None = None
         self._soil_mismatch_level: str | None = None  # "warning" | "critical" | None (US-12.10d)
         self._capacity_overrun: bool = False  # Container over capacity badge (US-C3)
         # US-12.8: succession-plan badge state. List of (common_name, is_current)
@@ -635,8 +773,16 @@ class GardenItemMixin(PositionLockMixin):
 
     @object_type.setter
     def object_type(self, value: ObjectType | None) -> None:
-        """Set the object type."""
+        """Set the object type.
+
+        What an object IS decides whether it stands on the plan or is ground
+        under the grid (``canvas_scene.on_ground``), so the scene is told that
+        what it keeps for painting is stale. Not a plan change of its own: the
+        command that changes a type announces that (ADR-060).
+        """
         self._object_type = value
+        if isinstance(self, QGraphicsItem):
+            note_label_changed(self)
 
     @property
     def name(self) -> str:
@@ -769,6 +915,38 @@ class GardenItemMixin(PositionLockMixin):
         if hasattr(self, 'update'):
             self.update()
 
+    def grid_cover_path(self) -> "QPainterPath":
+        """The part of the plan this object covers, in item coordinates.
+
+        The canvas grid is not drawn over it (``CanvasView._draw_grid``) and
+        the hours on the sun map's contours keep clear of it. Both FILL this
+        path, so it is bounded like the item's own picture: an outline above
+        the paint bound of #472 answers with an empty path
+        (``PolygonItem.grid_cover_path``, ``PolylineItem.grid_cover_path``).
+        """
+        return self.shape()  # type: ignore[attr-defined,no-any-return]
+
+    def has_diagnostic_decoration(self) -> bool:
+        """Whether a diagnostic flag that this item paints is set right now."""
+        return bool(
+            self._spacing_overlap is not None
+            or self._companion_highlight is not None
+            or self._antagonist_warning
+            or self._rotation_status is not None
+            or self._soil_mismatch_level is not None
+            or self._capacity_overrun
+        )
+
+    def _diagnostics_painted(self) -> bool:
+        """Whether this item may paint its diagnostic decorations.
+
+        False while the scene has them switched off for a picture of the plan
+        (``CanvasScene.set_diagnostic_overlays_visible``). An item outside a
+        ``CanvasScene`` paints them as before.
+        """
+        scene = self.scene() if hasattr(self, "scene") else None
+        return bool(getattr(scene, "diagnostic_overlays_visible", True))
+
     @property
     def companion_highlight(self) -> str | None:
         """Current companion highlight type: 'beneficial', 'antagonistic', or None."""
@@ -866,8 +1044,9 @@ class GardenItemMixin(PositionLockMixin):
             lines: List of ``(common_name, is_current)`` tuples in chronological
                 order. ``None`` or empty list clears the badge.
 
-        The badge renders upright on the Y-flipped canvas via a child
-        ``SuccessionBadgeItem`` with ``ItemIgnoresTransformations``.
+        The badge is a child ``SuccessionBadgeItem`` with
+        ``ItemIgnoresTransformations``; in a ``CanvasScene`` the label pass
+        paints it, above the plants of the bed (#836).
         """
         new_lines = list(lines) if lines else []
         if new_lines == self._succession_lines:
@@ -894,20 +1073,23 @@ class GardenItemMixin(PositionLockMixin):
         return self._succession_badge_item
 
     def _position_succession_badge(self) -> None:
-        """Anchor the badge at the bed's visual bottom-left.
+        """Anchor the badge at the visual bottom-left corner of the bed's outline.
 
         The view applies ``scale(zoom, -zoom)`` so smaller scene-Y maps to a
-        higher screen-Y (visual bottom). Anchoring at ``rect.top()`` therefore
-        positions the badge at the visual bottom; the badge's own bounding rect
-        extends upward into the bed.
+        higher screen-Y (visual bottom). Anchoring at the outline's ``top()``
+        therefore puts the badge at the visual bottom; its own bounding rect
+        extends up and into the bed, a margin of its own (in pixels) away from
+        the corner. The outline, not ``boundingRect()`` — that also holds the
+        drop shadow (PF-CAN-51). Called with ``_position_label`` on every
+        change of the outline: until #836 the badge stayed where the corner had
+        been when the plan was set.
         """
         if self._succession_badge_item is None or not hasattr(self, "boundingRect"):
             return
-        bounds = self.boundingRect()
-        margin = 4.0
-        self._succession_badge_item.setPos(
-            bounds.left() + margin, bounds.top() + margin
-        )
+        from .handle_geometry import selection_frame_rect
+
+        frame = selection_frame_rect(self)  # type: ignore[arg-type]
+        self._succession_badge_item.setPos(frame.left(), frame.top())
 
     def build_bed_context_menu(
         self,
@@ -1021,15 +1203,41 @@ class GardenItemMixin(PositionLockMixin):
         """Current spacing overlap status: 'overlap', 'ideal', or None."""
         return self._spacing_overlap
 
-    def set_spacing_overlap(self, overlap_type: str | None) -> None:
+    @property
+    def spacing_conflicts(self) -> tuple[tuple[float, float, float], ...]:
+        """The neighbours this plant is too close to: ``(scene_x, scene_y, radius_cm)``."""
+        return self._spacing_conflicts
+
+    def set_spacing_overlap(
+        self,
+        overlap_type: str | None,
+        conflicts: "Iterable[tuple[float, float, float]]" = (),
+    ) -> None:
         """Set or clear the spacing overlap indicator.
 
         Args:
             overlap_type: "overlap", "ideal", or None to clear.
+            conflicts: For "overlap", the spacing circle of every neighbour
+                this plant is too close to, as ``(scene_x, scene_y,
+                radius_cm)``. The ring is drawn only where it lies inside one
+                of them (#786), so the mark sits on the crowded spot.
         """
-        if self._spacing_overlap == overlap_type:
+        conflicts = tuple(sorted(conflicts)) if overlap_type == "overlap" else ()
+        # Where the arcs sit depends on where this plant stands too, and a
+        # cached item is not repainted by a move: the place is part of the key.
+        place: tuple[float, float] | None = None
+        if conflicts and hasattr(self, "rect") and hasattr(self, "mapToScene"):
+            centre = self.mapToScene(self.rect().center())
+            place = (centre.x(), centre.y())
+        if (
+            self._spacing_overlap == overlap_type
+            and self._spacing_conflicts == conflicts
+            and self._spacing_conflict_place == place
+        ):
             return
         self._spacing_overlap = overlap_type
+        self._spacing_conflicts = conflicts
+        self._spacing_conflict_place = place
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
@@ -1207,7 +1415,11 @@ class GardenItemMixin(PositionLockMixin):
             if not text:
                 return
 
-            self._label_item = QGraphicsSimpleTextItem(text, self)
+            from .halo_text import PlanLabelItem
+
+            # A haloed label, centred on the item and painted above every
+            # object by the scene's label pass (#793, ``halo_text``).
+            self._label_item = PlanLabelItem(text, self)
 
             # Configure label appearance
             font = QFont("Arial", 10)
@@ -1265,13 +1477,29 @@ class GardenItemMixin(PositionLockMixin):
         self._global_labels_visible = visible
         self._update_label()
 
-    def _position_label(self) -> None:
-        """Position the label at the center of the item's bounding rect.
+    def _label_anchor(self) -> QPointF:
+        """Where the item's labels hang: the centre of its own outline.
 
-        Note: With ItemIgnoresTransformations, centering perfectly across all zoom levels
-        is challenging due to coordinate system mismatches between device and scene coords.
-        We position the text as close to center as possible by offsetting by half the text size.
+        The outline, not ``boundingRect()``: a warning badge or a spacing ring
+        widens the bounding rect to one side and would drag the label along.
         """
+        from .handle_geometry import selection_frame_rect
+
+        return selection_frame_rect(self).center()  # type: ignore[arg-type]
+
+    def _position_label(self) -> None:
+        """Hang the label on the centre of the item.
+
+        The label ignores the view's transformations, so its size is in screen
+        pixels while this position is in plan units. It therefore centres
+        itself on the position (``PlanLabelItem``): an offset of half its size
+        applied here, as before #793, was right at one zoom only and put the
+        text below and beside the centre at every other.
+
+        Every shape calls this when its outline changed, so the succession
+        badge, which hangs on the outline's corner, is placed here too.
+        """
+        self._position_succession_badge()
         if self._label_item is None:
             return
 
@@ -1279,19 +1507,7 @@ class GardenItemMixin(PositionLockMixin):
         if not hasattr(self, 'boundingRect'):
             return
 
-        # Get the bounding rectangle of the parent item and its center in parent coords
-        bounds = self.boundingRect()
-        center = bounds.center()
-
-        # Get label dimensions
-        label_bounds = self._label_item.boundingRect()
-
-        # Offset by half the label size to approximate centering
-        # This is not perfect with ItemIgnoresTransformations but is close enough
-        offset_x = label_bounds.width() / 2.0
-        offset_y = label_bounds.height() / 2.0
-
-        self._label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+        self._label_item.setPos(self._label_anchor())
 
     def initialize_label(self) -> None:
         """Initialize the label after the item is fully constructed.
@@ -1320,7 +1536,7 @@ class GardenItemMixin(PositionLockMixin):
         Called from each shape item's paint() after the rotation border.
         Uses self.shape() so it works for rect, polygon, and circle without overrides.
         """
-        if self._soil_mismatch_level is None:
+        if self._soil_mismatch_level is None or not self._diagnostics_painted():
             return
         _colors = {
             "warning": QColor(255, 160, 0, 220),  # Amber
@@ -1359,7 +1575,7 @@ class GardenItemMixin(PositionLockMixin):
         Reuses the bar+dot "!" convention so no text is drawn (text would render
         upside-down on the Y-flipped canvas, see §8.14).
         """
-        if not self._capacity_overrun:
+        if not self._capacity_overrun or not self._diagnostics_painted():
             return
         # Guard against a stale flag after Change Type (CONTAINER → generic):
         # _update_container_capacity only clears the flag for items that are
@@ -1425,7 +1641,9 @@ class GardenItemMixin(PositionLockMixin):
             return
         text = self._format_area(area)
         if self._area_label_item is None:
-            self._area_label_item = QGraphicsSimpleTextItem(text, self)
+            from .halo_text import PlanLabelItem
+
+            self._area_label_item = PlanLabelItem(text, self, rank=1)
             font = QFont("Arial", 8)
             font.setItalic(True)
             self._area_label_item.setFont(font)
@@ -1441,16 +1659,12 @@ class GardenItemMixin(PositionLockMixin):
         """Position area label centred horizontally, just below name label."""
         if self._area_label_item is None or not hasattr(self, "boundingRect"):
             return
-        bounds = self.boundingRect()
-        center = bounds.center()
-        lw = self._area_label_item.boundingRect().width()
-        lh = self._area_label_item.boundingRect().height()
-        # Offset downward one extra label-height when a name label is also visible
-        extra = lh + 2.0 if (self._label_item is not None and self._label_item.isVisible()) else 0.0
-        self._area_label_item.setPos(
-            center.x() - lw / 2.0,
-            center.y() - lh / 2.0 + extra,
-        )
+        self._area_label_item.setPos(self._label_anchor())
+        # Under the name label while that is shown too: the label works out the
+        # step itself, in screen pixels like its size (``HaloTextItem.stack_under``).
+        stack_under = getattr(self._area_label_item, "stack_under", None)
+        if stack_under is not None:
+            stack_under(self._label_item)
 
     def start_label_edit(self) -> None:
         """Start inline editing of the label."""
@@ -1542,15 +1756,7 @@ class GardenItemMixin(PositionLockMixin):
             self._edit_label_item.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
 
             # Position it exactly where the static label is
-            if self._label_item is not None:
-                self._edit_label_item.setPos(self._label_item.pos())
-            else:
-                bounds = self.boundingRect()
-                center = bounds.center()
-                label_bounds = self._edit_label_item.boundingRect()
-                offset_x = label_bounds.width() / 2.0
-                offset_y = label_bounds.height() / 2.0
-                self._edit_label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+            self._reposition_edit_label()
 
             # Connect signal to reposition as text changes
             self._edit_label_item.document().contentsChanged.connect(self._reposition_edit_label)
@@ -1582,12 +1788,16 @@ class GardenItemMixin(PositionLockMixin):
         if self._edit_label_item is None or not hasattr(self, 'boundingRect'):
             return
 
-        bounds = self.boundingRect()
-        center = bounds.center()
+        # Centred on the item like the static label. The editor ignores the
+        # view's transformations too, so the half-size shift is its OWN
+        # transform (screen pixels), not part of its position (plan units).
+        from PyQt6.QtGui import QTransform
+
         label_bounds = self._edit_label_item.boundingRect()
-        offset_x = label_bounds.width() / 2.0
-        offset_y = label_bounds.height() / 2.0
-        self._edit_label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+        self._edit_label_item.setPos(self._label_anchor())
+        self._edit_label_item.setTransform(
+            QTransform.fromTranslate(-label_bounds.width() / 2.0, -label_bounds.height() / 2.0)
+        )
 
     def _finish_label_edit(self) -> None:
         """Finish editing the label and save changes."""

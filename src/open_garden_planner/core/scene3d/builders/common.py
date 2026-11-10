@@ -91,7 +91,14 @@ def has_one_plain_ring(record: Record) -> bool:
             and not record.params.get(PARAM_OUTLINE_RESOLVED))
 
 
-def plain_block(record: Record, height_cm: float, *, name: str = "prism") -> tuple[MeshPart, ...]:
+#: The name of the part ``plain_block`` makes: how a reader of built parts tells the
+#: honest block of a record no shape function builds on from a kind's own model
+#: (``open_frames``: a pergola that fell back to its block is a solid in 2D too, #698).
+PLAIN_BLOCK_NAME: Final = "prism"
+
+
+def plain_block(record: Record, height_cm: float, *,
+                name: str = PLAIN_BLOCK_NAME) -> tuple[MeshPart, ...]:
     """The honest solid of a record no shape function builds on — and of an item
     whose shape function has nothing to show (a house without a usable ridge):
     ALL of the record's regions, holes cut out, up to ``height_cm``, neutral and

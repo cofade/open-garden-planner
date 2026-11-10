@@ -36,6 +36,7 @@ from PyQt6.QtCore import QCoreApplication
 
 from open_garden_planner.core.calendar_windows import calendar_windows as calendar_windows
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
@@ -381,7 +382,7 @@ def generate_frost_tasks(state: PlanState) -> list[Task]:
         )
         title = QCoreApplication.translate(
             "Tasks", "Frost {temp}°C"
-        ).format(temp=f"{alert.min_temp:.1f}")
+        ).format(temp=format_decimal(alert.min_temp, 1))
         tasks.append(Task(
             task_id=f"frost:{alert.date}:{alert.severity}",
             source="frost",

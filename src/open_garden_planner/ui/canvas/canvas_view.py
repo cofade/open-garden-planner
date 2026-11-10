@@ -25,6 +25,7 @@ from PyQt6.QtCore import (
     QObject,
     QPoint,
     QPointF,
+    QRect,
     QRectF,
     Qt,
     QTimer,
@@ -53,6 +54,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMenu,
     QPinchGesture,
+    QWidget,
 )
 
 from open_garden_planner.core import (
@@ -75,6 +77,10 @@ from open_garden_planner.core.commands import (
     iter_plant_parents,
 )
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
+from open_garden_planner.core.measurements import (
+    SCALE_BAR_NICE_DISTANCES_CM,
+    format_scale_distance,
+)
 from open_garden_planner.core.object_types import (
     ObjectType,
     is_bed_type,
@@ -96,6 +102,11 @@ from open_garden_planner.core.snap.providers import (
     TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
+from open_garden_planner.core.sprite_raster import (
+    KeptLayer,
+    ensure_sprite_cache_room,
+    paint_layer,
+)
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -157,6 +168,13 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
     RotationHandle,
     VertexHandle,
 )
+from open_garden_planner.ui.canvas.sun_legend import (
+    SunLegendKey,
+    legend_font,
+    sun_legend_picture,
+    sun_legend_size,
+)
+from open_garden_planner.ui.theme import theme_qcolor
 
 _log = logging.getLogger(__name__)
 
@@ -224,6 +242,15 @@ class CanvasView(QGraphicsView):
     # US-12.9: emitted when an existing pin's "Delete" context-menu entry fires
     # (single pin, with confirmation dialog).
     journal_note_delete_requested = pyqtSignal(str)
+
+    #: Where the sun map's key was last painted. A class attribute as well as
+    #: an instance one, like ``CanvasScene._paint_revision``: when the cyclic
+    #: collector takes a dropped view with its scene, it clears this object's
+    #: attributes first, and Qt, destroying the scene, takes it from the view —
+    #: which moves the scroll bars and calls ``scrollContentsBy`` on a view
+    #: that has none of its own left. An ``AttributeError`` in a virtual that
+    #: Qt calls ends the process (PyQt calls ``qFatal``; PF-CAN-61).
+    _sun_legend_rect = QRect()
     # US-12.9: emitted when one or more journal pins are part of a keyboard
     # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
     # regular items and is undoable). Args: list[str] of note ids.
@@ -270,6 +297,18 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+        # The key of the hours-of-sun map (#794): what it shows while a map is
+        # shown, and where it was last painted (viewport pixels).
+        self._sun_legend: SunLegendKey | None = None
+        self._sun_legend_rect = QRect()
+        # The grid with every standing object cut out of it, kept until the
+        # scene or the zoom changes (``_draw_grid``).
+        self._grid_layer = KeptLayer()
+        #: How many outlines the grid's cut-out filled, and how many path
+        #: elements they had — the instruments of the paint bound with the
+        #: grid on (counted, never timed: §8.10.10).
+        self.grid_cover_fills = 0
+        self.grid_cover_elements = 0
         # Touch gestures (#321): enabled by default, a sitting of the view; the app
         # applies the saved preference after construction, as for the scale bar.
         # ``_pinch_scale`` / ``_pinch_center`` carry the last values of Qt's own
@@ -778,6 +817,14 @@ class CanvasView(QGraphicsView):
         """Keep a dense vertex-edit sample tied to the visible viewport pixels."""
         super().scrollContentsBy(dx, dy)
         self._refresh_dense_vertex_overlays()
+        if not self._sun_legend_rect.isEmpty():
+            # Qt scrolls the viewport's pixels and repaints the strip that
+            # came into view. The key stands still on the viewport: what was
+            # scrolled away with the plan and where it belongs are painted again.
+            stale = self._sun_legend_rect.adjusted(-2, -2, 2, 2)
+            viewport = self.viewport()
+            if viewport is not None:
+                viewport.update(stale.united(stale.translated(dx, dy)))
 
     def _refresh_dense_vertex_overlays(self) -> None:
         """Ask every selected item with a bounded overlay to re-sample (#551)."""
@@ -1535,7 +1582,19 @@ class CanvasView(QGraphicsView):
     def set_grid_visible(self, visible: bool) -> None:
         """Set grid visibility."""
         self._grid_visible = visible
+        if not visible:
+            self._grid_layer.clear()  # nothing is kept for a grid that is not shown
         self.viewport().update()
+
+    @property
+    def grid_layer_builds(self) -> int:
+        """How often the grid's kept layer was made (``_draw_grid``; §8.10.10)."""
+        return self._grid_layer.builds
+
+    @property
+    def grid_layer_bytes(self) -> int:
+        """What the grid's kept layer holds right now, in bytes (§8.37)."""
+        return self._grid_layer.bytes_used
 
     def set_snap_enabled(self, enabled: bool) -> None:
         """Set snap to grid enabled."""
@@ -4073,8 +4132,6 @@ class CanvasView(QGraphicsView):
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the foreground including canvas border, grid overlay, and snap guides."""
-        super().drawForeground(painter, rect)
-
         # Soil-health overlay (US-12.10b) — painted before grid/guides so the
         # grid and guide lines stay legible above the tint. Drawn at view
         # level so scene.render() (PNG/SVG/PDF/print) excludes it.
@@ -4084,9 +4141,13 @@ class CanvasView(QGraphicsView):
         # Draw canvas border
         self._draw_canvas_border(painter)
 
-        # Draw grid overlay on top of everything
+        # The grid lies on the ground: inside the plan, over the ground
+        # surfaces, under every object that stands on them (#793).
         if self._grid_visible:
             self._draw_grid(painter, rect)
+
+        # The scene's own foreground: the object labels, above the grid.
+        super().drawForeground(painter, rect)
 
         # Draw snap alignment guides
         if self._snap_guides:
@@ -4139,7 +4200,7 @@ class CanvasView(QGraphicsView):
             level = service.health_level(record, param)
             scene_path = item.mapToScene(item.shape())
             if level is HealthLevel.UNKNOWN:
-                painter.setBrush(QBrush(QColor(140, 140, 140, 40),
+                painter.setBrush(QBrush(QColor(*service.unknown_rgba()),
                                         Qt.BrushStyle.DiagCrossPattern))
             else:
                 rgba = service.overlay_rgba(level)
@@ -4151,7 +4212,79 @@ class CanvasView(QGraphicsView):
         painter.restore()
 
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
-        """Draw the grid overlay."""
+        """Draw the grid: inside the plan and under the objects.
+
+        The grid is painted after the items (a view-level pass, so no export
+        carries it), yet it must read as lying UNDER the objects: a line
+        across a tree's crown or a table looks like a scratch on the picture
+        (#793). Painting it before the items instead would hide it under every
+        lawn, terrace and bed, which is where it is needed. So the lines are
+        drawn into a layer in device pixels (``core.sprite_raster.paint_layer``)
+        and every object that stands on the ground is cut out of that layer
+        before it is laid down. A ground surface (``canvas_scene.on_ground``:
+        lawn, path, terrace, in-ground bed) is no object here; the grid lies on
+        it as the sun study's shadows do.
+
+        What stands on the plan is the scene's to know and is not asked of the
+        objects here (``CanvasScene.standing_covers``, kept until the plan
+        changes). Until the review of #793 this method united one region per
+        object on every paint — 70 ms of a 120 ms repaint on a plan of 853
+        objects.
+
+        And the finished layer is the view's to keep (``KeptLayer``): the
+        lines with the objects cut out are the same picture until the scene,
+        the zoom or the grid itself changes, so a repaint lays the kept layer
+        down and a pan lays it down moved — neither draws a line or fills an
+        outline. Until the second review every paint made the layer afresh,
+        which cost 25 ms of a 55 ms repaint in a 3824 x 1984 viewport and,
+        with one outline of 16,000 zigzag vertices on the plan, 2.7 s
+        (an outline above the paint bound of #472 is no longer filled at all:
+        ``PolygonItem.grid_cover_path``). A picture of the viewport that is
+        not the viewport (``render()`` into an image) is painted through the
+        same ``draw``, for itself.
+        """
+        scene = self._canvas_scene
+        plan = scene.canvas_rect
+        exposed = plan.intersected(rect)
+        if exposed.isEmpty():
+            return
+        hints = painter.renderHints()
+        erase = QColor(0, 0, 0)
+
+        def draw(layer: QPainter, part: QRectF) -> None:
+            part = plan.intersected(part)
+            # The lines as the viewport's own painter would draw them. With a
+            # clip: Qt's raster engine draws a cosmetic line without one ten
+            # times slower (measured: 196 lines, 28 ms against 2.5 ms).
+            layer.setRenderHints(hints)
+            layer.setClipRect(part, Qt.ClipOperation.IntersectClip)
+            self._draw_grid_lines(layer, part)
+            # ... and the objects out of them, each with its own fill rule, on
+            # whole pixels: the cut is the edge of a body, not a soft edge.
+            layer.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+            for bounds, cover in scene.standing_covers():
+                if bounds.intersects(part):
+                    layer.fillPath(cover, erase)
+                    self.grid_cover_fills += 1
+                    self.grid_cover_elements += cover.elementCount()
+
+        if painter.device() is not self.viewport():
+            paint_layer(painter, exposed, draw)
+            return
+        # What the layer is made from, besides the zoom (the layer knows the
+        # painter's transform itself).
+        key = (
+            scene.paint_revision,
+            self._grid_size,
+            self._grid_color.rgba(),
+            self._grid_major_color.rgba(),
+            (plan.x(), plan.y(), plan.width(), plan.height()),
+        )
+        self._grid_layer.paint(painter, plan, exposed, key, draw)
+
+    def _draw_grid_lines(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw the grid lines across ``rect`` (scene coordinates)."""
         # Determine grid line spacing based on zoom
         grid_size = self._grid_size
 
@@ -4342,6 +4475,14 @@ class CanvasView(QGraphicsView):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the view, then draw overlays in viewport coordinates."""
+        # The sprites of one frame must fit their cache, and a frame is as
+        # large as the viewport in DEVICE pixels. Stated here: a paint is the
+        # one event that follows a resize, a move to another screen and a
+        # change of the display's scaling alike (one comparison when unchanged).
+        viewport = self.viewport()
+        if viewport is not None:
+            ratio = viewport.devicePixelRatioF()
+            ensure_sprite_cache_room(viewport.width() * viewport.height() * ratio * ratio)
         super().paintEvent(event)
 
         painter = QPainter(self.viewport())
@@ -4351,11 +4492,130 @@ class CanvasView(QGraphicsView):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self._draw_scale_bar(painter)
 
+        self._draw_sun_legend(painter)
+
         if self._guides_visible:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
             self._draw_rulers(painter)
 
         painter.end()
+
+    # ------------------------------------------------------------------
+    # The key of the hours-of-sun map (#794)
+    # ------------------------------------------------------------------
+
+    def set_sun_legend(self, key: SunLegendKey | None) -> None:
+        """Show the key of the hours-of-sun map over the viewport; ``None``
+        takes it away (no map is shown).
+
+        Drawn over the viewport, not in the scene: it stays in sight at any
+        zoom and pan, like the scale bar whose strip it shares. A picture of
+        the plan gets its key from ``sun_legend.SunMapLegendItem``.
+        """
+        if key == self._sun_legend:
+            return
+        self._sun_legend = key
+        viewport = self.viewport()
+        if viewport is not None:
+            viewport.update()
+
+    def sun_legend(self) -> SunLegendKey | None:
+        """The key that is shown, or ``None``."""
+        return self._sun_legend
+
+    def sun_legend_rect(self) -> QRect:
+        """Where the key was last painted, in viewport pixels; empty while no
+        key is shown or the viewport has no room for one."""
+        return QRect(self._sun_legend_rect)
+
+    def _scale_bar_rect(self) -> QRectF:
+        """What the scale bar takes of the viewport: its line, ticks and label."""
+        widget = self.viewport()
+        if not self._scale_bar_visible or widget is None:
+            return QRectF()
+        viewport = widget.rect()
+        margin = self._SCALE_BAR_MARGIN
+        width = self._pick_scale_bar_distance() * self._zoom_factor
+        return QRectF(
+            viewport.width() - margin - width,
+            viewport.height() - self.SCALE_BAR_RESERVED_PX,
+            width,
+            self.SCALE_BAR_RESERVED_PX - margin,
+        ).adjusted(-4.0, 0.0, 4.0, 4.0)
+
+    def _taken_viewport_rects(self) -> list[QRectF]:
+        """What already lies over the viewport where the key could go: the
+        scale bar and every overlay widget (the minimap)."""
+        taken = [self._scale_bar_rect()]
+        viewport = self.viewport()
+        if viewport is None:
+            return []
+        # The scroll area's own parts are no overlays: the viewport, and the
+        # containers of the two scroll bars, which keep a rectangle (and stay
+        # "visible") while their bar is hidden.
+        own: set[QObject | None] = {viewport, self.cornerWidget()}
+        for bar in (self.horizontalScrollBar(), self.verticalScrollBar()):
+            if bar is not None:
+                own.add(bar.parentWidget())
+        for child in self.children():
+            if isinstance(child, QWidget) and child not in own and child.isVisible():
+                corner = viewport.mapFrom(self, child.geometry().topLeft())
+                taken.append(QRectF(QRect(corner, child.size())))
+        return [rect for rect in taken if not rect.isEmpty()]
+
+    def _draw_sun_legend(self, painter: QPainter) -> None:
+        """Draw the key in the bottom-left corner of the viewport.
+
+        In the strip the scale bar stands in (``SCALE_BAR_RESERVED_PX``), which
+        the overlay widgets already keep clear, so it covers nothing a fitted
+        plan leaves a margin for. Where the full key does not fit beside the
+        scale bar it is drawn without its title, then one strip higher; where
+        even that would lie on the scale bar or the minimap it is left out
+        rather than drawn over them.
+        """
+        self._sun_legend_rect = QRect()
+        key = self._sun_legend
+        widget = self.viewport()
+        if widget is None:
+            return
+        if key is None:
+            self._keep_labels_off_the_key(widget)
+            return
+        font = legend_font()
+        viewport = widget.rect()
+        margin = self._SCALE_BAR_MARGIN
+        left = margin + (self.RULER_SIZE if self._guides_visible else 0)
+        taken = self._taken_viewport_rects()
+        gap = float(margin)
+        for lift in (0, self.SCALE_BAR_RESERVED_PX):
+            for with_title in (True, False):
+                size = sun_legend_size(key, font, with_title=with_title)
+                rect = QRectF(
+                    left, viewport.height() - margin - size.height() - lift,
+                    size.width(), size.height(),
+                )
+                if rect.right() > viewport.width() - margin or rect.top() < margin:
+                    continue
+                if any(rect.adjusted(-gap, -gap, gap, gap).intersects(other) for other in taken):
+                    continue
+                rect = QRectF(rect.toAlignedRect())      # on whole pixels: the key is a picture
+                painter.drawPixmap(rect.topLeft(), sun_legend_picture(
+                    key, font, QColor(self._scale_bar_fg), QColor(self._canvas_scene.CANVAS_COLOR),
+                    with_title=with_title, pixel_ratio=widget.devicePixelRatioF(),
+                ))
+                self._sun_legend_rect = rect.toRect()
+                self._keep_labels_off_the_key(widget)
+                return
+        self._keep_labels_off_the_key(widget)
+
+    def _keep_labels_off_the_key(self, viewport: QWidget) -> None:
+        """Tell the scene's label pass where the key lies (``plan_labels``): a
+        label of the plan half under the key reads as one of its numbers. The
+        labels were painted before the key in this very paint, so a key that
+        moved or went away costs one more paint."""
+        rects = [] if self._sun_legend_rect.isEmpty() else [QRectF(self._sun_legend_rect)]
+        if self._canvas_scene.set_label_blockers(viewport, rects):
+            viewport.update()
 
     # Ruler tick intervals (cm), used to pick a nice spacing based on zoom
     _RULER_NICE_INTERVALS = [
@@ -4374,9 +4634,10 @@ class CanvasView(QGraphicsView):
         10000,
     ]
     _RULER_MIN_TICK_PX = 50  # Minimum pixels between labelled ticks
-    _RULER_BG = QColor(235, 235, 235, 230)
-    _RULER_FG = QColor(80, 80, 80)
-    _RULER_BORDER = QColor(180, 180, 180)
+    # The rulers are chrome around the plan, not part of it: their colours are
+    # theme tokens read while painting (#791). Opaque: drawn translucent over
+    # the bright plan, the dark theme's strip turned muddy and its labels fell
+    # under 4.5:1.
 
     def _pick_ruler_interval(self) -> float:
         """Choose a tick interval in cm so ticks are at least _RULER_MIN_TICK_PX apart."""
@@ -4402,19 +4663,21 @@ class CanvasView(QGraphicsView):
         interval = self._pick_ruler_interval()
 
         # ── Background strips ──────────────────────────────────────────────
-        painter.fillRect(rs, 0, vp.width() - rs, rs, self._RULER_BG)  # top
-        painter.fillRect(0, rs, rs, vp.height() - rs, self._RULER_BG)  # left
-        painter.fillRect(0, 0, rs, rs, QColor(210, 210, 210, 230))  # corner box
+        strip = theme_qcolor("surface")
+        corner = theme_qcolor("surface_alt")
+        painter.fillRect(rs, 0, vp.width() - rs, rs, strip)  # top
+        painter.fillRect(0, rs, rs, vp.height() - rs, strip)  # left
+        painter.fillRect(0, 0, rs, rs, corner)  # corner box
 
         # ── Border lines ───────────────────────────────────────────────────
-        border_pen = QPen(self._RULER_BORDER)
+        border_pen = QPen(theme_qcolor("border"))
         border_pen.setWidth(1)
         painter.setPen(border_pen)
         painter.drawLine(rs, rs - 1, vp.width(), rs - 1)  # bottom of top ruler
         painter.drawLine(rs - 1, rs, rs - 1, vp.height())  # right of left ruler
 
         # ── Horizontal ruler (X axis) ──────────────────────────────────────
-        painter.setPen(QPen(self._RULER_FG))
+        painter.setPen(QPen(theme_qcolor("text_secondary")))
         # Determine scene X range visible in the ruler strip
         left_x = self.mapToScene(rs, rs // 2).x()
         right_x = self.mapToScene(vp.width(), rs // 2).x()
@@ -4525,21 +4788,7 @@ class CanvasView(QGraphicsView):
             self.viewport().update()
 
     # Scale bar constants
-    _SCALE_BAR_NICE_DISTANCES = [
-        1,
-        2,
-        5,
-        10,
-        20,
-        50,
-        100,
-        200,
-        500,
-        1000,
-        2000,
-        5000,
-        10000,
-    ]
+    _SCALE_BAR_NICE_DISTANCES = SCALE_BAR_NICE_DISTANCES_CM
     _SCALE_BAR_MARGIN = 12
     _SCALE_BAR_TICK_H = 5
     _SCALE_BAR_LINE_WIDTH = 2
@@ -4557,13 +4806,7 @@ class CanvasView(QGraphicsView):
         Returns:
             Formatted string (e.g., "50 cm", "2 m", "1.5 km")
         """
-        if cm >= 100000:
-            km = cm / 100000
-            return f"{km:g} km"
-        if cm >= 100:
-            m = cm / 100
-            return f"{m:g} m"
-        return f"{cm:g} cm"
+        return format_scale_distance(cm)
 
     def _pick_scale_bar_distance(self) -> float:
         """Pick the best round distance for the scale bar at current zoom.
@@ -4642,11 +4885,6 @@ class CanvasView(QGraphicsView):
             int(bar_y - tick_h),
         )
 
-        # Outline: text
-        outline_pen.setWidth(3)
-        painter.setPen(outline_pen)
-        painter.drawText(int(text_x), int(text_y), label)
-
         # Draw foreground pass
         fg_color = QColor(self._scale_bar_fg)
         fg_pen = QPen(fg_color)
@@ -4676,9 +4914,13 @@ class CanvasView(QGraphicsView):
             int(bar_y - tick_h),
         )
 
-        # Foreground: text
-        painter.setPen(fg_color)
-        painter.drawText(int(text_x), int(text_y), label)
+        # Text: the glyphs over a stroked halo, so the label reads on soil,
+        # lawn, a roof and the grey around the plan alike. Before #793 the
+        # "outline" was drawText with a 3 px pen, which outlines nothing: the
+        # label measured 1.25:1 on soil.
+        from open_garden_planner.ui.canvas.items.halo_text import paint_halo_text
+
+        paint_halo_text(painter, QPointF(int(text_x), int(text_y)), label, font, fg_color)
 
     # ------------------------------------------------------------------
     # Group / Ungroup

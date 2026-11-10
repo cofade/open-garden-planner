@@ -12217,9 +12217,9 @@
       "content": "21.09.2026 \u00b7 1  16 Salate + 60 M\u00f6hren + 88 Radieschen; Radieschen abschnittsweise s\u00e4en.\n2  Rechtsklick aufs Beet: Nachfolgeplanung (2027), dann Bodentest (fiktive Probe).\n3  Plan & Sonne: 21.09., 17:30 Uhr \u2192 Beetschatten. Berlin / Frost: Beispieldaten.",
       "font_family": "Arial",
       "font_size": 0.47,
-      "bold": false,
+      "bold": true,
       "italic": false,
-      "text_color": "#ff243528",
+      "text_color": "#fffdfbee",
       "layer_id": "5b3dfb84-40e6-5447-bdb2-16a232955f6d",
       "stack_order": 186368
     }
@@ -12281,6 +12281,118 @@
           "scientific_name": "lactuca sativa"
         }
       ]
+    }
+  },
+  "harvest_logs": {
+    "3c35421c-f108-5adf-8d68-aa9bc63f4d35": {
+      "target_id": "3c35421c-f108-5adf-8d68-aa9bc63f4d35",
+      "records": [
+        {
+          "id": "5e915bbf-a364-50f1-9e0c-94561211b920",
+          "date": "2026-09-05",
+          "quantity": 350,
+          "unit": "g",
+          "quality": "\u00e4u\u00dfere Bl\u00e4tter",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "456d91c7-833b-5296-bc2b-fbcd33f16c6e",
+          "date": "2026-09-16",
+          "quantity": 420,
+          "unit": "g",
+          "quality": "knackig",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "lactuca sativa",
+      "species_name": "Salat"
+    },
+    "62b70ca6-a29a-55ba-8367-96b1a0d3edf0": {
+      "target_id": "62b70ca6-a29a-55ba-8367-96b1a0d3edf0",
+      "records": [
+        {
+          "id": "47263a57-1619-5664-bae7-b8c07b027319",
+          "date": "2026-09-10",
+          "quantity": 1.1,
+          "unit": "kg",
+          "quality": "ausged\u00fcnnte Jungpflanzen",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "c14a1752-dd47-5d3e-9c01-766b6991b7e8",
+          "date": "2026-09-19",
+          "quantity": 1.6,
+          "unit": "kg",
+          "quality": "s\u00fc\u00df",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "daucus carota",
+      "species_name": "M\u00f6hre"
+    },
+    "ae764cf8-d5dc-5305-9cf1-9cb0cafda2bd": {
+      "target_id": "ae764cf8-d5dc-5305-9cf1-9cb0cafda2bd",
+      "records": [
+        {
+          "id": "16878d4e-9b02-5a07-8a38-44c2eb096739",
+          "date": "2025-05-18",
+          "quantity": 3,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "1b9dc77e-7f43-5bd9-ac32-28e61f170366",
+          "date": "2025-08-09",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "38dfcf55-de77-5366-8f33-0cc6775789cd",
+          "date": "2026-04-28",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "e202202e-f6fe-59d9-a6cb-76cefc0c432d",
+          "date": "2026-06-15",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "4b196de8-3325-5b12-80c1-930c999c7eb0",
+          "date": "2026-08-30",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "allium schoenoprasum",
+      "species_name": "Schnittlauch"
+    },
+    "53f729d8-0b58-5e7c-b9cc-efad958d8f6f": {
+      "target_id": "53f729d8-0b58-5e7c-b9cc-efad958d8f6f",
+      "records": [
+        {
+          "id": "16e51c0c-d38e-5f10-a270-74fe72359fcf",
+          "date": "2026-07-12",
+          "quantity": 30,
+          "unit": "pcs",
+          "quality": "Bl\u00fcten f\u00fcr die K\u00fcche",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "14c3a588-09b4-5fb1-ab26-cfc4e84da041",
+          "date": "2026-08-18",
+          "quantity": 25,
+          "unit": "pcs",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "calendula officinalis",
+      "species_name": "Ringelblume"
     }
   }
 }

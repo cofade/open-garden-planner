@@ -413,9 +413,13 @@ class MapPickerDialog(QDialog):
         # JS — for locales like ``zh-Hant-TW`` the second BCP47 subtag is a
         # script (``Hant``), not a region. ``QLocale().name()`` gives us
         # ``de_DE`` etc., and ``territory()`` is the authoritative source.
-        qlocale = QLocale()
-        language_tag = qlocale.bcp47Name().split("-")[0] or "en"
-        territory_code = QLocale.territoryToCode(qlocale.territory()) or language_tag.upper()
+        # The LANGUAGE is the application's (QLocale() is the UI language's
+        # locale, #792); the REGION is where the user is — it biases the address
+        # search, and an English UI on a German system must not search the US.
+        language_tag = QLocale().bcp47Name().split("-")[0] or "en"
+        territory_code = (
+            QLocale.territoryToCode(QLocale.system().territory()) or language_tag.upper()
+        )
         locale_payload = f"{language_tag}|{territory_code}"
         self._bridge = _MapBridge(self._api_key, locale_payload, ui_strings, self)
         self._bridge.boundsUpdated.connect(self._on_bounds_updated)

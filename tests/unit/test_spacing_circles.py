@@ -99,20 +99,29 @@ class TestBoundingRectExpansion:
     """Test that boundingRect expands for spacing circle."""
 
     def test_bounding_rect_expands_with_data(self, plant_a: CircleItem) -> None:
-        """Spacing circle should expand bounding rect when data present."""
+        """A shown spacing ring (a crowded plant's) expands the bounding rect."""
         plant_a._metadata = {"plant_species": {"max_spread_cm": 200.0}}
         base = plant_a.boundingRect()
-        # Set spacing overlap to trigger expansion
-        plant_a.set_spacing_overlap("ideal")
+        # A plant too close to a neighbour shows its ring (#786)
+        plant_a.set_spacing_overlap("overlap")
         expanded = plant_a.boundingRect()
         assert expanded.width() > base.width()
         assert expanded.height() > base.height()
+
+    def test_bounding_rect_not_expanded_for_a_plant_with_fine_spacing(
+        self, plant_a: CircleItem
+    ) -> None:
+        """#786: a good state draws no ring, so it claims no room either."""
+        plant_a._metadata = {"plant_species": {"max_spread_cm": 200.0}}
+        base = plant_a.boundingRect()
+        plant_a.set_spacing_overlap("ideal")
+        assert plant_a.boundingRect() == base
 
     def test_bounding_rect_not_expanded_when_hidden(self, plant_a: CircleItem) -> None:
         """Spacing circle hidden → bounding rect not expanded."""
         plant_a._metadata = {"plant_species": {"max_spread_cm": 200.0}}
         plant_a.spacing_circles_visible = False
-        plant_a.set_spacing_overlap("ideal")
+        plant_a.set_spacing_overlap("overlap")
         base_width = plant_a.boundingRect().width()
         plant_a.spacing_circles_visible = True
         assert plant_a.boundingRect().width() > base_width

@@ -2,7 +2,8 @@
 
 These original layouts, English/German/Spanish annotations and thumbnails were
 authored by Open Garden Planner contributors using `scripts/generate_examples.py`
-on 26–27 October 2026. All geometry and species snapshots come from production
+on 26–27 October 2026; the harvest histories, the showcase moments and the wider
+showcase paths were added, and all thumbnails rendered again, on 10 November 2026 (#795). All geometry and species snapshots come from production
 constructors and the bundled database; there are no imported site plans, downloaded
 models, textures, satellite images or reads from the owner's custom plant library.
 
@@ -11,7 +12,7 @@ models, textures, satellite images or reads from the owner's custom plant librar
 | `raised-bed.ogp` | 4 × 2 m raised bed: **16 lettuces, 60 carrots, 88 radishes** (164 crops), plus a ten-plant flower/herb border, gravel access, bench, compost and west-side tool shed. A 2027 succession and fictional soil test belong to the main bed. |
 | `food-forest.ogp` | 200 m²: **2 fruit trees, 3 currants, 24 strawberries, 12 chives, 10 borage, 60 carrots and 3 supported runner beans** (114 plants). Continuous mulched beds and 80/90 cm harvest paths replace isolated plants in lawn. |
 | `balcony.ogp` | 5 × 3 m: **4 basil, 6 parsley, 4 thyme** in three separate troughs, two chairs and a table, a parasol, a north house wall and metal railings on the west/south/east sides. The basil trough has a fictional soil test. |
-| `family-garden.ogp` | 24 × 16 m showcase of the 3D view, not a teaching plan: **61 plants** among a house with its ridge, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised beds, trees, hedge, wall and fences. It is the plan of every Beauty Board (`tests/fixtures/plans/bench_small.ogp`, added 3 November 2026, #390), built by the same `scripts/make_bench_plans.py` and with the same item ids, so its procedural plants have the same shapes; a test pins that the two do not drift. Its paths keep that fixture's 6 to 10 cm widths. What takes a year or more to mature is planted on 1 March instead of the fixture's 15 April, so that a time-lapse from March shows it leafing out. It has no soil test and no tutorial annotation. |
+| `family-garden.ogp` | 24 × 16 m showcase of the 3D view, not a teaching plan: **61 plants** among a house with its ridge, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised beds, trees, hedge, wall and fences. It is the plan of every Beauty Board (`tests/fixtures/plans/bench_small.ogp`, added 3 November 2026, #390), built by the same `scripts/make_bench_plans.py` and with the same item ids, so its procedural plants have the same shapes; a test pins that the two do not drift. Its two polyline paths are as wide as a path one walks on (gravel path 80 cm, stepping stones 50 cm, #795); the fixture keeps the 8 and 6 cm its pinned numbers were measured with. With the walk 50 cm wide, what stood in it was moved out of it: the bird bath to (620, 450) and, in the perennial border, the geranium, the chrysanthemum and the lily to x 612, 746 and 811; the path's points and every other object stand where the fixture has them. What takes a year or more to mature is planted on 1 March instead of the fixture's 15 April, so that a time-lapse from March shows it leafing out. The cherry tree alone is older: planted on 5 November 2022 as a 1.5 m nursery tree, because it has a harvest in June 2026; on the reference date its crown is the 3.7 m the plan was drawn with. It has no soil test and no tutorial annotation. |
 
 The root `.ogp` files are canonical English. `de/` and `es/` hold localized
 variants with identical stable IDs, coordinates, botanical dimensions, species keys,
@@ -27,10 +28,14 @@ retains these explicit demonstration records.
 
 ## Site and date conventions
 
-The teaching date is **21 September 2026**; select it in Plan & Sun. It is an
-explicit reference date, never today's date or an implicit global clock change.
-The family garden is at its best on **21 June 2026**, the date of the Beauty Board.
-The balcony also invites a **21 June 2026, 15:00 local time** shadow comparison.
+The teaching date is **21 September 2026**. The family garden is at its best on
+**21 June 2026**, the date of the Beauty Board. Since #795 an example opens on its
+date with a daytime sun: each sidecar names `showcase_date` and `showcase_utc_time`
+(11:00 UTC, which is 13:00 on a wall clock in all four places, about a quarter of an
+hour before solar noon in Berlin). The application moves its session clock there
+while the example is open and puts the user's own reading back with the next
+document; nothing is saved in settings or in a plan. The balcony also invites a
+**21 June 2026, 15:00 local time** shadow comparison.
 
 | Plan | Rounded public city reference | Time zone |
 | --- | --- | --- |
@@ -45,6 +50,32 @@ balcony. The three teaching plans store **fictional example frost dates** of 15 
 are local climate statistics or a forecast. Both soil records are clearly
 labelled **fictional teaching samples**, dated 20 May 2026: pH 6.5, Rapitest N1/P2/K3,
 loamy texture. They are not observations or a fertilization prescription.
+
+## Harvest histories (fictional)
+
+Every example carries a small **fictional harvest history** so that the Harvest tab,
+a plant's harvest log and the report's harvest page show content (#795). No quantity
+is a measurement or a yield claim. Every record's note says so ("Fictional example
+entry; not a real harvest record.", translated in `de/` and `es/`).
+
+| Plan | Species with records (entries) | Years |
+| --- | --- | --- |
+| Family garden | lettuce (2), spinach (2), chives (2), parsley (1), basil (1), cherry (2) | 2026, up to 19 June |
+| Food forest | apple (3), peach (3), currant (3), strawberry (4), runner bean (3), chives (3), carrot (1) | 2025 and 2026, up to 18 September |
+| Raised bed | lettuce (2), carrot (2), chives (5), pot marigold (2) | 2025 (chives) and 2026, up to 19 September |
+| Balcony | basil (4), thyme (4), parsley (1) | 2025 (thyme) and 2026, up to 14 September |
+
+The records of a species sit on one plant of it (the one nearest the plan's
+south-west corner), as a harvest logged from that plant's context menu would. No date
+is earlier than that plant's planting date or later than the plan's reference date.
+A tree's first record is at least three years after its planting date and a shrub's
+at least one, and a year's total stays within 7 kg per year since planting (the
+content tests hold both): the family garden's cherry gave 6.5 kg in its fourth
+summer, the food forest's apple 60 kg in its eleventh.
+The raised bed stays fully planted on 21 September: what was taken there are outer
+leaves and thinnings. Units are the dialog's own (`kg`, `g`, `pcs`, `bunch`). No
+journal note is linked, and an example writes nothing into the seed inventory, which
+is the user's own store outside every plan.
 
 The raised-bed crops are established at the reference date: lettuce planted
 **1 August 2026** (51 days), carrots sown **15 June 2026** (98 days), radishes sown
@@ -121,7 +152,10 @@ procedural sprite/texture sets documented in `../plants/PROVENANCE.md`,
 `../objects/PROVENANCE.md`, and `../textures/PROVENANCE.md`.
 [Licence text](https://creativecommons.org/licenses/by-sa/4.0/).
 
-Regenerate with `venv/Scripts/python.exe scripts/generate_examples.py`. The script
+Regenerate with `venv/Scripts/python.exe scripts/generate_examples.py`
+(`--check` compares the shipped plans and sidecars with the generator's output and
+writes nothing; `tests/integration/test_example_generation.py` does the same in the
+suite, so these files are never edited by hand). The script
 isolates all settings/user data before application imports, writes full plans via
 the production serializer, stabilizes UUIDs and renders the saved content through
 `render_scene_region`. Both portrait/landscape letterboxing axes are centered.

@@ -99,7 +99,8 @@ class PdfReportDialog(QDialog):
         self._cb_cover.setChecked(True)
         self._cb_overview = QCheckBox(self.tr("Plan overview (full garden)"))
         self._cb_overview.setChecked(True)
-        self._cb_bed_details = QCheckBox(self.tr("Bed detail views (one page per bed)"))
+        # Not "one page per bed": small beds whose frames touch share a page (#788).
+        self._cb_bed_details = QCheckBox(self.tr("Bed detail views (small beds share a page)"))
         self._cb_bed_details.setChecked(False)
         self._cb_plant_list = QCheckBox(self.tr("Plant list"))
         self._cb_plant_list.setChecked(True)
@@ -107,7 +108,7 @@ class PdfReportDialog(QDialog):
         self._cb_garden_notes.setChecked(False)
         self._cb_harvest_summary = QCheckBox(self.tr("Harvest summary"))
         self._cb_harvest_summary.setChecked(False)
-        self._cb_legend = QCheckBox(self.tr("Legend (layers)"))
+        self._cb_legend = QCheckBox(self.tr("Legend (objects and plants)"))
         self._cb_legend.setChecked(True)
 
         for cb in (
@@ -142,7 +143,7 @@ class PdfReportDialog(QDialog):
 
     @property
     def project_name(self) -> str:
-        return self._project_name_edit.text().strip() or "Garden Plan"
+        return self._project_name_edit.text().strip() or self.tr("Garden Plan")
 
     @property
     def author(self) -> str:

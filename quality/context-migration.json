@@ -213,7 +213,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "3fa270624c5ac5a9e3fcf99f331d067bc5ec2c518abc046c8d7e7c894016dacd"
+          "current_sha256": "454df7c9d19df4891d7d60465de351b2c57408471d3faa5f7ffc76629f70441a"
         },
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -228,7 +228,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "fe6bd979a28ce37a46ed4e258f9ef926d0947f8fdb03f4359727d6746c9a46c3"
+          "current_sha256": "97d60deaa502bf877bf727ca0a72b0bcd98ff64934be2488c0cc1e5e3ae858f0"
         },
         {
           "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -253,7 +253,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "ebd5050b91f0371e2998e13cafd8c0ffd04830bb67e2e46a9d4bd72ff5024d13"
+          "current_sha256": "21236102aee8a88d8a273986f266ed5c088688a1fb068ccd683e2462df7b453c"
         },
         {
           "path": ".agents/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "3cefbfa77537e18d00508658eee6c0cfd2f5b8b65e7d86365e3b3f169961da28"
+          "current_sha256": "bc474f793448ab0033ed889773e86106409c28430e86301405b1abaf9bd29709"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "cf70502b5fac2496f359ddca3abdc627845f746cdcc6d93c2c91e4e32f133f0a"
+          "current_sha256": "2712562e26dcf30831a7ee1508704b05a1d73f232b3b0c31f7ce35c7cefe282a"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1117,8 +1117,8 @@
         },
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
-          "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
-          "current_sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3"
+          "sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81",
+          "current_sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81"
         },
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/005-triage-table-c-tests-ci-teardown.md",
@@ -1147,8 +1147,8 @@
         },
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
-          "sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc",
-          "current_sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc"
+          "sha256": "11ed69b6a8cb2219334eb59d9c70de2761a8be030d2e18ad403314f13b42e848",
+          "current_sha256": "11ed69b6a8cb2219334eb59d9c70de2761a8be030d2e18ad403314f13b42e848"
         }
       ]
     },
@@ -1232,8 +1232,8 @@
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
-          "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
-          "current_sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b"
+          "sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7",
+          "current_sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7"
         },
         {
           "path": ".agents/skills/ogp-failure-archaeology/references/016-15-tangent-constraint-degeneracy-pr-198-adr-024-fixed-2026-06-07.md",
@@ -1362,8 +1362,8 @@
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
-          "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
-          "current_sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91"
+          "sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c",
+          "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
@@ -1372,8 +1372,8 @@
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
-          "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
-          "current_sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c"
+          "sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17",
+          "current_sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/006-4-signals-slots-and-lifecycle-safety.md",
@@ -1613,7 +1613,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "3fa270624c5ac5a9e3fcf99f331d067bc5ec2c518abc046c8d7e7c894016dacd"
+          "current_sha256": "454df7c9d19df4891d7d60465de351b2c57408471d3faa5f7ffc76629f70441a"
         },
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -1628,7 +1628,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "fe6bd979a28ce37a46ed4e258f9ef926d0947f8fdb03f4359727d6746c9a46c3"
+          "current_sha256": "97d60deaa502bf877bf727ca0a72b0bcd98ff64934be2488c0cc1e5e3ae858f0"
         },
         {
           "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -1653,7 +1653,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "ebd5050b91f0371e2998e13cafd8c0ffd04830bb67e2e46a9d4bd72ff5024d13"
+          "current_sha256": "21236102aee8a88d8a273986f266ed5c088688a1fb068ccd683e2462df7b453c"
         },
         {
           "path": ".claude/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "3cefbfa77537e18d00508658eee6c0cfd2f5b8b65e7d86365e3b3f169961da28"
+          "current_sha256": "bc474f793448ab0033ed889773e86106409c28430e86301405b1abaf9bd29709"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "cf70502b5fac2496f359ddca3abdc627845f746cdcc6d93c2c91e4e32f133f0a"
+          "current_sha256": "2712562e26dcf30831a7ee1508704b05a1d73f232b3b0c31f7ce35c7cefe282a"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2517,8 +2517,8 @@
         },
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
-          "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
-          "current_sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3"
+          "sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81",
+          "current_sha256": "9d35a35887726fbdd3be85f864854b6f588dd4459d01db5822a9696b6fb28e81"
         },
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/005-triage-table-c-tests-ci-teardown.md",
@@ -2547,8 +2547,8 @@
         },
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
-          "sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13",
-          "current_sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13"
+          "sha256": "eea52f6fabba83d06c376fbc58513e6d054d23ab1fda5ac41e5a492dea6dd320",
+          "current_sha256": "eea52f6fabba83d06c376fbc58513e6d054d23ab1fda5ac41e5a492dea6dd320"
         }
       ]
     },
@@ -2632,8 +2632,8 @@
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
-          "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
-          "current_sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b"
+          "sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7",
+          "current_sha256": "afa0046b7d9531cd698c411143b4c98de4fb4968ea6f7778dc6ea6a7c2dd9ca7"
         },
         {
           "path": ".claude/skills/ogp-failure-archaeology/references/016-15-tangent-constraint-degeneracy-pr-198-adr-024-fixed-2026-06-07.md",
@@ -2762,8 +2762,8 @@
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
-          "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
-          "current_sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91"
+          "sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c",
+          "current_sha256": "b80db9561548dd296d2ae3379b7b6fc90f1be5bd33cce5d1fe0f16108ca4907c"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
@@ -2772,8 +2772,8 @@
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
-          "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
-          "current_sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c"
+          "sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17",
+          "current_sha256": "1aee0c141c150b7f67fd01a7b065890618507c4fd155db72badd9d5d1e143a17"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/006-4-signals-slots-and-lifecycle-safety.md",
@@ -2961,6 +2961,52 @@
         ".claude/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
         ".claude/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
         ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md"
+      ]
+    },
+    {
+      "issue": 794,
+      "reason": "The sun map's key, label blockers and the sharp badge add lines to CanvasView, CanvasScene and garden_item.py; refresh the five shifted line citations in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+        ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+        ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+        ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
+      ]
+    },
+    {
+      "issue": 787,
+      "reason": "The review of the 2D visual-polish branch found a source-anchor grep in the debugging playbook for two helpers that #787 deleted (_fix_svg_pattern_yflip, _fix_svg_qt_texture_clipping). Replace it with the anchors of services/svg_export.py in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
+        ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md"
+      ]
+    },
+    {
+      "issue": 793,
+      "reason": "The fixes of review round 1 (the paint revision, the kept grid cut-out and label layout) add lines to CanvasScene; refresh the two shifted line citations in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md"
+      ]
+    },
+    {
+      "issue": 793,
+      "reason": "The fixes of review round 2 (the kept grid layer, the paint revision's chokepoints, the class-level default for teardown) add lines to CanvasView, CanvasScene and garden_item.py; refresh the five shifted line citations in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+        ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+        ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md"
       ]
     },
     {

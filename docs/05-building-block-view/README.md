@@ -69,10 +69,14 @@ src/open_garden_planner/
 │   ├── plant_art/                # Stdlib-only: what a plant looks like, for 2D and 3D (Phase 17 L1.7, ADR-059 addendum) — see §5.10
 │   │   ├── recipes.py            #   PALETTES / FRUITS / FLOWERS / SPECIES / CATEGORIES — the sprite recipes (moved from the generator script)
 │   │   └── resolve.py            #   resolve_sprite(): species / category / type → sprite and recipe — the ONE rule for 2D and 3D
-│   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028)
+│   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028);
+│   │                             #   spacing storeys and where a spacing warning is drawn (#786)
+│   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.15)
+│   ├── label_layout.py           # Qt-free: which object labels are shown when room is short, and whether a badge has room on its object (#793, #836, §8.9.15)
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037);
 │   │                             #   plan_place(): the validity rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
+│   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document or a save (#795)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
 │   │                             #   resolve_height() is the ONE precedence ladder, projected by effective_height_cm /
@@ -86,7 +90,9 @@ src/open_garden_planner/
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
 │   │                             #   ShadowCaster(footprint, height, base): a raised caster's shadow starts base/tanα out (L1.6)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
-│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4)
+│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4);
+│   │                             #   sun_legend(): what the map's key shows, from the same tables (#794, §8.9.18)
+│   ├── soft_edge.py              # Qt-free: the shadow's soft edge as a blurred field — lattice, exact box sums, falloff table (#793, §8.9.18)
 │   ├── scene3d/                  # Qt-free 3D scene core (Phase 17 L1.1, ADR-059) — see §5.10
 │   │   ├── record.py             #   contract v2: Record (outer rings + holes) / Transform / Material / Params, three signatures, the record grid
 │   │   ├── scene_diff.py         #   diff() → SceneDiff(added, removed, transform, material, geometry, reordered)
@@ -153,7 +159,7 @@ src/open_garden_planner/
 │   ├── stacking.py               # Qt-free per-object stacking order (Bring to Front/Forward/Backward/Back), block expansion, parent clamp (ADR-043, §8.25)
 │   ├── canvas_bounds.py          # Qt-free canvas clamping math — the ONE shared rule keeping items on-plan across GUI and Agent API (#380)
 │   ├── alignment.py              # Object alignment helpers
-│   ├── i18n.py                   # Internationalization, translator loading
+│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month/date formatters, parse_decimal; QtCore only (ADR-077)
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -190,9 +196,15 @@ src/open_garden_planner/
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── select_by_id.py       # THE select-by-id path: item ids → the canvas selection (panels, 3D) — L1.8, see §5.15
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
+│   │   ├── plan_labels.py        # The scene's label pass: object labels and succession badges painted after every item (#793, #836, §8.9.15)
+│   │   ├── layout_font.py        # The size a font has on the canvas: layout_pixel_size / device_independent (#836, PF-CAN-59)
 │   │   ├── footprints.py         # THE footprint extraction — item_outline / item_footprints / plant_canopy_radius_cm; shadows, heatmap and 3D all read it (Phase 17 L1.1, ADR-059)
-│   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
-│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
+│   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037);
+│   │   │                         #   set_map_shown(): solved but not painted while the hours-of-sun map is shown (#794)
+│   │   ├── shadow_feather.py     # The overlay's soft edge painted from core/soft_edge, the shade cut out in a device layer (#793)
+│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4);
+│   │   │                         #   SunMapLabelItem: the hours as labels of the plan, placed where nothing stands (#794)
+│   │   ├── sun_legend.py         # The map's key: paint_sun_legend (canvas view, pictures) + SunMapLegendItem for pictures (#794, §8.9.18)
 │   │   ├── arrange.py            # THE one apply path for per-object stacking order changes — builds ArrangeItemsCommand via core.stacking (ADR-043)
 │   │   ├── geometry_apply.py     # THE canonical resize/rotate/vertex apply path — panel + handles + agent (US-D2.2/D2.6)
 │   │   ├── geometry_inspect.py   # Live scene-frame geometry projection for Agent API reads (US-D2.6)
@@ -207,6 +219,7 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       ├── group_item.py     # Group container, drill-down focus outline and ungroup rules (#771, ADR-075)
+│   │       ├── halo_text.py      # Text over a stroked halo: paint_halo_text / HaloTextItem / PlanLabelItem (#793, §8.9.15)
 │   │       ├── split_menu.py     # the one Split Along Line context-menu seam (#664, §8.35)
 │   │       └── resize_handle.py
 │   ├── view3d/                   # the 3D view (Phase 17; US-E6's Qt 3D window left in L1.10): snapshot.py
@@ -255,6 +268,9 @@ src/open_garden_planner/
 │   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
 │   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
 │   │   ├── category_toolbar.py   # CategoryToolbar (10 category dropdowns + global search) (ADR-018)
+│   │   ├── toolbar_rows.py       # ToolbarRows: the tool toolbars wrap with the window (#796)
+│   │   ├── elided_label.py       # ElidedLabel: a one-line label that gives way to its row (#796)
+│   │   ├── soil_overlay_legend.py # Key to the soil-health overlay's tints, in its toolbar (#796)
 │   │   ├── category_dropdown.py  # Popup palette under each category button (ADR-018)
 │   │   ├── global_search.py      # Toolbar object search across all categories (ADR-018)
 │   │   ├── gallery_data.py       # Source of truth for placeable objects (ADR-018)
@@ -263,6 +279,8 @@ src/open_garden_planner/
 │   │   ├── sun_sim_toolbar.py    # Sun & shade sim date/time-slider toolbar (US-E3)
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
+│   ├── date_fields.py            # as_date_field / as_time_field: ISO, 24 hours, week from Monday for every date and time field (#792, ADR-077)
+│   ├── number_fields.py          # Either decimal mark is the decimal mark in a QDoubleSpinBox, typed or pasted (#792, ADR-077)
 │   ├── sim_clock_subscription.py # connect_qobject(): a QObject on the Qt-free sim clock, never called after Qt destroyed it (L1.3)
 
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
@@ -277,6 +295,7 @@ src/open_garden_planner/
 │   ├── bundled_species_db.py     # Bundled species DB loader + drop-flow hook (issue #170)
 │   ├── scene_rendering.py        # Shared region-render helper (ADR-023, used by PNG + viewport)
 │   ├── export_service.py         # PDF/image export
+│   ├── svg_export.py             # SVG export: recording paint engine + replay into QSvgGenerator (ADR-076)
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   ├── task_generator.py         # Pure (PlanState)->list[Task] generators + generate_all (US-C2, ADR-029)
@@ -466,7 +485,7 @@ Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
-| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
+| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), the application palette built from the tokens (`build_palette`) and the colour-scheme pin (#791), the geometry roles `set_compact` / `list_row_size_hint` (#796), `contrast_ratio` / `readable_on` for data colours, `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
 | `ui/icons.py` | Central themed icon provider — the ONLY render path for `resources/icons/ui/`: substitutes theme colors into the contract SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, Normal + fully-grayed Disabled modes, cache per (name, size, dpr, tint, accent) cleared via theme listener; `None` for unknown names so every caller's text fallback survives. | name (+ size/tint) → `QIcon`/`QPixmap` \| `None` |
 | `resources/icons/ui/` | The icon set: 150 Tabler-vendored (MIT, pinned v3.45.0; 62 in #279 + 88 in #310) + 12 bespoke glyphs (10 in #279, `lawn` + `partly_cloudy` in #310) on the 24×24 currentColor+sentinel contract, with the binding house-style README, `PROVENANCE.md` (cross-checked by the gate in both directions) and the vendored MIT license text. | files |
 | `scripts/normalize_icons.py` / `check_icon_conformance.py` / `vendor_tabler_icons.py` | Icon asset-forge toolchain: deterministic SVG canonicalizer (idempotence is itself a gate; `--check` for CI drift), mechanical contract+provenance gate (pinned into pytest by `tests/unit/test_icon_conformance.py`), pinned-release Tabler vendoring (the PROVENANCE reproduction recipe). | SVG files → normalized/verified set |
@@ -840,7 +859,9 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | --- | --- |
 
-| `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. |
+| `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. Reads a shipped example's trusted sidecar: its title and its showcase moment (#795). |
+
+| `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document or when the copy is saved; the outer holder over a camera tour's clock hold (#795). |
 
 | `services/example_library.py` | Bundled sidecars, localized catalog, local template paths, read-only resource payload. |
 
@@ -848,7 +869,7 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | `ProjectManager.save_template` / `load(as_template=True)` | Normal atomic persistence and load preparation, with untitled-copy semantics. |
 
-| `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. |
+| `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. `example_content(slug)` is the one source of the shipped plans and sidecars; `--check` compares them with it. |
 
 
 
@@ -866,11 +887,14 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `ui/canvas/items/common_menu.py` | Common repeat-action identities and view dispatch; each shape owns its capabilities and bed/Boolean/edit actions. |
 | `ui/canvas/items/group_menu.py` | The one Group/Ungroup context-menu seam (#674): the selection matrix (0/1 object, 2+ objects, one group, group+foreign, 2+ groups), the labels, and dispatch through `CanvasView.group_selected` / `ungroup_selected`. `GroupItem`/`SmartSymbolItem`/curve/construction menus and every `GardenItemMixin` menu call it; a smart symbol is never itself an ungroup target, but the row still appears when another selected group can be dissolved. | item + scene selection → menu actions → view methods |
 | `ui/canvas/roof_ridge_link.py` | The one HOUSE→`ROOF_RIDGE` construction/lookup/update path (#690): `outline_polygon` (polygon or rect corners), `is_owned_ridge` (the shared reverse-owner predicate), `linked_ridge` (validated metadata lookup), `linked_ridges_under` (recursive tree walk for delete/layer moves), `build_linked_ridge` (canonical geometry mapped through the item transform, both metadata links), `update_linked_ridge` (re-derive after a move/resize/rotate). Used by `PolygonTool`, `ChangeObjectTypeCommand`, `RectangleItem`, `PolygonItem`, `MoveToLayerCommand`, the delete paths, the 3D snapshot and the sun/shadow caster. | HOUSE item → linked ridge / updated ridge |
-| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. |
+| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. `selection_frame_rect(item)` is the rect that marks an object - its own outline, never `boundingRect()` (#790, §8.9.17). |
+| `core/legibility.py`, `core/label_layout.py`, `ui/canvas/items/halo_text.py`, `ui/canvas/plan_labels.py` | Canvas text (#793, §8.9.15). `legibility` is the WCAG arithmetic and the two constants (`MIN_TEXT_CONTRAST` 4.5 as painted, `INK_CONTRAST_TARGET` 7.0 for the colour pair); `halo_text` strokes glyph outlines into a halo for the scale bar, dimension labels (`HaloTextItem`) and object labels (`PlanLabelItem`); `plan_labels` paints the object labels from `CanvasScene.drawForeground`, after every item, for the view and for `scene.render()` alike (`LabelPass`, which keeps each viewport's layout until the scene, the zoom or the view's blockers change); `label_layout.place_labels` leaves out the labels that have no room. Both `core` modules import no Qt. Since #836 the same pass paints a bed's succession badge where `label_layout.badge_has_room` allows it; `ui/canvas/layout_font.py` states the size a font in points has on the canvas and gives hand-drawn text a font sized in pixels (PF-CAN-59). |
 | `ui/panels/property_edits.py` | Named appearance/property command handlers; the panel retains widgets, focus and debounce state. |
 | `app/agent_host.py` | MCP-to-document host adapter with an explicit application reference. The application retains lifecycle/state and compatibility methods. |
 | `core/startup_probe.py` | Opt-in isolated startup measurement; normal startup does not activate it. |
 
-`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions;
+`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions
+and keeps the `QT_CORE_ONLY` modules (`core/i18n.py`, `services/task_generator.py`,
+`services/soil_service.py`) off the widget modules;
 the graph and scoped line/import measurements are in the audit evidence. These
 are responsibility extractions, not new domain or persistence implementations.
