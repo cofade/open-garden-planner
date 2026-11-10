@@ -6917,6 +6917,10 @@ only 0.8 × as fast, so the fill may make up only part of the day's own fall.
   before up to 140 %), and a view whose night outshines its own 6° frame (the balcony from the
   board's golden-hour camera: 0.0371 against 0.0316) cannot be monotone while both anchors
   stay. PF-L3D-29.
+- The board's `--dusk` renders 16 more frames (the default framing, once): about 70 s at the
+  4.4 s a frame measured with other agents on the GPU. Under that load the looks render tier's
+  full board (`test_view3d_looks_render.py`, watchdog 780 s) reached its watchdog in the `high`
+  dusk run; by its own timeline it would have needed about 820 s without these frames too.
 
 **Evidence** (RTX 4070, Direct3D 11; family garden unless named; 640 × 360, high, painted).
 
@@ -6931,6 +6935,8 @@ only 0.8 × as fast, so the fill may make up only part of the day's own fall.
 | … overcast | 0 (no fill: 108 frames pixel-identical) | 0 |
 | … balcony default, raised bed default | 26, 23 | 17, 5 (worst −1.21 %, −0.52 % a step) |
 | #802 board `--dusk`, bench_small high: ground monotone, golden / default | no / no | yes / yes |
+| #802 board `--dusk`, all four presets, painted and atmosphere: frame, ground and (low) default monotone | — | yes on all 8 (sunset step 0.0053–0.0075 ≤ day ramp 0.0184–0.0201; 0 Qt errors) |
+| #802 living board (medium), both skies: ground monotone under partly cloudy, overcast, rain, snow, clear | — | yes on all 10; render-tier test 2 passed |
 | #802 board: sunset step against the largest day-ramp step | 0.0066 ≤ 0.0293 | 0.0053 ≤ 0.0199 |
 | #802 night and 6° frames, sweeps and board | — | pixel-identical (max difference 0) |
 
