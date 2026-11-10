@@ -245,6 +245,11 @@ Item {
     // goes on where it was) and has no timer of its own while it is not running.
     // Wrap periodically at 1 hour above 2 s (the foliage/grass rest-ramp threshold)
     // so single-precision float uniforms in shaders preserve precision indefinitely (#689).
+    // #800: whether the wind's clock stands anywhere but at rest. A plant's wood swaps to its
+    // swaying shader on THIS, which changes only when the wind starts or rests: a binding that
+    // read windTime itself would be evaluated - and reassign every plant part's materials -
+    // on every frame the clock ticks
+    readonly property bool windBlowing: windTime > 0.0
     FrameAnimation {
         running: root.windRunning
         onTriggered: {
@@ -628,7 +633,7 @@ Item {
             // fruit take the same shader with the plant's sway (plant_sway.vert) - only while
             // the wind's clock runs, so every frame at rest is the principled look
             materials: fade < 1.0 ? [vcScreen]
-                       : swayFrame.x > 0.0 && root.windTime > 0.0 ? [vcSway]
+                       : swayFrame.x > 0.0 && root.windBlowing ? [vcSway]
                        : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
                 id: vcLook

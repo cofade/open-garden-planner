@@ -22,9 +22,16 @@ what Qt's binaries say is read from the strings of `Qt6Quick3DRuntimeRender.dll`
   runs is invisible** when the custom one hands `COLOR` through its own varying and uses the
   principled roughness and specular (`plant_sway.vert` + `built_snow.frag`, the #687 path): a
   QML copy whose sway is multiplied by 0, rest (principled) against clock 5 s (custom), 1080p:
-  0 levels on low, high and ultra, one pixel 1 level on medium. Keep the swap behind the clock
-  (`root.windTime > 0`) and every still frame stays the principled look by construction; the
+  0 levels on low, high and ultra, one pixel 1 level on medium. Keep the swap behind the clock —
+  through a bool (`windBlowing: windTime > 0.0`), never `windTime` itself: a `materials`
+  binding that reads a per-frame property is evaluated, and reassigns the list, on every frame
+  — and every still frame stays the principled look by construction; the
   shader warmer draws the custom material once so the first windy frame compiles nothing new.
+- **A binding reads every property it touches each time one changes.** A QML list bound to
+  `t > 0 ? [a] : [b]` with `t` the clock was reassigned 301 times in 300 ticks; the same
+  list bound through `readonly property bool b: t > 0` twice — a QML property notifies only
+  when its value changes (measured with a plain `QQmlEngine`, 2026-11-10). Route any per-frame
+  property through a value that changes rarely before a heavy binding (`materials`) reads it.
 - **Qt's SSAO bands a flat surface seen at a slant.** Its normal faces the camera (reference
   24), so a flat micro-leaf occludes itself in bands 2–4 px apart along its depth gradient.
   The shadow bias (10 → 40 cm: stripe share 0.326 → 0.320) and a fitted map (0.330) do not

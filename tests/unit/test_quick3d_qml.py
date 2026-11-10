@@ -207,7 +207,7 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
         assert "sourceBlend" not in block and "opacity: fade" not in block, name
         assert "visible:" not in block, name     # nothing hides a part to cut or fade it
     # #687: snow swaps in only where no screen door is drawn (test_snow_lies_on_the_built_tops...)
-    assert ("materials: fade < 1.0 ? [vcScreen] : swayFrame.x > 0.0 && root.windTime > 0.0 ? [vcSway] "
+    assert ("materials: fade < 1.0 ? [vcScreen] : swayFrame.x > 0.0 && root.windBlowing ? [vcSway] "
             ": root.builtSnow > 0.0 && partName !== \"floor\" ? [vcSnow] : [vcLook]")         in " ".join(blocks["vcPart"].split())
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
@@ -757,7 +757,7 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
     code = _scene()
     blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
     vc, roof = blocks["vcPart"], blocks["roofPart"]
-    assert ("materials: fade < 1.0 ? [vcScreen] : swayFrame.x > 0.0 && root.windTime > 0.0 ? [vcSway] "
+    assert ("materials: fade < 1.0 ? [vcScreen] : swayFrame.x > 0.0 && root.windBlowing ? [vcSway] "
             ": root.builtSnow > 0.0 && partName !== \"floor\" ? [vcSnow] : [vcLook]") in " ".join(vc.split())
     assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : root.builtSnow > 0.0 "
             "? [roofSnow] : [roofLook]") in " ".join(roof.split())
@@ -805,6 +805,10 @@ def test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind() -> 
             assert "property vector3d uWindSway: root.windSway" in body, material
             assert "property real uTime: root.windTime" in body, material
     assert "uWind:" not in foliage
+    # the swap follows a bool that changes only at start and rest, never the clock itself
+    # (a binding on windTime would reassign the materials on every frame)
+    assert re.search(r"readonly property bool windBlowing:\s*windTime > 0\.0", code)
+    assert "root.windTime" not in vc.split("materials:", 1)[1].split("PrincipledMaterial", 1)[0]
     sway = vc.split("id: vcSway", 1)[1]
     assert 'vertexShader: "plant_sway.vert"' in sway and 'fragmentShader: "built_snow.frag"' in sway
     assert grass.count("property real uWind: root.windStrength") == 2

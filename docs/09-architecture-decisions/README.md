@@ -7256,9 +7256,10 @@ term at shadow bias 10.
    its reach and its phase (from its item id, never from its position); the adapter hands it
    on in `PartSpec.sway`, the host sets `swayFrame` on the foliage and vc Models. A plant's
    wood and fruit draw through `plant_sway.vert` + `built_snow.frag` (snow on bare branches
-   included) **only while the clock runs** — `materials: … swayFrame.x > 0.0 && root.windTime >
-   0.0 ? [vcSway] : …` — so every frame at rest is the principled look; the swap measured
-   invisible. No vertex attribute was added; the frame is a uniform per Model. The lawn's blades
+   included) **only while the clock runs** — `materials: … swayFrame.x > 0.0 && root.windBlowing ? [vcSway] : …`, a bool that
+   changes only when the wind starts or rests (a binding on `windTime` itself would reassign
+   every plant part's materials on every frame) — so every frame at rest is the principled
+   look; the swap measured invisible. No vertex attribute was added; the frame is a uniform per Model. The lawn's blades
    keep their own wind (`windStrength`). The particles drift from the same direction
    (`wind.WIND_FROM_DEG`, moved from `weather.py`).
 3. **The stripes are ambient occlusion, and the fix is its bias.** The stripes did not change
