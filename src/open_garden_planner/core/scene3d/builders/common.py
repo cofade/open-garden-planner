@@ -33,6 +33,7 @@ the parts of every route.
 from __future__ import annotations
 
 import dataclasses
+import functools
 from collections.abc import Callable, Sequence
 from typing import Final, TypeAlias
 
@@ -40,8 +41,10 @@ import numpy as np
 
 from ...object_height import effective_height_cm
 from ..build import prism_mesh
+from ..materials import DEFAULT_SURFACE
 from ..mesh import Mesh, MeshPart
 from ..record import PARAM_OUTLINE_RESOLVED, SHAPE_POLYLINE, Record
+from . import palette
 from .primitives import F64, MIN_SEGMENT_CM, clean_path
 
 ShapeFunction: TypeAlias = Callable[[Record, float], tuple[MeshPart, ...]]
@@ -197,7 +200,61 @@ class BuiltBuilder:
         height = self.height_for(record)
         if height is None:
             return ()
-        return fit_parts(self.raw(record), height)
+        return with_surfaces(fit_parts(self.raw(record), height))
+
+
+#: The material kinds whose look reads a part's surface (``Garden.qml``'s ``vcPart`` and
+#: ``roofPart``); glass, water, foliage and grass have their own looks.
+SURFACE_KINDS: Final = frozenset({"vc", "roof"})
+
+
+def surfaced(builder: Callable[[Record], tuple[MeshPart, ...]]
+             ) -> Callable[[Record], tuple[MeshPart, ...]]:
+    """A builder that is not a ``BuiltBuilder`` (the L4 surfaces), with ``with_surfaces``
+    applied to what it returns — so every production builder's parts know their surfaces."""
+
+    @functools.wraps(builder)
+    def build(record: Record) -> tuple[MeshPart, ...]:
+        return with_surfaces(builder(record))
+
+    return build
+
+
+def with_surfaces(parts: Sequence[MeshPart]) -> tuple[MeshPart, ...]:
+    """Each ``vc`` and ``roof`` part with what it is MADE of (#803): the surfaces of its
+    palette entries (``palette.SURFACE_BY_COLOUR``; a triangle by the colour of its
+    first vertex).
+
+    A part of ONE surface gets ``surface``. A part of several gets ``surface_runs``: its
+    triangles ordered run by run (stably, in the order the surfaces first appear) — it
+    stays one part, the engine draws a Model per run (``mesh.surface_pieces``). Left as
+    they are: a part its builder named a surface, a tinted part (its builder names it, or
+    it is ``DEFAULT_SURFACE``: white vertices say nothing), a fill part (its picture is
+    the item's fill) and every other kind. A colour in no entry is ``DEFAULT_SURFACE``
+    (gate G5 says there is none in an untinted part)."""
+    out: list[MeshPart] = []
+    for part in parts:
+        if (part.material_kind not in SURFACE_KINDS or part.surface or part.surface_runs
+                or part.tinted or part.fill_texture or not part.mesh.triangle_count):
+            out.append(part)
+            continue
+        colours, inverse = np.unique(np.ascontiguousarray(part.mesh.colors[:, :3]), axis=0,
+                                     return_inverse=True)
+        names = [name or DEFAULT_SURFACE for name in palette.surfaces_of_colours(colours)]
+        per_triangle = np.asarray(names, dtype=object)[inverse.reshape(-1)[part.mesh.indices[:, 0]]]
+        order = list(dict.fromkeys(per_triangle.tolist()))
+        if len(order) == 1:
+            out.append(dataclasses.replace(part, surface=order[0]))
+            continue
+        rank = np.asarray([order.index(name) for name in per_triangle.tolist()])
+        runs = tuple((name, int((rank == index).sum())) for index, name in enumerate(order))
+        mesh = part.mesh
+        if bool((np.diff(rank) < 0).any()):   # not grouped yet: order the triangles run by run
+            sequence = np.argsort(rank, kind="stable")
+            mesh = Mesh.from_arrays(mesh.positions, mesh.normals, mesh.colors, mesh.uvs,
+                                    mesh.indices[sequence])
+        out.append(dataclasses.replace(part, surface_runs=runs, mesh=mesh))
+    return tuple(out)
 
 
 def footprint_of(record: Record) -> tuple[tuple[float, float], ...]:

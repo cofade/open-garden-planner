@@ -41,6 +41,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ..build import item_seed
+from ..materials import DEFAULT_SURFACE
 from ..mesh import Mesh, MeshPart
 from ..record import PARAM_SEED, ParamValue, Record
 from .hedges import (
@@ -386,7 +387,13 @@ def fence_parts(record: Record, line: F64, closed: bool, height_cm: float,
             mesh = build(run, height_cm, post)
     else:
         raise ValueError(f"no fence is built in the style {style!r}")
-    return (MeshPart(mesh, "vc", tinted=True, name="fence"),)
+    return (MeshPart(mesh, "vc", tinted=True, name="fence",
+                     surface=FENCE_SURFACES.get(style, DEFAULT_SURFACE)),)
+
+
+#: What each post fence is made of (#803): its surface. A plain panel is the item's stroke
+#: with no material the plan names, so it keeps the default surface.
+FENCE_SURFACES: Final = {"WOODEN_FENCE": "wood", "METAL_FENCE": "iron", "CHAIN_LINK": "steel"}
 
 
 def triangle_budget(line: F64, closed: bool, segments: int, style: str) -> int:

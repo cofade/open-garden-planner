@@ -29,11 +29,13 @@ their names. New: ``validate()``.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+
+from .materials import SURFACES
 
 #: Material kinds a part can ask the sink for — the L0 spike's set (its scene file's,
 #: frozen in ``tests/data/l0_spike_reference.json`` when L1.10 deleted the spike).
@@ -274,6 +276,18 @@ class MeshPart:
     ``tinted`` (the picture already carries the colour) and only for the parts
     whose material takes a picture: ``"vc"`` (``baseColorMap``) and ``"water"``
     (``uFill``: a raised pool keeps the plan's water, #627's manual pass).
+
+    ``surface`` (#803): what the part is MADE of — a key of
+    ``core.scene3d.materials.SURFACES`` (its roughness, specular amount and detail
+    picture). Empty: not decided here; the engine shows it as
+    ``materials.DEFAULT_SURFACE`` (a plant's wood, a raised surface's sides).
+    ``surface_runs``: a part made of SEVERAL surfaces — a trampoline's rubber mat,
+    plastic pad and steel frame — lists them as (surface, triangle count), its
+    triangles ordered run by run (``builders.common.with_surfaces`` reads them from
+    the palette). The part stays ONE part for everything that reads parts (its name,
+    shadow, pick, height); the engine draws one Model per run (``surface_pieces``),
+    because a Model has one material. A part has a ``surface`` or ``surface_runs``,
+    never both.
     """
 
     mesh: Mesh
@@ -283,12 +297,25 @@ class MeshPart:
     name: str = ""
     ground_detail: bool = False
     fill_texture: bool = False
+    surface: str = ""
+    surface_runs: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
         if self.material_kind not in MATERIAL_KINDS:
             raise ValueError(
                 f"unknown material_kind {self.material_kind!r}; expected one of {sorted(MATERIAL_KINDS)}"
             )
+        names = [self.surface] if self.surface else [name for name, _count in self.surface_runs]
+        unknown = [name for name in names if name not in SURFACES]
+        if unknown:
+            raise ValueError(f"unknown surface {unknown[0]!r}; expected one of {sorted(SURFACES)}")
+        if self.surface_runs:
+            if self.surface:
+                raise ValueError("a part names one surface or its surface runs, not both")
+            counts = [count for _name, count in self.surface_runs]
+            if min(counts) <= 0 or sum(counts) != self.mesh.triangle_count:
+                raise ValueError(f"surface runs {counts} do not cover the part's "
+                                 f"{self.mesh.triangle_count} triangles")
         if self.ground_detail and self.casts_shadow:
             raise ValueError(
                 "a ground_detail part casts no shadow: it is relief on a surface the plan "
@@ -308,3 +335,27 @@ class MeshPart:
     def validate(self) -> None:
         """``Mesh.validate`` with the winding rule this part's kind is held to."""
         self.mesh.validate(check_winding=self.material_kind not in BENT_NORMAL_KINDS)
+
+
+def triangles_subset(mesh: Mesh, first: int, count: int) -> Mesh:
+    """Triangles ``first`` .. ``first + count`` of ``mesh`` with only the vertices they
+    use, in their order (a vertex two runs share is copied into both)."""
+    indices = mesh.indices[first:first + count]
+    used, inverse = np.unique(indices, return_inverse=True)
+    return Mesh.from_arrays(mesh.positions[used], mesh.normals[used], mesh.colors[used],
+                            mesh.uvs[used], inverse.reshape(-1, 3).astype(np.uint32))
+
+
+def surface_pieces(part: MeshPart) -> tuple[MeshPart, ...]:
+    """What the engine draws of ``part``: the part itself, or — for a part of several
+    surfaces — one part per surface run, each with its run's triangles, its surface and
+    every other field of the part (#803). One material per Model."""
+    if not part.surface_runs:
+        return (part,)
+    pieces: list[MeshPart] = []
+    first = 0
+    for name, count in part.surface_runs:
+        pieces.append(replace(part, mesh=triangles_subset(part.mesh, first, count),
+                              surface=name, surface_runs=()))
+        first += count
+    return tuple(pieces)

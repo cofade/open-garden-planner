@@ -354,6 +354,23 @@ def pattern_from_name(name: str | None) -> FillPattern | None:
     return pattern
 
 
+def pattern_rgb(pattern: FillPattern) -> np.ndarray | None:
+    """A fill pattern's own picture, untinted: (rows, columns, 3) uint8, row 0 the
+    image's top — or None for SOLID or a missing texture. What a 3D surface's detail
+    picture is made from (#801, ``core.scene3d.surface_detail``)."""
+    if pattern == FillPattern.SOLID:
+        return None
+    texture = _load_texture(pattern)
+    if texture is None:
+        return None
+    image = texture.toImage().convertToFormat(QImage.Format.Format_RGB888)
+    width, height = image.width(), image.height()
+    buffer: Any = image.bits()
+    buffer.setsize(image.sizeInBytes())
+    rows = np.frombuffer(buffer, dtype=np.uint8).reshape(height, image.bytesPerLine())
+    return np.array(rows[:, : width * 3].reshape(height, width, 3))
+
+
 def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int, bytes] | None:
     """A fill pattern exactly as the canvas paints it — RGBA8, top-down, opaque.
 

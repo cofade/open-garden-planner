@@ -149,7 +149,7 @@ def _trellis(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     mesh = Mesh.merge(meshes)
     if not along_x:
         mesh = turned_mesh(mesh, "z", 90.0)
-    return (MeshPart(placed([mesh], box), "vc", tinted=True, name="trellis"),)
+    return (MeshPart(placed([mesh], box), "vc", tinted=True, name="trellis", surface="wood"),)
 
 
 GLASS_ROOF: Final = RoofStyle(tile=palette.GLASS, cap=palette.STEEL, timber=palette.STEEL,

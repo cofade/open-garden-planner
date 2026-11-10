@@ -206,7 +206,7 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
             continue
         assert "sourceBlend" not in block and "opacity: fade" not in block, name
         assert "visible:" not in block, name     # nothing hides a part to cut or fade it
-    assert "materials: fade < 1.0 ? [vcScreen] : [vcLook]" in blocks["vcPart"]
+    assert "materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail] : [vcLook]" in blocks["vcPart"]
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
@@ -220,11 +220,13 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     for name in ("screen.vert", "foliage_door.vert", "grass_door.vert"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "#if QSSG_ENABLE_DEPTH_PASS" in source and "if (uOpacity < 1.0)" in source, name
-    assert "materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]" in blocks["roofPart"]
+    assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail] : [roofLook]"
+            in blocks["roofPart"])
     assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
     assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
     # the roofless house reads as a room: its walls drop back-face culling
-    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 2
+    # (the look, the screen door and the detail material, #801)
+    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 3
     for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "screenDoor(FRAGCOORD.xy) >= uOpacity" in source and "discard;" in source, name
@@ -328,7 +330,9 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "ambient.vert", "ambient.frag",     # leaves, butterflies, fireflies, bulbs
                                 # photo mode's depth of field (#743)
                                 "photoblur_layer.frag", "photoblur_rows.frag",
-                                "photoblur_compose.frag"}
+                                "photoblur_compose.frag",
+                                # a built surface's detail picture: roof tiles, wall courses (#801)
+                                "built_detail.vert", "built_detail.frag"}
     # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {
         "Garden.qml", "AtmosphereSky.qml", "PhotoBlur.qml", "PROVENANCE.md",

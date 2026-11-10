@@ -61,7 +61,11 @@ def wall_mesh(line: F64, closed: bool, thickness_cm: float, height_cm: float) ->
 def wall_parts(record: Record, line: F64, closed: bool, height_cm: float) -> tuple[MeshPart, ...]:
     """The one part of a wall along ``line`` (the record's centre line)."""
     mesh = wall_mesh(line, closed, body_thickness_cm(record), height_cm)
-    return (MeshPart(mesh, "vc", tinted=True, name="wall"),)
+    return (MeshPart(mesh, "vc", tinted=True, name="wall", surface=WALL_SURFACE),)
+
+
+#: A garden wall is laid in courses (#801): the ``masonry`` surface shows them.
+WALL_SURFACE: Final = "masonry"
 
 
 def triangle_budget(record: Record) -> int:

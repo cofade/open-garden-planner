@@ -132,6 +132,7 @@ from PyQt6.QtQuick import (
 from open_garden_planner.core.fill_patterns import (
     FillPattern,
     pattern_from_name,
+    pattern_rgb,
     tinted_pattern_pixels,
 )
 from open_garden_planner.core.plain_text import log_text
@@ -152,6 +153,7 @@ from open_garden_planner.core.scene3d.particles import (
 )
 from open_garden_planner.core.scene3d.photo import NO_GRADE, NO_PHOTO, PhotoSettings, lut_strip
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
+from open_garden_planner.core.scene3d.surface_detail import detail_texels
 
 from .adapter import GroundPlacement, PartSpec
 from .cloud_volume import CloudNoiseTexture, SkyViewTexture
@@ -182,7 +184,7 @@ from .look import (
     scene_properties,
     sky_properties,
 )
-from .materials import PART_COMPONENTS, tint_uniform
+from .materials import PART_COMPONENTS, surface_look, tint_uniform
 from .patterns import PatternTexture
 from .shots import PerspectiveShot, Shot, TopDownShot
 
@@ -451,6 +453,9 @@ class Quick3DHost:
         #: ``Texture`` QML made and the data object Python owns. A picture lives while
         #: at least one Model shows it (the sink refcounts) and never past clear().
         self._fill_pictures: dict[tuple[str, Rgba], tuple[QObject, PatternTexture]] = {}
+        #: The surfaces' detail pictures on show (#801), by pattern name: made with the
+        #: first part that shows one, let go with the fill pictures.
+        self._detail_pictures: dict[str, tuple[QObject, PatternTexture]] = {}
         #: The look on screen, and the sun the pipeline sent last (engine frame; None:
         #: no sun, or it is down). Together they decide the key light (``_apply_light``).
         self._shown_look: LookSpec = NEUTRAL_DAY   # the scene file's own defaults
@@ -624,6 +629,7 @@ class Quick3DHost:
             _set(model, "partName", spec.name)
             if spec.ground_detail:
                 _set(model, "groundDetail", True)
+            self._apply_surface(model, spec)
             self._call("applyPlantSeason", model)
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)
@@ -758,11 +764,47 @@ class Quick3DHost:
         return texture
 
     def _forget_fill_textures(self) -> None:
-        """Let every fill picture go (clear(): the Models that showed them are gone)."""
+        """Let every fill picture go (clear(): the Models that showed them are gone) — and
+        every surface's detail picture (#801) with them."""
         pictures, self._fill_pictures = self._fill_pictures, {}
-        for texture, _data in pictures.values():
+        details, self._detail_pictures = self._detail_pictures, {}
+        for texture, _data in (*pictures.values(), *details.values()):
             if not sip.isdeleted(texture):
                 texture.deleteLater()
+
+    def _apply_surface(self, model: QObject, spec: PartSpec) -> None:
+        """What the part is made of (#803), and its detail picture (#801): the numbers of
+        ``materials.surface_look`` on the Model, once, at its birth."""
+        look = surface_look(spec.kind, spec.surface)
+        if look is None:
+            return
+        for name, value in look.properties.items():
+            _set(model, name, float(value))
+        if look.detail_pattern is not None:
+            texture = self._detail_texture(look.detail_pattern)
+            if texture is not None:
+                _set(model, "detailMap", texture)
+
+    def _detail_texture(self, pattern_name: str) -> QObject | None:
+        """The shared ``Texture`` of a surface's detail picture (#801), made once per
+        scene from the canvas's own picture (``core.scene3d.surface_detail``) — None when
+        the picture cannot be read (the part keeps its plain look: honest, not white)."""
+        held = self._detail_pictures.get(pattern_name)
+        if held is not None:
+            return held[0]
+        pattern = pattern_from_name(pattern_name)
+        rgb = pattern_rgb(pattern) if pattern is not None else None
+        if rgb is None:
+            return None
+        texture_data = PatternTexture(int(rgb.shape[1]), int(rgb.shape[0]), detail_texels(rgb))
+        texture = QMetaObject.invokeMethod(
+            self._root, "createPatternTexture", _DIRECT,
+            Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", texture_data))
+        if not isinstance(texture, QObject):
+            raise EngineError(f"the scene created no Texture for the {pattern_name} detail")
+        texture_data.setParent(texture)  # the pair lives and dies together
+        self._detail_pictures[pattern_name] = (texture, texture_data)
+        return texture
 
     def set_sun(self, travel: tuple[float, float, float] | None) -> None:
         """Where the sunlight travels (engine frame) — or None: no sun, or it is down."""
