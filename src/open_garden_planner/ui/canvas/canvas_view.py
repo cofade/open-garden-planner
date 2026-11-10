@@ -4147,7 +4147,7 @@ class CanvasView(QGraphicsView):
             level = service.health_level(record, param)
             scene_path = item.mapToScene(item.shape())
             if level is HealthLevel.UNKNOWN:
-                painter.setBrush(QBrush(QColor(140, 140, 140, 40),
+                painter.setBrush(QBrush(QColor(*service.unknown_rgba()),
                                         Qt.BrushStyle.DiagCrossPattern))
             else:
                 rgba = service.overlay_rgba(level)
