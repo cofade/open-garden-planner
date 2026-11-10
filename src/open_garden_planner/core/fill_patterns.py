@@ -50,8 +50,10 @@ DETAIL_LEVEL = 2.0
 _DETAIL_DIR = _TEXTURES_DIR / "x2"
 
 # Which (pattern, colour) a tinted 256-px tile is, by its pixmap cache key: how
-# ``brush_for_painter`` recognises a brush it may refine. Entries are two ints;
-# the table is emptied with the tinted cache and when it outgrows this.
+# ``brush_for_painter`` recognises a brush it may refine. Entries are two ints.
+# The table outlives the tinted cache's own eviction — an item that still holds
+# an evicted tile stays recognisable — and is emptied only by
+# ``clear_texture_cache()`` and when it outgrows this.
 _brush_tiles: dict[int, tuple["FillPattern", int]] = {}
 _BRUSH_TILES_MAX = 4096
 

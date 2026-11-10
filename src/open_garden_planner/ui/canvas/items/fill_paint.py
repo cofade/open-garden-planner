@@ -54,8 +54,13 @@ def paint_shape(
         painter.setPen(item.pen())
         painter.setBrush(brush)
         painter.drawRect(item.rect())
-    elif isinstance(item, QGraphicsEllipseItem) and (
-        item.spanAngle() == 0 or abs(item.spanAngle()) % _FULL_TURN == 0
+    elif (
+        isinstance(item, QGraphicsEllipseItem)
+        # Qt's own rule (QGraphicsEllipseItem::paint): a whole number of turns
+        # is an ellipse; anything else, a span of 0 included, is a pie, which
+        # stays Qt's to draw.
+        and item.spanAngle() != 0
+        and abs(item.spanAngle()) % _FULL_TURN == 0
     ):
         painter.setPen(item.pen())
         painter.setBrush(brush)
