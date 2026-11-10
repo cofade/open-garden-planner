@@ -1201,57 +1201,57 @@
   },
   "784": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D canvas: the sun-shadow overlay makes every repaint cost ~130-160 ms (pan, zoom and timeline scrub stutter)"
   },
   "785": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D canvas: sprites and fill textures are rasterised at 1 px per cm - blurry above 100 % zoom and in high-resolution exports"
   },
   "786": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Spacing-overlap warnings are filled red discs that flood the family-garden example and every export"
   },
   "787": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "SVG export: parametric roof and glasshouse textures are not clipped; wrong physical size; shadow feathers as dark outlines"
   },
   "789": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Raster exports force one point size on authored text notes"
   },
   "790": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Selection handles of a plant span its spacing ring; position and diameter labels overlap"
   },
   "791": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Theme gaps: planting calendar and rulers ignore the dark theme; light theme on dark-mode Windows has unreadable text and invisible checkboxes"
   },
   "793": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas legibility: scale-bar and object labels have no halo, note kerning breaks at zoom, grid draws over sprites"
   },
   "794": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Hours-of-sun map in 2D: no legend, blurry mismatch badges, shadows drawn over it"
   },
   "795": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Bundled examples open in a poor showcase state (night-dimmed by wall clock, empty seed and harvest tabs)"
   },
   "796": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "UI polish: 1280x720 toolbar overflow, clipped panel fields, calendar task rows and other layout nits"
   },
   "798": {
@@ -1306,7 +1306,7 @@
   },
   "836": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   }
 }
