@@ -1307,8 +1307,8 @@
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
-          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+          "sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66",
+          "current_sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
@@ -1333,7 +1333,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
           "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "e09eb5c36164688d51fd2c7419147630c44f969484ea328d8386f69234e93bea"
+          "current_sha256": "3726e2e5653effb3c207b9b4d2f8b557f1f196e0aa1f0eba778f82e44b509fd7"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
@@ -2707,8 +2707,8 @@
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",
-          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+          "sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66",
+          "current_sha256": "0510a1f1cec16ec7e70a425bffb8e597d716b60fb66d0df5c5bcb748b3e1de66"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
@@ -2733,7 +2733,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
           "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "e09eb5c36164688d51fd2c7419147630c44f969484ea328d8386f69234e93bea"
+          "current_sha256": "3726e2e5653effb3c207b9b4d2f8b557f1f196e0aa1f0eba778f82e44b509fd7"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",

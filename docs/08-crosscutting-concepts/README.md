@@ -5825,6 +5825,7 @@ no key light.
 | Part | Engine? | What it does |
 |---|---|---|
 | `core/scene3d/look.py` | Qt-free | the rig by sun elevation (three day anchors and their ramps; night below 0.5°), the presets, `look_for`, `sky_is_stale`, `AutoPreset` |
+| `core/scene3d/wind.py` | Qt-free | a plant's sway (#800): the amplitude rule, `sway_frame`, `wind_sway_scene`, `sway_offsets` (the shaders' `plantSway` in numpy) |
 | `ui/view3d/look_controller.py` | no | `LookController`: the sun, the settings and the frame count in; `set_look` / `set_sky` / the wind out |
 | `ui/view3d/quick3d/look.py` | no | `scene_properties` / `sky_properties` — the mapping onto `Garden.qml`'s properties; `engine_srgb` |
 | `ui/view3d/quick3d/host.py` | **yes** | `set_look`, `set_sky`, `set_wind_running`, `rest_wind`, `_apply_light` |
@@ -5953,6 +5954,28 @@ keeps a hidden window's animation running — measured — so the policy stops t
 trust "hidden"). Reduced motion (Preferences → 3D View; Qt exposes no operating-system preference
 for it) RESTS the clock at 0: every vertex is drawn where its mesh puts it. A paused non-zero
 clock is not rest — truth probes and the board pin the clock to 0.
+
+**A plant sways by its own size, as one (#800).** The lawn's blades keep L1.4's sway
+(`grass.vert`, `windStrength`); a plant — every part of an item with leaves — is moved by ONE
+function, `plantSway` (`foliage.vert`, its screen door, `plant_sway.vert`), which
+`core/scene3d/wind.py` states and tests in numpy: 0.5 % of the plant's height at its top under
+a clear day's wind (`SWAY_SHARE`, linear in the look's `windSway` = downwind × strength over
+the clear day's: calm is still, rain doubles it), a cantilever (`(y/h)²`), a lean and a swing
+whose frequency falls with the root of the height (a 9.5 m birch 0.39 Hz, a shrub about 1 Hz,
+a herb about 1.5 Hz, each plant ±10 % by its id's phase), a branch term by the reach from the
+axis, a leaf flutter along its normal (2–5.1 Hz) and a gust travelling downwind. The per-part
+frame (`PartSpec.sway`: height, reach, phase — `wind.sway_frame`, the same for leaves, wood and
+fruit) is a uniform, not a vertex attribute. A plant's wood and fruit swap to
+`plant_sway.vert` + `built_snow.frag` only while the clock runs, so a frame at rest is the
+principled look to the level; the shadow pass runs the same sway, so a crown's shadow moves
+with it. Every frequency is a whole number of cycles an hour: the clock's wrap is seamless.
+ADR-059 addendum "the wind that shows, and the leaves' stripes"; PF-L3D-32.
+
+**Ambient occlusion has a floor under its bias (#805).** Qt's SSAO normal faces the camera, so a
+flat surface seen at a slant occludes itself — on the ground (#687) and in diagonal bands across
+every micro-leaf from Medium up, which the survey took for shadow acne (the shadow bias and the
+map's fit do not change them). `look.AO_FLAT_BIAS_CM` = 1 cm is the floor of every look's AO
+bias; a weather's own bias is larger. PF-L3D-33.
 
 **Wiring.** The workspace hands the look controller the sun the pipeline last sent
 (`Scene3DController.sync.sun`) after every pass, so the light and the look are computed from one

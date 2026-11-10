@@ -188,8 +188,9 @@ def swatch_registry() -> BuilderRegistry:
     return registry
 
 
-#: The wind strength of the rest probe, in the shaders' units: 35 cm of sway for
-#: foliage and 100 cm for grass if the shader moved a vertex at rest (40 x the look's).
+#: The wind strength of the rest probe, in the shaders' units (40 x the look's): 100 cm
+#: for grass and, since #800, 0.5 % of the foliage box's 60 cm height x 40 = 12 cm at its
+#: top if a shader moved a vertex at rest.
 REST_WIND = 100.0
 REST_SIDE, REST_HEIGHT = 100.0, 60.0
 

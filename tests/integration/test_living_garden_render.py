@@ -215,6 +215,7 @@ def test_under_cloud_open_snow_has_no_rim_and_stays_with_low(tmp_path: Path) -> 
         assert row["far_darkening"] <= 3.0, (weather, row)                    # 2.64 / 1.93 / 2.79
     clear, overcast = occlusion["clear"]["contact"], occlusion["overcast"]["contact"]
     assert overcast["S"]["contact"] >= clear["S"]["contact"], (overcast, clear)   # 0.0395 / 0.0223
-    # the clear look keeps the spike's occlusion (#687 changes no clear frame): its rim is
-    # recorded, not judged (8.0 measured; a follow-up for the owner)
+    # the clear look keeps the spike's occlusion over #805's 1 cm floor (look.AO_FLAT_BIAS_CM:
+    # the flat leaves' bands): its rim is recorded, not judged (8.0 measured before the floor,
+    # 6.7 with it on bench_small; a follow-up for the owner)
     assert occlusion["clear"]["rim"] is not None

@@ -43,6 +43,10 @@ What the sink guarantees:
   and tint; the picture is one per (pattern, colour), shared, and the sink refcounts
   it (``release_fill`` with the last Model that shows it). A recolour swaps the
   picture and uploads no geometry.
+- **A plant sways as a whole (#800).** Every part of an item with leaves gets the same
+  ``PartSpec.sway`` (``core.scene3d.wind.sway_frame``: its height and reach from its own
+  meshes, its phase from its id), so its leaves, wood and fruit move by one function;
+  any other item gets none. A move re-poses and recomputes nothing.
 - **Errors are loud.** A protocol breach raises ``SinkProtocolError`` before the
   engine is touched; an engine error propagates (``SceneSync`` poisons itself).
 - **The selection ring is one mesh in one Model that is never destroyed (L1.8).**
@@ -85,6 +89,7 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.mesh import surface_pieces
 from open_garden_planner.core.scene3d.selection import EMPTY_SELECTION, Selection
+from open_garden_planner.core.scene3d.wind import NO_SWAY, SWAY_KINDS, sway_frame
 
 from .materials import part_tint
 
@@ -104,6 +109,9 @@ class PartSpec:
     #: ``MeshPart.surface`` (#803): what the part is made of — a key of
     #: ``core.scene3d.materials.SURFACES``; empty is ``DEFAULT_SURFACE``.
     surface: str = ""
+    #: #800: the item's ``core.scene3d.wind.SwayFrame`` (height cm, canopy radius cm,
+    #: phase 0..1) — the same for every part of one item; all 0: the part does not sway.
+    sway: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -435,13 +443,17 @@ class Quick3DSink:
 
     def _create(self, item_id: str, held: _Held) -> None:
         pose = engine_pose(held.transform)
+        # #800: an item with leaves sways as a whole - every part takes the same frame
+        frame = sway_frame(item_id, held.parts)
         for index, whole in enumerate(held.parts):
+            sway = (frame.as_tuple() if frame.sways and whole.material_kind in SWAY_KINDS
+                    else NO_SWAY.as_tuple())
             for part in surface_pieces(whole):  # one Model per surface (#803)
                 buffers = engine_buffers(part.mesh)
                 if buffers.is_empty:
                     continue
                 spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow,
-                                part.name, part.ground_detail, part.surface)
+                                part.name, part.ground_detail, surface=part.surface, sway=sway)
                 handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
                 held.handles.append((part, handle))  # before the fill: clear() can destroy it
                 self.geometry_uploads += 1
