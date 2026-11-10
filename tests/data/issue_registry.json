@@ -1064,6 +1064,11 @@
     "state": "CLOSED",
     "title": "3D: a filleted fence/wall corner renders as a solid curved block (posts must follow the arc at straight-run spacing)"
   },
+  "687": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
+  },
   "690": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1188,5 +1193,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
+  },
+  "831": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a small pane is 5-12 levels brighter than a 4K capture of the same camera (ambient occlusion depends on picture size)"
   }
 }

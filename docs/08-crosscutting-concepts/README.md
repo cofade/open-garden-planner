@@ -7777,21 +7777,22 @@ frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle
 
 ### 8.29.13 The living garden — playback, weather, particles, garden lights (L5, #389, ADR-070)
 
-The decisions and the measurements are **ADR-070**; the requirements FR-3D-LIVE-01 … 09; the
-test patterns §8.10.16; the lesson PF-L3D-18.
+The decisions and the measurements are **ADR-070** (and its #687 addendum); the requirements
+FR-3D-LIVE-01 … 09; the test patterns §8.10.16; the lessons PF-L3D-18, PF-L3D-26, PF-L3D-27,
+PF-E3D-28 and PF-E3D-29.
 
 | Part | Engine? | What it does |
 |---|---|---|
 | `core/playback.py` | Qt-free | one step of the day or the year playback (`next_step`): the day wraps onto the same date, the year inside its year |
 | `ui/widgets/sun_sim_toolbar.py` | no | Animate's menu (The Day / The Year, Slow / Normal / Fast); writes the clock through its slider and `date_requested` |
-| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather` |
+| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather`; the occlusion under cloud (`AO_*_UNDER_CLOUD`) and the snow on built tops (`BUILT_SNOW_FULL_AT`, #687) |
 | `core/scene3d/look.py` | Qt-free | `AtmosphereSpec` (`CLEAR_STILL` is every look of L1–L4), `SkySpec.cloud`, `sky_must_build_now`, `sky_phase` by elevation |
-| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters`, `precipitation_volume`, the caps |
-| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps` |
+| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters` (a leaf in its own crown's colours, #687), `precipitation_volume`, the caps |
+| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps`, `lit_lamps` (the slots' faded lights, #687) |
 | `ui/view3d/look_controller.py` | no | `set_weather`, `set_todays_weather`, `set_analysing`, `set_southern` (where the place's noon stands: the dew's fade, the fireflies' midnight), `mood` / `mood_changed`: the look is `living_look` |
-| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the nearest lamps, the forecast |
+| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the lamps that light (`aim_lamps`: a picture's own, #687), the forecast |
 | `ui/view3d/quick3d/host.py` | **yes** | `set_ambient`, `set_life_enabled`, `set_lamps`, the precipitation's one load, the rain's volume with every `set_camera` |
-| `qml/Garden.qml`, `precipitation.*`, `ambient.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values |
+| `qml/Garden.qml`, `precipitation.*`, `ambient.*`, `built_snow.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values, its occlusion (`aoStrengthGain`, `aoDistanceGain`, `aoBias`) and the snow on built tops (`builtSnow`) |
 
 **Truth stays where it was.** A weather is a look: `apply_weather` changes the sky's colours
 and energy, the key light's strength, the shadows' darkness and softness, the grade, the fog,
@@ -7821,6 +7822,34 @@ per vertex (some corners beyond the far plane tear it into a sliver). Rain and s
 box around the camera's target, world-anchored: the box slides, the drops do not. In the
 top-down truth view no particle is drawn.
 
+**Under cloud the occlusion is the weather's (#687).** The sky is the light under cloud, and
+what an object hides of it is what grounds it; but Qt's pass reads a camera-facing normal, so
+flat ground seen at a slant occludes ITSELF everywhere except beside a nearer object — the
+clear values greyed open snow 17 levels under Low and drew a 10-level light rim round every
+silhouette. A weather takes its light share (`WeatherSpec.light`) of a stronger, wider pass
+WITH a bias of 0.3 of its reach (`AtmosphereSpec.ao_strength_gain`, `ao_distance_gain`,
+`ao_bias_cm`: 99 / 70 / 21 cm at a full overcast), and the bias follows the capture's AO scale
+at every picture size (PF-L3D-26). Clear, the dew and an Analyze drape keep the spike's 55 / 14
+/ 0, so no clear frame changes. The board's `--living` measures it (`living_occlusion`: rim,
+self-occlusion, open ground, snow against Low, a box caster's foot per weather) and runs
+`--far-plan` and `--edge` under every cloudy weather. What Qt's pass leaves is a ring of
+self-occluded far meadow whose distance moves with the picture's size (PF-E3D-28, #831).
+
+**Snow lies on built tops (#687).** While snow lies (`AtmosphereSpec.built_snow`, 1 under the
+snow weather: smooth tops lie white where the meadow's 0.75 still shows grass), every `vc` part
+and every roof swaps to ONE material, `built_snow.vert/.frag`; snowless, every frame keeps the
+principled look. The albedo is the principled look's (the vertex colour through its own vertex
+stage — `VAR_COLOR` is not it —, the tint and fill picture through the engine's polynomial);
+snow mixes in by `built_snow × smoothstep(0.35, 0.75, NORMAL.y)` with the snowy ground's
+roughness and specular. A building's floor (under its roof, shown by Cutaway), glass, water and
+an X-ray door stay as they are. The material is in the shader warmer.
+
+**A falling leaf is its crown's colour (#687).** `ambient_emitters` gives each dropping tree's
+emitter eight samples of the Forge's leaf colours for its own palette
+(`plant_forge.palette_leaf_colors`, outer and upper leaves) times the season's tint
+(`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id: a red maple drops red
+leaves, and no palette literal is left.
+
 **When the ambient buffer is rebuilt.** On the Plant Forge's phenology (`season_sink`: a plan
 or date change — at most twice a second during the year playback) and when a pass changed the
 garden lights; never for a time of day. Equal emitters are not sent again.
@@ -7842,8 +7871,12 @@ thin shadow (ADR-070's owner addendum).
 
 **The lamp pool.** Six `PointLight`s are made once by the scene (`lampSlots`), each bound to
 one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill
-them follows the camera's target (`nearest_lamps`), so a large plan's lights are lit where one
-looks. The foliage and lawn shaders light leaves from a point light as from the sun
+them follows the camera's target, so a large plan's lights are lit where one looks; each is
+weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest lamp left
+out (`lit_lamps`, #687), so a pool fades in and out as the camera turns instead of switching in
+one frame — with no clock, so a recorded tour repeats exactly, and with six lamps or fewer every
+weight is 1. A picture from another camera (a tour's frame, an agent's view) is lit by ITS
+target's lamps (`aim_lamps`, PF-E3D-29). The foliage and lawn shaders light leaves from a point light as from the sun
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
 1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light

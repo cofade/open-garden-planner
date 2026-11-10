@@ -213,4 +213,5 @@
 | Case study: a snapped corner cut the bed it only grazed (PR #783) | [Read](210-case-study-a-snapped-corner-that-cut-a-bed-pr783.md) |
 | Case study: a group member that kept its focus for a split second - the minimap unselected the group (PR #783) | [Read](211-case-study-a-group-member-that-kept-its-focus-for-a-split-second-pr783.md) |
 | Case study: stair steps on a long fence shadow that were two bugs, neither the one named (#734) | [Read](215-case-study-stair-steps-on-a-long-fence-shadow-734.md) |
+| Case study: a light rim the owner saw and the metric said was not there (#687) | [Read](216-case-study-a-rim-the-metric-could-not-see-687.md) |
 | Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](222-case-study-a-blurred-bar-with-a-light-rim-743.md) |
