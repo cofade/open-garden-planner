@@ -808,7 +808,7 @@ label with `ItemHasNoContents`: that flag is how the minimap blanks screen-space
 items (§8.9.5).
 
 **A bed's succession badge is painted in the same pass (#836)**, before the labels
-(`plan_labels.paint_succession_badges`): as a child item it was drawn with its bed,
+(`plan_labels.LabelPass`): as a child item it was drawn with its bed,
 and the plants growing in the bed covered it. It hangs on the corner of the bed's
 outline (`_position_succession_badge`, called with `_position_label` on every change
 of the outline) and is shown only where it has room on its bed
@@ -830,7 +830,41 @@ closer than the gap and do not exclude each other, and when the name has no room
 the area is left out with it. The layout always
 looks at every label of the scene, never only at a repainted region, or a partial
 repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
-returns the result for a given transform.
+returns the result for a given transform, taken fresh.
+
+**The layout is kept, not taken for a paint.** It walks every item of the scene
+(9 ms on a plan of 853 labelled objects), and until the review of #793 every
+paint took it again, a 40-pixel repaint as a full one. `plan_labels.LabelPass`
+keeps each viewport's layout and takes it again only when what it was taken from
+has changed:
+
+| What changed | How the pass knows |
+|---|---|
+| The scene: an edit, a move under way, a selection (a selected object's labels are pinned), a rename, a label hidden or shown | `CanvasScene.paint_revision` (§8.37). The label items say what Qt's `changed` does not carry: `halo_text.note_label_changed`, from `PlanLabelItem` and `SuccessionBadgeItem` on a change of text, font, stacking, visibility, parent or scene |
+| The zoom | the scale of the paint transform: a label keeps its size on screen while its object changes its own |
+| What the view states no label may touch | the tuple of `set_label_blockers` |
+
+A pan is none of these: which labels have room does not depend on where the plan
+lies in the viewport, so the kept layout is painted moved by the pan. Only a view
+with a blocker lays out again on a pan (the sun map's key stays where it is while
+the labels move under it). A picture of the plan (an export, the minimap, the
+Agent API's render) is laid out for itself and kept by nobody.
+
+**A label that gains or loses its room may lie outside what is being repainted**
+(an object dragged away frees its neighbour's name; Qt repaints the object). The
+pass used to answer every change of the choice with a full repaint of the
+viewport, which painted every zoom step twice: a zoom changes the choice at each
+step and repaints the viewport in full anyway. `_repaint_what_changed` asks for
+the rectangles of exactly the labels that entered or left the choice, and for
+none when the paint covers the viewport. A test of this reads the window's
+backing store (`screen().grabWindow`), never `QWidget.grab()`: a grab paints the
+widget afresh and cannot show a pixel a partial repaint left behind.
+
+Measured on the 853-object plan (1469 × 901, at fit): the pass inside a 40-pixel
+repaint 10–12 ms → 0.13 ms; scene foreground passes per zoom step 2 → 1. What a
+40-pixel repaint still costs with labels on over labels off (5.5 against 3.3 ms)
+is not the pass: Qt keeps items that ignore transformations out of its spatial
+index and walks the owner of every such item on every paint.
 
 **A label of no object states its own weight.** The hours on the sun map's
 contours are `PlanLabelItem`s with no owner (`sun_heatmap.SunMapLabelItem`, #794):
@@ -863,7 +897,8 @@ top of that and change nothing: the letter gaps of a rendered note are the same 
 0.01 px at every zoom.
 
 Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
-`tests/unit/test_label_layout.py`, `tests/integration/test_plan_label_hits.py`.
+`tests/unit/test_label_layout.py`, `tests/integration/test_plan_label_hits.py`,
+`tests/integration/test_label_layout_cache.py`. PF-CAN-60.
 
 ### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
 

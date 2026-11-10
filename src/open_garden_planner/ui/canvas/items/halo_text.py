@@ -21,6 +21,7 @@ Three users share this module:
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import (
@@ -55,6 +56,31 @@ HALO_MIN_WIDTH_PX = 3.0
 #: The halo is opaque: a see-through halo takes on the background's tone and
 #: the contrast it is there for is gone.
 HALO_ALPHA = 255
+
+
+def note_label_changed(item: QGraphicsItem) -> None:
+    """Tell ``item``'s scene that a label of the plan changed what it shows:
+    its text, its size, whether it is visible, whether it is in the scene.
+
+    The scene keeps each viewport's label layout until its paint revision
+    moves (``plan_labels.LabelPass``), and Qt's ``changed`` does not carry
+    these: hiding or showing an item that ignores transformations emits
+    nothing (measured, PF-CAN-60). A scene without a label pass has no
+    ``note_paint_changed`` and nothing is told.
+    """
+    note = getattr(item.scene(), "note_paint_changed", None)
+    if note is not None:
+        note()
+
+
+#: The changes of a label item that change the layout of the plan's labels.
+#: ``ItemSceneChange`` is sent while the item is still in the scene it leaves.
+LABEL_LAYOUT_CHANGES = frozenset({
+    QGraphicsItem.GraphicsItemChange.ItemVisibleHasChanged,
+    QGraphicsItem.GraphicsItemChange.ItemSceneChange,
+    QGraphicsItem.GraphicsItemChange.ItemSceneHasChanged,
+    QGraphicsItem.GraphicsItemChange.ItemParentHasChanged,
+})
 
 
 def halo_colors(requested: QColor) -> tuple[QColor, QColor]:
@@ -363,10 +389,35 @@ class PlanLabelItem(HaloTextItem):
     def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
         super().__init__(text, parent, centered=True)
         self.rank = rank
+        note_label_changed(self)
 
     def shape(self) -> QPainterPath:
         """Nothing: no point of the plan is a hit on a label (class docstring)."""
         return QPainterPath()
+
+    # The scene keeps the layout of its labels between paints; a label says
+    # when it changed what that layout was taken from (``note_label_changed``).
+
+    def setText(self, text: str | None) -> None:
+        super().setText(text)
+        note_label_changed(self)
+
+    def setFont(self, font: QFont) -> None:
+        super().setFont(font)
+        note_label_changed(self)
+
+    def set_screen_offset(self, dx: float, dy: float) -> None:
+        super().set_screen_offset(dx, dy)
+        note_label_changed(self)
+
+    def stack_under(self, other: HaloTextItem | None) -> None:
+        super().stack_under(other)
+        note_label_changed(self)
+
+    def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
+        if change in LABEL_LAYOUT_CHANGES:
+            note_label_changed(self)
+        return super().itemChange(change, value)
 
     def paint(
         self,

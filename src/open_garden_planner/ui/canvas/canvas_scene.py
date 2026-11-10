@@ -43,7 +43,7 @@ from open_garden_planner.models.layer import Layer, create_default_layers
 from .item_cache import ensure_item_cache_budget
 
 if TYPE_CHECKING:
-    from open_garden_planner.ui.canvas.plan_labels import ShownLabel
+    from open_garden_planner.ui.canvas.plan_labels import LabelPass, ShownLabel
 
 #: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
 #: path, a terrace, an in-ground bed with no height): above the background image
@@ -172,12 +172,14 @@ class CanvasScene(QGraphicsScene):
     is never saved and means nothing across documents; it only ever grows.
 
     The paint revision (§8.37). A paint must not walk the scene: what a paint needs
-    of the WHOLE plan (what stands on it, for the grid's cut-out) is taken once and
-    kept until ``paint_revision`` moves. That one moves far more often than the plan
+    of the WHOLE plan (what stands on it, for the grid's cut-out; which labels have
+    room, for the label pass) is taken once and kept until ``paint_revision`` moves. That one moves far more often than the plan
     revision, on purpose — it asks "may a picture of the scene differ now?", not
     "did the plan change?": on Qt's own ``changed`` (a move under way, a hover, a
     tool's preview, the shadow moving), on every plan change, on a selection change,
-    and when an item is added or removed or the scene is cleared. A pan, a zoom and
+    when an item is added or removed or the scene is cleared, and when a label says
+    its text, size or visibility changed (``halo_text.note_label_changed``: hiding a
+    label that ignores transformations emits no ``changed``). A pan, a zoom and
     a repaint do not move it: they change the view, not the scene, and what is kept
     is in plan coordinates. ``changed`` reaches a slot before the paint it causes,
     but only once the event loop runs: a writer that repaints at once, without it,
@@ -193,6 +195,13 @@ class CanvasScene(QGraphicsScene):
     #: Plan content changed; the argument is the new ``plan_revision``.
     plan_changed = pyqtSignal(int)
     document_replaced = pyqtSignal()
+
+    #: The paint revision (class docstring). A class attribute as well as an
+    #: instance one: Qt emits ``changed`` while it destroys a scene, and by then
+    #: the garbage collector may have cleared the Python object's attributes —
+    #: the slot must still find something to count on (the #230 teardown trap;
+    #: seen as "'CanvasScene' object has no attribute" in the group menu tests).
+    _paint_revision = 0
     diagnostics_changed = pyqtSignal()
     timeline_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
@@ -248,9 +257,9 @@ class CanvasScene(QGraphicsScene):
         # an export switches it off for the length of its render (§8.9.16).
         self._diagnostic_overlays_visible = True
 
-        # Per viewport, the object labels the last paint chose to show
-        # (``_paint_plan_labels``): a change repaints that viewport once.
-        self._shown_plan_labels: dict[int, frozenset[int]] = {}
+        # The label pass, with each viewport's kept layout (``plan_labels``);
+        # made at the first paint.
+        self._label_pass: LabelPass | None = None
         # What each viewport's view draws over it that no label may touch
         # (``set_label_blockers``), by the viewport's id.
         self._label_blockers: dict[int, tuple[QRectF, ...]] = {}
@@ -348,14 +357,17 @@ class CanvasScene(QGraphicsScene):
         super().drawForeground(painter, rect)
         if painter is None:
             return
-        from open_garden_planner.ui.canvas.plan_labels import (
-            paint_plan_labels,
-            paint_succession_badges,
-        )
+        if self._label_pass is None:
+            from open_garden_planner.ui.canvas.plan_labels import LabelPass
 
-        # The badges first: an object's name lies over a badge, never under it.
-        paint_succession_badges(self, painter, rect)
-        paint_plan_labels(self, painter, rect, self._shown_plan_labels)
+            self._label_pass = LabelPass()
+        self._label_pass.paint(self, painter, rect)
+
+    @property
+    def label_layouts(self) -> int:
+        """How often the labels were laid out for a viewport — the instrument
+        of the label pass (counted, never timed: §8.10.10)."""
+        return self._label_pass.layouts if self._label_pass is not None else 0
 
     def plan_labels_shown(
         self, world: QTransform, blocked: "Sequence[QRectF]" = ()
@@ -2044,6 +2056,8 @@ class CanvasScene(QGraphicsScene):
         self._provisional_z = {}
         # What is kept for painting describes them too.
         self._standing_covers = None
+        if self._label_pass is not None:
+            self._label_pass.clear()
         self._paint_revision += 1
         super().clear()
         self.timeline_changed.emit()  # readers must see the empty, completed document
