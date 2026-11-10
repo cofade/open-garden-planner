@@ -492,13 +492,19 @@ class TourDialog(QDialog):
         self._sync_controls()
 
     def _show_pitch(self) -> None:
-        """The tilt control shows ``_orbit_pitch``; its range is the orbit's (a saved tour's
-        own tilt always fits, so showing it never changes it)."""
+        """The tilt control shows the tilt the orbit flies: a saved tour's own (its range
+        widened to hold it, so showing it never changes it), or ``_orbit_pitch`` kept above
+        the ground at the view's distance now."""
         low, high = orbit_pitch_range(self._orbit_distance())
+        if self._orbit_start is not None:
+            shown = self._orbit_pitch
+            low, high = min(low, shown), max(high, shown)
+        else:
+            shown = min(max(self._orbit_pitch, low), high)
         self._setting_pitch = True
         try:
-            self.pitch_spin.setRange(min(low, self._orbit_pitch), max(high, self._orbit_pitch))
-            self.pitch_spin.setValue(self._orbit_pitch)
+            self.pitch_spin.setRange(low, high)
+            self.pitch_spin.setValue(shown)
         finally:
             self._setting_pitch = False
 

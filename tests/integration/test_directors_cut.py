@@ -910,8 +910,13 @@ def test_the_tilt_is_the_orbits_pitch_and_keeps_the_eye_above_the_ground(rig: Ri
     assert dialog.spec().motion.pose.pitch_deg == 89.0
     # a view zoomed in to 60 cm: a 5 degree orbit would skim the lawn at 5 cm
     camera = rig.workspace.camera
+    dialog.pitch_spin.setValue(18.0)
     camera.zoom(60.0 / camera.pose.distance_cm)
     camera.snap()
+    dialog.clockwise_check.toggle()              # any change shows the tilt it will fly
+    floor = math.degrees(math.asin(MIN_EYE_CM / 60.0))
+    assert dialog.pitch_spin.value() == pytest.approx(floor, abs=0.06), "not the 18 it cannot fly"
+    assert dialog.spec().motion.pose.pitch_deg == pytest.approx(floor, abs=0.01)
     dialog.pitch_spin.setValue(5.0)
     spec = dialog.spec()
     assert spec.motion.pose.distance_cm == pytest.approx(60.0, rel=0.01)
