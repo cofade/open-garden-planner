@@ -3110,6 +3110,78 @@ class BooleanShapeCommand(Command):
                     self._scene.addItem(item)
 
 
+class SplitShapeCommand(Command):
+    """Replace one shape by the pieces on each side of a cutting line (#664).
+
+    The source stays alive in this command for undo, exactly like
+    ``BooleanShapeCommand``; execute removes it and adds the pieces in one
+    undo step, undo reverses both.
+
+    A ridge-bearing building (a house, a greenhouse) is split like any other
+    shape. Its linked ``ROOF_RIDGE`` is derived geometry that names its owner,
+    so the source's ridge leaves and returns with the source, and every piece
+    gets its own ridge from the one construction path
+    (``roof_ridge_link.build_copy_ridges``) on the first execute. A building
+    without a ridge (the user deleted it: a flat roof) gives pieces without one.
+    Construct the command while the source is still in the scene: that is when
+    its ridge can be looked up.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        source: QGraphicsItem,
+        pieces: list[QGraphicsItem],
+    ) -> None:
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
+
+        self._scene = scene
+        self._source = source
+        self._pieces = list(pieces)
+        self._source_ridges: list[QGraphicsItem] = linked_ridges_under(source)
+        self._piece_ridges: list[QGraphicsItem] | None = None
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Split shape")
+
+    def execute(self) -> None:
+        for ridge in self._source_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
+        if self._source.scene() is self._scene:
+            self._scene.removeItem(self._source)
+        with _bulk_add_scope(self._scene):
+            for piece in self._pieces:
+                if piece.scene() is None:
+                    self._scene.addItem(piece)
+            if self._piece_ridges is None:
+                from open_garden_planner.ui.canvas.roof_ridge_link import (
+                    build_copy_ridges,
+                )
+
+                self._piece_ridges = (
+                    build_copy_ridges(self._pieces) if self._source_ridges else []
+                )
+            for ridge in self._piece_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
+
+    def undo(self) -> None:
+        for ridge in self._piece_ridges or []:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
+        for piece in self._pieces:
+            if piece.scene() is self._scene:
+                self._scene.removeItem(piece)
+        with _bulk_add_scope(self._scene):
+            if self._source.scene() is None:
+                self._scene.addItem(self._source)
+            for ridge in self._source_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
+
+
 class ArrayAlongPathCommand(Command):
     """Place copies of an item along a path."""
 

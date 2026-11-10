@@ -135,6 +135,7 @@ def _constraint_toolbar(qtbot):
     ("tool_type", "shortcut"),
     [
         (ToolType.TRIM_EXTEND, "I"),
+        (ToolType.SPLIT, "Shift+S"),
         (ToolType.OFFSET, "O"),
         (ToolType.FILLET, "Shift+F"),
         (ToolType.CHAMFER, "Shift+C"),
@@ -165,6 +166,18 @@ def test_the_constraint_toolbars_shortcut_is_native_and_appears_once(
         "the shortcut must be the one, final parenthesised group"
     )
     assert f"({shortcut}) (" not in tip, "the raw English shortcut leaked in"
+
+
+def test_the_split_tool_and_its_toolbar_button_agree_on_the_shortcut(qtbot) -> None:
+    """Two declarations exist; a drift guard keeps them one answer."""
+    from open_garden_planner.core.tools.split_tool import SplitShapeTool
+
+    toolbar = _constraint_toolbar(qtbot)
+    assert SplitShapeTool.shortcut == "Shift+S"
+    assert (
+        toolbar._buttons[ToolType.SPLIT].shortcut().toString()
+        == SplitShapeTool.shortcut
+    )
 
 
 def test_the_constraint_toolbars_shortcut_is_german_in_a_german_ui(qtbot) -> None:

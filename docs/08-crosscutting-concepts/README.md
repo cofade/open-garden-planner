@@ -8249,7 +8249,7 @@ rectangle/ellipse/circle edge types are unique but share index 0.
 
 An item's right-click menu is built by the item, but a capability that must
 appear on every item type lives in ONE shared seam so a new type cannot miss
-it. There are four, all reachable from `GardenItemMixin` (and used directly by
+it. There are five, all reachable from `GardenItemMixin` (and used directly by
 the item classes that do not inherit it):
 
 | Capability | Builder / dispatcher | Contract |
@@ -8258,6 +8258,7 @@ the item classes that do not inherit it):
 | Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
 | Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
 | Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22 |
+| Split along a line | `split_menu.build_split_action` (QAction `triggered`) | §8.35, ADR-075, FR-35; closed shapes only |
 
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on
@@ -8275,3 +8276,95 @@ already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
+
+## 8.35 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)
+
+**Split along a line.** `build_split_action` in
+`ui/canvas/items/split_menu.py` is the one context-menu seam for every closed
+shape (polygon, rectangle, circle, ellipse). It asks the view's
+`split_refusal_reason` before enabling the row and starts
+`CanvasView.start_split_shape`, which scopes the gesture to that shape. The CAD
+toolbar places the same tool next to Trim/Extend, and `Shift+S` reaches it;
+both start a scene-wide cut with no source selection: the first canvas click
+is the line's first point. `SplitShapeTool` freezes the visible closed-shape
+candidates at that click, and each `mouse_move` tests them with
+`shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
+DRAWN SEGMENT passes through are candidates — a shape lying on the line's
+infinite extension but not reached by it is left alone, and a segment that only
+touches an outline (a snapped corner, an edge, a tangent) is not a crossing. On
+the second pick the tool cuts every candidate along the segment's supporting
+axis, so a fully crossed shape becomes two halves and a clipped one is cut when
+both pieces are large enough to keep. The preview draws the bright segment plus
+a faint supporting axis, so the user sees the line that actually cuts. Geometry
+is `core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is
+cut by the two half-planes, so a rotated source keeps its rotation and
+fill-pattern direction. All cuts of one gesture share one undo step: a bare
+`SplitShapeCommand` when no membership reconciliation is needed, otherwise a
+`CompoundCommand` (several sources, or one planted bed plus its plant re-home).
+Pieces are ordinary `PolygonItem`s with the source's layer, type (where valid for a
+polygon), look, `fill_transform`, label/area state, metadata and stack rank.
+Curves flatten to polygons; a concave shape may produce more than two pieces; a
+hole is refused. A bed or other plant parent with a polygonal form is eligible: a
+`ReconcileBedMembershipCommand` in the same undo step re-homes every linked
+plant to the piece containing its standing point. Refused shapes are skipped (a
+success message counts them); when nothing can be split the first refusal reason
+is shown instead of a command. The refusal list (a plant itself, tracked UUIDs,
+constraints, locked layers, group members, containers) is in `ADR-075`
+and `CanvasView.split_refusal_reason`, backed by
+`ProjectManager.has_item_references`. The shortcut is `Shift+S`, never `S`:
+`S` is the main window's Snap to Grid, and two window shortcuts on one key make
+Qt fire neither (PF-UI-36).
+
+*What a piece owes its source beyond a copy.* A house or a greenhouse is split
+like any other shape: `SplitShapeCommand` removes the source's linked ridge with
+the source and builds every piece its own (`build_copy_ridges`); a source without
+a ridge gives pieces without one, and a piece never keeps the source's
+`ridge_item_id`. A ridge that is constrained or on a locked layer refuses the
+split. A piece whose type had to change goes through
+`item_look.adopt_rebuilt_type`, the one entry point for a rebuild's type change
+(the corner tools and the loader's raised-bed migration call it too): it keeps
+the height the source stood at (`object_height.carry_height_across_type_change`:
+a raised bed's 40 cm is a type default the garden-bed piece does not have) and
+takes the new type's fill pattern. The split passes `keep_fill` for a source
+painted by its own brush, so the user's pattern survives the cut; a sprite's
+stored fill was never on screen. A new "rebuild this shape" operation calls
+`adopt_rebuilt_type`; copying the type and the look alone loses the height.
+
+**Esc on the canvas, in one order.** `CanvasView._escape_inner_mode` leaves one
+narrower mode per press - a running calibration, vertex editing, a group
+drill-down. With none active, `return_to_select_tool` ends the tool: it runs
+after the active tool's own `key_press`, and deactivating a tool cancels its
+gesture, so a new tool needs no Esc code of its own. A focused inline editor (a
+text annotation, a callout, a label) is handed the key through
+`super().keyPressEvent` first - the view sees keys before the scene, so the tool
+switch would otherwise swallow it - and the tool ends on that same Esc. The main
+window's `keyPressEvent` calls `CanvasView.handle_escape` (the same two steps)
+for an Esc no focused widget consumed: right after a tool is picked, or while a
+drilled-down member is edited, the focus is in a panel or the search field, and
+one Esc must not depend on where the focus happens to be. A tool switch through
+`CanvasView.set_active_tool` hides the distance/angle prompt.
+
+**Group drill-down.** Qt routes a group child's selection back to the group, so
+there is no Qt-level "selected child" state to switch to. The second click on a
+member sets `CanvasView.drill_down_item` instead: the group remains the Qt
+selection, the member stays its child (same layer, same saved frame), and
+`effective_selection()` is the one list every panel consumes. `drill_down_changed`
+notifies them because Qt emits no `selectionChanged`. `GroupItem.paint` draws the
+focused member's inner outline only while the group is selected. A body drag is
+the view's own gesture (`begin_drill_down_drag`), not Qt's group drag; arrow keys
+and the Properties panel convert scene deltas through `_delta_in_parent_frame`.
+The member's resize/rotation handles are shown, but their own press never reaches
+them inside the selected group, so the view replays the gesture through the
+handles' `begin_drag` / `apply_drag` / `end_drag` seam. The member cannot change
+layer, be cut or be deleted while focused, and a constrained member or ancestor
+refuses movement. Clicking outside the member or pressing `Esc` clears the focus
+and restores every grouped ancestor's `ItemIsMovable` flag. Smart symbols are not
+drillable because their members are generated from parameters. The focus depends
+on the group staying selected, and Qt unselects a group when a flag is set on
+a non-selectable descendant that already existed when its parent joined the
+group - a member's handles, created when the user selected it before grouping
+(PF-CAN-48). The minimap hides such items by opacity, and any new code that
+toggles flags on arbitrary scene items has to make the same exception. Test
+drill-down in the running window (`GardenPlannerApp`), past a minimap refresh,
+with members that were selected before they were grouped; a bare canvas has no
+minimap.

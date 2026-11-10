@@ -104,10 +104,13 @@ class LiveSunMap(QObject):
         elif self.heatmap.displayed_snapshot == self._desired:
             self.heatmap.restore_displayed_measurements()
             self._resolve_waiters()
-        elif not self.heatmap.result_pending and self._failed != self._desired:
-            if not self.heatmap.run_for_day(self.clock.plan_date):
-                self._failed = self._desired
-                self._fail_waiters(RuntimeError(self.tr("Hours of Sun could not be computed.")))
+        elif (
+            not self.heatmap.result_pending
+            and self._failed != self._desired
+            and not self.heatmap.run_for_day(self.clock.plan_date)
+        ):
+            self._failed = self._desired
+            self._fail_waiters(RuntimeError(self.tr("Hours of Sun could not be computed.")))
         self._reflect()
 
     def _finished(self, success: bool) -> None:
