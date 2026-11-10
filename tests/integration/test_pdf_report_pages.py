@@ -181,6 +181,27 @@ def _planted_scene(count: int) -> CanvasScene:
     return scene
 
 
+def test_the_position_in_the_plant_list_is_the_plant_not_its_badge(qtbot) -> None:
+    """The Position column names where the plant stands. Its bounding
+    rectangle also holds what marks it: a companion ring all round, an
+    antagonist badge in one corner. The badge moved the listed position off
+    the plant (PF-CAN-51)."""
+    scene = CanvasScene(3000, 2000)
+    plain = _plant(400, 600, ObjectType.PERENNIAL, name="Basil")
+    flagged = _plant(1200, 900, ObjectType.PERENNIAL, name="Fennel")
+    scene.addItem(plain)
+    scene.addItem(flagged)
+    flagged.set_antagonist_warning(True)
+    flagged.set_companion_highlight("antagonistic")
+    off_centre = flagged.mapToScene(flagged.boundingRect().center())
+    assert abs(off_centre.x() - 1200) > 1 and abs(off_centre.y() - 900) > 1, (
+        "the badge does not widen the rectangle to one side: the test shows nothing"
+    )
+
+    rows = {name: position for name, _kind, position, _notes in svc._plant_rows(scene)}
+    assert rows == {"Basil": "(400, 600)", "Fennel": "(1200, 900)"}
+
+
 @pytest.mark.parametrize("count", [0, 5, 21, 22, 70, 200])
 def test_the_plant_list_shows_every_plant_with_a_name(
     qtbot, monkeypatch: pytest.MonkeyPatch, count: int

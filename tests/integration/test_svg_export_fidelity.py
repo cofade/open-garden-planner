@@ -21,6 +21,7 @@ on the file's structure instead of on pixels.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -39,7 +40,11 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.items.text_item import TextItem
 from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
-from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowOverlayItem
+from open_garden_planner.ui.canvas.sun_shadow_controller import (
+    STATE_ACTIVE,
+    SunShadowController,
+    SunShadowOverlayItem,
+)
 
 EXAMPLES = ["family-garden", "balcony", "food-forest", "raised-bed"]
 
@@ -274,6 +279,43 @@ def test_a_bundled_example_exports_to_svg_as_it_exports_to_png(qtbot, tmp_path: 
     reference, raster, _svg = _export_both(scene, tmp_path)
     mean, share = _difference(reference, raster)
     assert mean < MAX_MEAN_DIFFERENCE and share < MAX_SHARE_OFF, (example, mean, share)
+
+
+@pytest.mark.parametrize("example", ["family-garden", "food-forest"])
+def test_a_bundled_example_with_the_sun_study_on_exports_to_svg_as_to_png(
+    qtbot, tmp_path: Path, example: str
+) -> None:
+    """The examples above are loaded with no sun study, so their pictures hold
+    no shadow. With a live ``SunShadowController`` the overlay of a real plan
+    is in the picture: a shade of many outlines and its soft edge, which is a
+    field laid down as a picture (#793) — in the SVG as in the PNG."""
+    bare_folder, sun_folder = tmp_path / "bare", tmp_path / "sun"
+    bare_folder.mkdir()
+    sun_folder.mkdir()
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / f"{example}.ogp", as_template=True)
+    without, without_raster, _svg = _export_both(scene, bare_folder)
+
+    controller = SunShadowController(scene, lambda: {"latitude": 52.52, "longitude": 13.405})
+    controller.set_sim_datetime(datetime(2026, 6, 21, 15, 30, tzinfo=UTC))
+    controller.set_enabled(True)
+    assert controller.state == STATE_ACTIVE
+    (overlay,) = [item for item in scene.items() if isinstance(item, SunShadowOverlayItem)]
+    assert overlay.isVisible() and not overlay.path().isEmpty()
+
+    reference, raster, _svg = _export_both(scene, sun_folder)
+    mean, share = _difference(reference, raster)
+    assert mean < MAX_MEAN_DIFFERENCE and share < MAX_SHARE_OFF, (example, mean, share)
+    # What the study adds to each picture: the darkening against the same
+    # format without it, so a texture the two rasterisers resample differently
+    # cancels out. A tenth of the PNG is shade ...
+    shade = _blocks(without) - _blocks(reference)
+    shaded = shade.sum(axis=2) > 30
+    assert shaded.mean() > 0.10, shaded.mean()
+    # ... and the SVG is darker by the same amount in the same places.
+    in_svg = _blocks(without_raster) - _blocks(raster)
+    assert np.abs(in_svg - shade)[shaded].mean() < MAX_MEAN_DIFFERENCE
+    assert np.abs(in_svg - shade)[~shaded].mean() < MAX_MEAN_DIFFERENCE
 
 
 @pytest.mark.parametrize("example", EXAMPLES)

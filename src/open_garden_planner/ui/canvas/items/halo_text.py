@@ -21,6 +21,7 @@ Three users share this module:
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import (
@@ -44,6 +45,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.legibility import halo_for, legible_ink
+from open_garden_planner.core.plain_text import clip_line
 
 #: Width of the stroke under the glyphs as a share of the font's ascent; half of
 #: it shows around each glyph. A share, not a pixel count: an export gives the
@@ -55,6 +57,40 @@ HALO_MIN_WIDTH_PX = 3.0
 #: The halo is opaque: a see-through halo takes on the background's tone and
 #: the contrast it is there for is gone.
 HALO_ALPHA = 255
+
+
+def note_label_changed(item: QGraphicsItem) -> None:
+    """Tell ``item``'s scene that a label of the plan changed what it shows:
+    its text, its size, whether it is visible, whether it is in the scene.
+
+    The scene keeps each viewport's label layout until its paint revision
+    moves (``plan_labels.LabelPass``), and Qt's ``changed`` does not carry
+    these: hiding or showing an item that ignores transformations emits
+    nothing (measured, PF-CAN-60). A scene without a label pass has no
+    ``note_paint_changed`` and nothing is told.
+    """
+    note = getattr(item.scene(), "note_paint_changed", None)
+    if note is not None:
+        note()
+
+
+#: The changes of a label item that change the layout of the plan's labels.
+#: ``ItemSceneChange`` is sent while the item is still in the scene it leaves.
+LABEL_LAYOUT_CHANGES = frozenset({
+    QGraphicsItem.GraphicsItemChange.ItemVisibleHasChanged,
+    QGraphicsItem.GraphicsItemChange.ItemSceneChange,
+    QGraphicsItem.GraphicsItemChange.ItemSceneHasChanged,
+    QGraphicsItem.GraphicsItemChange.ItemParentHasChanged,
+})
+
+
+def label_text(text: str | None) -> str:
+    """What a label on the plan shows of ``text``: one line of at most
+    ``core.plain_text.NAME_MAX_CHARS`` characters, with an ellipsis where
+    something was cut (``clip_line``) — a name as the 3D info card and the
+    problems list show it. It reads a prefix of ``text`` whose length depends
+    on the cap alone, so a name of any length costs what the cap costs."""
+    return clip_line(text or "")
 
 
 def halo_colors(requested: QColor) -> tuple[QColor, QColor]:
@@ -347,14 +383,59 @@ class PlanLabelItem(HaloTextItem):
     whose size could earn it room. It states ``free_extent_px`` instead: what
     it counts as among the objects' sizes on screen. Zero, the default, shows
     no ownerless label, as before.
+
+    **It takes no click** (``shape()`` is empty). Whether it is painted is the
+    label pass's decision, per paint and per view, and the item knows nothing
+    of it: with its rectangle as its shape, a label that was left out still
+    covered the plan, and a press there selected nothing and started no box
+    selection (a third of an 853-plant plan at fit). A label is writing on the
+    plan, not a body; what lies under it takes the click, the double click, the
+    context menu and the tooltip.
+
+    **Its text is bounded** (``label_text``). A name comes from a plan file,
+    which is untrusted input (§8.11), and a label lays its text out and strokes
+    every glyph's outline: a name of a million characters froze the canvas for
+    47 s at its first paint, and one of a million and a half crashed Qt's
+    stroker. Both ways a label gets its text go through the one rule that every
+    row and card showing a name uses.
     """
 
     #: The size on screen an ownerless label is placed as (pixels); see the class.
     free_extent_px: float = 0.0
 
     def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
-        super().__init__(text, parent, centered=True)
+        super().__init__(label_text(text), parent, centered=True)
         self.rank = rank
+        note_label_changed(self)
+
+    def shape(self) -> QPainterPath:
+        """Nothing: no point of the plan is a hit on a label (class docstring)."""
+        return QPainterPath()
+
+    # The scene keeps the layout of its labels between paints; a label says
+    # when it changed what that layout was taken from (``note_label_changed``).
+
+    def setText(self, text: str | None) -> None:
+        """Set the text the label shows: ``label_text`` of ``text``."""
+        super().setText(label_text(text))
+        note_label_changed(self)
+
+    def setFont(self, font: QFont) -> None:
+        super().setFont(font)
+        note_label_changed(self)
+
+    def set_screen_offset(self, dx: float, dy: float) -> None:
+        super().set_screen_offset(dx, dy)
+        note_label_changed(self)
+
+    def stack_under(self, other: HaloTextItem | None) -> None:
+        super().stack_under(other)
+        note_label_changed(self)
+
+    def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
+        if change in LABEL_LAYOUT_CHANGES:
+            note_label_changed(self)
+        return super().itemChange(change, value)
 
     def paint(
         self,

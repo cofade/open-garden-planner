@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -33,12 +33,16 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from PyQt6.QtGui import QPainterPath
     from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
+from open_garden_planner.ui.canvas.items.halo_text import (
+    LABEL_LAYOUT_CHANGES,
+    label_text,
+    note_label_changed,
+)
 from open_garden_planner.ui.canvas.layout_font import device_independent
 
 
@@ -132,7 +136,7 @@ class SuccessionBadgeItem(QGraphicsItem):
       device: on a 1200-dpi printer the 7 pt text was 117 pixels tall in rows
       of 13, three crop names overprinting one another.
     * **Painted in the scene's label pass**, after every item
-      (``plan_labels.paint_succession_badges``): a child item is drawn with its
+      (``plan_labels.LabelPass``): a child item is drawn with its
       bed, so the plants growing in the bed used to cover it. The pass also
       decides whether it has room (``core.label_layout.badge_has_room``): on a
       plan zoomed far out a tag of constant size is larger than its bed. In a
@@ -175,14 +179,27 @@ class SuccessionBadgeItem(QGraphicsItem):
         self._font = QFont(font)
         self._recompute_size()
         self.update()
+        note_label_changed(self)
 
     def set_lines(self, lines: list[tuple[str, bool]]) -> None:
+        """Set the crops the tag names, each as a label shows a name
+        (``label_text``): a crop's name comes from the plan's species data, and
+        the tag measures and draws every row by hand at every paint."""
+        lines = [(label_text(name), current) for name, current in lines]
         if lines == self._lines:
             return
         self.prepareGeometryChange()
-        self._lines = list(lines)
+        self._lines = lines
         self._recompute_size()
         self.update()
+        note_label_changed(self)
+
+    def itemChange(self, change: QGraphicsItem.GraphicsItemChange, value: Any) -> Any:
+        # The scene keeps what its label pass shows between paints, and hiding
+        # a tag that ignores transformations emits no ``changed``.
+        if change in LABEL_LAYOUT_CHANGES:
+            note_label_changed(self)
+        return super().itemChange(change, value)
 
     def _rendered_rows(self) -> list[tuple[str, bool, bool]]:
         """Return (text, is_current, is_overflow) for each row that will be drawn."""
@@ -233,6 +250,13 @@ class SuccessionBadgeItem(QGraphicsItem):
         # bottom-left corner: the tag lies inside the bed.
         margin = self._MARGIN * self._line_h
         return QRectF(margin, -self._cached_h - margin, self._cached_w, self._cached_h)
+
+    def shape(self) -> QPainterPath:
+        """Nothing: the tag takes no click, like every label of the plan
+        (``PlanLabelItem``). Where it is painted it lies on its bed, which
+        takes the click; where the pass leaves it out it reaches past a bed
+        too small for it and must not cover the plan there."""
+        return QPainterPath()
 
     def paint(
         self,
@@ -886,7 +910,7 @@ class GardenItemMixin(PositionLockMixin):
     def grid_cover_path(self) -> "QPainterPath":
         """The part of the plan this object covers, in item coordinates.
 
-        The canvas grid is not drawn over it (``CanvasView._grid_region``).
+        The canvas grid is not drawn over it (``CanvasView._draw_grid``).
         """
         return self.shape()  # type: ignore[attr-defined,no-any-return]
 

@@ -17,7 +17,7 @@ grep -c "NEVER use PowerShell" $G          # row 27
 grep -c "register_applied" $G              # row 20
 
 # Source anchors still exist:
-grep -n "_fix_svg_pattern_yflip\|_fix_svg_qt_texture_clipping" src/open_garden_planner/services/export_service.py
+grep -n "class _RecordingEngine\|def record_scene\|def write_svg" src/open_garden_planner/services/svg_export.py
 grep -n "isinstance(grabber" src/open_garden_planner/ui/canvas/canvas_view.py
 grep -n "def trigger_soil_mismatch_refresh\|def _refresh_z_after_relink" src/open_garden_planner/core/commands.py
 grep -n "class TestNoHardcodedEnglish" tests/unit/test_i18n.py

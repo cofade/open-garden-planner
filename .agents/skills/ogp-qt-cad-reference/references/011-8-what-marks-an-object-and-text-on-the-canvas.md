@@ -12,6 +12,6 @@ Three rules, each with the mistake behind it. Full text: `docs/08-crosscutting-c
 
 **A diagnostic decoration is no part of a picture of the plan.** One seam: `ExportService._hide_overlay_items` in `src/open_garden_planner/services/export_service.py`. A badge item gets its own type and joins the tuple there. A decoration painted by a garden item asks `_diagnostics_painted()` first and is listed in `has_diagnostic_decoration()`.
 
-**The canvas grid is clipped, not reordered.** `CanvasView._grid_region` cuts every drawn object that is not a ground surface out of the region the grid lines are clipped to. A view-level pass is in no export.
+**The canvas grid is cut out, not reordered.** `CanvasView._draw_grid` draws the lines into a layer and clears every drawn object that is not a ground surface from it. What stands on the plan is kept by the scene (`CanvasScene.standing_covers()`, in plan coordinates) until `paint_revision` moves: a paint, a pan and a zoom never walk the scene (PF-CAN-60). A view-level pass is in no export.
 
 **Fonts.** A `TextItem` or a callout is scaled by the view, so its font is unhinted (`PreferNoHinting`); an exact point size and the document's design metrics were measured to add nothing. The offscreen platform does not hint: a pixel test cannot show a hinting defect there (debug-verbose case study, #793).

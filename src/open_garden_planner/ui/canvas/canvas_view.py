@@ -14,12 +14,9 @@ from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from PyQt6.QtGui import QPainterPath
-
     from open_garden_planner.core.commands import Command
     from open_garden_planner.core.plant_renderer import PlantCategory
     from open_garden_planner.ui.canvas.items import CircleItem
-    from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
 from PyQt6.QtCore import (
@@ -45,7 +42,6 @@ from PyQt6.QtGui import (
     QPainter,
     QPaintEvent,
     QPen,
-    QRegion,
     QTransform,
     QWheelEvent,
 )
@@ -106,6 +102,7 @@ from open_garden_planner.core.snap.providers import (
     TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
+from open_garden_planner.core.sprite_raster import ensure_sprite_cache_room, paint_layer
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -4181,63 +4178,49 @@ class CanvasView(QGraphicsView):
 
         painter.restore()
 
-    def _grid_region(self, painter: QPainter, rect: QRectF) -> QRegion:
-        """Where the grid may be drawn, in the painter's device pixels.
-
-        The plan, less every object that stands on the ground. The grid is
-        painted after the items (a view-level pass, so no export carries it),
-        yet it must read as lying UNDER the objects: a line across a tree's
-        crown or a table looks like a scratch on the picture (#793). Painting
-        it before the items instead would hide it under every lawn, terrace
-        and bed, which is where it is needed. So the objects are cut out of
-        the region the lines are clipped to. A ground surface
-        (``canvas_scene.on_ground``: lawn, path, terrace, in-ground bed) is no
-        object here; the grid lies on it as the sun study's shadows do.
-        """
-        from open_garden_planner.ui.canvas.canvas_scene import is_standing_object
-        from open_garden_planner.ui.canvas.items import CircleItem
-
-        world = painter.worldTransform()
-        plan = self._canvas_scene.canvas_rect.intersected(rect)
-        region = QRegion(world.mapRect(plan).toAlignedRect())
-        if region.isEmpty():
-            return region
-        covered = QRegion()
-        for item in self._canvas_scene.items(
-            rect, Qt.ItemSelectionMode.IntersectsItemBoundingRect
-        ):
-            # A text note, a callout or a pin is writing on the plan, not a
-            # body the grid passes under; a group is its members.
-            if not is_standing_object(item):
-                continue
-            cover: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
-            outline = item.deviceTransform(world).map(cover)
-            if isinstance(item, CircleItem):
-                # A circle stays a circle under the view's transform: Qt's own
-                # ellipse region is an order of magnitude cheaper than a
-                # polygon's, and plants are most of what stands on a plan.
-                covered += QRegion(
-                    outline.boundingRect().toAlignedRect(), QRegion.RegionType.Ellipse
-                )
-                continue
-            for polygon in outline.toFillPolygons():
-                covered += QRegion(polygon.toPolygon(), Qt.FillRule.WindingFill)
-        return region - covered
-
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
-        """Draw the grid: inside the plan and under the objects (``_grid_region``)."""
-        region = self._grid_region(painter, rect)
-        if region.isEmpty():
+        """Draw the grid: inside the plan and under the objects.
+
+        The grid is painted after the items (a view-level pass, so no export
+        carries it), yet it must read as lying UNDER the objects: a line
+        across a tree's crown or a table looks like a scratch on the picture
+        (#793). Painting it before the items instead would hide it under every
+        lawn, terrace and bed, which is where it is needed. So the lines are
+        drawn into a layer in device pixels (``core.sprite_raster.paint_layer``)
+        and every object that stands on the ground is cut out of that layer
+        before it is laid down. A ground surface (``canvas_scene.on_ground``:
+        lawn, path, terrace, in-ground bed) is no object here; the grid lies on
+        it as the sun study's shadows do.
+
+        What stands on the plan is the scene's to know and is not asked of the
+        objects here (``CanvasScene.standing_covers``, kept until the plan
+        changes): a paint, a pan and a zoom read it. Until the review of #793
+        this method united one region per object on every paint — 70 ms of a
+        120 ms repaint on a plan of 853 objects.
+        """
+        plan = self._canvas_scene.canvas_rect.intersected(rect)
+        if plan.isEmpty():
             return
-        painter.save()
-        # The region is in device pixels: clip with the world transform off.
-        painter.setWorldMatrixEnabled(False)
-        painter.setClipRegion(region, Qt.ClipOperation.IntersectClip)
-        painter.setWorldMatrixEnabled(True)
-        try:
-            self._draw_grid_lines(painter, self._canvas_scene.canvas_rect.intersected(rect))
-        finally:
-            painter.restore()
+        covers = self._canvas_scene.standing_covers()
+        hints = painter.renderHints()
+        erase = QColor(0, 0, 0)
+
+        def draw(layer: QPainter, _target: QRectF) -> None:
+            # The lines as the viewport's own painter would draw them. With a
+            # clip: Qt's raster engine draws a cosmetic line without one ten
+            # times slower (measured: 196 lines, 28 ms against 2.5 ms).
+            layer.setRenderHints(hints)
+            layer.setClipRect(plan, Qt.ClipOperation.IntersectClip)
+            self._draw_grid_lines(layer, plan)
+            # ... and the objects out of them, each with its own fill rule, on
+            # whole pixels: the cut is the edge of a body, not a soft edge.
+            layer.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+            for bounds, cover in covers:
+                if bounds.intersects(plan):
+                    layer.fillPath(cover, erase)
+
+        paint_layer(painter, plan, draw)
 
     def _draw_grid_lines(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the grid lines across ``rect`` (scene coordinates)."""
@@ -4431,6 +4414,14 @@ class CanvasView(QGraphicsView):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the view, then draw overlays in viewport coordinates."""
+        # The sprites of one frame must fit their cache, and a frame is as
+        # large as the viewport in DEVICE pixels. Stated here: a paint is the
+        # one event that follows a resize, a move to another screen and a
+        # change of the display's scaling alike (one comparison when unchanged).
+        viewport = self.viewport()
+        if viewport is not None:
+            ratio = viewport.devicePixelRatioF()
+            ensure_sprite_cache_room(viewport.width() * viewport.height() * ratio * ratio)
         super().paintEvent(event)
 
         painter = QPainter(self.viewport())

@@ -228,7 +228,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "a0c51bdf404bac665505cdf942273cc112dc913c70deef263071afcf211a5b10"
+          "current_sha256": "e0e0025f77d81cde15342ec2992d49ae3b7e681d913a6c7156e92c080dd9a758"
         },
         {
           "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "4261ee2cbb660a69b116d74a84810db5d223b68283b35df09cd466341f779518"
+          "current_sha256": "ae1047d66c02291f68f38e31e0c6274f508c2604c90173adad39d9ba08764a29"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -1148,7 +1148,7 @@
         {
           "path": ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
           "sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc",
-          "current_sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc"
+          "current_sha256": "11ed69b6a8cb2219334eb59d9c70de2761a8be030d2e18ad403314f13b42e848"
         }
       ]
     },
@@ -1628,7 +1628,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "a0c51bdf404bac665505cdf942273cc112dc913c70deef263071afcf211a5b10"
+          "current_sha256": "e0e0025f77d81cde15342ec2992d49ae3b7e681d913a6c7156e92c080dd9a758"
         },
         {
           "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "4261ee2cbb660a69b116d74a84810db5d223b68283b35df09cd466341f779518"
+          "current_sha256": "ae1047d66c02291f68f38e31e0c6274f508c2604c90173adad39d9ba08764a29"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -2548,7 +2548,7 @@
         {
           "path": ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
           "sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13",
-          "current_sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13"
+          "current_sha256": "eea52f6fabba83d06c376fbc58513e6d054d23ab1fda5ac41e5a492dea6dd320"
         }
       ]
     },
@@ -2975,6 +2975,24 @@
         ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
         ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
         ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
+      ]
+    },
+    {
+      "issue": 787,
+      "reason": "The review of the 2D visual-polish branch found a source-anchor grep in the debugging playbook for two helpers that #787 deleted (_fix_svg_pattern_yflip, _fix_svg_qt_texture_clipping). Replace it with the anchors of services/svg_export.py in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
+        ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md"
+      ]
+    },
+    {
+      "issue": 793,
+      "reason": "The fixes of review round 1 (the paint revision, the kept grid cut-out and label layout) add lines to CanvasScene; refresh the two shifted line citations in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md"
       ]
     }
   ]

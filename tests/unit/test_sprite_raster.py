@@ -13,9 +13,12 @@ from open_garden_planner.core import sprite_raster
 from open_garden_planner.core.sprite_raster import (
     MAX_CACHED_SIDE_PX,
     MAX_LAYER_PIXELS,
+    SPRITE_CACHE_CEILING_BYTES,
     SPRITE_CACHE_MAX_BYTES,
     PixmapLru,
+    ensure_sprite_cache_room,
     paint_sprite,
+    sprite_cache_budget,
     sprite_pixel_size,
 )
 
@@ -99,10 +102,47 @@ class TestPixmapLru:
         assert lru.bytes_used == 0 and len(lru) == 0
 
     def test_the_canvas_cache_states_its_bound(self) -> None:
-        """The stated bound of the sprite cache (#785): 64 MB, and no entry
-        larger than 1024 x 1024 = 4 MB."""
-        assert sprite_raster.SPRITE_CACHE.max_bytes == SPRITE_CACHE_MAX_BYTES == 64 * 1024 * 1024
+        """The stated bound of the sprite cache (#785): 64 MB for a viewport
+        of up to two megapixels, never more than 256 MB, and no entry larger
+        than 1024 x 1024 = 4 MB. (A view of an earlier test in this process
+        may have raised it within that range: it is never lowered.)"""
+        assert SPRITE_CACHE_MAX_BYTES == 64 * 1024 * 1024
+        assert SPRITE_CACHE_CEILING_BYTES == 256 * 1024 * 1024
+        assert SPRITE_CACHE_MAX_BYTES <= sprite_raster.SPRITE_CACHE.max_bytes <= SPRITE_CACHE_CEILING_BYTES
         assert MAX_CACHED_SIDE_PX**2 * 4 == 4 * 1024 * 1024
+
+    @pytest.mark.parametrize(
+        ("width", "height", "ratio", "megabytes"),
+        [
+            (1469, 901, 1.0, 64.0),       # the survey's window: the floor
+            (1920, 1080, 1.0, 64.0),      # 2 megapixels: 63 MB asked, the floor
+            (2560, 1300, 1.0, 101.56),
+            (2560, 1300, 1.5, 228.5),     # the same window at 150 %
+            (3840, 2000, 1.0, 234.4),
+            (3840, 2160, 1.0, 253.1),
+            (5120, 2880, 1.0, 256.0),     # the ceiling
+        ],
+    )
+    def test_the_bound_grows_with_the_viewport_up_to_a_ceiling(
+        self, width: int, height: int, ratio: float, megabytes: float
+    ) -> None:
+        """One frame's sprites cover the viewport's device pixels, at up to
+        four pixmap pixels a device pixel and two deep: 32 bytes a pixel."""
+        budget = sprite_cache_budget(width * height * ratio * ratio)
+        assert budget / 2**20 == pytest.approx(megabytes, abs=0.05)
+
+    def test_a_viewport_of_no_size_or_no_number_stays_within_the_bounds(self) -> None:
+        assert sprite_cache_budget(0.0) == SPRITE_CACHE_MAX_BYTES
+        assert sprite_cache_budget(-5.0) == SPRITE_CACHE_MAX_BYTES
+        assert sprite_cache_budget(float("inf")) == SPRITE_CACHE_CEILING_BYTES
+        assert sprite_cache_budget(float("nan")) == SPRITE_CACHE_CEILING_BYTES
+
+    def test_room_is_raised_and_never_lowered(self) -> None:
+        cache = PixmapLru(SPRITE_CACHE_MAX_BYTES, 16)
+        ensure_sprite_cache_room(3840 * 2000, cache)
+        assert cache.max_bytes == sprite_cache_budget(3840 * 2000) > SPRITE_CACHE_MAX_BYTES
+        ensure_sprite_cache_room(800 * 600, cache)      # a second, small view
+        assert cache.max_bytes == sprite_cache_budget(3840 * 2000)
 
 
 class TestLevelIsTheCacheKey:

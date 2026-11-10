@@ -726,7 +726,8 @@ centimetres**.
 **What `paint_sprite` guarantees** (`core/sprite_raster.py`):
 
 - A sprite whose level asks for at most 1024 px a side is a pixmap in
-  `SPRITE_CACHE` (least recently used out; 64 MB, each entry 4 MB at most),
+  `SPRITE_CACHE` (least recently used out; 64 MB, more for a viewport above
+  two megapixels — §8.37; each entry 4 MB at most),
   drawn into its **exact** rectangle — not `toAlignedRect()`, which enlarged a
   10 cm seedling by up to a centimetre and put a bench up to 0.3 cm off its
   rectangle.
@@ -824,7 +825,7 @@ label with `ItemHasNoContents`: that flag is how the minimap blanks screen-space
 items (§8.9.5).
 
 **A bed's succession badge is painted in the same pass (#836)**, before the labels
-(`plan_labels.paint_succession_badges`): as a child item it was drawn with its bed,
+(`plan_labels.LabelPass`): as a child item it was drawn with its bed,
 and the plants growing in the bed covered it. It hangs on the corner of the bed's
 outline (`_position_succession_badge`, called with `_position_label` on every change
 of the outline) and is shown only where it has room on its bed
@@ -846,7 +847,41 @@ closer than the gap and do not exclude each other, and when the name has no room
 the area is left out with it. The layout always
 looks at every label of the scene, never only at a repainted region, or a partial
 repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
-returns the result for a given transform.
+returns the result for a given transform, taken fresh.
+
+**The layout is kept, not taken for a paint.** It walks every item of the scene
+(9 ms on a plan of 853 labelled objects), and until the review of #793 every
+paint took it again, a 40-pixel repaint as a full one. `plan_labels.LabelPass`
+keeps each viewport's layout and takes it again only when what it was taken from
+has changed:
+
+| What changed | How the pass knows |
+|---|---|
+| The scene: an edit, a move under way, a selection (a selected object's labels are pinned), a rename, a label hidden or shown | `CanvasScene.paint_revision` (§8.37). The label items say what Qt's `changed` does not carry: `halo_text.note_label_changed`, from `PlanLabelItem` and `SuccessionBadgeItem` on a change of text, font, stacking, visibility, parent or scene |
+| The zoom | the scale of the paint transform: a label keeps its size on screen while its object changes its own |
+| What the view states no label may touch | the tuple of `set_label_blockers` |
+
+A pan is none of these: which labels have room does not depend on where the plan
+lies in the viewport, so the kept layout is painted moved by the pan. Only a view
+with a blocker lays out again on a pan (the sun map's key stays where it is while
+the labels move under it). A picture of the plan (an export, the minimap, the
+Agent API's render) is laid out for itself and kept by nobody.
+
+**A label that gains or loses its room may lie outside what is being repainted**
+(an object dragged away frees its neighbour's name; Qt repaints the object). The
+pass used to answer every change of the choice with a full repaint of the
+viewport, which painted every zoom step twice: a zoom changes the choice at each
+step and repaints the viewport in full anyway. `_repaint_what_changed` asks for
+the rectangles of exactly the labels that entered or left the choice, and for
+none when the paint covers the viewport. A test of this reads the window's
+backing store (`screen().grabWindow`), never `QWidget.grab()`: a grab paints the
+widget afresh and cannot show a pixel a partial repaint left behind.
+
+Measured on the 853-object plan (1469 × 901, at fit): the pass inside a 40-pixel
+repaint 10–12 ms → 0.1 ms; scene foreground passes per zoom step 2 → 1. What a
+40-pixel repaint still costs with labels on over labels off (2.2 ms: 4.9–5.7
+against 2.8–3.1 ms) is not the pass: Qt keeps items that ignore transformations
+out of its spatial index and walks the owner of every such item on every paint.
 
 **A label of no object states its own weight.** The hours on the sun map's
 contours are `PlanLabelItem`s with no owner (`sun_heatmap.SunMapLabelItem`, #794):
@@ -861,6 +896,35 @@ what it draws over its viewport with `CanvasScene.set_label_blockers(viewport,
 rects)`. The sun map's key is both (§8.9.18). Blockers are placed before every
 label and are never painted by the pass.
 
+**A label shows a bounded text.** An object's name comes from a plan file, which
+is untrusted input (§8.11), and a label lays its text out and strokes every
+glyph's outline. `PlanLabelItem` therefore shows `halo_text.label_text` of what
+it is given, at both places it gets a text (its constructor and `setText`):
+`core.plain_text.clip_line` — one line, `NAME_MAX_CHARS` (80) characters, an
+ellipsis where something was cut, control characters replaced. That is the name
+as the 3D info card and the problems list show it, so a name that was pasted
+with a line break in it reads the same on the plan as in the panels. The name
+itself is untouched (`item.name`, the file, the name editor). The succession
+badge clips each crop name the same way (`SuccessionBadgeItem.set_lines`): it
+measures and draws its rows by hand at every paint. Measured with a real font,
+a raised bed whose name is a million characters: the first paint of the canvas
+46.9 s → 20 ms; with a million and a half, an access violation in Qt's stroker →
+21 ms. A text note or a callout is not a label: its text is the user's own and
+may be long, Qt lays its document out once and the item's device cache paints
+it (a note of a million characters: 0.2 s to make, 1 ms a repaint, 126 ms a
+repaint while it is selected and uncached).
+
+**A label takes no click.** `PlanLabelItem.shape()` and
+`SuccessionBadgeItem.shape()` are empty. Whether a label is painted is the pass's
+decision, per paint and per view; the item knows nothing of it. With its rectangle
+as its shape, a label that was left out still covered the plan: on a plan of 853
+named plants at fit a third of the plan's points lay on a label nobody could see
+(measured by the review of #793), and a press there selected nothing and started
+no box selection. A label is writing on the plan, not a body. What lies under it
+takes the press, the double click (the name editor opens from the object), the
+context menu and the tooltip. No label ever selected its object, so nothing is
+lost: over its object's body the object took the click before, and still does.
+
 **Text notes scale with the view.** A `TextItem` or a callout is laid out once and
 scaled by the zoom, so its font is unhinted (`PreferNoHinting`, set with #789;
 PF-CAN-52). An exact point size and the document's design metrics were measured on
@@ -868,7 +932,9 @@ top of that and change nothing: the letter gaps of a rendered note are the same 
 0.01 px at every zoom.
 
 Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
-`tests/unit/test_label_layout.py`.
+`tests/unit/test_label_layout.py`, `tests/integration/test_plan_label_hits.py`,
+`tests/integration/test_label_layout_cache.py`,
+`tests/integration/test_plan_label_text_bound.py`. PF-CAN-52, PF-CAN-60.
 
 ### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
 
@@ -940,17 +1006,34 @@ soon as the points are closer on screen than the text is wide. A circle's positi
 and diameter labels share the right-edge midpoint and are stacked with
 `AnnotationLabel.set_screen_offset`.
 
-**The canvas grid is clipped, not reordered.** It is a view-level pass (no export
+**The canvas grid is cut out, not reordered.** It is a view-level pass (no export
 carries it) and is painted after the items. It must still read as lying under the
 objects, and it must stay visible on a lawn or a terrace, which a background grid
-would not. `CanvasView._grid_region` therefore clips the lines to the plan less
-every drawn object that is not a ground surface (`canvas_scene.on_ground`). A plant
-cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
+would not. `CanvasView._draw_grid` therefore draws the lines into a layer in
+device pixels (`core.sprite_raster.paint_layer`, the sprites' own route) and
+clears from that layer every drawn object that is not a ground surface
+(`canvas_scene.on_ground`), each with its own fill rule and on whole pixels. A
+plant cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
 
-**"Something stands here" is one predicate.** `canvas_scene.is_standing_object`
-(a visible rectangle, circle, ellipse, polygon or polyline that is no ground
-surface) and the item's `grid_cover_path()` answer it for the grid and for the
-hour labels of the sun map (§8.9.18). **A line covers its stroke, not what it
+**What stands on the plan is kept by the scene, not asked for a paint.**
+`CanvasScene.standing_covers()` holds one path per standing object, in plan
+coordinates, with the rectangle round it. It is taken again when
+`paint_revision` has moved (§8.37) and at no other time: a repaint, a pan and a
+zoom read the same list, because plan coordinates do not change with the view.
+Until the review of #793 the view asked every object on every paint and united
+one `QRegion` per object in Python: 70 ms of a 120 ms repaint on a plan of 853
+objects (now 26 ms, against 24 ms for the lines with no cut-out at all). A
+layer, not a clip: the lines under a clip region of fourteen thousand rectangles
+cost 20 ms more than the lines themselves, and the paths of two objects in one
+clip path cancel where they overlap with opposite winding. The layer's painter
+is given a clip rectangle, though: Qt's raster engine draws a cosmetic line
+without one ten times slower (196 lines, 28 ms against 2.5 ms).
+
+**"Something stands here" is one predicate and one walk.**
+`canvas_scene.is_standing_object` (a visible rectangle, circle, ellipse, polygon
+or polyline that is no ground surface) and the item's `grid_cover_path()` answer
+it, and `canvas_scene.collect_standing_covers` collects it, for the grid and for
+the hour labels of the sun map (§8.9.18). **A line covers its stroke, not what it
 encloses**: `shape()` of a path item is its stroke united with the path *filled*,
 and a fill closes an open line from its end back to its start. A railing round
 three sides of a balcony covered the whole balcony — the grid was cut out of it
@@ -959,8 +1042,9 @@ stroke alone (#794).
 
 Pin: `tests/integration/test_selection_frame.py`,
 `tests/integration/test_canvas_legibility.py`,
+`tests/integration/test_grid_cover_cache.py`,
 `tests/integration/test_sun_map_labels.py::test_an_open_fence_covers_its_line_not_the_ground_it_encloses`;
-PF-CAN-51.
+PF-CAN-51, PF-CAN-60.
 
 ### 8.9.18 The sun map's key and labels, and the shadow's soft edge (#794, #793)
 
@@ -2994,7 +3078,14 @@ The rule, and the one helper (`core/plain_text.py`, standard library only):
    `core/scene3d/sync.py`, the `record_failed` and refusal records in `ui/view3d/snapshot.py`
    — still attach the exception at ERROR or write its message as it came: that story's
    records, pinned by its tests, and an open item.
-4. **Do not write invisible characters into source.** An editing tool turned three `\u`
+4. **What is PAINTED from plan text is capped too.** The rule was written for tooltips, labels
+   and log lines, and the canvas was not on the list: an object's name went into its label on
+   the plan as it came, and the label strokes every glyph's outline. A name of a million
+   characters froze the canvas for 47 s at its first paint; one of a million and a half crashed
+   Qt's stroker. `ui/canvas/items/halo_text.label_text` is `clip_line`, applied where a plan
+   label and a succession badge get their text (§8.9.15, PF-CAN-52). A consumer that does work
+   for every character of a plan string is a consumer of this rule, whatever it does with it.
+5. **Do not write invisible characters into source.** An editing tool turned three `\u`
    escapes into the characters themselves, in the very module that defines the separators.
    Named escapes (`\N{LINE SEPARATOR}`), and `tests/unit/test_plain_text.py` scans `src/` and
    `tests/` for characters a reader cannot see.
@@ -3002,8 +3093,9 @@ The rule, and the one helper (`core/plain_text.py`, standard library only):
 Pinned by `tests/unit/test_plain_text.py` (each separator in turn yields the same capped result;
 the positive control — the old splitter — fails),
 `tests/integration/test_view3d_workspace_widget.py::test_a_hostile_name_is_shown_as_its_characters_everywhere`
-(checked against Qt's own renderer, with the unescaped string as the control) and
-`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`.
+(checked against Qt's own renderer, with the unescaped string as the control),
+`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`
+and `tests/integration/test_plan_label_text_bound.py` (the canvas's labels, with the suite's real font).
 
 **Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 
@@ -9011,11 +9103,19 @@ reports another value a stored size is drawn at another height, as it always was
 
 ## 8.37 Canvas raster caches and repaint cost (#784, #785)
 
-What the plan canvas keeps as pixels, what bounds it, and what a frame costs.
-Numbers are the bundled family-garden example in a 1453 × 898 viewport (fit is
-56 %), spacing rings on, sun overlay on / off — medians of the real application
-on a machine that was rendering other things, each pair measured in one
-session, so read the ratios. "Before" is the same branch without #784 / #785.
+What the plan canvas keeps between paints, what bounds it, and what a frame costs.
+
+**What was measured where.** The two tables below are ONE plan, ONE window and
+ONE display: the bundled family-garden example (101 visible items) in a
+1453 × 898 viewport at a device pixel ratio of 1 (fit is 56 %), spacing rings
+on, sun overlay on / off — medians of the real application on a machine that
+was rendering other things, each pair measured in one session, so read the
+ratios. "Before" is the same branch without #784 / #785. A cost that grows with
+the number of objects or with the viewport's device pixels does not show on
+that plan and window. The review of the branch measured both; what it found and
+what was done about it is under **"A large plan, a large viewport"** below. Not
+measured anywhere: a real high-density display (the ratio 1.5 below is
+`QT_SCALE_FACTOR` on the offscreen platform), and the frozen executable.
 
 | At zoom | Repaint, before → after | 40-px pan step | ×1.1 zoom step |
 |---|---|---|---|
@@ -9034,16 +9134,27 @@ session, so read the ratios. "Before" is the same branch without #784 / #785.
 | Pan gesture at twice fit, 40 steps at 33 Hz, event loop running | 114 ms a step | 21 ms a step | the minimap no longer renders, and drops every item cache, on a pan |
 | Zoom gesture from twice fit, the same | 106 ms a step | 50 ms a step | |
 
-**Three caches, each with a stated bound:**
+**What is kept, each with a stated bound:**
 
-| Cache | Holds | Bound |
+| Kept | Holds | Bound |
 |---|---|---|
 | `QPixmapCache` (Qt's, process-wide) | every `DeviceCoordinateCache` item's device picture, the sun overlay's among them | 256 MB — `ui/canvas/item_cache.ITEM_CACHE_BUDGET_KB`, set by `CanvasScene` |
-| `core.sprite_raster.SPRITE_CACHE` | plant and object sprites per raster level | 64 MB, 4096 entries, 1024 × 1024 px (4 MB) an entry |
+| `core.sprite_raster.SPRITE_CACHE` | plant and object sprites per raster level | 32 bytes for each device pixel of the largest viewport painted, never under 64 MB, never over 256 MB (`sprite_cache_budget`); 4096 entries, 1024 × 1024 px (4 MB) an entry |
 | `core.fill_patterns._level_tiles` | tinted detail tiles per (pattern, colour) | 48 MB, 1 MB an entry |
+| `SunShadowOverlayItem._picture` | the overlay's last rasterisation, or a reduced picture of it | 2048 px a side, 16 MB |
+| `CanvasScene.standing_covers()` | one path per standing object, plan coordinates (the grid's cut-out, §8.9.17) | grows with the plan: about 0.5 MB for 853 objects |
+| `plan_labels.LabelPass` | each viewport's label layout (§8.9.15) | one entry per label shown: about 0.1 MB for 170 labels |
 
 (`render_plant_pixmap`'s and `render_furniture_pixmap`'s own caches, for list
 icons and thumbnails, are 32 MB and 64 MB.)
+
+The last two are not pixels. They are what a paint needs of the WHOLE scene,
+kept in plan coordinates until **`CanvasScene.paint_revision`** moves — the
+rule of this section, and the sun overlay's since US-E3: scene-wide state is
+computed when the scene changes and never inside a paint. The revision moves on
+Qt's `changed`, on every plan change, on a selection change, on `addItem` /
+`removeItem` / `clear`, and when a label says it changed (§8.9.15); a repaint,
+a pan and a zoom do not move it. PF-CAN-60 has what `changed` alone misses.
 
 **Qt's item cache lives in `QPixmapCache`, and its default limit is 10 MB**
 (PF-CAN-49). #430 made every unselected item `DeviceCoordinateCache`; one lawn
@@ -9083,13 +9194,41 @@ lattice to sum. A scrub step at fit should therefore be lighter than the
 - A **zoom** invalidates a device cache at every wheel step. While steps keep
   coming the overlay paints the picture of its last rasterisation, scaled, and
   asks its controller's 120-ms single-shot timer for `settle()`; then it is
-  rasterised for the new zoom, once (`TestZoomGesture`). The picture is kept
-  only up to 2048 px a side (16 MB) and stands in only while it is enlarged
-  at most 4 times — past that it is a blur and the rasterisation is cheap,
-  because little of the shadow is in view (the overlay's share of a zoom step:
-  60–130 ms at fit, 25–45 ms at 4 × fit, 6–13 ms at 8 × fit); a new solve is
-  never shown with an old picture (a scrub rasterises at once); an overlay
-  without a controller never defers.
+  rasterised for the new zoom, once (`TestZoomGesture`). The kept picture is
+  at most 2048 px a side (16 MB: that bound is unchanged) and stands in only
+  while it is enlarged at most 4 times — past that it is a blur and the
+  rasterisation is cheap, because little of the shadow is in view (the
+  overlay's share of a zoom step: 60–130 ms at fit, 25–45 ms at 4 × fit,
+  6–13 ms at 8 × fit); a new solve is never shown with an old picture (a scrub
+  rasterises at once); an overlay without a controller never defers.
+- An overlay **larger than 2048 px** that the device holds whole is painted
+  directly, exact, and keeps a picture of itself *reduced* to 2048 px
+  (`TestAboveTheCap`). That is every viewport of about 2100 device pixels and
+  more at fit: a 4K window, and a 150 % display from about 1365 logical pixels
+  (`QPainter.deviceTransform()` carries the ratio). Until the review of #784
+  nothing was kept there and every wheel step rasterised the overlay again. The
+  reduced picture is not made with the rasterisation but when the settle timer
+  next fires with no zoom under way (120 ms later), so a scrub — a
+  rasterisation per solve — pays nothing for it; a zoom that begins before then
+  makes it at its first step. Its reduction counts as enlargement already
+  spent, so it stands in for a shorter zoom than an exact picture would.
+  Zoomed in far, where Qt's cache holds only the part in view, nothing is kept
+  and every step is rasterised, as before: a picture of the whole overlay would
+  cost more there than what it stands in for. Measured on a plan of 60 casters
+  and 40 trees (3000 × 1800 cm), 8 wheel steps of 5 %, offscreen platform:
+
+  | Viewport (logical), ratio | Overlay, device px | Before: rasterisations, ms a step | After |
+  |---|---|---|---|
+  | 1469 × 901, 1.0 | 1380 × 845 | 0, 8 ms | 0, 8 ms |
+  | 2560 × 1300, 1.0 | 2032 × 1244 | 0, 14 ms | 0, 17 ms |
+  | 3840 × 2000, 1.0 | 3143 × 1925 | 8, 72 ms | 0, 31 ms |
+  | 1469 × 901, 1.5 | 2070 × 1268 | 8, 51 ms | 0, 15 ms |
+  | 2560 × 1300, 1.5 | 3047 × 1867 | 8, 70 ms | 0, 23 ms |
+
+  A scrub step on the same plan is unchanged (21 → 22 ms at 3840 × 2000,
+  23 → 24 ms at 2560 × 1300 and 150 %), and no stand-in is made during one.
+  The ratio 1.5 is `QT_SCALE_FACTOR` on the offscreen platform; a real
+  high-density display was not measured.
 
 **The minimap renders the plan on a scene change, never on a pan or a zoom.**
 Its render disables every item's cache (`scene.render` is not a viewport
@@ -9101,6 +9240,51 @@ probe that repaints without running the event loop never shows. Still true
 after any scene change (a scrub, an edit, the overlay's own settle): the next
 frame that touches an item paints it once.
 `tests/unit/test_minimap_widget.py::TestViewportChangesDoNotRender`.
+
+**A large plan, a large viewport (review of the branch).** Measured on a plan of
+853 named objects built in code (`tests/large_plan.py`: 746 perennials, 107
+raised beds, 50 m × 30 m) at fit in a 1469 × 901 viewport, ratio 1, offscreen
+platform, medians of 11 in three interleaved rounds, before and after in one
+session on a shared machine — read the ratios:
+
+| | Before the review | After | What changed |
+|---|---|---|---|
+| Full repaint, grid on | 126–139 ms | 26 ms | the cut-out is kept by the scene (§8.9.17) |
+| ... the grid's lines with no cut-out | 36–37 ms | 24–26 ms | (the reference: 1.0–1.1 times it now, 3.5–3.8 before) |
+| ... grid off | 27–29 ms | 18–19 ms | no label layout in the repaint |
+| 40-px repaint, labels on / off | 14–17 / 3.5–6.7 ms | 5.1–6.7 / 2.8–3.9 ms | the label layout is kept (§8.9.15): the pass itself 10–12 → 0.1 ms |
+| 40-px repaint, labels and grid on | 19–23 ms | 5.5–6.3 ms | |
+| Scene foreground passes per zoom step | 2 | 1 | the pass asks for the labels that changed, not for the viewport |
+| Zoom step of 3 %, labels and grid on | 116 ms | 51 ms | what is left is every visible item's device cache, as on any plan |
+| 40-px pan step at 1.5 × fit | 33 ms | 13 ms | a pan reads both kept answers |
+| A press on a point of the plan lands on a label nobody sees | 35 % of the plan | none | a label takes no click (§8.9.15) |
+
+The sun overlay above 2048 device pixels is in the list above (72 → 31 ms a
+zoom step in a 3840 × 2000 viewport, 70 → 23 ms at 2560 × 1300 and 150 %).
+
+**The sprite cache has to hold one frame.** A sprite is rasterised at the level
+its painter shows it at — the zoom rounded UP to a power of two — so one frame's
+sprites take up to four pixmap pixels for each device pixel they cover. With the
+cache at a fixed 64 MB a frame of a large viewport did not fit and evicted its
+own sprites: every zoom step, inside one level, rasterised them again. Measured
+in a 3840 × 2000 viewport over a zoom sweep from fit to 8 × fit and back, 45
+steps of 10 %, each step painted twice at one level:
+
+| Plan | 64 MB: steps that rasterised again, worst step | Bound by the viewport (232 MB here) |
+|---|---|---|
+| Family garden (61 plants) | 0 of 45; the cache full at 64.0 MB | 0 of 45 |
+| Food forest | 0 of 45; full at 63.9 MB | 0 of 45 |
+| 853 objects | 8 of 45; 134 sprites at 207 %, 1.3–1.5 s a step | 0 of 45; 74–107 ms a step |
+| 1500 touching crowns | 27 of 45; 523 sprites at 106 %, 2–3.9 s a step | 0 of 45; 88–133 ms a step |
+
+The bound therefore follows the viewport (`sprite_raster.sprite_cache_budget`,
+stated by `CanvasView.paintEvent`): 32 bytes for each device pixel — 4 bytes a
+pixmap pixel, 4 pixmap pixels a device pixel, sprites two deep (a sprite
+reaches past its plant, plants stand under trees). 64 MB up to two megapixels,
+as before; 102 MB at 2560 × 1300; 234 MB at 3840 × 2000; never over 256 MB. It
+is a ceiling: after the sweep the cache held 229 MB on the 853-object plan and
+231 MB on the dense one, and on a plan of a hundred objects it holds what that
+plan's sprites are. Raised, never lowered, like the item cache's.
 
 Rejected, with measurements: replacing the strokes by pre-offset ring polygons
 (`pyclipper`, once per solve) halves the paint (71 → 32 ms) for 6–34 ms more per
@@ -9126,14 +9310,37 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- A scrub step still rasterises the overlay once (60–130 ms at fit, 7–25 ms
-  zoomed in): scrubbing the timeline at fit is as slow as it was. The
-  candidate, not built: a half-resolution picture while solves keep arriving,
-  settled the way a zoom is — it changes the pixels of a scrub frame, so it is
-  the owner's to ask for.
+- **A scrub step is unchanged.** #784 is titled after the stutter of a scrub,
+  and this branch does not remove it: a scrub step still rasterises the
+  overlay once per solve (60–130 ms at fit with the strokes, 7–25 ms zoomed
+  in; 82–84 ms against 100–106 ms in the table above, which is within the
+  noise). What #784 removed is the cost of everything ELSE while the overlay
+  is on. The candidate, not built: a half-resolution picture while solves keep
+  arriving, settled the way a zoom is — it changes the pixels of a scrub
+  frame, so it is the owner's to ask for. The reduced picture kept for a zoom
+  above 2048 px is deliberately not made during a scrub.
+- A zoom step on a large plan is every visible item's device cache: 51 ms
+  on the 853-object plan with nothing else left in it.
+- Labels as items: Qt keeps an item that ignores transformations out of its
+  spatial index and walks the owner of every such item on every paint. With
+  853 labels shown that is 2.2 ms of a 40-pixel repaint (4.9–5.7 ms with the
+  label pass switched off, against 2.8–3.1 ms with the labels hidden), before
+  and after this branch.
+- A pan with the sun map's key on screen lays the labels out at every step:
+  the key stays where it is while the labels move under it.
+- An edit under way (a drag, a rubber band) moves the paint revision at every
+  step, so both kept answers are taken again per frame: 5 ms for the cut-out
+  and 9 ms for the layout on 853 objects — once a frame, where it was once a
+  paint (and the layout twice).
 
 Pinned as a ratio, never in milliseconds: `tests/perf/test_sun_overlay_repaint.py`
 (marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.06–1.14 with
-the fix, 16.9 before). Counted, on any machine: `tests/integration/test_sun_overlay_cache.py`,
-`TestPanIsCheap` in `tests/integration/test_canvas_sharpness.py` and
-`TestViewportChangesDoNotRender` in `tests/unit/test_minimap_widget.py`.
+the fix, 16.9 before) and `tests/perf/test_canvas_repaint_ratios.py` (on the
+853-object plan: a repaint with the grid's cut-out ≤ 2 × the lines alone,
+measured 1.09–1.11 and 1.47 once under load, 3.5 before; a 40-pixel repaint
+with the label pass ≤ 2 × without, measured 1.02–1.09, 2.8 before). Counted, on
+any machine: `tests/integration/test_sun_overlay_cache.py`,
+`tests/integration/test_grid_cover_cache.py`,
+`tests/integration/test_label_layout_cache.py`, `TestPanIsCheap` and
+`TestALargeViewportKeepsItsSprites` in `tests/integration/test_canvas_sharpness.py`
+and `TestViewportChangesDoNotRender` in `tests/unit/test_minimap_widget.py`.

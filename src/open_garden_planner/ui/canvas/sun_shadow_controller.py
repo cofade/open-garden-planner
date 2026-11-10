@@ -46,7 +46,7 @@ from datetime import date, datetime
 from functools import lru_cache
 from typing import Any
 
-from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -112,6 +112,7 @@ from open_garden_planner.core.shadow_geometry import (
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
+from open_garden_planner.core.sprite_raster import device_bounds
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .footprints import (
@@ -159,8 +160,11 @@ _DEBOUNCE_MS = 150
 _SETTLE_MS = 120
 
 # The longest side (device pixels) of the picture kept for that: 16 MB at most.
-# A larger overlay — zoomed in far, where little of it is in view and a
-# rasterisation is cheap — is painted directly at every step, as before.
+# A larger overlay is painted directly, exact, and what is kept for the next
+# zoom is a picture of it reduced to this side (``_keep_stand_in``): a 4K
+# viewport and a 150 % display are above it at fit. Zoomed in far, where the
+# device shows only part of the overlay and a rasterisation is cheap, nothing
+# is kept and every step is rasterised, as before.
 _PICTURE_MAX_SIDE = 2048
 
 # How far the kept picture may be enlarged to stand in for a rasterisation.
@@ -214,6 +218,14 @@ class SunShadowOverlayItem(QGraphicsPathItem):
       while it is enlarged at most ``_PICTURE_MAX_ENLARGEMENT`` times; zoomed in
       past that the overlay is rasterised at every step, which is cheap there.
       ``exact_paints`` counts the rasterisations.
+    - the kept picture is at most ``_PICTURE_MAX_SIDE`` a side. An overlay
+      LARGER than that which the device holds whole (a 4K viewport, a 150 %
+      display) is painted directly, and a picture of it reduced to that side
+      is kept to stand in for the next zoom. It is made when ``settle()`` is
+      next called with no zoom under way, not with the rasterisation: a scrub
+      of the timeline rasterises at every solve and must not pay for a zoom
+      that may never come. A zoom that begins before then makes it at its
+      first step. ``stand_in_paints`` counts these.
 
     An export, a print, the minimap and the Agent API render disable item caches
     first: for them — and for an overlay nobody settles — ``paint`` is the plain
@@ -236,6 +248,13 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self.settle_requested: Callable[[], None] | None = None
         #: Rasterisations of the overlay — the #206-style instrument of #784.
         self.exact_paints = 0
+        #: Reduced pictures made of an overlay too large to keep as painted.
+        self.stand_in_paints = 0
+        #: Such a picture that is owed: the solve, the device transform, the
+        #: overlay's rectangle on the device and the zoom it was painted at.
+        self._stand_in_due: tuple[int, QTransform, QRect, tuple[float, ...]] | None = None
+        #: The solve and zoom the kept picture is a stand-in of, if it is one.
+        self._stand_in_of: tuple[int, tuple[float, ...]] | None = None
         self._generation = 0  # what is painted: bumped by every change of it
         self._settled: list[tuple[float, ...]] = []  # zooms rasterised for
         self._pending: tuple[float, ...] | None = None  # the zoom under way
@@ -354,14 +373,10 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             round(to_device.m21(), 6),
             round(to_device.m22(), 6),
         )
-        if (
-            self._settled
-            and scale not in self._settled
-            and self._picture is not None
-            and self._picture_key is not None
-            and self._picture_key[0] == self._generation
-            and _enlargement(self._picture_key[1], scale) <= _PICTURE_MAX_ENLARGEMENT
-        ):
+        stepping = bool(self._settled) and scale not in self._settled
+        if stepping and not self._stands_in(scale):
+            self._keep_stand_in()  # a zoom that began before the timer fired
+        if stepping and self._stands_in(scale) and self._picture is not None:
             # A zoom step: the last rasterisation, scaled, until the zoom settles.
             # Laid down in DEVICE pixels (the picture is upright there; the view
             # paints the scene through a Y-flip), where it now belongs.
@@ -385,9 +400,21 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         del self._settled[:-_SETTLED_SCALES]
         self._paint_and_keep(painter, to_device, scale)
 
+    def _stands_in(self, scale: tuple[float, ...]) -> bool:
+        """Whether the kept picture may be shown at ``scale``: it is of this
+        solve and would be enlarged no more than a picture may be."""
+        return (
+            self._picture is not None
+            and self._picture_key is not None
+            and self._picture_key[0] == self._generation
+            and _enlargement(self._picture_key[1], scale) <= _PICTURE_MAX_ENLARGEMENT
+        )
+
     def settle(self) -> None:
-        """The zoom has stopped: rasterise for it (the next paint does)."""
+        """The zoom has stopped: rasterise for it (the next paint does). With
+        no zoom under way, make the stand-in that is owed."""
         if self._pending is None:
+            self._keep_stand_in()
             return
         if self._pending not in self._settled:
             self._settled.append(self._pending)
@@ -406,10 +433,14 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             or scale[1] != 0.0  # a turned or sheared view: no axis-aligned picture
             or scale[2] != 0.0
             or area.isEmpty()
-            or max(area.width(), area.height()) > _PICTURE_MAX_SIDE
         ):
             self._paint_exact(painter)
             return
+        if max(area.width(), area.height()) > _PICTURE_MAX_SIDE:
+            self._paint_exact(painter)
+            self._owe_stand_in(painter, to_device, area, scale)
+            return
+        self._stand_in_due = self._stand_in_of = None
         # The same zoom, moved by whole pixels (a pan's strip of a clipped
         # cache): the picture that is kept IS this rasterisation.
         key = (
@@ -444,9 +475,67 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.drawPixmap(area.topLeft(), self._picture)
         painter.restore()
 
+    def _owe_stand_in(
+        self, painter: QPainter, to_device: QTransform, area: QRect, scale: tuple[float, ...]
+    ) -> None:
+        """The overlay was painted directly because it is too large to keep:
+        note that a reduced picture of it is owed, and ask for ``settle()``.
+
+        Only where the device holds the whole overlay. Zoomed in far Qt keeps
+        the part of it in view; rasterising that is cheap, and a picture of
+        the WHOLE overlay would cost more than what it stands in for.
+        """
+        whole = device_bounds(painter).adjusted(-1.0, -1.0, 1.0, 1.0).contains(QRectF(area))
+        if not whole or self.settle_requested is None:
+            self._stand_in_due = None
+            return
+        if self._stand_in_of == (self._generation, scale):
+            return  # the same solve and zoom, painted again: it is kept already
+        self._stand_in_due = (self._generation, to_device, area, scale)
+        self.settle_requested()
+
+    def _keep_stand_in(self) -> None:
+        """Make the picture that is owed (``_owe_stand_in``): the overlay
+        reduced to ``_PICTURE_MAX_SIDE``, so that it costs a share of a
+        rasterisation and its bytes stay within the kept picture's bound."""
+        due, self._stand_in_due = self._stand_in_due, None
+        if due is None or due[0] != self._generation:
+            return
+        _generation, to_device, area, scale = due
+        from_device, invertible = to_device.inverted()
+        shrink = _PICTURE_MAX_SIDE / max(area.width(), area.height())
+        width = max(1, round(area.width() * shrink))
+        height = max(1, round(area.height() * shrink))
+        picture = QPixmap(width, height)
+        if not invertible or picture.isNull():
+            return
+        across, along = width / area.width(), height / area.height()
+        picture.fill(Qt.GlobalColor.transparent)
+        picture_painter = QPainter(picture)
+        try:
+            picture_painter.setTransform(
+                to_device
+                * QTransform.fromTranslate(-area.x(), -area.y())
+                * QTransform.fromScale(across, along)
+            )
+            self._rasterise(picture_painter)
+        finally:
+            picture_painter.end()
+        self.stand_in_paints += 1
+        self._picture = picture
+        # at the zoom the picture has, so that ``_stands_in`` counts its
+        # reduction as enlargement already spent
+        self._picture_key = (self._generation, (scale[0] * across, 0.0, 0.0, scale[3] * along))
+        self._picture_rect = from_device.mapRect(QRectF(area))
+        self._stand_in_of = (self._generation, scale)
+
     def _paint_exact(self, painter: QPainter) -> None:
-        """Rasterise the overlay: the soft edge, then the core."""
+        """Rasterise the overlay for what ``painter`` shows of it."""
         self.exact_paints += 1
+        self._rasterise(painter)
+
+    def _rasterise(self, painter: QPainter) -> None:
+        """Paint the overlay: the soft edge, then the core."""
         path = self.path()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         # Soft outward penumbra — only outside the shadow's own fill area, so

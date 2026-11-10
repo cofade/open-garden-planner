@@ -669,10 +669,14 @@ def _plant_items(scene: Any) -> list[Any]:
 def _plant_rows(scene: Any) -> list[tuple[str, str, str, str]]:
     """Every plant of *scene* as (name, type, position, notes), ordered by name."""
     from open_garden_planner.core.object_types import get_translated_display_name
+    from open_garden_planner.ui.canvas.items.handle_geometry import selection_frame_rect
 
     found: list[tuple[list[Any], float, float, tuple[str, str, str, str]]] = []
     for item in _plant_items(scene):
-        center = item.mapToScene(item.boundingRect().center())
+        # Where the plant stands: the centre of its outline. Its bounding
+        # rectangle also holds a badge in one corner, which moved the listed
+        # position off the plant (PF-CAN-51).
+        center = item.mapToScene(selection_frame_rect(item).center())
         metadata = getattr(item, "metadata", {}) or {}
         notes = (metadata.get("plant_instance") or {}).get("notes", "") or ""
         name = _plant_display_name(item) or _tr("Unnamed")
