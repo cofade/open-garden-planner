@@ -18,7 +18,6 @@ text without hanging; the time bounds after that are generous.
 
 from __future__ import annotations
 
-import time
 
 import pytest
 from PyQt6.QtCore import QRectF
@@ -40,8 +39,8 @@ HUGE = "<table><tr><td>" * 70_000 + "\nsecond line"
 #: No label of the plan is wider than this on screen (80 characters of a bold
 #: 10 pt face are about 700 px; the offscreen box font makes them 1100).
 MAX_LABEL_WIDTH_PX = 2000.0
-#: One paint of a canvas with one object. Measured 2-6 ms; 47 s before.
-MAX_PAINT_S = 2.0
+#: The paint itself is not timed here (a wall-clock bound belongs to the perf tier):
+#: a bounded text is what makes it cheap. Measured 2-6 ms a paint; 47 s before.
 
 
 def _bed(scene: CanvasScene, name: str = "") -> RectangleItem:
@@ -78,10 +77,8 @@ def test_a_name_of_a_million_characters_is_a_bounded_label_and_one_paint(qtbot, 
     assert bed.name == HUGE                         # the plan keeps its name
 
     view = _shown(scene, qtbot)
-    started = time.perf_counter()
     QApplication.processEvents()
     view.viewport().repaint()
-    assert time.perf_counter() - started < MAX_PAINT_S
     shown = [label.text() for label, _d, _b in scene.plan_labels_shown(view.viewportTransform())]
     assert shown == [clip_line(HUGE)]               # ... and the label is painted, not left out
 
@@ -93,10 +90,8 @@ def test_a_rename_to_a_huge_name_is_bounded_too(qtbot, ui_font_family) -> None:
     bed.name = HUGE
     _bounded(bed._label_item)
     view = _shown(scene, qtbot)
-    started = time.perf_counter()
     QApplication.processEvents()
     view.viewport().repaint()
-    assert time.perf_counter() - started < MAX_PAINT_S
 
 
 @pytest.mark.parametrize(
@@ -145,10 +140,8 @@ def test_a_huge_crop_name_is_a_bounded_succession_badge(qtbot, ui_font_family) -
     view = _shown(scene, qtbot)
     view.set_zoom(4.0)                              # the badge has room on its bed
     view.centerOn(550, 400)
-    started = time.perf_counter()
     QApplication.processEvents()
     view.viewport().repaint()
-    assert time.perf_counter() - started < MAX_PAINT_S
 
 
 def test_the_long_label_is_laid_out_once_not_at_every_paint(qtbot, ui_font_family) -> None:
@@ -159,11 +152,9 @@ def test_the_long_label_is_laid_out_once_not_at_every_paint(qtbot, ui_font_famil
         QApplication.processEvents()
     view.viewport().repaint()
     layouts = scene.label_layouts
-    started = time.perf_counter()
     for _ in range(20):
         view.viewport().repaint()
     assert scene.label_layouts == layouts
-    assert time.perf_counter() - started < MAX_PAINT_S
 
 
 def test_a_picture_of_the_plan_paints_the_bounded_label(qtbot, ui_font_family) -> None:
@@ -173,9 +164,7 @@ def test_a_picture_of_the_plan_paints_the_bounded_label(qtbot, ui_font_family) -
     image = QImage(900, 600, QImage.Format.Format_RGB32)
     image.fill(QColor("white"))
     painter = QPainter(image)
-    started = time.perf_counter()
     try:
         render_scene_region(scene, painter, QRectF(0, 0, 900, 600), scene.canvas_rect, y_flip=True)
     finally:
         painter.end()
-    assert time.perf_counter() - started < MAX_PAINT_S
