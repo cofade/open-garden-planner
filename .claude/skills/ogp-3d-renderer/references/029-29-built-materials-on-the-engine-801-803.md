@@ -28,7 +28,8 @@ of" (#801, #803); lessons: PF-E3D-32, PF-L3D-34, PF-L3D-35. Measured on the RTX 
   of the picture's coordinates, Schüler) bends a normal for a picture laid by ANY uv — a
   gable's mirrored half and a hip's faces need no tangent in the mesh. Compiled and rendered
   on Direct3D 11 (GPU and WARP: the render tier's numbers agreed to the decimal) and OpenGL
-  (see the frame-cost table for the backends run).
+  on the GPU (`QSG_RHI_BACKEND=opengl`: the render tier's judge passed every gate); Mesa's
+  llvmpipe was not run here — CI's Linux render job runs `test_built_materials_render.py`.
 - **`VERTEX` and `NORMAL` in a custom vertex shader are MODEL space**: a wall lays its picture
   by its own plane in the item's frame (it stays on the item when it moves or turns). The
   colour goes on through `COLOR` → a varying: `VAR_COLOR` read in a fragment shader without a
@@ -38,7 +39,7 @@ of" (#801, #803); lessons: PF-E3D-32, PF-L3D-34, PF-L3D-35. Measured on the RTX 
   on Direct3D 11; `water.frag` computes GGX with Schlick's Fresnel for water and soft-caps the
   peak at `uGlintCap` = 0.6 / exposure (linear, before the exposure): at the mirror angle of a
   10 / 20 / 30° sun over a 160 cm pond (1280 × 720, high) the clipped share of the water went
-  6.10 / 4.48 / 2.73 % → 0.00 %, peak luma 255 → 212.6 / 227.0 / 237.2. A cap of 1.0 still
+  6.14 / 4.48 / 2.73 % → 0.00 %, peak luma 255 → 212.6 / 227.0 / 237.2. A cap of 1.0 still
   clipped 0.6-2.7 % (the warm sun clips red first; the look's grade and glow sit on top). The
   blob was the direct light, not the sky reflection: with `uReflect` 0 it was 4.47 against
   4.48 %.
@@ -50,8 +51,23 @@ of" (#801, #803); lessons: PF-E3D-32, PF-L3D-34, PF-L3D-35. Measured on the RTX 
 - **A picture per scene**: five 256² RGBA8 detail textures (`ROOF_TILES`, `SLATE`, `CONCRETE`,
   `STONE`, `WOOD`), each made on first use through `createPatternTexture` (repeat, mipmaps),
   never re-pointed (§5's white rule), let go with the fill pictures in `clear()`.
+- **What it costs** (the family garden at golden hour; a finished readback of a NEW frame per
+  preset, `render_beauty_board.py --fps-seconds`, rounds alternating before / after while other
+  renders shared the machine). RTX 4070, 1920 × 1080, medians of three rounds: Low 14.1 → 11.3
+  ms, Medium 13.5 → 10.7, High 15.2 → 13.8, Ultra 18.6 → 19.8 — inside the rounds' own spread
+  (8.2-31.5 ms). WARP, 1280 × 720, two rounds: Low 99.0 / 95.8 → 102.2 / 98.0 ms, Medium 154.9 /
+  149.6 → 144.0 / 160.2, High 221.5 / 221.7 → 214.0 / 211.1. No preset measurably dearer; Low
+  carries the pictures too (the detail textures are 256², mipmapped). A never-shown host's first
+  frame compiles every pipeline it draws: the living board's 171 frames 4.12 → 4.60 s median,
+  810 → 850 s in all (one leg each) — the detail material's shaders, most likely; alternating in
+  one process, frames with and without the pictures differed by less than their own spread
+  (4.5-5.7 s). On a loaded machine the living board passed its 780-s watchdog neither before
+  nor after (`test_living_garden_render.py`'s board tests time out there; the same board took
+  531-636 s on this machine earlier the same day).
 - **A key mask has a hole where a highlight is**: a glint is as bright in the white key as in
   the black one. The render tier fills each row of the (convex) pond between its first and last
   keyed pixel; with the raw key mask the old, clipping glint passed the gate.
 - **WARP once wrote a green-only frame** (R = B = 0 on every pixel) for one of 26 frames of the
-  `built_materials` scenario; see the frame-cost table's note for whether it came back.
+  `built_materials` scenario (`bm_roof_noon_flat`); the next WARP run of all 32 frames, and the
+  OpenGL run, had none. Unexplained. That run's roof-colour gate failed on it (the flat roof's
+  mean read (0, 143, 0)): judge every frame a gate uses, so a broken one cannot pass quietly.

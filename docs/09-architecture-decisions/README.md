@@ -7220,6 +7220,135 @@ tier `tests/integration/test_directors_cut_render.py::test_a_day_lapse_does_not_
 `test_living_garden_render.py::test_the_living_board_renders_every_shot`. Pitfalls PF-L3D-28,
 PF-L3D-29.
 
+### ADR-059 addendum: what built parts are made of — surfaces, roof tiles and wall pictures (#801, #803)
+
+**Status**: Accepted (2026-11-10, visual-polish package; the surface values, the wall pictures and
+the gate's definition are the creator's and open to the owner — see Consequences). Amends the
+L1.6 builders addendum (one look for every vertex-coloured part) and ADR-065's roof and wall
+materials.
+
+**Context.** The 3D promo-readiness survey: every built part reflected with ONE roughness (0.78)
+and specular amount (0.35), so the family garden's black trampoline mat (#303336) read tan facing
+a golden-hour sun (luma 99, hue 23°) and its blue pad 32° off; the pond's morning glint was a
+clipped white blob; the roofs were flat plates (noon luma std 0.57 against the 2D roof's 20.2)
+and walls slabs (the balcony's wall a navy slab, luma 32, std 1.7). Measured here before deciding:
+
+- Qt's `PrincipledMaterial` switches specular OFF at an amount of 0.01 or less, and above it the
+  amount hardly scales a grazing highlight: the black mat facing a 15.2° sun read luma 25.4 at
+  0.01, 62.8 at 0.015, 62.8 at 0.05, 63.5 at 0.35 (PF-E3D-32). The issue's proposed 0.05 for
+  rubber would not have fixed the mat.
+- The pond's blob is the direct light's GGX at roughness 0.02 (the sky reflection off changed
+  the clipped share 4.48 → 4.47 %).
+- The canvas lays its roof picture at 256 cm (1 px = 1 cm): tiles 16 cm wide and 21.3 cm a
+  course in plan — not the issue's "25 cm along the eave, 18 cm up the slope".
+- Facing a 15° sun the light alone moves a part's hue off its 2D colour (a plaster wall under the
+  blue sky 27.6°, a red canvas 12.8°, measured with every specular off): the issue's line "every
+  built part's hue within 10° of its 2D colour" cannot hold for every part (PF-L3D-34).
+
+**Decision.**
+
+1. **Surfaces.** `core/scene3d/materials.SURFACES` names what a built part is made of — default
+   (0.78 / 0.35, the old look), wood, wood cladding, steel, iron, enamel, plastic (1.0 / 0.20),
+   rubber and canvas (0.95 / 0: specular OFF), terracotta, stone, masonry, plaster, concrete,
+   soil, roof tile, shingle, glass pane, water, leaf, ember — each with its roughness, specular
+   amount and optional detail picture. ONE path carries a surface to the engine: a palette entry
+   names it (`PaletteColor.surface`); a tinted part names its own in its builder; a part of
+   several surfaces keeps ONE `MeshPart` with `surface_runs` (its triangles grouped run by run,
+   `builders.common.with_surfaces`), and the sink creates one Model per run
+   (`mesh.surface_pieces`) carrying its surface in `PartSpec`; the host writes
+   `quick3d.materials.surface_look` on the Model. `Garden.qml` holds no table — every material of
+   `vcPart` / `roofPart` reads `surfaceRough` / `surfaceSpecular` — and
+   `tests/unit/test_scene3d_surfaces.py` fails when a palette entry has no surface, when a
+   surface writes a property the scene file does not declare, or when a literal roughness or
+   specular is left in those components.
+2. **Roof tiles.** A roof's tile faces (and its ridge tile) carry uvs in centimetres: a gable's
+   are the 2D brush's frame (`roof_paint.paint_roof_with_ridge`: u along the ridge from its
+   middle, v the plan distance from the ridge line, the far half mirrored as the canvas mirrors
+   it), so seen from above the 3D roof is the plan's picture tile for tile, and on a 38° slope a
+   course is 27 cm long; a hip's faces and a shed's plane run u along their own eave and v down
+   their own slope (the canvas draws no hips). The picture is the canvas's `ROOF_TILES` (a
+   shed's shingles its `SLATE`), at 256 cm (shingles 100 cm).
+3. **Wall pictures.** A house's walls are `plaster` (the canvas's `CONCRETE`), a shed's
+   `wood_cladding` (`WOOD`, in the item's colour), a garden wall and a stone-wall fence `masonry`
+   (`STONE`): laid by the face's own plane in the item's frame (`built_detail.vert`), courses
+   level round a corner. No new asset: every picture is one the canvas ships (asset forge).
+4. **The detail shader** (`built_detail.vert/.frag`): the picture reduced to a linear albedo
+   multiplier of mean 1 and height slopes (`core/scene3d/surface_detail.py`, PF-L3D-35), one
+   `Texture` per picture per scene; a cotangent frame from screen derivatives; the detail normal
+   faded by camera distance, the albedo by its mipmaps (Qt's `Texture` has no anisotropy); per
+   surface a contrast (roof 0.6, masonry 0.8, plaster 0.85) and a normal strength. It takes the
+   ground's rain tint and the rain's roughness / specular shift (`wetRoughShift`,
+   `wetSpecularShift`) and the living garden's snow on what faces up (`builtSnow`, the rule of
+   `built_snow.frag`); any other built top keeps `built_snow.frag` under snow.
+5. **The pond's glint**: `water.frag` writes the direct light's specular itself
+   (`SPECULAR_LIGHT`): GGX with Schlick's Fresnel for water at roughness 0.02, soft-capped at
+   0.6 / exposure (`uGlintCap`).
+6. **The gate** (`tests/integration/test_built_materials_render.py`, in CI's render job): a
+   class row facing the family garden's golden-hour sun, every part judged against ITS OWN frame
+   with every specular off — the hue within 10° for a part whose 2D colour has a hue, a matte
+   part at most 1.5x its specular-free luma — and the trampoline's pad held to the issue's own
+   10° line against its 2D blue; the gable's tiles at noon and at a low sun, its noon colour, a
+   hip's and a shed roof's tiles, a glasshouse untouched, three walls on their shaded side and the
+   pond's glint — each against the same frame without the change.
+
+**Alternatives rejected.** Splitting a part into one `MeshPart` per surface in the builders
+(the first build): 94 tests destructure a building's parts by name, and the pick oracle, the
+shadow walk and the height gates read parts — the split belongs at the sink, where one Model has
+one material. A per-vertex roughness in the vertex layout (a stride change for every mesh of the
+scene, plants included). A table of surface values in the QML (a second table that drifts). Roof
+uvs computed from world position in the shader (the tiles slide when a house moves, and the
+2D phase is lost). The issue's 25 × 18 cm tiles and its specular 0.05 for rubber (measured
+above). A new plaster texture through the asset forge: the canvas's concrete reads as render,
+and no new asset is needed.
+
+**Consequences.**
+
+- Models: the family garden's built records 43 → 71, `bench_large`'s 87 → 169 (one per surface);
+  vertices and upload bytes unchanged (151,182 / 8.22 MB; 290,065 / 15.76 MB): the uvs ride in
+  the slot every vertex had. Building the built records: the family garden 73.1 → 77.2 ms (+6 %), `bench_large` 125.2 → 137.7 ms (+10 %; medians of three alternating rounds of seven builds — `with_surfaces` finding the runs). A frame (the family garden at golden hour, a finished readback of a new frame, rounds alternating before / after): on the RTX 4070 at 1920 × 1080 Low 14.1 → 11.3 ms, Medium 13.5 → 10.7, High 15.2 → 13.8, Ultra 18.6 → 19.8 (medians of three rounds, inside their own spread of 8-31 ms); on WARP at 1280 × 720 Low 97 → 100 ms, Medium 152 → 152, High 222 → 213 (two rounds). A never-shown host's first frame, which compiles every pipeline it draws, 4.1 → 4.6 s median over the living board's 171 frames (810 → 850 s in all, one leg each on a shared machine) — likely the detail material's own shaders, not isolated: in one process, alternating, the frames with and without the pictures differed by less than their spread; a live view would pay such a cost once.
+- Five 256² RGBA8 detail textures per scene (about 1.3 MB with mipmaps), made on first use.
+- Looks that change by decision: a black mat reads dark and neutral; plastic is fully rough;
+  windows (`glass_pane` 0.40 / 0.40) mirror the sky (luma 43 → 85 at golden hour); a low-sun roof
+  reads 1-2 luma lighter (its tiles' edges catch the grazing sun); a garage shed filled
+  "concrete" in 2D is boarded like a tool shed in 3D (a shed's walls are always cladding).
+- The issue's acceptance is met as defined in decision 6; the literal "within 10° of the 2D
+  colour" holds for the pad (8.0°), wood (1.3°), terracotta (1.7°), cladding (0.3°) and the
+  windows (9.6°) in the class row, not for a plaster wall (13.6°, the light) or a near-grey part.
+- Open to the owner: the plaster's speckle (the canvas's concrete picture), the masonry's dark
+  joints in shade, plastic fully rough, the windows' reflection, cladding on a concrete shed.
+- Not done: the hip roof's 2D picture is still the gable's (the canvas draws no hips).
+
+**Evidence** (RTX 4070, Direct3D 11, high; render tier 640 × 360 unless named; the render tier passed every gate on WARP and
+on OpenGL too).
+
+| What | Before | After |
+|---|---|---|
+| Black mat facing a 15.2° sun: luma / its specular-free luma (class row) | 4.08x, hue 128° off (0.78 / 0.35 everywhere) | 1.00x |
+| Pad: hue against #427bc2, saturation (class row) | 17.7°, 0.34 | 8.0°, 0.60 |
+| Pond at the mirror angle of a 10 / 20 / 30° sun (1280 × 720): clipped share of the water, peak luma | 6.14 / 4.48 / 2.73 %, 255 | 0 %, 212.6 / 227.0 / 237.2 |
+| Noon roof close-up: luma std (render tier) | 2.2 | 10.8 |
+| Low-sun roof close-up: luma std | 2.3 | 6.8 |
+| Noon roof's mean colour | (239.5, 136.1, 86.7) flat | (238.1, 135.3, 86.3): −0.6 % luma, 0.0° hue |
+| Walls on their shaded side, luma std: masonry / plaster / cladding | 1.2 / 0.8 / 1.2 | 7.0 / 2.1 / 7.3 |
+| Hip / shed roof at noon: fine luma detail (about the 5 × 5 local mean) | 1.5 / 0.9 (no picture) | 4.1 / 5.2 |
+| Glasshouse with and without every picture: largest pixel difference | — | 0 (a pictured roof's box: 22-25) |
+| Noon orbit of the family garden's roof, 12 frames 0.5° apart: temporal \|d²\| of the roof's luma, native 1280 × 720 against the 1920 × 1080 frames box-reduced to it | flat roof 2.5 (1080p) | 6.4 against 7.3 (0.87: the native frame shimmers less than the supersampled one — no aliasing beyond the tiles' own detail) |
+| Beauty Board, 4 examples × 7 shots (high, 1280 × 720): mean luma per shot | — | −0.85 … +0.08 |
+| Family garden at noon (board): clipped share | 0.41 % | 0.62 % (the roof's lit tile edges) |
+| Family garden golden hour (1280 × 720): the mat's mean colour | (131, 105, 86), luma 109 | (26, 24, 29), luma 25 |
+| Balcony golden hour (board): the wall, luma / std | 31.9 / 1.6 | 30.5 / 4.9 |
+| Raised bed golden hour (1280 × 720): the tool shed's walls, luma std | 2.4 | 6.2 |
+| Truth gates (family garden, 1280 × 720): shadow IoU of the box caster at 15 / 35 / 60°, Low; High | 0.928 / 0.976 / 0.970; 0.985 / 0.985 / 0.974 | the same to the fourth decimal |
+| North-up (plan against top-down, NCC) and the sky's sun in 24 views: bearing / elevation error | 0.7786 identity; ≤ 0.07° / 0.13° | the same |
+| Built geometry: 491 builder records' triangles, normals and part names | — | identical (at 0.001 cm) |
+
+Tests: `tests/unit/test_scene3d_surfaces.py`, `tests/unit/test_scene3d_roof_uvs.py`,
+`tests/unit/test_scene3d_surface_detail.py`, `tests/unit/test_quick3d_qml.py`; render tier
+`tests/integration/test_built_materials_render.py` (observed failing first: with every surface at
+0.78 / 0.35 and the old water shaders, 8 of its first 10 tests fail; the roof kinds' tests
+compare against the same frame without the picture, and before there was none). Pitfalls PF-L3D-34, PF-L3D-35,
+PF-E3D-32.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first
