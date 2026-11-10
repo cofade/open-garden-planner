@@ -47,4 +47,9 @@ PF-L3D-31. Measured on the dev box (RTX 4070, Direct3D 11, PyQt6 / PyQt6-Qt6 6.1
   −2 … +8, the same shader at Medium, High and Ultra). On WARP (960 × 540, Low) it is clear:
   the grass with its value-noise variation +3.65 ms over 47.3, the noise alone 2.1 ms, the two
   fetches 0.4; Low therefore draws the grass without the variation (+1.63 ms over 44.3).
+- **`fwidth` of `VAR_WORLD_POSITION` is a pixel's reach on the ground** and is the LOD a
+  procedural noise needs (it has no mips): taken at the top of `MAIN` (a derivative inside a
+  non-uniform branch is undefined), it fades each octave from 0.05 to 0.15 of its wavelength.
+  An octave left unclamped draws row-to-row steps into a grazing far view: the board's
+  distant-horizon rows read 3.80 luma at 403 m / 15° (gate 3.6), 3.48 clamped (flat 3.48).
 

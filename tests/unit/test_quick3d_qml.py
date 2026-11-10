@@ -829,7 +829,9 @@ def test_the_ground_shader_lays_grass_only_where_the_ground_is_open() -> None:
     assert "albedo += open * groundLinear(uMeadow) * (grass - 1.0);" in code
     assert "vec4 tile = uHasTile > 0.5 ? texture(uBaseMap, uv) : vec4(uMeadow, 0.0);" in code
     # the grass is laid in WORLD space, the same on the meadow and on the plan
-    assert "meadowGrass(VAR_WORLD_POSITION.xz, grassSlope)" in code
+    assert "meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope)" in code
+    # every octave of the variation is clamped by the pixel's reach (it has no mips)
+    assert code.count("meadowOctave(") == 5 and "vec2 reach = fwidth(VAR_WORLD_POSITION.xz);" in code
     # the snow and the rain still come after it, for every piece of ground at once
     assert code.index("albedo += open") < code.index("albedo *= groundLinear(uGroundTint)") < code.index(
         "mix(albedo, vec3(0.80, 0.84, 0.89), uSnowCover)")

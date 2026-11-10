@@ -4263,7 +4263,11 @@ defined in `core/scene3d/look.py`; `quick3d/look.py` only maps it onto `meadowCo
    detail is high-passed (Gaussian sigma 16 cm, wrapped: the blades stay), and a 3.1 m octave of
    value noise takes the mottle's place; every octave is turned its own way. Brightness 4 / 6 /
    7 % at 3.1 / 9 / 41 m, hue 3.5 % at 17 m (`GRASS_VARIATION`), all of mean 1. After: 0.86 luma,
-   no visible lattice.
+   no visible lattice. A value noise has no mips: each octave fades as a pixel's reach on the
+   ground (`fwidth` of the world position) grows from 0.05 to 0.15 of its wavelength
+   (`meadowOctave`). Without that the board's distant-horizon rows failed their gate: 3.80 luma
+   at 403 m and 15° against 3.48 on the flat meadow (bound 3.6; at 0.15–0.4 of the wavelength
+   still 3.58); with it 3.48, and the far meadow is the flat mean, as before.
 4. **Open plan ground is marked by the bake's alpha.** The bake starts each tile as the meadow's
    colour at alpha 0 (`ground_bake.OPEN_ALPHA`) and `QPainter`'s premultiplied source-over leaves
    every colour byte as it was (of the bake's 477 tests only the one that pinned the bare

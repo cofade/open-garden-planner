@@ -75,9 +75,21 @@ vec2 grassUvB(vec2 p)
     return mat2(0.79864, 0.60181, -0.60181, 0.79864) * p / 414.2 + vec2(0.31, 0.57);
 }
 
+// How much of a noise octave of this wavelength a pixel can show: all of it while the
+// pixel's footprint on the ground (cm) is under 0.15 of the wavelength, none past 0.4 - a
+// value noise has no mips, and an octave finer than its pixels aliases: it flickers in a
+// move and, seen at a grazing angle far away, draws row-to-row steps into the horizon
+// (#798: the board's distant-horizon rows read 3.80 luma at 403 m with every octave, 3.48
+// on the flat meadow; the gate is 3.6).
+float meadowOctave(float wavelength, float footprint)
+{
+    return 1.0 - smoothstep(0.05 * wavelength, 0.15 * wavelength, footprint);
+}
+
 // The grass at p: its colour over the meadow's (mean 1 per channel) and, with uDetail,
-// the slope of its relief (east, north) as the tiles' detail normals read it.
-vec3 meadowGrass(vec2 p, out vec2 slope)
+// the slope of its relief (east, north) as the tiles' detail normals read it. footprint:
+// how far one pixel reaches on the ground there (cm).
+vec3 meadowGrass(vec2 p, float footprint, out vec2 slope)
 {
     vec2 uvA = grassUvA(p);
     vec2 uvB = grassUvB(p);
@@ -103,12 +115,14 @@ vec3 meadowGrass(vec2 p, out vec2 slope)
         // patches and lusher, cooler ones); each of mean 1, each octave turned its own way
         // so that no cell grid lines up with another or with the plan
         float bright = 1.0
-                     + uMeadowVariation.x * meadowNoise(mat2(0.87462, 0.48481, -0.48481, 0.87462) * p / 310.0)
-                     + uMeadowVariation.y * meadowNoise(mat2(0.95630, -0.29237, 0.29237, 0.95630) * p / 900.0
-                                                        + vec2(5.3, 11.7))
-                     + uMeadowVariation.z * meadowNoise(p / 4100.0 + vec2(17.3, 5.1));
-        float hue = uMeadowVariation.w * meadowNoise(mat2(0.60182, 0.79864, -0.79864, 0.60182) * p / 1700.0
-                                                     + vec2(3.7, 41.9));
+                     + uMeadowVariation.x * meadowOctave(310.0, footprint)
+                       * meadowNoise(mat2(0.87462, 0.48481, -0.48481, 0.87462) * p / 310.0)
+                     + uMeadowVariation.y * meadowOctave(900.0, footprint)
+                       * meadowNoise(mat2(0.95630, -0.29237, 0.29237, 0.95630) * p / 900.0 + vec2(5.3, 11.7))
+                     + uMeadowVariation.z * meadowOctave(4100.0, footprint)
+                       * meadowNoise(p / 4100.0 + vec2(17.3, 5.1));
+        float hue = uMeadowVariation.w * meadowOctave(1700.0, footprint)
+                  * meadowNoise(mat2(0.60182, 0.79864, -0.79864, 0.60182) * p / 1700.0 + vec2(3.7, 41.9));
         grass *= bright * vec3(1.0 + 1.6 * hue, 1.0, 1.0 - 2.4 * hue);
     }
     return grass;
@@ -122,6 +136,9 @@ vec3 meadowGrass(vec2 p, out vec2 slope)
 void MAIN()
 {
     vec2 uv = vec2(UV0.x, 1.0 - UV0.y);
+    // a pixel's reach on the ground, for the variation's octaves (taken here, in uniform
+    // control flow: a derivative inside a branch is undefined)
+    vec2 reach = fwidth(VAR_WORLD_POSITION.xz);
     vec4 tile = uHasTile > 0.5 ? texture(uBaseMap, uv) : vec4(uMeadow, 0.0);
     vec3 albedo = groundLinear(tile.rgb);
     vec2 slope = vec2(0.0);
@@ -138,7 +155,7 @@ void MAIN()
         // ground no item covers - if the plan's open ground takes the grass (uGrassShare)
         float open = (1.0 - tile.a) * uGrassShare;
         vec2 grassSlope;
-        vec3 grass = meadowGrass(VAR_WORLD_POSITION.xz, grassSlope);
+        vec3 grass = meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope);
         albedo += open * groundLinear(uMeadow) * (grass - 1.0);
         slope += open * grassSlope;
     }

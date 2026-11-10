@@ -121,6 +121,8 @@ GRASS_REPEAT_CM: Final = 256.0
 #: hue term moves red up and blue down, warmer and drier, or the other way, lusher). The
 #: issue's proposal: about ±7 % brightness, ±4° hue. The 3.1 m octave stands in for the
 #: texture's own mottle, which ``grass_detail`` takes out because it repeats.
+#: ``ground.frag`` fades each octave as a pixel's reach on the ground grows from 0.05 to
+#: 0.15 of its wavelength (``meadowOctave``): a value noise has no mips.
 GRASS_VARIATION: Final = (0.04, 0.06, 0.07, 0.035)
 #: The grass's own mottle — what it holds beyond this many centimetres (the sigma of the
 #: Gaussian taken out) — repeats with the texture every 2.56 m and drew a lattice over the
