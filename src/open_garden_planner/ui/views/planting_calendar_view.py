@@ -16,7 +16,7 @@ import datetime
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt6.QtCore import QDate, QPoint, QRect, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QDate, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QPen, QPolygon
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -51,7 +51,15 @@ from open_garden_planner.services.task_generator import (
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import WeatherForecast, get_frost_alerts
 from open_garden_planner.ui.icons import get_icon, get_pixmap
-from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor, urgency_dot
+from open_garden_planner.ui.theme import (
+    URGENCY_TOKENS,
+    is_dark_theme,
+    readable_on,
+    set_compact,
+    set_text_role,
+    theme_qcolor,
+    urgency_dot,
+)
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -64,26 +72,24 @@ _BAR_MARGIN = 8        # vertical margin inside a row for bars
 _BAR_RADIUS = 3        # rounded corner radius for bars
 _PROP_BAR_H = 8        # bar height for propagation sub-row
 _PROP_BAR_Y = 7        # offset from sub-row top to bar center
+#: The chart's NARROWEST width; it is as wide as its scroll area above that.
 _TOTAL_W = _NAME_W + 12 * _MONTH_W
+#: The dashboard's task list shows whole rows up to this height, and never less
+#: than this much of them while there is room for it.
+_DASHBOARD_MAX_H = 170
+_DASHBOARD_MIN_H = 84
 
-# ─── Colour palette — main calendar ────────────────────────────────────────────
+# ─── Series colours — the DATA of the chart ────────────────────────────────────
+# One hue per task type in both themes (the legend and the bars are one key);
+# every other colour of the chart — rows, header, grid, text, markers — is a
+# theme token read while painting (#791). ``_series_qcolor`` adapts a series to
+# the theme's rows.
 _COL_INDOOR = QColor(91, 155, 213)    # steel blue  — indoor sow
 _COL_DIRECT = QColor(112, 173, 71)   # green        — direct sow
 _COL_TRANSPL = QColor(237, 125, 49)  # orange       — transplant
 _COL_HARVEST = QColor(192, 0, 0)     # dark red      — harvest
-_COL_TODAY = QColor(220, 50, 50)     # bright red    — today marker
-_COL_FROST_SPR = QColor(60, 120, 210)   # blue — last spring frost line
-_COL_FROST_FALL = QColor(80, 160, 230)  # light blue — first fall frost line
-_COL_GRID = QColor(220, 220, 220)
-_COL_ALT_ROW = QColor(248, 248, 248)
-_COL_HDR_BG = QColor(242, 242, 242)
-_COL_SEL_ROW = QColor(215, 232, 252)
-_COL_HOV_ROW = QColor(235, 243, 255)
 
-# ─── Colour palette — propagation sub-row ──────────────────────────────────────
-_COL_PROP_BG = QColor(245, 248, 250)        # sub-row background
-_COL_PROP_BG_ALT = QColor(240, 244, 248)
-_COL_PROP_BG_SEL = QColor(210, 228, 250)
+# ─── Series colours — propagation sub-row ──────────────────────────────────────
 _COL_GERM = QColor(140, 195, 235)           # light steel blue — germination
 _COL_PRICK = QColor(155, 89, 182)           # purple — prick out (point marker)
 _COL_HARDEN = QColor(26, 188, 156)          # teal — harden off
@@ -115,6 +121,18 @@ _REFRESH_DEBOUNCE_MS = 250
 # focus-out only) is what lets Ctrl+Z work while the editor still has focus,
 # and it also means a date picked from the calendar popup is never lost.
 _STEP_COMMIT_DEBOUNCE_MS = 600
+
+
+def _series_qcolor(base: QColor) -> QColor:
+    """A series colour as it is drawn on the theme's rows.
+
+    The light theme draws the reference value. On the dark theme's rows a
+    colour that would sink into them (harvest's dark red is 2.2:1 there) is
+    lightened until it stands out; the hue stays, so the legend still reads.
+    """
+    if not is_dark_theme():
+        return QColor(base)
+    return readable_on(base, theme_qcolor("input"))
 
 
 def _month_abbr(month_1: int) -> str:
@@ -191,11 +209,15 @@ def _days_in_year(year: int) -> int:
     return 366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
 
 
-def _date_to_x(month: int, day: int, year: int) -> float:
-    """Return x coordinate (including NAME_W offset) for a calendar date."""
+def _date_to_x(month: int, day: int, year: int, month_w: float = _MONTH_W) -> float:
+    """Return x coordinate (including NAME_W offset) for a calendar date.
+
+    ``month_w`` is the width of one month column: the chart stretches with its
+    window, so a painter passes its own (``_GanttWidget._month_w``).
+    """
     d = datetime.date(year, month, day)
     yday = d.timetuple().tm_yday
-    return _NAME_W + (yday - 1) / _days_in_year(year) * (12 * _MONTH_W)
+    return _NAME_W + (yday - 1) / _days_in_year(year) * (12 * month_w)
 
 
 def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
@@ -211,6 +233,34 @@ def _parse_frost(mmdd: str, year: int) -> datetime.date | None:
 
 
 # ─── Dashboard panel ───────────────────────────────────────────────────────────
+
+class _FittedScrollArea(QScrollArea):
+    """A scroll area as tall as its content, between a floor and a cap.
+
+    ``QScrollArea.sizeHint()`` remembers its widget's hint from the FIRST call
+    and never asks again (measured: 18 px for a list that had grown to 336 px,
+    PF-UI-39). The dashboard is built empty and filled later, so its 18 tasks
+    got the room of one and a half rows (#796). Here the hint is the content's
+    own, asked every time; ``updateGeometry()`` after a rebuild is enough.
+    """
+
+    def __init__(self, floor: int, cap: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._floor = floor
+        self._cap = cap
+
+    def _content_height(self) -> int:
+        widget = self.widget()
+        return widget.sizeHint().height() if widget is not None else 0
+
+    def sizeHint(self) -> QSize:
+        height = min(self._content_height(), self._cap) + 2 * self.frameWidth()
+        return QSize(super().sizeHint().width(), height)
+
+    def minimumSizeHint(self) -> QSize:
+        height = min(self._content_height(), self._floor) + 2 * self.frameWidth()
+        return QSize(super().minimumSizeHint().width(), height)
+
 
 class _DashboardPanel(QFrame):
     """Top panel showing actionable planting tasks grouped by urgency."""
@@ -241,6 +291,7 @@ class _DashboardPanel(QFrame):
         self._toggle_btn = QPushButton()
         self._toggle_btn.setFlat(True)
         self._toggle_btn.setFixedSize(24, 22)
+        set_compact(self._toggle_btn)
         self._toggle_btn.setToolTip(self.tr("Collapse/expand"))
         self._set_toggle_icon()
         self._toggle_btn.clicked.connect(self._toggle)
@@ -248,9 +299,10 @@ class _DashboardPanel(QFrame):
         outer.addWidget(header)
 
         # ── Scrollable task content ───────────────────────────────────────────
-        self._content_scroll = QScrollArea()
+        self._content_scroll = _FittedScrollArea(_DASHBOARD_MIN_H, _DASHBOARD_MAX_H)
         self._content_scroll.setWidgetResizable(True)
-        self._content_scroll.setMaximumHeight(170)
+        self._content_scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._content_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._content_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._content_inner = QWidget()
@@ -304,6 +356,7 @@ class _DashboardPanel(QFrame):
             self._empty_lbl.setText(self.tr("No upcoming tasks in the next 30 days."))
             self._empty_lbl.show()
             self._toggle_btn.setEnabled(False)
+            self._content_scroll.updateGeometry()
             return
 
         self._empty_lbl.hide()
@@ -350,6 +403,9 @@ class _DashboardPanel(QFrame):
                 )
 
         self._content_layout.addStretch()
+        # The list is as tall as its rows now: tell the layout (PF-UI-39).
+        self._content_layout.activate()
+        self._content_scroll.updateGeometry()
 
     @staticmethod
     def _date_column_width(label: QLabel) -> int:
@@ -410,19 +466,29 @@ class _DashboardPanel(QFrame):
         goto_btn.setToolTip(self.tr("Highlight on canvas"))
         goto_btn.setFlat(True)
         goto_btn.setFixedSize(26, 20)
+        set_compact(goto_btn)
         species_key = task.species_key
         goto_btn.clicked.connect(lambda: self.highlight_requested.emit(species_key))
         layout.addWidget(goto_btn)
 
-        if not task.task_type.startswith("frost_alert"):
-            done_btn = QPushButton(self.tr("Done"))
-            done_btn.setObjectName("taskDoneBtn")
-            done_btn.setCheckable(True)
-            done_btn.setFixedSize(46, 20)
-            done_btn.setToolTip(self.tr("Mark as done"))
+        # Every row has the button, so the date and the arrow stand in one
+        # column down the list; a row that cannot be marked done (a frost
+        # alert) keeps its room and hides it. The width is the text's own —
+        # "Erledigt" does not fit the 46 px "Done" did (#796).
+        done_btn = QPushButton(self.tr("Done"))
+        done_btn.setObjectName("taskDoneBtn")
+        done_btn.setCheckable(True)
+        done_btn.setFixedHeight(20)
+        done_btn.setToolTip(self.tr("Mark as done"))
+        policy = done_btn.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        done_btn.setSizePolicy(policy)
+        layout.addWidget(done_btn)
+        if task.task_type.startswith("frost_alert"):
+            done_btn.hide()
+        else:
             task_id = task.task_id
             done_btn.toggled.connect(lambda checked: self.task_toggled.emit(task_id, checked))
-            layout.addWidget(done_btn)
 
         return row
 
@@ -458,8 +524,12 @@ class _GanttWidget(QWidget):
         self.label_prick_out = "Prick out"
         self.label_harden_off = "Harden off"
         self.label_transplant = "Transplant"
+        self._windows: dict[str, list[_GanttWindow]] = {}
+        self._prop_steps: dict[str, list[_PropStepWindow]] = {}
         self.setMouseTracking(True)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # As wide as the scroll area lets it be, never narrower than _TOTAL_W.
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumWidth(_TOTAL_W)
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -505,7 +575,19 @@ class _GanttWidget(QWidget):
 
     def _update_size(self) -> None:
         total_h = max(_HEADER_H + len(self._rows) * self.effective_row_h, _HEADER_H + 1)
-        self.setFixedSize(_TOTAL_W, total_h)
+        self.setMinimumWidth(_TOTAL_W)
+        self.setFixedHeight(total_h)
+
+    def _month_w(self) -> float:
+        """Width of one month column: the chart fills its window (#791)."""
+        return max(float(_MONTH_W), (self.width() - _NAME_W) / 12.0)
+
+    def _x(self, day: datetime.date) -> float:
+        return _date_to_x(day.month, day.day, self._year, self._month_w())
+
+    def _month_x(self, month_0: int) -> int:
+        """Left edge of a month column (0 = January … 12 = the right edge)."""
+        return int(_NAME_W + month_0 * self._month_w())
 
     # ── mouse ──────────────────────────────────────────────────────────────────
 
@@ -546,54 +628,63 @@ class _GanttWidget(QWidget):
         self._paint_today(painter)
 
     def _paint_header(self, painter: QPainter) -> None:
-        painter.fillRect(0, 0, _TOTAL_W, _HEADER_H, _COL_HDR_BG)
+        width = self.width()
+        text = theme_qcolor("text_primary")
+        grid = theme_qcolor("border")
+        painter.fillRect(0, 0, width, _HEADER_H, theme_qcolor("surface"))
         bold = QFont()
         bold.setBold(True)
         bold.setPointSize(9)
         painter.setFont(bold)
-        painter.setPen(Qt.GlobalColor.black)
-        painter.drawText(QRect(8, 0, _NAME_W - 16, _HEADER_H), Qt.AlignmentFlag.AlignVCenter, "Plant")
+        painter.setPen(text)
+        painter.drawText(
+            QRect(8, 0, _NAME_W - 16, _HEADER_H), Qt.AlignmentFlag.AlignVCenter, self.tr("Plant"))
         normal = QFont()
         normal.setPointSize(9)
         painter.setFont(normal)
         for m in range(12):
-            x = _NAME_W + m * _MONTH_W
-            painter.setPen(QPen(_COL_GRID, 1))
+            x = self._month_x(m)
+            painter.setPen(QPen(grid, 1))
             painter.drawLine(x, 0, x, _HEADER_H)
-            painter.setPen(Qt.GlobalColor.black)
-            painter.drawText(QRect(x + 2, 0, _MONTH_W - 4, _HEADER_H), Qt.AlignmentFlag.AlignCenter, _month_abbr(m + 1))
-        painter.setPen(QPen(QColor(190, 190, 190), 1))
-        painter.drawLine(0, _HEADER_H - 1, _TOTAL_W, _HEADER_H - 1)
+            painter.setPen(text)
+            painter.drawText(
+                QRect(x + 2, 0, self._month_x(m + 1) - x - 4, _HEADER_H),
+                Qt.AlignmentFlag.AlignCenter, _month_abbr(m + 1))
+        painter.setPen(QPen(theme_qcolor("text_secondary"), 1))
+        painter.drawLine(0, _HEADER_H - 1, width, _HEADER_H - 1)
 
     def _paint_rows(self, painter: QPainter) -> None:
         normal = QFont()
         normal.setPointSize(9)
         painter.setFont(normal)
         rh = self.effective_row_h
+        width = self.width()
+        grid = theme_qcolor("border")
+        text = theme_qcolor("text_primary")
 
         for i, row in enumerate(self._rows):
             y = _HEADER_H + i * rh
 
             # Main row background
             if i == self._selected:
-                bg: Any = _COL_SEL_ROW
+                bg = theme_qcolor("selection")
             elif i == self._hovered:
-                bg = _COL_HOV_ROW
+                bg = theme_qcolor("button_hover")
             elif i % 2:
-                bg = _COL_ALT_ROW
+                bg = theme_qcolor("background_alt")
             else:
-                bg = Qt.GlobalColor.white
-            painter.fillRect(0, y, _TOTAL_W, _ROW_H, bg)
+                bg = theme_qcolor("input")
+            painter.fillRect(0, y, width, _ROW_H, bg)
 
             # Grid lines for main row
-            painter.setPen(QPen(_COL_GRID, 0.5))
-            painter.drawLine(0, y + _ROW_H - 1, _TOTAL_W, y + _ROW_H - 1)
+            painter.setPen(QPen(grid, 0.5))
+            painter.drawLine(0, y + _ROW_H - 1, width, y + _ROW_H - 1)
             for m in range(12):
-                mx = _NAME_W + m * _MONTH_W
+                mx = self._month_x(m)
                 painter.drawLine(mx, y, mx, y + _ROW_H)
 
             # Plant name
-            painter.setPen(Qt.GlobalColor.black)
+            painter.setPen(text)
             painter.drawText(QRect(8, y, _NAME_W - 16, _ROW_H), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, row.display_name)
 
             # Calendar bars
@@ -613,12 +704,11 @@ class _GanttWidget(QWidget):
         """
         bar_y = row_y + _BAR_MARGIN
         bar_h = _ROW_H - 2 * _BAR_MARGIN
-        year = self._year
 
         for window in self._windows.get(row.species_key, ()):
-            color = _GANTT_COLORS.get(window.task_type, _COL_DIRECT)
-            x1 = _date_to_x(window.start.month, window.start.day, year)
-            x2 = _date_to_x(window.end.month, window.end.day, year)
+            color = _series_qcolor(_GANTT_COLORS.get(window.task_type, _COL_DIRECT))
+            x1 = self._x(window.start)
+            x2 = self._x(window.end)
             if x2 - x1 < 4:
                 x2 = x1 + 4
             rect = QRect(int(x1), bar_y, int(x2 - x1), bar_h)
@@ -630,27 +720,23 @@ class _GanttWidget(QWidget):
         self, painter: QPainter, row: _PlantRow, row_idx: int, sub_y: int
     ) -> None:
         """Paint the propagation sub-row at vertical position sub_y."""
-        # Sub-row background
-        if row_idx == self._selected:
-            bg: Any = _COL_PROP_BG_SEL
-        elif row_idx % 2:
-            bg = _COL_PROP_BG_ALT
-        else:
-            bg = _COL_PROP_BG
-        painter.fillRect(0, sub_y, _TOTAL_W, _PROP_ROW_H, bg)
+        # Sub-row background: one step off its plant's row
+        width = self.width()
+        bg = theme_qcolor("selection_inactive" if row_idx == self._selected else "surface")
+        painter.fillRect(0, sub_y, width, _PROP_ROW_H, bg)
 
         # Bottom border of sub-row
-        painter.setPen(QPen(_COL_GRID, 0.5))
-        painter.drawLine(0, sub_y + _PROP_ROW_H - 1, _TOTAL_W, sub_y + _PROP_ROW_H - 1)
+        painter.setPen(QPen(theme_qcolor("border"), 0.5))
+        painter.drawLine(0, sub_y + _PROP_ROW_H - 1, width, sub_y + _PROP_ROW_H - 1)
         for m in range(12):
-            mx = _NAME_W + m * _MONTH_W
+            mx = self._month_x(m)
             painter.drawLine(mx, sub_y, mx, sub_y + _PROP_ROW_H)
 
         # Label in name column
         small = QFont()
         small.setPointSize(7)
         painter.setFont(small)
-        painter.setPen(QColor(130, 130, 130))
+        painter.setPen(theme_qcolor("text_secondary"))
         # sub-row marker: a small provider chevron (was a "↳" text glyph, #310)
         chevron = get_pixmap("chevron_right", 10)
         if chevron is not None:
@@ -664,9 +750,8 @@ class _GanttWidget(QWidget):
         if not self._prop_steps.get(row.species_key):
             return
 
-        year = self._year
-        year_start = datetime.date(year, 1, 1)
-        year_end = datetime.date(year, 12, 31)
+        year_start = datetime.date(self._year, 1, 1)
+        year_end = datetime.date(self._year, 12, 31)
         bar_top = sub_y + _PROP_BAR_Y
         bar_h = _PROP_BAR_H
 
@@ -692,8 +777,9 @@ class _GanttWidget(QWidget):
             for step_window in by_step.get(step_id, ()):
                 d_start = max(step_window.start, year_start)
                 d_end = min(step_window.end, year_end)
-                x1 = _date_to_x(d_start.month, d_start.day, year)
-                x2 = _date_to_x(d_end.month, d_end.day, year)
+                x1 = self._x(d_start)
+                x2 = self._x(d_end)
+                color = _series_qcolor(color)
 
                 if is_point:
                     # Draw a small diamond marker
@@ -725,9 +811,10 @@ class _GanttWidget(QWidget):
         today = datetime.date.today()
         if today.year != self._year:
             return
-        x = int(_date_to_x(today.month, today.day, self._year))
+        x = int(self._x(today))
         total_h = _HEADER_H + len(self._rows) * self.effective_row_h
-        pen = QPen(_COL_TODAY, 2)
+        marker = theme_qcolor("error")
+        pen = QPen(marker, 2)
         pen.setStyle(Qt.PenStyle.DashLine)
         painter.setPen(pen)
         painter.drawLine(x, 0, x, total_h)
@@ -735,14 +822,15 @@ class _GanttWidget(QWidget):
         small.setPointSize(7)
         small.setBold(True)
         painter.setFont(small)
-        painter.setPen(_COL_TODAY)
+        painter.setPen(marker)
         painter.drawText(x + 3, 14, self.label_today)
 
     def _paint_frost_lines(self, painter: QPainter) -> None:
         total_h = _HEADER_H + len(self._rows) * self.effective_row_h
+        frost = theme_qcolor("info")
         pairs = [
-            (self._last_frost, _COL_FROST_SPR, self.label_last_frost),
-            (self._first_fall, _COL_FROST_FALL, self.label_first_frost),
+            (self._last_frost, frost, self.label_last_frost),
+            (self._first_fall, frost, self.label_first_frost),
         ]
         small = QFont()
         small.setPointSize(7)
@@ -754,7 +842,7 @@ class _GanttWidget(QWidget):
                 d = datetime.date(self._year, frost_date.month, frost_date.day)
             except ValueError:
                 continue
-            x = int(_date_to_x(d.month, d.day, self._year))
+            x = int(self._x(d))
             pen = QPen(color, 1)
             pen.setStyle(Qt.PenStyle.DotLine)
             painter.setPen(pen)
@@ -849,6 +937,7 @@ class _DetailPanel(QFrame):
             reset_btn.setToolTip(self.tr("Reset to calculated date"))
             reset_btn.setFixedSize(22, 20)
             reset_btn.setFlat(True)
+            set_compact(reset_btn)
             row_layout.addWidget(reset_btn)
             row_layout.addStretch()
 
@@ -1204,7 +1293,10 @@ class PlantingCalendarView(QWidget):
 
         # Scroll area holding the Gantt chart
         self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(False)
+        # Resizable: the chart is as wide as the window (#791: it was a fixed
+        # 1074 px block, 56 % of a 1920 px window) and scrolls below _TOTAL_W.
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._gantt = _GanttWidget()
@@ -1243,10 +1335,11 @@ class PlantingCalendarView(QWidget):
             (_COL_TRANSPL, self.tr("Transplant")),
             (_COL_HARVEST, self.tr("Harvest")),
         ]
+        self._legend_swatches: list[tuple[QLabel, QColor]] = []
         for color, label in items:
             swatch = QLabel()
             swatch.setFixedSize(14, 14)
-            swatch.setStyleSheet(f"background-color: {color.name()}; border-radius: 2px;")
+            self._legend_swatches.append((swatch, color))
             lbl = QLabel(label)
             lbl.setStyleSheet("font-size: 9pt;")
             layout.addWidget(swatch)
@@ -1261,7 +1354,14 @@ class PlantingCalendarView(QWidget):
         self._prop_toggle.toggled.connect(self._on_propagation_toggled)
         layout.addWidget(self._prop_toggle)
 
+        self._restyle_legend()
         return bar
+
+    def _restyle_legend(self) -> None:
+        """The swatches show the colours the bars are drawn in, in this theme."""
+        for swatch, color in self._legend_swatches:
+            swatch.setStyleSheet(
+                f"background-color: {_series_qcolor(color).name()}; border-radius: 2px;")
 
     # ── data collection ────────────────────────────────────────────────────────
 
@@ -1800,7 +1900,14 @@ class PlantingCalendarView(QWidget):
     # ── dashboard generation (unified engine, #228) ─────────────────────────────
 
     def apply_theme_colors(self, _colors: dict[str, str]) -> None:
-        """Re-render on theme switch — dashboard urgency colors are palette-driven."""
+        """Re-render on theme switch.
+
+        The chart reads its colours from the theme while it paints, so it only
+        needs repainting; the legend's swatches and the dashboard's urgency
+        colours are baked into widget style sheets and are rebuilt.
+        """
+        self._restyle_legend()
+        self._gantt.update()
         self.schedule_refresh()
 
     def _rebuild_dashboard(self) -> None:

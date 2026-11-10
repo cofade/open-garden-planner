@@ -347,6 +347,38 @@ def theme_qcolor(name: str) -> QColor:
     return QColor(_current_colors[name])
 
 
+def contrast_ratio(first: QColor, second: QColor) -> float:
+    """WCAG 2.x contrast ratio of two colours, 1.0 … 21.0."""
+
+    def luminance(color: QColor) -> float:
+        def channel(value: int) -> float:
+            c = value / 255.0
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+        return (0.2126 * channel(color.red()) + 0.7152 * channel(color.green())
+                + 0.0722 * channel(color.blue()))
+
+    high, low = sorted((luminance(first), luminance(second)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def readable_on(color: QColor, surface: QColor, minimum: float = 3.0) -> QColor:
+    """``color``, lightened or darkened until it stands out on ``surface``.
+
+    For a DATA colour that keeps its hue in both themes (a chart series, a
+    category): the light palette's value is the reference, and a surface it
+    would sink into gets the nearest shade that reaches ``minimum`` contrast.
+    A colour that already does is returned unchanged.
+    """
+    result = QColor(color)
+    lighten = contrast_ratio(QColor("#ffffff"), surface) > contrast_ratio(QColor("#000000"), surface)
+    for _ in range(12):
+        if contrast_ratio(result, surface) >= minimum:
+            break
+        result = result.lighter(112) if lighten else result.darker(112)
+    return result
+
+
 def rgba(name: str, alpha: int) -> str:
     """Return an ``rgba(r, g, b, a)`` QSS string for a hex token with custom alpha."""
     color = QColor(_current_colors[name])
@@ -383,6 +415,21 @@ def set_text_role(
     if style is not None:
         style.unpolish(widget)
         style.polish(widget)
+
+
+def set_compact(button: QWidget) -> None:
+    """Let a push button be as small as its content or its fixed size (PF-UI-38).
+
+    The app stylesheet gives every ``QPushButton`` the dialog-button minimum
+    width (80 px + padding), and a stylesheet minimum BEATS ``setFixedWidth`` /
+    ``setFixedSize``: an icon-only 26 px button renders 110 px wide. A button in
+    a row, a header or a table opts out with this role.
+    """
+    button.setProperty("compact", True)
+    style = button.style()
+    if style is not None:
+        style.unpolish(button)
+        style.polish(button)
 
 
 def generate_stylesheet(mode: ThemeMode) -> str:
@@ -520,6 +567,28 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     QPushButton:disabled {{
         background-color: {colors['input_disabled']};
         color: {colors['text_disabled']};
+        border-color: {colors['border']};
+    }}
+
+    /* A button in a row, a header or a table — theme.set_compact(button).
+       Without it the 80 px minimum above beats setFixedWidth (PF-UI-38). */
+    QPushButton[compact="true"] {{
+        min-width: 0px;
+        padding: 3px 8px;
+    }}
+
+    QPushButton[compact="true"]:focus {{
+        padding: 2px 7px;
+    }}
+
+    QPushButton[compact="true"]:flat {{
+        border-color: transparent;
+        background-color: transparent;
+        padding: 1px;
+    }}
+
+    QPushButton[compact="true"]:flat:hover {{
+        background-color: {colors['button_hover']};
         border-color: {colors['border']};
     }}
 
@@ -1144,6 +1213,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         color: {colors['text_secondary']};
         font-size: 8pt;
         padding: 1px 4px;
+        min-width: 0px;
     }}
 
     QPushButton#taskDoneBtn:hover {{

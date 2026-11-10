@@ -33,7 +33,7 @@ from open_garden_planner.services.weather_service import (
     wmo_to_icon,
 )
 from open_garden_planner.ui.icons import get_icon, get_pixmap
-from open_garden_planner.ui.theme import set_text_role
+from open_garden_planner.ui.theme import set_compact, set_text_role
 
 # Alias for backwards compatibility (historical tests patch weather_widget.get_weather_service)
 get_weather_service = get_weather_service
@@ -144,6 +144,7 @@ class WeatherWidget(QFrame):
         self._refresh_btn = QPushButton()  # themed refresh icon (was 🔄, #310)
         self._refresh_btn.setFlat(True)
         self._refresh_btn.setFixedSize(24, 22)
+        set_compact(self._refresh_btn)
         self._refresh_btn.setToolTip(self.tr("Refresh forecast"))
         self._refresh_btn.clicked.connect(self._on_refresh_clicked)
         header_layout.addWidget(self._refresh_btn)
@@ -151,6 +152,7 @@ class WeatherWidget(QFrame):
         self._expand_btn = QPushButton()  # themed chevron (was ▾/▴, #310)
         self._expand_btn.setFlat(True)
         self._expand_btn.setFixedSize(24, 22)
+        set_compact(self._expand_btn)
         self._expand_btn.setToolTip(self.tr("Show / hide full forecast"))
         self._expand_btn.clicked.connect(self._on_expand_clicked)
         header_layout.addWidget(self._expand_btn)
