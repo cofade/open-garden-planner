@@ -515,12 +515,21 @@ def _render_bed_detail(
 
 
 # ---------------------------------------------------------------------------
-# Tables that run over several pages
+# Sections that run over several pages
 # ---------------------------------------------------------------------------
+#
+# One rule for every list of the report (#788, #836): ``plan_pages`` cuts the
+# section into the pages it needs and ``render_page`` paints one of them. No
+# renderer opens a page of its own and none stops at the foot of the first: a
+# row the report was asked for is on some page, and every page is counted.
 
 _TABLE_TITLE_H_MM = 14.0
 _TABLE_ROW_H_MM = 7.0
 _TABLE_FOOT_MM = 8.0
+
+#: One page of a section: its rows, its number, the section's page count and
+#: the index of its first row in the whole section.
+SectionPage = tuple[list[Any], int, int, int]
 
 
 def _table_rows_per_page(page_rect: QRectF) -> int:
@@ -530,11 +539,101 @@ def _table_rows_per_page(page_rect: QRectF) -> int:
     return max(1, int(room // _pt(_TABLE_ROW_H_MM)))
 
 
+def _section_pages(rows: list[Any], per_page: int) -> list[SectionPage]:
+    """*rows* cut into pages of *per_page*; an empty section still has one page."""
+    per_page = max(1, per_page)
+    count = max(1, math.ceil(len(rows) / per_page))
+    return [
+        (rows[number * per_page:(number + 1) * per_page], number + 1, count, number * per_page)
+        for number in range(count)
+    ]
+
+
 def _paged_title(title: str, page: int, pages: int) -> str:
     """*title*, with the page of the section when it runs over more than one."""
     if pages <= 1:
         return title
     return _tr("{title} – page {page} of {pages}").format(title=title, page=page, pages=pages)
+
+
+def _draw_section_title(painter: QPainter, page_rect: QRectF, title: str) -> float:
+    """Draw a section's title at the top of *page_rect*; return where its body starts."""
+    title_font = _font(14)
+    title_font.setBold(True)
+    painter.setFont(title_font)
+    painter.setPen(QColor("#2e7d32"))
+    title_h = _pt(_TABLE_TITLE_H_MM)
+    painter.drawText(
+        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+        title,
+    )
+    return page_rect.top() + title_h + _pt(4)
+
+
+def _render_table_page(
+    painter: QPainter,
+    page_rect: QRectF,
+    title: str,
+    columns: list[tuple[str, float]],
+    rows: list[tuple[str, ...]],
+    first_index: int = 0,
+    empty_text: str = "",
+) -> None:
+    """One page of a titled table: header, then *rows*, striped by their index.
+
+    *columns* is ``(heading, share of the page width)``. A cell too long for
+    its column is elided, never cut at a character count. *empty_text* is what
+    the page says when the table has no row at all.
+    """
+    header_font = _font(9)
+    header_font.setBold(True)
+    row_font = _font(8)
+
+    row_h = _pt(_TABLE_ROW_H_MM)
+    y = _draw_section_title(painter, page_rect, title)
+
+    # Header row
+    painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), QColor("#2e7d32"))
+    painter.setFont(header_font)
+    painter.setPen(QColor("white"))
+    x = page_rect.left()
+    for label, frac in columns:
+        col_w = page_rect.width() * frac
+        painter.drawText(
+            QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+            label,
+        )
+        x += col_w
+    y += row_h
+
+    # Data rows
+    painter.setFont(row_font)
+    metrics = painter.fontMetrics()
+    for offset, values in enumerate(rows):
+        bg = QColor("#f9f9f9") if (first_index + offset) % 2 == 0 else QColor("white")
+        painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
+        painter.setPen(QColor("#333333"))
+        x = page_rect.left()
+        for val, frac in zip(values, [f for _, f in columns], strict=True):
+            col_w = page_rect.width() * frac
+            painter.drawText(
+                QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
+                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                metrics.elidedText(val, Qt.TextElideMode.ElideRight, int(col_w - _pt(4))),
+            )
+            x += col_w
+        y += row_h
+
+    if not rows and empty_text:
+        painter.setFont(row_font)
+        painter.setPen(QColor("#777777"))
+        painter.drawText(
+            QRectF(page_rect.left(), y + _pt(4), page_rect.width(), _pt(10)),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            empty_text,
+        )
 
 
 def _plant_display_name(item: Any) -> str:
@@ -597,230 +696,190 @@ def _render_plant_list(
     first_index: int = 0,
 ) -> None:
     """One page of the plant list: *rows* is this page's share of the plants."""
-    header_font = _font(9)
-    header_font.setBold(True)
-    row_font = _font(8)
-    title_font = _font(14)
-    title_font.setBold(True)
-
-    painter.setFont(title_font)
-    painter.setPen(QColor("#2e7d32"))
-
-    title_h = _pt(_TABLE_TITLE_H_MM)
-    painter.drawText(
-        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
-        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+    _render_table_page(
+        painter,
+        page_rect,
         _paged_title(_tr("Plant List"), page, pages),
+        [
+            (_tr("Name"), 0.35),
+            (_tr("Type"), 0.20),
+            (_tr("Position (cm)"), 0.25),
+            (_tr("Notes"), 0.20),
+        ],
+        list(rows),
+        first_index,
+        _tr("No plants found in this project.") if pages <= 1 else "",
     )
 
-    cols = [
-        (_tr("Name"), 0.35),
-        (_tr("Type"), 0.20),
-        (_tr("Position (cm)"), 0.25),
-        (_tr("Notes"), 0.20),
-    ]
 
-    row_h = _pt(_TABLE_ROW_H_MM)
-    y = page_rect.top() + title_h + _pt(4)
-
-    # Header row
-    painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), QColor("#2e7d32"))
-    painter.setFont(header_font)
-    painter.setPen(QColor("white"))
-    x = page_rect.left()
-    for label, frac in cols:
-        col_w = page_rect.width() * frac
-        painter.drawText(
-            QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            label,
-        )
-        x += col_w
-    y += row_h
-
-    # Data rows
-    painter.setFont(row_font)
-    metrics = painter.fontMetrics()
-    for offset, values in enumerate(rows):
-        bg = QColor("#f9f9f9") if (first_index + offset) % 2 == 0 else QColor("white")
-        painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
-        painter.setPen(QColor("#333333"))
-        x = page_rect.left()
-        for val, frac in zip(values, [f for _, f in cols], strict=True):
-            col_w = page_rect.width() * frac
-            painter.drawText(
-                QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
-                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                metrics.elidedText(val, Qt.TextElideMode.ElideRight, int(col_w - _pt(4))),
-            )
-            x += col_w
-        y += row_h
-
-    if not rows and pages <= 1:
-        painter.setFont(row_font)
-        painter.setPen(QColor("#777777"))
-        painter.drawText(
-            QRectF(page_rect.left(), y + _pt(4), page_rect.width(), _pt(10)),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            _tr("No plants found in this project."),
-        )
-
-
-def _render_harvest_summary(
-    painter: QPainter,
-    page_rect: QRectF,
-    _scene: CanvasScene,
-    opts: PdfReportOptions,
-) -> None:
-    """Render the Harvest Summary page (US-C1): per-species, per-year totals."""
+def _harvest_rows(opts: PdfReportOptions) -> list[tuple[str, str, str, str, str]]:
+    """The harvest totals as (species, year, total, unit, entries), newest year first."""
     from open_garden_planner.services.harvest_aggregation import (
         aggregate_by_species_year,
     )
 
-    rows = aggregate_by_species_year(opts.harvest_logs or {})
-
-    header_font = _font(9)
-    header_font.setBold(True)
-    row_font = _font(8)
-    title_font = _font(14)
-    title_font.setBold(True)
-
-    painter.setFont(title_font)
-    painter.setPen(QColor("#2e7d32"))
-    title_h = _pt(14)
-    painter.drawText(
-        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
-        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-        _tr("Harvest Summary"),
-    )
-
-    cols = [
-        (_tr("Species"), 0.40),
-        (_tr("Year"), 0.15),
-        (_tr("Total"), 0.20),
-        (_tr("Unit"), 0.13),
-        (_tr("Entries"), 0.12),
-    ]
-
-    row_h = _pt(7)
-    y = page_rect.top() + title_h + _pt(4)
-
-    # Header row
-    painter.fillRect(
-        QRectF(page_rect.left(), y, page_rect.width(), row_h), QColor("#2e7d32")
-    )
-    painter.setFont(header_font)
-    painter.setPen(QColor("white"))
-    x = page_rect.left()
-    for label, frac in cols:
-        col_w = page_rect.width() * frac
-        painter.drawText(
-            QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            label,
-        )
-        x += col_w
-    y += row_h
-
-    # Data rows
-    painter.setFont(row_font)
-    for idx, agg in enumerate(rows):
-        if y + row_h > page_rect.bottom() - _pt(8):
-            break  # Don't overflow page
-        bg = QColor("#f9f9f9") if idx % 2 == 0 else QColor("white")
-        painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
-        painter.setPen(QColor("#333333"))
-        values = [
+    return [
+        (
             agg.species_name or _tr("Unnamed"),
             str(agg.year),
             f"{agg.total_quantity:g}",
             agg.unit,
             str(agg.entry_count),
-        ]
-        x = page_rect.left()
-        for val, frac in zip(values, [f for _, f in cols], strict=True):
-            col_w = page_rect.width() * frac
-            painter.drawText(
-                QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
-                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                val[:40],
-            )
-            x += col_w
-        y += row_h
-
-    if not rows:
-        painter.setFont(row_font)
-        painter.setPen(QColor("#777777"))
-        painter.drawText(
-            QRectF(page_rect.left(), y + _pt(4), page_rect.width(), _pt(10)),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            _tr("No harvests logged in this project."),
         )
+        for agg in aggregate_by_species_year(opts.harvest_logs or {})
+    ]
+
+
+def _render_harvest_summary(
+    painter: QPainter,
+    page_rect: QRectF,
+    rows: list[tuple[str, str, str, str, str]],
+    page: int = 1,
+    pages: int = 1,
+    first_index: int = 0,
+) -> None:
+    """One page of the Harvest Summary (US-C1): per-species, per-year totals.
+
+    Until #836 this painted the first page's worth and stopped: a garden with
+    more totals than one page holds lost the rest without a word.
+    """
+    _render_table_page(
+        painter,
+        page_rect,
+        _paged_title(_tr("Harvest Summary"), page, pages),
+        [
+            (_tr("Species"), 0.40),
+            (_tr("Year"), 0.15),
+            (_tr("Total"), 0.20),
+            (_tr("Unit"), 0.13),
+            (_tr("Entries"), 0.12),
+        ],
+        list(rows),
+        first_index,
+        _tr("No harvests logged in this project.") if pages <= 1 else "",
+    )
+
+
+# Garden Notes (US-12.9): a date line, the wrapped body and an optional photo
+# line per note, newest first. The lines are laid out before a page is painted,
+# so the section's pages are known to ``plan_pages`` like any other's.
+_NOTE_DATE_H_MM = 6.0
+_NOTE_LINE_H_MM = 4.5
+_NOTE_GAP_MM = 3.0
+_NOTE_FOOT_MM = 2.0
+_NOTE_BODY_PT = 9
+
+#: One laid-out line of the Garden Notes: its kind and its text.
+NoteLine = tuple[str, str]
+_NOTE_LINE_HEIGHTS_MM = {
+    "date": _NOTE_DATE_H_MM,
+    "body": _NOTE_LINE_H_MM,
+    "photo": _NOTE_LINE_H_MM,
+    "gap": _NOTE_GAP_MM,
+}
+
+
+def _page_metrics(point_size: int) -> Any:
+    """Metrics of the report's typeface in points — the page's own unit.
+
+    ``QFontMetricsF(font)`` measures for the screen (96 units per inch), a
+    third wider than the same text on the page, which is laid out at 72: the
+    Garden Notes wrapped at three quarters of the page's width (#836). A font
+    sized in pixels is measured as it is given, on every device.
+    """
+    from PyQt6.QtGui import QFontMetricsF
+
+    font = _font(point_size)
+    font.setPixelSize(point_size)
+    return QFontMetricsF(font)
+
+
+def _note_lines(opts: PdfReportOptions, width_pt: float) -> list[list[NoteLine]]:
+    """Every note of *opts* as its lines, wrapped to *width_pt*, newest first."""
+    from open_garden_planner.models.journal_note import JournalNote
+
+    notes = [
+        JournalNote.from_dict(raw)
+        for raw in (opts.garden_journal_notes or {}).values()
+        if isinstance(raw, dict)
+    ]
+    notes.sort(key=lambda note: note.date or "", reverse=True)
+
+    metrics = _page_metrics(_NOTE_BODY_PT)
+    laid_out: list[list[NoteLine]] = []
+    for note in notes:
+        lines: list[NoteLine] = [("date", note.date or _tr("(no date)"))]
+        text_block = note.text.strip() or _tr("(empty)")
+        for paragraph in text_block.splitlines() or [text_block]:
+            lines.extend(
+                ("body", line) for line in _wrap_to_width(paragraph or " ", width_pt, metrics)
+            )
+        if note.photo_path:
+            lines.append(
+                ("photo", _tr("(photo: {filename})").format(filename=Path(note.photo_path).name))
+            )
+        laid_out.append(lines)
+    return laid_out
+
+
+def _notes_pages(opts: PdfReportOptions, page_rect: QRectF) -> list[SectionPage]:
+    """The Garden Notes cut into pages: every line of every note is on one."""
+    top = page_rect.top() + _pt(_TABLE_TITLE_H_MM) + _pt(4)
+    bottom = page_rect.bottom() - _pt(_NOTE_FOOT_MM)
+
+    pages: list[list[NoteLine]] = [[]]
+    y = top
+    for lines in _note_lines(opts, page_rect.width()):
+        for index, (kind, text) in enumerate(lines):
+            height = _pt(_NOTE_LINE_HEIGHTS_MM[kind])
+            # A date is never the last line of a page: it takes its first body
+            # line with it.
+            needed = height + (_pt(_NOTE_LINE_H_MM) if index == 0 else 0.0)
+            if y + needed > bottom and pages[-1]:
+                pages.append([])
+                y = top
+            pages[-1].append((kind, text))
+            y += height
+        # The space under a note; a page never starts with it.
+        if y + _pt(_NOTE_GAP_MM) <= bottom:
+            pages[-1].append(("gap", ""))
+            y += _pt(_NOTE_GAP_MM)
+    count = len(pages)
+    first = 0
+    numbered: list[SectionPage] = []
+    for number, lines_of_page in enumerate(pages, start=1):
+        numbered.append((lines_of_page, number, count, first))
+        first += len(lines_of_page)
+    return numbered
 
 
 def _render_garden_notes(
     painter: QPainter,
     page_rect: QRectF,
-    _scene: CanvasScene,
-    opts: PdfReportOptions,
+    lines: list[NoteLine],
+    page: int = 1,
+    pages: int = 1,
 ) -> None:
-    """Render the Garden Notes page (US-12.9): chronological list of journal entries.
+    """One page of the Garden Notes (US-12.9): *lines* is this page's share.
 
-    Paginates automatically — when content runs past ``page_rect.bottom()``, calls
-    ``painter.device().newPage()`` and continues on a fresh page with the same
-    "Garden Notes" header. No content is silently truncated.
+    Until #836 this opened further pages on the paint device by itself, so a
+    report with many notes had more pages than its progress counted, and only
+    the last of them carried what ``generate`` adds to a page.
     """
-    from pathlib import Path as _Path
-
-    from PyQt6.QtGui import QFontMetricsF
-
-    from open_garden_planner.models.journal_note import JournalNote
-
-    notes_raw = opts.garden_journal_notes or {}
-    notes: list[JournalNote] = []
-    for raw in notes_raw.values():
-        if not isinstance(raw, dict):
-            continue
-        notes.append(JournalNote.from_dict(raw))
-    notes.sort(key=lambda n: n.date or "", reverse=True)
-
-    title_font = _font(14)
-    title_font.setBold(True)
     date_font = _font(10)
     date_font.setBold(True)
-    body_font = _font(9)
+    body_font = _font(_NOTE_BODY_PT)
     meta_font = _font(8)
     meta_font.setItalic(True)
-    body_metrics = QFontMetricsF(body_font)
+    looks = {
+        "date": (date_font, QColor("#333333")),
+        "body": (body_font, QColor("#222222")),
+        "photo": (meta_font, QColor("#666666")),
+    }
 
-    title_h = _pt(14)
-    body_line_h = _pt(4.5)
-    spacing = _pt(3)
-    bottom_limit = page_rect.bottom() - _pt(2)
+    y = _draw_section_title(painter, page_rect, _paged_title(_tr("Garden Notes"), page, pages))
 
-    def _draw_header() -> float:
-        painter.setFont(title_font)
-        painter.setPen(QColor("#2e7d32"))
-        painter.drawText(
-            QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            _tr("Garden Notes"),
-        )
-        return page_rect.top() + title_h + _pt(4)
-
-    def _new_page_if_needed(current_y: float, needed: float) -> float:
-        """Open a new page when ``needed`` more vertical space won't fit."""
-        if current_y + needed <= bottom_limit:
-            return current_y
-        device = painter.device()
-        if hasattr(device, "newPage"):
-            device.newPage()
-            painter.fillRect(page_rect, QColor("white"))
-        return _draw_header()
-
-    y = _draw_header()
-
-    if not notes:
+    if not lines and pages <= 1:
         painter.setFont(body_font)
         painter.setPen(QColor("#777777"))
         painter.drawText(
@@ -830,51 +889,18 @@ def _render_garden_notes(
         )
         return
 
-    for note in notes:
-        y = _new_page_if_needed(y, _pt(6) + body_line_h)
-
-        painter.setFont(date_font)
-        painter.setPen(QColor("#333333"))
-        painter.drawText(
-            QRectF(page_rect.left(), y, page_rect.width(), _pt(6)),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            note.date or _tr("(no date)"),
-        )
-        y += _pt(6)
-
-        painter.setFont(body_font)
-        painter.setPen(QColor("#222222"))
-        text_block = note.text.strip() or _tr("(empty)")
-        paragraphs = text_block.splitlines() or [text_block]
-        for paragraph in paragraphs:
-            wrapped = _wrap_to_width(
-                paragraph or " ", page_rect.width(), body_metrics
-            )
-            for line in wrapped:
-                y = _new_page_if_needed(y, body_line_h)
-                painter.setFont(body_font)
-                painter.setPen(QColor("#222222"))
-                painter.drawText(
-                    QRectF(page_rect.left(), y, page_rect.width(), body_line_h),
-                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                    line,
-                )
-                y += body_line_h
-
-        if note.photo_path:
-            y = _new_page_if_needed(y, body_line_h)
-            painter.setFont(meta_font)
-            painter.setPen(QColor("#666666"))
+    for kind, text in lines:
+        height = _pt(_NOTE_LINE_HEIGHTS_MM[kind])
+        if kind != "gap":
+            font, colour = looks[kind]
+            painter.setFont(font)
+            painter.setPen(colour)
             painter.drawText(
-                QRectF(page_rect.left(), y, page_rect.width(), body_line_h),
+                QRectF(page_rect.left(), y, page_rect.width(), height),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                _tr("(photo: {filename})").format(
-                    filename=_Path(note.photo_path).name
-                ),
+                text,
             )
-            y += body_line_h
-
-        y += spacing
+        y += height
 
 
 def _wrap_to_width(
@@ -1325,9 +1351,11 @@ class PdfReportService:
     ) -> list[tuple[str, Any]]:
         """Every page of the report, in order, as ``(page type, its data)``.
 
-        A section that needs more than one page — the plant list, the legend —
-        is one entry per page, so the page count is the length of this list and
-        a progress callback counts real pages.
+        A section that needs more than one page — the plant list, the Garden
+        Notes, the Harvest Summary, the legend — is one entry per page, so the
+        page count is the length of this list and a progress callback counts
+        real pages. Every such section is cut here, by ``_section_pages`` or
+        ``_notes_pages``; no renderer opens a page of its own (#836).
         """
         pages: list[tuple[str, Any]] = []
         if opts.include_cover:
@@ -1337,26 +1365,28 @@ class PdfReportService:
         if opts.include_bed_details:
             groups = _bed_groups(scene) if bed_groups is None else bed_groups
             pages.extend(("bed", group) for group in groups)
+        table_rows = _table_rows_per_page(page_rect)
         if opts.include_plant_list:
-            rows = _plant_rows(scene)
-            per_page = _table_rows_per_page(page_rect)
-            count = max(1, math.ceil(len(rows) / per_page))
-            for number in range(count):
-                start = number * per_page
-                pages.append(
-                    ("plant_list", (rows[start:start + per_page], number + 1, count, start))
-                )
+            pages.extend(
+                ("plant_list", page) for page in _section_pages(_plant_rows(scene), table_rows)
+            )
         if opts.include_garden_notes:
-            pages.append(("garden_notes", None))
+            pages.extend(
+                ("garden_notes", (lines, number, count))
+                for lines, number, count, _first in _notes_pages(opts, page_rect)
+            )
         if opts.include_harvest_summary:
-            pages.append(("harvest_summary", None))
+            pages.extend(
+                ("harvest_summary", page)
+                for page in _section_pages(_harvest_rows(opts), table_rows)
+            )
         if opts.include_legend:
-            entries = _legend_entries(scene)
-            per_page = _legend_rows_per_page(page_rect)
-            count = max(1, math.ceil(len(entries) / per_page))
-            for number in range(count):
-                start = number * per_page
-                pages.append(("legend", (entries[start:start + per_page], number + 1, count)))
+            pages.extend(
+                ("legend", (entries, number, count))
+                for entries, number, count, _first in _section_pages(
+                    _legend_entries(scene), _legend_rows_per_page(page_rect)
+                )
+            )
         return pages
 
     @staticmethod
@@ -1379,9 +1409,11 @@ class PdfReportService:
             rows, page, pages, first_index = data
             _render_plant_list(painter, page_rect, rows, page, pages, first_index)
         elif page_type == "garden_notes":
-            _render_garden_notes(painter, page_rect, scene, opts)
+            lines, page, pages = data
+            _render_garden_notes(painter, page_rect, lines, page, pages)
         elif page_type == "harvest_summary":
-            _render_harvest_summary(painter, page_rect, scene, opts)
+            rows, page, pages, first_index = data
+            _render_harvest_summary(painter, page_rect, rows, page, pages, first_index)
         elif page_type == "legend":
             entries, page, pages = data
             _render_legend(painter, page_rect, entries, page, pages)

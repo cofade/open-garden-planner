@@ -20,8 +20,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QMarginsF, QRectF, QSize, Qt
-from PyQt6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter, QPainterPath, QPen
+from PyQt6.QtCore import QRectF, QSize, Qt
+from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPrintSupport import QPrinter
 
@@ -34,7 +34,11 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowOverlayItem
-from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager
+from open_garden_planner.ui.dialogs.print_dialog import (
+    PRINT_MARGIN_MM,
+    GardenPrintManager,
+    default_page_layout,
+)
 
 EXAMPLES = ["family-garden", "balcony", "food-forest", "raised-bed"]
 PAPERS = [("A4", "landscape"), ("A4", "portrait"), ("A3", "landscape"), ("Letter", "portrait")]
@@ -351,7 +355,7 @@ def _extent(mask: np.ndarray) -> tuple[int, int, int, int]:
     return int(columns[0]), int(lines[0]), int(columns[-1]), int(lines[-1])
 
 
-PRINT_MARGIN_MM = 10.0
+# The app's own print page (#836): A4 landscape, its one margin constant.
 PRINTABLE_W_MM, PRINTABLE_H_MM = 297.0 - 2 * PRINT_MARGIN_MM, 210.0 - 2 * PRINT_MARGIN_MM
 
 
@@ -360,11 +364,7 @@ def _printed_pages(scene: CanvasScene, tmp_path: Path, denominator: int) -> tupl
     printer = QPrinter(QPrinter.PrinterMode.HighResolution)
     printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
     printer.setOutputFileName(str(target))
-    printer.setPageLayout(QPageLayout(
-        QPageSize(QPageSize.PageSizeId.A4), QPageLayout.Orientation.Landscape,
-        QMarginsF(PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM),
-        QPageLayout.Unit.Millimeter,
-    ))
+    printer.setPageLayout(default_page_layout())
     manager = GardenPrintManager(scene, project_name="Plan")
     manager.configure(scale_denominator=denominator, include_grid=False, include_labels=True,
                       include_legend=True)

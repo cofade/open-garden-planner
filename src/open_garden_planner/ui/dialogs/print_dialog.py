@@ -32,6 +32,48 @@ SCALE_PRESETS = [
     ("1:500", 500),
 ]
 
+#: The margin of a printout on every side, in millimetres. One constant for the
+#: printer's page layout and for the page count the Print Options dialog states
+#: (#836). Until then the layout was built without a unit, which Qt reads as
+#: points: 10 pt, 3.5 mm, less than most desktop printers can print to, while
+#: the dialog counted pages for 10 mm. 10 mm is a margin every common printer
+#: honours, so the sheet that comes out is the sheet the preview showed.
+PRINT_MARGIN_MM = 10.0
+
+#: Height of the footer (project name, scale, date) under the plan, millimetres.
+LEGEND_HEIGHT_MM = 12
+
+
+def default_page_layout() -> QPageLayout:
+    """The page a printout starts from: A4 landscape, ``PRINT_MARGIN_MM`` all round."""
+    return QPageLayout(
+        QPageSize(QPageSize.PageSizeId.A4),
+        QPageLayout.Orientation.Landscape,
+        QMarginsF(PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM),
+        QPageLayout.Unit.Millimeter,
+    )
+
+
+def tile_grid(
+    canvas_w_cm: float,
+    canvas_h_cm: float,
+    scale_denominator: int,
+    printable_w_mm: float,
+    content_h_mm: float,
+) -> tuple[int, int]:
+    """(columns, rows) of sheets a plan needs at 1:*scale_denominator*.
+
+    *printable_w_mm* x *content_h_mm* is what one sheet shows of the plan: the
+    page inside its margins, less the footer. The printout and the dialog's
+    page count both ask here.
+    """
+    paper_w_mm = canvas_w_cm * 10.0 / scale_denominator
+    paper_h_mm = canvas_h_cm * 10.0 / scale_denominator
+    return (
+        max(1, math.ceil(paper_w_mm / printable_w_mm)),
+        max(1, math.ceil(paper_h_mm / content_h_mm)),
+    )
+
 
 class PrintOptionsDialog(QDialog):
     """Dialog for configuring print options before showing print preview.
@@ -107,6 +149,8 @@ class PrintOptionsDialog(QDialog):
 
         self._legend_check = QCheckBox(self.tr("Legend (project name, scale, date)"))
         self._legend_check.setChecked(True)
+        # The legend takes its height from every sheet, so it changes the count.
+        self._legend_check.toggled.connect(self._update_page_info)
         include_layout.addWidget(self._legend_check)
 
         layout.addWidget(include_group)
@@ -139,17 +183,17 @@ class PrintOptionsDialog(QDialog):
         if denom == 0:
             self._page_info_label.setText(self.tr("Single page (scaled to fit)"))
         else:
-            # Estimate pages for A4 landscape at this scale
-            # A4 landscape printable area ~27.7 x 19.0 cm (with margins)
-            printable_w = 27.7
-            printable_h = 19.0
-
-            # At scale 1:denom, 1 cm on paper = denom cm in real world
-            real_w = printable_w * denom
-            real_h = printable_h * denom
-
-            cols = max(1, math.ceil(self._canvas_width_cm / real_w))
-            rows = max(1, math.ceil(self._canvas_height_cm / real_h))
+            # The sheets of the page the preview starts with, counted the way
+            # the printout tiles them: same margin, same footer (#836).
+            printable = default_page_layout().paintRect(QPageLayout.Unit.Millimeter)
+            legend_h_mm = LEGEND_HEIGHT_MM if self._legend_check.isChecked() else 0
+            cols, rows = tile_grid(
+                self._canvas_width_cm,
+                self._canvas_height_cm,
+                denom,
+                printable.width(),
+                printable.height() - legend_h_mm,
+            )
             total = cols * rows
 
             if total == 1:
@@ -189,7 +233,7 @@ class GardenPrintManager:
     """Manages printing of the garden scene with scaling and multi-page support."""
 
     # Legend bar height in mm
-    LEGEND_HEIGHT_MM = 12
+    LEGEND_HEIGHT_MM = LEGEND_HEIGHT_MM
 
     def __init__(
         self,
@@ -246,13 +290,8 @@ class GardenPrintManager:
         """
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
 
-        # Default to A4 landscape for garden plans
-        page_layout = QPageLayout(
-            QPageSize(QPageSize.PageSizeId.A4),
-            QPageLayout.Orientation.Landscape,
-            QMarginsF(10, 10, 10, 10),
-        )
-        printer.setPageLayout(page_layout)
+        # A4 landscape, a stated margin in millimetres (``PRINT_MARGIN_MM``).
+        printer.setPageLayout(default_page_layout())
 
         preview = QPrintPreviewDialog(printer, parent)
         preview.setWindowTitle(
@@ -466,8 +505,11 @@ class GardenPrintManager:
 
         # Draw legend (outside the flip)
         if legend_h_mm > 0:
-            # Calculate effective scale for legend text
-            effective_scale_denom = int(canvas_w * 10 / printable_w_mm) if printable_w_mm > 0 else 100
+            # The scale the plan was fitted at — by its width or by its height,
+            # whichever was short of room (PF-CAN-55). Taken from the width
+            # alone, a plan fitted by its height was printed with a wrong 1:N.
+            fitted = self._paper_cm_per_plan_cm(canvas_rect, printable_w_mm, content_h_mm)
+            effective_scale_denom = round(1.0 / fitted) if fitted > 0 else 100
             self._draw_legend(
                 painter, printer, printable_w_mm, content_h_mm,
                 legend_h_mm, effective_scale_denom,
@@ -496,14 +538,10 @@ class GardenPrintManager:
         canvas_w = canvas_rect.width()  # cm
         canvas_h = canvas_rect.height()  # cm
 
-        # At scale 1:denom, 1 mm on paper = denom/10 cm in real world
-        # So canvas_w cm requires canvas_w * 10 / denom mm on paper
-        paper_w_mm = canvas_w * 10.0 / self._scale_denom
-        paper_h_mm = canvas_h * 10.0 / self._scale_denom
-
-        # Calculate how many pages we need
-        cols = max(1, math.ceil(paper_w_mm / printable_w_mm))
-        rows = max(1, math.ceil(paper_h_mm / content_h_mm))
+        # How many sheets: the count the Print Options dialog stated.
+        cols, rows = tile_grid(
+            canvas_w, canvas_h, self._scale_denom, printable_w_mm, content_h_mm
+        )
 
         # Real-world cm covered per page tile
         tile_w_cm = printable_w_mm * self._scale_denom / 10.0
