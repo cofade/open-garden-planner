@@ -910,7 +910,11 @@ class GardenItemMixin(PositionLockMixin):
     def grid_cover_path(self) -> "QPainterPath":
         """The part of the plan this object covers, in item coordinates.
 
-        The canvas grid is not drawn over it (``CanvasView._draw_grid``).
+        The canvas grid is not drawn over it (``CanvasView._draw_grid``) and
+        the hours on the sun map's contours keep clear of it. Both FILL this
+        path, so it is bounded like the item's own picture: an outline above
+        the paint bound of #472 answers with an empty path
+        (``PolygonItem.grid_cover_path``, ``PolylineItem.grid_cover_path``).
         """
         return self.shape()  # type: ignore[attr-defined,no-any-return]
 

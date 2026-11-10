@@ -81,6 +81,10 @@ SPRITE_CACHE_CEILING_BYTES: Final = 256 * 1024 * 1024
 #: beyond it the layer is coarser than the device, never larger.
 MAX_LAYER_PIXELS: Final = 16 * 1024 * 1024
 
+#: How far past the viewport a kept layer reaches once a pan has run out of it
+#: (``KeptLayer``), device pixels on every side: six 40-pixel pan steps.
+KEPT_LAYER_MARGIN_PX: Final = 256
+
 #: How much of a tint colour is laid over the sprite's own pixels.
 TINT_ALPHA: Final = 60
 
@@ -243,33 +247,34 @@ def device_bounds(painter: QPainter) -> QRectF:
     return QRectF(0.0, 0.0, device.width() * ratio, device.height() * ratio)
 
 
-def _paint_exposed(
-    painter: QPainter, target: QRectF, draw: SpriteDraw, tint: QColor | None
-) -> bool:
-    """An oversized sprite: draw only what the device shows of it, from the
-    vector, into a layer in device pixels (so nothing is resampled), and lay
-    that layer down untransformed."""
+def _exposed_area(painter: QPainter, target: QRectF) -> tuple[QTransform, QTransform, QRect] | None:
+    """The painter's device transform, its inverse, and what its device shows
+    of ``target`` in whole device pixels; None when the transform has no inverse."""
     to_device = painter.deviceTransform()
     from_device, invertible = to_device.inverted()
     if not invertible:
-        return False
+        return None
     exposed = to_device.mapRect(target).intersected(device_bounds(painter))
     if painter.hasClipping():
         exposed = exposed.intersected(to_device.mapRect(painter.clipBoundingRect()))
-    area = exposed.toAlignedRect()
-    if area.isEmpty():
-        return True  # nothing of it is on the device: painted, in full
-    # Coarser than the device where the rule says so (a 1200-dpi printer, a
-    # recording painter) or where the layer would not fit its budget.
-    shrink = min(1.0, device_scale(painter) / raw_device_scale(painter))
-    pixels = area.width() * area.height() * shrink * shrink
-    if pixels > MAX_LAYER_PIXELS:
-        shrink *= math.sqrt(MAX_LAYER_PIXELS / pixels)
+    return to_device, from_device, exposed.toAlignedRect()
+
+
+def _render_layer(
+    to_device: QTransform,
+    area: QRect,
+    shrink: float,
+    target: QRectF,
+    draw: SpriteDraw,
+    tint: QColor | None,
+) -> QImage | None:
+    """``draw`` into a new transparent layer that covers ``area`` of the device
+    (whole device pixels), ``shrink`` times as fine. Every layer is made here."""
     layer = _transparent_image(
         max(math.ceil(area.width() * shrink), 1), max(math.ceil(area.height() * shrink), 1)
     )
     if layer is None:
-        return False
+        return None
     layer_painter = QPainter(layer)
     try:
         layer_painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -283,13 +288,44 @@ def _paint_exposed(
         _lay_tint(layer_painter, layer.rect(), tint)
     finally:
         layer_painter.end()
+    return layer
+
+
+def _lay_layer(
+    painter: QPainter, from_device: QTransform, area: QRect, layer: QImage, source: QRectF
+) -> None:
+    """Lay ``source`` of ``layer`` down on ``area`` of the device, untransformed."""
     painter.save()
     # World transform that makes the painter's DEVICE transform the identity:
     # device = world x rest, so world' = device^-1 x world gives world' x rest = 1.
     painter.setWorldTransform(from_device * painter.worldTransform())
     painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-    painter.drawImage(QRectF(area), layer, QRectF(layer.rect()))
+    painter.drawImage(QRectF(area), layer, source)
     painter.restore()
+
+
+def _paint_exposed(
+    painter: QPainter, target: QRectF, draw: SpriteDraw, tint: QColor | None
+) -> bool:
+    """An oversized sprite: draw only what the device shows of it, from the
+    vector, into a layer in device pixels (so nothing is resampled), and lay
+    that layer down untransformed."""
+    found = _exposed_area(painter, target)
+    if found is None:
+        return False
+    to_device, from_device, area = found
+    if area.isEmpty():
+        return True  # nothing of it is on the device: painted, in full
+    # Coarser than the device where the rule says so (a 1200-dpi printer, a
+    # recording painter) or where the layer would not fit its budget.
+    shrink = min(1.0, device_scale(painter) / raw_device_scale(painter))
+    pixels = area.width() * area.height() * shrink * shrink
+    if pixels > MAX_LAYER_PIXELS:
+        shrink *= math.sqrt(MAX_LAYER_PIXELS / pixels)
+    layer = _render_layer(to_device, area, shrink, target, draw, tint)
+    if layer is None:
+        return False
+    _lay_layer(painter, from_device, area, layer, QRectF(layer.rect()))
     return True
 
 
@@ -307,6 +343,120 @@ def paint_layer(painter: QPainter, target: QRectF, draw: SpriteDraw) -> bool:
     painted.
     """
     return _paint_exposed(painter, target, draw, None)
+
+
+class KeptLayer:
+    """A layer in device pixels that a widget keeps between its paints (#793).
+
+    ``paint_layer`` makes its layer for one paint and drops it. That is right
+    for a picture that differs at every paint, and wrong for one that is the
+    same until the scene or the zoom changes and is then painted again and
+    again: the canvas grid with every standing object cut out of it. This
+    keeps such a layer, under a ``key`` that names what it was made from, and
+    a paint lays the exposed part of it down: no allocation, no ``draw``.
+
+    A pan moves the layer with the plan. Its place is kept as the device
+    transform's translation, so a repaint after a pan lays it down moved by
+    whole device pixels (a pan by part of one, at a fractional display
+    scaling, is drawn afresh: nothing is resampled). What a pan brings into
+    view lies outside a layer that covers the viewport alone, so a layer made
+    because a pan ran out of it reaches ``margin_px`` further on every side —
+    and only then: the layer made after a scene change or a zoom step is one
+    viewport, because most of those are followed by another.
+
+    The layer is made on a paint that covers all the widget shows of
+    ``whole``, or when a pan ran out of the one that is held. A partial
+    repaint of ANOTHER picture (the key or the zoom changed) is painted
+    through ``paint_layer``'s own route for its rectangle — what every paint
+    did until the second review of the 2D branch — and makes no layer: a drag
+    repaints two small rectangles a frame, and must not pay a viewport for
+    them.
+
+    Bound: ``MAX_LAYER_PIXELS`` (64 MB) — a viewport that large gets no
+    margin, and a larger one no kept layer at all. ``bytes_used`` says what is
+    held, ``builds`` counts the layers made (counted, never timed: §8.10.10).
+    """
+
+    def __init__(self, margin_px: int = KEPT_LAYER_MARGIN_PX) -> None:
+        self._margin = margin_px
+        self._layer: QImage | None = None
+        self._key: Hashable = None
+        self._scale: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+        self._origin: tuple[float, float] = (0.0, 0.0)
+        self._area = QRect()
+        self.builds = 0
+
+    def clear(self) -> None:
+        """Drop the layer (the picture is switched off, the plan is replaced)."""
+        self._layer = None
+        self._key = None
+
+    @property
+    def bytes_used(self) -> int:
+        """The bytes of the layer that is held."""
+        return 0 if self._layer is None else self._layer.sizeInBytes()
+
+    def paint(
+        self, painter: QPainter, whole: QRectF, exposed: QRectF, key: Hashable, draw: SpriteDraw
+    ) -> bool:
+        """Paint ``exposed`` of the picture ``draw`` describes over ``whole``
+        (both in the painter's coordinates), from the kept layer where it holds
+        it. ``draw(p, part)`` paints ``part`` of the picture and nothing else.
+        False when nothing could be painted."""
+        wanted = exposed.intersected(whole)
+        found = _exposed_area(painter, wanted)
+        if found is None:
+            return False
+        to_device, from_device, area = found
+        if area.isEmpty():
+            return True
+        scale = (to_device.m11(), to_device.m12(), to_device.m21(), to_device.m22())
+        origin = (to_device.dx(), to_device.dy())
+        layer = self._layer
+        same_picture = layer is not None and self._key == key and self._scale == scale
+        moved = (origin[0] - self._origin[0], origin[1] - self._origin[1])
+        steps = (round(moved[0]), round(moved[1]))
+        # ... and it lies a whole number of device pixels from where it was made
+        in_step = (
+            same_picture
+            and abs(moved[0] - steps[0]) < 1e-6
+            and abs(moved[1] - steps[1]) < 1e-6
+        )
+        if layer is not None and in_step:
+            held = self._area.translated(steps[0], steps[1])
+            if held.contains(area):
+                source = QRectF(area.translated(-held.x(), -held.y()))
+                _lay_layer(painter, from_device, area, layer, source)
+                return True
+        bounds = device_bounds(painter).toAlignedRect()
+        shown = to_device.mapRect(whole).toAlignedRect()
+        # Qt hands a paint of the whole viewport a rectangle that may stop a
+        # pixel short of its edge.
+        whole_view = area.adjusted(-2, -2, 2, 2).contains(shown.intersected(bounds))
+        if (not in_step and not whole_view) or device_scale(painter) < raw_device_scale(painter):
+            return _paint_exposed(painter, wanted, draw, None)
+        # A pan ran out of the layer: the next one reaches further.
+        margin = self._margin if in_step else 0
+        region = shown.intersected(bounds.adjusted(-margin, -margin, margin, margin))
+        if region.width() * region.height() > MAX_LAYER_PIXELS:
+            region = shown.intersected(bounds)
+        if region.width() * region.height() > MAX_LAYER_PIXELS:
+            self.clear()
+            return _paint_exposed(painter, wanted, draw, None)
+        layer = _render_layer(
+            to_device, region, 1.0, from_device.mapRect(QRectF(region)), draw, None
+        )
+        if layer is None:
+            self.clear()
+            return False
+        self._layer, self._key, self._scale, self._origin, self._area = (
+            layer, key, scale, origin, region,
+        )
+        self.builds += 1
+        _lay_layer(
+            painter, from_device, area, layer, QRectF(area.translated(-region.x(), -region.y()))
+        )
+        return True
 
 
 def sprite_cache_budget(device_pixels: float) -> int:
@@ -337,6 +487,7 @@ def clear_sprite_cache() -> None:
 
 
 __all__ = [
+    "KEPT_LAYER_MARGIN_PX",
     "MAX_CACHED_SIDE_PX",
     "MAX_LAYER_PIXELS",
     "MIN_SIDE_PX",
@@ -346,6 +497,7 @@ __all__ = [
     "SPRITE_CACHE_MAX_BYTES",
     "SPRITE_CACHE_MAX_ENTRIES",
     "TINT_ALPHA",
+    "KeptLayer",
     "PixmapLru",
     "clear_sprite_cache",
     "device_bounds",

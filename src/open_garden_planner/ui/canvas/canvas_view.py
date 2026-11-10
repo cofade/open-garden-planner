@@ -102,7 +102,11 @@ from open_garden_planner.core.snap.providers import (
     TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
-from open_garden_planner.core.sprite_raster import ensure_sprite_cache_room, paint_layer
+from open_garden_planner.core.sprite_raster import (
+    KeptLayer,
+    ensure_sprite_cache_room,
+    paint_layer,
+)
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -238,10 +242,6 @@ class CanvasView(QGraphicsView):
     # US-12.9: emitted when an existing pin's "Delete" context-menu entry fires
     # (single pin, with confirmation dialog).
     journal_note_delete_requested = pyqtSignal(str)
-    # US-12.9: emitted when one or more journal pins are part of a keyboard
-    # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
-    # regular items and is undoable). Args: list[str] of note ids.
-    journal_notes_batch_delete_requested = pyqtSignal(list)
 
     #: Where the sun map's key was last painted. A class attribute as well as
     #: an instance one, like ``CanvasScene._paint_revision``: when the cyclic
@@ -251,6 +251,10 @@ class CanvasView(QGraphicsView):
     #: that has none of its own left. An ``AttributeError`` in a virtual that
     #: Qt calls ends the process (PyQt calls ``qFatal``; PF-CAN-61).
     _sun_legend_rect = QRect()
+    # US-12.9: emitted when one or more journal pins are part of a keyboard
+    # Delete-key batch (no per-pin confirmation; matches Delete-key UX for
+    # regular items and is undoable). Args: list[str] of note ids.
+    journal_notes_batch_delete_requested = pyqtSignal(list)
     # US-12.9: emitted when the sidebar requests viewport centering on a pin.
     journal_note_focus_requested = pyqtSignal(str)
     #: Set by ``GardenPlannerApp``: note ids -> the ProjectData-linked note
@@ -297,6 +301,14 @@ class CanvasView(QGraphicsView):
         # shown, and where it was last painted (viewport pixels).
         self._sun_legend: SunLegendKey | None = None
         self._sun_legend_rect = QRect()
+        # The grid with every standing object cut out of it, kept until the
+        # scene or the zoom changes (``_draw_grid``).
+        self._grid_layer = KeptLayer()
+        #: How many outlines the grid's cut-out filled, and how many path
+        #: elements they had — the instruments of the paint bound with the
+        #: grid on (counted, never timed: §8.10.10).
+        self.grid_cover_fills = 0
+        self.grid_cover_elements = 0
         # Touch gestures (#321): enabled by default, a sitting of the view; the app
         # applies the saved preference after construction, as for the scale bar.
         # ``_pinch_scale`` / ``_pinch_center`` carry the last values of Qt's own
@@ -1570,7 +1582,19 @@ class CanvasView(QGraphicsView):
     def set_grid_visible(self, visible: bool) -> None:
         """Set grid visibility."""
         self._grid_visible = visible
+        if not visible:
+            self._grid_layer.clear()  # nothing is kept for a grid that is not shown
         self.viewport().update()
+
+    @property
+    def grid_layer_builds(self) -> int:
+        """How often the grid's kept layer was made (``_draw_grid``; §8.10.10)."""
+        return self._grid_layer.builds
+
+    @property
+    def grid_layer_bytes(self) -> int:
+        """What the grid's kept layer holds right now, in bytes (§8.37)."""
+        return self._grid_layer.bytes_used
 
     def set_snap_enabled(self, enabled: bool) -> None:
         """Set snap to grid enabled."""
@@ -4203,33 +4227,61 @@ class CanvasView(QGraphicsView):
 
         What stands on the plan is the scene's to know and is not asked of the
         objects here (``CanvasScene.standing_covers``, kept until the plan
-        changes): a paint, a pan and a zoom read it. Until the review of #793
-        this method united one region per object on every paint — 70 ms of a
-        120 ms repaint on a plan of 853 objects.
+        changes). Until the review of #793 this method united one region per
+        object on every paint — 70 ms of a 120 ms repaint on a plan of 853
+        objects.
+
+        And the finished layer is the view's to keep (``KeptLayer``): the
+        lines with the objects cut out are the same picture until the scene,
+        the zoom or the grid itself changes, so a repaint lays the kept layer
+        down and a pan lays it down moved — neither draws a line or fills an
+        outline. Until the second review every paint made the layer afresh,
+        which cost 25 ms of a 55 ms repaint in a 3824 x 1984 viewport and,
+        with one outline of 16,000 zigzag vertices on the plan, 2.7 s
+        (an outline above the paint bound of #472 is no longer filled at all:
+        ``PolygonItem.grid_cover_path``). A picture of the viewport that is
+        not the viewport (``render()`` into an image) is painted through the
+        same ``draw``, for itself.
         """
-        plan = self._canvas_scene.canvas_rect.intersected(rect)
-        if plan.isEmpty():
+        scene = self._canvas_scene
+        plan = scene.canvas_rect
+        exposed = plan.intersected(rect)
+        if exposed.isEmpty():
             return
-        covers = self._canvas_scene.standing_covers()
         hints = painter.renderHints()
         erase = QColor(0, 0, 0)
 
-        def draw(layer: QPainter, _target: QRectF) -> None:
+        def draw(layer: QPainter, part: QRectF) -> None:
+            part = plan.intersected(part)
             # The lines as the viewport's own painter would draw them. With a
             # clip: Qt's raster engine draws a cosmetic line without one ten
             # times slower (measured: 196 lines, 28 ms against 2.5 ms).
             layer.setRenderHints(hints)
-            layer.setClipRect(plan, Qt.ClipOperation.IntersectClip)
-            self._draw_grid_lines(layer, plan)
+            layer.setClipRect(part, Qt.ClipOperation.IntersectClip)
+            self._draw_grid_lines(layer, part)
             # ... and the objects out of them, each with its own fill rule, on
             # whole pixels: the cut is the edge of a body, not a soft edge.
             layer.setRenderHint(QPainter.RenderHint.Antialiasing, False)
             layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
-            for bounds, cover in covers:
-                if bounds.intersects(plan):
+            for bounds, cover in scene.standing_covers():
+                if bounds.intersects(part):
                     layer.fillPath(cover, erase)
+                    self.grid_cover_fills += 1
+                    self.grid_cover_elements += cover.elementCount()
 
-        paint_layer(painter, plan, draw)
+        if painter.device() is not self.viewport():
+            paint_layer(painter, exposed, draw)
+            return
+        # What the layer is made from, besides the zoom (the layer knows the
+        # painter's transform itself).
+        key = (
+            scene.paint_revision,
+            self._grid_size,
+            self._grid_color.rgba(),
+            self._grid_major_color.rgba(),
+            (plan.x(), plan.y(), plan.width(), plan.height()),
+        )
+        self._grid_layer.paint(painter, plan, exposed, key, draw)
 
     def _draw_grid_lines(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the grid lines across ``rect`` (scene coordinates)."""

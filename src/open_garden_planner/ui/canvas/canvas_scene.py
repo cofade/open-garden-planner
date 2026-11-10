@@ -137,6 +137,8 @@ class GuideLine:
 
 
 class CanvasScene(QGraphicsScene):
+            if covered.isEmpty():
+                continue  # an outline above the paint bound covers nothing (#472)
     """Graphics scene for the garden canvas.
 
     The scene uses centimeters as the coordinate unit.
