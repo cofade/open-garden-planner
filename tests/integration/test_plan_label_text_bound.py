@@ -18,7 +18,6 @@ text without hanging; the time bounds after that are generous.
 
 from __future__ import annotations
 
-
 import pytest
 from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter
