@@ -3,6 +3,7 @@
 import math
 from collections.abc import Callable
 from datetime import date
+from typing import Any
 
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QPageLayout, QPageSize, QPainter, QPen
@@ -296,7 +297,7 @@ class GardenPrintManager:
 
         # Prepare scene state for printing (labels, selection)
         self._prepare_scene_for_print()
-        saved_text: list = []
+        saved_text: list[tuple[Any, QFont]] = []
 
         try:
             painter = QPainter()

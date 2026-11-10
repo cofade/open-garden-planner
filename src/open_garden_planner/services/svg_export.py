@@ -63,6 +63,12 @@ SVG_UNITS_PER_INCH = 300
 
 _FALLBACK_LOGICAL_DPI = 96.0
 _EPSILON = 1e-6
+#: Transform kinds that keep an axis-aligned rectangle axis-aligned.
+_AXIS_ALIGNED = frozenset({
+    QTransform.TransformationType.TxNone,
+    QTransform.TransformationType.TxTranslate,
+    QTransform.TransformationType.TxScale,
+})
 
 #: Font families that are serif; every other proportional family falls back to
 #: ``sans-serif`` and every fixed-pitch one to ``monospace``.
@@ -245,7 +251,7 @@ class _RecordingEngine(QPaintEngine):
         # saved clips are replayed, each with the matrix it was set under.
         matrix = QTransform(state.transform())
         path = matrix.map(local)
-        rect = _rect_of(path) if matrix.type().value <= QTransform.TransformationType.TxScale.value else None
+        rect = _rect_of(path) if matrix.type() in _AXIS_ALIGNED else None
         clip = _Clip(path, rect)
         if operation == Qt.ClipOperation.ReplaceClip:
             self._clips = [clip]
