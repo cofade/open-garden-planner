@@ -711,6 +711,18 @@ def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Se
             "line": round(max(lines), 2) if lines else None}
 
 
+def difference_frame(first: Any, second: Any, *, offset: float = 128.0) -> Array:
+    """``first`` less ``second`` (two frames of one camera), every channel, plus ``offset``:
+    a frame whose luma is the luma difference (luma is linear in the codes) — what
+    ``plan_edge_step`` reads when both sides of an edge carry the same texture (#798): the
+    texture cancels, a difference of material does not."""
+    a = np.asarray(first, dtype=np.float64)[..., :3]
+    b = np.asarray(second, dtype=np.float64)[..., :3]
+    if a.shape != b.shape:
+        raise ValueError(f"two frames of one shape, got {a.shape} and {b.shape}")
+    return np.asarray(a - b + offset)
+
+
 def _edge_line(values: Array, view: Pinhole, pair: Array) -> float | None:
     """``plan_edge_step``'s ``line`` at one station: ``pair`` is the point of the edge
     and a ground point across it, on the plan's side."""

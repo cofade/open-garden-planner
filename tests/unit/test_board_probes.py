@@ -1054,3 +1054,25 @@ def test_the_ground_polygon_mask_is_where_the_ground_inside_shows() -> None:
     mask = P.ground_polygon_mask(CAMERA, polygon)
     truth = hit & (east > 0.0) & (east < 500.0) & (north > 0.0) & (north < 400.0)
     assert (mask != truth).sum() <= 0.01 * truth.sum() + 2 * (SIZE[0] + SIZE[1]), "a pixel of edge at most"
+
+
+def test_a_textured_edge_is_judged_on_the_difference_with_its_plan_free_twin() -> None:
+    """#798: with the grass on both sides a 2 m line of ground is not flat, and the fits read
+    the texture's own pattern as a step. The board renders the same view without the plan;
+    on the DIFFERENCE (``difference_frame``) the texture cancels and a real step stays."""
+    camera = P.Pinhole(eye=(0.0, -700.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
+    along = [500.0, 650.0, 800.0, 950.0, 1100.0]
+    rng = np.random.default_rng(798)
+    grain = P.box_mean(rng.normal(0.0, 14.0, (SIZE[1], SIZE[0])), 3)[..., None]
+    twin = _ground_frame(camera, 0.0, 0.014) + grain        # the meadow alone, textured
+    same = _ground_frame(camera, 0.0, 0.014) + grain        # the plan's ground: the same function
+    darker = _ground_frame(camera, -1.5, 0.014) + grain     # a material 1.5 luma darker
+    raw = P.plan_edge_step(same, camera, axis="east", at=0.0, along=along)
+    assert raw["line"] > 2.0, raw                            # the grain fools the line
+    clean = P.plan_edge_step(P.difference_frame(same, twin), camera, axis="east", at=0.0, along=along)
+    assert clean["step"] == pytest.approx(0.0, abs=0.01) and clean["line"] < 0.01, clean
+    stepped = P.plan_edge_step(P.difference_frame(darker, twin), camera, axis="east", at=0.0,
+                               along=along)
+    assert stepped["step"] == pytest.approx(-1.5, abs=0.2), "the positive control"
+    with pytest.raises(ValueError, match="one shape"):
+        P.difference_frame(same, twin[:10])

@@ -1758,7 +1758,15 @@ class Board:
         and a mean of the two would hide it. ``max_line`` is the largest LINE on an edge
         (``probes.plan_edge_step``): a thin line the fits cannot see. ``weather``
         (``--living``): under that weather's look - the ground's values and, since #687, its
-        ambient occlusion are the weather's."""
+        ambient occlusion are the weather's.
+
+        #798: both sides carry the meadow's grass, and a 2 m line of grass is not flat: on
+        the frame itself the fits read the texture's own pattern, the same in every preset
+        and mood (to -2.1 luma on one view). So every view is rendered a second time with
+        no plan at all (``ground=None``: the meadow without its hole), and the step and the
+        line are measured on the DIFFERENCE (``probes.difference_frame``): the grass cancels,
+        and what the plan's ground does otherwise than the meadow stays. The frame's own
+        numbers are kept as ``raw_step`` / ``raw_line``."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
@@ -1794,8 +1802,16 @@ class Board:
                         look=weather_look(sun, preset, weather),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                    rows[name] = {**probes.plan_edge_step(rgb, camera, axis=axis, at=0.0,
-                                                          along=along, reach=reach),
+                    meadow, _twin, _twin_info = self.frame(
+                        f"edge{tag}_{mood}_{name}_{preset}_meadow", {}, sun=sun,
+                        look=weather_look(sun, preset, weather), ground=None,
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    raw = probes.plan_edge_step(rgb, camera, axis=axis, at=0.0, along=along,
+                                                reach=reach)
+                    rows[name] = {**probes.plan_edge_step(probes.difference_frame(rgb, meadow),
+                                                          camera, axis=axis, at=0.0, along=along,
+                                                          reach=reach),
+                                  "raw_step": raw["step"], "raw_line": raw["line"],
                                   "file": info["file"]}
                 for row in rows.values():
                     worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
