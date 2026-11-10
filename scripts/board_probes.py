@@ -1104,20 +1104,23 @@ def orientation_scores(seen: Any, predicted: Any) -> dict[str, Any]:
 FLAT_STD_LUMA, FLAT_WINDOW_PX = 1.5, 9
 
 
-def local_std(values: Any, window: int = FLAT_WINDOW_PX) -> Array:
-    """The standard deviation of ``values`` (h x w) over the ``window`` square around
-    every pixel (the frame's edge repeated outward): two box filters by summed tables."""
+def box_mean(values: Any, window: int) -> Array:
+    """The mean of ``values`` (h x w) over the ``window`` square (odd) around every pixel,
+    the frame's edge repeated outward — by a summed-area table."""
     data = np.asarray(values, dtype=np.float64)
     half = window // 2
+    padded = np.pad(data, ((half + 1, half), (half + 1, half)), mode="edge")
+    table = padded.cumsum(axis=0).cumsum(axis=1)
+    return np.asarray((table[window:, window:] - table[:-window, window:]
+                       - table[window:, :-window] + table[:-window, :-window])
+                      / float(window * window))
 
-    def box(field: Array) -> Array:
-        padded = np.pad(field, ((half + 1, half), (half + 1, half)), mode="edge")
-        table = padded.cumsum(axis=0).cumsum(axis=1)
-        return np.asarray((table[window:, window:] - table[:-window, window:]
-                           - table[window:, :-window] + table[:-window, :-window])
-                          / float(window * window))
 
-    mean, square = box(data), box(data * data)
+def local_std(values: Any, window: int = FLAT_WINDOW_PX) -> Array:
+    """The standard deviation of ``values`` (h x w) over the ``window`` square around
+    every pixel (the frame's edge repeated outward): two box filters."""
+    data = np.asarray(values, dtype=np.float64)
+    mean, square = box_mean(data, window), box_mean(data * data, window)
     return np.asarray(np.sqrt(np.maximum(square - mean * mean, 0.0)))
 
 
@@ -1239,8 +1242,12 @@ def repeat_correlation(values: Any, period_px: float) -> dict[str, Any]:
     ``at_period``: the larger normalised correlation of the picture with itself moved
     one period east or north — the lattice a repeated texture draws (an identical tile
     beside every tile reads near 1); ``control``: the same at 0.37 and 0.61 of a period,
-    where a repeat has no reason to correlate. ``excess``: ``at_period`` - ``control``."""
-    data = np.asarray(values, dtype=np.float64)
+    where a repeat has no reason to correlate. ``excess``: ``at_period`` - ``control``.
+    The picture is correlated less its mean over two periods: the light's gradient across
+    a frame correlates at every lag and would hide the lattice (a flat meadow read 0.63
+    at a third of a period)."""
+    raw = np.asarray(values, dtype=np.float64)
+    data = raw - box_mean(raw, 2 * max(1, int(round(period_px))) + 1)
 
     def shifted(lag_x: int, lag_y: int) -> float:
         if lag_x >= data.shape[1] or lag_y >= data.shape[0]:

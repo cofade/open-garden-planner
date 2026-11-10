@@ -328,3 +328,60 @@ def test_the_stairs_timelapse_holds_its_camera_while_the_sun_steps() -> None:
     assert set(records) == {"stairs", "column_0", "column_1", "column_2", "column_3"}
     corners = {(r.transform.east_cm, r.transform.north_cm) for key, r in records.items() if key != "stairs"}
     assert corners == {(0.0, 0.0), (width, 0.0), (0.0, depth), (width, depth)}
+
+
+@pytest.mark.parametrize("plan", [(2400.0, 1600.0, 900.0), (2000.0, 1000.0, 1200.0),
+                                  (900.0, 650.0, 400.0), (600.0, 300.0, 250.0)])
+def test_the_meadow_probes_see_the_meadow_they_judge(plan: tuple[float, float, float]) -> None:
+    """#798: the default framing sees a large field of meadow; the orbit and the flight see
+    far meadow in their first frame and keep at least 100 of those points in every frame;
+    the camera above looks straight down at the meadow, one grass repeat ~42 px at 720p.
+    Sizes: the bench plan and the family garden (24 x 16 m), the food forest, the raised
+    bed and the balcony (with about their tallest parts)."""
+    from scripts import board_probes as probes
+
+    width, depth, top = plan
+    size = (1280, 720)
+    cameras = board.meadow_cameras(width, depth, top, size)
+    box = (0.0, 0.0, width, depth)
+    meadow = probes.meadow_mask(cameras["default"], box, margin_cm=board.meadow_margin(width, depth))
+    assert meadow.mean() > 0.2, meadow.mean()          # the felt table is most of the view
+    for move in ("orbit", "flight"):
+        views = cameras[move]
+        assert len(views) == board.MEADOW_FRAMES
+        far = board.far_meadow_points(views[0], box, board.meadow_margin(width, depth))
+        assert len(far) == board.MEADOW_TRACK_POINTS, (move, len(far))
+        points = np.column_stack([far, np.zeros(len(far))])
+        kept = np.ones(len(points), dtype=bool)
+        for view in views:   # in view in EVERY frame (a small plan's far band is the top rows)
+            x, y, front = view.project(points)
+            kept &= front & (x >= 1) & (x < size[0] - 1) & (y >= 1) & (y < size[1] - 1)
+        assert kept.sum() >= 100, (move, int(kept.sum()))
+    # the orbit turns about the plan's middle, the flight flies level and east
+    assert cameras["orbit"][1].target == cameras["orbit"][0].target
+    assert {view.eye[2] for view in cameras["flight"]} == {board.MEADOW_FLIGHT_EYE_CM}
+    assert cameras["flight"][1].eye[0] - cameras["flight"][0].eye[0] == board.MEADOW_FLIGHT_STEP_CM
+    above = cameras["above"]
+    assert above.horizon_row() < 0 and above.eye[2] == board.MEADOW_REPEAT_HEIGHT_CM
+    period = board.MEADOW_REPEAT_CM * above._focal / board.MEADOW_REPEAT_HEIGHT_CM
+    assert 40.0 < period < 45.0, period
+    walk = next(shot for shot in board.default_shots(width, depth) if shot.name == "walk")
+    assert (cameras["eye"].eye, cameras["eye"].target) == (walk.eye, walk.target)
+
+
+def test_the_meadow_overrides_change_only_what_they_name() -> None:
+    """#798: ``--open-ground`` sets the owner's switch and ``--meadow-surface`` the preset's
+    surface in every frame of a run; without them the look is the look."""
+    from open_garden_planner.core.scene3d import SunState
+    from open_garden_planner.core.scene3d.look import look_for
+
+    look = look_for(SunState(elevation_deg=40.0, azimuth_deg=180.0), "high")
+    plain = board.Board(board._parse([]), Path("."), lambda *_a, **_k: None, {})
+    assert plain.with_meadow(look) is look
+    varied = board.Board(board._parse(["--open-ground", "flat", "--meadow-surface", "1"]),
+                         Path("."), lambda *_a, **_k: None, {})
+    changed = varied.with_meadow(look)
+    assert changed.open_ground_grass is False and changed.preset.meadow_surface == 1
+    assert changed.preset.name == look.preset.name and changed.mood == look.mood
+    with pytest.raises(SystemExit):
+        board._parse(["--meadow-surface", "3"])
