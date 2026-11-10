@@ -108,7 +108,7 @@ def test_a_rename_to_a_huge_name_is_bounded_too(qtbot, ui_font_family) -> None:
         "  two   blanks\tand a tab ",
         "x" * 81,
         "A name of ninety characters " + "." * 62,
-        "bell\x07 and an override ‮",
+        "bell\x07 and an override \N{RIGHT-TO-LEFT OVERRIDE}",
     ],
 )
 def test_the_label_is_the_name_as_rows_and_cards_show_it(qtbot, name: str) -> None:
