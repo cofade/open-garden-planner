@@ -302,6 +302,38 @@ def test_a_low_suns_disc_beats_a_brighter_warm_horizon_band() -> None:
     assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
 
 
+def test_a_warm_clipped_disc_is_still_the_discs_own_plateau() -> None:
+    """#716: the atmosphere's 6° disc core read (255, 255, 243) once the profile dimmed the
+    sky round a low sun (master's (255, 255, 252) clipped blue too, from the brighter sky
+    behind it). A warm core clips red and green first, so "every channel >= 250" found no
+    plateau, and the warm fallback locked 0.49° low onto the haze band below. A clipped core
+    is luma >= 250; the band (luma ~206) stays out."""
+    azimuth, elevation = 180.0, 6.0
+    look = math.radians(azimuth)
+    camera = P.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(look) * 1000.0, math.cos(look) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(elevation + 2.0))),
+        fov_deg=70.0, size=SIZE)
+    width, height = camera.size
+    cols, rows = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(cols, rows)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    frame = np.empty((height, width, 3))
+    frame[:] = (120.0, 160.0, 215.0)
+    frame[rays[..., 2] < 0.0] = (70.0, 110.0, 60.0)
+    elevation_deg = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    frame[(elevation_deg > 0.2) & (elevation_deg < 5.5)] = (255.0, 200.0, 120.0)
+    sun = np.asarray(sun_direction_scene(elevation, azimuth))
+    disc = np.degrees(np.arccos(np.clip(rays @ sun, -1.0, 1.0))) < 1.0
+    frame[disc] = (255.0, 255.0, 243.0)
+    assert int(disc.sum()) >= 20 and not np.all(frame[disc] >= 250.0)
+    found = P.sun_disc(frame, camera)
+    assert found["found"] and found.get("plateau_px", 0) >= 20, found
+    assert abs(P.bearing_error_deg(found["bearing_deg"], azimuth)) < 0.25, found
+    assert found["elevation_deg"] == pytest.approx(elevation, abs=0.25), found
+
+
 def test_two_white_blobs_do_not_make_a_sun_between_them() -> None:
     """#717 review: the white path took the centroid of EVERY white pixel, so two
     clouds at 160° and 200° read as a sun at 180°. It takes the largest connected

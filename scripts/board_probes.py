@@ -336,8 +336,11 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
 
     A disc at a low sun can be dimmer than the warm horizon band around it, so the
     finder first looks for the disc's own signature — the largest 4-connected plateau
-    of at least 20 pixels with every channel at least 250 — and takes its centroid
-    (#717; worst measured error 0.13°). A compactness test (bounding box at most 4:1,
+    of at least 20 CLIPPED pixels, luma at least 250 — and takes its centroid (#717;
+    worst measured error 0.13°). Luma, not every channel: a warm core clips red and green
+    first, and whether blue clips too depends on the sky behind the disc — the
+    atmosphere's 6° core read (255, 255, 243) once its sky was matched to the painted one,
+    and the warm fallback read it 0.49° low (#716). A compactness test (bounding box at most 4:1,
     at least 40 % filled) keeps a thin white streak from reading as a disc. When no
     such plateau exists it falls back to the peak of "bright AND warm" above the
     horizon. ``found`` is False when nothing stands out (contrast of the peak over the
@@ -350,7 +353,7 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     sky = frame[:band]
     score = luma(sky) + 0.8 * (sky[:, :, 0] - sky[:, :, 2])
     median = float(np.median(score))
-    white = np.all(sky >= 250.0, axis=2)
+    white = luma(sky) >= 250.0
     plateau, count = _largest_blob(white, compact_only=True)
     if count >= 20:
         plateau_rows, plateau_cols = np.nonzero(plateau)
