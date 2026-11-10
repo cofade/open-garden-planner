@@ -29,6 +29,16 @@ The memory bound is ``SPRITE_CACHE``'s: ``SPRITE_CACHE_MAX_BYTES`` in at most
 ``SPRITE_CACHE_MAX_ENTRIES`` pixmaps, none larger than ``MAX_CACHED_SIDE_PX``
 squared (4 MB). The layer of an oversized sprite is transient and at most
 ``MAX_LAYER_PIXELS``.
+
+That bound has to hold what ONE frame draws, or the frame evicts its own
+sprites and every zoom step rasterises them again. What a frame draws grows
+with the viewport: its sprites cover the viewport's device pixels, at up to
+four pixmap pixels a device pixel (the level is the zoom rounded UP to a power
+of two). So a canvas states its viewport (``ensure_sprite_cache_room``) and the
+bound is raised to ``sprite_cache_budget`` of it, up to
+``SPRITE_CACHE_CEILING_BYTES``. Measured (review of #785): the 853-object plan
+in a 3840 x 2000 viewport at 207 % needs 121 sprites of level 4 at once; with
+64 MB each zoom step there rasterised 134 sprites again and took 1.3 s.
 """
 
 from __future__ import annotations
@@ -51,9 +61,21 @@ MAX_CACHED_SIDE_PX: Final = 1024
 MIN_SIDE_PX: Final = 4
 
 #: The cache's bound — bytes first, entries as a backstop for a plan of
-#: thousands of tiny sprites.
+#: thousands of tiny sprites. The bytes are the bound for a viewport of up to
+#: two megapixels; a larger one raises it (``sprite_cache_budget``).
 SPRITE_CACHE_MAX_BYTES: Final = 64 * 1024 * 1024
 SPRITE_CACHE_MAX_ENTRIES: Final = 4096
+
+#: What the cache may hold for each device pixel of the viewport: 4 bytes a
+#: pixmap pixel, up to 4 pixmap pixels a device pixel (a level is at most twice
+#: the zoom, on both axes), and sprites that lie two deep (a sprite reaches
+#: past its plant by a fifth, and plants stand under trees).
+SPRITE_CACHE_BYTES_PER_DEVICE_PIXEL: Final = 32
+
+#: ... and the most it is ever given: a ceiling, not an allocation. The cache
+#: holds what was drawn and evicts beyond it. A 3840 x 2160 viewport comes to
+#: 253 MB of it.
+SPRITE_CACHE_CEILING_BYTES: Final = 256 * 1024 * 1024
 
 #: The most pixels the transient layer of an oversized sprite may have (64 MB);
 #: beyond it the layer is coarser than the device, never larger.
@@ -287,6 +309,28 @@ def paint_layer(painter: QPainter, target: QRectF, draw: SpriteDraw) -> bool:
     return _paint_exposed(painter, target, draw, None)
 
 
+def sprite_cache_budget(device_pixels: float) -> int:
+    """The bytes ``SPRITE_CACHE`` may hold for a viewport of ``device_pixels``:
+    ``SPRITE_CACHE_BYTES_PER_DEVICE_PIXEL`` each, never under
+    ``SPRITE_CACHE_MAX_BYTES`` and never over ``SPRITE_CACHE_CEILING_BYTES``."""
+    wanted = SPRITE_CACHE_BYTES_PER_DEVICE_PIXEL * max(device_pixels, 0.0)
+    if not math.isfinite(wanted):
+        return SPRITE_CACHE_CEILING_BYTES
+    return int(min(max(wanted, SPRITE_CACHE_MAX_BYTES), SPRITE_CACHE_CEILING_BYTES))
+
+
+def ensure_sprite_cache_room(device_pixels: float, cache: PixmapLru = SPRITE_CACHE) -> None:
+    """Give ``cache`` room for a viewport of ``device_pixels`` (module docstring).
+
+    Raised, never lowered: two views share the cache, and a window dragged to
+    a smaller screen keeps what it already holds. One comparison when there is
+    room already, so a view may call it at every paint.
+    """
+    budget = sprite_cache_budget(device_pixels)
+    if cache.max_bytes < budget:
+        cache.max_bytes = budget
+
+
 def clear_sprite_cache() -> None:
     """Drop every cached canvas sprite."""
     SPRITE_CACHE.clear()
@@ -297,14 +341,18 @@ __all__ = [
     "MAX_LAYER_PIXELS",
     "MIN_SIDE_PX",
     "SPRITE_CACHE",
+    "SPRITE_CACHE_BYTES_PER_DEVICE_PIXEL",
+    "SPRITE_CACHE_CEILING_BYTES",
     "SPRITE_CACHE_MAX_BYTES",
     "SPRITE_CACHE_MAX_ENTRIES",
     "TINT_ALPHA",
     "PixmapLru",
     "clear_sprite_cache",
     "device_bounds",
+    "ensure_sprite_cache_room",
     "paint_layer",
     "paint_sprite",
     "rasterise",
+    "sprite_cache_budget",
     "sprite_pixel_size",
 ]

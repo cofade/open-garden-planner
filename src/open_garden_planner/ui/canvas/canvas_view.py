@@ -102,7 +102,7 @@ from open_garden_planner.core.snap.providers import (
     TangentSnapProvider,
 )
 from open_garden_planner.core.snapping import ObjectSnapper, SnapGuide
-from open_garden_planner.core.sprite_raster import paint_layer
+from open_garden_planner.core.sprite_raster import ensure_sprite_cache_room, paint_layer
 from open_garden_planner.core.stacking import ArrangeMode, ArrangeOutcome
 from open_garden_planner.core.tools import (
     AngleConstraintTool,
@@ -4414,6 +4414,14 @@ class CanvasView(QGraphicsView):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the view, then draw overlays in viewport coordinates."""
+        # The sprites of one frame must fit their cache, and a frame is as
+        # large as the viewport in DEVICE pixels. Stated here: a paint is the
+        # one event that follows a resize, a move to another screen and a
+        # change of the display's scaling alike (one comparison when unchanged).
+        viewport = self.viewport()
+        if viewport is not None:
+            ratio = viewport.devicePixelRatioF()
+            ensure_sprite_cache_room(viewport.width() * viewport.height() * ratio * ratio)
         super().paintEvent(event)
 
         painter = QPainter(self.viewport())

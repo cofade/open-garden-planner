@@ -366,3 +366,55 @@ class TestPanIsCheap:
         # ... and the pictures that were blitted are the sharp ones
         sizes = [key[1] for key in sprite_raster.SPRITE_CACHE._entries if key[0][0] == "plant"]
         assert max(sizes) == 138  # 30 cm x 1.15 fill scale x level 4
+
+
+class TestALargeViewportKeepsItsSprites:
+    """The sprite cache has to hold what ONE frame draws. In a viewport of
+    six megapixels a plan of touching crowns at 205 % draws 190 megabytes of
+    level-4 sprites; with the cache at its 64 MB the frame evicted its own
+    sprites and every zoom step rasterised them again (measured on a
+    3840 x 2000 viewport, review of #785: 134 sprites and 1.3 s a step on the
+    853-object plan). The bound follows the viewport now."""
+
+    def test_a_zoom_step_inside_a_level_rasterises_no_sprite_again(self, qtbot, monkeypatch) -> None:
+        # as a fresh process has it, whatever an earlier test's view raised it to
+        monkeypatch.setattr(sprite_raster.SPRITE_CACHE, "max_bytes", sprite_raster.SPRITE_CACHE_MAX_BYTES)
+        sprite_raster.clear_sprite_cache()
+        scene = CanvasScene(3000.0, 2000.0)
+        kinds = (ObjectType.TREE, ObjectType.SHRUB, ObjectType.PERENNIAL)
+        for row in range(20):
+            for column in range(30):
+                scene.addItem(CircleItem(
+                    50.0 + 100.0 * column, 50.0 + 100.0 * row, 50.0,
+                    object_type=kinds[(row + column) % 3],
+                ))
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        view.resize(3000, 2000)
+        view.show()
+        qtbot.waitExposed(view)
+        view.set_zoom(2.05)                        # level 4: four pixmap pixels a device pixel
+        view.centerOn(QPointF(1500.0, 1000.0))
+        QApplication.processEvents()
+        view.viewport().repaint()
+
+        rasterised: list[int] = []
+        real = sprite_raster.rasterise
+
+        def counting(width_px, height_px, draw, tint=None):
+            rasterised.append(width_px)
+            return real(width_px, height_px, draw, tint)
+
+        monkeypatch.setattr(sprite_raster, "rasterise", counting)
+        for step in (1.0004, 1.0008, 1.0012):      # every item is painted again, at the same level
+            view.set_zoom(2.05 * step)
+            view.centerOn(QPointF(1500.0, 1000.0))
+            view.viewport().repaint()
+        assert rasterised == [], f"{len(rasterised)} sprites rasterised again"
+        assert sprite_raster.SPRITE_CACHE.bytes_used > sprite_raster.SPRITE_CACHE_MAX_BYTES, (
+            "this frame fits 64 MB: the test shows nothing"
+        )
+        viewport = view.viewport()
+        pixels = viewport.width() * viewport.height() * viewport.devicePixelRatioF() ** 2
+        assert sprite_raster.SPRITE_CACHE.max_bytes == sprite_raster.sprite_cache_budget(pixels)
+        sprite_raster.clear_sprite_cache()

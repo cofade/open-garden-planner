@@ -710,7 +710,8 @@ centimetres**.
 **What `paint_sprite` guarantees** (`core/sprite_raster.py`):
 
 - A sprite whose level asks for at most 1024 px a side is a pixmap in
-  `SPRITE_CACHE` (least recently used out; 64 MB, each entry 4 MB at most),
+  `SPRITE_CACHE` (least recently used out; 64 MB, more for a viewport above
+  two megapixels — §8.37; each entry 4 MB at most),
   drawn into its **exact** rectangle — not `toAlignedRect()`, which enlarged a
   10 cm seedling by up to a centimetre and put a bench up to 0.3 cm off its
   rectangle.
@@ -862,9 +863,9 @@ widget afresh and cannot show a pixel a partial repaint left behind.
 
 Measured on the 853-object plan (1469 × 901, at fit): the pass inside a 40-pixel
 repaint 10–12 ms → 0.13 ms; scene foreground passes per zoom step 2 → 1. What a
-40-pixel repaint still costs with labels on over labels off (5.5 against 3.3 ms)
-is not the pass: Qt keeps items that ignore transformations out of its spatial
-index and walks the owner of every such item on every paint.
+40-pixel repaint still costs with labels on over labels off (2.3 ms: 5.8–5.9
+against 3.5–3.7 ms) is not the pass: Qt keeps items that ignore transformations
+out of its spatial index and walks the owner of every such item on every paint.
 
 **A label of no object states its own weight.** The hours on the sun map's
 contours are `PlanLabelItem`s with no owner (`sun_heatmap.SunMapLabelItem`, #794):
@@ -9047,11 +9048,19 @@ reports another value a stored size is drawn at another height, as it always was
 
 ## 8.37 Canvas raster caches and repaint cost (#784, #785)
 
-What the plan canvas keeps as pixels, what bounds it, and what a frame costs.
-Numbers are the bundled family-garden example in a 1453 × 898 viewport (fit is
-56 %), spacing rings on, sun overlay on / off — medians of the real application
-on a machine that was rendering other things, each pair measured in one
-session, so read the ratios. "Before" is the same branch without #784 / #785.
+What the plan canvas keeps between paints, what bounds it, and what a frame costs.
+
+**What was measured where.** The two tables below are ONE plan, ONE window and
+ONE display: the bundled family-garden example (101 visible items) in a
+1453 × 898 viewport at a device pixel ratio of 1 (fit is 56 %), spacing rings
+on, sun overlay on / off — medians of the real application on a machine that
+was rendering other things, each pair measured in one session, so read the
+ratios. "Before" is the same branch without #784 / #785. A cost that grows with
+the number of objects or with the viewport's device pixels does not show on
+that plan and window. The review of the branch measured both; what it found and
+what was done about it is under **"A large plan, a large viewport"** below. Not
+measured anywhere: a real high-density display (the ratio 1.5 below is
+`QT_SCALE_FACTOR` on the offscreen platform), and the frozen executable.
 
 | At zoom | Repaint, before → after | 40-px pan step | ×1.1 zoom step |
 |---|---|---|---|
@@ -9070,16 +9079,27 @@ session, so read the ratios. "Before" is the same branch without #784 / #785.
 | Pan gesture at twice fit, 40 steps at 33 Hz, event loop running | 114 ms a step | 21 ms a step | the minimap no longer renders, and drops every item cache, on a pan |
 | Zoom gesture from twice fit, the same | 106 ms a step | 50 ms a step | |
 
-**Three caches, each with a stated bound:**
+**What is kept, each with a stated bound:**
 
-| Cache | Holds | Bound |
+| Kept | Holds | Bound |
 |---|---|---|
 | `QPixmapCache` (Qt's, process-wide) | every `DeviceCoordinateCache` item's device picture, the sun overlay's among them | 256 MB — `ui/canvas/item_cache.ITEM_CACHE_BUDGET_KB`, set by `CanvasScene` |
-| `core.sprite_raster.SPRITE_CACHE` | plant and object sprites per raster level | 64 MB, 4096 entries, 1024 × 1024 px (4 MB) an entry |
+| `core.sprite_raster.SPRITE_CACHE` | plant and object sprites per raster level | 32 bytes for each device pixel of the largest viewport painted, never under 64 MB, never over 256 MB (`sprite_cache_budget`); 4096 entries, 1024 × 1024 px (4 MB) an entry |
 | `core.fill_patterns._level_tiles` | tinted detail tiles per (pattern, colour) | 48 MB, 1 MB an entry |
+| `SunShadowOverlayItem._picture` | the overlay's last rasterisation, or a reduced picture of it | 2048 px a side, 16 MB |
+| `CanvasScene.standing_covers()` | one path per standing object, plan coordinates (the grid's cut-out, §8.9.17) | grows with the plan: about 0.5 MB for 853 objects |
+| `plan_labels.LabelPass` | each viewport's label layout (§8.9.15) | one entry per label shown: about 0.1 MB for 170 labels |
 
 (`render_plant_pixmap`'s and `render_furniture_pixmap`'s own caches, for list
 icons and thumbnails, are 32 MB and 64 MB.)
+
+The last two are not pixels. They are what a paint needs of the WHOLE scene,
+kept in plan coordinates until **`CanvasScene.paint_revision`** moves — the
+rule of this section, and the sun overlay's since US-E3: scene-wide state is
+computed when the scene changes and never inside a paint. The revision moves on
+Qt's `changed`, on every plan change, on a selection change, on `addItem` /
+`removeItem` / `clear`, and when a label says it changed (§8.9.15); a repaint,
+a pan and a zoom do not move it. PF-CAN-60 has what `changed` alone misses.
 
 **Qt's item cache lives in `QPixmapCache`, and its default limit is 10 MB**
 (PF-CAN-49). #430 made every unselected item `DeviceCoordinateCache`; one lawn
@@ -9166,6 +9186,51 @@ after any scene change (a scrub, an edit, the overlay's own settle): the next
 frame that touches an item paints it once.
 `tests/unit/test_minimap_widget.py::TestViewportChangesDoNotRender`.
 
+**A large plan, a large viewport (review of the branch).** Measured on a plan of
+853 named objects built in code (`tests/large_plan.py`: 746 perennials, 107
+raised beds, 50 m × 30 m) at fit in a 1469 × 901 viewport, ratio 1, offscreen
+platform, medians of 11 in three interleaved rounds on a machine five other
+processes were loading — read the ratios:
+
+| | Before the review | After | What changed |
+|---|---|---|---|
+| Full repaint, grid on | 122–129 ms | 33–39 ms | the cut-out is kept by the scene (§8.9.17) |
+| ... the grid's lines with no cut-out | 34–36 ms | 29–35 ms | (the reference: 1.05–1.15 times it now, 3.5 before) |
+| ... grid off | 27–32 ms | 26–29 ms | |
+| 40-px repaint, labels on / off | 16–17 / 4.3–5.0 ms | 6.5–7.8 / 3.5–3.7 ms | the label layout is kept (§8.9.15): the pass itself 10–12 → 0.13 ms |
+| 40-px repaint, labels and grid on | 21–22 ms | 6.1–10 ms | |
+| Scene foreground passes per zoom step | 2 | 1 | the pass asks for the labels that changed, not for the viewport |
+| Zoom step of 3 %, labels and grid on | 115 ms | 82–103 ms | what is left is every visible item's device cache, as on any plan |
+| 40-px pan step at 1.5 × fit | 33 ms | 18–29 ms | a pan reads both kept answers |
+| A press on a point of the plan lands on a label nobody sees | 35 % of the plan | none | a label takes no click (§8.9.15) |
+
+The sun overlay above 2048 device pixels is in the list above (72 → 31 ms a
+zoom step in a 3840 × 2000 viewport, 70 → 23 ms at 2560 × 1300 and 150 %).
+
+**The sprite cache has to hold one frame.** A sprite is rasterised at the level
+its painter shows it at — the zoom rounded UP to a power of two — so one frame's
+sprites take up to four pixmap pixels for each device pixel they cover. With the
+cache at a fixed 64 MB a frame of a large viewport did not fit and evicted its
+own sprites: every zoom step, inside one level, rasterised them again. Measured
+in a 3840 × 2000 viewport over a zoom sweep from fit to 8 × fit and back, 45
+steps of 10 %, each step painted twice at one level:
+
+| Plan | 64 MB: steps that rasterised again, worst step | Bound by the viewport (232 MB here) |
+|---|---|---|
+| Family garden (61 plants) | 0 of 45; the cache full at 64.0 MB | 0 of 45 |
+| Food forest | 0 of 45; full at 63.9 MB | 0 of 45 |
+| 853 objects | 8 of 45; 134 sprites at 207 %, 1.3–1.5 s a step | 0 of 45; 74–107 ms a step |
+| 1500 touching crowns | 27 of 45; 523 sprites at 106 %, 2–3.9 s a step | 0 of 45; 88–133 ms a step |
+
+The bound therefore follows the viewport (`sprite_raster.sprite_cache_budget`,
+stated by `CanvasView.paintEvent`): 32 bytes for each device pixel — 4 bytes a
+pixmap pixel, 4 pixmap pixels a device pixel, sprites two deep (a sprite
+reaches past its plant, plants stand under trees). 64 MB up to two megapixels,
+as before; 102 MB at 2560 × 1300; 234 MB at 3840 × 2000; never over 256 MB. It
+is a ceiling: after the sweep the cache held 229 MB on the 853-object plan and
+231 MB on the dense one, and on a plan of a hundred objects it holds what that
+plan's sprites are. Raised, never lowered, like the item cache's.
+
 Rejected, with measurements: replacing the strokes by pre-offset ring polygons
 (`pyclipper`, once per solve) halves the paint (71 → 32 ms) for 6–34 ms more per
 solve and moves pixels by up to 16–52 levels at edges; `QPainterPath.simplified()`
@@ -9190,14 +9255,37 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- A scrub step still rasterises the overlay once (60–130 ms at fit, 7–25 ms
-  zoomed in): scrubbing the timeline at fit is as slow as it was. The
-  candidate, not built: a half-resolution picture while solves keep arriving,
-  settled the way a zoom is — it changes the pixels of a scrub frame, so it is
-  the owner's to ask for.
+- **A scrub step is unchanged.** #784 is titled after the stutter of a scrub,
+  and this branch does not remove it: a scrub step still rasterises the
+  overlay once per solve (60–130 ms at fit with the strokes, 7–25 ms zoomed
+  in; 82–84 ms against 100–106 ms in the table above, which is within the
+  noise). What #784 removed is the cost of everything ELSE while the overlay
+  is on. The candidate, not built: a half-resolution picture while solves keep
+  arriving, settled the way a zoom is — it changes the pixels of a scrub
+  frame, so it is the owner's to ask for. The reduced picture kept for a zoom
+  above 2048 px is deliberately not made during a scrub.
+- A zoom step on a large plan is every visible item's device cache: 82–103 ms
+  on the 853-object plan with nothing else left in it.
+- Labels as items: Qt keeps an item that ignores transformations out of its
+  spatial index and walks the owner of every such item on every paint. With
+  853 labels shown that is 2.3 ms of a 40-pixel repaint (5.8–5.9 ms with the
+  label pass switched off, against 3.5–3.7 ms with the labels hidden), before
+  and after this branch.
+- A pan with the sun map's key on screen lays the labels out at every step:
+  the key stays where it is while the labels move under it.
+- An edit under way (a drag, a rubber band) moves the paint revision at every
+  step, so both kept answers are taken again per frame: 5 ms for the cut-out
+  and 9 ms for the layout on 853 objects — once a frame, where it was once a
+  paint (and the layout twice).
 
 Pinned as a ratio, never in milliseconds: `tests/perf/test_sun_overlay_repaint.py`
 (marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.06–1.14 with
-the fix, 16.9 before). Counted, on any machine: `tests/integration/test_sun_overlay_cache.py`,
-`TestPanIsCheap` in `tests/integration/test_canvas_sharpness.py` and
-`TestViewportChangesDoNotRender` in `tests/unit/test_minimap_widget.py`.
+the fix, 16.9 before) and `tests/perf/test_canvas_repaint_ratios.py` (on the
+853-object plan: a repaint with the grid's cut-out ≤ 2 × the lines alone,
+measured 1.09–1.11 and 1.47 once under load, 3.5 before; a 40-pixel repaint
+with the label pass ≤ 2 × without, measured 1.02–1.09, 2.8 before). Counted, on
+any machine: `tests/integration/test_sun_overlay_cache.py`,
+`tests/integration/test_grid_cover_cache.py`,
+`tests/integration/test_label_layout_cache.py`, `TestPanIsCheap` and
+`TestALargeViewportKeepsItsSprites` in `tests/integration/test_canvas_sharpness.py`
+and `TestViewportChangesDoNotRender` in `tests/unit/test_minimap_widget.py`.

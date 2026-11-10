@@ -135,7 +135,8 @@ Bounded elsewhere: the vertices of one outline (the snapshot refuses an item
 above ``MAX_ITEM_VERTICES`` before one vertex is read), the tiles and pixels of
 a plan (``GroundGrid``: 256 tiles, 4096 × 4096 px), the fill-brush cache of
 ``core.fill_patterns`` (200 textures of 256 × 256 px, whatever the plan's
-colours) and the sprite caches (``core.sprite_raster.SPRITE_CACHE``: 64 MB, a
+colours) and the sprite caches (``core.sprite_raster.SPRITE_CACHE``: 64 MB,
+up to 256 MB for a canvas viewport above two megapixels, a
 sprite of 1024 px a side at most; ``core.furniture_renderer``'s 200 sprites for
 the one this module stretches — at most ``SPRITE_MAX_PIXELS``, 1 MB). A fill, a
 solid stroke or a sprite that reaches far beyond a tile costs the tile's pixels:
