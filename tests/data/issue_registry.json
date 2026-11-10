@@ -1214,10 +1214,20 @@
     "state": "OPEN",
     "title": "3D: wind is invisible on tree crowns (0.9 cm sway for a herb and a 12 m poplar alike)"
   },
+  "801": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: roofs and walls are flat untextured plates while the 2D plan shows tiles"
+  },
   "802": {
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: the garden gets brighter as night falls (ground luma rises after sunset)"
+  },
+  "803": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: one roughness and specular for every built part - a black trampoline mat turns tan facing a low sun"
   },
   "805": {
     "is_pr": false,

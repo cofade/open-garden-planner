@@ -31,7 +31,9 @@ the artifact it runs in: can THIS build render the garden? It
    and a pond — so every screen-door shader (``screen.frag`` / ``.vert``,
    ``foliage_door.frag`` / ``.vert``, ``grass_door.vert``, ``water_door.frag``) is
    compiled from the bundle as well: some, but not most, of each cube's pixels must be
-   its colour.
+   its colour. The roof swatch is made of masonry (#801), so the built world's detail
+   shader (``built_detail.vert`` / ``.frag``, a canvas picture uploaded as a texture) draws
+   it: it must still read in its tint.
 7. renders a SECOND small frame, the living garden (L5, #389): the same scene in
    perspective on a rainy night with one garden light — so the particle shaders
    (``precipitation.vert`` / ``.frag``, ``ambient.vert`` / ``.frag``) and every lit
@@ -118,6 +120,9 @@ BOX_TINT: Final = (230, 20, 20, 255)
 SWATCH_TINT: Final = (200, 60, 40, 255)
 #: Every material kind but the box's own ``vc``, west to east.
 SWATCH_KINDS: Final = ("roof", "foliage", "grass", "glass", "water")
+#: The surface the roof swatch is made of (#801): a picture laid by its faces' planes, so the
+#: built world's detail shader is compiled from the bundle and drawn in the swatch's tint.
+DETAIL_SWATCH_SURFACE: Final = "masonry"
 _KIND_PARAM: Final = "material_kind"
 #: The flat lawn the ground baker paints: a colour no other part of the frame has.
 LAWN_TINT: Final = (40, 70, 220, 255)
@@ -297,8 +302,11 @@ def overlays() -> dict[str, Mesh]:
 def _builder(record: Record) -> tuple[MeshPart, ...]:
     kind = str(record.params[_KIND_PARAM])
     height = record.height_cm if record.height_cm is not None else 0.0
+    # the roof swatch carries a wall's picture (#801): built_detail.vert / .frag from the bundle
+    surface = DETAIL_SWATCH_SURFACE if record.item_id == "roof" else ""
     return (MeshPart(prism_mesh(record.footprints, height), kind,
-                     casts_shadow=kind not in ("glass", "water"), tinted=True, name=kind),)
+                     casts_shadow=kind not in ("glass", "water"), tinted=True, name=kind,
+                     surface=surface),)
 
 
 def registry() -> BuilderRegistry:

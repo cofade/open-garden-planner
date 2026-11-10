@@ -32,3 +32,4 @@ from dated measurements. New lessons belong in a new reference and index row.
 | The atmosphere sky at the painted horizon — profile and deck anchor (#716, #719) | [Read](references/016-atmosphere-horizon-716-719.md) |
 | The meadow's grass — one ground shader, the texture, its variation and the owner's open-ground switch (#798) | [Read](references/017-meadow-grass-798.md) |
 | Foliage in motion, the leaves' stripes and the autumn crown — the wind's values, AO not acne, the leaf-size options, why the autumn crown is muddy (#800, #805) | [Read](references/018-foliage-wind-leaf-stripes-and-autumn-800-805.md) |
+| What built parts are made of — surfaces (roughness, specular), the roof's 2D tiles, wall pictures, the hue gate against a part's own specular-free frame, the pond's glint (#801, #803) | [Read](references/019-built-materials-801-803.md) |

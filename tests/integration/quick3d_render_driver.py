@@ -83,6 +83,7 @@ from open_garden_planner.ui.view3d.quick3d.shots import (  # noqa: E402
     TopDownShot,
     top_down_pixel,
 )
+from tests.integration.built_materials_scenes import scenario_built_materials  # noqa: E402
 
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
 QT_ERRORS_EXIT = 4
@@ -1142,6 +1143,8 @@ SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "shown_materials": scenario_shown_materials,
     "integration": scenario_integration,
     "embed": scenario_embed,
+    # #801 / #803: the built world's materials (its scenes: built_materials_scenes.py)
+    "built_materials": scenario_built_materials,
 }
 
 

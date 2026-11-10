@@ -380,6 +380,19 @@ def pattern_pixels(pattern: FillPattern) -> tuple[int, int, bytes] | None:
     return width, height, bytes(data)
 
 
+def pattern_rgb(pattern: FillPattern) -> np.ndarray | None:
+    """A fill pattern's own picture, untinted: (rows, columns, 3) uint8, row 0 the
+    image's top — or None for SOLID or a missing texture. What a 3D surface's detail
+    picture is made from (#801, ``core.scene3d.surface_detail``). The same read as
+    ``pattern_pixels`` (the meadow's grass, #798), without its alpha channel."""
+    pixels = pattern_pixels(pattern)
+    if pixels is None:
+        return None
+    width, height, data = pixels
+    rgba = np.frombuffer(data, dtype=np.uint8).reshape(height, width, 4)
+    return np.array(rgba[:, :, :3])
+
+
 def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int, bytes] | None:
     """A fill pattern exactly as the canvas paints it — RGBA8, top-down, opaque.
 

@@ -219,3 +219,4 @@
 | Case study: a video whose first second more bits could not fix - Qt's average bit rate is Media Foundation's CBR (#807) | [Read](226-case-study-a-video-whose-first-second-more-bits-could-not-fix-807.md) |
 | Case study: a meadow "shimmer" that was the instrument's own (#798) | [Read](227-case-study-a-meadow-flicker-that-was-the-instruments-798.md) |
 | Case study: stripes that were not shadow acne, and a crown that would not sway (#800, #805) | [Read](228-case-study-stripes-that-were-not-acne-and-a-crown-that-did-not-sway-800-805.md) |
+| Case study: a black mat that read tan at a 'dull' specular, and a render gate that could not see it until its positive control (#801, #803) | [Read](229-case-study-a-black-mat-that-read-tan-and-a-gate-that-could-not-see-it-801-803.md) |

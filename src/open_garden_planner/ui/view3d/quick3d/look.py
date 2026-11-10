@@ -46,6 +46,7 @@ from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_HAZE_DEG,
     ATMOSPHERE_THIN_CLOUD_LIFT,
     NEUTRAL_DAY,
+    AtmosphereSpec,
     LookSpec,
     SkySpec,
     sky_phase,
@@ -79,6 +80,9 @@ LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor",
 VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight", "windSway"})
 #: ``AtmosphereSpec.precipitation`` as the scene's ``precipKind``.
 PRECIP_KINDS: Final = {"none": 0, "rain": 1, "snow": 2}
+#: The dry atmosphere (every look of L1-L4): the ground's roughness and specular the
+#: rain's shift is measured from (#801).
+_DRY: Final = AtmosphereSpec()
 
 # Qt Quick 3D linearises a colour PROPERTY with a polynomial, not with the sRGB curve
 # (measured, L1.4: a flat ambient light of colour c on a white box, read from the
@@ -193,6 +197,10 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
         "groundTint": engine_srgb(atmosphere.ground_tint_linear),
         "groundRoughness": float(atmosphere.ground_roughness),
         "groundSpecular": float(atmosphere.ground_specular),
+        # #801: the rain's shift of the ground's roughness and specular from the dry
+        # ground's - a built surface's detail material takes the same shift
+        "wetRoughShift": float(atmosphere.ground_roughness - _DRY.ground_roughness),
+        "wetSpecularShift": float(atmosphere.ground_specular - _DRY.ground_specular),
         "precipKind": PRECIP_KINDS[atmosphere.precipitation],
         "precipDensity": float(atmosphere.precip_density),
         "windDrift": (float(drift[0]), float(drift[1]), float(drift[2])),

@@ -100,6 +100,10 @@ Item {
     property color groundTint: "#ffffff"
     property real groundRoughness: 1.0
     property real groundSpecular: 0.15
+    // #801: how far the rain moves the ground's roughness and specular from the dry
+    // ground's - what a built surface with a detail picture takes too (built_detail.frag)
+    property real wetRoughShift: 0.0
+    property real wetSpecularShift: 0.0
     property int precipKind: 0              // 0 none, 1 rain, 2 snow
     property real precipDensity: 0.0        // the share of the precipitation's particles drawn
     property vector3d windDrift: Qt.vector3d(0, 0, 0)       // cm/s, engine frame
@@ -638,16 +642,30 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #803: what the part is made of - its surface's roughness and specular, written
+            // by the host from core/scene3d/materials.SURFACES (defaults: DEFAULT_SURFACE)
+            property real surfaceRough: 0.78
+            property real surfaceSpecular: 0.35
+            // #801: the surface's detail picture (a wall's plaster, courses or boards), or
+            // null; how it is laid (1 the mesh's uvs, 2 the face's plane), how many cm one
+            // picture spans, the detail normal's strength and the distance it fades by
+            property var detailMap: null
+            property real detailMode: 0
+            property real detailTile: 256
+            property real detailNormal: 0.0
+            property real detailFade: 4000
+            property real detailContrast: 1.0
             // #800: a plant's wood and fruit sway with its leaves (foliagePart's swayFrame)
             property vector3d swayFrame: Qt.vector3d(0, 0, 0)
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
-            // #687: under snow the tops lie under the ground's snow (built_snow.frag) - only
-            // while it snows, so a snowless frame is the principled look; a building's floor
-            // lies under its roof (Cutaway shows it) and stays bare. #800: a plant's wood and
-            // fruit take the same shader with the plant's sway (plant_sway.vert) - only while
-            // the wind's clock runs, so every frame at rest is the principled look
-            materials: fade < 1.0 ? [vcScreen]
+            // #801: a part with a detail picture shades by built_detail.frag, its snow included;
+            // #800: a plant's wood and fruit take the snowy shader with the plant's sway
+            // (plant_sway.vert) - only while the wind's clock runs, so every frame at rest is
+            // the principled look; #687: under snow any other top lies under the ground's snow
+            // (built_snow.frag) - only while it snows, so a snowless frame is the principled
+            // look; a building's floor lies under its roof (Cutaway shows it) and stays bare
+            materials: fade < 1.0 ? [vcScreen] : detailMap ? [vcDetail]
                        : swayFrame.x > 0.0 && root.windBlowing ? [vcSway]
                        : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
@@ -655,8 +673,8 @@ Item {
                 vertexColorsEnabled: true
                 baseColor: Qt.rgba(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z, 1)
                 baseColorMap: patternMap ? patternMap : null
-                roughness: 0.78
-                specularAmount: 0.35
+                roughness: surfaceRough
+                specularAmount: surfaceSpecular
                 // Cutaway: the inner faces of a roofless house's walls
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
             }
@@ -664,23 +682,48 @@ Item {
                 id: vcScreen
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uOpacity: fade
-                property real uRough: 0.78
-                property real uSpecular: 0.35
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
             }
             CustomMaterial {
+                id: vcDetail
+                property TextureInput uDetailMap: TextureInput {
+                    texture: detailMap ? detailMap : null
+                }
+                property real uDetailMode: detailMode
+                property real uDetailTile: detailTile
+                property real uDetailNormal: detailNormal
+                property real uDetailFade: detailFade
+                property real uDetailContrast: detailContrast
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                // the weather as the ground takes it (ground.frag): the rain's tint and shift
+                property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uWetRough: root.wetRoughShift
+                property real uWetSpecular: root.wetSpecularShift
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "built_detail.vert"
+                fragmentShader: "built_detail.frag"
+            }
+            CustomMaterial {
                 id: vcSnow
-                // the principled look's albedo through the engine's polynomial (sRGB in)
+                // #687: the principled look's albedo through the engine's polynomial (sRGB in)
                 property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
                 property TextureInput uFill: TextureInput {
                     texture: patternMap ? patternMap : null
                 }
                 property real uHasFill: patternMap ? 1.0 : 0.0
-                property real uRough: 0.78
-                property real uSpecular: 0.35
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 property real uSnowCover: root.builtSnow
                 property real uSnowRough: root.groundRoughness
                 property real uSnowSpecular: root.groundSpecular
@@ -697,8 +740,8 @@ Item {
                     texture: patternMap ? patternMap : null
                 }
                 property real uHasFill: patternMap ? 1.0 : 0.0
-                property real uRough: 0.78
-                property real uSpecular: 0.35
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 property real uSnowCover: root.builtSnow
                 property real uSnowRough: root.groundRoughness
                 property real uSnowSpecular: root.groundSpecular
@@ -728,37 +771,70 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #803 / #801: as vcPart - the surface's numbers and its detail picture (a
+            // roof's tiles laid by the mesh's uvs); a roof's timber is a roof part too
+            property real surfaceRough: 0.78
+            property real surfaceSpecular: 0.35
+            property var detailMap: null
+            property real detailMode: 0
+            property real detailTile: 256
+            property real detailNormal: 0.0
+            property real detailFade: 4000
+            property real detailContrast: 1.0
             receivesShadows: true
             pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
-            materials: root.roofsHidden || fade < 1.0 ? [roofScreen]
+            materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : detailMap ? [roofDetail]
                        : root.builtSnow > 0.0 ? [roofSnow] : [roofLook]   // #687: snow on the roof
             // roof tiles and shingles (ogp-lush-cinematic 4: roughness 0.70-0.85)
             PrincipledMaterial {
                 id: roofLook
                 vertexColorsEnabled: true
                 baseColor: tint
-                roughness: 0.80
-                specularAmount: 0.15
+                roughness: surfaceRough
+                specularAmount: surfaceSpecular
             }
             CustomMaterial {
                 id: roofScreen
                 property vector3d uTint: tintLinear
                 property real uOpacity: root.roofsHidden ? 0.0 : fade
-                property real uRough: 0.80
-                property real uSpecular: 0.15
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: roofDetail
+                property TextureInput uDetailMap: TextureInput {
+                    texture: detailMap ? detailMap : null
+                }
+                property real uDetailMode: detailMode
+                property real uDetailTile: detailTile
+                property real uDetailNormal: detailNormal
+                property real uDetailFade: detailFade
+                property real uDetailContrast: detailContrast
+                property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
+                property vector3d uWetTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uWetRough: root.wetRoughShift
+                property real uWetSpecular: root.wetSpecularShift
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                vertexShader: "built_detail.vert"
+                fragmentShader: "built_detail.frag"
             }
             CustomMaterial {
                 id: roofSnow
                 property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
                 property TextureInput uFill: TextureInput { texture: null }
                 property real uHasFill: 0.0
-                property real uRough: 0.80
-                property real uSpecular: 0.15
+                property real uRough: surfaceRough
+                property real uSpecular: surfaceSpecular
                 property real uSnowCover: root.builtSnow
                 property real uSnowRough: root.groundRoughness
                 property real uSnowSpecular: root.groundSpecular
@@ -835,6 +911,10 @@ Item {
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
+                // #803: the glint's peak (linear, before the look's exposure) is soft-capped
+                // here: Qt's own glint clipped a white blob over 3-6 % of a pond seen at the
+                // mirror angle of a morning sun; 0.6 peaks at luma 212-237, unclipped
+                property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 shadingMode: CustomMaterial.Shaded
                 fragmentShader: "water.frag"
             }
@@ -850,6 +930,7 @@ Item {
                 property real uBody: 0.5
                 property real uReflect: 0.15
                 property real uRough: 0.02
+                property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 property real uOpacity: fade
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
@@ -1649,6 +1730,7 @@ Item {
                     property real uBody: 0.5
                     property real uReflect: 0.15
                     property real uRough: 0.02
+                    property real uGlintCap: 0.6
                     property real uOpacity: 0.0
                     shadingMode: CustomMaterial.Shaded
                     vertexShader: "screen.vert"

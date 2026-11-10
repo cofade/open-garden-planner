@@ -452,3 +452,23 @@ Symptom: with the camera held on the family garden's 9.5 m birch about 11 m out,
 - **Legacy:** none (new entry)
 
 Symptom: diagonal stripes, 2-4 px apart, across backlit leaves at golden hour on High and Ultra (the 3D survey's "acne"). The survey blamed the back-light term passing the leaf's own shadow test at shadow bias 10. Measured on the family garden's cherry (1920 x 1080, High, a camera looking into a 15.2° sun; stripe share = interior pixels of flat leaves more than 1.5 levels off their 3 x 3 mean): shadow bias 10 / 14 / 20 / 40 cm 0.326 / 0.326 / 0.324 / 0.320, the still picture's fitted map 0.330, ambient occlusion off 0.164, the Low preset (no AO) clean; AO dither made them noise (0.545), softness 90 0.212, AO bias 1 / 2 cm 0.184 / 0.175. Fix: `look.AO_FLAT_BIAS_CM` (1 cm) is the floor of every look's AO bias. A box caster's contact holds (lit foot 0.0223 -> 0.0214, shaded side 0.487 -> 0.478 at High); open ground's self-occlusion falls 16.9 -> 11.4 levels; 2 cm halved the contact and was not taken.
+
+### PF-L3D-34
+
+- **Rule:** Judge a built part's material under a low sun against the SAME part rendered with every specular off, never only against its 2D colour: the light alone moves a hue (a plaster wall under the blue sky 27.6°, a red canvas 12.8°), while a specular sheen in the sun's colour is what repaints a part (a black mat read 4.08x its diffuse luma and 128° off - tan).
+- **Pinned by:** `tests/integration/test_built_materials_render.py::test_no_material_repaints_or_washes_out_a_part_facing_a_low_sun`; `tests/integration/test_built_materials_render.py::test_the_trampoline_s_mat_stays_dark_and_its_pad_blue`
+- **Source:** #803; ADR-059 addendum (#801, #803)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the 3D promo survey read the family garden's black trampoline mat (#303336) as tan facing a golden-hour sun (luma 99, hue 23°) and its blue pad 32° off (#427bc2). The issue's acceptance - every built part's hue within 10° of its 2D colour under a low sun facing the camera - cannot hold for every part: in the class row of the render tier (a sun 15.2° up, the camera facing it), with every specular OFF a plaster wall reads 27.6° off its sandstone (blue sky, green meadow light), a red canvas 12.8°, the mat's near-grey (saturation 0.11) has no hue to keep. Root cause of the defect: the material - every built part reflected with roughness 0.78 and specular 0.35, a broad warm sheen at grazing. Fix: surfaces (`core/scene3d/materials.SURFACES`, one per palette entry, PF-E3D-32 for rubber and canvas); the gate compares each part with its own diffuse frame (hue within 10° for a chromatic 2D colour, a matte part at most 1.5x its diffuse luma) and holds the pad to the issue's own line (8.0°). Positive control: every surface at the old 0.78 / 0.35 fails the gate (mat 4.08x and 128° off, pad 1.52x and 13.8°).
+
+### PF-L3D-35
+
+- **Rule:** A picture laid on a 3D surface keeps the surface's mean colour: its albedo is a LINEAR multiplier of mean 1 (`surface_detail.albedo_multiplier`), so the mipmaps reach the flat colour far away and every gate that reads the surface's colour holds; a face lit near the tone curve's top takes less of the picture's contrast (`SurfaceDetail.contrast`), or its light texels clip.
+- **Pinned by:** `tests/unit/test_scene3d_surface_detail.py::test_every_detail_picture_keeps_the_surface_s_mean_colour`; `tests/integration/test_built_materials_render.py::test_the_roof_keeps_its_noon_colour`
+- **Source:** #801; ADR-059 addendum (#801, #803)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (first build of #801's roof): the canvas's own recolour rule (`fill_patterns._tint_texture`: colour x lum / mean(lum), in sRGB) taken into linear light brightens a surface by mean(s^2.2) - and on the noon roof, whose red channel sat at 239, 15.4 % of the roof's pixels clipped red at full contrast. Fix: the texel stores s^2.2 / mean(s^2.2) x 0.4 (R; linear, mean 1), slopes in G and B; the roof takes 0.6 of the contrast (5.3 % red-clipped, which is the flat roof's own 239 lifted by its lightest tiles), masonry 0.8, plaster 0.85. Measured: the noon roof's mean -0.6 % luma, 0.0° hue against the same roof without the picture; the far roof mips to the flat colour, so the shadow, IoU and board colour gates did not move.

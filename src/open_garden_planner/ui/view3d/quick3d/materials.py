@@ -26,6 +26,8 @@ How each material receives it (``Garden.qml``):
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final
 
@@ -37,15 +39,24 @@ from open_garden_planner.core.scene3d import (
     srgb8_to_linear,
 )
 from open_garden_planner.core.scene3d.materials import (
+    DEFAULT_SURFACE,
+    DETAIL_PLANAR,
+    DETAIL_UV,
+    SURFACES,
     TWO_SIDED_KINDS,
+    detail_of,
     two_sided_kinds,
 )
 
 __all__ = [
+    "DETAIL_MODES",
     "PART_COMPONENTS",
+    "SURFACE_KINDS",
     "TWO_SIDED_KINDS",
     "WHITE",
+    "SurfaceLook",
     "part_tint",
+    "surface_look",
     "tint_uniform",
     "two_sided_kinds",
 ]
@@ -84,3 +95,36 @@ def tint_uniform(tint_rgba: Rgba) -> tuple[float, float, float]:
     """``tint_rgba`` as the linear RGB a custom shader multiplies with."""
     red, green, blue, _alpha = srgb8_to_linear(tint_rgba)
     return (red, green, blue)
+
+
+#: The material kinds whose part component reads a surface (``vcPart``, ``roofPart``).
+SURFACE_KINDS: Final = frozenset({"vc", "roof"})
+#: ``SurfaceDetail.mapping`` as the part's ``detailMode`` (``built_detail.vert``).
+DETAIL_MODES: Final = MappingProxyType({DETAIL_UV: 1.0, DETAIL_PLANAR: 2.0})
+
+
+@dataclass(frozen=True, slots=True)
+class SurfaceLook:
+    """What the host writes on a part's Model for its surface (#803, #801): the QML
+    properties, and the pattern NAME of the detail picture it shows (None: none)."""
+
+    properties: Mapping[str, float]
+    detail_pattern: str | None
+
+
+def surface_look(kind: str, surface: str) -> SurfaceLook | None:
+    """The surface look of a part of material ``kind`` made of ``surface`` (empty:
+    ``DEFAULT_SURFACE``) — None for a kind whose component reads no surface. THE rule:
+    the host applies it, the render tier's read-backs call it rather than copy it."""
+    if kind not in SURFACE_KINDS:
+        return None
+    entry = SURFACES[surface or DEFAULT_SURFACE]
+    properties: dict[str, float] = {"surfaceRough": entry.roughness,
+                                    "surfaceSpecular": entry.specular}
+    detail = detail_of(entry.name, kind)
+    if detail is None:
+        return SurfaceLook(MappingProxyType(properties), None)
+    properties.update({"detailMode": DETAIL_MODES[detail.mapping], "detailTile": detail.tile_cm,
+                       "detailNormal": detail.normal, "detailFade": detail.fade_cm,
+                       "detailContrast": detail.contrast})
+    return SurfaceLook(MappingProxyType(properties), detail.pattern)
