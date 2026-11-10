@@ -264,6 +264,11 @@ class PropertyEdits:
         host = self._host
         if not (hasattr(item, 'layer_id')):
             return
+        if item.parentItem() is not None:
+            # A group member stays on its group's layer (#771). The combo is
+            # disabled for a drilled-down child; this is the invariant's
+            # second line of defence.
+            return
         old_layer = item.layer_id
         if old_layer == value:
             return

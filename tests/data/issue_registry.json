@@ -1039,6 +1039,11 @@
     "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
+  "664": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Split a shape along a two-click snapped line"
+  },
   "665": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1149,6 +1154,11 @@
     "state": "CLOSED",
     "title": "refactor(smart_symbols): retire Smart Symbols panel and redundant symbol definitions"
   },
+  "771": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "feat(cad): allow selecting and editing individual items within a group on second click (drill-down selection)"
+  },
   "774": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1159,6 +1169,11 @@
     "state": "CLOSED",
     "title": "Editing a layer name shrinks text box vertically"
   },
+  "783": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
+  },
   "784": {
     "is_pr": false,
     "state": "OPEN",
@@ -1168,5 +1183,15 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "2D canvas: sprites and fill textures are rasterised at 1 px per cm - blurry above 100 % zoom and in high-resolution exports"
+  },
+  "787": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "SVG export: parametric roof and glasshouse textures are not clipped; wrong physical size; shadow feathers as dark outlines"
+  },
+  "789": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Raster exports force one point size on authored text notes"
   }
 }

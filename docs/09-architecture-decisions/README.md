@@ -2651,9 +2651,9 @@ for degenerate polygons. The identity above is exact and needs no branch.
   (`tests/unit/test_roof_tile_orientation.py`).
 
 **Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
-shape is load-bearing: Qt does not serialize the painter clip into SVG, and
-`ExportService._fix_svg_qt_texture_clipping` pairs each shadow group with the
-next texture group 1:1 (§11.4). Only the brush assignment changed.
+shape was kept; only the brush assignment changed. (At the time the SVG export
+depended on that shape through a post-processor; since #787 it does not — the
+export records clips and brush transforms below the painter, ADR-076.)
 
 **Testing note.** Correlating the real 256 px tile texture was tried first and
 had **no discriminating power** (peak correlation ~0.03 either way, and the
@@ -6507,26 +6507,29 @@ only, and correct their heights with a fit after the fact.
   | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
   | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | hot tub | 1.00 / 0.85 / 0.60 | 1.00 / 0.85 / 0.60 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
-  | swing | 0.17 / 0.16 / 0.15 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | shape and porosity vs solid 2D prism |
-  | hammock | 0.21 / 0.26 / 0.30 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | shape and porosity vs solid 2D prism |
+  | swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | open frame (#698 weighted 2D area; IoU vs solid prism) |
   | compost bin | 0.93 / 0.94 / 0.89 | 0.93 / 0.94 / 0.89 | -0.8 / -0.8 / -0.5 | shape and porosity vs solid 2D prism |
   | cold frame | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | rain barrel | 0.81 / 0.79 / 0.76 | 0.81 / 0.79 / 0.76 | -20.1 / -10.9 / -7.5 | shape and porosity vs solid 2D prism |
   | water tap | 0.64 / 0.63 / 0.61 | 0.64 / 0.63 / 0.61 | -6.0 / -6.0 / -6.0 | shape and porosity vs solid 2D prism |
   | wheelbarrow | 0.44 / 0.45 / 0.46 | 0.44 / 0.45 / 0.46 | -22.0 / -22.0 / -22.0 | shape and porosity vs solid 2D prism |
   | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
-  | pergola | 0.28 / 0.32 / 0.36 | 0.28 / 0.32 / 0.36 | -16.7 / -7.5 / -3.8 | shape and porosity vs solid 2D prism |
-  | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
-  | garden light | 0.21 / 0.28 / 0.37 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | shape and porosity vs solid 2D prism |
+  | pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | -16.7 / -7.5 / -3.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
 
   Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
   (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
   addendum from the owner's manual test), so it has no row.
   The script uses each new case's production default height, its stated footprint
-  in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
-  and pergola shadows are porous geometry; the analytical 2D caster remains a
-  solid prism (ADR-065). The table records that deliberate difference, rather
-  than changing analytical sun estimates to match decoration.
+  in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. The five OPEN
+  FRAMES — pergola, trellis, swing, hammock, garden light — are weighted by their
+  transmittance since #698 (the ADR-059 / ADR-070 addendum on open frames): their
+  ratio column is 3D against the WEIGHTED 2D prism, and their IoU column still
+  shows how little of the prism the frame shades. Every other object stays a
+  solid prism; the mostly-air ones among them by recorded decision
+  (`core.object_height.SOLID_2D_DECISIONS`).
 
   The four reasons: **(1) nominal section** — a polyline's stroke is a line weight (fence 3 cm,
   wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
@@ -6577,8 +6580,10 @@ only, and correct their heights with a fit after the fact.
   **Porous fences (answered by #440):** the 2D sun study no longer treats a chain-link, metal or
   picket fence as a solid strip — #440 weights it by its angle-dependent structural transmittance
   (the ADR-037 / ADR-048 addendum on the unified geometry-aware caster path), and projects a
-  building's roof and walls; the other open objects in this table still cast a solid prism
-  (#698).
+  building's roof and walls. **Open frames (answered by #698):** a pergola, a trellis, a
+  swing, a hammock and a garden light are weighted the same way, by the share of their prism
+  their own members shade (the ADR-059 / ADR-070 addendum on open frames); a parasol, a
+  greenhouse and the low furniture stay solid prisms by recorded decision.
 - A HOUSE's fill colour tints its WALLS in 3D; in 2D it tints the roof texture (a 31 % overlay).
   And the tint rule is uneven for hedges: a hedge POLYGON is baked in the hedge texture's greens
   and ignores a recolour, while a hedge FENCE is tinted with the item's stroke. Both follow what
@@ -10507,8 +10512,8 @@ the garden's life, a new plan's forecast and the 3D lights, and changed two thin
    `casts_2d_shadow` is the one rule: the caster walk (`collect_identified_casters`, and
    with it the overlay, the hours of sun and the plants' sun estimates) leaves the string
    out, and its record says `has_2d_caster` False. Its 3D model keeps the thin shadow of its
-   posts and wire. ADR-059's table has no row for it. #698 stays open for the other open
-   objects.
+   posts and wire. ADR-059's table has no row for it. #698 stayed open for the other open
+   objects; they are answered in the addendum on open frames at the end of this ADR.
 3. **The 3D strip's menu buttons read as buttons.** "Wetter: Klar" was not found: a
    text-only `QToolButton` that only opens a menu has its arrow drawn under its last letter
    by the app's style, and reads as a label. The Weather and the Analyze buttons carry the
@@ -10587,6 +10592,162 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
 
 Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
 clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).
+
+### ADR-059 / ADR-070 addendum — open frames are weighted, not solid (#698, 2026-11-09)
+
+**Status**: Decided in the visual-polish package on #440's precedent; **the owner may veto**
+(per kind: move its name from `OPEN_FRAME_TYPE_NAMES` to `SOLID_2D_DECISIONS`, with the
+reason; the rows of the shadow table follow) | **Context**: issue #698. The
+owner's part of it — a string of lights — was answered in the addendum above (no 2D
+shadow). This is the rest.
+
+**Context.** The 2D sun study casts every object as its footprint prism. For five kinds
+that prism is mostly air: a pergola, a trellis, a swing, a hammock and a garden light shade
+15–39 % of the ground their prism shades (the table below). The shadow overlay drew them as
+slabs, the hours-of-sun map put the ground under a pergola in full shade all day, and a
+runner bean tied to a trellis read 0 h of sun and wore a "too little sun" badge.
+
+**Decision.**
+
+1. **Five kinds are OPEN FRAMES** — `core.object_height.OPEN_FRAME_TYPE_NAMES`: `PERGOLA`,
+   `TRELLIS`, `SWING`, `HAMMOCK`, `GARDEN_LIGHT`. An open frame's 2D caster keeps its
+   footprint prism — that is where its shade can fall — and carries a **transmittance**:
+   `1 − A(frame) ÷ A(prism)`, the ground shadow of the frame's own solid members over the
+   ground shadow of the prism, **for the sun of the moment**
+   (`core.shadow_geometry.open_frame_transmittance`). The shade the 2D model reports,
+   area times depth, is then the frame's real shadow area.
+2. **Nothing is tabulated.** The members are the 3D builder's own, read as #440 reads a
+   pitched roof's triangles (`core.scene3d.builders.open_frames`): a pergola's are the 22
+   boxes of `core.pergola.layout` — the one layout its 2D picture and its 3D timber come
+   from — and the other four kinds' are the shadow-casting parts of their production
+   builder, built for the item's own footprint and height. So the weight follows the item's
+   size, its height, its turn and the sun's elevation and azimuth. A table of shares per
+   kind was rejected: the members' sizes are capped, so the share falls as the item grows
+   (a pergola: 0.32 at 3 × 3 m, 0.24 at 6 × 4 m, both at a 35° sun from the south), and it
+   moves with the sun (a trellis 2 m long: 0.34 square to a 35° sun, 0.47 at 75° off it).
+   Over the sizes, elevations (8–78°) and azimuths the unit test sweeps, the weight ranges
+   0.22–0.47 for a pergola, 0.19–0.70 for a trellis, 0.10–0.25 for a swing, 0.18–0.37 for a
+   hammock and 0.13–0.45 for a garden light.
+3. **One place, one hook.** The caster walk (`collect_identified_casters`) gives an open
+   frame's `IdentifiedCaster` its members as `frame` (`core.shadow_geometry.OpenFrame`);
+   `caster_transmittance` — #440's hook — reads them. The overlay, the 3D analysis drape,
+   the hours-of-sun grid and the per-plant estimates all ask that hook and nothing else;
+   for a plant on raised soil the frame is cut at the plant's plane like every other
+   caster. Where the 3D builder has no frame for a footprint and builds its plain block (a
+   round pergola), the 2D caster is the solid prism too.
+   **A frame is kept in the item's own coordinates, its turn beside it** — not posed into
+   the scene. What a frame lets through depends on the sun's bearing relative to it, not
+   on where it stands: every identical item is handed the very same `OpenFrame` object,
+   is weighed once per sun position and gets the very same number, so a row of garden
+   lights is ONE region for the overlay and the map, not fifty a hair apart.
+4. **Every mostly-air kind has a recorded decision.** Eleven more object kinds shade less
+   than half of their prism at one of the table's elevations and stay SOLID —
+   `SOLID_2D_DECISIONS`, each with its reason: the tables, the picnic table, the trampoline,
+   the bench and the chair (a solid top or seat on legs, at most 90 cm up), the grill, the
+   wheelbarrow and the bird bath (one compact body smaller than its footprint), the
+   **parasol** and the **greenhouse**. None of them is a frame: their surplus is SHAPE, and
+   a transmittance would smear a shade that is dark in one place and absent in another. A
+   test holds every object kind whose 3D model is mostly air to one of the three lists
+   (open frame / solid by decision / no 2D shadow), so a new open kind cannot become a
+   solid prism by being forgotten.
+5. **The overlay edges a light shade lightly.** The overlay's soft edge was stroked at the
+   strength of the DARKEST region on the plan, so beside a house a swing's shade (alpha 20
+   of 255) wore a rim six times darker than itself — an outline round a shadow. Each
+   weighted region is now edged at its own strength. This also changes how a porous fence's
+   shade is drawn beside a solid's (#440).
+
+**Measured** (`scripts/measure_built_world_shadows.py`; one item of the stated footprint at
+its default height, the sun due south, at 15° / 35° / 60°):
+
+| Kind (footprint, height) | 3D shadow ÷ 2D prism | Transmittance | 3D ÷ weighted 2D |
+|---|---|---|---|
+| pergola (300 × 300 cm, 250 cm) | 0.28 / 0.32 / 0.36 | 0.71 / 0.68 / 0.64 | 0.99 / 0.99 / 0.99 |
+| trellis (200 × 20 cm, 180 cm) | 0.32 / 0.34 / 0.39 | 0.68 / 0.66 / 0.61 | 1.00 / 1.00 / 1.00 |
+| swing (200 × 150 cm, 220 cm) | 0.17 / 0.16 / 0.15 | 0.83 / 0.84 / 0.85 | 1.00 / 1.00 / 1.00 |
+| hammock (300 × 120 cm, 110 cm) | 0.21 / 0.26 / 0.30 | 0.79 / 0.74 / 0.70 | 1.00 / 1.00 / 1.00 |
+| garden light (radius 20 cm, 110 cm) | 0.21 / 0.28 / 0.37 | 0.79 / 0.72 / 0.63 | 1.00 / 1.00 / 1.00 |
+
+The last column is the issue's gate — within 10 %, as #440 held fences — and it is the
+ratio column of the builders addendum's table for these five rows. It is 1.00 where the 2D
+model reads the very mesh the measurement projects; the pergola's 0.99 is the layout's
+plain boxes against the chamfered timber. The gate is not trivially met for that reason:
+the measurement unites every triangle of the mesh in its own code, and
+`tests/unit/test_open_frames.py` holds the 2D weight to it within 0.02 over three sizes,
+five elevations and seven azimuths per kind. The table's reach column is unchanged: an
+open frame's shade still ends where its prism's does, 4–71 cm further than the frame's
+real shadow (a swing's top beam is mid-frame).
+
+**What changes for existing plans.** No file-format change; a plan with one of the five
+kinds shows more sun under and behind it the next time the map is computed. On the bundled
+examples, hours of sun per 10 cm cell, before → after:
+
+| Plan (open frames) | Day | Cells changed | Largest gain | Mean gain, changed cells | Mean, all cells | Plants changed (largest) |
+|---|---|---|---|---|---|---|
+| family-garden (pergola, trellis) | 21 June | 14.1 % | +6.9 h | +1.1 h | +0.16 h | 8 (+3.2 h) |
+| | 20 March | 14.5 % | +4.5 h | +0.7 h | +0.10 h | 15 (+2.7 h) |
+| | 21 December | 3.9 % | +1.2 h | +0.2 h | +0.01 h | 6 (+0.4 h) |
+| food-forest (trellis) | 21 June | 1.9 % | +5.2 h | +0.9 h | +0.02 h | 4 (+4.4 h) |
+| | 20 March | 3.8 % | +6.8 h | +0.7 h | +0.03 h | 6 (+6.1 h) |
+| | 21 December | 6.8 % | +3.0 h | +0.4 h | +0.02 h | 4 (+2.6 h) |
+| balcony, raised-bed (none) | all three | 0 | 0 | 0 | 0 | 0 |
+
+**Four sun-requirement diagnostics flip, all from "too little sun" to none:** in
+family-garden a cucumber (full sun) on 21 June, 3.8 h → 6.9 h, and a lettuce (partial sun)
+on 20 March, 1.5 h → 3.2 h; in food-forest two runner beans (full sun) at their trellis on
+20 March, 0.0 h → 6.1 h and 0.0 h → 5.0 h. None flips the other way. One or two cells of a
+plan read one sample (15 min) DARKER: a seam of #440's weighted path, which rasterises
+each weighted region on its own, where the solid path rasterised their union — not a model
+term. The balcony example holds a parasol and is unchanged.
+
+**Cost.** One weighing is one numpy projection and one clipper union of the members that
+face the sun: 0.4–2.2 ms a frame and sun (a pergola 0.9 ms, a hammock's cloth 2.2 ms), kept
+per frame, height and sun — the map does not weigh a sample twice, and identical items
+share the answer. Two costs of #440's weighted path showed once garden lights were on it
+(many small weighted casters, where fences are few), and both are changed here:
+
+- **The partition of the weighted shades clipped every pair** — 0.8 s a sun position at
+  500 lights. It now asks a clip only of two shades whose boxes overlap, with the boxes
+  made once and turned WITH THE SUN (every shade is swept the same way, so a long shade's
+  box is as narrow as its caster); a shade that meets no other is its own region without a
+  clip. The regions are the pairwise partition's (`tests/unit/test_open_frames.py` holds
+  them to it on random plans, at a high and at a grazing sun).
+- **A day's aggregation swept a weighted plan twice** — the grouped sweep for the plants'
+  estimates beside the weighted one for the grid. The weighted result holds every owner's
+  own shadow already, the very polygons (pinned), so it is swept once.
+
+Measured on the dev box (ratios; the machine drifts): one sun position with 50 / 200 / 500
+garden lights 4.3 / 22 / 76 ms solid → 6.4 / 24 / 72 ms weighted (before the two changes:
+36 / 240 / 1063 ms); their day's aggregation without rasterising 0.30 / 1.3 / 4.0 s solid →
+0.57 / 3.4 / 9.6 s (before: 3.4 / 26 / 137 s) — what is left is the grazing samples, where
+long shades really do overlap. A first open frame still puts a plan on the weighted path:
+food-forest's day map 1.5 s → 2.0 s, family-garden's (porous fences already) 2.3 s → 2.9 s.
+
+**Left as it was, and why.**
+
+- **Parasol** — a solid canopy on a pole, in the balcony example. Its 3D shadow is 24 / 41 /
+  60 % of its prism's, but not because light passes through it: the canopy's shade is dark
+  and lies AWAY from the pole at a low sun, where the prism shades the ground under the
+  canopy as well. A transmittance would put a quarter shade under the canopy all day, where
+  there is none in the morning and full shade at noon. The honest caster for it is a RAISED
+  one — the canopy as a slab at its own height, the base rule of L1.6 — which is a geometry
+  change #698 does not describe. Proposed as the follow-up; until then the prism, as before.
+  Measured for that follow-up: the footprint as a slab from the valance's lower edge to the
+  rim (185.6–193.6 cm on the default parasol) reads IoU 0.89 / 0.93 / 0.96 against the 3D
+  model where the prism reads 0.24 / 0.41 / 0.60; and it matters on a bundled plan — on the
+  balcony example (a 72 cm parasol, 230 cm high, on 5 × 3 m) the prism lowers the map's mean
+  on 21 June from 6.4 h without the parasol to 4.6 h, a raised canopy to 6.2 h.
+- **Greenhouse** — the 3D view casts its frame alone (the glass casts nothing: 23–30 % of
+  the prism), the 2D model the solid prism, so a tomato in a greenhouse reads 0 h of sun.
+  How much light a glasshouse takes is a question #698 does not ask.
+- **Low furniture** — at most 90 cm tall; the surplus is a strip `h ÷ tan α` wide beside
+  the piece.
+
+**Tests**: `tests/unit/test_open_frames.py` (the lists and the drift guard, the weight
+against the independent measurement, the turn, the weighted regions, the hours-of-sun grid,
+the plant estimate also on raised soil), `tests/integration/test_open_frame_shade.py`
+(§8.10: the caster walk on real items at three turns, the painted overlay against a solid
+twin, the soft edge, the heatmap worker, a pergola placed through the command stack and
+undone), `tests/unit/test_scene3d_shadow_agreement.py` (the five rows).
 
 
 
@@ -11188,3 +11349,233 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 `docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md`;
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
+
+## ADR-075: CAD editing keeps the group frame and the command stack (issues #664, #771)
+
+**Status**: Shipped in v1.37.10 (PR #783)
+
+**Context**: Two CAD editing gaps shared the canvas selection and command seams. A
+closed shape could not be cut into pieces: the only workaround lost the layer, look,
+fill transform, label state and metadata. And a group's members could not be edited
+without ungrouping it. Qt constrains the second problem more than the first: a
+`QGraphicsItemGroup` routes a child's selection back to the group (`scene.selectedItems()`
+returns only the group), and the child's own resize/vertex handles do not receive a
+usable drag while the group is the selection. Detaching the child on drill-down and
+re-adding it on exit looks simple, but commands captured while detached store local
+`pos()`/`rect()` values in the child's temporary top-level frame; re-adding changes
+that frame, so a later undo on a moved or rotated group can restore the wrong place.
+
+**Decision**:
+1. **Drill-down is a logical focus, not a reparent.** `CanvasView.drill_down_item` names
+   one direct member of the selected group. The group stays the Qt selection; the
+   member stays its child, so its layer guard, saved group data and transform frame
+   are unchanged. `CanvasView.effective_selection()` is the one selection seam every
+   panel uses (`_on_selection_changed`, properties, plant details, companion, crop
+   rotation), and `drill_down_changed` replaces Qt's `selectionChanged` for that focus
+   because Qt does not emit one. `GroupItem.paint` draws the focused member's outline
+   only while the group is selected, so exports (which clear selection) never paint it.
+2. **Geometry edits of a focused member stay in the group frame.** A body drag is a
+   view-owned gesture (`begin_drill_down_drag`/`_finish_drill_down_drag`), not Qt's
+   group drag; the arrow keys and the Properties panel convert a scene delta through
+   `_delta_in_parent_frame()` before writing `item.pos()`. The member's own resize and
+   rotation handles are shown, and the view replays their press/move/release through
+   `ResizeHandle.begin_drag/apply_drag/end_drag` and the `RotationHandle` equivalents,
+   because Qt routes a group child's handle press to the group. Every grouped
+   ancestor's `ItemIsMovable` flag is cleared while the member is focused and restored
+   on exit. Changing the member's layer is refused in the context menu, the panel and
+   `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
+   refused while a member is focused.
+3. **Split works in the source's local frame and replaces it in one command.**
+   The context menu and the CAD toolbar button next to Trim/Extend reach the
+   same tool, but with different scopes: the context menu arms the clicked
+   closed shape, while the toolbar and the `Shift+S` shortcut start a scene-wide
+   two-point cut with no prior selection. In scene-wide mode the first click is
+   the line's first point and every closed shape the drawn segment passes
+   through is cut along the segment's supporting axis; shapes on the line's
+   infinite extension but not reached by the segment are not cut, and a
+   boundary touch (a corner, an edge, a tangent) is not a crossing.
+   `core/shape_split.py` clips each item's local `QPainterPath` against the two
+   half-planes of the two-point axis; one `SplitShapeCommand` per source removes
+   it and adds ordinary `PolygonItem`s, and the whole gesture is one undo step
+   (a bare command when no membership reconciliation is needed, otherwise a
+   `CompoundCommand`). Pieces copy
+   the source's layer, object
+   type (when valid for a polygon), name, label/area state, metadata, stack order and
+   `fill_transform`; using the local frame keeps a rotated source's rotation and
+   pattern direction. Curves flatten to polygons, a concave shape may yield more than
+   two pieces, and a result that contains a hole is refused because a `QPolygonF`
+   cannot carry it.
+4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
+   a plant itself, constraints, locked layers, grouped members (ridge-bearing
+   buildings too at first; the second addendum lifts that), shape types without a
+   polygonal form, and any source
+   whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
+   manual-task or task-state data. The last check is
+   `ProjectManager.has_item_references`, the single central query. A bed or other
+   plant parent with a polygonal form is NOT refused for having plants: a
+   `ReconcileBedMembershipCommand` in the same undo step re-homes each linked plant
+   to the piece that contains its standing point, using the established
+   plant→bed mutator.
+
+**Alternatives considered**:
+- *Detach the member and re-add it on exit.* Rejected: command snapshots are in the
+  temporary top-level frame; undo after a moved or rotated group would restore a
+  different place. It also changes the group's serialized children while focused.
+- *Duplicate the member as an edit proxy and apply it back on exit.* Rejected: the
+  edit commands would target a deleted proxy after the apply, leaving a broken stack.
+- *Copy the split geometry into `shape_boolean` or the tool.* Rejected: the roof
+  painter already has a line split, and a second copy would drift; `shape_split`
+  reuses `item_to_local_painter_path` and the shared `path_has_hole` / area floor.
+- *Produce scene-frame pieces.* Rejected: a rotated source's brush transform would be
+  recomputed from the scene origin, so the material would visibly jump at the cut.
+- *Allow a split of tracked beds and let the records follow one arbitrary piece.*
+  Rejected: the user did not choose which piece inherits the history; refusing is
+  reversible, silently reassigning is not.
+
+**Consequences**: New `core/shape_split.py`, `core/tools/split_tool.py` and
+`ui/canvas/items/split_menu.py`; `SplitShapeCommand` in `core/commands.py`; group
+drill-down state and `drill_down_changed` in `ui/canvas/canvas_view.py`. No
+`FILE_VERSION` bump: the pieces are ordinary polygons and drill-down is runtime-only.
+User-visible strings are covered in EN/DE/ES/RU. Pins:
+`tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
+
+**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
+required a selected shape (or a shape-picking first click), so a line could cut only
+one object and a scene-wide cut took three clicks. The owner's expectation is the
+CAD-knife one: choose the tool, click two points anywhere, and every object the line
+crosses is split, fully or partly. The tool now takes the first click as the line's
+start with no source selected, freezes the visible closed-shape candidates at that
+point, previews every crossed shape's pieces while the second point moves, and applies
+all cuts in one undo step. The context-menu action keeps its explicit one-shape scope
+and returns to Select; the toolbar stays armed for another cut. The candidate test is
+the **drawn segment** (`segment_crosses_item`), not the infinite axis: a shape lying on
+the line's extension but not reached by the segment is never touched, while a segment
+that starts or ends inside a shape still divides it along the supporting axis.
+
+The shortcut changed from `S` to `Shift+S` because the first version was dead in the
+real window: `S` is `snap_action`'s window shortcut, and a second window shortcut on
+the same key makes Qt fire neither (measured on Qt 6.12 with a `QToolButton` and a
+`QAction` in one window; PF-UI-36). `Shift+S` is free and leaves `S` as Snap to Grid.
+
+Review then found two consequences worth stating. A **touch is not a crossing**:
+`segment_crosses_path` splits the segment at its outline crossings and accepts only
+an interval whose midpoint is strictly inside (offset points on both sides must be
+inside), so a snapped pick on a bed's corner, a segment along an edge, or a tangent
+returns False. And **a bed with plants is eligible**: refusing every plant parent
+would make the headline feature unable to touch the normal object in a garden. The
+`SplitShapeTool` adds a `ReconcileBedMembershipCommand` to the same undo step for
+every split source that has children; the existing plant→bed mutator moves each
+plant to the new piece containing its standing point, and undo restores the source's
+links before the source itself comes back.
+
+**Addendum 2 (2026-11-09) — decisions from the owner's manual test of PR #783.**
+Behaviour is specified in FR-35 and the mechanics in §8.35; this records what was
+decided and what was rejected.
+
+1. **A building with a ridge is split like a garage.** The first version refused every
+   ridge-bearing building because its linked `ROOF_RIDGE` would be orphaned. The ridge
+   is derived geometry (ADR-046), so nothing has to be preserved: `SplitShapeCommand`
+   removes the source's ridge with the source and builds every piece its own through
+   `roof_ridge_link.build_copy_ridges`. A source without a ridge (the user's flat roof)
+   gives pieces without one. A ridge that is constrained or on a locked layer still
+   refuses the split, like the shape itself.
+2. **A rebuild's type change keeps the height.** A raised bed's 40 cm is a per-type
+   default (ADR-037, rung 4); its garden-bed pieces had none. The height the object
+   stood at is written as an explicit `object_height_cm`
+   (`object_height.carry_height_across_type_change`), in the one entry point for a
+   rebuild's type change, `item_look.adopt_rebuilt_type`, which the split, the corner
+   tools and the loader's raised-bed migration share. Accepted trade-off: the piece then
+   shows a custom height, so a later manual type change no longer follows the new type's
+   default. The Properties panel's own type change is unchanged.
+3. **A sprite's stored fill is not its look.** A piece of a sprite-painted source takes
+   its new type's fill pattern; a source painted by its own brush keeps the user's
+   pattern (`adopt_rebuilt_type(keep_fill=...)`). The wooden frame stays a
+   rectangle-only sprite (owner decision 2026-10-31): a piece is a garden bed with soil
+   and a height, which the 3D view builds as an edged bed.
+4. **Esc ends every tool, and means the same wherever the focus is.** The canvas
+   leaves one narrower mode per press (calibration, vertex editing, drill-down), else
+   ends the tool (`return_to_select_tool`); the main window calls the same two steps
+   (`CanvasView.handle_escape`) for an Esc no focused widget consumed. Rejected: a
+   window-level `QShortcut` on Esc, which would pre-empt every line edit, popup and
+   inline editor in the window (and a second shortcut on one key fires neither,
+   PF-UI-36). The focused inline editor receives the same Esc first.
+5. **The minimap hides a selected group's descendants by opacity** instead of a flag
+   (PF-CAN-48).
+## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
+
+**Status**: Accepted (visual-polish package, 2026-11-09)
+
+**Context**: every export paints the same `QGraphicsScene`, each through a different
+paint device, and each device had its own way of being wrong. The SVG of the
+family-garden example showed the roof texture over 70 % of the drawing; the PDF
+report's plan pages were 72-dpi bitmaps; a 1:50 printout painted shadows over its own
+footer; and every export forced one point size on text the user had sized on purpose.
+Measured on Qt 6.12: `QSvgGenerator` drops a brush's own transform and a pixmap's source
+rectangle, writes no clip in its default mode and a staircase for two stacked clips in
+SVG 1.1 mode, and `QSvgRenderer` ignores `clip-path`.
+
+**Decision**:
+
+1. **The SVG export records and replays.** The scene is painted into a recording
+   `QPaintEngine` (`services/svg_export.py`) and the recording is replayed into
+   `QSvgGenerator(Svg11)`. A clipped fill or stroke is written as geometry already cut
+   to its clip, a brush transform is moved into the world transform, a source rectangle
+   is cut out of its pixmap. Only a clipped picture or clipped text keeps a real
+   `<clipPath>`. Rejected: repairing the written file by pattern (the previous design —
+   it knew one painter's output and missed the next one); writing our own SVG
+   serializer (every pen, brush, gradient and text item the app paints would have to be
+   re-implemented, and a miss drops content silently); SVG 1.1 clips alone (staircases,
+   invisible to `QSvgRenderer`, and no answer to brush transforms).
+2. **An SVG is laid out at print resolution.** One user unit is 1/300 inch; `width` and
+   `height` state the requested size in millimetres. The painter's world transform
+   therefore carries the scale of a 300-dpi PNG, so a picture that rasterises itself for
+   the painter's scale is print-sharp in the SVG, and a constant-pixel-size label or
+   hairline is the size it has in that PNG. The generator's own resolution stays the
+   logical screen resolution, because that is what a font's size in user units has to
+   agree with.
+3. **SVG text stays text.** A designer who imports the plan edits a label, changes its
+   typeface, searches it; outlines would take all three away and multiply the file's
+   size. The cost is that glyph shapes and advance widths are the viewer's: measured in
+   headless Edge a note's run is within 1.6 % of the canvas. Every `font-family` names a
+   generic fallback (`'Segoe UI', sans-serif`), so a machine without the family shows a
+   similar face instead of the viewer's serif default. Rejected: converting text to
+   paths; embedding fonts (licences, size).
+4. **The PDF report's plan pages are 300-dpi pictures, not vectors.** The page is laid
+   out in points; each plan picture is painted into a `QImage` of 300 dpi and placed on
+   the page (`PLAN_RENDER_DPI`). Measured on the four bundled examples, every page type
+   on: 150 dpi 1.2–2.7 MB / 0.3–0.8 s, 200 dpi 1.8–4.0 MB / 0.4–1.3 s, 300 dpi
+   3.2–7.0 MB / 0.8–2.4 s. Rejected: painting the scene on the PDF painter. It would be
+   sharp at any zoom, but the painter's world transform would carry the page's 72 units
+   per inch, and everything that rasterises itself for the painter's scale — sprites,
+   texture tiles — would be 72 dpi inside a vector page; the earlier finding that a
+   pre-flipped painter is unreliable on a `QPdfWriter` (PF-CAN-10) also stands.
+5. **Only constant-pixel-size text is given a size for the output** (PF-CAN-08). A text
+   note is sized in plan units and scales with the plan. Notes and callouts are laid out
+   by their font's design metrics (`PreferNoHinting`), because a hinted layout is rounded
+   to the pixels of the note's nominal size and shows it once scaled; the report's own
+   text uses the same preference, for the same reason at 72 units per inch.
+6. **A `paint()` never replaces the clip it is handed** (PF-CAN-54), and a printout sets
+   its tile as an explicit clip.
+7. **A report section that needs more pages gets them.** `PdfReportService.plan_pages`
+   returns one entry per real page, so the page count, the progress callback and the
+   section titles ("Plant List – page 2 of 3") agree. Small beds whose detail frames
+   touch share one page; a frame has a minimum extent (150 cm), padding and a minimum
+   aspect ratio. The legend lists the object types and plants on the plan, each with a
+   sample painted by the item itself.
+8. **A plan has a title apart from its file name.** `ProjectManager.display_name` is the
+   file's stem, or — for a plan opened from an example or a template and not yet saved —
+   that template's title; `project_name` stays what default file names are built from.
+
+**Consequences**: the SVG fidelity test compares the rasterised SVG with the PNG export
+of the same scene (four bundled examples, a parametric roof, a glasshouse, a painter
+nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowledge.
+An SVG's pictures are embedded once per use, as before, and grow with their resolution.
+The report is three to eight times larger than at 72 dpi.
+
+Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
+FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.

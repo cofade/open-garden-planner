@@ -18,6 +18,30 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+#: Task-id prefixes emitted by ``services.task_generator`` whose segment at the
+#: given index is a bed/area UUID. Keep in sync with any new generator format;
+#: ``tests/unit/test_project.py`` pins the current set.
+TASK_BED_ID_SEGMENTS: dict[str, int] = {
+    "succession": 2,
+    "soil_amendment": 1,
+    "soil_mismatch": 1,
+}
+
+
+def make_succession_task_id(action: str, bed_id: str, entry_id: str) -> str:
+    """The ONE succession task-id format (``succession:<action>:<bed>:<entry>``)."""
+    return f"succession:{action}:{bed_id}:{entry_id}"
+
+
+def make_soil_amendment_task_id(bed_id: str, stable_name: str) -> str:
+    """The ONE soil-amendment task-id format (``soil_amendment:<bed>:<name>``)."""
+    return f"soil_amendment:{bed_id}:{stable_name}"
+
+
+def make_soil_mismatch_task_id(bed_id: str) -> str:
+    """The ONE soil-mismatch task-id format (``soil_mismatch:<bed>``)."""
+    return f"soil_mismatch:{bed_id}"
+
 
 @dataclass
 class ManualTask:

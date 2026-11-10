@@ -5,11 +5,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsItemGroup,
+    QGraphicsScene,
     QGraphicsSceneContextMenuEvent,
     QMenu,
     QStyleOptionGraphicsItem,
@@ -103,6 +104,57 @@ def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     ]
 
 
+def is_drillable_group(item: QGraphicsItem) -> bool:
+    """Whether a second click may reach *item*'s members (#771).
+
+    A ``SmartSymbolItem`` is a group by class, but its members are generated
+    from its parameters: drilling into them would let a user edit geometry the
+    symbol owns and would silently desynchronise its parametric identity.
+    """
+    from .smart_symbol_item import SmartSymbolItem
+
+    return isinstance(item, GroupItem) and not isinstance(item, SmartSymbolItem)
+
+
+def group_child_at(
+    scene: QGraphicsScene,
+    group: QGraphicsItem,
+    scene_pos: QPointF,
+) -> QGraphicsItem | None:
+    """The IMMEDIATE child of *group* under *scene_pos*, if any.
+
+    ``scene.items()`` returns a child, its label or a drag handle first. Walking
+    up to the first item whose parent is *group* answers "which member did the
+    user click?", so a click anywhere inside a nested group drills to that
+    nested group rather than jumping straight to its deepest member. Non-document
+    children (labels, badges, resize handles) have no ``item_id`` and are
+    skipped; a handle click must keep its normal resize meaning.
+    """
+    if scene is None or group.scene() is not scene:
+        return None
+    from .resize_handle import DRAG_HANDLE_TYPES
+
+    for candidate in scene.items(scene_pos):
+        if candidate is group:
+            continue
+        if isinstance(candidate, DRAG_HANDLE_TYPES):
+            # The handle's own press must keep its resize/rotate meaning.
+            return None
+        node: QGraphicsItem | None = candidate
+        while node is not None and node is not group:
+            parent = node.parentItem()
+            if parent is group:
+                if isinstance(node, DRAG_HANDLE_TYPES):
+                    return None
+                if getattr(node, "item_id", None) is None:
+                    return None
+                return node
+            if isinstance(node, DRAG_HANDLE_TYPES):
+                return None
+            node = parent
+    return None
+
+
 class GroupItem(GardenItemMixin, QGraphicsItemGroup):
     """A group of canvas items that move, copy, and rotate together.
 
@@ -122,6 +174,10 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
             layer_id=layer_id,
         )
         QGraphicsItemGroup.__init__(self)
+        #: The member that currently has drill-down edit focus (#771). Drawn as
+        #: a solid inner outline, so a second click inside a selected group has
+        #: a visible target. Never serialized.
+        self._drill_down_child: QGraphicsItem | None = None
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -175,6 +231,29 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(rect)
+
+        # Drill-down focus (#771): one member is the edit target while the
+        # group stays the Qt selection. The outline disappears with the
+        # selection, so exports (which clear it first) never paint it.
+        child = self._drill_down_child
+        if self.isSelected() and child is not None:
+            try:
+                if child.scene() is self.scene():
+                    focus_rect = self.mapFromScene(child.sceneBoundingRect()).boundingRect()
+                    painter.setPen(QPen(QColor(25, 120, 220), 2.0))
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawRect(focus_rect)
+            except RuntimeError:
+                # The focused member was deleted by an undo/redo between the
+                # selection change and this paint.
+                pass
+
+    def set_drill_down_child(self, child: QGraphicsItem | None) -> None:
+        """Draw *child* as the drill-down focus, or clear it (#771)."""
+        if self._drill_down_child is child:
+            return
+        self._drill_down_child = child
+        self.update()
 
     def boundingRect(self) -> QRectF:
         """Return children bounding rect with a small margin."""

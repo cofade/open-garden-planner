@@ -21,6 +21,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Array along path ({count} copies)': 'Matriz a lo largo de trayectoria ({count} copias)',
         'Attach plant to bed': 'Vincular planta al bancal',
         'Boolean {operation}': '{operation} booleana',
+        'Split shape': 'Dividir forma',
         'Bring {count} item(s) forward': 'Traer {count} elemento(s) adelante',
         'Bring {count} item(s) to front': 'Traer {count} elemento(s) al frente',
         'Chamfer corner': 'Achaflanar esquina',

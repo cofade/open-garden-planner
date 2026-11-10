@@ -97,11 +97,11 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     # it." The values the 3D view had shown them at: a market parasol's canopy top,
     # a fire bowl's rim, a large planter's rim, a cold frame's high back, a 200 l
     # barrel, a standpipe tap, an A-frame swing's top beam, a hammock stand's hooks,
-    # a pergola's rafters. The 2D model extrudes the whole footprint as a solid
-    # prism (`ui/canvas/footprints.item_footprints`), so an open frame — a swing,
-    # a hammock, a pergola — shades its whole footprint in 2D: accepted by the owner,
-    # ADR-042's #308 note superseded. (A picket fence did too, until #440 weighted
-    # fences by their transmittance; the open frames' is #698.)
+    # a pergola's rafters. The 2D model extrudes the whole footprint as a prism
+    # (`ui/canvas/footprints.item_footprints`). For an OPEN FRAME — a pergola, a
+    # trellis, a swing, a hammock, a garden light — that prism is weighted by the
+    # share of it the frame's own members shade (``OPEN_FRAME_TYPE_NAMES``, #698),
+    # as #440 weighted a picket fence's strip; every other kind is the solid prism.
     "PARASOL": 250.0,
     "FIRE_PIT": 30.0,
     "PLANTER_POT": 50.0,
@@ -123,8 +123,52 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
 #: some 50 times its real shadow. Its 3D model still casts its own thin shadow. This
 #: list is for a kind whose shade is negligible, NOT for an open frame that overstates
 #: its shade (a pergola, a swing): that is cast honestly through #440's transmittance
-#: (#698), never by leaving it out.
+#: (``OPEN_FRAME_TYPE_NAMES``, #698), never by leaving it out.
 NO_2D_SHADOW_TYPE_NAMES: frozenset[str] = frozenset({"STRING_LIGHTS"})
+
+#: The OPEN FRAMES (#698, ADR-059's open-frames addendum): kinds built of posts, beams,
+#: slats and ropes with the sky between them. Their 2D caster keeps the footprint prism
+#: — where the shade can fall — and carries a TRANSMITTANCE: one minus the share of that
+#: prism's ground shadow which the frame's own members cover, for the sun of the moment
+#: (``core.shadow_geometry.open_frame_transmittance``, read through #440's
+#: ``caster_transmittance`` by the overlay, the hours-of-sun map and the plant
+#: estimates). The members are the 3D builder's (``core.scene3d.builders.open_frames``),
+#: a pergola's the one layout of ``core.pergola`` — no table of shares to drift.
+#: Membership is a DECISION, recorded here: a kind is listed when its shade is thin
+#: members spread over the whole prism, so that "a fraction of the sun everywhere under
+#: it" is the honest picture. Decided in the visual-polish package on #440's precedent;
+#: the owner may veto a kind by moving its name to ``SOLID_2D_DECISIONS`` with the reason.
+OPEN_FRAME_TYPE_NAMES: frozenset[str] = frozenset(
+    {"PERGOLA", "TRELLIS", "SWING", "HAMMOCK", "GARDEN_LIGHT"})
+
+#: Kinds whose 3D model shades LESS THAN HALF of their 2D prism's shadow and which stay
+#: a SOLID prism in 2D all the same — each a recorded decision with its reason, so that
+#: no kind is solid by having been forgotten (``tests/unit/test_open_frames.py`` holds
+#: every mostly-air kind of the shadow-agreement table to one of the three lists here).
+#: None of them is a frame: their surplus comes from their SHAPE — one opaque body or
+#: top that is smaller than its bounding prism — and a transmittance would smear a
+#: shade that is in truth dark in one place and absent in another.
+SOLID_2D_DECISIONS: dict[str, str] = {
+    # a solid top on legs, at most 90 cm up: the surplus is the strip the sun reaches
+    # under the top, h / tan a wide beside the piece
+    "TABLE_RECTANGULAR": "a solid top on legs",
+    "TABLE_ROUND": "a solid top on legs",
+    "PICNIC_TABLE": "solid boards on A-frames",
+    "TRAMPOLINE": "a solid mat on legs",
+    "BENCH": "a solid seat and back on legs",
+    "CHAIR": "a solid seat and back on legs",
+    # one compact opaque body, smaller than the circle or box drawn for it
+    "BBQ_GRILL": "a kettle on legs",
+    "WHEELBARROW": "a tray on a wheel",
+    "BIRD_BATH": "a bowl on a pedestal",
+    # a solid canopy on a pole: its shade is real and dark, but it lies away from the
+    # pole at a low sun. Honest for it is a RAISED caster, not a lighter one (#698's
+    # handoff proposes it); until then the prism, as before
+    "PARASOL": "a solid canopy on a pole",
+    # glass: the 3D view casts the frame alone. How much light a glasshouse takes is a
+    # question #698 does not ask; left as it was and reported to the owner
+    "GREENHOUSE": "glass on a frame: not asked by #698",
+}
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).
 _CONTAINER_TYPE_NAMES = frozenset({"CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"})
@@ -287,6 +331,12 @@ def casts_2d_shadow(object_type: Any) -> bool:
     return _type_name(object_type) not in NO_2D_SHADOW_TYPE_NAMES
 
 
+def is_open_frame(object_type: Any) -> bool:
+    """True for a kind the 2D sun study casts as an open frame — its footprint prism
+    weighted by a transmittance (``OPEN_FRAME_TYPE_NAMES``, #698)."""
+    return _type_name(object_type) in OPEN_FRAME_TYPE_NAMES
+
+
 def effective_height_cm(
     object_type: Any,
     metadata: dict[str, Any] | None,
@@ -305,6 +355,36 @@ def effective_height_cm(
     non-plants keep the mature/default height as before.
     """
     return resolve_height(object_type, metadata, at_date)[0]
+
+
+def carry_height_across_type_change(
+    metadata: dict[str, Any], previous_type: Any, new_type: Any
+) -> None:
+    """A rebuilt shape stands as tall as the shape it replaces.
+
+    Some heights are a per-type default (rung 4 of the ladder): a ``RAISED_BED``
+    is 40 cm with nothing stored. Rebuilding it as a polygon makes it a
+    ``GARDEN_BED``, whose default is "no height" - the bed silently sank into
+    the ground (manual test 2 of PR #783: a split raised bed went from 40 cm to
+    Auto). When a real type change would alter the resolved height and the user
+    stored none, the height the object had is written as its explicit
+    ``object_height_cm``. An explicit height already wins on both sides, and a
+    type change that leaves the height alone writes nothing.
+
+    This is for a REBUILD (split, corner edit, the loader's migration), where
+    the object is still the same thing. The Properties panel's type change is
+    the user's own decision and keeps following the new type's default.
+    """
+    if previous_type is None or new_type is None:
+        return
+    if _type_name(previous_type) == _type_name(new_type):
+        return
+    if explicit_height_cm(metadata) is not None:
+        return
+    before = resolve_height(previous_type, metadata)[0]
+    after = resolve_height(new_type, metadata)[0]
+    if before is not None and before != after:
+        metadata[METADATA_KEY] = before
 
 
 def soil_surface_cm(object_type: Any, height_cm: float | None) -> float:

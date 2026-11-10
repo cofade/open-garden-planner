@@ -103,3 +103,24 @@ def example_copy_plan(plan: dict[str, Any], source: Path) -> dict[str, Any]:
             if cleaned is not _REMOVED:
                 result[key] = cleaned
     return result
+
+
+def template_title(source: Path) -> str:
+    """The name a person knows the template at *source* by.
+
+    A shipped example's own name — from its trusted sidecar, in the language of
+    the directory it was opened from — and for any other file its stem.
+    """
+    resolved = source.resolve()
+    canonical = BUNDLED_EXAMPLES / resolved.name
+    if resolved.parent == BUNDLED_EXAMPLES:
+        locale = "en"
+    elif resolved.parent.parent == BUNDLED_EXAMPLES:
+        locale = resolved.parent.name
+    else:
+        return source.stem
+    sidecar = canonical.with_suffix(".meta.json")
+    if not sidecar.is_file():
+        return source.stem
+    meta = json.loads(sidecar.read_text(encoding="utf-8"))
+    return str(meta.get(f"name_{locale}") or meta.get("name_en") or source.stem)

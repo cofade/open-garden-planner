@@ -70,13 +70,15 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-CAN-08
 
-- **Rule:** Outside a view, `scene.render()` draws `ItemIgnoresTransformations` items at device-pixel size, so exports wrap it in `ExportService._prepare_text_for_export` and `_restore_text_after_export`.
-- **Pinned by:** none — The body names no test for this rule.
-- **Source:** none recorded
+- **Rule:** Outside a view, `scene.render()` draws `ItemIgnoresTransformations` items at device-pixel size, so every export gives those items — and only those — a point size for the output (`scene_rendering.retarget_constant_size_text`); a text note is sized in plan units and is never touched.
+- **Pinned by:** `tests/integration/test_export_text_notes.py`
+- **Source:** #789
 - **Status:** standing
 - **Legacy:** b1faaa9 README L288
 
 - **`ItemIgnoresTransformations` items render at fixed device-pixel size in `scene.render()`**: When rendering via `scene.render()` (not through a QGraphicsView), `ItemIgnoresTransformations` items render at their natural pixel size regardless of the source→target scale. For a large scene (e.g. 5300 cm) rendered into a small image (774 px), a 10 pt text item can appear as 80+ cm on canvas. Fix: call `ExportService._prepare_text_for_export(scene, scale, dpi)` before rendering and `_restore_text_after_export()` after. The scale = `output_width_cm / canvas_width_cm`.
+
+- **Only the constant-pixel-size text (#789)**: the first version of this fix gave EVERY text item of the scene the export's point size. A `TextItem` note and a callout's text have no `ItemIgnoresTransformations`: their font is in plan units and the export's scale already scales them. Forcing one point size on them made a note the user sized on purpose four times too large on a balcony plan and unreadable on a large one. `scene_rendering.draws_at_constant_pixel_size(item)` (the flag on the item or on any ancestor) is the one test, shared by PNG, PDF, SVG, print and the Agent API render. Printing had no label sizing at all — a label was 13 device pixels, a quarter of a millimetre at 1200 dpi — and now uses the same helper.
 
 ### PF-CAN-09
 
@@ -110,23 +112,27 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-CAN-12
 
-- **Rule:** An SVG export of the Y-flipped scene renders `<pattern>` tiles upside-down unless each pattern gets a `patternTransform` flip after `painter.end()`, as `ExportService._fix_svg_pattern_yflip()` does.
-- **Pinned by:** none — The body names no test for this rule.
-- **Source:** none recorded
+- **Rule:** A pattern brush needs no flip of its own in an SVG export: the tile is in the user space of a group that carries the painter's Y-flip, exactly as on a `QImage`. What `QSvgGenerator` does drop is the brush's own transform, which the SVG recorder moves into the world transform (PF-CAN-53).
+- **Pinned by:** `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #787
 - **Status:** standing
 - **Legacy:** b1faaa9 README L298
 
 - **SVG pattern tiles appear Y-inverted under painter Y-flip**: Qt's `QSvgGenerator` records `<pattern>` elements with `patternUnits="userSpaceOnUse"`. When the scene is rendered with a `scale(1,-1)` painter transform, each pattern tile image is stored un-flipped, but renders upside-down inside the Y-flipped coordinate space. Fix: post-process the SVG after `painter.end()` and add `patternTransform="matrix(1,0,0,-1,0,{tile_height})"` to each `<pattern>` element. See `ExportService._fix_svg_pattern_yflip()`.
 
+- **Superseded reading (#787)**: `ExportService._fix_svg_pattern_yflip()` added `patternTransform="matrix(1,0,0,-1,0,h)"` to every pattern after the fact. Measured against the PNG export in headless Edge and in `QSvgRenderer`, a pattern fill under the flipped painter is oriented like the PNG WITHOUT that attribute; the post-processor was removed together with the clip pairing of PF-CAN-13. The roof's two halves — the only texture with a stated direction — are compared with the PNG by the fidelity test.
+
 ### PF-CAN-13
 
-- **Rule:** `QSvgGenerator` never writes painter clip paths, so SVG export must clip each texture group to its one paired shadow path, and the result is judged in a real browser, not `QSvgRenderer`.
-- **Pinned by:** none — The body names only a script for checking this rule, and a script is not a pin.
-- **Source:** none recorded
+- **Rule:** `QSvgGenerator` writes no painter clip in its default SVG Tiny 1.2 mode, and `QSvgRenderer` ignores `clip-path` in any mode: an SVG export writes a clipped shape as geometry already cut to its clip (PF-CAN-53), and a test that rasterises with `QSvgRenderer` cannot see a `<clipPath>`.
+- **Pinned by:** `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #787
 - **Status:** standing
 - **Legacy:** b1faaa9 README L300
 
 - **`QSvgGenerator` does not serialize painter clip regions — texture fills bleed across the canvas**: For texture-filled shapes, Qt emits a "shadow" group containing the polygon `<path>` (`fill="#000000"`) followed by a texture group `<g fill="url(#tex)"><rect x="..." y="..." width="..." height="..."/></g>`. The rect is the *painter's clip bounding rect*, not the polygon shape — and the painter's `setClipPath()` is **never** serialized as `<clipPath>`. In SVG viewers (browsers), the unconstrained rect washes across the whole canvas (often as a brownish overlay if it is a roof-tile texture). PNG export is unaffected because Qt's native renderer applies the clip directly. Fix: post-process the SVG (`ExportService._fix_svg_qt_texture_clipping()`) — pair each non-empty shadow group with the next non-empty texture group in document order, build a `<clipPath>` from the shadow's `<path>` (preserving its `transform`), and wrap the texture group with `clip-path="url(#...)"`. Pairing must be 1:1 with a `used_textures` set; forward-window scans match the same texture from multiple shadows and corrupt the XML tree. Validate SVGs in a real browser (`scripts/svg_preview.py` uses Edge headless) — `QSvgRenderer` is too forgiving and hides this bug.
+
+- **Superseded fix (#787)**: `ExportService._fix_svg_qt_texture_clipping()` paired each black "shadow" group with the next texture group in the written file and wrapped it in a `<clipPath>`. It matched one painter's output shape; the parametric roof and the glasshouse of #768/#769 did not have that shape, nothing was paired, and the family-garden example exported with the roof texture over 70 % of the drawing and zero `<clipPath>` elements. It was removed; the clip is now recorded below the painter.
 
 ### PF-CAN-14
 
@@ -604,6 +610,71 @@ A wheelbarrow's sprite is 60 x 140 cm; drawn into a 140 x 60 rectangle it was re
 
 A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, deleted and sanitised by a dozen call sites. Teaching GREENHOUSE to be a building meant touching every one; a single missed `== HOUSE` would have left a greenhouse ridge that did not follow a move, a copy without its own ridge, or a load that dropped the link. The predicate lives in `core.roof_style.py` (Qt-free, kind names) and `core.object_types.is_ridge_bearing_type` (enum); `ChangeObjectTypeCommand` uses it for both the execute and undo halves, and `apply_ridge_look` gives a greenhouse its aluminium finish (and a house its brown) on build, type change and undo.
 
+### PF-CAN-46
+
+- **Rule:** A `QGraphicsItemGroup` child cannot be selected independently: selecting it selects the group, and its resize/vertex handles do not receive a usable drag. Group drill-down is therefore a VIEW-LEVEL logical focus (`drill_down_item` / `effective_selection`), never a reparent or a temporary ungroup.
+- **Pinned by:** `tests/integration/test_group_drill_down.py::test_second_click_focuses_the_member_then_outside_restores_the_group`; `tests/integration/test_group_drill_down.py::test_the_properties_panel_shows_the_member_and_disables_its_layer`
+- **Source:** #771, ADR-075
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt 6.12 routes `child.setSelected(True)` through the group: `scene.selectedItems()` returns only the group even though the child's `isSelected()` is true. A `QGraphicsItemGroup` child's `ResizeHandle` press is swallowed by the group, and a double-click does not reach the child's vertex-edit handler. Detaching the child with `removeFromGroup` on drill-down and re-adding it on exit makes handles work but changes its parent frame; commands captured while detached store local `pos()`/`rect()` values, so undo after moving or rotating the group restores the wrong place. The vetted path keeps membership: the group stays selected, `effective_selection()` supplies the member to every panel, body drags and arrow keys convert scene deltas through `_delta_in_parent_frame`, and the view replays the member's handle drag through `begin_drag` / `apply_drag` / `end_drag`. The member's layer/cut/delete operations are refused until the focus clears.
+
+### PF-CAN-47
+
+- **Rule:** `QPainterPath.intersects` is true for a boundary touch, not only for an interior crossing. A geometry operation that means "crosses" must prove interior overlap — for a segment, split it at its outline crossings and require an interval midpoint strictly inside — or a snapped corner pick silently cuts the shape it only grazed.
+- **Pinned by:** `tests/unit/test_shape_split.py::test_a_touch_is_not_a_crossing`; `tests/integration/test_split_shapes.py::test_a_line_that_only_touches_a_corner_does_not_split`
+- **Source:** #664, PR #783, ADR-075 addendum
+- **Status:** standing
+- **Legacy:** 11.4.22 (new entry)
+
+The split tool's first crossing predicate was `path.intersects(segment)`. Qt answers
+True when a segment ends on the outline, runs along an edge, or is tangent to it, so
+a line whose first pick snapped to a bed's corner and whose second pick went away
+from it removed the bed and created two pieces. The same answer is right for a
+boolean *touch* test and wrong for a knife. `segment_crosses_path` now sorts the
+segment's parameters at its crossings with the flattened outline, samples each
+interval between them, and accepts the segment only when points offset to BOTH
+sides of the line are inside; a boundary-aligned segment has one side outside.
+`tests/unit/test_shape_split.py` covers the outward corner/edge/tangent starts and
+the true corner-to-corner crossing; the integration test reproduces the
+corner-snap cut that used to happen.
+
+### PF-CAN-48
+
+- **Rule:** `QGraphicsItem.setFlags` deselects any item that reports `isSelected()` without being selectable, and a descendant that already existed when its parent joined a `QGraphicsItemGroup` reports its GROUP's selection: one flag set on such a handle inside a selected group unselects the whole group. Code that toggles a flag on arbitrary scene items (the minimap's overlay suppression) must test exactly that condition and hide those items by opacity.
+- **Pinned by:** `tests/integration/test_group_drill_down.py::test_the_running_app_keeps_the_member_focused_past_a_minimap_refresh`; `tests/integration/test_group_drill_down.py::test_the_minimap_does_not_paint_a_focused_members_handles`; `tests/integration/test_group_drill_down.py::test_a_focused_member_leaves_the_idle_window_quiet`
+- **Source:** #771, PR #783 (manual test 8), ADR-075 addendum 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Group drill-down (PF-CAN-46) keeps the group as the Qt selection and shows the
+focused member's handles. In the real window the focus lasted a split second: the
+minimap re-renders 100 ms after any scene change and suppresses every overlay item
+for its thumbnail with `setFlag(ItemHasNoContents, True)`. Qt's `setFlags` ends
+with "if the item is not selectable but is selected, deselect it"; for a group
+descendant `isSelected()` answers for the group and `setSelected(False)` is routed
+to the group, so the group lost its selection and the view retired the drill-down.
+Measured on Qt 6.12 with three items: a flag set on a non-selectable child of a
+selected group unselects the group and emits `selectionChanged`; `setOpacity` does
+neither; a selectable child (a grouped journal pin) is not affected, which is why
+the earlier group test in `test_garden_journal.py` stayed green. The precondition
+is also measured: only a child that existed when its parent was added to the group
+reports the group's selection; a child created afterwards reports False and its
+flags are harmless. A member's handles are created when it is first selected, and
+a user selects the members in order to group them, so the real workflow always
+meets the precondition - while a group loaded from a file, whose members were
+never selected, does not. The pins therefore build their group through
+`_group()`, which selects first; a pin that grouped unselected members would pass
+on the broken code. The minimap's test is Qt's own (`not selectable and
+isSelected()`), so it is right in both cases. The minimap
+keeps `ItemHasNoContents` for everything else (PR #713: hiding deselects) and
+makes exactly these descendants fully transparent for the render, restoring the
+opacity they had. The idle-quiescence pin shows the opacity round trip does not
+restart the #305 render loop. No bare-canvas test could have caught this: the
+canvas fixture has no minimap, and the one running-app test called
+`begin_group_drill_down` directly instead of clicking.
+
 ### PF-CAN-49
 
 - **Rule:** Qt keeps every item's `DeviceCoordinateCache` picture in the process-wide `QPixmapCache`, whose default limit is 10 MB; a canvas raises it (`ui/canvas/item_cache.ensure_item_cache_budget`, 256 MB) or its item caches thrash and every repaint paints the items again. Setting a cache mode proves nothing: count the paints.
@@ -612,7 +683,7 @@ A HOUSE's linked `ROOF_RIDGE` is derived geometry created, moved, copied, delete
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (one lawn alone is 5.2 MB), so with the default limit Qt evicted and re-painted on every frame: 49 ms for a repaint that is 8 ms of blits, 143 ms for a 40-px pan. A picture larger than the whole limit (a lawn on a 4K display is 33 MB) was never kept at all. The first attempt at #784 set the sun overlay to `DeviceCoordinateCache` and measured no change whatsoever (146 ms against 152) — the overlay's 5 MB picture was evicted by the next item's. NFR-PERF-01's reference plan did not show it because its 990 items are small. The limit is a ceiling, not an allocation. Details and numbers: §8.35.
+The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (one lawn alone is 5.2 MB), so with the default limit Qt evicted and re-painted on every frame: 49 ms for a repaint that is 8 ms of blits, 143 ms for a 40-px pan. A picture larger than the whole limit (a lawn on a 4K display is 33 MB) was never kept at all. The first attempt at #784 set the sun overlay to `DeviceCoordinateCache` and measured no change whatsoever (146 ms against 152) — the overlay's 5 MB picture was evicted by the next item's. NFR-PERF-01's reference plan did not show it because its 990 items are small. The limit is a ceiling, not an allocation. Details and numbers: §8.37.
 
 ### PF-CAN-50
 
@@ -623,3 +694,23 @@ The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (o
 - **Legacy:** none (new entry)
 
 `render_plant_pixmap(diameter=...)` and `render_furniture_pixmap(width=..., height=...)` take pixels; the item paints passed centimetres, so every sprite was 1 px per cm and anything above 100 % zoom, on a high-density display or in a 300-dpi export was an enlarged bitmap. The resolution cannot be the item's: one item is painted by the canvas, an export, the minimap and the Agent API render at different scales. Three traps on the way: `QPainter.worldTransform()` leaves out the device pixel ratio (`deviceTransform()` has it); a pixmap drawn into an item-space rectangle under the canvas's Y-flip is mirrored (lay a device-space picture down with the device transform made the identity); and a level below 1 is not "sharper", it changes how a texture reads when zoomed out (`MIN_LEVEL`, an owner's decision). A defect of this kind is proportional to zoom and to rotation — test at 400 % and 1000 %, rotated, and against the same interior at 100 % enlarged. §8.9.14.
+
+### PF-CAN-53
+
+- **Rule:** The scene is never painted into a `QSvgGenerator` directly: it is painted into the recording engine of `services/svg_export.py` and replayed, because the generator drops a brush's own transform and a pixmap's source rectangle, and writes a clip either not at all or as a staircase.
+- **Pinned by:** `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #787
+- **Status:** standing; narrative in [debug-verbose: Case study: the SVG export flooded the plan with roof tiles — the generator drops clips, brush transforms and source rectangles (#787, fixed 2026-11-09)](../../../.claude/skills/debug-verbose/references/219-case-study-the-svg-export-flooded-the-plan-with-roof-tiles.md#case-study-the-svg-export-flooded-the-plan-with-roof-tiles--the-generator-drops-clips-brush-transforms-and-source-rectangles-787-fixed-2026-11-09)
+- **Legacy:** none (new entry)
+
+Measured on Qt 6.12. `QSvgGenerator` (1) writes a `TexturePattern` brush without its `transform()` — the roof's mirrored half and every per-object pattern angle or scale were lost; (2) ignores the source rectangle of `drawPixmap`; (3) writes no clip in SVG Tiny 1.2 mode, and in SVG 1.1 mode writes the intersection of two clips as a one-unit staircase, because `QPainter.clipPath()` falls back to an integer region as soon as two clips are stacked — and `scene.render()` always stacks its own. `QSvgRenderer` ignores `clip-path` altogether. The recorder is a `QPaintEngine` with the generator's feature set; it keeps every draw call with its state and its exact clip, and the replay writes a clipped fill and a clipped stroke as their outlines cut to the clip, and moves a brush transform into the world transform. Only a clipped picture or clipped text keeps a real `<clipPath>` (exact, SVG 1.1). An item's `paint()` needs no SVG knowledge, so a new painter cannot bypass it — the test paints one that nobody taught. A font from a text layout carries no record of what was set on it; `QPainter.setFont` then resolves everything from the device default, so the replay rebuilds the font by hand (a 28 pt Arial note was written as the 9 pt application font).
+
+### PF-CAN-54
+
+- **Rule:** A `paint()` clips with `Qt.ClipOperation.IntersectClip`, never with the default `ReplaceClip`: the painter it is handed already carries the clip of a print tile or a report frame, and replacing it paints on the margin.
+- **Pinned by:** `tests/integration/test_pdf_report_pages.py::test_no_scene_painter_replaces_the_clip_it_was_handed`; `tests/integration/test_pdf_report_pages.py::test_a_print_tile_paints_nothing_on_its_margin_or_footer`
+- **Source:** #788
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`QPainter.setClipPath(path)` and `setClipRect(rect)` REPLACE the painter's clip unless told to intersect it. On the canvas that is invisible: the view clips with a system clip the painter does not own. In `scene.render()` the target rectangle is an ordinary painter clip, and the sun-shadow overlay and the roof replaced it with their own — so a 1:50 printout painted the shadows of the whole garden across each sheet's margin and footer. Both now intersect, an AST test rejects any `setClipPath` / `setClipRect` / `setClipRegion` in `src/` that does not name `IntersectClip` (three non-scene files are listed with their reason), and the printout sets the tile as an explicit clip of its own.

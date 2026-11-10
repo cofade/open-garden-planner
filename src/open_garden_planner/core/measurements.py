@@ -65,6 +65,34 @@ def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | N
     return None
 
 
+# The round distances a scale bar may show, in cm, ascending. The canvas's bar
+# and the PDF report's bar both pick from this one list (#782).
+SCALE_BAR_NICE_DISTANCES_CM: tuple[int, ...] = (
+    1,
+    2,
+    5,
+    10,
+    20,
+    50,
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000,
+    10000,
+)
+
+
+def format_scale_distance(cm: float) -> str:
+    """A scale bar's label for a distance in cm: "50 cm", "2 m", "1.5 km"."""
+    if cm >= 100000:
+        return f"{cm / 100000:g} km"
+    if cm >= 100:
+        return f"{cm / 100:g} m"
+    return f"{cm:g} cm"
+
+
 def format_area(area_cm2: float) -> str:
     """Format area for display with appropriate units.
 

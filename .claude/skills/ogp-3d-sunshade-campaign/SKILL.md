@@ -46,3 +46,13 @@ the exact soil elevation from `item_base_cm`, slice external obstacles above
 that plane and preserve holder exclusions. The heatmap remains at ground
 level. See `docs/functional-requirements.md` FR-SUN-09/11 and the ADR-056
 exact soil-plane addendum.
+
+Open frames (FR-SUN-13): a pergola, a trellis, a swing, a hammock and a garden light
+are not solid prisms in the 2D sun study. The caster walk gives them their 3D
+builder's own members (`IdentifiedCaster.frame`, an `OpenFrame`), and every consumer
+weights their prism through `core/shadow_geometry.caster_transmittance` — the
+hook #440 made for porous fences. Which kinds are open frames, which mostly-air
+kinds stay solid and why, is recorded in `core/object_height.py`
+(`OPEN_FRAME_TYPE_NAMES`, `SOLID_2D_DECISIONS`); a new object kind is placed
+there, never given a table of shares. See `docs/08-crosscutting-concepts/`
+§8.29.6 "Open frames" and the ADR-059 / ADR-070 addendum on open frames.

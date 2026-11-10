@@ -38,6 +38,7 @@ from open_garden_planner.core.plan_io import (
     write_plan,
 )
 from open_garden_planner.models.layer import Layer, create_default_layers
+from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
 # File format version for backward compatibility.
 #
@@ -272,6 +273,8 @@ class ProjectManager(QObject):
         """Initialize the project manager."""
         super().__init__(parent)
         self._current_file: Path | None = None
+        # The title of the example or template this unsaved plan was opened from.
+        self._template_title: str | None = None
         self._dirty = False
         self._location: dict[str, Any] | None = None
         self._task_completions: set[str] = set()
@@ -318,6 +321,18 @@ class ProjectManager(QObject):
         return "Untitled"
 
     @property
+    def display_name(self) -> str:
+        """The plan's title for a reader: a report's cover, a print legend.
+
+        The file's stem once the plan has a file. A plan opened from an example
+        or a template has none yet and carries that template's title (#788) —
+        ``project_name`` stays the name default file names are built from.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return self._template_title or self.project_name
+
+    @property
     def location(self) -> dict[str, Any] | None:
         """Garden location data, or None if not set."""
         return self._location
@@ -326,6 +341,58 @@ class ProjectManager(QObject):
     def task_completions(self) -> set[str]:
         """Set of completed task IDs for the current project."""
         return set(self._task_completions)
+
+    @staticmethod
+    def _task_id_references_item(task_id: object, key: str) -> bool:
+        """Whether a deterministic task id names *key* as its bed/area.
+
+        The two formats are owned by ``services.task_generator``:
+        ``succession:<sow|clear>:<bed_id>:<entry>`` and
+        ``soil_amendment:<bed_id>:<name>`` / ``soil_mismatch:<bed_id>``.
+        Explicit segment matching avoids a substring false positive when an
+        unrelated id happens to contain the same characters.
+        """
+        parts = str(task_id).split(":")
+        if not parts:
+            return False
+        index = TASK_BED_ID_SEGMENTS.get(parts[0])
+        return index is not None and len(parts) > index and parts[index] == key
+
+    def has_item_references(self, item_id: UUID | str) -> bool:
+        """Whether project data outside the scene still points at *item_id*.
+
+        A command that replaces a shape (the split, #664) must not orphan the
+        records keyed by its UUID. The checked collections are exactly the ones
+        that store a bed/area/plant id: soil tests, pest/disease logs, harvest
+        logs, succession plans, crop-rotation records, manual-task bed links and
+        task states whose deterministic id carries the item id. Journal notes
+        are keyed by their own note id and do not reference garden items.
+        """
+        key = str(item_id)
+        if not key:
+            return False
+        if (
+            key in self._soil_tests
+            or key in self._pest_logs
+            or key in self._harvest_logs
+            or key in self._succession_plans
+        ):
+            return True
+        for record in self._crop_rotation.get("records", []):
+            if isinstance(record, dict) and str(record.get("area_id", "")) == key:
+                return True
+        for task in self._manual_tasks.values():
+            if isinstance(task, dict) and str(task.get("bed_id", "")) == key:
+                return True
+        if any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_states
+        ):
+            return True
+        return any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_completions
+        )
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's
@@ -826,6 +893,7 @@ class ProjectManager(QObject):
     def new_project(self) -> None:
         """Start a new untitled project."""
         self._current_file = None
+        self._template_title = None
         self._dirty = False
         self._location = None
         self._task_completions = set()
@@ -1122,7 +1190,11 @@ class ProjectManager(QObject):
             self._sync_custom_plants(scene)
 
             self._current_file = None if as_template else file_path
+            self._template_title = None
             if as_template:
+                from open_garden_planner.core.templates import template_title
+
+                self._template_title = template_title(file_path)
                 self.mark_dirty()
             else:
                 self.mark_clean()
@@ -1133,6 +1205,7 @@ class ProjectManager(QObject):
         except Exception:
             if scene_mutated:
                 self._current_file = None
+                self._template_title = None
                 self.mark_dirty()
                 self.project_changed.emit(None)
             raise
@@ -2698,9 +2771,11 @@ class ProjectManager(QObject):
                 if obj.get("area_label_visible"):
                     item.area_label_visible = True
                 if migrated_raised_bed:
-                    from open_garden_planner.core.item_look import adopt_type_fill
+                    from open_garden_planner.core.item_look import (
+                        adopt_rebuilt_type,
+                    )
 
-                    adopt_type_fill(
+                    adopt_rebuilt_type(
                         item, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
                     )
                 return item

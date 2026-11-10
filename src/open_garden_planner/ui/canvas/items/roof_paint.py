@@ -234,23 +234,24 @@ def paint_roof_with_ridge(
     # that order. A hand drag of a ridge endpoint can reorder them, but it
     # is not sticky: the next polygon edit recomputes them canonically.
     #
-    # The two-sided clip + oversized drawRect shape is load-bearing and
-    # must not be flattened: Qt does not serialize the painter clip into
-    # SVG, and ``ExportService._fix_svg_qt_texture_clipping`` pairs each
-    # shadow group with the next texture group 1:1 (§11.4).
+    # Each half is clipped with IntersectClip, never the default ReplaceClip:
+    # a paint() that replaces the clip throws away the one it was handed, and
+    # a print tile or a PDF frame is exactly such a clip (#788, PF-CAN-54).
+    # The SVG export needs nothing from this shape: it records the clip and
+    # the brush transform below the painter (services/svg_export.py, #787).
     #
     # Pinned by tests/unit/test_roof_tile_orientation.py over eight
     # house/rotation cases spanning landscape, portrait and square; 8 of its
     # 11 cases fail against the previous brush assignment.
     painter.save()
-    painter.setClipPath(left_path)
+    painter.setClipPath(left_path, Qt.ClipOperation.IntersectClip)
     painter.setBrush(normal_brush)
     painter.setPen(Qt.PenStyle.NoPen)
     painter.drawRect(fill_rect)
     painter.restore()
 
     painter.save()
-    painter.setClipPath(right_path)
+    painter.setClipPath(right_path, Qt.ClipOperation.IntersectClip)
     painter.setBrush(mirrored_brush)
     painter.setPen(Qt.PenStyle.NoPen)
     painter.drawRect(fill_rect)

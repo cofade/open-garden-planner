@@ -167,6 +167,13 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         font = QFont(self._font_family, pt)
         font.setBold(self._bold)
         font.setItalic(self._italic)
+        # A note is laid out once, at its nominal size, and then scaled with the
+        # plan — by the zoom, by a 300-dpi export, by an SVG viewer. A hinted
+        # font rounds every glyph's advance to a whole pixel of that nominal
+        # size, and the scaled-up line shows it ("thy me", "f ictional") and is
+        # up to an eighth wider than the same text laid out by an SVG viewer
+        # (#789). Design metrics scale without either.
+        font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
         self.setFont(font)
         self.setDefaultTextColor(self._text_color)
 

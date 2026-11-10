@@ -699,6 +699,12 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     QCoreApplication.translate("RectangleItem", "Array Along Path...")
                 )
 
+        # Split along a two-click line (#664). The action dispatches through
+        # the view and is disabled with its refusal reason as the tooltip.
+        from .split_menu import build_split_action
+
+        build_split_action(menu, self)
+
         # Execute menu and handle result
         menu.addSeparator()
         lock_action = self.build_lock_context_menu(menu)
