@@ -10738,7 +10738,7 @@ clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout ca
 
 ### ADR-059 / ADR-070 addendum — open frames are weighted, not solid (#698, 2026-11-09)
 
-**Status**: Shipped in v1.38.0 (PR #838), confirmed in the owner's manual test of 2026-11-10; decided on #440's precedent, and **the owner may still veto**
+**Status**: Shipped in v1.38.0 (PR #838), confirmed in the owner's manual test of 2026-11-10; decided on #440's precedent, and **the owner may revisit it**
 (per kind: move its name from `OPEN_FRAME_TYPE_NAMES` to `SOLID_2D_DECISIONS`, with the
 reason; the rows of the shadow table follow) | **Context**: issue #698. The
 owner's part of it — a string of lights — was answered in the addendum above (no 2D
@@ -11832,7 +11832,7 @@ application's chosen language, never the system locale on its own.
    names — months, weekdays — and the day-and-month label of the calendar dashboard
    follow the language.
 7. **A date or time FIELD takes nothing from the locale's territory** *(review round 1;
-   owner to confirm)*. An English UI on a non-English system is `en_US` (decision 2), and
+   confirmed by the owner, 2026-11-10)*. An English UI on a non-English system is `en_US` (decision 2), and
    a field left to that locale read "3:30 PM" and "6/7/26" and its calendar popup started
    on Sunday (measured: `load_translator("en")` on a `de_DE` system; the camera tour's
    four fields had no display format). The user asked for English words, not for US
@@ -11843,7 +11843,7 @@ application's chosen language, never the system locale on its own.
    `setCalendarPopup`, `setCalendarWidget` or `setFirstDayOfWeek`:
    `tests/unit/test_date_fields.py` walks the source, so a new field cannot forget it.
 8. **A calendar popup starts its week on Monday in every UI language** *(review round 1;
-   owner to confirm)*. ISO 8601, and the convention of the app's users (European
+   confirmed by the owner, 2026-11-10)*. ISO 8601, and the convention of the app's users (European
    gardeners; German, Spanish and Russian locales give Monday anyway). The same helper
    sets it. Rejected: the locale's week start (Sunday for an English UI, the regression
    this decision answers) and a preference (no user asked for one).
