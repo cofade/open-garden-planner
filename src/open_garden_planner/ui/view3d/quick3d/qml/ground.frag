@@ -98,11 +98,17 @@ vec3 meadowGrass(vec2 p, out vec2 slope)
         slope = vec2(east - sum, north - sum) * 0.70711 * uGrassRelief * uDetail;
     }
     if (uSurface > 1.5) {
-        // the slow variation: brightness at 9 m and 41 m, hue at 17 m (drier, warmer
-        // patches and lusher, cooler ones), each of mean 1
-        float bright = 1.0 + uMeadowVariation.x * meadowNoise(p / 900.0)
-                     + uMeadowVariation.y * meadowNoise(p / 4100.0 + vec2(17.3, 5.1));
-        float hue = uMeadowVariation.z * meadowNoise(p / 1700.0 + vec2(3.7, 41.9));
+        // the variation: brightness at 3.1 m (in place of the texture's own mottle, which
+        // repeats and is taken out of uGrass), 9 m and 41 m; hue at 17 m (drier, warmer
+        // patches and lusher, cooler ones); each of mean 1, each octave turned its own way
+        // so that no cell grid lines up with another or with the plan
+        float bright = 1.0
+                     + uMeadowVariation.x * meadowNoise(mat2(0.87462, 0.48481, -0.48481, 0.87462) * p / 310.0)
+                     + uMeadowVariation.y * meadowNoise(mat2(0.95630, -0.29237, 0.29237, 0.95630) * p / 900.0
+                                                        + vec2(5.3, 11.7))
+                     + uMeadowVariation.z * meadowNoise(p / 4100.0 + vec2(17.3, 5.1));
+        float hue = uMeadowVariation.w * meadowNoise(mat2(0.60182, 0.79864, -0.79864, 0.60182) * p / 1700.0
+                                                     + vec2(3.7, 41.9));
         grass *= bright * vec3(1.0 + 1.6 * hue, 1.0, 1.0 - 2.4 * hue);
     }
     return grass;

@@ -163,7 +163,7 @@ import time
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import Final
+from typing import Any, Final
 
 import numpy as np
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -1173,7 +1173,8 @@ class GroundBaker:
             part = QImage(tile.pixels, width, height, 4 * width, _TILE_FORMAT)
             painter.drawImage(x0, grid.height_px - y0 - height, part)
         painter.end()
-        bits = whole.bits()
+        # Qt's stub types the raw pointer as voidptr; Any is the typing gap
+        bits: Any = whole.bits()
         if bits is not None:
             bits.setsize(whole.sizeInBytes())
             np.frombuffer(bits, dtype=np.uint8).reshape(-1, 4)[:, 3] = 255

@@ -768,7 +768,7 @@ def test_every_piece_of_ground_draws_the_one_ground_shader_with_the_same_inputs(
     shared = ['fragmentShader: "ground.frag"', "shadingMode: CustomMaterial.Shaded",
               "property TextureInput uGrass: TextureInput { texture: grassTexture }",
               "property real uGrassRelief: root.grassRelief",
-              "property vector3d uMeadowVariation: root.grassVariation",
+              "property vector4d uMeadowVariation: root.grassVariation",
               "property real uSurface: root.groundSurface",
               "property real uDetail: root.detailNormals",
               "property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, "

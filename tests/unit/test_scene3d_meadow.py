@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from open_garden_planner.core.scene3d.meadow import (
+    GRASS_HIGH_PASS_CM,
     GRASS_REPEAT_CM,
     GRASS_VARIATION,
     MEADOW_CELL_CM,
@@ -22,6 +23,7 @@ from open_garden_planner.core.scene3d.meadow import (
     grass_detail,
     grass_detail_rgba16f,
     grass_mean_linear,
+    high_pass_wrapped,
     meadow_frame,
 )
 
@@ -203,3 +205,36 @@ def test_the_engine_linearisation_is_the_ground_shaders() -> None:
     assert f"p / {GRASS_REPEAT_CM:.1f}" in shader
     # the variation is small: a few per cent of brightness, a few degrees of hue
     assert all(0.0 < amplitude < 0.1 for amplitude in GRASS_VARIATION)
+
+
+def _slow_share(values: np.ndarray, wavelength_px: float) -> float:
+    """The share of an image's variance at wavelengths longer than ``wavelength_px``."""
+    spectrum = np.abs(np.fft.fft2(values - values.mean())) ** 2
+    fy = np.fft.fftfreq(values.shape[0])[:, None]
+    fx = np.fft.fftfreq(values.shape[1])[None, :]
+    slow = np.hypot(fx, fy) < 1.0 / wavelength_px
+    return float(spectrum[slow].sum() / spectrum.sum())
+
+
+def test_the_grass_keeps_its_blades_and_loses_the_mottle_that_repeats() -> None:
+    """The texture's own mottle — its slow variation, under 2.56 m — repeats with it and drew
+    a lattice over the meadow seen from above (#798, 3D look-dev round 1: correlation 0.34
+    one repeat away against 0.03 elsewhere). ``grass_detail`` takes out what lies beyond
+    ``GRASS_HIGH_PASS_CM`` and keeps the blades: the variance at wavelengths over 32 cm
+    falls to a few per cent of what it was; most of the variance stays."""
+    rgba = _grass_png()
+    codes = rgba[..., :3].astype(np.float64) / 255.0
+    raw = engine_linear(codes)[..., 1]
+    raw = raw / raw.mean()
+    detail = grass_detail(rgba)[..., 1].astype(np.float64)
+    assert _slow_share(raw, 4.0 * GRASS_HIGH_PASS_CM) > 0.02            # the mottle was there
+    assert _slow_share(detail, 4.0 * GRASS_HIGH_PASS_CM) < 0.2 * _slow_share(raw, 4.0 * GRASS_HIGH_PASS_CM)
+    assert float(detail.std()) > 0.8 * float(raw.std())                 # the blades stay
+    # the filter itself: a constant stays, a slow wave goes, a fast one stays, wrapped
+    # (a Gaussian: one wave a tile long keeps 7 % of itself at sigma 16, the texture's own)
+    rows = np.arange(256)[:, None] + np.zeros((256, 256))
+    slow = np.sin(2 * np.pi * rows / 256.0)
+    fast = np.sin(2 * np.pi * rows / 4.0)
+    assert np.allclose(high_pass_wrapped(np.full((256, 256), 3.0), GRASS_HIGH_PASS_CM), 3.0)
+    assert float(np.abs(high_pass_wrapped(slow, GRASS_HIGH_PASS_CM)).max()) < 0.08
+    assert np.allclose(high_pass_wrapped(fast, GRASS_HIGH_PASS_CM), fast, atol=1e-6)

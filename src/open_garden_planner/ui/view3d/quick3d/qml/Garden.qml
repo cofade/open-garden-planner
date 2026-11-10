@@ -119,12 +119,12 @@ Item {
     // rectangle below is then not drawn — two coplanar surfaces would fight for the depth
     property bool groundTiled: false
     // #798: the meadow's grass, set once by the host (core/scene3d/meadow.py): the canvas's
-    // GRASS texture as its linear colour over its mean (RGBA16F), the relief's scale and
-    // the slow variation (brightness at 9 m and 41 m, hue) - ONE Texture for the scene's
+    // GRASS texture as its linear colour over its mean less its mottle (RGBA16F), the
+    // relief's scale and the variation (brightness at 3.1, 9 and 41 m, hue) - ONE Texture for the scene's
     // life (grassTexture), never re-pointed (ogp-3d-renderer section 5)
     property var grassDetail: null
     property real grassRelief: 0.0
-    property vector3d grassVariation: Qt.vector3d(0, 0, 0)
+    property vector4d grassVariation: Qt.vector4d(0, 0, 0, 0)
     // what every piece of ground draws: the truth view keeps the flat colour
     readonly property int groundSurface: topDown || grassDetail === null ? 0 : meadowSurface
 
@@ -819,7 +819,7 @@ Item {
                 // plan's open ground takes it (the owner's call)
                 property TextureInput uGrass: TextureInput { texture: grassTexture }
                 property real uGrassRelief: root.grassRelief
-                property vector3d uMeadowVariation: root.grassVariation
+                property vector4d uMeadowVariation: root.grassVariation
                 property real uSurface: root.groundSurface
                 property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
@@ -1191,7 +1191,7 @@ Item {
                 property real uDetail: root.detailNormals
                 property TextureInput uGrass: TextureInput { texture: grassTexture }
                 property real uGrassRelief: root.grassRelief
-                property vector3d uMeadowVariation: root.grassVariation
+                property vector4d uMeadowVariation: root.grassVariation
                 property real uSurface: root.groundSurface
                 property real uGrassShare: 1.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
@@ -1224,7 +1224,7 @@ Item {
                 property real uDetail: root.detailNormals
                 property TextureInput uGrass: TextureInput { texture: grassTexture }
                 property real uGrassRelief: root.grassRelief
-                property vector3d uMeadowVariation: root.grassVariation
+                property vector4d uMeadowVariation: root.grassVariation
                 property real uSurface: root.groundSurface
                 property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
                 property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)

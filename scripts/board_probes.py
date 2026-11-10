@@ -1194,24 +1194,21 @@ def meadow_mask(camera: Pinhole, plan: tuple[float, float, float, float], *,
 def track_luma(frames: Sequence[Any], cameras: Sequence[Pinhole], points: Any, *,
                radius_px: int = 1) -> Array:
     """The luma of fixed GROUND points through a camera move: ``(frames, points)``, the
-    mean of the ``2 radius + 1`` square around where each frame's camera puts the point
-    (NaN where it falls out of the frame or behind the camera)."""
+    mean of a ``2 radius + 1`` square centred EXACTLY where each frame's camera puts the
+    point (the frame box-filtered, then read bilinearly: a window snapped to whole pixels
+    jumps a pixel as the point crosses one, and on a textured ground that jump is a flicker
+    of the instrument's own); NaN where it falls out of the frame or behind the camera."""
     world = np.atleast_2d(np.asarray(points, dtype=np.float64))
     if world.shape[1] == 2:
         world = np.column_stack([world, np.zeros(len(world))])
     out = np.full((len(frames), len(world)), np.nan)
     for index, (rgb, camera) in enumerate(zip(frames, cameras, strict=True)):
-        values = luma(np.asarray(rgb, dtype=np.float64)[..., :3])
+        values = box_mean(luma(np.asarray(rgb, dtype=np.float64)[..., :3]), 2 * radius_px + 1)
         rows, cols = values.shape
         x, y, front = camera.scaled((cols, rows)).project(world)
-        col, row = np.floor(x).astype(np.int64), np.floor(y).astype(np.int64)
-        seen = front & (col >= radius_px) & (col < cols - radius_px) & (row >= radius_px) & (
-            row < rows - radius_px)
-        total = np.zeros(int(seen.sum()))
-        for dy in range(-radius_px, radius_px + 1):
-            for dx in range(-radius_px, radius_px + 1):
-                total += values[row[seen] + dy, col[seen] + dx]
-        out[index, seen] = total / float((2 * radius_px + 1) ** 2)
+        seen = (front & (x >= radius_px + 1) & (x < cols - radius_px - 1)
+                & (y >= radius_px + 1) & (y < rows - radius_px - 1))
+        out[index, seen] = _bilinear(values, x[seen], y[seen])
     return out
 
 
@@ -1235,32 +1232,38 @@ def temporal_noise(series: Any) -> dict[str, Any]:
             "step_p95": round(float(np.percentile(step, 95)), 3), "points": seen}
 
 
-def repeat_correlation(values: Any, period_px: float) -> dict[str, Any]:
+#: The repeat probe's bins per period (each holds every pixel of that phase in the frame)
+#: and the blur, as a share of the period, that keeps only what a viewer sees as a pattern.
+REPEAT_BINS, REPEAT_BLUR_SHARE = 32, 0.12
+
+
+def repeat_amplitude(values: Any, period_px: float) -> dict[str, Any]:
     """Does a texture's REPEAT show? ``values`` (h x w luma) is ground seen straight from
     above with east right and north up, ``period_px`` the texture's repeat in pixels.
 
-    ``at_period``: the larger normalised correlation of the picture with itself moved
-    one period east or north — the lattice a repeated texture draws (an identical tile
-    beside every tile reads near 1); ``control``: the same at 0.37 and 0.61 of a period,
-    where a repeat has no reason to correlate. ``excess``: ``at_period`` - ``control``.
-    The picture is correlated less its mean over two periods: the light's gradient across
-    a frame correlates at every lag and would hide the lattice (a flat meadow read 0.63
-    at a third of a period)."""
+    The picture, blurred to what reads as a pattern (``REPEAT_BLUR_SHARE`` of a period) and
+    less its mean over two periods (the light's gradient), is FOLDED onto one period:
+    every pixel is averaged into the bin of its phase (``REPEAT_BINS`` per axis). What
+    repeats survives the fold; what does not averages away. ``periodic``: the luma std of
+    the folded tile — the amplitude of the lattice a repeated texture draws; ``control``:
+    the same folded at 0.61 and 1.37 periods, where nothing repeats; ``residual``: the
+    std of the whole detrended picture, for scale. (#798's first round: a repeat visible
+    from 60 m read 2.15 luma, its grain-only successor 0.86, the flat meadow 0.002.)"""
     raw = np.asarray(values, dtype=np.float64)
-    data = raw - box_mean(raw, 2 * max(1, int(round(period_px))) + 1)
+    blur = max(1, int(round(REPEAT_BLUR_SHARE * period_px)) | 1)
+    data = box_mean(raw, blur) if blur > 1 else raw
+    data = data - box_mean(data, 2 * max(1, int(round(period_px))) + 1)
+    rows, cols = np.mgrid[0:data.shape[0], 0:data.shape[1]]
 
-    def shifted(lag_x: int, lag_y: int) -> float:
-        if lag_x >= data.shape[1] or lag_y >= data.shape[0]:
-            return 0.0
-        first = data[lag_y:, :data.shape[1] - lag_x] if lag_x else data[lag_y:, :]
-        second = data[:data.shape[0] - lag_y, lag_x:] if lag_x else data[:data.shape[0] - lag_y, :]
-        return ncc(first, second)
+    def folded(period: float) -> float:
+        bin_x = np.minimum(((cols % period) / period * REPEAT_BINS).astype(int), REPEAT_BINS - 1)
+        bin_y = np.minimum(((rows % period) / period * REPEAT_BINS).astype(int), REPEAT_BINS - 1)
+        index = (bin_y * REPEAT_BINS + bin_x).ravel()
+        sums = np.bincount(index, data.ravel(), REPEAT_BINS * REPEAT_BINS)
+        counts = np.bincount(index, None, REPEAT_BINS * REPEAT_BINS)
+        filled = counts > 0
+        return float((sums[filled] / counts[filled]).std())
 
-    def at(share: float) -> float:
-        lag = max(1, int(round(share * period_px)))
-        return max(shifted(lag, 0), shifted(0, lag))
-
-    period = at(1.0)
-    control = max(at(0.37), at(0.61))
-    return {"at_period": round(period, 4), "control": round(control, 4),
-            "excess": round(period - control, 4), "period_px": round(float(period_px), 2)}
+    return {"periodic": round(folded(float(period_px)), 3),
+            "control": round(max(folded(0.61 * period_px), folded(1.37 * period_px)), 3),
+            "residual": round(float(data.std()), 3), "period_px": round(float(period_px), 2)}

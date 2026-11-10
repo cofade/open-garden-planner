@@ -119,6 +119,7 @@ from PyQt6.QtGui import (
     QPlatformSurfaceEvent,
     QQuaternion,
     QVector3D,
+    QVector4D,
     QWindow,
 )
 from PyQt6.QtQuick import (
@@ -845,7 +846,7 @@ class Quick3DHost:
             return
         self._grass = GrassDetailTexture()
         _set(self._root, "grassRelief", float(GRASS_RELIEF))
-        _set(self._root, "grassVariation", QVector3D(*(float(value) for value in GRASS_VARIATION)))
+        _set(self._root, "grassVariation", QVector4D(*(float(value) for value in GRASS_VARIATION)))
         _set(self._root, "grassDetail", self._grass)
 
     def _show_meadow(self, plan: tuple[float, float, float, float] | None) -> None:

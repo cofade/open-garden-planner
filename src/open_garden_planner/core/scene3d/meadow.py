@@ -115,11 +115,18 @@ def _lines(middle: float, hole: tuple[float, float] | None) -> np.ndarray:
 #: centimetre (``record.PATTERN_TILE_CM``), and ``ground.frag`` samples it at that scale
 #: (and a second time turned 37° at 1.618 times it, so the repeat does not show).
 GRASS_REPEAT_CM: Final = 256.0
-#: The slow variation over the grass, as ``ground.frag``'s ``uMeadowVariation``: the
-#: brightness's amplitude at 9 m and at 41 m and the hue's at 17 m (smooth value noise in
-#: -1..1, mean 0; the hue term moves red up and blue down, warmer and drier, or the
-#: other way, lusher). The issue's proposal: about ±7 % brightness, ±4° hue.
-GRASS_VARIATION: Final = (0.045, 0.055, 0.03)
+#: The variation over the grass, as ``ground.frag``'s ``uMeadowVariation``: the
+#: brightness's amplitude at 3.1 m, 9 m and 41 m and the hue's at 17 m (smooth value noise
+#: in -1..1, mean 0, each octave turned another way so that no cell grid lines up; the
+#: hue term moves red up and blue down, warmer and drier, or the other way, lusher). The
+#: issue's proposal: about ±7 % brightness, ±4° hue. The 3.1 m octave stands in for the
+#: texture's own mottle, which ``grass_detail`` takes out because it repeats.
+GRASS_VARIATION: Final = (0.04, 0.06, 0.07, 0.035)
+#: The grass's own mottle — what it holds beyond this many centimetres (the sigma of the
+#: Gaussian taken out) — repeats with the texture every 2.56 m and drew a lattice over the
+#: meadow seen from above (correlation 0.34 one repeat away, 0.03 elsewhere); the blades
+#: stay. ``GRASS_VARIATION``'s octaves take its place, and repeat nowhere.
+GRASS_HIGH_PASS_CM: Final = 16.0
 #: How strongly the grass's relief tilts the detail normal, per unit of ``uDetail``: the
 #: texture is a LINEAR ratio (mean 1), where the tiles read sRGB codes (0..1, the grass
 #: about 0.43 at its mean, and a linear ratio swings about 2.2 times as far as its code),
@@ -146,10 +153,23 @@ def grass_mean_linear(rgba8: np.ndarray) -> np.ndarray:
     return np.asarray(engine_linear(pixels).reshape(-1, 3).mean(axis=0))
 
 
+def high_pass_wrapped(values: np.ndarray, sigma: float) -> np.ndarray:
+    """``values`` (h x w) less its Gaussian blur of ``sigma`` pixels, the image repeated
+    on every side (it is a tileable texture): the same mean, nothing slower than ~sigma."""
+    data = np.asarray(values, dtype=np.float64)
+    rows, cols = data.shape
+    fy = np.fft.fftfreq(rows)[:, None]
+    fx = np.fft.rfftfreq(cols)[None, :]
+    keep = np.exp(-2.0 * (np.pi * sigma) ** 2 * (fx * fx + fy * fy))
+    blurred = np.fft.irfft2(np.fft.rfft2(data) * keep, s=data.shape)
+    return np.asarray(data - blurred + blurred.mean())
+
+
 def grass_detail(rgba8: np.ndarray) -> np.ndarray:
     """What ``ground.frag`` samples as ``uGrass``: the texture's linear colour over its
-    own mean, per channel (mean exactly 1), alpha 1 — float32 ``(h, w, 4)``, rows as the
-    image's. A texture without light in a channel is refused (its mean would be 0)."""
+    own mean, per channel (mean exactly 1), less its mottle (``GRASS_HIGH_PASS_CM``),
+    alpha 1 — float32 ``(h, w, 4)``, rows as the image's. A texture without light in a
+    channel is refused (its mean would be 0)."""
     pixels = np.asarray(rgba8)
     if pixels.ndim != 3 or pixels.shape[2] != 4 or pixels.shape[0] < 1 or pixels.shape[1] < 1:
         raise ValueError(f"an (h, w, 4) RGBA image, got shape {pixels.shape}")
@@ -158,7 +178,9 @@ def grass_detail(rgba8: np.ndarray) -> np.ndarray:
     if not np.all(mean > 0.0):
         raise ValueError(f"a texture with light in every channel, got a linear mean {mean}")
     out = np.ones(pixels.shape[:2] + (4,), dtype=np.float32)
-    out[..., :3] = linear / mean
+    for channel in range(3):
+        detail = high_pass_wrapped(linear[..., channel] / mean[channel], GRASS_HIGH_PASS_CM)
+        out[..., channel] = np.maximum(detail, 0.02)
     return out
 
 
@@ -167,6 +189,7 @@ def grass_detail_rgba16f(rgba8: np.ndarray) -> bytes:
     return grass_detail(rgba8).astype("<f2").tobytes()
 
 
-__all__ = ["GRASS_RELIEF", "GRASS_REPEAT_CM", "GRASS_VARIATION", "MEADOW_CELL_CM",
+__all__ = ["GRASS_HIGH_PASS_CM", "GRASS_RELIEF", "GRASS_REPEAT_CM", "GRASS_VARIATION",
+           "MEADOW_CELL_CM",
            "MEADOW_HALF_CM", "MEADOW_OVERLAP_CM", "engine_linear", "grass_detail",
-           "grass_detail_rgba16f", "grass_mean_linear", "meadow_frame"]
+           "grass_detail_rgba16f", "grass_mean_linear", "high_pass_wrapped", "meadow_frame"]

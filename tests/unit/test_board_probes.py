@@ -968,13 +968,20 @@ def test_a_still_or_smooth_move_does_not_flicker_and_aliasing_does() -> None:
     assert P.temporal_noise(np.zeros((2, 4)))["zigzag_rms"] is None
 
 
-def test_a_repeated_tile_correlates_at_its_period_and_noise_does_not() -> None:
+def test_a_repeated_tile_folds_onto_its_period_and_noise_does_not() -> None:
+    """``repeat_amplitude`` folds a picture onto one period: a tiled pattern keeps its
+    amplitude there, fresh noise of the same strength averages away, and a gradient across
+    the frame (the light) is taken out first."""
     rng = np.random.default_rng(256)
-    tile = rng.normal(0.0, 1.0, (32, 32))
-    tiled = np.tile(tile, (6, 8))
-    noise = rng.normal(0.0, 1.0, tiled.shape)
-    repeated = P.repeat_correlation(tiled, 32.0)
-    fresh = P.repeat_correlation(noise, 32.0)
-    assert repeated["at_period"] > 0.99 and repeated["excess"] > 0.9, repeated
-    assert abs(fresh["at_period"]) < 0.05 and abs(fresh["excess"]) < 0.08, fresh
-    assert P.repeat_correlation(np.zeros((40, 40)), 8.0)["at_period"] == 0.0   # flat: nothing
+    tile = rng.normal(0.0, 8.0, (32, 32))
+    tile = P.box_mean(np.tile(tile, (3, 3)), 5)[32:64, 32:64]   # a pattern, not pixel noise
+    gradient = np.linspace(0.0, 60.0, 512)[None, :] + np.zeros((384, 512))
+    tiled = np.tile(tile, (12, 16)) + gradient
+    fresh = P.box_mean(rng.normal(0.0, 8.0, (384, 512)), 5) + gradient
+    repeated = P.repeat_amplitude(tiled, 32.0)
+    noise = P.repeat_amplitude(fresh, 32.0)
+    assert repeated["periodic"] > 0.6 * repeated["residual"] > 0.3, repeated
+    assert repeated["control"] < 0.3 * repeated["periodic"], repeated
+    assert noise["periodic"] < 0.3 * repeated["periodic"], (noise, repeated)
+    flat = P.repeat_amplitude(gradient, 32.0)
+    assert flat["periodic"] < 0.1 and flat["residual"] < 0.5, flat
