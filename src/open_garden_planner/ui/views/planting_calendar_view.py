@@ -50,6 +50,7 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.services.weather_service import WeatherForecast, get_frost_alerts
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import (
     URGENCY_TOKENS,
@@ -925,9 +926,7 @@ class _DetailPanel(QFrame):
             lbl.setFixedWidth(80)
             row_layout.addWidget(lbl)
 
-            start_edit = QDateEdit()
-            start_edit.setCalendarPopup(True)
-            start_edit.setDisplayFormat("dd MMM")
+            start_edit = as_date_field(QDateEdit(), without_year=True)
             start_edit.setFixedWidth(80)
             row_layout.addWidget(start_edit)
 
@@ -936,9 +935,7 @@ class _DetailPanel(QFrame):
                 dash = QLabel("–")
                 dash.setStyleSheet("font-size: 8pt;")
                 row_layout.addWidget(dash)
-                end_edit = QDateEdit()
-                end_edit.setCalendarPopup(True)
-                end_edit.setDisplayFormat("dd MMM")
+                end_edit = as_date_field(QDateEdit(), without_year=True)
                 end_edit.setFixedWidth(80)
                 row_layout.addWidget(end_edit)
 

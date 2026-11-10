@@ -907,10 +907,12 @@ sequenceDiagram
     App->>PM: load(scene, path, as_template=True)
     PM->>PM: Read / validate version / filter / prepare / apply
     PM-->>App: current_file=None, dirty=True
-    App->>App: ShowcaseMoment.document_opened(example's moment or None)
     App->>App: Clear old history/autosave; fit view; refresh panels
+    App->>App: ShowcaseMoment.document_opened(example's moment or None)
     User->>App: Save
     App->>User: Save As dialog
+    App->>PM: save(scene, path)
+    App->>App: ShowcaseMoment.copy_saved(): the user's reading is back
 ```
 
 A failed preparation preserves the previous scene, history and autosave. Exporting
@@ -923,8 +925,10 @@ and the fictional harvest history only for known bundled paths; an external copy
 receives the ordinary portable filter. Exporting a template never changes SimClock.
 Opening a shipped example moves it to the moment the example's sidecar names (its
 reference date, a daytime sun); the next New, Open or recovery puts back the reading
-the user had before (#795, ADR-066 addendum). The same call runs after every
-document replacement, with no moment for a document that is not a shipped example.
+the user had before, and so does a successful Save or Save As of the copy, which makes
+it the user's own plan (#795, ADR-066 addendum). The same call runs as the last step
+of every document replacement, with no moment for a document that is not a shipped
+example.
 
 
 ### L4 follow-up: lawn quality and complete render rest

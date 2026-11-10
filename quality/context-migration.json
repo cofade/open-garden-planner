@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "6838f9011b9a418564b534c4120ef4310b2890d90110105dc623c08a019b8074"
+          "current_sha256": "2712562e26dcf30831a7ee1508704b05a1d73f232b3b0c31f7ce35c7cefe282a"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "6838f9011b9a418564b534c4120ef4310b2890d90110105dc623c08a019b8074"
+          "current_sha256": "2712562e26dcf30831a7ee1508704b05a1d73f232b3b0c31f7ce35c7cefe282a"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",

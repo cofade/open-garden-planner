@@ -76,10 +76,26 @@ one is `en_US`).
   a count. A translated template that carries its precision keeps it and is handed a
   `LocalizedNumber`: `self.tr("{d:.2f} m").format(d=LocalizedNumber(x))`.
 - **A month or a day**: `month_abbreviation(m)` for a column header, `format_day_month(date)`
-  for a day without its year (the order is a translated Qt pattern, context `DateFormat`).
-  Date FIELDS and keys stay ISO (`yyyy-MM-dd`).
-- **A typed number**: a `QDoubleSpinBox` needs nothing — either decimal key types the field's
-  decimal mark. Free text is read with `parse_decimal`. What the UI shows, it accepts back.
+  for a day without its year and `format_short_date(date)` for a whole date in text
+  ("7 Jun 2026"; the order is a translated Qt pattern, context `DateFormat`). Never
+  `QLocale().toString(date, ShortFormat)`: a numeric day/month pair follows the territory,
+  and an English UI on a German system is `en_US` ("6/7/26").
+- **A date or time field**: build it inside `ui/date_fields.as_date_field(QDateEdit(...))` or
+  `as_time_field(QTimeEdit(...))`. They give ISO (`yyyy-MM-dd`), 24 hours (`HH:mm`), a
+  calendar popup and a week that starts on Monday in every language; `without_year=True` is
+  the planting calendar's `dd MMM`, `calendar=` a calendar widget of the field's own. No other
+  code sets a display format or a week start (`tests/unit/test_date_fields.py` walks the
+  source). Date keys stay ISO.
+- **A typed or pasted number**: a `QDoubleSpinBox` needs nothing. `ui/number_fields` (installed
+  on the application by `main()`) puts a validator in front of the focused field's own, and a
+  number with ONE mark has it read as the decimal mark, whether it was typed, pasted with
+  Ctrl+V or pasted from the context menu. Free text is read with `parse_decimal`: a sign, ASCII
+  digits, at most one mark; it raises `ValueError` for a group separator, an exponent, `nan`
+  and `inf`. What the UI shows, it accepts back.
+- **`core/i18n.py` imports QtCore only.** Qt-free services ask it for a formatter. Widget code
+  for numbers and dates lives in `ui/number_fields.py` and `ui/date_fields.py`;
+  `scripts/check_import_boundaries.py` fails when a `QT_CORE_ONLY` module reaches a widget
+  module through its eager imports.
 - **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
   in every language (`tests/integration/test_locale_chrome.py`).
 - **In tests** the locale is process-wide state. `conftest._app_locale` starts every test in
@@ -151,7 +167,7 @@ Weight uses `font-weight: 600` (support pinned by `test_theme_tokens.py`; docume
 
 ### 8.4.3 Theme propagation contract
 
-`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live), notifies `register_theme_listener` subscribers (the icon provider clears its cache), then sets ALL THREE carriers of light-or-dark (#791, PF-UI-37): Qt's colour scheme (`_pin_color_scheme` — the native style draws what no stylesheet rule covers in it), the application palette (`build_palette(colors)` — `palette(...)` in a widget stylesheet, rich-text links and placeholder text read it) and the stylesheet (`app.setStyleSheet`). Nothing that detects the system's mode may read `QApplication.palette()`: it is the app's own. Then it walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
+`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live, so a widget re-polished by the restyle already sees the new values), then sets ALL THREE carriers of light-or-dark (#791, PF-UI-37): Qt's colour scheme (`_pin_color_scheme` — the native style draws what no stylesheet rule covers in it), the application palette (`build_palette(colors)` — `palette(...)` in a widget stylesheet, rich-text links and placeholder text read it) and the stylesheet (`app.setStyleSheet`). Only THEN does it notify `register_theme_listener` subscribers (the icon provider clears its cache): a listener finds the palette and the stylesheet of the new theme already in place (`test_a_theme_listener_is_told_after_the_three_carriers_are_set`). Nothing that detects the system's mode may read `QApplication.palette()`: it is the app's own. Last, it walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
 
 ### 8.4.4 QSS capability limits
 
@@ -3686,7 +3702,9 @@ shared path-resolution helper: with no `file_path`, it uses the same
 project, or `<Documents>/Open Garden Planner`); with an explicit `file_path`,
 it force-applies the correct suffix and requires the parent directory already
 exist (a typo'd path fails clearly rather than silently creating a directory
-tree). `save_plan` with no `file_path` and no project open raises rather than
+tree). The default name is built from `ProjectManager.file_stem` (the file's stem,
+or `Untitled` in every UI language), never from the translated `project_name` a
+save dialog suggests. `save_plan` with no `file_path` and no project open raises rather than
 inventing an `Untitled.ogp` — mirrors the GUI, where a brand-new project always
 needs an explicit Save-As first; given a path, it becomes the project's file
 going forward (Save As semantics), and `ExportResult.previous_file_path` reports
@@ -8745,7 +8763,7 @@ An example opens as it is meant to be seen, however late it is on the wall clock
 
 | Part | Where it lives | Rule |
 |---|---|---|
-| The moment | sidecar `showcase_date` + `showcase_utc_time`; `core/templates.example_showcase_moment`; `core/showcase_moment.ShowcaseMoment` | `_load_project_file` hands the moment of an example opened as a template to `ShowcaseMoment`, which writes the one `SimClock` (`set_utc_time_on`). The next document (New, Open, a recovery) gives the clock back to the reading the user had before the first example, also after the user moved the clock inside the example. Nothing is persisted: no setting and no plan key. A copy the user saved opens like any plan of theirs. |
+| The moment | sidecar `showcase_date` + `showcase_utc_time`; `core/templates.example_showcase_moment`; `core/showcase_moment.ShowcaseMoment` | `_load_project_file` hands the moment of an example opened as a template to `ShowcaseMoment`, which writes the one `SimClock` (`set_utc_time_on`) as the LAST step of the document change (the clock re-raises a listener's error). The showcase ends, and the clock returns to the reading the user had before the first example, with the next document (New, Open, a recovery) and with a successful Save or Save As of the copy (`_end_showcase_after_save`, also the agent's `save_plan`); the status bar says so. An autosave and "Save as template" leave it running. The moment is never persisted: no setting and no plan key. A plant added to the still unsaved copy is planted on the example's date (the plan-date rule) and keeps it; one added after the save gets the user's date. A camera tour's clock hold is the inner holder: the showcase reads and re-bases it (`InnerClockHold`). |
 | Harvest history | generator `_harvest`; `core/templates.EXAMPLE_DEMO_FIELDS` | A few fictional records on ONE plant per species, between that plant's planting date and the reference date, with the canonical `species_key` and the common name the Log Harvest dialog caches. Every record's note says it is fictional. No journal note is linked: an example copy carries no journal. An example copy keeps `location`, `soil_tests` and `harvest_logs`; any other template keeps none of them. |
 | Seed inventory | none | The user's own store outside every plan. An example never fills it; the empty Seed Inventory tab says what it is and how to start. |
 | Plant picture | `PlantDatabasePanel._show_drawn_thumbnail` | The bundled species have no photo. Plant Details show the plant as the plan draws it (`render_plant_pixmap`: species, then category, then the type's default), also while a provider's photo is still loading. No third-party image ships. |
@@ -8760,6 +8778,13 @@ Data rules the content tests hold (`tests/unit/test_example_content.py`):
 - A path is as wide as a path one walks on (40 cm or more). The showcase's two
   polyline paths are 80 and 50 cm; the bench fixture keeps the 8 and 6 cm its
   pinned numbers were measured with.
+- Nothing stands in the showcase's stepping-stone walk but the ground it is laid
+  on or through (lawn, terrace, the perennial border): every other object keeps
+  5 cm or more from its edge. Widening a path is a reason to look at what stands
+  beside it; the generator moves four items of the bench plan (`FAMILY_MOVED_CM`).
+- A harvest fits the age of its plant: a tree's first record is three years or
+  more after its planting date, a shrub's one year, and a year's total is at most
+  7 kg per year since planting.
 - A tutorial note has no halo, so its ink suits its ground: light and bold on a
   lawn, dark on the balcony's boards.
 - An item is turned with `geometry_apply.apply_rotation`, never a bare
@@ -8768,7 +8793,10 @@ Data rules the content tests hold (`tests/unit/test_example_content.py`):
   (`text()` asserts it).
 
 End to end: `tests/integration/test_example_showcase.py` opens every example
-through the gallery's path in a window whose clock was seeded at 22:30.
+through the gallery's path in a window whose clock was seeded at 22:30. It saves
+the copy through File > Save, drops a plant through the canvas's creation path and
+reads the planting date back from the file; a test of "nothing of the example is
+saved" that only looks for key names cannot fail and was replaced by these.
 
 The gallery tab hides Welcome's large banner. A bounded, scrollable details area
 keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;

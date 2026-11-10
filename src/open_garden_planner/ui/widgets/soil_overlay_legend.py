@@ -14,10 +14,6 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 from open_garden_planner.services.soil_service import HealthLevel, SoilService
 from open_garden_planner.ui.theme import theme_qcolor
 
-#: The hatch of a bed without a soil test. The overlay itself is painted by
-#: ``CanvasView._draw_soil_overlay``, which holds the same value.
-UNKNOWN_RGBA = (140, 140, 140, 40)
-
 _SWATCH = 14
 
 
@@ -42,7 +38,7 @@ class _Swatch(QWidget):
         if rgba is None:
             # A legend chip is far smaller than a bed: the hatch needs the
             # opacity a bed's area gives it, or it reads as an empty box.
-            hatch = QColor(*UNKNOWN_RGBA[:3])
+            hatch = QColor(*SoilService.unknown_rgba()[:3])
             painter.fillRect(box, QBrush(hatch, Qt.BrushStyle.DiagCrossPattern))
         else:
             # Twice the alpha for the same reason: at 14 px the plan's 80 of

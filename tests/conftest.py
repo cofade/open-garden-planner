@@ -328,11 +328,15 @@ def _app_locale(qapp):
     from PyQt6.QtCore import QLocale
 
     from open_garden_planner.core import i18n
+    from open_garden_planner.ui.number_fields import install_decimal_marks
 
     system_locale = i18n._system_locale
     i18n._system_locale = QLocale.c
     if i18n.current_language() != "en" or QLocale() != i18n.locale_for_language("en"):
         i18n.load_translator(qapp, "en")
+    # What ``main()`` installs on its QApplication: a number field takes either
+    # decimal mark. A no-op after the first test.
+    install_decimal_marks(qapp)
     yield
     i18n._system_locale = system_locale
 

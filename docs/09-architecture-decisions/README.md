@@ -9812,8 +9812,9 @@ The fourth example, `family-garden`, is not a teaching plan: it is the plan of e
 (`tests/fixtures/plans/bench_small.ogp`), shipped at the owner's request and the subject of the
 project's visual material. It is built by the same `make_bench_plans.build_small` and keeps the
 fixture's item ids, because a plant's procedural shape is seeded by its id; a test fails when the
-two drift. It keeps the fixture's layout and its 6 to 10 cm path widths (*the widths are
-superseded by the #795 addendum below*). One difference: what takes
+two drift. It keeps the fixture's layout and its 6 to 10 cm path widths (*the widths, the
+place of four objects and the cherry's age are superseded by the #795 addendum below*). One
+difference: what takes
 a year or more to mature is planted on 1 March, not on the fixture's 15 April, so a default
 time-lapse shows the birch leafing out instead of popping in (949 cm against the fixture's 929 cm
 on 21 June). It needs no
@@ -9839,13 +9840,36 @@ a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in
    loaded a shipped example as a template. It is not a clock: it holds one remembered reading.
    Both the date and the time are set. The time alone would leave today's date, on which the
    plants of an example are a season older or, before their planting date, absent (ADR-062).
-2. **The user's reading comes back with the next document** *(owner)*. New, Open and a recovery
-   put the clock back to the wall reading the user had before the first example, also when the
-   user scrubbed inside the example: a date picked while looking at an example belongs to the
-   example, and fresh plants in the user's own plan are stamped with the plan date. Saving the
-   copy changes nothing on screen. Nothing is persisted, in settings or in the plan, so a copy
-   the user saved opens at their "now" like any plan of theirs (ADR-062: the viewed date is
-   never saved).
+2. **The user's reading comes back when the example stops being the document** *(owner)*.
+   New, Open and a recovery put the clock back to the wall reading the user had before the
+   first example, also when the user scrubbed inside the example: a date picked while looking
+   at an example belongs to the example. **A successful Save or Save As of the copy ends the
+   showcase too** *(owner; review round 1, replaces "Saving the copy changes nothing on
+   screen")*: the copy is the user's file from then on, so the clock returns to their reading,
+   the held reading is dropped, and the status bar says that the plan now follows their own
+   date and time. The reason is the plan-date rule (ADR-062): a new plant is stamped with the
+   date the clock shows. With the showcase left running, a plant added to the saved plan in
+   November was planted on 21 June, and a clock setting the user made in their saved plan was
+   replaced by the older remembered reading when the next document opened. Now a clock setting
+   made after the save is the user's and no later document replaces it. `ShowcaseMoment`
+   forgets the reading before it writes the clock, so a raising listener cannot leave one
+   behind. The agent's `save_plan` ends the showcase through the same
+   `GardenPlannerApp._end_showcase_after_save`; an autosave and "Save as template" do not,
+   because neither makes the open document the user's file, and a recovered autosave opens at
+   the user's reading like any document that is no example.
+   **What a file can carry**: the moment itself is never persisted, in settings or in the plan
+   (ADR-062: the viewed date is never saved), so a saved copy opens at the user's "now". A
+   plant the user adds while the copy is still UNSAVED is planted on the example's date,
+   because that is the date on screen, and it keeps that planting date in the saved file.
+   That is accepted: the example's own plants carry the same dates.
+   **Order of the writes**: the showcase writes the clock as the last step of a document
+   change, after the history, the autosave, the layers panel and the status bar are the new
+   document's, because `SimClock` re-raises a listener's error (ADR-053). A camera tour that
+   moves the clock holds a reading as well. The showcase is the outer holder and the tour the
+   inner one (`core/showcase_moment.InnerClockHold`): when the document changes under a
+   running tour (only an agent can do that), the showcase takes the user's reading from the
+   tour's hold and not from the frame, and re-bases the hold after its write, so the tour's
+   finish returns the clock to the document that is open then.
 3. **The moment is a UTC time of day on the local reference date**, applied with
    `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock reads wall
    time in the computer's zone; a wall-clock "13:00" is night over Berlin for a user in
@@ -9869,6 +9893,23 @@ a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in
    showcase's "Gravel path" is 80 cm and its "Stepping stones" 50 cm. Only the example changes:
    the bench fixture keeps its widths, and the test that holds the two together compares
    geometry, ids, names and species, not stroke widths.
+   **What stood in the widened walk moved out of it** *(review round 1; supersedes "keeps the
+   fixture's layout" for four objects)*. As a 50 cm walk the stepping stones ran over the bird
+   bath (48 % of it), a chrysanthemum (43 %) and a geranium (8 %). The bird bath stands at
+   (620, 450), east of the walk; in the perennial border the geranium is at x 612, the
+   chrysanthemum at x 746 and the lily at x 811 (it makes room for the chrysanthemum). The
+   path's points do not move, because test data is pinned to them, and the fixture is
+   untouched: the generator moves the four items (`FAMILY_MOVED_CM`), and the test that
+   holds example and fixture together lists the four centres. The walk still crosses the
+   perennial border bed, which is the ground it is laid through, like the lawn and the
+   terrace. The birch's crown reaches over the gravel path; its trunk is a metre from it.
+   **The cherry is a tree of several years** *(review round 1)*. It has 6.5 kg of harvest
+   in June 2026 and was planted on 1 March 2026 like every established plant. It is now
+   planted on 5 November 2022 as a nursery tree (1.5 m tall, 1.3 m crown: the growth model's
+   low end is the size at planting). On the reference date its crown is 373 cm as before
+   and it is 640 cm tall, where it was 511 cm. Every other harvest entry of the four examples
+   was checked against its plant's age (`test_a_harvest_fits_the_age_of_the_plant_that_gave_it`):
+   none needed a change.
 9. **A seasonal 2D look is not built.** Trees in full leaf on 21 December are a project of their
    own; a follow-up issue carries it.
 10. **Unevaluated sun rows fold in the panel.** With Hours of Sun off, every plant with a known
@@ -10060,7 +10101,9 @@ A13 (#465) must describe continuity without assigning privileges.
 2. **Static boundary enforcement.** `check_import_boundaries.py` checks eager
    module/class imports, including relative imports, conditionals and try blocks.
    Local and `TYPE_CHECKING` adapters remain permitted. The exception baseline
-   is empty. The permitted layer graph is acyclic; this does not claim that all
+   is empty. Since #792 it also follows the eager imports of the modules listed
+   in `QT_CORE_ONLY` and fails when one reaches `QtWidgets` or `QtGui` (a parent
+   package's `__init__` is not followed). The permitted layer graph is acyclic; this does not claim that all
    deferred runtime imports are cycle-free or that dynamic imports are analyzed.
 3. **Extract responsibilities through composition.** `ClipboardOperations`,
    `DragConstraints`, `PropertyEdits` and `AgentHost` have an explicit typed host.
@@ -11727,7 +11770,12 @@ FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
     alone ("points / 28") — true and of no use to a person drawing a plan.
 14. **The default plan name is a word of the UI language.**
     `ProjectManager.project_name` returns `tr("Untitled")`. It is on the report's
-    cover, the print footer, the window title and in the default file name.
+    cover, the print footer, the window title and in the file name a save dialog
+    suggests. **The Agent API's default export file names are not** (review round 1):
+    `export_pdf`, `export_dxf` and `export_csv` without a path build the name from
+    `ProjectManager.file_stem`, which is the file's stem or the untranslated
+    `Untitled`. With one property for both, a German UI named an agent's report
+    `Unbenannt.pdf`: a file name a client cannot predict from the tool's contract.
 
 Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
 FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
@@ -11761,36 +11809,97 @@ application's chosen language, never the system locale on its own.
    `month_abbreviation`, `format_day_month` (the order of day and month is a translated
    Qt pattern). A translated template that carries its precision (`"{d:.2f} m"`) is
    handed a `LocalizedNumber`, so no source string and no catalog entry changes.
-4. **A typed `,` or `.` is the decimal mark in a number field.** A `QDoubleSpinBox`
-   silently drops the other convention's mark (measured: locale `en`, typed "155,8",
-   value 1558). Since the locale follows the UI language and the keyboard does not, a
-   German numeric keypad would enter values ten times too large into an English UI.
-   `_DecimalKeys` watches the focused spin box and rewrites the key; `parse_decimal`
-   does the same for free text (the typed-coordinate field, the shopping list's price).
+4. **A `,` or a `.` is the decimal mark in a number field, typed or pasted.** A
+   `QDoubleSpinBox` silently drops the other convention's mark (measured: locale `en`,
+   typed "155,8", value 1558). Since the locale follows the UI language and the keyboard
+   does not, a German numeric keypad would enter values ten times too large into an
+   English UI. `ui/number_fields` puts a validator in front of the focused spin box's
+   own: a number with exactly ONE mark gets it rewritten to the field's decimal mark,
+   whichever way the text arrives (a key, Ctrl+V, the context menu's Paste). The first
+   version rewrote key events only, so a pasted "155,8" was still 1558 (review round 1).
+   A text with more than one mark is handed to Qt untouched: its own grouping is read in
+   the field's locale and the other convention's is refused, so nothing is guessed. A
+   `QSpinBox` has no decimal mark and is left alone. `parse_decimal` is the same rule for
+   free text (the typed-coordinate field, the shopping list's price): a sign, ASCII
+   digits and at most one mark; it refuses a group separator, an exponent and everything
+   only Python's `float` reads (`nan`, `inf`, `1_000`), and its result is finite.
    What the UI shows, it accepts back — in either convention.
 5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
    and the clipboard rows of the shopping list write a decimal point in every language.
    The PDF report's numbers are the export service's own.
-6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit,
-   the Tasks tab, the plan-date strip). Only names — months, weekdays — and the
-   day-and-month label of the calendar dashboard follow the language.
+6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit
+   but the planting calendar's year-less steps, the Tasks tab, the plan-date strip). Only
+   names — months, weekdays — and the day-and-month label of the calendar dashboard
+   follow the language.
+7. **A date or time FIELD takes nothing from the locale's territory** *(review round 1;
+   owner to confirm)*. An English UI on a non-English system is `en_US` (decision 2), and
+   a field left to that locale read "3:30 PM" and "6/7/26" and its calendar popup started
+   on Sunday (measured: `load_translator("en")` on a `de_DE` system; the camera tour's
+   four fields had no display format). The user asked for English words, not for US
+   conventions. `ui/date_fields.as_date_field` / `as_time_field` are the one place a field
+   is configured: ISO (`yyyy-MM-dd`), 24 hours (`HH:mm`), and the planting calendar's
+   year-less step dates as `dd MMM`. Every `QDateEdit` / `QDateTimeEdit` / `QTimeEdit` is
+   handed to one of them where it is built, and nothing else calls `setDisplayFormat`,
+   `setCalendarPopup`, `setCalendarWidget` or `setFirstDayOfWeek`:
+   `tests/unit/test_date_fields.py` walks the source, so a new field cannot forget it.
+8. **A calendar popup starts its week on Monday in every UI language** *(review round 1;
+   owner to confirm)*. ISO 8601, and the convention of the app's users (European
+   gardeners; German, Spanish and Russian locales give Monday anyway). The same helper
+   sets it. Rejected: the locale's week start (Sunday for an English UI, the regression
+   this decision answers) and a preference (no user asked for one).
+9. **A date in UI text is day, month NAME, year** *(review round 1)*:
+   `core/i18n.format_short_date` ("7 Jun 2026"; the order is a translated Qt pattern in
+   context `DateFormat`, like `format_day_month`'s). Never a numeric day/month pair: its
+   order belongs to the territory ("6/7/26" is 7 June in `en_US`). The 3D info card and
+   the sun-path legend, the heatmap probe and the wipe label use it; nothing outside
+   `core/i18n.py` formats with a bare `QLocale().toString(...)` (same test file).
 
 **Rejected**: the system locale for formats with the UI language for words (the state
 before: two conventions on one screen, and the issue's own counter-example); an
 application-wide Python event filter for the decimal key (it would run for every event
-of every object — the filter sits on the focused spin box only); removing the decimal
-key rewrite and documenting the trap (a silent factor of ten in a CAD field).
+of every object — the rule is a validator on the spin box that takes the focus);
+rewriting key events only (the first version: a paste produces no key event); removing
+the rewrite and documenting the trap (a silent factor of ten in a CAD field).
 
-**Consequences**: a user who types a group separator into a number field gets a decimal
-mark instead; nobody is known to do that in a CAD field, and the coordinate parser has
-read both marks as decimal since Package A. An English UI is `en_US` on a non-English
-system (month/day order, 12-hour clock where a widget shows a time without a display
-format of its own) — the app's own time and date fields all set one. The test session
+**Consequences**: a single `,` or `.` is always the decimal mark. That is a trade-off
+and it has a loser: a user who writes a thousands separator. Measured in an English UI,
+in a field with two decimals (three in brackets where it differs):
+
+| Entered | Qt alone (before) | Now, typed | Now, pasted |
+|---|---|---|---|
+| `155,8` | 1558 | 155.8 | 155.8 |
+| `1,234` | 1234 | 1.23 (1.234) | refused, the field keeps its value (1.234) |
+| `1,234.5` | 1234.5 | 1.23 (1.234) | 1234.5 |
+
+Typed, "1,234.5" is 1.23: the comma becomes the decimal mark, the digit beyond the
+field's decimals and the second mark are refused key by key. Pasted as a whole it is
+still 1234.5, because a text with two marks is left to Qt; a pasted "1,234" has one
+mark, which is the decimal mark, and a field with two decimals refuses three. The first
+version of this ADR said of the thousands separator that "nobody is known to do that in
+a CAD field": that was a guess, and it is not the reason. The reason is that the other
+choice loses more: a mark that is the decimal mark in one UI language and a group
+separator in the other is a silent factor of ten or a thousand for everyone whose
+keyboard or clipboard does not match the UI language, which is the owner's own setup.
+The formatters write no group separator, so the UI never shows a number it would read
+back differently, and the coordinate parser has read both marks as decimal since
+Package A.
+
+`core/i18n.py` imports QtCore only, because Qt-free services ask it for a formatter; the
+number-field validator and the date-field helper live in `ui/`, and
+`scripts/check_import_boundaries.py` holds that (`QT_CORE_ONLY`).
+
+An English UI is `en_US` on a non-English system. That locale's month/day order, 12-hour clock and Sunday week start reach a widget
+that takes its format from the locale; the app's own date and time fields and its dates in
+text therefore take none of the three from it (decisions 7 to 9). The first version of this
+ADR claimed here that the fields "all set" a display format; the camera tour's four did
+not, and no field set a week start. The test session
 has the application's locale like the app does (`conftest._app_locale`); before, it ran
 in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
 labels, the scale bar) still use a decimal point and are the canvas's next step.
 
-Cross-refs: PF-I18-09; §8.3 "Locale"; FR-I18N-10, FR-I18N-11; debug-verbose case study 220.
+Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Locale";
+FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
+version cited case study 220, which is the #791 theme case and says nothing about locale.
 
 ### ADR-039 addendum: the app owns the palette and the colour scheme, and chrome that paints reads tokens (#791)
 

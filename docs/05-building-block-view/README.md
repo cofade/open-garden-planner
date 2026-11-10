@@ -76,7 +76,7 @@ src/open_garden_planner/
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037);
 │   │                             #   plan_place(): the validity rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
-│   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document (#795)
+│   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document or a save (#795)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
 │   │                             #   resolve_height() is the ONE precedence ladder, projected by effective_height_cm /
@@ -157,7 +157,7 @@ src/open_garden_planner/
 │   ├── stacking.py               # Qt-free per-object stacking order (Bring to Front/Forward/Backward/Back), block expansion, parent clamp (ADR-043, §8.25)
 │   ├── canvas_bounds.py          # Qt-free canvas clamping math — the ONE shared rule keeping items on-plan across GUI and Agent API (#380)
 │   ├── alignment.py              # Object alignment helpers
-│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month formatters, decimal keys (ADR-077)
+│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month/date formatters, parse_decimal; QtCore only (ADR-077)
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -277,6 +277,8 @@ src/open_garden_planner/
 │   │   ├── sun_sim_toolbar.py    # Sun & shade sim date/time-slider toolbar (US-E3)
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
+│   ├── date_fields.py            # as_date_field / as_time_field: ISO, 24 hours, week from Monday for every date and time field (#792, ADR-077)
+│   ├── number_fields.py          # Either decimal mark is the decimal mark in a QDoubleSpinBox, typed or pasted (#792, ADR-077)
 │   ├── sim_clock_subscription.py # connect_qobject(): a QObject on the Qt-free sim clock, never called after Qt destroyed it (L1.3)
 
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
@@ -851,7 +853,7 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. Reads a shipped example's trusted sidecar: its title and its showcase moment (#795). |
 
-| `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document (#795). |
+| `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document or when the copy is saved; the outer holder over a camera tour's clock hold (#795). |
 
 | `services/example_library.py` | Bundled sidecars, localized catalog, local template paths, read-only resource payload. |
 
@@ -883,6 +885,8 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `app/agent_host.py` | MCP-to-document host adapter with an explicit application reference. The application retains lifecycle/state and compatibility methods. |
 | `core/startup_probe.py` | Opt-in isolated startup measurement; normal startup does not activate it. |
 
-`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions;
+`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions
+and keeps the `QT_CORE_ONLY` modules (`core/i18n.py`, `services/task_generator.py`,
+`services/soil_service.py`) off the widget modules;
 the graph and scoped line/import measurements are in the audit evidence. These
 are responsibility extractions, not new domain or persistence implementations.

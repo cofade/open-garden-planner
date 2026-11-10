@@ -518,7 +518,9 @@ def test_a_plan_opened_from_an_example_carries_the_examples_title(qtbot, tmp_pat
     assert manager.display_name == "Untitled"
     manager.load(scene, BUNDLED_EXAMPLES / "family-garden.ogp", as_template=True)
     assert manager.display_name == "Family garden - 24 x 16 m"
-    assert manager.project_name == "Untitled"            # file-name defaults are unchanged
+    # the names files are built from are unchanged: the UI's (translated, here English)
+    # and the Agent API's (never translated; in German: test_export_followups.py)
+    assert manager.project_name == manager.file_stem == "Untitled"
     manager.load(scene, BUNDLED_EXAMPLES / "de" / "family-garden.ogp", as_template=True)
     assert manager.display_name == "Familiengarten - 24 x 16 m"
 

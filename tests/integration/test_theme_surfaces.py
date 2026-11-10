@@ -190,6 +190,36 @@ def test_the_chart_fills_its_scroll_area_and_scrolls_below_its_minimum(qtbot, qa
     assert area.horizontalScrollBar().maximum() > 0
 
 
+# ── The order apply_theme works in (§8.4.3) ─────────────────────────────────
+
+
+def test_a_theme_listener_is_told_after_the_three_carriers_are_set(themed, qapp) -> None:
+    """A listener may read the application's palette and stylesheet: both are the new
+    theme's by the time it is called, and so is the published colour table."""
+    from PyQt6.QtGui import QPalette
+
+    from open_garden_planner.ui import theme
+
+    seen: list[tuple[bool, bool, bool]] = []
+
+    def listener(colors: dict[str, str]) -> None:
+        seen.append((
+            theme.current_colors() == colors == ThemeColors.DARK,
+            qapp.styleSheet() == theme.generate_stylesheet(ThemeMode.DARK),
+            qapp.palette().color(QPalette.ColorRole.Window)
+            == theme.build_palette(colors).color(QPalette.ColorRole.Window),
+        ))
+
+    themed(ThemeMode.LIGHT, False)
+    theme.register_theme_listener(listener)
+    try:
+        dark = themed(ThemeMode.DARK, False)
+    finally:
+        theme.unregister_theme_listener(listener)
+    assert seen == [(True, True, True)]
+    assert dark is ThemeColors.DARK
+
+
 # ── The canvas rulers ────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize(("mode", "windows_dark"), _COMBINATIONS)

@@ -629,8 +629,9 @@ TRANSLATIONS = {
         "Propagation": "Propagación",
     },
     "DateFormat": {
-        # A Qt date pattern (d = day, MMM = short month name).
+        # Qt date patterns (d = day, MMM = short month name, yyyy = year).
         "MMM d": "d MMM",
+        "d MMM yyyy": "d MMM yyyy",
     },
     "SoilOverlayLegend": {
         "Fair": "Regular",

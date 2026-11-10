@@ -58,6 +58,10 @@ _HEALTH_RGBA: dict[HealthLevel, tuple[int, int, int, int]] = {
     HealthLevel.POOR: (220, 60, 60, 80),
 }
 
+# The grey a bed WITHOUT a soil test is hatched in. The one definition: the
+# plan's overlay and the legend's chip both ask ``SoilService.unknown_rgba``.
+_UNKNOWN_RGBA: tuple[int, int, int, int] = (140, 140, 140, 40)
+
 # Parameter key constants for ``health_level``. ``OVERALL`` collapses pH and NPK
 # into the worst single bucket; the others isolate one parameter.
 PARAM_OVERALL = "overall"
@@ -412,9 +416,15 @@ class SoilService:
     def overlay_rgba(level: HealthLevel) -> tuple[int, int, int, int] | None:
         """Return the (r, g, b, a) tint for ``level``, or ``None`` for UNKNOWN.
 
-        Untested beds get hatched grey from the view layer instead of a tint.
+        Untested beds get hatched grey from the view layer instead of a tint:
+        :meth:`unknown_rgba`.
         """
         return _HEALTH_RGBA.get(level)
+
+    @staticmethod
+    def unknown_rgba() -> tuple[int, int, int, int]:
+        """The (r, g, b, a) grey of the hatch on a bed without a soil test."""
+        return _UNKNOWN_RGBA
 
     # ── Amendment calculator (US-12.10c) ──────────────────────────────────────
 

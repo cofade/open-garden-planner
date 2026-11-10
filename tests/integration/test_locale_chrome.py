@@ -173,6 +173,25 @@ def test_diagnostics_name_an_unnamed_object_by_its_translated_type(qtbot, speak)
     assert unnamed.details["label_is_type"] is True
     assert "label_is_type" not in named.details    # a user may call a tree "TREE"
 
+    # A diagnostic that brings its own label (the sun records name the SPECIES of an
+    # unnamed plant) is not labelled with the type: the flag is a fact an agent reads.
+    own = {"kind": "sun_mismatch", "severity": "warning", "item_ids": ["c"], "message": "",
+           "details": {"label": "Tomato", "label_is_species": True}}
+    bare = {"kind": "sun_evaluation", "severity": "info", "item_ids": ["c"], "message": ""}
+    by_kind = {record.kind: record.details for record in diagnostics_from_records([
+        {"item_id": "c", "object_type": "PERENNIAL", "diagnostics": [own, bare],
+         "spacing_overlap": "overlap"}])}
+    assert len(by_kind) == 3
+    assert by_kind["sun_mismatch"] == {"label": "Tomato", "label_is_species": True}
+    assert by_kind["sun_evaluation"] == {"label": "PERENNIAL", "label_is_type": True}
+    assert by_kind["spacing_overlap"] == {"label": "PERENNIAL", "label_is_type": True}
+    # an unnamed plant whose species is called like a type is still a species
+    homonym = {"kind": "sun_mismatch", "severity": "warning", "item_ids": ["d"], "message": "",
+               "details": {"label": "TREE", "label_is_species": True}}
+    (record,) = diagnostics_from_records([
+        {"item_id": "d", "object_type": "TREE", "diagnostics": [homonym]}])
+    assert record.details == {"label": "TREE", "label_is_species": True}
+
     speak("en", "de_DE")
     panel = DiagnosticsPanel(CanvasScene())
     qtbot.addWidget(panel)

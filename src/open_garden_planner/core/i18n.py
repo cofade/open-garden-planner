@@ -7,27 +7,28 @@ the operating system's locale on its own. :func:`load_translator` is the one
 place that decides; everything else asks :func:`current_locale` or one of the
 formatters below (a bare ``QLocale()`` agrees, because the decision is also
 Qt's default locale).
+
+QtCore only: Qt-free services ask this module for a formatter
+(``services/task_generator``, ``services/soil_service``), so it imports no
+widget module. What a number FIELD does with a typed or pasted decimal mark is
+``ui/number_fields``; how a date or time field shows its value is
+``ui/date_fields``.
 """
 
 from __future__ import annotations
 
 import datetime
+import math
 import re
 from pathlib import Path
 
-from PyQt6 import sip
 from PyQt6.QtCore import (
     QCoreApplication,
     QDate,
-    QEvent,
     QLibraryInfo,
     QLocale,
-    QObject,
-    Qt,
     QTranslator,
 )
-from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QWidget
 
 # Supported languages: code -> native display name
 SUPPORTED_LANGUAGES: dict[str, str] = {
@@ -158,16 +159,51 @@ def format_day_month(day: datetime.date) -> str:
     return current_locale().toString(QDate(day.year, day.month, day.day), pattern)
 
 
+def format_short_date(day: datetime.date) -> str:
+    """A whole date in UI text ("7 Jun 2026", "7. Juni 2026").
+
+    The ONE formatter for a date a label, a card or a legend writes. Day, the
+    month's short NAME, the year: never a numeric day/month pair, whose order
+    belongs to the locale's territory and not to the UI language ("6/7/26" is
+    7 June in ``en_US``, the locale of an English UI on a non-English system,
+    and 6 July to the European reading it). The pattern is a translated Qt
+    date pattern like :func:`format_day_month`'s; the name comes from the
+    application's locale. A date FIELD or key is ISO instead
+    (``ui/date_fields``).
+    """
+    pattern = QCoreApplication.translate("DateFormat", "d MMM yyyy")
+    return current_locale().toString(QDate(day.year, day.month, day.day), pattern)
+
+
+#: What :func:`parse_decimal` reads: a sign, ASCII digits and at most one mark.
+_DECIMAL_TEXT = re.compile(r"[+-]?(?:[0-9]+(?:[.,][0-9]*)?|[.,][0-9]+)")
+
+
 def parse_decimal(text: str) -> float:
     """The number a user typed, whichever decimal mark they used.
 
     The inverse of :func:`format_decimal` for free-text fields: what the UI
     shows ("6361,7") must be accepted back, and so must the other convention
-    ("6361.7"), because the keyboard does not follow the UI language. Group
-    separators are not accepted — the formatters never write one. Raises
-    ``ValueError`` like ``float`` does.
+    ("6361.7"), because the keyboard does not follow the UI language.
+
+    Read: an optional sign, ASCII digits and AT MOST ONE ``,`` or ``.``, which
+    is the decimal mark (" 155,8 ", "-.5", "5."). So "1,234" is 1.234 in every
+    UI language, never one thousand two hundred: the formatters write no group
+    separator, and a mark that meant one thing in English and another in German
+    would be a silent factor of a thousand.
+
+    Refused with ``ValueError``: more than one mark ("1,234.5", "1.234,5": a
+    group separator), an exponent ("1e3"), what only Python's ``float`` reads
+    ("nan", "inf", "1_000", digits of another script), an empty text, and a
+    number too long to be finite. The result is always a finite float.
     """
-    return float(text.strip().replace(",", "."))
+    token = text.strip()
+    if not _DECIMAL_TEXT.fullmatch(token):
+        raise ValueError(f"not a decimal number: {text!r}")
+    value = float(token.replace(",", "."))
+    if not math.isfinite(value):
+        raise ValueError(f"not a finite number: {text!r}")
+    return value
 
 
 _FIXED_SPEC = re.compile(r"\.(\d+)f")
@@ -188,58 +224,7 @@ class LocalizedNumber(float):
         return float.__format__(self, spec)
 
 
-class _DecimalKeys(QObject):
-    """Either decimal key types the decimal mark in a number field.
-
-    A ``QDoubleSpinBox`` silently DROPS the mark of the other convention: with an
-    English locale "155,8" becomes 1558, with a German one "155.8" does. Since
-    the locale follows the UI language (#792) and not the keyboard, the numeric
-    keypad of a German keyboard (it types a comma) would otherwise enter a value
-    ten times too large into an English UI. Watches only the focused spin box.
-    """
-
-    def __init__(self, app: QApplication) -> None:
-        super().__init__(app)
-        self._watched: QWidget | None = None
-        app.focusChanged.connect(self._on_focus_changed)
-
-    def _on_focus_changed(self, _old: QWidget | None, new: QWidget | None) -> None:
-        watched = self._watched
-        if watched is not None and not sip.isdeleted(watched):
-            watched.removeEventFilter(self)
-        self._watched = None
-        if isinstance(new, QDoubleSpinBox):
-            new.installEventFilter(self)
-            self._watched = new
-
-    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
-        if (
-            isinstance(event, QKeyEvent)
-            and event.type() == QEvent.Type.KeyPress
-            and isinstance(obj, QDoubleSpinBox)
-            and event.text() in (",", ".")
-            and not event.modifiers() & (
-                Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)
-        ):
-            mark = obj.locale().decimalPoint()
-            if mark in (",", ".") and event.text() != mark:
-                key = Qt.Key.Key_Comma if mark == "," else Qt.Key.Key_Period
-                QCoreApplication.sendEvent(
-                    obj, QKeyEvent(QEvent.Type.KeyPress, key, event.modifiers(), mark))
-                return True
-        return False
-
-
-_decimal_keys: _DecimalKeys | None = None
-
-
-def _install_decimal_keys(app: QApplication) -> None:
-    global _decimal_keys
-    if _decimal_keys is None or sip.isdeleted(_decimal_keys) or _decimal_keys.parent() is not app:
-        _decimal_keys = _DecimalKeys(app)
-
-
-def load_translator(app: QApplication, lang_code: str) -> bool:
+def load_translator(app: QCoreApplication, lang_code: str) -> bool:
     """Install a QTranslator for the given language.
 
     For English (the source language), no translator is needed.
@@ -264,10 +249,9 @@ def load_translator(app: QApplication, lang_code: str) -> bool:
     finally:
         # Whatever was loaded: the locale belongs to the language now on screen.
         _apply_locale()
-        _install_decimal_keys(app)
 
 
-def _load_translator(app: QApplication, lang_code: str) -> bool:
+def _load_translator(app: QCoreApplication, lang_code: str) -> bool:
     global _current_language
 
     # Clear any previously installed translators
