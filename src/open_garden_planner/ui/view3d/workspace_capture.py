@@ -16,6 +16,10 @@ frame of a tour IS paced by a timer, one the user started and can stop.
 Photo mode changes how pictures are developed, never what stands in the garden
 (``core/scene3d/photo.py``). While it is on, a click in the view sets the focus instead of
 selecting: the click is the camera's, and selection has its 2D side.
+
+A tour can be kept in the plan under a name (issue #737, ``core/camera_tours.py``). The plan
+owns the list (``ProjectManager.camera_tours``); this coordinator is the dialog's way to it,
+and every edit it makes is ONE command on the undo stack (``connect_tours``).
 """
 
 from __future__ import annotations
@@ -46,6 +50,12 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.camera_path import CameraKey, TourFrame, TourSpec, path_eyes
+from open_garden_planner.core.camera_tours import SavedTour
+from open_garden_planner.core.commands import (
+    DeleteCameraTourCommand,
+    RenameCameraTourCommand,
+    SaveCameraTourCommand,
+)
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.photo import (
     DEFAULT_BLUR,
@@ -130,6 +140,9 @@ class WorkspaceCaptureCoordinator(QObject):
     clock_wanted = pyqtSignal()
     #: Photo mode went on or off.
     photo_mode_changed = pyqtSignal(bool)
+    #: The plan's saved tours changed: one was saved, renamed or deleted, an undo or a
+    #: redo put the list back, or another plan came with its own.
+    tours_changed = pyqtSignal()
 
     def __init__(self, get_host: Callable[[], Any], get_controller: Callable[[], Any],
                  get_look: Callable[[], Any], get_clock: Callable[[], Any],
@@ -162,6 +175,10 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_utc_time: day_time | None = None
         self._tour_size: tuple[int, int] = (16, 16)
         self._dialog: TourDialog | None = None
+        #: Where the plan's saved tours live (a ``ProjectManager``) and the undo stack
+        #: their edits go through (``connect_tours``). None: tours cannot be kept.
+        self._tour_plan: Any = None
+        self._tour_commands: Any = None
         #: A dialog whose engine stopped while its file was still closing. It is not the
         #: session's any more; it is forgotten when it really closes.
         self._dialog_closing: TourDialog | None = None
@@ -280,7 +297,7 @@ class WorkspaceCaptureCoordinator(QObject):
             self.set_photo_mode(False)
             dialog = self._dialog
             if dialog is not None:
-                # A dialog the user closed stays for the session (its keys live in it);
+                # A dialog the user closed stays for the session (an unsaved tour lives in it);
                 # one the engine stops is the old engine's and is forgotten when it has
                 # really closed. Otherwise a Tour action could open a twin beside it.
                 dialog.close_for_shutdown()
@@ -297,6 +314,8 @@ class WorkspaceCaptureCoordinator(QObject):
         focus is not re-established here. ``document_shown`` does that, once the camera is in
         place; until then the view is the view, and the label says what is happening."""
         self.cancel_recording()
+        if self._dialog is not None:
+            self._dialog.document_changed()   # #737: its draft was a path through the old plan
         if self._photo_on or self._settings.focus_scene is not None:
             self._settings = replace(self._settings, focus_scene=None)
             self._focus_pending = True
@@ -549,7 +568,7 @@ class WorkspaceCaptureCoordinator(QObject):
 
     def _on_dialog_closed(self, dialog: Any) -> None:
         """The engine stopped this dialog: forget it once it has really closed. A dialog the
-        user closed is kept - the tour's keys live in the session, which is the dialog."""
+        user closed is kept - a tour that was not saved in the plan lives in the dialog."""
         if self._dialog_closing is dialog:
             self._dialog_closing = None
             if self._engine_enabled:
@@ -558,6 +577,41 @@ class WorkspaceCaptureCoordinator(QObject):
     @property
     def dialog(self) -> TourDialog | None:
         return self._dialog
+
+    # ── tours kept in the plan (#737) ────────────────────────────────────────
+
+    def connect_tours(self, project_manager: Any, command_manager: Any) -> None:
+        """Where the plan keeps its tours, and the undo stack every edit of them goes
+        through. Without this call the dialog offers no saved tours."""
+        self._tour_plan, self._tour_commands = project_manager, command_manager
+        project_manager.camera_tours_changed.connect(self._on_plan_tours_changed)
+
+    def _on_plan_tours_changed(self, _tours: object) -> None:
+        self.tours_changed.emit()
+
+    @property
+    def tours_connected(self) -> bool:
+        return self._tour_plan is not None and self._tour_commands is not None
+
+    def saved_tours(self) -> tuple[SavedTour, ...]:
+        """The plan's saved tours, in the order they were saved."""
+        if self._tour_plan is None:
+            return ()
+        tours: tuple[SavedTour, ...] = self._tour_plan.camera_tours
+        return tours
+
+    def save_tour(self, tour: SavedTour) -> None:
+        """Keep ``tour`` in the plan, in place of one of its name if there is one. One
+        undo step."""
+        self._tour_commands.execute(SaveCameraTourCommand(self._tour_plan, tour))
+
+    def rename_tour(self, name: str, new_name: str) -> None:
+        """One undo step. ``ValueError``: no such tour, or the new name is taken."""
+        self._tour_commands.execute(RenameCameraTourCommand(self._tour_plan, name, new_name))
+
+    def delete_tour(self, name: str) -> None:
+        """One undo step. ``ValueError``: no such tour."""
+        self._tour_commands.execute(DeleteCameraTourCommand(self._tour_plan, name))
 
     @property
     def recording(self) -> bool:

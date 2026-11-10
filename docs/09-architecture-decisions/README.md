@@ -10841,12 +10841,13 @@ view on any steady path.
   seen at the same size), and Qt's amount is capped at its 1080p value because more only shows the taps
   as copies. The slider moves the width of the sharp band, not the amount (owner's manual test: with a
   band of 40 % a high and a low blur gave one picture). A picture-relative blur needs a custom depth
-  of field `Effect` (follow-up).
+  of field `Effect` (follow-up). Done by the addendum "photo mode's own depth of field" (#743).
 - **Screen-space reflections stand down while the blur is drawn.** On Ultra, reflections + depth of
   field + glow in one effect chain took Qt's render thread down in `d3d11.dll` at the owner's first
   focus click (two crashes, one address; PF-E3D-21), and it showed on the owner's `quality = ultra`
   only. Ultra's photos have no reflections; Low to High never had any. Finding the Qt-side cause, to
-  give them back, is #744.
+  give them back, is #744 (generalised and reproduced without project code in the addendum "photo
+  mode's own depth of field"; the workaround stays).
 - **The blur needs a focused point, so the first blur sets one.** The slider used to do nothing before
   the first click on the view (owner's manual test: "no difference between a high and a low blur").
   Three edges of that first focus (another plan, walk mode, one invariant) are #745.
@@ -10967,6 +10968,213 @@ render-only input (the view's own 1.0 is untouched). Pinned by the tests named a
 row for `look.ao_distance_scale`, `tests/ui/test_quick3d_host.py`'s no-camera and
 raising-resting-frame rows, and the tour-hygiene tests of #738 (including the workspace-level
 hidden-view guard and the closing-dialog twin).
+
+### ADR-072 addendum: camera tours kept in the plan (#737)
+
+**Status:** implemented for issue #737; the release that ships it is named by its version sync.
+It replaces the consequence above that "keys of a tour live in the session".
+
+A tour's keyframes and settings lived only as long as the dialog, so a user could not come back
+next week, after changing the garden, and render the same flight again.
+
+1. **The plan owns its tours.** `ProjectManager.camera_tours` is a tuple of immutable
+   `SavedTour` objects (`core/camera_tours.py`, Qt-free). The dialog's controls are a draft:
+   "Save Tour" / "Save Tour As" keep the draft in the plan under a name, choosing a saved
+   tour puts it back into the controls. Names are unique whatever their case, one clean line
+   of at most 60 characters. A new, opened or recovered plan replaces the list and clears the
+   draft (its keyframes were points of the old plan); Save As, a template (`camera_tours` is
+   a kept field of ADR-066: a path through kept geometry, no site data) and a new season keep
+   the tours.
+2. **A saved tour holds a camera and a clock, and nothing of the garden.** What is written is
+   what the dialog needs to make the same video: the motion, its keyframes (kept whatever the
+   motion is: they are the user's work), the loop flag, the frame's duration, rate and size,
+   and a day's or a year's range. Rendering it later renders the garden as it is then. Not
+   written: the output path, the wind (reduced motion is the machine's setting), and the
+   look: photo mode's development, the weather and the quality preset stay the view's at the
+   time of the render, as for every picture (addendum above, decision 1).
+3. **A saved orbit or held view carries the view it started from.** The dialog's orbit "starts
+   where the view is now"; saved like that it would be another video on every render. The
+   orbit's pose (target, distance, yaw, pitch, field of view, turns, direction) and the held
+   camera are saved, the dialog says that the tour starts at its saved view, and "Use Current
+   View" lets it go.
+4. **The format is one additive top-level key, and `FILE_VERSION` stays `"1.4"`.**
+
+   ```json
+   "camera_tours": [
+     {
+       "name": "Promo Flight",
+       "motion": "path",
+       "keys": [
+         {"eye": [6370.2, -2718.9, 3521.4], "target": [1200.0, 800.0, 0.0], "fov_deg": 40.0},
+         {"eye": [3208.7, -3921.0, 3912.3], "target": [1200.0, 800.0, 0.0], "fov_deg": 40.0}
+       ],
+       "closed": true,
+       "date_range": ["2027-03-01", "2027-10-31"],
+       "duration_s": 12.0,
+       "fps": 30,
+       "size": [1920, 1080]
+     },
+     {
+       "name": "Drone",
+       "motion": "orbit",
+       "orbit": {"target": [1200.0, 800.0], "distance_cm": 2150.75, "yaw_deg": 33.5,
+                 "pitch_deg": 28.25, "fov_deg": 40.0, "turns": 2, "clockwise": false},
+       "duration_s": 12.0,
+       "fps": 30,
+       "size": [1920, 1080]
+     }
+   ]
+   ```
+
+   `motion` is `orbit`, `path` or `hold` (`held`: one key); `time_range` is `["06:00", "21:00"]`;
+   points are scene centimetres (east, north, up). The key is absent when the plan has no tour.
+   No bump, because an older build can ignore it safely (architecture contract, row 9): its
+   loader reads the keys it knows, the plan validator checks numbers only, and the version
+   guard refuses only a file newer than its own. Proven on the real thing: release v1.37.9's
+   own code loads a plan written with tours and loses nothing but the tours
+   (`test_a_file_with_tours_opens_in_the_last_release_that_did_not_know_them`). The degrade is
+   the one of every additive key: an older build that saves the plan writes it back without
+   the tours. The same holds one level down: a field of a tour this build does not know is
+   left out when the tour is saved again.
+5. **Every edit is one undo step through one writer.** `SaveCameraTourCommand` (a new name is
+   added at the end, a known name replaces that tour in place), `RenameCameraTourCommand` and
+   `DeleteCameraTourCommand` go through `CommandManager.execute`; each keeps the whole list
+   before and after, so undo and redo restore exactly what was there, in its order.
+   `ProjectManager.set_camera_tours` is the only writer besides load and new, and marks the
+   plan dirty. Changing the draft, choosing a tour and a cancelled name dialog are no step. A
+   command that cannot be built (unknown name, name taken, more than 50 tours) raises before
+   anything reaches the stack. The commands say they change neither the ground band nor
+   containment, so the canvas skips both restack scans.
+6. **The reader is a trust boundary.** `load_tours` is the one reader. One broad `except` per
+   entry (architecture contract, row 14): what is not a tour this build can render is skipped,
+   logged and counted, and the load of the plan goes on. Geometry is never repaired (a path
+   with one key changed is another video): a wrong type, a number that is no camera (not
+   finite, beyond 10 km, a field of view outside 0 to 180, an eye on its target), fewer than
+   two different keys, a range that runs backwards and both ranges at once skip the tour.
+   Settings are put back into their range: duration 1 to 600 s (default 12), a frame rate
+   and a size the dialog offers (defaults otherwise), whole turns 1 to 4. Caps: 50 tours per
+   plan, 100 keyframes per tour; a second tour of a name is skipped. The status bar says how
+   many tours could not be read, since they are gone with the next save. The document's
+   numeric boundary is unchanged: a NaN or an infinity anywhere in the file, a tour included,
+   refuses the whole document before any tour is read (`plan_io`, AUD-041). A tour's name is
+   shown as plain text wherever it appears.
+7. **The agent surface is unchanged.** `snapshot_dict` is the plan as the file holds it, so the
+   tours are in it; the curated agent schema names none of them, and no tool was added.
+
+**Alternatives rejected:** an id per tour with per-tour restore methods (the journal-note
+pattern): the name is the identity the user sees, and a whole-list snapshot is exact and
+small; the tours in `QSettings` (they would stay on one machine and not travel with the
+plan); nesting them under the file's `metadata` (a template drops it, and every other
+plan-scoped store is top-level); saving an orbit as "from wherever the view is" (not the same
+video twice); clamping a hostile coordinate into range; keeping unread entries and writing
+them back verbatim (unvalidated data would pass the boundary on every save); a `FILE_VERSION`
+bump (it locks every older install out of data it can ignore).
+
+**Consequences:** 23 new UI strings in every registered locale. A year's range is absolute
+dates, so a tour carried into a new season still names last year's dates until the user
+changes them. The autosave file holds the scene only, so a plan recovered after a crash has
+no tours, like the rest of the plan's metadata (location, soil tests, tasks); that is older
+than tours and is not changed here. Pinned by `tests/unit/test_camera_tours.py` (the model,
+one probe per class of hostile entry, the three commands' step counts) and
+`tests/integration/test_tour_persistence.py` (the dialog's own controls, save and reopen, the
+same frames, the changed garden along the saved path, another plan, the previous release,
+the real window).
+
+### ADR-072 addendum: photo mode's own depth of field (#743, #744)
+
+**Status**: proposed in the visual-polish package; not yet accepted by the owner.
+
+**Context**: decision 5 promises that the view previews what is saved, and the consequences above
+record where it failed. Qt's `depthOfField*` blurs a half-resolution copy with three taps
+`0.53 x amount` px apart, about 2 px at any picture size. Measured on bench_small's hero camera at
+blur 0.8 (60 px tiles, gradient kept against the sharp picture): the 640 x 360 preview kept 0.53 of
+its detail, a 4K save shrunk to the same size 0.92. On a bench with known answers
+(`tests/integration/photoblur_bench.qml`) Qt's blur put a 7 to 8 level fringe of an in-focus bar on
+the blurred wall beside it at 4K, drew a thin far line 3.6 times wider (as a share of the picture)
+at 360 px than at 4K, and left a blurred near bar's edge 1 px wide at 4K.
+
+**Decision**:
+
+1. **The app blurs, not Qt.** `qml/PhotoBlur.qml` is an `Effect` in the environment's `effects`,
+   only while the blur is drawn (`depthOfFieldActive`), so blur 0 is the view to the level. A user
+   effect runs on the scene's linear colour, before exposure, tone mapping, glow, the grade and the
+   vignette (measured: a constant 0.25 written there came out tone-mapped), so a blurred highlight
+   still glows.
+2. **The blur is a share of the picture's height.** The Gaussian's sigma is `blur x
+   BLUR_SIGMA_SHARE (0.006) x height`: 6.5 px at 1080p at the slider's end, 13 px at 4K, 2 px in a
+   328 px pane. Nothing in `photo_properties` depends on a picture's size any more; `blur_amount`,
+   `BLUR_MAX` and the 1080p cap are gone.
+3. **Two layers, premultiplied, at two sizes.** Out of focus is 0 inside the band and grows to 1
+   one band beyond its edge. What lies behind the band and what lies in front of it are separate
+   layers; each is premultiplied by its weight and blurred at sigma and at a third of it, rows then
+   columns, each tap a bilinear pair of texels (exact for premultiplied data, no texel skipped: no
+   copies). A far pixel takes the average of its own layer only (no fringe); the near layer covers
+   its own pixels and spreads past its edge (soft against a sharp background). Up to a third out of
+   focus the small blur takes over from the sharp pixel, beyond that the full blur from the small one:
+   lerping a sharp pixel with the full blur drew sharp leaves inside a haze. A layer's silhouette
+   pixel counts for a fifth (PF-E3D-27): its colour is multisampled, its depth one sample.
+4. **The sharp band keeps a whole plant and loses the scale model** (decided in this package; the
+   owner may veto either constant): `FOCUS_RANGE_MIN_CM` stays the owner's 60 cm (the band is now
+   sharp to its edge, half in front of the point and half behind), and the band is never thinner
+   than `FOCUS_RANGE_FLOOR_SHARE` (8 %) of the depth at `FOCUS_RANGE_FLOOR_AT_CM` (25 m), growing
+   with the square of the depth as a lens's depth of field does: 2 m (8 %) at 25 m, 4.6 m (12 %)
+   at 38 m, 5.7 m (13.5 %) at the family garden's 42 m camera, where the strongest blur left about a metre (3D
+   review of #729). Below about 9 m the floor is under the strong share and changes nothing. The
+   slider moves the band and the blur together.
+5. **Ultra's reflections still stand down under the blur** (#744). With the app's blur in Qt's
+   place the crash stayed: reflections kept under the blur on Ultra died at the first blurred frame,
+   3 of 3; with the workaround 10 of 10 rounds drew. With glow on, any two effects ahead of Qt's
+   own scene effect break its chain (PF-E3D-21): reflections with Qt's depth of field, reflections
+   with one user effect, two pass-through user effects (a wrong picture, or a crash). One effect
+   ahead of it, with any number of passes and buffers, is fine. A reproducer without project code is
+   in `adr-048-evidence/qt-effect-chain-glow/` with a bug-report draft; filing it needs the owner's
+   Qt account. Re-test on every Qt bump; when it is fixed, drop the `depthOfFieldActive` term from
+   `ssrEnabled` and invert the `ultra_blur` gate.
+
+**Measured** (dev box, RTX 4070, Direct3D 11, medium preset unless named; GPU shared with other
+work, so costs are ranges of A/B rounds interleaved):
+
+| | Qt's blur (base `53b48405`) | PhotoBlur |
+|---|---|---|
+| preview 640 x 360 against a 4K save at blur 0.8, mean gradient ratio of 41 tiles | 0.528 / 0.919 (0.391 apart) | 0.428 / 0.435 (0.033 apart) |
+| the same, middle third | 0.539 / 0.944 | 0.426 / 0.462 |
+| slider 0.05 against 1.0: share of 60 px tiles below 0.8, focus tile kept | 0.137 / 0.657; 1.20 / 0.93 | 0.000 / 0.652; 1.00 / 0.97 |
+| bench: fringe of an in-focus bar on the blurred wall, 4K | 7 to 8 levels | 0.0 |
+| bench: a 2 cm far line's width, share of the height, 360 px / 4K | 0.0083 / 0.0023 | 0.0139 / 0.0153 (one hump) |
+| bench: a near bar's 10-90 % edge, share of the height, 360 px / 4K | 0.0056 / 0.0005 | 0.0083 / 0.0069 |
+| frame at 1280 x 720, blur off / on, median of 60 grabs | | low 8.0 / 10.2 ms, medium 9.4 / 11.0, high 8.9 / 7.3, Ultra 3.1-4.2 / 3.5-5.7 |
+| a 4K capture, blur off / on, median of 8 | | medium 781 / 1245 ms (one run), Ultra 1691 / 1692 ms |
+
+Blur 0 with a focus set: 0 levels from the view. The memory loop of 30 1080p captures: +73 MB
+before, -88 MB after (noise). The five buffers are RGBA16F at the picture's size, about 330 MB
+during a 4K capture; the capture view rests small afterwards and gives them back (decision 4).
+
+**Alternatives rejected**: the issue's single pass weighted by each tap's own circle of confusion
+(no near spread: a blurred picket keeps its hard edge); scatter-as-gather with a per-tap sigma (not
+separable, and its approximations draw their own halos); a half-resolution layer for the full blur
+(a 2 px sigma in the pane would be 1 px, and the preview would part from the save again); lerping
+the sharp pixel with one full blur (sharp leaves inside a haze, round 1 of the look-dev); turning
+glow off on Ultra under the blur instead of reflections (glow changes the whole picture's
+brightness, reflections only water and glass).
+
+**Not fixed here, measured** (#743's "separate" bullet): with photo mode off, the 360 px pane reads
++4.75 luma (mean) and up to +12.3 in a 40-row band brighter than 1080p and a 4K capture of the same
+camera (family garden, medium). It is ambient occlusion, not glow: with AO off the gap is 0.25 mean
+and 1.0 worst band; glow on or off moves it by 0.15. Scaling AO's distance by 1080/height below
+1080p, the #733 lever, does not help (+4.86). `aoSoftness` is the pixel-sized term: at 360 px a
+softness of 25 instead of 45 zeroes the mean (+0.5) but a 40-row band stays 8.9 brighter, so no
+single knob gives the pane a 4K save's occlusion. Proposed: while photo mode is on, render the pane
+at a 1080p-equivalent internal height and show it scaled (the preview then is a save), or retune
+SSAO per height (softness and distance together) with the owner's eye on the everyday view. Both
+change the pane's look or its cost and are left to a follow-up.
+
+**Consequences**: no `.ogp` change, no `FILE_VERSION` bump, no new dependency, no user-visible
+string. The 3D view's look with photo mode off is untouched. Pinned by
+`tests/integration/test_directors_cut_render.py` (`test_a_saved_photo_has_the_blur_its_preview_shows`
+failed on Qt's blur at 0.394 apart; the slider; blur 0; the bench; `ultra_blur` now asserts that
+reflections stand down under the blur and come back without it), `tests/unit/test_scene3d_photo.py`
+(the sigma share and the band floors), and `tests/unit/test_quick3d_qml.py` (the effect's wiring,
+the shared shader code, the silhouette weight, the shader paths).
 
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 
@@ -11248,3 +11456,160 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 `docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md`;
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
+
+## ADR-075: CAD editing keeps the group frame and the command stack (issues #664, #771)
+
+**Status**: Shipped in v1.37.10 (PR #783)
+
+**Context**: Two CAD editing gaps shared the canvas selection and command seams. A
+closed shape could not be cut into pieces: the only workaround lost the layer, look,
+fill transform, label state and metadata. And a group's members could not be edited
+without ungrouping it. Qt constrains the second problem more than the first: a
+`QGraphicsItemGroup` routes a child's selection back to the group (`scene.selectedItems()`
+returns only the group), and the child's own resize/vertex handles do not receive a
+usable drag while the group is the selection. Detaching the child on drill-down and
+re-adding it on exit looks simple, but commands captured while detached store local
+`pos()`/`rect()` values in the child's temporary top-level frame; re-adding changes
+that frame, so a later undo on a moved or rotated group can restore the wrong place.
+
+**Decision**:
+1. **Drill-down is a logical focus, not a reparent.** `CanvasView.drill_down_item` names
+   one direct member of the selected group. The group stays the Qt selection; the
+   member stays its child, so its layer guard, saved group data and transform frame
+   are unchanged. `CanvasView.effective_selection()` is the one selection seam every
+   panel uses (`_on_selection_changed`, properties, plant details, companion, crop
+   rotation), and `drill_down_changed` replaces Qt's `selectionChanged` for that focus
+   because Qt does not emit one. `GroupItem.paint` draws the focused member's outline
+   only while the group is selected, so exports (which clear selection) never paint it.
+2. **Geometry edits of a focused member stay in the group frame.** A body drag is a
+   view-owned gesture (`begin_drill_down_drag`/`_finish_drill_down_drag`), not Qt's
+   group drag; the arrow keys and the Properties panel convert a scene delta through
+   `_delta_in_parent_frame()` before writing `item.pos()`. The member's own resize and
+   rotation handles are shown, and the view replays their press/move/release through
+   `ResizeHandle.begin_drag/apply_drag/end_drag` and the `RotationHandle` equivalents,
+   because Qt routes a group child's handle press to the group. Every grouped
+   ancestor's `ItemIsMovable` flag is cleared while the member is focused and restored
+   on exit. Changing the member's layer is refused in the context menu, the panel and
+   `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
+   refused while a member is focused.
+3. **Split works in the source's local frame and replaces it in one command.**
+   The context menu and the CAD toolbar button next to Trim/Extend reach the
+   same tool, but with different scopes: the context menu arms the clicked
+   closed shape, while the toolbar and the `Shift+S` shortcut start a scene-wide
+   two-point cut with no prior selection. In scene-wide mode the first click is
+   the line's first point and every closed shape the drawn segment passes
+   through is cut along the segment's supporting axis; shapes on the line's
+   infinite extension but not reached by the segment are not cut, and a
+   boundary touch (a corner, an edge, a tangent) is not a crossing.
+   `core/shape_split.py` clips each item's local `QPainterPath` against the two
+   half-planes of the two-point axis; one `SplitShapeCommand` per source removes
+   it and adds ordinary `PolygonItem`s, and the whole gesture is one undo step
+   (a bare command when no membership reconciliation is needed, otherwise a
+   `CompoundCommand`). Pieces copy
+   the source's layer, object
+   type (when valid for a polygon), name, label/area state, metadata, stack order and
+   `fill_transform`; using the local frame keeps a rotated source's rotation and
+   pattern direction. Curves flatten to polygons, a concave shape may yield more than
+   two pieces, and a result that contains a hole is refused because a `QPolygonF`
+   cannot carry it.
+4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
+   a plant itself, constraints, locked layers, grouped members (ridge-bearing
+   buildings too at first; the second addendum lifts that), shape types without a
+   polygonal form, and any source
+   whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
+   manual-task or task-state data. The last check is
+   `ProjectManager.has_item_references`, the single central query. A bed or other
+   plant parent with a polygonal form is NOT refused for having plants: a
+   `ReconcileBedMembershipCommand` in the same undo step re-homes each linked plant
+   to the piece that contains its standing point, using the established
+   plant→bed mutator.
+
+**Alternatives considered**:
+- *Detach the member and re-add it on exit.* Rejected: command snapshots are in the
+  temporary top-level frame; undo after a moved or rotated group would restore a
+  different place. It also changes the group's serialized children while focused.
+- *Duplicate the member as an edit proxy and apply it back on exit.* Rejected: the
+  edit commands would target a deleted proxy after the apply, leaving a broken stack.
+- *Copy the split geometry into `shape_boolean` or the tool.* Rejected: the roof
+  painter already has a line split, and a second copy would drift; `shape_split`
+  reuses `item_to_local_painter_path` and the shared `path_has_hole` / area floor.
+- *Produce scene-frame pieces.* Rejected: a rotated source's brush transform would be
+  recomputed from the scene origin, so the material would visibly jump at the cut.
+- *Allow a split of tracked beds and let the records follow one arbitrary piece.*
+  Rejected: the user did not choose which piece inherits the history; refusing is
+  reversible, silently reassigning is not.
+
+**Consequences**: New `core/shape_split.py`, `core/tools/split_tool.py` and
+`ui/canvas/items/split_menu.py`; `SplitShapeCommand` in `core/commands.py`; group
+drill-down state and `drill_down_changed` in `ui/canvas/canvas_view.py`. No
+`FILE_VERSION` bump: the pieces are ordinary polygons and drill-down is runtime-only.
+User-visible strings are covered in EN/DE/ES/RU. Pins:
+`tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
+
+**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
+required a selected shape (or a shape-picking first click), so a line could cut only
+one object and a scene-wide cut took three clicks. The owner's expectation is the
+CAD-knife one: choose the tool, click two points anywhere, and every object the line
+crosses is split, fully or partly. The tool now takes the first click as the line's
+start with no source selected, freezes the visible closed-shape candidates at that
+point, previews every crossed shape's pieces while the second point moves, and applies
+all cuts in one undo step. The context-menu action keeps its explicit one-shape scope
+and returns to Select; the toolbar stays armed for another cut. The candidate test is
+the **drawn segment** (`segment_crosses_item`), not the infinite axis: a shape lying on
+the line's extension but not reached by the segment is never touched, while a segment
+that starts or ends inside a shape still divides it along the supporting axis.
+
+The shortcut changed from `S` to `Shift+S` because the first version was dead in the
+real window: `S` is `snap_action`'s window shortcut, and a second window shortcut on
+the same key makes Qt fire neither (measured on Qt 6.12 with a `QToolButton` and a
+`QAction` in one window; PF-UI-36). `Shift+S` is free and leaves `S` as Snap to Grid.
+
+Review then found two consequences worth stating. A **touch is not a crossing**:
+`segment_crosses_path` splits the segment at its outline crossings and accepts only
+an interval whose midpoint is strictly inside (offset points on both sides must be
+inside), so a snapped pick on a bed's corner, a segment along an edge, or a tangent
+returns False. And **a bed with plants is eligible**: refusing every plant parent
+would make the headline feature unable to touch the normal object in a garden. The
+`SplitShapeTool` adds a `ReconcileBedMembershipCommand` to the same undo step for
+every split source that has children; the existing plant→bed mutator moves each
+plant to the new piece containing its standing point, and undo restores the source's
+links before the source itself comes back.
+
+**Addendum 2 (2026-11-09) — decisions from the owner's manual test of PR #783.**
+Behaviour is specified in FR-35 and the mechanics in §8.35; this records what was
+decided and what was rejected.
+
+1. **A building with a ridge is split like a garage.** The first version refused every
+   ridge-bearing building because its linked `ROOF_RIDGE` would be orphaned. The ridge
+   is derived geometry (ADR-046), so nothing has to be preserved: `SplitShapeCommand`
+   removes the source's ridge with the source and builds every piece its own through
+   `roof_ridge_link.build_copy_ridges`. A source without a ridge (the user's flat roof)
+   gives pieces without one. A ridge that is constrained or on a locked layer still
+   refuses the split, like the shape itself.
+2. **A rebuild's type change keeps the height.** A raised bed's 40 cm is a per-type
+   default (ADR-037, rung 4); its garden-bed pieces had none. The height the object
+   stood at is written as an explicit `object_height_cm`
+   (`object_height.carry_height_across_type_change`), in the one entry point for a
+   rebuild's type change, `item_look.adopt_rebuilt_type`, which the split, the corner
+   tools and the loader's raised-bed migration share. Accepted trade-off: the piece then
+   shows a custom height, so a later manual type change no longer follows the new type's
+   default. The Properties panel's own type change is unchanged.
+3. **A sprite's stored fill is not its look.** A piece of a sprite-painted source takes
+   its new type's fill pattern; a source painted by its own brush keeps the user's
+   pattern (`adopt_rebuilt_type(keep_fill=...)`). The wooden frame stays a
+   rectangle-only sprite (owner decision 2026-10-31): a piece is a garden bed with soil
+   and a height, which the 3D view builds as an edged bed.
+4. **Esc ends every tool, and means the same wherever the focus is.** The canvas
+   leaves one narrower mode per press (calibration, vertex editing, drill-down), else
+   ends the tool (`return_to_select_tool`); the main window calls the same two steps
+   (`CanvasView.handle_escape`) for an Esc no focused widget consumed. Rejected: a
+   window-level `QShortcut` on Esc, which would pre-empt every line edit, popup and
+   inline editor in the window (and a second shortcut on one key fires neither,
+   PF-UI-36). The focused inline editor receives the same Esc first.
+5. **The minimap hides a selected group's descendants by opacity** instead of a flag
+   (PF-CAN-48).

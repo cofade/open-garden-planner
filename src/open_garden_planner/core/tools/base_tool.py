@@ -119,6 +119,8 @@ class ToolType(Enum):
     # CAD editing tools
     TRIM_EXTEND = auto()
     OFFSET = auto()
+    # Split a closed shape along a two-point cutting line (#664)
+    SPLIT = auto()
     # Phase 13 Package B (US-B1/B2/B3)
     BEZIER = auto()
     ARC = auto()

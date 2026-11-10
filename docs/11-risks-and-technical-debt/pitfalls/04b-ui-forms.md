@@ -118,3 +118,23 @@ the close, and closes when the recording has stopped.
 - **Legacy:** none (new entry)
 
 Two owner-reported layers-panel defects with one cause: the panel assumed every row was 36 px. `_adjust_list_height` multiplied the layer count by 36 and ignored the list's frame, so a font/DPI that made rows taller clipped the last row and left an empty band under it (#774). And the inline rename hid the `QLabel` and showed a `QLineEdit` whose size hint is shorter, so the row shrank while editing (#775). `LayerListItem` now sets a minimum height (`ROW_HEIGHT`), `_refresh_list` uses the row's real hint (at least `ROW_HEIGHT`), and `_adjust_list_height` uses the same fixed height in both the "all rows" and "scroll at five" branches, adding `2 * frameWidth()`.
+
+### PF-UI-36
+
+- **Rule:** Two window shortcuts on the same key fire NEITHER. A tool shortcut must be checked against every `QAction` shortcut in the main window; a `QToolButton` shortcut and a `QAction` shortcut are both registered on the top-level window.
+- **Pinned by:** `tests/integration/test_split_shapes.py::test_the_split_shortcut_does_not_collide_with_snap`
+- **Source:** #664, PR #783, ADR-075 addendum
+- **Status:** standing
+- **Legacy:** 11.4.21 (new entry)
+
+The split tool first shipped with `S`, matching its name. `S` is also the main
+window's **Snap to Grid** action. Qt did not prefer one: with both shortcuts
+enabled in one window it dispatched an ambiguous-shortcut warning and ran
+neither handler, so the new tool's advertised shortcut was dead while the
+toolbar button itself worked. Measured on Qt 6.12 with a bare `QToolButton`
+and a `QAction` in the same window (an empty hit list), and in the app the
+canvas-level key fallback never saw the key either because the window's
+shortcut map consumed it. The fix is `Shift+S`; the test asserts the tool
+shortcut exists, differs from `snap_action`'s `S`, and that `S` still belongs
+to Snap to Grid. Offscreen Qt has no focus window, so the test pins the
+configuration rather than synthesising a key press.

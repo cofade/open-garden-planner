@@ -586,7 +586,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 **US-E6 — the 3D view** (since Phase 17 L1.9 the 3D pane of the main window's workspace, engine Qt Quick 3D per ADR-048 / ADR-060; the US-E6 viewer window on Qt 3D, ADR-038, is retired; no `FILE_VERSION` change):
 
-- **FR-SUN-06**: **View → "3D View"** shows the plan in 3D inside the main window: from Plan mode it switches the workspace to **Split** — the plan and the 3D view side by side — and in 3D or Split mode it changes nothing (the workspace's own modes Plan / 3D / Split, Alt+1 / Alt+2 / Alt+3, are FR-3D-WS-01; no separate window opens). Every visible object with a footprint stands at its **effective height** (FR-SUN-02) on the same footprint the 2D shadow overlay uses — a building with its roof, a fence with its posts and pickets, a wall, a bed, a hedge as built shapes, a plant as the silhouette of its sprite's archetype (FR-3D-PLANT-01…04), anything else as a prism in its fill colour; objects without a height (lawns, paths, in-ground beds …) lie on the ground as on the plan (the ground bake, FR-3D-GROUND-*) — on a ground the size of the canvas, in a meadow. The camera orbits (FR-3D-WS-06) and starts framed on the plan. The light is the plan's sun — location, date and time of the one simulation clock (FR-SUN-04) — with shadows whose ground coverage matches the 2D overlay's (FR-3D-LOOK-01, FR-3D-LOOK-06); without a garden location a fixed southern midday sun (50° high, azimuth 180°) lights it, and after sunset the view fades through twilight into a moonlit night. The view follows **every** edit of the plan at once (FR-3D-WS-03) — there is no Refresh — and a date change regrows the dated plants (FR-SUN-08). It is a viewer: a click selects (FR-3D-SELECT-01…05), nothing is edited in 3D, and nothing 3D is written to the `.ogp` (camera, mode and walk state are not saved with the plan; the Split position is a window setting). Detail: FR-33.
+- **FR-SUN-06**: **View → "3D View"** shows the plan in 3D inside the main window: from Plan mode it switches the workspace to **Split** — the plan and the 3D view side by side — and in 3D or Split mode it changes nothing (the workspace's own modes Plan / 3D / Split, Alt+1 / Alt+2 / Alt+3, are FR-3D-WS-01; no separate window opens). Every visible object with a footprint stands at its **effective height** (FR-SUN-02) on the same footprint the 2D shadow overlay uses — a building with its roof, a fence with its posts and pickets, a wall, a bed, a hedge as built shapes, a plant as the silhouette of its sprite's archetype (FR-3D-PLANT-01…04), anything else as a prism in its fill colour; objects without a height (lawns, paths, in-ground beds …) lie on the ground as on the plan (the ground bake, FR-3D-GROUND-*) — on a ground the size of the canvas, in a meadow. The camera orbits (FR-3D-WS-06) and starts framed on the plan. The light is the plan's sun — location, date and time of the one simulation clock (FR-SUN-04) — with shadows whose ground coverage matches the 2D overlay's (FR-3D-LOOK-01, FR-3D-LOOK-06); without a garden location a fixed southern midday sun (50° high, azimuth 180°) lights it, and after sunset the view fades through twilight into a moonlit night. The view follows **every** edit of the plan at once (FR-3D-WS-03) — there is no Refresh — and a date change regrows the dated plants (FR-SUN-08). It is a viewer: a click selects (FR-3D-SELECT-01…05), nothing is edited in 3D, and nothing 3D is written to the `.ogp` except the camera tours the user chose to keep in the plan (FR-3D-TOUR-04; camera, mode and walk state are not saved with the plan; the Split position is a window setting). Detail: FR-33.
 
 **US-E7 — first-person walkthrough** (a camera mode of the 3D view — since Phase 17 L1.9 the workspace's, FR-3D-WALK-01…03; no `FILE_VERSION` change):
 
@@ -1052,7 +1052,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   Mode**: a line of controls for exposure, vignette, blur and a colour grade (Golden Hour, Crisp Day,
   Cool Morning, Soft Film, Black and White). The view previews them at once. They change how the
   picture looks, never what stands in the garden, and with photo mode off the view is the view
-  again, pixel for pixel.
+  again, pixel for pixel. The blur is a share of the picture's height, so a saved photo of any size
+  shows the blur the view previewed (#743: seen at the preview's size, within 0.06 of the detail a
+  60 px tile keeps).
 - **FR-3D-PHOTO-02** (L6.1): In photo mode a **click sets the focus** on what is under it (or on the
   ground) instead of selecting, and the line says how far away it is. The focus is a point: it stays
   on the plant when the camera moves. **Blur above 0 always has a point**: setting the blur without a
@@ -1088,6 +1090,26 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the
   clock holds and restores it: a date the user sets during a **flight preview** survives its end.
+- **FR-3D-TOUR-04** *(issue #737)*: A tour can be **kept in the plan under a name** and rendered
+  again later. The dialog's first group lists the plan's tours: **Save Tour As** keeps the
+  controls as a new tour (a name the plan already has is asked about before it is replaced),
+  **Save Tour** writes changed controls back to the tour they came from, **Rename** and
+  **Delete** do what they say, and choosing a tour puts its camera, time range, duration, frame
+  rate and size back into the controls. Saving, changing, renaming and deleting a tour are
+  **one undo step each** and mark the plan as changed; setting up a tour without saving it, and
+  choosing one, change nothing. A saved tour holds a camera and a clock and nothing of the
+  garden, so rendering it after the garden changed shows the changed garden along the saved
+  path. A saved drone orbit or held view starts from the view it was saved with, and the dialog
+  says so; **Use Current View** starts it from the view again. Choosing another tour asks
+  before it discards unsaved keyframes or unsaved changes. The tours are saved with the plan
+  file and belong to it: a new or opened plan shows its own tours and none of the last plan's;
+  Save As, a template and a new season keep them. A plan keeps up to 50 tours of up to 100
+  keyframes each. The file's format version does not change: a release from before this
+  feature opens a plan with tours and ignores them (and writes the plan back without them if it
+  saves). A tour in a file that cannot be read is skipped, the rest of the plan loads, and the
+  status bar says how many were skipped. The look of the picture (photo mode, weather, quality)
+  is not part of a tour: it is the view's when the tour is rendered. Not included: a tour is not
+  kept in the crash-recovery file (which holds the drawing only).
 - **FR-AGENT-31** (L6.3, #390, ADR-072): **`render_3d_view`** renders a PNG of the 3D view for an
   agent, from the owner's camera or one of its own, and reports what it shows (plan date, time, sun,
   weather, quality, roofs, overlays). It is read-only and needs no token; it never moves the
@@ -1101,8 +1123,9 @@ the dialog, a recording end to end, every refusal, the blur/point invariant, the
 a tour, the clock-change hold), `test_agent_api_render_3d.py` (the real MCP transport),
 `test_video_writer.py` (a real encode, read back; a kept render survives the next recording), the
 unit suites `test_camera_path.py`, `test_video_yuv.py` and `test_scene3d_photo.py`, the render tier
-`test_directors_cut_render.py` (including the two-week clock-change luma gate), and `--selftest`,
-which captures and encodes from the bundle.
+`test_directors_cut_render.py` (including the two-week clock-change luma gate, and since #743 the
+preview-against-4K blur parity and the slider's blur 0.05 against 1.0), and `--selftest`, which
+captures and encodes from the bundle.
 
 Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
 year playback through the real app and its clock; the Weather menu, the life switch and
@@ -1192,3 +1215,76 @@ ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.
   Durable data is pushed before Pages deployment; reports can be rebuilt offline.
 
 Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages deployment.
+
+## FR-35: CAD editing — split along a line and group drill-down (issues #664, #771, ADR-075)
+
+- **FR-SPLIT-01:** A closed shape (polygon, rectangle, circle or ellipse) offers
+  **Split Along Line…** in its context menu, scoped to that shape. The CAD toolbar's
+  Split button and the `Shift+S` shortcut start the same two-point gesture scene-wide:
+  click a first and a second point anywhere, and every eligible closed shape the drawn
+  segment passes through is cut along the segment's supporting axis. A shape the
+  segment crosses end to end is fully split; a shape it clips is cut along the same
+  axis when both pieces are large enough to keep. A segment that only touches an
+  outline — a corner, an edge, a tangent — is not a crossing. The tool takes two
+  snapped scene points, previews the segment, the supporting axis and the pieces of
+  every shape it will split, constrains the line to 45° steps while Shift is held, and
+  cancels on Esc without mutating the scene. `S` alone stays Snap to Grid; the split
+  shortcut must not reuse it (two window shortcuts on one key fire neither).
+- **FR-SPLIT-02:** Applying one gesture replaces every crossed source with its pieces in
+  exactly one undo step. Each piece keeps its source's layer, object type when valid for
+  a polygon, fill/stroke colours, fill pattern and fill-transform, label/area visibility,
+  name, metadata and stacking rank. A rotated source keeps its rotation and material
+  direction; curves become polygons; a concave shape may produce more than two pieces;
+  a result that would contain a hole is refused. A piece whose type has to change (a
+  raised bed becomes a garden bed) still stands as tall as its source: a height that was
+  only the source type's default (a raised bed's 40 cm) is written to the piece as its
+  explicit height. When the source was painted as a sprite, such a piece takes its new
+  type's fill pattern (soil) instead of the stored fill the sprite had hidden; a shape
+  painted by its own brush keeps the pattern the user gave it.
+- **FR-SPLIT-03:** The split is refused without mutation for a plant itself, constrained
+  shapes, locked layers, grouped members,
+  shape types with no polygonal form (for example a container), and any shape whose
+  UUID is still referenced by soil, pest, harvest, succession, crop-rotation,
+  manual-task or task-state project data (`ProjectManager.has_item_references`). A bed,
+  raised bed or other plant parent with a polygonal form IS eligible: its linked plants
+  are re-homed to the piece that contains their standing point in the same undo step,
+  so no plant is orphaned. A house or a greenhouse is split like a garage: its linked
+  roof ridge leaves with it, every piece gets its own ridge, and undo restores the
+  original building and ridge. A building without a ridge (a flat roof) gives pieces
+  without one. A building whose ridge is constrained or on a locked layer is refused.
+  A scene-wide cut splits the eligible crossed shapes and
+  reports how many crossed objects could not be split; when nothing can be split, the
+  reason is shown to the user.
+- **FR-DRILL-01:** With a group selected, a plain click on one of its members focuses
+  that member for editing without ungrouping. The group remains the canvas selection;
+  the focused member is what the Properties, plant-details, companion and crop-rotation
+  panels read (`CanvasView.effective_selection`). Clicking outside the member, pressing
+  Esc, or selecting another object clears the focus. Nothing else does: the focus
+  survives the minimap's refreshes and every other redraw of the running window.
+- **FR-DRILL-02:** While focused, a member can be moved by dragging its body or with the
+  arrow keys, resized/rotated with its own handles, and its
+  geometry/appearance/species/notes can be edited through the Properties panel; each
+  edit is one undo step and moves the member in its group's frame, never the group.
+  The member's layer cannot change, movement of a constrained member or ancestor is
+  refused, and Cut/Delete are refused until the focus is cleared.
+- **FR-DRILL-03:** Smart symbols are not drillable because their members are generated
+  from parameters. Nested groups drill one level per click; the focused member's inner
+  outline is drawn by `GroupItem.paint` and disappears with the selection (exports clear
+  it first).
+
+- **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
+  object-placing, CAD and constraint tool. A gesture in progress is cancelled with no
+  preview left behind and the distance/angle prompt is hidden. An inline text or label
+  edit that has the focus is finished by the same Esc. Three narrower meanings take
+  an Esc of their own first: cancelling a calibration, leaving vertex editing and
+  leaving a group drill-down. All of it works wherever the keyboard focus is in the
+  main window - the canvas, a panel, the object search field, the status-bar
+  coordinate field - as long as the focused widget does not use Esc itself (an open
+  search popup closes first). In fullscreen preview an Esc on the canvas first ends a
+  tool that was picked there, and the next one leaves the preview. F1 lists the key
+  under Drawing Tools.
+
+Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.

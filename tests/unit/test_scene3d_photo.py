@@ -11,14 +11,17 @@ import pytest
 
 from open_garden_planner.core.scene3d import photo
 from open_garden_planner.core.scene3d.photo import (
-    BLUR_MAX,
+    BLUR_SIGMA_SHARE,
+    FOCUS_RANGE_FLOOR_AT_CM,
+    FOCUS_RANGE_FLOOR_SHARE,
+    FOCUS_RANGE_MIN_CM,
     GRADES,
     LUT_SIZE,
     NO_GRADE,
     NO_PHOTO,
     VIGNETTE_MAX,
     PhotoSettings,
-    blur_amount,
+    blur_sigma_share,
     exposure_gain,
     focus_distance_cm,
     focus_range_cm,
@@ -51,7 +54,7 @@ def test_the_module_is_free_of_qt() -> None:
 
 def test_no_photo_develops_nothing() -> None:
     """Every setting off IS the view: the scene's own defaults, through the mapping."""
-    properties = photo_properties(NO_PHOTO, (0.0, 0.0, 100.0), (0.0, 100.0, 0.0), 720.0)
+    properties = photo_properties(NO_PHOTO, (0.0, 0.0, 100.0), (0.0, 100.0, 0.0))
     assert properties["photoExposure"] == 1.0
     assert properties["photoVignette"] == 0.0
     assert properties["photoBlur"] == 0.0
@@ -66,7 +69,7 @@ def test_the_scene_declares_what_the_mapping_writes_and_starts_with_nothing_on()
     for name, default in (("photoExposure", "1.0"), ("photoVignette", "0.0"), ("photoBlur", "0.0")):
         assert f"property real {name}: {default}" in text, name
     assert "property bool photoGraded: false" in text
-    for name in photo_properties(NO_PHOTO, (0.0, 0.0, 0.0), (0.0, 1.0, 0.0), 720.0):
+    for name in photo_properties(NO_PHOTO, (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)):
         assert f"property real {name}:" in text, name
 
 
@@ -78,8 +81,8 @@ def test_exposure_is_in_photographers_stops(stops: float, gain: float) -> None:
 def test_the_vignette_reaches_only_into_the_corners() -> None:
     """Qt: colour x (u (1-u) v (1-v) x 15) ^ radius. Measured: a lower strength darkened the
     middle too. So the setting is the exponent, and the middle stays within 2 %."""
-    strongest = photo_properties(PhotoSettings(vignette=1.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0),
-                                 720.0)["photoVignette"]
+    strongest = photo_properties(PhotoSettings(vignette=1.0), (0.0, 0.0, 0.0),
+                                 (0.0, 1.0, 0.0))["photoVignette"]
     assert strongest == pytest.approx(VIGNETTE_MAX)
     middle = (0.25 * 0.25 * 15.0) ** strongest
     corner = (0.05 * 0.95 * 0.05 * 0.95 * 15.0) ** strongest
@@ -117,7 +120,26 @@ def test_a_point_behind_the_camera_or_a_camera_without_a_direction_gives_a_usabl
 
 def test_what_stays_sharp_grows_with_the_distance_and_never_vanishes() -> None:
     assert focus_range_cm(4000.0, 0.0) == pytest.approx(2400.0)
-    assert focus_range_cm(10.0, 1.0) == 60.0, "a whole plant stays sharp up close (owner: 60 cm)"
+    assert focus_range_cm(10.0, 1.0) == FOCUS_RANGE_MIN_CM == 60.0, (
+        "a whole plant stays sharp up close (owner: 60 cm)")
+
+
+def test_a_far_focus_keeps_a_lens_like_band_and_no_tilt_shift_model() -> None:
+    """#743 (3D review of #729): at the 38 m whole-plan camera the strongest blur left about a
+    metre sharp, a scale model. The band never gets thinner than 8 % of the depth at 25 m,
+    growing with the square of the depth beyond as a lens's depth of field does; decided in
+    #743's package (ADR-072 addendum), the owner may veto it."""
+    assert (FOCUS_RANGE_FLOOR_SHARE, FOCUS_RANGE_FLOOR_AT_CM) == (0.08, 2500.0)
+    assert focus_range_cm(2500.0, 1.0) == pytest.approx(200.0), "8 % at 25 m"
+    assert focus_range_cm(3800.0, 1.0) == pytest.approx(0.08 * 3800.0 ** 2 / 2500.0)
+    assert focus_range_cm(3800.0, 1.0) / 3800.0 > 0.12, "more than a tenth at the whole plan"
+    # up close the floor is under the strong share and changes nothing
+    assert focus_range_cm(800.0, 1.0) == FOCUS_RANGE_MIN_CM
+    assert focus_range_cm(800.0, 0.0) == pytest.approx(480.0)
+    # continuous: no step anywhere along the depth
+    depths = np.linspace(0.0, 8000.0, 2001)
+    bands = np.array([focus_range_cm(float(depth), 1.0) for depth in depths])
+    assert np.all(np.diff(bands) >= 0.0) and np.max(np.diff(bands)) < 25.0
 
 
 def test_a_stronger_blur_leaves_less_of_the_garden_sharp() -> None:
@@ -125,8 +147,10 @@ def test_a_stronger_blur_leaves_less_of_the_garden_sharp() -> None:
     same picture, because the whole garden lay inside it. The band is what the slider moves."""
     bands = [focus_range_cm(3860.0, blur) for blur in (0.0, 0.1, 0.25, 0.5, 0.75, 1.0)]
     assert bands == sorted(bands, reverse=True)
-    assert bands[0] / bands[-1] == pytest.approx(20.0), "a twentieth of the band at the strongest"
-    assert bands[-1] < 150.0, "about a metre around the point, in a view of 38 m"
+    assert bands[0] / bands[-1] > 4.0, "the band is still the slider's lever at 38 m"
+    assert bands[-1] == pytest.approx(0.08 * 3860.0 ** 2 / 2500.0), "the far floor, not a metre"
+    near = [focus_range_cm(900.0, blur) for blur in (0.0, 1.0)]
+    assert near == [pytest.approx(540.0), FOCUS_RANGE_MIN_CM], "60 % of 9 m, then a plant"
     assert focus_range_cm(3860.0, 7.0) == focus_range_cm(3860.0, 1.0), "the slider's end is the end"
 
 
@@ -134,18 +158,21 @@ def test_a_focus_without_blur_or_blur_without_a_focus_is_no_depth_of_field() -> 
     assert not PhotoSettings(blur=0.5).depth_of_field
     assert not PhotoSettings(focus_scene=(1.0, 2.0, 3.0)).depth_of_field
     assert PhotoSettings(blur=0.5, focus_scene=(1.0, 2.0, 3.0)).depth_of_field
-    properties = photo_properties(PhotoSettings(blur=1.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1080.0)
+    properties = photo_properties(PhotoSettings(blur=1.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0))
     assert properties["photoBlur"] == 0.0
 
 
-def test_the_blur_follows_the_picture_up_to_1080_pixels_and_stops_there() -> None:
-    """Qt's blur is in pixels of the picture, but over a half-resolution copy: at 4K the doubled
-    amount only moved the three taps apart, and a saved photo showed copies of the bench legs."""
+def test_the_blur_is_a_share_of_the_picture_and_knows_no_picture_size() -> None:
+    """#743: Qt's blur was about 2 px at any picture size, so a 4K save was much sharper than
+    the pane that previewed it. The blur is a share of the picture's height (``PhotoBlur.qml``
+    multiplies it by the height it draws), and nothing in the mapping asks for a size."""
     settings = PhotoSettings(blur=0.5, focus_scene=(1.0, 2.0, 3.0))
-    assert blur_amount(settings, 1080.0) == pytest.approx(0.5 * BLUR_MAX)
-    assert blur_amount(settings, 540.0) == pytest.approx(0.5 * 0.5 * BLUR_MAX)
-    assert blur_amount(settings, 2160.0) == blur_amount(settings, 1080.0)
-    assert blur_amount(PhotoSettings(blur=1.0, focus_scene=(0.0, 0.0, 0.0)), 2160.0) == BLUR_MAX
+    assert blur_sigma_share(settings) == pytest.approx(0.5 * BLUR_SIGMA_SHARE)
+    assert blur_sigma_share(PhotoSettings(blur=1.0, focus_scene=(0.0, 0.0, 0.0))) == BLUR_SIGMA_SHARE
+    assert blur_sigma_share(PhotoSettings(blur=1.0)) == 0.0, "no focus, no depth of field"
+    assert pytest.approx(6.48) == 1080.0 * BLUR_SIGMA_SHARE, "6.5 px at 1080p, 13 px at 4K"
+    properties = photo_properties(settings, (0.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    assert properties["photoBlur"] == pytest.approx(0.5 * BLUR_SIGMA_SHARE)
 
 
 @pytest.mark.parametrize("bad", [

@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from .polyline_tool import PolylineTool
     from .rectangle_tool import RectangleTool
     from .select_tool import SelectTool
+    from .split_tool import SplitShapeTool
     from .text_tool import TextTool
     from .tool_manager import ToolManager
     from .trim_tool import TrimExtendTool
@@ -69,6 +70,7 @@ if TYPE_CHECKING:
         "PolylineTool",
         "RectangleTool",
         "SelectTool",
+        "SplitShapeTool",
         "SymmetryConstraintTool",
         "TextTool",
         "ToolManager",
@@ -153,6 +155,10 @@ _EXPORTS = {
     "PolylineTool": ("open_garden_planner.core.tools.polyline_tool", "PolylineTool"),
     "RectangleTool": ("open_garden_planner.core.tools.rectangle_tool", "RectangleTool"),
     "SelectTool": ("open_garden_planner.core.tools.select_tool", "SelectTool"),
+    "SplitShapeTool": (
+        "open_garden_planner.core.tools.split_tool",
+        "SplitShapeTool",
+    ),
     "TextTool": ("open_garden_planner.core.tools.text_tool", "TextTool"),
     "ToolManager": ("open_garden_planner.core.tools.tool_manager", "ToolManager"),
     "TrimExtendTool": ("open_garden_planner.core.tools.trim_tool", "TrimExtendTool"),
@@ -187,6 +193,7 @@ __all__ = [
     "PolylineTool",
     "RectangleTool",
     "SelectTool",
+    "SplitShapeTool",
     "SymmetryConstraintTool",
     "TextTool",
     "ToolManager",

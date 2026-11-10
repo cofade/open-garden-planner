@@ -2317,6 +2317,19 @@ audit evidence for the command, machine and measured limitations.
   through `view3d_capture_driver.py`.
 - **`QComboBox.findData` does not find a tuple** (PyQt wraps it): the size combo started on
   "nothing", and only an end-to-end test through the dialog met it.
+- **A blur is measured in tiles of detail, at two sizes of one shot** (#743). The gradient a 60 px
+  tile keeps against its own sharp picture is a measure that does not care what the scene is; a
+  save shrunk to the preview's size by area means must keep what the preview keeps. The old pin
+  (`mean > 1.0` against the sharp view) passed while the owner saw no difference. The parity test
+  was observed failing on Qt's blur (0.394 apart) before the fix.
+- **A bench with known answers for a post effect** (`tests/integration/photoblur_bench.qml`, the
+  `blur_bench` scenario). Unlit flat panels at chosen depths turn "a fringe", "copies" and "a hard
+  near edge" into single numbers that a real garden blurs together; it found the multisampled
+  silhouette rim (PF-E3D-27) that no garden shot showed clearly. A fixture QML that uses a product
+  component imports the product's directory by a relative path, and the component must resolve
+  its own files with `Qt.resolvedUrl`.
+- **A pick after a capture needs a frame of the view first**: the engine picks in the frame it drew
+  last, and that was the capture view's resting frame (the click landed metres away).
 
 ### 8.10.16 Patterns from the living garden (Phase 17 L5, #389)
 
@@ -7936,19 +7949,27 @@ what the owner has on, and the agent's metadata says which.
 **Photo mode** (`3D ▸ Capture ▸ Photo Mode`, or View ▸ Workspace) adds a line of controls to the
 pane's notices and turns a click into "focus here". `core/scene3d/photo.py` is the Qt-free truth:
 `PhotoSettings` (exposure in stops, vignette, grade, blur, a focused POINT), `NO_PHOTO`, and the
-procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene. Blur is
-scaled to the picture's height, because Qt's is in pixels; the focused point becomes a depth along
-the view's axis, because that is what Qt compares. The slider moves the width of the sharp band
-(`focus_range_cm`: 60 % of the depth at a faint blur, 3 % at the strongest): a pixel outside the band
-gets Qt's half-resolution blur in full whatever the amount, which is capped at its 1080p value (more
-shows the three taps as copies). At 40 % the whole garden lay inside the band and the owner saw no
-difference between a high and a low blur (manual test); a 4K photo is sharper than its preview (ADR-072,
-consequences). There is no depth of field without a focused point, so the first blur above 0 focuses what
+procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene; nothing in
+the mapping depends on a picture's size. The blur is the app's own effect, `qml/PhotoBlur.qml` (#743,
+ADR-072 addendum "photo mode's own depth of field"), never Qt's `depthOfField*`: a Gaussian whose
+sigma is a share of the picture's height (`BLUR_SIGMA_SHARE` 0.006 at the slider's end: 6.5 px at
+1080p, 13 px at 4K), so the pane previews what a 4K save holds. It splits what lies behind the sharp
+band from what lies in front of it, weights each layer by how far out of focus it is, blurs the
+premultiplied layers at sigma and at a third of it, and composes them over the sharp scene: no
+in-focus colour bleeds into a blurred neighbour, and a blurred foreground edge is soft against a sharp
+background. It is in the effect chain only while the blur is drawn, so blur 0 is the view to the level.
+The focused point becomes a depth along the view's axis, because that is what the blur compares. The
+slider moves the blur and the width of the sharp band together (`focus_range_cm`: 60 % of the depth at a
+faint blur, 3 % at the strongest, never under 60 cm, and never under 8 % of the depth at 25 m growing with
+the square of the depth beyond: no tilt-shift scale model at the whole-plan camera). At 40 % the whole
+garden lay inside the band and the owner saw no difference between a high and a low blur (manual test).
+There is no depth of field without a focused point, so the first blur above 0 focuses what
 the camera looks at (a click moves it; while walking, the ground under the view's centre), and a new
 plan gives the kept blur its point once the new camera is framed. While the blur is drawn the Ultra
-preset's screen-space
-reflections stand down: reflections, blur and glow in one chain killed the render thread in `d3d11.dll`
-(PF-E3D-21). Grades come through
+preset's screen-space reflections stand down: with glow on, Qt 6.12's effect chain breaks as soon as two
+effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744). The pane is
+still a few levels brighter than a save below 1080p: Qt's ambient occlusion is pixel-sized (ADR-072
+addendum, open). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
 life, and re-chosen when the look's adjustments change.
 
@@ -8247,7 +8268,7 @@ rectangle/ellipse/circle edge types are unique but share index 0.
 
 An item's right-click menu is built by the item, but a capability that must
 appear on every item type lives in ONE shared seam so a new type cannot miss
-it. There are four, all reachable from `GardenItemMixin` (and used directly by
+it. There are five, all reachable from `GardenItemMixin` (and used directly by
 the item classes that do not inherit it):
 
 | Capability | Builder / dispatcher | Contract |
@@ -8256,6 +8277,7 @@ the item classes that do not inherit it):
 | Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
 | Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
 | Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22 |
+| Split along a line | `split_menu.build_split_action` (QAction `triggered`) | §8.35, ADR-075, FR-35; closed shapes only |
 
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on
@@ -8273,3 +8295,95 @@ already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
+
+## 8.35 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)
+
+**Split along a line.** `build_split_action` in
+`ui/canvas/items/split_menu.py` is the one context-menu seam for every closed
+shape (polygon, rectangle, circle, ellipse). It asks the view's
+`split_refusal_reason` before enabling the row and starts
+`CanvasView.start_split_shape`, which scopes the gesture to that shape. The CAD
+toolbar places the same tool next to Trim/Extend, and `Shift+S` reaches it;
+both start a scene-wide cut with no source selection: the first canvas click
+is the line's first point. `SplitShapeTool` freezes the visible closed-shape
+candidates at that click, and each `mouse_move` tests them with
+`shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
+DRAWN SEGMENT passes through are candidates — a shape lying on the line's
+infinite extension but not reached by it is left alone, and a segment that only
+touches an outline (a snapped corner, an edge, a tangent) is not a crossing. On
+the second pick the tool cuts every candidate along the segment's supporting
+axis, so a fully crossed shape becomes two halves and a clipped one is cut when
+both pieces are large enough to keep. The preview draws the bright segment plus
+a faint supporting axis, so the user sees the line that actually cuts. Geometry
+is `core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is
+cut by the two half-planes, so a rotated source keeps its rotation and
+fill-pattern direction. All cuts of one gesture share one undo step: a bare
+`SplitShapeCommand` when no membership reconciliation is needed, otherwise a
+`CompoundCommand` (several sources, or one planted bed plus its plant re-home).
+Pieces are ordinary `PolygonItem`s with the source's layer, type (where valid for a
+polygon), look, `fill_transform`, label/area state, metadata and stack rank.
+Curves flatten to polygons; a concave shape may produce more than two pieces; a
+hole is refused. A bed or other plant parent with a polygonal form is eligible: a
+`ReconcileBedMembershipCommand` in the same undo step re-homes every linked
+plant to the piece containing its standing point. Refused shapes are skipped (a
+success message counts them); when nothing can be split the first refusal reason
+is shown instead of a command. The refusal list (a plant itself, tracked UUIDs,
+constraints, locked layers, group members, containers) is in `ADR-075`
+and `CanvasView.split_refusal_reason`, backed by
+`ProjectManager.has_item_references`. The shortcut is `Shift+S`, never `S`:
+`S` is the main window's Snap to Grid, and two window shortcuts on one key make
+Qt fire neither (PF-UI-36).
+
+*What a piece owes its source beyond a copy.* A house or a greenhouse is split
+like any other shape: `SplitShapeCommand` removes the source's linked ridge with
+the source and builds every piece its own (`build_copy_ridges`); a source without
+a ridge gives pieces without one, and a piece never keeps the source's
+`ridge_item_id`. A ridge that is constrained or on a locked layer refuses the
+split. A piece whose type had to change goes through
+`item_look.adopt_rebuilt_type`, the one entry point for a rebuild's type change
+(the corner tools and the loader's raised-bed migration call it too): it keeps
+the height the source stood at (`object_height.carry_height_across_type_change`:
+a raised bed's 40 cm is a type default the garden-bed piece does not have) and
+takes the new type's fill pattern. The split passes `keep_fill` for a source
+painted by its own brush, so the user's pattern survives the cut; a sprite's
+stored fill was never on screen. A new "rebuild this shape" operation calls
+`adopt_rebuilt_type`; copying the type and the look alone loses the height.
+
+**Esc on the canvas, in one order.** `CanvasView._escape_inner_mode` leaves one
+narrower mode per press - a running calibration, vertex editing, a group
+drill-down. With none active, `return_to_select_tool` ends the tool: it runs
+after the active tool's own `key_press`, and deactivating a tool cancels its
+gesture, so a new tool needs no Esc code of its own. A focused inline editor (a
+text annotation, a callout, a label) is handed the key through
+`super().keyPressEvent` first - the view sees keys before the scene, so the tool
+switch would otherwise swallow it - and the tool ends on that same Esc. The main
+window's `keyPressEvent` calls `CanvasView.handle_escape` (the same two steps)
+for an Esc no focused widget consumed: right after a tool is picked, or while a
+drilled-down member is edited, the focus is in a panel or the search field, and
+one Esc must not depend on where the focus happens to be. A tool switch through
+`CanvasView.set_active_tool` hides the distance/angle prompt.
+
+**Group drill-down.** Qt routes a group child's selection back to the group, so
+there is no Qt-level "selected child" state to switch to. The second click on a
+member sets `CanvasView.drill_down_item` instead: the group remains the Qt
+selection, the member stays its child (same layer, same saved frame), and
+`effective_selection()` is the one list every panel consumes. `drill_down_changed`
+notifies them because Qt emits no `selectionChanged`. `GroupItem.paint` draws the
+focused member's inner outline only while the group is selected. A body drag is
+the view's own gesture (`begin_drill_down_drag`), not Qt's group drag; arrow keys
+and the Properties panel convert scene deltas through `_delta_in_parent_frame`.
+The member's resize/rotation handles are shown, but their own press never reaches
+them inside the selected group, so the view replays the gesture through the
+handles' `begin_drag` / `apply_drag` / `end_drag` seam. The member cannot change
+layer, be cut or be deleted while focused, and a constrained member or ancestor
+refuses movement. Clicking outside the member or pressing `Esc` clears the focus
+and restores every grouped ancestor's `ItemIsMovable` flag. Smart symbols are not
+drillable because their members are generated from parameters. The focus depends
+on the group staying selected, and Qt unselects a group when a flag is set on
+a non-selectable descendant that already existed when its parent joined the
+group - a member's handles, created when the user selected it before grouping
+(PF-CAN-48). The minimap hides such items by opacity, and any new code that
+toggles flags on arbitrary scene items has to make the same exception. Test
+drill-down in the running window (`GardenPlannerApp`), past a minimap refresh,
+with members that were selected before they were grouped; a bare canvas has no
+minimap.

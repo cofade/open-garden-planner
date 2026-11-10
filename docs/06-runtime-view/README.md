@@ -1083,3 +1083,59 @@ therefore restores nothing, so a date set while it runs survives it. During a cl
 tour, agent reads report the owner's held date (`as_of_date`) and agent-created plants are
 stamped with it, not with the frame being rendered (ADR-072 addendum, issue #730).
 
+A tour kept in the plan (issue #737) takes the plan's write path, not the capture's:
+
+```mermaid
+sequenceDiagram
+    participant Dialog as TourDialog (the draft)
+    participant Coord as WorkspaceCaptureCoordinator
+    participant Stack as CommandManager
+    participant Plan as ProjectManager
+    Dialog->>Dialog: the controls as a SavedTour (None: no tour yet)
+    Dialog->>Coord: save_tour / rename_tour / delete_tour
+    Coord->>Stack: execute(one tour command: the list before, the list after)
+    Stack->>Plan: set_camera_tours(the list after)
+    Plan-->>Coord: camera_tours_changed
+    Coord-->>Dialog: tours_changed: the combo names the plan's tours
+    Stack-->>Plan: stack_changed: the plan is dirty
+    Note over Stack,Plan: undo and redo call set_camera_tours with the other list
+```
+
+`ProjectManager.save` writes the list as the file's `camera_tours` key; `load` hands the raw
+key to `load_tours`, which skips what is no tour, and `new_project` empties the list. The
+scene's `document_replaced` clears the dialog's draft before the new plan's tours arrive.
+
+## 6.12 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant TB as CAD toolbar / Shift+S
+    participant M as Context menu
+    participant V as CanvasView
+    participant T as SplitShapeTool
+    participant H as CommandManager
+    U->>TB: Split
+    TB->>V: set_active_tool(SPLIT)
+    V->>T: activate + prepare(None) — scene-wide
+    U->>T: first snapped point (anywhere)
+    T->>T: freeze visible closed shapes; line preview
+    U->>T: mouse move
+    T->>T: segment_crosses_item → piece preview for every crossed shape
+    U->>T: second snapped point (Shift constrains)
+    T->>T: split_item_into_local_polygons for every crossed shape
+    T->>H: execute(a bare SplitShapeCommand, or a CompoundCommand for several shapes or a planted bed plus its plant re-home)
+    H->>V: one undo step; sources removed, pieces added
+    Note over U,M: The context menu's Split Along Line… enters the same tool<br/>through start_split_shape(source), scoped to that one shape.
+```
+
+A group drill-down has no Qt selection change to observe: the group remains selected.
+The second click sets `CanvasView.drill_down_item`, hides the group's movable flag,
+and emits `drill_down_changed`; the app's selection consumers call
+`effective_selection()` and therefore show the member. A member body drag is a
+view-owned gesture, and its release registers one `MoveItemsCommand` with a
+parent-frame delta. Clicking outside the member or pressing Esc clears the focus and
+restores the group flag; Cut/Delete are refused while the focus is active. The
+minimap re-renders 100 ms after each of these changes and must leave the group
+selected: it hides the member's handles by opacity, never by a flag (PF-CAN-48).
+

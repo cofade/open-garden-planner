@@ -20,6 +20,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.config.settings import get_settings
+from open_garden_planner.core import camera_tours as plan_tours
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.item_look import (
     adopt_pen,
@@ -38,6 +39,7 @@ from open_garden_planner.core.plan_io import (
     write_plan,
 )
 from open_garden_planner.models.layer import Layer, create_default_layers
+from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
 # File format version for backward compatibility.
 #
@@ -140,6 +142,10 @@ class ProjectData:
     # or bed UUID string.
     harvest_logs: dict[str, Any] = field(default_factory=dict)
 
+    # #737: named camera tours, [SavedTour.to_dict()]. Raw and untrusted here:
+    # ``core/camera_tours.load_tours`` is the one reader (ADR-072 addendum).
+    camera_tours: list[dict[str, Any]] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -197,6 +203,8 @@ class ProjectData:
             data["task_states"] = self.task_states
         if self.harvest_logs:
             data["harvest_logs"] = self.harvest_logs
+        if self.camera_tours:
+            data[plan_tours.PLAN_KEY] = self.camera_tours
         return data
 
     @classmethod
@@ -230,6 +238,7 @@ class ProjectData:
             manual_tasks=data.get("manual_tasks", {}),
             task_states=data.get("task_states", {}),
             harvest_logs=data.get("harvest_logs", {}),
+            camera_tours=data.get(plan_tours.PLAN_KEY) or [],  # of any type: load_tours decides
             # Note: `data.get("paper_layouts", ...)` is intentionally
             # not consumed here — the Paper Space feature was dropped
             # before PR #191 merged but earlier draft builds may have
@@ -267,6 +276,7 @@ class ProjectManager(QObject):
     manual_tasks_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     task_states_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     harvest_logs_changed = pyqtSignal(object)  # dict[str, dict] (US-C1)
+    camera_tours_changed = pyqtSignal(object)  # tuple[SavedTour, ...] (#737)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
@@ -293,7 +303,9 @@ class ProjectManager(QObject):
         self._manual_tasks: dict[str, Any] = {}
         self._task_states: dict[str, Any] = {}
         self._harvest_logs: dict[str, Any] = {}
+        self._camera_tours: tuple[plan_tours.SavedTour, ...] = ()
         self._last_load_skipped_items_count: int = 0
+        self._last_load_skipped_tours_count: int = 0
 
     @property
     def last_load_skipped_items_count(self) -> int:
@@ -326,6 +338,58 @@ class ProjectManager(QObject):
     def task_completions(self) -> set[str]:
         """Set of completed task IDs for the current project."""
         return set(self._task_completions)
+
+    @staticmethod
+    def _task_id_references_item(task_id: object, key: str) -> bool:
+        """Whether a deterministic task id names *key* as its bed/area.
+
+        The two formats are owned by ``services.task_generator``:
+        ``succession:<sow|clear>:<bed_id>:<entry>`` and
+        ``soil_amendment:<bed_id>:<name>`` / ``soil_mismatch:<bed_id>``.
+        Explicit segment matching avoids a substring false positive when an
+        unrelated id happens to contain the same characters.
+        """
+        parts = str(task_id).split(":")
+        if not parts:
+            return False
+        index = TASK_BED_ID_SEGMENTS.get(parts[0])
+        return index is not None and len(parts) > index and parts[index] == key
+
+    def has_item_references(self, item_id: UUID | str) -> bool:
+        """Whether project data outside the scene still points at *item_id*.
+
+        A command that replaces a shape (the split, #664) must not orphan the
+        records keyed by its UUID. The checked collections are exactly the ones
+        that store a bed/area/plant id: soil tests, pest/disease logs, harvest
+        logs, succession plans, crop-rotation records, manual-task bed links and
+        task states whose deterministic id carries the item id. Journal notes
+        are keyed by their own note id and do not reference garden items.
+        """
+        key = str(item_id)
+        if not key:
+            return False
+        if (
+            key in self._soil_tests
+            or key in self._pest_logs
+            or key in self._harvest_logs
+            or key in self._succession_plans
+        ):
+            return True
+        for record in self._crop_rotation.get("records", []):
+            if isinstance(record, dict) and str(record.get("area_id", "")) == key:
+                return True
+        for task in self._manual_tasks.values():
+            if isinstance(task, dict) and str(task.get("bed_id", "")) == key:
+                return True
+        if any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_states
+        ):
+            return True
+        return any(
+            self._task_id_references_item(task_id, key)
+            for task_id in self._task_completions
+        )
 
     def set_task_completion(self, task_id: str, done: bool) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's
@@ -772,6 +836,28 @@ class ProjectManager(QObject):
         """Reset a task to open (remove any stored state)."""
         self.set_task_status(task_id, "open")
 
+    # ── Camera tours (#737, ADR-072 addendum) ────────────────────────────────
+    @property
+    def camera_tours(self) -> tuple[plan_tours.SavedTour, ...]:
+        """The plan's saved camera tours, in the order they were saved. Immutable."""
+        return self._camera_tours
+
+    @property
+    def last_load_skipped_tours_count(self) -> int:
+        """Count of camera-tour entries the last project load could not read."""
+        return self._last_load_skipped_tours_count
+
+    def set_camera_tours(self, tours: Iterable[plan_tours.SavedTour]) -> None:
+        """Replace the plan's camera tours and mark the project dirty.
+
+        The ONE writer besides load and new: the three tour commands of
+        ``core/commands.py`` call it for execute and for undo, with the whole list,
+        so undo restores exactly what was there. ``ValueError`` for a name used twice
+        or more than ``MAX_TOURS`` tours (``checked_tours``)."""
+        self._camera_tours = plan_tours.checked_tours(tours)
+        self.camera_tours_changed.emit(self._camera_tours)
+        self.mark_dirty()
+
     def _sync_journal_note_positions(
         self, scene: QGraphicsScene, notes: dict[str, Any] | None = None
     ) -> None:
@@ -847,6 +933,8 @@ class ProjectManager(QObject):
         self._manual_tasks = {}
         self._task_states = {}
         self._harvest_logs = {}
+        self._camera_tours = ()
+        self._last_load_skipped_tours_count = 0
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
@@ -867,6 +955,7 @@ class ProjectManager(QObject):
         self.manual_tasks_changed.emit({})
         self.task_states_changed.emit({})
         self.harvest_logs_changed.emit({})
+        self.camera_tours_changed.emit(())
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -933,6 +1022,7 @@ class ProjectManager(QObject):
         data.manual_tasks = dict(self._manual_tasks)
         data.task_states = dict(self._task_states)
         data.harvest_logs = dict(self._harvest_logs)
+        data.camera_tours = plan_tours.dump_tours(self._camera_tours)
         return data
 
     def snapshot_dict(self, scene: QGraphicsScene, *,
@@ -1088,6 +1178,7 @@ class ProjectManager(QObject):
                 which corrupts the user's data — better to fail loudly.
         """
         self._last_load_skipped_items_count = 0
+        self._last_load_skipped_tours_count = 0
         scene_mutated = False
         try:
             raw_data = read_plan(file_path)
@@ -1182,6 +1273,11 @@ class ProjectManager(QObject):
             self._task_states.setdefault(tid, {"status": "done"})
         self.manual_tasks_changed.emit(self._manual_tasks)
         self.task_states_changed.emit(self._task_states)
+        # #737: the tours of THIS plan, whatever the last one had. Untrusted input:
+        # what is not a tour is skipped and counted, never raised (``load_tours``).
+        self._camera_tours, self._last_load_skipped_tours_count = plan_tours.load_tours(
+            data.camera_tours)
+        self.camera_tours_changed.emit(self._camera_tours)
 
     def create_new_season(
         self,
@@ -1241,6 +1337,8 @@ class ProjectManager(QObject):
                 rec.journal_note_id = None
             carried_harvest[tid] = history.to_dict()
         current_data.harvest_logs = carried_harvest
+        # #737: a tour is a camera path through the structures, and those carry over.
+        current_data.camera_tours = plan_tours.dump_tours(self._camera_tours)
 
         # Filter objects based on keep_plants flag
         if not keep_plants:
@@ -2698,9 +2796,11 @@ class ProjectManager(QObject):
                 if obj.get("area_label_visible"):
                     item.area_label_visible = True
                 if migrated_raised_bed:
-                    from open_garden_planner.core.item_look import adopt_type_fill
+                    from open_garden_planner.core.item_look import (
+                        adopt_rebuilt_type,
+                    )
 
-                    adopt_type_fill(
+                    adopt_rebuilt_type(
                         item, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
                     )
                 return item

@@ -209,3 +209,7 @@
 | Case study: the cheaper shadow walk got slower (#701) | [Read](206-case-study-the-cheaper-shadow-walk-got-slower-701.md) |
 | Case study: a 4K picture's dark band that was blamed on the glow (#733) | [Read](207-case-study-a-4k-picture-that-was-blamed-on-the-glow-733.md) |
 | Case study: a layers list with an empty row and a rename that shrank its row (#774/#775) | [Read](208-case-study-a-layers-list-with-an-empty-row-and-a-rename-that-shrank-774-775.md) |
+| Case study: a tool shortcut that fired nothing because S already belonged to Snap (PR #783) | [Read](209-case-study-a-tool-shortcut-that-fired-nothing-pr783.md) |
+| Case study: a snapped corner cut the bed it only grazed (PR #783) | [Read](210-case-study-a-snapped-corner-that-cut-a-bed-pr783.md) |
+| Case study: a group member that kept its focus for a split second - the minimap unselected the group (PR #783) | [Read](211-case-study-a-group-member-that-kept-its-focus-for-a-split-second-pr783.md) |
+| Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](222-case-study-a-blurred-bar-with-a-light-rim-743.md) |

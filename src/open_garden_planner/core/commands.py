@@ -8,12 +8,14 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
+from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find_tour
 from open_garden_planner.core.stacking import STACK_STEP
 
 if TYPE_CHECKING:
@@ -3108,6 +3110,78 @@ class BooleanShapeCommand(Command):
                     self._scene.addItem(item)
 
 
+class SplitShapeCommand(Command):
+    """Replace one shape by the pieces on each side of a cutting line (#664).
+
+    The source stays alive in this command for undo, exactly like
+    ``BooleanShapeCommand``; execute removes it and adds the pieces in one
+    undo step, undo reverses both.
+
+    A ridge-bearing building (a house, a greenhouse) is split like any other
+    shape. Its linked ``ROOF_RIDGE`` is derived geometry that names its owner,
+    so the source's ridge leaves and returns with the source, and every piece
+    gets its own ridge from the one construction path
+    (``roof_ridge_link.build_copy_ridges``) on the first execute. A building
+    without a ridge (the user deleted it: a flat roof) gives pieces without one.
+    Construct the command while the source is still in the scene: that is when
+    its ridge can be looked up.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        source: QGraphicsItem,
+        pieces: list[QGraphicsItem],
+    ) -> None:
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
+
+        self._scene = scene
+        self._source = source
+        self._pieces = list(pieces)
+        self._source_ridges: list[QGraphicsItem] = linked_ridges_under(source)
+        self._piece_ridges: list[QGraphicsItem] | None = None
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Split shape")
+
+    def execute(self) -> None:
+        for ridge in self._source_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
+        if self._source.scene() is self._scene:
+            self._scene.removeItem(self._source)
+        with _bulk_add_scope(self._scene):
+            for piece in self._pieces:
+                if piece.scene() is None:
+                    self._scene.addItem(piece)
+            if self._piece_ridges is None:
+                from open_garden_planner.ui.canvas.roof_ridge_link import (
+                    build_copy_ridges,
+                )
+
+                self._piece_ridges = (
+                    build_copy_ridges(self._pieces) if self._source_ridges else []
+                )
+            for ridge in self._piece_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
+
+    def undo(self) -> None:
+        for ridge in self._piece_ridges or []:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
+        for piece in self._pieces:
+            if piece.scene() is self._scene:
+                self._scene.removeItem(piece)
+        with _bulk_add_scope(self._scene):
+            if self._source.scene() is None:
+                self._scene.addItem(self._source)
+            for ridge in self._source_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
+
+
 class ArrayAlongPathCommand(Command):
     """Place copies of an item along a path."""
 
@@ -4577,6 +4651,87 @@ class DeleteManualTaskCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_manual_task(self._task_id, self._prior_dict)
+
+
+class _CameraToursCommand(Command):
+    """Replace the plan's saved camera tours in ONE undo step (#737, ADR-072 addendum).
+
+    The whole list before and the whole list after are kept — tuples of immutable
+    ``SavedTour`` — so undo and redo restore exactly what was there, whatever the
+    edit was. Both are fixed at construction, and the new list is checked there
+    (``checked_tours``: a name twice or too many tours raise ``ValueError`` before
+    anything reaches the undo stack): build the command right before executing it.
+    A tour touches no canvas item, so the two O(items) restack scans are skipped.
+    """
+
+    changes_ground_band = False
+    changes_containment = False
+
+    def __init__(self, project_manager: "Any", new_tours: "Sequence[SavedTour]") -> None:
+        self._pm = project_manager
+        self._old: tuple[SavedTour, ...] = tuple(project_manager.camera_tours)
+        self._new: tuple[SavedTour, ...] = checked_tours(new_tours)
+
+    def execute(self) -> None:
+        self._pm.set_camera_tours(self._new)
+
+    def undo(self) -> None:
+        self._pm.set_camera_tours(self._old)
+
+
+class SaveCameraTourCommand(_CameraToursCommand):
+    """Keep a camera tour in the plan — undoable (#737).
+
+    A tour of a new name is added at the end; a tour of a name the plan already has
+    (whatever its case) replaces that one in place.
+    """
+
+    def __init__(self, project_manager: "Any", tour: SavedTour) -> None:
+        tours = list(project_manager.camera_tours)
+        existing = find_tour(tours, tour.name)
+        if existing is None:
+            tours.append(tour)
+        else:
+            tours[tours.index(existing)] = tour
+        super().__init__(project_manager, tours)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Save camera tour")
+
+
+class RenameCameraTourCommand(_CameraToursCommand):
+    """Rename a saved camera tour — undoable (#737). ``ValueError`` when the plan has
+    no tour of that name, or already one of the new name."""
+
+    def __init__(self, project_manager: "Any", name: str, new_name: str) -> None:
+        tours = list(project_manager.camera_tours)
+        existing = find_tour(tours, name)
+        if existing is None:
+            raise ValueError(f"The plan has no camera tour named {name!r}")
+        tours[tours.index(existing)] = replace(existing, name=new_name)
+        super().__init__(project_manager, tours)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Rename camera tour")
+
+
+class DeleteCameraTourCommand(_CameraToursCommand):
+    """Remove a saved camera tour from the plan — undoable (#737). ``ValueError`` when
+    the plan has no tour of that name."""
+
+    def __init__(self, project_manager: "Any", name: str) -> None:
+        tours = list(project_manager.camera_tours)
+        existing = find_tour(tours, name)
+        if existing is None:
+            raise ValueError(f"The plan has no camera tour named {name!r}")
+        tours.remove(existing)
+        super().__init__(project_manager, tours)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Delete camera tour")
 
 
 # Commands whose effect cannot change an item's ground band (#592). Every one of
