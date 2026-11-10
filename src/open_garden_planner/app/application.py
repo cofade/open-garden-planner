@@ -111,6 +111,7 @@ if TYPE_CHECKING:
     from open_garden_planner.agent_api import AgentApiServer
     from open_garden_planner.core.sim_clock import SimChange
     from open_garden_planner.services.update_checker import ReleaseInfo
+    from open_garden_planner.ui.view3d.workspace_capture import WorkspaceCaptureCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -2180,10 +2181,10 @@ class GardenPlannerApp(QMainWindow):
         # comes back with the next document or a save (#795); it writes this one
         # clock. A camera tour that moves the clock holds a reading too: the
         # showcase reads and re-bases that inner hold, so the two never
-        # overwrite each other (the workspace is built later, hence the lambda).
+        # overwrite each other (``_tour_clock_hold``; the workspace was built
+        # above, with its tours).
         self._showcase_moment = ShowcaseMoment(
-            self._sim_clock,
-            inner_hold=lambda: getattr(getattr(self, "_workspace", None), "capture", None))
+            self._sim_clock, inner_hold=self._tour_clock_hold)
         self.canvas_scene.bind_plan_clock(self._sim_clock)
         self._sun_controller = SunShadowController(
             self.canvas_scene,
@@ -4138,6 +4139,18 @@ class GardenPlannerApp(QMainWindow):
         ``_on_sim_instant_changed`` every change."""
         self._sim_clock.set_datetime(dt)
 
+    def _tour_clock_hold(self) -> "WorkspaceCaptureCoordinator":
+        """The camera tours' hold of the clock: who moves it for a recording and
+        puts the owner's reading back (``core.showcase_moment.InnerClockHold``).
+
+        The one way this window reaches it — the showcase re-bases it when the
+        document changes (#795), the date handler asks it whose date the clock
+        shows (#738). By name, not through ``getattr``: a renamed attribute is
+        an error at the first document, not a tour that silently puts an
+        example's moment onto the user's plan.
+        """
+        return self._workspace.capture
+
     def _on_sim_date_changed(self, _day: "datetime.date") -> None:
         """A new plan DATE — never a time-of-day change (the clock's L1.0 gate).
 
@@ -4152,8 +4165,7 @@ class GardenPlannerApp(QMainWindow):
         # A tour moves the clock for its frames and puts the owner's moment back. The
         # heatmap the owner computed is the heatmap for that restored date, so the
         # frames must not throw it away (#738).
-        capture = getattr(getattr(self, "_workspace", None), "capture", None)
-        tour_moves_the_clock = capture is not None and capture.owner_plan_date() is not None
+        tour_moves_the_clock = self._tour_clock_hold().owner_plan_date() is not None
         # A direct controller computation has no live refresh intent.
         if (not tour_moves_the_clock and not self._live_sun_map.enabled
                 and self._sun_heatmap.computed_day != _day):
