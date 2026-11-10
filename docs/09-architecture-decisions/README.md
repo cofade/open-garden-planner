@@ -10683,7 +10683,9 @@ level (the board's clear shots and every Low frame: max difference 0).
    of the reach the bias ends the self-occlusion near and far (0.16: rim 6-8; 0.25: 3.1 on
    snow; 0.5: no occlusion at all, a caster's lit-side foot 0.004). Result: rim 1.92 / 1.21 /
    2.07 (overcast / rain / snow), far self-occlusion 2.64 / 1.93 / 2.79, snow's lawn 2.93
-   under Low, partly cloudy rim 4.92 (its 0.15 share). Clear, the dew and an Analyze drape
+   under Low, partly cloudy rim 4.92 (its 0.15 share); at 1080p 1.00 / 1.00 / 0.28, snow 0.58
+   over Low. The cloudy frames are brighter for it (1080p board luma: overcast 116.9 → 126.1,
+   rain 132.7 → 137.8, snow 154.2 → 174.9, the snow tops included). Clear, the dew and an Analyze drape
    keep 55 / 14 / 0 — the clear look keeps its own 8-level rim (below).
 2. **The overcast contact gate compares the LIT sides — decided on the evidence.** The issue
    asked for "contact darkness under overcast at least that of the clear look at 15°". On the
@@ -10697,7 +10699,13 @@ level (the board's clear shots and every Low frame: max difference 0).
    shadow side reads 0.044 (was 0.063) for the same reason. The geometry of a 1 x 1 x 2 m box
    under a sky-lit day predicts 0.10-0.17 (sky view factor of its foot ring against the open
    ground, display luma); Qt's pass cannot give more without the rim. Looked at, the overcast
-   box stands on darker ground at its foot and the ground round it is no longer grey.
+   box stands on darker ground at its foot and the ground round it is no longer grey. **At
+   1080p the gate FAILS by a hair**: Qt's foot shrinks with the picture in every look (clear
+   0.044 / 0.022 / 0.0096 at 360 px / 720p / 1080p), and the overcast foot reads 0.0065 against
+   clear's 0.0096 (today's values 0.0156) — about 0.4 levels, while the rim falls 11.71 → 1.00,
+   the open overcast ground's self-occlusion 15.63 → 0.21 and snow against Low -17.42 → +0.58.
+   An open question for the review: a foot that is invisible at 1080p in both looks, or a grey
+   ground with a rim.
 3. **Snow lies on built tops** (decision 6 amended). While snow lies (`AtmosphereSpec.built_snow`
    = min(1, snow cover / 0.75): smooth tops lie white where the meadow's 0.75 still shows
    grass — at 0.75 a terracotta roof read pink and the mat lilac), every `vc` part and roof
@@ -10714,12 +10722,21 @@ level (the board's clear shots and every Low frame: max difference 0).
    samples of the Forge's leaf colours for its own palette (outer, upper leaves) times the
    season's tint (`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id;
    `LEAF_PALETTE` is gone. A red maple drops red leaves (hue under 20°), every leaf within 10° of
-   its crown's mean hue (unit test), two trees of one species drop different samples.
+   its crown's mean hue (unit test), two trees of one species drop different samples. In the
+   frame a falling leaf reads 8-12° yellower than its crown (the board's autumn shot, the best
+   measured tree: 47.8° against 36.0°; the literal's amber read 39.6° there by chance): the
+   colour data are the crown's (39.7° against 39.1°), but a leaf particle is drawn in the
+   look's flat particle light while the crown's own leaves are shaded and occluded — a
+   follow-up for the particle light, not for the colours.
 5. **Lamp pools fade at the edge of the lit six, and a picture lights its own.** Each lit
    lamp is weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest
    lamp left out (`lights.lit_lamps`): at a swap both are dark, so no pool switches in a frame;
    no clock, so a recorded tour repeats; six lamps or fewer keep weight 1; a slot never turns
-   invisible, so no shader recompiles. Found while designing it: a camera tour's frames were lit
+   invisible, so no shader recompiles. Measured with a fixed night camera over ten lanterns and
+   the lamp target walking along them: the largest frame-to-frame step of a pool, 60 cm of
+   target travel a frame, 61.3 levels with the hard set and 49.0 faded; at 15 cm a frame (a
+   pan, a tour's path) 61.3 against 14.9 (p99 41.4 / 13.1) — the fade's step grows with the
+   travel per frame (up to 1.5 × 2 × travel / 200 cm of a pool), the hard set's does not. Found while designing it: a camera tour's frames were lit
    by the six lamps of the PANE's target (`camera_moved` follows the view only). A tour's frame
    and an agent's `render_3d_view` with a camera now light by their own target
    (`WorkspaceCaptureCoordinator` → `WorkspaceLivingCoordinator.aim_lamps`; PF-E3D-29).
