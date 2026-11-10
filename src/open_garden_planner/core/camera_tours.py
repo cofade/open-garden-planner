@@ -117,14 +117,21 @@ def _orbit_from(raw: Any) -> DroneOrbit:
     turns = round(_number(raw.get("turns", 1), "orbit.turns"))
     return DroneOrbit(pose, _number(raw.get("fov_deg", FOV_DEG), "orbit.fov_deg", 0.0, 180.0),
                       float(min(max(turns, ORBIT_TURNS[0]), ORBIT_TURNS[1])),
-                      raw.get("clockwise", True) is not False)
+                      raw.get("clockwise", True) is not False,
+                      # #807, additive: an orbit saved before easing existed has no "ease",
+                      # and flies the even loop it always flew
+                      ease=raw.get("ease") is True)
 
 
 def _orbit_dict(orbit: DroneOrbit) -> dict[str, Any]:
     pose = orbit.pose
-    return {"target": list(pose.target), "distance_cm": pose.distance_cm,
-            "yaw_deg": pose.yaw_deg, "pitch_deg": pose.pitch_deg, "fov_deg": orbit.fov_deg,
-            "turns": int(orbit.turns), "clockwise": orbit.clockwise}
+    data: dict[str, Any] = {"target": list(pose.target), "distance_cm": pose.distance_cm,
+                            "yaw_deg": pose.yaw_deg, "pitch_deg": pose.pitch_deg,
+                            "fov_deg": orbit.fov_deg, "turns": int(orbit.turns),
+                            "clockwise": orbit.clockwise}
+    if orbit.ease:   # only when set: an even orbit is written as every older build wrote it
+        data["ease"] = True
+    return data
 
 
 def _span(raw: Any, what: str, parse: Any) -> tuple[Any, Any]:

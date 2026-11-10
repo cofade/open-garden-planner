@@ -81,6 +81,7 @@ EVERY_KIND = [
     pytest.param(flight(date_range=(date(2026, 3, 1), date(2026, 10, 31)), duration_s=45.5,
                         fps=60, size=(3840, 2160)), id="path-year-4k"),
     pytest.param(orbit(), id="orbit"),
+    pytest.param(orbit(orbit=replace(ORBIT, ease=True)), id="orbit-eased"),
     pytest.param(orbit(keys=KEYS), id="orbit-that-keeps-its-keys"),
     pytest.param(held(time_range=(time(6, 0), time(21, 30))), id="hold-day"),
     pytest.param(held(), id="hold"),
@@ -124,6 +125,48 @@ def test_the_least_a_file_must_say_and_the_defaults_for_the_rest() -> None:
         "eye": [0, 0, 170], "target": [0, 500, 100]}})
     assert (tour.duration_s, tour.fps, tour.size) == (DEFAULT_DURATION_S, 30, DEFAULT_SIZE)
     assert tour.held == CameraKey((0.0, 0.0, 170.0), (0.0, 500.0, 100.0), 40.0)
+
+
+#: An orbit exactly as a plan saved before #807 holds it (ADR-072 addendum's example).
+ORBIT_BEFORE_EASING = {
+    "name": "Drone", "motion": "orbit",
+    "orbit": {"target": [1200.0, 800.0], "distance_cm": 2150.75, "yaw_deg": 33.5,
+              "pitch_deg": 28.25, "fov_deg": 40.0, "turns": 2, "clockwise": False},
+    "duration_s": 12.0, "fps": 30, "size": [1920, 1080],
+}
+
+
+def test_an_orbit_saved_before_easing_flies_its_old_frames_and_is_written_back_unchanged() -> None:
+    """#807: easing is a new field of an orbit, absent in every older file. Absent is no
+    easing: the old file's orbit loops at one speed, frame for frame what it flew before,
+    and saving it again writes the very same entry."""
+    tour = SavedTour.from_dict(through_json(ORBIT_BEFORE_EASING))
+    assert tour.orbit is not None and tour.orbit.ease is False and tour.orbit.closed
+    assert tour.to_dict() == ORBIT_BEFORE_EASING
+    pose = tour.orbit.pose
+    frames = list(tour_frames(tour.spec()))
+    assert len(frames) == 360
+    for frame in frames:   # the orbit's formula before #807: yaw + sign x 360 x turns x i / n
+        yaw = pose.yaw_deg + -1.0 * 360.0 * 2.0 * (frame.index / len(frames))
+        at = CameraPose(pose.target, pose.distance_cm, yaw, pose.pitch_deg)
+        assert frame.key == CameraKey(at.eye, at.target_scene, 40.0)
+
+
+def test_an_eased_orbit_is_written_with_its_one_new_field() -> None:
+    eased = orbit(orbit=replace(ORBIT, ease=True)).to_dict()
+    plain = orbit().to_dict()
+    assert eased["orbit"] == {**plain["orbit"], "ease": True}
+    assert {key: value for key, value in eased.items() if key != "orbit"} == {
+        key: value for key, value in plain.items() if key != "orbit"}
+
+
+@pytest.mark.parametrize("value", ["true", 1, None, [], {"on": True}, 1.0])
+def test_only_a_true_ease_eases_and_the_tour_is_kept(value: Any) -> None:
+    """A setting, like ``closed``: anything but JSON's true is the old even orbit."""
+    raw = through_json(ORBIT_BEFORE_EASING)
+    raw["orbit"]["ease"] = value
+    tour = SavedTour.from_dict(raw)
+    assert tour.orbit is not None and tour.orbit.ease is False
 
 
 def test_a_field_this_build_does_not_know_is_left_out_and_the_tour_is_kept() -> None:
