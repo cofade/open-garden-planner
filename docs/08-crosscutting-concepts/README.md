@@ -8624,6 +8624,10 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A zoom step repaints every visible item's device cache: 25–32 ms near fit on
   this plan, overlay on or off (48–64 ms on the machine under load). With the
   spacing rings off it is lower; how the rings are drawn is another change's.
+- A zoom step that returns to a zoom the overlay was rasterised for (one of
+  the last four) rasterises it at once instead of showing the kept picture:
+  95–99 ms at 112 % on this plan. The table's zoom steps are steps to a new
+  zoom.
 - The **first** zoom across a raster level (100 %, 200 %, 400 % …) rasterises
   each visible sprite at the new level and tints the detail tiles in use: one
   frame of 0.2–0.5 s on this plan (61 plants; 0.7 s measured once under load),

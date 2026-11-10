@@ -260,6 +260,61 @@ class TestZoomGesture:
         assert overlay.exact_paints == before + 3
 
 
+class TestHighDensityDevice:
+    """The kept picture is laid down in device pixels, and on a 200 % display a
+    device pixel is half a logical one: the picture must land where the overlay
+    is, upright, at both ratios — through the canvas's Y-flip."""
+
+    @staticmethod
+    def _overlay() -> SunShadowOverlayItem:
+        overlay = SunShadowOverlayItem()
+        path = QPainterPath()
+        path.moveTo(100, 60)  # no symmetry: a flip or a shift shows
+        path.lineTo(420, 90)
+        path.lineTo(380, 260)
+        path.lineTo(150, 300)
+        path.closeSubpath()
+        overlay.set_clip_rect(QRectF(0, 0, 600, 400))
+        overlay.set_shadow_path(path)
+        return overlay
+
+    @staticmethod
+    def _frame(overlay: SunShadowOverlayItem, ratio: float, zoom: float, *, exact: bool) -> np.ndarray:
+        image = QImage(int(640 * ratio), int(440 * ratio), QImage.Format.Format_ARGB32_Premultiplied)
+        image.setDevicePixelRatio(ratio)
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        painter.translate(10, 430)
+        painter.scale(zoom, -zoom)  # the view's Y-flip
+        if exact:
+            overlay._paint_exact(painter)
+        else:
+            overlay.paint(painter, None, None)
+        painter.end()
+        return _pixels(image)
+
+    @pytest.mark.parametrize("ratio", [1.0, 2.0])
+    def test_the_kept_picture_lands_on_the_overlay(self, qtbot, ratio: float) -> None:
+        overlay = self._overlay()
+        settles: list[int] = []
+        overlay.settle_requested = lambda: settles.append(1)
+        # 1. rasterised for this zoom and kept: the picture IS the overlay
+        kept = self._frame(overlay, ratio, 0.6, exact=False)
+        direct = self._frame(overlay, ratio, 0.6, exact=True)
+        assert np.abs(direct - 255).max() > 20  # there is a shadow in the frame
+        assert np.abs(kept - direct).max() <= CACHE_TOLERANCE
+        assert overlay._picture is not None and settles == []
+        # 2. a zoom step: the kept picture, enlarged 1.5 times — softer, same place
+        before = overlay.exact_paints
+        stepped = self._frame(overlay, ratio, 0.9, exact=False)
+        assert overlay.exact_paints == before and settles == [1]
+        direct = self._frame(overlay, ratio, 0.9, exact=True)
+        shadow = np.abs(direct - 255).max(axis=2) > 20
+        difference = np.abs(stepped - direct).max(axis=2)
+        assert difference[shadow].mean() < 2.0  # the same tone over the shadow
+        assert (difference > 30).mean() < 0.02  # edges only
+
+
 class TestPixelsUnchanged:
     @pytest.mark.parametrize("sun", list(SUNS))
     @pytest.mark.parametrize("zoom", [0.6, 1.0, 3.0])
