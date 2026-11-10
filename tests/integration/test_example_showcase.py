@@ -463,3 +463,25 @@ def test_unevaluated_sun_exposure_is_one_row_that_selects_its_plants(window, qtb
     panel.rows.itemClicked.emit(row)
     qtbot.waitUntil(lambda: len(window.canvas_scene.selectedItems()) == 174, timeout=5000)
     assert {str(item.item_id) for item in window.canvas_scene.selectedItems()} == plant_ids
+
+
+def test_the_showcase_is_wired_to_the_tours_own_hold_and_a_broken_wiring_is_loud(
+        window, monkeypatch):
+    """The showcase reads and re-bases the tour's hold of the clock through the window
+    (``GardenPlannerApp._tour_clock_hold``). Until the second review of the 2D branch
+    that was ``getattr(getattr(self, "_workspace", None), "capture", None)``: a renamed
+    attribute made it ``None`` without a word, and a tour then put an example's moment
+    onto the user's plan. The test above fails on a wrong name too — its hold is not
+    re-based — but only by its symptom; this one names the wiring."""
+    from open_garden_planner.ui.view3d.workspace import Workspace
+
+    capture = window._workspace.capture
+    assert window._showcase_moment._inner() is capture
+    assert window._tour_clock_hold() is capture
+
+    # the attribute gone, as after a rename that missed this file: the showcase's
+    # own entry point is asked (the menu path would report it in a message box)
+    monkeypatch.delattr(Workspace, "capture")
+    with pytest.raises(AttributeError, match="capture"):
+        window._showcase_moment.document_opened((date(2026, 6, 21), time(11, 0)))
+

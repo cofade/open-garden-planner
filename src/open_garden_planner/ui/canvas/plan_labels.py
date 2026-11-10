@@ -25,6 +25,7 @@ view states the ones it draws over its viewport with
 from __future__ import annotations
 
 import math
+import weakref
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeVar
@@ -196,12 +197,19 @@ class LabelPass:
     """
 
     def __init__(self) -> None:
-        self._kept: dict[int, _KeptLayout] = {}
+        # By the viewport itself, held weakly: a layout goes with its widget
+        # (``CanvasScene._label_blockers`` has the reasons).
+        self._kept: weakref.WeakKeyDictionary[QWidget, _KeptLayout] = weakref.WeakKeyDictionary()
         self.layouts = 0
 
     def clear(self) -> None:
         """Forget every kept layout: the items they name are being destroyed."""
         self._kept.clear()
+
+    @property
+    def viewports(self) -> int:
+        """For how many viewports a layout is kept right now."""
+        return len(self._kept)
 
     def paint(self, scene: CanvasScene, painter: QPainter, rect: QRectF) -> None:
         """Draw the badges and the labels that have room into ``rect`` (scene
@@ -224,7 +232,7 @@ class LabelPass:
         blocked = scene.label_blockers(viewport)
         scale = (world.m11(), world.m12(), world.m21(), world.m22())
         origin = QPointF(world.dx(), world.dy())
-        kept = self._kept.get(id(viewport))
+        kept = self._kept.get(viewport)
         if (
             kept is not None
             and kept.revision == scene.paint_revision
@@ -242,7 +250,7 @@ class LabelPass:
         )
         if kept is not None:
             _repaint_what_changed(viewport, kept, new, exposed)
-        self._kept[id(viewport)] = new
+        self._kept[viewport] = new
         return new
 
 

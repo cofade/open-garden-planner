@@ -315,6 +315,25 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         self.setFlag(QGraphicsPolygonItem.GraphicsItemFlag.ItemIsFocusable, True)
         self.enable_device_coordinate_cache()
 
+    def grid_cover_path(self) -> QPainterPath:
+        """What the polygon covers of the plan: its shape — and nothing above
+        the paint bound.
+
+        Above ``MAX_FULL_DETAIL_VERTICES`` the canvas paints this polygon as a
+        one-pixel outline with no fill (``paint``), because the fill of a
+        reflex-heavy outline is quadratic. What asks "what stands here" fills
+        the answer too — the canvas grid's cut-out, the raster the sun map's
+        labels read — and paid for it what the paint no longer does: one
+        outline of 16,000 zigzag vertices made every repaint with the grid on
+        1.2 s (second review of the 2D branch). So the one bound holds here as
+        well: such an outline covers what its picture covers, a hairline, and
+        the grid is drawn across it. Whether it is selected does not matter
+        (a selected one paints its fill, and the grid then lies on it).
+        """
+        if self.polygon().count() > MAX_FULL_DETAIL_VERTICES:
+            return QPainterPath()
+        return super().grid_cover_path()
+
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow."""
         base = super().boundingRect()

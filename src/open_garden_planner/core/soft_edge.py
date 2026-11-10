@@ -25,6 +25,22 @@ buys nothing the eye can see and is what the falloff costs.
 Why linear from 1: the old stack averaged 0.51 of the shade's own tone over its
 7 cm, and a linear ramp averages 0.5 — the edge keeps its visual weight. It
 starts at exactly the shade's tone, so there is no ring.
+
+Blurred coverage is a distance beside a STRAIGHT edge only. In the inside
+corner of an L, in the cusp between two round shades, in a sunlit hole or a
+narrow sunlit slot, more than half of what surrounds a sunlit point is shade:
+the "distance" comes out negative and the weight above 1 — ground beside the
+shade darker than the shade, by up to 41 of its 97 levels (second review of
+the 2D branch). The weight is still wanted above 1 on the lattice
+(``MAX_WEIGHT``: what the enlargement interpolates from), so it is not
+clamped here, where a clamp either leaves a cell's width of too-dark ground
+along every concave outline or starts every falloff under the shade's tone.
+It is clamped where the ground is painted, after the enlargement, at the
+device's resolution: the painter is given the weight as a mask in which the
+shade's own tone is HALF a byte (``MASK_FULL_WEIGHT``), and doubles that mask
+with saturation. So: **no pixel of the falloff is darker than the shade's
+tone** — and where the shade has regions of different tone, none is darker
+than the darkest shade within the blur's reach of it (``feather_fields``).
 """
 
 from __future__ import annotations
@@ -58,8 +74,11 @@ MIN_CELL_PX: Final = 2.0
 #: half it is the anti-aliasing of the shade's own edge.
 MIN_REACH_PX: Final = 1.5
 
-#: The most cells one field may have. A larger one (a poster-size export of a
-#: large plan) is computed on a coarser lattice: 16 MB of sums a field.
+#: The most cells one field may have: 16 MB of sums. A larger one (a
+#: poster-size export of a large plan) is computed in bands of that many cells,
+#: on the SAME lattice. Not on a coarser one, as it was until the second review
+#: of the 2D branch: how much coarser followed from what one paint exposed, so
+#: two tiles of one print computed two lattices.
 MAX_FIELD_CELLS: Final = 4_000_000
 
 #: Entries of the coverage-to-weight table (coverage 0 to 1). Many: far from
@@ -70,9 +89,17 @@ _LUT_SIZE: Final = 131072
 #: The falloff is continued this far above the shade's tone INSIDE the shade:
 #: the cells there are what the enlargement interpolates from just outside the
 #: edge, and a table that stopped at 1 would start the falloff under the
-#: shade's tone (by up to a quarter of a cell's share of the reach). The
-#: painter cuts the shade out, so nothing of it shows.
+#: shade's tone (by up to a quarter of a cell's share of the reach — measured
+#: again in the second review: a step of 3 levels and three pixels standing
+#: still at 1000 %). The painter cuts the shade out, so nothing of it shows —
+#: and clamps what is left to the shade's tone (module docstring).
 MAX_WEIGHT: Final = 1.5
+
+#: The weight a full byte of the painter's mask stands for. Twice the shade's
+#: tone: a weight of 1 is then half a byte, and the mask added to itself with
+#: saturation is the weight clamped to 1. Not below ``MAX_WEIGHT``, or the
+#: mask would clamp before the enlargement instead of after it.
+MASK_FULL_WEIGHT: Final = 2.0
 
 
 @dataclass(frozen=True)
@@ -81,8 +108,10 @@ class FeatherGrid:
 
     Attributes:
         cell_cm: The side of one cell, centimetres of plan. The lattice is
-            anchored at the item's origin, so two partial paints of one
-            picture compute the same cells.
+            anchored at the item's origin and its pitch follows from the
+            device's scale alone (``feather_grid``), so two partial paints of
+            one picture — a pan's strip, the tiles of a print — compute the
+            same cells.
         radius: Cells each side of one box pass (``BLUR_PASSES`` are made).
     """
 
@@ -93,11 +122,6 @@ class FeatherGrid:
     def blur_cells(self) -> int:
         """How many cells the passes reach from a cell."""
         return BLUR_PASSES * self.radius
-
-    def coarser(self, factor: float) -> FeatherGrid:
-        """The same falloff on a lattice ``factor`` times coarser (>= 1)."""
-        cell = self.cell_cm * max(1.0, factor)
-        return FeatherGrid(cell, _radius_for(cell, FEATHER_REACH_CM))
 
 
 def _radius_for(cell_cm: float, reach_cm: float) -> int:
@@ -200,22 +224,27 @@ def falloff_lut(grid: FeatherGrid, reach_cm: float = FEATHER_REACH_CM) -> np.nda
     return _falloff_lut(grid.radius, round(reach_cm / grid.cell_cm, 4))
 
 
-def feather_weight(
+def feather_fields(
     coverage: np.ndarray,
     grid: FeatherGrid,
     strength: np.ndarray | None = None,
     reach_cm: float = FEATHER_REACH_CM,
-) -> np.ndarray:
-    """How dark each cell of the lattice is, as a share of a solid shade's tone:
-    1 at the shade's edge, 0 from ``reach_cm`` outside it on.
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """The two factors of the falloff on the lattice: its weight and its tone.
 
     ``coverage`` is the share of each cell the shade covers, in bytes (255: all
-    of it). ``strength`` is the shade's own tone per cell where it is not solid
-    everywhere (a porous fence, an open frame: bytes, zero outside the shade);
+    of it). The **weight** is 1 at the shade's edge and 0 from ``reach_cm``
+    outside it on; inside the shade, and in concave places beside it, it goes
+    on rising to ``MAX_WEIGHT`` (see there and the module docstring): the
+    painter enlarges it, clamps it to 1 and removes what it says about the
+    shade's inside.
+
+    ``strength`` is the shade's own tone per cell where it is not solid
+    everywhere (a porous fence, an open frame: bytes, zero outside the shade).
+    The **tone** is then the tone of the shade within the blur's reach of each
+    cell, 0 to 1 — an average, so never above the darkest shade there — and
     the falloff beside a light shade starts at that shade's tone, not at the
-    solid one's. Inside the shade the falloff simply goes on rising, to
-    ``MAX_WEIGHT`` (see there); the painter draws the shade itself and removes
-    what this function says about its inside.
+    solid one's. ``None`` for a solid shade (the tone is 1 everywhere).
     """
     sums = box_sums(coverage, grid.radius)
     lut = falloff_lut(grid, reach_cm)
@@ -224,15 +253,30 @@ def feather_weight(
     index = np.minimum((shares * per_entry).astype(np.intp), _LUT_SIZE - 1)
     weight = lut[index]
     if strength is None:
-        return weight
+        return weight, None
     tone = box_sums(strength, grid.radius).astype(np.float32) / np.maximum(shares, np.float32(1.0))
-    return weight * np.minimum(tone, np.float32(1.0))
+    return weight, np.minimum(tone, np.float32(1.0))
+
+
+def feather_weight(
+    coverage: np.ndarray,
+    grid: FeatherGrid,
+    strength: np.ndarray | None = None,
+    reach_cm: float = FEATHER_REACH_CM,
+) -> np.ndarray:
+    """How dark each cell of the lattice is, as a share of a solid shade's tone:
+    the product of ``feather_fields``, as the lattice has it — before the
+    painter's clamp, so above the shade's tone inside the shade and in concave
+    places beside it."""
+    weight, tone = feather_fields(coverage, grid, strength, reach_cm)
+    return weight if tone is None else weight * tone
 
 
 __all__ = [
     "BLUR_PASSES",
     "FEATHER_REACH_CM",
     "MAX_BLUR_RADIUS",
+    "MASK_FULL_WEIGHT",
     "MAX_FIELD_CELLS",
     "MAX_WEIGHT",
     "MIN_CELL_PX",
@@ -242,6 +286,7 @@ __all__ = [
     "box_blur",
     "box_sums",
     "falloff_lut",
+    "feather_fields",
     "feather_grid",
     "feather_weight",
 ]

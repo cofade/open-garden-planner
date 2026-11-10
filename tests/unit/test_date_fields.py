@@ -234,6 +234,22 @@ def test_a_short_date_is_never_a_numeric_day_month_pair(qtbot, speak, language, 
     assert month in text
 
 
+@pytest.mark.parametrize(("language", "system"), SYSTEMS)
+def test_the_sun_maps_key_writes_its_day_with_the_one_formatter(
+        qtbot, speak, language, system) -> None:
+    """The key's title is a legend text: the day in UI text, never ISO (which
+    is for a date FIELD, a file and the Agent API). Until the second review of
+    the 2D branch it wrote ``day.isoformat()``."""
+    from open_garden_planner.ui.canvas.sun_legend import legend_title
+
+    speak(language, system)
+    day = datetime.date(2026, 6, 7)
+    title = legend_title(day)
+    assert title.endswith(i18n.format_short_date(day)), title
+    assert "2026-06-07" not in title
+    assert legend_title(None) and "2026" not in legend_title(None)
+
+
 def test_the_3d_card_and_the_legend_write_dates_and_numbers_with_the_one_formatter(
         qtbot, speak) -> None:
     from open_garden_planner.ui.view3d import info_card, workspace_legend

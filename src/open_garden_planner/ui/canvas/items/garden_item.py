@@ -773,8 +773,16 @@ class GardenItemMixin(PositionLockMixin):
 
     @object_type.setter
     def object_type(self, value: ObjectType | None) -> None:
-        """Set the object type."""
+        """Set the object type.
+
+        What an object IS decides whether it stands on the plan or is ground
+        under the grid (``canvas_scene.on_ground``), so the scene is told that
+        what it keeps for painting is stale. Not a plan change of its own: the
+        command that changes a type announces that (ADR-060).
+        """
         self._object_type = value
+        if isinstance(self, QGraphicsItem):
+            note_label_changed(self)
 
     @property
     def name(self) -> str:
@@ -910,7 +918,11 @@ class GardenItemMixin(PositionLockMixin):
     def grid_cover_path(self) -> "QPainterPath":
         """The part of the plan this object covers, in item coordinates.
 
-        The canvas grid is not drawn over it (``CanvasView._draw_grid``).
+        The canvas grid is not drawn over it (``CanvasView._draw_grid``) and
+        the hours on the sun map's contours keep clear of it. Both FILL this
+        path, so it is bounded like the item's own picture: an outline above
+        the paint bound of #472 answers with an empty path
+        (``PolygonItem.grid_cover_path``, ``PolylineItem.grid_cover_path``).
         """
         return self.shape()  # type: ignore[attr-defined,no-any-return]
 
