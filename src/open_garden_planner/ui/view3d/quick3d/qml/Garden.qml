@@ -816,6 +816,10 @@ Item {
                 // a crisp sun glint: 0.3 blew it over the pond, 0.05 still clipped ~23 %
                 // of the visible pond at morning (spike, creator round 2)
                 property real uRough: 0.02
+                // #803: the glint's peak (linear, before the look's exposure) is soft-capped
+                // here: Qt's own glint clipped a white blob over 3-6 % of a pond seen at the
+                // mirror angle of a morning sun; 0.6 peaks at luma 212-237, unclipped
+                property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 shadingMode: CustomMaterial.Shaded
                 fragmentShader: "water.frag"
             }
@@ -831,6 +835,7 @@ Item {
                 property real uBody: 0.5
                 property real uReflect: 0.15
                 property real uRough: 0.02
+                property real uGlintCap: 0.6 / (root.exposure * root.photoExposure)
                 property real uOpacity: fade
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
@@ -1537,6 +1542,7 @@ Item {
                     property real uBody: 0.5
                     property real uReflect: 0.15
                     property real uRough: 0.02
+                    property real uGlintCap: 0.6
                     property real uOpacity: 0.0
                     shadingMode: CustomMaterial.Shaded
                     vertexShader: "screen.vert"
