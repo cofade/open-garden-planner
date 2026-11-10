@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.ui.canvas.layout_font import layout_dpi, layout_pixel_size
 
 from .garden_item import GardenItemMixin
 from .resize_handle import RotationHandleMixin
@@ -34,10 +35,26 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     Supports free placement, inline editing on double-click,
     configurable font properties, rotation, and serialization.
+
+    **Two numbers describe its size, and they are not the same unit (#836).**
+
+    * ``font_size`` is what the plan file stores. It is the font's point size
+      divided by 28.35 (``_CM_TO_PT``), rounded to a whole point: centimetres
+      on a 72-dpi sheet at 1:1, which is not a length on the plan. Its meaning
+      is frozen: a stored value must draw what it always drew.
+    * ``em_height_cm`` is the size the note has on the plan: the font's em in
+      plan centimetres. A scene item's points are laid out at the screen's
+      96 pixels per inch and a pixel of the item is a plan centimetre, so a
+      stored 1.0 is a 28 pt font with an em of 37 cm (capital letters 27 cm).
+      This is what the Properties panel states and takes;
+      ``font_size_for_em_height`` converts back.
     """
 
-    # Conversion: 1 cm = 72/2.54 ≈ 28.35 pt (screen points at 72 dpi)
+    #: Points per unit of the stored ``font_size`` (72 / 2.54). The name is
+    #: historic: the unit is not a plan centimetre — see the class docstring.
     _CM_TO_PT: float = 72.0 / 2.54
+    #: The smallest stored ``font_size`` (a 3 pt font).
+    MIN_FONT_SIZE: float = 0.1
 
     def __init__(
         self,
@@ -59,7 +76,9 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
             y: Y position in scene coordinates
             content: Text content
             font_family: Font family name
-            font_size: Font size in cm (scene units), default 1 cm
+            font_size: The stored size: point size / 28.35 (NOT plan
+                centimetres — ``em_height_cm`` is). The default 1.0 is 28 pt,
+                letters with an em of 37 cm on the plan
             bold: Whether text is bold
             italic: Whether text is italic
             text_color: Text color (defaults to black)
@@ -81,7 +100,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
         self._content = content
         self._font_family = font_family
-        self._font_size = font_size  # stored in cm
+        self._font_size = font_size  # the stored number: points / 28.35
         self._bold = bold
         self._italic = italic
         self._text_color = text_color
@@ -131,8 +150,36 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     @font_size.setter
     def font_size(self, value: float) -> None:
-        self._font_size = max(0.1, value)  # minimum 0.1 cm
+        self._font_size = max(self.MIN_FONT_SIZE, value)
         self._apply_font()
+
+    @property
+    def em_height_cm(self) -> float:
+        """The font's em on the plan, in centimetres: the note's real size.
+
+        Read from the font the note is drawn with, so it is true whatever the
+        stored number was rounded to.
+        """
+        return layout_pixel_size(self.font())
+
+    @classmethod
+    def font_size_for_em_height(cls, height_cm: float) -> float:
+        """The stored ``font_size`` whose font has an em of *height_cm* on the plan.
+
+        Fonts come in whole points, so the nearest one is taken; for a height
+        read from ``em_height_cm`` that is the font the note already has.
+        """
+        return max(cls.MIN_FONT_SIZE, height_cm * 72.0 / layout_dpi() / cls._CM_TO_PT)
+
+    @classmethod
+    def em_height_for_font_size(cls, font_size: float) -> float:
+        """The em on the plan, in centimetres, of a note stored with *font_size*."""
+        return layout_pixel_size(QFont("Arial", cls._points(font_size)))
+
+    @classmethod
+    def _points(cls, font_size: float) -> int:
+        """The whole point size a stored *font_size* is drawn with."""
+        return max(1, round(font_size * cls._CM_TO_PT))
 
     @property
     def bold(self) -> bool:
@@ -162,9 +209,8 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self.setDefaultTextColor(value)
 
     def _apply_font(self) -> None:
-        """Apply current font settings (font_size stored in cm, converted to pt)."""
-        pt = max(1, round(self._font_size * self._CM_TO_PT))
-        font = QFont(self._font_family, pt)
+        """Apply current font settings (the stored ``font_size`` as whole points)."""
+        font = QFont(self._font_family, self._points(self._font_size))
         font.setBold(self._bold)
         font.setItalic(self._italic)
         # A note is laid out once, at its nominal size, and then scaled with the

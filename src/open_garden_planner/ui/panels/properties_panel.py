@@ -64,6 +64,12 @@ from open_garden_planner.ui.panels.property_edits import PropertyEdits
 from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
+#: The largest stored text size the size field offers (letters 38 m tall), and
+#: its step in plan centimetres: wider than the 1.33 cm between two font sizes,
+#: so one step always changes the text.
+_TEXT_MAX_FONT_SIZE = 100.0
+_TEXT_SIZE_STEP_CM = 5.0
+
 # The raw attribute names (font_family, font_size) make ugly undo labels
 # ("Change text font_family"); these map them to nouns registered under the
 # "Commands" i18n context (scripts/fill_translations.py).
@@ -2200,20 +2206,34 @@ class PropertiesPanel(QWidget):
             font_combo, lambda c=font_combo, it=item: c.setCurrentFont(it.font())
         )
 
-        # Font size (in cm, matching scene units)
+        # Font size: the font's height on the plan, in centimetres (#836). The
+        # stored ``font_size`` is another number (points / 28.35) and stays what
+        # it is; the conversion happens here, at the edge. Fonts come in whole
+        # points, 1.33 cm apart, so the field shows the size the note HAS after
+        # an edit (its refresher), and one step is wider than that gap.
         size_spin = QDoubleSpinBox()
-        size_spin.setRange(0.1, 100.0)
-        size_spin.setSingleStep(0.5)
-        size_spin.setDecimals(1)
+        size_spin.setRange(
+            item.em_height_for_font_size(item.MIN_FONT_SIZE),
+            item.em_height_for_font_size(_TEXT_MAX_FONT_SIZE),
+        )
+        size_spin.setSingleStep(_TEXT_SIZE_STEP_CM)
+        size_spin.setDecimals(0)
         size_spin.setSuffix(" cm")
+        size_spin.setToolTip(self.tr(
+            "Font height on the plan. Capital letters are about 70 % as tall. "
+            "The text takes the nearest available size."
+        ))
         _style_numeric_field(size_spin)
-        size_spin.setValue(item.font_size)
+        size_spin._ogp_text_size = True  # type: ignore[attr-defined]
+        size_spin.setValue(item.em_height_cm)
         size_spin.valueChanged.connect(
-            lambda v: self._on_text_property_changed(item, "font_size", v)
+            lambda v: self._on_text_property_changed(
+                item, "font_size", item.font_size_for_em_height(v)
+            )
         )
         self._form_layout.addRow(self.tr("Size:"), size_spin)
         self._register_refresh(
-            size_spin, lambda s=size_spin, it=item: s.setValue(it.font_size)
+            size_spin, lambda s=size_spin, it=item: s.setValue(it.em_height_cm)
         )
 
         # Bold / Italic row
