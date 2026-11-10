@@ -25,12 +25,12 @@ The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (o
 ### PF-CAN-51
 
 - **Rule:** Whatever marks an object (selection handles, the rotation handle, a label anchor) reads `handle_geometry.selection_frame_rect(item)`, never `boundingRect()`; and an `ItemIgnoresTransformations` label is centred or stacked in its own pixel frame, never by an offset written into its position.
-- **Pinned by:** `tests/integration/test_selection_frame.py`; `tests/integration/test_canvas_legibility.py::test_a_label_is_centred_on_its_object_at_every_zoom`
+- **Pinned by:** `tests/integration/test_selection_frame.py`; `tests/integration/test_canvas_legibility.py::test_a_label_is_centred_on_its_object_at_every_zoom`; `tests/integration/test_pdf_report_pages.py::test_the_position_in_the_plant_list_is_the_plant_not_its_badge`
 - **Source:** #790, #793
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-`boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. See §8.9.17.
+`boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. A report that states where an object stands reads the same rectangle: the PDF plant list took its Position column from `boundingRect().center()`, and a plant with an antagonist badge in one corner was listed beside itself (found by the review of the 2D branch). See §8.9.17.
 
 ### PF-CAN-52
 
