@@ -155,6 +155,61 @@ def test_leaves_fall_from_turned_trees_and_shrubs_that_are_dropping_them() -> No
     assert oak.count > next(e for e in leaves if e.item_id == "lilac").count, "shared by crown size"
 
 
+def _hue(linear: np.ndarray) -> float:
+    """Hue in degrees of a LINEAR rgb colour, as its sRGB encoding shows it."""
+    import colorsys
+
+    srgb = np.where(linear <= 0.0031308, linear * 12.92, 1.055 * np.power(np.clip(linear, 0, None), 1 / 2.4) - 0.055)
+    return colorsys.rgb_to_hsv(*np.clip(srgb, 0.0, 1.0))[0] * 360.0
+
+
+def test_a_falling_leaf_takes_its_colour_from_its_own_crown() -> None:
+    """#687: a leaf is its crown's colour — the Forge's leaf colours for the tree's own
+    palette (``plant_forge.palette_leaf_colors``, what the crown is built with) times the
+    season's tint (``PhenologyState.foliage_tint_linear``, the crown's ``seasonTint``) —
+    never a palette literal (``ogp-lush-cinematic`` style table). So a red maple drops red
+    leaves and a green tree turning amber drops amber ones; each tree its own samples
+    (seeded by its id): two trees of one species drop no clones."""
+    from open_garden_planner.core.plant_art import traits_for
+    from open_garden_planner.core.plant_forge import palette_leaf_colors
+    from open_garden_planner.core.scene3d import particles
+    from open_garden_planner.core.scene3d.builders.plants import plant_sprite
+
+    assert not hasattr(particles, "LEAF_PALETTE"), "no palette literal for leaves"
+    maple = dataclasses.replace(plant("maple", east=0.0), params=Params(
+        {"seed": "maple", "radius_cm": 150.0, "sprite_species": "maple"}))
+    maple2 = dataclasses.replace(plant("maple2", east=400.0), params=Params(
+        {"seed": "maple2", "radius_cm": 150.0, "sprite_species": "maple"}))
+    oak = plant("oak", east=800.0)
+    red, amber = (1.45, 0.55, 0.45), (1.25, 0.85, 0.35)
+    seasons = {"maple": dataclasses.replace(state(leaves=0.5, autumn=0.9), foliage_tint_linear=red),
+               "maple2": dataclasses.replace(state(leaves=0.5, autumn=0.9), foliage_tint_linear=red),
+               "oak": dataclasses.replace(state(leaves=0.5, autumn=0.9), foliage_tint_linear=amber)}
+    leaves = {e.item_id: e for e in ambient_emitters([maple, maple2, oak], seasons, date(2026, 10, 20), 52.0)
+              if e.kind == "leaf"}
+    assert set(leaves) == {"maple", "maple2", "oak"}
+    rng = np.random.default_rng(7)
+    for record in (maple, oak):
+        sprite = plant_sprite(record)
+        crown = palette_leaf_colors(traits_for(sprite).palette, sprite, rng.random(4000), rng.random(4000),
+                                    rng)[:, :3].astype(np.float64).mean(axis=0)
+        crown = crown * np.asarray(seasons[record.item_id].foliage_tint_linear)
+        palette = np.asarray(leaves[record.item_id].palette_linear)
+        assert len(palette) >= 4
+        drop = (_hue(palette.mean(axis=0)) - _hue(crown) + 180.0) % 360.0 - 180.0
+        assert abs(drop) <= 10.0, (record.item_id, _hue(palette.mean(axis=0)), _hue(crown))
+    assert _hue(np.asarray(leaves["maple"].palette_linear).mean(axis=0)) < 20.0, "a red maple drops red"
+    assert leaves["maple"].palette_linear != leaves["maple2"].palette_linear, "no clones"
+    again = {e.item_id: e for e in ambient_emitters([maple, maple2, oak], seasons, date(2026, 10, 20), 52.0)}
+    assert again["maple"] == leaves["maple"], "deterministic per item"
+    # the buffer draws the emitter's own colours
+    rows = _vertices(ambient_buffers((leaves["maple"],)))
+    drawn = {tuple(np.round(row, 4)) for row in rows[:, 6:9].astype(np.float64)}
+    allowed = {tuple(np.round(np.asarray(c, dtype=np.float32).astype(np.float64), 4))
+               for c in leaves["maple"].palette_linear}
+    assert drawn <= allowed
+
+
 def test_butterflies_visit_flowers_within_reach() -> None:
     records = [plant("rose", "SHRUB", radius=60.0, height=150.0),
                plant("lime", radius=300.0, height=1500.0), plant("fern", "PERENNIAL", radius=30.0, height=40.0)]
