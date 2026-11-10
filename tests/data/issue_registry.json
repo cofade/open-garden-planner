@@ -1069,6 +1069,11 @@
     "state": "OPEN",
     "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
   },
+  "689": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
   "690": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1199,10 +1204,20 @@
     "state": "OPEN",
     "title": "3D: a day time-lapse flickers on alternate frames at dawn and dusk (sky and ambient light rebuilt only every 1° of sun)"
   },
+  "800": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: wind is invisible on tree crowns (0.9 cm sway for a herb and a 12 m poplar alike)"
+  },
   "802": {
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: the garden gets brighter as night falls (ground luma rises after sunset)"
+  },
+  "805": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D foliage: backlit leaves show shadow acne; crowns read as paper confetti at close range"
   },
   "807": {
     "is_pr": false,

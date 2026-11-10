@@ -207,8 +207,8 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
         assert "sourceBlend" not in block and "opacity: fade" not in block, name
         assert "visible:" not in block, name     # nothing hides a part to cut or fade it
     # #687: snow swaps in only where no screen door is drawn (test_snow_lies_on_the_built_tops...)
-    assert ("materials: fade < 1.0 ? [vcScreen] : root.builtSnow > 0.0 && partName !== \"floor\" "
-            "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
+    assert ("materials: fade < 1.0 ? [vcScreen] : swayFrame.x > 0.0 && root.windBlowing ? [vcSway] "
+            ": root.builtSnow > 0.0 && partName !== \"floor\" ? [vcSnow] : [vcLook]")         in " ".join(blocks["vcPart"].split())
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
@@ -227,8 +227,8 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
     assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
     # the roofless house reads as a room: its walls drop back-face culling (the look, the
-    # door and, since #687, the snowy look)
-    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 3
+    # door and, since #687, the snowy look; since #800 a plant's swaying wood, as its look)
+    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 4
     for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "screenDoor(FRAGCOORD.xy) >= uOpacity" in source and "discard;" in source, name
@@ -266,15 +266,16 @@ def test_a_destroyed_model_is_retired_not_merely_hidden() -> None:
     assert "p.visible)" not in listing and "!p.visible" not in listing, "visibility must not filter"
 
 
-@pytest.mark.parametrize("shader", ["foliage.vert", "grass.vert"])
+@pytest.mark.parametrize("shader", ["foliage.vert", "grass.vert", "plant_sway.vert"])
 def test_the_wind_shaders_move_nothing_at_rest(shader: str) -> None:
     """Review P2-11, read from the source (the render tier measures it in pixels): every
     displacement is multiplied by ``rest``, which is exactly 0 while the scene's clock
-    stands at 0 — and the clock's default IS 0."""
+    stands at 0 — and the clock's default IS 0. The lawn's blades move by two lines; a
+    plant (#800) by one, the whole ``plantSway`` (test_scene3d_wind.py pins its text)."""
     source = (QML_DIR / shader).read_text(encoding="utf-8")
     assert "float rest = smoothstep(0.0, 2.0, uTime);" in source
-    moves = [line.strip() for line in source.splitlines() if re.match(r"\s*VERTEX\.\w\s*\+=", line)]
-    assert len(moves) == 2, moves
+    moves = [line.strip() for line in source.splitlines() if re.match(r"\s*VERTEX(\.\w)?\s*\+=", line)]
+    assert len(moves) == (2 if shader == "grass.vert" else 1), moves
     assert all(line.endswith("* rest;") for line in moves), moves
     assert re.search(r"property real windTime:\s*0\s*$", _scene(), re.MULTILINE)
 
@@ -333,7 +334,8 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 # photo mode's depth of field (#743)
                                 "photoblur_layer.frag", "photoblur_rows.frag",
                                 "photoblur_compose.frag",
-                                "built_snow.frag", "built_snow.vert"}   # snow on built tops (#687)
+                                "built_snow.frag", "built_snow.vert",   # snow on built tops (#687)
+                                "plant_sway.vert"}   # a plant's wood and fruit in the wind (#800)
     # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {
         "Garden.qml", "AtmosphereSky.qml", "PhotoBlur.qml", "PROVENANCE.md",
@@ -755,19 +757,21 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
     code = _scene()
     blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
     vc, roof = blocks["vcPart"], blocks["roofPart"]
-    assert ("materials: fade < 1.0 ? [vcScreen] : root.builtSnow > 0.0 && partName !== \"floor\" "
-            "? [vcSnow] : [vcLook]") in " ".join(vc.split())
+    assert ("materials: fade < 1.0 ? [vcScreen] : swayFrame.x > 0.0 && root.windBlowing ? [vcSway] "
+            ": root.builtSnow > 0.0 && partName !== \"floor\" ? [vcSnow] : [vcLook]") in " ".join(vc.split())
     assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : root.builtSnow > 0.0 "
             "? [roofSnow] : [roofLook]") in " ".join(roof.split())
     for block, tint in ((vc, "Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, "
                              "tint.b * seasonTint.z)"),
                         (roof, "Qt.vector3d(tint.r, tint.g, tint.b)")):
-        assert block.count('fragmentShader: "built_snow.frag"') == 1
+        # the snowy look, and (#800) a plant's swaying wood, which carries the snow too
+        assert block.count('fragmentShader: "built_snow.frag"') == (2 if block is vc else 1)
         assert block.count('vertexShader: "built_snow.vert"') == 1   # the colour as COLOR
-        assert f"property vector3d uTintSrgb: {tint}" in block
-        assert "property real uSnowCover: root.builtSnow" in block
-        assert "property real uSnowRough: root.groundRoughness" in block
-        assert "property real uSnowSpecular: root.groundSpecular" in block
+        n = 2 if block is vc else 1
+        assert block.count(f"property vector3d uTintSrgb: {tint}") == n
+        assert block.count("property real uSnowCover: root.builtSnow") == n
+        assert block.count("property real uSnowRough: root.groundRoughness") == n
+        assert block.count("property real uSnowSpecular: root.groundSpecular") == n
     assert "texture: patternMap ? patternMap : null" in vc.split("id: vcSnow")[1]
     for kind in ("glassPart", "waterPart", "foliagePart"):
         assert "built_snow" not in blocks[kind], kind
@@ -780,3 +784,34 @@ def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() ->
     # the first snowy frame compiles nothing new: the warmer draws it with no pixel
     warmer = code[code.index("id: shaderWarmer"):]
     assert 'fragmentShader: "built_snow.frag"' in warmer
+
+
+def test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind() -> None:
+    """#800: the leaves (and their screen door) and a plant's wood and fruit read the SAME
+    per-part frame (``swayFrame``, set by ``Quick3DHost.create_part`` from
+    ``core.scene3d.wind.sway_frame``), the look's ``windSway`` and the clock; the wood
+    swaps to its swaying shader only while the clock runs (every frame at rest is the
+    principled look). The lawn's blades keep the strength they had; the first windy frame
+    compiles nothing new (the warmer draws the wood's shader)."""
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
+    foliage, vc, grass = blocks["foliagePart"], blocks["vcPart"], blocks["grassPart"]
+    for block in (foliage, vc):
+        assert "property vector3d swayFrame: Qt.vector3d(0, 0, 0)" in block
+    for block, materials in ((foliage, ("id: foliageLook", "id: foliageDoor")), (vc, ("id: vcSway",))):
+        for material in materials:
+            body = block.split(material, 1)[1].split("CustomMaterial", 1)[0]
+            assert "property vector3d uSwayFrame: swayFrame" in body, material
+            assert "property vector3d uWindSway: root.windSway" in body, material
+            assert "property real uTime: root.windTime" in body, material
+    assert "uWind:" not in foliage
+    # the swap follows a bool that changes only at start and rest, never the clock itself
+    # (a binding on windTime would reassign the materials on every frame)
+    assert re.search(r"readonly property bool windBlowing:\s*windTime > 0\.0", code)
+    assert "root.windTime" not in vc.split("materials:", 1)[1].split("PrincipledMaterial", 1)[0]
+    sway = vc.split("id: vcSway", 1)[1]
+    assert 'vertexShader: "plant_sway.vert"' in sway and 'fragmentShader: "built_snow.frag"' in sway
+    assert grass.count("property real uWind: root.windStrength") == 2
+    warmer = code[code.index("id: shaderWarmer"):]
+    assert 'vertexShader: "plant_sway.vert"' in warmer
+    assert "uWind:" not in warmer.split('vertexShader: "foliage_door.vert"')[0].rsplit("Model {", 1)[1]

@@ -7220,6 +7220,122 @@ tier `tests/integration/test_directors_cut_render.py::test_a_day_lapse_does_not_
 `test_living_garden_render.py::test_the_living_board_renders_every_shot`. Pitfalls PF-L3D-28,
 PF-L3D-29.
 
+### ADR-059 addendum: the wind that shows, and the leaves' stripes (#800, #805)
+
+**Status**: Accepted (2026-11-10, visual-polish package). Amends decision 6 of the L1.4 addendum
+(the wind) and the #687 addendum's "clear keeps 55 / 14 / 0". The amplitude share, the AO floor's
+effect on every clear frame and the leaf size are open to the owner (below).
+
+**Context.** The 3D promo-readiness survey found two foliage faults that a camera tour shows at
+once. *#800*: with the camera held for 2 s on the family garden's 9.5 m birch about 11 m out the
+crown did not move. Measured (960 × 540, 4 s, the tour's clock): 0.03 px of sway; a 60 cm basil
+3 m out moved more (0.32 px). `foliage.vert` moved every leaf by `windStrength × 0.35` = 0.875 cm
+times its height fraction squared — the same for every plant — and took the phase from `0.011 ×`
+the vertex's world x, 13 rad across a 12 m crown, so a crown rippled in place; the wood (a
+PrincipledMaterial) did not move at all. *#805*: diagonal stripes 2–4 px apart across backlit
+leaves at golden hour on High and Ultra, which the survey called shadow acne from the back-light
+term at shadow bias 10.
+
+**Decision.**
+
+1. **A plant sways by its own size, as one** (`core/scene3d/wind.py`, the numpy statement of
+   the shaders' `plantSway`, one text in `foliage.vert`, `foliage_door.vert` and
+   `plant_sway.vert`, pinned to each other and to the module's numbers). In the engine frame,
+   item-local: the amplitude at the top is `SWAY_SHARE` = 0.5 % of the plant's height under a
+   clear day's wind, linear in the look's strength (`windSway` = downwind × strength / 2.5:
+   calm still, rain × 2, snow × 0.6); a cantilever (`(y/h)²`: the foot stays where the plan
+   puts it); the whole plant leans downwind (0.35 of the swing) and swings at
+   `1.2 Hz / √(h / 1 m)` within 0.25–2.5 Hz, spread ±10 % by its phase, with a figure-of-eight
+   across the wind at 0.71 of that; a branch term (0.45 of the amplitude at the outer top, a
+   field smooth in space, so a twig and its leaves move together); a leaf flutter along its
+   normal (0.25, 2–5.1 Hz — at least six frames a cycle at 30 fps); a gust (14 s, ±35 %)
+   travelling downwind across the garden. Every frequency is a whole number of cycles an hour,
+   so the clock's 3602 → 2 s wrap is seamless. At clock 0 every term is 0 (the rest ramp).
+2. **Every part of an item with leaves takes the same frame.** `wind.sway_frame` gives an item
+   with a `foliage` part its height (the top of its meshes — fitted to the data, so the data's),
+   its reach and its phase (from its item id, never from its position); the adapter hands it
+   on in `PartSpec.sway`, the host sets `swayFrame` on the foliage and vc Models. A plant's
+   wood and fruit draw through `plant_sway.vert` + `built_snow.frag` (snow on bare branches
+   included) **only while the clock runs** — `materials: … swayFrame.x > 0.0 && root.windBlowing ? [vcSway] : …`, a bool that
+   changes only when the wind starts or rests (a binding on `windTime` itself would reassign
+   every plant part's materials on every frame) — so every frame at rest is the principled
+   look; the swap measured invisible. No vertex attribute was added; the frame is a uniform per Model. The lawn's blades
+   keep their own wind (`windStrength`). The particles drift from the same direction
+   (`wind.WIND_FROM_DEG`, moved from `weather.py`).
+3. **The stripes are ambient occlusion, and the fix is its bias.** The stripes did not change
+   with the shadow bias (10 / 14 / 20 / 40 cm) or with a still picture's fitted map and vanished
+   with AO off; Low (no AO) never had them. Qt's SSAO takes a camera-facing normal, so a FLAT
+   micro-leaf seen at a slant occludes itself in bands — #687's flat-ground self-occlusion on
+   every leaf. `look.AO_FLAT_BIAS_CM` = 1 cm is the floor of every look's AO bias (a weather's
+   own, 21 cm × its light share, stays where larger). The shadow bias, maps, cascades and IoU
+   are untouched.
+
+**Alternatives rejected.** The issue's shadow bias 10 → 14 (measured: no change); a normal-offset
+of the leaf's shadow lookup and leaving the back-light share out of the self-shadow test (the
+stripes are not in the shadow term); AO dither (bands became noise, 0.545); AO softness 90
+(0.212, every contact softer); AO bias 2 cm (stripes 0.175, but a box caster's lit-side contact
+halved, 0.0223 → 0.0086). For the wind: an attribute per vertex for the branch weight (the
+position and the frame give it at no memory cost); a phase from the plant's position (the
+id's phase is the same on every machine and in every pass); swaying only the leaves (they slid
+over still twigs; the wood takes the same function).
+
+**Consequences.**
+
+- A tour, a held shot and the live view show the garden moving: the birch's upper crown sways
+  about 1.4 px of a 1080-row picture at 11 m (the top leaves several px), slowly; a shrub
+  less, a herb barely. Taste: whether 0.5 % reads strong enough on the owner's screen is the
+  owner's to judge from the clips (the share is one constant).
+- Every clear frame from Medium up is a little brighter on open flat ground (its self-occlusion
+  16.9 → 11.4 levels at High) and in crowns (8 levels on a backlit crown) — what #687 left
+  open ("whether clear gets the AO bias too"), decided here by the leaves; the owner may veto.
+- X-ray: a faded plant's leaves sway (their screen door is the same shader), its wood not
+  (`screen.vert` has no sway) — a small mismatch in an analysis view, left as is.
+- A tour's first windy frame compiles nothing new (the shader warmer draws `plant_sway.vert`).
+- The foliage render tier (`test_view3d_foliage_render.py`) is not in CI's `render3d` file list
+  (a 3 s sequence on llvmpipe would take minutes); CI compiles both new shader paths through
+  `test_quick3d_render.py` (the broken-shader controls and the rest controls).
+
+**Evidence** (RTX 4070, Direct3D 11, family garden, painted sky; probes in the story's scratch,
+the tier in the test).
+
+| What | Before | After |
+|---|---|---|
+| Birch 9.5 m at 11 m: upper crown's downwind sway, half a swing (960 × 540, 30 / 60 fps) | 0.03 / 0.03 px | 0.86 / 0.86 px (1.7 px of a 1080-row picture) |
+| … its period (zero crossings; rule 1 / 0.389 Hz ± 10 %) | — | 2.67 s |
+| Lilac 1.74 m at 5 m / basil 0.6 m at 3 m: sway | 0.017 / 0.32 px | 0.78 / 0.38 px, periods 1.11 / 0.65 s |
+| Render tier (640 × 360, 3 s): birch / lilac / basil, px of a 1080-row picture; cm | — | 1.43 / 1.58 / 0.84 px; 1.30 / 0.54 / 0.19 cm |
+| Largest step a frame, 30 / 60 fps (960 × 540): birch, lilac, basil | — | 0.12 / 0.06, 0.19 / 0.10, 0.15 / 0.08 px |
+| Motion above a third of the frame rate; zigzags on the downwind track | — | ≤ 0.2 % of the energy; 0 |
+| Frame i at 30 fps against frame 2i at 60 fps; the same index twice | — | identical; 0 levels |
+| Wind clock 0, three cameras (960 × 540), base against after | — | max difference 0 |
+| The wood's swaying shader at zero amplitude against the principled look (1080p, four presets) | — | 0 levels (one pixel 1 level, Medium) |
+| Shadow follows the crown (wind × 20): ground px changed, look / shadow pass without sway | — | 5,777 / 7,015 against 872 / 1,661 |
+| Stripes inside the cherry's crown, golden hour, High, 1080p: look / AO off / AO bias 0 | 0.326 / 0.164 / — | 0.184 |
+| Stripes, whole crop, High / Ultra at golden hour and sunset, locked and fitted | 0.127–0.177 | 0.093–0.126 (Low 0.089–0.134, unchanged) |
+| Render tier (1280 × 720): look / AO off / bias 0, High and Ultra | — | 0.202 / 0.172 / 0.301, 0.195 / 0.172 / 0.302 |
+| Clear AO on bench_small (1280 × 720, High): rim, far self-occlusion, open-ground darkening | 7.57, 12.5, 16.86 | 6.72, 9.93, 11.36 |
+| … a box caster's contact, lit foot / shaded side | 0.0223 / 0.487 | 0.0214 / 0.478 |
+| Frame cost 1080p with the wind running, minimum of 12 (then 16) captures strictly alternating in one process, the GPU shared with other renders: low / medium / high / ultra | 24.5 / 28.3 / 28.4 / 47.7 ms (20.3 / 26.6 / 38.4 / 52.6) | 26.2 / 28.4 / 30.8 / 49.7 ms (22.5 / 28.3 / 33.6 / 56.6): +0.1 to +4.0 ms, high once −4.8 — inside the run-to-run spread |
+| Vertex data, family garden (the largest example, LOD0): 598,582 vertices × 48 B | 28.73 MB | 28.73 MB (+16 B of uniform per Model) |
+
+**Open for the owner.** (1) The leaf size: at L0 the owner kept small-leaved crowns as they
+are; the forge's LOD0 leaves are large because the coverage rule meets the crown's area with
+few leaves (birch 1,857 leaves, median 42 cm long, 3,714 of its 25,000 triangles; cherry 2,507
+at 31 cm) — halving the length at LOD0 would cost about four times the leaf triangles (still
+inside the budget), lobed leaf meshes near the camera are the bigger step; kept as built. No
+leaf lies isolated (nearest neighbour over two leaf lengths: 0 of 1,857–2,838) and at most
+0.2 % touch the reach clamp, so "loose quads outside the silhouette" are the outer leaves of
+that size, not strays. (2) The sway share 0.5 %. (3) The AO floor on clear frames.
+
+Tests: `tests/unit/test_scene3d_wind.py`, `test_quick3d_adapter.py`
+(`test_an_item_with_leaves_sways_as_a_whole_and_a_built_one_not_at_all`), `test_quick3d_qml.py`
+(`test_a_plant_sways_as_one_by_its_own_frame_and_the_lawn_keeps_its_wind`), `test_scene3d_weather.py`;
+render tier `test_view3d_foliage_render.py` (sway, smoothness and determinism, rest and the
+wood's swap, the shadow with its control, the stripes with their control) and
+`test_quick3d_render.py` (the rest control and a broken-shader control for `plant_sway.vert`). On
+the base shaders the sway gate and the smoothness gate fail; the stripe gate's control (the bias
+at 0) fails it. PF-L3D-32, PF-L3D-33.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first

@@ -298,6 +298,28 @@ class TestAdd:
         sink.update_material("lawn", BLUE)
         assert scene.calls == [] and sink.item("lawn").transform.east_cm == 6.0
 
+    def test_an_item_with_leaves_sways_as_a_whole_and_a_built_one_not_at_all(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        """#800: every part of a plant (leaves, wood, fruit) gets the SAME sway frame — its
+        height, reach and phase — so they move together; a built item gets none, and a
+        kind that has no sway (a plant's glass would be one) gets none either."""
+        from open_garden_planner.core.scene3d.wind import NO_SWAY, sway_frame
+
+        sink, scene = rig
+        leaves, wood = _prism(950.0, kind="foliage", name="foliage"), _prism(600.0, name="wood")
+        sink.begin()
+        sink.add("birch", (wood, leaves, _prism(5.0, kind="glass", name="odd")),
+                 Transform(east_cm=10.0), RED)
+        sink.add("shed", (_prism(250.0),), Transform(), RED)
+        sink.commit()
+        frame = sway_frame("birch", (wood, leaves))
+        assert frame.sways and frame.height_cm == pytest.approx(950.0)
+        first, second, glass = scene.of("birch")
+        assert first.spec.sway == second.spec.sway == frame.as_tuple()
+        assert glass.spec.sway == NO_SWAY.as_tuple()
+        (shed,) = scene.of("shed")
+        assert shed.spec.sway == NO_SWAY.as_tuple()
+
     def test_a_part_with_nothing_to_draw_creates_no_model(
             self, rig: tuple[Quick3DSink, FakeScene]) -> None:
         sink, scene = rig
