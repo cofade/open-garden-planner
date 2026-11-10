@@ -451,9 +451,15 @@ def test_unevaluated_sun_exposure_is_one_row_that_selects_its_plants(window, qtb
     assert len(folded) == 1 and panel.rows.count() < 10, texts
     assert panel.count_label.text().startswith(f"{panel.rows.count()} of {panel.rows.count()} ")
     # the records stay one per plant: what an agent reads is unchanged
-    assert len(panel.records) >= 174
+    unevaluated = [record for record in panel.records if record.kind == "sun_evaluation"]
+    assert len(unevaluated) == 174
+    plant_ids = {item_id for record in unevaluated for item_id in record.item_ids}
+    assert plant_ids == set(plants_by_id(window)), "every plant of the plan, and only plants"
 
+    # the one row stands for ALL of them: it carries every plant's id and selects every plant
     row = panel.rows.item(texts.index(folded[0]))
-    assert len(row.data(Qt.ItemDataRole.UserRole)) >= 1
+    assert set(row.data(Qt.ItemDataRole.UserRole)) == plant_ids
+    assert len(row.data(Qt.ItemDataRole.UserRole)) == 174
     panel.rows.itemClicked.emit(row)
-    qtbot.waitUntil(lambda: len(window.canvas_scene.selectedItems()) >= 1)
+    qtbot.waitUntil(lambda: len(window.canvas_scene.selectedItems()) == 174, timeout=5000)
+    assert {str(item.item_id) for item in window.canvas_scene.selectedItems()} == plant_ids
