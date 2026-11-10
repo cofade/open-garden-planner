@@ -45,7 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 |--------|----|-------|---------------------|
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |
 | ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |
-| 🚧 | Package 2D visual polish (#698, #782, #784–#796, #836) | Sharp sprites and fills, a cheap repaint with the sun overlay, quiet spacing warnings, legible labels, true exports, theme and locale fixes, examples in a showcase state, a key for the hours-of-sun map | Draft PR; ADR-076, ADR-077; §8.36, §8.37 |
+| ✅ | Package 2D visual polish (#698, #782, #784–#796, #836) | Sharp sprites and fills, a cheap repaint with the sun overlay, quiet spacing warnings, legible labels, true exports, theme and locale fixes, examples in a showcase state, a key for the hours-of-sun map | v1.38.0; [PR #838](https://github.com/cofade/open-garden-planner/pull/838); ADR-076, ADR-077; §8.36, §8.37 |
 | 🚧 | Package 3D visual polish (#687, #716, #719, #734, #737, #743, #798–#803, #805, #807) | Grass on the meadow, built parts that look like their material, tiled roofs, sharp low-sun shadows in stills, a clean horizon, a steady day lapse with a twilight fill, wind that shows, publishable tour video with an eased orbit, tours kept in the plan | Draft PR; ADR-059 and ADR-072 addenda |
 
 ### Phase 16: Platform & Community (future)
