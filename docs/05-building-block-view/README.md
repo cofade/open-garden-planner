@@ -76,7 +76,7 @@ src/open_garden_planner/
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037);
 │   │                             #   plan_place(): the validity rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
-│   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document (#795)
+│   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document or a save (#795)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
 │   │                             #   resolve_height() is the ONE precedence ladder, projected by effective_height_cm /
@@ -845,7 +845,7 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. Reads a shipped example's trusted sidecar: its title and its showcase moment (#795). |
 
-| `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document (#795). |
+| `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document or when the copy is saved; the outer holder over a camera tour's clock hold (#795). |
 
 | `services/example_library.py` | Bundled sidecars, localized catalog, local template paths, read-only resource payload. |
 

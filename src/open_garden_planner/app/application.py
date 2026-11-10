@@ -2177,8 +2177,13 @@ class GardenPlannerApp(QMainWindow):
         # QObject, so every subscriber lives as long as this window.
         self._sim_clock = SimClock()
         # A shipped example is seen at its own moment and the user's reading
-        # comes back with the next document (#795); it writes this one clock.
-        self._showcase_moment = ShowcaseMoment(self._sim_clock)
+        # comes back with the next document or a save (#795); it writes this one
+        # clock. A camera tour that moves the clock holds a reading too: the
+        # showcase reads and re-bases that inner hold, so the two never
+        # overwrite each other (the workspace is built later, hence the lambda).
+        self._showcase_moment = ShowcaseMoment(
+            self._sim_clock,
+            inner_hold=lambda: getattr(getattr(self, "_workspace", None), "capture", None))
         self.canvas_scene.bind_plan_clock(self._sim_clock)
         self._sun_controller = SunShadowController(
             self.canvas_scene,
@@ -2963,7 +2968,6 @@ class GardenPlannerApp(QMainWindow):
         """
         try:
             self._project_manager.load(self.canvas_scene, recovery_path)
-            self._showcase_moment.document_opened(None)
             self.canvas_view.command_manager.clear()
             self.canvas_view.fit_in_view()
             self.canvas_scene.update_dimension_lines()
@@ -2975,6 +2979,9 @@ class GardenPlannerApp(QMainWindow):
             # Reset the project path to None (since this is a recovery)
             self._project_manager._current_file = None
             self._project_manager.project_changed.emit(None)
+            # After the rewire, like every document change (#795): the clock
+            # re-raises a listener's error.
+            self._showcase_moment.document_opened(None)
 
             self.statusBar().showMessage(self.tr("Recovered from auto-save. Remember to save your work!"))
             QMessageBox.information(
@@ -3183,7 +3190,6 @@ class GardenPlannerApp(QMainWindow):
         self.canvas_view.command_manager.clear()
         self.constraints_panel.refresh()
         self._project_manager.new_project()
-        self._showcase_moment.document_opened(None)
 
         # Apply optional garden year chosen in dialog
         if garden_year is not None:
@@ -3211,6 +3217,10 @@ class GardenPlannerApp(QMainWindow):
                     width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
                 )
             )
+
+        # Last, after the document is rewired (#795): the clock re-raises a
+        # listener's error, and nothing above may be skipped by it.
+        self._showcase_moment.document_opened(None)
 
     def _on_canvas_size(self) -> None:
         """Handle Canvas Size action — resize the current canvas."""
@@ -3320,14 +3330,6 @@ class GardenPlannerApp(QMainWindow):
                 self._update_window_title()
             raise
 
-        # A shipped example opens at the daytime moment its sidecar names, however
-        # late the wall clock is; every other document gets the user's own reading
-        # back (#795, ADR-066 addendum). Session state only: nothing is saved.
-        from open_garden_planner.core.templates import example_showcase_moment
-
-        self._showcase_moment.document_opened(
-            example_showcase_moment(Path(file_path)) if as_template else None)
-
         if hasattr(self, 'calendar_view') and self.calendar_view is not None:
             self.calendar_view.clear_frost_alerts()
 
@@ -3359,6 +3361,16 @@ class GardenPlannerApp(QMainWindow):
         # Deferred: when opened from the modal Welcome dialog, a bar shown
         # now would sit behind it. singleShot(0) runs after it closes.
         QTimer.singleShot(0, self._check_overdue_tasks)
+
+        # A shipped example opens at the daytime moment its sidecar names, however
+        # late the wall clock is; every other document gets the user's own reading
+        # back (#795, ADR-066 addendum). Session state only: the moment is never
+        # saved. LAST, after the document is rewired: the clock re-raises a
+        # listener's error (ADR-053), and nothing above may be skipped by it.
+        from open_garden_planner.core.templates import example_showcase_moment
+
+        self._showcase_moment.document_opened(
+            example_showcase_moment(Path(file_path)) if as_template else None)
 
     def _reset_compare_overlay_after_failed_load(self) -> None:
         """#337: a failed load can leave the compare-overlay action state
@@ -3522,9 +3534,31 @@ class GardenPlannerApp(QMainWindow):
             self._project_manager.save(self.canvas_scene, file_path)
             # Clear the auto-save file since we've saved manually
             self._autosave_manager.clear_autosave()
-            self.statusBar().showMessage(self.tr("Saved: {path}").format(path=file_path))
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to save file:\n{error}").format(error=self._plan_error_message(e)))
+            return
+        # Outside the try: the file is written, and a clock listener's error is
+        # not a failed save.
+        if not self._end_showcase_after_save(file_path):
+            self.statusBar().showMessage(self.tr("Saved: {path}").format(path=file_path))
+
+    def _end_showcase_after_save(self, file_path: Path) -> bool:
+        """A saved example copy is the user's plan: its showcase ends (#795).
+
+        THE one place a save ends a showcase: File > Save / Save As and the
+        agent's ``save_plan`` both call it once the file is written. The clock
+        returns to the reading the user had before the example and the status
+        bar says so; from here on the plan follows the user's clock like any
+        plan of theirs (ADR-066 addendum, decision 2). Returns whether a
+        showcase ended. An autosave and a template export do not come here:
+        neither makes the open document the user's file.
+        """
+        if not self._showcase_moment.copy_saved():
+            return False
+        self.statusBar().showMessage(self.tr(
+            "Saved: {path}. The plan now follows your own date and time, "
+            "no longer the example's.").format(path=file_path))
+        return True
 
     def _on_export_png(self) -> None:
         """Handle Export as PNG action."""

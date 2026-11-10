@@ -9819,13 +9819,36 @@ a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in
    loaded a shipped example as a template. It is not a clock: it holds one remembered reading.
    Both the date and the time are set. The time alone would leave today's date, on which the
    plants of an example are a season older or, before their planting date, absent (ADR-062).
-2. **The user's reading comes back with the next document** *(owner)*. New, Open and a recovery
-   put the clock back to the wall reading the user had before the first example, also when the
-   user scrubbed inside the example: a date picked while looking at an example belongs to the
-   example, and fresh plants in the user's own plan are stamped with the plan date. Saving the
-   copy changes nothing on screen. Nothing is persisted, in settings or in the plan, so a copy
-   the user saved opens at their "now" like any plan of theirs (ADR-062: the viewed date is
-   never saved).
+2. **The user's reading comes back when the example stops being the document** *(owner)*.
+   New, Open and a recovery put the clock back to the wall reading the user had before the
+   first example, also when the user scrubbed inside the example: a date picked while looking
+   at an example belongs to the example. **A successful Save or Save As of the copy ends the
+   showcase too** *(owner; review round 1, replaces "Saving the copy changes nothing on
+   screen")*: the copy is the user's file from then on, so the clock returns to their reading,
+   the held reading is dropped, and the status bar says that the plan now follows their own
+   date and time. The reason is the plan-date rule (ADR-062): a new plant is stamped with the
+   date the clock shows. With the showcase left running, a plant added to the saved plan in
+   November was planted on 21 June, and a clock setting the user made in their saved plan was
+   replaced by the older remembered reading when the next document opened. Now a clock setting
+   made after the save is the user's and no later document replaces it. `ShowcaseMoment`
+   forgets the reading before it writes the clock, so a raising listener cannot leave one
+   behind. The agent's `save_plan` ends the showcase through the same
+   `GardenPlannerApp._end_showcase_after_save`; an autosave and "Save as template" do not,
+   because neither makes the open document the user's file, and a recovered autosave opens at
+   the user's reading like any document that is no example.
+   **What a file can carry**: the moment itself is never persisted, in settings or in the plan
+   (ADR-062: the viewed date is never saved), so a saved copy opens at the user's "now". A
+   plant the user adds while the copy is still UNSAVED is planted on the example's date,
+   because that is the date on screen, and it keeps that planting date in the saved file.
+   That is accepted: the example's own plants carry the same dates.
+   **Order of the writes**: the showcase writes the clock as the last step of a document
+   change, after the history, the autosave, the layers panel and the status bar are the new
+   document's, because `SimClock` re-raises a listener's error (ADR-053). A camera tour that
+   moves the clock holds a reading as well. The showcase is the outer holder and the tour the
+   inner one (`core/showcase_moment.InnerClockHold`): when the document changes under a
+   running tour (only an agent can do that), the showcase takes the user's reading from the
+   tour's hold and not from the frame, and re-bases the hold after its write, so the tour's
+   finish returns the clock to the document that is open then.
 3. **The moment is a UTC time of day on the local reference date**, applied with
    `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock reads wall
    time in the computer's zone; a wall-clock "13:00" is night over Berlin for a user in

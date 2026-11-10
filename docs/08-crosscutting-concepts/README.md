@@ -8587,7 +8587,7 @@ An example opens as it is meant to be seen, however late it is on the wall clock
 
 | Part | Where it lives | Rule |
 |---|---|---|
-| The moment | sidecar `showcase_date` + `showcase_utc_time`; `core/templates.example_showcase_moment`; `core/showcase_moment.ShowcaseMoment` | `_load_project_file` hands the moment of an example opened as a template to `ShowcaseMoment`, which writes the one `SimClock` (`set_utc_time_on`). The next document (New, Open, a recovery) gives the clock back to the reading the user had before the first example, also after the user moved the clock inside the example. Nothing is persisted: no setting and no plan key. A copy the user saved opens like any plan of theirs. |
+| The moment | sidecar `showcase_date` + `showcase_utc_time`; `core/templates.example_showcase_moment`; `core/showcase_moment.ShowcaseMoment` | `_load_project_file` hands the moment of an example opened as a template to `ShowcaseMoment`, which writes the one `SimClock` (`set_utc_time_on`) as the LAST step of the document change (the clock re-raises a listener's error). The showcase ends, and the clock returns to the reading the user had before the first example, with the next document (New, Open, a recovery) and with a successful Save or Save As of the copy (`_end_showcase_after_save`, also the agent's `save_plan`); the status bar says so. An autosave and "Save as template" leave it running. The moment is never persisted: no setting and no plan key. A plant added to the still unsaved copy is planted on the example's date (the plan-date rule) and keeps it; one added after the save gets the user's date. A camera tour's clock hold is the inner holder: the showcase reads and re-bases it (`InnerClockHold`). |
 | Harvest history | generator `_harvest`; `core/templates.EXAMPLE_DEMO_FIELDS` | A few fictional records on ONE plant per species, between that plant's planting date and the reference date, with the canonical `species_key` and the common name the Log Harvest dialog caches. Every record's note says it is fictional. No journal note is linked: an example copy carries no journal. An example copy keeps `location`, `soil_tests` and `harvest_logs`; any other template keeps none of them. |
 | Seed inventory | none | The user's own store outside every plan. An example never fills it; the empty Seed Inventory tab says what it is and how to start. |
 | Plant picture | `PlantDatabasePanel._show_drawn_thumbnail` | The bundled species have no photo. Plant Details show the plant as the plan draws it (`render_plant_pixmap`: species, then category, then the type's default), also while a provider's photo is still loading. No third-party image ships. |
@@ -8610,7 +8610,10 @@ Data rules the content tests hold (`tests/unit/test_example_content.py`):
   (`text()` asserts it).
 
 End to end: `tests/integration/test_example_showcase.py` opens every example
-through the gallery's path in a window whose clock was seeded at 22:30.
+through the gallery's path in a window whose clock was seeded at 22:30. It saves
+the copy through File > Save, drops a plant through the canvas's creation path and
+reads the planting date back from the file; a test of "nothing of the example is
+saved" that only looks for key names cannot fail and was replaced by these.
 
 The gallery tab hides Welcome's large banner. A bounded, scrollable details area
 keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;

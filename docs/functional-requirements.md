@@ -1184,8 +1184,12 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
 - **FR-EXAMPLE-08** (#795): An example opens on its reference date with a daytime sun,
   however late the wall clock is: Family garden on 21 June 2026, the teaching plans on
   21 September 2026. The Plan & Sun strip shows that moment. Opening or creating another
-  document puts the clock back to the reading the user had before. Nothing about the
-  moment is saved; a copy saved from an example opens like any plan of the user's.
+  document puts the clock back to the reading the user had before, and so does saving the
+  copy (Save or Save As): it is the user's plan from then on, the status bar says that it
+  now follows their own date and time, and a date or time they set afterwards stays when
+  another document opens. The moment itself is never saved; a copy saved from an example
+  opens like any plan of the user's. A plant added before the copy is saved is planted on
+  the example's date, one added after it on the user's date.
 - **FR-EXAMPLE-09** (#795): Each example has a small harvest history that is marked as
   fictional, so the Harvest tab, a plant's harvest log and the report's harvest page show
   content. The Seed Inventory is the user's own and stays as it is; when it is empty the

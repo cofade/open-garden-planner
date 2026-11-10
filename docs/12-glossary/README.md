@@ -165,7 +165,7 @@
 | **Shopping List** | Aggregated buying list (Plants / Seeds / Materials) produced from the current plan; only user-entered prices persist with the project, the rows themselves are recomputed on each open |
 | **ShoppingListItem** | One purchasable row: stable ID (e.g. `plant:<species_id>`), category, name, quantity, unit, optional price |
 | **ShoppingListCategory** | Top-level group in the shopping list: `PLANTS`, `SEEDS`, or `MATERIALS` |
-| **Showcase moment** | The moment a shipped example is made to be seen at: its reference date and a UTC time of day with a daytime sun over its own place, named by the example's sidecar. `core/showcase_moment.ShowcaseMoment` puts the sim clock there while the example is open and gives the user's reading back with the next document; never persisted (#795, ADR-066 addendum) |
+| **Showcase moment** | The moment a shipped example is made to be seen at: its reference date and a UTC time of day with a daytime sun over its own place, named by the example's sidecar. `core/showcase_moment.ShowcaseMoment` puts the sim clock there while the unsaved example copy is open and gives the user's reading back with the next document or when the copy is saved; never persisted (#795, ADR-066 addendum) |
 | **Sim clock** | `core/sim_clock.SimClock`, the one simulated moment of a session (plan date + wall-clock time, UTC derived) behind the sun toolbar, shadow overlay, heatmap and 3D view; not persisted (Phase 17 L1.0, ADR-053) |
 | **SoilTestRecord** | Single soil test entry: date, pH, NPK levels, secondary nutrients, optional ppm values, notes, optional soil texture |
 | **SoilTestHistory** | Time-ordered list of `SoilTestRecord`s for one target (a bed UUID or `"global"` default) |
