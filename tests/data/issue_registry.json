@@ -1218,5 +1218,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "UI polish: 1280x720 toolbar overflow, clipped panel fields, calendar task rows and other layout nits"
+  },
+  "836": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   }
 }

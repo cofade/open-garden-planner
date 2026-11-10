@@ -781,7 +781,9 @@ on Windows, where the halo reaches 2.5 px, and 6.4 px at an export's 7 pt.
 | An object's name or area label | `PlanLabelItem` |
 
 Both item classes stay `QGraphicsSimpleTextItem`: the export paths find text by
-that type to resize it (PF-CAN-08).
+that type to resize it (PF-CAN-08). A constant-size item that draws its text by
+hand (the succession badge) offers `font()` / `setFont()` and is named in
+`retarget_constant_size_text` instead (#836).
 
 **Stated contrast.** `core/legibility.py` holds the arithmetic (WCAG relative
 luminance and contrast ratio). `MIN_TEXT_CONTRAST = 4.5` is what a label shows as
@@ -804,6 +806,14 @@ the labels the canvas shows. The label stays a child item, which keeps its place
 visibility, opacity, lifetime and export font size for free. The pass skips a
 label with `ItemHasNoContents`: that flag is how the minimap blanks screen-space
 items (§8.9.5).
+
+**A bed's succession badge is painted in the same pass (#836)**, before the labels
+(`plan_labels.paint_succession_badges`): as a child item it was drawn with its bed,
+and the plants growing in the bed covered it. It hangs on the corner of the bed's
+outline (`_position_succession_badge`, called with `_position_label` on every change
+of the outline) and is shown only where it has room on its bed
+(`label_layout.badge_has_room`, in device pixels, so the canvas at any zoom and an
+export at any resolution decide alike).
 
 **A label centres itself.** An `ItemIgnoresTransformations` label has its position
 in plan units and its size in pixels. An offset of half its size written into its
@@ -863,6 +873,10 @@ over `BED_SHAPES` of `tests/integration/test_bed_context_menu.py`: with every
 diagnostic flag raised, the exported picture of each shape equals the picture of
 the bare shape. A shape added to the bed gate is checked here with no further
 step.
+
+The succession badge is not in the list above: it states what the plan says (the
+crops that follow in a bed), not a warning about it, and is in every picture of the
+plan, drawn to the picture's scale (§8.36, ADR-076 addendum of #836).
 
 Decision (ADR-028 addendum): the spacing ring is a planning aid and is in no
 exported picture, warning or not. View-level overlays (grid, rulers, scale bar,
@@ -8703,10 +8717,10 @@ toggles flags on arbitrary scene items has to make the same exception. Test
 drill-down in the running window (`GardenPlannerApp`), past a minimap refresh,
 with members that were selected before they were grouped; a bare canvas has no
 minimap.
-## 8.36 Exports — one picture in every format (#787, #788, #789, ADR-076)
+## 8.36 Exports — one picture in every format (#787, #788, #789, #836, ADR-076)
 
 PNG, SVG, the PDF report, the printout and the Agent API render all paint the same
-scene. Five rules keep them the same picture.
+scene. Seven rules keep them the same picture.
 
 | Rule | Where | Pinned by |
 |---|---|---|
@@ -8715,6 +8729,8 @@ scene. Five rules keep them the same picture.
 | The painter the scene is rendered with carries the true output scale in its world transform — a 300-dpi `QImage` for PNG and for the report's plan pages, 1/300-inch units for SVG, the printer's resolution for print | `ExportService.export_to_png`, `pdf_report_service._scene_to_image`, `svg_export.record_scene`, `GardenPrintManager` | `tests/integration/test_pdf_report_pages.py` |
 | The SVG is recorded and replayed, never painted into `QSvgGenerator` directly | `services/svg_export.py` (PF-CAN-53) | `tests/integration/test_svg_export_fidelity.py` |
 | Nothing is painted outside its frame: a `paint()` clips with `IntersectClip`, a print tile is an explicit clip, a report picture is its frame | PF-CAN-54 | `tests/integration/test_pdf_report_pages.py` |
+| Plan content that is drawn at a constant pixel size by hand (the succession badge) is sized by its font alone, joins the retargeted text through `font()` / `setFont()`, and draws its text with a font sized in pixels | `scene_rendering.retarget_constant_size_text`, `ui/canvas/layout_font.py` (PF-CAN-59) | `tests/integration/test_succession_badge_export.py` |
+| A section of the report is cut into its pages by `plan_pages`; no renderer opens a page or stops at the foot of one | `pdf_report_service._section_pages`, `_notes_pages` | `tests/integration/test_export_followups.py` |
 
 **How to test an export.** Measure the rendered output, not the calls: rasterise it and
 compare ink. A PDF is rasterised with `QPdfDocument`; an SVG with `QSvgRenderer`, which
@@ -8732,6 +8748,44 @@ every page as `(type, data)`; `render_page` paints one. A test renders a page in
 (padding, 150 cm minimum extent, minimum aspect, moved into the plan) and `_bed_groups`
 (small beds whose frames touch share a page). The plant list names a plant as the plant
 panels do: its own name, else `ui.plant_traits.species_display_name`.
+
+**Every list of the report is paged the same way (#836).** The plant list, the Harvest
+Summary and the legend are rows cut by `_section_pages(rows, per_page)`; the two tables
+are painted by one `_render_table_page`. The Garden Notes are lines of unequal height,
+laid out and cut by `_notes_pages`. Each page is one entry of `plan_pages`, so the
+page count, the progress callback, the "page 2 of 3" in the title and whatever
+`generate` adds to every page (the plan-date stamp) agree. A new section follows the
+same shape: rows or lines first, pages second, paint last. Text that is measured before
+a painter exists is measured with `_page_metrics`: the page is laid out at 72 units per
+inch, and `QFontMetricsF(font)` answers for the screen's 96, a third wider (the notes
+wrapped at three quarters of the page). The rasterised PDF is what a test of a section
+reads; a page painted into a `QImage` sets the same fonts a third larger.
+
+**The succession badge is plan content (#836).** It names the crops that follow in a
+bed, so it is in every picture of the plan, unlike the diagnostic decorations of
+§8.9.16. Its text has the object labels' size in an export. On the canvas it keeps
+its 7 pt, is painted in the label pass (§8.9.15) and is left out where it would not lie
+inside its bed or would cover more than a quarter of it (`label_layout.badge_has_room`).
+
+**A printout's page.** `print_dialog.default_page_layout()` is A4 landscape with
+`PRINT_MARGIN_MM` (10 mm) on every side, stated in millimetres. A `QPageLayout` built
+without a unit is in points: the 10 that stood there was 3.5 mm, less than most desktop
+printers print to. `tile_grid` counts the sheets of a fixed scale for the printout and
+for the Print Options dialog, which counts with the legend's height when the legend is
+on. A fitted printout states the scale it was fitted at (`_paper_cm_per_plan_cm`), by
+its width or by its height (PF-CAN-55).
+
+**A text note has two sizes (#836).** `TextItem.font_size` is the number in the plan
+file: the font's point size divided by 28.35, rounded to a whole point. It is not a
+length on the plan and its meaning is frozen. `TextItem.em_height_cm` is the note's
+size on the plan: a scene item's points are laid out at 96 pixels per inch, and a pixel
+of the item is a plan centimetre, so a stored 1.0 is a 28 pt font with an em of 37 cm
+(capital letters 27 cm). The Properties panel shows and takes `em_height_cm` and
+converts with `font_size_for_em_height`; showing a note writes nothing, and retyping the
+shown size keeps the font. Fonts come in whole points (1.33 cm apart), so the field
+shows the size the note has after an edit. `ui/canvas/layout_font.py` holds the
+arithmetic. The 96 is the screen's logical resolution (`layout_dpi`): on a system that
+reports another value a stored size is drawn at another height, as it always was.
 
 ## 8.37 Canvas raster caches and repaint cost (#784, #785)
 

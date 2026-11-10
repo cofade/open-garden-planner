@@ -213,7 +213,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "7da582fb4249079f4f7e26fdb3c885f12807b219709025ed80f72b0990bc330f"
+          "current_sha256": "9c6aa0d9939f8247f51ee5961fa22a81167976b55d570016cbb1ba0c6a51dff5"
         },
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -1613,7 +1613,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "7da582fb4249079f4f7e26fdb3c885f12807b219709025ed80f72b0990bc330f"
+          "current_sha256": "9c6aa0d9939f8247f51ee5961fa22a81167976b55d570016cbb1ba0c6a51dff5"
         },
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
