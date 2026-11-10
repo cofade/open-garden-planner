@@ -36,7 +36,12 @@ mean 153.9 → 152.8 (render tier, 640 × 360: −0.6 %, 0.0° hue); at a 15° s
 mean 34.3 → 36.1 — a grazing sun lights the tiles' edges by their detail normals, so a low-sun
 roof reads 1-2 luma lighter than the flat one. The walls on their shaded side at golden hour
 (render tier, the box all wall): masonry std 1.2 → 7.0, plaster 0.8 → 2.1, cladding 1.2 → 7.3;
-the balcony's wall (1280 × 720) 2.8 → 7.5.
+the balcony's wall (1280 × 720) 2.8 → 7.5. A hip's faces and a shed roof's plane at noon: fine
+detail (the spread about a 5 × 5 local mean — a hip's faces shade apart) 4.1 and 5.2 against 1.5
+and 0.9 without the picture; a glasshouse is the same pixels with and without every picture.
+No moiré in a camera flight: a 12-frame noon orbit (0.5° a frame) of the family garden's roof
+shimmers LESS at 1280 × 720 than the 1920 × 1080 frames box-reduced to it (temporal |d²| 6.4
+against 7.3) — the mipmaps take the tiles to their flat mean before they alias.
 
 **Judge a material against its own specular-free frame (PF-L3D-34).** Facing a 15° sun, the
 light alone moves a part's hue off its 2D colour: a plaster wall 27.6°, a red canvas 12.8°, the
