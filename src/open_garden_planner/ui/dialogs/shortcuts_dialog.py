@@ -141,12 +141,27 @@ class ShortcutsDialog(QDialog):
         # Drawing tools
         tools_group = self._create_shortcut_group(self.tr("Drawing Tools"), [
             ("V", self.tr("Select Tool")),
+            (
+                self._localize_shortcut("Escape"),
+                self.tr("Cancel and return to the Select tool"),
+            ),
             ("M", self.tr("Measure Tool")),
             ("R", self.tr("Rectangle")),
             ("P", self.tr("Polygon")),
             ("C", self.tr("Circle")),
         ])
         container_layout.addWidget(tools_group)
+
+        # CAD editing tools (the same shortcuts their toolbar buttons carry)
+        cad_group = self._create_shortcut_group(self.tr("CAD Editing"), [
+            (self._localize_shortcut("I"), self.tr("Trim/Extend")),
+            (self._localize_shortcut("Shift+S"), self.tr("Split along line")),
+            (self._localize_shortcut("O"), self.tr("Offset")),
+            (self._localize_shortcut("Shift+F"), self.tr("Fillet")),
+            (self._localize_shortcut("Shift+C"), self.tr("Chamfer")),
+            (self._localize_shortcut("Shift+M"), self.tr("Mirror")),
+        ])
+        container_layout.addWidget(cad_group)
 
         # Property objects
         property_group = self._create_shortcut_group(self.tr("Property Objects"), [

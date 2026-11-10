@@ -4,7 +4,7 @@ import math
 from collections.abc import Callable
 from datetime import date
 
-from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QPageLayout, QPageSize, QPainter, QPen
 from PyQt6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PyQt6.QtWidgets import (
@@ -294,13 +294,25 @@ class GardenPrintManager:
         legend_h_mm = self.LEGEND_HEIGHT_MM if self._include_legend else 0
         content_h_mm = printable_h_mm - legend_h_mm
 
-        # Prepare scene state for printing (text scaling, labels, selection)
+        # Prepare scene state for printing (labels, selection)
         self._prepare_scene_for_print()
+        saved_text: list = []
 
         try:
             painter = QPainter()
             if not painter.begin(printer):
                 return
+
+            # A constant-pixel-size label is 13 device pixels tall: a quarter of
+            # a millimetre on a 1200-dpi printer. Give labels the size they have
+            # in every other export; a text note keeps its size on the plan (#789).
+            from open_garden_planner.services.export_service import ExportService
+
+            saved_text = ExportService._prepare_text_for_export(
+                scene,
+                self._paper_cm_per_plan_cm(canvas_rect, printable_w_mm, content_h_mm),
+                printer.resolution(),
+            )
 
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -321,7 +333,23 @@ class GardenPrintManager:
 
             painter.end()
         finally:
+            from open_garden_planner.services.export_service import ExportService
+
+            ExportService._restore_text_after_export(saved_text)
             self._restore_scene_after_print()
+
+    def _paper_cm_per_plan_cm(
+        self, canvas_rect: QRectF, printable_w_mm: float, content_h_mm: float
+    ) -> float:
+        """The scale the plan is printed at: 1/denominator, or the fit-to-page scale."""
+        if self._scale_denom > 0:
+            return 1.0 / self._scale_denom
+        if canvas_rect.width() <= 0 or canvas_rect.height() <= 0:
+            return 0.01
+        return min(
+            printable_w_mm / 10.0 / canvas_rect.width(),
+            content_h_mm / 10.0 / canvas_rect.height(),
+        )
 
     def _prepare_scene_for_print(self) -> None:
         """Prepare the scene for printing by adjusting labels and clearing selection.
@@ -425,6 +453,9 @@ class GardenPrintManager:
         # scene.render() uses native Qt coords (Y-down), so we flip the
         # painter to match what the user sees on screen.
         painter.save()
+        # Nothing of the plan is painted outside its frame (#788): the clip is
+        # set here, on the page, and every item intersects it (PF-CAN-54).
+        painter.setClipRect(target_rect, Qt.ClipOperation.IntersectClip)
         painter.translate(0, 2 * offset_y + target_h)
         painter.scale(1, -1)
         self._scene.render(painter, target_rect, canvas_rect)
@@ -505,6 +536,10 @@ class GardenPrintManager:
 
                 # Render this tile with Y-flip to match screen view
                 painter.save()
+                # The tile is the frame: a shadow or a roof that reaches past it
+                # belongs on the next sheet, not on this one's margin and footer
+                # (#788). Every item intersects this clip (PF-CAN-54).
+                painter.setClipRect(target_rect, Qt.ClipOperation.IntersectClip)
                 painter.translate(0, tgt_h)
                 painter.scale(1, -1)
                 self._scene.render(painter, target_rect, source_rect)

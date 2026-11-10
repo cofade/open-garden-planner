@@ -64,6 +64,7 @@ src/open_garden_planner/
 │   ├── project.py                # Save/load, ProjectManager
 │   ├── object_types.py           # ObjectType enum, default styles
 │   ├── fill_patterns.py          # Texture/pattern rendering
+│   ├── shape_split.py            # Local-frame two-point cut; segment-crossing test, polygon pieces, hole refusal (#664, ADR-075)
 │   ├── plant_renderer.py         # Plant SVG loading, caching, rendering (resolves sprites through plant_art)
 │   ├── plant_art/                # Stdlib-only: what a plant looks like, for 2D and 3D (Phase 17 L1.7, ADR-059 addendum) — see §5.10
 │   │   ├── recipes.py            #   PALETTES / FRUITS / FLOWERS / SPECIES / CATEGORIES — the sprite recipes (moved from the generator script)
@@ -168,6 +169,7 @@ src/open_garden_planner/
 │       ├── mirror_tool.py        # Mirror selection across an axis (Package B US-B4)
 │       ├── trim_tool.py          # Trim/Extend (US-11.16)
 │       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
+│       ├── split_tool.py         # Scene-wide two-click split: every eligible closed shape the segment crosses (#664, ADR-075)
 │       ├── measure_tool.py       # Distance measurement
 │       ├── constraint_tool.py    # Distance constraint creation
 │       └── preview_z.py          # Reserved z-values for in-progress tool previews below minimap cutoff (#377, §8.25.6)
@@ -202,6 +204,8 @@ src/open_garden_planner/
 │   │       ├── arc_item.py       # ArcItem (Package B US-B2)
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
+│   │       ├── group_item.py     # Group container, drill-down focus outline and ungroup rules (#771, ADR-075)
+│   │       ├── split_menu.py     # the one Split Along Line context-menu seam (#664, §8.35)
 │   │       └── resize_handle.py
 │   ├── view3d/                   # the 3D view (Phase 17; US-E6's Qt 3D window left in L1.10): snapshot.py
 │   │                             #   (plan→records: snapshot_records, contract v2 — L1.1) and the workspace below
@@ -271,6 +275,7 @@ src/open_garden_planner/
 │   ├── bundled_species_db.py     # Bundled species DB loader + drop-flow hook (issue #170)
 │   ├── scene_rendering.py        # Shared region-render helper (ADR-023, used by PNG + viewport)
 │   ├── export_service.py         # PDF/image export
+│   ├── svg_export.py             # SVG export: recording paint engine + replay into QSvgGenerator (ADR-076)
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   ├── task_generator.py         # Pure (PlanState)->list[Task] generators + generate_all (US-C2, ADR-029)

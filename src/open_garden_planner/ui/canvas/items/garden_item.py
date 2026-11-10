@@ -1620,6 +1620,9 @@ class GardenItemMixin(PositionLockMixin):
         from PyQt6.QtCore import QCoreApplication
         from PyQt6.QtWidgets import QMenu
 
+        if self.parentItem() is not None:  # type: ignore[attr-defined]
+            # A group member stays on its group's layer (#771).
+            return None
         scene = self.scene()  # type: ignore[attr-defined]
         if not scene or not hasattr(scene, "layers"):
             return None
@@ -1642,6 +1645,9 @@ class GardenItemMixin(PositionLockMixin):
         """
         from open_garden_planner.core.commands import MoveToLayerCommand
 
+        if self.parentItem() is not None:  # type: ignore[attr-defined]
+            # A group member stays on its group's layer (#771).
+            return
         scene = self.scene()  # type: ignore[attr-defined]
         if not scene:
             return

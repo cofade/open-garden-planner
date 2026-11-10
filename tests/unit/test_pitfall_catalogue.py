@@ -48,7 +48,7 @@ PLACEHOLDER = re.compile(r"pending review|\bTBD\b", re.IGNORECASE)
 #: Each legacy number names one entry, except the two that name several rules: §11.4.6
 #: (a dead-code entry and a sun self-shadow entry) and §11.4.17 (the ground-bake diary,
 #: whose three standing rules sit in three entries).
-LEGACY_ROWS = {**{f"11.4.{n}": 1 for n in range(1, 21)}, "11.4.6": 2, "11.4.17": 3}
+LEGACY_ROWS = {**{f"11.4.{n}": 1 for n in range(1, 23)}, "11.4.6": 2, "11.4.17": 3}
 
 
 def github_slug(heading: str) -> str:

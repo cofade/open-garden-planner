@@ -49,7 +49,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.object_height import casts_2d_shadow, effective_height_cm
+from open_garden_planner.core.object_height import (
+    casts_2d_shadow,
+    effective_height_cm,
+    is_open_frame,
+)
 from open_garden_planner.core.object_types import PathFenceStyle
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
@@ -70,6 +74,7 @@ from open_garden_planner.core.scene3d import (
 from open_garden_planner.core.scene3d.builders.buildings import pitched_roof_triangles
 from open_garden_planner.core.scene3d.builders.fences import POROUS_FENCE_STYLES
 from open_garden_planner.core.scene3d.builders.lines import DEFAULT_SOLID
+from open_garden_planner.core.scene3d.builders.open_frames import open_frame_triangles
 from open_garden_planner.core.scene3d.record import (
     PARAM_ROOF_OVERHANG,
     PARAM_ROOF_PITCH,
@@ -78,11 +83,13 @@ from open_garden_planner.core.scene3d.record import (
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    OpenFrame,
     Point,
     Polygon,
     ShadowCaster,
     Triangle3D,
     WeightedShadowRegion,
+    circle_footprint,
     compute_scene_shadows,
     compute_weighted_shadows,
     shadow_region,
@@ -92,6 +99,7 @@ from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .footprints import (
+    OUTLINE_CIRCLE,
     OUTLINE_POLYGON,
     OUTLINE_POLYLINE,
     OUTLINE_RECTANGLE,
@@ -152,6 +160,22 @@ def _build_feather_pens() -> tuple[QPen, ...]:
 _FEATHER_PENS: tuple[QPen, ...] = _build_feather_pens()
 
 
+@lru_cache(maxsize=128)
+def _feather_pens_for(occlusion: float) -> tuple[QPen, ...]:
+    """The feather strokes of a region of that occlusion: the constant pens, their
+    alpha scaled as the region's own fill is. A light shade gets a light edge."""
+    if occlusion >= 0.999:
+        return _FEATHER_PENS
+    pens = []
+    for pen in _FEATHER_PENS:
+        color = QColor(pen.color())
+        color.setAlpha(max(1, round(color.alpha() * occlusion)))
+        scaled = QPen(pen)
+        scaled.setColor(color)
+        pens.append(scaled)
+    return tuple(pens)
+
+
 class SunShadowOverlayItem(QGraphicsPathItem):
     """Runtime-only shadow overlay — identifiable by tests, never serialized.
 
@@ -165,7 +189,9 @@ class SunShadowOverlayItem(QGraphicsPathItem):
       the garden edge instead of spilling onto the grey outside area;
     - a SOFT outward penumbra, clipped to the area *outside* the shadow so
       the interior stays a flat tone (no darker ring) and only a feather
-      shows past the edge.
+      shows past the edge. Each weighted region is edged at its OWN strength
+      (#698): a porous fence's or an open frame's light shade beside a solid's
+      must not wear the solid's edge — it read as an outline drawn round the shade.
     """
 
     def __init__(self) -> None:
@@ -177,6 +203,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._feather_region: QPainterPath | None = None
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
         self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
+        self._region_feathers: tuple[tuple[QPainterPath, tuple[QPen, ...]], ...] = ()
 
     def set_clip_rect(self, rect: QRectF | None) -> None:
         """Bound all painting to ``rect`` (the canvas); None = unbounded."""
@@ -194,12 +221,14 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         if path.isEmpty():
             self._weighted_regions = ()
             self._region_paths = ()
+            self._region_feathers = ()
         self._rebuild_feather()
 
     def set_weighted_regions(self, regions: Sequence[WeightedShadowRegion]) -> None:
         """Cache pre-partitioned weighted shadow regions for porous/opaque painting."""
         self._weighted_regions = tuple(regions)
         built: list[tuple[QPainterPath, QColor]] = []
+        feathers: list[tuple[QPainterPath, tuple[QPen, ...]]] = []
         base_alpha = _SHADOW_COLOR.alpha()
         for reg in self._weighted_regions:
             if not reg.polygons or reg.occlusion <= 0.0:
@@ -212,12 +241,23 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             color = QColor(_SHADOW_COLOR)
             color.setAlpha(max(1, min(255, round(base_alpha * reg.occlusion))))
             built.append((reg_path, color))
+            feathers.append((reg_path, _feather_pens_for(round(min(1.0, reg.occlusion), 3))))
         self._region_paths = tuple(built)
+        self._region_feathers = tuple(feathers)
         self.update()
 
     def weighted_regions(self) -> tuple[WeightedShadowRegion, ...]:
         """The weighted shadow regions currently painted on the overlay."""
         return self._weighted_regions
+
+    def _paints_regions(self) -> bool:
+        """True when the shade is painted region by region: there are weighted regions
+        and they are not the one opaque region of a plan without porous casters (that
+        one is the shadow path itself, painted as it always was)."""
+        return bool(self._region_paths) and not (
+            len(self._weighted_regions) == 1
+            and abs(self._weighted_regions[0].occlusion - 1.0) < 1e-6
+        )
 
     def _rebuild_feather(self) -> None:
         """Cache the outward-feather clip region (canvas minus shadow).
@@ -262,32 +302,33 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         # Soft outward penumbra — only outside the shadow's own fill area, so
         # the interior stays flat and there is no darker ring at the boundary.
+        by_region = self._paints_regions()
         region = self._feather_region
         if region is not None and not region.isEmpty():
-            max_occ = max((r.occlusion for r in self._weighted_regions), default=1.0)
             painter.save()
-            painter.setClipPath(region)
+            # IntersectClip: a paint() never replaces the clip it was handed —
+            # a print tile or a PDF frame is one (#788, PF-CAN-54).
+            painter.setClipPath(region, Qt.ClipOperation.IntersectClip)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            for pen in _FEATHER_PENS:
-                if max_occ < 0.999:
-                    scaled_pen = QPen(pen)
-                    c = QColor(pen.color())
-                    c.setAlpha(max(1, round(c.alpha() * max_occ)))
-                    scaled_pen.setColor(c)
-                    painter.setPen(scaled_pen)
-                else:
+            if by_region:
+                # each region's own outline at its own strength. The clip keeps what
+                # lies outside the WHOLE shadow, so a boundary two regions share —
+                # a fence's shade running into a house's — is not stroked at all.
+                for reg_path, pens in self._region_feathers:
+                    for pen in pens:
+                        painter.setPen(pen)
+                        painter.drawPath(reg_path)
+            else:
+                for pen in _FEATHER_PENS:
                     painter.setPen(pen)
-                painter.drawPath(path)
+                    painter.drawPath(path)
             painter.restore()
         # Solid core, hard-cut at the canvas boundary.
         painter.save()
         if self._clip_rect is not None:
-            painter.setClipRect(self._clip_rect)
+            painter.setClipRect(self._clip_rect, Qt.ClipOperation.IntersectClip)
         painter.setPen(Qt.PenStyle.NoPen)
-        if self._region_paths and not (
-            len(self._weighted_regions) == 1
-            and abs(self._weighted_regions[0].occlusion - 1.0) < 1e-6
-        ):
+        if by_region:
             for reg_path, reg_color in self._region_paths:
                 painter.setBrush(QBrush(reg_color))
                 painter.drawPath(reg_path)
@@ -451,6 +492,77 @@ def _building_roof_triangles(
     return tuple(scene_tris)
 
 
+@lru_cache(maxsize=128)
+def _cached_open_frame(
+    kind: str,
+    shape: str,
+    local_ring: tuple[tuple[float, float], ...],
+    radius_cm: float | None,
+    height: float,
+    rotation_deg: float,
+) -> OpenFrame | None:
+    """An open frame for one geometry and turn, built once (#698) — the roof cache's
+    pattern (#701): the key is the complete geometry, so a resized pergola is a new
+    key and never a stale hit. Every identical item gets the very SAME object
+    wherever it stands, which is what lets fifty garden lights be weighed once per
+    sun position and painted as one region. None is cached too: this footprint is
+    no open frame."""
+    triangles = open_frame_triangles(kind, shape, local_ring, height, radius_cm=radius_cm)
+    return None if triangles is None else OpenFrame(triangles, local_ring, rotation_deg)
+
+
+def _open_frame(
+    item: Any,
+    kind: str,
+    height: float,
+    at_date: date | None,
+) -> OpenFrame | None:
+    """The solid members of an open-frame caster (#698), or None for a caster that is
+    cast as the solid prism: a kind that is no open frame
+    (``core.object_height.OPEN_FRAME_TYPE_NAMES``), or an item whose 3D builder has
+    no frame for its footprint and builds the plain block — solid in 3D, solid here.
+
+    The members stay in the item's own coordinates, with its turn beside them: the
+    coordinates the 3D record gets (``ui/view3d/snapshot._record_of``) — the item's
+    scene transform split about its outline's anchor, a circle not turned.
+    """
+    if not is_open_frame(kind):
+        return None
+    outline = item_outline(item, at_date)
+    if outline is None or outline.shape == OUTLINE_POLYLINE:
+        return None
+    matrix = item.sceneTransform()
+    frame = local_frame(
+        matrix.m11(), matrix.m12(), matrix.m21(), matrix.m22(), matrix.dx(), matrix.dy(),
+        outline.anchor[0], outline.anchor[1], rotatable=outline.shape != OUTLINE_CIRCLE,
+    )
+    if not math.isfinite(frame.east_cm + frame.north_cm):
+        return None
+    radius: float | None = None
+    if outline.shape == OUTLINE_CIRCLE:
+        if outline.radius_cm is None or not math.isfinite(outline.radius_cm) or outline.radius_cm <= 0.0:
+            return None
+        radius = quantize_cm(outline.radius_cm)
+        local_ring = tuple((quantize_cm(x), quantize_cm(y))
+                           for x, y in circle_footprint(0.0, 0.0, radius))
+    else:
+        if len(outline.points) < 3:
+            return None
+        local_ring = ccw(frame.local_ring(outline.points))
+        if len(local_ring) < 3 or ring_area(local_ring) == 0.0:
+            return None
+        if footprints_can_self_cross(item) and not is_buildable_region(local_ring):
+            return None
+    try:
+        return _cached_open_frame(
+            kind, outline.shape,
+            tuple((round(x, 6), round(y, 6)) for x, y in local_ring),
+            radius, round(float(height), 6), frame.rotation_deg,
+        )
+    except Exception:  # a hostile outline must not take the overlay down (the roofs' rule)
+        return None
+
+
 _last_identified: tuple[int, date | None, list[IdentifiedCaster]] | None = None
 
 
@@ -481,6 +593,12 @@ def collect_identified_casters(
     (``core.object_height.is_solid_soil_parent``): the sun estimate spares such
     a solid for a plant inside its outline, because it is under the plant, not
     between it and the sun (#481).
+
+    An OPEN FRAME (``core.object_height.OPEN_FRAME_TYPE_NAMES``: a pergola, a
+    trellis, a swing, a hammock, a garden light) is given its solid members as
+    ``frame`` here and nowhere else (#698): its prism is then weighted
+    by the share of the sun the frame lets through, by every consumer, through
+    #440's ``caster_transmittance``.
     """
     global _last_identified
     casters: list[IdentifiedCaster] = []
@@ -535,6 +653,8 @@ def collect_identified_casters(
                 fence_style=fence_style,
                 fence_points=fence_points,
                 fence_width_cm=fence_width_cm,
+                # an open frame's members weigh its prism (#698); None: a solid
+                frame=_open_frame(item, kind, height, at_date),
             ))
     _last_identified = (id(scene), at_date, casters)
     return casters
@@ -546,7 +666,13 @@ def collect_shadow_casters(
 ) -> list[ShadowCaster]:
     """The walk's casters as ``ShadowCaster``s — ``(footprint, height_cm,
     base_cm)``, one per solid footprint: what the shadow overlay unions. Derived
-    from ``collect_identified_casters``; there is no second walk."""
+    from ``collect_identified_casters``; there is no second walk.
+
+    A ``ShadowCaster`` is the OUTLINE of a shade only: it carries no weight, so a
+    porous fence (#440) and an open frame (#698) are solid in this list. Whoever
+    needs how DARK a shade is reads the identified casters through
+    ``core.shadow_geometry.caster_transmittance`` — as ``recompute_now`` does
+    whenever one of them is weighted."""
     return [ShadowCaster(list(footprint), caster.height_cm, caster.base_cm)
             for caster in collect_identified_casters(scene, at_date)
             for footprint in caster.footprints]
@@ -710,7 +836,8 @@ class SunShadowController(QObject):
             else None
         )
         enriched_key = tuple(
-            (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm, c.transmittance)
+            (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm, c.transmittance,
+             c.frame)
             for c in identified
         )
         key = (
@@ -728,6 +855,7 @@ class SunShadowController(QObject):
             return
         has_enriched = any(
             c.roof_triangles or c.fence_style is not None or c.transmittance is not None
+            or c.frame is not None
             for c in identified
         )
         if has_enriched:

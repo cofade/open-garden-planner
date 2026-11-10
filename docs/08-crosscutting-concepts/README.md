@@ -6669,12 +6669,47 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | −16.7 / −7.5 / −3.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | −7.0 / −7.0 / −6.8 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | −71.0 / −71.0 / −70.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | −56.3 / −56.3 / −56.0 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
+| garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | −18.4 / −12.0 / −9.6 | open frame (#698 weighted 2D area; unweighted IoU vs solid prism) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of its solid strip — and since #440 the 2D analysis weights a styled
 fence by that transmittance (the table's ratio column). For the complete per-kind narrative of
 reach differences, nominal sections and pre-#440 gable geometry, see ADR-059 addendum "builders v0"
 ("Where the tip is").
+
+**Open frames (#698).** A pergola, a trellis, a swing, a hammock and a garden light are mostly
+air, and the 2D analysis casts them as their footprint prism WEIGHTED by a transmittance — the
+rule a new object kind has to be placed under:
+
+- **Which kinds** is a recorded decision in `core/object_height.py`: `OPEN_FRAME_TYPE_NAMES`
+  (weighted), `SOLID_2D_DECISIONS` (mostly air in 3D, solid in 2D, each with its reason — the
+  parasol, the greenhouse, the low furniture) and `NO_2D_SHADOW_TYPE_NAMES` (a string of
+  lights). `tests/unit/test_open_frames.py` measures every object kind and fails for one whose
+  3D model shades less than half of its prism and that is on none of the three lists. A kind
+  belongs on the open-frame list when its shade is thin members spread over the whole prism; a
+  solid top on a pole or on legs does not — its shade is dark and lies somewhere else.
+- **The weight is measured, not tabulated**: `1 − A(frame) ÷ A(prism)` for the item's own size,
+  height and turn and the sun of the moment (`core.shadow_geometry.open_frame_transmittance`),
+  from the 3D builder's own members (`core/scene3d/builders/open_frames.py`; a pergola's from
+  `core/pergola.layout`). To make a kind an open frame, add its name and nothing else — its
+  production builder is read. Do not add a table of shares: the members' sizes are capped, so
+  a share that is right for one footprint is wrong for the next.
+- **One hook**: the caster walk sets `IdentifiedCaster.frame` (an `OpenFrame`: the members in
+  the item's OWN coordinates, its turn beside them); the overlay, the 3D drape, the
+  hours-of-sun grid and the plant estimates read `caster_transmittance`. A consumer that asks
+  a caster for its height and footprint alone casts it solid — ask the hook.
+- **Identical items share one frame.** The walk hands every item of the same geometry and
+  turn the same `OpenFrame` object, so it is weighed once per sun position and its shades
+  merge into one weighted region. Do not pose a frame into the scene or give it a per-item
+  field: fifty garden lights then cost fifty weighings and fifty regions a sample (measured:
+  36 ms a sun position against 6 ms).
+- **Testing it**: against the measuring script's own projection, over sizes and suns; and at a
+  turn other than 0 (a frame turned with the sun shades the same, turned against it does not —
+  a defect proportional to the turn is invisible at 0).
 
 **What the numbers are for.** They are analytic references for the builders: one item, the sun
 square to a straight 10 m line (a building: square to or along its ridge), the mesh projected
@@ -8228,7 +8263,7 @@ rectangle/ellipse/circle edge types are unique but share index 0.
 
 An item's right-click menu is built by the item, but a capability that must
 appear on every item type lives in ONE shared seam so a new type cannot miss
-it. There are four, all reachable from `GardenItemMixin` (and used directly by
+it. There are five, all reachable from `GardenItemMixin` (and used directly by
 the item classes that do not inherit it):
 
 | Capability | Builder / dispatcher | Contract |
@@ -8237,6 +8272,7 @@ the item classes that do not inherit it):
 | Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
 | Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
 | Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22 |
+| Split along a line | `split_menu.build_split_action` (QAction `triggered`) | §8.35, ADR-075, FR-35; closed shapes only |
 
 **Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
 at the moment the menu opens, after normalising the selection: a right-click on
@@ -8254,3 +8290,124 @@ already did the same two lines inline. The background image is deliberately NOT
 groupable (a backdrop grouped with ground surfaces re-bands it above them). The
 14-type matrix and the nested one-level rule are pinned by
 `tests/integration/test_group_context_menu.py`.
+
+## 8.35 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)
+
+**Split along a line.** `build_split_action` in
+`ui/canvas/items/split_menu.py` is the one context-menu seam for every closed
+shape (polygon, rectangle, circle, ellipse). It asks the view's
+`split_refusal_reason` before enabling the row and starts
+`CanvasView.start_split_shape`, which scopes the gesture to that shape. The CAD
+toolbar places the same tool next to Trim/Extend, and `Shift+S` reaches it;
+both start a scene-wide cut with no source selection: the first canvas click
+is the line's first point. `SplitShapeTool` freezes the visible closed-shape
+candidates at that click, and each `mouse_move` tests them with
+`shape_split.segment_crosses_item` before previewing pieces. Only the shapes the
+DRAWN SEGMENT passes through are candidates — a shape lying on the line's
+infinite extension but not reached by it is left alone, and a segment that only
+touches an outline (a snapped corner, an edge, a tangent) is not a crossing. On
+the second pick the tool cuts every candidate along the segment's supporting
+axis, so a fully crossed shape becomes two halves and a clipped one is cut when
+both pieces are large enough to keep. The preview draws the bright segment plus
+a faint supporting axis, so the user sees the line that actually cuts. Geometry
+is `core/shape_split.split_item_into_local_polygons`: the item's LOCAL path is
+cut by the two half-planes, so a rotated source keeps its rotation and
+fill-pattern direction. All cuts of one gesture share one undo step: a bare
+`SplitShapeCommand` when no membership reconciliation is needed, otherwise a
+`CompoundCommand` (several sources, or one planted bed plus its plant re-home).
+Pieces are ordinary `PolygonItem`s with the source's layer, type (where valid for a
+polygon), look, `fill_transform`, label/area state, metadata and stack rank.
+Curves flatten to polygons; a concave shape may produce more than two pieces; a
+hole is refused. A bed or other plant parent with a polygonal form is eligible: a
+`ReconcileBedMembershipCommand` in the same undo step re-homes every linked
+plant to the piece containing its standing point. Refused shapes are skipped (a
+success message counts them); when nothing can be split the first refusal reason
+is shown instead of a command. The refusal list (a plant itself, tracked UUIDs,
+constraints, locked layers, group members, containers) is in `ADR-075`
+and `CanvasView.split_refusal_reason`, backed by
+`ProjectManager.has_item_references`. The shortcut is `Shift+S`, never `S`:
+`S` is the main window's Snap to Grid, and two window shortcuts on one key make
+Qt fire neither (PF-UI-36).
+
+*What a piece owes its source beyond a copy.* A house or a greenhouse is split
+like any other shape: `SplitShapeCommand` removes the source's linked ridge with
+the source and builds every piece its own (`build_copy_ridges`); a source without
+a ridge gives pieces without one, and a piece never keeps the source's
+`ridge_item_id`. A ridge that is constrained or on a locked layer refuses the
+split. A piece whose type had to change goes through
+`item_look.adopt_rebuilt_type`, the one entry point for a rebuild's type change
+(the corner tools and the loader's raised-bed migration call it too): it keeps
+the height the source stood at (`object_height.carry_height_across_type_change`:
+a raised bed's 40 cm is a type default the garden-bed piece does not have) and
+takes the new type's fill pattern. The split passes `keep_fill` for a source
+painted by its own brush, so the user's pattern survives the cut; a sprite's
+stored fill was never on screen. A new "rebuild this shape" operation calls
+`adopt_rebuilt_type`; copying the type and the look alone loses the height.
+
+**Esc on the canvas, in one order.** `CanvasView._escape_inner_mode` leaves one
+narrower mode per press - a running calibration, vertex editing, a group
+drill-down. With none active, `return_to_select_tool` ends the tool: it runs
+after the active tool's own `key_press`, and deactivating a tool cancels its
+gesture, so a new tool needs no Esc code of its own. A focused inline editor (a
+text annotation, a callout, a label) is handed the key through
+`super().keyPressEvent` first - the view sees keys before the scene, so the tool
+switch would otherwise swallow it - and the tool ends on that same Esc. The main
+window's `keyPressEvent` calls `CanvasView.handle_escape` (the same two steps)
+for an Esc no focused widget consumed: right after a tool is picked, or while a
+drilled-down member is edited, the focus is in a panel or the search field, and
+one Esc must not depend on where the focus happens to be. A tool switch through
+`CanvasView.set_active_tool` hides the distance/angle prompt.
+
+**Group drill-down.** Qt routes a group child's selection back to the group, so
+there is no Qt-level "selected child" state to switch to. The second click on a
+member sets `CanvasView.drill_down_item` instead: the group remains the Qt
+selection, the member stays its child (same layer, same saved frame), and
+`effective_selection()` is the one list every panel consumes. `drill_down_changed`
+notifies them because Qt emits no `selectionChanged`. `GroupItem.paint` draws the
+focused member's inner outline only while the group is selected. A body drag is
+the view's own gesture (`begin_drill_down_drag`), not Qt's group drag; arrow keys
+and the Properties panel convert scene deltas through `_delta_in_parent_frame`.
+The member's resize/rotation handles are shown, but their own press never reaches
+them inside the selected group, so the view replays the gesture through the
+handles' `begin_drag` / `apply_drag` / `end_drag` seam. The member cannot change
+layer, be cut or be deleted while focused, and a constrained member or ancestor
+refuses movement. Clicking outside the member or pressing `Esc` clears the focus
+and restores every grouped ancestor's `ItemIsMovable` flag. Smart symbols are not
+drillable because their members are generated from parameters. The focus depends
+on the group staying selected, and Qt unselects a group when a flag is set on
+a non-selectable descendant that already existed when its parent joined the
+group - a member's handles, created when the user selected it before grouping
+(PF-CAN-48). The minimap hides such items by opacity, and any new code that
+toggles flags on arbitrary scene items has to make the same exception. Test
+drill-down in the running window (`GardenPlannerApp`), past a minimap refresh,
+with members that were selected before they were grouped; a bare canvas has no
+minimap.
+## 8.36 Exports — one picture in every format (#787, #788, #789, ADR-076)
+
+PNG, SVG, the PDF report, the printout and the Agent API render all paint the same
+scene. Five rules keep them the same picture.
+
+| Rule | Where | Pinned by |
+|---|---|---|
+| The scene is prepared for an export in one way: overlays hidden (`ExportService._hide_overlay_items`), item caches off, constant-pixel-size text given a point size for the output | `services/scene_rendering.py`, `ExportService` | `tests/integration/test_export_overlay_hide.py`, `tests/integration/test_export_text_notes.py` |
+| Only text that `draws_at_constant_pixel_size` (`ItemIgnoresTransformations` on the item or an ancestor) is retargeted; a text note or a callout keeps its plan size | `scene_rendering.retarget_constant_size_text` | `tests/integration/test_export_text_notes.py` |
+| The painter the scene is rendered with carries the true output scale in its world transform — a 300-dpi `QImage` for PNG and for the report's plan pages, 1/300-inch units for SVG, the printer's resolution for print | `ExportService.export_to_png`, `pdf_report_service._scene_to_image`, `svg_export.record_scene`, `GardenPrintManager` | `tests/integration/test_pdf_report_pages.py` |
+| The SVG is recorded and replayed, never painted into `QSvgGenerator` directly | `services/svg_export.py` (PF-CAN-53) | `tests/integration/test_svg_export_fidelity.py` |
+| Nothing is painted outside its frame: a `paint()` clips with `IntersectClip`, a print tile is an explicit clip, a report picture is its frame | PF-CAN-54 | `tests/integration/test_pdf_report_pages.py` |
+
+**How to test an export.** Measure the rendered output, not the calls: rasterise it and
+compare ink. A PDF is rasterised with `QPdfDocument`; an SVG with `QSvgRenderer`, which
+is **not a browser** — it ignores `clip-path` and sets large text up to 6 % wide — so
+assert a remaining `<clipPath>` and a font size on the file's structure, and check a
+browser by hand (`scripts/svg_preview.py`, or headless Edge) when the SVG writer
+changes. A texture is resampled differently by every rasteriser: compare block averages
+(4 x 4 pixels), not single pixels. Find ink by a colour nothing else has, and take the
+extent of an area from lines that are at least a fifth set — a footer's grey text and
+hairline rule have a shadow's grey in their antialiasing.
+
+**The report's pages.** `PdfReportService.plan_pages(scene, options, page_rect)` lists
+every page as `(type, data)`; `render_page` paints one. A test renders a page into a
+`QImage` of one pixel per point and reads it. Bed-detail frames come from `_bed_frame`
+(padding, 150 cm minimum extent, minimum aspect, moved into the plan) and `_bed_groups`
+(small beds whose frames touch share a page). The plant list names a plant as the plant
+panels do: its own name, else `ui.plant_traits.species_display_name`.

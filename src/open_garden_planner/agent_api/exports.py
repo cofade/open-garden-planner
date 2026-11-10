@@ -201,7 +201,7 @@ def export_pdf_file(
     opts = PdfReportOptions(
         paper_size=paper_size,
         orientation=orientation,
-        project_name=project_manager.project_name,
+        project_name=project_manager.display_name,
     )
     PdfReportService.generate(scene, opts, resolved)
     return {"file_path": str(resolved), "format": "pdf", "row_count": None, "previous_file_path": None}

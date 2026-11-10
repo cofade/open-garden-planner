@@ -15,7 +15,10 @@ It also states the RULE the table is an instance of, kind by kind:
   two shadows are the same (IoU >= 0.99): the truth gate's own case;
 - a picket, metal or chain-link fence is mostly air: its 3D shadow lies INSIDE the
   2D one and is a fraction of it — the 2D sun study over-shades behind such a
-  fence, and the 3D view will show sun where the hours-of-sun map shows shade;
+  fence, and the 3D view will show sun where the hours-of-sun map shows shade
+  (until #440 weighted the strip by the fence's transmittance);
+- a pergola, a trellis, a swing, a hammock and a garden light are open frames: the
+  same, for a footprint prism (#698 weights it by the frame's transmittance);
 - a wall, a stone-wall fence and a hedge fence have a nominal section the plan does
   not hold: their 3D shadow is the WIDER one, more so the higher the sun.
 
@@ -48,6 +51,8 @@ SCRIPT = ROOT / "scripts" / "measure_built_world_shadows.py"
 PRISMS = ("raised bed", "container (box)", "plain panel (unknown style)")
 POTS = ("terracotta pot", "round tub")
 POROUS = ("chain-link fence", "metal fence", "picket fence")  # least solid first
+#: The open frames (#698): their footprint prism is weighted by a transmittance.
+OPEN_FRAMES = ("pergola", "trellis", "swing", "hammock", "garden light")
 NOMINAL_SECTION = ("wall", "stone-wall fence", "hedge fence")
 HEDGES = ("hedge (polygon)", "hedge (section)")
 GABLE_SQUARE = ("house, sun square to the ridge", "shed, sun square to the ridge")
@@ -121,6 +126,35 @@ def test_a_porous_fence_casts_less_in_3d_than_the_2d_model_says(name: str) -> No
     assert max(row.iou) < 0.75  # type: ignore[attr-defined]
     for ratio in row.ratio:  # type: ignore[attr-defined]
         assert 0.90 <= ratio <= 1.10
+
+
+@pytest.mark.parametrize("name", OPEN_FRAMES)
+def test_an_open_frame_s_weighted_2d_shadow_is_the_3d_one_within_ten_percent(name: str) -> None:
+    """#698's gate, on #440's precedent: against the SOLID prism an open frame shades
+    under two fifths of the ground (the unweighted IoU), and the 2D model's weighted
+    area agrees with the 3D shadow within 10 % at all three elevations. The members
+    the weight is made of are the builder's own (``tests/unit/test_open_frames.py``
+    sweeps sizes and suns); a pergola's are its layout's plain boxes."""
+    row = _rows()[name]
+    assert max(row.iou) < 0.40  # type: ignore[attr-defined]
+    for ratio in row.ratio:  # type: ignore[attr-defined]
+        assert 0.90 <= ratio <= 1.10
+    script = _script()
+    case = next(case for case in script.cases() if case.name == name)
+    for elevation in script.ELEVATIONS_DEG:
+        weight = script.caster_occlusion(case.record, elevation, case.azimuth_deg)
+        assert 0.10 < weight < 0.45, (name, elevation, weight)   # never a solid, never nothing
+    assert script.DOCUMENTED[name][0] == pytest.approx(row.ratio, abs=script.TOLERANCE)  # type: ignore[attr-defined]
+
+
+def test_a_kind_that_is_no_open_frame_is_not_weighted() -> None:
+    """The weight is the open frames' and the porous fences' alone: a parasol, a
+    greenhouse and a table are divided by the whole prism, as before #698."""
+    script = _script()
+    cases = {case.name: case for case in script.cases()}
+    for name in ("parasol", "greenhouse", "table", "raised bed", "wall", "hedge fence"):
+        for elevation in script.ELEVATIONS_DEG:
+            assert script.caster_occlusion(cases[name].record, elevation, cases[name].azimuth_deg) == 1.0
 
 
 def test_the_porous_fences_in_order() -> None:
@@ -327,7 +361,7 @@ def test_the_concepts_table_carries_the_reach() -> None:
     script = _script()
     section = text[text.index("**3D shadows against the 2D model.**"):]
     section = section[:section.index("\n### ") if "\n### " in section else len(section)]
-    for name in (*POROUS, "wall"):
+    for name in (*POROUS, "wall", *OPEN_FRAMES):
         (row,) = _table_cells(section, name)
         assert tuple(row[1:4]) == script.cells(*script.DOCUMENTED[name]), name
     for needle in ("Reach 3D - 2D", "-270.0 / -270.0 / -108.2", "-150.0 / -81.4 / -21.0",

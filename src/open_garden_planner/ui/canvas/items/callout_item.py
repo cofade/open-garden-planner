@@ -89,6 +89,8 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self._text_child = _CalloutTextChild(content, self)
         self._text_child.setTransform(QTransform().scale(1.0, -1.0))
         font = QFont(self._FONT_FAMILY, self._FONT_SIZE_PT)
+        # Scaled with the plan like a text note: design metrics (see TextItem).
+        font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
         self._text_child.setFont(font)
         self._text_child.setDefaultTextColor(QColor(0, 0, 0))
         self._text_child.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
