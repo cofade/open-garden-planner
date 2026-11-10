@@ -380,6 +380,47 @@ def test_the_ground_takes_one_set_of_values() -> None:
         (1.0, 1.0, 1.0), 1.0, 0.15)
 
 
+@pytest.mark.parametrize("at", SUNS)
+def test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_the_spikes(
+        at: SunState) -> None:
+    """#687: under cloud the sky is the light, and the sky an object hides is what grounds
+    it — the ambient occlusion grows with the weather's LIGHT share (strength 55 -> 99,
+    reach 14 -> 70, bias 0 -> 21 cm at a full overcast). The bias is what keeps open flat
+    ground from occluding itself, near and on the far meadow: below 0.3 of the reach a
+    light rim stays above every silhouette (the snow survey's rim). Clear, the dew and an
+    Analyze drape keep the spike's values exactly (the truth frames and the clear board
+    do not move)."""
+    from open_garden_planner.core.scene3d.weather import (
+        AO_BIAS_UNDER_CLOUD_CM,
+        AO_DISTANCE_UNDER_CLOUD,
+        AO_STRENGTH_UNDER_CLOUD,
+    )
+
+    assert pytest.approx(99.0) == 55.0 * AO_STRENGTH_UNDER_CLOUD   # Qt's strength tops out at 100
+    assert pytest.approx(70.0) == 14.0 * AO_DISTANCE_UNDER_CLOUD
+    assert pytest.approx(21.0) == AO_BIAS_UNDER_CLOUD_CM
+    assert AO_BIAS_UNDER_CLOUD_CM / (14.0 * AO_DISTANCE_UNDER_CLOUD) >= 0.3, "no rim (reference 14)"
+    for look in (living_look(at, "high", "clear"), living_look(at, "high", "clear", dew=False)):
+        atmosphere = look.atmosphere
+        assert (atmosphere.ao_strength_gain, atmosphere.ao_distance_gain, atmosphere.ao_bias_cm) == (
+            1.0, 1.0, 0.0)
+    for weather in WEATHERS:
+        spec = WEATHER_SPECS[weather]
+        share = spec.cloud if spec.light is None else spec.light
+        atmosphere = living_look(at, "high", weather).atmosphere
+        assert atmosphere.ao_strength_gain == pytest.approx(1.0 + (AO_STRENGTH_UNDER_CLOUD - 1.0) * share)
+        assert atmosphere.ao_distance_gain == pytest.approx(1.0 + (AO_DISTANCE_UNDER_CLOUD - 1.0) * share)
+        assert atmosphere.ao_bias_cm == pytest.approx(AO_BIAS_UNDER_CLOUD_CM * share)
+    overcast = living_look(at, "high", "overcast").atmosphere
+    assert 55.0 * overcast.ao_strength_gain == pytest.approx(99.0)
+    assert 14.0 * overcast.ao_distance_gain == pytest.approx(70.0)
+    # partly cloudy keeps its sun, and nearly the clear look's occlusion (light share 0.15)
+    partly = living_look(at, "high", "partly_cloudy").atmosphere
+    assert 1.0 < partly.ao_strength_gain < 1.15 and partly.ao_bias_cm < 3.5
+    # the preset still decides WHETHER there is occlusion (PF-L3D-15): the gains are a look
+    assert living_look(at, "low", "overcast").preset.ambient_occlusion is False
+
+
 def test_the_ground_shaders_snow_is_the_weathers() -> None:
     """Drift guard (senior review of L5): ``ground.frag``'s snow colour is
     ``weather.SNOW_LINEAR`` — the meadow's snow (``apply_weather``) and the plan's tiles
@@ -474,5 +515,22 @@ def test_every_field_of_the_atmosphere_has_a_neutral_default() -> None:
     for field in fields(CLEAR_STILL):
         value = getattr(CLEAR_STILL, field.name)
         if field.name in ("leaves", "butterflies", "fireflies", "lamps", "cloud", "dew",
-                          "wetness", "snow_cover", "precip_density"):
+                          "wetness", "snow_cover", "precip_density", "ao_bias_cm", "built_snow"):
             assert value == 0.0, field.name
+        if field.name in ("ao_strength_gain", "ao_distance_gain"):
+            assert value == 1.0, field.name
+
+
+def test_snow_lies_white_on_built_tops_and_nowhere_else() -> None:
+    """#687: under the snow weather a built part's TOPS (roof, bed soil, deck, mat) lie under
+    a full cover — smooth, they show no grass through it, and at the meadow's 0.75 a
+    terracotta roof read pink; every other weather lays none (a snowless frame keeps the
+    principled look: Garden.qml swaps the snow material in only above 0)."""
+    from open_garden_planner.core.scene3d.weather import BUILT_SNOW_FULL_AT
+
+    assert WEATHER_SPECS["snow"].snow_cover == BUILT_SNOW_FULL_AT
+    for at in SUNS:
+        assert living_look(at, "high", "snow").atmosphere.built_snow == 1.0
+        for weather in ("clear", "partly_cloudy", "overcast", "rain"):
+            assert living_look(at, "high", weather).atmosphere.built_snow == 0.0, weather
+        assert living_look(at, "high", "clear", dew=False).atmosphere.built_snow == 0.0

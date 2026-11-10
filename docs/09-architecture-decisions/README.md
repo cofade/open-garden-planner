@@ -10584,7 +10584,7 @@ cost (nothing animates there), and one canonical path per behaviour.
    materials bind the same `groundRoughness` / `groundSpecular` / `groundTint` (and the tile
    shader `snowCover`), so the plan meets the meadow without a step in every weather (the L1.4
    plan-edge rule). Roofs and a bed's soil (principled `vc` parts) are not snow-covered — an
-   accepted limitation.
+   accepted limitation (amended by the #687 addendum below: built tops lie under snow).
 7. **Today's weather follows the app's forecast, only on today.** The Planting Calendar's
    weather widget already fetches Open-Meteo's daily forecast; `forecast_days_ready` fans its
    `(ISO date, WMO code)` days out to the workspace (no second fetch, nothing from the 3D view to
@@ -10932,6 +10932,109 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
 
 Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
 clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).
+
+**Addendum (#687, the L5 polish: occlusion under cloud, snow on built tops, leaves, lamp
+pools, the dew mist).** The five deferred P2 findings of the L5 review and the snow comment
+of the 3D survey. Measured on the board's `--living` shots (high, 1280 x 720, family garden)
+with its new `living_occlusion` phase, and through `Quick3DHost.capture` for #831. Truth is
+untouched: no sun, shadow, plant or date moves, and every clear frame is the same to the
+level (the board's clear shots and every Low frame: max difference 0).
+
+1. **Under cloud the ambient occlusion is the weather's.** Qt's pass reads a camera-facing
+   normal (`ogp-3d-renderer` reference 24): flat ground seen at a slant occludes itself
+   wherever no nearer object stands in its samples. At the clear values every open surface
+   under cloud was grey (snow's lawn 17 levels under Low — the survey's 160 against 180 —,
+   the overcast lawn 15.6 under its own frame without occlusion) and the meadow straight
+   above every silhouette was 9.5-10 levels LIGHTER than far away: the survey's light rim.
+   The issue's proposal (strength 99, reach 35, no bias) made both worse (snow -49). A weather
+   now takes its light share (`WeatherSpec.light`) of strength 55 → 99, reach 14 → 70 cm and
+   bias 0 → 21 cm (`AtmosphereSpec.ao_*`), and the bias follows the capture's AO scale. At 0.3
+   of the reach the bias ends the self-occlusion near and far (0.16: rim 6-8; 0.25: 3.1 on
+   snow; 0.5: no occlusion at all, a caster's lit-side foot 0.004). Result: rim 1.92 / 1.21 /
+   2.07 (overcast / rain / snow), far self-occlusion 2.64 / 1.93 / 2.79, snow's lawn 2.93
+   under Low, partly cloudy rim 4.92 (its 0.15 share); at 1080p 1.00 / 1.00 / 0.28, snow 0.58
+   over Low. The cloudy frames are brighter for it (1080p board luma: overcast 116.9 → 126.1,
+   rain 132.7 → 137.8, snow 154.2 → 174.9, the snow tops included). Clear, the dew and an Analyze drape
+   keep 55 / 14 / 0 — the clear look keeps its own 8-level rim (below).
+2. **The overcast contact gate compares the LIT sides — decided on the evidence.** The issue
+   asked for "contact darkness under overcast at least that of the clear look at 15°". On the
+   box caster's shadow side the clear look's 0.49 is its cast shadow; an occlusion that
+   matched it would be a dark ring on every side, a shadow the sun does not cast. On the lit
+   side occlusion alone darkens in both looks. So the gate: the lit-side foot under overcast
+   ≥ the clear look's (0.040 ≥ 0.022 at 720p; at the render tier's 360 px ≥ 2× clear: 0.144
+   against 0.044), with the rim ≤ 3 and the far self-occlusion ≤ 3 (720p) / 0.75 (360 px) for
+   overcast, rain and snow. Stated plainly: today's 0.031 already passed the literal lit-side
+   comparison, because the old "contact" was mostly the self-occluded ground round it; the
+   shadow side reads 0.044 (was 0.063) for the same reason. The geometry of a 1 x 1 x 2 m box
+   under a sky-lit day predicts 0.10-0.17 (sky view factor of its foot ring against the open
+   ground, display luma); Qt's pass cannot give more without the rim. Looked at, the overcast
+   box stands on darker ground at its foot and the ground round it is no longer grey. **At
+   1080p the gate FAILS by a hair**: Qt's foot shrinks with the picture in every look (clear
+   0.044 / 0.022 / 0.0096 at 360 px / 720p / 1080p), and the overcast foot reads 0.0065 against
+   clear's 0.0096 (today's values 0.0156) — about 0.4 levels, while the rim falls 11.71 → 1.00,
+   the open overcast ground's self-occlusion 15.63 → 0.21 and snow against Low -17.42 → +0.58.
+   An open question for the review: a foot that is invisible at 1080p in both looks, or a grey
+   ground with a rim.
+3. **Snow lies on built tops** (decision 6 amended). While snow lies (`AtmosphereSpec.built_snow`
+   = min(1, snow cover / 0.75): smooth tops lie white where the meadow's 0.75 still shows
+   grass — at 0.75 a terracotta roof read pink and the mat lilac), every `vc` part and roof
+   swaps to ONE material (`built_snow.vert/.frag`; no shader per part, ADR-060); snowless, every
+   frame is the principled look. Its albedo is the principled look's: the vertex colour through
+   its own vertex stage (read as `VAR_COLOR` a roof pixel came out 136 / 46 / 39 against the
+   principled 187 / 99 / 71; through `COLOR` 187 / 99 / 71), the tint and fill picture through
+   the engine's polynomial; snow mixes in by `built_snow × smoothstep(0.35, 0.75, NORMAL.y)`
+   with the snowy ground's roughness and specular. A building's floor (under its roof, shown
+   by Cutaway), glass (heated or not is not in the plan), water (frozen or not likewise) and an
+   X-ray door stay as they are. The board's snow shot whitens 2 % or more of the frame against
+   the same frame with bare tops (render gate).
+4. **A falling leaf is its crown's colour.** `ambient_emitters` gives each dropping tree eight
+   samples of the Forge's leaf colours for its own palette (outer, upper leaves) times the
+   season's tint (`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id;
+   `LEAF_PALETTE` is gone. A red maple drops red leaves (hue under 20°), every leaf within 10° of
+   its crown's mean hue (unit test), two trees of one species drop different samples. In the
+   frame a falling leaf reads 8-12° yellower than its crown (the board's autumn shot, the best
+   measured tree: 47.8° against 36.0°; the literal's amber read 39.6° there by chance): the
+   colour data are the crown's (39.7° against 39.1°), but a leaf particle is drawn in the
+   look's flat particle light while the crown's own leaves are shaded and occluded — a
+   follow-up for the particle light, not for the colours.
+5. **Lamp pools fade at the edge of the lit six, and a picture lights its own.** Each lit
+   lamp is weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest
+   lamp left out (`lights.lit_lamps`): at a swap both are dark, so no pool switches in a frame;
+   no clock, so a recorded tour repeats; six lamps or fewer keep weight 1; a slot never turns
+   invisible, so no shader recompiles. Measured with a fixed night camera over ten lanterns and
+   the lamp target walking along them: the largest frame-to-frame step of a pool, 60 cm of
+   target travel a frame, 61.3 levels with the hard set and 49.0 faded; at 15 cm a frame (a
+   pan, a tour's path) 61.3 against 14.9 (p99 41.4 / 13.1) — the fade's step grows with the
+   travel per frame (up to 1.5 × 2 × travel / 200 cm of a pool), the hard set's does not. Found while designing it: a camera tour's frames were lit
+   by the six lamps of the PANE's target (`camera_moved` follows the view only). A tour's frame
+   and an agent's `render_3d_view` with a camera now light by their own target
+   (`WorkspaceCaptureCoordinator` → `WorkspaceLivingCoordinator.aim_lamps`; PF-E3D-29).
+6. **No dew mist.** Qt 6.12's height fog is a slab: on the morning-dew shot the ground at the
+   camera's feet +121.6 levels (fully fogged), the far rows +0.8, and density 1 / 0.3 and curve
+   1 / 4 drew the same frame. A sheet mist would be a new blended Model sorted against the
+   particles and the glass, and a post effect cannot join a chain that already holds the photo
+   blur with glow on (PF-E3D-21): left out, the morning dew stays "a nearer haze and a sheen".
+7. **Picture size (#831), measured, not fixed.** Pane-sized (640 x 360) against 1080p of the
+   same camera, overcast at medium (#831's setup): the mean gap +4.14 → +0.73, but the 40-row
+   bands now swing both ways (+13.4 / -11.7 at 360 px, +5.1 / -7.5 at 720p, +11.1 / -7.9 at 4K;
+   at the clear values +10.5 / 0, +3.9 / 0, +2.1 / -4.0): the self-occlusion the bias leaves
+   lies in a ring of far meadow whose distance moves with the picture (PF-E3D-28). Not scaling
+   the bias at 4K: +4.51 mean. A bias scaled by 1080/height below 1080p over-corrected. The
+   clear look (#831's own numbers +4.74 / +12.27) is unchanged.
+
+Taste calls left to the owner: full snow on built tops against the meadow's 0.75; partly
+cloudy's 4.9-level rim; whether the clear look should take the bias too (its 8-level rim
+would go, every clear frame would change, and its far meadow would brighten by up to 13
+levels). Rejected: the issue's 99 / 35 without a bias (above), a bias without the stronger
+pass (55 / 14 / 3: the contact went from 0.022 to 0.007), Qt's height fog (a slab). Tests:
+`test_scene3d_weather.py` (the occlusion and the built snow per weather), `test_quick3d_qml.py`
+(the bindings, the one snow shader, its warmer, the bias's capture scale),
+`test_scene3d_particles.py` (a leaf's crown colour, the lamp fade's continuity),
+`test_scene3d_living.py`, `test_directors_cut.py` (a tour's lamps), `test_board_probes.py`
+(the rim, open ground, a caster's foot), and the render tier
+`test_living_garden_render.py` (the 360 px occlusion bounds, the built snow, and
+`test_under_cloud_open_snow_has_no_rim_and_stays_with_low` at 720p). Lessons PF-L3D-26,
+PF-L3D-27, PF-E3D-28, PF-E3D-29; debug-verbose case study 216.
 
 
 

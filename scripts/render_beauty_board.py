@@ -282,6 +282,11 @@ STAIRS_STREAK_OFFSETS_CM = (100.0, 250.0, 350.0, 420.0)
 #: runs the horizon probe, the mood strip and the dusk under each — an overcast sky draws
 #: its horizon otherwise (3D review of L5).
 HORIZON_WEATHERS = ("partly_cloudy", "overcast", "rain", "snow")
+#: #687: the weathers whose ambient occlusion ``--living`` measures (clear for comparison):
+#: each on the overcast shot's camera (snow on the snow shot's), and the box caster's foot
+#: at this sun.
+OCCLUSION_WEATHERS = ("clear", "partly_cloudy", "overcast", "rain", "snow")
+OCCLUSION_ELEVATION = 15.0
 
 
 def sky_band_camera(bearing_deg: float, size: tuple[int, int]) -> probes.Pinhole:
@@ -837,7 +842,7 @@ class Board:
                     f"living_{shot.name}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry, baked=True,
                     shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
-                    ambient=living.buffers, lamps=[lamp.light for lamp in living.lamps])
+                    ambient=living.buffers, lamps=list(living.lights))
                 atmosphere = look.atmosphere
                 counts = {kind: sum(e.count for e in living.emitters if e.kind == kind)
                           for kind in ("leaf", "butterfly", "firefly")}
@@ -855,10 +860,98 @@ class Board:
                                 "lamps": round(atmosphere.lamps, 3)},
                        "dew": round(atmosphere.dew, 3), "cloud": atmosphere.cloud,
                        **info, **probes.frame_stats(rgb)}
+                if atmosphere.built_snow > 0.0:
+                    # #687: the same frame with bare tops - the pixels the snow whitens
+                    bare, _frame, _info = self.frame(
+                        f"living_{shot.name}_{preset}_bare_tops", records, sun=sun,
+                        look=replace(look, atmosphere=replace(atmosphere, built_snow=0.0)),
+                        ground=self.plan_ground(), registry=registry, baked=True,
+                        shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
+                        ambient=living.buffers, lamps=list(living.lights))
+                    whiter = probes.luma(rgb) - probes.luma(bare) > 15.0
+                    row["snow_tops"] = {
+                        "share": round(float(whiter.mean()), 4),
+                        "luma": round(float(probes.luma(rgb)[whiter].mean()), 2) if whiter.any() else None,
+                        "bare_luma": round(float(probes.luma(bare)[whiter].mean()), 2) if whiter.any() else None}
                 rows.append(row)
                 self.log("living", name=shot.name, preset=preset, weather=weather,
                          mood=row["mood"], luma=row["mean_luma"], ambient=row["ambient_particles"])
                 self.write()
+
+    def living_occlusion(self, presets: list[str]) -> None:
+        """How each weather's ambient occlusion treats open ground and a caster's foot
+        (#687), per preset. On the overcast shot's camera (snow: the snow shot's), the
+        weather's look without its rain or snow (``weather_look``), each frame with and
+        without occlusion and the empty plan beside it (``probes.occlusion_rim``):
+
+        - ``rim``: how much lighter the meadow is straight above a silhouette than far
+          from every object — open ground that occludes ITSELF except beside a nearer
+          object (the survey's light rim round the beds); ``far_darkening`` that
+          self-occlusion itself;
+        - ``open``: the plan's open ground, its luma with and without occlusion; for snow
+          also against the Low preset (no occlusion), ``snow_minus_low``;
+        - ``contact``: the box caster's foot against the open ground beyond it, per side,
+          at a ``OCCLUSION_ELEVATION`` sun (``probes.caster_contact``; S is lit, E lies in
+          its shadow)."""
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        registry = production_registry()
+        shots = {shot.name: shot for shot, _weather in living_shots(self.width, self.depth)}
+        plan = [(0.0, 0.0), (self.width, 0.0), (self.width, self.depth), (0.0, self.depth)]
+        out: dict[str, Any] = {}
+        self.metrics["living_occlusion"] = out
+        low_snow: np.ndarray | None = None
+        for preset in presets:
+            rows: dict[str, Any] = {}
+            for weather in OCCLUSION_WEATHERS:
+                shot = shots["snow" if weather == "snow" else "overcast"]
+                records = self.records_for(plan_day(shot.when_utc))
+                sun = self.sun_at(shot.when_utc)
+                look = weather_look(sun, preset, weather)
+                plain = replace(look, preset=replace(look.preset, ambient_occlusion=False))
+                view = PerspectiveShot(shot.eye, shot.target, shot.fov_deg)
+                camera = probes.Pinhole(shot.eye, shot.target, shot.fov_deg, self.size)
+                name = f"occlusion_{weather}_{preset}"
+                frames, files = {}, {}
+                for label, chosen, items in (("ao", look, records), ("no_ao", plain, records),
+                                             ("empty", plain, {})):
+                    frames[label], _frame, info = self.frame(
+                        name if label == "ao" else f"{name}_{label}", items, sun=sun, look=chosen,
+                        ground=self.plan_ground(), registry=registry, shot=view, baked=True)
+                    files[label] = info["file"]
+                ground = probes.ground_polygon_mask(camera, plan)
+                rim = probes.occlusion_rim(frames["ao"], frames["no_ao"], frames["empty"], ~ground,
+                                           horizon_row=camera.horizon_row())
+                open_ground = probes.open_ground_luma(frames["ao"], frames["no_ao"], frames["empty"],
+                                                      ground)
+                mask = open_ground.pop("mask")
+                row: dict[str, Any] = {"rim": rim["rim"], "far_darkening": rim["far_darkening"],
+                                       "rim_profile": rim["profile"], "open": open_ground,
+                                       "file": files["ao"]}
+                if weather == "snow" and open_ground["luma"] is not None:
+                    if low_snow is None:
+                        low_look = weather_look(sun, "low", "snow")
+                        low_snow, _frame, _info = self.frame(
+                            "occlusion_snow_low_reference", records, sun=sun, look=low_look,
+                            ground=self.plan_ground(), registry=registry, shot=view, baked=True)
+                    row["snow_minus_low"] = round(
+                        open_ground["luma"] - float(np.median(probes.luma(low_snow)[mask])), 2)
+                caster_sun = SunState(OCCLUSION_ELEVATION, IOU_AZIMUTH)
+                caster_view = iou_camera(OCCLUSION_ELEVATION, self.size)
+                contact_rgb, _frame, _info = self.frame(
+                    f"occlusion_contact_{weather}_{preset}", {"caster": caster_record()},
+                    sun=caster_sun, look=weather_look(caster_sun, preset, weather), ground=IOU_GROUND,
+                    shot=PerspectiveShot(caster_view.eye, caster_view.target, caster_view.fov_deg))
+                contact = probes.caster_contact(contact_rgb, caster_view, IOU_CENTRE, CASTER_SIDE / 2.0)
+                row["contact"] = {side: contact[side] for side in ("S", "E")}
+                rows[weather] = row
+                self.log("occlusion", preset=preset, weather=weather, rim=row["rim"],
+                         far=row["far_darkening"], open_darkening=open_ground["darkening"],
+                         snow_minus_low=row.get("snow_minus_low"),
+                         contact_s=row["contact"]["S"]["contact"], contact_e=row["contact"]["E"]["contact"])
+                self.write()
+            out[preset] = rows
 
     def analysis(self, shots: list[BoardShot], presets: list[str]) -> None:
         """Analyze in 3D (L2, #386): each shot again with the 2D sun analysis on the
@@ -1236,8 +1329,10 @@ class Board:
         if any(not row["ok"] for rows in distant.values() for row in rows):
             raise RuntimeError(f"distant horizon exceeds {HORIZON_STEP_BOUND:g} luma; see metrics.json")
 
-    def far_plan(self, presets: list[str]) -> None:
-        """Rendered pins for AO continuity and shadow presence at 2x/4x framing (#624)."""
+    def far_plan(self, presets: list[str], weather: str = "clear") -> None:
+        """Rendered pins for AO continuity and shadow presence at 2x/4x framing (#624).
+        ``weather`` (``--living``): under that weather's look - its ambient occlusion is
+        the weather's own since #687."""
         from open_garden_planner.core.scene3d.builders.surfaces import _inside
         from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
@@ -1255,18 +1350,19 @@ class Board:
                 for ring in record.footprints:
                     ground_only &= ~_inside(samples, np.asarray(pose_ring(record.transform, ring)))
         rows = []
-        self.metrics["far_plan"] = rows
+        tag = "" if weather == "clear" else f"_{weather}"
+        self.metrics[f"far_plan{tag}"] = rows
         for preset in presets:
-            look = look_for(sun, preset)
+            look = weather_look(sun, preset, weather)
             for multiple in (2.0, 4.0):
                 moved = replace(pose, distance_cm=pose.distance_cm * multiple)
                 camera = probes.Pinhole(moved.eye, moved.target_scene, 40.0, self.size)
                 shot = PerspectiveShot(camera.eye, camera.target, camera.fov_deg)
                 rgb, _frame, info = self.frame(
-                    f"far_plan_{int(multiple)}x_{preset}", records, shot=shot, sun=sun,
+                    f"far_plan{tag}_{int(multiple)}x_{preset}", records, shot=shot, sun=sun,
                     look=look, ground=self.plan_ground(), baked=True)
                 reference, _frame, clear = self.frame(
-                    f"far_plan_{int(multiple)}x_{preset}_no_shadows", records, shot=shot, sun=sun,
+                    f"far_plan{tag}_{int(multiple)}x_{preset}_no_shadows", records, shot=shot, sun=sun,
                     look=replace(look, shadow=replace(look.shadow, factor=0.0)),
                     ground=self.plan_ground(), baked=True)
                 px, py, front = camera.project(np.column_stack([samples, np.zeros(len(samples))]))
@@ -1274,7 +1370,7 @@ class Board:
                 valid = (ground_only & front & (x >= 0) & (y >= 0)
                          & (x < self.size[0]) & (y < self.size[1]))
                 delta = probes.luma(reference)[y[valid], x[valid]] - probes.luma(rgb)[y[valid], x[valid]]
-                row = {"preset": preset, "framing_multiple": multiple,
+                row = {"preset": preset, "weather": weather, "framing_multiple": multiple,
                        "distance_cm": moved.distance_cm, "ground_samples": int(valid.sum()),
                        "shadowed_samples": int((delta > 2.0).sum()),
                        "shadow_delta_max": round(float(delta.max()), 3),
@@ -1527,7 +1623,7 @@ class Board:
                                                       if k != "file"})
             self.write()
 
-    def plan_edge(self, shots: list[BoardShot], presets: list[str]) -> None:
+    def plan_edge(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
         """The plan rectangle against the meadow on a plan with nothing on it: the luma
         step across its west and its south edge at golden hour and at noon, per preset.
 
@@ -1539,7 +1635,9 @@ class Board:
         that differs makes the plan darker looking one way and brighter looking the
         other (the old material: -4.1 and +4.3 along the south edge at golden hour),
         and a mean of the two would hide it. ``max_line`` is the largest LINE on an edge
-        (``probes.plan_edge_step``): a thin line the fits cannot see."""
+        (``probes.plan_edge_step``): a thin line the fits cannot see. ``weather``
+        (``--living``): under that weather's look - the ground's values and, since #687, its
+        ambient occlusion are the weather's."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
@@ -1559,7 +1657,8 @@ class Board:
                                    "north", south_along),
         }
         out: dict[str, Any] = {}
-        self.metrics["plan_edge"] = out
+        tag = "" if weather == "clear" else f"_{weather}"
+        self.metrics[f"plan_edge{tag}"] = out
         worst = 0.0
         worst_line = 0.0
         for preset in presets:
@@ -1570,7 +1669,8 @@ class Board:
                 for name, (eye, target, axis, along) in views.items():
                     camera = probes.Pinhole(eye=eye, target=target, fov_deg=40.0, size=self.size)
                     rgb, _frame, info = self.frame(
-                        f"edge_{mood}_{name}_{preset}", {}, sun=sun, look=look_for(sun, preset),
+                        f"edge{tag}_{mood}_{name}_{preset}", {}, sun=sun,
+                        look=weather_look(sun, preset, weather),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
                     rows[name] = {**probes.plan_edge_step(rgb, camera, axis=axis, at=0.0,
@@ -1580,7 +1680,7 @@ class Board:
                     worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
                     worst_line = max(worst_line, row["line"] if row["line"] is not None else math.inf)
                 out[preset][mood] = rows
-                self.log("plan_edge", preset=preset, mood=mood,
+                self.log("plan_edge", weather=weather, preset=preset, mood=mood,
                          **{name: row["step"] for name, row in rows.items()})
             self.write()
         out["max_abs_step"] = round(worst, 2)
@@ -1914,6 +2014,7 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.shoot(shots, presets)
     if args.living:
         board.living(presets)
+        board.living_occlusion(presets)
         for weather in HORIZON_WEATHERS:   # the cloudy skies, probed like the clear one
             if args.horizon:
                 board.horizon(default_shots(board.width, board.depth), presets, weather)
@@ -1921,6 +2022,12 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
                 board.mood_strip(default_shots(board.width, board.depth), presets, weather)
             if args.dusk:
                 board.dusk(default_shots(board.width, board.depth), presets, weather)
+            # #687: the weather's own ambient occlusion and ground, at the plan's far
+            # framings and its edge
+            if args.far_plan:
+                board.far_plan(presets, weather)
+            if args.edge:
+                board.plan_edge(default_shots(board.width, board.depth), presets, weather)
     if args.analysis:
         board.analysis(shots, presets)
     if args.moods:

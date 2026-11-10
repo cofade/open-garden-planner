@@ -615,6 +615,15 @@ class AtmosphereSpec:
     fireflies: float = 0.0
     #: The garden lights, 0 (off, by day) .. 1 (on at night): they come on with dusk.
     lamps: float = 0.0
+    #: The ambient occlusion under this weather (#687): factors on the spike's strength
+    #: (55) and reach (14) and Qt's bias in cm — 1, 1 and 0 when clear. Whether there is
+    #: occlusion at all stays the preset's (``PresetSpec.ambient_occlusion``).
+    ao_strength_gain: float = 1.0
+    ao_distance_gain: float = 1.0
+    ao_bias_cm: float = 0.0
+    #: How much snow lies on a built part's TOPS (a roof, a bed's soil, a deck), 0..1
+    #: (#687): smooth, they hold a full cover where the meadow still shows its grass.
+    built_snow: float = 0.0
 
 
 #: What every look of L1–L4 has: clear, dry and still.
