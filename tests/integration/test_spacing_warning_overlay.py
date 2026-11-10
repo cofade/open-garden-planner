@@ -32,6 +32,7 @@ from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+from tests.integration.test_bed_context_menu import BED_SHAPES
 
 EXAMPLES = Path(__file__).parents[2] / "src/open_garden_planner/resources/examples"
 
@@ -369,6 +370,47 @@ def test_the_canvas_shows_every_decoration_and_an_export_shows_none(qtbot) -> No
 
     assert _changed_share(on_canvas, bare, threshold=24) > 0.001   # they are painted...
     assert _changed_share(exported, bare, threshold=0) == 0.0      # ...and not exported
+
+
+def _set_every_diagnostic_flag(item: object, on: bool) -> None:
+    """Raise (or clear) every diagnostic flag a garden item can paint."""
+    item.set_spacing_overlap("overlap" if on else None)       # type: ignore[attr-defined]
+    item.set_antagonist_warning(on)                           # type: ignore[attr-defined]
+    item.set_companion_highlight("antagonistic" if on else None)  # type: ignore[attr-defined]
+    item.set_rotation_status("violation" if on else None)     # type: ignore[attr-defined]
+    item.set_capacity_overrun(on)                             # type: ignore[attr-defined]
+    item._soil_mismatch_level = "critical" if on else None    # type: ignore[attr-defined]
+    item.update()                                             # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("factory,_supports_grid,supports_soil", BED_SHAPES)
+def test_no_plant_parent_shape_carries_a_decoration_into_an_export(
+    factory, _supports_grid: bool, supports_soil: bool, qtbot
+) -> None:
+    """The export seam holds for every shape of the bed gate (section 8.14, ADR-017).
+
+    Bed features were twice shipped on some of the four bed shapes only. The
+    decorations are painted from three places (the mixin, the rectangle, the
+    polygon), so the same mistake is possible here: a shape that paints a
+    border or a badge without asking ``_diagnostics_painted``. The shapes are
+    the bed gate's own list, so a shape added there is checked here too.
+    """
+    scene = CanvasScene(600, 400)
+    scene.set_shadows_enabled(False)
+    item = factory()
+    scene.addItem(item)
+    item.setPos(250.0, 170.0)
+    _set_every_diagnostic_flag(item, True)
+    assert item.has_diagnostic_decoration()
+
+    on_canvas = _render(scene, 1.0)
+    exported = _render(scene, 1.0, export=True)
+    _set_every_diagnostic_flag(item, False)
+    bare = _render(scene, 1.0)
+
+    assert _changed_share(exported, bare, threshold=0) == 0.0
+    if supports_soil:      # every soil-capable shape paints the soil border at least
+        assert _changed_share(on_canvas, bare, threshold=24) > 0.0
 
 
 def test_the_seam_switches_the_painted_decorations_off_and_on_again(qtbot) -> None:

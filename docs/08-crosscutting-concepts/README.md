@@ -683,6 +683,16 @@ gets its own type and joins the tuple in `_hide_overlay_items`. The switch chang
 what is painted, never a flag, the plan or its revision; `get_diagnostics` reads
 the same warnings whether or not they are painted.
 
+**The seam is checked on every shape of the bed gate (§8.14).** The decorations are
+painted from three places (the mixin for the soil border and the capacity badge,
+`RectangleItem` and `PolygonItem` for the crop-rotation border), which is the
+arrangement that twice shipped a bed feature on some shapes only.
+`test_no_plant_parent_shape_carries_a_decoration_into_an_export` therefore runs
+over `BED_SHAPES` of `tests/integration/test_bed_context_menu.py`: with every
+diagnostic flag raised, the exported picture of each shape equals the picture of
+the bare shape. A shape added to the bed gate is checked here with no further
+step.
+
 Decision (ADR-028 addendum): the spacing ring is a planning aid and is in no
 exported picture, warning or not. View-level overlays (grid, rulers, scale bar,
 soil-health tint) were never in an export, because `scene.render()` does not reach
