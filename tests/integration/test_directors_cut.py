@@ -987,6 +987,44 @@ def test_a_paused_preview_stops_saying_it_waits_when_the_view_comes_back(rig: Ri
     dialog.close()
 
 
+def test_save_video_writes_a_file_that_states_its_colour_level_and_timing(
+        rig: Rig, qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#807 end to end: the dialog's own Save Video path, the chosen quality reaching the
+    encoder, and the finished file probed - BT.709 limited range in its container and every
+    SPS, every frame exactly 1/24 s, the profile Windows' encoder writes."""
+    from open_garden_planner.core.mp4_stream import BT709_LIMITED, read_stream
+    from open_garden_planner.ui.view3d import video_writer
+
+    if video_writer.best_codec() is None:
+        pytest.skip("this system has no MP4 encoder")
+    asked: list[str] = []
+    real_init = video_writer.Mp4Writer.__init__
+
+    def noting(self: Any, *arguments: Any, **keywords: Any) -> None:
+        asked.append(keywords.get("quality", "?"))
+        real_init(self, *arguments, **keywords)
+
+    monkeypatch.setattr(video_writer.Mp4Writer, "__init__", noting)
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(1.0)
+    dialog.fps_combo.setCurrentIndex(dialog.fps_combo.findData(24))
+    dialog.size_combo.setCurrentIndex(0)
+    dialog.quality_combo.setCurrentIndex(dialog.quality_combo.findData("best"))
+    path = tmp_path / "tour.mp4"
+    dialog.record_video(path)
+    qtbot.waitUntil(lambda: dialog._recorder is None, timeout=60000)
+    assert asked == ["best"]
+    assert str(path) in dialog._status.text(), dialog._status.text()
+    stream = read_stream(path)
+    assert stream.tagged == BT709_LIMITED and (stream.width, stream.height) == (1280, 720)
+    assert stream.samples == 24 and {delta for _n, delta in stream.durations} == {
+        stream.timescale // 24}
+    assert stream.codec != "avc1" or (stream.sps is not None
+                                      and stream.sps.profile == "Constrained Baseline")
+    assert stream.bit_rate > 0.0
+    dialog.close()
+
+
 def test_enter_in_a_field_of_the_tour_window_presses_no_button(rig: Rig) -> None:
     """#796: the older buttons were auto-default, so Enter in a spin box pressed the first."""
     dialog = dialog_of(rig)

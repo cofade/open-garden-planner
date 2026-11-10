@@ -258,6 +258,14 @@ def test_a_tour_writes_every_frame_and_leaves_the_view_where_it_was(tmp_path: Pa
     assert video["duration_ms"] == 2000 and video["size"] == [1280, 720], video
     assert video["frames"] == result["expected_frames"], video
     assert result["camera_kept"] and result["clock_kept"]
+    # #807: the file states BT.709 limited range everywhere, every frame lasts a 30th of a
+    # second, and the profile is what Windows' encoder writes (Qt cannot ask for another)
+    stream = result["stream"]
+    assert stream["tagged"] == [1, 1, 1, False], stream
+    assert stream["samples"] == result["expected_frames"]
+    assert stream["deltas"] == [stream["timescale"] // 30], stream
+    assert stream["codec"] != "avc1" or stream["profile"] == "Constrained Baseline", stream
+    assert stream["mbit_s"] > 0.0
 
 
 def test_a_tours_frames_show_the_plants_as_the_view_would_from_there(tmp_path: Path) -> None:
