@@ -4768,7 +4768,16 @@ for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
     _ground_band_neutral.changes_ground_band = False
 
 #: Commands that cannot change which plant-parent contains a plant (#629): an add is
-#: derived synchronously by `addItem` and a delete cannot hide anything.
-CONTAINMENT_NEUTRAL_COMMANDS = (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand)
+#: derived synchronously by `addItem` and a delete cannot hide anything. The camera-tour
+#: commands (#737) change the plan's list of tours and never touch a scene item.
+CONTAINMENT_NEUTRAL_COMMANDS = (
+    CreateItemCommand,
+    CreateItemsCommand,
+    DeleteItemsCommand,
+    _CameraToursCommand,
+    SaveCameraTourCommand,
+    RenameCameraTourCommand,
+    DeleteCameraTourCommand,
+)
 for _containment_neutral in CONTAINMENT_NEUTRAL_COMMANDS:
     _containment_neutral.changes_containment = False

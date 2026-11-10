@@ -265,6 +265,10 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     The Smart Symbols panel and bundled templates are retired.
   - CAD editing (#664/#771): read ADR-075, §8.35 and PF-CAN-48 before touching
     group drill-down, a rebuild that changes an object's type, or Esc handling.
+  - 3D look (#687-#807): read the ADR-059 and ADR-072 addenda and the
+    `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
+    part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
+    the tour video. One shader draws all ground; a still fits its own shadow map.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.
