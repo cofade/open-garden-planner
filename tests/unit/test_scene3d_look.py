@@ -562,6 +562,29 @@ class TestSkyStaleness:
         for elevation, azimuth in ((-10.0, 330.0), (-40.0, 20.0), (-7.0, 60.0)):
             assert not sky_is_stale(shown, look_for(sun(elevation, azimuth)).sky)
 
+    def test_a_recorded_frame_asks_for_the_sky_of_its_own_sun(self) -> None:
+        """#799: a day lapse moves the sun 0.5-0.7° a frame. Under the live view's 1° rule
+        the sky and its light probe were rebuilt every SECOND frame while the light and the
+        exposure followed every frame: the sky band jumped 10-16 luma on alternate frames
+        at dawn (zigzag RMS 3.86). The recording path's threshold 0 is EXACT: any change
+        of the wanted sky rebuilds; the same sky never does; the night sky still never
+        follows the sun's position."""
+        assert L.RECORDING_SKY_REBUILD_DEG == 0.0 and L.SKY_REBUILD_DEG == 1.0
+        exact = L.RECORDING_SKY_REBUILD_DEG
+        for shown_sun, wanted_sun in (((1.0, 60.0), (1.55, 60.3)),      # a dawn frame
+                                      ((-2.0, 310.0), (-2.4, 310.2)),   # twilight
+                                      ((30.0, 180.0), (30.0, 180.05))):  # a tiny move
+            shown, wanted = look_for(sun(*shown_sun)).sky, look_for(sun(*wanted_sun)).sky
+            assert sky_separation_deg(shown, wanted) < L.SKY_REBUILD_DEG
+            assert not sky_is_stale(shown, wanted), "the live view keeps its 1° rule"
+            assert sky_is_stale(shown, wanted, exact), (shown_sun, wanted_sun)
+        same = look_for(sun(1.0, 60.0)).sky
+        assert not sky_is_stale(same, look_for(sun(1.0, 60.0)).sky, exact), "a held clock: nothing"
+        night = look_for(sun(-8.0, 310.0)).sky
+        assert not sky_is_stale(night, look_for(sun(-11.0, 330.0)).sky, exact)
+        assert sky_is_stale(None, same, exact)
+        assert sky_is_stale(night, look_for(sun(-5.9, 330.0)).sky, exact), "a change of phase"
+
     def test_the_sky_never_asks_for_a_sun_far_below_the_horizon(self) -> None:
         assert look_for(sun(-40.0)).sky.sun_elevation_deg == L.SKY_MIN_ELEVATION_DEG == L.TWILIGHT_DEG == -6.0
         assert look_for(sun(12.0, 725.0)).sky.sun_azimuth_deg == pytest.approx(5.0)

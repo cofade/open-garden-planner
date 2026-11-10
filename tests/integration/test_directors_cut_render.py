@@ -23,8 +23,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 
+from open_garden_planner.core.scene3d.look import GOLDEN_DEG, NIGHT_BELOW_DEG, TWILIGHT_DEG
+from open_garden_planner.core.scene3d.weather import DEW_RISE_DEG
 from tests.integration.quick3d_render_support import (
     REPO,
     keep_artifacts,
@@ -69,6 +72,12 @@ SLIDER_FOCUS_KEPT = 0.9
 BENCH_FRINGE = 1.0
 BENCH_SHARE_TOLERANCE = 0.30
 BENCH_RIM = (26.0, 8.0)
+#: #799: the largest alternation (luma, ``_alternation``: a step every second frame) of a
+#: day lapse's sky band and whole frame between a -8° and a +8° sun, at dawn and at dusk -
+#: the issue's 0.3. Measured on the base: 0.66-1.74; with the recording's exact sky:
+#: 0.04-0.07. The rig's deliberate corners, by sun elevation, that the measure leaves out.
+DAYLAPSE_ALTERNATION = 0.3
+DAYLAPSE_CORNERS_DEG = (NIGHT_BELOW_DEG, TWILIGHT_DEG, GOLDEN_DEG, TWILIGHT_DEG + DEW_RISE_DEG)
 
 
 def drive(tmp_path: Path, scenario: str, **env: str) -> dict[str, Any]:
@@ -279,6 +288,56 @@ def test_a_year_time_lapse_does_not_jump_at_the_clock_change(
     steps = dst["luma_steps"]
     assert max(steps) <= DST_STEP_BOUND, dst
     assert dst["clock_back"]
+
+
+def _alternation(rows: list[dict[str, Any]], key: str) -> dict[str, float]:
+    """How much of a lapse's series ``key`` steps every SECOND frame (#799), over the
+    frames whose sun lies between -8° and +8°.
+
+    ``zigzag``: the survey's measure, ``z[i] = x[i] - (x[i-1] + x[i+1]) / 2``, RMS. It also
+    reads a smooth curve's bend and the rig's deliberate corners (the sun's key light at
+    0.5°, the anchors at ±6°, the dew's full point at -2°), so it is reported, not gated.
+    ``alternation``: the third difference over eight, ``(x[i+3] - 3 x[i+2] + 3 x[i+1] -
+    x[i]) / 8`` - exactly ``a`` for a step of ±a every second frame and 0 for any quadratic
+    trend - RMS over the four-frame spans that hold none of those corners."""
+    elevations = np.array([row["elev"] for row in rows], dtype=np.float64)
+    series = np.array([row[key] for row in rows], dtype=np.float64)
+    inner = elevations[1:-1]
+    zig = (series[1:-1] - (series[:-2] + series[2:]) / 2.0)[(inner > -8.0) & (inner < 8.0)]
+    third = (series[3:] - 3.0 * series[2:-1] + 3.0 * series[1:-2] - series[:-3]) / 8.0
+    low = np.minimum(elevations[:-3], elevations[3:])
+    high = np.maximum(elevations[:-3], elevations[3:])
+    keep = (low > -8.0) & (high < 8.0)
+    for corner in DAYLAPSE_CORNERS_DEG:
+        keep &= ~((low <= corner) & (corner <= high))
+    return {"zigzag": float(np.sqrt(np.mean(zig ** 2))),
+            "alternation": float(np.sqrt(np.mean(third[keep] ** 2))), "spans": int(keep.sum())}
+
+
+def test_a_day_lapse_does_not_flicker_at_dawn_or_dusk(tmp_path: Path) -> None:
+    """#799: a held-camera day lapse moves the sun about 0.6° a frame. The sky and its light
+    probe followed only every 1° (the live view's rule) while the light and the exposure
+    followed every frame, so the family garden's default view stepped every second frame:
+    sky band zigzag 3.86 / 1.80 luma (dawn / dusk), alternation 1.74 / 0.89; whole frame
+    alternation 0.80 / 0.66. A recorded frame now builds the sky of its own sun: alternation
+    0.04-0.07 everywhere (``DAYLAPSE_ALTERNATION``)."""
+    result = drive(tmp_path, "daylapse")
+    for name in ("dawn", "dusk"):
+        run = result["runs"][name]
+        assert run["ok"] and run["unsettled"] == 0 and run["files"] == run["frames"] == 42, run
+        rows = run["rows"]
+        elevations = [row["elev"] for row in rows]
+        assert min(elevations) < -8.0 and max(elevations) > 8.0, (name, elevations)
+        steps = [abs(b - a) for a, b in zip(elevations, elevations[1:], strict=False)]
+        assert 0.3 < float(np.median(steps)) < 0.7, ("the survey's step of sun", steps)
+        # every frame in twilight and by day was taken under the sky of its own sun
+        lagging = [row for row in rows if -6.0 < row["elev"] < 8.0 and row["sky_elev"] is not None
+                   and abs(row["sky_elev"] - row["elev"]) > 1e-3]
+        assert not lagging, (name, lagging)
+        for key in ("sky_luma", "frame_luma"):
+            measured = _alternation(rows, key)
+            assert measured["spans"] >= 15, (name, key, measured)
+            assert measured["alternation"] < DAYLAPSE_ALTERNATION, (name, key, measured)
 
 
 def test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look(

@@ -63,7 +63,8 @@ __all__ = [
     "GOLDEN_DEG", "AtmosphereSpec",
     "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
-    "PAINTED", "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_MODELS", "SKY_REBUILD_DEG",
+    "PAINTED", "QUALITY_CHOICES", "RECORDING_SKY_REBUILD_DEG", "SKY_MIN_ELEVATION_DEG",
+    "SKY_MODELS", "SKY_REBUILD_DEG",
     "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec",
     "ao_distance_scale", "day_rig",
@@ -729,6 +730,14 @@ NEUTRAL_DAY: Final = look_for(SunState(elevation_deg=60.0, azimuth_deg=180.0), "
 #: instant; only the picture of the sky — and the light probe filtered from it —
 #: lags, by at most this.
 SKY_REBUILD_DEG: Final = 1.0
+#: The RECORDING path's threshold (a tour's frame, ``LookController.settle_sky``): 0 is
+#: EXACT — the sky is rebuilt whenever it differs from the one the frame's sun asks for
+#: (#799). A day lapse moves the sun 0.5-0.7° a frame, so under the live 1° rule the
+#: sky and its probe followed every second frame while the light and the exposure
+#: followed every frame: at dawn the sky band jumped 10-16 luma on alternate frames
+#: (zigzag RMS 3.86 luma). A lag under about 0.03° would be needed for 0.3, so a finer
+#: threshold is no cheaper than exact. Each build costs 0.1-0.25 s of a recorded frame.
+RECORDING_SKY_REBUILD_DEG: Final = 0.0
 
 
 def sky_separation_deg(first: SkySpec, second: SkySpec) -> float:
@@ -765,14 +774,18 @@ def sky_is_stale(shown: SkySpec | None, wanted: SkySpec,
     sunset at 0.5°, the end of civil twilight at −6°, and back, a new weather — the
     caller builds those at once); by day and in twilight, the sun moved
     ``threshold_deg`` or more (in twilight the sky draws no sun, but its colours
-    follow the elevation: one rebuild per degree). A night sky is never rebuilt for
-    the sun's position.
+    follow the elevation: one rebuild per degree). A ``threshold_deg`` of 0 or less is
+    EXACT (``RECORDING_SKY_REBUILD_DEG``, #799): any difference from ``wanted``
+    rebuilds, the same sky never does. A night sky is never rebuilt for the sun's
+    position.
     """
     if sky_must_build_now(shown, wanted):
         return True
     assert shown is not None
     if wanted.night:
         return False
+    if threshold_deg <= 0.0:
+        return shown != wanted
     return sky_separation_deg(shown, wanted) >= threshold_deg
 
 
