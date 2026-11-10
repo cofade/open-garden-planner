@@ -58,6 +58,7 @@ from open_garden_planner.core.scene3d.photo import (
     focus_distance_cm,
     focus_range_cm,
 )
+from open_garden_planner.core.scene3d.wind import wind_sway_scene
 
 __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
            "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
@@ -73,8 +74,9 @@ COLOR_PROPERTIES: Final = frozenset({"sunColor", "meadowColor"})
 LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor", "groundTint",
                                            "twilightFill"})
 #: … and the ones that are ``vector3d`` (handed over as ``QVector3D``): the wind's drift
-#: (engine frame) and the light an unlit particle is drawn in (linear rgb) — L5.
-VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight"})
+#: (engine frame) and the light an unlit particle is drawn in (linear rgb) — L5 — and the
+#: wind that sways a plant by its own size (engine frame, #800).
+VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight", "windSway"})
 #: ``AtmosphereSpec.precipitation`` as the scene's ``precipKind``.
 PRECIP_KINDS: Final = {"none": 0, "rain": 1, "snow": 2}
 
@@ -159,11 +161,20 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         "fog": bool(preset.fog),
         "lawnBlades": bool(preset.lawn_blades),
         "detailNormals": float(preset.detail_normals),
-        # wind
+        # wind: the lawn's blades take the strength, a plant the sway vector (#800)
         "windStrength": float(look.wind_strength),
+        "windSway": _wind_sway(look.wind_strength),
         # the living garden (L5, ADR-070)
         **_atmosphere_properties(look),
     }
+
+
+def _wind_sway(wind_strength: float) -> tuple[float, float, float]:
+    """``wind.wind_sway_scene`` in the engine frame: downwind times the wind's strength
+    over a clear day's (a plant's sway, ``plantSway`` in the foliage shaders)."""
+    east, north = wind_sway_scene(wind_strength)
+    sway = scene_to_engine_vectors(np.array((east, north, 0.0), dtype=np.float64))
+    return (float(sway[0]), float(sway[1]), float(sway[2]))
 
 
 def _atmosphere_properties(look: LookSpec) -> dict[str, object]:

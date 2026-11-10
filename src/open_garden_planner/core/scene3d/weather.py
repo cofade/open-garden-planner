@@ -65,6 +65,7 @@ from .look import (
     twilight_fill,
 )
 from .sink import SunState
+from .wind import WIND_FROM_DEG
 
 __all__ = [
     "AO_BIAS_UNDER_CLOUD_CM", "AO_DISTANCE_UNDER_CLOUD", "AO_STRENGTH_UNDER_CLOUD",
@@ -280,10 +281,9 @@ SNOW_LINEAR: Final = (0.80, 0.84, 0.89)
 _DEW_HAZE: Final = 0.62
 _DEW_SATURATION: Final = 0.94
 _DEW_WETNESS: Final = 0.6
-#: Where the wind blows the particles: from the west-south-west (a prevailing
-#: westerly), this many cm/s per unit of the shaders' wind strength. A look, not
-#: meteorology.
-_WIND_FROM_DEG: Final = 250.0
+#: Where the wind blows the particles: from ``wind.WIND_FROM_DEG`` (the west-south-west,
+#: the way the plants sway, #800), this many cm/s per unit of the shaders' wind strength.
+#: A look, not meteorology.
 _DRIFT_PER_WIND: Final = 22.0
 #: The share of the precipitation's particles a preset draws.
 _PRECIP_DENSITY: Final = MappingProxyType({"none": 0.0, "rain": 1.0, "snow": 1.0})
@@ -462,7 +462,7 @@ def _weathered(look: LookSpec, spec: WeatherSpec, sun: SunState, *, dew: bool,
         meadow = mix_linear(meadow, linear_to_srgb_hex(SNOW_LINEAR), spec.snow_cover)
     elevation = float(sun.elevation_deg)
     sun_up = sun.is_up        # the ONE test of "the sun is down" (look_for, the 2D shadows)
-    blowing = math.radians(_WIND_FROM_DEG + 180.0)     # the wind blows TOWARDS this
+    blowing = math.radians(WIND_FROM_DEG + 180.0)      # the wind blows TOWARDS this
     drift = spec.wind_strength * _DRIFT_PER_WIND
     dry = spec.precipitation == "none"
     twilight = look.mood.twilight

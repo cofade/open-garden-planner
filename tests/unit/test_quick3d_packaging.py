@@ -89,6 +89,7 @@ class TestSpec:
             "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
             "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
             "photoblur_compose.frag", "photoblur_layer.frag", "photoblur_rows.frag",
+            "plant_sway.vert",                # a plant's wood and fruit in the wind (#800)
             "precipitation.frag", "precipitation.vert",    # rain and snow: L5 (#389)
             "ring.frag", "ring.vert",
             "screen.frag", "screen.vert", "water.frag", "water_door.frag"]

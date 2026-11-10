@@ -66,6 +66,9 @@ Item {
     property bool fog: true
     // wind
     property real windStrength: 2.5
+    // #800: downwind (engine frame) x the wind's strength over a clear day's - what sways a
+    // plant by its own size (core/scene3d/wind.py; the lawn's blades keep windStrength)
+    property vector3d windSway: Qt.vector3d(0.9396926, 0, -0.3420201)
     // the shaders' clock, in seconds. At 0 the wind is at REST: every vertex is exactly
     // where its mesh puts it (the shaders ease the sway in over the first two seconds),
     // so what is drawn is what the CPU measured. ONLY at 0: a clock paused anywhere
@@ -613,12 +616,17 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #800: a plant's wood and fruit sway with its leaves (foliagePart's swayFrame)
+            property vector3d swayFrame: Qt.vector3d(0, 0, 0)
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
             // #687: under snow the tops lie under the ground's snow (built_snow.frag) - only
             // while it snows, so a snowless frame is the principled look; a building's floor
-            // lies under its roof (Cutaway shows it) and stays bare
+            // lies under its roof (Cutaway shows it) and stays bare. #800: a plant's wood and
+            // fruit take the same shader with the plant's sway (plant_sway.vert) - only while
+            // the wind's clock runs, so every frame at rest is the principled look
             materials: fade < 1.0 ? [vcScreen]
+                       : swayFrame.x > 0.0 && root.windTime > 0.0 ? [vcSway]
                        : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
@@ -657,6 +665,27 @@ Item {
                 shadingMode: CustomMaterial.Shaded
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
                 vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
+            }
+            CustomMaterial {
+                id: vcSway
+                // vcSnow's look (snow on bare branches too), moved by the plant's sway
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
+                property real uRough: 0.78
+                property real uSpecular: 0.35
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                property real uTime: root.windTime
+                property vector3d uSwayFrame: swayFrame
+                property vector3d uWindSway: root.windSway
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "plant_sway.vert"
                 fragmentShader: "built_snow.frag"
             }
         }
@@ -881,6 +910,9 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            // #800: the plant's (height, canopy radius) in cm and its phase 0..1 - the same for
+            // every part of one item (Quick3DHost.create_part); height 0: it does not sway
+            property vector3d swayFrame: Qt.vector3d(0, 0, 0)
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
@@ -891,7 +923,8 @@ Item {
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
                 property real uTime: root.windTime
-                property real uWind: root.windStrength * 0.35
+                property vector3d uSwayFrame: swayFrame
+                property vector3d uWindSway: root.windSway
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "foliage.vert"
@@ -904,7 +937,8 @@ Item {
                 property real uSnow: Math.max(seasonSnow, root.snowCover)
                 property real uWet: root.wetness
                 property real uTime: root.windTime
-                property real uWind: root.windStrength * 0.35
+                property vector3d uSwayFrame: swayFrame
+                property vector3d uWindSway: root.windSway
                 property real uOpacity: fade
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
@@ -1481,6 +1515,29 @@ Item {
                 fragmentShader: "built_snow.frag"
                 }
             }
+            Model {   // #800: a plant's swaying wood, so the first windy frame compiles nothing
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property TextureInput uFill: TextureInput { texture: null }
+                    property real uHasFill: 0.0
+                    property real uRough: 0.78
+                    property real uSpecular: 0.35
+                    property real uSnowCover: 0.0
+                    property real uSnowRough: 1.0
+                    property real uSnowSpecular: 0.15
+                    property real uTime: 0.0
+                    property vector3d uSwayFrame: Qt.vector3d(0, 0, 0)
+                    property vector3d uWindSway: Qt.vector3d(0, 0, 0)
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "plant_sway.vert"
+                    fragmentShader: "built_snow.frag"
+                }
+            }
             Model {
                 source: "#Rectangle"
                 pickable: false
@@ -1492,7 +1549,8 @@ Item {
                     property real uSnow: 0.0
                     property real uWet: 0.0
                     property real uTime: 0.0
-                    property real uWind: 0.0
+                    property vector3d uSwayFrame: Qt.vector3d(0, 0, 0)
+                    property vector3d uWindSway: Qt.vector3d(0, 0, 0)
                     property real uOpacity: 0.0
                     shadingMode: CustomMaterial.Shaded
                     cullMode: Material.NoCulling
