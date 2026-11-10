@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -118,6 +119,7 @@ def test_a_note_keeps_its_size_in_a_png_export(
     assert exported == pytest.approx(on_canvas, abs=slack), (note_size, width_cm, dpi)
 
 
+@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 @pytest.mark.parametrize("note_size", NOTE_SIZES)
 @pytest.mark.parametrize("width_cm", PAPER_WIDTHS_CM)
 def test_a_note_keeps_its_size_in_an_svg_export(

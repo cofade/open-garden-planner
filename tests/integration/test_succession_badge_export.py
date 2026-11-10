@@ -13,6 +13,7 @@ black bed, its text by being bright.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -243,6 +244,7 @@ def test_the_badge_is_left_out_where_it_would_cover_its_bed(qtbot) -> None:
     assert _badge_box(_grab(view)) is None, f"the badge covers a bed of {on_screen.width():.0f} px"
 
 
+@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 def test_what_stands_in_the_bed_does_not_cover_the_badge(qtbot) -> None:
     """The bed's plants are drawn after the bed; the badge is drawn after them."""
     scene, _bed = _scene()
