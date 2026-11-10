@@ -898,7 +898,7 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040"
+          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -1308,7 +1308,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
           "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+          "current_sha256": "ace3ce93cd87f2200780c37ade956b39ce2b9dfdc6019dc6ad59179a0a78efae"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
@@ -1323,7 +1323,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
           "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
-          "current_sha256": "8d76ee5086426c88e895c49a3011d07841b84749ac3aaf9a21227186fb9178eb"
+          "current_sha256": "c762b637f15f4b7b438fdb0c14d68f8801bd30093103a722b3ebde8c8214da36"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
@@ -1333,7 +1333,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
           "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25"
+          "current_sha256": "7b96fd873ccdbd50a2e05d85dbbdfdd9b88f6eb899daf72bc03e6c6bc1d9249c"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
@@ -2298,7 +2298,7 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
           "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
-          "current_sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040"
+          "current_sha256": "dd7b963e195cb17d2e61a449f2f7e66bf8144ca995051f01583b43700ddcac96"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/006-6-hosts.md",
@@ -2708,7 +2708,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",
           "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
-          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+          "current_sha256": "ace3ce93cd87f2200780c37ade956b39ce2b9dfdc6019dc6ad59179a0a78efae"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
@@ -2723,7 +2723,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
           "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
-          "current_sha256": "8d76ee5086426c88e895c49a3011d07841b84749ac3aaf9a21227186fb9178eb"
+          "current_sha256": "c762b637f15f4b7b438fdb0c14d68f8801bd30093103a722b3ebde8c8214da36"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
@@ -2733,7 +2733,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
           "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
-          "current_sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25"
+          "current_sha256": "7b96fd873ccdbd50a2e05d85dbbdfdd9b88f6eb899daf72bc03e6c6bc1d9249c"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",

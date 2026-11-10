@@ -1189,6 +1189,11 @@
     "state": "MERGED",
     "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
   },
+  "798": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the meadow and the uncovered plan ground are one flat colour (a model on a green felt table)"
+  },
   "799": {
     "is_pr": false,
     "state": "OPEN",

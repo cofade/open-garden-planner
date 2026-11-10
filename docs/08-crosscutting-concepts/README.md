@@ -6004,8 +6004,10 @@ Decision record: the ADR-059 addendum "ground bake". Traps: PF-L3D-03, PF-L3D-04
 (`Material.paint` — every item but a plant) **and** the scene holds no solid for it
 (`SceneSync.solid_ids`). A lawn is on the ground; a house is not, and what lies UNDER a house is
 whatever flat item was drawn there, or meadow (`MEADOW_RGB`, the one albedo the engine's bare
-ground has). Records are painted bottom to top in the snapshot's order — the canvas's stacking
-order. An item beside the plan rectangle is not on the ground. Not painted, by decision: the
+ground has). Ground no item covers is OPEN: its alpha is 0 (`ground_bake.OPEN_ALPHA`, #798) and
+the engine lays the meadow's grass there; an item's pixels carry its coverage in the alpha, and
+every colour byte is what it was before the alpha meant anything (PF-L3D-31). Records are
+painted bottom to top in the snapshot's order — the canvas's stacking order. An item beside the plan rectangle is not on the ground. Not painted, by decision: the
 selection, labels, the canvas's drop shadows, a bed's square-foot grid and the diagnostic borders
 and badges — they are the 2D view's overlays, not the garden's surface.
 
@@ -6312,7 +6314,9 @@ exist on the C++ side.
 - **The tile's material is the meadow's** — roughness 1.0, specular amount 0.15
   (`Garden.qml`'s `groundTile`): PrincipledMaterial scales the sky's diffuse light by
   (1 − specular amount), so other values put a luma step where a baked lawn meets the endless
-  meadow at the plan's edge (the L1.4 look review measured 2 to 8 luma for 0.92 / 0.2).
+  meadow at the plan's edge (the L1.4 look review measured 2 to 8 luma for 0.92 / 0.2). Since
+  #798 it is the meadow's very shader: `ground.frag` draws the tiles, the bare plan rectangle
+  and the meadow at every preset (§8.29.12, "The meadow's grass").
 - **The frozen `--selftest`** bakes one flat lawn with the product's baker (budget 0, 128-px
   tiles: twelve tiles over as many passes) and judges the lawn's colour where it lies.
 
@@ -7688,6 +7692,27 @@ tilts the normal by the tile texture's own luminance gradient (clamped ±0.35). 
 flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
 (measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
 L2's multiply drapes (ADR-065 decision 9).
+
+**The meadow's grass (#798, ADR-048 addendum "the meadow's grass").** The meadow and the plan's
+open ground are no longer one flat colour (73–80 % of the default framing was flat green): ONE
+shader, `ground.frag`, draws the baked tiles, the bare plan rectangle and the meadow, so the
+plan's edge is the same function on both sides. Where ground is open — all of the meadow, and on
+the plan the pixels the bake leaves at alpha 0 — it adds the deviation of the meadow's grass
+from the flat colour: the canvas's GRASS texture (`resources/textures/grass.png`, untinted, one
+texel a centimetre, laid in world space), uploaded once per host as its linear colour over its
+own mean less its 2.56 m mottle (`core/scene3d/meadow.grass_detail`, RGBA16F, so every mip keeps
+the mean: PF-L3D-30), sampled as it lies and turned 37° at 1.618×, times a variation of mean 1
+(brightness at 3.1, 9 and 41 m, hue at 17 m; `GRASS_VARIATION`). Its mean is `MEADOW_ALBEDO`, so
+the far meadow, the fog and the horizon keep their colour. The preset chooses the surface
+(`PresetSpec.meadow_surface`: flat, grass, grass with its variation); the truth view is always
+flat. Whether the plan's open ground takes the grass is the owner's switch
+(`look.OPEN_GROUND_GRASS`, `LookSpec.open_ground_grass`); off, open plan ground keeps the flat
+colour and only the meadow is grass. The weather reaches the meadow only through the ground's
+one tint and cover (`apply_weather` no longer weathers `meadow_albedo`). Measured by the board's
+`--meadow` phase (flat share of the default framing and of the walk camera, the meadow's
+texture, far-meadow flicker in an orbit and a low flight, the repeat from 60 m above) and gated
+per bundled example in `tests/integration/test_meadow_render.py`. Values: `ogp-lush-cinematic`
+reference 017.
 
 **Paths.** A line's stroke is its width on the ground in cm: presets 70–100 cm, PATH
 default 80 cm, the properties panel up to `MAX_LINE_WIDTH_CM` (500 cm, suffix "cm");
