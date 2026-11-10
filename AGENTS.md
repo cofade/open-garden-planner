@@ -252,7 +252,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.38.0** (2026-11-10). No roadmap phase is active; the next
+- Current release: **v1.39.0** (2026-11-10). No roadmap phase is active; the next
   work is in the open issues.
 - Live decisions that constrain the next change:
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
