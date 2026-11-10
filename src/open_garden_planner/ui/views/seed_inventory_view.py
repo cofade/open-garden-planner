@@ -61,6 +61,7 @@ class SeedInventoryView(QWidget):
         self._setup_ui()
         self._update_headers()
         self._update_stats()
+        self._update_empty_state()
 
     def set_canvas_scene(self, scene) -> None:
         """Set the canvas scene for bidirectional plant linking (US-9.6)."""
@@ -150,6 +151,18 @@ class SeedInventoryView(QWidget):
         hdr.setSectionResizeMode(_COL_NOTES, QHeaderView.ResizeMode.Stretch)
         self._table.verticalHeader().setVisible(False)
         layout.addWidget(self._table)
+
+        # The inventory is the user's own store, outside every plan: a bundled
+        # example cannot and must not fill it (#795). An empty one therefore says
+        # what it is and how to start, instead of showing a bare header row.
+        self._empty_label = QLabel(self.tr(
+            "No seed packets yet. “+ Add Packet” records the seeds you own.\n"
+            "The inventory is yours, not a plan's: every plan you open shows the same packets."
+        ))
+        set_text_role(self._empty_label, color_role="secondary")
+        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_label.setWordWrap(True)
+        layout.addWidget(self._empty_label, 1)
 
         # Batch action buttons
         btn_row = QHBoxLayout()
@@ -373,3 +386,10 @@ class SeedInventoryView(QWidget):
         self._update_stats()
         self._apply_filter()
         self._on_selection_changed()
+        self._update_empty_state()
+
+    def _update_empty_state(self) -> None:
+        """Show the table when the store holds a packet, the explanation when not."""
+        empty = not self._store.all()
+        self._table.setVisible(not empty)
+        self._empty_label.setVisible(empty)
