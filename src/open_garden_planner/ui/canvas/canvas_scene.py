@@ -258,7 +258,7 @@ class CanvasScene(QGraphicsScene):
     #: after every item, and not by the label items themselves.
     paints_plan_labels = True
 
-    def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
+    def drawForeground(self, painter: QPainter | None, rect: QRectF) -> None:
         """Paint the object labels above every item (§8.9.15, #793).
 
         A scene-level hook on purpose: the view paints through it and so does
@@ -266,6 +266,8 @@ class CanvasScene(QGraphicsScene):
         carry the same labels as the canvas.
         """
         super().drawForeground(painter, rect)
+        if painter is None:
+            return
         from open_garden_planner.ui.canvas.plan_labels import paint_plan_labels
 
         paint_plan_labels(self, painter, rect, self._shown_plan_labels)

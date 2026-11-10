@@ -241,5 +241,5 @@ def selection_frame_rect(item: "QGraphicsItem") -> QRectF:
         return QRectF(rect_fn())
     polygon_fn = getattr(item, "polygon", None)
     if callable(polygon_fn):
-        return polygon_fn().boundingRect()
+        return QRectF(polygon_fn().boundingRect())
     return item.boundingRect()

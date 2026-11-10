@@ -28,6 +28,7 @@ from PyQt6.QtGui import (
     QColor,
     QFont,
     QFontMetricsF,
+    QGradient,
     QPainter,
     QPainterPath,
     QPen,
@@ -163,7 +164,7 @@ class HaloTextItem(QGraphicsSimpleTextItem):
             )
         return self._measured
 
-    def setBrush(self, brush: QBrush | QColor | Qt.GlobalColor) -> None:
+    def setBrush(self, brush: QBrush | QColor | Qt.GlobalColor | int | QGradient) -> None:
         """Set the text colour; the halo and the legible ink follow from it."""
         ink, self._halo_color = halo_colors(QBrush(brush).color())
         super().setBrush(QBrush(ink))
@@ -282,11 +283,12 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         a painter that scales or turns.
         """
         world = painter.worldTransform()
-        on_screen = isinstance(painter.device(), QWidget) and world.type() in (
+        device = painter.device()
+        on_screen = isinstance(device, QWidget) and world.type() in (
             QTransform.TransformationType.TxNone,
             QTransform.TransformationType.TxTranslate,
         )
-        if not on_screen:
+        if device is None or not on_screen:
             self._paint_vector(painter, self._origin(self._measure()[0]), option, widget)
             return
         corner = world.map(self.boundingRect().topLeft())
@@ -294,17 +296,18 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         painter.resetTransform()
         painter.drawPixmap(
             QPointF(round(corner.x()), round(corner.y())),
-            self._picture(painter.device().devicePixelRatioF()),
+            self._picture(device.devicePixelRatioF()),
         )
         painter.restore()
 
     def paint(
         self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
         widget: QWidget | None = None,
     ) -> None:
-        self.paint_text(painter, option, widget)
+        if painter is not None:
+            self.paint_text(painter, option, widget)
 
 
 class PlanLabelItem(HaloTextItem):
@@ -328,10 +331,10 @@ class PlanLabelItem(HaloTextItem):
 
     def paint(
         self,
-        painter: QPainter,
-        option: QStyleOptionGraphicsItem,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
         widget: QWidget | None = None,
     ) -> None:
-        if getattr(self.scene(), "paints_plan_labels", False):
+        if painter is None or getattr(self.scene(), "paints_plan_labels", False):
             return
         self.paint_text(painter, option, widget)

@@ -96,7 +96,9 @@ class MinimapWidget(QWidget):
         # shrinks the viewport without resizing the view, and the minimap then
         # sat a scrollbar's height too low, inside the scale bar's band (#793).
         canvas_view.installEventFilter(self)
-        canvas_view.viewport().installEventFilter(self)
+        viewport = canvas_view.viewport()
+        if viewport is not None:
+            viewport.installEventFilter(self)
 
         # Defer initial position until after the window is fully laid out
         QTimer.singleShot(0, self._reposition)
