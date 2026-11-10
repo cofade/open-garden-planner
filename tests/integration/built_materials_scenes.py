@@ -191,6 +191,54 @@ class KeyRegistry:
         return frozenset(self._base.kinds())
 
 
+class ItemKeyRegistry(KeyRegistry):
+    """The production registry with ONE item's built parts of the given surfaces (all
+    of them: None) painted ``level`` and every other built part mid-grey."""
+
+    def __init__(self, base: Any, item_id: str, level: float,
+                 surfaces: frozenset[str] | None = None) -> None:
+        super().__init__(base, lambda _name: 0.5)
+        self._item_id, self._level, self._surfaces = item_id, level, surfaces
+
+    def builder_for(self, kind: str) -> Callable[[Record], tuple[MeshPart, ...]]:
+        inner = self._base.builder_for(kind)
+        item_id, level, surfaces = self._item_id, self._level, self._surfaces
+
+        def build(record: Record) -> tuple[MeshPart, ...]:
+            def value(name: str) -> float:
+                keyed = record.item_id == item_id and (surfaces is None or name in surfaces)
+                return level if keyed else 0.5
+
+            return tuple(_painted(part, value) if part.material_kind in ("vc", "roof")
+                         else part for part in inner(record))
+
+        return build
+
+
+#: Which surfaces of each roof-kind item its mask keys: a roof's tiles; the whole glasshouse.
+KIND_KEYS: Mapping[str, frozenset[str] | None] = MappingProxyType(
+    {"hip": frozenset({"roof_tile"}), "shed_roof": frozenset({"roof_tile"}), "glasshouse": None})
+
+
+def roof_kind_records() -> dict[str, Record]:
+    """The parametric roofs the gable shot does not cover (#801): a hip-roofed house, a
+    house under a shed (mono-pitch) roof and a glasshouse, whose glass roof stays glass."""
+    ridge = {"ridge": ((-300.0, 0.0), (300.0, 0.0))}
+    items = [
+        _placed(polygon_record("HOUSE", rectangle(600.0, 400.0), 450.0,
+                               params={"roof_style": "hip", **ridge}), "hip", 600.0, 1500.0),
+        _placed(polygon_record("HOUSE", rectangle(500.0, 350.0), 400.0,
+                               params={"roof_style": "shed", **ridge}), "shed_roof", 1400.0, 1500.0),
+        _placed(polygon_record("GREENHOUSE", rectangle(300.0, 200.0), 220.0, shape="rectangle"),
+                "glasshouse", 2150.0, 1450.0),
+    ]
+    return {record.item_id: record for record in items}
+
+
+#: The three roofs from the south-east, high, at noon.
+KINDS_SHOT = PerspectiveShot(eye=(1900.0, 300.0, 1100.0), target=(1350.0, 1500.0, 250.0), fov_deg=45.0)
+
+
 @contextmanager
 def surfaces_as(change: Callable[[Any], Any]) -> Iterator[None]:
     """Every surface ``change``d while the block runs — what the host reads
@@ -256,6 +304,17 @@ def scenario_built_materials(ctx: Any) -> dict[str, Any]:
         out[f"wall_{surface}"] = frame(f"bm_wall_{surface}", row, shot, GOLDEN_SUN)
         with surfaces_as(no_detail):
             out[f"wall_{surface}_flat"] = frame(f"bm_wall_{surface}_flat", row, shot, GOLDEN_SUN)
+
+    kinds = roof_kind_records()
+    out["kinds"] = frame("bm_kinds", kinds, KINDS_SHOT, NOON_SUN)
+    with surfaces_as(no_detail):
+        out["kinds_flat"] = frame("bm_kinds_flat", kinds, KINDS_SHOT, NOON_SUN)
+    for item_id in kinds:
+        for tag, level in (("white", 1.0), ("black", 0.0)):
+            # one item's keyed parts painted, every other one mid-grey: that item's mask
+            out[f"kinds_key_{item_id}_{tag}"] = frame(
+                f"bm_kinds_key_{item_id}_{tag}", kinds, KINDS_SHOT, NOON_SUN,
+                ItemKeyRegistry(registry, item_id, level, KIND_KEYS[item_id]))
 
     pond = pond_records()
     out["pond"] = frame("bm_pond", pond, pond_shot(), POND_SUN)

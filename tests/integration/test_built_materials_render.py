@@ -185,6 +185,55 @@ def test_a_wall_is_not_a_flat_slab(run: Run, surface: str) -> None:
     assert shown >= 1.6 * flat + 0.3, (shown, flat)
 
 
+def _kind_mask(run: Run, item_id: str) -> np.ndarray:
+    lift = luma(_image(run, f"kinds_key_{item_id}_white")) - luma(_image(run, f"kinds_key_{item_id}_black"))
+    return _erode(lift > HIGH)
+
+
+def _box_sum(values: np.ndarray, radius: int) -> np.ndarray:
+    side = 2 * radius + 1
+    total = np.pad(values, radius + 1).cumsum(axis=0).cumsum(axis=1)
+    window = total[side:, side:] - total[:-side, side:] - total[side:, :-side] + total[:-side, :-side]
+    return window[: values.shape[0], : values.shape[1]]
+
+
+def _fine_detail(image: np.ndarray, mask: np.ndarray, radius: int = 2) -> float:
+    """The luma's spread about its local mean (a 5 x 5 window inside the mask): a tile's
+    relief, not the step from one roof face to the next (a hip's faces shade apart)."""
+    values, weight = luma(image), mask.astype(np.float64)
+    local = _box_sum(values * weight, radius) / np.maximum(_box_sum(weight, radius), 1e-9)
+    return float((values - local)[mask].std())
+
+
+@pytest.mark.parametrize("item_id", ["hip", "shed_roof"])
+def test_every_pitched_roof_kind_reads_as_tiles(run: Run, item_id: str) -> None:
+    """#801's "each parametric roof kind": a hip roof's four faces and a shed (mono-pitch)
+    roof's one plane carry the tiles too (each along its own eave), at noon - against the
+    same frame without the picture. Fine detail measured (640 x 360), Direct3D 11 on the
+    GPU / WARP / OpenGL: hip 4.1 / 4.9 / 4.1 against 1.5 / 1.5 / 1.4 without; shed 5.2 /
+    5.5 / 5.2 against 0.9 / 0.9 / 0.7. (The plain spread does not tell: a hip's four faces
+    shade apart, 12.0 without the picture.)"""
+    mask = _kind_mask(run, item_id)
+    assert mask.sum() > 1500, int(mask.sum())
+    tiled = _fine_detail(_image(run, "kinds"), mask)
+    flat = _fine_detail(_image(run, "kinds_flat"), mask)
+    assert tiled >= 2.0 * flat + 0.5, (tiled, flat)
+
+
+def test_the_glasshouse_stays_glass(run: Run) -> None:
+    """#801: a glasshouse's glass roof and walls stay the glass material, and its frame
+    shows no picture: around it the frame with every picture and the frame without are the
+    same pixels (a picture laid on its roof would change them). Measured: the largest
+    difference 0 on Direct3D 11 (GPU and WARP) and OpenGL; in the hip's and the shed
+    roof's own boxes 22 and 25."""
+    mask = _kind_mask(run, "glasshouse")
+    assert mask.sum() > 200, int(mask.sum())
+    rows, columns = np.flatnonzero(mask.any(axis=1)), np.flatnonzero(mask.any(axis=0))
+    box = (slice(rows[0], rows[-1] + 1), slice(columns[0], columns[-1] + 1))
+    difference = np.abs(_image(run, "kinds")[box] - _image(run, "kinds_flat")[box])
+    assert float(difference.max()) <= 3.0, float(difference.max())
+
+
 def test_the_pond_s_morning_glint_does_not_clip(run: Run) -> None:
     """#803's P2: at the mirror angle of a 20-degree sun, Qt's own glint clipped 4.5 % of
     the water white (1280 x 720); now nothing clips, and the glint stands out of the

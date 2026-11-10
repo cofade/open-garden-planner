@@ -194,6 +194,20 @@ def test_walls_name_their_own_surface() -> None:
         assert fence.surface == surface, style
 
 
+def test_a_glasshouse_stays_glass_and_a_pergola_s_rafters_stay_timber() -> None:
+    """#801's roof kinds without tiles: a glasshouse's roof and walls are the glass part
+    (no surface, no picture) on a steel frame and a concrete base, and a pergola's rafters
+    are plain timber - neither carries a detail picture."""
+    glasshouse = REGISTRY.build(polygon_record("GREENHOUSE", rectangle(300.0, 200.0), 220.0))
+    pergola = REGISTRY.build(polygon_record("PERGOLA", rectangle(300.0, 200.0), 240.0))
+    glass = [part for part in glasshouse if part.material_kind == "glass"]
+    assert glass and all(not part.surface and not part.surface_runs for part in glass)
+    pieces = [(part.material_kind, piece.surface) for part in glasshouse + pergola
+              for piece in surface_pieces(part)]
+    assert {surface for _kind, surface in pieces} == {"", "steel", "concrete", "wood"}
+    assert all(detail_of(surface or DEFAULT_SURFACE, kind) is None for kind, surface in pieces)
+
+
 def test_a_part_already_grouped_by_surface_keeps_its_mesh() -> None:
     """``with_surfaces`` orders triangles only where a part is not grouped yet: a roof
     built tiles-first keeps the very mesh object its builder made."""
