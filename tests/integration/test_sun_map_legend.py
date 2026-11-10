@@ -286,8 +286,18 @@ def _legend_item(scene: CanvasScene) -> SunMapLegendItem:
     return item
 
 
+def _no_hour_labels(controller: SunHeatmapController) -> None:
+    """Take the map's hour labels off: the key keeps labels out of its room,
+    so a picture without the key has labels there that the one with it has not,
+    and a comparison of the two would count them as the key."""
+    for item in controller._contour_items:
+        if isinstance(item, SunMapLabelItem):
+            item.setVisible(False)
+
+
 def test_a_picture_of_the_plan_carries_the_key(mapped) -> None:
     _view, scene, controller = mapped
+    _no_hour_labels(controller)
     item = _legend_item(scene)
     assert item.legend_key() == controller.legend_key()
     assert not item.isVisible(), "on the canvas the view draws the key, not the scene"
@@ -313,7 +323,8 @@ def test_a_picture_of_the_plan_carries_the_key(mapped) -> None:
 def test_the_key_in_a_picture_grows_with_the_pictures_text(mapped) -> None:
     """An export gives constant-size text the size its output needs (PF-CAN-08);
     the key is found the same way and all its measures follow its font."""
-    _view, scene, _controller = mapped
+    _view, scene, controller = mapped
+    _no_hour_labels(controller)
     item = _legend_item(scene)
 
     def key_height(point_size: int) -> int:
@@ -359,7 +370,8 @@ def test_every_export_path_shows_the_key_through_the_one_seam(mapped) -> None:
 
 
 def test_the_svg_and_the_png_export_carry_the_key(mapped, tmp_path) -> None:
-    _view, scene, _controller = mapped
+    _view, scene, controller = mapped
+    _no_hour_labels(controller)
     png = tmp_path / "plan.png"
     ExportService.export_to_png(scene, png, dpi=150, output_width_cm=20.0)
     picture = QImage(str(png))
@@ -465,3 +477,56 @@ def test_the_key_is_never_saved(mapped, tmp_path) -> None:
     ProjectManager().load(fresh, path)
     assert not [item for item in fresh.items() if isinstance(item, SunMapLegendItem)]
     assert len([item for item in fresh.items() if hasattr(item, "object_type")]) == 9
+
+
+# --------------------------------------------------------------------------
+# What a label keeps clear of
+# --------------------------------------------------------------------------
+
+
+def test_the_raster_of_what_stands_on_the_plan_is_what_the_objects_cover(qtbot) -> None:
+    """``StandingMask`` answers "does something stand here" from one raster of
+    the plan instead of a scene query for every place a label might take (the
+    queries cost 0.6 s on the food-forest example)."""
+    from open_garden_planner.core.shade_aggregation import HeatmapGrid
+    from open_garden_planner.ui.canvas.sun_heatmap import StandingMask
+
+    scene = garden()
+    grid = HeatmapGrid.for_rect(0.0, 0.0, 2400.0, 1600.0, 10.0)
+    standing = StandingMask(scene, grid)
+
+    def around(x: float, y: float, half: float = 12.0) -> QRectF:
+        return QRectF(x - half, y - half, 2 * half, 2 * half)
+
+    assert standing.covers(around(700.0, 1150.0)), "inside the house"
+    assert standing.covers(around(1500.0, 700.0)), "under the tree"
+    assert standing.covers(around(120.0, 800.0)), "on the fence's line, a few centimetres wide"
+    assert not standing.covers(around(1200.0, 250.0)), "open ground inside the fence"
+    assert not standing.covers(around(1950.0, 1000.0)), "open ground east of the tree"
+    # to a few centimetres: just outside what the tree covers (its sprite's
+    # leaves reach past its 220 cm circle) is free, a place reaching into it taken
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+
+    tree = next(item for item in scene.items()
+                if isinstance(item, CircleItem) and item.object_type == ObjectType.TREE)
+    crown = tree.mapToScene(tree.grid_cover_path()).boundingRect()
+    assert crown.right() > 1500.0 + 220.0
+    assert not standing.covers(around(crown.right() + 12.0 + 6.0, 700.0))
+    assert standing.covers(around(crown.right() + 12.0 - 6.0, 700.0))
+    # a ground surface is nothing a label has to keep clear of
+
+    lawn = RectangleItem(1700, 200, 500, 400, object_type=ObjectType.LAWN)
+    scene.addItem(lawn)
+    assert not StandingMask(scene, grid).covers(around(1950.0, 400.0))
+
+
+def test_a_very_large_plan_gets_a_coarser_raster_not_a_larger_one(qtbot) -> None:
+    from open_garden_planner.core.shade_aggregation import HeatmapGrid
+    from open_garden_planner.ui.canvas.sun_heatmap import _MASK_MAX_CELLS, StandingMask
+
+    scene = CanvasScene(30000.0, 20000.0)
+    grid = HeatmapGrid.for_rect(0.0, 0.0, 30000.0, 20000.0, 10.0)
+    standing = StandingMask(scene, grid)
+    assert standing._taken.size <= _MASK_MAX_CELLS * 1.01
+    assert not standing.covers(QRectF(100.0, 100.0, 50.0, 50.0))

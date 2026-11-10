@@ -932,7 +932,12 @@ then the places along the line to either side, nearest first
 (`heatmap_render.label_candidates_along`). A place is passed over when the
 label's rectangle there would touch a standing object (§8.9.17), lie within a
 ruler's width of the plan's edge, or be closer than 160 cm to a label already
-placed. A contour that is covered all the way has no label. At paint time they are
+placed. A contour that is covered all the way has no label. "Touches a standing
+object" is read from one raster of the plan (`sun_heatmap.StandingMask`, cells of
+2.5 cm, painted once per map): asking the scene for each place cost 0.6 s on the
+food-forest example, where contours hug many crowns; with the raster, building
+the contours and labels costs what it did before the labels avoided anything
+(family garden 129 → 118 ms, food forest 68 → 65 ms). At paint time they are
 ordinary labels of the plan (§8.9.15): above every item, one halo, and left out
 where two labels would touch — an object's own name wins over an hour.
 

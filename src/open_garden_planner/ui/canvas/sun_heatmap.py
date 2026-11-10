@@ -127,6 +127,10 @@ _NOMINAL_VIEW_PX = 1100.0
 #: How far (pixels, at that zoom) a label stays from the plan's edge: the width of
 #: the canvas rulers, which lie over the edge of a fitted plan.
 _EDGE_MARGIN_PX = 20.0
+#: The raster of what stands on the plan (``StandingMask``): cells per cell of the
+#: map along each axis, and the most cells it may have.
+_MASK_CELLS_PER_MAP_CELL = 4
+_MASK_MAX_CELLS = 4_000_000
 
 # Cool→warm sun ramp LUT (single source of truth, core/heatmap_render). ARGB32
 # is B,G,R,A on little-endian, so keep a reordered copy for direct pixel packing.
@@ -210,18 +214,62 @@ class SunMapLabelItem(PlanLabelItem):
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
 
 
-def _standing_object_in(scene: QGraphicsScene, area: QRectF) -> bool:
-    """Whether a drawn object that stands on the ground covers part of ``area``
-    (scene cm): what a label of the map keeps clear of."""
-    from .canvas_scene import is_standing_object
+class StandingMask:
+    """Where something stands on the plan: a raster of every drawn object that
+    stands on the ground (``canvas_scene.is_standing_object``, what it covers:
+    ``grid_cover_path``) — what a label of the map keeps clear of.
 
-    for item in scene.items(area, Qt.ItemSelectionMode.IntersectsItemBoundingRect):
-        if not is_standing_object(item):
-            continue
-        covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
-        if item.mapToScene(covered).intersects(area):
-            return True
-    return False
+    Painted once when the map is built. Asking the scene for each place a
+    label might take cost 0.6 s on the food-forest example; the raster costs a
+    few milliseconds and a place is a slice of it. Its cells are a quarter of
+    the map's (2.5 cm), so that "touches a cell" is "touches the place" to
+    within what a label's own margin allows, and a fence a few centimetres
+    wide is not lost between two cells; a very large plan gets coarser cells
+    (``_MASK_MAX_CELLS``).
+    """
+
+    def __init__(self, scene: QGraphicsScene, grid: HeatmapGrid) -> None:
+        from .canvas_scene import is_standing_object
+
+        width_cm, height_cm = grid.cols * grid.cell_cm, grid.rows * grid.cell_cm
+        finest = grid.cell_cm / _MASK_CELLS_PER_MAP_CELL
+        fits = math.sqrt(max(width_cm * height_cm, 1.0) / _MASK_MAX_CELLS)
+        self._cell_cm = max(finest, fits)
+        self._x0, self._y0 = grid.x0_cm, grid.y0_cm
+        columns = max(1, math.ceil(width_cm / self._cell_cm))
+        rows = max(1, math.ceil(height_cm / self._cell_cm))
+        image = QImage(columns, rows, QImage.Format.Format_Grayscale8)
+        image.fill(0)
+        painter = QPainter(image)
+        try:
+            # antialiased, and any coverage counts: a cell an object only
+            # touches is taken
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.scale(1.0 / self._cell_cm, 1.0 / self._cell_cm)
+            painter.translate(-self._x0, -self._y0)
+            white = QColor(255, 255, 255)
+            for item in scene.items():
+                if is_standing_object(item):
+                    covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+                    painter.fillPath(item.mapToScene(covered), white)
+        finally:
+            painter.end()
+        pointer = image.constBits()
+        if pointer is None:
+            raise MemoryError("the raster of what stands on the plan could not be allocated")
+        raw: np.ndarray = np.frombuffer(
+            pointer.asstring(image.sizeInBytes()), dtype=np.uint8
+        ).reshape(rows, image.bytesPerLine())[:, :columns]
+        self._taken = raw > 0
+
+    def covers(self, area: QRectF) -> bool:
+        """Whether a standing object covers part of ``area`` (scene cm)."""
+        rows, columns = self._taken.shape
+        left = max(0, math.floor((area.left() - self._x0) / self._cell_cm))
+        right = min(columns, math.ceil((area.right() - self._x0) / self._cell_cm))
+        low = max(0, math.floor((area.top() - self._y0) / self._cell_cm))
+        high = min(rows, math.ceil((area.bottom() - self._y0) / self._cell_cm))
+        return bool(self._taken[low:high, left:right].any())
 
 
 class SunHeatmapOverlayItem(QGraphicsPixmapItem):
@@ -663,6 +711,7 @@ class SunHeatmapController(QObject):
         field = smooth_field(minutes, passes=2)
         max_minutes = float(field.max()) if field.size else 0.0
         placed_labels: list[tuple[float, float]] = []
+        standing = StandingMask(self._scene, grid)
         for threshold in hour_levels(max_minutes):
             segments = iso_segments(field, threshold)
             if not segments:
@@ -685,7 +734,7 @@ class SunHeatmapController(QObject):
             self._scene.addItem(line)
             self._contour_items.append(line)
             if even:
-                self._label_contour(hour, segments, grid, placed_labels)
+                self._label_contour(hour, segments, grid, placed_labels, standing)
 
     def _label_contour(
         self,
@@ -693,8 +742,10 @@ class SunHeatmapController(QObject):
         segments: list[tuple[tuple[float, float], tuple[float, float]]],
         grid: HeatmapGrid,
         placed: list[tuple[float, float]],
+        standing: StandingMask,
     ) -> None:
-        """Distribute '{n} h' labels along each contour COMPONENT.
+        """Distribute '{n} h' labels along each contour COMPONENT, where the
+        contour is in the open (``standing``).
 
         Labels are spaced by arc length and skip any spot within
         ``_LABEL_MIN_DIST_CM`` of an already-placed label — so labels stay
@@ -723,13 +774,13 @@ class SunHeatmapController(QObject):
             for places in label_candidates_along(polyline, spacing, step):
                 for point in places:
                     sx, sy = self._grid_to_scene(point, grid)
-                    if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
-                        continue
                     area = QRectF(sx - half_w, sy - half_h, 2.0 * half_w, 2.0 * half_h)
                     if not plan.contains(area):
                         continue  # at the plan's edge: under a ruler, or cut by a picture's frame
-                    if _standing_object_in(self._scene, area):
+                    if standing.covers(area):
                         continue  # something stands here: the next place along the line
+                    if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
+                        continue
                     self._add_label(text, sx, sy)
                     placed.append((sx, sy))
                     break

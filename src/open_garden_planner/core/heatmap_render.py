@@ -18,6 +18,7 @@ scene cm with that same +0.5 cell-centre offset — no Y-flip here (§8.20).
 from __future__ import annotations
 
 import math
+from bisect import bisect_left
 from dataclasses import dataclass
 
 import numpy as np
@@ -288,14 +289,17 @@ def label_candidates_along(
     if length == 0.0:
         return [[points[0]]]
 
+    last = len(points) - 2
+
     def at(distance: float) -> Point:
-        for j in range(len(cumulative) - 1):
-            if cumulative[j] <= distance <= cumulative[j + 1]:
-                span = cumulative[j + 1] - cumulative[j]
-                t = 0.0 if span == 0 else (distance - cumulative[j]) / span
-                (x1, y1), (x2, y2) = points[j], points[j + 1]
-                return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
-        return points[-1]
+        # the first segment that holds the distance, as ``label_points_along``
+        # finds it — by bisection: a contour has hundreds of points and a label
+        # dozens of candidates
+        j = min(max(bisect_left(cumulative, distance) - 1, 0), last)
+        span = cumulative[j + 1] - cumulative[j]
+        t = 0.0 if span == 0 else (distance - cumulative[j]) / span
+        (x1, y1), (x2, y2) = points[j], points[j + 1]
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
     count = max(1, round(length / spacing))
     reach = length / count / 2.0
