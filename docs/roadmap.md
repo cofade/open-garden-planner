@@ -45,6 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 |--------|----|-------|---------------------|
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |
 | ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |
+| 🚧 | Package 2D visual polish (#698, #782, #784–#796, #836) | Sharp sprites and fills, a cheap repaint with the sun overlay, quiet spacing warnings, legible labels, true exports, theme and locale fixes, examples in a showcase state, a key for the hours-of-sun map | Draft PR; ADR-076, ADR-077; §8.36, §8.37 |
 
 ### Phase 16: Platform & Community (future)
 

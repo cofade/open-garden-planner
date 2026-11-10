@@ -265,6 +265,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     The Smart Symbols panel and bundled templates are retired.
   - CAD editing (#664/#771): read ADR-075, §8.35 and PF-CAN-48 before touching
     group drill-down, a rebuild that changes an object's type, or Esc handling.
+  - 2D canvas, exports and locale (#784-#796, #836): read §8.9.14-§8.9.18, §8.36,
+    §8.37, ADR-076 and ADR-077 before touching a canvas painter, a plan label, an
+    export or a number or date field. Scene-wide paint state is kept and invalidated
+    through the scene's paint revision, never rebuilt inside a paint; UI numbers and
+    dates go through `core/i18n.py`, `ui/number_fields.py` and `ui/date_fields.py`.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.
