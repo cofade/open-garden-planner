@@ -1079,7 +1079,12 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   at all; and the clock not at all, through **a day**, or **through the year**. Duration 1 to 600 s, 24
   to 60 frames per second, 720p to 4K. A **year** tour holds the UTC time, not the wall time: the sun
   moves evenly through both daylight-saving changes, the local clock shifts by the offset, and the
-  dates the dialog names are the dates of the first and last frame.
+  dates the dialog names are the dates of the first and last frame. *(#807)* The orbit has a
+  **Camera tilt** (5 to 89 degrees; the eye never closer than 20 cm to the ground) and **Start and
+  stop smoothly**: an orbit that eases starts and ends at rest on its first view; one that does not
+  turns at one speed and loops without a jump. A new orbit tilts 18 degrees (the horizon and a band
+  of sky in view), eases, and takes 30 s a turn until the user sets a duration (a time-lapse keeps
+  12 s). **Use Current View** starts the orbit exactly at the view, its tilt included.
 - **FR-3D-TOUR-02** (L6.2): A tour is saved as an **MP4 video** (H.264 where the system has an encoder,
   else MPEG-4) or a **PNG sequence**. It is rendered frame by frame, so a slower computer takes
   longer and writes the same video. A progress bar shows each frame, Cancel stops it, and a cancelled
@@ -1090,8 +1095,13 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   running. Closing the app ends a running recording and waits (bounded) for its file to close; if
   the encoder cannot close in time, it names the unfinished output so the user can find it. If
   the 3D view stops being visible, the recording waits and goes on. Frames are limited-range
-  BT.709 YUV computed by the app, and every offered size is HD; Qt's MP4 writer adds no colour
-  tag, so players follow the HD convention (ADR-072 addendum), pinned by a test.
+  BT.709 YUV computed by the app, and every offered size is HD. *(#807)* A video is encoded at
+  constant quality, **Standard** or **Best, for Publishing** (the dialog's **Video quality**, not
+  kept in a saved tour), so its first second is as good as the rest; the finished file states
+  BT.709 limited range in its container and in its stream, and the H.264 level its frames need
+  (ADR-072 addendum "review-grade video"). The H.264 profile is Constrained Baseline, the one
+  Windows' encoder writes through Qt. A PNG sequence keeps every frame losslessly, for an external
+  master-quality encode.
 - **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo. Only a tour that actually moves the
@@ -1106,7 +1116,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   choosing one, change nothing. A saved tour holds a camera and a clock and nothing of the
   garden, so rendering it after the garden changed shows the changed garden along the saved
   path. A saved drone orbit or held view starts from the view it was saved with, and the dialog
-  says so; **Use Current View** starts it from the view again. Choosing another tour asks
+  says so; **Use Current View** starts it from the view again. A saved orbit keeps its tilt and
+  whether it eases; an orbit saved before #807 loads as the even loop it was and flies the same
+  frames. Choosing another tour asks
   before it discards unsaved keyframes or unsaved changes. The tours are saved with the plan
   file and belong to it: a new or opened plan shows its own tours and none of the last plan's;
   Save As, a template and a new season keep them. A plan keeps up to 50 tours of up to 100

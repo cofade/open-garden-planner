@@ -8099,20 +8099,35 @@ close, naming the unfinished output if it cannot.
 `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
 shown pauses it the same way.
 
+**An orbit** (#807) turns at one speed and loops, or eases (`DroneOrbit.ease`: a raised-cosine
+speed over the first and last 15 % of its time) and ends at rest on its first view; it never does
+both, or a looped video would stop at its seam. Its tilt is one value in the dialog
+(`TourDialog._orbit_pitch`), shown by the tilt control, brought exactly by a saved tour, set from
+the view by Use Current View, and kept inside `orbit_pitch_range` (the view's 5-89 degrees, the eye
+20 cm or more above the ground). A new orbit tilts `DEFAULT_ORBIT_PITCH_DEG` (18) and lasts
+`ORBIT_SECONDS_PER_TURN` (30 s) a turn until the user sets a duration (`default_duration_s`; a
+time-lapse keeps 12 s). A moving camera keeps the view's locked shadow map (#734): an eased orbit's
+slow ends crawl less than its cruise.
+
 **Where the frames go** (`video_writer.py`, the only module that imports Qt Multimedia, on first
 use): `Mp4Writer` writes the first free `<stem>.part[<n>].mp4` and renames it on success, so a
 cancelled or failed tour never replaces a good video and a render kept because its target was held
 open is never deleted by a later recording; `PngSequenceWriter` writes `frame_000001.png` on two
 workers and refuses a folder that holds another tour's frames; `NullWriter` is a preview's.
-`best_codec` picks from `CODECS`.
+`best_codec` picks from `CODECS`. The encoder runs at constant quality (`VIDEO_QUALITIES`, Qt's High
+or Very High: PF-E3D-30); Qt asks for no profile, so H.264 is Constrained Baseline. Before the part
+gets the user's name, a worker thread rewrites it once through `core/mp4_stream.py`: BT.709 limited
+range in the `colr` box and every SPS, and the level the samples need (PF-E3D-31). A part it cannot
+rewrite is renamed as it is; the log names profile, level, bit rate, quality and colour of every
+delivered file.
 
 **The agent's picture.** `capture_blocker()` decides without waiting; `agent_picture` renders with
 `photo=NO_PHOTO` and reports what the picture shows. See §8.19.
 
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
-detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
-colour tag; a year tour started within an hour of midnight uses the nearest reading within the
+detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the H.264
+profile is Constrained Baseline (no Qt API for another); a year tour started within an hour of midnight uses the nearest reading within the
 missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
 sun moves by at most that hour).
 

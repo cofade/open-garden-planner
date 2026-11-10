@@ -216,4 +216,5 @@
 | Case study: a light rim the owner saw and the metric said was not there (#687) | [Read](216-case-study-a-rim-the-metric-could-not-see-687.md) |
 | Case study: a day lapse that flickered at dawn and grew brighter after sunset (#799, #802) | [Read](221-case-study-a-day-lapse-that-flickered-and-brightened-after-sunset-799-802.md) |
 | Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](222-case-study-a-blurred-bar-with-a-light-rim-743.md) |
+| Case study: a video whose first second more bits could not fix - Qt's average bit rate is Media Foundation's CBR (#807) | [Read](226-case-study-a-video-whose-first-second-more-bits-could-not-fix-807.md) |
 | Case study: a meadow "shimmer" that was the instrument's own (#798) | [Read](227-case-study-a-meadow-flicker-that-was-the-instruments-798.md) |

@@ -14,9 +14,11 @@ import pytest
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QColor, QImage, QPainter
 
+from open_garden_planner.core.mp4_stream import BT709_LIMITED, Mp4Error, read_stream
 from open_garden_planner.core.video_yuv import yuv_to_rgb
 from open_garden_planner.ui.view3d.video_writer import (
     CODECS,
+    VIDEO_QUALITIES,
     Mp4Writer,
     NullWriter,
     PngSequenceWriter,
@@ -241,6 +243,30 @@ def test_a_target_someone_holds_keeps_the_finished_render_and_says_where(
     assert path.read_bytes().startswith(b"the user's earlier video")
 
 
+def test_a_render_kept_beside_a_held_target_is_the_tagged_one(
+        qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#807 with #731: the target is open in a player, so the finished render stays by its
+    part name - and that render states its colour like any other."""
+    needs_an_encoder()
+    import os
+
+    path = tmp_path / "tour.mp4"
+    path.write_bytes(b"the user's earlier video, open in a player")
+    real_replace = os.replace
+
+    def held_target(source: Any, target: Any) -> None:
+        if Path(target) == path:
+            raise PermissionError("in use")
+        real_replace(source, target)
+
+    monkeypatch.setattr("open_garden_planner.ui.view3d.video_writer.os.replace", held_target)
+    writer = Mp4Writer(path, SIZE, FPS)
+    ok, message = write_all(qtbot, writer, 5)
+    assert ok is False and str(writer.part_path) in message
+    assert read_stream(writer.part_path).tagged == BT709_LIMITED
+    assert sorted(item.name for item in tmp_path.iterdir()) == ["tour.mp4", "tour.part.mp4"]
+
+
 def test_a_kept_render_is_not_deleted_by_the_next_recording(
         qtbot: Any, tmp_path: Path) -> None:
     """The earlier render whose target was held open is kept as ``.part.mp4``; a new
@@ -283,11 +309,10 @@ def test_a_finished_video_replaces_the_one_the_user_chose_to_overwrite(qtbot: An
     assert path.read_bytes() != b"old"
 
 
-def test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd(tmp_path: Path, qtbot: Any) -> None:
-    """ADR-072 addendum (#735): Qt's recorder writes no colour tag in the MP4, so the writer
-    relies on the HD convention - every tour size is HD, and every frame is BT.709 limited
-    range computed by the app. A player that reads the stream's own format gets the truth;
-    one that guesses from the size guesses the same."""
+def test_the_frames_are_bt709_and_every_offered_size_is_hd(tmp_path: Path, qtbot: Any) -> None:
+    """ADR-072 addendum (#735): every frame is BT.709 limited range computed by the app, and
+    every tour size is HD, so even a player that ignores the file's tags and guesses from
+    the size guesses right. Since #807 the finished file states it too (below)."""
     from open_garden_planner.ui.view3d.tour_dialog import TOUR_SIZES
 
     needs_an_encoder()
@@ -307,6 +332,105 @@ def test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd(tmp_path: Path,
     finally:
         writer.abort()
         qtbot.waitUntil(lambda: bool(outcome), timeout=60000)
+
+
+def decoded_formats(qtbot: Any, path: Path) -> set[tuple[str, str, str]]:
+    """What Qt's own decoder says each frame of ``path`` is: colour space, transfer, range."""
+    from PyQt6 import QtMultimedia as media
+
+    player = media.QMediaPlayer()
+    sink = media.QVideoSink()
+    seen: set[tuple[str, str, str]] = set()
+
+    def arrived(video: Any) -> None:
+        if video.isValid():
+            surface = video.surfaceFormat()
+            seen.add((surface.colorSpace().name, surface.colorTransfer().name,
+                      surface.colorRange().name))
+
+    sink.videoFrameChanged.connect(arrived)
+    player.setVideoSink(sink)
+    player.setSource(QUrl.fromLocalFile(str(path)))
+    player.play()
+    qtbot.waitUntil(lambda: player.mediaStatus() == media.QMediaPlayer.MediaStatus.EndOfMedia
+                    or player.error() != media.QMediaPlayer.Error.NoError, timeout=60000)
+    player.stop()
+    return seen
+
+
+BT709_AS_QT_READS_IT = {("ColorSpace_BT709", "ColorTransfer_BT709", "ColorRange_Video")}
+
+
+def test_a_finished_video_states_bt709_in_its_container_and_in_its_stream(
+        qtbot: Any, tmp_path: Path) -> None:
+    """#807: Qt's recorder wrote no colour description, and its own decoder read the file as
+    ``ColorSpace_Undefined``. The finished file states BT.709 limited range in its ``colr``
+    box and in every SPS, and Qt reads exactly that back; the frames and their timing are
+    untouched."""
+    needs_an_encoder()
+    path = tmp_path / "tour.mp4"
+    writer = Mp4Writer(path, SIZE, FPS)
+    ok, message = write_all(qtbot, writer, 45)
+    assert ok, message
+    stream = read_stream(path)
+    assert stream.tagged == BT709_LIMITED, stream
+    assert stream.samples == 45 and {delta for _count, delta in stream.durations} == {
+        stream.timescale // FPS}, "every frame one 30th of a second"
+    assert decoded_formats(qtbot, path) == BT709_AS_QT_READS_IT
+    assert writer.stream is not None and writer.stream.tagged == BT709_LIMITED
+    assert not list(tmp_path.glob("*.part*")) and not list(tmp_path.glob("*.tmp*")), \
+        "no part and no half-tagged copy stays behind"
+    first = read_back(qtbot, path)["frames"][0]
+    assert_close(first["corner"], PLAIN)
+
+
+@pytest.mark.parametrize(("choice", "quality"), [("standard", "HighQuality"),
+                                                 ("best", "VeryHighQuality")])
+def test_a_video_is_made_at_constant_quality_as_chosen(qtbot: Any, tmp_path: Path, choice: str,
+                                                       quality: str) -> None:
+    """#807: Qt's average-bit-rate mode is Media Foundation's CBR, which starves the first
+    second of every video (a 6 s orbit: 42.0 dB there, 45.3 after it at 0.35 bit/px) and
+    stops buying detail near 32 Mbit/s. Constant quality keeps every frame alike."""
+    needs_an_encoder()
+    from PyQt6 import QtMultimedia as media
+
+    assert VIDEO_QUALITIES == ("standard", "best")
+    writer = Mp4Writer(tmp_path / "q.mp4", SIZE, FPS, quality=choice)
+    outcome: list[tuple[bool, str]] = []
+    writer.finished.connect(lambda ok, message: outcome.append((ok, message)))
+    writer.start()
+    try:
+        recorder = writer._recorder
+        assert recorder.encodingMode() == media.QMediaRecorder.EncodingMode.ConstantQualityEncoding
+        assert recorder.quality().name == quality
+    finally:
+        writer.abort()
+        qtbot.waitUntil(lambda: bool(outcome), timeout=60000)
+
+
+def test_an_unknown_quality_is_refused_before_anything_is_written(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="quality"):
+        Mp4Writer(tmp_path / "x.mp4", SIZE, FPS, quality="ultra")
+
+
+def test_a_video_that_cannot_be_tagged_is_saved_untagged_and_says_so_in_the_log(
+        qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture) -> None:
+    """The tags are a statement about a finished render; failing to write them must never
+    cost the render (a layout ``mp4_stream`` does not rewrite, a full disk)."""
+    needs_an_encoder()
+
+    def refuse(_source: Path, _target: Path, *_a: Any, **_k: Any) -> Any:
+        raise Mp4Error("a layout this test invented")
+
+    monkeypatch.setattr("open_garden_planner.ui.view3d.video_writer.tag_colour", refuse)
+    path = tmp_path / "tour.mp4"
+    with caplog.at_level("WARNING"):
+        ok, message = write_all(qtbot, Mp4Writer(path, SIZE, FPS), 10)
+    assert ok, message
+    assert read_stream(path).samples == 10 and read_stream(path).tagged is None
+    assert "untagged" in caplog.text
+    assert not list(tmp_path.glob("*.part*"))
 
 
 def test_a_full_queue_costs_no_second_yuv_conversion(tmp_path: Path, qtbot: Any) -> None:
