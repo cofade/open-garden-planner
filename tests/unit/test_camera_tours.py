@@ -26,15 +26,18 @@ from open_garden_planner.core.camera_path import (
 )
 from open_garden_planner.core.camera_tours import (
     DEFAULT_DURATION_S,
+    DEFAULT_ORBIT_PITCH_DEG,
     DEFAULT_SIZE,
     MAX_NAME_LENGTH,
     MAX_REACH_CM,
     MAX_TOUR_KEYS,
     MAX_TOURS,
+    ORBIT_SECONDS_PER_TURN,
     PLAN_KEY,
     SavedTour,
     checked_tours,
     clean_tour_name,
+    default_duration_s,
     dump_tours,
     find_tour,
     load_tours,
@@ -167,6 +170,27 @@ def test_only_a_true_ease_eases_and_the_tour_is_kept(value: Any) -> None:
     raw["orbit"]["ease"] = value
     tour = SavedTour.from_dict(raw)
     assert tour.orbit is not None and tour.orbit.ease is False
+
+
+@pytest.mark.parametrize(("motion", "turns", "clock", "seconds"), [
+    ("orbit", 1, "none", 30.0), ("orbit", 4, "none", 120.0),
+    ("orbit", 1, "day", DEFAULT_DURATION_S), ("orbit", 2, "year", DEFAULT_DURATION_S),
+    ("path", 1, "none", DEFAULT_DURATION_S), ("hold", 3, "year", DEFAULT_DURATION_S),
+])
+def test_a_new_tour_lasts_thirty_seconds_a_turn_when_it_only_orbits(motion: str, turns: int,
+                                                                      clock: str, seconds: float) -> None:
+    """#807: 12 s a turn is 1 degree a frame at 30 fps, and the horizon a lower tilt brings
+    into view crossed the frame in 2.2 s. A time-lapse keeps 12 s: a year's regrowths cost
+    a second and 2 MB each (#531), eight for each second of video."""
+    assert default_duration_s(motion, turns, clock) == seconds
+    assert ORBIT_SECONDS_PER_TURN == 30.0 and MIN_DURATION_S <= 4 * 30.0 <= MAX_DURATION_S
+
+
+def test_a_new_orbits_tilt_is_in_the_range_an_orbit_may_have() -> None:
+    from open_garden_planner.core.camera_path import orbit_pitch_range
+
+    low, high = orbit_pitch_range(3000.0)
+    assert low < DEFAULT_ORBIT_PITCH_DEG == 18.0 < high
 
 
 def test_a_field_this_build_does_not_know_is_left_out_and_the_tour_is_kept() -> None:

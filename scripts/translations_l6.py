@@ -118,6 +118,36 @@ DE = {
             "Eine Fahrt mit dem Namen '{name}' ist bereits vorhanden.",
         "Deleted the tour '{name}'. Undo brings it back.":
             "Fahrt '{name}' gelöscht. Mit Rückgängig kommt sie zurück.",
+        # the orbit's tilt and ease, the video's quality (#807)
+        " °": " °",
+        "Camera tilt:": "Kameraneigung:",
+        "How steeply the camera looks down at the garden. A low tilt shows the horizon and the "
+        "sky; a high one looks down into the beds.":
+            "Wie steil die Kamera auf den Garten blickt. Eine flache Neigung zeigt den Horizont "
+            "und den Himmel, eine steile blickt von oben in die Beete.",
+        "Start and stop smoothly": "Sanft anfahren und anhalten",
+        "The camera speeds up gently at the start and slows down to a stop at the end. Turn it "
+        "off for a video that plays in a loop: then the end leads straight back into the start.":
+            "Die Kamera beschleunigt am Anfang sanft und bremst am Ende bis zum Stillstand ab. "
+            "Schalten Sie es für ein Video aus, das in einer Schleife läuft: Dann geht das Ende "
+            "nahtlos in den Anfang über.",
+        "Start the orbit exactly where the 3D view is now, with the view's own tilt.":
+            "Den Drohnenflug genau bei der aktuellen 3D-Ansicht beginnen, mit ihrer eigenen "
+            "Neigung.",
+        "Starts where the view is now, at the same distance, with the tilt set here.":
+            "Beginnt bei der aktuellen Ansicht, mit gleichem Abstand und der hier eingestellten "
+            "Neigung.",
+        "How long the video lasts. A drone orbit takes 30 s a turn until you set a length here.":
+            "Wie lange das Video dauert. Ein Drohnenflug braucht 30 s pro Umdrehung, bis Sie hier "
+            "eine Dauer festlegen.",
+        "Video quality:": "Videoqualität:",
+        "Standard": "Standard",
+        "Best, for Publishing": "Beste, zum Veröffentlichen",
+        "How much detail the video keeps. Best keeps nearly every leaf and makes a larger file: "
+        "use it for a video you publish. Only for Save Video: a PNG sequence keeps every detail.":
+            "Wie viele Details das Video behält. „Beste“ behält fast jedes Blatt und ergibt eine "
+            "größere Datei: Verwenden Sie sie für ein Video, das Sie veröffentlichen. Nur für "
+            "„Video speichern“: Eine PNG-Sequenz behält alle Details.",
     },
     "Commands": {
         "Save camera tour": "Kamerafahrt speichern",
@@ -297,6 +327,35 @@ ES = {
         "A tour named '{name}' already exists.": "Ya existe un recorrido llamado '{name}'.",
         "Deleted the tour '{name}'. Undo brings it back.":
             "Recorrido '{name}' eliminado. Deshacer lo recupera.",
+        # the orbit's tilt and ease, the video's quality (#807)
+        " °": " °",
+        "Camera tilt:": "Inclinación de la cámara:",
+        "How steeply the camera looks down at the garden. A low tilt shows the horizon and the "
+        "sky; a high one looks down into the beds.":
+            "Cuánto mira la cámara hacia abajo al jardín. Una inclinación baja muestra el "
+            "horizonte y el cielo; una alta mira desde arriba a los bancales.",
+        "Start and stop smoothly": "Arrancar y parar con suavidad",
+        "The camera speeds up gently at the start and slows down to a stop at the end. Turn it "
+        "off for a video that plays in a loop: then the end leads straight back into the start.":
+            "La cámara acelera suavemente al principio y frena hasta detenerse al final. "
+            "Desactívelo para un vídeo que se reproduce en bucle: así el final enlaza "
+            "directamente con el principio.",
+        "Start the orbit exactly where the 3D view is now, with the view's own tilt.":
+            "Empezar el vuelo de dron exactamente en la vista 3D actual, con su propia "
+            "inclinación.",
+        "Starts where the view is now, at the same distance, with the tilt set here.":
+            "Empieza en la vista actual, a la misma distancia, con la inclinación ajustada aquí.",
+        "How long the video lasts. A drone orbit takes 30 s a turn until you set a length here.":
+            "Cuánto dura el vídeo. Un vuelo de dron tarda 30 s por vuelta hasta que usted fije "
+            "aquí una duración.",
+        "Video quality:": "Calidad del vídeo:",
+        "Standard": "Estándar",
+        "Best, for Publishing": "Máxima, para publicar",
+        "How much detail the video keeps. Best keeps nearly every leaf and makes a larger file: "
+        "use it for a video you publish. Only for Save Video: a PNG sequence keeps every detail.":
+            "Cuánto detalle conserva el vídeo. «Máxima» conserva casi cada hoja y genera un "
+            "archivo más grande: úsela para un vídeo que vaya a publicar. Solo para «Guardar "
+            "vídeo»: una secuencia PNG conserva todo el detalle.",
     },
     "Commands": {
         "Save camera tour": "Guardar recorrido de cámara",

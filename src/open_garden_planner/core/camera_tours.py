@@ -40,9 +40,10 @@ from .camera_path import (
 from .plain_text import REPLACEMENT, log_text, normalise_text
 from .scene3d.camera import FOV_DEG, CameraPose
 
-__all__ = ["DEFAULT_DURATION_S", "DEFAULT_SIZE", "MAX_NAME_LENGTH", "MAX_REACH_CM", "MAX_TOURS",
-           "MAX_TOUR_KEYS", "MOTIONS", "ORBIT_TURNS", "PLAN_KEY", "TOUR_SIZES", "SavedTour",
-           "checked_tours", "clean_tour_name", "dump_tours", "find_tour", "load_tours"]
+__all__ = ["DEFAULT_DURATION_S", "DEFAULT_ORBIT_PITCH_DEG", "DEFAULT_SIZE", "MAX_NAME_LENGTH",
+           "MAX_REACH_CM", "MAX_TOURS", "MAX_TOUR_KEYS", "MOTIONS", "ORBIT_SECONDS_PER_TURN",
+           "ORBIT_TURNS", "PLAN_KEY", "TOUR_SIZES", "SavedTour", "checked_tours", "clean_tour_name",
+           "default_duration_s", "dump_tours", "find_tour", "load_tours"]
 
 _LOG: Final = logging.getLogger(__name__)
 
@@ -54,9 +55,29 @@ MOTIONS: Final = ("orbit", "path", "hold")
 #: played with the wrong colours (``core/video_yuv.py``).
 TOUR_SIZES: Final = ((1280, 720), (1920, 1080), (2560, 1440), (3840, 2160))
 DEFAULT_SIZE: Final = (1920, 1080)
+#: A tour's length until the user sets one, and what a file that names none gets.
 DEFAULT_DURATION_S: Final = 12.0
 #: The whole turns a drone orbit offers.
 ORBIT_TURNS: Final = (1, 4)
+#: How long a new drone orbit takes for a turn, until the user sets a duration (#807): 0.4
+#: degrees a frame at 30 fps, where 12 s a turn moved the horizon 26 px a frame across a
+#: 1080p picture. Not for a time-lapse: a year's regrowths cost about a second and 2 MB each
+#: (#531), so a time-lapse keeps ``DEFAULT_DURATION_S``.
+ORBIT_SECONDS_PER_TURN: Final = 30.0
+#: How far a new drone orbit tilts down, in degrees (#807): the horizon and a band of sky
+#: (5 % of the picture at 40 degrees' field of view) in frame, and still a look into every
+#: bed. The view's default tilt, 31.6, shows no sky at all. "Use Current View" takes the
+#: view's own tilt instead.
+DEFAULT_ORBIT_PITCH_DEG: Final = 18.0
+
+
+def default_duration_s(motion: str, turns: int, clock: str) -> float:
+    """A new tour's length while the user has set none: ``ORBIT_SECONDS_PER_TURN`` a turn
+    for an orbit that leaves the clock alone (``clock`` ``"none"``), else
+    ``DEFAULT_DURATION_S``."""
+    if motion == "orbit" and clock == "none":
+        return ORBIT_SECONDS_PER_TURN * turns
+    return DEFAULT_DURATION_S
 #: The most tours a plan keeps, and the most keyframes one tour has. Far above what a
 #: person sets up by hand; a file that asks for more is not asking for a video.
 MAX_TOURS: Final = 50
