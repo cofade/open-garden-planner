@@ -341,6 +341,7 @@ Pre-defined object types for common property elements:
 - **FR-I18N-09**: Russian localization (`ru`, "Русский") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support.
 - **FR-I18N-10**: Numbers, month names and weekday names in the UI follow the UI language, never the operating system's locale on its own; the system contributes its region only when it speaks the same language (#792, ADR-077).
 - **FR-I18N-11**: A number field accepts a comma or a point as the decimal mark in every UI language, and accepts back what the UI shows; files and exports (.ogp, SVG, DXF, CSV, clipboard rows) keep a decimal point in every language (#792, ADR-077).
+- **FR-I18N-12**: The UI language does not choose date and time conventions: every date field shows ISO (`yyyy-MM-dd`), every time field 24 hours, every calendar popup starts on Monday, and a date written in text names its month ("7 Jun 2026"), in every UI language and on every system (#792, ADR-077 decisions 7 to 9).
 
 ## FR-12: Visual Rendering
 

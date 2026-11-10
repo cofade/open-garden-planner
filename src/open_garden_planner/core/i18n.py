@@ -158,6 +158,22 @@ def format_day_month(day: datetime.date) -> str:
     return current_locale().toString(QDate(day.year, day.month, day.day), pattern)
 
 
+def format_short_date(day: datetime.date) -> str:
+    """A whole date in UI text ("7 Jun 2026", "7. Juni 2026").
+
+    The ONE formatter for a date a label, a card or a legend writes. Day, the
+    month's short NAME, the year: never a numeric day/month pair, whose order
+    belongs to the locale's territory and not to the UI language ("6/7/26" is
+    7 June in ``en_US``, the locale of an English UI on a non-English system,
+    and 6 July to the European reading it). The pattern is a translated Qt
+    date pattern like :func:`format_day_month`'s; the name comes from the
+    application's locale. A date FIELD or key is ISO instead
+    (``ui/date_fields``).
+    """
+    pattern = QCoreApplication.translate("DateFormat", "d MMM yyyy")
+    return current_locale().toString(QDate(day.year, day.month, day.day), pattern)
+
+
 def parse_decimal(text: str) -> float:
     """The number a user typed, whichever decimal mark they used.
 

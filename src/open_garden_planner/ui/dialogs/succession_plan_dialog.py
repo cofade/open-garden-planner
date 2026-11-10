@@ -52,6 +52,7 @@ from open_garden_planner.models.succession import (
     SuccessionPlan,
     resolve_season_segments,
 )
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
@@ -253,16 +254,12 @@ class _EntryDialog(QDialog):
         form.addRow(self.tr("Plant"), self._plant_edit)
 
         # Start date
-        self._start_edit = QDateEdit()
-        self._start_edit.setCalendarPopup(True)
-        self._start_edit.setDisplayFormat("yyyy-MM-dd")
+        self._start_edit = as_date_field(QDateEdit())
         self._start_edit.dateChanged.connect(self._on_start_date_changed)
         form.addRow(self.tr("Start Date"), self._start_edit)
 
         # End date
-        self._end_edit = QDateEdit()
-        self._end_edit.setCalendarPopup(True)
-        self._end_edit.setDisplayFormat("yyyy-MM-dd")
+        self._end_edit = as_date_field(QDateEdit())
         form.addRow(self.tr("End Date"), self._end_edit)
 
         # Notes

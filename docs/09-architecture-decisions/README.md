@@ -11777,6 +11777,28 @@ application's chosen language, never the system locale on its own.
 6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit,
    the Tasks tab, the plan-date strip). Only names — months, weekdays — and the
    day-and-month label of the calendar dashboard follow the language.
+7. **A date or time FIELD takes nothing from the locale's territory** *(review round 1;
+   owner to confirm)*. An English UI on a non-English system is `en_US` (decision 2), and
+   a field left to that locale read "3:30 PM" and "6/7/26" and its calendar popup started
+   on Sunday (measured: `load_translator("en")` on a `de_DE` system; the camera tour's
+   four fields had no display format). The user asked for English words, not for US
+   conventions. `ui/date_fields.as_date_field` / `as_time_field` are the one place a field
+   is configured: ISO (`yyyy-MM-dd`), 24 hours (`HH:mm`), and the planting calendar's
+   year-less step dates as `dd MMM`. Every `QDateEdit` / `QDateTimeEdit` / `QTimeEdit` is
+   handed to one of them where it is built, and nothing else calls `setDisplayFormat`,
+   `setCalendarPopup`, `setCalendarWidget` or `setFirstDayOfWeek`:
+   `tests/unit/test_date_fields.py` walks the source, so a new field cannot forget it.
+8. **A calendar popup starts its week on Monday in every UI language** *(review round 1;
+   owner to confirm)*. ISO 8601, and the convention of the app's users (European
+   gardeners; German, Spanish and Russian locales give Monday anyway). The same helper
+   sets it. Rejected: the locale's week start (Sunday for an English UI, the regression
+   this decision answers) and a preference (no user asked for one).
+9. **A date in UI text is day, month NAME, year** *(review round 1)*:
+   `core/i18n.format_short_date` ("7 Jun 2026"; the order is a translated Qt pattern in
+   context `DateFormat`, like `format_day_month`'s). Never a numeric day/month pair: its
+   order belongs to the territory ("6/7/26" is 7 June in `en_US`). The 3D info card and
+   the sun-path legend, the heatmap probe and the wipe label use it; nothing outside
+   `core/i18n.py` formats with a bare `QLocale().toString(...)` (same test file).
 
 **Rejected**: the system locale for formats with the UI language for words (the state
 before: two conventions on one screen, and the issue's own counter-example); an
@@ -11787,8 +11809,11 @@ key rewrite and documenting the trap (a silent factor of ten in a CAD field).
 **Consequences**: a user who types a group separator into a number field gets a decimal
 mark instead; nobody is known to do that in a CAD field, and the coordinate parser has
 read both marks as decimal since Package A. An English UI is `en_US` on a non-English
-system (month/day order, 12-hour clock where a widget shows a time without a display
-format of its own) — the app's own time and date fields all set one. The test session
+system. That locale's month/day order, 12-hour clock and Sunday week start reach a widget
+that takes its format from the locale; the app's own date and time fields and its dates in
+text therefore take none of the three from it (decisions 7 to 9). The first version of this
+ADR claimed here that the fields "all set" a display format; the camera tour's four did
+not, and no field set a week start. The test session
 has the application's locale like the app does (`conftest._app_locale`); before, it ran
 in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
 labels, the scale bar) still use a decimal point and are the canvas's next step.

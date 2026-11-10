@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.models.journal_note import JournalNote
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.icons import get_icon
 from open_garden_planner.ui.theme import set_text_role
 
@@ -66,18 +67,14 @@ class JournalPanel(QWidget):
 
         today = _date.today()
         first = QDate(today.year, today.month, 1)
-        self._date_from = QDateEdit(first)
-        self._date_from.setCalendarPopup(True)
-        self._date_from.setDisplayFormat("yyyy-MM-dd")
+        self._date_from = as_date_field(QDateEdit(first))
         self._date_from.setEnabled(False)
         self._date_from.dateChanged.connect(self._rebuild_list)
         range_row.addWidget(self._date_from)
 
         range_row.addWidget(QLabel("–"))
 
-        self._date_to = QDateEdit(QDate(today.year, today.month, today.day))
-        self._date_to.setCalendarPopup(True)
-        self._date_to.setDisplayFormat("yyyy-MM-dd")
+        self._date_to = as_date_field(QDateEdit(QDate(today.year, today.month, today.day)))
         self._date_to.setEnabled(False)
         self._date_to.dateChanged.connect(self._rebuild_list)
         range_row.addWidget(self._date_to)

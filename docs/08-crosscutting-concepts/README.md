@@ -76,8 +76,16 @@ one is `en_US`).
   a count. A translated template that carries its precision keeps it and is handed a
   `LocalizedNumber`: `self.tr("{d:.2f} m").format(d=LocalizedNumber(x))`.
 - **A month or a day**: `month_abbreviation(m)` for a column header, `format_day_month(date)`
-  for a day without its year (the order is a translated Qt pattern, context `DateFormat`).
-  Date FIELDS and keys stay ISO (`yyyy-MM-dd`).
+  for a day without its year and `format_short_date(date)` for a whole date in text
+  ("7 Jun 2026"; the order is a translated Qt pattern, context `DateFormat`). Never
+  `QLocale().toString(date, ShortFormat)`: a numeric day/month pair follows the territory,
+  and an English UI on a German system is `en_US` ("6/7/26").
+- **A date or time field**: build it inside `ui/date_fields.as_date_field(QDateEdit(...))` or
+  `as_time_field(QTimeEdit(...))`. They give ISO (`yyyy-MM-dd`), 24 hours (`HH:mm`), a
+  calendar popup and a week that starts on Monday in every language; `without_year=True` is
+  the planting calendar's `dd MMM`, `calendar=` a calendar widget of the field's own. No other
+  code sets a display format or a week start (`tests/unit/test_date_fields.py` walks the
+  source). Date keys stay ISO.
 - **A typed number**: a `QDoubleSpinBox` needs nothing — either decimal key types the field's
   decimal mark. Free text is read with `parse_decimal`. What the UI shows, it accepts back.
 - **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
