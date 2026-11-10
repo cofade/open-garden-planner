@@ -19,6 +19,13 @@ Concept: docs §8.29.14; decisions and the before/after tables: ADR-048 addendum
   10°, field 40°, 640 × 360) bins pixels within ±4° of a bearing in 0.5° bands centred on its
   multiples; each band holds 300–450 pixels, and the median luma of a flat band reproduces to
   0.0 (the painted sky's inversion reads 0.0 away and across at every sun).
+- **A probe that keys on a clipped channel depends on what lies behind it.** Gate G4's disc
+  finder took a plateau of pixels with EVERY channel ≥ 250. The atmosphere's 6° disc core
+  read (255, 255, 252) on `master` and (255, 255, 243) once the profile dimmed the sky round a
+  low sun (the 6–15° band 1.49× → 0.96× the painted sky): the disc stood where it was, but
+  no plateau was found, and the warm fallback read it 0.49° low over the haze band. A clipped
+  core is luma ≥ 250 (a warm core clips red and green first): 169 px, −0.04° at 6°, +0.05° at
+  12°; every other view of both skies keeps its path (the painted discs peak at 200–216).
 - **On a shared, full machine an offscreen board dies natively.** With the GPU at 11.7–11.9
   of 12.3 GB (other agents' renders) and 3.7 GB of commit left, boards exited 3, 4 and 139
   (segmentation fault) or raised `MemoryError` in `offscreen.image_rgba` at a 0.9 MB image,

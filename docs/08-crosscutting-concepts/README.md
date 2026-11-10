@@ -5930,8 +5930,8 @@ frame rate. Procedure:
 `ogp-lush-cinematic` §5.
 
 The sky probe (G4) spans the day: four sun elevations (6°, 12°, 30°, 60°) × three
-azimuths × two offsets on both sky models, its disc found by a white plateau of at least
-20 pixels first — at a low sun the warm horizon band outscored the disc (#717) — with the
+azimuths × two offsets on both sky models, its disc found by a clipped plateau (luma ≥ 250) of
+at least 20 pixels first — at a low sun the warm horizon band outscored the disc (#717) — with the
 0.25° accuracy gated. The dusk probe also renders a sky-only camera at the sun's own
 bearing at +1.0, +0.4, 0.0, −1.0 and −3° under every weather and fails when a pixel
 within 10° of that bearing and 1.5° of the sun's elevation is more than 10 luma under the
@@ -7891,7 +7891,9 @@ brightness mix, so the sky never darkens toward the horizon. The weather's cloud
 (`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering,
 silver lining and the sun side of their ambient fade with the cover (a thick deck diffuses, so a
 cloudy evening dims as under the painted sky), they lose the sun through civil twilight and take
-the look's horizon hue in proportion to the cover. A deck (cloud ≥ 0.5, the overcast mood's
+the look's horizon hue except where the cloud is thin and the deck open (`cloud_hue_share`:
+1 − (1 − cover) × (1 − closed), Snow 0.955; with the cover alone a Snow deck read pink under a
+sun below 1°). A deck (cloud ≥ 0.5, the overcast mood's
 boundary) takes an anchor on top (#719, `deck_anchor`): `ATMOSPHERE_DECK_LEVEL` by how closed it
 is and `ATMOSPHERE_DECK_SUNSET` per sun elevation, measured in the frame (PF-L3D-23) so that the
 deck 10° up reads the painted sky's luminance there and the painted haze band meets it without a

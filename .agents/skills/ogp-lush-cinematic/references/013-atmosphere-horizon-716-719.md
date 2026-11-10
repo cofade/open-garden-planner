@@ -16,6 +16,7 @@ addendum "L7.1"; lessons PF-L3D-22, PF-L3D-23. Measured with the board's `--sky-
 | deck level 1.48 by how closed the deck is | `look.ATMOSPHERE_DECK_LEVEL` | the deck 10° up read 11–14 luma under the painted haze band from noon to a 6° sun (painted / deck luminance 1.21–1.27 at 10°) |
 | deck sunset shape (1 by day, 2.08 at 0°, 0.53 at −4°) for every deck | `look.ATMOSPHERE_DECK_SUNSET` | the example lights its clouds by its sun through a ground airmass, which dies faster than the painted sky dims: the deck fell to 0.29 of its noon luminance at a 0° sun, the painted sky to 0.6, then the clear sky's gain lifted it again in twilight (37–45 luma at sunset) |
 | a deck = cloud ≥ 0.5 | `quick3d.look.DECK_FROM_CLOUD` | the overcast mood's own boundary (`weather.mood_of`) and where `sunAlpha` starts; Partly cloudy (0.4) keeps the light the owner accepted |
+| hue share 1 − (1 − cover) × (1 − closed): Snow 0.955 | `quick3d.look.cloud_hue_share` | with the cover alone (0.85) the Snow deck kept 15 % of its own colour, lit by the example's sun through a ground airmass — nearly pure red at a low sun; the blend keeps luminance, so a pure red brings a large red channel. The deck 10° up read C*ab 7.6–9.7 at hue 23–32° under a 1° … −1° sun (pink over a grey haze band; the painted Snow deck 3.3–3.6). Now 3.2–4.0, ΔE to the band 1.0–4.8 (painted 4.2–4.3), luma unchanged (L* within 0.3) |
 
 How the anchor was measured (do it again after any change to the clouds' light): render the
 deck at two known factors per sun elevation, solve for the factor in the frame from the local
@@ -25,9 +26,9 @@ radiance: the frame passes the scene's tone mapping after it (PF-L3D-23).
 What it looks like now: by day the atmosphere keeps its hue (the hazier blue, the warm sun
 side, the violet twilight) at the painted sky's brightness per elevation; a sunset toward the
 sun is an orange glow round the disc instead of a wide cream wash; an Overcast or Rain deck
-meets the haze band with no band at any sun (−1.7 … 7.6 luma from 60° to −5°).
+meets the haze band with no band at any sun (−1.7 … 7.6 luma from 60° to −5°); a Snow deck
+at sunset is a warm grey, not pink, and meets it within −7.5 … 9.6 luma.
 
-**Open for the owner** (not changed here): a Snow deck at a sun under 1° keeps the pink tint
-of master — `cloudHueShare` = cover leaves 15 % of the deck's own red-lit colour, now on a
-brighter deck (`skyband_snow_0.5_toward_medium.png`); the colour step at the haze line went
-from ΔE 8.8 to 3.5 (the painted sky's own: 4.1). A full deck is as flat as on master.
+**Open for the owner**: the Snow deck at sunset keeps a trace of warmth (4.5 % of its own
+colour, C*ab 3.2–4.0 at hue 0–27°); a share of 1 would make it the weather's neutral grey
+(C*ab 1.3–1.5) — a taste call. A full deck is as flat as on master.
