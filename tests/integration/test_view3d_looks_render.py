@@ -474,15 +474,17 @@ def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: 
 #: #716: from 20° down to 0.5° the clear sky may not darken, away from the sun and across
 #: it (toward it the disc's own glow is in the profile; the painted sky reads 10 there at a
 #: 15° sun). The bound is the band medians' noise: the painted sky reads 0.0 everywhere.
-#: `master` read 16.7-21.9 away (0.7 across) at 15°, 6°, 2° and 0.5°.
+#: `master` read 16.7-21.9 away (0.7 across) at 15°, 6°, 2° and 0.5°; with the profile 0.0
+#: at every sun (2026-11-10).
 MAX_SKY_INVERSION_LUMA = 1.0
 #: #716: the low band every board camera sees (6-15°), over the azimuth (toward : across :
 #: away = 1 : 2 : 1), against the painted sky's; the issue's bound at sunset, held at every
-#: sun. `master` read 1.37-1.60.
+#: sun. `master` read 1.37-1.60; with the profile 0.94-1.05.
 MAX_LOW_BAND_RATIO = 1.15
 #: #719: the haze band (3°) minus the deck above it (10°), toward, across and away from a
 #: 6° and a 0.5° sun, on every closed weather. The painted sky reads 3-9; `master`'s
-#: atmosphere 26.5-51.0 at a 0.5° sun (Overcast and Rain), 19.2-38.4 (Snow).
+#: atmosphere 26.5-51.0 at a 0.5° sun (Overcast and Rain), 19.2-38.4 (Snow); with the anchor
+#: at most 5.6 (Overcast and Rain) and 7.4 (Snow).
 MAX_BAND_OVER_DECK_LUMA = 10.0
 #: The sky-band frames see the meadow below the horizon: lit by the painted probe under
 #: both skies (PF-E3D-17), it must not move with the sky drawn above it.
