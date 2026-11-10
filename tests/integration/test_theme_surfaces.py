@@ -256,8 +256,8 @@ def test_the_main_window_follows_the_theme_whatever_windows_says(
 
     colors = themed(mode, windows_dark)
     monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Discard)
-    monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda self: None)
+        QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Discard)
+    monkeypatch.setattr(GardenPlannerApp, "_show_welcome_dialog", lambda _self: None)
     window = GardenPlannerApp()
     qtbot.addWidget(window)
     window.showNormal()
