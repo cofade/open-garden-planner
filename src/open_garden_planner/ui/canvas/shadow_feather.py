@@ -8,6 +8,18 @@ again — at the device's resolution, with the shade's exact outline. So the
 edge of the shade stays where its geometry puts it, the interior keeps its
 flat tone, and no painter is handed a clip to honour: an SVG gets a picture,
 not a ``<clipPath>`` its reader may ignore (PF-CAN-53).
+
+The layer is composed in four steps, all in device pixels (``paint_feather``):
+
+1. the falloff's weight, enlarged, as a MASK in which the shade's own tone is
+   half a byte (``falloff_pictures``);
+2. the mask added to itself with saturation: the weight clamped to 1. This is
+   what keeps sunlit ground in an inside corner, a cusp, a hole or a slot from
+   being painted darker than the shade (``core.soft_edge``), and it is exact
+   because it comes after the enlargement;
+3. the shade's colour laid into the mask — one colour for a solid shade, the
+   enlarged tone of the shade beside each place where its regions differ;
+4. the shade cut out.
 """
 
 from __future__ import annotations
@@ -22,10 +34,11 @@ from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath
 from open_garden_planner.core.raster_resolution import device_scale, raw_device_scale
 from open_garden_planner.core.soft_edge import (
     FEATHER_REACH_CM,
+    MASK_FULL_WEIGHT,
     MAX_FIELD_CELLS,
     FeatherGrid,
+    feather_fields,
     feather_grid,
-    feather_weight,
 )
 from open_garden_planner.core.sprite_raster import paint_layer
 
@@ -55,21 +68,36 @@ def _premultiplied(color: QColor) -> np.ndarray:
     return pixel
 
 
-def falloff_image(
+def _picture(pixels: np.ndarray) -> QImage:
+    """``pixels`` (rows of premultiplied ARGB32) as an image with its own memory."""
+    rows, columns = pixels.shape
+    picture = QImage(
+        pixels.tobytes(), columns, rows, columns * 4, QImage.Format.Format_ARGB32_Premultiplied
+    )
+    return picture.copy()  # not the temporary buffer's
+
+
+def falloff_pictures(
     shade: QPainterPath,
     tones: Sequence[ToneRegion],
     color: QColor,
     grid: FeatherGrid,
     cells: tuple[int, int, int, int],
-) -> QImage | None:
+) -> tuple[QImage, QImage | None] | None:
     """The falloff over the lattice cells ``(left, top, right, bottom)`` —
-    right and bottom excluded — as a premultiplied picture, one pixel a cell.
+    right and bottom excluded — as two pictures, one pixel a cell: its weight
+    as a mask, and its tint.
 
     ``shade`` is the whole shade; ``tones`` are its regions when they differ in
     tone (empty: the shade is one solid tone). ``color`` is the solid shade's
-    colour and alpha. Inside the shade the picture goes on getting darker
-    (``core.soft_edge.MAX_WEIGHT``): the caller cuts the shade out. None when
-    there is no memory for it.
+    colour and alpha.
+
+    The **mask** holds the weight in its alpha, with the shade's own tone at
+    half a byte (``core.soft_edge.MASK_FULL_WEIGHT``): inside the shade and in
+    concave places it goes on rising, and the caller clamps it after enlarging
+    it. The **tint** is the shade's colour at the tone of the shade beside each
+    cell; ``None`` for a solid shade, whose tint is ``color`` everywhere. None
+    altogether when there is no memory for the raster.
     """
     left, top, right, bottom = cells
     # what the blur reaches into the picture from outside it
@@ -100,16 +128,18 @@ def falloff_image(
     channels = _channels(raster)
     coverage = np.ascontiguousarray(channels[:, :, 1])
     strength = np.ascontiguousarray(channels[:, :, 2]) if tones else None
-    weight = feather_weight(coverage, grid, strength)[margin:-margin, margin:-margin]
+    weight, tone = feather_fields(coverage, grid, strength)
+    inner = (slice(margin, -margin), slice(margin, -margin))
+    per_byte = np.float32(255.0 / MASK_FULL_WEIGHT)
+    mask = np.minimum(weight[inner] * per_byte + np.float32(0.5), np.float32(255.0))
+    # black at that alpha: only the alpha is read (the tint brings the colour)
+    mask_picture = _picture(mask.astype(np.uint32) << 24)
+    if tone is None:
+        return mask_picture, None
     alpha = np.minimum(
-        weight * np.float32(color.alpha()) + np.float32(0.5), np.float32(255.0)
+        tone[inner] * np.float32(color.alpha()) + np.float32(0.5), np.float32(255.0)
     ).astype(np.uint8)
-    pixels = _premultiplied(color)[alpha]
-    picture = QImage(
-        pixels.tobytes(), right - left, bottom - top, (right - left) * 4,
-        QImage.Format.Format_ARGB32_Premultiplied,
-    )
-    return picture.copy()  # its own memory, not the temporary buffer's
+    return mask_picture, _picture(_premultiplied(color)[alpha])
 
 
 def paint_feather(
@@ -156,23 +186,38 @@ def paint_feather(
             math.ceil(shown.right() / cell) + 1,
             math.ceil(shown.bottom() / cell) + 1,
         )
-        picture = falloff_image(shade, tones, color, grid, cells)
-        if picture is None:
+        pictures = falloff_pictures(shade, tones, color, grid, cells)
+        if pictures is None or not isinstance(device, QImage):
             return
+        mask, tint = pictures
+        # a cell's value is the falloff at its CENTRE: the pictures' pixel
+        # centres lie on the cell centres
+        field = QRectF(
+            cells[0] * cell, cells[1] * cell,
+            (cells[2] - cells[0]) * cell, (cells[3] - cells[1]) * cell,
+        )
         layer.save()
         layer.setClipRect(clip_rect, Qt.ClipOperation.IntersectClip)
         layer.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        # a cell's value is the falloff at its CENTRE: the picture's pixel
-        # centres lie on the cell centres
-        layer.drawImage(
-            QRectF(
-                cells[0] * cell, cells[1] * cell,
-                (cells[2] - cells[0]) * cell, (cells[3] - cells[1]) * cell,
-            ),
-            picture,
-            QRectF(picture.rect()),
-        )
-        # the shade itself is drawn by the overlay, with its own flat tone
+        # 1. the weight, enlarged: the shade's own tone is half a byte of alpha
+        layer.drawImage(field, mask, QRectF(mask.rect()))
+        # 2. ... added to itself, saturating: the weight clamped to the shade's
+        # tone, pixel by pixel. After the enlargement — a clamp on the lattice
+        # leaves a cell's width of ground darker than the shade along every
+        # concave outline.
+        layer.save()
+        layer.resetTransform()
+        layer.setClipping(False)
+        layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_Plus)
+        layer.drawImage(0, 0, device.copy())
+        layer.restore()
+        # 3. the shade's colour into the mask
+        layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+        if tint is None:
+            layer.fillRect(field, color)
+        else:
+            layer.drawImage(field, tint, QRectF(tint.rect()))
+        # 4. the shade itself is drawn by the overlay, with its own flat tone
         layer.setRenderHint(QPainter.RenderHint.Antialiasing)
         layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationOut)
         layer.fillPath(shade, QColor(0, 0, 0))
@@ -181,4 +226,4 @@ def paint_feather(
     paint_layer(painter, bounds, draw)
 
 
-__all__ = ["FEATHER_REACH_CM", "ToneRegion", "falloff_image", "paint_feather"]
+__all__ = ["FEATHER_REACH_CM", "ToneRegion", "falloff_pictures", "paint_feather"]
