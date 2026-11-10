@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, NoReturn
 from uuid import UUID
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
-from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
+from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -114,11 +114,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: The sidebar's default width in a window without a saved layout: a share of
-#: the window, between the widest panel row and the width it always had (#796).
-_SIDEBAR_DEFAULT_SHARE = 0.30
-_SIDEBAR_MIN_DEFAULT_WIDTH = 360
-_SIDEBAR_MAX_DEFAULT_WIDTH = 450
+#: The sidebar's default width. NOT a share of the window (#796 asked, because
+#: 450 px is 35 % of a 1280 px window): the Properties form has no horizontal
+#: scroll bar and its German rows need 388 to 406 px, so anything narrower cuts
+#: them at the right edge (tests/integration/test_chrome_layout.py).
+_SIDEBAR_DEFAULT_WIDTH = 450
 
 
 
@@ -2063,10 +2063,8 @@ class GardenPlannerApp(QMainWindow):
         self._main_splitter.setStretchFactor(0, 1)  # Canvas takes most space
         self._main_splitter.setStretchFactor(1, 0)  # Sidebar fixed width
         self._main_splitter.setHandleWidth(1)  # Minimal splitter handle
-        # Set initial sizes: give sidebar 450px, canvas gets the rest. A window
-        # that has no saved splitter state gets its share on first show
-        # (_apply_default_sidebar_width).
-        self._main_splitter.setSizes([1000, _SIDEBAR_MAX_DEFAULT_WIDTH])
+        # Set initial sizes: give sidebar 450px, canvas gets the rest
+        self._main_splitter.setSizes([1000, _SIDEBAR_DEFAULT_WIDTH])
         splitter = self._main_splitter
 
         # Connect canvas signals to status bar updates
@@ -3914,32 +3912,8 @@ class GardenPlannerApp(QMainWindow):
         # while retaining the toolbar rows built by _setup_central_widget.
         self._geometry_restored = self._ui_state.restore_geometry(
             self, restore_window_state=False)
-        # A saved splitter is the user's own choice and is kept as it is.
-        self._sidebar_width_decided = self._ui_state.restore_splitter(
-            "main", self._main_splitter)
+        self._ui_state.restore_splitter("main", self._main_splitter)
         self._enforce_toolbar_visibility()
-
-    def showEvent(self, event: QShowEvent | None) -> None:
-        super().showEvent(event)
-        if not self._sidebar_width_decided:
-            self._sidebar_width_decided = True
-            # After the event: a maximised window has its real size by then.
-            QTimer.singleShot(0, self._apply_default_sidebar_width)
-
-    def _apply_default_sidebar_width(self) -> None:
-        """Give the sidebar its default share of a window with no saved layout.
-
-        A fixed 450 px was 35 % of a 1280 px window (#796). The default is a
-        share of the window between two bounds: wide enough for the widest
-        panel row (the three plant-database buttons, 342 px), and never wider
-        than before.
-        """
-        total = self._main_splitter.width()
-        sidebar = max(
-            _SIDEBAR_MIN_DEFAULT_WIDTH,
-            min(_SIDEBAR_MAX_DEFAULT_WIDTH, round(total * _SIDEBAR_DEFAULT_SHARE)),
-        )
-        self._main_splitter.setSizes([max(0, total - sidebar), sidebar])
 
     def _enforce_toolbar_visibility(self) -> None:
         """Toolbar visibility is owned by the app, never by the restored state.
