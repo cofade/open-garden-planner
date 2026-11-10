@@ -170,3 +170,28 @@ def test_the_badge_keeps_its_place_in_the_plant(qtbot) -> None:
     assert inside.width() == pytest.approx(0.4 * 100.0)
     assert plant.rect().contains(inside)
     assert QRectF(inside).center().x() == pytest.approx(plant.rect().center().x(), abs=0.5)
+
+
+def test_a_badge_without_an_icon_shows_its_pixmap_as_before(qtbot) -> None:
+    """``set_icon`` is what makes the badge an icon; a badge that was only
+    handed a pixmap (or names an icon that does not exist) paints that pixmap."""
+    from PyQt6.QtGui import QPixmap
+
+    from open_garden_planner.ui.icons import paint_icon
+
+    scene = CanvasScene(1200, 800)
+    plant = _plant(scene)
+    orange = QPixmap(24, 24)
+    orange.fill(QColor("orange"))
+    for icon in (None, "no-such-icon"):
+        badge = SunBadgeItem(plant)
+        badge.setPixmap(orange)
+        badge.set_icon(icon)
+        picture = _painted_alone(badge, 96)
+        assert tuple(picture[48, 48]) == (255, 165, 0), icon
+    image = QImage(32, 32, QImage.Format.Format_ARGB32_Premultiplied)
+    painter = QPainter(image)
+    assert paint_icon(painter, "no-such-icon", QRectF(0, 0, 24, 24)) is False
+    assert paint_icon(painter, "sun_warning", QRectF(0, 0, 24, 24)) is True
+    assert paint_icon(painter, "sun_warning", QRectF(0, 0, 0, 24)) is False
+    painter.end()
