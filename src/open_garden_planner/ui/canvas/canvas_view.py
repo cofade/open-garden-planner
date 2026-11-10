@@ -14,9 +14,12 @@ from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
+    from PyQt6.QtGui import QPainterPath
+
     from open_garden_planner.core.commands import Command
     from open_garden_planner.core.plant_renderer import PlantCategory
     from open_garden_planner.ui.canvas.items import CircleItem
+    from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
 from PyQt6.QtCore import (
@@ -800,7 +803,9 @@ class CanvasView(QGraphicsView):
             # came into view. The key stands still on the viewport: what was
             # scrolled away with the plan and where it belongs are painted again.
             stale = self._sun_legend_rect.adjusted(-2, -2, 2, 2)
-            self.viewport().update(stale.united(stale.translated(dx, dy)))
+            viewport = self.viewport()
+            if viewport is not None:
+                viewport.update(stale.united(stale.translated(dx, dy)))
 
     def _refresh_dense_vertex_overlays(self) -> None:
         """Ask every selected item with a bounded overlay to re-sample (#551)."""
@@ -4204,7 +4209,8 @@ class CanvasView(QGraphicsView):
             # body the grid passes under; a group is its members.
             if not is_standing_object(item):
                 continue
-            outline = item.deviceTransform(world).map(item.grid_cover_path())
+            cover: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+            outline = item.deviceTransform(world).map(cover)
             if isinstance(item, CircleItem):
                 # A circle stays a circle under the view's transform: Qt's own
                 # ellipse region is an order of magnitude cheaper than a
@@ -4456,7 +4462,9 @@ class CanvasView(QGraphicsView):
         if key == self._sun_legend:
             return
         self._sun_legend = key
-        self.viewport().update()
+        viewport = self.viewport()
+        if viewport is not None:
+            viewport.update()
 
     def sun_legend(self) -> SunLegendKey | None:
         """The key that is shown, or ``None``."""
@@ -4469,9 +4477,10 @@ class CanvasView(QGraphicsView):
 
     def _scale_bar_rect(self) -> QRectF:
         """What the scale bar takes of the viewport: its line, ticks and label."""
-        if not self._scale_bar_visible:
+        widget = self.viewport()
+        if not self._scale_bar_visible or widget is None:
             return QRectF()
-        viewport = self.viewport().rect()
+        viewport = widget.rect()
         margin = self._SCALE_BAR_MARGIN
         width = self._pick_scale_bar_distance() * self._zoom_factor
         return QRectF(
@@ -4486,15 +4495,15 @@ class CanvasView(QGraphicsView):
         scale bar and every overlay widget (the minimap)."""
         taken = [self._scale_bar_rect()]
         viewport = self.viewport()
+        if viewport is None:
+            return []
         # The scroll area's own parts are no overlays: the viewport, and the
         # containers of the two scroll bars, which keep a rectangle (and stay
         # "visible") while their bar is hidden.
-        own = {
-            viewport,
-            self.horizontalScrollBar().parentWidget(),
-            self.verticalScrollBar().parentWidget(),
-            self.cornerWidget(),
-        }
+        own: set[QObject | None] = {viewport, self.cornerWidget()}
+        for bar in (self.horizontalScrollBar(), self.verticalScrollBar()):
+            if bar is not None:
+                own.add(bar.parentWidget())
         for child in self.children():
             if isinstance(child, QWidget) and child not in own and child.isVisible():
                 corner = viewport.mapFrom(self, child.geometry().topLeft())
@@ -4513,10 +4522,11 @@ class CanvasView(QGraphicsView):
         """
         self._sun_legend_rect = QRect()
         key = self._sun_legend
-        if key is None:
+        widget = self.viewport()
+        if key is None or widget is None:
             return
         font = legend_font()
-        viewport = self.viewport().rect()
+        viewport = widget.rect()
         margin = self._SCALE_BAR_MARGIN
         left = margin + (self.RULER_SIZE if self._guides_visible else 0)
         taken = self._taken_viewport_rects()

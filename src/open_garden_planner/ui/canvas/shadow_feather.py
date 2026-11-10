@@ -40,10 +40,9 @@ def _channels(image: QImage) -> np.ndarray:
     bits = image.constBits()
     if bits is None:
         raise MemoryError("the falloff's raster could not be read")
-    bits.setsize(image.sizeInBytes())
-    rows = np.frombuffer(bits, dtype=np.uint8).reshape(
-        image.height(), image.bytesPerLine() // 4, 4
-    )
+    rows: np.ndarray = np.frombuffer(
+        bits.asstring(image.sizeInBytes()), dtype=np.uint8
+    ).reshape(image.height(), image.bytesPerLine() // 4, 4)
     return rows[:, : image.width(), :]
 
 

@@ -36,7 +36,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QThread, pyqtSignal
@@ -86,6 +86,9 @@ from open_garden_planner.core.shadow_geometry import Polygon
 from .items.halo_text import PlanLabelItem
 from .sun_exposure_snapshot import ExposureSnapshot, collect_exposure_snapshot
 from .sun_legend import SunLegendKey, SunMapLegendItem
+
+if TYPE_CHECKING:
+    from .items.garden_item import GardenItemMixin
 
 #: Above the background image (−1000), the ground surfaces (a lawn, a path, an
 #: in-ground bed: ``canvas_scene.GROUND_Z_RANGE``) and the shadow overlay (−500),
@@ -213,7 +216,10 @@ def _standing_object_in(scene: QGraphicsScene, area: QRectF) -> bool:
     from .canvas_scene import is_standing_object
 
     for item in scene.items(area, Qt.ItemSelectionMode.IntersectsItemBoundingRect):
-        if is_standing_object(item) and item.mapToScene(item.grid_cover_path()).intersects(area):
+        if not is_standing_object(item):
+            continue
+        covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+        if item.mapToScene(covered).intersects(area):
             return True
     return False
 

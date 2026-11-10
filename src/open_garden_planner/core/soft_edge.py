@@ -131,7 +131,7 @@ def feather_grid(
 
 def blur_full_scale(radius: int) -> int:
     """What ``box_sums`` returns for a cell in the middle of a full (255) field."""
-    return 255 * (2 * radius + 1) ** (2 * BLUR_PASSES)
+    return int(255 * (2 * radius + 1) ** (2 * BLUR_PASSES))
 
 
 def box_sums(cells: np.ndarray, radius: int) -> np.ndarray:
