@@ -261,28 +261,37 @@ def test_far_plan_preserves_shadows_and_has_no_ao_line(tmp_path) -> None:
 #: #734: the board's ``--stairs`` (a 23.8 m solid panel and a picket fence at the plan's
 #: south edge, the board's golden hour 15.2° and sunset 5.9°) on the presets a promotion is
 #: recorded on, at 1920 x 1080 — at the tier's 640 x 360 a picket pitch never spans the
-#: 8 px the streak instrument needs. Its frames are PICTURES: the shadow map fitted to the
-#: casters, what ``Quick3DHost.capture`` renders. Measured on the RTX 4070 (2026-11-09),
-#: the view's texel-locked fit high / ultra -> fitted (high and ultra alike): the panel's
-#: edge 20-40 m out in the default framing, cm spread across it — 15.2°: 5 / 1 -> 1, 5.9°:
-#: 11 / 2 -> 2; the line along its foot at 5.9°, the share of it the sun reaches: 0.339 /
-#: 0.011 -> 0.011; the picket fence's shadow at 5.9°, streaks (the one-pitch-filtered
-#: spread over the shadow's contrast, the worse camera): 0.49 / 0.30 -> 0.10-0.17.
+#: 8 px the streak instrument needs. Its frames are STILL PICTURES: the shadow map fitted to
+#: the casters, what ``Quick3DHost.capture(fitted_shadows=True)`` renders for a photo.
+#: Measured on the RTX 4070 (2026-11-10, the final design), the view's texel-locked fit
+#: high / ultra -> fitted high / ultra: the panel's edge 20-40 m out in the default framing,
+#: cm spread across it — 15.2°: 5 / 1 -> 0.64 / 0.63, 5.9°: 11 / 2 -> 2.24 / 2.27; the line
+#: along its foot, the share of it the sun reaches (worst of four frames): 0.339 / 0.011 at
+#: 5.9° -> 0.023 / 0.023; the picket fence's shadow at 5.9°, streaks (the one-pitch-filtered
+#: spread over the shadow's contrast): 0.49 / 0.30 -> 0.165 / 0.136 (worst line).
+#: Which streak lines can be judged is geometry, not the frame: one picket pitch must span
+#: 8 px, so the hero camera judges the 100 and 250 cm lines and the framed camera the 100 cm
+#: line, in every run.
 #: The orbit (the golden-hour camera round the plan, 0.5° a frame, the edge averaged over
-#: 30 cm): the view's fit 0.079 / 0.094 px at 0-10 / 10-20 m, a fitted one 0.21 / 0.15 —
-#: a fitted map follows the camera, which is why the view and a moving tour keep the
-#: locked fit (on the family garden through the capture path: 0.18 locked, 0.38 fitted).
+#: 30 cm), 0-10 / 10-20 m: the view's fit 0.079 / 0.094 px high, 0.082 / 0.087 ultra; a
+#: fitted one 0.21 / 0.146 high, 0.106 / 0.117 ultra — a fitted map follows the camera, which
+#: is why the view and a moving tour keep the locked fit (on the family garden through the
+#: capture path: 0.16 / 0.18 locked, 0.69 / 0.38 fitted). The tripwire that a fitted map
+#: still crawls more is on High, where its texels are coarse enough to say so (2.7 x the
+#: view's); Ultra's 4096 pages leave 1.3 x, too close to the dither floor to pin.
 STAIRS_SIZE = "1920x1080"
 STAIRS_PRESETS = ("high", "ultra")
 MAX_PANEL_STAIRS_CM = {15.2: 2.5, 5.9: 4.0}
 MAX_FOOT_LIT_SHARE = 0.05
 MAX_STREAK = 0.25
+STREAK_LINES = frozenset({("hero", "100cm"), ("hero", "250cm"), ("framed", "100cm")})
 MAX_VIEW_ORBIT_SWIM_PX = 0.15
+CRAWL_TRIPWIRE_PRESET = "high"
 
 
 def test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks(tmp_path) -> None:
-    """#734. The shadow map's texels along a long shadow on the meadow in a picture — not
-    what the casters are shaped like (the picket tops' old ramp is pinned without an
+    """#734. The shadow map's texels along a long shadow on the meadow in a still picture —
+    not what the casters are shaped like (the picket tops' old ramp is pinned without an
     engine: ``test_scene3d_builders.py::TestPolylinesAreBuiltFromTheCentreLine::``
     ``test_picket_tops_repeat_no_pattern_and_follow_the_items_seed``) — and a moving
     camera's edge that does not crawl, in the view's fit."""
@@ -300,16 +309,18 @@ def test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks(tmp_pat
         feet = [row["foot"] for row in rows if "foot" in row]
         assert len(feet) == 4 and all(foot["samples"] > 300 for foot in feet), feet
         assert max(foot["lit_share"] for foot in feet) <= MAX_FOOT_LIT_SHARE, (preset, feet)
-        streaks = [line["streak"] for row in rows for line in row.get("streaks", {}).values()
-                   if line["streak"] is not None]
-        assert len(streaks) >= 4, (preset, rows)
-        assert max(streaks) <= MAX_STREAK, (preset, streaks)
+        streaks = {(row["camera"], name): line["streak"] for row in rows
+                   for name, line in row.get("streaks", {}).items() if line["streak"] is not None}
+        assert streaks.keys() >= STREAK_LINES, (preset, streaks)   # the instrument saw them
+        assert max(streaks.values()) <= MAX_STREAK, (preset, streaks)
         orbit = metrics["stairs_orbit"][preset]
         near = {fit: {tuple(b["depth_m"]): b for b in orbit[fit]} for fit in ("view", "fitted")}
         for depth in ((0.0, 10.0), (10.0, 20.0)):
             view = near["view"][depth]
             assert view["pairs"] > 300 and view["swim_px"] <= MAX_VIEW_ORBIT_SWIM_PX, (preset, view)
-        assert near["fitted"][(0.0, 10.0)]["swim_px"] > near["view"][(0.0, 10.0)]["swim_px"],             ("a fitted map no longer crawls more than the locked one: the view could take it", orbit)
+        if preset == CRAWL_TRIPWIRE_PRESET:
+            assert near["fitted"][(0.0, 10.0)]["swim_px"] > near["view"][(0.0, 10.0)]["swim_px"], (
+                "a fitted map no longer crawls more than the locked one: the view could take it", orbit)
 
 
 def test_lawn_blades_do_not_add_dark_stubble_to_the_same_high_look(tmp_path) -> None:
