@@ -5,7 +5,7 @@ rule (the amplitude is a share of the plant's height, linear in the look's wind)
 motion's shape (a cantilever: the foot stays, the top moves most; a taller plant swings
 slower), rest (nothing moves at clock 0), determinism, smoothness at 30 and 60 fps, the
 seamless wrap of the clock and the GLSL's numbers against the module's (a drift guard:
-the render tier measures the pixels, ``test_view3d_wind_render.py``).
+the render tier measures the pixels, ``test_view3d_foliage_render.py``).
 """
 
 from __future__ import annotations

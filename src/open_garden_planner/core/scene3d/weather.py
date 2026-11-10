@@ -49,6 +49,7 @@ import numpy as np
 
 from .color import srgb_to_linear
 from .look import (
+    AO_FLAT_BIAS_CM,
     GOLDEN_DEG,
     NIGHT_BELOW_DEG,
     NOON,
@@ -486,7 +487,7 @@ def _weathered(look: LookSpec, spec: WeatherSpec, sun: SunState, *, dew: bool,
         # the sky's share of the light decides how much what hides it darkens (#687)
         ao_strength_gain=1.0 + (AO_STRENGTH_UNDER_CLOUD - 1.0) * light,
         ao_distance_gain=1.0 + (AO_DISTANCE_UNDER_CLOUD - 1.0) * light,
-        ao_bias_cm=AO_BIAS_UNDER_CLOUD_CM * light,
+        ao_bias_cm=max(AO_FLAT_BIAS_CM, AO_BIAS_UNDER_CLOUD_CM * light),
         built_snow=min(1.0, spec.snow_cover / BUILT_SNOW_FULL_AT))
     weathered = replace(look, mood=mood, sky=sky, shadow=shadow, fog_linear=fog,
                         fill_linear=fill, plain_sky_linear=fog, meadow_albedo=meadow,

@@ -14,6 +14,7 @@ import pytest
 
 from open_garden_planner.core.scene3d import SunState
 from open_garden_planner.core.scene3d.look import (
+    AO_FLAT_BIAS_CM,
     CLEAR_STILL,
     NEUTRAL_DAY,
     PRESETS,
@@ -403,14 +404,14 @@ def test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_th
     for look in (living_look(at, "high", "clear"), living_look(at, "high", "clear", dew=False)):
         atmosphere = look.atmosphere
         assert (atmosphere.ao_strength_gain, atmosphere.ao_distance_gain, atmosphere.ao_bias_cm) == (
-            1.0, 1.0, 0.0)
+            1.0, 1.0, AO_FLAT_BIAS_CM)
     for weather in WEATHERS:
         spec = WEATHER_SPECS[weather]
         share = spec.cloud if spec.light is None else spec.light
         atmosphere = living_look(at, "high", weather).atmosphere
         assert atmosphere.ao_strength_gain == pytest.approx(1.0 + (AO_STRENGTH_UNDER_CLOUD - 1.0) * share)
         assert atmosphere.ao_distance_gain == pytest.approx(1.0 + (AO_DISTANCE_UNDER_CLOUD - 1.0) * share)
-        assert atmosphere.ao_bias_cm == pytest.approx(AO_BIAS_UNDER_CLOUD_CM * share)
+        assert atmosphere.ao_bias_cm == pytest.approx(max(AO_FLAT_BIAS_CM, AO_BIAS_UNDER_CLOUD_CM * share))
     overcast = living_look(at, "high", "overcast").atmosphere
     assert 55.0 * overcast.ao_strength_gain == pytest.approx(99.0)
     assert 14.0 * overcast.ao_distance_gain == pytest.approx(70.0)
@@ -515,8 +516,10 @@ def test_every_field_of_the_atmosphere_has_a_neutral_default() -> None:
     for field in fields(CLEAR_STILL):
         value = getattr(CLEAR_STILL, field.name)
         if field.name in ("leaves", "butterflies", "fireflies", "lamps", "cloud", "dew",
-                          "wetness", "snow_cover", "precip_density", "ao_bias_cm", "built_snow"):
+                          "wetness", "snow_cover", "precip_density", "built_snow"):
             assert value == 0.0, field.name
+        if field.name == "ao_bias_cm":   # #805: the flat-surface floor in every look
+            assert value == AO_FLAT_BIAS_CM, field.name
         if field.name in ("ao_strength_gain", "ao_distance_gain"):
             assert value == 1.0, field.name
 

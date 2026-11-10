@@ -8,10 +8,10 @@ tree and a herb, no jitter, no alternation — and nothing changes at wind clock
 
 The pictures are the tour's (``Quick3DHost.capture`` with the clock computed per frame),
 on the family garden: its 9.5 m birch about 11 m out, its 1.7 m lilac 5 m out and a 60 cm
-basil in a raised bed 3 m out (``view3d_wind_driver.py``).
+basil in a raised bed 3 m out (``view3d_foliage_driver.py``).
 
     # Windows (Git Bash) - one driver at a time
-    OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest -n 0 tests/integration/test_view3d_wind_render.py
+    OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest -n 0 tests/integration/test_view3d_foliage_render.py
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from tests.integration.quick3d_render_support import (
 
 pytestmark = render_tier
 
-DRIVER = REPO / "tests" / "integration" / "view3d_wind_driver.py"
+DRIVER = REPO / "tests" / "integration" / "view3d_foliage_driver.py"
 TIMEOUT_S = 840
 SECONDS = 3.0
 #: Measured on the RTX 4070 (Direct3D 11, 960 x 540, 4 s, 2026-11-10): the upper crown's
@@ -215,3 +215,20 @@ def test_a_crowns_shadow_moves_with_its_crown(tmp_path: Path) -> None:
         # 1,661 (leaf tips swung past the masks' two-pixel margin)
         assert data[wind]["ground_changed_px"] > 2000, data
         assert data[wind]["ground_changed_px"] > 3 * fixed[wind]["ground_changed_px"], (data, fixed)
+
+
+def test_backlit_leaves_show_no_stripes_on_high_and_ultra(tmp_path: Path) -> None:
+    """#805: the diagonal stripes across backlit leaves at golden hour are ambient occlusion
+    banding on FLAT micro-leaves (Qt's pass takes a camera-facing normal), not shadow acne:
+    the shadow bias and the shadow map's fit do not change them, AO off removes them. With
+    the look's flat-surface bias (``look.AO_FLAT_BIAS_CM``) the stripe share inside the
+    cherry's crown stays within 25 % of the AO-free floor on High and Ultra; the control —
+    the same look with the bias at 0, as before — lies at least 50 % above it (measured,
+    RTX 4070, 1920 x 1080: 0.326 against 0.164 without AO; 0.184 with the bias)."""
+    _proc, result = _run(tmp_path / "stripes", "stripes", presets="high,ultra")
+    data = result["data"]
+    for preset in ("high", "ultra"):
+        row = data[preset]
+        assert row["ao_bias_cm"] >= 1.0, row
+        assert row["look"] <= 1.25 * row["no_ao"], (preset, row)
+        assert row["bias0"] >= 1.5 * row["no_ao"], (preset, row)   # the measure sees the defect

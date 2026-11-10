@@ -106,7 +106,9 @@ Item {
     // reach, and the bias (cm) that keeps open flat ground from occluding itself
     property real aoStrengthGain: 1.0
     property real aoDistanceGain: 1.0
-    property real aoBias: 0.0
+    // (#805: at least look.AO_FLAT_BIAS_CM in every look - Qt's camera-facing normal drew
+    // diagonal bands of self-occlusion across every flat micro-leaf)
+    property real aoBias: 1.0
     property real builtSnow: 0.0            // snow on built TOPS: a roof, a bed's soil (#687)
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----

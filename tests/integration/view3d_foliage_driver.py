@@ -1,11 +1,12 @@
-"""The engine-side half of the WIND's render tier (#800) — not a test module.
+"""The engine-side half of the FOLIAGE render tier (#800 wind, #805 leaf stripes) — not a
+test module.
 
-``test_view3d_wind_render.py`` starts this file with a real window system: the family
+``test_view3d_foliage_render.py`` starts this file with a real window system: the family
 garden on a SHOWN host with its forged plants and a sky, pictures through
 ``Quick3DHost.capture`` — the tour's path, whose wind clock is computed per frame
 (``core.camera_path``: ``WIND_START_S + index / fps``), so a frame index is a picture.
 
-    python tests/integration/view3d_wind_driver.py --out <dir> --scenario <name> [--arg k=v …]
+    python tests/integration/view3d_foliage_driver.py --out <dir> --scenario <name> [--arg k=v …]
 
 The driver only DOES engine things and writes raw answers to ``result.json`` (and frames
 as PNGs); the tests judge. It installs no Qt message handler (it shows windows).
@@ -23,6 +24,9 @@ Scenarios:
               copy whose sway is multiplied by 0).
 ``shadow``    the birch from above at a 35° sun in a wind ``gain`` x the look's: the
               ground beside the crown at two clock values — its shadow must move with it.
+``stripes``   #805: the cherry's crown backlit at golden hour on ``presets``: the stripe
+              share inside its flat leaves (``stripe_share``) in the look, with ambient
+              occlusion off (the floor) and, the control, with the look's AO bias at 0.
 """
 
 from __future__ import annotations
@@ -295,7 +299,69 @@ def scenario_shadow(ctx: Context) -> dict[str, Any]:
         garden.close()
 
 
+#: Where a flat leaf's interior has no edge: the luma range of its 5 x 5 neighbourhood.
+STRIPE_EDGE = 14.0
+#: The backlit crown of #805: the family garden's cherry, the board's golden-hour sun.
+STRIPE_SUBJECT, STRIPE_SUN = "8e0b1e77", (15.2, 286.0)
+
+
+def _box_range(a: np.ndarray, r: int) -> np.ndarray:
+    pad = np.pad(a, r, mode="edge")
+    windows = [pad[dy:dy + a.shape[0], dx:dx + a.shape[1]] for dy in range(2 * r + 1)
+               for dx in range(2 * r + 1)]
+    return np.max(windows, axis=0) - np.min(windows, axis=0)
+
+
+def stripe_share(rgb: np.ndarray, mask: np.ndarray) -> float:
+    """A flat-shaded micro-leaf is ONE colour over its interior (the Low preset shows it):
+    the share of interior pixels (no edge in their 5 x 5 neighbourhood) whose luma leaves
+    its 3 x 3 mean by more than 1.5 levels — ambient occlusion's diagonal bands (#805)."""
+    lum = luma(rgb)
+    interior = (_box_range(lum, 2) <= STRIPE_EDGE) & mask
+    residual = np.abs(lum - _box(lum))[interior]
+    return float((residual > 1.5).mean())
+
+
+def scenario_stripes(ctx: Context) -> dict[str, Any]:
+    width, height = (int(v) for v in ctx.arguments.get("size", "1280x720").split("x"))
+    presets = ctx.arguments.get("presets", "high,ultra").split(",")
+    garden = Garden(ctx, (width, height), presets[0], sun=STRIPE_SUN)
+    out: dict[str, Any] = {"size": [width, height]}
+    try:
+        from open_garden_planner.core.scene3d import SunState
+        from open_garden_planner.core.scene3d.look import look_for
+
+        record = garden.record(STRIPE_SUBJECT)
+        t, plant = record.transform, float(record.height_cm)
+        a = math.radians(STRIPE_SUN[1] + 180.0 + 15.0)     # looking INTO the sun
+        distance = max(500.0, 1.15 * plant)
+        camera = ((t.east_cm + distance * math.sin(a), t.north_cm + distance * math.cos(a),
+                   t.base_cm + 0.35 * plant), (t.east_cm, t.north_cm, t.base_cm + 0.62 * plant), 40.0)
+        mask = garden.mask(STRIPE_SUBJECT, camera)
+        root = garden.host._root   # noqa: SLF001 - the probe's two overrides, put back by set_look
+        for preset in presets:
+            look = look_for(SunState(*STRIPE_SUN), preset)
+            row: dict[str, Any] = {"ao_bias_cm": look.atmosphere.ao_bias_cm}
+            for label in ("look", "no_ao", "bias0"):
+                garden.host.set_look(look)
+                if label == "no_ao":
+                    root.setProperty("ambientOcclusion", False)
+                elif label == "bias0":
+                    root.setProperty("aoBias", 0.0)
+                frame = garden.capture(camera, 0.0)
+                row[label] = round(stripe_share(frame, mask), 4)
+                ys, xs = np.nonzero(mask)
+                ctx.save(f"stripes_{preset}_{label}", frame[ys.min():ys.max() + 1, xs.min():xs.max() + 1])
+            garden.host.set_look(look)
+            out[preset] = row
+            ctx.log("stripes", preset=preset, **{k: v for k, v in row.items() if k != "ao_bias_cm"})
+    finally:
+        garden.close()
+    return out
+
+
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
+    "stripes": scenario_stripes,
     "sequence": scenario_sequence,
     "shadow": scenario_shadow,
 }
@@ -311,7 +377,7 @@ def _isolate(out: Path) -> None:
     import open_garden_planner.app.settings as app_settings
 
     app_settings.ORGANIZATION_NAME = "cofade_test"
-    app_settings.APPLICATION_NAME = f"Open Garden Planner Wind Tier {os.getpid()}"
+    app_settings.APPLICATION_NAME = f"Open Garden Planner Foliage Tier {os.getpid()}"
 
 
 def main(argv: list[str]) -> int:
@@ -339,7 +405,7 @@ def main(argv: list[str]) -> int:
     code = 0
     started = time.perf_counter()
     try:
-        with offscreen.watchdog(args.watchdog_s, log, what=f"the wind driver ({args.scenario})",
+        with offscreen.watchdog(args.watchdog_s, log, what=f"the foliage driver ({args.scenario})",
                                 supervised=True):
             offscreen.ensure_application()
             log("scenario", name=args.scenario, **arguments)
