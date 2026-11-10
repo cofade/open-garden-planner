@@ -773,8 +773,16 @@ class GardenItemMixin(PositionLockMixin):
 
     @object_type.setter
     def object_type(self, value: ObjectType | None) -> None:
-        """Set the object type."""
+        """Set the object type.
+
+        What an object IS decides whether it stands on the plan or is ground
+        under the grid (``canvas_scene.on_ground``), so the scene is told that
+        what it keeps for painting is stale. Not a plan change of its own: the
+        command that changes a type announces that (ADR-060).
+        """
         self._object_type = value
+        if isinstance(self, QGraphicsItem):
+            note_label_changed(self)
 
     @property
     def name(self) -> str:

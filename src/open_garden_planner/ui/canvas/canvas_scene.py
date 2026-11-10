@@ -102,6 +102,25 @@ def is_standing_object(item: QGraphicsItem) -> bool:
     )
 
 
+def in_plan_picture(item: QGraphicsItem) -> bool:
+    """Whether what the scene keeps for painting can be taken from ``item``:
+    whether adding or removing it moves ``CanvasScene.paint_revision``.
+
+    Not an overlay. An overlay is an item without a stacking rank
+    (``core.stacking.supports_stacking``, the one predicate that tells an item
+    of the plan from a tool's preview, a rubber band, a handle, a highlight or
+    a dimension line) and without children: a label of the plan is a child of
+    its object or of the sun map, and says itself when it enters or leaves a
+    scene (``halo_text.note_label_changed``). Something stated to block labels
+    (``plan_label_blocker``) counts as well.
+    """
+    return (
+        stacking.supports_stacking(item)
+        or bool(item.childItems())
+        or hasattr(item, "plan_label_blocker")
+    )
+
+
 #: What one standing object covers of the plan, in scene coordinates, and the
 #: rectangle round it. The path keeps its own fill rule: a closed fence is a
 #: ring, and two objects' outlines never cancel each other.
@@ -118,6 +137,8 @@ def collect_standing_covers(scene: QGraphicsScene) -> list[StandingCover]:
     for item in scene.items():
         if is_standing_object(item):
             covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+            if covered.isEmpty():
+                continue  # an outline above the paint bound covers nothing (#472)
             cover = item.sceneTransform().map(covered)
             covers.append((cover.boundingRect(), cover))
     return covers
@@ -137,8 +158,6 @@ class GuideLine:
 
 
 class CanvasScene(QGraphicsScene):
-            if covered.isEmpty():
-                continue  # an outline above the paint bound covers nothing (#472)
     """Graphics scene for the garden canvas.
 
     The scene uses centimeters as the coordinate unit.
@@ -177,17 +196,36 @@ class CanvasScene(QGraphicsScene):
 
     The paint revision (§8.37). A paint must not walk the scene: what a paint needs
     of the WHOLE plan (what stands on it, for the grid's cut-out; which labels have
-    room, for the label pass) is taken once and kept until ``paint_revision`` moves. That one moves far more often than the plan
-    revision, on purpose — it asks "may a picture of the scene differ now?", not
-    "did the plan change?": on Qt's own ``changed`` (a move under way, a hover, a
-    tool's preview, the shadow moving), on every plan change, on a selection change,
-    when an item is added or removed or the scene is cleared, and when a label says
-    its text, size or visibility changed (``halo_text.note_label_changed``: hiding a
-    label that ignores transformations emits no ``changed``). A pan, a zoom and
-    a repaint do not move it: they change the view, not the scene, and what is kept
-    is in plan coordinates. ``changed`` reaches a slot before the paint it causes,
-    but only once the event loop runs: a writer that repaints at once, without it,
-    calls ``note_paint_changed()``.
+    room, for the label pass) is taken once and kept until ``paint_revision`` moves.
+    It moves where something those answers are taken from changes, and each of
+    those places says so itself, at once:
+
+    - every plan change (``plan_changed``: a move, a turn, an object shown or
+      hidden, a command, a layer, THE nudge);
+    - a selection change (a selected object's label is always shown);
+    - an item of the plan added or removed (``addItem`` / ``removeItem``), the
+      scene cleared;
+    - a label or a succession badge that changed its text, size, visibility or
+      scene (``halo_text.note_label_changed``);
+    - the plan date (``refresh_timeline``: a plant that is not planted yet does
+      not stand on the plan — and that is no plan change);
+    - what an object IS (the ``object_type`` setter: a terrace is ground, a
+      shed stands on it);
+    - and ``note_paint_changed()`` for a writer that goes round all of those.
+
+    A pan, a zoom and a repaint do not move it: they change the view, not the
+    scene, and what is kept is in plan coordinates. And Qt's ``changed`` does
+    NOT move it, although it did until the second review of the 2D branch: that
+    signal says "a rectangle of the scene must be repainted" and cannot tell an
+    edit from a tool's preview, a hover or the sun's shadow moving — a rubber
+    band took both kept answers again at every mouse move (15 rebuilds in 30
+    moves on a plan of 853 objects). An overlay item — one without a stacking
+    rank (``core.stacking.supports_stacking``): a tool's preview, a handle, a
+    dimension line — is no part of either answer, and adding or removing one
+    does not move the revision either. What Qt's signal used to catch besides
+    was measured before it was let go (4,331 canvas tests, each ``changed``
+    compared against what was kept): the plan date and a bare write to
+    ``object_type``, both in the list above.
     """
 
     # Default canvas colors (overridden by apply_theme_colors)
@@ -201,10 +239,11 @@ class CanvasScene(QGraphicsScene):
     document_replaced = pyqtSignal()
 
     #: The paint revision (class docstring). A class attribute as well as an
-    #: instance one: Qt emits ``changed`` while it destroys a scene, and by then
-    #: the garbage collector may have cleared the Python object's attributes —
-    #: the slot must still find something to count on (the #230 teardown trap;
-    #: seen as "'CanvasScene' object has no attribute" in the group menu tests).
+    #: instance one: Qt emits signals while it destroys a scene (the selection
+    #: changes as its items go), and by then the garbage collector may have
+    #: cleared the Python object's attributes — the slot must still find
+    #: something to count on (the #230 teardown trap; seen as "'CanvasScene'
+    #: object has no attribute" in the group menu tests; PF-CAN-61).
     _paint_revision = 0
     diagnostics_changed = pyqtSignal()
     timeline_changed = pyqtSignal()
@@ -282,13 +321,13 @@ class CanvasScene(QGraphicsScene):
 
         # The paint revision (class docstring) and what is kept until it moves.
         # Connected here, before any view exists: a slot runs in the order it
-        # was connected, so this one runs before the view schedules its paint.
+        # was connected, so this one runs before any other listener repaints.
+        # Not connected: Qt's ``changed`` (class docstring).
         self._paint_revision = 0
         self._standing_covers: tuple[int, list[StandingCover]] | None = None
         #: How often what stands on the plan was collected — the instrument of
         #: the grid's cut-out (counted, never timed: §8.10.10).
         self.standing_cover_builds = 0
-        self.changed.connect(self.note_paint_changed)
         self.plan_changed.connect(self.note_paint_changed)
         self.selectionChanged.connect(self.note_paint_changed)
 
@@ -510,7 +549,8 @@ class CanvasScene(QGraphicsScene):
             item: The graphics item to add
         """
         super().addItem(item)
-        self._paint_revision += 1
+        if in_plan_picture(item):
+            self._paint_revision += 1
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -637,8 +677,10 @@ class CanvasScene(QGraphicsScene):
         items does not go through here.
         """
         self._provisional_z.pop(getattr(item, "layer_id", None), None)
+        concerned = in_plan_picture(item)
         super().removeItem(item)
-        self._paint_revision += 1
+        if concerned:
+            self._paint_revision += 1
 
     def _needs_synchronous_z_refresh(self, item: QGraphicsItem) -> bool:
         """Whether adding *item* can re-order items already in its layer.
@@ -962,10 +1004,10 @@ class CanvasScene(QGraphicsScene):
 
     @pyqtSlot()
     def note_paint_changed(self) -> None:
-        """Something a paint of the scene shows may have changed: what is kept
-        for painting is taken again at the next paint. One integer; it repaints
-        nothing. Without arguments on purpose: ``changed`` carries a list of
-        rectangles that is then never converted for this slot."""
+        """Something that is kept for painting was taken from has changed (class
+        docstring): it is taken again at the next paint. One integer; it
+        repaints nothing — a writer whose change shows on the canvas still
+        calls ``item.update()`` itself."""
         self._paint_revision += 1
 
     def standing_covers(self) -> list[StandingCover]:
@@ -1854,6 +1896,9 @@ class CanvasScene(QGraphicsScene):
             self._update_items_visibility()
         finally:
             self._applying_timeline_visibility = previous
+        # ... but which plants stand on the plan, and how large, is what the
+        # grid's cut-out and the labels are kept from.
+        self.note_paint_changed()
         self.timeline_changed.emit()
 
     def _apply_item_visibility(self, item: QGraphicsItem) -> None:
