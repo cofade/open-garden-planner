@@ -4486,8 +4486,17 @@ class CanvasView(QGraphicsView):
         scale bar and every overlay widget (the minimap)."""
         taken = [self._scale_bar_rect()]
         viewport = self.viewport()
+        # The scroll area's own parts are no overlays: the viewport, and the
+        # containers of the two scroll bars, which keep a rectangle (and stay
+        # "visible") while their bar is hidden.
+        own = {
+            viewport,
+            self.horizontalScrollBar().parentWidget(),
+            self.verticalScrollBar().parentWidget(),
+            self.cornerWidget(),
+        }
         for child in self.children():
-            if isinstance(child, QWidget) and child is not viewport and child.isVisible():
+            if isinstance(child, QWidget) and child not in own and child.isVisible():
                 corner = viewport.mapFrom(self, child.geometry().topLeft())
                 taken.append(QRectF(QRect(corner, child.size())))
         return [rect for rect in taken if not rect.isEmpty()]
