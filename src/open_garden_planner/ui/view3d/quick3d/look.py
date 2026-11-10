@@ -311,7 +311,7 @@ def deck_anchor(sky: SkySpec) -> float:
     closed = deck_closure(cloud)
     elevations, factors = zip(*ATMOSPHERE_DECK_SUNSET, strict=True)
     sunset = float(np.exp(np.interp(float(sky.sun_elevation_deg), elevations, np.log(factors))))
-    return float(ATMOSPHERE_DECK_LEVEL) ** closed * sunset
+    return float(float(ATMOSPHERE_DECK_LEVEL) ** closed * sunset)
 
 
 def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None = None) -> float:
