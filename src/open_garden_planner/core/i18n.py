@@ -11,11 +11,21 @@ Qt's default locale).
 
 from __future__ import annotations
 
+import datetime
 import re
 from pathlib import Path
 
 from PyQt6 import sip
-from PyQt6.QtCore import QCoreApplication, QEvent, QLibraryInfo, QLocale, QObject, Qt, QTranslator
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QDate,
+    QEvent,
+    QLibraryInfo,
+    QLocale,
+    QObject,
+    Qt,
+    QTranslator,
+)
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QWidget
 
@@ -32,6 +42,8 @@ _TRANSLATIONS_DIR = Path(__file__).parent.parent / "resources" / "translations"
 # Keep references so translators aren't garbage-collected
 _active_translators: list[QTranslator] = []
 _current_language: str = "en"
+# The locale decided for ``_current_language``; None until first asked for.
+_current_locale: QLocale | None = None
 
 
 def current_language() -> str:
@@ -74,13 +86,18 @@ def locale_for_language(lang_code: str) -> QLocale:
 
 def current_locale() -> QLocale:
     """Return the locale of the currently loaded language (a copy)."""
-    return locale_for_language(_current_language)
+    global _current_locale
+    if _current_locale is None:
+        _current_locale = locale_for_language(_current_language)
+    return QLocale(_current_locale)
 
 
 def _apply_locale() -> None:
     """Make Qt's default locale the application's: every spin box, date edit and
     bare ``QLocale()`` created from here on formats in the UI language."""
-    QLocale.setDefault(current_locale())
+    global _current_locale
+    _current_locale = locale_for_language(_current_language)
+    QLocale.setDefault(_current_locale)
 
 
 def format_decimal(value: float, decimals: int = 1) -> str:
@@ -93,6 +110,64 @@ def format_decimal(value: float, decimals: int = 1) -> str:
     locale = current_locale()
     locale.setNumberOptions(QLocale.NumberOption.OmitGroupSeparator)
     return locale.toString(float(value), "f", int(decimals))
+
+
+def format_trimmed(value: float, max_decimals: int = 3) -> str:
+    """Like :func:`format_decimal`, without trailing zeros ("2.5", "3")."""
+    text = format_decimal(value, max_decimals)
+    mark = current_locale().decimalPoint()
+    if mark and mark in text:
+        text = text.rstrip("0").rstrip(mark)
+    return text
+
+
+def format_integer(value: int) -> str:
+    """A whole number WITH the locale's group separators ("1,920" / "1.920").
+
+    For counts a reader scans (pixels of an export), never for a measurement:
+    :func:`format_decimal` has no group separators on purpose.
+    """
+    return current_locale().toString(int(value))
+
+
+def list_separator() -> str:
+    """What separates two numbers written side by side ("52.52, 13.40").
+
+    A comma is no separator where it is the decimal mark: "52,52, 13,40" reads
+    as four numbers, so those languages get a semicolon.
+    """
+    return "; " if current_locale().decimalPoint() == "," else ", "
+
+
+def month_abbreviation(month: int) -> str:
+    """The short name of a month (1 … 12) as a column header or a label.
+
+    The STANDALONE form: German says "Mär" there and "März" inside a date.
+    """
+    return current_locale().standaloneMonthName(month, QLocale.FormatType.ShortFormat)
+
+
+def format_day_month(day: datetime.date) -> str:
+    """A day without its year ("Jun 21", "21. Juni").
+
+    The ORDER of day and month belongs to the language, so the pattern is a
+    translated string (a Qt date pattern: ``d`` the day, ``MMM`` the short
+    month); the names come from the application's locale.
+    """
+    pattern = QCoreApplication.translate("DateFormat", "MMM d")
+    return current_locale().toString(QDate(day.year, day.month, day.day), pattern)
+
+
+def parse_decimal(text: str) -> float:
+    """The number a user typed, whichever decimal mark they used.
+
+    The inverse of :func:`format_decimal` for free-text fields: what the UI
+    shows ("6361,7") must be accepted back, and so must the other convention
+    ("6361.7"), because the keyboard does not follow the UI language. Group
+    separators are not accepted — the formatters never write one. Raises
+    ``ValueError`` like ``float`` does.
+    """
+    return float(text.strip().replace(",", "."))
 
 
 _FIXED_SPEC = re.compile(r"\.(\d+)f")
@@ -137,7 +212,7 @@ class _DecimalKeys(QObject):
             new.installEventFilter(self)
             self._watched = new
 
-    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:  # noqa: N802
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
         if (
             isinstance(event, QKeyEvent)
             and event.type() == QEvent.Type.KeyPress

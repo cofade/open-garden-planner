@@ -31,6 +31,12 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import default_save_path
 from open_garden_planner.app.settings import get_settings
+from open_garden_planner.core.i18n import (
+    LocalizedNumber,
+    format_decimal,
+    format_trimmed,
+    parse_decimal,
+)
 from open_garden_planner.models.shopping_list import (
     ShoppingListCategory,
     ShoppingListItem,
@@ -226,7 +232,7 @@ class ShoppingListDialog(QDialog):
         name_cell = QTableWidgetItem(item.name)
         name_cell.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
 
-        qty_cell = QTableWidgetItem(f"{item.quantity:g}")
+        qty_cell = QTableWidgetItem(format_trimmed(item.quantity))
         qty_cell.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
 
         unit_cell = QTableWidgetItem(item.unit)
@@ -236,7 +242,7 @@ class ShoppingListDialog(QDialog):
         size_cell.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
 
         price_cell = QTableWidgetItem(
-            "" if item.price_each is None else f"{item.price_each:.2f}"
+            "" if item.price_each is None else format_decimal(item.price_each, 2)
         )
         price_cell.setFlags(
             Qt.ItemFlag.ItemIsEnabled
@@ -264,6 +270,13 @@ class ShoppingListDialog(QDialog):
 
     @staticmethod
     def _format_total(item: ShoppingListItem) -> str:
+        """The total as the table shows it (UI language's number format)."""
+        return "" if item.total_cost is None else format_decimal(item.total_cost, 2)
+
+    @staticmethod
+    def _plain_total(item: ShoppingListItem) -> str:
+        """The total as it is copied or exported: a decimal point in every
+        language, so a spreadsheet reads the same file everywhere (#792)."""
         return "" if item.total_cost is None else f"{item.total_cost:.2f}"
 
     # ── Editing ───────────────────────────────────────────────────────────────
@@ -283,13 +296,13 @@ class ShoppingListDialog(QDialog):
             return
         if column != _COL_PRICE:
             return
-        text = cell.text().strip().replace(",", ".")
+        text = cell.text().strip()
         new_price: float | None
         if text == "":
             new_price = None
         else:
             try:
-                new_price = float(text)
+                new_price = parse_decimal(text)
             except ValueError:
                 self._status_label.setText(self.tr("Invalid price — ignored."))
                 self._refresh_price_cell(row, item)
@@ -380,7 +393,7 @@ class ShoppingListDialog(QDialog):
             cell = self._table.item(row, _COL_PRICE)
             if cell is not None:
                 cell.setText(
-                    "" if item.price_each is None else f"{item.price_each:.2f}"
+                    "" if item.price_each is None else format_decimal(item.price_each, 2)
                 )
         finally:
             self._suppress_changes = False
@@ -403,7 +416,7 @@ class ShoppingListDialog(QDialog):
             return
         total = sum(i.total_cost or 0.0 for i in priced)
         self._grand_total_label.setText(
-            self.tr("Grand total: {amount:.2f}").format(amount=total)
+            self.tr("Grand total: {amount:.2f}").format(amount=LocalizedNumber(total))
         )
 
     def _exportable_items(self) -> list[ShoppingListItem]:
@@ -440,7 +453,7 @@ class ShoppingListDialog(QDialog):
                 item.unit,
                 item.size_descriptor,
                 "" if item.price_each is None else f"{item.price_each:.2f}",
-                self._format_total(item),
+                self._plain_total(item),
                 item.notes,
             ]))
         return "\n".join(lines)

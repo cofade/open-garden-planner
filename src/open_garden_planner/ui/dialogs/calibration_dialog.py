@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.ui.theme import set_text_role
 
 
@@ -129,7 +130,7 @@ class CalibrationDialog(QDialog):
 
                 self._status_label.setText(
                     self.tr("Distance: {pixels} pixels. "
-                    "Enter the real-world distance below.").format(pixels=f"{self._pixel_distance:.1f}")
+                    "Enter the real-world distance below.").format(pixels=format_decimal(self._pixel_distance, 1))
                 )
                 self._distance_input.setEnabled(True)
                 self._distance_input.setFocus()

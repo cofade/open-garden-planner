@@ -19,6 +19,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.core.i18n import format_decimal
+
 # Scale presets: display name -> scale denominator (0 = fit to page)
 SCALE_PRESETS = [
     (QT_TR_NOOP("Fit to Page"), 0),
@@ -111,8 +113,8 @@ class PrintOptionsDialog(QDialog):
         # Canvas info
         info_label = QLabel(
             self.tr("Canvas: {w} m × {h} m").format(
-                w=f"{self._canvas_width_cm / 100:.1f}",
-                h=f"{self._canvas_height_cm / 100:.1f}",
+                w=format_decimal(self._canvas_width_cm / 100, 1),
+                h=format_decimal(self._canvas_height_cm / 100, 1),
             )
         )
         info_label.setProperty("secondary", True)

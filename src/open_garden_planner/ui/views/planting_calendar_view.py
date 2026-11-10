@@ -16,8 +16,8 @@ import datetime
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt6.QtCore import QDate, QLocale, QPoint, QRect, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygon
+from PyQt6.QtCore import QDate, QPoint, QRect, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QPen, QPolygon
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDateEdit,
@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
-from open_garden_planner.core.i18n import current_locale
+from open_garden_planner.core.i18n import format_day_month, month_abbreviation
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
@@ -118,8 +118,8 @@ _STEP_COMMIT_DEBOUNCE_MS = 600
 
 
 def _month_abbr(month_1: int) -> str:
-    """Return the locale-aware short month name (1-indexed)."""
-    return QLocale().monthName(month_1, QLocale.FormatType.ShortFormat)
+    """Return the short month name (1-indexed) in the UI language (#792)."""
+    return month_abbreviation(month_1)
 
 _CALENDAR_FIELDS = (
     "indoor_sow_start", "indoor_sow_end",
@@ -351,6 +351,22 @@ class _DashboardPanel(QFrame):
 
         self._content_layout.addStretch()
 
+    @staticmethod
+    def _date_column_width(label: QLabel) -> int:
+        """Room for the widest day-and-month of the year in the row's 8 pt font.
+
+        Measured, never a constant: 44 px held "Jun 21" and cut "21. Sept."
+        (#792 — the pattern and the names belong to the UI language).
+        """
+        font = QFont(label.font())
+        font.setPointSize(8)
+        metrics = QFontMetrics(font)
+        widest = max(
+            metrics.horizontalAdvance(format_day_month(datetime.date(2024, month, 28)))
+            for month in range(1, 13)
+        )
+        return widest + 6
+
     def _make_task_row(
         self,
         task: _DashboardTask,
@@ -381,11 +397,10 @@ class _DashboardPanel(QFrame):
         lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout.addWidget(lbl)
 
-        m_name = current_locale().monthName(task.task_date.month, QLocale.FormatType.ShortFormat)
-        date_lbl = QLabel(f"{m_name} {task.task_date.day}")
+        date_lbl = QLabel(format_day_month(task.task_date))
         date_lbl.setStyleSheet("font-size: 8pt;")
         date_lbl.setProperty("hint", True)
-        date_lbl.setFixedWidth(44)
+        date_lbl.setFixedWidth(self._date_column_width(date_lbl))
         layout.addWidget(date_lbl)
 
         goto_btn = QPushButton()

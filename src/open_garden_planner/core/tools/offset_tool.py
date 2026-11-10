@@ -20,6 +20,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.item_look import copy_visual_style
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
 
@@ -466,12 +467,12 @@ class OffsetTool(BaseTool):
             self._view.set_status_message(
                 QCoreApplication.translate(
                     "CanvasView", "Created a parallel line at {dist:.1f} cm"
-                ).format(dist=dist)
+                ).format(dist=LocalizedNumber(dist))
             )
         else:
             direction = QCoreApplication.translate("CanvasView", "inward") if self._inward else QCoreApplication.translate("CanvasView", "outward")
             self._view.set_status_message(
-                QCoreApplication.translate("CanvasView", "Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=dist)
+                QCoreApplication.translate("CanvasView", "Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=LocalizedNumber(dist))
             )
         self._view._tool_manager.set_active_tool(ToolType.SELECT)
         return True

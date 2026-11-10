@@ -47,6 +47,7 @@ from open_garden_planner.core import (
     format_area,
     format_length,
 )
+from open_garden_planner.core.i18n import format_decimal, format_trimmed, list_separator
 from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
@@ -3177,7 +3178,7 @@ class GardenPlannerApp(QMainWindow):
         if status_bar:
             status_bar.showMessage(
                 self.tr("New project created: {width}m x {height}m").format(
-                    width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                    width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
                 )
             )
 
@@ -3204,7 +3205,7 @@ class GardenPlannerApp(QMainWindow):
             if status_bar:
                 status_bar.showMessage(
                     self.tr("Canvas resized to {width}m x {height}m").format(
-                        width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                        width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
                     )
                 )
 
@@ -5689,7 +5690,8 @@ class GardenPlannerApp(QMainWindow):
             x: X coordinate in centimeters
             y: Y coordinate in centimeters
         """
-        self.coord_label.setText(self.tr("X: {x} cm  Y: {y} cm").format(x=f"{x:.2f}", y=f"{y:.2f}"))
+        self.coord_label.setText(self.tr("X: {x} cm  Y: {y} cm").format(
+            x=format_decimal(x, 2), y=format_decimal(y, 2)))
 
     def update_zoom(self, zoom_percent: float) -> None:
         """Update the zoom display in the status bar.
@@ -6483,13 +6485,14 @@ class GardenPlannerApp(QMainWindow):
             lat, lon = place
             lat_dir = "N" if lat >= 0 else "S"
             lon_dir = "E" if lon >= 0 else "W"
-            lat_str = f"{abs(lat):.4f}°{lat_dir}"
-            lon_str = f"{abs(lon):.4f}°{lon_dir}"
-            self.location_label.setText(f"{lat_str}, {lon_str}")
+            lat_str = f"{format_decimal(abs(lat), 4)}°{lat_dir}"
+            lon_str = f"{format_decimal(abs(lon), 4)}°{lon_dir}"
+            self.location_label.setText(f"{lat_str}{list_separator()}{lon_str}")
             loc = location if isinstance(location, Mapping) else {}
             frost = loc.get("frost_dates", {}) or {}
             zone = frost.get("hardiness_zone", "") if isinstance(frost, Mapping) else ""
-            tip = self.tr("Latitude: {lat}, Longitude: {lon}").format(lat=lat, lon=lon)
+            tip = self.tr("Latitude: {lat}, Longitude: {lon}").format(
+                lat=format_trimmed(lat, 6), lon=format_trimmed(lon, 6))
             if zone:
                 tip += f"\n{self.tr('Zone')}: {zone}"
             spring = frost.get("last_spring_frost", "") if isinstance(frost, Mapping) else ""

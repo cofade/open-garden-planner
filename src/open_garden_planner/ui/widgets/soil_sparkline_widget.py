@@ -12,6 +12,7 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.models.soil_test import SoilTestRecord
 
 _PARAM_ATTR: dict[str, str] = {
@@ -197,16 +198,16 @@ class SoilSparklineWidget(QWidget):
         painter.setFont(font)
         painter.setPen(_LABEL_COLOR)
 
-        y_label_fmt = "{:.1f}" if self._parameter == "ph" else "{:.0f}"
+        y_decimals = 1 if self._parameter == "ph" else 0
         painter.drawText(
             QRectF(rect.left(), plot.top() - 6, plot.left() - rect.left(), 12),
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-            y_label_fmt.format(y_max),
+            format_decimal(y_max, y_decimals),
         )
         painter.drawText(
             QRectF(rect.left(), plot.bottom() - 6, plot.left() - rect.left(), 12),
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-            y_label_fmt.format(y_min),
+            format_decimal(y_min, y_decimals),
         )
 
         valid = [d for d in x_dates if d is not None]

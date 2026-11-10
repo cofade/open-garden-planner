@@ -9,6 +9,7 @@ from types import MappingProxyType
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication
 
 from open_garden_planner.core.constraints import ConstraintType
+from open_garden_planner.core.i18n import LocalizedNumber
 
 _PAIR = QT_TR_NOOP("{a} – {b}   {detail}")
 _SINGLE = QT_TR_NOOP("{a}   {detail}")
@@ -40,7 +41,10 @@ class ConstraintDescriptor:
         values = {
             "a": label_a, "b": label_b, "c": _tr("…"),
             # Preserve the prior division operation, including rounding ties.
-            "d": (abs(target) if self.absolute_target else target) / self.target_divisor,
+            # ... and print it in the UI language's number format (#792): the
+            # templates keep their own precision ("{d:.2f} m").
+            "d": LocalizedNumber(
+                (abs(target) if self.absolute_target else target) / self.target_divisor),
         }
         detail = _tr(self.detail_template).format(**values)
         text = _tr(self.row_template).format(**values, detail=detail).rstrip()

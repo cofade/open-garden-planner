@@ -36,6 +36,7 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.item_look import (
     MAX_FENCE_WIDTH_CM,
     MAX_LINE_WIDTH_CM,
@@ -1563,7 +1564,8 @@ class PropertiesPanel(QWidget):
 
         def update_feedback() -> None:
             litres = cm.effective_soil_volume_litres(meta, footprint_cm2())
-            effective_label.setText(self.tr("{litres:.1f} L").format(litres=litres))
+            effective_label.setText(
+                self.tr("{litres:.1f} L").format(litres=LocalizedNumber(litres)))
             # Translate the two atoms separately and join — never translate a
             # runtime-concatenated combined string (keeps the registered source
             # set small + non-combinatorial; see container_model.material_hint).

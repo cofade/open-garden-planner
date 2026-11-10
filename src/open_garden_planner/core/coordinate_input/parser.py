@@ -205,6 +205,8 @@ def _parse_number(token: str) -> float:
     """Parse a single numeric token. Accepts ``.`` or ``,`` as decimal mark."""
     from PyQt6.QtCore import QCoreApplication
 
+    from open_garden_planner.core.i18n import parse_decimal
+
     token = token.strip()
     if not _NUMBER_RE.match(token):
         # Translate the template first so format() substitutes into the
@@ -213,7 +215,7 @@ def _parse_number(token: str) -> float:
             "ParseError", "Not a number: '{token}'"
         )
         raise ParseError(template.format(token=token))
-    return float(token.replace(",", "."))
+    return parse_decimal(token)
 
 
 def looks_like_explicit_coord(text: str) -> bool:

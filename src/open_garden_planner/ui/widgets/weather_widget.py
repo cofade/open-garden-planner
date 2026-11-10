@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.i18n import current_locale
+from open_garden_planner.core.i18n import current_locale, format_decimal, list_separator
 from open_garden_planner.services.forecast_holder import (
     ForecastHolder,
     WeatherFetchWorker,
@@ -235,7 +235,8 @@ class WeatherWidget(QFrame):
         if lat is None or lon is None:
             self._show_empty_state()
         else:
-            self._location_lbl.setText(f"{lat:.2f}°, {lon:.2f}°")
+            self._location_lbl.setText(
+                f"{format_decimal(lat, 2)}°{list_separator()}{format_decimal(lon, 2)}°")
             if self._forecast is None:
                 self._show_loading()
 
@@ -374,9 +375,9 @@ class WeatherWidget(QFrame):
             if condition_icon is not None:
                 condition_item.setIcon(condition_icon)
             self._table.setItem(row, 1, condition_item)
-            self._table.setItem(row, 2, QTableWidgetItem(f"{day.max_c:.1f}"))
-            self._table.setItem(row, 3, QTableWidgetItem(f"{day.min_c:.1f}"))
-            self._table.setItem(row, 4, QTableWidgetItem(f"{day.precipitation_mm:.1f}"))
+            self._table.setItem(row, 2, QTableWidgetItem(format_decimal(day.max_c, 1)))
+            self._table.setItem(row, 3, QTableWidgetItem(format_decimal(day.min_c, 1)))
+            self._table.setItem(row, 4, QTableWidgetItem(format_decimal(day.precipitation_mm, 1)))
         self._table.setVisible(self._expanded)
 
         # Age label
@@ -483,7 +484,7 @@ class _DayCell(QFrame):
             self._icon_lbl.setPixmap(pixmap)
         self._temp_lbl.setText(f"{day.max_c:.0f}° / {day.min_c:.0f}°")
         if day.precipitation_mm > 0:
-            self._rain_lbl.setText(f"{day.precipitation_mm:.1f} mm")
+            self._rain_lbl.setText(f"{format_decimal(day.precipitation_mm, 1)} mm")
             self._rain_lbl.show()
         else:
             self._rain_lbl.hide()
