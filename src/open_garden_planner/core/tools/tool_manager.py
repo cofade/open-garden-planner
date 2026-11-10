@@ -54,7 +54,7 @@ class ToolManager(QObject):
         self._active_tool = self._tools.get(tool_type)
         if self._active_tool:
             self._active_tool.activate()
-            self.tool_changed.emit(self._active_tool.display_name)
+            self.tool_changed.emit(self._active_tool.localized_name())
             self.tool_type_changed.emit(self._active_tool.tool_type)
 
     @property

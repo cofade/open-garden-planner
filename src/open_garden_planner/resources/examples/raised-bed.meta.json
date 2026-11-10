@@ -2,20 +2,22 @@
   "name_en": "Raised-bed polyculture - 4 x 2 m",
   "name_de": "Hochbeet-Mischkultur - 4 x 2 m",
   "name_es": "Policultivo en bancal elevado - 4 x 2 m",
-  "description_en": "164 crops in a 4 x 2 m bed: 16 lettuces, 60 carrots and 88 radishes. Autumn crops, a 2027 succession and fictional soil sample. Set Plan & Sun to 21 September 2026; Berlin reference. Dates are illustrative calendar dates, not a local frost forecast.",
-  "description_de": "164 Pflanzen im 4 x 2 m Beet: 16 Salate, 60 Möhren und 88 Radieschen. Herbstbestand, Nachfolgeplan 2027 und fiktive Bodenprobe. Plan & Sonne: 21. September 2026; Referenz Berlin. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
-  "description_es": "164 plantas en un bancal de 4 x 2 m: 16 lechugas, 60 zanahorias y 88 rábanos. Sucesión de 2027 y muestra ficticia de suelo. Plan y sol: 21 de septiembre de 2026; referencia Berlín. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
+  "name_ru": "Поликультура в высокой грядке - 4 x 2 м",
+  "description_en": "164 crops in a 4 x 2 m bed: 16 lettuces, 60 carrots and 88 radishes. Autumn crops, a 2027 succession, a fictional soil sample and harvest log. Opens on 21 September 2026 in daylight; Berlin reference. Dates are illustrative calendar dates, not a local frost forecast.",
+  "description_de": "164 Pflanzen im 4 x 2 m Beet: 16 Salate, 60 Möhren und 88 Radieschen. Herbstbestand, Nachfolgeplan 2027, fiktive Bodenprobe und fiktives Erntebuch. Öffnet am 21. September 2026 bei Tageslicht; Referenz Berlin. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
+  "description_es": "164 plantas en un bancal de 4 x 2 m: 16 lechugas, 60 zanahorias y 88 rábanos. Sucesión de 2027, muestra de suelo y cosechas ficticias. Se abre el 21 de septiembre de 2026 con luz de día; referencia Berlín. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
+  "description_ru": "164 культуры на грядке 4 x 2 м: 16 салатов, 60 морковей и 88 редисов. Осенние посадки, севооборот на 2027 год, условные образец почвы и журнал урожая. Открывается на 21 сентября 2026 года при дневном свете; координаты Берлина. Указаны примерные календарные даты, а не прогноз местных заморозков.",
   "tags": [
     "raised-bed",
     "polyculture",
     "succession"
   ],
+  "showcase_date": "2026-09-21",
+  "showcase_utc_time": "11:00",
   "license": "CC-BY-SA-4.0",
   "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
   "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
   "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
   "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
-  "name_ru": "Поликультура в высокой грядке - 4 x 2 м",
-  "description_ru": "164 культуры на грядке 4 x 2 м: 16 салатов, 60 морковей и 88 редисов. Осенние посадки, севооборот на 2027 год и условный образец почвы. Установите «План и солнце» на 21 сентября 2026 года; координаты Берлина. Указаны примерные календарные даты, а не прогноз местных заморозков.",
   "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md."
 }

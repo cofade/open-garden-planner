@@ -19,12 +19,15 @@ from scripts.i18n_catalog import Key
 from scripts.i18n_sources import inventory
 from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATIONS
 from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS
+from scripts.translations_examples import DE as _EXAMPLES_TRANSLATIONS
+from scripts.translations_exports import DE as _EXPORTS_TRANSLATIONS
 from scripts.translations_f4 import DE as _F4_TRANSLATIONS
 from scripts.translations_l2 import DE as _L2_TRANSLATIONS
 from scripts.translations_l4 import DE as _L4_TRANSLATIONS
 from scripts.translations_l5 import DE as _L5_TRANSLATIONS
 from scripts.translations_l6 import DE as _L6_TRANSLATIONS
 from scripts.translations_l7 import DE as _L7_TRANSLATIONS
+from scripts.translations_sun_map import DE as _SUN_MAP_TRANSLATIONS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -3569,6 +3572,18 @@ for _ctx, _strings in _L6_TRANSLATIONS.items():
 for _ctx, _strings in _L7_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
+# ── Export fixes: PDF report pages and legend (#787, #788, #789) ──
+for _ctx, _strings in _EXPORTS_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Examples' showcase state: status line, empty seed inventory, folded sun rows (#795) ──
+for _ctx, _strings in _EXAMPLES_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── The key of the hours-of-sun map (#794) ──
+for _ctx, _strings in _SUN_MAP_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
 
 # ── 2D drawing tools package (#674 group menus, #665 fill transform) ──
 _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
@@ -3671,6 +3686,41 @@ _CAD_EDITING_TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 }
 for _ctx, _strings in _CAD_EDITING_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── Application chrome: theme, locale and layout (#791, #792, #796) ──
+_CHROME_TRANSLATIONS: dict[str, dict[str, str]] = {
+    # The planting calendar's first column header.
+    "_GanttWidget": {
+        "Plant": "Pflanze",
+    },
+    # Qt date patterns (d = day, MMM = short month name, yyyy = year): a day
+    # without its year, in the language's own order ("Jun 21" / "21. Juni"), and
+    # a whole date in UI text ("7 Jun 2026" / "7. Juni 2026").
+    "DateFormat": {
+        "MMM d": "d. MMM",
+        "d MMM yyyy": "d. MMM yyyy",
+    },
+    # Tool names in the status bar.
+    "ConstructionLineTool": {
+        "Construction Line": "Hilfslinie",
+    },
+    "ConstructionCircleTool": {
+        "Construction Circle": "Hilfskreis",
+    },
+    "TrimExtendTool": {
+        "Trim/Extend": "Trimmen/Erweitern",
+    },
+    # The key to the soil-health overlay's tints.
+    "SoilOverlayLegend": {
+        "Good": "Gut",
+        "Fair": "Mittel",
+        "Poor": "Schlecht",
+        "No soil test": "Kein Bodentest",
+    },
+}
+for _ctx, _strings in _CHROME_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

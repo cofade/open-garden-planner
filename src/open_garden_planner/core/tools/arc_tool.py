@@ -63,6 +63,9 @@ class ArcTool(BaseTool):
     # users into expecting it to control sweep direction.
     accepts_typed_coordinates = False
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("ArcTool", "Arc (3-point)")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._p1: QPointF | None = None  # start

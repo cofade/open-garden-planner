@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.settings import get_settings
+from open_garden_planner.ui.theme import theme_qcolor
 
 
 class WelcomeDialog(QDialog):
@@ -81,7 +82,10 @@ class WelcomeDialog(QDialog):
         tabs.addTab(recent_tab, self.tr("Recent Projects"))
         self._gallery = TemplateGallery()
         self._gallery.template_selected.connect(self._on_template_selected)
-        tabs.addTab(self._gallery, self.tr("Examples & templates"))
+        # A tab label reads "&" as a mnemonic marker and drops it ("Examples
+        # templates", #792); doubled, it is the character. Escaped HERE so the
+        # source string and its translations stay as they are.
+        tabs.addTab(self._gallery, self.tr("Examples & templates").replace("&", "&&"))
         tabs.currentChanged.connect(lambda index: self._banner_label.setVisible(index == 0))
         layout.addWidget(tabs, stretch=1)
 
@@ -235,7 +239,7 @@ class WelcomeDialog(QDialog):
             # Show placeholder
             placeholder = QListWidgetItem(self.tr("No recent projects"))
             placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
-            placeholder.setForeground(Qt.GlobalColor.gray)
+            placeholder.setForeground(theme_qcolor("text_disabled"))
             self._recent_list.addItem(placeholder)
             return
 
@@ -253,7 +257,7 @@ class WelcomeDialog(QDialog):
                 item.setText(self.tr("{name} (not found)").format(name=path.stem))
                 item.setToolTip(self.tr("File not found: {path}").format(path=path))
                 item.setData(Qt.ItemDataRole.UserRole, str(path))
-                item.setForeground(Qt.GlobalColor.gray)
+                item.setForeground(theme_qcolor("text_disabled"))
                 self._recent_list.addItem(item)
 
     def _on_selection_changed(self) -> None:

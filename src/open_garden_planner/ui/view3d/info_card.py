@@ -52,7 +52,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Final
 
-from PyQt6.QtCore import QDate, QLocale, Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -65,6 +65,12 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.core.growth_model import growth_share
+from open_garden_planner.core.i18n import (
+    format_day_month,
+    format_decimal,
+    format_integer,
+    format_short_date,
+)
 from open_garden_planner.core.measurements import format_area, format_length
 from open_garden_planner.core.object_height import (
     SOURCE_CONTAINER,
@@ -196,12 +202,12 @@ class CardSubject:
 
 
 def _short_date(day: date) -> str:
-    return QLocale().toString(QDate(day.year, day.month, day.day), QLocale.FormatType.ShortFormat)
+    return format_short_date(day)
 
 
 def _day_month(day: date) -> str:
-    """A window's end: day and month, in the locale's words ("12 Mar", "12 März": Qt's "d MMM")."""
-    return QLocale().toString(QDate(day.year, day.month, day.day), "d MMM")
+    """A window's end: day and month, in the language's order and words ("Mar 12", "12. März")."""
+    return format_day_month(day)
 
 
 def _span(ring: Sequence[Sequence[float]]) -> tuple[float, float]:
@@ -349,7 +355,7 @@ class View3DInfoCard(QFrame):
         if facts.sun is not None:
             minutes, day = facts.sun
             rows.append((self.tr("Sun:"), self.tr("{hours} h on {date} — {band}").format(
-                hours=QLocale().toString(minutes / 60.0, "f", 1), date=_short_date(day),
+                hours=format_decimal(minutes / 60.0, 1), date=_short_date(day),
                 band=sun_requirement_label(band_of(minutes).value))))
         labels = {"indoor_sow": self.tr("Sow indoors:"), "direct_sow": self.tr("Sow outdoors:"),
                   "harvest": self.tr("Harvest:")}
@@ -419,7 +425,7 @@ class View3DInfoCard(QFrame):
             rows.append((self.tr("Canopy diameter:"), format_length(2.0 * float(radius))))
         if facts is not None and facts.growth is not None:
             rows.append((self.tr("Growth:"), self.tr("{percent} % of the way to full size").format(
-                percent=QLocale().toString(round(100.0 * facts.growth)))))
+                percent=format_integer(round(100.0 * facts.growth)))))
         return rows
 
     def _built_rows(self, record: Record, facts: CardFacts | None = None) -> list[tuple[str, str]]:

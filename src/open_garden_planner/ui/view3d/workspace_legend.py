@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Final
 
-from PyQt6.QtCore import QCoreApplication, QDate, QLocale, Qt
+from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QWidget
 
+from open_garden_planner.core.i18n import format_decimal, format_short_date
 from open_garden_planner.core.scene3d.sun_path import ARC_KINDS, ARC_RGBA
 
 #: When two solar arcs are within this angular distance, they are treated as twins.
@@ -31,14 +32,14 @@ def _twin_arcs(arcs: Sequence[Any]) -> frozenset[str]:
 
 
 def _locale_date(day: Any) -> str:
-    """A date in the locale's short format ("" for none)."""
+    """A date in UI text ("7 Jun 2026"; "" for none): ``core/i18n.format_short_date``."""
     if day is None:
         return ""
-    return QLocale().toString(QDate(day.year, day.month, day.day), QLocale.FormatType.ShortFormat)
+    return format_short_date(day)
 
 
 def _locale_number(value: float) -> str:
-    return QLocale().toString(float(value), "f", 1)
+    return format_decimal(float(value), 1)
 
 
 class SunPathLegend(QWidget):

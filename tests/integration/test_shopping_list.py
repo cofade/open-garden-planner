@@ -145,6 +145,27 @@ class TestPriceEditing:
         assert plant_item.price_each is None
         assert pm.shopping_list_prices == {}
 
+    @pytest.mark.parametrize("text", ["nan", "inf", "1e3", "1_000", "1,234.5"])
+    def test_a_price_python_alone_would_read_is_ignored(self, qtbot, text) -> None:
+        """``float`` reads "nan" (which is not below zero, so the negative-price guard
+        let it through and the plan stored NaN), "inf", an exponent and "1_000"; a price
+        field reads none of them (#792, review round 1)."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        cell = dialog._table.item(1, _COL_PRICE)
+        assert cell is not None
+        cell.setText(text)
+        plant_item = dialog._row_items[1]
+        assert plant_item is not None and plant_item.price_each is None
+        assert pm.shopping_list_prices == {}
+        assert dialog._table.item(1, _COL_PRICE).text() == ""
+
     def test_negative_price_resets_cell_and_status(self, qtbot) -> None:
         QApplication.instance() or QApplication([])
         scene = CanvasScene(width_cm=5000, height_cm=3000)

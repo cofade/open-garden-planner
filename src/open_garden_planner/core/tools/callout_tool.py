@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsLineItem
 
@@ -24,6 +24,9 @@ class CalloutTool(BaseTool):
     display_name = QT_TR_NOOP("Callout")
     shortcut = ""
     cursor = Qt.CursorShape.CrossCursor
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("CalloutTool", "Callout")
 
     def __init__(self, view: "CanvasView") -> None:
         super().__init__(view)

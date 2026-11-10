@@ -112,7 +112,7 @@ Permanent IDs survive retirement (ADR-061). [Pitfalls](pitfalls/) hold rules and
 
 | Area | Index | Scope | Detailed Entries |
 |---|---|---|---|
-| CAN | [Canvas Geometry Index](pitfalls/index/01-canvas-geometry.md) | canvas geometry, painting and export | [01-canvas-geometry.md](pitfalls/01-canvas-geometry.md) |
+| CAN | [Canvas Geometry Index](pitfalls/index/01-canvas-geometry.md) | canvas geometry, painting and export | [01-canvas-geometry.md](pitfalls/01-canvas-geometry.md), [01b-canvas-rendering.md](pitfalls/01b-canvas-rendering.md) |
 | LIF | [Lifecycle & Threads Index](pitfalls/index/02-lifecycle-threads.md) | lifecycle, threads, timers and signals | [02-lifecycle-threads.md](pitfalls/02-lifecycle-threads.md) |
 | PER | [Persistence & Undo Index](pitfalls/index/03-persistence-undo-layers.md) | persistence, undo and layers | [03-persistence-undo-layers.md](pitfalls/03-persistence-undo-layers.md) |
 | UI | [UI Panels & Forms Index](pitfalls/index/04-ui-panels-dialogs.md) | panels, dialogs, toolbars and forms | [04-ui-panels-dialogs.md](pitfalls/04-ui-panels-dialogs.md), [04b-ui-forms.md](pitfalls/04b-ui-forms.md) |

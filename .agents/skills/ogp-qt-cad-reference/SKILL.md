@@ -32,3 +32,4 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 6. Curves and arcs (ADR-022/025, `core/cad_geometry.py`) | [Read](references/008-6-curves-and-arcs-adr-022-025-core-cad-geometry-py.md) |
 | 7. Driving events in tests — two tiers, one hard rule | [Read](references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md) |
 | Provenance and maintenance | [Read](references/010-provenance-and-maintenance.md) |
+| 8. What marks an object, and text on the canvas (handles, labels, halos, grid, export) | [Read](references/011-8-what-marks-an-object-and-text-on-the-canvas.md) |

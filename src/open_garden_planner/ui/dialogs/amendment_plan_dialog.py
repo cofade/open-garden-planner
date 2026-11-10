@@ -39,6 +39,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.services.amendment_loader import get_default_loader
 from open_garden_planner.services.shopping_list_service import (
     AggregatedAmendment,
@@ -385,7 +386,7 @@ class AmendmentPlanDialog(QDialog):
 def _format_quantity(grams: float) -> str:
     """Format a gram quantity. ≥1000 g shown in kg; else g."""
     if grams >= 1000.0:
-        return f"{grams / 1000.0:.2f} kg"
+        return f"{format_decimal(grams / 1000.0, 2)} kg"
     return f"{grams:.0f} g"
 
 

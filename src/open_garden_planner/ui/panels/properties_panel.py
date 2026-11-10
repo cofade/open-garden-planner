@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
@@ -36,6 +36,7 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.item_look import (
     MAX_FENCE_WIDTH_CM,
     MAX_LINE_WIDTH_CM,
@@ -60,9 +61,15 @@ from open_garden_planner.ui.canvas.items import (
 )
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
 from open_garden_planner.ui.panels.property_edits import PropertyEdits
-from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
+#: The largest stored text size the size field offers (letters 38 m tall), and
+#: its step in plan centimetres: wider than the 1.33 cm between two font sizes,
+#: so one step always changes the text.
+_TEXT_MAX_FONT_SIZE = 100.0
+_TEXT_SIZE_STEP_CM = 5.0
+
 # The raw attribute names (font_family, font_size) make ugly undo labels
 # ("Change text font_family"); these map them to nouns registered under the
 # "Commands" i18n context (scripts/fill_translations.py).
@@ -175,8 +182,17 @@ class ColorButton(QPushButton):
         self._color = color
         self.setFixedWidth(FIELD_WIDTH)
         self.setFixedHeight(30)
+        # Without this the app stylesheet's button minimum (110 px) replaces
+        # the fixed width's own, and the swatch is 10 px narrower than every
+        # other field of the column (PF-UI-38). A stylesheet minimum still
+        # replaces the code's, so the fixed width is only the maximum from
+        # here on: the size hint says the rest.
+        set_compact(self)
         self._update_style()
         self.clicked.connect(self._pick_color)
+
+    def sizeHint(self) -> QSize:
+        return QSize(FIELD_WIDTH, 30)
 
     @property
     def color(self) -> QColor:
@@ -1163,6 +1179,10 @@ class PropertiesPanel(QWidget):
             btn.setToolTip(label)
             btn.setAccessibleName(label)
             btn.setObjectName(object_name)
+            # Four dialog-width buttons (4 x 110 px) are wider than the panel,
+            # and the form has no horizontal scroll bar: the row and every
+            # field above it were cut at the right edge (#796).
+            set_compact(btn)
             btn.clicked.connect(_make_handler(mode))
             row.addWidget(btn)
 
@@ -1563,7 +1583,8 @@ class PropertiesPanel(QWidget):
 
         def update_feedback() -> None:
             litres = cm.effective_soil_volume_litres(meta, footprint_cm2())
-            effective_label.setText(self.tr("{litres:.1f} L").format(litres=litres))
+            effective_label.setText(
+                self.tr("{litres:.1f} L").format(litres=LocalizedNumber(litres)))
             # Translate the two atoms separately and join — never translate a
             # runtime-concatenated combined string (keeps the registered source
             # set small + non-combinatorial; see container_model.material_hint).
@@ -2185,20 +2206,34 @@ class PropertiesPanel(QWidget):
             font_combo, lambda c=font_combo, it=item: c.setCurrentFont(it.font())
         )
 
-        # Font size (in cm, matching scene units)
+        # Font size: the font's height on the plan, in centimetres (#836). The
+        # stored ``font_size`` is another number (points / 28.35) and stays what
+        # it is; the conversion happens here, at the edge. Fonts come in whole
+        # points, 1.33 cm apart, so the field shows the size the note HAS after
+        # an edit (its refresher), and one step is wider than that gap.
         size_spin = QDoubleSpinBox()
-        size_spin.setRange(0.1, 100.0)
-        size_spin.setSingleStep(0.5)
-        size_spin.setDecimals(1)
+        size_spin.setRange(
+            item.em_height_for_font_size(item.MIN_FONT_SIZE),
+            item.em_height_for_font_size(_TEXT_MAX_FONT_SIZE),
+        )
+        size_spin.setSingleStep(_TEXT_SIZE_STEP_CM)
+        size_spin.setDecimals(0)
         size_spin.setSuffix(" cm")
+        size_spin.setToolTip(self.tr(
+            "Font height on the plan. Capital letters are about 70 % as tall. "
+            "The text takes the nearest available size."
+        ))
         _style_numeric_field(size_spin)
-        size_spin.setValue(item.font_size)
+        size_spin._ogp_text_size = True  # type: ignore[attr-defined]
+        size_spin.setValue(item.em_height_cm)
         size_spin.valueChanged.connect(
-            lambda v: self._on_text_property_changed(item, "font_size", v)
+            lambda v: self._on_text_property_changed(
+                item, "font_size", item.font_size_for_em_height(v)
+            )
         )
         self._form_layout.addRow(self.tr("Size:"), size_spin)
         self._register_refresh(
-            size_spin, lambda s=size_spin, it=item: s.setValue(it.font_size)
+            size_spin, lambda s=size_spin, it=item: s.setValue(it.em_height_cm)
         )
 
         # Bold / Italic row

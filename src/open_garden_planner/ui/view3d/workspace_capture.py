@@ -588,6 +588,24 @@ class WorkspaceCaptureCoordinator(QObject):
         moment = self._clock_hold
         return moment.date() if moment is not None else None
 
+    def held_reading(self) -> datetime | None:
+        """The wall reading a clock-moving tour will put back; ``None`` without one
+        (``core/showcase_moment.InnerClockHold``)."""
+        return self._clock_hold
+
+    def rebase_hold(self) -> None:
+        """The open document was replaced, or left its showcase, while a tour holds the
+        clock: what the tour puts back is the reading the document has NOW (#795).
+
+        The showcase is the outer holder of "the user's reading" and writes the clock for
+        the new document; this inner hold follows it, so the tour's finish cannot put the
+        old document's reading (an example's moment) onto the plan that is open by then.
+        A tour that holds nothing has nothing to follow.
+        """
+        clock = self._get_clock()
+        if self._clock_hold is not None and clock is not None:
+            self._clock_hold = clock.wall
+
     def start_tour(self, spec: TourSpec, size: tuple[int, int], writer: FrameSink, *,
                    realtime: bool = False) -> TourRecorder:
         """Render ``spec`` at ``size`` into ``writer``. The caller connects the recorder's

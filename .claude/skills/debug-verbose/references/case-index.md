@@ -212,3 +212,12 @@
 | Case study: a tool shortcut that fired nothing because S already belonged to Snap (PR #783) | [Read](209-case-study-a-tool-shortcut-that-fired-nothing-pr783.md) |
 | Case study: a snapped corner cut the bed it only grazed (PR #783) | [Read](210-case-study-a-snapped-corner-that-cut-a-bed-pr783.md) |
 | Case study: a group member that kept its focus for a split second - the minimap unselected the group (PR #783) | [Read](211-case-study-a-group-member-that-kept-its-focus-for-a-split-second-pr783.md) |
+| Case study: a device cache that cached nothing (#784) | [Read](217-case-study-a-device-cache-that-cached-nothing-784.md) |
+| Case study: letter gaps in a zoomed text note that the test platform cannot show (#793) | [Read](218-case-study-letter-gaps-that-the-test-platform-cannot-show-793.md) |
+| Case study: the SVG export flooded the plan with roof tiles — the generator drops clips, brush transforms and source rectangles (#787) | [Read](219-case-study-the-svg-export-flooded-the-plan-with-roof-tiles.md) |
+| Case study: a light theme that painted white on cream — the app set one of three carriers of light-or-dark; and a task list that got the room of one row (#791, #796) | [Read](220-case-study-a-light-theme-that-painted-white-on-cream-791.md) |
+| Case study: regenerating the examples moved two chairs off the balcony - the generator nobody ran (#795) | [Read](223-case-study-regenerating-the-examples-moved-two-chairs-off-the-balcony-795.md) |
+| Case study: the key was in the scene, visible, and in no picture — an item that ignores transformations is found by its rectangle without the painter's flip (#794) | [Read](224-case-study-the-key-was-in-the-scene-visible-and-in-no-picture-794.md) |
+| Case study: a badge whose text overprinted its own box on paper — a font in points is resolved per paint device (#836) | [Read](225-case-study-a-badge-whose-text-overprinted-its-own-box-on-paper-836.md) |
+| Case study: a name of a million characters froze the canvas, and only where a real font was registered — plan text that reaches a painter is the same trust boundary as plan text that reaches a tooltip (review of #793) | [Read](230-case-study-a-name-of-a-million-characters-froze-the-canvas-only-with-a-real-font.md) |
+| Case study: a dropped canvas ended the process with 0xC0000409 and not a word — Qt called a virtual on a view whose attributes the collector had already cleared (#794) | [Read](231-case-study-a-dropped-canvas-ended-the-process-without-a-word-794.md) |

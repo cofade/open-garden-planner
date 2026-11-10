@@ -7,6 +7,7 @@ Unknown top-level keys fail closed. ADR-066 records the portable subset.
 from __future__ import annotations
 
 import json
+from datetime import date, time
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
@@ -78,6 +79,34 @@ def template_plan(plan: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _bundled_sidecar(source: Path) -> tuple[dict[str, Any], str] | None:
+    """The trusted sidecar of a shipped example and the language of its copy.
+
+    ``None`` for every other file, also for one that only shares a shipped
+    example's name. A locale directory counts only when the canonical sidecar
+    carries that language's name and description.
+    """
+    resolved = source.resolve()
+    canonical = BUNDLED_EXAMPLES / resolved.name
+    sidecar = canonical.with_suffix(".meta.json")
+    if canonical.suffix != ".ogp" or not canonical.is_file() or not sidecar.is_file():
+        return None
+    if resolved.parent == BUNDLED_EXAMPLES:
+        return json.loads(sidecar.read_text(encoding="utf-8")), "en"
+    if resolved.parent.parent != BUNDLED_EXAMPLES:
+        return None
+    meta = json.loads(sidecar.read_text(encoding="utf-8"))
+    locale = resolved.parent.name
+    if f"name_{locale}" not in meta or f"description_{locale}" not in meta:
+        return None
+    return meta, locale
+
+
+#: What a shipped example keeps beyond the portable subset: its public place, its
+#: fictional soil sample and its fictional harvest history (ADR-066 addenda).
+EXAMPLE_DEMO_FIELDS = ("location", "soil_tests", "harvest_logs")
+
+
 def example_copy_plan(plan: dict[str, Any], source: Path) -> dict[str, Any]:
     """Keep public demonstration state only for known shipped example paths.
 
@@ -86,20 +115,50 @@ def example_copy_plan(plan: dict[str, Any], source: Path) -> dict[str, Any]:
     by the trusted canonical sidecar's translated name/description keys.
     """
     result = template_plan(plan)
-    resolved = source.resolve()
-    canonical = BUNDLED_EXAMPLES / resolved.name
-    if not canonical.is_file() or canonical.suffix != ".ogp":
+    if _bundled_sidecar(source) is None:
         return result
-    if resolved.parent != BUNDLED_EXAMPLES:
-        if resolved.parent.parent != BUNDLED_EXAMPLES:
-            return result
-        meta = json.loads(canonical.with_suffix(".meta.json").read_text(encoding="utf-8"))
-        locale = resolved.parent.name
-        if f"name_{locale}" not in meta or f"description_{locale}" not in meta:
-            return result
-    for key in ("location", "soil_tests"):
+    for key in EXAMPLE_DEMO_FIELDS:
         if key in plan:
             cleaned = _portable(plan[key])
             if cleaned is not _REMOVED:
                 result[key] = cleaned
     return result
+
+
+def template_title(source: Path, language: str = "en") -> str:
+    """The name a person knows the template at *source* by.
+
+    A shipped example's own name from its trusted sidecar: in the language of
+    the directory it was opened from, and for the base copy (which serves every
+    language without a translated plan) in *language* when the sidecar has it.
+    For any other file its stem.
+    """
+    bundled = _bundled_sidecar(source)
+    if bundled is None:
+        return source.stem
+    meta, locale = bundled
+    if locale == "en":
+        locale = language
+    return str(meta.get(f"name_{locale}") or meta.get("name_en") or source.stem)
+
+
+def example_showcase_moment(source: Path) -> tuple[date, time] | None:
+    """The moment a shipped example is meant to be seen at, or ``None``.
+
+    The sidecar's ``showcase_date`` (the example's reference date, the plan's
+    local day) and ``showcase_utc_time`` (a daytime sun over the example's own
+    place). A UTC time of day and not a wall time: the session clock reads wall
+    time in the computer's zone, and midday on a wall clock in Auckland is night
+    over a garden in Berlin. The pair is what ``SimClock.set_utc_time_on`` takes.
+
+    ``None`` for any file that is not a shipped example, and for a sidecar
+    without the two fields.
+    """
+    bundled = _bundled_sidecar(source)
+    if bundled is None:
+        return None
+    meta = bundled[0]
+    day, utc_time = meta.get("showcase_date"), meta.get("showcase_utc_time")
+    if not isinstance(day, str) or not isinstance(utc_time, str):
+        return None
+    return date.fromisoformat(day), time.fromisoformat(utc_time)

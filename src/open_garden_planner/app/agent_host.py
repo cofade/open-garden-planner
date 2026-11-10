@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 from uuid import UUID
 
@@ -188,11 +189,16 @@ class AgentHost:
         host = self._host
         from open_garden_planner.agent_api.exports import save_plan_file
 
-        return host._agent_bridge.run_on_main(
-            lambda: save_plan_file(
+        def save() -> dict[str, Any]:
+            result = save_plan_file(
                 host.canvas_scene, host._project_manager, host._soil_service, file_path
             )
-        )
+            # The same end of a showcase the menu's Save has (#795): a saved
+            # example copy is the user's plan, whoever saved it.
+            host._end_showcase_after_save(Path(result["file_path"]))
+            return result
+
+        return host._agent_bridge.run_on_main(save)
 
 
     def _agent_new_plan(

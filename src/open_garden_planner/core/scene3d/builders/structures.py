@@ -1,16 +1,17 @@
 """Garden structures: pergola, trellis, greenhouse (Phase 17 L4.3, #388).
 
 Mostly air — and built as such: posts, beams, rafters, slats and glass, never a
-block. Their 2D shadows are NOT what these cast: the 2D sun study extrudes the
-whole footprint of an item with a height (a pergola's, a trellis's, a
-greenhouse's) as a solid prism, and the meshes here are open frames and glass
-that casts no shadow (``ogp-lush-cinematic`` §4). The same porosity question the
-fences raise (issue #440); the 3D view shows what is built.
+block. The 2D sun study casts an item with a height as its footprint prism; for
+the two OPEN FRAMES here — the pergola and the trellis — it weights that prism by
+the share of it these very members shade (#698, ``open_frames``: the fences'
+porosity question, #440, answered for frames). A greenhouse is still the solid
+prism in 2D, by recorded decision (``core.object_height.SOLID_2D_DECISIONS``),
+while its glass casts no shadow here (``ogp-lush-cinematic`` §4).
 
 - **PERGOLA** (#769, ``core.pergola``'s one layout with the 2D picture): four
   posts carrying a perimeter of four beams, nine rafters across the depth and five
-  purlins on top — the purlins' top is the height. Its default height (250 cm)
-  casts its whole footprint in 2D, these open rafters in 3D.
+  purlins on top — the purlins' top is the height. The 2D shade reads the same
+  layout (``pergola_members``).
 - **TRELLIS** (no sprite: a ``LATTICE`` fill in the item's colour, so ``tinted``):
   a post at each end of the footprint's LONG side, a top and a bottom rail and a
   diagonal lattice between them, in the vertical plane through the footprint's
@@ -31,6 +32,7 @@ from typing import Final
 import numpy as np
 
 from ...greenhouse import bay_count
+from ...pergola import PergolaLayout
 from ...pergola import layout as pergola_layout
 from ..build import BuilderRegistry
 from ..mesh import Mesh, MeshPart
@@ -80,18 +82,46 @@ def _pergola(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     plan = pergola_layout(box.width, box.depth, height_cm)
     if plan is None:
         return plain_block(record, height_cm)
-    meshes = [
+    return (_part(_pergola_meshes(plan, chamfered=True), box, "pergola"),)
+
+
+def _pergola_meshes(plan: PergolaLayout, *, chamfered: bool) -> list[Mesh]:
+    """The layout's four member groups as boxes at their heights. ``chamfered``: with
+    the edges the built pergola shows; without, the same boxes plain."""
+    def edge(bevel: float) -> float:
+        return bevel if chamfered else 0.0
+
+    return [
         slabs([r.as_slab() for r in plan.posts], 0.0, plan.beam_bottom,
-              palette.PLANK_GROOVE.linear, 1.0),
+              palette.PLANK_GROOVE.linear, edge(1.0)),
         slabs([r.as_slab() for r in plan.beams], plan.beam_bottom, plan.deck,
-              palette.PLANK.linear, 1.0),
+              palette.PLANK.linear, edge(1.0)),
         # oak mid, as the beams: the light oak clipped on the rafters' sunlit sides
         slabs([r.as_slab() for r in plan.rafters], plan.deck, plan.rafter_top,
-              palette.PLANK.linear, 0.8),
+              palette.PLANK.linear, edge(0.8)),
         slabs([r.as_slab() for r in plan.purlins], plan.rafter_top, plan.height,
-              palette.OAK_LIGHT.linear, 0.5),
+              palette.OAK_LIGHT.linear, edge(0.5)),
     ]
-    return (_part(meshes, box, "pergola"),)
+
+
+def pergola_members(record: Record, height_cm: float) -> Mesh | None:
+    """The pergola's 22 members as PLAIN boxes, placed as the built pergola is — or
+    None where ``_pergola`` builds the plain block instead (no box footprint, no
+    usable layout).
+
+    What the 2D sun study weighs a pergola's shadow by (#698, ``open_frames``): the
+    one layout of ``core.pergola``, so the 2D picture, the 3D build and the 2D shade
+    are the same members. Without the chamfers the boxes are a few millimetres
+    fuller than the built timber and a quarter of its triangles — the shadow
+    agreement table holds the two within its tolerance.
+    """
+    box = object_box(record)
+    if box is None or box.round:
+        return None
+    plan = pergola_layout(box.width, box.depth, height_cm)
+    if plan is None:
+        return None
+    return placed(_pergola_meshes(plan, chamfered=False), box)
 
 
 def _clip_line(origin: F64, direction: F64, low: F64, high: F64) -> tuple[F64, F64] | None:

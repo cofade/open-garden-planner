@@ -194,14 +194,14 @@ def export_pdf_file(
     """Render the full garden PDF report — same pipeline as File > Export PDF Report."""
     resolved = resolve_export_path(
         file_path,
-        default_filename=project_manager.project_name + ".pdf",
+        default_filename=project_manager.file_stem + ".pdf",
         suffix=".pdf",
         project_manager=project_manager,
     )
     opts = PdfReportOptions(
         paper_size=paper_size,
         orientation=orientation,
-        project_name=project_manager.project_name,
+        project_name=project_manager.display_name,
     )
     PdfReportService.generate(scene, opts, resolved)
     return {"file_path": str(resolved), "format": "pdf", "row_count": None, "previous_file_path": None}
@@ -215,7 +215,7 @@ def export_dxf_file(
     """Export the plan to DXF — same pipeline as File > Export as DXF."""
     resolved = resolve_export_path(
         file_path,
-        default_filename=project_manager.project_name + ".dxf",
+        default_filename=project_manager.file_stem + ".dxf",
         suffix=".dxf",
         project_manager=project_manager,
     )
@@ -236,9 +236,9 @@ def export_csv_file(
     the Harvest dashboard's CSV export, respectively.
     """
     if kind == "shopping_list":
-        default_filename = project_manager.project_name + "_shopping_list.csv"
+        default_filename = project_manager.file_stem + "_shopping_list.csv"
     elif kind == "harvest":
-        default_filename = project_manager.project_name + "_harvest.csv"
+        default_filename = project_manager.file_stem + "_harvest.csv"
     else:
         raise ValueError(f"Unknown csv kind: {kind!r}")
 

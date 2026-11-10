@@ -40,7 +40,9 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_dialog_dir
+from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 #: Default unit choices offered in the (editable) unit combo.
@@ -119,9 +121,7 @@ class HarvestLogDialog(QDialog):
         form = QFormLayout()
 
         # Date
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         today = _date.today()
         self._date_edit.setDate(QDate(today.year, today.month, today.day))
         form.addRow(self.tr("Date"), self._date_edit)
@@ -236,7 +236,8 @@ class HarvestLogDialog(QDialog):
         for r in records:
             if (r.date[:4] if r.date else "?") == year:
                 totals[r.unit] = totals.get(r.unit, 0.0) + r.quantity
-        parts = ", ".join(f"{qty:g} {unit}" for unit, qty in sorted(totals.items()))
+        parts = ", ".join(
+            f"{format_trimmed(qty)} {unit}" for unit, qty in sorted(totals.items()))
         label = QLabel(self.tr("{year} — {totals}").format(year=year, totals=parts))
         set_text_role(label, "h2")
         label.setStyleSheet("margin-top: 4px;")
@@ -265,7 +266,7 @@ class HarvestLogDialog(QDialog):
 
     def _format_history_row(self, rec: HarvestRecord) -> str:
         text = self.tr("{date} — {qty} {unit}").format(
-            date=rec.date or "?", qty=f"{rec.quantity:g}", unit=rec.unit
+            date=rec.date or "?", qty=format_trimmed(rec.quantity), unit=rec.unit
         )
         if rec.quality:
             text = text + self.tr(" ({quality})").format(quality=rec.quality)

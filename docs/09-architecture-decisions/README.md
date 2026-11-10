@@ -585,6 +585,12 @@ including the real toolbar/viewport and save/reload path.
 
 **Addendum (US-D2.2, #326)**: Decision 3's last sentence is retired — the rect-item programmatic `_apply_resize(x, y, w, h, pos_x, pos_y)` fallback contract is gone: the EQUAL-constraint partner appliers now route through `ui/canvas/geometry_apply` (`constraint_tool._apply_partner_extents`), and the three rect-item methods themselves were deleted as dead code, leaving the handle's `hasattr(_apply_resize)` fallback to serve `PolygonItem` alone. Decision 2's undo-closure leg moved with it: the three `apply_geometry` undo closures named in the Consequences were collapsed into `geometry_apply.apply_rect_like_geometry`, which performs the re-pin and `prepareGeometryChange()` itself. The primitive, the authoritative anchor threading, and the sizing resolver stand unchanged.
 
+**Addendum (2026-11-09, #786 - what a spacing overlap means, and how it is shown).** Three decisions; `core/plant_sizing.py` stays the one home.
+
+1. **Spacing is judged within a storey.** A spacing overlap says two plants will crowd each other when grown. A tree and what grows under its crown do not: a lawn, a shrub border and the strawberries of an apple guild share the tree's ground on purpose. `spacing_storey()` sorts a plant by its species' recorded `permaculture_layer`: `canopy` and `sub_canopy` are the overstorey, the other five layers the understorey; a plant with no recorded layer is overstorey when drawn as a `TREE`. `spacings_conflict()` compares a pair only when both are in one storey. Whether the lower plant gets enough light under the crown is the sun evaluation's question (FR-SUN-09), not a planting distance. Measured on the bundled plans: food-forest 22 overlaps before, 0 after (every one was a guild plant under its tree); family-garden 24 before, 22 after. *Rejected:* comparing only within the same of the seven layers (a lettuce and a carrot in one bed would stop conflicting; a gardener still expects that warning); a height test (`max_height_cm` is missing for too many records, and the rule could no longer be told in one sentence); a tolerance on the distance (it hides true warnings).
+2. **The 22 family-garden warnings are true and stay.** Six trees are drawn at today's measured size and stand 3.2 to 9.5 m apart; their mature crowns (6 to 12 m) will meet. Six shrubs stand 70 cm apart in a border; ten bed plants stand 1 to 28 cm inside their spreads. Editing the plan until the list is empty would hide them, and the plan is also the 3D bench fixture (`bench_small.ogp`, by `make_bench_plans.build_small`), whose item positions the measured baselines hang on. The plan is left as it is.
+3. **The warning is a line on the crowded spot, and no export shows it.** Before, each crowded plant painted a filled translucent disc at its spacing radius: 22 % of the canvas was tinted in the family garden. Now it paints a thin dashed line over a light casing, and only the arcs of its spacing circle that lie inside a conflicting neighbour's circle (`spacing_conflict_arcs`); the selected plant shows its whole ring as a planning aid; a plant whose spacing is fine and that is not selected shows nothing. The mark changes 1.1 % of the same canvas. No fill at all, because a translucent fill over a textured plan reads as a stain, not as a boundary. The ring is a planning aid, so it is in no exported picture, warning or not (§8.9.16); before, both the red and the green discs were exported. *Rejected:* a whole dashed ring per crowded plant (tried first: twelve circles up to 12 m wide swept across the roof and the terrace, where nothing is crowded); a badge on the plant alone (it does not say where or with whom).
+
 ## ADR-029: Unified Task Model — Pure Generators, Render-Time Status, Dual-Store Coexistence
 
 **Status**: Accepted (Phase 13 — Package C, US-C2, issue #188)
@@ -1299,6 +1305,26 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **Recompute on demand only**: the heatmap costs seconds, not milliseconds, so it is NEVER wired to `scene.changed` — an explicit "Hours of Sun" toolbar button computes it, a date change (not a time-of-day change — the map aggregates the whole day) or disabling the sim clears it, and `closeEvent` joins a running worker (`shutdown()`) because a `QThread` destroyed while running aborts the process (#230 class).
 
 **Rendering redesign (2026-07, `feature/sun-display-polish`).** The original 4-band discrete fill (hard colours + nearest-neighbour scaling) read as blocks. The overlay now renders a **continuous cool→warm ramp** — Qt-free `core/heatmap_render.py::build_sun_lut` (deep indigo in shade → amber/pale-yellow in full sun; alpha fades out toward full sun so a good spot shows the garden through) drawn with `SmoothTransformation` — plus **topographic contour lines every hour** (pure-numpy marching squares `iso_segments`, drawn as cosmetic-pen `QGraphicsPathItem`s that follow the terrain) with **even-hour `{n} h` labels** (`QGraphicsSimpleTextItem` + `ItemIgnoresTransformations`, the dimension-line idiom — zoom-stable). The labeled contours are the key, so the toolbar swatch legend is removed. **Display-only**: the aggregation, the toy-case gates and the worker are unchanged; contour extraction is cheap GUI-thread work after the compute. The horticultural bands (`BAND_THRESHOLDS_MINUTES`) stay as the domain classification the even-hour contours align with.
+
+### ADR-037 addendum — the sun map's key, its labels and what is painted with it (#794, #793; 2026-11-10)
+
+**Status**: Accepted (2026-11-10), decisions 1, 3 and 6 pending the owner's confirmation; amended the same day after the second review of the 2D branch — the day's format in decision 1 and the invariant of decision 7 are that round's, and what decision 7 does to a narrow sunlit gap is pending the owner's confirmation too | **Context**: issue #794 (the hours-of-sun map in the 2D plan: no legend, labels cut by plants, blurred badges, time-of-day shadows over the map) and the last point of #793 (the shadow's soft edge shows as bands when zoomed in). Mechanics: §8.9.18.
+
+**1. The map has a key. This revises "the labeled contours are the key" of the addendum above.** A number on a contour says what the line is; it does not say what a colour is, and between two contours the colour is all there is. The key is a bar of the map's tints from no sun to sun all day, a mark at every contoured hour, numbers at the numbered hours, and a title with the day — written as every label, card and legend of the application writes a date (`core.i18n.format_short_date`: day, month name, year, in the UI language), not in ISO, which is for a date field, a file and the Agent API (until the second review the title wrote `2026-06-21`). What it shows is derived from the tables the map is drawn from (`core.heatmap_render.sun_legend`); there is no second colour table and no second "which hours are numbered" rule, and a unit test searches the sources for one. The bar shows the tints on the bare plan's colour: the map is translucent, so on a lawn its colours are the lawn's too — no key can show that, and an opaque map (which could) would hide the garden the map is read against. *Rejected*: a swatch legend in the toolbar (removed in 2026-07 for good reason: it is not on the picture and not in an export); discrete hour classes (the map is continuous since the 2026-07 redesign; the horticultural bands stay the domain classification the even contours align with).
+
+**2. Where the key lies.** On the canvas it is drawn by the view over the viewport, bottom left, in the strip the scale bar stands in — the one strip every overlay widget already keeps clear, and the margin a fitted plan leaves. It is not a scene item there: a key at a place in the plan is out of sight as soon as the user zooms into the map, which is when it is needed. Zoomed in it lies over the plan as the scale bar does; where the view is too narrow it loses its title, then moves one strip up, and is left out rather than drawn over the scale bar or the minimap. *Rejected*: a widget in the toolbar or the status bar (off the picture; "Map: date" is already there); a panel with a backing (the scale bar beside it has none; the halo is the canvas's one answer to "readable on any ground", §8.9.15).
+
+**3. A picture of the plan with the map on carries the key** — PNG, SVG, the PDF report, print and the Agent API's `render_canvas_image` alike, because all of them already carry the map (FR-SUN-05: "it appears in exports while shown"), and a map without its key is a picture of colours. It lies inside the picture, in the plan's south-west corner, over whatever the plan holds there: a picture of the plan is exactly the plan, and a strip added for the key would change the picture's size and the pixel-to-plan mapping the Agent API documents. It is a scene item that the export seam shows for the render only (`ExportService._hide_overlay_items`, now the one place for what a picture leaves out AND puts in), and a `HaloTextItem`, so it is sized by the same step that sizes every other constant-size text of that picture. Consequences: a bed-detail page of the PDF report and a tile of a scaled printout show the key only if they show that corner; the minimap and the canvas never show it. *Rejected*: painting the key from each export path (five call sites, the arrangement §8.9.16 was written against); painting it from the scene's foreground hook (it would be in the minimap and in every print tile).
+
+**4. The hours on the contours are labels of the plan.** They were scene items under every plant and object, with a halo made of a second, wider copy of the text: on the family-garden example 32 of 64 had less than nine tenths of their glyphs visible. They are `PlanLabelItem`s without an owner now — the one halo, painted after every item, left out where two labels would touch — and rank below every object's own labels: where an hour and a name compete, the name stays. They are *placed* off plants and objects and off the plan's edge, for the zoom at which the plan fits a window; a contour that is covered all the way gets no label, because a number over a tree's crown names a line nobody can see there. After: 40 of 41 painted (one left out by the label pass), none cut, contrast 12.4:1 at least and 13.2:1 in the median, measured with the suite's own instrument (before: 8.4:1 in the median of the 32 uncut ones, the worst of them counted as unreadable). *Rejected*: raising the old items above the plants (two halos, no declutter, numbers on crowns); a paint-time test of every label against every object (the label pass runs on every repaint).
+
+**5. While a map is shown, the time-of-day shadows are not painted.** The issue reads "the shadows stay on top of the map". They do not — the map's z is -450, the overlay's -500, since US-E4. But the map is translucent (alpha 32 where the ground is sunny all day), so the overlay showed *through* it: 33.5 % of the viewport's pixels changed with it on the family-garden example at 15:00, by 61 of 765 on average, and a 14-hour spot took a 6-hour spot's colour. Drawing it "under" the map is therefore what the defect was. With a key beside the map that is a wrong reading, so the overlay is hidden while a map is shown, on the canvas and in exports. Only its picture: the shadows are solved and published as before, because the 3D view lays them on its ground (`drape_polygons`), which itself shows one of the two at a time (`DrapeMode`). There is one toggle in the user's hands, "Hours of Sun"; the shadows are permanent since ADR-062, so no label is contradicted — but the time slider and "Animate" move nothing in the 2D plan while the map is on. *Rejected*: an opaque map; composing the map without the instant's shadow by subtraction (the overlay is under it, not in it — nothing to subtract).
+
+**6. The sun-mismatch badge stays out of every picture of the plan** (the decision of #786 and FR-VIS-09, confirmed here: it is a warning about the plan, not part of it) and is drawn for the painter that shows it. It was a 24-pixel pixmap scaled with its plant and enlarged up to 19 times on the example, nearest neighbour. It is painted through the rule of every canvas bitmap now (§8.9.14), from the icon's vector, so there is no second rasteriser.
+
+**7. The shadow's soft edge is a field.** Four stacked strokes are four flat bands (1.25 to 2.5 cm wide), and the innermost was 15 levels darker than the shade it edged; more strokes are more bands and more cost (the strokes were 95 % of the overlay's paint). The edge is a blurred raster of the shade read as a distance and mapped to a linear falloff from the shade's own tone to nothing at 7 cm — the reach the strokes had, and half the tone on average as they had (0.51). The shade's geometry is not touched: the full tone is the outline's fill to the pixel, and the 2D-3D shadow agreement and the golden caster tests are unchanged. Largest step of the falloff, of 97 levels: 29 → 15 at 100 %, 35 → 8 at 200 %, 39 → 4 at 400 %, 35 → 2 at 1000 %; flat runs of three pixels or more inside it: 2-4 → 0. The exact paint costs less where it was dear (48 → 17 ms at fit on the family garden) and more where it was cheap (3.3 → 10 ms at 400 %); §8.37. An SVG holds the edge as an embedded picture now, not as stroke outlines (+0.4 to +0.6 MB on the two examples), and still no `<clipPath>`. **The edge is never darker than the shade** (second review): blurred coverage is a distance beside a straight edge only, and in an inside corner, in the cusp between two round shades, in a sunlit hole or a narrow sunlit gap the first version painted sunlit ground up to 41 of 97 levels darker than the shade beside it. The falloff's weight is therefore clamped to the shade's own tone where the ground is painted, after the enlargement, at the device's resolution (a mask added to itself with saturation); where the shade has regions of different tone (#698) the limit is the darkest shade within the blur's reach, and beside one region alone that region's tone. What a concave place shows instead is the shade's own tone: an inside corner is rounded by the reach, and a sunlit gap between two shades is filled by the two edges that meet in it — measured in its middle: the shade's full tone up to a gap of 4 cm, 0.82 of it at 6 cm, 0.42 at 10 cm, nothing from 14 cm on (twice the reach). That is what a 7 cm soft edge on both sides of a gap means, but a gap of 4 cm that the geometry says is lit is painted as shade, so it is the owner's to confirm. The geometry, the solves, the 3D drape and the hours-of-sun map are untouched by it. Cost: 11.9 → 12.3 ms at 100 %, 8.2 → 9.5 ms at 400 %, 4.6 → 5.7 ms at 1000 % for the exact paint into 1149 × 821 pixels (§8.37). *Rejected*: clamping on the lattice — the cells the shade does not cover (a cell's width of too-dark ground is left along every concave outline: 29 levels in an 8 cm hole) or every cell (every falloff then starts under the shade's tone: a step of 3 levels and three flat pixels at 1000 %, a band again); more strokes; `QGraphicsEffect` blur (the scene avoids effects; it would blur the shade's own edge); a clip instead of cutting the shade out of a layer (`QSvgRenderer` ignores a clip, PF-CAN-53); three blur passes (half as dear again, no closer to the linear falloff).
+
+**Not decided here** (#830, the owner's): the parasol as a raised canopy, what glasshouse glass transmits, and the 0 h cell under every plant — which is why contours still crowd round every solid.
 
 ### ADR-037 addendum: base stacking in the shared caster model (Phase 17, L1.6)
 
@@ -2651,9 +2677,9 @@ for degenerate polygons. The identity above is exact and needs no branch.
   (`tests/unit/test_roof_tile_orientation.py`).
 
 **Preserved deliberately.** The two-sided `setClipPath` + oversized `drawRect`
-shape is load-bearing: Qt does not serialize the painter clip into SVG, and
-`ExportService._fix_svg_qt_texture_clipping` pairs each shadow group with the
-next texture group 1:1 (§11.4). Only the brush assignment changed.
+shape was kept; only the brush assignment changed. (At the time the SVG export
+depended on that shape through a post-processor; since #787 it does not — the
+export records clips and brush transforms below the painter, ADR-076.)
 
 **Testing note.** Correlating the real 256 px tile texture was tried first and
 had **no discriminating power** (peak correlation ~0.03 either way, and the
@@ -5110,6 +5136,44 @@ assertion after every iteration. Fourteen must be caught and two must pass (a di
 `needs` graph, and a comment that changes no configuration) — the passing controls are what
 distinguish a working pin from one that fails everything. Run it after touching the matcher.
 
+### ADR-042 addendum: a detail tile per texture, 2 px per cm (issue #785, 9 November 2026)
+
+**Context.** A fill texture is a 256-px tile spanning 2.56 m: 1 texture pixel per
+centimetre, the forge's contract. Above 100 % zoom — the balcony and raised-bed
+examples open at 291 % and 340 % — and in a 300-dpi export that tile is enlarged
+by the painter, and the fills are soft beside vector outlines. #785 makes every
+bitmap follow the painter's resolution (§8.9.14); a sprite is a vector and can
+be rasterised at any level, a texture has only the pixels it ships.
+
+**Decision.** Each texture ships a second tile, `resources/textures/x2/<name>.png`:
+**the generator's own 512-px canvas before the box downsample that makes the
+256-px tile.** No recipe changes and no recipe knows about it; the 256-px tile
+is, by construction, its 2 × 2 box average, and stays byte-for-byte what it was.
+`core.fill_patterns.brush_for_painter` uses the detail tile when the painter
+shows more than 1 px per cm, under a brush transform scaled by one half, and the
+256-px tile otherwise — at 100 % zoom and below a fill is painted exactly as
+before. The detail tile is tinted with the 256-px tile's mean luminance, so the
+two levels are one picture.
+
+**Alternatives, with what was measured.**
+
+| Option | Sharpness above 100 % | Bytes | Why (not) |
+|---|---|---|---|
+| Keep 256 px, smooth filtering (status quo) | texture pixel = zoom px; gradient energy 1.0 | 0 | this IS the defect |
+| **512-px detail tile from the painter's canvas (chosen)** | gradient energy x1.4-3.0 (median 1.6; water and stone, smooth by design, 1.15); a texture pixel is sharp to 200 % | **+5.17 MB** (24 files; the 256-px set is 1.70 MB) | zero recipe risk, same pixel gate, same seams |
+| 1024-px tile (4 px per cm) | sharp to 400 % | about +15-18 MB (extrapolated, not built) and 4 MB per tinted tile in memory | the recipes are not supersample-independent: `fine_grain` draws `(C/2)^2` random numbers, so another supersample factor shifts every later draw and changes the picture; needs a recipe audit and an owner sign-off of 24 new looks |
+| Sharpen an enlarged tile at run time | edges crisper, no new detail | 0 | invents halos; "sharp but wrong" |
+| Coarser tiles (box averages) below 100 % | n/a - zoomed out | 0 | built and measured: removes moire (rms against the area average 12.3 -> 5.5 at 30 %) but lowers the contrast a texture reads by (luminance spread at 10 % 18.1 -> 6.5, under the #503 guard's floor of 8). A change of look at the owner's working zoom, left out: `raster_resolution.MIN_LEVEL` |
+
+**Consequences.** Fills are twice as fine, not unboundedly fine: at 1000 % a
+texture pixel still covers 5 screen pixels, where a sprite is exact. The 24
+detail tiles are generated, gated (`--check`, `TestDetailTiles`, tileability)
+and recorded in `PROVENANCE.md` like the tiles they come from. The 3D ground bake
+keeps the 256-px tile (its grid is 1 px per cm at most). The SVG export records
+the plan in 1/300-inch units (ADR-076), so above 1 unit per cm it embeds the
+detail tile, as a 300-dpi PNG does. Tinted detail tiles are cached per
+(pattern, colour) within 48 MB.
+
 ### ADR-042 addendum: the runtime tint becomes a luminance map (issue #502, 16 October 2026)
 
 The forge's tint-readability band was written for a tint that could not do the job.
@@ -6470,26 +6534,29 @@ only, and correct their heights with a fit after the fact.
   | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
   | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | hot tub | 1.00 / 0.85 / 0.60 | 1.00 / 0.85 / 0.60 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
-  | swing | 0.17 / 0.16 / 0.15 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | shape and porosity vs solid 2D prism |
-  | hammock | 0.21 / 0.26 / 0.30 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | shape and porosity vs solid 2D prism |
+  | swing | 1.00 / 1.00 / 1.00 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | hammock | 1.00 / 1.00 / 1.00 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | open frame (#698 weighted 2D area; IoU vs solid prism) |
   | compost bin | 0.93 / 0.94 / 0.89 | 0.93 / 0.94 / 0.89 | -0.8 / -0.8 / -0.5 | shape and porosity vs solid 2D prism |
   | cold frame | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
   | rain barrel | 0.81 / 0.79 / 0.76 | 0.81 / 0.79 / 0.76 | -20.1 / -10.9 / -7.5 | shape and porosity vs solid 2D prism |
   | water tap | 0.64 / 0.63 / 0.61 | 0.64 / 0.63 / 0.61 | -6.0 / -6.0 / -6.0 | shape and porosity vs solid 2D prism |
   | wheelbarrow | 0.44 / 0.45 / 0.46 | 0.44 / 0.45 / 0.46 | -22.0 / -22.0 / -22.0 | shape and porosity vs solid 2D prism |
   | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
-  | pergola | 0.28 / 0.32 / 0.36 | 0.28 / 0.32 / 0.36 | -16.7 / -7.5 / -3.8 | shape and porosity vs solid 2D prism |
-  | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
-  | garden light | 0.21 / 0.28 / 0.37 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | shape and porosity vs solid 2D prism |
+  | pergola | 0.99 / 0.99 / 0.99 | 0.28 / 0.32 / 0.36 | -16.7 / -7.5 / -3.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | trellis | 1.00 / 1.00 / 1.00 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | open frame (#698 weighted 2D area; IoU vs solid prism) |
+  | garden light | 1.00 / 1.00 / 1.00 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | open frame (#698 weighted 2D area; IoU vs solid prism) |
 
   Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
   (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
   addendum from the owner's manual test), so it has no row.
   The script uses each new case's production default height, its stated footprint
-  in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
-  and pergola shadows are porous geometry; the analytical 2D caster remains a
-  solid prism (ADR-065). The table records that deliberate difference, rather
-  than changing analytical sun estimates to match decoration.
+  in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. The five OPEN
+  FRAMES — pergola, trellis, swing, hammock, garden light — are weighted by their
+  transmittance since #698 (the ADR-059 / ADR-070 addendum on open frames): their
+  ratio column is 3D against the WEIGHTED 2D prism, and their IoU column still
+  shows how little of the prism the frame shades. Every other object stays a
+  solid prism; the mostly-air ones among them by recorded decision
+  (`core.object_height.SOLID_2D_DECISIONS`).
 
   The four reasons: **(1) nominal section** — a polyline's stroke is a line weight (fence 3 cm,
   wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
@@ -6540,8 +6607,10 @@ only, and correct their heights with a fit after the fact.
   **Porous fences (answered by #440):** the 2D sun study no longer treats a chain-link, metal or
   picket fence as a solid strip — #440 weights it by its angle-dependent structural transmittance
   (the ADR-037 / ADR-048 addendum on the unified geometry-aware caster path), and projects a
-  building's roof and walls; the other open objects in this table still cast a solid prism
-  (#698).
+  building's roof and walls. **Open frames (answered by #698):** a pergola, a trellis, a
+  swing, a hammock and a garden light are weighted the same way, by the share of their prism
+  their own members shade (the ADR-059 / ADR-070 addendum on open frames); a parasol, a
+  greenhouse and the low furniture stay solid prisms by recorded decision.
 - A HOUSE's fill colour tints its WALLS in 3D; in 2D it tints the roof texture (a 31 % overlay).
   And the tint rule is uneven for hedges: a hedge POLYGON is baked in the hedge texture's greens
   and ignores a recolour, while a hedge FENCE is tinted with the item's stroke. Both follow what
@@ -9715,7 +9784,8 @@ soil tests for known bundled paths, including locale variants authorized by thei
 canonical sidecar. Coordinates describe public northern-hemisphere cities, not a
 private garden. Soil and frost dates are explicitly fictional teaching inputs.
 External templates and every template export still use the strict portable subset.
-No history exemption is added. The load path, untitled identity and Save As remain
+No history exemption is added (*one was added for the fictional harvest history:
+#795 addendum below*). The load path, untitled identity and Save As remain
 unchanged. Observed-failing load tests pin the demo-state exception and the
 same-filename external refusal in `test_example_demo_state.py`.
 
@@ -9729,7 +9799,8 @@ unchanged translated field preserves the exact raw list. This prevents an
 unrelated property edit from rewriting species metadata in the UI language.
 
 The 21 September 2026 teaching date is explicit in notes, never silently installed
-in SimClock. Mature perennials have historical planting dates and nursery-size
+in SimClock (*superseded by the #795 addendum below: an example opens at its
+date*). Mature perennials have historical planting dates and nursery-size
 anchors. Spacing is measured against actual plant circles and the shipped 2D bed
 sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
 describes nearby plants, while missing roles remain honest diagnostics. Production
@@ -9741,13 +9812,125 @@ The fourth example, `family-garden`, is not a teaching plan: it is the plan of e
 (`tests/fixtures/plans/bench_small.ogp`), shipped at the owner's request and the subject of the
 project's visual material. It is built by the same `make_bench_plans.build_small` and keeps the
 fixture's item ids, because a plant's procedural shape is seeded by its id; a test fails when the
-two drift. It keeps the fixture's layout and its 6 to 10 cm path widths. One difference: what takes
+two drift. It keeps the fixture's layout and its 6 to 10 cm path widths (*the widths, the
+place of four objects and the cherry's age are superseded by the #795 addendum below*). One
+difference: what takes
 a year or more to mature is planted on 1 March, not on the fixture's 15 April, so a default
 time-lapse shows the birch leafing out instead of popping in (949 cm against the fixture's 929 cm
 on 21 June). It needs no
 tutorial annotation or soil sample (the teaching plans' gates keep theirs), and its botanical
 fields stay canonical in `de/` and `es/`: the localizer now translates only a species' common
 name, since "Iris" is both a plant's name and a genus.
+
+### ADR-066 addendum: examples open in a showcase state (#795)
+
+**Date:** 2026-11-10. **Status:** built for the visual-polish package; the decisions marked
+*owner* wait for the owner's confirmation.
+
+**Context.** The 2D survey for the promo material found that an example opened in the evening is
+drawn at night, on today's date; its Harvest and Seed Inventory tabs are empty; Plant Details show
+a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in prose only.
+
+**Decisions.**
+
+1. **An example opens at its own moment** *(owner; supersedes "never silently installed in
+   SimClock" above and "Neither opening a demonstration ... changes SimClock" in the runtime
+   view)*. The sidecar names it: `showcase_date` (the reference date) and `showcase_utc_time`.
+   `core/showcase_moment.ShowcaseMoment` writes the one `SimClock` when `_load_project_file` has
+   loaded a shipped example as a template. It is not a clock: it holds one remembered reading.
+   Both the date and the time are set. The time alone would leave today's date, on which the
+   plants of an example are a season older or, before their planting date, absent (ADR-062).
+2. **The user's reading comes back when the example stops being the document** *(owner)*.
+   New, Open and a recovery put the clock back to the wall reading the user had before the
+   first example, also when the user scrubbed inside the example: a date picked while looking
+   at an example belongs to the example. **A successful Save or Save As of the copy ends the
+   showcase too** *(owner; review round 1, replaces "Saving the copy changes nothing on
+   screen")*: the copy is the user's file from then on, so the clock returns to their reading,
+   the held reading is dropped, and the status bar says that the plan now follows their own
+   date and time. The reason is the plan-date rule (ADR-062): a new plant is stamped with the
+   date the clock shows. With the showcase left running, a plant added to the saved plan in
+   November was planted on 21 June, and a clock setting the user made in their saved plan was
+   replaced by the older remembered reading when the next document opened. Now a clock setting
+   made after the save is the user's and no later document replaces it. `ShowcaseMoment`
+   forgets the reading before it writes the clock, so a raising listener cannot leave one
+   behind. The agent's `save_plan` ends the showcase through the same
+   `GardenPlannerApp._end_showcase_after_save`; an autosave and "Save as template" do not,
+   because neither makes the open document the user's file, and a recovered autosave opens at
+   the user's reading like any document that is no example.
+   **What a file can carry**: the moment itself is never persisted, in settings or in the plan
+   (ADR-062: the viewed date is never saved), so a saved copy opens at the user's "now". A
+   plant the user adds while the copy is still UNSAVED is planted on the example's date,
+   because that is the date on screen, and it keeps that planting date in the saved file.
+   That is accepted: the example's own plants carry the same dates.
+   **Order of the writes**: the showcase writes the clock as the last step of a document
+   change, after the history, the autosave, the layers panel and the status bar are the new
+   document's, because `SimClock` re-raises a listener's error (ADR-053). A camera tour that
+   moves the clock holds a reading as well. The showcase is the outer holder and the tour the
+   inner one (`core/showcase_moment.InnerClockHold`): when the document changes under a
+   running tour (only an agent can do that), the showcase takes the user's reading from the
+   tour's hold and not from the frame, and re-bases the hold after its write, so the tour's
+   finish returns the clock to the document that is open then.
+3. **The moment is a UTC time of day on the local reference date**, applied with
+   `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock reads wall
+   time in the computer's zone; a wall-clock "13:00" is night over Berlin for a user in
+   Auckland. The plan date is the reference date in every zone, and the sun stands where it does
+   at 13:00 in the example's own place (11:00 UTC, all four).
+4. **Example copies keep a fictional harvest history** *(owner; supersedes "No history exemption
+   is added" above for this one field)*. `EXAMPLE_DEMO_FIELDS` is `location`, `soil_tests`,
+   `harvest_logs`. The records sit on one plant per species, lie between planting date and
+   reference date, carry the canonical species key (ADR-016) and say in their note that they are
+   fictional. Journal notes, tasks, pest logs and every other history stay stripped; a template
+   that is not a shipped example keeps none of the three.
+5. **The seed inventory stays empty** *(owner)*. It is the user's cross-project store; an example
+   must not write user data, and a per-example fake inventory would need a second store. The
+   empty tab now explains itself.
+6. **Plant Details draw the plant.** A species without a photo shows its canvas sprite through
+   the existing `render_plant_pixmap`. No third-party image is added (asset provenance).
+7. **The cover title.** `ProjectManager.display_name` (#788) already titles a report with the
+   example's name. Added: the base copy, which serves every language without a translated plan,
+   is named in the interface language when the sidecar has that name (Russian).
+8. **Path widths** *(supersedes "its 6 to 10 cm path widths" in the showcase addendum)*. The
+   showcase's "Gravel path" is 80 cm and its "Stepping stones" 50 cm. Only the example changes:
+   the bench fixture keeps its widths, and the test that holds the two together compares
+   geometry, ids, names and species, not stroke widths.
+   **What stood in the widened walk moved out of it** *(review round 1; supersedes "keeps the
+   fixture's layout" for four objects)*. As a 50 cm walk the stepping stones ran over the bird
+   bath (48 % of it), a chrysanthemum (43 %) and a geranium (8 %). The bird bath stands at
+   (620, 450), east of the walk; in the perennial border the geranium is at x 612, the
+   chrysanthemum at x 746 and the lily at x 811 (it makes room for the chrysanthemum). The
+   path's points do not move, because test data is pinned to them, and the fixture is
+   untouched: the generator moves the four items (`FAMILY_MOVED_CM`), and the test that
+   holds example and fixture together lists the four centres. The walk still crosses the
+   perennial border bed, which is the ground it is laid through, like the lawn and the
+   terrace. The birch's crown reaches over the gravel path; its trunk is a metre from it.
+   **The cherry is a tree of several years** *(review round 1)*. It has 6.5 kg of harvest
+   in June 2026 and was planted on 1 March 2026 like every established plant. It is now
+   planted on 5 November 2022 as a nursery tree (1.5 m tall, 1.3 m crown: the growth model's
+   low end is the size at planting). On the reference date its crown is 373 cm as before
+   and it is 640 cm tall, where it was 511 cm. Every other harvest entry of the four examples
+   was checked against its plant's age (`test_a_harvest_fits_the_age_of_the_plant_that_gave_it`):
+   none needed a change.
+9. **A seasonal 2D look is not built.** Trees in full leaf on 21 December are a project of their
+   own; a follow-up issue carries it.
+10. **Unevaluated sun rows fold in the panel.** With Hours of Sun off, every plant with a known
+    requirement has a `sun_evaluation` record; the Diagnostics panel listed 61 / 114 / 174 / 14
+    identical rows for the four examples. The panel shows the records of one reason as one row
+    that counts and selects them. Switching the map on for an example was rejected: it paints
+    the plan and changes the user's opt-in. The records, and so the Agent API, are unchanged.
+11. **The generator is the only author.** Regenerating an unchanged tree moved the balcony
+    chairs, changed one Spanish name and dropped the Russian attribution. `example_content` is
+    the one place the shipped data comes from; `--check` and
+    `tests/integration/test_example_generation.py` compare the files with it.
+
+**Rejected.** A sim date saved in the plan (ADR-062 rejects a persisted viewed date); a second
+clock for examples; restoring the reading only when the user had not touched the clock (the
+tutorial's own "set 17:30" step would then carry 21 September into the user's next plan); a
+wall-clock time in the sidecar; a harvest history on beds (a bed's history has no species key
+and would show the bed's name as a species).
+
+**Evidence.** `tests/integration/test_example_showcase.py`, `tests/unit/test_showcase_moment.py`,
+`tests/unit/test_example_content.py`, `tests/integration/test_example_generation.py`,
+`tests/integration/test_example_demo_state.py`.
 
 ## ADR-067: Release download statistics without telemetry
 
@@ -9918,7 +10101,9 @@ A13 (#465) must describe continuity without assigning privileges.
 2. **Static boundary enforcement.** `check_import_boundaries.py` checks eager
    module/class imports, including relative imports, conditionals and try blocks.
    Local and `TYPE_CHECKING` adapters remain permitted. The exception baseline
-   is empty. The permitted layer graph is acyclic; this does not claim that all
+   is empty. Since #792 it also follows the eager imports of the modules listed
+   in `QT_CORE_ONLY` and fails when one reaches `QtWidgets` or `QtGui` (a parent
+   package's `__init__` is not followed). The permitted layer graph is acyclic; this does not claim that all
    deferred runtime imports are cycle-free or that dynamic imports are analyzed.
 3. **Extract responsibilities through composition.** `ClipboardOperations`,
    `DragConstraints`, `PropertyEdits` and `AgentHost` have an explicit typed host.
@@ -10470,8 +10655,8 @@ the garden's life, a new plan's forecast and the 3D lights, and changed two thin
    `casts_2d_shadow` is the one rule: the caster walk (`collect_identified_casters`, and
    with it the overlay, the hours of sun and the plants' sun estimates) leaves the string
    out, and its record says `has_2d_caster` False. Its 3D model keeps the thin shadow of its
-   posts and wire. ADR-059's table has no row for it. #698 stays open for the other open
-   objects.
+   posts and wire. ADR-059's table has no row for it. #698 stayed open for the other open
+   objects; they are answered in the addendum on open frames at the end of this ADR.
 3. **The 3D strip's menu buttons read as buttons.** "Wetter: Klar" was not found: a
    text-only `QToolButton` that only opens a menu has its arrow drawn under its last letter
    by the app's style, and reads as a label. The Weather and the Analyze buttons carry the
@@ -10550,6 +10735,162 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
 
 Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
 clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).
+
+### ADR-059 / ADR-070 addendum — open frames are weighted, not solid (#698, 2026-11-09)
+
+**Status**: Decided in the visual-polish package on #440's precedent; **the owner may veto**
+(per kind: move its name from `OPEN_FRAME_TYPE_NAMES` to `SOLID_2D_DECISIONS`, with the
+reason; the rows of the shadow table follow) | **Context**: issue #698. The
+owner's part of it — a string of lights — was answered in the addendum above (no 2D
+shadow). This is the rest.
+
+**Context.** The 2D sun study casts every object as its footprint prism. For five kinds
+that prism is mostly air: a pergola, a trellis, a swing, a hammock and a garden light shade
+15–39 % of the ground their prism shades (the table below). The shadow overlay drew them as
+slabs, the hours-of-sun map put the ground under a pergola in full shade all day, and a
+runner bean tied to a trellis read 0 h of sun and wore a "too little sun" badge.
+
+**Decision.**
+
+1. **Five kinds are OPEN FRAMES** — `core.object_height.OPEN_FRAME_TYPE_NAMES`: `PERGOLA`,
+   `TRELLIS`, `SWING`, `HAMMOCK`, `GARDEN_LIGHT`. An open frame's 2D caster keeps its
+   footprint prism — that is where its shade can fall — and carries a **transmittance**:
+   `1 − A(frame) ÷ A(prism)`, the ground shadow of the frame's own solid members over the
+   ground shadow of the prism, **for the sun of the moment**
+   (`core.shadow_geometry.open_frame_transmittance`). The shade the 2D model reports,
+   area times depth, is then the frame's real shadow area.
+2. **Nothing is tabulated.** The members are the 3D builder's own, read as #440 reads a
+   pitched roof's triangles (`core.scene3d.builders.open_frames`): a pergola's are the 22
+   boxes of `core.pergola.layout` — the one layout its 2D picture and its 3D timber come
+   from — and the other four kinds' are the shadow-casting parts of their production
+   builder, built for the item's own footprint and height. So the weight follows the item's
+   size, its height, its turn and the sun's elevation and azimuth. A table of shares per
+   kind was rejected: the members' sizes are capped, so the share falls as the item grows
+   (a pergola: 0.32 at 3 × 3 m, 0.24 at 6 × 4 m, both at a 35° sun from the south), and it
+   moves with the sun (a trellis 2 m long: 0.34 square to a 35° sun, 0.47 at 75° off it).
+   Over the sizes, elevations (8–78°) and azimuths the unit test sweeps, the weight ranges
+   0.22–0.47 for a pergola, 0.19–0.70 for a trellis, 0.10–0.25 for a swing, 0.18–0.37 for a
+   hammock and 0.13–0.45 for a garden light.
+3. **One place, one hook.** The caster walk (`collect_identified_casters`) gives an open
+   frame's `IdentifiedCaster` its members as `frame` (`core.shadow_geometry.OpenFrame`);
+   `caster_transmittance` — #440's hook — reads them. The overlay, the 3D analysis drape,
+   the hours-of-sun grid and the per-plant estimates all ask that hook and nothing else;
+   for a plant on raised soil the frame is cut at the plant's plane like every other
+   caster. Where the 3D builder has no frame for a footprint and builds its plain block (a
+   round pergola), the 2D caster is the solid prism too.
+   **A frame is kept in the item's own coordinates, its turn beside it** — not posed into
+   the scene. What a frame lets through depends on the sun's bearing relative to it, not
+   on where it stands: every identical item is handed the very same `OpenFrame` object,
+   is weighed once per sun position and gets the very same number, so a row of garden
+   lights is ONE region for the overlay and the map, not fifty a hair apart.
+4. **Every mostly-air kind has a recorded decision.** Eleven more object kinds shade less
+   than half of their prism at one of the table's elevations and stay SOLID —
+   `SOLID_2D_DECISIONS`, each with its reason: the tables, the picnic table, the trampoline,
+   the bench and the chair (a solid top or seat on legs, at most 90 cm up), the grill, the
+   wheelbarrow and the bird bath (one compact body smaller than its footprint), the
+   **parasol** and the **greenhouse**. None of them is a frame: their surplus is SHAPE, and
+   a transmittance would smear a shade that is dark in one place and absent in another. A
+   test holds every object kind whose 3D model is mostly air to one of the three lists
+   (open frame / solid by decision / no 2D shadow), so a new open kind cannot become a
+   solid prism by being forgotten.
+5. **The overlay edges a light shade lightly.** The overlay's soft edge was stroked at the
+   strength of the DARKEST region on the plan, so beside a house a swing's shade (alpha 20
+   of 255) wore a rim six times darker than itself — an outline round a shadow. Each
+   weighted region is now edged at its own strength. This also changes how a porous fence's
+   shade is drawn beside a solid's (#440).
+
+**Measured** (`scripts/measure_built_world_shadows.py`; one item of the stated footprint at
+its default height, the sun due south, at 15° / 35° / 60°):
+
+| Kind (footprint, height) | 3D shadow ÷ 2D prism | Transmittance | 3D ÷ weighted 2D |
+|---|---|---|---|
+| pergola (300 × 300 cm, 250 cm) | 0.28 / 0.32 / 0.36 | 0.71 / 0.68 / 0.64 | 0.99 / 0.99 / 0.99 |
+| trellis (200 × 20 cm, 180 cm) | 0.32 / 0.34 / 0.39 | 0.68 / 0.66 / 0.61 | 1.00 / 1.00 / 1.00 |
+| swing (200 × 150 cm, 220 cm) | 0.17 / 0.16 / 0.15 | 0.83 / 0.84 / 0.85 | 1.00 / 1.00 / 1.00 |
+| hammock (300 × 120 cm, 110 cm) | 0.21 / 0.26 / 0.30 | 0.79 / 0.74 / 0.70 | 1.00 / 1.00 / 1.00 |
+| garden light (radius 20 cm, 110 cm) | 0.21 / 0.28 / 0.37 | 0.79 / 0.72 / 0.63 | 1.00 / 1.00 / 1.00 |
+
+The last column is the issue's gate — within 10 %, as #440 held fences — and it is the
+ratio column of the builders addendum's table for these five rows. It is 1.00 where the 2D
+model reads the very mesh the measurement projects; the pergola's 0.99 is the layout's
+plain boxes against the chamfered timber. The gate is not trivially met for that reason:
+the measurement unites every triangle of the mesh in its own code, and
+`tests/unit/test_open_frames.py` holds the 2D weight to it within 0.02 over three sizes,
+five elevations and seven azimuths per kind. The table's reach column is unchanged: an
+open frame's shade still ends where its prism's does, 4–71 cm further than the frame's
+real shadow (a swing's top beam is mid-frame).
+
+**What changes for existing plans.** No file-format change; a plan with one of the five
+kinds shows more sun under and behind it the next time the map is computed. On the bundled
+examples, hours of sun per 10 cm cell, before → after:
+
+| Plan (open frames) | Day | Cells changed | Largest gain | Mean gain, changed cells | Mean, all cells | Plants changed (largest) |
+|---|---|---|---|---|---|---|
+| family-garden (pergola, trellis) | 21 June | 14.1 % | +6.9 h | +1.1 h | +0.16 h | 8 (+3.2 h) |
+| | 20 March | 14.5 % | +4.5 h | +0.7 h | +0.10 h | 15 (+2.7 h) |
+| | 21 December | 3.9 % | +1.2 h | +0.2 h | +0.01 h | 6 (+0.4 h) |
+| food-forest (trellis) | 21 June | 1.9 % | +5.2 h | +0.9 h | +0.02 h | 4 (+4.4 h) |
+| | 20 March | 3.8 % | +6.8 h | +0.7 h | +0.03 h | 6 (+6.1 h) |
+| | 21 December | 6.8 % | +3.0 h | +0.4 h | +0.02 h | 4 (+2.6 h) |
+| balcony, raised-bed (none) | all three | 0 | 0 | 0 | 0 | 0 |
+
+**Four sun-requirement diagnostics flip, all from "too little sun" to none:** in
+family-garden a cucumber (full sun) on 21 June, 3.8 h → 6.9 h, and a lettuce (partial sun)
+on 20 March, 1.5 h → 3.2 h; in food-forest two runner beans (full sun) at their trellis on
+20 March, 0.0 h → 6.1 h and 0.0 h → 5.0 h. None flips the other way. One or two cells of a
+plan read one sample (15 min) DARKER: a seam of #440's weighted path, which rasterises
+each weighted region on its own, where the solid path rasterised their union — not a model
+term. The balcony example holds a parasol and is unchanged.
+
+**Cost.** One weighing is one numpy projection and one clipper union of the members that
+face the sun: 0.4–2.2 ms a frame and sun (a pergola 0.9 ms, a hammock's cloth 2.2 ms), kept
+per frame, height and sun — the map does not weigh a sample twice, and identical items
+share the answer. Two costs of #440's weighted path showed once garden lights were on it
+(many small weighted casters, where fences are few), and both are changed here:
+
+- **The partition of the weighted shades clipped every pair** — 0.8 s a sun position at
+  500 lights. It now asks a clip only of two shades whose boxes overlap, with the boxes
+  made once and turned WITH THE SUN (every shade is swept the same way, so a long shade's
+  box is as narrow as its caster); a shade that meets no other is its own region without a
+  clip. The regions are the pairwise partition's (`tests/unit/test_open_frames.py` holds
+  them to it on random plans, at a high and at a grazing sun).
+- **A day's aggregation swept a weighted plan twice** — the grouped sweep for the plants'
+  estimates beside the weighted one for the grid. The weighted result holds every owner's
+  own shadow already, the very polygons (pinned), so it is swept once.
+
+Measured on the dev box (ratios; the machine drifts): one sun position with 50 / 200 / 500
+garden lights 4.3 / 22 / 76 ms solid → 6.4 / 24 / 72 ms weighted (before the two changes:
+36 / 240 / 1063 ms); their day's aggregation without rasterising 0.30 / 1.3 / 4.0 s solid →
+0.57 / 3.4 / 9.6 s (before: 3.4 / 26 / 137 s) — what is left is the grazing samples, where
+long shades really do overlap. A first open frame still puts a plan on the weighted path:
+food-forest's day map 1.5 s → 2.0 s, family-garden's (porous fences already) 2.3 s → 2.9 s.
+
+**Left as it was, and why.**
+
+- **Parasol** — a solid canopy on a pole, in the balcony example. Its 3D shadow is 24 / 41 /
+  60 % of its prism's, but not because light passes through it: the canopy's shade is dark
+  and lies AWAY from the pole at a low sun, where the prism shades the ground under the
+  canopy as well. A transmittance would put a quarter shade under the canopy all day, where
+  there is none in the morning and full shade at noon. The honest caster for it is a RAISED
+  one — the canopy as a slab at its own height, the base rule of L1.6 — which is a geometry
+  change #698 does not describe. Proposed as the follow-up; until then the prism, as before.
+  Measured for that follow-up: the footprint as a slab from the valance's lower edge to the
+  rim (185.6–193.6 cm on the default parasol) reads IoU 0.89 / 0.93 / 0.96 against the 3D
+  model where the prism reads 0.24 / 0.41 / 0.60; and it matters on a bundled plan — on the
+  balcony example (a 72 cm parasol, 230 cm high, on 5 × 3 m) the prism lowers the map's mean
+  on 21 June from 6.4 h without the parasol to 4.6 h, a raised canopy to 6.2 h.
+- **Greenhouse** — the 3D view casts its frame alone (the glass casts nothing: 23–30 % of
+  the prism), the 2D model the solid prism, so a tomato in a greenhouse reads 0 h of sun.
+  How much light a glasshouse takes is a question #698 does not ask.
+- **Low furniture** — at most 90 cm tall; the surplus is a strip `h ÷ tan α` wide beside
+  the piece.
+
+**Tests**: `tests/unit/test_open_frames.py` (the lists and the drift guard, the weight
+against the independent measurement, the turn, the weighted regions, the hours-of-sun grid,
+the plant estimate also on raised soil), `tests/integration/test_open_frame_shade.py`
+(§8.10: the caster walk on real items at three turns, the painted overlay against a solid
+twin, the soft edge, the heatmap worker, a pergola placed through the command stack and
+undone), `tests/unit/test_scene3d_shadow_agreement.py` (the five rows).
 
 
 
@@ -11308,3 +11649,298 @@ decided and what was rejected.
    PF-UI-36). The focused inline editor receives the same Esc first.
 5. **The minimap hides a selected group's descendants by opacity** instead of a flag
    (PF-CAN-48).
+## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
+
+**Status**: Accepted (visual-polish package, 2026-11-09)
+
+**Context**: every export paints the same `QGraphicsScene`, each through a different
+paint device, and each device had its own way of being wrong. The SVG of the
+family-garden example showed the roof texture over 70 % of the drawing; the PDF
+report's plan pages were 72-dpi bitmaps; a 1:50 printout painted shadows over its own
+footer; and every export forced one point size on text the user had sized on purpose.
+Measured on Qt 6.12: `QSvgGenerator` drops a brush's own transform and a pixmap's source
+rectangle, writes no clip in its default mode and a staircase for two stacked clips in
+SVG 1.1 mode, and `QSvgRenderer` ignores `clip-path`.
+
+**Decision**:
+
+1. **The SVG export records and replays.** The scene is painted into a recording
+   `QPaintEngine` (`services/svg_export.py`) and the recording is replayed into
+   `QSvgGenerator(Svg11)`. A clipped fill or stroke is written as geometry already cut
+   to its clip, a brush transform is moved into the world transform, a source rectangle
+   is cut out of its pixmap. Only a clipped picture or clipped text keeps a real
+   `<clipPath>`. Rejected: repairing the written file by pattern (the previous design —
+   it knew one painter's output and missed the next one); writing our own SVG
+   serializer (every pen, brush, gradient and text item the app paints would have to be
+   re-implemented, and a miss drops content silently); SVG 1.1 clips alone (staircases,
+   invisible to `QSvgRenderer`, and no answer to brush transforms).
+2. **An SVG is laid out at print resolution.** One user unit is 1/300 inch; `width` and
+   `height` state the requested size in millimetres. The painter's world transform
+   therefore carries the scale of a 300-dpi PNG, so a picture that rasterises itself for
+   the painter's scale is print-sharp in the SVG, and a constant-pixel-size label or
+   hairline is the size it has in that PNG. The generator's own resolution stays the
+   logical screen resolution, because that is what a font's size in user units has to
+   agree with.
+3. **SVG text stays text.** A designer who imports the plan edits a label, changes its
+   typeface, searches it; outlines would take all three away and multiply the file's
+   size. The cost is that glyph shapes and advance widths are the viewer's: measured in
+   headless Edge a note's run is within 1.6 % of the canvas. Every `font-family` names a
+   generic fallback (`'Segoe UI', sans-serif`), so a machine without the family shows a
+   similar face instead of the viewer's serif default. Rejected: converting text to
+   paths; embedding fonts (licences, size).
+4. **The PDF report's plan pages are 300-dpi pictures, not vectors.** The page is laid
+   out in points; each plan picture is painted into a `QImage` of 300 dpi and placed on
+   the page (`PLAN_RENDER_DPI`). Measured on the four bundled examples, every page type
+   on: 150 dpi 1.2–2.7 MB / 0.3–0.8 s, 200 dpi 1.8–4.0 MB / 0.4–1.3 s, 300 dpi
+   3.2–7.0 MB / 0.8–2.4 s. Rejected: painting the scene on the PDF painter. It would be
+   sharp at any zoom, but the painter's world transform would carry the page's 72 units
+   per inch, and everything that rasterises itself for the painter's scale — sprites,
+   texture tiles — would be 72 dpi inside a vector page; the earlier finding that a
+   pre-flipped painter is unreliable on a `QPdfWriter` (PF-CAN-10) also stands.
+5. **Only constant-pixel-size text is given a size for the output** (PF-CAN-08). A text
+   note is sized in plan units and scales with the plan. Notes and callouts are laid out
+   by their font's design metrics (`PreferNoHinting`), because a hinted layout is rounded
+   to the pixels of the note's nominal size and shows it once scaled; the report's own
+   text uses the same preference, for the same reason at 72 units per inch.
+6. **A `paint()` never replaces the clip it is handed** (PF-CAN-54), and a printout sets
+   its tile as an explicit clip.
+7. **A report section that needs more pages gets them.** `PdfReportService.plan_pages`
+   returns one entry per real page, so the page count, the progress callback and the
+   section titles ("Plant List – page 2 of 3") agree. Small beds whose detail frames
+   touch share one page; a frame has a minimum extent (150 cm), padding and a minimum
+   aspect ratio. The legend lists the object types and plants on the plan, each with a
+   sample painted by the item itself.
+8. **A plan has a title apart from its file name.** `ProjectManager.display_name` is the
+   file's stem, or — for a plan opened from an example or a template and not yet saved —
+   that template's title; `project_name` stays what default file names are built from.
+
+**Consequences**: the SVG fidelity test compares the rasterised SVG with the PNG export
+of the same scene (four bundled examples, a parametric roof, a glasshouse, a painter
+nobody taught about SVG) at a stated tolerance; a new painter needs no SVG knowledge.
+An SVG's pictures are embedded once per use, as before, and grow with their resolution.
+The report is three to eight times larger than at 72 dpi.
+
+Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
+FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
+
+**Addendum (issue #836, 2026-11-10) — follow-ups, each decided on a measurement**:
+
+9. **Every section of the report is cut into pages by `plan_pages`** (extends
+   decision 7). The Harvest Summary stopped at the foot of its first page (21 of 60
+   rows on A4 landscape) and the Garden Notes opened pages on the paint device that
+   nobody counted (19 pages written, a progress total of 16). Tables share
+   `_section_pages` and `_render_table_page`; the notes are laid out by `_notes_pages`
+   with the page's own metrics. Rejected: keeping the notes' own `newPage()` and adding
+   its pages to the count afterwards — the count would be known only after painting,
+   and the plan-date stamp `generate` adds would still reach the last notes page only.
+10. **The succession badge is plan content and is drawn to the picture's scale.** It
+    names the crops that follow in a bed. Measured before: 47 px tall in a 300-dpi
+    PNG (three lines in 4 mm), and on a 1200-dpi printout its text overprinted its own
+    box (PF-CAN-59). It takes the object labels' size through the one retarget seam of
+    decision 5. Rejected: hiding it through `_hide_overlay_items` like a diagnostic
+    badge — a succession plan is what the plan says, and a printed plan is where a
+    gardener reads it; a size of its own in exports (7/10 of a label's, as on the
+    canvas) — 4.5 pt on paper at 1:100.
+11. **On the canvas the badge has room or is left out.** It keeps a constant size, so
+    on a plan zoomed out it was larger than its bed. It is drawn where it lies inside
+    its bed's outline and covers at most a quarter of it
+    (`BADGE_MAX_OWNER_SHARE`), the rule a label follows (§8.9.15). It is painted in the
+    label pass, above the plants of its bed. Rejected: shrinking it with the zoom —
+    between "readable" and "gone" there is one zoom step, and it would be the only text
+    on the canvas that changes size.
+12. **A printout's margin is 10 mm, stated in millimetres, in one constant**
+    (`PRINT_MARGIN_MM`). The layout was built without a unit, which Qt reads as
+    points: 3.5 mm, below what most desktop printers print to, so the sheet could
+    differ from its preview; the Print Options dialog counted pages for 10 mm and no
+    legend (stated 25 pages for 20 printed, and 2 for 1). `tile_grid` now counts for
+    both. A fitted printout stated `1:` width over page width whatever limited the fit:
+    1:31 on a plan printed at 1:34, 1:34 on one printed at 1:157. It states the fitted
+    scale. Rejected: keeping 3.5 mm and correcting the dialog — the number was never
+    chosen, it was a missing unit.
+13. **A text note's stored size keeps its meaning; the UI states its height on the
+    plan.** `TextItem.font_size` was labelled centimetres and is points / 28.35; a
+    stored 1.0 draws an em of 37 cm. Every plan file holds such numbers, so the number
+    is frozen and `FILE_VERSION` is unchanged. The Properties panel converts at the
+    edge (`em_height_cm`, `font_size_for_em_height`). The unit offered is the font's em,
+    not the height of a capital letter: the em is the font size of every other program
+    and does not change with the typeface; the tooltip says capitals are about 70 % of
+    it. Rejected: storing true centimetres under a new key or a new file version —
+    every existing note would need a conversion that depends on the screen resolution
+    of the machine that wrote it, which the file does not record; correcting the label
+    alone ("points / 28") — true and of no use to a person drawing a plan.
+14. **The default plan name is a word of the UI language.**
+    `ProjectManager.project_name` returns `tr("Untitled")`. It is on the report's
+    cover, the print footer, the window title and in the file name a save dialog
+    suggests. **The Agent API's default export file names are not** (review round 1):
+    `export_pdf`, `export_dxf` and `export_csv` without a path build the name from
+    `ProjectManager.file_stem`, which is the file's stem or the untranslated
+    `Untitled`. With one property for both, a German UI named an agent's report
+    `Unbenannt.pdf`: a file name a client cannot predict from the tool's contract.
+
+Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
+FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
+
+## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
+
+**Status**: Accepted (visual-polish package, 2026-11-10)
+
+**Context**: the app let the user choose a UI language and never told Qt a locale. Spin
+boxes, date edits and every bare `QLocale()` formatted in the SYSTEM locale; Python
+f-strings always wrote a decimal point. On the owner's machine (UI English, Windows
+German) the planting calendar read "Mrz, Mai, Okt, Dez" and a spin box "155,8" beside a
+status bar that said "0.00 cm"; the German UI showed "6361.7 cm²". Issue #792 states the
+rule it expects: month names, decimal separators and every word follow the
+application's chosen language, never the system locale on its own.
+
+**Decision**:
+
+1. **`core/i18n.load_translator` is the one place that decides.** It sets Qt's default
+   locale (`QLocale.setDefault`) from the UI language, before any widget exists.
+   Everything else asks `current_locale()` or a formatter below; a bare `QLocale()`
+   agrees, because the decision is also Qt's default.
+2. **The language decides; the system contributes its region only in the same
+   language.** A German UI on an Austrian or Swiss system is `de_AT` / `de_CH`; an
+   English UI on a German system is `en_US`. The locale is built from Qt's own data
+   (`QLocale(language, territory)`), never the `QLocale.system()` object, whose names
+   are Windows' ("Mrz", "Mo") — the same language must read the same on every machine.
+3. **Every number in UI text goes through one formatter.** `format_decimal` (fixed
+   decimals, no group separator: in a CAD readout "1.234" must never be readable as a
+   decimal), `format_trimmed`, `format_integer` (counts, with group separators),
+   `month_abbreviation`, `format_day_month` (the order of day and month is a translated
+   Qt pattern). A translated template that carries its precision (`"{d:.2f} m"`) is
+   handed a `LocalizedNumber`, so no source string and no catalog entry changes.
+4. **A `,` or a `.` is the decimal mark in a number field, typed or pasted.** A
+   `QDoubleSpinBox` silently drops the other convention's mark (measured: locale `en`,
+   typed "155,8", value 1558). Since the locale follows the UI language and the keyboard
+   does not, a German numeric keypad would enter values ten times too large into an
+   English UI. `ui/number_fields` puts a validator in front of the focused spin box's
+   own: a number with exactly ONE mark gets it rewritten to the field's decimal mark,
+   whichever way the text arrives (a key, Ctrl+V, the context menu's Paste). The first
+   version rewrote key events only, so a pasted "155,8" was still 1558 (review round 1).
+   A text with more than one mark is handed to Qt untouched: its own grouping is read in
+   the field's locale and the other convention's is refused, so nothing is guessed. A
+   `QSpinBox` has no decimal mark and is left alone. `parse_decimal` is the same rule for
+   free text (the typed-coordinate field, the shopping list's price): a sign, ASCII
+   digits and at most one mark; it refuses a group separator, an exponent and everything
+   only Python's `float` reads (`nan`, `inf`, `1_000`), and its result is finite.
+   What the UI shows, it accepts back — in either convention.
+5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
+   and the clipboard rows of the shopping list write a decimal point in every language.
+   The PDF report's numbers are the export service's own.
+6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit
+   but the planting calendar's year-less steps, the Tasks tab, the plan-date strip). Only
+   names — months, weekdays — and the day-and-month label of the calendar dashboard
+   follow the language.
+7. **A date or time FIELD takes nothing from the locale's territory** *(review round 1;
+   owner to confirm)*. An English UI on a non-English system is `en_US` (decision 2), and
+   a field left to that locale read "3:30 PM" and "6/7/26" and its calendar popup started
+   on Sunday (measured: `load_translator("en")` on a `de_DE` system; the camera tour's
+   four fields had no display format). The user asked for English words, not for US
+   conventions. `ui/date_fields.as_date_field` / `as_time_field` are the one place a field
+   is configured: ISO (`yyyy-MM-dd`), 24 hours (`HH:mm`), and the planting calendar's
+   year-less step dates as `dd MMM`. Every `QDateEdit` / `QDateTimeEdit` / `QTimeEdit` is
+   handed to one of them where it is built, and nothing else calls `setDisplayFormat`,
+   `setCalendarPopup`, `setCalendarWidget` or `setFirstDayOfWeek`:
+   `tests/unit/test_date_fields.py` walks the source, so a new field cannot forget it.
+8. **A calendar popup starts its week on Monday in every UI language** *(review round 1;
+   owner to confirm)*. ISO 8601, and the convention of the app's users (European
+   gardeners; German, Spanish and Russian locales give Monday anyway). The same helper
+   sets it. Rejected: the locale's week start (Sunday for an English UI, the regression
+   this decision answers) and a preference (no user asked for one).
+9. **A date in UI text is day, month NAME, year** *(review round 1)*:
+   `core/i18n.format_short_date` ("7 Jun 2026"; the order is a translated Qt pattern in
+   context `DateFormat`, like `format_day_month`'s). Never a numeric day/month pair: its
+   order belongs to the territory ("6/7/26" is 7 June in `en_US`). The 3D info card and
+   the sun-path legend, the heatmap probe and the wipe label use it; nothing outside
+   `core/i18n.py` formats with a bare `QLocale().toString(...)` (same test file).
+
+**Rejected**: the system locale for formats with the UI language for words (the state
+before: two conventions on one screen, and the issue's own counter-example); an
+application-wide Python event filter for the decimal key (it would run for every event
+of every object — the rule is a validator on the spin box that takes the focus);
+rewriting key events only (the first version: a paste produces no key event); removing
+the rewrite and documenting the trap (a silent factor of ten in a CAD field).
+
+**Consequences**: a single `,` or `.` is always the decimal mark. That is a trade-off
+and it has a loser: a user who writes a thousands separator. Measured in an English UI,
+in a field with two decimals (three in brackets where it differs):
+
+| Entered | Qt alone (before) | Now, typed | Now, pasted |
+|---|---|---|---|
+| `155,8` | 1558 | 155.8 | 155.8 |
+| `1,234` | 1234 | 1.23 (1.234) | refused, the field keeps its value (1.234) |
+| `1,234.5` | 1234.5 | 1.23 (1.234) | 1234.5 |
+
+Typed, "1,234.5" is 1.23: the comma becomes the decimal mark, the digit beyond the
+field's decimals and the second mark are refused key by key. Pasted as a whole it is
+still 1234.5, because a text with two marks is left to Qt; a pasted "1,234" has one
+mark, which is the decimal mark, and a field with two decimals refuses three. The first
+version of this ADR said of the thousands separator that "nobody is known to do that in
+a CAD field": that was a guess, and it is not the reason. The reason is that the other
+choice loses more: a mark that is the decimal mark in one UI language and a group
+separator in the other is a silent factor of ten or a thousand for everyone whose
+keyboard or clipboard does not match the UI language, which is the owner's own setup.
+The formatters write no group separator, so the UI never shows a number it would read
+back differently, and the coordinate parser has read both marks as decimal since
+Package A.
+
+`core/i18n.py` imports QtCore only, because Qt-free services ask it for a formatter; the
+number-field validator and the date-field helper live in `ui/`, and
+`scripts/check_import_boundaries.py` holds that (`QT_CORE_ONLY`).
+
+An English UI is `en_US` on a non-English system. That locale's month/day order, 12-hour clock and Sunday week start reach a widget
+that takes its format from the locale; the app's own date and time fields and its dates in
+text therefore take none of the three from it (decisions 7 to 9). The first version of this
+ADR claimed here that the fields "all set" a display format; the camera tour's four did
+not, and no field set a week start. The test session
+has the application's locale like the app does (`conftest._app_locale`); before, it ran
+in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
+labels, the scale bar) still use a decimal point and are the canvas's next step.
+
+Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Locale";
+FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
+version cited case study 220, which is the #791 theme case and says nothing about locale.
+
+### ADR-039 addendum: the app owns the palette and the colour scheme, and chrome that paints reads tokens (#791)
+
+ADR-039 made `ui/theme.py` the single source of chrome colours and delivered them through
+ONE carrier, the generated stylesheet. A Qt application has three: the stylesheet, the
+application palette and Qt's colour scheme. The two the app left alone stayed the
+operating system's, so the app's light theme on a dark Windows had white text on cream
+wherever a widget asked the palette (`palette(text)`, rich-text links, placeholder text)
+and near-invisible native controls wherever no stylesheet rule reached.
+
+1. **`apply_theme()` sets all three.** `build_palette(colors)` maps every palette role to
+   a token (new token `link`); `_pin_color_scheme` tells Qt the app's scheme and, for
+   `ThemeMode.SYSTEM`, hands it back first. `palette(...)` in a widget stylesheet is
+   therefore a theme colour now.
+2. **Detection never reads the application palette** (`detect_system_theme` asks
+   `QStyleHints.colorScheme()`): the palette is the app's own, and a detection that read
+   it could never follow the system again.
+3. **A widget that paints reads `theme_qcolor(token)` while it paints.** The Planting
+   Calendar chart, the soil sparkline, the canvas rulers and the seed-viability cells
+   were light pictures in the dark theme. A DATA colour that keeps its hue in both themes
+   (a chart series) is passed through `readable_on(color, surface)`.
+   `tests/unit/test_no_hardcoded_qss_colors.py` gained a second gate that lists every
+   painted colour literal left in chrome with the reason it is not chrome; the QSS
+   allow-list stays empty.
+4. **Geometry roles.** `set_compact(button)` and `list_row_size_hint(widget)` join
+   `set_text_role` as the ways widget code states an intent the stylesheet answers
+   (PF-UI-38).
+
+Not built: following a change of the Windows mode while the app runs in `SYSTEM` (it
+never did; `QStyleHints.colorSchemeChanged` is where it would be connected).
+
+Cross-refs: PF-UI-37, PF-UI-38; §8.4.1 to §8.4.3, §8.4.5.
+
+### ADR-060 addendum: the main window adopts the mode switch (#796)
+
+Decision 2 put the Plan / 3D / Split row "floating over the canvas in Plan and Split". At
+(28, 28) it covered the plan's top-left corner. `Workspace.adopt_mode_switch()` hands the
+row to the window that hosts the workspace; the main window lays it out on the tab bar's
+row, left of the frost badge, inside a holder it shows on the Garden Plan tab only. WHEN
+the row shows is still the workspace's decision (Plan and Split, with the rest of the
+chrome; in 3D the pane's strip has its own row), so `set_mode`, the fullscreen preview
+and decision 3 ("nothing overlays the native 3D window") are unchanged. A workspace
+without a host that adopts the row — every test that builds one alone — floats it as
+before.

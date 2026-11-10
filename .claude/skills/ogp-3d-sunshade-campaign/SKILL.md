@@ -46,3 +46,24 @@ the exact soil elevation from `item_base_cm`, slice external obstacles above
 that plane and preserve holder exclusions. The heatmap remains at ground
 level. See `docs/functional-requirements.md` FR-SUN-09/11 and the ADR-056
 exact soil-plane addendum.
+
+Open frames (FR-SUN-13): a pergola, a trellis, a swing, a hammock and a garden light
+are not solid prisms in the 2D sun study. The caster walk gives them their 3D
+builder's own members (`IdentifiedCaster.frame`, an `OpenFrame`), and every consumer
+weights their prism through `core/shadow_geometry.caster_transmittance` — the
+hook #440 made for porous fences. Which kinds are open frames, which mostly-air
+kinds stay solid and why, is recorded in `core/object_height.py`
+(`OPEN_FRAME_TYPE_NAMES`, `SOLID_2D_DECISIONS`); a new object kind is placed
+there, never given a table of shares. See `docs/08-crosscutting-concepts/`
+§8.29.6 "Open frames" and the ADR-059 / ADR-070 addendum on open frames.
+
+What is painted with the 2D sun study (#794, #793): the hours-of-sun map has a key
+(`ui/canvas/sun_legend.py`; what it shows comes from `core/heatmap_render.sun_legend`,
+the map's own tables) — the canvas view draws it over the viewport, and a picture of
+the plan gets it from a scene item the export seam shows for the render. The hours on
+the contours are labels of the plan (`SunMapLabelItem`), placed where nothing stands.
+While a map is shown the time-of-day shadow overlay is solved but NOT painted
+(`SunShadowController.set_map_shown`): the map is translucent, and a shadow of one
+instant under it reads as fewer hours. The overlay's soft edge is a blurred field
+(`core/soft_edge.py`), not stacked strokes. See `docs/08-crosscutting-concepts/`
+§8.9.18 and the ADR-037 addendum on the sun map's key.

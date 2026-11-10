@@ -17,8 +17,14 @@ Design constraints (campaign fences):
   save-time geometry).
 - The overlay is CLIPPED to the canvas bounds (a long shadow is cut off at
   the garden edge, never spilling onto the grey area outside) and painted
-  with a soft, effect-free outward feather; at night (sun below the horizon)
-  the whole canvas is shaded rather than the shadows vanishing.
+  with a soft, effect-free outward feather (``shadow_feather``, a smooth
+  falloff since #793); at night (sun below the horizon) the whole canvas is
+  shaded rather than the shadows vanishing.
+- While the hours-of-sun map is shown the overlay is NOT painted
+  (``set_map_shown``, #794). The map lies above it and is translucent, so the
+  shadow of one instant showed through and read as fewer hours of sun. The
+  shadows are still solved and published: the 3D drape and every other reader
+  of ``drape_polygons()`` must not notice.
 - All math happens in scene cm via the Qt-free ``core/shadow_geometry``;
   scene +y is already North — there is NO extra Y-flip here (§8.20).
 - The sim moment is NOT owned here (Phase 17 L1.0, ADR-053): the controller
@@ -40,16 +46,30 @@ from datetime import date, datetime
 from functools import lru_cache
 from typing import Any
 
-from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QPolygonF
+from PyQt6.QtCore import QObject, QPointF, QRect, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+    QPolygonF,
+    QTransform,
+)
 from PyQt6.QtWidgets import (
+    QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsScene,
     QStyleOptionGraphicsItem,
     QWidget,
 )
 
-from open_garden_planner.core.object_height import casts_2d_shadow, effective_height_cm
+from open_garden_planner.core.object_height import (
+    casts_2d_shadow,
+    effective_height_cm,
+    is_open_frame,
+)
 from open_garden_planner.core.object_types import PathFenceStyle
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
@@ -70,6 +90,7 @@ from open_garden_planner.core.scene3d import (
 from open_garden_planner.core.scene3d.builders.buildings import pitched_roof_triangles
 from open_garden_planner.core.scene3d.builders.fences import POROUS_FENCE_STYLES
 from open_garden_planner.core.scene3d.builders.lines import DEFAULT_SOLID
+from open_garden_planner.core.scene3d.builders.open_frames import open_frame_triangles
 from open_garden_planner.core.scene3d.record import (
     PARAM_ROOF_OVERHANG,
     PARAM_ROOF_PITCH,
@@ -78,20 +99,24 @@ from open_garden_planner.core.scene3d.record import (
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    OpenFrame,
     Point,
     Polygon,
     ShadowCaster,
     Triangle3D,
     WeightedShadowRegion,
+    circle_footprint,
     compute_scene_shadows,
     compute_weighted_shadows,
     shadow_region,
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
+from open_garden_planner.core.sprite_raster import device_bounds
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .footprints import (
+    OUTLINE_CIRCLE,
     OUTLINE_POLYGON,
     OUTLINE_POLYLINE,
     OUTLINE_RECTANGLE,
@@ -103,6 +128,7 @@ from .footprints import (
     item_outline,
 )
 from .items.polyline_item import PolylineItem
+from .shadow_feather import FEATHER_REACH_CM, ToneRegion, paint_feather
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
 STATE_DISABLED = "disabled"
@@ -119,37 +145,45 @@ _OVERLAY_Z = -500.0
 # Slightly deeper + more opaque than the first cut (manual-test feedback).
 _SHADOW_COLOR = QColor(30, 41, 66, 110)
 
-# Effect-free soft edge (the scene deliberately avoids QGraphicsEffect): a few
-# translucent strokes of the shadow colour, widest/faintest first, painted only
-# OUTSIDE the shadow's own fill so the interior stays flat and an outward
-# penumbra shows. Widths in scene cm — the halo reaches ~half the widest width
-# past the edge.
-_FEATHER_STEPS: tuple[tuple[float, int], ...] = (
-    (14.0, 16),
-    (9.0, 30),
-    (5.0, 48),
-    (2.5, 66),
-)
-_FEATHER_MAX_WIDTH = 14.0
+# Effect-free soft edge (the scene deliberately avoids QGraphicsEffect): a
+# smooth falloff from the shade's own tone to nothing, painted only OUTSIDE the
+# shadow's own fill so the interior stays flat (``shadow_feather``, #793). The
+# overlay's bounding rectangle leaves this much room for it, in scene cm: the
+# falloff's reach, and as much again for the cells its enlargement runs over.
+_FEATHER_MARGIN_CM = 2.0 * FEATHER_REACH_CM
 
 _DEBOUNCE_MS = 150
 
+# While a zoom is under way the overlay shows the picture of its last
+# rasterisation, scaled; it is rasterised for the new zoom once this long has
+# passed without another zoom step (#784).
+_SETTLE_MS = 120
 
-def _build_feather_pens() -> tuple[QPen, ...]:
-    """The feather strokes are constant — build them once, not every paint()."""
-    pens = []
-    for width_cm, alpha in _FEATHER_STEPS:
-        color = QColor(_SHADOW_COLOR)
-        color.setAlpha(alpha)
-        pen = QPen(color)
-        pen.setWidthF(width_cm)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pens.append(pen)
-    return tuple(pens)
+# The longest side (device pixels) of the picture kept for that: 16 MB at most.
+# A larger overlay is painted directly, exact, and what is kept for the next
+# zoom is a picture of it reduced to this side (``_keep_stand_in``): a 4K
+# viewport and a 150 % display are above it at fit. Zoomed in far, where the
+# device shows only part of the overlay and a rasterisation is cheap, nothing
+# is kept and every step is rasterised, as before.
+_PICTURE_MAX_SIDE = 2048
+
+# How far the kept picture may be enlarged to stand in for a rasterisation.
+# Past it the picture is a blur, and the rasterisation is cheap: zoomed in that
+# far little of the shadow is in view (family garden, the overlay's share of a
+# zoom step: 60-130 ms at fit, 25-45 ms at 4 times fit, 6-13 ms at 8 times).
+_PICTURE_MAX_ENLARGEMENT = 4.0
+
+# How many zooms count as "rasterised for": more than one, because two views of
+# one scene (or a view and a redraw at another scale) alternate.
+_SETTLED_SCALES = 4
 
 
-_FEATHER_PENS: tuple[QPen, ...] = _build_feather_pens()
+def _enlargement(kept: tuple[float, ...], now: tuple[float, ...]) -> float:
+    """How many times larger a picture rasterised at the device scale ``kept``
+    is shown at ``now`` (both axis-aligned: ``(m11, m12, m21, m22)``)."""
+    across = abs(now[0]) / abs(kept[0]) if kept[0] else math.inf
+    along = abs(now[3]) / abs(kept[3]) if kept[3] else math.inf
+    return max(across, along)
 
 
 class SunShadowOverlayItem(QGraphicsPathItem):
@@ -163,9 +197,39 @@ class SunShadowOverlayItem(QGraphicsPathItem):
 
     - a HARD clip to the canvas bounds, so a long shadow is simply cut off at
       the garden edge instead of spilling onto the grey outside area;
-    - a SOFT outward penumbra, clipped to the area *outside* the shadow so
-      the interior stays a flat tone (no darker ring) and only a feather
-      shows past the edge.
+    - a SOFT outward penumbra: a smooth falloff from the shade's tone at its
+      edge to nothing ``FEATHER_REACH_CM`` further out, with the shade itself
+      cut out of it, so the interior stays a flat tone (no darker ring) and
+      only a feather shows past the edge (``shadow_feather``; until #793 four
+      stacked strokes, which showed as four bands from 200 % zoom on). Each
+      weighted region is edged at its OWN strength (#698): a porous fence's or
+      an open frame's light shade beside a solid's must not wear the solid's
+      edge — it read as an outline drawn round the shade.
+
+    Rasterising that is not free (tens of milliseconds on a family garden at
+    fit, #784), so it happens once per solve and zoom:
+
+    - the item is ``DeviceCoordinateCache`` like every canvas item: a repaint, a
+      pan or another item's update blits the cached picture;
+    - a ZOOM invalidates that cache at every step. While steps keep coming the
+      item paints the picture of its last rasterisation, scaled (``_picture``),
+      and asks ``settle_requested`` for a call to ``settle()`` once they stop;
+      then it is rasterised for the new zoom, once. The picture stands in only
+      while it is enlarged at most ``_PICTURE_MAX_ENLARGEMENT`` times; zoomed in
+      past that the overlay is rasterised at every step, which is cheap there.
+      ``exact_paints`` counts the rasterisations.
+    - the kept picture is at most ``_PICTURE_MAX_SIDE`` a side. An overlay
+      LARGER than that which the device holds whole (a 4K viewport, a 150 %
+      display) is painted directly, and a picture of it reduced to that side
+      is kept to stand in for the next zoom. It is made when ``settle()`` is
+      next called with no zoom under way, not with the rasterisation: a scrub
+      of the timeline rasterises at every solve and must not pay for a zoom
+      that may never come. A zoom that begins before then makes it at its
+      first step. ``stand_in_paints`` counts these.
+
+    An export, a print, the minimap and the Agent API render disable item caches
+    first: for them — and for an overlay nobody settles — ``paint`` is the plain
+    rasterisation it always was.
     """
 
     def __init__(self) -> None:
@@ -173,10 +237,31 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self.setZValue(_OVERLAY_Z)
         self.setPen(QPen(Qt.PenStyle.NoPen))
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        # Rasterised once per solve and zoom, then blitted (#784).
+        self.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
         self._clip_rect: QRectF | None = None
-        self._feather_region: QPainterPath | None = None
+        self._feathered = False  # there is ground beside the shade to feather
         self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
         self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
+        #: Asked (by a paint that showed the scaled picture) to call ``settle()``
+        #: once the zoom has stopped. The controller sets it; None = never defer.
+        self.settle_requested: Callable[[], None] | None = None
+        #: Rasterisations of the overlay — the #206-style instrument of #784.
+        self.exact_paints = 0
+        #: Reduced pictures made of an overlay too large to keep as painted.
+        self.stand_in_paints = 0
+        #: Such a picture that is owed: the solve, the device transform, the
+        #: overlay's rectangle on the device and the zoom it was painted at.
+        self._stand_in_due: tuple[int, QTransform, QRect, tuple[float, ...]] | None = None
+        #: The solve and zoom the kept picture is a stand-in of, if it is one.
+        self._stand_in_of: tuple[int, tuple[float, ...]] | None = None
+        self._generation = 0  # what is painted: bumped by every change of it
+        self._settled: list[tuple[float, ...]] = []  # zooms rasterised for
+        self._pending: tuple[float, ...] | None = None  # the zoom under way
+        self._picture: QPixmap | None = None  # the last rasterisation
+        self._picture_rect = QRectF()  # ... and the item rect it covers
+        self._picture_key: tuple[Any, ...] | None = None
+        self._region_tones: tuple[ToneRegion, ...] = ()
 
     def set_clip_rect(self, rect: QRectF | None) -> None:
         """Bound all painting to ``rect`` (the canvas); None = unbounded."""
@@ -185,21 +270,25 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             return
         self.prepareGeometryChange()
         self._clip_rect = new_rect
+        self._generation += 1
         self._rebuild_feather()
         self.update()
 
     def set_shadow_path(self, path: QPainterPath) -> None:
         """Set the shadow path and refresh the cached feather region."""
         self.setPath(path)  # base path + prepareGeometryChange + update
+        self._generation += 1
         if path.isEmpty():
             self._weighted_regions = ()
             self._region_paths = ()
+            self._region_tones = ()
         self._rebuild_feather()
 
     def set_weighted_regions(self, regions: Sequence[WeightedShadowRegion]) -> None:
         """Cache pre-partitioned weighted shadow regions for porous/opaque painting."""
         self._weighted_regions = tuple(regions)
         built: list[tuple[QPainterPath, QColor]] = []
+        tones: list[ToneRegion] = []
         base_alpha = _SHADOW_COLOR.alpha()
         for reg in self._weighted_regions:
             if not reg.polygons or reg.occlusion <= 0.0:
@@ -212,26 +301,40 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             color = QColor(_SHADOW_COLOR)
             color.setAlpha(max(1, min(255, round(base_alpha * reg.occlusion))))
             built.append((reg_path, color))
+            tones.append((reg_path, min(1.0, reg.occlusion)))
         self._region_paths = tuple(built)
+        self._region_tones = tuple(tones)
+        self._generation += 1
         self.update()
 
     def weighted_regions(self) -> tuple[WeightedShadowRegion, ...]:
         """The weighted shadow regions currently painted on the overlay."""
         return self._weighted_regions
 
+    def _paints_regions(self) -> bool:
+        """True when the shade is painted region by region: there are weighted regions
+        and they are not the one opaque region of a plan without porous casters (that
+        one is the shadow path itself, painted as it always was)."""
+        return bool(self._region_paths) and not (
+            len(self._weighted_regions) == 1
+            and abs(self._weighted_regions[0].occlusion - 1.0) < 1e-6
+        )
+
     def _rebuild_feather(self) -> None:
-        """Cache the outward-feather clip region (canvas minus shadow).
+        """Note whether there is ground beside the shade to feather.
 
         Computed on change, never in ``paint()`` — the recompute-discipline
-        rule extends to the overlay's own edge softening.
+        rule extends to the overlay's own edge softening. No canvas bounds: no
+        feather, as ever. A shade that covers the whole canvas (the night) has
+        no edge inside it.
         """
         path = self.path()
-        if self._clip_rect is None or path.isEmpty():
-            self._feather_region = None
-            return
-        clip = QPainterPath()
-        clip.addRect(self._clip_rect)
-        self._feather_region = clip.subtracted(path)
+        clip = self._clip_rect
+        self._feathered = (
+            clip is not None
+            and not path.isEmpty()
+            and not path.contains(clip.adjusted(1.0, 1.0, -1.0, -1.0))
+        )
 
     def boundingRect(self) -> QRectF:
         # Painted area is the shadow path plus its outward feather, all clipped
@@ -239,10 +342,10 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # edge. Report a tight superset so itemsBoundingRect()/fit-to-view stay
         # honest.
         rect = super().boundingRect().adjusted(
-            -_FEATHER_MAX_WIDTH,
-            -_FEATHER_MAX_WIDTH,
-            _FEATHER_MAX_WIDTH,
-            _FEATHER_MAX_WIDTH,
+            -_FEATHER_MARGIN_CM,
+            -_FEATHER_MARGIN_CM,
+            _FEATHER_MARGIN_CM,
+            _FEATHER_MARGIN_CM,
         )
         if self._clip_rect is not None:
             rect = rect.intersected(self._clip_rect)
@@ -254,40 +357,208 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         _option: QStyleOptionGraphicsItem | None,
         _widget: QWidget | None = None,
     ) -> None:
-        if painter is None:
+        if painter is None or self.path().isEmpty():
             return
+        if (
+            self.settle_requested is None
+            or self.cacheMode() == QGraphicsItem.CacheMode.NoCache
+        ):
+            # an export, a print, the minimap; an overlay nobody settles
+            self._paint_exact(painter)
+            return
+        to_device = painter.deviceTransform()
+        scale = (
+            round(to_device.m11(), 6),
+            round(to_device.m12(), 6),
+            round(to_device.m21(), 6),
+            round(to_device.m22(), 6),
+        )
+        stepping = bool(self._settled) and scale not in self._settled
+        if stepping and not self._stands_in(scale):
+            self._keep_stand_in()  # a zoom that began before the timer fired
+        if stepping and self._stands_in(scale) and self._picture is not None:
+            # A zoom step: the last rasterisation, scaled, until the zoom settles.
+            # Laid down in DEVICE pixels (the picture is upright there; the view
+            # paints the scene through a Y-flip), where it now belongs.
+            from_device, invertible = to_device.inverted()
+            if invertible:
+                painter.save()
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                painter.setWorldTransform(from_device * painter.worldTransform())
+                painter.drawPixmap(
+                    to_device.mapRect(self._picture_rect),
+                    self._picture,
+                    QRectF(self._picture.rect()),
+                )
+                painter.restore()
+                self._pending = scale
+                self.settle_requested()
+                return
+        if scale in self._settled:
+            self._settled.remove(scale)
+        self._settled.append(scale)
+        del self._settled[:-_SETTLED_SCALES]
+        self._paint_and_keep(painter, to_device, scale)
+
+    def _stands_in(self, scale: tuple[float, ...]) -> bool:
+        """Whether the kept picture may be shown at ``scale``: it is of this
+        solve and would be enlarged no more than a picture may be."""
+        return (
+            self._picture is not None
+            and self._picture_key is not None
+            and self._picture_key[0] == self._generation
+            and _enlargement(self._picture_key[1], scale) <= _PICTURE_MAX_ENLARGEMENT
+        )
+
+    def settle(self) -> None:
+        """The zoom has stopped: rasterise for it (the next paint does). With
+        no zoom under way, make the stand-in that is owed."""
+        if self._pending is None:
+            self._keep_stand_in()
+            return
+        if self._pending not in self._settled:
+            self._settled.append(self._pending)
+            del self._settled[:-_SETTLED_SCALES]
+        self._pending = None
+        self.update()
+
+    def _paint_and_keep(
+        self, painter: QPainter, to_device: QTransform, scale: tuple[float, ...]
+    ) -> None:
+        """Rasterise the overlay and keep that picture for the next zoom."""
+        from_device, invertible = to_device.inverted()
+        area = to_device.mapRect(self.boundingRect()).toAlignedRect()
+        if (
+            not invertible
+            or scale[1] != 0.0  # a turned or sheared view: no axis-aligned picture
+            or scale[2] != 0.0
+            or area.isEmpty()
+        ):
+            self._paint_exact(painter)
+            return
+        if max(area.width(), area.height()) > _PICTURE_MAX_SIDE:
+            self._paint_exact(painter)
+            self._owe_stand_in(painter, to_device, area, scale)
+            return
+        self._stand_in_due = self._stand_in_of = None
+        # The same zoom, moved by whole pixels (a pan's strip of a clipped
+        # cache): the picture that is kept IS this rasterisation.
+        key = (
+            self._generation,
+            scale,
+            round(to_device.dx() % 1.0, 4),
+            round(to_device.dy() % 1.0, 4),
+            area.width(),
+            area.height(),
+        )
+        if self._picture is None or self._picture_key != key:
+            picture = QPixmap(area.size())
+            if picture.isNull():
+                self._paint_exact(painter)
+                return
+            picture.fill(Qt.GlobalColor.transparent)
+            picture_painter = QPainter(picture)
+            try:
+                picture_painter.setTransform(
+                    to_device * QTransform.fromTranslate(-area.x(), -area.y())
+                )
+                self._paint_exact(picture_painter)
+            finally:
+                picture_painter.end()
+            self._picture = picture
+            self._picture_key = key
+        self._picture_rect = from_device.mapRect(QRectF(area))
+        painter.save()
+        # device transform = identity (core.sprite_raster does the same): the
+        # picture is in device pixels and is laid down unscaled
+        painter.setWorldTransform(from_device * painter.worldTransform())
+        painter.drawPixmap(area.topLeft(), self._picture)
+        painter.restore()
+
+    def _owe_stand_in(
+        self, painter: QPainter, to_device: QTransform, area: QRect, scale: tuple[float, ...]
+    ) -> None:
+        """The overlay was painted directly because it is too large to keep:
+        note that a reduced picture of it is owed, and ask for ``settle()``.
+
+        Only where the device holds the whole overlay. Zoomed in far Qt keeps
+        the part of it in view; rasterising that is cheap, and a picture of
+        the WHOLE overlay would cost more than what it stands in for.
+        """
+        whole = device_bounds(painter).adjusted(-1.0, -1.0, 1.0, 1.0).contains(QRectF(area))
+        if not whole or self.settle_requested is None:
+            self._stand_in_due = None
+            return
+        if self._stand_in_of == (self._generation, scale):
+            return  # the same solve and zoom, painted again: it is kept already
+        self._stand_in_due = (self._generation, to_device, area, scale)
+        self.settle_requested()
+
+    def _keep_stand_in(self) -> None:
+        """Make the picture that is owed (``_owe_stand_in``): the overlay
+        reduced to ``_PICTURE_MAX_SIDE``, so that it costs a share of a
+        rasterisation and its bytes stay within the kept picture's bound."""
+        due, self._stand_in_due = self._stand_in_due, None
+        if due is None or due[0] != self._generation:
+            return
+        _generation, to_device, area, scale = due
+        from_device, invertible = to_device.inverted()
+        shrink = _PICTURE_MAX_SIDE / max(area.width(), area.height())
+        width = max(1, round(area.width() * shrink))
+        height = max(1, round(area.height() * shrink))
+        picture = QPixmap(width, height)
+        if not invertible or picture.isNull():
+            return
+        across, along = width / area.width(), height / area.height()
+        picture.fill(Qt.GlobalColor.transparent)
+        picture_painter = QPainter(picture)
+        try:
+            picture_painter.setTransform(
+                to_device
+                * QTransform.fromTranslate(-area.x(), -area.y())
+                * QTransform.fromScale(across, along)
+            )
+            self._rasterise(picture_painter)
+        finally:
+            picture_painter.end()
+        self.stand_in_paints += 1
+        self._picture = picture
+        # at the zoom the picture has, so that ``_stands_in`` counts its
+        # reduction as enlargement already spent
+        self._picture_key = (self._generation, (scale[0] * across, 0.0, 0.0, scale[3] * along))
+        self._picture_rect = from_device.mapRect(QRectF(area))
+        self._stand_in_of = (self._generation, scale)
+
+    def _paint_exact(self, painter: QPainter) -> None:
+        """Rasterise the overlay for what ``painter`` shows of it."""
+        self.exact_paints += 1
+        self._rasterise(painter)
+
+    def _rasterise(self, painter: QPainter) -> None:
+        """Paint the overlay: the soft edge, then the core."""
         path = self.path()
-        if path.isEmpty():
-            return
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         # Soft outward penumbra — only outside the shadow's own fill area, so
         # the interior stays flat and there is no darker ring at the boundary.
-        region = self._feather_region
-        if region is not None and not region.isEmpty():
-            max_occ = max((r.occlusion for r in self._weighted_regions), default=1.0)
-            painter.save()
-            painter.setClipPath(region)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            for pen in _FEATHER_PENS:
-                if max_occ < 0.999:
-                    scaled_pen = QPen(pen)
-                    c = QColor(pen.color())
-                    c.setAlpha(max(1, round(c.alpha() * max_occ)))
-                    scaled_pen.setColor(c)
-                    painter.setPen(scaled_pen)
-                else:
-                    painter.setPen(pen)
-                painter.drawPath(path)
-            painter.restore()
+        # Each region's edge starts at its own tone; a boundary two regions
+        # share — a fence's shade running into a house's — lies inside the
+        # WHOLE shadow and gets no edge at all.
+        by_region = self._paints_regions()
+        if self._feathered and self._clip_rect is not None:
+            paint_feather(
+                painter,
+                self.boundingRect(),
+                self._clip_rect,
+                path,
+                self._region_tones if by_region else (),
+                _SHADOW_COLOR,
+            )
         # Solid core, hard-cut at the canvas boundary.
         painter.save()
         if self._clip_rect is not None:
-            painter.setClipRect(self._clip_rect)
+            painter.setClipRect(self._clip_rect, Qt.ClipOperation.IntersectClip)
         painter.setPen(Qt.PenStyle.NoPen)
-        if self._region_paths and not (
-            len(self._weighted_regions) == 1
-            and abs(self._weighted_regions[0].occlusion - 1.0) < 1e-6
-        ):
+        if by_region:
             for reg_path, reg_color in self._region_paths:
                 painter.setBrush(QBrush(reg_color))
                 painter.drawPath(reg_path)
@@ -451,6 +722,77 @@ def _building_roof_triangles(
     return tuple(scene_tris)
 
 
+@lru_cache(maxsize=128)
+def _cached_open_frame(
+    kind: str,
+    shape: str,
+    local_ring: tuple[tuple[float, float], ...],
+    radius_cm: float | None,
+    height: float,
+    rotation_deg: float,
+) -> OpenFrame | None:
+    """An open frame for one geometry and turn, built once (#698) — the roof cache's
+    pattern (#701): the key is the complete geometry, so a resized pergola is a new
+    key and never a stale hit. Every identical item gets the very SAME object
+    wherever it stands, which is what lets fifty garden lights be weighed once per
+    sun position and painted as one region. None is cached too: this footprint is
+    no open frame."""
+    triangles = open_frame_triangles(kind, shape, local_ring, height, radius_cm=radius_cm)
+    return None if triangles is None else OpenFrame(triangles, local_ring, rotation_deg)
+
+
+def _open_frame(
+    item: Any,
+    kind: str,
+    height: float,
+    at_date: date | None,
+) -> OpenFrame | None:
+    """The solid members of an open-frame caster (#698), or None for a caster that is
+    cast as the solid prism: a kind that is no open frame
+    (``core.object_height.OPEN_FRAME_TYPE_NAMES``), or an item whose 3D builder has
+    no frame for its footprint and builds the plain block — solid in 3D, solid here.
+
+    The members stay in the item's own coordinates, with its turn beside them: the
+    coordinates the 3D record gets (``ui/view3d/snapshot._record_of``) — the item's
+    scene transform split about its outline's anchor, a circle not turned.
+    """
+    if not is_open_frame(kind):
+        return None
+    outline = item_outline(item, at_date)
+    if outline is None or outline.shape == OUTLINE_POLYLINE:
+        return None
+    matrix = item.sceneTransform()
+    frame = local_frame(
+        matrix.m11(), matrix.m12(), matrix.m21(), matrix.m22(), matrix.dx(), matrix.dy(),
+        outline.anchor[0], outline.anchor[1], rotatable=outline.shape != OUTLINE_CIRCLE,
+    )
+    if not math.isfinite(frame.east_cm + frame.north_cm):
+        return None
+    radius: float | None = None
+    if outline.shape == OUTLINE_CIRCLE:
+        if outline.radius_cm is None or not math.isfinite(outline.radius_cm) or outline.radius_cm <= 0.0:
+            return None
+        radius = quantize_cm(outline.radius_cm)
+        local_ring = tuple((quantize_cm(x), quantize_cm(y))
+                           for x, y in circle_footprint(0.0, 0.0, radius))
+    else:
+        if len(outline.points) < 3:
+            return None
+        local_ring = ccw(frame.local_ring(outline.points))
+        if len(local_ring) < 3 or ring_area(local_ring) == 0.0:
+            return None
+        if footprints_can_self_cross(item) and not is_buildable_region(local_ring):
+            return None
+    try:
+        return _cached_open_frame(
+            kind, outline.shape,
+            tuple((round(x, 6), round(y, 6)) for x, y in local_ring),
+            radius, round(float(height), 6), frame.rotation_deg,
+        )
+    except Exception:  # a hostile outline must not take the overlay down (the roofs' rule)
+        return None
+
+
 _last_identified: tuple[int, date | None, list[IdentifiedCaster]] | None = None
 
 
@@ -481,6 +823,12 @@ def collect_identified_casters(
     (``core.object_height.is_solid_soil_parent``): the sun estimate spares such
     a solid for a plant inside its outline, because it is under the plant, not
     between it and the sun (#481).
+
+    An OPEN FRAME (``core.object_height.OPEN_FRAME_TYPE_NAMES``: a pergola, a
+    trellis, a swing, a hammock, a garden light) is given its solid members as
+    ``frame`` here and nowhere else (#698): its prism is then weighted
+    by the share of the sun the frame lets through, by every consumer, through
+    #440's ``caster_transmittance``.
     """
     global _last_identified
     casters: list[IdentifiedCaster] = []
@@ -535,6 +883,8 @@ def collect_identified_casters(
                 fence_style=fence_style,
                 fence_points=fence_points,
                 fence_width_cm=fence_width_cm,
+                # an open frame's members weigh its prism (#698); None: a solid
+                frame=_open_frame(item, kind, height, at_date),
             ))
     _last_identified = (id(scene), at_date, casters)
     return casters
@@ -546,7 +896,13 @@ def collect_shadow_casters(
 ) -> list[ShadowCaster]:
     """The walk's casters as ``ShadowCaster``s — ``(footprint, height_cm,
     base_cm)``, one per solid footprint: what the shadow overlay unions. Derived
-    from ``collect_identified_casters``; there is no second walk."""
+    from ``collect_identified_casters``; there is no second walk.
+
+    A ``ShadowCaster`` is the OUTLINE of a shade only: it carries no weight, so a
+    porous fence (#440) and an open frame (#698) are solid in this list. Whoever
+    needs how DARK a shade is reads the identified casters through
+    ``core.shadow_geometry.caster_transmittance`` — as ``recompute_now`` does
+    whenever one of them is weighted."""
     return [ShadowCaster(list(footprint), caster.height_cm, caster.base_cm)
             for caster in collect_identified_casters(scene, at_date)
             for footprint in caster.footprints]
@@ -586,6 +942,11 @@ class SunShadowController(QObject):
         # this object with its parent, and would call into the dead slot.
         connect_qobject(self._clock.instant_changed, self._on_clock_changed)
         self._overlay: SunShadowOverlayItem | None = None
+        #: The overlay holds a solve (shadows or the night) that is to be seen.
+        #: Not ``overlay.isVisible()``: a shown hours-of-sun map hides the
+        #: picture of a solve that is current all the same (``set_map_shown``).
+        self._overlay_wanted = False
+        self._map_shown = False
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None
         #: What the overlay paints, as plain polygons (scene cm): the shadows' union,
@@ -599,6 +960,11 @@ class SunShadowController(QObject):
         self._debounce.setSingleShot(True)
         self._debounce.setInterval(_DEBOUNCE_MS)
         self._debounce.timeout.connect(self.recompute_now)
+        # After the last step of a zoom the overlay is rasterised for it (#784).
+        self._settle = QTimer(self)
+        self._settle.setSingleShot(True)
+        self._settle.setInterval(_SETTLE_MS)
+        self._settle.timeout.connect(self.settle_overlay)
         scene.changed.connect(self._on_scene_changed)
 
     # ── public API ─────────────────────────────────────────────
@@ -619,6 +985,27 @@ class SunShadowController(QObject):
     def sim_datetime_utc(self) -> datetime:
         """The sim instant in UTC — read from the clock, never a private copy."""
         return self._clock.utc
+
+    @property
+    def map_shown(self) -> bool:
+        """Whether an hours-of-sun map is shown over the plan (``set_map_shown``)."""
+        return self._map_shown
+
+    def set_map_shown(self, shown: bool) -> None:
+        """Tell the controller that the hours-of-sun map is (no longer) shown.
+
+        While it is, the overlay is not painted (#794): the map is the day's
+        total and is translucent, and the shadow of one instant under it turns
+        a sunny spot's colour into a shadier one's. Only the PICTURE goes:
+        state, solves, ``drape_polygons()`` and ``shadows_changed`` are what
+        they are without a map, so the 3D view's shadow drape is unaffected.
+        """
+        if shown == self._map_shown:
+            return
+        self._map_shown = shown
+        overlay = self._alive_overlay()
+        if overlay is not None:
+            overlay.setVisible(self._overlay_wanted and not shown)
 
     def drape_polygons(self) -> tuple[tuple[tuple[float, float], ...], ...]:
         """The polygons the overlay paints right now (scene cm; even-odd: outers CCW,
@@ -710,7 +1097,8 @@ class SunShadowController(QObject):
             else None
         )
         enriched_key = tuple(
-            (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm, c.transmittance)
+            (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm, c.transmittance,
+             c.frame)
             for c in identified
         )
         key = (
@@ -723,11 +1111,12 @@ class SunShadowController(QObject):
             enriched_key,
         )
         overlay = self._alive_overlay()
-        if key == self._last_key and overlay is not None and overlay.isVisible():
+        if key == self._last_key and overlay is not None and self._overlay_wanted:
             self._set_state(STATE_ACTIVE)
             return
         has_enriched = any(
             c.roof_triangles or c.fence_style is not None or c.transmittance is not None
+            or c.frame is not None
             for c in identified
         )
         if has_enriched:
@@ -755,7 +1144,7 @@ class SunShadowController(QObject):
         overlay.set_clip_rect(canvas_rect)
         overlay.set_shadow_path(path)
         overlay.set_weighted_regions(regions)
-        overlay.setVisible(True)
+        self._show(overlay)
         self._last_key = key
         self.recompute_count += 1
         self._publish(
@@ -787,26 +1176,47 @@ class SunShadowController(QObject):
         try:
             if overlay.scene() is not self._scene:
                 self._overlay = None
+                self._overlay_wanted = False
                 return None
         except RuntimeError:  # underlying C++ object deleted by scene.clear()
             self._overlay = None
+            self._overlay_wanted = False
             return None
         return overlay
+
+    def _show(self, overlay: SunShadowOverlayItem) -> None:
+        """The overlay holds a solve to be seen — unless a map is shown over it."""
+        self._overlay_wanted = True
+        overlay.setVisible(not self._map_shown)
 
     def _ensure_overlay(self) -> SunShadowOverlayItem:
         overlay = self._alive_overlay()
         if overlay is None:
             overlay = SunShadowOverlayItem()
+            overlay.settle_requested = self._request_settle
             self._scene.addItem(overlay)
             self._overlay = overlay
         return overlay
 
+    def _request_settle(self) -> None:
+        """A zoom step showed the overlay's scaled picture: (re)start the wait."""
+        with contextlib.suppress(RuntimeError):  # #230 teardown guard
+            self._settle.start()
+
+    def settle_overlay(self) -> None:
+        """Rasterise the overlay for the zoom it is shown at now (the settle
+        timer's slot; a caller that cannot wait for it calls this)."""
+        overlay = self._alive_overlay()
+        if overlay is not None:
+            overlay.settle()
+
     def _clear_overlay(self) -> None:
         self._last_key = None
         overlay = self._alive_overlay()
-        if overlay is not None and overlay.isVisible():
+        if overlay is not None and self._overlay_wanted:
             overlay.set_shadow_path(QPainterPath())
             overlay.setVisible(False)
+        self._overlay_wanted = False
         self._publish(())
 
     def _canvas_rect(self) -> QRectF | None:
@@ -830,7 +1240,7 @@ class SunShadowController(QObject):
             round(canvas_rect.height(), 3),
         )
         overlay = self._alive_overlay()
-        if night_key == self._last_key and overlay is not None and overlay.isVisible():
+        if night_key == self._last_key and overlay is not None and self._overlay_wanted:
             return
         path = QPainterPath()
         path.addRect(canvas_rect)
@@ -842,7 +1252,7 @@ class SunShadowController(QObject):
         night_poly = ((left, top), (right, top), (right, bottom), (left, bottom))
         night_regions = (WeightedShadowRegion([list(night_poly)], occlusion=1.0, transmittance=0.0),)
         overlay.set_weighted_regions(night_regions)
-        overlay.setVisible(True)
+        self._show(overlay)
         self._last_key = night_key
         self.recompute_count += 1
         self._publish((night_poly,), night_regions)

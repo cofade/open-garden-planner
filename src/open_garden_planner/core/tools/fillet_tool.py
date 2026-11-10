@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QApplication, QInputDialog
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
 from open_garden_planner.core.commands import FilletCornerCommand
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditRefusal,
@@ -48,6 +49,9 @@ class FilletTool(CornerEditTool):
     display_name = QCoreApplication.translate("FilletTool", "Fillet")
     shortcut = "Shift+F"
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("FilletTool", "Fillet")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._radius: float = get_settings().fillet_last_radius_cm
@@ -58,7 +62,7 @@ class FilletTool(CornerEditTool):
             msg = QCoreApplication.translate(
                 "FilletTool",
                 "Fillet radius: {radius:.1f} cm — press R to change",
-            ).format(radius=self._radius)
+            ).format(radius=LocalizedNumber(self._radius))
             self._view.set_status_message(msg)
         # Defer the modal dialog onto the next event-loop tick so tool
         # activation fully completes first and the canvas keeps its mouse

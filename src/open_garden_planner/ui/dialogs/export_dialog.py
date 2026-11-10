@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.core.i18n import format_decimal, format_integer
 from open_garden_planner.services.export_service import ExportService
 
 
@@ -124,8 +125,8 @@ class ExportPngDialog(QDialog):
         # Canvas size info
         canvas_info = QLabel(
             self.tr("Canvas size: {width} × {height} m").format(
-                width=f"{self._canvas_width_cm / 100:.1f}",
-                height=f"{self._canvas_height_cm / 100:.1f}",
+                width=format_decimal(self._canvas_width_cm / 100, 1),
+                height=format_decimal(self._canvas_height_cm / 100, 1),
             )
         )
         canvas_info.setProperty("secondary", True)
@@ -189,7 +190,8 @@ class ExportPngDialog(QDialog):
         )
 
         self._dimensions_label.setText(
-            self.tr("<b>Image size: {w} × {h} pixels</b>").format(w=f"{width_px:,}", h=f"{height_px:,}")
+            self.tr("<b>Image size: {w} × {h} pixels</b>").format(
+                w=format_integer(width_px), h=format_integer(height_px))
         )
 
     @property

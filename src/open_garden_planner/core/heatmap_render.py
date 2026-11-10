@@ -18,6 +18,8 @@ scene cm with that same +0.5 cell-centre offset — no Y-flip here (§8.20).
 from __future__ import annotations
 
 import math
+from bisect import bisect_left
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -62,6 +64,15 @@ def sun_fraction(minutes: np.ndarray, daylight_minutes: float) -> np.ndarray:
     if daylight_minutes <= 0:
         return np.zeros(minutes.shape, dtype=np.float32)
     return np.clip(minutes / daylight_minutes, 0.0, 1.0).astype(np.float32)
+
+
+def ramp_index(fraction: np.ndarray, entries: int) -> np.ndarray:
+    """The row of an ``entries``-row ramp table for each ``sun_fraction``.
+
+    The map's pixels and the legend's bar both look their tint up through
+    this, so a cell and the place of its hours on the bar have the same colour.
+    """
+    return np.clip(np.round(fraction * (entries - 1)).astype(np.intp), 0, entries - 1)
 
 
 def smooth_field(grid: np.ndarray, passes: int = 2) -> np.ndarray:
@@ -247,3 +258,118 @@ def hour_levels(max_minutes: float) -> list[int]:
     if top * 60 >= max_minutes:
         top -= 1
     return [h * 60 for h in range(1, top + 1)]
+
+
+def hour_is_labelled(hour: int) -> bool:
+    """Whether the contour of ``hour`` hours carries its number: the even ones.
+
+    The one statement of that rule. The map's contours (heavier line, a label)
+    and the legend's ticks both ask it, so the legend cannot name an hour the
+    map does not.
+    """
+    return hour % 2 == 0
+
+
+def label_candidates_along(
+    points: list[Point], spacing: float, step: float
+) -> list[list[Point]]:
+    """Where the labels of a polyline may stand: for each of
+    ``label_points_along``'s evenly spaced places, that place first and then the
+    points ``step`` further along the line to either side, nearest first, as far
+    as half the way to the next place.
+
+    A label wants the evenly spaced place; when something stands there (a plant
+    over the line), the caller takes the nearest place that is free, and none
+    when the line is covered all the way.
+    """
+    if len(points) < 2 or step <= 0.0:
+        return [[point] for point in label_points_along(points, spacing)]
+    cumulative = _polyline_cumulative(points)
+    length = cumulative[-1]
+    if length == 0.0:
+        return [[points[0]]]
+
+    last = len(points) - 2
+
+    def at(distance: float) -> Point:
+        # the first segment that holds the distance, as ``label_points_along``
+        # finds it — by bisection: a contour has hundreds of points and a label
+        # dozens of candidates
+        j = min(max(bisect_left(cumulative, distance) - 1, 0), last)
+        span = cumulative[j + 1] - cumulative[j]
+        t = 0.0 if span == 0 else (distance - cumulative[j]) / span
+        (x1, y1), (x2, y2) = points[j], points[j + 1]
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+    count = max(1, round(length / spacing))
+    reach = length / count / 2.0
+    result: list[list[Point]] = []
+    for k in range(count):
+        target = length * (k + 0.5) / count
+        places = [at(target)]
+        offset = step
+        while offset < reach:
+            for distance in (target + offset, target - offset):
+                if 0.0 <= distance <= length:
+                    places.append(at(distance))
+            offset += step
+        result.append(places)
+    return result
+
+
+@dataclass(frozen=True)
+class LegendTick:
+    """One mark on the legend's bar.
+
+    Attributes:
+        hour: The whole hour of sun it stands for.
+        position: Where it stands, 0 (no sun) to 1 (sun all day).
+        labelled: Whether its number is written (``hour_is_labelled``).
+    """
+
+    hour: int
+    position: float
+    labelled: bool
+
+
+@dataclass(frozen=True)
+class SunLegend:
+    """What the key of an hours-of-sun map shows, as plain data.
+
+    Attributes:
+        daylight_minutes: The day's daylight: the bar's right end, where the
+            map's ramp ends (``sun_fraction``).
+        colors: The map's own tints along the bar, RGBA, the first for no sun
+            and the last for sun all day — rows of ``build_sun_lut``.
+        ticks: A mark at 0 h and at every hour the map draws a contour for
+            (``hour_levels``), left to right.
+    """
+
+    daylight_minutes: float
+    colors: tuple[tuple[int, int, int, int], ...]
+    ticks: tuple[LegendTick, ...]
+
+    def color_at(self, minutes: float) -> tuple[int, int, int, int]:
+        """The tint the map gives a cell with ``minutes`` of sun."""
+        fraction = sun_fraction(np.array([minutes]), self.daylight_minutes)
+        return self.colors[int(ramp_index(fraction, len(self.colors))[0])]
+
+
+def sun_legend(daylight_minutes: float) -> SunLegend | None:
+    """The key of a map of a day with ``daylight_minutes`` of daylight; ``None``
+    when there is no daylight to scale it by (the polar night).
+
+    Built from what the map is built from and nothing else: ``build_sun_lut``
+    for the tints (one entry per row, so ``color_at`` is the map's own lookup)
+    and ``hour_levels`` for the hours. The map draws a contour only where the
+    ground reaches that hour; the legend marks every hour of the day.
+    """
+    if not (math.isfinite(daylight_minutes) and daylight_minutes > 0.0):
+        return None
+    lut = build_sun_lut()
+    colors = tuple((int(r), int(g), int(b), int(a)) for r, g, b, a in lut.tolist())
+    ticks = [LegendTick(0, 0.0, True)]
+    for minutes in hour_levels(daylight_minutes):
+        hour = minutes // 60
+        ticks.append(LegendTick(hour, minutes / daylight_minutes, hour_is_labelled(hour)))
+    return SunLegend(float(daylight_minutes), colors, tuple(ticks))

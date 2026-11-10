@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, QRectF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem
 
@@ -35,6 +35,9 @@ class SelectTool(BaseTool):
     # Box selection colors
     ENCLOSING_COLOR = QColor(0, 120, 215)  # Blue for left-to-right
     CROSSING_COLOR = QColor(0, 180, 0)  # Green for right-to-left
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("SelectTool", "Select")
 
     def __init__(self, view: "CanvasView") -> None:
         """Initialize the select tool."""

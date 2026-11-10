@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.models.amendment import (
     FIX_ADDS_CA,
     FIX_ADDS_K,
@@ -56,6 +57,10 @@ _HEALTH_RGBA: dict[HealthLevel, tuple[int, int, int, int]] = {
     HealthLevel.FAIR: (255, 200, 0, 80),
     HealthLevel.POOR: (220, 60, 60, 80),
 }
+
+# The grey a bed WITHOUT a soil test is hatched in. The one definition: the
+# plan's overlay and the legend's chip both ask ``SoilService.unknown_rgba``.
+_UNKNOWN_RGBA: tuple[int, int, int, int] = (140, 140, 140, 40)
 
 # Parameter key constants for ``health_level``. ``OVERALL`` collapses pH and NPK
 # into the worst single bucket; the others isolate one parameter.
@@ -411,9 +416,15 @@ class SoilService:
     def overlay_rgba(level: HealthLevel) -> tuple[int, int, int, int] | None:
         """Return the (r, g, b, a) tint for ``level``, or ``None`` for UNKNOWN.
 
-        Untested beds get hatched grey from the view layer instead of a tint.
+        Untested beds get hatched grey from the view layer instead of a tint:
+        :meth:`unknown_rgba`.
         """
         return _HEALTH_RGBA.get(level)
+
+    @staticmethod
+    def unknown_rgba() -> tuple[int, int, int, int]:
+        """The (r, g, b, a) grey of the hatch on a bed without a soil test."""
+        return _UNKNOWN_RGBA
 
     # ── Amendment calculator (US-12.10c) ──────────────────────────────────────
 
@@ -610,7 +621,9 @@ class SoilService:
                             QCoreApplication.translate(
                                 "SoilService",
                                 "{name} needs pH ≥{min:.1f}, current {cur:.1f}",
-                            ).format(name=name, min=spec.ph_min, cur=record.ph),
+                            ).format(
+                                name=name, min=LocalizedNumber(spec.ph_min),
+                                cur=LocalizedNumber(record.ph)),
                         )
                     )
                 elif record.ph > spec.ph_max + 0.05:
@@ -620,7 +633,9 @@ class SoilService:
                             QCoreApplication.translate(
                                 "SoilService",
                                 "{name} needs pH ≤{max:.1f}, current {cur:.1f}",
-                            ).format(name=name, max=spec.ph_max, cur=record.ph),
+                            ).format(
+                                name=name, max=LocalizedNumber(spec.ph_max),
+                                cur=LocalizedNumber(record.ph)),
                         )
                     )
             n_d, p_d, k_d = _effective_demand(spec)

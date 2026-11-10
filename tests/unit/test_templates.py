@@ -80,7 +80,8 @@ def test_catalog_content_is_localized_and_has_provenance(qtbot):
             assert meta["name_" + language] and meta["description_" + language]
         plan = json.loads(entry.path.read_text(encoding="utf-8"))
         clean = template_plan(plan)
-        assert not {"location", "soil_tests", "metadata"} & clean.keys()
+        assert not {"location", "soil_tests", "harvest_logs", "metadata"} & clean.keys()
+        assert {"location", "harvest_logs"} <= plan.keys(), "the example's own demonstration state"
         assert clean["objects"] == plan["objects"]
         assert example_copy_plan(plan, entry.path) == {k: v for k, v in plan.items() if k != "metadata"}
 

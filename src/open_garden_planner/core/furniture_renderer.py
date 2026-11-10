@@ -15,6 +15,7 @@ from PyQt6.QtSvg import QSvgRenderer
 
 from .object_types import ObjectType
 from .sprite_orientation import NATURAL_SIZE_CM, sprite_turn_deg
+from .sprite_raster import paint_sprite
 
 # Directories containing SVG files
 _FURNITURE_DIR = Path(__file__).parent.parent / "resources" / "objects" / "furniture"
@@ -185,6 +186,65 @@ def _get_renderer(svg_path: Path) -> QSvgRenderer | None:
 
     _renderer_cache[key] = renderer
     return renderer
+
+
+def _draw_furniture(
+    painter: QPainter, rect: QRectF, renderer: QSvgRenderer, turn: bool
+) -> None:
+    """THE way an object sprite is drawn into ``rect``: as it is, or — for a
+    sprite whose natural long axis is opposite the rectangle's (#776) — at the
+    swapped size and turned a quarter clockwise about the middle."""
+    if not turn:
+        renderer.render(painter, rect)
+        return
+    center = rect.center()
+    painter.save()
+    painter.translate(center)
+    painter.rotate(90.0)
+    renderer.render(
+        painter,
+        QRectF(-rect.height() / 2.0, -rect.width() / 2.0, rect.height(), rect.width()),
+    )
+    painter.restore()
+
+
+def paint_furniture(painter: QPainter, rect: QRectF, object_type: ObjectType) -> bool:
+    """Paint an object's sprite into ``rect`` (item units), upright, as fine as
+    ``painter`` shows it — the canvas's way to draw furniture (#785).
+
+    The canvas (and every export) draws the scene through a ``scale(1, -1)``
+    Y-flip, so a picture laid into item-local coordinates comes out upside-down
+    (fire-pit flames pointing down, #308 manual test); it is flipped back about
+    the rectangle's centre here, once, for every caller. The resolution is
+    ``core.sprite_raster.paint_sprite``'s — the one rule of
+    ``core.raster_resolution``; the quarter turn is ``sprite_turn_deg``'s.
+
+    Returns:
+        False if the type has no sprite or the rectangle is degenerate.
+    """
+    width, height = rect.width(), rect.height()
+    if not (math.isfinite(width) and math.isfinite(height) and width > 0 and height > 0):
+        return False
+    svg_path = get_furniture_svg_path(object_type)
+    if svg_path is None:
+        return False
+    renderer = _get_renderer(svg_path)
+    if renderer is None:
+        return False
+    turn = sprite_turn_deg(object_type.name, width, height) != 0.0
+    center = rect.center()
+    painter.save()
+    painter.translate(center)
+    painter.scale(1.0, -1.0)
+    painter.translate(-center)
+    painted = paint_sprite(
+        painter,
+        rect,
+        ("object", str(svg_path), turn),
+        lambda p, r: _draw_furniture(p, r, renderer, turn),
+    )
+    painter.restore()
+    return painted
 
 
 def render_furniture_pixmap(
