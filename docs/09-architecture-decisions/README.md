@@ -4266,7 +4266,8 @@ defined in `core/scene3d/look.py`; `quick3d/look.py` only maps it onto `meadowCo
    no visible lattice.
 4. **Open plan ground is marked by the bake's alpha.** The bake starts each tile as the meadow's
    colour at alpha 0 (`ground_bake.OPEN_ALPHA`) and `QPainter`'s premultiplied source-over leaves
-   every colour byte as it was (the 476 bake parity tests pass unchanged) while the alpha becomes
+   every colour byte as it was (of the bake's 477 tests only the one that pinned the bare
+   alpha changed) while the alpha becomes
    the items' coverage; `ground.frag` adds the grass's deviation in proportion to `1 − alpha`
    (PF-L3D-31). Rejected: painting the grass into the bake on the CPU — two implementations of one
    function, a plan baked at ½ or ¼ px/cm would be blurrier than the meadow at its own edge, and

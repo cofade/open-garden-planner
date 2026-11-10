@@ -25,12 +25,12 @@
 // the bake leaves ground no item covers at alpha 0, with the meadow's colour in rgb) and
 // on the meadow (uHasTile 0: no tile at all), the ground is the meadow's GRASS: the
 // canvas's GRASS texture (resources/textures/grass.png, 1 texel = 1 cm, the canvas's own
-// scale) as its linear colour over its own mean (uGrass: mean 1 per channel, RGBA16F, so
-// every mip level keeps the mean), sampled twice in world space - as it lies and turned
-// 37 degrees at 1.618 times the size, summed so that the variance stays and the 2.56 m
-// repeat does not show - times a slow world variation (9 m and 41 m, a few per cent of
-// brightness, a few degrees of hue; mean 1). Its mean is uMeadow's, so the far meadow
-// keeps its colour, and in the truth view (uSurface 0) the meadow is the flat colour.
+// scale) as its linear colour over its own mean, less its 2.56 m mottle (uGrass: mean 1
+// per channel, RGBA16F, so every mip level keeps the mean), sampled twice in world space -
+// as it lies and turned 37 degrees at 1.618 times the size, summed so that the variance
+// stays - times a world variation (brightness at 3.1, 9 and 41 m and hue at 17 m, a few
+// per cent each, mean 1; uSurface 2, from Medium up). Its mean is uMeadow's, so the far
+// meadow keeps its colour, and in the truth view (uSurface 0) the meadow is the flat colour.
 float groundLuma(vec3 c)
 {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
