@@ -878,9 +878,9 @@ backing store (`screen().grabWindow`), never `QWidget.grab()`: a grab paints the
 widget afresh and cannot show a pixel a partial repaint left behind.
 
 Measured on the 853-object plan (1469 × 901, at fit): the pass inside a 40-pixel
-repaint 10–12 ms → 0.13 ms; scene foreground passes per zoom step 2 → 1. What a
-40-pixel repaint still costs with labels on over labels off (2.3 ms: 5.8–5.9
-against 3.5–3.7 ms) is not the pass: Qt keeps items that ignore transformations
+repaint 10–12 ms → 0.1 ms; scene foreground passes per zoom step 2 → 1. What a
+40-pixel repaint still costs with labels on over labels off (2.2 ms: 4.9–5.7
+against 2.8–3.1 ms) is not the pass: Qt keeps items that ignore transformations
 out of its spatial index and walks the owner of every such item on every paint.
 
 **A label of no object states its own weight.** The hours on the sun map's
@@ -1022,7 +1022,7 @@ coordinates, with the rectangle round it. It is taken again when
 zoom read the same list, because plan coordinates do not change with the view.
 Until the review of #793 the view asked every object on every paint and united
 one `QRegion` per object in Python: 70 ms of a 120 ms repaint on a plan of 853
-objects (now 37 ms, against 33 ms for the lines with no cut-out at all). A
+objects (now 26 ms, against 24 ms for the lines with no cut-out at all). A
 layer, not a clip: the lines under a clip region of fourteen thousand rectangles
 cost 20 ms more than the lines themselves, and the paths of two objects in one
 clip path cancel where they overlap with opposite winding. The layer's painter
@@ -9244,19 +9244,19 @@ frame that touches an item paints it once.
 **A large plan, a large viewport (review of the branch).** Measured on a plan of
 853 named objects built in code (`tests/large_plan.py`: 746 perennials, 107
 raised beds, 50 m × 30 m) at fit in a 1469 × 901 viewport, ratio 1, offscreen
-platform, medians of 11 in three interleaved rounds on a machine five other
-processes were loading — read the ratios:
+platform, medians of 11 in three interleaved rounds, before and after in one
+session on a shared machine — read the ratios:
 
 | | Before the review | After | What changed |
 |---|---|---|---|
-| Full repaint, grid on | 122–129 ms | 33–39 ms | the cut-out is kept by the scene (§8.9.17) |
-| ... the grid's lines with no cut-out | 34–36 ms | 29–35 ms | (the reference: 1.05–1.15 times it now, 3.5 before) |
-| ... grid off | 27–32 ms | 26–29 ms | |
-| 40-px repaint, labels on / off | 16–17 / 4.3–5.0 ms | 6.5–7.8 / 3.5–3.7 ms | the label layout is kept (§8.9.15): the pass itself 10–12 → 0.13 ms |
-| 40-px repaint, labels and grid on | 21–22 ms | 6.1–10 ms | |
+| Full repaint, grid on | 126–139 ms | 26 ms | the cut-out is kept by the scene (§8.9.17) |
+| ... the grid's lines with no cut-out | 36–37 ms | 24–26 ms | (the reference: 1.0–1.1 times it now, 3.5–3.8 before) |
+| ... grid off | 27–29 ms | 18–19 ms | no label layout in the repaint |
+| 40-px repaint, labels on / off | 14–17 / 3.5–6.7 ms | 5.1–6.7 / 2.8–3.9 ms | the label layout is kept (§8.9.15): the pass itself 10–12 → 0.1 ms |
+| 40-px repaint, labels and grid on | 19–23 ms | 5.5–6.3 ms | |
 | Scene foreground passes per zoom step | 2 | 1 | the pass asks for the labels that changed, not for the viewport |
-| Zoom step of 3 %, labels and grid on | 115 ms | 82–103 ms | what is left is every visible item's device cache, as on any plan |
-| 40-px pan step at 1.5 × fit | 33 ms | 18–29 ms | a pan reads both kept answers |
+| Zoom step of 3 %, labels and grid on | 116 ms | 51 ms | what is left is every visible item's device cache, as on any plan |
+| 40-px pan step at 1.5 × fit | 33 ms | 13 ms | a pan reads both kept answers |
 | A press on a point of the plan lands on a label nobody sees | 35 % of the plan | none | a label takes no click (§8.9.15) |
 
 The sun overlay above 2048 device pixels is in the list above (72 → 31 ms a
@@ -9319,12 +9319,12 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
   arriving, settled the way a zoom is — it changes the pixels of a scrub
   frame, so it is the owner's to ask for. The reduced picture kept for a zoom
   above 2048 px is deliberately not made during a scrub.
-- A zoom step on a large plan is every visible item's device cache: 82–103 ms
+- A zoom step on a large plan is every visible item's device cache: 51 ms
   on the 853-object plan with nothing else left in it.
 - Labels as items: Qt keeps an item that ignores transformations out of its
   spatial index and walks the owner of every such item on every paint. With
-  853 labels shown that is 2.3 ms of a 40-pixel repaint (5.8–5.9 ms with the
-  label pass switched off, against 3.5–3.7 ms with the labels hidden), before
+  853 labels shown that is 2.2 ms of a 40-pixel repaint (4.9–5.7 ms with the
+  label pass switched off, against 2.8–3.1 ms with the labels hidden), before
   and after this branch.
 - A pan with the sun map's key on screen lays the labels out at every step:
   the key stays where it is while the labels move under it.
