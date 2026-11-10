@@ -1093,3 +1093,167 @@ def orientation_scores(seen: Any, predicted: Any) -> dict[str, Any]:
     best = max(scores, key=lambda name: scores[name])
     return {"ncc": {name: round(value, 4) for name, value in scores.items()},
             "best": best, "ok": best == "identity"}
+
+
+# ── the meadow: flat tiles, its own texture, shimmer and repeat (#798) ─────────
+
+#: A FLAT pixel: the luma standard deviation of the ``FLAT_WINDOW_PX`` square around it
+#: is under ``FLAT_STD_LUMA``. The 3D survey's instrument for "a model on a green felt
+#: table" (#798): on master 80 % of the default framing was flat AND green (a meadow
+#: patch read a std of 0.54 at noon, the lawn beside it 41).
+FLAT_STD_LUMA, FLAT_WINDOW_PX = 1.5, 9
+
+
+def local_std(values: Any, window: int = FLAT_WINDOW_PX) -> Array:
+    """The standard deviation of ``values`` (h x w) over the ``window`` square around
+    every pixel (the frame's edge repeated outward): two box filters by summed tables."""
+    data = np.asarray(values, dtype=np.float64)
+    half = window // 2
+
+    def box(field: Array) -> Array:
+        padded = np.pad(field, ((half + 1, half), (half + 1, half)), mode="edge")
+        table = padded.cumsum(axis=0).cumsum(axis=1)
+        return np.asarray((table[window:, window:] - table[:-window, window:]
+                           - table[window:, :-window] + table[:-window, :-window])
+                          / float(window * window))
+
+    mean, square = box(data), box(data * data)
+    return np.asarray(np.sqrt(np.maximum(square - mean * mean, 0.0)))
+
+
+def flat_share(rgb: Any, mask: Any = None) -> dict[str, Any]:
+    """How much of a frame (or of ``mask`` in it) is FLAT (``FLAT_STD_LUMA``).
+
+    ``flat_green``: the share that is flat and green (green the largest channel) — the
+    survey's number; ``flat``: flat in any colour (a plain sky is flat too);
+    ``local_std``: the mean of the local standard deviation over the region (the
+    texture a viewer sees, free of the large gradients of light and fog)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    spread = local_std(luma(frame))
+    region = (np.ones(spread.shape, dtype=bool) if mask is None
+              else np.asarray(mask, dtype=bool))
+    count = int(region.sum())
+    if count == 0:
+        return {"flat_green": None, "flat": None, "local_std": None, "pixels": 0}
+    green = (frame[..., 1] > frame[..., 0]) & (frame[..., 1] > frame[..., 2])
+    flat = spread < FLAT_STD_LUMA
+    return {"flat_green": round(float((flat & green)[region].mean()), 4),
+            "flat": round(float(flat[region].mean()), 4),
+            "local_std": round(float(spread[region].mean()), 3), "pixels": count}
+
+
+def ground_hits(camera: Pinhole) -> tuple[Array, Array, Array]:
+    """Where every pixel's ray meets the ground (z = 0): east, north (cm) and the
+    distance along the ground from the camera's foot — NaN where the ray never
+    reaches it (at or above the horizon)."""
+    width, height = camera.size
+    xs, ys = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(xs, ys)
+    eye = np.asarray(camera.eye, dtype=np.float64)
+    down = rays[..., 2] < -1e-9
+    t = np.where(down, -eye[2] / np.where(down, rays[..., 2], -1.0), np.nan)
+    east, north = eye[0] + t * rays[..., 0], eye[1] + t * rays[..., 1]
+    return (np.asarray(east), np.asarray(north),
+            np.asarray(np.hypot(east - eye[0], north - eye[1])))
+
+
+def meadow_mask(camera: Pinhole, plan: tuple[float, float, float, float], *,
+                margin_cm: float = 300.0, near_cm: float = 0.0,
+                far_cm: float = math.inf) -> Mask:
+    """The pixels that see the MEADOW and nothing of the plan: the ground at least
+    ``margin_cm`` outside the plan rectangle ``plan`` = (east0, north0, east1, north1),
+    ``near_cm`` .. ``far_cm`` from the camera's foot, whose line of sight does not pass
+    over the plan (grown by the margin) — what stands in a garden can hide only what
+    lies behind it, and a crown overhangs the plan's edge by less than the margin."""
+    east, north, distance = ground_hits(camera)
+    x0, y0 = plan[0] - margin_cm, plan[1] - margin_cm
+    x1, y1 = plan[2] + margin_cm, plan[3] + margin_cm
+    with np.errstate(invalid="ignore"):
+        valid = np.isfinite(distance) & (distance >= near_cm) & (distance <= far_cm)
+        outside = (east < x0) | (east > x1) | (north < y0) | (north > y1)
+    # Liang-Barsky: does the segment from the camera's foot to the hit cross the grown plan?
+    start = np.asarray(camera.eye[:2], dtype=np.float64)
+    dx, dy = east - start[0], north - start[1]
+    low, high = np.zeros(east.shape), np.ones(east.shape)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for delta, begin, lower, upper in ((dx, start[0], x0, x1), (dy, start[1], y0, y1)):
+            parallel = np.abs(delta) < 1e-12
+            first, second = (lower - begin) / delta, (upper - begin) / delta
+            near = np.where(parallel, -np.inf, np.minimum(first, second))
+            far = np.where(parallel, np.inf, np.maximum(first, second))
+            inside_slab = (begin >= lower) & (begin <= upper)
+            low = np.where(parallel & ~inside_slab, 2.0, np.maximum(low, near))
+            high = np.where(parallel & ~inside_slab, -1.0, np.minimum(high, far))
+    crosses = low <= high
+    return np.asarray(valid & outside & ~crosses)
+
+
+def track_luma(frames: Sequence[Any], cameras: Sequence[Pinhole], points: Any, *,
+               radius_px: int = 1) -> Array:
+    """The luma of fixed GROUND points through a camera move: ``(frames, points)``, the
+    mean of the ``2 radius + 1`` square around where each frame's camera puts the point
+    (NaN where it falls out of the frame or behind the camera)."""
+    world = np.atleast_2d(np.asarray(points, dtype=np.float64))
+    if world.shape[1] == 2:
+        world = np.column_stack([world, np.zeros(len(world))])
+    out = np.full((len(frames), len(world)), np.nan)
+    for index, (rgb, camera) in enumerate(zip(frames, cameras, strict=True)):
+        values = luma(np.asarray(rgb, dtype=np.float64)[..., :3])
+        rows, cols = values.shape
+        x, y, front = camera.scaled((cols, rows)).project(world)
+        col, row = np.floor(x).astype(np.int64), np.floor(y).astype(np.int64)
+        seen = front & (col >= radius_px) & (col < cols - radius_px) & (row >= radius_px) & (
+            row < rows - radius_px)
+        total = np.zeros(int(seen.sum()))
+        for dy in range(-radius_px, radius_px + 1):
+            for dx in range(-radius_px, radius_px + 1):
+                total += values[row[seen] + dy, col[seen] + dx]
+        out[index, seen] = total / float((2 * radius_px + 1) ** 2)
+    return out
+
+
+def temporal_noise(series: Any) -> dict[str, Any]:
+    """How ground points flicker through a camera move (``track_luma``'s array). A
+    smooth move changes a point's luma smoothly; aliasing and crawl change it from frame
+    to frame. ``zigzag_rms``: the RMS of ``x[i] - (x[i-1] + x[i+1]) / 2`` over every
+    point seen in three frames running (the day-lapse instrument of #799); ``step_mean``:
+    the mean frame-to-frame change; ``step_p95`` its 95th percentile."""
+    data = np.asarray(series, dtype=np.float64)
+    if data.shape[0] < 3:
+        return {"zigzag_rms": None, "step_mean": None, "step_p95": None, "points": 0}
+    zigzag = data[1:-1] - (data[:-2] + data[2:]) / 2.0
+    steps = np.abs(np.diff(data, axis=0))
+    zig, step = zigzag[np.isfinite(zigzag)], steps[np.isfinite(steps)]
+    seen = int(np.isfinite(zigzag).any(axis=0).sum())
+    if zig.size == 0:
+        return {"zigzag_rms": None, "step_mean": None, "step_p95": None, "points": 0}
+    return {"zigzag_rms": round(float(np.sqrt((zig * zig).mean())), 3),
+            "step_mean": round(float(step.mean()), 3),
+            "step_p95": round(float(np.percentile(step, 95)), 3), "points": seen}
+
+
+def repeat_correlation(values: Any, period_px: float) -> dict[str, Any]:
+    """Does a texture's REPEAT show? ``values`` (h x w luma) is ground seen straight from
+    above with east right and north up, ``period_px`` the texture's repeat in pixels.
+
+    ``at_period``: the larger normalised correlation of the picture with itself moved
+    one period east or north — the lattice a repeated texture draws (an identical tile
+    beside every tile reads near 1); ``control``: the same at 0.37 and 0.61 of a period,
+    where a repeat has no reason to correlate. ``excess``: ``at_period`` - ``control``."""
+    data = np.asarray(values, dtype=np.float64)
+
+    def shifted(lag_x: int, lag_y: int) -> float:
+        if lag_x >= data.shape[1] or lag_y >= data.shape[0]:
+            return 0.0
+        first = data[lag_y:, :data.shape[1] - lag_x] if lag_x else data[lag_y:, :]
+        second = data[:data.shape[0] - lag_y, lag_x:] if lag_x else data[:data.shape[0] - lag_y, :]
+        return ncc(first, second)
+
+    def at(share: float) -> float:
+        lag = max(1, int(round(share * period_px)))
+        return max(shifted(lag, 0), shifted(0, lag))
+
+    period = at(1.0)
+    control = max(at(0.37), at(0.61))
+    return {"at_period": round(period, 4), "control": round(control, 4),
+            "excess": round(period - control, 4), "period_px": round(float(period_px), 2)}
