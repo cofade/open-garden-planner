@@ -11,7 +11,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-CANVAS-04**: Pan and zoom via mouse wheel, drag, and keyboard shortcuts — and, since issue #321, **touch**: Qt's own pinch recognizer turns two fingers into a zoom about the gesture centre (panning as they move), both through the same anchored-zoom and pan helpers as the mouse (so the clamping, the 1 px anchoring and the minimap/rulers/zoom label agree). A **single** finger is never claimed by the recognizer, so tap-to-select and one-finger drag stay on Qt's synthesised mouse path and behave exactly as before. A pinch **never drags** the object under the first finger: a move it had begun is put back with no undo step, a half-made shape is discarded, and a selection the press cleared on empty canvas is restored (it may still select the object under that finger, as a tap would); the one stated exception is a resize/rotate/vertex handle being dragged, whose normal release finalizes that edit as one undo step. Touch *drawing* with tools is out of scope. Trackpad pinch arrives as Qt's native zoom gesture and is handled too. The behaviour is the **Preferences → Canvas → "Enable touch gestures"** setting (`canvas/touch_gestures_enabled`, default on); off grabs no gesture at all, leaving the canvas as it was before #321.
 
 ### FR-1.2 Grid System
-- **FR-GRID-01**: Optional visible grid overlay (toggleable via toolbar button)
+- **FR-GRID-01**: Optional visible grid overlay (toggleable via toolbar button). The grid lies on the ground: it is drawn inside the plan only, over the ground surfaces (lawn, terrace, path, in-ground bed) and under every object that stands on them, so no grid line crosses a plant, a building or a piece of furniture *(issue #793)*. It is a canvas aid and is in no export.
 - **FR-GRID-02**: Grid spacing configurable (10cm, 25cm, 50cm, 100cm)
 - **FR-GRID-03**: Snap-to-grid toggleable (independent of grid visibility)
 - **FR-GRID-04**: Grid renders efficiently at all zoom levels (adaptive detail)
@@ -54,7 +54,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-EDIT-01**: Select tool (click, box select, Shift+click for multi-select)
 - **FR-EDIT-02**: Move objects (drag or arrow keys with Shift for precision)
 - **FR-EDIT-03**: Rotate objects (free rotation and snap to 15 degree increments)
-- **FR-EDIT-04**: Scale objects via resize handles (8 handles: 4 corners + 4 edges)
+- **FR-EDIT-04**: Scale objects via resize handles (8 handles: 4 corners + 4 edges). The handles and the rotation handle sit on the object's own outline, never on the larger box that also holds its shadow, a warning badge or a plant's spacing ring; a selected circle's position and diameter labels are stacked beside its right edge and never overlap *(issue #790)*.
 - **FR-EDIT-05**: Delete objects (Delete key, context menu)
 - **FR-EDIT-06**: Duplicate objects (Ctrl+D)
 - **FR-EDIT-07**: Undo/Redo (Ctrl+Z, Ctrl+Y) with unlimited history per session
@@ -345,8 +345,12 @@ Pre-defined object types for common property elements:
 - **FR-VIS-01**: Tileable PNG textures for materials (grass, wood, stone, water, etc.)
 - **FR-VIS-02**: Illustrated SVG plant shapes (category-based + unique popular species)
 - **FR-VIS-03**: Subtle drop shadows on all objects, always enabled
-- **FR-VIS-04**: Visual scale bar overlay on canvas
+- **FR-VIS-04**: Visual scale bar overlay on canvas. Its label is readable on every background and never covered by the minimap *(issue #793)*.
 - **FR-VIS-05**: Object labels (plant names, custom text) toggleable per-object and globally
+- **FR-VIS-06** *(issue #793)*: Every label on the canvas (object name, area, dimension and constraint text, scale bar) is drawn over a halo and shows a contrast of at least **4.5:1** (WCAG AA) between its text and what surrounds the text, on any background. A dimension's text is a darker shade of its line's colour where the line colour alone would not reach that. An object's label is centred on the object at every zoom and is drawn above all objects. Labels never overlap: when the plan is zoomed out, an object smaller than 14 px on screen shows no label, and of two labels that would touch the larger object's is shown; the selected object always shows its label. An export shows the labels the canvas shows.
+- **FR-VIS-07** *(issue #793)*: A text note keeps its letter spacing at every zoom.
+- **FR-VIS-08** *(issue #786)*: With **View > Overlays > Show Spacing Circles** on (the default), a plant that is too close to a neighbour is marked by a thin dashed warning line drawn only where its spacing circle overlaps that neighbour's; nothing is filled. The selected plant shows its whole spacing circle; a plant whose spacing is fine and that is not selected shows none. Two plants are compared only within one storey: a tree is never reported against what grows under its crown (ADR-028 addendum). The Diagnostics panel lists the same warnings.
+- **FR-VIS-09** *(issue #786)*: Exported pictures of the plan (PNG, SVG, PDF report, print, the Agent API's `render_canvas_image`) show no diagnostic overlay: no spacing circle, companion ring, antagonist, capacity, sun-mismatch or guild badge, and no soil or crop-rotation border. Diagnostics remain available through the Diagnostics panel and `get_diagnostics`.
 
 ## FR-13: Additional Object Types (Phase 6)
 

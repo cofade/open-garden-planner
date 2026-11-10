@@ -1174,6 +1174,11 @@
     "state": "MERGED",
     "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
   },
+  "786": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Spacing-overlap warnings are filled red discs that flood the family-garden example and every export"
+  },
   "787": {
     "is_pr": false,
     "state": "OPEN",
@@ -1183,5 +1188,15 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Raster exports force one point size on authored text notes"
+  },
+  "790": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Selection handles of a plant span its spacing ring; position and diameter labels overlap"
+  },
+  "793": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas legibility: scale-bar and object labels have no halo, note kerning breaks at zoom, grid draws over sprites"
   }
 }

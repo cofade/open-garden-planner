@@ -41,6 +41,7 @@ from PyQt6.QtGui import (
     QPainter,
     QPaintEvent,
     QPen,
+    QRegion,
     QTransform,
     QWheelEvent,
 )
@@ -4077,8 +4078,6 @@ class CanvasView(QGraphicsView):
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the foreground including canvas border, grid overlay, and snap guides."""
-        super().drawForeground(painter, rect)
-
         # Soil-health overlay (US-12.10b) — painted before grid/guides so the
         # grid and guide lines stay legible above the tint. Drawn at view
         # level so scene.render() (PNG/SVG/PDF/print) excludes it.
@@ -4088,9 +4087,13 @@ class CanvasView(QGraphicsView):
         # Draw canvas border
         self._draw_canvas_border(painter)
 
-        # Draw grid overlay on top of everything
+        # The grid lies on the ground: inside the plan, over the ground
+        # surfaces, under every object that stands on them (#793).
         if self._grid_visible:
             self._draw_grid(painter, rect)
+
+        # The scene's own foreground: the object labels, above the grid.
+        super().drawForeground(painter, rect)
 
         # Draw snap alignment guides
         if self._snap_guides:
@@ -4154,8 +4157,72 @@ class CanvasView(QGraphicsView):
 
         painter.restore()
 
+    def _grid_region(self, painter: QPainter, rect: QRectF) -> QRegion:
+        """Where the grid may be drawn, in the painter's device pixels.
+
+        The plan, less every object that stands on the ground. The grid is
+        painted after the items (a view-level pass, so no export carries it),
+        yet it must read as lying UNDER the objects: a line across a tree's
+        crown or a table looks like a scratch on the picture (#793). Painting
+        it before the items instead would hide it under every lawn, terrace
+        and bed, which is where it is needed. So the objects are cut out of
+        the region the lines are clipped to. A ground surface
+        (``canvas_scene.on_ground``: lawn, path, terrace, in-ground bed) is no
+        object here; the grid lies on it as the sun study's shadows do.
+        """
+        from open_garden_planner.ui.canvas.canvas_scene import on_ground
+        from open_garden_planner.ui.canvas.items import (
+            CircleItem,
+            EllipseItem,
+            PolygonItem,
+            PolylineItem,
+            RectangleItem,
+        )
+
+        # The drawn objects. A text note, a callout or a pin is writing on the
+        # plan, not a body the grid passes under; a group is its members.
+        bodies = (RectangleItem, CircleItem, EllipseItem, PolygonItem, PolylineItem)
+        world = painter.worldTransform()
+        plan = self._canvas_scene.canvas_rect.intersected(rect)
+        region = QRegion(world.mapRect(plan).toAlignedRect())
+        if region.isEmpty():
+            return region
+        covered = QRegion()
+        for item in self._canvas_scene.items(
+            rect, Qt.ItemSelectionMode.IntersectsItemBoundingRect
+        ):
+            if not isinstance(item, bodies) or not item.isVisible() or on_ground(item):
+                continue
+            outline = item.deviceTransform(world).map(item.grid_cover_path())
+            if isinstance(item, CircleItem):
+                # A circle stays a circle under the view's transform: Qt's own
+                # ellipse region is an order of magnitude cheaper than a
+                # polygon's, and plants are most of what stands on a plan.
+                covered += QRegion(
+                    outline.boundingRect().toAlignedRect(), QRegion.RegionType.Ellipse
+                )
+                continue
+            for polygon in outline.toFillPolygons():
+                covered += QRegion(polygon.toPolygon(), Qt.FillRule.WindingFill)
+        return region - covered
+
     def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
-        """Draw the grid overlay."""
+        """Draw the grid: inside the plan and under the objects (``_grid_region``)."""
+        region = self._grid_region(painter, rect)
+        if region.isEmpty():
+            return
+        painter.save()
+        # The region is in device pixels: clip with the world transform off.
+        painter.setWorldMatrixEnabled(False)
+        painter.setClipRegion(region, Qt.ClipOperation.IntersectClip)
+        painter.setWorldMatrixEnabled(True)
+        try:
+            self._draw_grid_lines(painter, self._canvas_scene.canvas_rect.intersected(rect))
+        finally:
+            painter.restore()
+
+    def _draw_grid_lines(self, painter: QPainter, rect: QRectF) -> None:
+        """Draw the grid lines across ``rect`` (scene coordinates)."""
         # Determine grid line spacing based on zoom
         grid_size = self._grid_size
 
@@ -4626,11 +4693,6 @@ class CanvasView(QGraphicsView):
             int(bar_y - tick_h),
         )
 
-        # Outline: text
-        outline_pen.setWidth(3)
-        painter.setPen(outline_pen)
-        painter.drawText(int(text_x), int(text_y), label)
-
         # Draw foreground pass
         fg_color = QColor(self._scale_bar_fg)
         fg_pen = QPen(fg_color)
@@ -4660,9 +4722,13 @@ class CanvasView(QGraphicsView):
             int(bar_y - tick_h),
         )
 
-        # Foreground: text
-        painter.setPen(fg_color)
-        painter.drawText(int(text_x), int(text_y), label)
+        # Text: the glyphs over a stroked halo, so the label reads on soil,
+        # lawn, a roof and the grey around the plan alike. Before #793 the
+        # "outline" was drawText with a 3 px pen, which outlines nothing: the
+        # label measured 1.25:1 on soil.
+        from open_garden_planner.ui.canvas.items.halo_text import paint_halo_text
+
+        paint_halo_text(painter, QPointF(int(text_x), int(text_y)), label, font, fg_color)
 
     # ------------------------------------------------------------------
     # Group / Ungroup

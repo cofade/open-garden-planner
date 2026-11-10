@@ -8,7 +8,6 @@ from typing import Any
 from PyQt6 import sip
 from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtGui import QTransform
-from PyQt6.QtWidgets import QGraphicsPixmapItem
 
 from open_garden_planner.core.guild_commands import guild_plant_bounds
 from open_garden_planner.core.object_types import ObjectType, is_plant_type
@@ -22,6 +21,7 @@ from open_garden_planner.services.sun_mismatch_service import (
     classify_mismatch,
     evaluate_sun,
 )
+from open_garden_planner.ui.canvas.items.garden_item import SunBadgeItem
 from open_garden_planner.ui.canvas.sun_badge_placement import badge_rectangle, plant_footprint
 from open_garden_planner.ui.canvas.sun_exposure_snapshot import collect_exposure_snapshot
 from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
@@ -182,7 +182,7 @@ class SunExposureCoordinator(QObject):
                 badge.setVisible(False)
             return
         if badge is None:
-            badge = QGraphicsPixmapItem(plant)
+            badge = SunBadgeItem(plant)
             badge.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
             badge.setZValue(100)
             # The canvas is Y-up. Flip the icon's pixel frame once.

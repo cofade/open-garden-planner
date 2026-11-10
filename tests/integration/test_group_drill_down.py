@@ -237,7 +237,12 @@ def test_a_drilled_handle_resize_is_clamped_to_the_canvas(canvas) -> None:
     canvas._move_drill_handle(QPointF(5200, handle.scenePos().y()))
     canvas._finish_drill_handle()
 
-    assert first.sceneBoundingRect().right() <= 5000.0 + 1e-6
+    # The handle sits on the member's own outline (#790), so the outline is
+    # what the clamped pointer carries to the canvas edge: it reaches the edge
+    # and does not cross it. The repaint region (pen and shadow margin) is
+    # allowed to lie beyond, as it does for any object drawn at the edge.
+    outline = first.mapRectToScene(first.rect())
+    assert outline.right() == pytest.approx(5000.0, abs=1e-6)
 
 
 def test_a_rotated_group_handle_keeps_the_dragged_corner_under_the_pointer(canvas) -> None:

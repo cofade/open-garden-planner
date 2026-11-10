@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from PyQt6.QtCore import (
@@ -21,7 +21,7 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QTransform
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -37,6 +37,9 @@ from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.plan_labels import ShownLabel
 
 #: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
 #: path, a terrace, an in-ground bed with no height): above the background image
@@ -175,6 +178,15 @@ class CanvasScene(QGraphicsScene):
         # Spacing circles visibility state
         self._spacing_circles_visible = True
 
+        # Whether garden items paint their diagnostic decorations (spacing ring,
+        # companion ring, warning badges, soil and rotation borders). Runtime only:
+        # an export switches it off for the length of its render (§8.9.16).
+        self._diagnostic_overlays_visible = True
+
+        # Per viewport, the object labels the last paint chose to show
+        # (``_paint_plan_labels``): a change repaints that viewport once.
+        self._shown_plan_labels: dict[int, frozenset[int]] = {}
+
         # Layer management
         self._layers: list[Layer] = create_default_layers()
         self._active_layer: Layer | None = self._layers[0] if self._layers else None  # Default to first layer
@@ -241,6 +253,30 @@ class CanvasScene(QGraphicsScene):
         # Then draw canvas area (beige rectangle) on top
         canvas_rect = QRectF(0, 0, self._width_cm, self._height_cm)
         painter.fillRect(canvas_rect, QBrush(self.CANVAS_COLOR))
+
+    #: Object labels (``PlanLabelItem``) are painted by ``drawForeground`` here,
+    #: after every item, and not by the label items themselves.
+    paints_plan_labels = True
+
+    def drawForeground(self, painter: QPainter | None, rect: QRectF) -> None:
+        """Paint the object labels above every item (§8.9.15, #793).
+
+        A scene-level hook on purpose: the view paints through it and so does
+        ``scene.render()``, so an export, a print and the Agent API's picture
+        carry the same labels as the canvas.
+        """
+        super().drawForeground(painter, rect)
+        if painter is None:
+            return
+        from open_garden_planner.ui.canvas.plan_labels import paint_plan_labels
+
+        paint_plan_labels(self, painter, rect, self._shown_plan_labels)
+
+    def plan_labels_shown(self, world: QTransform) -> "list[ShownLabel]":
+        """The object labels a paint with the transform ``world`` shows (``plan_labels``)."""
+        from open_garden_planner.ui.canvas.plan_labels import plan_labels_shown
+
+        return plan_labels_shown(self, world)
 
     # Shadow management (painted shadows — no QGraphicsEffect overhead)
 
@@ -318,6 +354,31 @@ class CanvasScene(QGraphicsScene):
         for item in self.items():
             if isinstance(item, GardenItemMixin):
                 item.spacing_circles_visible = visible
+
+    @property
+    def diagnostic_overlays_visible(self) -> bool:
+        """Whether garden items paint their diagnostic decorations."""
+        return self._diagnostic_overlays_visible
+
+    def set_diagnostic_overlays_visible(self, visible: bool) -> None:
+        """Switch every item's painted diagnostic decoration on or off.
+
+        A spacing ring, a companion ring, an antagonist or capacity badge and a
+        soil or crop-rotation border are painted by the garden item they belong
+        to, so there is no scene item to hide for a picture of the plan. The
+        export seam (``ExportService._hide_overlay_items``) switches them off
+        here instead and switches them on again afterwards. The diagnostics
+        themselves are untouched: this changes what is painted, never the
+        flags, the plan or its revision.
+        """
+        if self._diagnostic_overlays_visible == visible:
+            return
+        self._diagnostic_overlays_visible = visible
+        from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
+
+        for item in self.items():
+            if isinstance(item, GardenItemMixin) and item.has_diagnostic_decoration():
+                item.update()
 
     def addItem(self, item: QGraphicsItem) -> None:
         """Add an item to the scene, applying shadow and label state.

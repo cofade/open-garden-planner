@@ -247,7 +247,7 @@ visibility calls.
 |---|---|---|
 | **Smart Symbols panel and templates retired** | #770 (no toggle remains) | **retired UI** (US-C4 engine retained). Persistence, properties editing and DXF export still ship and are tested; symbols in existing `.ogp` files regenerate from their cached children, and user files in `<app-data>/smart_symbols/` still load. The fixed templates are test fixtures now (`tests/fixtures/smart_symbols/`). |
 | Contextual panels hidden until relevant selection | `set_panel_visible(key, relevant)` for `plant_details` / `companion` / `crop_rotation` in the selection updaters (ADR-030) | production behavior — not a bug when they're absent with nothing selected |
-| Satellite menu action disabled | `application.py:5333` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
+| Satellite menu action disabled | `application.py:5378` `_update_satellite_menu_state` when both the Preferences key and `OGP_GOOGLE_MAPS_KEY` are unset (§3) | production guard |
 | Nearest / perpendicular / tangent snap default-OFF | §1 snap table | production, opt-in |
 | **3D view in compatibility mode (software rendering), or switched off** | `ui/view3d/init_guard.py`: the last start of 3D died before its first frame (a start marker was left), or the user chose "Use Compatibility Mode Next Time"; a start that died in compatibility mode too switches 3D off | production safety net (ADR-060; the default since L1.9 — there is no switch): the 3D pane says so and offers "Try Hardware Next Time" (FR-3D-WS-07). The flag file `view3d-compat.flag` and the markers `view3d-init-<pid>.marker` sit next to `app.log` |
 

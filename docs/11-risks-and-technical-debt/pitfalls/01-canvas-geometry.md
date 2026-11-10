@@ -675,6 +675,26 @@ restart the #305 render loop. No bare-canvas test could have caught this: the
 canvas fixture has no minimap, and the one running-app test called
 `begin_group_drill_down` directly instead of clicking.
 
+### PF-CAN-51
+
+- **Rule:** Whatever marks an object (selection handles, the rotation handle, a label anchor) reads `handle_geometry.selection_frame_rect(item)`, never `boundingRect()`; and an `ItemIgnoresTransformations` label is centred or stacked in its own pixel frame, never by an offset written into its position.
+- **Pinned by:** `tests/integration/test_selection_frame.py`; `tests/integration/test_canvas_legibility.py::test_a_label_is_centred_on_its_object_at_every_zoom`
+- **Source:** #790, #793
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. See §8.9.17.
+
+### PF-CAN-52
+
+- **Rule:** Text that the view scales (a `TextItem` note, a callout) is laid out unhinted (`PreferNoHinting`); text with a halo strokes the glyph outline path, because `drawText` with a wide pen outlines nothing, and takes that outline from the layout that draws the glyphs, never from `QPainterPath.addText`.
+- **Pinned by:** `tests/integration/test_canvas_legibility.py::test_a_text_note_is_laid_out_unhinted_whatever_is_set_on_it`; `tests/integration/test_canvas_legibility.py::test_a_callout_is_laid_out_unhinted`; `tests/integration/test_canvas_legibility.py::test_the_scale_bar_label_reads_on_every_background`; `tests/integration/test_canvas_legibility.py::test_the_halo_ends_where_the_text_ends`
+- **Source:** #793, #789
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A hinted font rounds every advance to the pixel grid of the one size it is laid out at; the zoom magnifies the rounding into uneven gaps ("thy me"). Measured on Windows over one line: glyph positions up to 10.25 px from linear before and 1.9 px after; worst letter gap at 3.3x zoom 2.85 px off before and 1.15 px after. An exact point size and the document's design metrics add nothing to that (same gaps to 0.01 px). The offscreen platform the suite runs on does not hint (0.0 px either way), so the test pins the font setup, not pixels. A halo built by `addText` is a second layout of the text: a bold 10 pt label ended 3.9 px past it on Windows and 15 px on the offscreen platform, which gives a bold face a regular outline. A label's contrast is measured, not judged: §8.9.15.
+
 ### PF-CAN-53
 
 - **Rule:** The scene is never painted into a `QSvgGenerator` directly: it is painted into the recording engine of `services/svg_export.py` and replayed, because the generator drops a brush's own transform and a pixmap's source rectangle, and writes a clip either not at all or as a staircase.

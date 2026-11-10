@@ -374,6 +374,12 @@ sb = CanvasView.SCALE_BAR_RESERVED_PX if self._canvas_view.scale_bar_visible els
 y = vp.bottom() - self.height() - MARGIN - sb
 ```
 
+Reposition on the **viewport's** `Resize` as well as the view's. A scrollbar that
+appears when the plan is zoomed in shrinks the viewport and does not resize the
+view; an overlay that listened to the view alone sat a scrollbar's height inside
+the scale bar's band (#793). The scale bar's label and its halo fit in the reserved
+band (`test_the_scale_bar_stays_inside_the_band_reserved_for_it`).
+
 ### 8.9.5 Scene thumbnail rendering — Y-flip and item filtering
 
 `QGraphicsScene.render()` renders in raw scene coordinates (Y increases downward). The canvas view applies a Y-flip transform. Flip the resulting pixmap:
@@ -590,6 +596,148 @@ picture is parametric declares `paints_picture` (it stores no pen or brush of it
 own), so a missing picture paints nothing rather than a plain fill. Pin:
 `tests/integration/test_parametric_structures.py`,
 `tests/unit/test_sprite_orientation.py`, PF-CAN-44/45, PF-L3D-21.
+
+### 8.9.15 Text on the canvas — a halo, and object labels above the objects (#793)
+
+A label lies on whatever the plan holds: a red roof, dark soil, a bright lawn, the
+grey around the plan. No label may rely on what is under it.
+
+**One halo for every label.** `ui/canvas/items/halo_text.py` strokes the glyph
+*outline path* in a halo colour and paints the text over it. `QPainter.drawText`
+with a wide pen outlines nothing; that was the scale bar's "halo" for years.
+
+**The outline comes from the layout that draws the glyphs.** `text_outline` lays
+the text out as `QGraphicsSimpleTextItem` does and takes each glyph's outline at
+the place that layout gives it (`QTextLayout.glyphRuns`, `QRawFont.pathForGlyph`).
+`QPainterPath.addText` lays the text out a second time by other rules: a hinted
+layout rounds every advance to a whole pixel, and a bold face came out at the
+regular width. A bold 10 pt "Perennial border" ended 3.9 px past such an outline
+on Windows, where the halo reaches 2.5 px, and 6.4 px at an export's 7 pt.
+`paint_halo_text` strokes and fills one path, so it cannot disagree with itself.
+
+| Use | API |
+|---|---|
+| Immediate painting (the scale bar) | `paint_halo_text(painter, baseline, text, font, colour)` |
+| A scene label (dimension and constraint text) | `HaloTextItem` |
+| An object's name or area label | `PlanLabelItem` |
+
+Both item classes stay `QGraphicsSimpleTextItem`: the export paths find text by
+that type to resize it (PF-CAN-08).
+
+**Stated contrast.** `core/legibility.py` holds the arithmetic (WCAG relative
+luminance and contrast ratio). `MIN_TEXT_CONTRAST = 4.5` is what a label shows as
+painted, measured on pixels between the ink and what surrounds it.
+`INK_CONTRAST_TARGET = 7.0` is what the ink *colour* is given against its halo
+colour: a thin glyph's anti-aliased edge costs about a third of the colour
+contrast (the constraint blue is 4.6:1 on white as colours and 3.5:1 as painted).
+`setBrush` on a halo item keeps its meaning; a colour below the target is darkened,
+hue kept, so a dimension's text is a darker shade of its line. A dark ink gets the
+light halo, a light ink the dark one. The halo is opaque and its width follows the
+font (`HALO_WIDTH_RATIO` of the ascent), because an export gives the labels
+another font size.
+
+**Object labels are painted after the items.** A child item is drawn with its
+parent, so the lawn's label lay under every object placed on the lawn.
+`PlanLabelItem.paint` therefore does nothing in a `CanvasScene`;
+`CanvasScene.drawForeground` paints all labels after the item pass. It is a
+scene-level hook on purpose: `scene.render()` runs it too, so every export shows
+the labels the canvas shows. The label stays a child item, which keeps its place,
+visibility, opacity, lifetime and export font size for free. The pass skips a
+label with `ItemHasNoContents`: that flag is how the minimap blanks screen-space
+items (§8.9.5).
+
+**A label centres itself.** An `ItemIgnoresTransformations` label has its position
+in plan units and its size in pixels. An offset of half its size written into its
+position is right at one zoom only. `HaloTextItem(centered=True)` shifts its own
+rect instead; the inline name editor uses its own transform for the same reason.
+Labels of one object are stacked by `stack_under`, in pixels.
+
+**Labels that have no room are left out.** `core/label_layout.place_labels`
+(Qt-free) decides in screen pixels: an object smaller than `LABEL_MIN_OWNER_PX`
+on screen gets no label, and of two labels that would touch the larger object's
+wins. A selected object's labels are exempt and placed first. The name and the
+area of one object are a stack, not neighbours (`LabelCandidate.owner`): they lie
+closer than the gap and do not exclude each other, and when the name has no room
+the area is left out with it. The layout always
+looks at every label of the scene, never only at a repainted region, or a partial
+repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
+returns the result for a given transform.
+
+**Text notes scale with the view.** A `TextItem` or a callout is laid out once and
+scaled by the zoom, so its font is unhinted (`PreferNoHinting`, set with #789;
+PF-CAN-52). An exact point size and the document's design metrics were measured on
+top of that and change nothing: the letter gaps of a rendered note are the same to
+0.01 px at every zoom.
+
+Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
+`tests/unit/test_label_layout.py`.
+
+### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
+
+A picture of the plan (PNG, SVG, PDF report, print, the Agent API's
+`render_canvas_image`, an example thumbnail) shows the plan. It does not show
+editing aids or warnings. **One seam decides what is left out:**
+`ExportService._hide_overlay_items` with `_restore_overlay_items`.
+`scene_rendering.render_scene_region(hide_overlays=True)` calls the same pair, so
+there is one list, not two.
+
+| What | How the seam removes it |
+|---|---|
+| Handles, lock / soil / sun-mismatch / guild badges | scene items of a dedicated type: hidden one by one |
+| Selection outlines | the selection is cleared and restored |
+| Spacing ring, companion ring, antagonist badge, capacity badge, soil border, crop-rotation border | painted by their garden item: `CanvasScene.set_diagnostic_overlays_visible(False)` |
+
+The third row has no item to hide. The scene switch stands in the returned list as
+one entry, so restoring the list switches the decorations back on and no caller
+changes. A new paint-time decoration asks `GardenItemMixin._diagnostics_painted()`
+before it draws and is listed in `has_diagnostic_decoration()`; a new badge item
+gets its own type and joins the tuple in `_hide_overlay_items`. The switch changes
+what is painted, never a flag, the plan or its revision; `get_diagnostics` reads
+the same warnings whether or not they are painted.
+
+**The seam is checked on every shape of the bed gate (§8.14).** The decorations are
+painted from three places (the mixin for the soil border and the capacity badge,
+`RectangleItem` and `PolygonItem` for the crop-rotation border), which is the
+arrangement that twice shipped a bed feature on some shapes only.
+`test_no_plant_parent_shape_carries_a_decoration_into_an_export` therefore runs
+over `BED_SHAPES` of `tests/integration/test_bed_context_menu.py`: with every
+diagnostic flag raised, the exported picture of each shape equals the picture of
+the bare shape. A shape added to the bed gate is checked here with no further
+step.
+
+Decision (ADR-028 addendum): the spacing ring is a planning aid and is in no
+exported picture, warning or not. View-level overlays (grid, rulers, scale bar,
+soil-health tint) were never in an export, because `scene.render()` does not reach
+`CanvasView`.
+
+Pin: `tests/integration/test_spacing_warning_overlay.py`,
+`tests/integration/test_export_overlay_hide.py`.
+
+### 8.9.17 Handles sit on the outline; the grid lies under the objects (#790, #793)
+
+**`boundingRect()` is the repaint region, not the object.** It holds the outline
+plus the drop shadow, the pen, a plant sprite's leaf overflow, a companion ring, a
+warning badge and the spacing ring. Anything that marks *the object* reads
+`handle_geometry.selection_frame_rect(item)`: `rect()` for a circle, rectangle or
+ellipse, the vertex hull for a polygon, the bounding rect only for an item with
+neither. Resize handles, the rotation handle and the label anchor use it. The
+rotation pivot already did (§8.9.8).
+
+**Several labels of one item hang on one anchor.** An annotation label is
+`ItemIgnoresTransformations`; two of them anchored at two plan points overlap as
+soon as the points are closer on screen than the text is wide. A circle's position
+and diameter labels share the right-edge midpoint and are stacked with
+`AnnotationLabel.set_screen_offset`.
+
+**The canvas grid is clipped, not reordered.** It is a view-level pass (no export
+carries it) and is painted after the items. It must still read as lying under the
+objects, and it must stay visible on a lawn or a terrace, which a background grid
+would not. `CanvasView._grid_region` therefore clips the lines to the plan less
+every drawn object that is not a ground surface (`canvas_scene.on_ground`). A plant
+cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
+
+Pin: `tests/integration/test_selection_frame.py`,
+`tests/integration/test_canvas_legibility.py`; PF-CAN-51.
 
 ## 8.10 Integration Test Policy
 

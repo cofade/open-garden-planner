@@ -21,7 +21,9 @@ from typing import TYPE_CHECKING, Any, cast
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QGraphicsEllipseItem,
     QGraphicsItem,
+    QGraphicsPixmapItem,
     QGraphicsSimpleTextItem,
     QGraphicsTextItem,
     QStyleOptionGraphicsItem,
@@ -29,6 +31,9 @@ from PyQt6.QtWidgets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from PyQt6.QtGui import QPainterPath
     from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
@@ -56,6 +61,22 @@ class LockBadgeItem(QGraphicsSimpleTextItem):
 
     A dedicated type so overlay-hiding code (export) can recognise it and keep
     the glyph out of PNG / SVG / PDF output.
+    """
+
+
+class SunBadgeItem(QGraphicsPixmapItem):
+    """Sun-mismatch badge on a plant (``ui.sun_exposure_coordinator``).
+
+    A dedicated type for the same reason as ``LockBadgeItem``: the export seam
+    recognises a diagnostic badge by its type and keeps it out of a picture of
+    the plan (#786).
+    """
+
+
+class GuildBadgeItem(QGraphicsEllipseItem):
+    """Missing-guild-role badge on a guild's centre plant (``ui.guild_coordinator``).
+
+    A dedicated type so the export seam can keep it out of a picture (#786).
     """
 
 
@@ -536,6 +557,9 @@ class GardenItemMixin(PositionLockMixin):
         self._spacing_radius_cm: float | None = None  # User-override spacing radius (cm)
         self._frost_protection_needed: bool | None = None  # Per-plant frost override (US-12.2)
         self._spacing_overlap: str | None = None  # "overlap" | "ideal" | None
+        # The neighbours an "overlap" plant is too close to: (scene x, scene y, radius cm)
+        self._spacing_conflicts: tuple[tuple[float, float, float], ...] = ()
+        self._spacing_conflict_place: tuple[float, float] | None = None
         self._soil_mismatch_level: str | None = None  # "warning" | "critical" | None (US-12.10d)
         self._capacity_overrun: bool = False  # Container over capacity badge (US-C3)
         # US-12.8: succession-plan badge state. List of (common_name, is_current)
@@ -768,6 +792,34 @@ class GardenItemMixin(PositionLockMixin):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
             self.update()
+
+    def grid_cover_path(self) -> "QPainterPath":
+        """The part of the plan this object covers, in item coordinates.
+
+        The canvas grid is not drawn over it (``CanvasView._grid_region``).
+        """
+        return self.shape()  # type: ignore[attr-defined,no-any-return]
+
+    def has_diagnostic_decoration(self) -> bool:
+        """Whether a diagnostic flag that this item paints is set right now."""
+        return bool(
+            self._spacing_overlap is not None
+            or self._companion_highlight is not None
+            or self._antagonist_warning
+            or self._rotation_status is not None
+            or self._soil_mismatch_level is not None
+            or self._capacity_overrun
+        )
+
+    def _diagnostics_painted(self) -> bool:
+        """Whether this item may paint its diagnostic decorations.
+
+        False while the scene has them switched off for a picture of the plan
+        (``CanvasScene.set_diagnostic_overlays_visible``). An item outside a
+        ``CanvasScene`` paints them as before.
+        """
+        scene = self.scene() if hasattr(self, "scene") else None
+        return bool(getattr(scene, "diagnostic_overlays_visible", True))
 
     @property
     def companion_highlight(self) -> str | None:
@@ -1021,15 +1073,41 @@ class GardenItemMixin(PositionLockMixin):
         """Current spacing overlap status: 'overlap', 'ideal', or None."""
         return self._spacing_overlap
 
-    def set_spacing_overlap(self, overlap_type: str | None) -> None:
+    @property
+    def spacing_conflicts(self) -> tuple[tuple[float, float, float], ...]:
+        """The neighbours this plant is too close to: ``(scene_x, scene_y, radius_cm)``."""
+        return self._spacing_conflicts
+
+    def set_spacing_overlap(
+        self,
+        overlap_type: str | None,
+        conflicts: "Iterable[tuple[float, float, float]]" = (),
+    ) -> None:
         """Set or clear the spacing overlap indicator.
 
         Args:
             overlap_type: "overlap", "ideal", or None to clear.
+            conflicts: For "overlap", the spacing circle of every neighbour
+                this plant is too close to, as ``(scene_x, scene_y,
+                radius_cm)``. The ring is drawn only where it lies inside one
+                of them (#786), so the mark sits on the crowded spot.
         """
-        if self._spacing_overlap == overlap_type:
+        conflicts = tuple(sorted(conflicts)) if overlap_type == "overlap" else ()
+        # Where the arcs sit depends on where this plant stands too, and a
+        # cached item is not repainted by a move: the place is part of the key.
+        place: tuple[float, float] | None = None
+        if conflicts and hasattr(self, "rect") and hasattr(self, "mapToScene"):
+            centre = self.mapToScene(self.rect().center())
+            place = (centre.x(), centre.y())
+        if (
+            self._spacing_overlap == overlap_type
+            and self._spacing_conflicts == conflicts
+            and self._spacing_conflict_place == place
+        ):
             return
         self._spacing_overlap = overlap_type
+        self._spacing_conflicts = conflicts
+        self._spacing_conflict_place = place
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
@@ -1207,7 +1285,11 @@ class GardenItemMixin(PositionLockMixin):
             if not text:
                 return
 
-            self._label_item = QGraphicsSimpleTextItem(text, self)
+            from .halo_text import PlanLabelItem
+
+            # A haloed label, centred on the item and painted above every
+            # object by the scene's label pass (#793, ``halo_text``).
+            self._label_item = PlanLabelItem(text, self)
 
             # Configure label appearance
             font = QFont("Arial", 10)
@@ -1265,12 +1347,24 @@ class GardenItemMixin(PositionLockMixin):
         self._global_labels_visible = visible
         self._update_label()
 
-    def _position_label(self) -> None:
-        """Position the label at the center of the item's bounding rect.
+    def _label_anchor(self) -> QPointF:
+        """Where the item's labels hang: the centre of its own outline.
 
-        Note: With ItemIgnoresTransformations, centering perfectly across all zoom levels
-        is challenging due to coordinate system mismatches between device and scene coords.
-        We position the text as close to center as possible by offsetting by half the text size.
+        The outline, not ``boundingRect()``: a warning badge or a spacing ring
+        widens the bounding rect to one side and would drag the label along.
+        """
+        from .handle_geometry import selection_frame_rect
+
+        return selection_frame_rect(self).center()  # type: ignore[arg-type]
+
+    def _position_label(self) -> None:
+        """Hang the label on the centre of the item.
+
+        The label ignores the view's transformations, so its size is in screen
+        pixels while this position is in plan units. It therefore centres
+        itself on the position (``PlanLabelItem``): an offset of half its size
+        applied here, as before #793, was right at one zoom only and put the
+        text below and beside the centre at every other.
         """
         if self._label_item is None:
             return
@@ -1279,19 +1373,7 @@ class GardenItemMixin(PositionLockMixin):
         if not hasattr(self, 'boundingRect'):
             return
 
-        # Get the bounding rectangle of the parent item and its center in parent coords
-        bounds = self.boundingRect()
-        center = bounds.center()
-
-        # Get label dimensions
-        label_bounds = self._label_item.boundingRect()
-
-        # Offset by half the label size to approximate centering
-        # This is not perfect with ItemIgnoresTransformations but is close enough
-        offset_x = label_bounds.width() / 2.0
-        offset_y = label_bounds.height() / 2.0
-
-        self._label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+        self._label_item.setPos(self._label_anchor())
 
     def initialize_label(self) -> None:
         """Initialize the label after the item is fully constructed.
@@ -1320,7 +1402,7 @@ class GardenItemMixin(PositionLockMixin):
         Called from each shape item's paint() after the rotation border.
         Uses self.shape() so it works for rect, polygon, and circle without overrides.
         """
-        if self._soil_mismatch_level is None:
+        if self._soil_mismatch_level is None or not self._diagnostics_painted():
             return
         _colors = {
             "warning": QColor(255, 160, 0, 220),  # Amber
@@ -1359,7 +1441,7 @@ class GardenItemMixin(PositionLockMixin):
         Reuses the bar+dot "!" convention so no text is drawn (text would render
         upside-down on the Y-flipped canvas, see §8.14).
         """
-        if not self._capacity_overrun:
+        if not self._capacity_overrun or not self._diagnostics_painted():
             return
         # Guard against a stale flag after Change Type (CONTAINER → generic):
         # _update_container_capacity only clears the flag for items that are
@@ -1425,7 +1507,9 @@ class GardenItemMixin(PositionLockMixin):
             return
         text = self._format_area(area)
         if self._area_label_item is None:
-            self._area_label_item = QGraphicsSimpleTextItem(text, self)
+            from .halo_text import PlanLabelItem
+
+            self._area_label_item = PlanLabelItem(text, self, rank=1)
             font = QFont("Arial", 8)
             font.setItalic(True)
             self._area_label_item.setFont(font)
@@ -1441,16 +1525,12 @@ class GardenItemMixin(PositionLockMixin):
         """Position area label centred horizontally, just below name label."""
         if self._area_label_item is None or not hasattr(self, "boundingRect"):
             return
-        bounds = self.boundingRect()
-        center = bounds.center()
-        lw = self._area_label_item.boundingRect().width()
-        lh = self._area_label_item.boundingRect().height()
-        # Offset downward one extra label-height when a name label is also visible
-        extra = lh + 2.0 if (self._label_item is not None and self._label_item.isVisible()) else 0.0
-        self._area_label_item.setPos(
-            center.x() - lw / 2.0,
-            center.y() - lh / 2.0 + extra,
-        )
+        self._area_label_item.setPos(self._label_anchor())
+        # Under the name label while that is shown too: the label works out the
+        # step itself, in screen pixels like its size (``HaloTextItem.stack_under``).
+        stack_under = getattr(self._area_label_item, "stack_under", None)
+        if stack_under is not None:
+            stack_under(self._label_item)
 
     def start_label_edit(self) -> None:
         """Start inline editing of the label."""
@@ -1542,15 +1622,7 @@ class GardenItemMixin(PositionLockMixin):
             self._edit_label_item.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
 
             # Position it exactly where the static label is
-            if self._label_item is not None:
-                self._edit_label_item.setPos(self._label_item.pos())
-            else:
-                bounds = self.boundingRect()
-                center = bounds.center()
-                label_bounds = self._edit_label_item.boundingRect()
-                offset_x = label_bounds.width() / 2.0
-                offset_y = label_bounds.height() / 2.0
-                self._edit_label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+            self._reposition_edit_label()
 
             # Connect signal to reposition as text changes
             self._edit_label_item.document().contentsChanged.connect(self._reposition_edit_label)
@@ -1582,12 +1654,16 @@ class GardenItemMixin(PositionLockMixin):
         if self._edit_label_item is None or not hasattr(self, 'boundingRect'):
             return
 
-        bounds = self.boundingRect()
-        center = bounds.center()
+        # Centred on the item like the static label. The editor ignores the
+        # view's transformations too, so the half-size shift is its OWN
+        # transform (screen pixels), not part of its position (plan units).
+        from PyQt6.QtGui import QTransform
+
         label_bounds = self._edit_label_item.boundingRect()
-        offset_x = label_bounds.width() / 2.0
-        offset_y = label_bounds.height() / 2.0
-        self._edit_label_item.setPos(center.x() - offset_x, center.y() - offset_y)
+        self._edit_label_item.setPos(self._label_anchor())
+        self._edit_label_item.setTransform(
+            QTransform.fromTranslate(-label_bounds.width() / 2.0, -label_bounds.height() / 2.0)
+        )
 
     def _finish_label_edit(self) -> None:
         """Finish editing the label and save changes."""

@@ -44,6 +44,8 @@ design; this module's job is only ever the first two.
 
 from __future__ import annotations
 
+import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -162,6 +164,122 @@ def species_drop_diameter_cm(
     if radius is not None:
         return radius * 2.0
     return GALLERY_DEFAULT_DIAMETER_CM.get(object_type_name, 60.0)
+
+
+#: The species layers whose crown stands OVER the planting below it (the values of
+#: ``models.plant_data.PermacultureLayer``; this module stays import-free of it).
+OVERSTOREY_LAYERS: frozenset[str] = frozenset({"canopy", "sub_canopy"})
+#: The species layers that grow below a crown, among each other.
+UNDERSTOREY_LAYERS: frozenset[str] = frozenset(
+    {"shrub", "herbaceous", "ground_cover", "root", "vine"}
+)
+
+OVERSTOREY = "overstorey"
+UNDERSTOREY = "understorey"
+
+
+def spacing_storey(species_dict: dict[str, Any] | None, object_type_name: str) -> str:
+    """The storey a plant's spacing is judged in: ``OVERSTOREY`` or ``UNDERSTOREY``.
+
+    A spacing overlap says two plants will crowd each other when grown. A tree
+    and what grows beneath its crown do not: a lawn, a shrub border, the
+    strawberries of an apple guild share the tree's ground on purpose, and
+    whether they get enough light there is the sun evaluation's question, not a
+    planting-distance one. So spacing is compared within a storey only (#786;
+    before, a food-forest guild reported every ground-cover plant under its
+    tree as an overlap).
+
+    The species' recorded ``permaculture_layer`` decides; a plant without one
+    (a custom or pre-layer record) falls back to how it was drawn: a ``TREE``
+    is overstorey, everything else understorey.
+    """
+    layer = species_dict.get("permaculture_layer") if isinstance(species_dict, dict) else None
+    if layer in OVERSTOREY_LAYERS:
+        return OVERSTOREY
+    if layer in UNDERSTOREY_LAYERS:
+        return UNDERSTOREY
+    return OVERSTOREY if object_type_name == "TREE" else UNDERSTOREY
+
+
+def spacing_storey_for_item(item: Any) -> str:
+    """``spacing_storey`` of a plant item (its species record and object type)."""
+    meta = getattr(item, "metadata", None) or {}
+    object_type = getattr(item, "object_type", None)
+    return spacing_storey(meta.get("plant_species"), getattr(object_type, "name", ""))
+
+
+def spacings_conflict(
+    distance_cm: float,
+    radius_a_cm: float,
+    radius_b_cm: float,
+    storey_a: str,
+    storey_b: str,
+) -> bool:
+    """Whether two plants are closer than their spacing allows.
+
+    True when both stand in the same storey and their spacing circles
+    intersect (``distance < radius_a + radius_b``). Touching circles are the
+    intended distance, not a conflict.
+    """
+    return storey_a == storey_b and distance_cm < radius_a_cm + radius_b_cm
+
+
+def spacing_conflict_arcs(
+    center: tuple[float, float],
+    radius_cm: float,
+    neighbours: Iterable[tuple[float, float, float]],
+) -> list[tuple[float, float]]:
+    """The parts of a plant's spacing circle that lie inside a neighbour's.
+
+    A spacing warning is drawn on the crowded spot, not all round the plant:
+    of the plant's own circle only the arcs inside the circle of a neighbour
+    it is too close to. Returns ``(start_deg, span_deg)`` pairs, angles in
+    degrees counter-clockwise from +X in the coordinate system the inputs are
+    given in, ``start`` in ``[0, 360)``, merged where they overlap and sorted.
+    ``[(0.0, 360.0)]`` is the whole circle (a neighbour's circle holds it
+    entirely); an empty list means no part of it lies inside a neighbour (the
+    circles do not meet in the plane, or this circle holds the neighbour's).
+
+    ``neighbours`` are ``(x, y, radius_cm)`` in the same coordinate system as
+    ``center``.
+    """
+    cx, cy = center
+    if radius_cm <= 0:
+        return []
+    spans: list[tuple[float, float]] = []
+    for nx, ny, neighbour_radius in neighbours:
+        distance = math.hypot(nx - cx, ny - cy)
+        if distance + radius_cm <= neighbour_radius:
+            return [(0.0, 360.0)]
+        if distance <= 0 or distance >= radius_cm + neighbour_radius:
+            continue
+        cosine = (distance**2 + radius_cm**2 - neighbour_radius**2) / (
+            2.0 * distance * radius_cm
+        )
+        if cosine >= 1.0:
+            continue  # this circle holds the neighbour's: none of it is inside
+        half = math.degrees(math.acos(max(-1.0, cosine)))
+        toward = math.degrees(math.atan2(ny - cy, nx - cx))
+        spans.append(((toward - half) % 360.0, 2.0 * half))
+    if not spans:
+        return []
+    # Merge on the circle: unroll every span from the smallest start, join the
+    # ones that touch, then join the last onto the first across 360 degrees.
+    spans.sort()
+    merged: list[list[float]] = [list(spans[0])]
+    for start, span in spans[1:]:
+        last = merged[-1]
+        if start <= last[0] + last[1]:
+            last[1] = max(last[1], start + span - last[0])
+        else:
+            merged.append([start, span])
+    tail = merged[-1]
+    while len(merged) > 1 and tail[0] + tail[1] >= merged[0][0] + 360.0:
+        head = merged.pop(0)
+        tail[1] = max(tail[1], head[0] + 360.0 + head[1] - tail[0])
+    if any(span >= 360.0 for _start, span in merged):
+        return [(0.0, 360.0)]
+    return sorted((start, span) for start, span in merged)
 
 
 def sizing_for_item(item: _SizedPlant) -> PlantSizing:

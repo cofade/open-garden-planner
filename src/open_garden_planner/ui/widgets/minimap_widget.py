@@ -91,8 +91,14 @@ class MinimapWidget(QWidget):
         canvas_view.verticalScrollBar().valueChanged.connect(self._schedule_update)
         canvas_scene.changed.connect(self._on_scene_changed)
 
-        # Install event filter on the *view* (not viewport) to catch resize
+        # Install event filter on the *view* to catch resize, and on its
+        # viewport too: a scrollbar that appears when the plan is zoomed in
+        # shrinks the viewport without resizing the view, and the minimap then
+        # sat a scrollbar's height too low, inside the scale bar's band (#793).
         canvas_view.installEventFilter(self)
+        viewport = canvas_view.viewport()
+        if viewport is not None:
+            viewport.installEventFilter(self)
 
         # Defer initial position until after the window is fully laid out
         QTimer.singleShot(0, self._reposition)
@@ -139,7 +145,9 @@ class MinimapWidget(QWidget):
 
     def eventFilter(self, obj: object, event: QEvent) -> bool:
         """Reposition minimap when the view is resized."""
-        if obj is self._canvas_view and event.type() == QEvent.Type.Resize:
+        if event.type() == QEvent.Type.Resize and (
+            obj is self._canvas_view or obj is self._canvas_view.viewport()
+        ):
             self._reposition()
             self._schedule_update()
         return False
