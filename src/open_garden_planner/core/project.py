@@ -315,10 +315,15 @@ class ProjectManager(QObject):
 
     @property
     def project_name(self) -> str:
-        """Display name for the project."""
+        """Display name for the project.
+
+        A plan that was never saved has no name of its own; the word it gets is
+        the UI language's (#836). It is on a report's cover, a printout's
+        footer, the window title and in the default file name.
+        """
         if self._current_file:
             return self._current_file.stem
-        return "Untitled"
+        return self.tr("Untitled")
 
     @property
     def display_name(self) -> str:

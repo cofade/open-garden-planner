@@ -273,8 +273,13 @@ class CanvasScene(QGraphicsScene):
         super().drawForeground(painter, rect)
         if painter is None:
             return
-        from open_garden_planner.ui.canvas.plan_labels import paint_plan_labels
+        from open_garden_planner.ui.canvas.plan_labels import (
+            paint_plan_labels,
+            paint_succession_badges,
+        )
 
+        # The badges first: an object's name lies over a badge, never under it.
+        paint_succession_badges(self, painter, rect)
         paint_plan_labels(self, painter, rect, self._shown_plan_labels)
 
     def plan_labels_shown(self, world: QTransform) -> "list[ShownLabel]":

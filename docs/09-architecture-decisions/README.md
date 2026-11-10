@@ -11660,6 +11660,58 @@ The report is three to eight times larger than at 72 dpi.
 Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
 FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
 
+**Addendum (issue #836, 2026-11-10) — follow-ups, each decided on a measurement**:
+
+9. **Every section of the report is cut into pages by `plan_pages`** (extends
+   decision 7). The Harvest Summary stopped at the foot of its first page (21 of 60
+   rows on A4 landscape) and the Garden Notes opened pages on the paint device that
+   nobody counted (19 pages written, a progress total of 16). Tables share
+   `_section_pages` and `_render_table_page`; the notes are laid out by `_notes_pages`
+   with the page's own metrics. Rejected: keeping the notes' own `newPage()` and adding
+   its pages to the count afterwards — the count would be known only after painting,
+   and the plan-date stamp `generate` adds would still reach the last notes page only.
+10. **The succession badge is plan content and is drawn to the picture's scale.** It
+    names the crops that follow in a bed. Measured before: 47 px tall in a 300-dpi
+    PNG (three lines in 4 mm), and on a 1200-dpi printout its text overprinted its own
+    box (PF-CAN-59). It takes the object labels' size through the one retarget seam of
+    decision 5. Rejected: hiding it through `_hide_overlay_items` like a diagnostic
+    badge — a succession plan is what the plan says, and a printed plan is where a
+    gardener reads it; a size of its own in exports (7/10 of a label's, as on the
+    canvas) — 4.5 pt on paper at 1:100.
+11. **On the canvas the badge has room or is left out.** It keeps a constant size, so
+    on a plan zoomed out it was larger than its bed. It is drawn where it lies inside
+    its bed's outline and covers at most a quarter of it
+    (`BADGE_MAX_OWNER_SHARE`), the rule a label follows (§8.9.15). It is painted in the
+    label pass, above the plants of its bed. Rejected: shrinking it with the zoom —
+    between "readable" and "gone" there is one zoom step, and it would be the only text
+    on the canvas that changes size.
+12. **A printout's margin is 10 mm, stated in millimetres, in one constant**
+    (`PRINT_MARGIN_MM`). The layout was built without a unit, which Qt reads as
+    points: 3.5 mm, below what most desktop printers print to, so the sheet could
+    differ from its preview; the Print Options dialog counted pages for 10 mm and no
+    legend (stated 25 pages for 20 printed, and 2 for 1). `tile_grid` now counts for
+    both. A fitted printout stated `1:` width over page width whatever limited the fit:
+    1:31 on a plan printed at 1:34, 1:34 on one printed at 1:157. It states the fitted
+    scale. Rejected: keeping 3.5 mm and correcting the dialog — the number was never
+    chosen, it was a missing unit.
+13. **A text note's stored size keeps its meaning; the UI states its height on the
+    plan.** `TextItem.font_size` was labelled centimetres and is points / 28.35; a
+    stored 1.0 draws an em of 37 cm. Every plan file holds such numbers, so the number
+    is frozen and `FILE_VERSION` is unchanged. The Properties panel converts at the
+    edge (`em_height_cm`, `font_size_for_em_height`). The unit offered is the font's em,
+    not the height of a capital letter: the em is the font size of every other program
+    and does not change with the typeface; the tooltip says capitals are about 70 % of
+    it. Rejected: storing true centimetres under a new key or a new file version —
+    every existing note would need a conversion that depends on the screen resolution
+    of the machine that wrote it, which the file does not record; correcting the label
+    alone ("points / 28") — true and of no use to a person drawing a plan.
+14. **The default plan name is a word of the UI language.**
+    `ProjectManager.project_name` returns `tr("Untitled")`. It is on the report's
+    cover, the print footer, the window title and in the default file name.
+
+Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
+FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
+
 ## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
 
 **Status**: Accepted (visual-polish package, 2026-11-10)

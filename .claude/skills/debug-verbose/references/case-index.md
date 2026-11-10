@@ -217,3 +217,4 @@
 | Case study: the SVG export flooded the plan with roof tiles — the generator drops clips, brush transforms and source rectangles (#787) | [Read](219-case-study-the-svg-export-flooded-the-plan-with-roof-tiles.md) |
 | Case study: a light theme that painted white on cream — the app set one of three carriers of light-or-dark; and a task list that got the room of one row (#791, #796) | [Read](220-case-study-a-light-theme-that-painted-white-on-cream-791.md) |
 | Case study: regenerating the examples moved two chairs off the balcony - the generator nobody ran (#795) | [Read](223-case-study-regenerating-the-examples-moved-two-chairs-off-the-balcony-795.md) |
+| Case study: a badge whose text overprinted its own box on paper — a font in points is resolved per paint device (#836) | [Read](225-case-study-a-badge-whose-text-overprinted-its-own-box-on-paper-836.md) |

@@ -33,7 +33,32 @@ LABEL_MIN_OWNER_PX = 14.0
 #: Clear space kept between two labels, pixels.
 LABEL_GAP_PX = 3.0
 
+#: A badge on an object (a bed's succession tag) covers at most this share of it.
+BADGE_MAX_OWNER_SHARE = 0.25
+
 _CELL_PX = 96.0
+
+
+def badge_has_room(
+    badge_w: float,
+    badge_h: float,
+    owner_w: float,
+    owner_h: float,
+    max_share: float = BADGE_MAX_OWNER_SHARE,
+) -> bool:
+    """Whether a badge of constant size may be drawn on its object (#836).
+
+    All four in device pixels. A badge keeps its size while the plan under it
+    zooms, so on a plan zoomed out it is larger than the bed it belongs to and
+    hides the bed and its neighbours. It is drawn only where it lies inside
+    its object and covers no more than ``max_share`` of it — otherwise it is
+    left out, as a label without room is.
+    """
+    if badge_w <= 0.0 or badge_h <= 0.0:
+        return False
+    if badge_w > owner_w or badge_h > owner_h:
+        return False
+    return badge_w * badge_h <= max_share * owner_w * owner_h
 
 
 @dataclass(frozen=True)

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import random
 
+import pytest
+
 from open_garden_planner.core.label_layout import (
+    BADGE_MAX_OWNER_SHARE,
     LABEL_GAP_PX,
     LABEL_MIN_OWNER_PX,
     LabelCandidate,
+    badge_has_room,
     place_labels,
 )
 
@@ -145,3 +149,23 @@ def test_no_two_shown_labels_overlap_in_a_crowd() -> None:
         if candidate.rect in shown:
             continue
         assert any(_overlap(candidate.rect, other, LABEL_GAP_PX) for other in shown)
+
+
+# A badge of constant size on its object (#836): a bed's succession tag.
+
+@pytest.mark.parametrize(("badge", "owner", "room"), [
+    ((77.0, 51.0), (429.0, 209.0), True),     # the raised-bed example, fitted to a window
+    ((77.0, 51.0), (86.0, 42.0), False),      # zoomed out: taller than its bed
+    ((77.0, 51.0), (60.0, 300.0), False),     # a narrow strip: wider than its bed
+    ((77.0, 51.0), (160.0, 80.0), False),     # fits inside, but covers a third of it
+    ((80.0, 50.0), (160.0, 100.0), True),     # exactly a quarter
+    ((0.0, 0.0), (400.0, 200.0), False),      # nothing to draw
+])
+def test_a_badge_is_drawn_only_where_it_has_room_on_its_object(badge, owner, room) -> None:
+    assert badge_has_room(*badge, *owner) is room
+
+
+def test_the_room_a_badge_may_take_is_a_stated_share() -> None:
+    assert BADGE_MAX_OWNER_SHARE == 0.25
+    assert badge_has_room(100.0, 50.0, 200.0, 100.0, max_share=0.3)
+    assert not badge_has_room(100.0, 61.0, 200.0, 100.0, max_share=0.3)

@@ -7,6 +7,9 @@ items are painted. The view paints through that hook and so does
 ``scene.render()``, so an export shows the labels the canvas shows.
 
 Which labels have room is decided by ``core.label_layout`` in device pixels.
+
+A bed's succession badge is painted in the same pass, for the same reason
+(the plants of the bed were drawn over it), and under the labels (#836).
 """
 
 from __future__ import annotations
@@ -17,7 +20,8 @@ from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QPainter, QTransform
 from PyQt6.QtWidgets import QGraphicsItem, QWidget
 
-from open_garden_planner.core.label_layout import LabelCandidate, place_labels
+from open_garden_planner.core.label_layout import LabelCandidate, badge_has_room, place_labels
+from open_garden_planner.ui.canvas.items.garden_item import SuccessionBadgeItem
 from open_garden_planner.ui.canvas.items.halo_text import PlanLabelItem
 from open_garden_planner.ui.canvas.items.handle_geometry import selection_frame_rect
 
@@ -25,6 +29,7 @@ if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsScene
 
 ShownLabel = tuple[PlanLabelItem, QTransform, QRectF]
+ShownBadge = tuple[SuccessionBadgeItem, QTransform, QRectF]
 
 
 def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLabel]:
@@ -66,6 +71,52 @@ def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLab
         )
         labels.append((item, device, box))
     return [labels[index] for index in place_labels(candidates)] if candidates else []
+
+
+def succession_badges_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownBadge]:
+    """The succession badges a paint of ``scene`` with the transform ``world`` shows.
+
+    Each entry is the badge, its device transform and the device rect it is
+    painted in. A badge is shown where it has room on its bed
+    (``badge_has_room``): the bed's outline and the badge, both in device
+    pixels, so the answer is the same on the canvas at any zoom and in an
+    export at any resolution.
+    """
+    no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
+    shown: list[ShownBadge] = []
+    for item in scene.items():
+        if not isinstance(item, SuccessionBadgeItem) or not item.isVisible():
+            continue
+        if item.flags() & no_contents:          # the minimap's way of blanking it
+            continue
+        device = item.deviceTransform(world)
+        box = device.mapRect(item.boundingRect())
+        if box.isEmpty():
+            continue
+        owner = item.parentItem()
+        if owner is not None:
+            frame = owner.deviceTransform(world).mapRect(selection_frame_rect(owner))
+            # With its margin: from the bed's corner to the badge's far corner.
+            bounds = item.boundingRect()
+            reach = device.mapRect(QRectF(0.0, bounds.top(), bounds.right(), -bounds.top()))
+            if not badge_has_room(reach.width(), reach.height(), frame.width(), frame.height()):
+                continue
+        shown.append((item, device, box))
+    return shown
+
+
+def paint_succession_badges(scene: QGraphicsScene, painter: QPainter, rect: QRectF) -> None:
+    """Draw the succession badges that have room, above every item painted so far."""
+    world = painter.worldTransform()
+    exposed = world.mapRect(rect)
+    for item, device, box in succession_badges_shown(scene, world):
+        if not box.intersects(exposed):
+            continue
+        painter.save()
+        painter.setWorldTransform(device)
+        painter.setOpacity(item.effectiveOpacity())
+        item.paint_badge(painter)
+        painter.restore()
 
 
 def paint_plan_labels(

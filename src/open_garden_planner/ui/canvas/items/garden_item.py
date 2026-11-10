@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
+from open_garden_planner.ui.canvas.layout_font import device_independent
 
 
 @dataclass(slots=True)
@@ -81,18 +82,38 @@ class GuildBadgeItem(QGraphicsEllipseItem):
 
 
 class SuccessionBadgeItem(QGraphicsItem):
-    """Multi-line succession-plan badge that renders upright on the Y-flipped canvas.
+    """The crops that follow in a bed, as a small tag in the bed's corner (US-12.8).
 
-    Set ``ItemIgnoresTransformations`` so the badge stays at a constant pixel
-    size and is not mirrored by the view's ``scale(zoom, -zoom)`` (US-12.8).
-    Its bounding rect extends *upward* from its anchor point so positioning at
-    the bed's scene-coordinate ``rect.top()`` (which is the visual bottom-left
-    after the Y-flip) places the badge inside the bed.
+    **It is content of the plan** (#836): which crop comes next is what a
+    succession plan says, and a picture of the plan carries it. So it is not
+    hidden by the export seam; it is drawn to the picture's scale instead.
+
+    * ``ItemIgnoresTransformations``: a constant size on screen, upright under
+      the view's Y-flip. Its anchor (the item's position) is the bed's corner.
+    * **Sized by its font, and by nothing else.** Every measure is a share of
+      the font's line height, so an export that gives the constant-size text
+      its size for the output (``scene_rendering.retarget_constant_size_text``,
+      through ``font()`` / ``setFont()``) scales the whole tag with it.
+    * **Its text is drawn with a font sized in pixels** (``layout_font``,
+      PF-CAN-59). A font in points is resolved by each painter for its own
+      device: on a 1200-dpi printer the 7 pt text was 117 pixels tall in rows
+      of 13, three crop names overprinting one another.
+    * **Painted in the scene's label pass**, after every item
+      (``plan_labels.paint_succession_badges``): a child item is drawn with its
+      bed, so the plants growing in the bed used to cover it. The pass also
+      decides whether it has room (``core.label_layout.badge_has_room``): on a
+      plan zoomed far out a tag of constant size is larger than its bed. In a
+      scene that runs no label pass it paints itself.
     """
 
-    _PADDING = 5.0
-    _LINE_HEIGHT = 12.0
-    _ROW_GAP = 1.0
+    #: The canvas font size, points: smaller than an object's name (10 pt).
+    SCREEN_POINT_SIZE = 7
+    # Shares of the font's line height (12 px at the canvas size).
+    _PADDING = 5.0 / 12.0
+    _ROW_GAP = 1.0 / 12.0
+    _RADIUS = 4.0 / 12.0
+    #: Distance from the bed's corner, in the same unit.
+    _MARGIN = 4.0 / 12.0
     _BG = QColor(46, 125, 50, 215)
     _COLOR_CURRENT = QColor(255, 255, 255)
     _COLOR_FUTURE = QColor(225, 240, 225)
@@ -105,11 +126,22 @@ class SuccessionBadgeItem(QGraphicsItem):
         self._lines: list[tuple[str, bool]] = []
         self._max_rows: int = 4
         self._font = QFont()
-        self._font.setPointSize(7)
-        self._font_bold = QFont(self._font)
-        self._font_bold.setBold(True)
+        self._font.setPointSize(self.SCREEN_POINT_SIZE)
         self._cached_w: float = 0.0
         self._cached_h: float = 0.0
+        self._line_h: float = 0.0
+        self._ascent: float = 0.0
+
+    def font(self) -> QFont:
+        """The font the tag is sized by (an export retargets it, PF-CAN-08)."""
+        return QFont(self._font)
+
+    def setFont(self, font: QFont) -> None:
+        """Size the tag for *font*: every measure follows its line height."""
+        self.prepareGeometryChange()
+        self._font = QFont(font)
+        self._recompute_size()
+        self.update()
 
     def set_lines(self, lines: list[tuple[str, bool]]) -> None:
         if lines == self._lines:
@@ -127,8 +159,16 @@ class SuccessionBadgeItem(QGraphicsItem):
         ]
         remainder = len(self._lines) - len(visible)
         if remainder > 0:
-            rendered.append((f"+{remainder} more", False, True))
+            more = QCoreApplication.translate("SuccessionBadgeItem", "+{count} more")
+            rendered.append((more.format(count=remainder), False, True))
         return rendered
+
+    def _paint_fonts(self) -> tuple[QFont, QFont]:
+        """(regular, bold) in pixels: one size on a screen, a picture and a printer."""
+        regular = device_independent(self._font)
+        bold = QFont(regular)
+        bold.setBold(True)
+        return regular, bold
 
     def _recompute_size(self) -> None:
         rendered = self._rendered_rows()
@@ -136,25 +176,30 @@ class SuccessionBadgeItem(QGraphicsItem):
             self._cached_w = 0.0
             self._cached_h = 0.0
             return
-        fm = QFontMetricsF(self._font)
-        fm_bold = QFontMetricsF(self._font_bold)
+        regular, bold = self._paint_fonts()
+        fm = QFontMetricsF(regular)
+        fm_bold = QFontMetricsF(bold)
+        self._line_h = fm.height()
+        self._ascent = fm.ascent()
         max_w = max(
             (fm_bold if cur else fm).horizontalAdvance(text)
             for text, cur, _ in rendered
         )
-        self._cached_w = max_w + self._PADDING * 2
+        padding = self._PADDING * self._line_h
+        self._cached_w = max_w + padding * 2
         self._cached_h = (
-            len(rendered) * self._LINE_HEIGHT
-            + (len(rendered) - 1) * self._ROW_GAP
-            + self._PADDING * 2
+            len(rendered) * self._line_h
+            + (len(rendered) - 1) * self._ROW_GAP * self._line_h
+            + padding * 2
         )
 
     def boundingRect(self) -> QRectF:
         if not self._lines:
             return QRectF(0.0, 0.0, 0.0, 0.0)
-        # Extend upward from anchor so the badge sits ABOVE its anchor point on
-        # screen — letting callers anchor at the bed's visual bottom-left.
-        return QRectF(0.0, -self._cached_h, self._cached_w, self._cached_h)
+        # Up and to the right of the anchor, which is the bed's visual
+        # bottom-left corner: the tag lies inside the bed.
+        margin = self._MARGIN * self._line_h
+        return QRectF(margin, -self._cached_h - margin, self._cached_w, self._cached_h)
 
     def paint(
         self,
@@ -162,17 +207,28 @@ class SuccessionBadgeItem(QGraphicsItem):
         option: "QStyleOptionGraphicsItem",  # noqa: ARG002
         widget: "QWidget | None" = None,  # noqa: ARG002
     ) -> None:
+        # In a CanvasScene the label pass paints it, above the plants (#836).
+        if getattr(self.scene(), "paints_plan_labels", False):
+            return
+        self.paint_badge(painter)
+
+    def paint_badge(self, painter: QPainter) -> None:
+        """Draw the tag in its own (pixel) coordinates."""
         if not self._lines:
             return
         rect = self.boundingRect()
+        painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(self._BG)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(rect, 4.0, 4.0)
-        rendered = self._rendered_rows()
-        y = rect.top() + self._PADDING + self._LINE_HEIGHT - 2.0
-        for text, is_current, is_overflow in rendered:
-            painter.setFont(self._font_bold if is_current else self._font)
+        radius = self._RADIUS * self._line_h
+        painter.drawRoundedRect(rect, radius, radius)
+        regular, bold = self._paint_fonts()
+        padding = self._PADDING * self._line_h
+        x = rect.left() + padding
+        y = rect.top() + padding + self._ascent
+        for text, is_current, is_overflow in self._rendered_rows():
+            painter.setFont(bold if is_current else regular)
             if is_overflow:
                 colour = self._COLOR_OVERFLOW
             elif is_current:
@@ -180,8 +236,9 @@ class SuccessionBadgeItem(QGraphicsItem):
             else:
                 colour = self._COLOR_FUTURE
             painter.setPen(QPen(colour))
-            painter.drawText(int(self._PADDING), int(y), text)
-            y += self._LINE_HEIGHT + self._ROW_GAP
+            painter.drawText(QPointF(x, y), text)
+            y += self._line_h * (1.0 + self._ROW_GAP)
+        painter.restore()
 
 
 # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
@@ -918,8 +975,9 @@ class GardenItemMixin(PositionLockMixin):
             lines: List of ``(common_name, is_current)`` tuples in chronological
                 order. ``None`` or empty list clears the badge.
 
-        The badge renders upright on the Y-flipped canvas via a child
-        ``SuccessionBadgeItem`` with ``ItemIgnoresTransformations``.
+        The badge is a child ``SuccessionBadgeItem`` with
+        ``ItemIgnoresTransformations``; in a ``CanvasScene`` the label pass
+        paints it, above the plants of the bed (#836).
         """
         new_lines = list(lines) if lines else []
         if new_lines == self._succession_lines:
@@ -946,20 +1004,23 @@ class GardenItemMixin(PositionLockMixin):
         return self._succession_badge_item
 
     def _position_succession_badge(self) -> None:
-        """Anchor the badge at the bed's visual bottom-left.
+        """Anchor the badge at the visual bottom-left corner of the bed's outline.
 
         The view applies ``scale(zoom, -zoom)`` so smaller scene-Y maps to a
-        higher screen-Y (visual bottom). Anchoring at ``rect.top()`` therefore
-        positions the badge at the visual bottom; the badge's own bounding rect
-        extends upward into the bed.
+        higher screen-Y (visual bottom). Anchoring at the outline's ``top()``
+        therefore puts the badge at the visual bottom; its own bounding rect
+        extends up and into the bed, a margin of its own (in pixels) away from
+        the corner. The outline, not ``boundingRect()`` — that also holds the
+        drop shadow (PF-CAN-51). Called with ``_position_label`` on every
+        change of the outline: until #836 the badge stayed where the corner had
+        been when the plan was set.
         """
         if self._succession_badge_item is None or not hasattr(self, "boundingRect"):
             return
-        bounds = self.boundingRect()
-        margin = 4.0
-        self._succession_badge_item.setPos(
-            bounds.left() + margin, bounds.top() + margin
-        )
+        from .handle_geometry import selection_frame_rect
+
+        frame = selection_frame_rect(self)  # type: ignore[arg-type]
+        self._succession_badge_item.setPos(frame.left(), frame.top())
 
     def build_bed_context_menu(
         self,
@@ -1365,7 +1426,11 @@ class GardenItemMixin(PositionLockMixin):
         itself on the position (``PlanLabelItem``): an offset of half its size
         applied here, as before #793, was right at one zoom only and put the
         text below and beside the centre at every other.
+
+        Every shape calls this when its outline changed, so the succession
+        badge, which hangs on the outline's corner, is placed here too.
         """
+        self._position_succession_badge()
         if self._label_item is None:
             return
 

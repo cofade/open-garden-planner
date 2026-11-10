@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Protocol
 
 from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QFont, QPainter
@@ -26,6 +27,14 @@ from PyQt6.QtWidgets import (
     QGraphicsSimpleTextItem,
     QGraphicsTextItem,
 )
+
+
+class FontCarrier(Protocol):
+    """An item whose text size is its font: what an export retargets."""
+
+    def font(self) -> QFont: ...
+
+    def setFont(self, font: QFont) -> None: ...
 
 
 @contextmanager
@@ -89,7 +98,7 @@ def draws_at_constant_pixel_size(item: QGraphicsItem) -> bool:
 
 def retarget_constant_size_text(
     scene: QGraphicsScene, point_size: int
-) -> list[tuple[QGraphicsSimpleTextItem | QGraphicsTextItem, QFont]]:
+) -> list[tuple[FontCarrier, QFont]]:
     """Give every constant-pixel-size text of *scene* the font size *point_size*.
 
     Only text that ``draws_at_constant_pixel_size``: outside a view nothing
@@ -97,11 +106,18 @@ def retarget_constant_size_text(
     sized in plan units is left alone — forcing one point size on it made a
     note four times too large on one plan and unreadable on another (#789).
 
+    Qt's two text items, and a bed's succession badge: it is content of the
+    plan drawn at a constant pixel size, and it is sized by its font alone, so
+    it gets the object labels' size in the output (#836).
+
     Returns ``(item, original font)`` pairs for ``restore_text_fonts``.
     """
-    saved: list[tuple[QGraphicsSimpleTextItem | QGraphicsTextItem, QFont]] = []
+    from open_garden_planner.ui.canvas.items.garden_item import SuccessionBadgeItem
+
+    carriers = (QGraphicsSimpleTextItem, QGraphicsTextItem, SuccessionBadgeItem)
+    saved: list[tuple[FontCarrier, QFont]] = []
     for item in scene.items():
-        if not isinstance(item, (QGraphicsSimpleTextItem, QGraphicsTextItem)):
+        if not isinstance(item, carriers):
             continue
         if not draws_at_constant_pixel_size(item):
             continue
@@ -112,9 +128,7 @@ def retarget_constant_size_text(
     return saved
 
 
-def restore_text_fonts(
-    saved: list[tuple[QGraphicsSimpleTextItem | QGraphicsTextItem, QFont]],
-) -> None:
+def restore_text_fonts(saved: list[tuple[FontCarrier, QFont]]) -> None:
     """Undo ``retarget_constant_size_text``."""
     for item, original in saved:
         item.setFont(original)
