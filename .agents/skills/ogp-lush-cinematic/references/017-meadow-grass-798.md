@@ -16,6 +16,7 @@ Measured with the board's `--meadow` phase (High, the noon shot's sun, RTX 4070)
 | brightness 4 % at 3.1 m, 6 % at 9 m, 7 % at 41 m; hue 3.5 % at 17 m (value noise −1..1, each octave turned) | `meadow.GRASS_VARIATION` | stands in for the mottle without repeating; about ±7 % brightness and ±3° hue at two sigma (the issue asked ±7 % / ±4°). Rounds 2 and 3 (9 / 41 m at 4.5 / 5.5 % against 6 / 7 %) read the same flat share (13.3 / 13.1 %); 3 kept for a little more far variation |
 | relief 0.2 per unit of `detailNormals` | `meadow.GRASS_RELIEF` | the texture is a linear ratio around 1 where the tiles read sRGB codes around 0.43, and a ratio swings about 2.2× its code |
 | the truth view flat | `Garden.qml` `groundSurface` | IoU and north-up measure against flat ground |
+| Low without the variation (`MEADOW_GRASS`), Medium and up with it | `look.PRESET_SPECS` | on the software adapter (the compatibility mode is Low) the value noise cost 2.1 ms of a 960 × 540 frame; the flat share at Low 0.135 without it, 0.125 with it |
 | the weather in the shader only | `weather.apply_weather` leaves `meadow_albedo` | the meadow takes the ground's one tint (rain) and cover (snow), as the tiles always did |
 
 What it looks like: from the default framing a grass field with soft patches, fading into the

@@ -430,8 +430,8 @@ def test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_th
 
 def test_the_ground_shaders_snow_is_the_weathers() -> None:
     """Drift guard (senior review of L5): ``ground.frag``'s snow colour is
-    ``weather.SNOW_LINEAR`` — the meadow's snow (``apply_weather``) and the plan's tiles
-    meet without a step only while they are one colour."""
+    ``weather.SNOW_LINEAR`` — since #798 the meadow and the plan's tiles both take their
+    snow in that shader, and the built tops (``built_snow.frag``, #687) the same colour."""
     import re
     from pathlib import Path
 

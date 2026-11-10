@@ -4230,6 +4230,121 @@ but no plateau was found, and the warm fallback read it 0.49° low over the haze
 the 6° plateau is 169 px at 5.96°, the 12° plateau 130 px at 12.05°. The painted discs peak at
 200–216, keep the fallback and read as before.
 
+### Addendum #798 — the meadow's grass (2026-11-10)
+
+**Status**: Proposed (branch `vp/798-meadow`, in the visual-polish package). The 3D survey's top
+visual defect: from the app's default framing 73–80 % of the picture was flat green (local luma
+std under 1.5 over 9 × 9 px; the survey read 80 % on the family garden, measured here 79.0 %),
+the meadow's own texture a luma std of 0.54–0.62, and at eye height the plan's open ground a
+football pitch against the textured lawn beside it. Cause, confirmed in the code: the endless
+meadow and the bare plan rectangle were `PrincipledMaterial`s with only `baseColor:
+root.meadowColor` (`look.MEADOW_ALBEDO`), and the bake paints uncovered plan ground in the same
+flat colour (`ground.MEADOW_RGB`). The issue's references held but one: `MEADOW_ALBEDO` is
+defined in `core/scene3d/look.py`; `quick3d/look.py` only maps it onto `meadowColor`.
+
+**Decisions.**
+
+1. **One shader for every piece of ground.** `ground.frag` draws the baked tiles, the bare plan
+   rectangle and the meadow (three `CustomMaterial`s with the same inputs, pinned by
+   `test_quick3d_qml.py`). The plan's edge is therefore the same function on both sides, and its
+   step is zero by construction instead of a tuned match. The issue proposed a separate
+   `meadow.frag`; rejected: a second shader is a second function at the edge.
+2. **The grass is the canvas's own GRASS texture**, untinted (`resources/textures/grass.png`, no
+   new asset), laid in world space at the canvas's scale (one texel a centimetre), uploaded once
+   per host as its LINEAR colour over its own mean (`core/scene3d/meadow.grass_detail`, RGBA16F,
+   `GrassDetailTexture`). The mips of a linear float texture keep the mean; the mips of the sRGB
+   bytes would darken minified grass to 0.983 of its luminance (about a code) and shift its hue
+   (PF-L3D-30). The texture's linear mean IS `MEADOW_ALBEDO` (to the code, by the sRGB curve,
+   as L0 derived it; within 1.2 % per channel by the engine's polynomial), and dividing the
+   texture's own mean out keeps the edge even for a changed texture.
+3. **No visible repeat.** Round 1 (the texture as it lies and turned 37° at 1.618×, summed
+   around the mean so the variance stays; 9 m and 41 m octaves) drew a lattice from above: the
+   texture's mottle repeats every 2.56 m (folded amplitude 2.15 luma at 60 m height). The
+   detail is high-passed (Gaussian sigma 16 cm, wrapped: the blades stay), and a 3.1 m octave of
+   value noise takes the mottle's place; every octave is turned its own way. Brightness 4 / 6 /
+   7 % at 3.1 / 9 / 41 m, hue 3.5 % at 17 m (`GRASS_VARIATION`), all of mean 1. After: 0.86 luma,
+   no visible lattice.
+4. **Open plan ground is marked by the bake's alpha.** The bake starts each tile as the meadow's
+   colour at alpha 0 (`ground_bake.OPEN_ALPHA`) and `QPainter`'s premultiplied source-over leaves
+   every colour byte as it was (the 476 bake parity tests pass unchanged) while the alpha becomes
+   the items' coverage; `ground.frag` adds the grass's deviation in proportion to `1 − alpha`
+   (PF-L3D-31). Rejected: painting the grass into the bake on the CPU — two implementations of one
+   function, a plan baked at ½ or ¼ px/cm would be blurrier than the meadow at its own edge, and
+   every bare tile would need bytes of its own.
+5. **The owner's call — the plan's open ground takes the grass too** (`look.OPEN_GROUND_GRASS`
+   = True, `LookSpec.open_ground_grass`, `Garden.qml`'s `openGroundGrass`). At L0 the owner
+   answered question 6 ("Meadow grass as now (a flat colour, an honest 'no lawn here'), meadow
+   with subtle value noise …, a neutral mown texture, or bare soil?") with "keep as-is". This
+   build changes the meadow outside (what #798 asks) and, by default, the open ground inside;
+   setting the constant to False is the veto: open plan ground keeps the flat colour and only
+   the meadow is grass. Both variants are rendered for the handoff.
+6. **The truth view keeps the flat colour** (`groundSurface` 0 in `topDown`): shadow IoU and the
+   orientation probe are unchanged.
+7. **The weather reaches the meadow in the shader only.** `apply_weather` no longer weathers
+   `meadow_albedo` (it darkened and snowed the flat meadow in Python while the tiles were
+   weathered in `ground.frag`); the meadow now takes the ground's one tint and cover, as the
+   tiles do. The twilight fill (#802) lights it like the tiles (default lighting of a custom
+   material).
+8. **The Low preset draws the grass without its variation** (`PresetSpec.meadow_surface = MEADOW_GRASS`;
+   Medium and up `MEADOW_GRASS_VARIED`). The issue allowed a cheaper Low past about 1 ms. On
+   the software adapter (WARP, the compatibility mode, which is Low; 960 × 540, the family
+   garden) the full surface cost +3.65 ms over the base's 47.3 (paired median of six rounds,
+   IQR +1.6 … +5.2): the variation's value noise 2.1 ms of it, the grass's two fetches 0.4.
+   Without the variation: +1.63 ms over 44.3 (IQR +0.7 … +3.5). The default framing's flat
+   share at Low stays 0.135 (0.125 with the variation).
+
+**Measured with a new board phase** (`render_beauty_board.py --meadow`; `board_probes.flat_share`,
+`meadow_mask`, `track_luma` / `temporal_noise`, `repeat_amplitude`, each with a positive control in
+`test_board_probes.py`): the app's default framing (`camera.frame_pose`) and the walk shot's eye
+level at the noon shot's sun (21 June, 11:00 UTC), High, 1280 × 720, RTX 4070; "before" is the
+production board on the base (`56ab8e0c`, an archive). The far-meadow flicker follows up to 400
+ground points 30–150 m out (nearer for a small plan's view) through ten frames of the default
+framing orbiting 0.5° a frame and of a flight 2.5 m high along the plan's south side, 25 cm a frame
+(7.5 m/s at 30 fps).
+
+| | family garden | food forest | raised bed | balcony |
+|---|---|---|---|---|
+| flat green, default framing (before → after) | 0.790 → 0.131 | 0.804 → 0.088 | 0.734 → 0.001 | 0.753 → 0.000 |
+| flat green, eye level | 0.112 → 0.005 | 0.091 → 0.036 | 0.262 → 0.064 | 0.242 → 0.062 |
+| meadow's texture (mean local luma std) | 0.54 → 5.67 | 0.55 → 6.37 | 0.62 → 9.72 | 0.56 → 9.16 |
+| meadow's mean luma | 155.18 → 154.93 | 154.81 → 154.61 | 150.18 → 151.27 | 154.26 → 155.78 |
+| far-meadow zigzag, orbit (luma RMS) | 0.094 → 0.229 | 0.098 → 0.228 | 0.085 → 0.243 | 0.088 → 0.328 |
+| far-meadow zigzag, flight | 0.027 → 0.102 | 0.027 → 0.100 | 0.032 → 0.107 | 0.036 → 0.104 |
+
+What is left flat in the default framing is the fogged band at the top of the frame (the family
+garden's rows 0–120 read 62–88 % flat, the rest under 7 %): the haze flattens it, as it should.
+The repeat from 60 m above, folded onto one 2.56 m period: flat 0.002 luma, round 1 2.15 (the
+lattice, visible), after 0.86 (not visible); the grass without mipmaps (a mutated `Garden.qml`,
+the flicker gate's positive control) reads 3.38 / 5.40 zigzag in the orbit / flight. The
+meadow's mean luma moves within ±0.4 in every mood of the board's shots and living shots on the
+family garden (noon, golden hour, sunset, morning, December noon, night, walk; overcast, rain,
+snow, dew, the lights' night), e.g. snow 163.83 → 164.22, rain 85.02 → 85.09, night 41.07 → 41.15.
+The track was first read on whole pixels and flickered on its own (0.91 luma on the same frames,
+debug-verbose case study 227).
+
+[[GATES]]
+
+**Cost** (RTX 4070, Direct3D 11, 1920 × 1080, the family garden's default framing at noon; one
+process holding two hosts — the base's `Garden.qml` and this branch's — shown in turn; per
+round the median readback time of twelve NEW frames, the camera nudged 0.01 cm between them):
+
+| Preset | run 2: base → branch (paired median, IQR) | run 3: base → branch (paired median, IQR) |
+|---|---|---|
+| Low | 8.66 → 8.94 ms (−0.12, −1.1 … +0.4) | 15.07 → 17.12 (+0.69, −0.3 … +2.0) |
+| Medium | 11.65 → 11.36 (−0.70, −2.1 … +1.0) | 15.00 → 18.55 (+0.62, −1.0 … +5.9) |
+| High | 16.60 → 25.18 (+1.82, −0.2 … +8.1) | 21.27 → 25.09 (+2.14, −1.2 … +5.4) |
+| Ultra | 21.49 → 22.08 (−0.80, −1.8 … +2.7) | — (the run's timeout came first) |
+
+Two other agents rendered on the same GPU throughout, and both sides drifted 10 → 18 ms within
+run 3: no difference stands out of that noise. The ground shader is the same at Medium, High
+and Ultra (surface 2, relief 3), so a difference that depends on the preset is the shared
+GPU's; the branch's best frames per side were not slower (Low 7.30 against 8.77 ms, Medium 7.08
+against 7.28; High 15.10 against 13.58). Measured where it does show, on the software adapter:
+the Low decision above. Memory: one 256² RGBA16F texture per host — 512 KiB, about 683 KiB with
+its mips on the GPU — and its 512 KiB of upload data, for the host's life. Vsync could not be
+switched off for a windowed Direct3D 11 view (`QSurfaceFormat.setSwapInterval(0)`: every
+side presented at 16.0 ms), so presented frames could not measure it.
+
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
 **Status**: Accepted (2026-10, #414 / #416, task-date correctness package)

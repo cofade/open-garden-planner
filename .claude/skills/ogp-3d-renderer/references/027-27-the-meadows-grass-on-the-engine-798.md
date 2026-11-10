@@ -38,3 +38,13 @@ PF-L3D-31. Measured on the dev box (RTX 4070, Direct3D 11, PyQt6 / PyQt6-Qt6 6.1
 - **A `CustomMaterial` without light functions takes the scene's ambient lights** like a
   `PrincipledMaterial`: the twilight fill (#802, an `ambientColor` on the fill light) lights the
   meadow as it lights the tiles.
+- **What it costs, and what can measure it here.** `QSurfaceFormat.setSwapInterval(0)` set
+  before the application did not switch vsync off for a windowed Direct3D 11 view (every
+  side presented at 16.0 ms), so presented frames cannot measure a sub-frame cost; the readback
+  of a NEW frame (camera nudged 0.01 cm) can, alternating two hosts of one process (the base's
+  QML through `qml_dir` and the branch's). On a GPU shared with other renders it drifted
+  10 → 18 ms within a run and no difference stood out (paired medians −0.8 … +2.1 ms, IQRs
+  −2 … +8, the same shader at Medium, High and Ultra). On WARP (960 × 540, Low) it is clear:
+  the grass with its value-noise variation +3.65 ms over 47.3, the noise alone 2.1 ms, the two
+  fetches 0.4; Low therefore draws the grass without the variation (+1.63 ms over 44.3).
+

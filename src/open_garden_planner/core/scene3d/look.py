@@ -485,6 +485,11 @@ class PresetSpec:
 #: against FXAA's 67-152 under a shared CPU. No ambient occlusion, no glow — fog stays.
 #: Medium: the 2048 map too (it had 1024, smaller than low's): on bench_large it cost
 #: +4 % of a WARP frame (183 -> 191 ms) and nothing measurable on the GPU (30-40 ms).
+#: #798: Low draws the meadow's grass without its variation (``MEADOW_GRASS``): on the
+#: software adapter (the compatibility mode, which is Low) the variation's value noise
+#: cost 2.1 ms of a 960 x 540 frame (38 -> 41 ms; the grass's two fetches 0.4 ms more), on
+#: the RTX 4070 no difference stood out of a shared GPU's noise. The flat share of the
+#: family garden's default framing at Low: 0.125 with the variation, 0.135 without.
 #: The ground's detail-normal strength from Medium up (L4.5). North-up with it is the
 #: render tier's G2 gate (``test_scene3d_ground_render.py``, High preset); the board's
 #: ``--edge`` and ``--orient`` probes render bare ground and do not run it. 3.0: the
@@ -493,7 +498,7 @@ class PresetSpec:
 DETAIL_NORMALS: Final = 3.0
 PRESET_SPECS: Final[Mapping[str, PresetSpec]] = MappingProxyType({
     "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False,
-                      False, False),
+                      False, False, meadow_surface=MEADOW_GRASS),
     "medium": PresetSpec("medium", "very_high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True,
                          False, False, detail_normals=DETAIL_NORMALS),
     "high": PresetSpec("high", "very_high", 2, "pcf16", 10.0, "msaa", "high", True, 3, True,
