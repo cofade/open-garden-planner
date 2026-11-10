@@ -1126,8 +1126,9 @@ Item {
             // own items, ~1 cm texels) - not the slice's whole bounding sphere (8.3 cm on
             // High at the board's golden hour: long edges stepped, lit teeth under every
             // caster, a picket fence's slits streaked at a low sun). A moving camera keeps
-            // the sphere: a fitted map moves with the view and crawled twice as far in an
-            // orbit (ADR-059 addendum, #734). The truth view keeps the fit it was measured with.
+            // the sphere: a fitted map moves with the view and crawled two to four times as
+            // far in an orbit (ADR-059 addendum, #734). The truth view keeps the fit it was
+            // measured with.
             lockShadowmapTexels: root.topDown || !root.fittedShadows
         }
         // The flat fill - ONLY where no sky texture lights the view (the truth view, a

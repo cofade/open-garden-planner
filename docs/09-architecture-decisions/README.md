@@ -6861,24 +6861,26 @@ issue asked which shadow setting decides it. Measured one variable at a time (`o
    the 0.5 cm slits an oblique sun leaves between 2.2 cm thick pickets aliased into streaks.
    `pcfFactor` is a radius in scene units (2 cm by day) for every cascade; it cannot hide a
    larger texel. Unlocked, Qt spans each cascade by the casters' box clipped to the slice —
-   about 1 cm texels on a 24 m plan, at no cost — but that box moves with the camera: through
-   the product's capture path, orbiting the family garden 0.5° a frame, the fence's edge
-   crawled 0.38 px a frame 10–20 m out (averaged over 30 cm; locked 0.18) and 0.69 px 0–10 m
-   out (locked 0.16). A single cascade crawled as far (0.39): the hero view never holds the
-   whole plan.
+   about 1 cm texels on a 24 m plan — but that box moves with the camera: through the
+   product's capture path, orbiting the family garden 0.5° a frame, the fence's edge crawled
+   0.69 / 0.38 px a frame 0–10 / 10–20 m out (averaged over 30 cm) against 0.16 / 0.17 locked.
+   A single cascade crawled as far (0.32 / 0.39): the hero view never holds the whole plan.
 
 **Decision.**
 
 1. **A frame whose camera does not move fits the shadow map to the casters; a moving camera
    keeps the locked fit.** `Garden.qml`: `lockShadowmapTexels: root.topDown ||
-   !root.fittedShadows`. `Quick3DHost.capture(..., fitted_shadows=True)` sets `fittedShadows`
-   for its own frame and puts it back (a capture's frame is never presented, as with its AO
-   scale): a picture and the agent's picture are fitted; a tour's frames are fitted only when
-   its camera holds (`HeldCamera`, a time-lapse — the sun moves, which re-fits either way);
-   every other tour and the live view keep the locked fit. `set_fitted_shadows` is the host's
-   call for it; `render_records(fitted_shadows=)` and the board's `--photo-shadows` render a
-   picture's fit. The orthographic truth view stays locked. `shadowMapFar`, the splits, the
-   maps, the filters and the bias are unchanged.
+   !root.fittedShadows`. `Quick3DHost.capture(..., fitted_shadows=False)`: the default is the
+   view's fit, so a capture that does not ask is the view to the level — the self-test's check,
+   which a fitted default failed on the renderer by 24 levels. The still pictures ask by name:
+   `WorkspaceCaptureCoordinator.write_photo`, `agent_picture` and the frames of a `HeldCamera`
+   tour (a time-lapse: the light turns under either fit, and the fitted grid crawls less —
+   measured below). An orbit, a flight and the live view keep the locked fit. The flag holds
+   for the capture's own frame and is put back in its `finally`, like its AO scale (a capture's
+   frame is never presented). `set_fitted_shadows` is the host's call for it;
+   `render_records(fitted_shadows=)` and the board's `--photo-shadows` render a picture's fit.
+   The orthographic truth view stays locked. `shadowMapFar`, the splits, the maps, the filters
+   and the bias are unchanged.
 2. **Each picket stops its own 0.5–1.5 cm under the posts** (`fences.PICKET_DROP_CM`), drawn
    by a hash of the item's seed (`unit_hash`, `picket_seed`): the posts stay proud, no two
    neighbours level, no period, no two fences alike. The fence's height (the posts) is the
@@ -6896,19 +6898,37 @@ one-pitch-filtered, over the shadow's contrast, the worse of two cameras):
 | `pcfFactor` 4 / 6 | 4 / 4 cm | 5 / 3 cm | — | smeared into bands | every contact softer |
 | 4096 map | 2 cm / 0.99 px | 3 cm / 1.70 px | — | 0.29 | 4 × the shadow passes' texels |
 | `csmSplit2` 0.45 | 3 cm | 5 cm | — | 0.76 | worse near (2.19 px at 10–20 m) |
-| **fitted to the casters (a still frame)** | **1 cm / 0.32 px** | **2 cm / 1.40 px** | **0.011** | **0.12** | FRAME_COST_TBD; crawls with a moving camera |
+| **fitted to the casters (a still frame)** | **1 cm / 0.32 px** | **2 cm / 1.40 px** | **0.011** | **0.12** | no measurable frame cost (below); crawls with a moving camera |
 
 Ultra locked 1 / 2 cm, foot 0.011, streaks 0.30; fitted 1 / 2 cm, 0.011, 0.10. Low and medium
 fitted: 1 / 2 cm, 0.009–0.011, 0.13–0.21. What is left at 5.9° is Qt's per-pixel PCF dither,
-not texels. The `--stairs` orbit (the golden-hour camera round the plan, the panel and a 10 m
-column at each plan corner, 0.5° a frame, averaged over 30 cm): locked 0.079 / 0.094 px at
-0–10 / 10–20 m, fitted 0.21 / 0.15. The picket fence's golden-hour edge in the hero camera,
-0–10 m: 6.65 px (the ramp) → 4.59 px (the posts' bumps, 0.5–1.5 cm proud; level pickets 2 cm
-under read 5.39). In a fitted frame the far tree shadows show Qt's dither (high-pass spread in
-their penumbra 1.79 → 2.14 luma at 4K; the near shadows' 6.01 → 6.03). The picket fence against
-its 2D caster model (`scripts/measure_built_world_shadows.py`): area ratio 1.01 / 1.01 / 1.00,
-IoU 0.66 / 0.67 / 0.68, tip +2.0 / +2.0 / +2.4 cm (before 1.00 / 1.00 / 1.00, 0.65 / 0.66 /
-0.68, the same tips).
+not texels. The final design in the render gate (2026-11-10, High / Ultra, every frame a still
+picture's fit): the panel's far edge 0.64 / 0.63 cm at 15.2° and 2.24 / 2.27 cm at 5.9°, the
+foot lit 0.023 at worst, streaks 0.165 / 0.136 at worst. The `--stairs` orbit (the golden-hour
+camera round the plan, the panel and a 10 m column at each plan corner, 0.5° a frame, averaged
+over 30 cm): locked 0.079 / 0.094 px at 0–10 / 10–20 m (Ultra 0.082 / 0.087), fitted 0.21 /
+0.146 (Ultra 0.106 / 0.117). The `--stairs` time-lapse (the same scene, that camera held, the
+sun stepping 0.4° / 0.55° a frame, each frame against its own sun's edge): 8 frames from 15.2° to 12.4°, locked 0.336 / 0.682 px at 0–10 / 10–20 m (Ultra 0.175 / 0.321), fitted 0.265 / 0.517 (Ultra 0.167 / 0.298); 24
+frames from golden hour to sunset in the same scene: locked 0.66 / 0.79 px, fitted 0.35 /
+0.37. The picket fence's golden-hour edge in the hero camera, 0–10 m: 6.65 px (the ramp) →
+4.59 px (the posts' bumps, 0.5–1.5 cm proud; level pickets 2 cm under read 5.39). In a fitted
+frame the far tree shadows show Qt's dither (high-pass spread in their penumbra 1.79 → 2.14
+luma at 4K; the near shadows' 6.01 → 6.03). The picket fence against its 2D caster model
+(`scripts/measure_built_world_shadows.py`): area ratio 1.01 / 1.01 / 1.00, IoU 0.66 / 0.67 /
+0.68, tip +2.0 / +2.0 / +2.4 cm (before 1.00 / 1.00 / 1.00, 0.65 / 0.66 / 0.68, the same tips).
+The family garden's board on the view's path against the base (High, 1920 × 1080, seven
+shots): 0.03–0.12 levels mean, at most 0.27 % of pixels more than 8 apart (the fences' tops),
+luma, clipping and dark-pixel counts unchanged; on the photo's path against the view's: 0.2–2.1
+levels mean, 0.01–7.9 % of pixels (December noon's long shadows and the lawn blades' own).
+
+**Cost.** Fitting changes which texels a cascade covers, not how many passes or pages there
+are. Captures of the family garden at golden hour, fitted and locked strictly alternating in
+one process, two warm-ups, the minimum of 12 each (the GPU was shared with two other renders,
+which only add time): 1920 × 1080 fitted − locked −0.7 ms (low, 17.8 ms locked), +2.3 (medium,
+21.0), −0.6 (high, 25.3), +2.1 (ultra, 40.3); 3840 × 2160 on High +2.9 ms minimum, +0.7 ms
+median (54.2 / 57.0 against 51.3 / 56.3 ms, 12 pairs). No cost beyond that noise; the live
+view's frames are the base's (it keeps the locked fit). The board's `--fps-seconds` readback
+A/B swung 3 × between rounds under the shared GPU and decided nothing.
 
 **Truth gates.** The view's fit is the base's: its shadow IoU in perspective with each preset's
 cascades (640 × 360) stays low 0.919 / 0.967 / 0.962, medium 0.919 / 0.969 / 0.958, high
@@ -6917,16 +6937,20 @@ picture's fit: low 0.985 / 0.975 / 0.970, medium 0.985 / 0.975 / 0.961, high 0.9
 0.967, ultra 0.986 / 0.981 / 0.968; far plan (bench_large, 2× / 4× framing, High) 3,768 /
 3,761 shadowed samples against 3,512 / 3,420, the outer row step 0.77 / 1.55 either way (gate 3.0).
 
-**Consequences.** A picture's shadows are sharper than the view's at a low sun; a recording that
-moves its camera shows the view's. A fitted map's texels depend on the plan's extent (a 50 m
-plan about 2.5 cm), not on the camera's distance. Open: the live view at rest could take the
-fitted map too, at the cost of a visible sharpening when the camera stops — a taste question
-for the owner (follow-up). The render tier's
-`test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks` gates a picture's fit
-and the view's orbit (observed failing on the base: 4.97 cm against 2.5 at High, 15.2°); the
-builder pin `test_picket_tops_repeat_no_pattern_and_follow_the_items_seed` gates the ramp and
-the clones; `test_directors_cut.py::test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views`
-the routing. PF-L3D-24, PF-L3D-25.
+**Consequences.** A picture's shadows are sharper than the view's at a low sun, the photo-mode
+preview's included: ADR-072 decision 5's "all off is the view" holds for a capture that does
+not ask (amended there). A recording that moves its camera shows the view's shadows. A fitted
+map's texels depend on the plan's extent (a 50 m plan about 2.5 cm), not on the camera's
+distance. Open: the live view at rest could take the fitted map too, at the cost of a visible
+sharpening when the camera stops — a taste question for the owner (follow-up). The render
+tier's `test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks` gates a
+picture's fit, the view's orbit and the measured reasons for the routing (observed failing on
+the base: 4.97 cm against 2.5 at High, 15.2°); the builder pin
+`test_picket_tops_repeat_no_pattern_and_follow_the_items_seed` gates the ramp and the clones;
+`test_directors_cut.py::test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views`
+the routing; `test_directors_cut_render.py::test_a_still_pictures_fitted_shadows_change_only_its_own_frame`
+and the self-test that a fitted capture changes only its own frame and a default one is the
+view. PF-L3D-24, PF-L3D-25.
 
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
@@ -10754,6 +10778,10 @@ view on any steady path.
    point becomes a depth along the view's axis), a vignette towards black and a colour grade, all `ExtendedSceneEnvironment` features on the one environment, so the view previews
    what is saved. All off is the view, pixel for pixel. A click sets the focus while photo mode
    is on: selection has its 2D side. No setting is saved in the plan.
+   *(#734: a saved photo, an agent's picture and a held camera's frames fit the shadow map to
+   the casters; all off, such a picture differs from the view along shadow edges only, and a
+   low sun's long shadows are sharper in it than in the preview — ADR-059 addendum "low-sun
+   shadows". A capture that does not ask for it is still the view, pixel for pixel.)*
 
 6. **A grade is a procedural table, and it carries the look's saturation and contrast.** Qt
    applies them unclamped right before its table lookup, and that lookup is a `texelFetch` whose

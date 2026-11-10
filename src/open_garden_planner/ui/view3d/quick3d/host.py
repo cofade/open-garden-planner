@@ -863,9 +863,10 @@ class Quick3DHost:
         fit of the slices' bounding spheres (False, the view's). FOR A FRAME WHOSE CAMERA
         DOES NOT MOVE ONLY: a fitted map is about eight times finer on the board's golden
         hour (no stair-stepped long shadows, no lit teeth under a caster's foot, no streaks
-        through a picket fence at a low sun), but it follows the camera and crawled twice
-        as far as the locked one in an orbit (ADR-059 addendum, #734). ``capture`` sets it
-        for its own frame; the orthographic truth view is locked either way."""
+        through a picket fence at a low sun), but it follows the camera and crawled two to
+        four times as far as the locked one in an orbit (ADR-059 addendum, #734).
+        ``capture(fitted_shadows=True)`` sets it for its own frame only; the orthographic
+        truth view is locked either way."""
         self._open("set_fitted_shadows")
         _set(self._root, "fittedShadows", bool(fitted))
 

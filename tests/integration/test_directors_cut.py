@@ -482,7 +482,7 @@ def test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views(rig: R
     """#734: a frame whose camera does not move - a photo, an agent's picture, a held
     camera's time-lapse - asks for the shadow map fitted to the casters; the frames of an
     orbit and of a flight keep the view's stable fit (a fitted map moves with the camera: it
-    crawled twice as far in an orbit). The host's default is the view's fit, so a picture
+    crawled two to four times as far in an orbit). The host's default is the view's fit, so a picture
     path that forgets to ask gets the view (the fake mirrors ``Quick3DHost.capture``)."""
     rig.open_3d()
     host, capture = rig.host, rig.workspace.capture
