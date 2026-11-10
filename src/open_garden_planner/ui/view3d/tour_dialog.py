@@ -14,6 +14,12 @@ app or opening another plan does not. "Save Tour" keeps it in the plan under a n
 delete is one undo step (``WorkspaceCaptureCoordinator.save_tour`` and its neighbours), and
 choosing a saved tour puts it back into the controls. A saved orbit or held view carries the
 view it started from, so it plays the same next week; "Use Current View" lets it go.
+
+An orbit's tilt is ONE value, ``_orbit_pitch`` (#807): the tilt control shows and edits it,
+a saved tour brings its own (exactly, not the control's rounding), and "Use Current View"
+puts the view's tilt into it. A new orbit starts from the view's place and distance at
+``DEFAULT_ORBIT_PITCH_DEG``, eases in and out, and lasts ``ORBIT_SECONDS_PER_TURN`` a turn
+until the user sets a duration (``default_duration_s``).
 """
 
 from __future__ import annotations
@@ -62,10 +68,13 @@ from open_garden_planner.core.camera_path import (
     DroneOrbit,
     HeldCamera,
     TourSpec,
+    clamp_orbit_pitch,
     frame_count,
+    orbit_pitch_range,
 )
 from open_garden_planner.core.camera_tours import (
     DEFAULT_DURATION_S,
+    DEFAULT_ORBIT_PITCH_DEG,
     DEFAULT_SIZE,
     MAX_TOUR_KEYS,
     MAX_TOURS,
@@ -73,13 +82,26 @@ from open_garden_planner.core.camera_tours import (
     TOUR_SIZES,
     SavedTour,
     clean_tour_name,
+    default_duration_s,
     find_tour,
 )
 from open_garden_planner.core.plain_text import log_text
-from open_garden_planner.core.scene3d.camera import FOV_DEG, CameraPose
+from open_garden_planner.core.scene3d.camera import (
+    FOV_DEG,
+    MAX_PITCH_DEG,
+    MIN_PITCH_DEG,
+    CameraPose,
+)
 
 from .tour_recorder import TourRecorder, TourResult, translated_failure
-from .video_writer import FrameSink, Mp4Writer, NullWriter, PngSequenceWriter, VideoError
+from .video_writer import (
+    DEFAULT_VIDEO_QUALITY,
+    FrameSink,
+    Mp4Writer,
+    NullWriter,
+    PngSequenceWriter,
+    VideoError,
+)
 from .workspace_capture import CaptureRefused
 
 if TYPE_CHECKING:
@@ -121,6 +143,12 @@ class TourDialog(QDialog):
         #: None: the view as it is when the tour starts.
         self._orbit_start: tuple[CameraPose, float] | None = None
         self._held_view: CameraKey | None = None
+        #: The orbit's tilt (module docstring): what the tilt control shows, exactly.
+        self._orbit_pitch = DEFAULT_ORBIT_PITCH_DEG
+        self._setting_pitch = False
+        #: True once the user set a duration: the default follows the camera until then.
+        self._duration_chosen = False
+        self._setting_duration = False
         #: What the status line last said about a saved tour; it goes when the controls
         #: are changed, so that "Saved" never stands beside an edit that is not saved.
         self._tour_note = ""
@@ -214,11 +242,32 @@ class TourDialog(QDialog):
         self.clockwise_check.setChecked(True)
         self.clockwise_check.toggled.connect(self._sync_controls)
         orbit_form.addRow("", self.clockwise_check)
+        self.pitch_spin = QDoubleSpinBox(orbit)
+        self.pitch_spin.setDecimals(1)
+        self.pitch_spin.setSingleStep(1.0)
+        self.pitch_spin.setRange(MIN_PITCH_DEG, MAX_PITCH_DEG)
+        self.pitch_spin.setSuffix(self.tr(" °"))
+        self.pitch_spin.setValue(self._orbit_pitch)
+        self.pitch_spin.setToolTip(self.tr(
+            "How steeply the camera looks down at the garden. A low tilt shows the horizon "
+            "and the sky; a high one looks down into the beds."))
+        self.pitch_spin.valueChanged.connect(self._pitch_edited)
+        orbit_form.addRow(self.tr("Camera tilt:"), self.pitch_spin)
+        self.ease_check = QCheckBox(self.tr("Start and stop smoothly"), orbit)
+        self.ease_check.setChecked(True)
+        self.ease_check.setToolTip(self.tr(
+            "The camera speeds up gently at the start and slows down to a stop at the end. "
+            "Turn it off for a video that plays in a loop: then the end leads straight back "
+            "into the start."))
+        self.ease_check.toggled.connect(self._sync_controls)
+        orbit_form.addRow("", self.ease_check)
         self._orbit_hint = QLabel(orbit)
         self._orbit_hint.setWordWrap(True)
         orbit_form.addRow(self._orbit_hint)
         self.orbit_view_button = QPushButton(self.tr("Use Current View"), orbit)
         self.orbit_view_button.setAutoDefault(False)
+        self.orbit_view_button.setToolTip(self.tr(
+            "Start the orbit exactly where the 3D view is now, with the view's own tilt."))
         self.orbit_view_button.clicked.connect(self._use_current_view)
         orbit_row = QHBoxLayout()
         orbit_row.addWidget(self.orbit_view_button)
@@ -314,7 +363,10 @@ class TourDialog(QDialog):
         self.duration_spin.setDecimals(1)
         self.duration_spin.setSuffix(self.tr(" s"))
         self.duration_spin.setValue(DEFAULT_DURATION_S)
-        self.duration_spin.valueChanged.connect(self._sync_controls)
+        self.duration_spin.setToolTip(self.tr(
+            "How long the video lasts. A drone orbit takes 30 s a turn until you set a "
+            "length here."))
+        self.duration_spin.valueChanged.connect(self._duration_edited)
         form.addRow(self.tr("Duration:"), self.duration_spin)
         self.fps_combo = QComboBox(group)
         for rate in FRAME_RATES:
@@ -328,6 +380,16 @@ class TourDialog(QDialog):
         self.size_combo.setCurrentIndex(TOUR_SIZES.index(DEFAULT_SIZE))
         self.size_combo.currentIndexChanged.connect(self._sync_controls)
         form.addRow(self.tr("Size:"), self.size_combo)
+        # How the video is encoded: not part of a saved tour, like the look (#807)
+        self.quality_combo = QComboBox(group)
+        self.quality_combo.addItem(self.tr("Standard"), "standard")
+        self.quality_combo.addItem(self.tr("Best, for Publishing"), "best")
+        self.quality_combo.setCurrentIndex(self.quality_combo.findData(DEFAULT_VIDEO_QUALITY))
+        self.quality_combo.setToolTip(self.tr(
+            "How much detail the video keeps. Best keeps nearly every leaf and makes a larger "
+            "file: use it for a video you publish. Only for Save Video: a PNG sequence keeps "
+            "every detail."))
+        form.addRow(self.tr("Video quality:"), self.quality_combo)
         return group
 
     def _build_buttons(self) -> QHBoxLayout:
@@ -403,10 +465,67 @@ class TourDialog(QDialog):
         return self._orbit()
 
     def _orbit(self) -> DroneOrbit:
-        """The orbit as the controls say: from a saved tour's view, or from the view now."""
-        pose, fov = self._orbit_start or (self._capture.orbit_pose(), FOV_DEG)
+        """The orbit as the controls say: from a saved tour's view, or from the view's place
+        and distance now, at the tilt (``_orbit_pitch``). A saved tour's tilt is flown as it
+        was saved; the view's distance can change behind the dialog, so the tilt of an orbit
+        from the view is kept above the ground for the distance it has now."""
+        if self._orbit_start is not None:
+            start, fov = self._orbit_start
+            pitch = self._orbit_pitch
+        else:
+            start, fov = self._capture.orbit_pose(), FOV_DEG
+            pitch = clamp_orbit_pitch(self._orbit_pitch, start.distance_cm)
+        pose = CameraPose(start.target, start.distance_cm, start.yaw_deg, pitch)
         return DroneOrbit(pose, fov_deg=fov, turns=float(self.turns_spin.value()),
-                          clockwise=self.clockwise_check.isChecked())
+                          clockwise=self.clockwise_check.isChecked(),
+                          ease=self.ease_check.isChecked())
+
+    def _orbit_distance(self) -> float:
+        start = self._orbit_start
+        return start[0].distance_cm if start is not None else self._capture.orbit_pose().distance_cm
+
+    def _pitch_edited(self, value: float) -> None:
+        """The user set the tilt: it is the orbit's, kept above the ground."""
+        if self._setting_pitch:   # the control is being shown the tilt, not changing it
+            return
+        self._orbit_pitch = clamp_orbit_pitch(value, self._orbit_distance())
+        self._sync_controls()
+
+    def _show_pitch(self) -> None:
+        """The tilt control shows the tilt the orbit flies: a saved tour's own (its range
+        widened to hold it, so showing it never changes it), or ``_orbit_pitch`` kept above
+        the ground at the view's distance now."""
+        low, high = orbit_pitch_range(self._orbit_distance())
+        if self._orbit_start is not None:
+            shown = self._orbit_pitch
+            low, high = min(low, shown), max(high, shown)
+        else:
+            shown = min(max(self._orbit_pitch, low), high)
+        self._setting_pitch = True
+        try:
+            self.pitch_spin.setRange(low, high)
+            self.pitch_spin.setValue(shown)
+        finally:
+            self._setting_pitch = False
+
+    def _duration_edited(self, *_arguments: object) -> None:
+        """The length is the user's from now on: the camera's default no longer moves it."""
+        if self._setting_duration:   # the default moving it, from inside ``_sync_controls``
+            return
+        self._duration_chosen = True
+        self._sync_controls()
+
+    def _follow_default_duration(self) -> None:
+        if self._duration_chosen:
+            return
+        seconds = default_duration_s(str(self.motion_combo.currentData()), self.turns_spin.value(),
+                                     str(self.time_combo.currentData()))
+        if self.duration_spin.value() != seconds:
+            self._setting_duration = True
+            try:
+                self.duration_spin.setValue(seconds)
+            finally:
+                self._setting_duration = False
 
     def _held(self) -> CameraKey:
         return self._held_view or self._capture.camera_key()
@@ -445,10 +564,12 @@ class TourDialog(QDialog):
         self._time_pages.setCurrentIndex(self.time_combo.currentIndex())
         self.remove_key_button.setEnabled(bool(self._keys))
         self.add_key_button.setEnabled(len(self._keys) < MAX_TOUR_KEYS)
+        self._follow_default_duration()
+        self._show_pitch()
         self._orbit_hint.setText(
             self.tr("Starts at the view saved with this tour.") if self._orbit_start is not None
-            else self.tr("Starts where the view is now, at the same distance and height."))
-        self.orbit_view_button.setVisible(self._orbit_start is not None)
+            else self.tr("Starts where the view is now, at the same distance, with the tilt "
+                         "set here."))
         self._held_hint.setText(
             self.tr("The camera stays at the view saved with this tour. Good for a time-lapse.")
             if self._held_view is not None
@@ -475,6 +596,13 @@ class TourDialog(QDialog):
     def bound_tour(self) -> str | None:
         """The name of the saved tour the controls came from. None: an unsaved draft."""
         return self._bound
+
+    @property
+    def starts_at_saved_view(self) -> bool:
+        """The orbit or held camera starts at a saved tour's view, not at the view now."""
+        kind = self.motion_combo.currentData()
+        return ((kind == "orbit" and self._orbit_start is not None)
+                or (kind == "hold" and self._held_view is not None))
 
     def _draft(self, name: str) -> SavedTour | None:
         """The controls as a tour of that name. None: they are no tour yet (``spec``)."""
@@ -565,10 +693,12 @@ class TourDialog(QDialog):
         self._orbit_start = self._held_view = None
         self._pin(tour)
         self.loop_check.setChecked(tour.closed)
+        self._duration_chosen = True   # the tour's length, not the camera's default
         self.motion_combo.setCurrentIndex(self.motion_combo.findData(tour.motion))
         if tour.orbit is not None:
             self.turns_spin.setValue(int(tour.orbit.turns))
             self.clockwise_check.setChecked(tour.orbit.clockwise)
+            self.ease_check.setChecked(tour.orbit.ease)   # absent in an older file: no easing
         kind = "year" if tour.date_range else "day" if tour.time_range else "none"
         self.time_combo.setCurrentIndex(self.time_combo.findData(kind))
         if tour.time_range is not None:
@@ -589,15 +719,19 @@ class TourDialog(QDialog):
         """The controls are this saved tour: its view, not wherever the view is now."""
         if tour.orbit is not None:
             self._orbit_start = (tour.orbit.pose, tour.orbit.fov_deg)
+            self._orbit_pitch = tour.orbit.pose.pitch_deg   # exactly, whatever the control shows
         if tour.held is not None:
             self._held_view = tour.held
 
     def _use_current_view(self) -> None:
-        """Let go of the saved view: the orbit or the held camera starts at the view again."""
+        """Let go of the saved view: the orbit or the held camera starts at the view again.
+        The orbit takes the view's tilt too, so its first frame is the view."""
         if self.motion_combo.currentData() == "hold":
             self._held_view = None
         else:
             self._orbit_start = None
+            pose = self._capture.orbit_pose()
+            self._orbit_pitch = clamp_orbit_pitch(pose.pitch_deg, pose.distance_cm)
         self._sync_controls()
 
     def _keep(self, name: str) -> bool:
@@ -735,7 +869,8 @@ class TourDialog(QDialog):
         spec = self.spec()
         if spec is not None:
             self._output = path
-            self._run(Mp4Writer(path, self._size(), spec.fps, self), self._size())
+            self._run(Mp4Writer(path, self._size(), spec.fps, self,
+                                quality=str(self.quality_combo.currentData())), self._size())
 
     def record_png(self, folder: Path) -> None:
         self._output = folder

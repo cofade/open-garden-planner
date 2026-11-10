@@ -422,3 +422,32 @@ Measured through `Quick3DHost.capture` on #831's own setup (family garden, mediu
 - **Legacy:** none (new entry)
 
 Symptom (found by reading, then pinned): `camera_moved` is called only from `Workspace._apply_camera`, so a tour over a plan with more than six lanterns lit every frame with the six nearest the PANE's target, at full strength, wherever the tour looked. The test drew nine lanterns, ran a held-camera tour aimed at the last one, and read the host's lamps at each picture: before the fix every frame held the pane's six. The lamp weights (`lights.lit_lamps`: `smoothstep(0, LAMP_FADE_CM, d_out - d)`, 200 cm) have no clock, so the same tour lights the same frames.
+
+### PF-E3D-30
+
+- **Rule:** Ask Qt's recorder for constant quality, never for a bit rate: `AverageBitRateEncoding` and `ConstantBitRateEncoding` both reach Windows' H.264 encoder as CBR, which starves the first second of every video whatever the rate and stops spending near 32 Mbit/s at 1080p30. `ConstantQualityEncoding` with `HighQuality` or `VeryHighQuality` (Media Foundation's quality 90 or 100) keeps every frame alike. Qt passes no profile, so the stream is Constrained Baseline.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_a_video_is_made_at_constant_quality_as_chosen`
+- **Source:** #807, measured on the 3D promo survey's frames (ADR-072 addendum "review-grade video").
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: the issue proposed 0.35 bit/px for a better video. Measured on a 6 s slow orbit at 1080p30,
+the first 18 frames read 40.4 to 42.0 dB Y-PSNR at every rate from 0.2 to 1.0 bit/px, against 45 to 49
+after them; the average mode and the CBR mode gave byte-identical files; above 0.7 bit/px the encoder
+spent no more (31.0, then 32.1 Mbit/s). The strings in `ffmpegmediaplugin.dll` show what Qt hands
+`h264_mf`: `rate_control` and `quality`, and no `profile`; FFmpeg's encoder takes an unset profile as
+Baseline. Constant quality read 47.1 (Standard) and 49.2 dB (Best) at its worst frame.
+
+### PF-E3D-31
+
+- **Rule:** A tour's MP4 states its colour and its level only because the app writes them after the recorder closes: Qt's recorder writes no colour description (its own decoder read the file as `ColorSpace_Undefined`), and at constant quality the encoder labels the level from the frame size alone (36 Mbit/s as level 4.0, whose Baseline limit is 24). `core/mp4_stream.tag_colour` writes BT.709 limited range into the `colr` box and every SPS and raises the level to what the samples need; a file it cannot rewrite is saved untagged, never lost.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_a_finished_video_states_bt709_in_its_container_and_in_its_stream`; `tests/integration/test_video_writer.py::test_a_video_that_cannot_be_tagged_is_saved_untagged_and_says_so_in_the_log`; `tests/unit/test_mp4_stream.py::test_a_file_whose_frames_outgrow_its_level_states_the_one_they_need`
+- **Source:** #807 (ADR-072 addendum "review-grade video"); supersedes the HD convention of the #735 addendum as the only colour statement.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+No `ffprobe` is needed to check it: Qt's player prints FFmpeg's own stream line, which read
+`yuv420p(progressive)` before and `yuv420p(tv, bt709, progressive)` after, and its frames report
+`ColorSpace_BT709`, `ColorTransfer_BT709` and `ColorRange_Video`; the decoded planes were identical,
+180 of 180. Media Foundation repeats the SPS at every IDR frame (one a second), so a tag in `avcC`
+alone would be undone in the stream: every SPS is rewritten, and the samples move.

@@ -11,6 +11,12 @@ asked for: the module costs the app's start nothing. The verified path (ADR-072)
   edition, Linux — FFmpeg's own MPEG-4 Part 2 encoder writes the file instead (``CODECS``).
 - The frames are BT.709 YUV computed here, never RGB (``core/video_yuv.py`` says why: the
   recorder's own conversion gets the colours wrong in every player).
+- The encoder works at constant quality (``VIDEO_QUALITIES``), and Qt gives it no way to ask
+  for a profile: Media Foundation writes H.264 Constrained Baseline (#807, measured).
+- The finished file states what it is (``core/mp4_stream.py``): BT.709 limited range in its
+  ``colr`` box and every SPS, and the level its frames need. The recorder states neither.
+  That copy is made on a worker thread before the file gets the user's name; if it cannot
+  be made, the untagged video is saved, and the log says so.
 
 A writer takes frames as they come and says when it has had enough: ``write`` returns
 False while its queue is full, and the caller offers the same frame again. ``finish`` ends
@@ -24,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Final, Protocol
@@ -32,11 +39,12 @@ import numpy as np
 from PyQt6.QtCore import QCoreApplication, QObject, QSize, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QImage
 
+from open_garden_planner.core.mp4_stream import Mp4Error, StreamInfo, tag_colour
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.video_yuv import rgb_to_yuv420
 
-__all__ = ["CODECS", "FrameSink", "Mp4Writer", "NullWriter", "PngSequenceWriter", "VideoError",
-           "best_codec", "frame_name"]
+__all__ = ["CODECS", "DEFAULT_VIDEO_QUALITY", "VIDEO_QUALITIES", "FrameSink", "Mp4Writer", "NullWriter",
+           "PngSequenceWriter", "VideoError", "best_codec", "frame_name"]
 
 _LOG: Final = logging.getLogger(__name__)
 
@@ -44,10 +52,13 @@ _LOG: Final = logging.getLogger(__name__)
 #: plays everywhere and is what the video platforms ask for; MPEG-4 is the fallback every
 #: FFmpeg build can write.
 CODECS: Final = ("H264", "MPEG4")
-#: Bits per pixel of the stream: a garden's leaves are hard on an encoder, and Media
-#: Foundation's H.264 stays in the Constrained Baseline profile. At 30 fps: 12 Mbit/s for
-#: 1080p, 50 for 4K.
-BITS_PER_PIXEL: Final = 0.2
+#: The dialog's video qualities, as ``Mp4Writer(quality=)`` names them (#807). A video is
+#: encoded at CONSTANT QUALITY: Qt's average-bit-rate mode is Media Foundation's CBR, which
+#: starves the first second of every video and stops buying detail near 32 Mbit/s (ADR-072
+#: addendum "review-grade video"). Qt hands Media Foundation the quality as 90 or 100.
+VIDEO_QUALITIES: Final = ("standard", "best")
+DEFAULT_VIDEO_QUALITY: Final = "standard"
+_RECORDER_QUALITY: Final = {"standard": "HighQuality", "best": "VeryHighQuality"}
 #: How often ``finish`` looks whether the recorder or the PNG writers are done, ms.
 _POLL_MS: Final = 20
 #: A recorder that takes longer than this to close its file has failed, seconds.
@@ -119,13 +130,17 @@ class NullWriter(_Sink):
 
 
 class Mp4Writer(_Sink):
-    """An MP4 of ``size`` (even sides) at ``fps``. GUI thread (module docstring)."""
+    """An MP4 of ``size`` (even sides) at ``fps`` and one of ``VIDEO_QUALITIES``. GUI thread
+    (module docstring)."""
 
     def __init__(self, path: Path, size: tuple[int, int], fps: int,
-                 parent: QObject | None = None) -> None:
+                 parent: QObject | None = None, *, quality: str = DEFAULT_VIDEO_QUALITY) -> None:
         super().__init__(parent)
         if size[0] % 2 or size[1] % 2:
             raise ValueError(f"a video's sides must be even, got {size}")
+        if quality not in VIDEO_QUALITIES:
+            raise ValueError(f"a video's quality is one of {VIDEO_QUALITIES}, got {quality!r}")
+        self.quality = quality
         self.path = Path(path)
         #: The render's own name. A kept render (its target was held open by a player)
         #: must not be deleted by the NEXT recording of the same name, so a part that is
@@ -135,6 +150,9 @@ class Mp4Writer(_Sink):
         self.fps = int(fps)
         self.codec: str | None = None
         self.frames_sent = 0
+        #: What the finished file states (profile, level, colour), once it is delivered;
+        #: None before, or when the file could not be read back.
+        self.stream: StreamInfo | None = None
         self._input: Any = None
         self._session: Any = None
         self._recorder: Any = None
@@ -148,6 +166,10 @@ class Mp4Writer(_Sink):
         self._poll = QTimer(self)
         self._poll.setInterval(_POLL_MS)
         self._poll.timeout.connect(self._look_if_stopped)
+        #: The finished file being tagged and moved to its name (``_deliver``), off the GUI
+        #: thread: a 4K render is gigabytes to copy.
+        self._delivery: Future[tuple[bool, str]] | None = None
+        self._delivery_pool: ThreadPoolExecutor | None = None
 
     @staticmethod
     def _free_part_path(path: Path) -> Path:
@@ -185,8 +207,9 @@ class Mp4Writer(_Sink):
         self._recorder.setMediaFormat(wanted)
         self._recorder.setVideoResolution(QSize(width, height))
         self._recorder.setVideoFrameRate(self.fps)
-        self._recorder.setEncodingMode(media.QMediaRecorder.EncodingMode.AverageBitRateEncoding)
-        self._recorder.setVideoBitRate(int(width * height * self.fps * BITS_PER_PIXEL))
+        self._recorder.setEncodingMode(media.QMediaRecorder.EncodingMode.ConstantQualityEncoding)
+        self._recorder.setQuality(getattr(media.QMediaRecorder.Quality,
+                                          _RECORDER_QUALITY[self.quality]))
         self._recorder.setOutputLocation(QUrl.fromLocalFile(str(self.part_path)))
         # errorOccurred carries an enum PyQt6 cannot connect (measured): errorChanged has none
         self._recorder.errorChanged.connect(self._on_error)
@@ -258,6 +281,8 @@ class Mp4Writer(_Sink):
 
     def finish(self) -> None:
         """End the file; ``finished`` follows when it is closed."""
+        if self._delivery is not None:   # closed, being tagged: its own end says how it went
+            return
         if self._recorder is None:
             self.finished.emit(False, self._error)
             return
@@ -288,15 +313,77 @@ class Mp4Writer(_Sink):
             self._discard_part()
             self.finished.emit(False, self._error)
             return
+        # The rest copies a file of up to gigabytes: a worker does it, the GUI thread polls.
+        # The thread is not a daemon, so a closing app still ends with the file in its place.
+        self._delivery_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tour-mp4")
+        self._delivery = self._delivery_pool.submit(self._deliver)
+        self._poll.timeout.disconnect(self._look_if_stopped)
+        self._poll.timeout.connect(self._look_if_delivered)
+        self._poll.start()
+
+    def _deliver(self) -> tuple[bool, str]:
+        """Worker thread, no Qt: the finished part tagged (``core/mp4_stream.py``) and moved
+        to the user's name. A part that cannot be tagged is moved as it is: the tags are a
+        statement about the render, never a reason to lose it."""
+        source = self.part_path
+        tagged: Path | None = None
         try:
-            os.replace(self.part_path, self.path)
+            handle, name = tempfile.mkstemp(prefix=f"{self.path.stem}.", suffix=".tmp.mp4",
+                                            dir=self.part_path.parent)
+            os.close(handle)
+            tagged = Path(name)
+            self.stream = tag_colour(self.part_path, tagged)
+            source = tagged
+        except (Mp4Error, OSError) as error:
+            if tagged is not None:
+                tagged.unlink(missing_ok=True)
+            tagged = None
+            _LOG.warning("Video: %s is saved untagged (%s: %s)", log_text(self.path),
+                         type(error).__name__, log_text(error))
+        try:
+            os.replace(source, self.path)
         except OSError as error:   # the old file is open somewhere: the render is finished, keep it
             _LOG.warning("Video: %s could not be replaced (%s)", log_text(self.path), log_text(error))
-            self.finished.emit(False, _tr(
+            if tagged is not None:
+                try:   # the render kept by the part's name is the tagged one, where it can be
+                    os.replace(tagged, self.part_path)
+                except OSError:
+                    tagged.unlink(missing_ok=True)   # the part itself is the whole render
+            return False, _tr(
                 "{path} could not be replaced ({error}). The video is saved as {part}.").format(
-                    path=self.path, error=error, part=self.part_path))
+                    path=self.path, error=error, part=self.part_path)
+        if tagged is not None:
+            self._discard_part()
+        self._log_delivered()
+        return True, ""
+
+    def _log_delivered(self) -> None:
+        stream = self.stream
+        if stream is None:
             return
-        self.finished.emit(True, "")
+        sps = stream.sps
+        _LOG.info("Video: %s - %s, %s level %s, %d x %d, %d frames, %.1f Mbit/s, quality %s, "
+                  "colour %s", log_text(self.path), stream.codec,
+                  sps.profile if sps is not None else "-", sps.level if sps is not None else "-",
+                  stream.width, stream.height, stream.samples, stream.bit_rate / 1e6,
+                  self.quality, stream.tagged)
+
+    def _look_if_delivered(self) -> None:
+        delivery = self._delivery
+        if delivery is None or not delivery.done():
+            return
+        self._poll.stop()
+        pool, self._delivery_pool = self._delivery_pool, None
+        if pool is not None:
+            pool.shutdown(wait=False)
+        failure = delivery.exception()
+        if failure is not None:   # a bug in the delivery itself: say it, never hang the dialog
+            _LOG.error("Video: delivering %s failed (%s: %s)", log_text(self.path),
+                       type(failure).__name__, log_text(failure))
+            self.finished.emit(False, f"{type(failure).__name__}: {failure}")
+            return
+        ok, message = delivery.result()
+        self.finished.emit(ok, message)
 
     def _discard_part(self) -> None:
         """The part file goes, if it can: whoever holds it (a thumbnailer, a scanner) must not
