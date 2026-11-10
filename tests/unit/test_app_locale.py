@@ -118,11 +118,12 @@ def test_the_locale_is_qts_own_data_not_the_system_object(qtbot, speak) -> None:
 
 def test_a_template_with_its_own_precision_follows_the_language(qtbot, speak) -> None:
     """``LocalizedNumber`` lets a translated template keep ``{d:.2f}``."""
+    metres, degrees = "{d:.2f} m", "{d:.0f}°"   # as a catalog hands them over
     speak("de", "en_US")
-    assert "{d:.2f} m".format(d=i18n.LocalizedNumber(2.5)) == "2,50 m"
-    assert "{d:.0f}°".format(d=i18n.LocalizedNumber(90.4)) == "90°"
+    assert metres.format(d=i18n.LocalizedNumber(2.5)) == "2,50 m"
+    assert degrees.format(d=i18n.LocalizedNumber(90.4)) == "90°"
     speak("en", "de_DE")
-    assert "{d:.2f} m".format(d=i18n.LocalizedNumber(2.5)) == "2.50 m"
+    assert metres.format(d=i18n.LocalizedNumber(2.5)) == "2.50 m"
 
 
 def test_trimmed_integer_and_list_formats(qtbot, speak) -> None:
