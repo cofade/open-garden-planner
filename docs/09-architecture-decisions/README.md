@@ -11839,7 +11839,9 @@ has the application's locale like the app does (`conftest._app_locale`); before,
 in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
 labels, the scale bar) still use a decimal point and are the canvas's next step.
 
-Cross-refs: PF-I18-09; §8.3 "Locale"; FR-I18N-10, FR-I18N-11; debug-verbose case study 220.
+Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Locale";
+FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
+version cited case study 220, which is the #791 theme case and says nothing about locale.
 
 ### ADR-039 addendum: the app owns the palette and the colour scheme, and chrome that paints reads tokens (#791)
 
