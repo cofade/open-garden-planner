@@ -28,7 +28,6 @@ from PyQt6.QtWidgets import (
     QMenu,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -48,6 +47,7 @@ from open_garden_planner.ui.theme import (
     theme_color,
     urgency_dot,
 )
+from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
 # shared with the planting-calendar dashboard (#228); re-exported here for the
@@ -292,8 +292,9 @@ class TasksView(QWidget):
         dot.setPixmap(urgency_dot(QColor(color)))
         layout.addWidget(dot)
 
-        label = QLabel(self._row_text(task))
-        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        # Elided: a long title and its notes must not push the row's date,
+        # arrow and buttons out of view (a label is never narrower than its text).
+        label = ElidedLabel(self._row_text(task))
         if is_done:
             set_text_role(label, color_role="disabled")
             label.setStyleSheet("text-decoration: line-through;")

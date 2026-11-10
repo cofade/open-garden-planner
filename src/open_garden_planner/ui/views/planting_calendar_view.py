@@ -60,6 +60,7 @@ from open_garden_planner.ui.theme import (
     theme_qcolor,
     urgency_dot,
 )
+from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -456,11 +457,13 @@ class _DashboardPanel(QFrame):
             dot.setPixmap(marker)
         layout.addWidget(dot)
 
+        # Elided, not a plain label: one frost alert that names twenty plants
+        # is wider than the window, and a label is never narrower than its
+        # text — it pushed every row's date, arrow and Done out of view (#796).
         template = templates.get(task.task_type, "%1")
-        lbl = QLabel(template.replace("%1", task.display_name))
+        lbl = ElidedLabel(template.replace("%1", task.display_name))
         lbl.setStyleSheet("font-size: 9pt;")
-        lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        layout.addWidget(lbl)
+        layout.addWidget(lbl, 1)
 
         date_lbl = QLabel(format_day_month(task.task_date))
         date_lbl.setStyleSheet("font-size: 8pt;")

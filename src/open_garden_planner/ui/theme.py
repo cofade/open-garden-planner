@@ -217,7 +217,7 @@ def _pin_color_scheme(scheme: Qt.ColorScheme) -> None:
     """
     hints = QGuiApplication.styleHints()
     setter = getattr(hints, "setColorScheme", None)
-    if setter is None:
+    if hints is None or setter is None:
         return
     if scheme == Qt.ColorScheme.Unknown or hints.colorScheme() != scheme:
         setter(scheme)

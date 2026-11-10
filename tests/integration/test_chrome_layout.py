@@ -51,6 +51,7 @@ from open_garden_planner.ui.theme import (
 )
 from open_garden_planner.ui.views import planting_calendar_view as calendar
 from open_garden_planner.ui.views.tasks_view import TasksView
+from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 from open_garden_planner.ui.widgets.toolbar_rows import rows_for_width
 from tests.chrome_measure import clipped_labels, grab_image, ink_contrast
 
@@ -175,7 +176,49 @@ def test_todays_tasks_rows_keep_one_date_and_arrow_column(qtbot, qapp) -> None:
     assert len(widths) == 1 and 16 <= widths.pop() <= 26
 
 
+def test_one_long_task_does_not_push_every_row_out_of_view(qtbot, qapp) -> None:
+    """A frost alert that names twenty plants is wider than the window; a plain
+    label is never narrower than its text, so the date, the arrow and Done of
+    EVERY row were out of view at 1280 px."""
+    dashboard = calendar._DashboardPanel()
+    _host(qtbot, dashboard, QScrollArea(), width=900, height=600)
+    tasks = _dashboard_tasks(4)
+    day = tasks[0].task_date
+    long_name = "Frost 2.0°C — " + ", ".join(["Runner Bean", "Sweet Pepper", "Tomato"] * 12)
+    tasks[1] = calendar._DashboardTask("frost:1", "frost_alert_red", long_name, day, day,
+                                       "today", "x")
+    dashboard.set_data(tasks)
+    qtbot.wait(80)
+
+    buttons = [b for b in dashboard.findChildren(QPushButton) if b.objectName() == "taskDoneBtn"]
+    assert len(buttons) == 4
+    for button in buttons:
+        assert _right_edge(button, dashboard) <= dashboard.width()
+    long_label = next(label for label in dashboard.findChildren(ElidedLabel)
+                      if label.text() == long_name)
+    assert long_label.width() < long_label.fontMetrics().horizontalAdvance(long_name)
+    assert long_label.toolTip() == long_name       # the cut text is still readable
+
+
 # ── Tasks tab ────────────────────────────────────────────────────────────────
+
+def test_a_long_task_title_keeps_the_tasks_tab_buttons_in_view(qtbot, qapp) -> None:
+    view = TasksView(CanvasScene(), ProjectManager())
+    _host(qtbot, view, width=700, height=400)
+    day = datetime.date(2026, 6, 21)
+    task = Task("m", "manual", "manual", "Order seeds", notes="tomato, pepper, bean, " * 30,
+                start_date=day, end_date=day, species_key="x")
+    view._clear_content()
+    view._action_boxes = []
+    row = view._build_row(task, "#43a047", snoozed=False, is_done=False)
+    view._content_layout.insertWidget(view._content_layout.count() - 1, row)
+    view._align_action_columns()
+    qapp.processEvents()
+
+    box = view._action_boxes[0]
+    assert _right_edge(box, view) <= view.width()
+    assert all(button.isVisible() for button in box.findChildren(QPushButton))
+
 
 def test_the_tasks_tab_keeps_its_columns_with_two_three_and_four_buttons(qtbot, qapp) -> None:
     """Right-aligned, every extra button pushed its row's date and arrow left."""
