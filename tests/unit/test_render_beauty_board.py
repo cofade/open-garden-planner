@@ -281,3 +281,29 @@ def test_the_stairs_probe_sees_the_edges_its_gate_judges() -> None:
     assert record.params["path_style"] == "WOODEN_FENCE"
     (start, end) = record.path
     assert end[0] - start[0] == pytest.approx(width - 2 * board.STAIRS_INSET_CM)
+
+
+def test_the_stairs_timelapse_holds_its_camera_while_the_sun_steps() -> None:
+    """#734: a held camera's time-lapse is fitted because the fitted grid crawls less while
+    the light turns; the board measures that with the golden-hour camera held. Its suns start
+    at the golden hour and step a day's time-lapse frame, staying above the sunset anchor, and
+    the held camera sees the panel's edge under every one of them (each frame is traced
+    against its own sun), in the scene the orbit moves through."""
+    width, depth, size = 2400.0, 1600.0, (1920, 1080)
+    suns = board.stairs_timelapse_suns()
+    assert len(suns) == board.STAIRS_ORBIT_FRAMES
+    assert suns[0] == max(board.STAIRS_SUNS)
+    steps = np.diff(np.asarray(suns), axis=0)
+    assert np.allclose(steps, board.STAIRS_TIMELAPSE_STEP_DEG, atol=2e-3)
+    assert suns[-1][0] > min(board.STAIRS_SUNS)[0]
+    hero = board.stairs_cameras(width, depth, size)["hero"]
+    for elevation, azimuth in suns:
+        trace = board.stairs_trace(_painted_edge(hero, elevation, azimuth, width), hero, "PLAIN",
+                                   elevation, azimuth, width)
+        near = np.asarray(trace["valid"], dtype=bool) & (np.asarray(trace["depth_cm"]) <= 2000.0)
+        assert near.sum() > 500, (elevation, int(near.sum()))
+        assert np.nanpercentile(np.abs(np.asarray(trace["offset_cm"])[near]), 95) < 1.5, elevation
+    records = board.stairs_motion_records(width, depth)
+    assert set(records) == {"stairs", "column_0", "column_1", "column_2", "column_3"}
+    corners = {(r.transform.east_cm, r.transform.north_cm) for key, r in records.items() if key != "stairs"}
+    assert corners == {(0.0, 0.0), (width, 0.0), (0.0, depth), (width, depth)}

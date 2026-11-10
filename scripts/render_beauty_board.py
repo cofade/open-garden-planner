@@ -49,7 +49,8 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
                map fitted to the casters): the long shadow's edge against the analytic
                line per view-depth bin (its staircase, cm and px), the lit share of the
                panel's foot, the streaks in the fence's shadow; and the edge's crawl while
-               the golden-hour camera orbits 0.5° a frame, in the view's fit and a picture's
+               the golden-hour camera orbits 0.5° a frame, and while it is held and the sun
+               moves (a time-lapse), each in the view's fit and a picture's
 ``--photo-shadows``  every frame with a picture's shadow fit (to the casters) instead of
                the view's texel-locked one (#734)
 ``--fps-seconds N``  frames a SHOWN view presents per second with the wind running,
@@ -265,6 +266,10 @@ STAIRS_ORBIT_STEP_DEG, STAIRS_ORBIT_FRAMES, STAIRS_SWIM_SMOOTH_CM = 0.5, 8, 30.0
 #: (a garden's casters fill the plan and stand as tall as its trees; with the panel alone
 #: the near cascades never cut the casters' box, and a fitted map did not crawl).
 STAIRS_COLUMN_CM, STAIRS_COLUMN_HEIGHT_CM = 50.0, 1000.0
+#: The time-lapse: the orbit's scene, the golden-hour camera HELD, the sun stepping this far a
+#: frame (elevation, azimuth) from the golden hour toward sunset, ``STAIRS_ORBIT_FRAMES``
+#: frames — a day's time-lapse at about 3.5 minutes a frame (golden hour to sunset in 24).
+STAIRS_TIMELAPSE_STEP_DEG = (-0.4, 0.55)
 #: The streak lines: this far south of the fence (cm), inside its shadow at the 6° sun
 #: (they see the slits between the pickets under, between and over the rails).
 STAIRS_STREAK_OFFSETS_CM = (100.0, 250.0, 350.0, 420.0)
@@ -370,6 +375,25 @@ def column_record(item_id: str, east: float, north: float, height: float) -> Rec
                   path_width_cm=side, transform=Transform(east_cm=east, north_cm=north),
                   material=Material("FENCE", stroke_rgba=(110, 110, 110, 255)), height_cm=height,
                   params=Params({"seed": item_id, "path_style": "PLAIN"}))
+
+
+def stairs_motion_records(width: float, depth: float) -> dict[str, Record]:
+    """The scene the orbit and the time-lapse move through: the panel and a tall column at
+    each plan corner (``STAIRS_COLUMN_*``)."""
+    records = {"stairs": stairs_record("PLAIN", STAIRS_INSET_CM, width - STAIRS_INSET_CM)}
+    for index, (east, north) in enumerate(((0.0, 0.0), (width, 0.0), (0.0, depth), (width, depth))):
+        records[f"column_{index}"] = column_record(f"column_{index}", east, north,
+                                                   STAIRS_COLUMN_HEIGHT_CM)
+    return records
+
+
+def stairs_timelapse_suns(frames: int = STAIRS_ORBIT_FRAMES) -> list[tuple[float, float]]:
+    """The time-lapse's suns (elevation, azimuth): from the board's golden hour, one
+    ``STAIRS_TIMELAPSE_STEP_DEG`` a frame."""
+    elevation, azimuth = max(STAIRS_SUNS)
+    step_elevation, step_azimuth = STAIRS_TIMELAPSE_STEP_DEG
+    return [(round(elevation + step_elevation * k, 3), round(azimuth + step_azimuth * k, 3))
+            for k in range(frames)]
 
 
 def stairs_cameras(width: float, depth: float, size: tuple[int, int]) -> dict[str, probes.Pinhole]:
@@ -1439,7 +1463,7 @@ class Board:
         ``STAIRS_CASTERS``, under each of ``STAIRS_SUNS``, seen by two production cameras
         (``stairs_cameras``) as a PICTURE sees it (the shadow map fitted to the casters,
         ``Quick3DHost.capture``); every frame measured by ``stairs_measure``. Then the
-        orbit (``stairs_orbit``) in both fits."""
+        orbit (``stairs_orbit``) and the time-lapse (``stairs_timelapse``) in both fits."""
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
@@ -1474,6 +1498,7 @@ class Board:
                                     for k, v in row.get("streaks", {}).items()})
                         self.write()
             self.stairs_orbit(preset, registry)
+            self.stairs_timelapse(preset, registry)
 
     def stairs_orbit(self, preset: str, registry: Any) -> None:
         """The panel (with a tall column at each plan corner: ``STAIRS_COLUMN_*``) under the
@@ -1489,11 +1514,7 @@ class Board:
         elevation, azimuth = max(STAIRS_SUNS)
         sun = SunState(elevation, azimuth)
         look = look_for(sun, preset)
-        records = {"stairs": stairs_record("PLAIN", STAIRS_INSET_CM, self.width - STAIRS_INSET_CM)}
-        for index, (east, north) in enumerate(((0.0, 0.0), (self.width, 0.0), (0.0, self.depth),
-                                               (self.width, self.depth))):
-            records[f"column_{index}"] = column_record(f"column_{index}", east, north,
-                                                       STAIRS_COLUMN_HEIGHT_CM)
+        records = stairs_motion_records(self.width, self.depth)
         hero = next(shot for shot in default_shots(self.width, self.depth) if shot.name == "golden_hour")
         centre = (self.width / 2.0, self.depth / 2.0)
         reach = math.hypot(hero.eye[0] - centre[0], hero.eye[1] - centre[1])
@@ -1517,6 +1538,37 @@ class Board:
                 f"swim_px_{int(r['depth_m'][0])}m": r.get("swim_px")
                 for r in out[label] if "swim_px" in r})
         self.metrics.setdefault("stairs_orbit", {})[preset] = out
+        self.write()
+
+    def stairs_timelapse(self, preset: str, registry: Any) -> None:
+        """The orbit's scene with the golden-hour camera HELD while the sun moves
+        (``stairs_timelapse_suns``), in both fits: what a held camera's time-lapse shows.
+        Each frame is traced against its OWN sun's analytic edge, so the shadow's true
+        motion drops out and ``probes.edge_swim`` reads what moves besides it — the texel
+        grid turning with the light, and the pixel dither. The light turns under either
+        fit; a held camera's frames are fitted because the fitted grid's finer texels
+        crawl less (#734)."""
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        records = stairs_motion_records(self.width, self.depth)
+        hero = next(shot for shot in default_shots(self.width, self.depth) if shot.name == "golden_hour")
+        camera = probes.Pinhole(hero.eye, hero.target, hero.fov_deg, self.size)
+        suns = stairs_timelapse_suns()
+        out: dict[str, Any] = {"suns": [list(sun) for sun in suns], "smooth_cm": STAIRS_SWIM_SMOOTH_CM}
+        for label, fitted in (("view", False), ("fitted", True)):
+            traces = []
+            for step, (elevation, azimuth) in enumerate(suns):
+                sun = SunState(elevation, azimuth)
+                rgb, _frame, _info = self.frame(
+                    f"stairs_timelapse_{label}_{preset}_{step:02d}", records, sun=sun,
+                    look=look_for(sun, preset), ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), fitted=fitted)
+                traces.append(stairs_trace(rgb, camera, "PLAIN", elevation, azimuth, self.width))
+            out[label] = probes.edge_swim(traces, smooth_cm=STAIRS_SWIM_SMOOTH_CM)
+            self.log("stairs_timelapse", preset=preset, fit=label, **{
+                f"swim_px_{int(r['depth_m'][0])}m": r.get("swim_px")
+                for r in out[label] if "swim_px" in r})
+        self.metrics.setdefault("stairs_timelapse", {})[preset] = out
         self.write()
 
     def restore_check(self, shot: BoardShot, preset: str) -> None:

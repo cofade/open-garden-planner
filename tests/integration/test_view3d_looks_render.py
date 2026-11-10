@@ -279,6 +279,13 @@ def test_far_plan_preserves_shadows_and_has_no_ao_line(tmp_path) -> None:
 #: capture path: 0.16 / 0.18 locked, 0.69 / 0.38 fitted). The tripwire that a fitted map
 #: still crawls more is on High, where its texels are coarse enough to say so (2.7 x the
 #: view's); Ultra's 4096 pages leave 1.3 x, too close to the dither floor to pin.
+#: The time-lapse (the golden-hour camera held, the sun stepping 0.4° / 0.55° a frame, each
+#: frame traced against its own sun): the light turns under either fit, and the fitted grid's
+#: finer texels crawl less - the reason a held camera's frames are fitted. The board's 8
+#: frames (15.2° to 12.4°), 0-10 / 10-20 m: locked 0.336 / 0.682 px high, 0.175 / 0.321
+#: ultra; fitted 0.265 / 0.517 high, 0.167 / 0.298 ultra (24 frames from golden hour to
+#: sunset, the same scene: locked 0.66 / 0.79, fitted 0.35 / 0.37). Tripwire on High, like
+#: the orbit's: Ultra's margin is 5-7 %.
 STAIRS_SIZE = "1920x1080"
 STAIRS_PRESETS = ("high", "ultra")
 MAX_PANEL_STAIRS_CM = {15.2: 2.5, 5.9: 4.0}
@@ -293,8 +300,9 @@ def test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks(tmp_pat
     """#734. The shadow map's texels along a long shadow on the meadow in a still picture —
     not what the casters are shaped like (the picket tops' old ramp is pinned without an
     engine: ``test_scene3d_builders.py::TestPolylinesAreBuiltFromTheCentreLine::``
-    ``test_picket_tops_repeat_no_pattern_and_follow_the_items_seed``) — and a moving
-    camera's edge that does not crawl, in the view's fit."""
+    ``test_picket_tops_repeat_no_pattern_and_follow_the_items_seed``) — a moving camera's
+    edge that does not crawl, in the view's fit; and the measured reasons for the routing:
+    a fitted map crawls more in an orbit, less in a held camera's time-lapse."""
     out = tmp_path / "stairs"
     metrics = _ok_board(run_board(out, "--size", STAIRS_SIZE, "--presets", ",".join(STAIRS_PRESETS),
                                   "--shots=", "--stairs"), out)
@@ -321,6 +329,14 @@ def test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks(tmp_pat
         if preset == CRAWL_TRIPWIRE_PRESET:
             assert near["fitted"][(0.0, 10.0)]["swim_px"] > near["view"][(0.0, 10.0)]["swim_px"], (
                 "a fitted map no longer crawls more than the locked one: the view could take it", orbit)
+            lapse = metrics["stairs_timelapse"][preset]
+            held = {fit: {tuple(b["depth_m"]): b for b in lapse[fit]} for fit in ("view", "fitted")}
+            for depth in ((0.0, 10.0), (10.0, 20.0)):
+                locked, fitted = held["view"][depth], held["fitted"][depth]
+                assert locked["pairs"] > 300 and fitted["pairs"] > 300, (preset, lapse)
+                assert fitted["swim_px"] <= locked["swim_px"], (
+                    "a held camera's fitted frames crawl more than locked ones: a time-lapse "
+                    "should keep the view's fit", lapse)
 
 
 def test_lawn_blades_do_not_add_dark_stubble_to_the_same_high_look(tmp_path) -> None:
