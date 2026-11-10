@@ -18,7 +18,8 @@
 //
 // THE WEATHER, as the ground's (ground.frag): the rain darkens by the ground's own tint
 // and shifts roughness and specular by the ground's own shift; snow lies on what faces up
-// (snow mixed towards weather.SNOW_LINEAR, its joints filled: the relief fades under it).
+// by the living garden's rule (uSnowCover = its builtSnow, built_snow.frag's smoothstep and
+// colour weather.SNOW_LINEAR, its joints filled: the relief fades under it).
 VARYING vec4 vColor;
 VARYING vec2 vDetailUV;
 
