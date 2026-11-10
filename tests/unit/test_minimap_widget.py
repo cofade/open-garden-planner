@@ -531,8 +531,10 @@ class TestViewportChangesDoNotRender:
         scene.addItem(QGraphicsRectItem(500, 500, 900, 600))
         minimap = MinimapWidget(view, scene)
         view.set_zoom(0.5)  # 2500 x 1500 px of plan in an 800 x 600 view: not all in view
-        qtbot.wait(300)  # type: ignore[attr-defined]
-        assert minimap._thumbnail is not None
+        # The render the test waits for, not a guessed time for it (a fixed
+        # 300 ms was once too short on a loaded machine).
+        qtbot.waitUntil(lambda: minimap._thumbnail is not None, timeout=10000)  # type: ignore[attr-defined]
+        qtbot.wait(150)  # type: ignore[attr-defined]  # ... and the throttle's interval runs out
         renders = TestMinimapIdleQuiescence._count_scene_renders(scene)
         return view, minimap, renders
 
@@ -562,13 +564,17 @@ class TestViewportChangesDoNotRender:
         before = minimap._viewport_rect_on_minimap()
         bar = view.horizontalScrollBar()
         bar.setValue(bar.value() + 200)
-        qtbot.wait(150)  # type: ignore[attr-defined]
-        assert painted, "the minimap was not repainted after a pan"
-        assert painted[-1].x() > before.x() + 5  # 200 px at 50 % = 400 cm = 19 minimap px
+        # The painted frame itself is waited for: a fixed 150 ms before
+        # ``assert painted`` failed once under load (second review of the 2D
+        # branch). 200 px at 50 % = 400 cm = 19 minimap px.
+        qtbot.waitUntil(  # type: ignore[attr-defined]
+            lambda: bool(painted) and painted[-1].x() > before.x() + 5, timeout=10000
+        )
         thumbnail = minimap._thumbnail
         view.set_zoom(view.zoom_factor * 2.0)
-        qtbot.wait(150)  # type: ignore[attr-defined]
-        assert painted[-1].width() < before.width() * 0.6
+        qtbot.waitUntil(  # type: ignore[attr-defined]
+            lambda: painted[-1].width() < before.width() * 0.6, timeout=10000
+        )
         assert minimap._thumbnail is thumbnail  # the same picture under the frame
 
     def test_auto_hide_follows_the_view(
