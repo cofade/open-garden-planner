@@ -170,7 +170,7 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
 from open_garden_planner.ui.canvas.sun_legend import (
     SunLegendKey,
     legend_font,
-    paint_sun_legend,
+    sun_legend_picture,
     sun_legend_size,
 )
 
@@ -4545,12 +4545,12 @@ class CanvasView(QGraphicsView):
                     continue
                 if any(rect.adjusted(-gap, -gap, gap, gap).intersects(other) for other in taken):
                     continue
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-                paint_sun_legend(
-                    painter, rect.topLeft(), key, font, QColor(self._scale_bar_fg),
-                    QColor(self._canvas_scene.CANVAS_COLOR), with_title=with_title,
-                )
-                self._sun_legend_rect = rect.toAlignedRect()
+                rect = QRectF(rect.toAlignedRect())      # on whole pixels: the key is a picture
+                painter.drawPixmap(rect.topLeft(), sun_legend_picture(
+                    key, font, QColor(self._scale_bar_fg), QColor(self._canvas_scene.CANVAS_COLOR),
+                    with_title=with_title, pixel_ratio=widget.devicePixelRatioF(),
+                ))
+                self._sun_legend_rect = rect.toRect()
                 self._keep_labels_off_the_key(widget)
                 return
         self._keep_labels_off_the_key(widget)

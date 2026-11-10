@@ -29,6 +29,7 @@ Text is painted through ``halo_text.paint_halo_text``; there is no second halo.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 
@@ -40,6 +41,7 @@ from PyQt6.QtGui import (
     QImage,
     QPainter,
     QPen,
+    QPixmap,
 )
 from PyQt6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
 
@@ -228,6 +230,46 @@ def paint_sun_legend(
     return QRectF(top_left, layout.size)
 
 
+_picture: tuple[tuple[object, ...], QPixmap] | None = None
+
+
+def sun_legend_picture(
+    key: SunLegendKey,
+    font: QFont,
+    ink: QColor,
+    ground: QColor,
+    *,
+    with_title: bool,
+    pixel_ratio: float,
+) -> QPixmap:
+    """The key as a picture for a viewport of ``pixel_ratio``, kept until what
+    it shows changes.
+
+    A view paints its key on every repaint. Stroking the outlines of its seven
+    strings costs a millisecond or two each time; the picture is a blit. One
+    picture is kept: a window has one key. The texts are part of what is
+    compared, so a change of language makes a new picture.
+    """
+    global _picture
+    texts = (legend_title(key.day) if with_title else "", hour_text(0))
+    wanted = (key, font.key(), ink.rgba(), ground.rgba(), with_title, pixel_ratio, texts)
+    if _picture is not None and _picture[0] == wanted:
+        return _picture[1]
+    size = sun_legend_size(key, font, with_title=with_title)
+    picture = QPixmap(
+        math.ceil(size.width() * pixel_ratio), math.ceil(size.height() * pixel_ratio)
+    )
+    picture.setDevicePixelRatio(pixel_ratio)
+    picture.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(picture)
+    try:
+        paint_sun_legend(painter, QPointF(0.0, 0.0), key, font, ink, ground, with_title=with_title)
+    finally:
+        painter.end()
+    _picture = (wanted, picture)
+    return picture
+
+
 def legend_font(point_size: float = 8.0) -> QFont:
     """The key's font: the scale bar's (bold, 8 pt on the canvas)."""
     font = QFont()
@@ -315,5 +357,6 @@ __all__ = [
     "legend_font",
     "legend_title",
     "paint_sun_legend",
+    "sun_legend_picture",
     "sun_legend_size",
 ]
