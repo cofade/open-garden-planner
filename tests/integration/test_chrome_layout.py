@@ -213,9 +213,10 @@ def test_a_long_task_title_keeps_the_tasks_tab_buttons_in_view(qtbot, qapp) -> N
     row = view._build_row(task, "#43a047", snoozed=False, is_done=False)
     view._content_layout.insertWidget(view._content_layout.count() - 1, row)
     view._align_action_columns()
-    qapp.processEvents()
+    qtbot.wait(80)     # the row is shown and laid out over more than one turn
 
     box = view._action_boxes[0]
+    assert row.width() <= view.width()
     assert _right_edge(box, view) <= view.width()
     assert all(button.isVisible() for button in box.findChildren(QPushButton))
 
