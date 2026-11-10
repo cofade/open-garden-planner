@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -33,7 +33,6 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from PyQt6.QtGui import QPainterPath
     from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
@@ -233,6 +232,13 @@ class SuccessionBadgeItem(QGraphicsItem):
         # bottom-left corner: the tag lies inside the bed.
         margin = self._MARGIN * self._line_h
         return QRectF(margin, -self._cached_h - margin, self._cached_w, self._cached_h)
+
+    def shape(self) -> QPainterPath:
+        """Nothing: the tag takes no click, like every label of the plan
+        (``PlanLabelItem``). Where it is painted it lies on its bed, which
+        takes the click; where the pass leaves it out it reaches past a bed
+        too small for it and must not cover the plan there."""
+        return QPainterPath()
 
     def paint(
         self,
@@ -886,7 +892,7 @@ class GardenItemMixin(PositionLockMixin):
     def grid_cover_path(self) -> "QPainterPath":
         """The part of the plan this object covers, in item coordinates.
 
-        The canvas grid is not drawn over it (``CanvasView._grid_region``).
+        The canvas grid is not drawn over it (``CanvasView._draw_grid``).
         """
         return self.shape()  # type: ignore[attr-defined,no-any-return]
 

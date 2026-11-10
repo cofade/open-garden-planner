@@ -845,6 +845,17 @@ what it draws over its viewport with `CanvasScene.set_label_blockers(viewport,
 rects)`. The sun map's key is both (§8.9.18). Blockers are placed before every
 label and are never painted by the pass.
 
+**A label takes no click.** `PlanLabelItem.shape()` and
+`SuccessionBadgeItem.shape()` are empty. Whether a label is painted is the pass's
+decision, per paint and per view; the item knows nothing of it. With its rectangle
+as its shape, a label that was left out still covered the plan: on a plan of 853
+named plants at fit a third of the plan's points lay on a label nobody could see
+(measured by the review of #793), and a press there selected nothing and started
+no box selection. A label is writing on the plan, not a body. What lies under it
+takes the press, the double click (the name editor opens from the object), the
+context menu and the tooltip. No label ever selected its object, so nothing is
+lost: over its object's body the object took the click before, and still does.
+
 **Text notes scale with the view.** A `TextItem` or a callout is laid out once and
 scaled by the zoom, so its font is unhinted (`PreferNoHinting`, set with #789;
 PF-CAN-52). An exact point size and the document's design metrics were measured on
@@ -852,7 +863,7 @@ top of that and change nothing: the letter gaps of a rendered note are the same 
 0.01 px at every zoom.
 
 Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
-`tests/unit/test_label_layout.py`.
+`tests/unit/test_label_layout.py`, `tests/integration/test_plan_label_hits.py`.
 
 ### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
 

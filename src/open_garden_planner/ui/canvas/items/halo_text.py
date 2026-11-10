@@ -347,6 +347,14 @@ class PlanLabelItem(HaloTextItem):
     whose size could earn it room. It states ``free_extent_px`` instead: what
     it counts as among the objects' sizes on screen. Zero, the default, shows
     no ownerless label, as before.
+
+    **It takes no click** (``shape()`` is empty). Whether it is painted is the
+    label pass's decision, per paint and per view, and the item knows nothing
+    of it: with its rectangle as its shape, a label that was left out still
+    covered the plan, and a press there selected nothing and started no box
+    selection (a third of an 853-plant plan at fit). A label is writing on the
+    plan, not a body; what lies under it takes the click, the double click, the
+    context menu and the tooltip.
     """
 
     #: The size on screen an ownerless label is placed as (pixels); see the class.
@@ -355,6 +363,10 @@ class PlanLabelItem(HaloTextItem):
     def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
         super().__init__(text, parent, centered=True)
         self.rank = rank
+
+    def shape(self) -> QPainterPath:
+        """Nothing: no point of the plan is a hit on a label (class docstring)."""
+        return QPainterPath()
 
     def paint(
         self,
