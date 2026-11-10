@@ -396,9 +396,9 @@ def test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_th
         AO_STRENGTH_UNDER_CLOUD,
     )
 
-    assert 55.0 * AO_STRENGTH_UNDER_CLOUD == pytest.approx(99.0)   # Qt's strength tops out at 100
-    assert 14.0 * AO_DISTANCE_UNDER_CLOUD == pytest.approx(70.0)
-    assert AO_BIAS_UNDER_CLOUD_CM == pytest.approx(21.0)
+    assert pytest.approx(99.0) == 55.0 * AO_STRENGTH_UNDER_CLOUD   # Qt's strength tops out at 100
+    assert pytest.approx(70.0) == 14.0 * AO_DISTANCE_UNDER_CLOUD
+    assert pytest.approx(21.0) == AO_BIAS_UNDER_CLOUD_CM
     assert AO_BIAS_UNDER_CLOUD_CM / (14.0 * AO_DISTANCE_UNDER_CLOUD) >= 0.3, "no rim (reference 14)"
     for look in (living_look(at, "high", "clear"), living_look(at, "high", "clear", dew=False)):
         atmosphere = look.atmosphere
@@ -528,7 +528,7 @@ def test_snow_lies_white_on_built_tops_and_nowhere_else() -> None:
     principled look: Garden.qml swaps the snow material in only above 0)."""
     from open_garden_planner.core.scene3d.weather import BUILT_SNOW_FULL_AT
 
-    assert BUILT_SNOW_FULL_AT == WEATHER_SPECS["snow"].snow_cover
+    assert WEATHER_SPECS["snow"].snow_cover == BUILT_SNOW_FULL_AT
     for at in SUNS:
         assert living_look(at, "high", "snow").atmosphere.built_snow == 1.0
         for weather in ("clear", "partly_cloudy", "overcast", "rain"):
