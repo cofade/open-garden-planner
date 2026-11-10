@@ -309,7 +309,7 @@ def _ink_span(width: int, height: int, draw) -> tuple[int, int]:
 
 @pytest.mark.parametrize("bold", [True, False])
 @pytest.mark.parametrize("points", [5, 7, 10, 14, 22])
-@pytest.mark.parametrize("text", ["Perennial border", "Stepping stones", "12.00 m²"])
+@pytest.mark.parametrize("text", ["Perennial border", "Stepping stones", "12.00 m\u00b2"])
 def test_the_halo_ends_where_the_text_ends(qtbot, text: str, points: int, bold: bool) -> None:
     """The halo is the stroked glyph outline; the glyphs are drawn by the text layout.
 
@@ -345,7 +345,7 @@ def test_a_two_line_label_has_its_halo_under_both_lines(qtbot) -> None:
 
     from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem
 
-    item = HaloTextItem("Raised bed\n6.24 m²")
+    item = HaloTextItem("Raised bed\n6.24 m\u00b2")
     one_line = HaloTextItem("Raised bed")
     text_rect = QGraphicsSimpleTextItem.boundingRect(item)
     outline = item._text_outline().boundingRect()

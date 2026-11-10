@@ -96,7 +96,7 @@ def text_outline(text: str, font: QFont, origin: QPointF | None = None) -> QPain
     reaches 2.5 px: the last letters stood outside their halo.
     """
     top_left = origin if origin is not None else QPointF(0.0, 0.0)
-    layout = QTextLayout(text.replace("\n", " "), font)
+    layout = QTextLayout(text.replace("\n", "\u2028"), font)
     layout.beginLayout()
     while layout.createLine().isValid():
         pass
