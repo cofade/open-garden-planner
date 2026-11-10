@@ -1214,6 +1214,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
+      "rotation_angle": 90,
       "stack_order": 22528
     },
     {
@@ -1232,6 +1233,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
+      "rotation_angle": -90,
       "stack_order": 23552
     },
     {
@@ -1294,6 +1296,96 @@
           "soil_texture": "loamy"
         }
       ]
+    }
+  },
+  "harvest_logs": {
+    "644748f3-d8f4-5c40-bb89-54908c476980": {
+      "target_id": "644748f3-d8f4-5c40-bb89-54908c476980",
+      "records": [
+        {
+          "id": "45c8b743-eb56-5967-b36e-1285c32a9314",
+          "date": "2026-06-28",
+          "quantity": 1,
+          "unit": "bunch",
+          "quality": "erste Pfl\u00fccke",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "643fc3ed-ba84-5a01-9d31-0f090e22a8e2",
+          "date": "2026-07-19",
+          "quantity": 2,
+          "unit": "bunch",
+          "quality": "aromatisch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "e2de4e85-2edb-5f29-97a2-aba91f18e3a7",
+          "date": "2026-08-15",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "82b8e93f-881f-53d3-967d-9843cab0e30d",
+          "date": "2026-09-06",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "ocimum basilicum",
+      "species_name": "Basilikum"
+    },
+    "a4ec10ec-4beb-5238-8f84-55085576ad71": {
+      "target_id": "a4ec10ec-4beb-5238-8f84-55085576ad71",
+      "records": [
+        {
+          "id": "78b2737b-8e48-5f41-a827-756d907db9cc",
+          "date": "2025-06-14",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "7792c0e5-78df-5645-8cf9-5c4b48123900",
+          "date": "2025-08-23",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "eafba4a7-a0c9-58f4-89e9-42f34629dcd5",
+          "date": "2026-06-06",
+          "quantity": 2,
+          "unit": "bunch",
+          "quality": "aromatisch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        },
+        {
+          "id": "f99c2113-c047-52c1-91cd-1d50958d8179",
+          "date": "2026-08-29",
+          "quantity": 1,
+          "unit": "bunch",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "thymus vulgaris",
+      "species_name": "Thymian"
+    },
+    "d9a43b86-8d85-52a0-b9cd-24f7bae186c9": {
+      "target_id": "d9a43b86-8d85-52a0-b9cd-24f7bae186c9",
+      "records": [
+        {
+          "id": "24784678-6234-5123-997f-ec63224e31e2",
+          "date": "2026-09-14",
+          "quantity": 1,
+          "unit": "bunch",
+          "quality": "erste Pfl\u00fccke",
+          "notes": "Fiktiver Beispieleintrag; keine echte Ernteaufzeichnung."
+        }
+      ],
+      "species_key": "petroselinum crispum",
+      "species_name": "Petersilie"
     }
   }
 }
