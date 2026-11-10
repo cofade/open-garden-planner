@@ -9726,7 +9726,8 @@ soil tests for known bundled paths, including locale variants authorized by thei
 canonical sidecar. Coordinates describe public northern-hemisphere cities, not a
 private garden. Soil and frost dates are explicitly fictional teaching inputs.
 External templates and every template export still use the strict portable subset.
-No history exemption is added. The load path, untitled identity and Save As remain
+No history exemption is added (*one was added for the fictional harvest history:
+#795 addendum below*). The load path, untitled identity and Save As remain
 unchanged. Observed-failing load tests pin the demo-state exception and the
 same-filename external refusal in `test_example_demo_state.py`.
 
@@ -9740,7 +9741,8 @@ unchanged translated field preserves the exact raw list. This prevents an
 unrelated property edit from rewriting species metadata in the UI language.
 
 The 21 September 2026 teaching date is explicit in notes, never silently installed
-in SimClock. Mature perennials have historical planting dates and nursery-size
+in SimClock (*superseded by the #795 addendum below: an example opens at its
+date*). Mature perennials have historical planting dates and nursery-size
 anchors. Spacing is measured against actual plant circles and the shipped 2D bed
 sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
 describes nearby plants, while missing roles remain honest diagnostics. Production
@@ -9752,13 +9754,84 @@ The fourth example, `family-garden`, is not a teaching plan: it is the plan of e
 (`tests/fixtures/plans/bench_small.ogp`), shipped at the owner's request and the subject of the
 project's visual material. It is built by the same `make_bench_plans.build_small` and keeps the
 fixture's item ids, because a plant's procedural shape is seeded by its id; a test fails when the
-two drift. It keeps the fixture's layout and its 6 to 10 cm path widths. One difference: what takes
+two drift. It keeps the fixture's layout and its 6 to 10 cm path widths (*the widths are
+superseded by the #795 addendum below*). One difference: what takes
 a year or more to mature is planted on 1 March, not on the fixture's 15 April, so a default
 time-lapse shows the birch leafing out instead of popping in (949 cm against the fixture's 929 cm
 on 21 June). It needs no
 tutorial annotation or soil sample (the teaching plans' gates keep theirs), and its botanical
 fields stay canonical in `de/` and `es/`: the localizer now translates only a species' common
 name, since "Iris" is both a plant's name and a genus.
+
+### ADR-066 addendum: examples open in a showcase state (#795)
+
+**Date:** 2026-11-10. **Status:** built for the visual-polish package; the decisions marked
+*owner* wait for the owner's confirmation.
+
+**Context.** The 2D survey for the promo material found that an example opened in the evening is
+drawn at night, on today's date; its Harvest and Seed Inventory tabs are empty; Plant Details show
+a seedling emoji; its paths are 6 and 8 cm hairlines. The teaching date lived in prose only.
+
+**Decisions.**
+
+1. **An example opens at its own moment** *(owner; supersedes "never silently installed in
+   SimClock" above and "Neither opening a demonstration ... changes SimClock" in the runtime
+   view)*. The sidecar names it: `showcase_date` (the reference date) and `showcase_utc_time`.
+   `core/showcase_moment.ShowcaseMoment` writes the one `SimClock` when `_load_project_file` has
+   loaded a shipped example as a template. It is not a clock: it holds one remembered reading.
+   Both the date and the time are set. The time alone would leave today's date, on which the
+   plants of an example are a season older or, before their planting date, absent (ADR-062).
+2. **The user's reading comes back with the next document** *(owner)*. New, Open and a recovery
+   put the clock back to the wall reading the user had before the first example, also when the
+   user scrubbed inside the example: a date picked while looking at an example belongs to the
+   example, and fresh plants in the user's own plan are stamped with the plan date. Saving the
+   copy changes nothing on screen. Nothing is persisted, in settings or in the plan, so a copy
+   the user saved opens at their "now" like any plan of theirs (ADR-062: the viewed date is
+   never saved).
+3. **The moment is a UTC time of day on the local reference date**, applied with
+   `SimClock.set_utc_time_on`, the operation a camera tour already uses. The clock reads wall
+   time in the computer's zone; a wall-clock "13:00" is night over Berlin for a user in
+   Auckland. The plan date is the reference date in every zone, and the sun stands where it does
+   at 13:00 in the example's own place (11:00 UTC, all four).
+4. **Example copies keep a fictional harvest history** *(owner; supersedes "No history exemption
+   is added" above for this one field)*. `EXAMPLE_DEMO_FIELDS` is `location`, `soil_tests`,
+   `harvest_logs`. The records sit on one plant per species, lie between planting date and
+   reference date, carry the canonical species key (ADR-016) and say in their note that they are
+   fictional. Journal notes, tasks, pest logs and every other history stay stripped; a template
+   that is not a shipped example keeps none of the three.
+5. **The seed inventory stays empty** *(owner)*. It is the user's cross-project store; an example
+   must not write user data, and a per-example fake inventory would need a second store. The
+   empty tab now explains itself.
+6. **Plant Details draw the plant.** A species without a photo shows its canvas sprite through
+   the existing `render_plant_pixmap`. No third-party image is added (asset provenance).
+7. **The cover title.** `ProjectManager.display_name` (#788) already titles a report with the
+   example's name. Added: the base copy, which serves every language without a translated plan,
+   is named in the interface language when the sidecar has that name (Russian).
+8. **Path widths** *(supersedes "its 6 to 10 cm path widths" in the showcase addendum)*. The
+   showcase's "Gravel path" is 80 cm and its "Stepping stones" 50 cm. Only the example changes:
+   the bench fixture keeps its widths, and the test that holds the two together compares
+   geometry, ids, names and species, not stroke widths.
+9. **A seasonal 2D look is not built.** Trees in full leaf on 21 December are a project of their
+   own; a follow-up issue carries it.
+10. **Unevaluated sun rows fold in the panel.** With Hours of Sun off, every plant with a known
+    requirement has a `sun_evaluation` record; the Diagnostics panel listed 61 / 114 / 174 / 14
+    identical rows for the four examples. The panel shows the records of one reason as one row
+    that counts and selects them. Switching the map on for an example was rejected: it paints
+    the plan and changes the user's opt-in. The records, and so the Agent API, are unchanged.
+11. **The generator is the only author.** Regenerating an unchanged tree moved the balcony
+    chairs, changed one Spanish name and dropped the Russian attribution. `example_content` is
+    the one place the shipped data comes from; `--check` and
+    `tests/integration/test_example_generation.py` compare the files with it.
+
+**Rejected.** A sim date saved in the plan (ADR-062 rejects a persisted viewed date); a second
+clock for examples; restoring the reading only when the user had not touched the clock (the
+tutorial's own "set 17:30" step would then carry 21 September into the user's next plan); a
+wall-clock time in the sidecar; a harvest history on beds (a bed's history has no species key
+and would show the bed's name as a species).
+
+**Evidence.** `tests/integration/test_example_showcase.py`, `tests/unit/test_showcase_moment.py`,
+`tests/unit/test_example_content.py`, `tests/integration/test_example_generation.py`,
+`tests/integration/test_example_demo_state.py`.
 
 ## ADR-067: Release download statistics without telemetry
 

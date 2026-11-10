@@ -2265,7 +2265,7 @@ class PlantDatabasePanel(QWidget):
         object_type = getattr(item, "object_type", None)
         ratio = self._profile_thumbnail.devicePixelRatioF()
         sprite = None
-        if item is not None and is_plant_type(object_type):
+        if item is not None and object_type is not None and is_plant_type(object_type):
             sprite = render_plant_pixmap(
                 object_type,
                 _PROFILE_SPRITE_PX * ratio,

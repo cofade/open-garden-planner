@@ -214,3 +214,4 @@
 | Case study: a group member that kept its focus for a split second - the minimap unselected the group (PR #783) | [Read](211-case-study-a-group-member-that-kept-its-focus-for-a-split-second-pr783.md) |
 | Case study: letter gaps in a zoomed text note that the test platform cannot show (#793) | [Read](218-case-study-letter-gaps-that-the-test-platform-cannot-show-793.md) |
 | Case study: the SVG export flooded the plan with roof tiles — the generator drops clips, brush transforms and source rectangles (#787) | [Read](219-case-study-the-svg-export-flooded-the-plan-with-roof-tiles.md) |
+| Case study: regenerating the examples moved two chairs off the balcony - the generator nobody ran (#795) | [Read](223-case-study-regenerating-the-examples-moved-two-chairs-off-the-balcony-795.md) |

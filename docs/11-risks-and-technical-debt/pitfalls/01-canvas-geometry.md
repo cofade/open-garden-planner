@@ -714,3 +714,13 @@ Measured on Qt 6.12. `QSvgGenerator` (1) writes a `TexturePattern` brush without
 - **Legacy:** none (new entry)
 
 `QPainter.setClipPath(path)` and `setClipRect(rect)` REPLACE the painter's clip unless told to intersect it. On the canvas that is invisible: the view clips with a system clip the painter does not own. In `scene.render()` the target rectangle is an ordinary painter clip, and the sun-shadow overlay and the roof replaced it with their own — so a 1:50 printout painted the shadows of the whole garden across each sheet's margin and footer. Both now intersect, an AST test rejects any `setClipPath` / `setClipRect` / `setClipRegion` in `src/` that does not name `IntersectClip` (three non-scene files are listed with their reason), and the printout sets the tile as an explicit clip of its own.
+
+### PF-CAN-56
+
+- **Rule:** Code that authors an item (a generator, a fixture builder, a tool) turns it with `geometry_apply.apply_rotation`, never with a bare `QGraphicsItem.setRotation`: the bare call turns about the item's origin and is not the `rotation_angle` the serializer saves, so the item is saved unrotated and at another place.
+- **Pinned by:** `tests/unit/test_example_content.py::test_the_balcony_chairs_face_the_table_and_stand_where_they_were_drawn`; `tests/integration/test_example_generation.py::test_the_shipped_files_are_what_the_generator_makes`
+- **Source:** #795
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`scripts/generate_examples.py` turned the two balcony chairs with `chair.setRotation(±90)`. A rectangle item's pivot is the centre of its rectangle only after `_apply_rotation` has set the transform origin; a bare `setRotation` turns about the item's origin (0, 0), and it never writes `rotation_angle`. The plan that shipped therefore had both chairs unrotated at `x = 120` and `x = 292`. Since #661 the serializer writes a shape where its centre lies in the parent frame (`_stored_shape_offset`), which is right for every item turned about its centre; for these two it is the centre turned about the origin, and a regeneration wrote `x = -257, y = 120` and `x = 215, y = -334`: two chairs off the balcony, still without an angle. Nothing ran the generator in a test, so the drift was found only by regenerating an unchanged tree before making any change. The chairs are now turned through the canonical path (they stand where they were drawn and face the table), and a test compares every shipped plan with the generator's output.

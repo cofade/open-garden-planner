@@ -1163,8 +1163,8 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
 - **FR-EXAMPLE-02**: Opening an example or any `.ogp` through New from template
   creates an untitled, dirty copy through the normal document loader. Saving asks
   for a destination; bundled bytes and modification times stay unchanged.
-  Known bundled examples retain their public demonstration location and fictional
-  soil tests; external templates use the portable subset. English, German and
+  Known bundled examples retain their public demonstration location, fictional
+  soil tests and fictional harvest history; external templates use the portable subset. English, German and
   Spanish examples include localized object names, notes, tutorial annotations and
   matching language-specific gallery thumbnails.
 - **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
@@ -1179,7 +1179,22 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   group guild plants in cultivated soil, keep raised-bed plants inside the drawn
   soil, and explain a dated sun/soil/guild workflow with editable plan annotations.
 
-ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.
+- **FR-EXAMPLE-08** (#795): An example opens on its reference date with a daytime sun,
+  however late the wall clock is: Family garden on 21 June 2026, the teaching plans on
+  21 September 2026. The Plan & Sun strip shows that moment. Opening or creating another
+  document puts the clock back to the reading the user had before. Nothing about the
+  moment is saved; a copy saved from an example opens like any plan of the user's.
+- **FR-EXAMPLE-09** (#795): Each example has a small harvest history that is marked as
+  fictional, so the Harvest tab, a plant's harvest log and the report's harvest page show
+  content. The Seed Inventory is the user's own and stays as it is; when it is empty the
+  tab says what it is for and how to add a packet.
+- **FR-EXAMPLE-10** (#795): For every plan, not only examples: Plant Details show a
+  species without a photo as the plan draws it, and the Diagnostics panel lists the
+  plants whose sun exposure is not evaluated for one reason as one row that counts and
+  selects them.
+
+ADR-066, `tests/integration/test_templates_gallery.py` and
+`tests/integration/test_example_showcase.py` own the behavior.
 
 ## FR-STATS: Public download reporting (ADR-067, #634 follow-up, #677)
 

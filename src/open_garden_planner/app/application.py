@@ -3321,13 +3321,13 @@ class GardenPlannerApp(QMainWindow):
                 ).format(count=skipped),
                 8000,
             )
-        elif as_template:
-            # The copy has no file; the bundled source's path inside the app tells
-            # a reader nothing, its name does (#795).
-            self.statusBar().showMessage(self.tr("Opened as an untitled copy: {name}").format(
-                name=self._project_manager.display_name))
         else:
-            self.statusBar().showMessage(self.tr("Opened: {path}").format(path=file_path))
+            # A copy has no file; the bundled source's path inside the app tells a
+            # reader nothing, its name does (#795).
+            self.statusBar().showMessage(
+                self.tr("Opened as an untitled copy: {name}").format(
+                    name=self._project_manager.display_name)
+                if as_template else self.tr("Opened: {path}").format(path=file_path))
         # Load compare overlay if previous seasons are linked (US-10.7)
         self._load_compare_overlay_from_previous_season()
         self.tasks_view.refresh()

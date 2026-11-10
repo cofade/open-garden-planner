@@ -8366,7 +8366,8 @@ existing scheduler. Date navigation remains available without a location.
 
 Four examples ship: three teaching plans and `family-garden`, the 3D view's showcase (the plan of
 the Beauty Board, ADR-066 addendum). `scripts/generate_examples.py [slug ...]` regenerates the
-named ones, or all.
+named ones, or all; `--check` compares the shipped plans and sidecars with what the generator
+makes and writes nothing.
 
 Welcome's Examples & templates tab and File > New from example share
 `TemplateGallery`; File > New from template accepts any `.ogp`. Both call the one
@@ -8377,6 +8378,10 @@ the gallery. Export does not rename or clean the live project.
 
 To author a bundled example, edit `scripts/generate_examples.py`, run it in the
 locked environment, inspect all three rendered previews and add its provenance.
+The shipped `.ogp` and `.meta.json` files are never edited by hand:
+`tests/integration/test_example_generation.py` fails when one differs from the
+generator's `example_content(slug)`. Thumbnails are written by the plain run and
+are not compared (they are rendered with the machine's fonts).
 Use the ordinary constructors and CreateItemsCommand so bed links and child lists
 agree. Parents and children must share a layer for the z-order clamp. IDs are
 normalized before the saved plan is reloaded and rendered. Every registered locale
@@ -8388,6 +8393,37 @@ must be explicitly kept or stripped; unknown serialized top-level keys are dropp
 The filter is not a free-text anonymizer. Succession dates are retained calendar
 dates, so authors state their example year rather than claiming climate adaptation.
 See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gallery.py`.
+
+### Showcase state (#795)
+
+An example opens as it is meant to be seen, however late it is on the wall clock.
+
+| Part | Where it lives | Rule |
+|---|---|---|
+| The moment | sidecar `showcase_date` + `showcase_utc_time`; `core/templates.example_showcase_moment`; `core/showcase_moment.ShowcaseMoment` | `_load_project_file` hands the moment of an example opened as a template to `ShowcaseMoment`, which writes the one `SimClock` (`set_utc_time_on`). The next document (New, Open, a recovery) gives the clock back to the reading the user had before the first example, also after the user moved the clock inside the example. Nothing is persisted: no setting and no plan key. A copy the user saved opens like any plan of theirs. |
+| Harvest history | generator `_harvest`; `core/templates.EXAMPLE_DEMO_FIELDS` | A few fictional records on ONE plant per species, between that plant's planting date and the reference date, with the canonical `species_key` and the common name the Log Harvest dialog caches. Every record's note says it is fictional. No journal note is linked: an example copy carries no journal. An example copy keeps `location`, `soil_tests` and `harvest_logs`; any other template keeps none of them. |
+| Seed inventory | none | The user's own store outside every plan. An example never fills it; the empty Seed Inventory tab says what it is and how to start. |
+| Plant picture | `PlantDatabasePanel._show_drawn_thumbnail` | The bundled species have no photo. Plant Details show the plant as the plan draws it (`render_plant_pixmap`: species, then category, then the type's default), also while a provider's photo is still loading. No third-party image ships. |
+
+The moment is a UTC time of day on the plan's LOCAL reference date, not a wall
+time: the clock reads wall time in the computer's zone (ADR-053), and midday on a
+wall clock in Auckland is night over a garden in Berlin. All four examples use
+11:00 UTC, which is 13:00 on a wall clock in their own place.
+
+Data rules the content tests hold (`tests/unit/test_example_content.py`):
+
+- A path is as wide as a path one walks on (40 cm or more). The showcase's two
+  polyline paths are 80 and 50 cm; the bench fixture keeps the 8 and 6 cm its
+  pinned numbers were measured with.
+- A tutorial note has no halo, so its ink suits its ground: light and bold on a
+  lawn, dark on the balcony's boards.
+- An item is turned with `geometry_apply.apply_rotation`, never a bare
+  `setRotation` (PF-CAN-56).
+- One English string has one translation per language in the generator's table
+  (`text()` asserts it).
+
+End to end: `tests/integration/test_example_showcase.py` opens every example
+through the gallery's path in a window whose clock was seeded at 22:30.
 
 The gallery tab hides Welcome's large banner. A bounded, scrollable details area
 keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;

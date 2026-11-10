@@ -907,6 +907,7 @@ sequenceDiagram
     App->>PM: load(scene, path, as_template=True)
     PM->>PM: Read / validate version / filter / prepare / apply
     PM-->>App: current_file=None, dirty=True
+    App->>App: ShowcaseMoment.document_opened(example's moment or None)
     App->>App: Clear old history/autosave; fit view; refresh panels
     User->>App: Save
     App->>User: Save As dialog
@@ -917,9 +918,13 @@ a template flushes pending editors, snapshots without journal mutation, filters 
 atomically writes a separate file. It leaves the current file and dirty state intact.
 The public catalog resource reads only bundled sidecars and never opens a document.
 The catalog selects a shipped language-specific plan when available. Before normal
-preparation, `example_copy_plan` retains public location and fictional soil records
-only for known bundled paths; an external copy receives the ordinary portable
-filter. Neither opening a demonstration nor exporting a template changes SimClock.
+preparation, `example_copy_plan` retains public location, fictional soil records
+and the fictional harvest history only for known bundled paths; an external copy
+receives the ordinary portable filter. Exporting a template never changes SimClock.
+Opening a shipped example moves it to the moment the example's sidecar names (its
+reference date, a daytime sun); the next New, Open or recovery puts back the reading
+the user had before (#795, ADR-066 addendum). The same call runs after every
+document replacement, with no moment for a document that is not a shipped example.
 
 
 ### L4 follow-up: lawn quality and complete render rest

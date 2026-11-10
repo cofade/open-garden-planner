@@ -1198,5 +1198,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Canvas legibility: scale-bar and object labels have no halo, note kerning breaks at zoom, grid draws over sprites"
+  },
+  "795": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Bundled examples open in a poor showcase state (night-dimmed by wall clock, empty seed and harvest tabs)"
   }
 }
