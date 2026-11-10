@@ -71,8 +71,8 @@ src/open_garden_planner/
 │   │   └── resolve.py            #   resolve_sprite(): species / category / type → sprite and recipe — the ONE rule for 2D and 3D
 │   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028);
 │   │                             #   spacing storeys and where a spacing warning is drawn (#786)
-│   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.14)
-│   ├── label_layout.py           # Qt-free: which object labels are shown when room is short (#793, §8.9.14)
+│   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.15)
+│   ├── label_layout.py           # Qt-free: which object labels are shown when room is short (#793, §8.9.15)
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037);
 │   │                             #   plan_place(): the validity rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
@@ -191,7 +191,7 @@ src/open_garden_planner/
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── select_by_id.py       # THE select-by-id path: item ids → the canvas selection (panels, 3D) — L1.8, see §5.15
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
-│   │   ├── plan_labels.py        # The scene's label pass: object labels painted after every item (#793, §8.9.14)
+│   │   ├── plan_labels.py        # The scene's label pass: object labels painted after every item (#793, §8.9.15)
 │   │   ├── footprints.py         # THE footprint extraction — item_outline / item_footprints / plant_canopy_radius_cm; shadows, heatmap and 3D all read it (Phase 17 L1.1, ADR-059)
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
 │   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
@@ -209,7 +209,7 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       ├── group_item.py     # Group container, drill-down focus outline and ungroup rules (#771, ADR-075)
-│   │       ├── halo_text.py      # Text over a stroked halo: paint_halo_text / HaloTextItem / PlanLabelItem (#793, §8.9.14)
+│   │       ├── halo_text.py      # Text over a stroked halo: paint_halo_text / HaloTextItem / PlanLabelItem (#793, §8.9.15)
 │   │       ├── split_menu.py     # the one Split Along Line context-menu seam (#664, §8.35)
 │   │       └── resize_handle.py
 │   ├── view3d/                   # the 3D view (Phase 17; US-E6's Qt 3D window left in L1.10): snapshot.py
@@ -864,8 +864,8 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `ui/canvas/items/common_menu.py` | Common repeat-action identities and view dispatch; each shape owns its capabilities and bed/Boolean/edit actions. |
 | `ui/canvas/items/group_menu.py` | The one Group/Ungroup context-menu seam (#674): the selection matrix (0/1 object, 2+ objects, one group, group+foreign, 2+ groups), the labels, and dispatch through `CanvasView.group_selected` / `ungroup_selected`. `GroupItem`/`SmartSymbolItem`/curve/construction menus and every `GardenItemMixin` menu call it; a smart symbol is never itself an ungroup target, but the row still appears when another selected group can be dissolved. | item + scene selection → menu actions → view methods |
 | `ui/canvas/roof_ridge_link.py` | The one HOUSE→`ROOF_RIDGE` construction/lookup/update path (#690): `outline_polygon` (polygon or rect corners), `is_owned_ridge` (the shared reverse-owner predicate), `linked_ridge` (validated metadata lookup), `linked_ridges_under` (recursive tree walk for delete/layer moves), `build_linked_ridge` (canonical geometry mapped through the item transform, both metadata links), `update_linked_ridge` (re-derive after a move/resize/rotate). Used by `PolygonTool`, `ChangeObjectTypeCommand`, `RectangleItem`, `PolygonItem`, `MoveToLayerCommand`, the delete paths, the 3D snapshot and the sun/shadow caster. | HOUSE item → linked ridge / updated ridge |
-| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. `selection_frame_rect(item)` is the rect that marks an object - its own outline, never `boundingRect()` (#790, §8.9.16). |
-| `core/legibility.py`, `core/label_layout.py`, `ui/canvas/items/halo_text.py`, `ui/canvas/plan_labels.py` | Canvas text (#793, §8.9.14). `legibility` is the WCAG arithmetic and the two constants (`MIN_TEXT_CONTRAST` 4.5 as painted, `INK_CONTRAST_TARGET` 7.0 for the colour pair); `halo_text` strokes glyph outlines into a halo for the scale bar, dimension labels (`HaloTextItem`) and object labels (`PlanLabelItem`); `plan_labels` paints the object labels from `CanvasScene.drawForeground`, after every item, for the view and for `scene.render()` alike; `label_layout.place_labels` leaves out the labels that have no room. Both `core` modules import no Qt. |
+| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. `selection_frame_rect(item)` is the rect that marks an object - its own outline, never `boundingRect()` (#790, §8.9.17). |
+| `core/legibility.py`, `core/label_layout.py`, `ui/canvas/items/halo_text.py`, `ui/canvas/plan_labels.py` | Canvas text (#793, §8.9.15). `legibility` is the WCAG arithmetic and the two constants (`MIN_TEXT_CONTRAST` 4.5 as painted, `INK_CONTRAST_TARGET` 7.0 for the colour pair); `halo_text` strokes glyph outlines into a halo for the scale bar, dimension labels (`HaloTextItem`) and object labels (`PlanLabelItem`); `plan_labels` paints the object labels from `CanvasScene.drawForeground`, after every item, for the view and for `scene.render()` alike; `label_layout.place_labels` leaves out the labels that have no room. Both `core` modules import no Qt. |
 | `ui/panels/property_edits.py` | Named appearance/property command handlers; the panel retains widgets, focus and debounce state. |
 | `app/agent_host.py` | MCP-to-document host adapter with an explicit application reference. The application retains lifecycle/state and compatibility methods. |
 | `core/startup_probe.py` | Opt-in isolated startup measurement; normal startup does not activate it. |

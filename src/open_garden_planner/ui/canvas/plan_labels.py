@@ -1,4 +1,4 @@
-"""The scene's label pass: object labels painted after every item (§8.9.14, #793).
+"""The scene's label pass: object labels painted after every item (§8.9.15, #793).
 
 A label item (``items.halo_text.PlanLabelItem``) is a child of its object and
 paints nothing in the item pass, where a later-drawn object would cover it.

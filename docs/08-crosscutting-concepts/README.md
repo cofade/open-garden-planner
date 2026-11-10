@@ -597,7 +597,7 @@ own), so a missing picture paints nothing rather than a plain fill. Pin:
 `tests/integration/test_parametric_structures.py`,
 `tests/unit/test_sprite_orientation.py`, PF-CAN-44/45, PF-L3D-21.
 
-### 8.9.14 Text on the canvas — a halo, and object labels above the objects (#793)
+### 8.9.15 Text on the canvas — a halo, and object labels above the objects (#793)
 
 A label lies on whatever the plan holds: a red roof, dark soil, a bright lawn, the
 grey around the plan. No label may rely on what is under it.
@@ -651,14 +651,16 @@ looks at every label of the scene, never only at a repainted region, or a partia
 repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
 returns the result for a given transform.
 
-**Text notes scale with the view.** A `TextItem` is laid out once and scaled by
-the zoom, so it uses the font's design metrics, unhinted, at its exact size
-(PF-CAN-52).
+**Text notes scale with the view.** A `TextItem` or a callout is laid out once and
+scaled by the zoom, so its font is unhinted (`PreferNoHinting`, set with #789;
+PF-CAN-52). An exact point size and the document's design metrics were measured on
+top of that and change nothing: the letter gaps of a rendered note are the same to
+0.01 px at every zoom.
 
 Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
 `tests/unit/test_label_layout.py`.
 
-### 8.9.15 Diagnostic decorations stay out of a picture of the plan (#786)
+### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
 
 A picture of the plan (PNG, SVG, PDF report, print, the Agent API's
 `render_canvas_image`, an example thumbnail) shows the plan. It does not show
@@ -689,7 +691,7 @@ soil-health tint) were never in an export, because `scene.render()` does not rea
 Pin: `tests/integration/test_spacing_warning_overlay.py`,
 `tests/integration/test_export_overlay_hide.py`.
 
-### 8.9.16 Handles sit on the outline; the grid lies under the objects (#790, #793)
+### 8.9.17 Handles sit on the outline; the grid lies under the objects (#790, #793)
 
 **`boundingRect()` is the repaint region, not the object.** It holds the outline
 plus the drop shadow, the pen, a plant sprite's leaf overflow, a companion ring, a

@@ -1,6 +1,6 @@
 ## 8. What marks an object, and text on the canvas (#786, #790, #793)
 
-Three rules, each with the mistake behind it. Full text: `docs/08-crosscutting-concepts/README.md` §8.9.14 to §8.9.16.
+Three rules, each with the mistake behind it. Full text: `docs/08-crosscutting-concepts/README.md` §8.9.15 to §8.9.17.
 
 **1. `boundingRect()` is the repaint region, never the object.** It holds the outline plus the drop shadow, the pen, a plant sprite's leaf overflow, a companion ring, a warning badge and the spacing ring. Whatever marks the object reads `selection_frame_rect(item)` in `src/open_garden_planner/ui/canvas/items/handle_geometry.py`: `rect()` for a circle, rectangle or ellipse, the vertex hull for a polygon. Resize handles, the rotation handle and the label anchor use it. The mistake: a magnolia drawn 2.20 m wide had its handles on an 8.64 m box while its spacing ring was on show. Still open: `core/snapping.py` and `core/alignment.py` read `sceneBoundingRect()`, so a decoration moves a plant's snap and align anchors.
 
@@ -14,4 +14,4 @@ Three rules, each with the mistake behind it. Full text: `docs/08-crosscutting-c
 
 **The canvas grid is clipped, not reordered.** `CanvasView._grid_region` cuts every drawn object that is not a ground surface out of the region the grid lines are clipped to. A view-level pass is in no export.
 
-**Fonts.** A `TextItem` is scaled by the view, so it uses design metrics, `PreferNoHinting` and its exact point size. The offscreen platform does not hint: a pixel test cannot show a hinting defect there (debug-verbose case study, #793).
+**Fonts.** A `TextItem` or a callout is scaled by the view, so its font is unhinted (`PreferNoHinting`); an exact point size and the document's design metrics were measured to add nothing. The offscreen platform does not hint: a pixel test cannot show a hinting defect there (debug-verbose case study, #793).

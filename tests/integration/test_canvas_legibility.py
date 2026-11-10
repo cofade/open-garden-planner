@@ -23,6 +23,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import (
+    CalloutItem,
     CircleItem,
     PolygonItem,
     RectangleItem,
@@ -448,26 +449,36 @@ def test_a_dimension_label_reads_on_every_background(canvas, background: str) ->
 
 
 @pytest.mark.parametrize("size_cm", [0.1, 0.42, 1.0, 2.5])
-def test_a_text_note_is_laid_out_by_design_metrics_at_its_exact_size(qtbot, size_cm: float) -> None:
+def test_a_text_note_is_laid_out_unhinted_whatever_is_set_on_it(qtbot, size_cm: float) -> None:
     """A note is laid out once and scaled by the view.
 
-    A hinted font at a whole point size rounds every advance to the pixel grid of
-    that one size; the zoom magnifies the rounding into uneven gaps ("thy me").
-    On Windows the worst letter gap was 2.85 px off at 3.3x before and 1.15 px
-    after (docs: PF-CAN-52). The offscreen platform the suite runs on does not
-    hint, so the pixels cannot show it here; the cause is pinned instead.
+    A hinted font rounds every advance to the pixel grid of the one size the
+    note is laid out at; the zoom magnifies the rounding into uneven gaps
+    ("thy me"). On Windows the worst letter gap was 2.85 px off at 3.3x before
+    and 1.15 px after (docs: PF-CAN-52). The offscreen platform the suite runs
+    on does not hint, so the pixels cannot show it here; the cause is pinned
+    instead, after every setter that builds the font anew.
     """
+    unhinted = QFont.HintingPreference.PreferNoHinting
     note = TextItem(0, 0, content="thyme fictional illustrative", font_size=size_cm)
-    font = note.font()
-    assert font.hintingPreference() == QFont.HintingPreference.PreferNoHinting
-    assert note.document().useDesignMetrics()
-    assert font.pointSizeF() == pytest.approx(max(1.0, size_cm * 72.0 / 2.54))
+    assert note.font().hintingPreference() == unhinted
 
     note.bold = True
+    assert note.font().hintingPreference() == unhinted
+    note.italic = True
+    assert note.font().hintingPreference() == unhinted
+    note.font_family = "Times New Roman"
+    assert note.font().hintingPreference() == unhinted
     note.font_size = size_cm * 2.0
-    assert note.font().hintingPreference() == QFont.HintingPreference.PreferNoHinting
-    assert note.font().bold()
-    assert note.font().pointSizeF() == pytest.approx(max(1.0, size_cm * 2.0 * 72.0 / 2.54))
+    assert note.font().hintingPreference() == unhinted
+    assert note.font().bold() and note.font().italic()
+
+
+def test_a_callout_is_laid_out_unhinted(qtbot) -> None:
+    """A callout's text is scaled by the view like a note's."""
+    callout = CalloutItem(QPointF(0, 0), QPointF(120, 80), content="thyme fictional")
+    font = callout._text_child.font()
+    assert font.hintingPreference() == QFont.HintingPreference.PreferNoHinting
 
 
 # --------------------------------------------------------------------------

@@ -20,7 +20,7 @@ class _PaintedDiagnostics:
     ring or a soil border is painted by its garden item, so there is nothing to
     hide per item: the scene switches them off together. This entry stands for
     that switch, so showing it again switches the decorations back on and no
-    caller of the pair has to know about them (#786, §8.9.15).
+    caller of the pair has to know about them (#786, §8.9.16).
     """
 
     def __init__(self, scene: QGraphicsScene) -> None:

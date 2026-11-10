@@ -180,7 +180,7 @@ class CanvasScene(QGraphicsScene):
 
         # Whether garden items paint their diagnostic decorations (spacing ring,
         # companion ring, warning badges, soil and rotation borders). Runtime only:
-        # an export switches it off for the length of its render (§8.9.15).
+        # an export switches it off for the length of its render (§8.9.16).
         self._diagnostic_overlays_visible = True
 
         # Per viewport, the object labels the last paint chose to show
@@ -259,7 +259,7 @@ class CanvasScene(QGraphicsScene):
     paints_plan_labels = True
 
     def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
-        """Paint the object labels above every item (§8.9.14, #793).
+        """Paint the object labels above every item (§8.9.15, #793).
 
         A scene-level hook on purpose: the view paints through it and so does
         ``scene.render()``, so an export, a print and the Agent API's picture

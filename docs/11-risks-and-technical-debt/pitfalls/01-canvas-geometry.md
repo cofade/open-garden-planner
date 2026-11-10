@@ -683,17 +683,17 @@ canvas fixture has no minimap, and the one running-app test called
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-`boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. See §8.9.16.
+`boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. See §8.9.17.
 
 ### PF-CAN-52
 
-- **Rule:** Text that the view scales (a `TextItem` note) is laid out by design metrics with `PreferNoHinting` at its exact point size; text with a halo strokes the glyph outline path, because `drawText` with a wide pen outlines nothing.
-- **Pinned by:** `tests/integration/test_canvas_legibility.py::test_a_text_note_is_laid_out_by_design_metrics_at_its_exact_size`; `tests/integration/test_canvas_legibility.py::test_the_scale_bar_label_reads_on_every_background`
-- **Source:** #793
+- **Rule:** Text that the view scales (a `TextItem` note, a callout) is laid out unhinted (`PreferNoHinting`); text with a halo strokes the glyph outline path, because `drawText` with a wide pen outlines nothing.
+- **Pinned by:** `tests/integration/test_canvas_legibility.py::test_a_text_note_is_laid_out_unhinted_whatever_is_set_on_it`; `tests/integration/test_canvas_legibility.py::test_a_callout_is_laid_out_unhinted`; `tests/integration/test_canvas_legibility.py::test_the_scale_bar_label_reads_on_every_background`
+- **Source:** #793, #789
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-A hinted font at a whole point size rounds every advance to the pixel grid of that one size; the zoom magnifies the rounding into uneven gaps ("thy me"). Measured on Windows over one line: glyph positions up to 10.25 px from linear before and 1.9 px after; worst letter gap at 3.3x zoom 2.85 px off before and 1.15 px after. The offscreen platform the suite runs on does not hint (0.0 px either way), so the test pins the font setup, not pixels. A label's contrast is measured, not judged: §8.9.14.
+A hinted font rounds every advance to the pixel grid of the one size it is laid out at; the zoom magnifies the rounding into uneven gaps ("thy me"). Measured on Windows over one line: glyph positions up to 10.25 px from linear before and 1.9 px after; worst letter gap at 3.3x zoom 2.85 px off before and 1.15 px after. An exact point size and the document's design metrics add nothing to that (same gaps to 0.01 px). The offscreen platform the suite runs on does not hint (0.0 px either way), so the test pins the font setup, not pixels. A label's contrast is measured, not judged: §8.9.15.
 
 ### PF-CAN-53
 
