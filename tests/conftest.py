@@ -309,6 +309,35 @@ def deterministic_ui_font(ui_font_family):
 
 
 @pytest.fixture(autouse=True)
+def _app_locale(qapp):
+    """Every test starts in the application's English locale, on any machine (#792).
+
+    The app decides its locale from the UI language (``core/i18n.load_translator``),
+    with the operating system contributing only its region. Without this the
+    session ran in whatever the machine speaks — German commas on a developer's
+    box, the C locale in CI — and since the decision is also Qt's process-wide
+    default locale, a test that loads German and never loads English back would
+    hand its commas to every later test in its worker. The system locale is
+    pinned to C (what CI has), so a region never leaks in either.
+
+    Patched by hand, NOT with the ``monkeypatch`` fixture: an autouse fixture
+    that requests it makes pytest build ``monkeypatch`` first and undo it LAST,
+    so a test's own patches (``sys.platform`` in the packaging tests) were still
+    in force while the other autouse fixtures tore down.
+    """
+    from PyQt6.QtCore import QLocale
+
+    from open_garden_planner.core import i18n
+
+    system_locale = i18n._system_locale
+    i18n._system_locale = QLocale.c
+    if i18n.current_language() != "en" or QLocale() != i18n.locale_for_language("en"):
+        i18n.load_translator(qapp, "en")
+    yield
+    i18n._system_locale = system_locale
+
+
+@pytest.fixture(autouse=True)
 def _restore_settings_guard_environment():
     """Put the settings-guard markers back around every test.
 

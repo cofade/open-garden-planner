@@ -523,4 +523,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         '{message}; {count} crossed objects could not be split':
             '{message}; {count} objetos cruzados no se pudieron dividir',
     },
+    # Tool names in the status bar (#792).
+    'ConstructionLineTool': {
+        'Construction Line': 'Línea de construcción',
+    },
+    'ConstructionCircleTool': {
+        'Construction Circle': 'Círculo de construcción',
+    },
+    'TrimExtendTool': {
+        'Trim/Extend': 'Recortar/Extender',
+    },
 }

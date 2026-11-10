@@ -301,7 +301,7 @@ Pre-defined object types for common property elements:
 
 ### FR-10.2 UI Requirements
 - **FR-UI-01**: Modern, flat design consistent with Windows 11 aesthetics
-- **FR-UI-02**: Branded green theme with light/dark variants
+- **FR-UI-02**: Branded green theme with light/dark variants. Every chrome surface — painted charts and the canvas rulers included — follows the app's theme, whatever the operating system's mode (#791, ADR-039 addendum).
 - **FR-UI-03**: Fixed sidebar panels (not dockable/floating)
 - **FR-UI-04**: Keyboard shortcuts for all common operations
 - **FR-UI-05**: Context menus (right-click) for relevant actions
@@ -339,6 +339,8 @@ Pre-defined object types for common property elements:
 - **FR-I18N-07**: All registered target languages must completely cover the source-derived UI key set. Both new UI strings and new language registrations require complete catalogs, valid placeholders and matching compiled output before merge. Missing localized companion explanations fall back to English; German explanations are selected only for German (#496).
 - **FR-I18N-08**: Spanish localization (`es`, "Español") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support.
 - **FR-I18N-09**: Russian localization (`ru`, "Русский") shipped with 100% key coverage of all source strings, collision-free menu accelerators, valid placeholders, and NSIS installer support.
+- **FR-I18N-10**: Numbers, month names and weekday names in the UI follow the UI language, never the operating system's locale on its own; the system contributes its region only when it speaks the same language (#792, ADR-077).
+- **FR-I18N-11**: A number field accepts a comma or a point as the decimal mark in every UI language, and accepts back what the UI shows; files and exports (.ogp, SVG, DXF, CSV, clipboard rows) keep a decimal point in every language (#792, ADR-077).
 
 ## FR-12: Visual Rendering
 

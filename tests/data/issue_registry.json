@@ -1204,9 +1204,19 @@
     "state": "OPEN",
     "title": "Selection handles of a plant span its spacing ring; position and diameter labels overlap"
   },
+  "791": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Theme gaps: planting calendar and rulers ignore the dark theme; light theme on dark-mode Windows has unreadable text and invisible checkboxes"
+  },
   "793": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Canvas legibility: scale-bar and object labels have no halo, note kerning breaks at zoom, grid draws over sprites"
+  },
+  "796": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "UI polish: 1280x720 toolbar overflow, clipped panel fields, calendar task rows and other layout nits"
   }
 }

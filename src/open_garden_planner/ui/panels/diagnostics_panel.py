@@ -7,6 +7,7 @@ from typing import Any
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtWidgets import QComboBox, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
+from open_garden_planner.core.object_types import ObjectType, get_translated_display_name
 from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.diagnostics import DiagnosticRecord
 from open_garden_planner.ui.canvas.select_by_id import select_by_ids
@@ -93,6 +94,9 @@ class DiagnosticsPanel(ObjectNavigator):
         name = details.get("label", "")
         if record.kind in ("sun_mismatch", "sun_evaluation") and details.get("label_is_species"):
             name = QCoreApplication.translate("GalleryData", name)
+        elif details.get("label_is_type") and name in ObjectType.__members__:
+            # Never the enum's name ("TREE: spacing overlap", #792).
+            name = get_translated_display_name(ObjectType[name])
         if record.kind == "sun_evaluation":
             return self.tr("{name}: {status}").format(name=name, status=unavailable_message(details["reason"]))
         if record.kind == "sun_mismatch":

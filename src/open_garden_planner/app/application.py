@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
     QMenu,
@@ -47,6 +48,7 @@ from open_garden_planner.core import (
     format_area,
     format_length,
 )
+from open_garden_planner.core.i18n import format_decimal, format_trimmed, list_separator
 from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
@@ -100,6 +102,8 @@ from open_garden_planner.ui.widgets import (
     TaskReminderBar,
     UpdateBar,
 )
+from open_garden_planner.ui.widgets.soil_overlay_legend import SoilOverlayLegend
+from open_garden_planner.ui.widgets.toolbar_rows import ToolbarRows
 
 if TYPE_CHECKING:
     import datetime
@@ -109,6 +113,12 @@ if TYPE_CHECKING:
     from open_garden_planner.services.update_checker import ReleaseInfo
 
 logger = logging.getLogger(__name__)
+
+#: The sidebar's default width. NOT a share of the window (#796 asked, because
+#: 450 px is 35 % of a 1280 px window): the Properties form has no horizontal
+#: scroll bar and its German rows need 388 to 406 px, so anything narrower cuts
+#: them at the right edge (tests/integration/test_chrome_layout.py).
+_SIDEBAR_DEFAULT_WIDTH = 450
 
 
 
@@ -2008,6 +2018,10 @@ class GardenPlannerApp(QMainWindow):
 
         self.category_toolbar = CategoryToolbar(self)
         self.addToolBar(self.category_toolbar)
+        # ... while the window is wide enough: a toolbar that no longer fits
+        # starts a row of its own instead of losing buttons to a popup (#796).
+        self._toolbar_rows = ToolbarRows(
+            self, (self.main_toolbar, self.constraint_toolbar, self.category_toolbar))
 
         # ── Companion planting service (shared by sidebar panel and highlights) ─
         self._companion_service = CompanionPlantingService()
@@ -2050,7 +2064,7 @@ class GardenPlannerApp(QMainWindow):
         self._main_splitter.setStretchFactor(1, 0)  # Sidebar fixed width
         self._main_splitter.setHandleWidth(1)  # Minimal splitter handle
         # Set initial sizes: give sidebar 450px, canvas gets the rest
-        self._main_splitter.setSizes([1000, 450])
+        self._main_splitter.setSizes([1000, _SIDEBAR_DEFAULT_WIDTH])
         splitter = self._main_splitter
 
         # Connect canvas signals to status bar updates
@@ -2403,7 +2417,21 @@ class GardenPlannerApp(QMainWindow):
         self._frost_badge.setToolTip(self.tr("Frost alert — click to view details in Planting Calendar"))
         self._frost_badge.clicked.connect(lambda: self._tab_widget.setCurrentIndex(1))
         self._frost_badge.hide()
-        self._tab_widget.setCornerWidget(self._frost_badge, Qt.Corner.TopRightCorner)
+        # The tab bar's corner holds the frost badge and, left of it, the
+        # workspace's Plan / 3D / Split switch: on the tab row it covers nothing
+        # of the plan (it floated over the canvas's top-left corner, #796). The
+        # switch belongs to the Garden Plan tab, so its holder shows there only.
+        corner = QWidget(self._tab_widget)
+        corner_row = QHBoxLayout(corner)
+        corner_row.setContentsMargins(0, 0, 0, 0)
+        corner_row.setSpacing(8)
+        self._mode_switch_holder = QWidget(corner)
+        holder_row = QHBoxLayout(self._mode_switch_holder)
+        holder_row.setContentsMargins(0, 0, 0, 0)
+        holder_row.addWidget(self._workspace.adopt_mode_switch())
+        corner_row.addWidget(self._mode_switch_holder)
+        corner_row.addWidget(self._frost_badge)
+        self._tab_widget.setCornerWidget(corner, Qt.Corner.TopRightCorner)
         self.calendar_view.frost_alert_ready.connect(self._on_frost_alert_ready)
 
         # ── Tasks tab wiring (US-C2, #188) ───────────────────────────────────
@@ -2488,7 +2516,7 @@ class GardenPlannerApp(QMainWindow):
         self.update_zoom(self.canvas_view.zoom_percent)
 
         # Initial tool display
-        self.update_tool("Select")
+        self.update_tool(self.tr("Select"))
 
         # Initial selection display
         self.update_selection(0, [])
@@ -2587,14 +2615,11 @@ class GardenPlannerApp(QMainWindow):
         constraints_collapsible = CollapsiblePanel(
             self.tr("Constraints"), self.constraints_panel, expanded=False
         )
-        # Delete-all button lives in the header, aligned with individual row × buttons
-        from PyQt6.QtWidgets import QToolButton
-        delete_all_btn = QToolButton()
-        delete_all_btn.setText("\u00d7")
-        delete_all_btn.setFixedSize(20, 20)
+        # Delete-all button lives in the header, aligned with individual row × buttons.
+        # The panel owns it (icon, theme, enabled state); only the place and the
+        # tooltip are the window's.
+        delete_all_btn = self.constraints_panel.delete_all_button
         delete_all_btn.setToolTip(self.tr("Delete all constraints"))
-        delete_all_btn.setObjectName("constraintsDeleteAllBtn")
-        delete_all_btn.clicked.connect(self.constraints_panel.delete_all)
         constraints_collapsible.add_header_widget(delete_all_btn)
         sidebar_layout.addWidget(constraints_collapsible)
 
@@ -3177,7 +3202,7 @@ class GardenPlannerApp(QMainWindow):
         if status_bar:
             status_bar.showMessage(
                 self.tr("New project created: {width}m x {height}m").format(
-                    width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                    width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
                 )
             )
 
@@ -3204,7 +3229,7 @@ class GardenPlannerApp(QMainWindow):
             if status_bar:
                 status_bar.showMessage(
                     self.tr("Canvas resized to {width}m x {height}m").format(
-                        width=f"{width_m:.1f}", height=f"{height_m:.1f}"
+                        width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
                     )
                 )
 
@@ -4255,8 +4280,13 @@ class GardenPlannerApp(QMainWindow):
             self._on_soil_overlay_param_changed
         )
         self.soil_overlay_toolbar.addWidget(self._soil_param_combo)
+        # The key to the tints, beside the picker: there while the overlay is (#796).
+        self._soil_overlay_legend = SoilOverlayLegend(self.soil_overlay_toolbar)
+        self.soil_overlay_toolbar.addWidget(self._soil_overlay_legend)
         self.addToolBar(self.soil_overlay_toolbar)
         self.soil_overlay_toolbar.setVisible(False)
+        # It shares the tools' row while there is room for it and its legend.
+        self._toolbar_rows.append(self.soil_overlay_toolbar)
 
     def _on_toggle_soil_overlay(self, checked: bool) -> None:
         """Show/hide the soil-health overlay and its parameter toolbar."""
@@ -4995,7 +5025,13 @@ class GardenPlannerApp(QMainWindow):
         apply_theme(QApplication.instance(), mode)
 
         # Show feedback
-        theme_name = mode.value.capitalize()
+        # The menu entry's own (translated) name, without its mnemonic marker —
+        # never the enum's value, which is English in every language (#792).
+        theme_name = {
+            ThemeMode.LIGHT: self._light_theme_action,
+            ThemeMode.DARK: self._dark_theme_action,
+            ThemeMode.SYSTEM: self._system_theme_action,
+        }[mode].text().replace("&", "")
         self.statusBar().showMessage(self.tr("Theme changed to {theme}").format(theme=theme_name), 2000)
 
     def _update_language_menu_state(self) -> None:
@@ -5715,7 +5751,8 @@ class GardenPlannerApp(QMainWindow):
             x: X coordinate in centimeters
             y: Y coordinate in centimeters
         """
-        self.coord_label.setText(self.tr("X: {x} cm  Y: {y} cm").format(x=f"{x:.2f}", y=f"{y:.2f}"))
+        self.coord_label.setText(self.tr("X: {x} cm  Y: {y} cm").format(
+            x=format_decimal(x, 2), y=format_decimal(y, 2)))
 
     def update_zoom(self, zoom_percent: float) -> None:
         """Update the zoom display in the status bar.
@@ -6509,13 +6546,14 @@ class GardenPlannerApp(QMainWindow):
             lat, lon = place
             lat_dir = "N" if lat >= 0 else "S"
             lon_dir = "E" if lon >= 0 else "W"
-            lat_str = f"{abs(lat):.4f}°{lat_dir}"
-            lon_str = f"{abs(lon):.4f}°{lon_dir}"
-            self.location_label.setText(f"{lat_str}, {lon_str}")
+            lat_str = f"{format_decimal(abs(lat), 4)}°{lat_dir}"
+            lon_str = f"{format_decimal(abs(lon), 4)}°{lon_dir}"
+            self.location_label.setText(f"{lat_str}{list_separator()}{lon_str}")
             loc = location if isinstance(location, Mapping) else {}
             frost = loc.get("frost_dates", {}) or {}
             zone = frost.get("hardiness_zone", "") if isinstance(frost, Mapping) else ""
-            tip = self.tr("Latitude: {lat}, Longitude: {lon}").format(lat=lat, lon=lon)
+            tip = self.tr("Latitude: {lat}, Longitude: {lon}").format(
+                lat=format_trimmed(lat, 6), lon=format_trimmed(lon, 6))
             if zone:
                 tip += f"\n{self.tr('Zone')}: {zone}"
             spring = frost.get("last_spring_frost", "") if isinstance(frost, Mapping) else ""
@@ -6681,6 +6719,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_tab_changed(self, index: int) -> None:
         """Refresh tab views when they become active."""
+        self._mode_switch_holder.setVisible(index == 0)
         if index == 1:
             self.calendar_view.refresh()
         elif index == 2:

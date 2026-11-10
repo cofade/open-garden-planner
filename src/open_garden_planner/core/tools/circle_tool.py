@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, cast
 
-from PyQt6.QtCore import QT_TR_NOOP, QLineF, QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QLineF, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 
@@ -29,6 +29,9 @@ class CircleTool(BaseTool):
     display_name = QT_TR_NOOP("Circle")
     shortcut = "C"
     cursor = Qt.CursorShape.CrossCursor
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("CircleTool", "Circle")
 
     def __init__(
         self,

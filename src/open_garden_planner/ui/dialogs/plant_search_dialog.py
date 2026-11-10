@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.plant_api import (
     PlantAPIManager,
@@ -426,10 +427,10 @@ class PlantSearchDialog(QDialog):
             html += f"<h3>{self.tr('Size')}</h3><ul>"
             if plant.max_height_cm:
                 height_m = plant.max_height_cm / 100
-                html += f"<li><b>{self.tr('Max Height:')}</b> {height_m:.1f} m</li>"
+                html += f"<li><b>{self.tr('Max Height:')}</b> {format_decimal(height_m, 1)} m</li>"
             if plant.max_spread_cm:
                 spread_m = plant.max_spread_cm / 100
-                html += f"<li><b>{self.tr('Max Spread:')}</b> {spread_m:.1f} m</li>"
+                html += f"<li><b>{self.tr('Max Spread:')}</b> {format_decimal(spread_m, 1)} m</li>"
             html += "</ul>"
 
         # Additional attributes

@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_save_path
+from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.services.harvest_aggregation import aggregate_by_species_year
 from open_garden_planner.ui.theme import set_text_role
 
@@ -141,7 +142,7 @@ class HarvestView(QWidget):
             year_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self._table.setItem(r, 1, year_item)
 
-            total_item = QTableWidgetItem(f"{agg.total_quantity:g}")
+            total_item = QTableWidgetItem(format_trimmed(agg.total_quantity))
             total_item.setTextAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )

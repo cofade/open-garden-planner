@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
@@ -36,6 +36,7 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.item_look import (
     MAX_FENCE_WIDTH_CM,
     MAX_LINE_WIDTH_CM,
@@ -60,7 +61,7 @@ from open_garden_planner.ui.canvas.items import (
 )
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
 from open_garden_planner.ui.panels.property_edits import PropertyEdits
-from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
 # The raw attribute names (font_family, font_size) make ugly undo labels
@@ -175,8 +176,17 @@ class ColorButton(QPushButton):
         self._color = color
         self.setFixedWidth(FIELD_WIDTH)
         self.setFixedHeight(30)
+        # Without this the app stylesheet's button minimum (110 px) replaces
+        # the fixed width's own, and the swatch is 10 px narrower than every
+        # other field of the column (PF-UI-38). A stylesheet minimum still
+        # replaces the code's, so the fixed width is only the maximum from
+        # here on: the size hint says the rest.
+        set_compact(self)
         self._update_style()
         self.clicked.connect(self._pick_color)
+
+    def sizeHint(self) -> QSize:
+        return QSize(FIELD_WIDTH, 30)
 
     @property
     def color(self) -> QColor:
@@ -1163,6 +1173,10 @@ class PropertiesPanel(QWidget):
             btn.setToolTip(label)
             btn.setAccessibleName(label)
             btn.setObjectName(object_name)
+            # Four dialog-width buttons (4 x 110 px) are wider than the panel,
+            # and the form has no horizontal scroll bar: the row and every
+            # field above it were cut at the right edge (#796).
+            set_compact(btn)
             btn.clicked.connect(_make_handler(mode))
             row.addWidget(btn)
 
@@ -1563,7 +1577,8 @@ class PropertiesPanel(QWidget):
 
         def update_feedback() -> None:
             litres = cm.effective_soil_volume_litres(meta, footprint_cm2())
-            effective_label.setText(self.tr("{litres:.1f} L").format(litres=litres))
+            effective_label.setText(
+                self.tr("{litres:.1f} L").format(litres=LocalizedNumber(litres)))
             # Translate the two atoms separately and join — never translate a
             # runtime-concatenated combined string (keeps the registered source
             # set small + non-combinatorial; see container_model.material_hint).

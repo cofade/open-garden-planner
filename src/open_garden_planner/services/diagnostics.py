@@ -106,8 +106,13 @@ def diagnostics_from_records(
 
         for diagnostic in record.get("diagnostics", []):
             out.append(DiagnosticRecord(**diagnostic))
+        # An object without a name is labelled with its type's enum NAME
+        # ("TREE"): say so, so a UI can show the type's translated name (#792).
+        type_named = not record.get("name") and bool(record.get("object_type"))
         for diagnostic in out[offset:]:
             diagnostic.details.setdefault("label", label)
+            if type_named:
+                diagnostic.details.setdefault("label_is_type", True)
             if diagnostic.kind == "crop_rotation":
                 diagnostic.details.setdefault("rotation_status", rotation)
 

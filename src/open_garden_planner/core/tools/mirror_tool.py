@@ -52,6 +52,9 @@ class MirrorTool(BaseTool):
     # would imply it sets a polar offset, which it does not.
     accepts_typed_coordinates = False
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("MirrorTool", "Mirror")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._axis_start: QPointF | None = None

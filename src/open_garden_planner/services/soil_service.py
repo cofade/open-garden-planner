@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.models.amendment import (
     FIX_ADDS_CA,
     FIX_ADDS_K,
@@ -610,7 +611,9 @@ class SoilService:
                             QCoreApplication.translate(
                                 "SoilService",
                                 "{name} needs pH ≥{min:.1f}, current {cur:.1f}",
-                            ).format(name=name, min=spec.ph_min, cur=record.ph),
+                            ).format(
+                                name=name, min=LocalizedNumber(spec.ph_min),
+                                cur=LocalizedNumber(record.ph)),
                         )
                     )
                 elif record.ph > spec.ph_max + 0.05:
@@ -620,7 +623,9 @@ class SoilService:
                             QCoreApplication.translate(
                                 "SoilService",
                                 "{name} needs pH ≤{max:.1f}, current {cur:.1f}",
-                            ).format(name=name, max=spec.ph_max, cur=record.ph),
+                            ).format(
+                                name=name, max=LocalizedNumber(spec.ph_max),
+                                cur=LocalizedNumber(record.ph)),
                         )
                     )
             n_d, p_d, k_d = _effective_demand(spec)

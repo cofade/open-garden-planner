@@ -162,6 +162,7 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
     RotationHandle,
     VertexHandle,
 )
+from open_garden_planner.ui.theme import theme_qcolor
 
 _log = logging.getLogger(__name__)
 
@@ -4445,9 +4446,10 @@ class CanvasView(QGraphicsView):
         10000,
     ]
     _RULER_MIN_TICK_PX = 50  # Minimum pixels between labelled ticks
-    _RULER_BG = QColor(235, 235, 235, 230)
-    _RULER_FG = QColor(80, 80, 80)
-    _RULER_BORDER = QColor(180, 180, 180)
+    # The rulers are chrome around the plan, not part of it: their colours are
+    # theme tokens read while painting (#791). Opaque: drawn translucent over
+    # the bright plan, the dark theme's strip turned muddy and its labels fell
+    # under 4.5:1.
 
     def _pick_ruler_interval(self) -> float:
         """Choose a tick interval in cm so ticks are at least _RULER_MIN_TICK_PX apart."""
@@ -4473,19 +4475,21 @@ class CanvasView(QGraphicsView):
         interval = self._pick_ruler_interval()
 
         # ── Background strips ──────────────────────────────────────────────
-        painter.fillRect(rs, 0, vp.width() - rs, rs, self._RULER_BG)  # top
-        painter.fillRect(0, rs, rs, vp.height() - rs, self._RULER_BG)  # left
-        painter.fillRect(0, 0, rs, rs, QColor(210, 210, 210, 230))  # corner box
+        strip = theme_qcolor("surface")
+        corner = theme_qcolor("surface_alt")
+        painter.fillRect(rs, 0, vp.width() - rs, rs, strip)  # top
+        painter.fillRect(0, rs, rs, vp.height() - rs, strip)  # left
+        painter.fillRect(0, 0, rs, rs, corner)  # corner box
 
         # ── Border lines ───────────────────────────────────────────────────
-        border_pen = QPen(self._RULER_BORDER)
+        border_pen = QPen(theme_qcolor("border"))
         border_pen.setWidth(1)
         painter.setPen(border_pen)
         painter.drawLine(rs, rs - 1, vp.width(), rs - 1)  # bottom of top ruler
         painter.drawLine(rs - 1, rs, rs - 1, vp.height())  # right of left ruler
 
         # ── Horizontal ruler (X axis) ──────────────────────────────────────
-        painter.setPen(QPen(self._RULER_FG))
+        painter.setPen(QPen(theme_qcolor("text_secondary")))
         # Determine scene X range visible in the ruler strip
         left_x = self.mapToScene(rs, rs // 2).x()
         right_x = self.mapToScene(vp.width(), rs // 2).x()

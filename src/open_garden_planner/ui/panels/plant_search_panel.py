@@ -19,7 +19,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.ui.canvas.select_by_id import select_by_ids
 from open_garden_planner.ui.icons import get_icon, get_pixmap
-from open_garden_planner.ui.theme import set_text_role
+from open_garden_planner.ui.theme import list_row_size_hint, set_text_role
 
 # plant type → provider icon (the gallery category glyphs; #310)
 _TYPE_ICONS: dict[ObjectType, str] = {
@@ -175,7 +175,7 @@ class PlantSearchPanel(QWidget):
 
         # Results count label
         self.results_label = QLabel(self.tr("No plants in project"))
-        self.results_label.setStyleSheet("color: palette(text);")
+        set_text_role(self.results_label, color_role="secondary")
         layout.addWidget(self.results_label)
 
         # Results list
@@ -315,7 +315,10 @@ class PlantSearchPanel(QWidget):
         for item_id, name, species, plant_type in visible:
             list_item = QListWidgetItem()
             widget = PlantListItem(item_id, name, species, plant_type)
-            list_item.setSizeHint(widget.sizeHint())
+            # The widget's hint plus the list's item padding: sized to the
+            # hint alone, the two-line row is squeezed and "novi-belgii"
+            # loses its descenders (#796).
+            list_item.setSizeHint(list_row_size_hint(widget))
             # Store only the stable item id, never a live QGraphicsItem reference:
             # the latter goes stale after undo/redo/delete and makes selection flaky
             # (issue #212). The live item is resolved at click time via

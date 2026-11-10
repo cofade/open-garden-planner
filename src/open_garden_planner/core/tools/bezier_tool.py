@@ -62,6 +62,9 @@ class BezierTool(BaseTool):
     shortcut = "B"
     cursor = Qt.CursorShape.CrossCursor
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("BezierTool", "Bezier")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._anchors: list[QPointF] = []

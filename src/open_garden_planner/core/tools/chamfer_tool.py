@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QApplication, QInputDialog
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
 from open_garden_planner.core.commands import ChamferCornerCommand
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditRefusal,
@@ -37,6 +38,9 @@ class ChamferTool(CornerEditTool):
     display_name = QCoreApplication.translate("ChamferTool", "Chamfer")
     shortcut = "Shift+C"
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("ChamferTool", "Chamfer")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._distance: float = get_settings().chamfer_last_distance_cm
@@ -47,7 +51,7 @@ class ChamferTool(CornerEditTool):
             msg = QCoreApplication.translate(
                 "ChamferTool",
                 "Chamfer distance: {distance:.1f} cm — press D to change",
-            ).format(distance=self._distance)
+            ).format(distance=LocalizedNumber(self._distance))
             self._view.set_status_message(msg)
         # Defer the modal dialog onto the next event-loop tick — see the
         # matching note in `FilletTool.activate()`.
