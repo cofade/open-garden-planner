@@ -4,7 +4,15 @@ import uuid
 from typing import Any, Final
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QKeyEvent,
+    QPainter,
+    QPainterPath,
+    QPainterPathStroker,
+    QPen,
+)
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPathItem,
@@ -226,6 +234,22 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 pos = self.mapFromScene(owner.mapToScene(projected))
 
         super()._move_vertex_to(index, pos)
+
+    def grid_cover_path(self) -> QPainterPath:
+        """What the line covers of the plan: its stroke, not what it encloses.
+
+        ``shape()`` of a path item is its stroke united with the path FILLED,
+        and a fill closes an open line from its end back to its start. A
+        railing round three sides of a balcony therefore "covered" the whole
+        balcony: the canvas grid was cut out of it, and the hours on the sun
+        map's contours found no free place on it (#794). A fence stands on its
+        own stroke — the rule the sun study has for its shadow too (#444).
+        """
+        stroker = QPainterPathStroker()
+        stroker.setWidth(max(self.pen().widthF(), 1.0))
+        stroker.setCapStyle(Qt.PenCapStyle.FlatCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        return stroker.createStroke(self.path())
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow and style decorations."""

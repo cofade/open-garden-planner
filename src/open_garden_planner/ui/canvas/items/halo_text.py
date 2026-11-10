@@ -342,7 +342,15 @@ class PlanLabelItem(HaloTextItem):
 
     ``rank`` orders the labels of one object when room is short: the name (0)
     before the area (1).
+
+    A label of no object (the hours on a contour of the sun map) has no owner
+    whose size could earn it room. It states ``free_extent_px`` instead: what
+    it counts as among the objects' sizes on screen. Zero, the default, shows
+    no ownerless label, as before.
     """
+
+    #: The size on screen an ownerless label is placed as (pixels); see the class.
+    free_extent_px: float = 0.0
 
     def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
         super().__init__(text, parent, centered=True)

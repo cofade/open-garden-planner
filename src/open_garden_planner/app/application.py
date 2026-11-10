@@ -2194,10 +2194,10 @@ class GardenPlannerApp(QMainWindow):
         self._sun_heatmap = SunHeatmapController(
             self.canvas_scene, lambda: self._project_manager.location, self
         )
-        # While a map is shown the time-of-day shadows are not painted (#794):
-        # the map is the day's total and translucent, and the shadow of one
-        # instant under it reads as fewer hours of sun. Solved all the same —
-        # the 3D drape keeps its polygons.
+        # While a map is shown the canvas carries its key, and the time-of-day
+        # shadows are not painted (#794): the map is the day's total and
+        # translucent, and the shadow of one instant under it reads as fewer
+        # hours of sun. Solved all the same — the 3D drape keeps its polygons.
         self._sun_heatmap.computed.connect(self._on_sun_map_shown)
         from open_garden_planner.ui.sun_exposure_coordinator import SunExposureCoordinator
 
@@ -4089,9 +4089,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_sun_map_shown(self, shown_map: object) -> None:
         """The hours-of-sun map appeared, changed or went away (its controller's
-        ``computed``): the time-of-day shadow overlay is painted only while no
-        map is shown (#794)."""
+        ``computed``): the canvas shows the map's key while one is shown, and
+        the time-of-day shadow overlay is painted only while none is (#794)."""
         self._sun_controller.set_map_shown(shown_map is not None)
+        self.canvas_view.set_sun_legend(self._sun_heatmap.legend_key())
 
     def _on_sun_state_changed(self, state: str) -> None:
         """Surface the simulation's empty states as a toolbar hint."""

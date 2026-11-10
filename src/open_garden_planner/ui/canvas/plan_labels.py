@@ -49,7 +49,7 @@ def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLab
         device = item.deviceTransform(world)
         box = device.mapRect(item.boundingRect())
         owner = item.parentItem()
-        extent, pinned = 0.0, False
+        extent, pinned = item.free_extent_px, False
         if owner is not None:
             frame = owner.deviceTransform(world).mapRect(selection_frame_rect(owner))
             extent = max(frame.width(), frame.height())
@@ -60,12 +60,19 @@ def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLab
                 owner_extent_px=extent,
                 pinned=pinned,
                 rank=item.rank,
-                tie=item.text(),
+                tie=item.text() if owner is not None else _free_label_tie(item),
                 owner=id(owner) if owner is not None else None,
             )
         )
         labels.append((item, device, box))
     return [labels[index] for index in place_labels(candidates)] if candidates else []
+
+
+def _free_label_tie(item: PlanLabelItem) -> str:
+    """What orders two ownerless labels of one weight: text, then place. Their
+    order among the scene's items is no property of the plan."""
+    place = item.scenePos()
+    return f"{item.text()}@{place.x():012.2f},{place.y():012.2f}"
 
 
 def paint_plan_labels(

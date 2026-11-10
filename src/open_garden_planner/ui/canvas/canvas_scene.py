@@ -73,6 +73,31 @@ def on_ground(item: QGraphicsItem) -> bool:
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
 
 
+def is_standing_object(item: QGraphicsItem) -> bool:
+    """Whether ``item`` is a drawn object that stands on the ground and is shown.
+
+    A body: a rectangle, circle, ellipse, polygon or polyline that is no ground
+    surface (``on_ground``). A text note, a callout or a pin is writing on the
+    plan, not a body; a group is its members. What such an object covers of the
+    plan is its ``grid_cover_path()``. The canvas grid is cut out under these
+    (``CanvasView._grid_region``) and the hours on the sun map's contours keep
+    clear of them (``sun_heatmap``): one definition of "something stands here".
+    """
+    from open_garden_planner.ui.canvas.items import (
+        CircleItem,
+        EllipseItem,
+        PolygonItem,
+        PolylineItem,
+        RectangleItem,
+    )
+
+    return (
+        isinstance(item, (RectangleItem, CircleItem, EllipseItem, PolygonItem, PolylineItem))
+        and item.isVisible()
+        and not on_ground(item)
+    )
+
+
 @dataclass
 class GuideLine:
     """A persistent guide line for alignment reference.

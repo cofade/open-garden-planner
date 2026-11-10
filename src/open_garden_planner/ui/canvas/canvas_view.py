@@ -25,6 +25,7 @@ from PyQt6.QtCore import (
     QObject,
     QPoint,
     QPointF,
+    QRect,
     QRectF,
     Qt,
     QTimer,
@@ -54,6 +55,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMenu,
     QPinchGesture,
+    QWidget,
 )
 
 from open_garden_planner.core import (
@@ -161,6 +163,12 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
     ResizeHandle,
     RotationHandle,
     VertexHandle,
+)
+from open_garden_planner.ui.canvas.sun_legend import (
+    SunLegendKey,
+    legend_font,
+    paint_sun_legend,
+    sun_legend_size,
 )
 
 _log = logging.getLogger(__name__)
@@ -275,6 +283,10 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+        # The key of the hours-of-sun map (#794): what it shows while a map is
+        # shown, and where it was last painted (viewport pixels).
+        self._sun_legend: SunLegendKey | None = None
+        self._sun_legend_rect = QRect()
         # Touch gestures (#321): enabled by default, a sitting of the view; the app
         # applies the saved preference after construction, as for the scale bar.
         # ``_pinch_scale`` / ``_pinch_center`` carry the last values of Qt's own
@@ -783,6 +795,12 @@ class CanvasView(QGraphicsView):
         """Keep a dense vertex-edit sample tied to the visible viewport pixels."""
         super().scrollContentsBy(dx, dy)
         self._refresh_dense_vertex_overlays()
+        if not self._sun_legend_rect.isEmpty():
+            # Qt scrolls the viewport's pixels and repaints the strip that
+            # came into view. The key stands still on the viewport: what was
+            # scrolled away with the plan and where it belongs are painted again.
+            stale = self._sun_legend_rect.adjusted(-2, -2, 2, 2)
+            self.viewport().update(stale.united(stale.translated(dx, dy)))
 
     def _refresh_dense_vertex_overlays(self) -> None:
         """Ask every selected item with a bounded overlay to re-sample (#551)."""
@@ -4170,18 +4188,9 @@ class CanvasView(QGraphicsView):
         (``canvas_scene.on_ground``: lawn, path, terrace, in-ground bed) is no
         object here; the grid lies on it as the sun study's shadows do.
         """
-        from open_garden_planner.ui.canvas.canvas_scene import on_ground
-        from open_garden_planner.ui.canvas.items import (
-            CircleItem,
-            EllipseItem,
-            PolygonItem,
-            PolylineItem,
-            RectangleItem,
-        )
+        from open_garden_planner.ui.canvas.canvas_scene import is_standing_object
+        from open_garden_planner.ui.canvas.items import CircleItem
 
-        # The drawn objects. A text note, a callout or a pin is writing on the
-        # plan, not a body the grid passes under; a group is its members.
-        bodies = (RectangleItem, CircleItem, EllipseItem, PolygonItem, PolylineItem)
         world = painter.worldTransform()
         plan = self._canvas_scene.canvas_rect.intersected(rect)
         region = QRegion(world.mapRect(plan).toAlignedRect())
@@ -4191,7 +4200,9 @@ class CanvasView(QGraphicsView):
         for item in self._canvas_scene.items(
             rect, Qt.ItemSelectionMode.IntersectsItemBoundingRect
         ):
-            if not isinstance(item, bodies) or not item.isVisible() or on_ground(item):
+            # A text note, a callout or a pin is writing on the plan, not a
+            # body the grid passes under; a group is its members.
+            if not is_standing_object(item):
                 continue
             outline = item.deviceTransform(world).map(item.grid_cover_path())
             if isinstance(item, CircleItem):
@@ -4422,11 +4433,103 @@ class CanvasView(QGraphicsView):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self._draw_scale_bar(painter)
 
+        self._draw_sun_legend(painter)
+
         if self._guides_visible:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
             self._draw_rulers(painter)
 
         painter.end()
+
+    # ------------------------------------------------------------------
+    # The key of the hours-of-sun map (#794)
+    # ------------------------------------------------------------------
+
+    def set_sun_legend(self, key: SunLegendKey | None) -> None:
+        """Show the key of the hours-of-sun map over the viewport; ``None``
+        takes it away (no map is shown).
+
+        Drawn over the viewport, not in the scene: it stays in sight at any
+        zoom and pan, like the scale bar whose strip it shares. A picture of
+        the plan gets its key from ``sun_legend.SunMapLegendItem``.
+        """
+        if key == self._sun_legend:
+            return
+        self._sun_legend = key
+        self.viewport().update()
+
+    def sun_legend(self) -> SunLegendKey | None:
+        """The key that is shown, or ``None``."""
+        return self._sun_legend
+
+    def sun_legend_rect(self) -> QRect:
+        """Where the key was last painted, in viewport pixels; empty while no
+        key is shown or the viewport has no room for one."""
+        return QRect(self._sun_legend_rect)
+
+    def _scale_bar_rect(self) -> QRectF:
+        """What the scale bar takes of the viewport: its line, ticks and label."""
+        if not self._scale_bar_visible:
+            return QRectF()
+        viewport = self.viewport().rect()
+        margin = self._SCALE_BAR_MARGIN
+        width = self._pick_scale_bar_distance() * self._zoom_factor
+        return QRectF(
+            viewport.width() - margin - width,
+            viewport.height() - self.SCALE_BAR_RESERVED_PX,
+            width,
+            self.SCALE_BAR_RESERVED_PX - margin,
+        ).adjusted(-4.0, 0.0, 4.0, 4.0)
+
+    def _taken_viewport_rects(self) -> list[QRectF]:
+        """What already lies over the viewport where the key could go: the
+        scale bar and every overlay widget (the minimap)."""
+        taken = [self._scale_bar_rect()]
+        viewport = self.viewport()
+        for child in self.children():
+            if isinstance(child, QWidget) and child is not viewport and child.isVisible():
+                corner = viewport.mapFrom(self, child.geometry().topLeft())
+                taken.append(QRectF(QRect(corner, child.size())))
+        return [rect for rect in taken if not rect.isEmpty()]
+
+    def _draw_sun_legend(self, painter: QPainter) -> None:
+        """Draw the key in the bottom-left corner of the viewport.
+
+        In the strip the scale bar stands in (``SCALE_BAR_RESERVED_PX``), which
+        the overlay widgets already keep clear, so it covers nothing a fitted
+        plan leaves a margin for. Where the full key does not fit beside the
+        scale bar it is drawn without its title, then one strip higher; where
+        even that would lie on the scale bar or the minimap it is left out
+        rather than drawn over them.
+        """
+        self._sun_legend_rect = QRect()
+        key = self._sun_legend
+        if key is None:
+            return
+        font = legend_font()
+        viewport = self.viewport().rect()
+        margin = self._SCALE_BAR_MARGIN
+        left = margin + (self.RULER_SIZE if self._guides_visible else 0)
+        taken = self._taken_viewport_rects()
+        gap = float(margin)
+        for lift in (0, self.SCALE_BAR_RESERVED_PX):
+            for with_title in (True, False):
+                size = sun_legend_size(key, font, with_title=with_title)
+                rect = QRectF(
+                    left, viewport.height() - margin - size.height() - lift,
+                    size.width(), size.height(),
+                )
+                if rect.right() > viewport.width() - margin or rect.top() < margin:
+                    continue
+                if any(rect.adjusted(-gap, -gap, gap, gap).intersects(other) for other in taken):
+                    continue
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                paint_sun_legend(
+                    painter, rect.topLeft(), key, font, QColor(self._scale_bar_fg),
+                    QColor(self._canvas_scene.CANVAS_COLOR), with_title=with_title,
+                )
+                self._sun_legend_rect = rect.toAlignedRect()
+                return
 
     # Ruler tick intervals (cm), used to pick a nice spacing based on zoom
     _RULER_NICE_INTERVALS = [
