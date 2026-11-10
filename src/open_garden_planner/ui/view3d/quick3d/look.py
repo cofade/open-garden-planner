@@ -62,7 +62,8 @@ from open_garden_planner.core.scene3d.photo import (
 __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
            "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
            "atmosphere_properties", "atmosphere_sun_direction", "engine_hex", "engine_linear",
-           "cloud_light_gain", "deck_anchor", "painted_sky", "photo_properties",
+           "cloud_hue_share", "cloud_light_gain", "deck_anchor", "deck_closure", "painted_sky",
+           "photo_properties",
            "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
@@ -278,16 +279,36 @@ def painted_sky(sky: SkySpec) -> PaintedSky:
 DECK_FROM_CLOUD: Final = 0.5
 
 
+def deck_closure(cloud: float) -> float:
+    """How closed the weather's clouds are as a deck: 0 up to ``DECK_FROM_CLOUD``, 1 at a
+    full cover, linear between (Snow's 0.85 is 0.7 closed). The one measure the disc
+    (``sunAlpha``), the deck's anchor and its hue share take."""
+    closed = (float(cloud) - DECK_FROM_CLOUD) / (1.0 - DECK_FROM_CLOUD)
+    return min(max(closed, 0.0), 1.0)
+
+
+def cloud_hue_share(cloud: float) -> float:
+    """How far the clouds take the look's horizon hue (``atmosphere.frag``: the weather's
+    own grey under a weather) instead of their own colour: 1 − (1 − cover) × (1 − closed).
+    A cloud keeps its own colour only where it is thin AND the deck open: scattered clouds
+    (Partly cloudy, closed 0) keep the cover's 0.4, a full cover is the weather's grey.
+    With the cover alone Snow's 0.85 kept 15 % of a deck lit by the example's sun through a
+    ground airmass — nearly pure red at a low sun — and read pink under a sun below 1°
+    (C*ab 8–10 at 10° up against the painted Snow deck's 3.6; 0.955 gives 3.2–4.0)."""
+    cover = min(max(float(cloud), 0.0), 1.0)
+    return 1.0 - (1.0 - cover) * (1.0 - deck_closure(cover))
+
+
 def deck_anchor(sky: SkySpec) -> float:
     """How much more light a cloud DECK takes at this sun (#719): ``ATMOSPHERE_DECK_LEVEL``
-    to the power of how closed the deck is (0 at a cloud of 0.5, 1 at a full cover — the
-    measure ``sunAlpha`` takes: Snow's 0.85 is 0.7 closed), times ``ATMOSPHERE_DECK_SUNSET``
-    at the sun's elevation (log-linear between its rows, held beyond them). 1 below a
-    deck: Partly cloudy's scattered clouds keep their light."""
+    to the power of how closed the deck is (``deck_closure``: 0 at a cloud of 0.5, 1 at a
+    full cover), times ``ATMOSPHERE_DECK_SUNSET`` at the sun's elevation (log-linear between
+    its rows, held beyond them). 1 below a deck: Partly cloudy's scattered clouds keep
+    their light."""
     cloud = float(sky.cloud)
     if cloud < DECK_FROM_CLOUD:
         return 1.0
-    closed = min((cloud - DECK_FROM_CLOUD) / (1.0 - DECK_FROM_CLOUD), 1.0)
+    closed = deck_closure(cloud)
     elevations, factors = zip(*ATMOSPHERE_DECK_SUNSET, strict=True)
     sunset = float(np.exp(np.interp(float(sky.sun_elevation_deg), elevations, np.log(factors))))
     return float(ATMOSPHERE_DECK_LEVEL) ** closed * sunset
@@ -331,7 +352,7 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
         "sunDirection": sun,
         # the clouds themselves hide the disc (atmosphere.frag: cloudT): in the gaps of
         # a partial cover it stays whole, and it goes only as the deck closes
-        "sunAlpha": (1.0 - max(cloud - 0.5, 0.0) / 0.5) if day else 0.0,
+        "sunAlpha": (1.0 - deck_closure(cloud)) if day else 0.0,
         "sunDiscColor": _linear(sky.sun_disc, sky.sun_energy * ATMOSPHERE_DISC_ENERGY),
         "paintedTop": painted.top,
         "paintedHorizon": painted.horizon,
@@ -344,7 +365,7 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
         "hazeDeg": float(ATMOSPHERE_HAZE_DEG),
         "atmosphereGain": gain,
         "cloudLightGain": cloud_light_gain(sky, painted, gain) if cloud > 0.0 else 0.0,
-        "cloudHueShare": cloud,
+        "cloudHueShare": cloud_hue_share(cloud),
         "cloudsEnabled": cloud > 0.0,
         "cloudCoverage": cloud,
     }

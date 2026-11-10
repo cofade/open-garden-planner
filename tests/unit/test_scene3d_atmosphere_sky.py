@@ -53,8 +53,10 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     ATMOSPHERE_VECTOR_PROPERTIES,
     atmosphere_properties,
     atmosphere_sun_direction,
+    cloud_hue_share,
     cloud_light_gain,
     deck_anchor,
+    deck_closure,
     painted_sky,
 )
 
@@ -205,7 +207,8 @@ def test_the_weathers_cloud_is_the_volumetric_cloud_and_hides_the_disc(weather: 
     inputs = atmosphere_properties(sky)
     assert inputs["cloudsEnabled"] is True and inputs["cloudCoverage"] == sky.cloud > 0.0
     assert inputs["sunAlpha"] == pytest.approx(1.0 - (sky.cloud - 0.5) / 0.5), "gone as the deck closes"
-    assert inputs["cloudHueShare"] == sky.cloud, "a full cover takes the weather's own grey"
+    assert inputs["cloudHueShare"] == pytest.approx(cloud_hue_share(sky.cloud))
+    assert inputs["cloudHueShare"] >= sky.cloud, "a deck takes at least the cover's share of grey"
 
 
 # ── the CPU look-up tables and the gain (core/scene3d/atmosphere_lut.py) ─────
@@ -453,6 +456,30 @@ def test_a_deck_takes_its_anchor_and_scattered_clouds_do_not() -> None:
     assert between == pytest.approx(ATMOSPHERE_DECK_LEVEL * math.sqrt(shape[0.0] * shape[0.5]))
     assert deck_anchor(replace(overcast, sun_elevation_deg=-12.0)) == pytest.approx(
         ATMOSPHERE_DECK_LEVEL * shape[min(elevations)]), "held below the first row"
+
+
+def test_a_deck_keeps_its_own_colour_only_as_far_as_it_is_thin_and_open() -> None:
+    """Owner note on #719: under a sun below 1° the Snow deck read pink over the grey haze
+    band (deck C*ab 8-10 at hue 22-32°, the band 4-5; the painted Snow deck 3.6). The hue
+    share was the cover alone, so Snow's 0.85 kept 15 % of the deck's own colour - lit by
+    the example's sun through a ground airmass, nearly pure red at a low sun - and a
+    luminance-keeping blend gives a pure red a large red channel. The deck keeps its own
+    colour only where the cloud is thin AND the deck open: 1 - (1 - cover) x (1 - closed),
+    with closed as ``sunAlpha`` and ``deck_anchor`` measure it. Scattered clouds (Partly
+    cloudy, closed 0) keep the cover's share; a full cover is the weather's grey."""
+    at = SunState(0.5, 300.0)
+    for weather in ("clear", "partly_cloudy", "overcast", "rain", "snow"):
+        sky = living_look(at, "medium", weather).sky
+        closed = min(max((sky.cloud - 0.5) / 0.5, 0.0), 1.0)
+        share = atmosphere_properties(sky)["cloudHueShare"]
+        assert share == pytest.approx(1.0 - (1.0 - sky.cloud) * (1.0 - closed)), weather
+    snow = atmosphere_properties(living_look(at, "medium", "snow").sky)["cloudHueShare"]
+    assert snow == pytest.approx(0.955), "Snow keeps 4.5 % of its own colour, not 15 %"
+    partly = atmosphere_properties(living_look(at, "medium", "partly_cloudy").sky)
+    assert partly["cloudHueShare"] == pytest.approx(0.4), "scattered clouds keep their colour"
+    # one measure of "closed" for the disc, the anchor and the hue
+    assert [deck_closure(c) for c in (0.0, 0.4, 0.5, 0.85, 1.0)] == pytest.approx([0, 0, 0, 0.7, 1])
+    assert cloud_hue_share(0.0) == 0.0 and cloud_hue_share(1.0) == 1.0
 
 
 def test_a_full_cover_diffuses_the_sun_side_of_the_decks_ambient() -> None:

@@ -365,9 +365,10 @@ void MAIN()
         cloudScatter = raymarchClouds(ro, direction, sunDirWorld, sunRadianceLinear,
                                       skyZenithRGB, skyGroundRGB, skySunSideRGB, cloudT);
         // The deck takes the hue of the look's horizon - under a weather, the weather's
-        // own grey - in proportion to the cover (cloudHueShare), keeping its own light:
-        // the example lights its clouds with an analytic sun reddening alone, and a full
-        // overcast read beige to mustard (L7)
+        // own grey - keeping its own light, as far as cloudHueShare says (quick3d/look.py
+        // cloud_hue_share: its own colour stays only where the cloud is thin and the deck
+        // open): the example lights its clouds with an analytic sun reddening alone, and a
+        // full overcast read beige to mustard (L7), a Snow deck pink at a low sun (#719)
         const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
         float hueLuma = max(dot(paintedHorizon, LUMA), 1e-5);
         vec3 tinted = paintedHorizon * (dot(cloudScatter, LUMA) / hueLuma);
