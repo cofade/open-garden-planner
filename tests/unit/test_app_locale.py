@@ -377,8 +377,9 @@ def test_the_fields_own_behaviour_survives(qtbot, speak) -> None:
 
 def test_the_rule_lives_and_dies_with_its_field(qtbot, speak, qapp) -> None:
     """Qt owns the validator through the field's line edit; Python must hold its Python
-    half meanwhile (a validator Python let go refuses every text), and let go of it when
-    the field is destroyed."""
+    half meanwhile (a validator Python let go refuses every text), and let go of it once
+    the field is destroyed: at the next field that takes the focus, not on a ``destroyed``
+    signal (PF-E3D-07)."""
     import gc
 
     from PyQt6 import sip
@@ -389,8 +390,8 @@ def test_the_rule_lives_and_dies_with_its_field(qtbot, speak, qapp) -> None:
     spin = _focused_spin(qtbot)
     validator = spin.lineEdit().validator()
     assert type(validator).__name__ == "_EitherDecimalMark"
-    key = id(validator)
-    assert number_fields._alive[key] is validator
+    assert any(kept is validator for kept in number_fields._alive)
+    held = len(number_fields._alive)
     del validator
     gc.collect()                        # nothing but the registry holds it now
     spin.selectAll()
@@ -402,7 +403,9 @@ def test_the_rule_lives_and_dies_with_its_field(qtbot, speak, qapp) -> None:
     del spin.host
     sip.delete(host)                    # the window, the field, its line edit, the validator
     qapp.processEvents()
-    assert key not in number_fields._alive
+    _focused_spin(qtbot)                # the next field to take the focus prunes the list
+    assert all(not sip.isdeleted(kept) for kept in number_fields._alive)
+    assert len(number_fields._alive) <= held, "the destroyed field's validator is gone"
 
 
 def test_the_app_installs_the_number_field_rule_on_its_application(qapp) -> None:

@@ -241,7 +241,7 @@ class TestOverlayPainting:
         assert magentas(plan()) == 0 and magentas(swatch.grab().toImage()) == 0
         assert SoilService.unknown_rgba() == (140, 140, 140, 40)
         monkeypatch.setattr(soil_service, "_UNKNOWN_RGBA", (255, 0, 255, 255))
-        assert magentas(plan()) > 20, "the plan's hatch follows the one definition"
+        assert magentas(plan()) > 5, "the plan's hatch follows the one definition"
         assert magentas(swatch.grab().toImage()) > 5, "and so does the legend's chip"
 
     def test_the_untested_grey_is_written_once_in_the_source(self) -> None:

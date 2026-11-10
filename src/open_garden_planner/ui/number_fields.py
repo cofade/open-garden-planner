@@ -22,8 +22,6 @@ object.
 
 from __future__ import annotations
 
-import functools
-
 from PyQt6 import sip
 from PyQt6.QtCore import QObject
 from PyQt6.QtGui import QValidator
@@ -86,17 +84,13 @@ class DecimalMarks(QObject):
             accept_either_decimal_mark(new)
 
 
-#: The validators in use, by ``id``. Qt owns each one through its line edit, but
-#: the Python half lives only while Python holds it: ``spin.lineEdit()`` hands
-#: out a temporary wrapper, and when that goes the validator's Python object
-#: would go with it and leave Qt calling the base class, which refuses every
-#: text. An entry leaves when Qt destroys the validator with its field.
-_alive: dict[int, _EitherDecimalMark] = {}
-
-
-def _forget(key: int, *_destroyed: object) -> None:
-    """Drop a validator Qt has destroyed (``destroyed`` passes the object along)."""
-    _alive.pop(key, None)
+#: The validators in use. Qt owns each one through its line edit, but the Python
+#: half lives only while Python holds it: ``spin.lineEdit()`` hands out a
+#: temporary wrapper, and when that goes the validator's Python object would go
+#: with it and leave Qt calling the base class, which refuses every text. An
+#: entry leaves at the next focus change after Qt destroyed its validator: no
+#: clean-up hangs on a ``destroyed`` signal (PF-E3D-07).
+_alive: list[_EitherDecimalMark] = []
 
 
 def accept_either_decimal_mark(spin: QDoubleSpinBox) -> None:
@@ -105,9 +99,9 @@ def accept_either_decimal_mark(spin: QDoubleSpinBox) -> None:
     own = editor.validator() if editor is not None else None
     if editor is None or own is None or isinstance(own, _EitherDecimalMark):
         return
+    _alive[:] = [kept for kept in _alive if not sip.isdeleted(kept)]
     validator = _EitherDecimalMark(spin, own)
-    _alive[id(validator)] = validator
-    validator.destroyed.connect(functools.partial(_forget, id(validator)))
+    _alive.append(validator)
     editor.setValidator(validator)
 
 
