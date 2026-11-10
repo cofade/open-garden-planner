@@ -81,7 +81,10 @@ class WelcomeDialog(QDialog):
         tabs.addTab(recent_tab, self.tr("Recent Projects"))
         self._gallery = TemplateGallery()
         self._gallery.template_selected.connect(self._on_template_selected)
-        tabs.addTab(self._gallery, self.tr("Examples & templates"))
+        # A tab label reads "&" as a mnemonic marker and drops it ("Examples
+        # templates", #792); doubled, it is the character. Escaped HERE so the
+        # source string and its translations stay as they are.
+        tabs.addTab(self._gallery, self.tr("Examples & templates").replace("&", "&&"))
         tabs.currentChanged.connect(lambda index: self._banner_label.setVisible(index == 0))
         layout.addWidget(tabs, stretch=1)
 

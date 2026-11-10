@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsPathItem
 
@@ -116,7 +116,7 @@ class TrimExtendTool(BaseTool):
     """
 
     tool_type = ToolType.TRIM_EXTEND
-    display_name = "Trim/Extend"
+    display_name = QT_TR_NOOP("Trim/Extend")
     shortcut = "I"
     cursor = Qt.CursorShape.CrossCursor
 

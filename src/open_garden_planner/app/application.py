@@ -2489,7 +2489,7 @@ class GardenPlannerApp(QMainWindow):
         self.update_zoom(self.canvas_view.zoom_percent)
 
         # Initial tool display
-        self.update_tool("Select")
+        self.update_tool(self.tr("Select"))
 
         # Initial selection display
         self.update_selection(0, [])
@@ -4970,7 +4970,13 @@ class GardenPlannerApp(QMainWindow):
         apply_theme(QApplication.instance(), mode)
 
         # Show feedback
-        theme_name = mode.value.capitalize()
+        # The menu entry's own (translated) name, without its mnemonic marker —
+        # never the enum's value, which is English in every language (#792).
+        theme_name = {
+            ThemeMode.LIGHT: self._light_theme_action,
+            ThemeMode.DARK: self._dark_theme_action,
+            ThemeMode.SYSTEM: self._system_theme_action,
+        }[mode].text().replace("&", "")
         self.statusBar().showMessage(self.tr("Theme changed to {theme}").format(theme=theme_name), 2000)
 
     def _update_language_menu_state(self) -> None:

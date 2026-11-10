@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
 if TYPE_CHECKING:
@@ -141,6 +141,24 @@ class BaseTool(ABC):
     display_name: str
     shortcut: str
     cursor: Qt.CursorShape = Qt.CursorShape.ArrowCursor
+
+    def localized_name(self) -> str:
+        """The tool's name in the UI language — what the status bar shows (#792).
+
+        A tool's ``display_name`` is one of three things: a text the view set on
+        the INSTANCE, already translated ("House"); a property that translates
+        on every read (the constraint tools); or a CLASS attribute holding the
+        English source (``QT_TR_NOOP("Select")``, or a ``translate()`` call that
+        ran at import, before any translator was loaded). Only the last still
+        needs its catalog entry, and its context is the class that defines it.
+        """
+        name = self.display_name
+        if "display_name" in vars(self):
+            return name
+        for cls in type(self).__mro__:
+            if "display_name" in vars(cls):
+                return QCoreApplication.translate(cls.__name__, name)
+        return name
 
     #: If ``True``, CanvasView's Package A point-snap is skipped before
     #: dispatching mouse events to this tool.  Tools that run their own

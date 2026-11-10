@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QLineF, QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QLineF, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem
 
@@ -34,7 +34,7 @@ class ConstructionLineTool(BaseTool):
     """
 
     tool_type = ToolType.CONSTRUCTION_LINE
-    display_name = "Construction Line"
+    display_name = QT_TR_NOOP("Construction Line")
     shortcut = ""
     cursor = Qt.CursorShape.CrossCursor
 
@@ -129,7 +129,7 @@ class ConstructionCircleTool(BaseTool):
     """
 
     tool_type = ToolType.CONSTRUCTION_CIRCLE
-    display_name = "Construction Circle"
+    display_name = QT_TR_NOOP("Construction Circle")
     shortcut = ""
     cursor = Qt.CursorShape.CrossCursor
 
