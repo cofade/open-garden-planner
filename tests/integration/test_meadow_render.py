@@ -40,8 +40,12 @@ pytestmark = render_tier
 BOARD = REPO / "scripts" / "render_beauty_board.py"
 EXAMPLES = REPO / "src" / "open_garden_planner" / "resources" / "examples"
 PLANS = ("family-garden", "food-forest", "raised-bed", "balcony")
-TIMEOUT_S = 840
-SIZE = "640x360"
+TIMEOUT_S = 1500
+#: The flat share depends on the picture's size: at 640 x 360 a pixel covers four times the
+#: grass, its 9 x 9 window four times the ground, and the default framing read 0.31 / 0.24
+#: flat green (family garden / food forest; base about 0.8). The bounds below are the
+#: evidence's, at 1280 x 720 — this tier runs on a GPU (CI's render job does not run it).
+SIZE = "1280x720"
 
 # ── the bounds, each with what was measured (RTX 4070, High; the base 56ab8e0c and the
 # branch, 2026-11-10; at 1280 x 720 unless said) ─────────────────────────────────────
