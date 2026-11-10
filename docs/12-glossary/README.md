@@ -355,7 +355,14 @@ yearly plan copy and from task reminder reference dates (ADR-062).
 - **Grade:** a colour treatment of the whole picture, computed as a 16-level lookup table (LUT).
 - **Keyframe (of a tour):** a camera placement the path passes through.
 - **Drone orbit:** a tour around the plan at the view's distance and height, starting where the view is
-  (a saved one: where the view was when it was saved).
+  (a saved one: where the view was when it was saved). Since #807 its height is the **camera tilt**
+  (how steeply it looks down, 5-89 degrees, 18 for a new orbit), and an **eased** orbit starts and
+  stops at rest instead of looping.
+- **Constant quality (video):** an encoding that spends as many bits as each frame needs for one
+  quality, instead of a fixed bit rate; what the tour video uses (Standard or Best, #807).
+- **Colour tags (video):** what an MP4 says its colours are - primaries, transfer, matrix and range -
+  in the container's `colr` box and in the H.264 stream's SPS. Untagged, a player guesses; a tour's
+  file says BT.709 limited range (#807).
 - **Saved tour:** a camera tour kept in the plan under a name (#737): its camera, its clock range,
   its duration, frame rate and size, and nothing of the garden. The dialog's controls are the
   **draft**; saving, renaming and deleting a saved tour are one undo step each.

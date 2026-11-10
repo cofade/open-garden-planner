@@ -26,5 +26,16 @@ Grades (`core/scene3d/photo.py`), each on top of the mood's own saturation and c
 A tour starts its wind clock at 10 s, past the shaders' two-second ease-in, and a looped orbit ends
 one step before its start. While it records, each plant has the finest detail its flight asks for
 (`ForgeWorker.fly_path`). The owner has not judged any of these yet (open taste questions: the
-strength of the grades, whether Black and White needs a filter, and whether a tour should ease in on
-an orbit).
+strength of the grades, and whether Black and White needs a filter).
+
+The orbit and the video (#807, ADR-072 addendum "review-grade video"; measurements in reference 15):
+
+| Setting | Value | Note |
+|---|---|---|
+| Orbit tilt, new orbit | 18 degrees (range 5-89, the eye 20 cm or more above the ground) | sky 5.4 % of the picture at 40 degrees' field of view; the view's 31.6 shows none; at 12 the house hides the family garden from behind |
+| Orbit speed, new orbit | 30 s a turn (0.4 degrees a frame at 30 fps) | 12 s moved the horizon 26 px a frame at 1080p; a time-lapse keeps 12 s |
+| Orbit ease | on for a new orbit: a raised-cosine speed over the first and last 15 %, cruise 1.18 times the mean | an eased orbit ends at rest on its first view and is no loop; for a looping video turn it off |
+| Video quality | Standard (Media Foundation quality 90) or Best (100), constant quality | Best for anything published; a PNG sequence for an external master encode |
+
+Open taste questions on these (the owner's to confirm): the 18-degree tilt, the 30 s turn, easing
+on by default, and the 4.5 s ramp at each end of a 30 s orbit.

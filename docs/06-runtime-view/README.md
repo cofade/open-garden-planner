@@ -1083,6 +1083,13 @@ therefore restores nothing, so a date set while it runs survives it. During a cl
 tour, agent reads report the owner's held date (`as_of_date`) and agent-created plants are
 stamped with it, not with the frame being rendered (ADR-072 addendum, issue #730).
 
+When the last frame is out, the recorder emits `finishing` (Cancel is too late from here) and
+`Mp4Writer` stops Qt's recorder, waits for the part file to close, then hands it to a worker
+thread: `core/mp4_stream.tag_colour` writes a tagged copy (colour in the `colr` box and every SPS,
+the level the frames need), the copy replaces the user's file, the part goes. The GUI thread polls
+the worker and emits `finished` with its outcome; a part that cannot be tagged is renamed as it is
+(issue #807).
+
 A tour kept in the plan (issue #737) takes the plan's write path, not the capture's:
 
 ```mermaid

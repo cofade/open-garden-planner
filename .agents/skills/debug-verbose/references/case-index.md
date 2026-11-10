@@ -214,3 +214,4 @@
 | Case study: a group member that kept its focus for a split second - the minimap unselected the group (PR #783) | [Read](211-case-study-a-group-member-that-kept-its-focus-for-a-split-second-pr783.md) |
 | Case study: stair steps on a long fence shadow that were two bugs, neither the one named (#734) | [Read](215-case-study-stair-steps-on-a-long-fence-shadow-734.md) |
 | Case study: a blurred foreground bar with a light rim on one side (#743) | [Read](222-case-study-a-blurred-bar-with-a-light-rim-743.md) |
+| Case study: a video whose first second more bits could not fix - Qt's average bit rate is Media Foundation's CBR (#807) | [Read](226-case-study-a-video-whose-first-second-more-bits-could-not-fix-807.md) |

@@ -37,5 +37,6 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 21. Pictures beside a shown view (L6) — the capture view, grabToImage, LUT chain, Qt Multimedia | [Read](references/021-21-pictures-beside-a-shown-view-l6.md) |
 | 22. Post effects in the environment (#743, #744) — user effect order, the glow chain limit, shader paths, the photo blur, AO by picture size | [Read](references/022-22-post-effects-in-the-environment-photo-blur.md) |
 | 23. Cascaded shadows (#734) — the fit (locked sphere vs the casters' box), why only a still frame is fitted, `pcfFactor` in scene units, the pixel dither, lit teeth under a caster's foot | [Read](references/023-23-cascaded-shadows-and-the-still-frame-fit-734.md) |
+| 25. Recording a video (#807) — what Qt hands Windows' H.264 encoder (CBR or a quality, never a profile), the level, the stream's layout, colour tags Qt's decoder reads, a 4K tour's memory | [Read](references/025-25-recording-a-video-what-reaches-the-encoder-807.md) |
 
 The host state contract is owned by `ui/view3d/quick3d/lifecycle.py`.
