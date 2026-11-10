@@ -35,7 +35,7 @@ from tests.integration.quick3d_render_support import (
     failure_report,
     load_rgb,
     luma,
-    *render_tier,
+    render_tier,
     run_driver,
 )
 
