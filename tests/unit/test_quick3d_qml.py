@@ -606,7 +606,13 @@ def test_the_environments_constants_are_the_spikes() -> None:
     # it in view); the top-down camera keeps the spike's far plane
     (shadow_far,) = environment["shadowMapFar"]
     assert f"shadowMapFar: root.topDown ? {shadow_far:g} : root.shadowFar" in code
-    assert "aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)" in code
+    # #687: the weather scales the spike's strength and reach and adds a bias (the look's
+    # ``ao*`` properties, 1 / 1 / 0 when clear); the capture's scale stays on the reach
+    assert ("aoStrength: 55 * root.aoStrengthGain * (!root.topDown && root.ambientOcclusion "
+            "? root.aoFade : 0)") in code
+    assert "aoDistance: 14 * root.aoDistanceGain * root.captureAoDistanceScale" in code
+    assert "aoBias: root.aoBias * root.captureAoDistanceScale" in code, (
+        "the weather's bias reaches the pass, a share of the reach at every picture size")
     assert "aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0" in code
     assert "(9000 - camPos.minus(camTarget).length()) / 4500" in code
     from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
@@ -726,3 +732,4 @@ def test_the_photo_blur_finds_its_shaders_beside_itself() -> None:
     shaders = re.findall(r"shader:\s*(.+)", blur)
     assert len(shaders) == 3
     assert all(re.fullmatch(r'Qt\.resolvedUrl\("photoblur_\w+\.frag"\)', value.strip()) for value in shaders)
+

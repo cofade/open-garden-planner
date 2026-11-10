@@ -779,3 +779,72 @@ def test_an_edge_that_stays_put_while_the_camera_moves_does_not_swim_and_one_tha
         assert b["swim_cm"] == pytest.approx(4.0, abs=1.0), b
         assert b["swim_px"] > 2.0 * a["swim_px"], (a, b)
     assert P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH)]) == []
+
+
+# ── ambient occlusion under a weather (#687) ─────────────────────────────────
+
+
+def _rim_frames(*, rim: float, far: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """An empty meadow, the same with a dark block standing on it (no occlusion), and the
+    block's frame WITH an occlusion that darkens open ground by ``far`` — but only by
+    ``far - rim`` in the six rows straight above the block (where a real pass loses its
+    self-occlusion beside a nearer object)."""
+    empty = np.full((120, 200, 3), 150.0)
+    without = empty.copy()
+    without[70:100, 60:140] = 40.0                      # the object
+    with_ao = without.copy()
+    ground = np.ones((120, 200), dtype=bool)
+    ground[70:100, 60:140] = False
+    with_ao[ground] -= far
+    with_ao[64:70, 60:140] = without[64:70, 60:140] - (far - rim)
+    return with_ao, without, empty, ground
+
+
+def test_a_light_band_above_a_silhouette_is_a_rim_and_even_darkening_is_not() -> None:
+    """The snow survey's rim (#687): open ground greyed by self-occlusion everywhere but
+    beside a nearer object. The rim is the far ground's darkening minus the least
+    darkening in the rows above a silhouette; ground the pass does not touch has none."""
+    with_ao, without, empty, ground = _rim_frames(rim=9.0, far=12.0)
+    found = P.occlusion_rim(with_ao, without, empty, ground, horizon_row=-50.0)
+    assert found["far_darkening"] == pytest.approx(12.0, abs=0.01)
+    assert found["rim"] == pytest.approx(9.0, abs=0.01)
+    assert found["profile"][0] == pytest.approx(3.0, abs=0.01)
+    clean = P.occlusion_rim(*_rim_frames(rim=0.0, far=2.0), horizon_row=-50.0)
+    assert clean["far_darkening"] == pytest.approx(2.0, abs=0.01) and clean["rim"] == pytest.approx(0.0, abs=0.01)
+    # a horizon INSIDE the frame takes its sky rows out (a negative row is above the frame:
+    # slicing with it took 85 % of a board frame for sky, #687's first metric)
+    above = P.occlusion_rim(with_ao, without, empty, ground, horizon_row=90.0)
+    assert above["far_darkening"] is None or above["far_px"] < found["far_px"]
+
+
+def test_the_open_ground_is_read_away_from_every_object() -> None:
+    with_ao, without, empty, ground = _rim_frames(rim=9.0, far=12.0)
+    found = P.open_ground_luma(with_ao, without, empty, ground)
+    assert found["luma_without_ao"] == pytest.approx(150.0) and found["darkening"] == pytest.approx(12.0)
+    assert not found["mask"][60:110, 44:156].any(), "16 px from the object, the band above it included"
+
+
+def test_a_box_whose_foot_is_darker_has_contact_on_the_sides_the_camera_sees() -> None:
+    """Painted with the camera's own arithmetic: the ground 0-26 cm out from the box is a
+    third darker than the open ground beyond — every seen side reads 1 - 100/150."""
+    east, north, hit = _ground(CAMERA)
+    frame = np.empty(east.shape + (3,))
+    frame[:] = (150.0, 190.0, 230.0)
+    frame[hit] = 150.0
+    outside = np.maximum(np.abs(east), np.abs(north)) - 50.0
+    frame[hit & (outside <= 26.0)] = 100.0    # the footprint too: no box is drawn
+    found = P.caster_contact(frame, CAMERA, (0.0, 0.0), 50.0)
+    seen = {side: row["contact"] for side, row in found.items() if row["contact"] is not None}
+    assert {"S", "E"} <= set(seen), found        # the camera stands south-east of the box
+    for side, contact in seen.items():
+        assert contact == pytest.approx(1.0 - 100.0 / 150.0, abs=0.02), (side, found)
+    frame[hit] = 150.0
+    assert all(row["contact"] in (None, 0.0) for row in P.caster_contact(frame, CAMERA, (0.0, 0.0), 50.0).values())
+
+
+def test_the_ground_polygon_mask_is_where_the_ground_inside_shows() -> None:
+    east, north, hit = _ground(CAMERA)
+    polygon = [(0.0, 0.0), (500.0, 0.0), (500.0, 400.0), (0.0, 400.0)]
+    mask = P.ground_polygon_mask(CAMERA, polygon)
+    truth = hit & (east > 0.0) & (east < 500.0) & (north > 0.0) & (north < 400.0)
+    assert (mask != truth).sum() <= 0.01 * truth.sum() + 2 * (SIZE[0] + SIZE[1]), "a pixel of edge at most"

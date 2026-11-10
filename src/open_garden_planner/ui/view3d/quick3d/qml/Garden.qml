@@ -96,6 +96,11 @@ Item {
     property real butterflyLife: 0.0
     property real fireflyLife: 0.0
     property real lampGlow: 0.0             // the garden lights: off by day, on at night
+    // the ambient occlusion under the weather (#687): factors on the spike's strength and
+    // reach, and the bias (cm) that keeps open flat ground from occluding itself
+    property real aoStrengthGain: 1.0
+    property real aoDistanceGain: 1.0
+    property real aoBias: 0.0
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -1006,8 +1011,14 @@ Item {
             // 0 wherever AO is off: Qt's setAoStrength turns AO on whenever the strength
             // is not 0, whatever aoEnabled says (3D review of L4's second owner pass: Low
             // drew SSAO once the fade had changed it)
-            aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
-            aoDistance: 14 * root.captureAoDistanceScale
+            aoStrength: 55 * root.aoStrengthGain * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
+            // the weather's reach and bias (#687): under cloud the sky is the light and what
+            // hides it grounds an object; the bias keeps flat ground seen at a slant from
+            // occluding itself (Qt's normal faces the camera: open snow greyed, a light rim
+            // round every object). A capture's scale shrinks both: the bias is a share of
+            // the reach, and the rim comes back below 0.3 of it
+            aoDistance: 14 * root.aoDistanceGain * root.captureAoDistanceScale
+            aoBias: root.aoBias * root.captureAoDistanceScale
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
             glowEnabled: !root.topDown && root.glow

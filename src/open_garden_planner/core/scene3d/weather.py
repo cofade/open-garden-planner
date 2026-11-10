@@ -64,6 +64,7 @@ from .look import (
 from .sink import SunState
 
 __all__ = [
+    "AO_BIAS_UNDER_CLOUD_CM", "AO_DISTANCE_UNDER_CLOUD", "AO_STRENGTH_UNDER_CLOUD",
     "DEW_FULL_DEG", "DEW_GONE_DEG", "MOODS", "TODAY", "WEATHERS", "WEATHER_CHOICES",
     "WEATHER_SPECS", "WeatherSpec", "apply_weather", "dew_amount", "is_evening", "is_morning",
     "living_look", "mood_of", "noon_azimuth", "normalise_weather", "todays_weather",
@@ -293,6 +294,26 @@ _FOG_UNDER_CLOUD_NIGHT: Final = 0.23
 #: Fireflies fade out over this many degrees of azimuth before solar midnight (the sun
 #: crossing the meridian below the horizon), instead of all going out at once.
 _FIREFLY_FADE_DEG: Final = 25.0
+#: The ambient occlusion under a full cloud (#687), as factors on the spike's strength 55
+#: and reach 14, and Qt's bias in cm; a weather takes its LIGHT share of each (partly
+#: cloudy 0.15, snow 0.85). Under cloud the sky IS the light, and the sky an object hides
+#: is what grounds it. But Qt's pass reads its normal off a depth normalised over the
+#: camera's whole range: flat ground seen at a slant occludes ITSELF, and only beside a
+#: nearer object does it not. At the clear values every open surface under cloud was
+#: greyed (snow 17 levels under Low, the overcast lawn 15.6 under its own frame without
+#: occlusion) and a light rim 9.5-10 levels bright ran above every silhouette against
+#: the meadow behind it (the survey's rim round the beds) - and that greyed ground was
+#: most of what "contact" there was. Strength and reach alone (the issue's 99 / 35) made
+#: both worse. The bias moves the samples towards the camera and ends the self-occlusion;
+#: at a bias of 0.3 of the reach it is gone on the far meadow too, and the rim with it
+#: (0.25: a 3.1-level rim on snow; 0.16: 6-8). Measured (high, 1280 x 720, family garden):
+#: rim 1.9 / 2.1 (overcast / snow, was 9.5 / 10.1), snow's lawn 2.9 under Low (was 17),
+#: the overcast box's lit-side contact 0.040 (was 0.031, clear 0.022) - a geometric sky
+#: occlusion would be 0.10-0.17: more needs a bias the rim forbids (``ogp-lush-cinematic``
+#: reference 14).
+AO_STRENGTH_UNDER_CLOUD: Final = 99.0 / 55.0
+AO_DISTANCE_UNDER_CLOUD: Final = 70.0 / 14.0
+AO_BIAS_UNDER_CLOUD_CM: Final = 21.0
 
 
 def _luminance(linear: np.ndarray) -> float:
@@ -422,7 +443,11 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         fireflies=(_ramp(twilight, 0.15, 0.6) * _midnight_fade(sun, southern, _FIREFLY_FADE_DEG)
                    if (dry and is_evening(sun)) else 0.0),
         # the lights come on with dusk and stay on through the night
-        lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0)
+        lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0,
+        # the sky's share of the light decides how much what hides it darkens (#687)
+        ao_strength_gain=1.0 + (AO_STRENGTH_UNDER_CLOUD - 1.0) * light,
+        ao_distance_gain=1.0 + (AO_DISTANCE_UNDER_CLOUD - 1.0) * light,
+        ao_bias_cm=AO_BIAS_UNDER_CLOUD_CM * light)
     weathered = replace(look, mood=mood, sky=sky, shadow=shadow, fog_linear=fog,
                         fill_linear=fill, plain_sky_linear=fog, meadow_albedo=meadow,
                         wind_strength=spec.wind_strength, atmosphere=atmosphere)
