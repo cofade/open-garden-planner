@@ -315,15 +315,30 @@ class ProjectManager(QObject):
 
     @property
     def project_name(self) -> str:
-        """Display name for the project.
+        """Display name for the project, in the UI language.
 
         A plan that was never saved has no name of its own; the word it gets is
         the UI language's (#836). It is on a report's cover, a printout's
-        footer, the window title and in the default file name.
+        footer, the window title and in the file name a save dialog SUGGESTS to
+        the user. The Agent API does not build file names from it:
+        :attr:`file_stem`.
         """
         if self._current_file:
             return self._current_file.stem
         return self.tr("Untitled")
+
+    @property
+    def file_stem(self) -> str:
+        """The stem the Agent API builds a default export file name from.
+
+        The file's stem, like :attr:`project_name`; for a plan that was never
+        saved the untranslated ``Untitled``. A file an agent asks for without a
+        path must have one name in every UI language: "Unbenannt.pdf" under a
+        German UI is a file the agent's next call cannot predict.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return "Untitled"
 
     @property
     def display_name(self) -> str:
@@ -331,7 +346,8 @@ class ProjectManager(QObject):
 
         The file's stem once the plan has a file. A plan opened from an example
         or a template has none yet and carries that template's title (#788) —
-        ``project_name`` stays the name default file names are built from.
+        ``project_name`` stays the name a save dialog suggests and ``file_stem``
+        the one the Agent API's default file names are built from.
         """
         if self._current_file:
             return self._current_file.stem

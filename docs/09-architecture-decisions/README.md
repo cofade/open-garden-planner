@@ -11732,7 +11732,12 @@ FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
     alone ("points / 28") — true and of no use to a person drawing a plan.
 14. **The default plan name is a word of the UI language.**
     `ProjectManager.project_name` returns `tr("Untitled")`. It is on the report's
-    cover, the print footer, the window title and in the default file name.
+    cover, the print footer, the window title and in the file name a save dialog
+    suggests. **The Agent API's default export file names are not** (review round 1):
+    `export_pdf`, `export_dxf` and `export_csv` without a path build the name from
+    `ProjectManager.file_stem`, which is the file's stem or the untranslated
+    `Untitled`. With one property for both, a German UI named an agent's report
+    `Unbenannt.pdf`: a file name a client cannot predict from the tool's contract.
 
 Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
 FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.

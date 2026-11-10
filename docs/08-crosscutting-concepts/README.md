@@ -3551,7 +3551,9 @@ shared path-resolution helper: with no `file_path`, it uses the same
 project, or `<Documents>/Open Garden Planner`); with an explicit `file_path`,
 it force-applies the correct suffix and requires the parent directory already
 exist (a typo'd path fails clearly rather than silently creating a directory
-tree). `save_plan` with no `file_path` and no project open raises rather than
+tree). The default name is built from `ProjectManager.file_stem` (the file's stem,
+or `Untitled` in every UI language), never from the translated `project_name` a
+save dialog suggests. `save_plan` with no `file_path` and no project open raises rather than
 inventing an `Untitled.ogp` — mirrors the GUI, where a brand-new project always
 needs an explicit Save-As first; given a path, it becomes the project's file
 going forward (Save As semantics), and `ExportResult.previous_file_path` reports
