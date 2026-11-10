@@ -70,7 +70,8 @@ __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PRO
 COLOR_PROPERTIES: Final = frozenset({"sunColor", "meadowColor"})
 #: … and the ones the look derives in LINEAR light: handed over as the sRGB-space
 #: triple the engine's own linearisation turns back into that value (``engine_srgb``).
-LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor", "groundTint"})
+LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor", "groundTint",
+                                           "twilightFill"})
 #: … and the ones that are ``vector3d`` (handed over as ``QVector3D``): the wind's drift
 #: (engine frame) and the light an unlit particle is drawn in (linear rgb) — L5.
 VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight"})
@@ -137,6 +138,8 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         # where no sky texture lights the view
         "skyColor": engine_srgb(look.plain_sky_linear),
         "fillColor": engine_srgb(look.fill_linear),
+        # where a sky lights it: the twilight fill (#802), an ambient on the garden only
+        "twilightFill": engine_srgb(look.twilight_fill_linear),
         "meadowColor": look.meadow_albedo,
         # shadows
         "shadowMapQuality": shadow.map_quality,

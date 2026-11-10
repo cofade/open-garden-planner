@@ -32,7 +32,8 @@ What it owns:
   texture, so it follows the sun only when the sun moved noticeably
   (``look.sky_is_stale``), and — while the
   sun is being dragged — only once it rests (``SKY_SETTLE_MS``); a change of phase
-  (sunset, the end of twilight, and back: ``look.sky_phase``) is built at once.
+  (sunset, the end of twilight, and back: ``look.sky_phase``) is built at once. A
+  RECORDED frame (a tour, ``settle_sky``) gets the sky of its own sun exactly (#799).
   The light, the exposure and the fog follow every instant. The fog is derived
   from the sky that is ON SCREEN, so it meets the horizon also while the sky lags.
   A sky the engine cannot build is logged ONCE, the session goes on with the
@@ -92,6 +93,8 @@ from open_garden_planner.core.scene3d.look import (
     AUTO,
     AUTO_LEVELS,
     PAINTED,
+    RECORDING_SKY_REBUILD_DEG,
+    SKY_REBUILD_DEG,
     AutoPolicy,
     AutoPreset,
     LookSpec,
@@ -493,9 +496,13 @@ class LookController(QObject):
 
     def settle_sky(self) -> None:
         """Build the sky the sun asks for NOW, not when the sun rests: a tour's frame shows
-        its own moment. Nothing happens when the sky on show is still good enough."""
+        its own moment — EXACTLY (``look.RECORDING_SKY_REBUILD_DEG``, #799). Under the live
+        view's 1° rule a day lapse, whose sun moves 0.5-0.7° a frame, rebuilt the sky and
+        its light probe every second frame while the light followed every frame: the sky
+        band zigzagged by 10-16 luma at dawn. Nothing happens when the sky on show is the
+        one asked for (a flight with a held clock), nor at night."""
         self._sky_timer.stop()
-        self._settle_sky()
+        self._settle_sky(RECORDING_SKY_REBUILD_DEG)
 
     def set_sky_model(self, model: str) -> None:
         """Draw the sky with ``model`` (``look.SKY_MODELS``, L7): at once, like a new
@@ -657,13 +664,14 @@ class LookController(QObject):
         self._noise_ready = True
         self._apply()   # the atmosphere replaces the painted sky now (at once: a new model)
 
-    def _settle_sky(self) -> None:
-        """The sun rested: build the sky it asks for now (if it is still stale)."""
+    def _settle_sky(self, threshold_deg: float = SKY_REBUILD_DEG) -> None:
+        """The sun rested: build the sky it asks for now (if it is still stale by
+        ``threshold_deg``: the live 1°, or exact for a recorded frame)."""
         sun = self._sun
         if sun is None or self._closed or not self._showing or not self._sky_light:
             return
         wanted = self._living_look(sun).sky
-        if not sky_is_stale(self._sky_shown, wanted):
+        if not sky_is_stale(self._sky_shown, wanted, threshold_deg):
             return
         self._build_sky(wanted)
         self._apply()   # the fog meets the new horizon (or the plain sky, if it failed)

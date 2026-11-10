@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Final
 
@@ -63,14 +63,18 @@ __all__ = [
     "GOLDEN_DEG", "AtmosphereSpec",
     "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
-    "PAINTED", "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_MODELS", "SKY_REBUILD_DEG",
+    "AMBIENT_GROUND_GAIN", "PROBE_GROUND_GAIN", "TWILIGHT_FILL_DAY_SHARE", "TWILIGHT_FILL_TARGET",
+    "TWILIGHT_FILL_TOP_DEG",
+    "PAINTED", "QUALITY_CHOICES", "RECORDING_SKY_REBUILD_DEG", "SKY_MIN_ELEVATION_DEG",
+    "SKY_MODELS", "SKY_REBUILD_DEG",
     "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec",
-    "ao_distance_scale", "day_rig",
+    "anchor_lights", "ao_distance_scale", "day_rig", "ground_light", "night_ground_light",
     "fill_linear", "fog_color", "fog_depth_cm", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
     "mix_rig", "moon_travel_scene", "normalise_quality", "normalise_sky_model", "scale_linear",
     "sky_is_stale",
-    "sky_must_build_now", "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
+    "sky_must_build_now", "sky_phase", "sky_separation_deg", "twilight_fill", "twilight_fill_share", "twilight_fraction",
+    "twilight_rig",
 ]
 
 # ── the rig ──────────────────────────────────────────────────────────────────
@@ -651,6 +655,12 @@ class LookSpec:
     #: ``look_for`` leaves it clear and still. A LOOK, never a truth: nothing in it
     #: moves the sun or a shadow.
     atmosphere: AtmosphereSpec = CLEAR_STILL
+    #: #802: the twilight fill, linear rgb — a flat ambient light that lights the garden
+    #: (never the sky) where a sky texture lights the view, so that open ground never
+    #: falls below the night it ends in (``twilight_fill``). Black from
+    #: ``TWILIGHT_FILL_TOP_DEG`` up and at night: the sunset anchor and the night rig are
+    #: untouched. No light of its own, no shadow, no direction.
+    twilight_fill_linear: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     @property
     def night(self) -> bool:
@@ -684,6 +694,126 @@ _NIGHT_GROUND_BOTTOM: Final = "#0a0f14"
 #: The night sky is drawn at a quarter of its energy (spike); twilight ramps 1 -> this.
 NIGHT_SKY_ENERGY: Final = 0.25
 
+# ── the twilight fill (#802) ─────────────────────────────────────────────────
+
+#: The twilight fill's model of the light on the garden (``ground_light``): light is read
+#: as the meadow reflects it (``MEADOW_ALBEDO`` x Rec.709 per channel, so a blue fill on
+#: green ground counts for what it lights), the key at its height, the probe as a flat
+#: light of ``PROBE_GROUND_GAIN`` x (probe exposure x the sky's energy x its TOP colour),
+#: an ambient as ``AMBIENT_GROUND_GAIN`` x itself. The painted sky is its top colour
+#: everywhere but a thin band at the horizon (its curve is 0.09), so its zenith is what the
+#: probe's irradiance reads upward; an ambient reaches every face — shadowed, vertical,
+#: under the crowns — which the probe and the moon light only where they face them.
+#: Fitted on the family garden's default framing at dusk (Berlin, 21 June, high, painted):
+#: 44 frames from 6° to −6°, half of them with a twilight fill, follow mean ground
+#: luminance = 0.246 x light^1.074 within 1.85 % (rms of the log).
+PROBE_GROUND_GAIN: Final = 1.15
+AMBIENT_GROUND_GAIN: Final = 1.2
+#: What the twilight fill holds the garden to (``twilight_fill``), in units of the
+#: weather's night light. IN TWILIGHT a line through these (sun elevation, share) corners:
+#: the night's own at the end of civil twilight, 1.07 at sunset, steeper at first (from
+#: -6° to -3°) so the morning dew's nearer, dark fog cannot tip a dawn into a dip. BY DAY
+#: (from sunset up) the ground keeps ``TWILIGHT_FILL_DAY_SHARE`` of its own fall: the
+#: target is the sunset share plus that share of how far the look's own light lies above
+#: the weather's sunset light.
+TWILIGHT_FILL_TARGET: Final = ((TWILIGHT_DEG, 1.0), (-3.0, 1.05), (NIGHT_BELOW_DEG, 1.07))
+#: Two cameras set it (family garden, 21 June; the measured frame responses, three
+#: sweeps). On the default framing the ground at 4° is only 9 % above the night, so the
+#: target ends at the night; on the board's golden-hour camera the fill lifts the ground
+#: 1.12x as much while its fogged rows fall only 0.8x as fast, so a fill that made up the
+#: whole fall (a flat target near the night) brightened that garden 14 % from 4° to 1°,
+#: and one that made up 65 % still held it level. Keeping 40 % the clear fill begins where
+#: the rig's own light is 1.40 of the night's — about 5.65°, under the sunset anchor
+#: (5.89°: 1.44), which keeps its own light. Measured (family garden, bench_small and the
+#: food forest; June, December and 60° N; both skies; clear, partly cloudy, overcast;
+#: default framing and golden-hour camera, dusk and dawn): no 0.5° step of the garden's
+#: light rises beyond the board's noise rule (0.2 %), though some views fall by only
+#: 0.02 % a step. The small examples whose default framing is mostly open meadow
+#: (balcony, raised bed) are lifted less than modelled and still rise by up to 1.2 % a
+#: step in twilight (before: up to 140 % in all; PF-L3D-29).
+TWILIGHT_FILL_DAY_SHARE: Final = 0.4
+#: No fill from the golden anchor up, whatever the weather: the sunset shot is the rig's.
+TWILIGHT_FILL_TOP_DEG: Final = GOLDEN_DEG
+_REC709_LUMINANCE: Final = np.array((0.2126, 0.7152, 0.0722))
+
+
+def _reflected(linear: object) -> float:
+    """Linear rgb light as the meadow reflects it: Rec.709 luminance of albedo x light."""
+    return float(np.asarray(linear, dtype=np.float64) * _linear(MEADOW_ALBEDO) @ _REC709_LUMINANCE)
+
+
+def ground_light(look: LookSpec, *, with_fill: bool = True) -> float:
+    """The exposed light on open ground under ``look``, as the meadow reflects it — a
+    MODEL of the engine's diffuse light on the garden, calibrated on its frames
+    (``PROBE_GROUND_GAIN``), that decides the twilight fill and nothing else (#802).
+
+    The key light at its height on flat ground (the sun at its elevation; once it is
+    down, the night rig's moon at ``MOON_ELEVATION_DEG``), the sky's light through the
+    probe and, with ``with_fill``, the look's own twilight fill (``AMBIENT_GROUND_GAIN``);
+    all times the exposure."""
+    mood, sky = look.mood, look.sky
+    height = sky.sun_elevation_deg if look.moon_travel_scene is None else MOON_ELEVATION_DEG
+    key = (_reflected(_linear(mood.sun_color)) * mood.sun_brightness
+           * max(0.0, math.sin(math.radians(height))))
+    probe = PROBE_GROUND_GAIN * mood.probe_exposure * sky.sky_energy * _reflected(_linear(sky.top))
+    fill = AMBIENT_GROUND_GAIN * _reflected(look.twilight_fill_linear) if with_fill else 0.0
+    return mood.exposure * (key + probe + fill)
+
+
+def twilight_fill_share(elevation_deg: float) -> float:
+    """The twilight line (``TWILIGHT_FILL_TARGET``) at a sun elevation, as a share of the
+    night's light: 1 at and below ``TWILIGHT_DEG``, linear between the corners, the sunset
+    share at and above ``NIGHT_BELOW_DEG``."""
+    corners = TWILIGHT_FILL_TARGET
+    if elevation_deg <= corners[0][0]:
+        return corners[0][1]
+    for (low_at, low), (high_at, high) in zip(corners, corners[1:], strict=False):
+        if elevation_deg <= high_at:
+            return low + (high - low) * (elevation_deg - low_at) / (high_at - low_at)
+    return corners[-1][1]
+
+
+def twilight_fill(look: LookSpec, night_light: float,
+                  sunset_light: float) -> tuple[float, float, float]:
+    """The twilight fill of ``look`` (linear rgb), from its weather's anchors:
+    ``night_light`` and ``sunset_light`` are ``ground_light`` of that weather's night look
+    and of its look at ``NIGHT_BELOW_DEG`` (no fill). It lifts the garden to the target
+    wherever the look's own light falls short — in twilight ``twilight_fill_share`` of the
+    night's light; by day the sunset share plus ``TWILIGHT_FILL_DAY_SHARE`` of the look's
+    own light above the sunset light — and is black where it does not, at night, and from
+    ``TWILIGHT_FILL_TOP_DEG`` up. In the sky's colour (its top: what the probe gives the
+    ground).
+
+    Why (#802): the night rig is "day for night" — a 0.32 moon 38° high on flat ground at
+    exposure 2.4 — while a 0.5° sun lights the ground from the sky alone (probe 0.42,
+    exposure 1.25). The ground at the end of the day was about 0.95 EV under the night it
+    ends in, and twilight sank further before the moon rose to it: the garden brightened
+    as night fell (family garden, default framing: ground 0.0196 at 0.5°, 0.0188 at −1°,
+    0.0379 at night). Neither anchor moves (the owner's decision: the sunset shot and the
+    night stay); the gap between them is filled on the ground, not in the sky."""
+    elevation = look.sky.sun_elevation_deg
+    if elevation >= TWILIGHT_FILL_TOP_DEG:
+        return (0.0, 0.0, 0.0)
+    natural = ground_light(look, with_fill=False)
+    sunset = TWILIGHT_FILL_TARGET[-1][1] * night_light
+    if elevation >= NIGHT_BELOW_DEG:
+        target = sunset + TWILIGHT_FILL_DAY_SHARE * (natural - sunset_light)
+    else:
+        target = twilight_fill_share(elevation) * night_light
+    short = (target - natural) / look.mood.exposure
+    top = _linear(look.sky.top)
+    per_unit = AMBIENT_GROUND_GAIN * _reflected(top)
+    if short <= 0.0 or per_unit <= 0.0:
+        return (0.0, 0.0, 0.0)
+    rgb = top * (short / per_unit)
+    return (float(rgb[0]), float(rgb[1]), float(rgb[2]))
+
+
+#: Where the anchors' looks are asked for: any sun at or below ``TWILIGHT_DEG`` is night;
+#: sunset is ``NIGHT_BELOW_DEG``, the last elevation with the sun's key light.
+_NIGHT_SUN: Final = SunState(elevation_deg=-30.0, azimuth_deg=0.0)
+_SUNSET_SUN: Final = SunState(elevation_deg=NIGHT_BELOW_DEG, azimuth_deg=0.0)
+
 
 def look_for(sun: SunState, preset: str = "high") -> LookSpec:
     """The look of a frame under ``sun`` at ``preset`` (one of ``PRESETS``).
@@ -694,7 +824,34 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
     ``SunState`` the pipeline sends, never from a look. TWILIGHT down to
     ``TWILIGHT_DEG``: the low-sun rig fades into the night rig (``twilight_rig``),
     the sky draws no sun, the key is the moon fading in. NIGHT below: the night rig.
+    Where the garden would fall below the night's light, the twilight fill lifts the
+    ground (``twilight_fill``, #802).
     """
+    look = _rig_look(sun, preset)
+    return replace(look, twilight_fill_linear=twilight_fill(look, *anchor_lights()))
+
+
+_ANCHOR_LIGHTS: list[tuple[float, float]] = []
+
+
+def anchor_lights() -> tuple[float, float]:
+    """``ground_light`` of the clear night look and of the clear look at sunset
+    (``NIGHT_BELOW_DEG``), no fill: the clear twilight fill's anchors (``twilight_fill``).
+    Computed once."""
+    if not _ANCHOR_LIGHTS:
+        _ANCHOR_LIGHTS.append((
+            ground_light(_rig_look(_NIGHT_SUN, "high"), with_fill=False),
+            ground_light(_rig_look(_SUNSET_SUN, "high"), with_fill=False)))
+    return _ANCHOR_LIGHTS[0]
+
+
+def night_ground_light() -> float:
+    """``ground_light`` of the clear night look (``anchor_lights``)."""
+    return anchor_lights()[0]
+
+
+def _rig_look(sun: SunState, preset: str = "high") -> LookSpec:
+    """``look_for`` without its twilight fill: the rig's own look (``look_for``)."""
     if preset not in PRESET_SPECS:
         raise ValueError(f"unknown preset {preset!r}; choose from {list(PRESETS)}")
     cost = PRESET_SPECS[preset]
@@ -748,6 +905,14 @@ NEUTRAL_DAY: Final = look_for(SunState(elevation_deg=60.0, azimuth_deg=180.0), "
 #: instant; only the picture of the sky — and the light probe filtered from it —
 #: lags, by at most this.
 SKY_REBUILD_DEG: Final = 1.0
+#: The RECORDING path's threshold (a tour's frame, ``LookController.settle_sky``): 0 is
+#: EXACT — the sky is rebuilt whenever it differs from the one the frame's sun asks for
+#: (#799). A day lapse moves the sun 0.5-0.7° a frame, so under the live 1° rule the
+#: sky and its probe followed every second frame while the light and the exposure
+#: followed every frame: at dawn the sky band jumped 10-16 luma on alternate frames
+#: (zigzag RMS 3.86 luma). A lag under about 0.03° would be needed for 0.3, so a finer
+#: threshold is no cheaper than exact. Each build costs 0.1-0.25 s of a recorded frame.
+RECORDING_SKY_REBUILD_DEG: Final = 0.0
 
 
 def sky_separation_deg(first: SkySpec, second: SkySpec) -> float:
@@ -784,14 +949,18 @@ def sky_is_stale(shown: SkySpec | None, wanted: SkySpec,
     sunset at 0.5°, the end of civil twilight at −6°, and back, a new weather — the
     caller builds those at once); by day and in twilight, the sun moved
     ``threshold_deg`` or more (in twilight the sky draws no sun, but its colours
-    follow the elevation: one rebuild per degree). A night sky is never rebuilt for
-    the sun's position.
+    follow the elevation: one rebuild per degree). A ``threshold_deg`` of 0 or less is
+    EXACT (``RECORDING_SKY_REBUILD_DEG``, #799): any difference from ``wanted``
+    rebuilds, the same sky never does. A night sky is never rebuilt for the sun's
+    position.
     """
     if sky_must_build_now(shown, wanted):
         return True
     assert shown is not None
     if wanted.night:
         return False
+    if threshold_deg <= 0.0:
+        return shown != wanted
     return sky_separation_deg(shown, wanted) >= threshold_deg
 
 
