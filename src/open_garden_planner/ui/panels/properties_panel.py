@@ -61,7 +61,7 @@ from open_garden_planner.ui.canvas.items import (
 )
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
 from open_garden_planner.ui.panels.property_edits import PropertyEdits
-from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
 
 # Clean, translatable description fragments for TextItem font properties.
 # The raw attribute names (font_family, font_size) make ugly undo labels
@@ -1164,6 +1164,10 @@ class PropertiesPanel(QWidget):
             btn.setToolTip(label)
             btn.setAccessibleName(label)
             btn.setObjectName(object_name)
+            # Four dialog-width buttons (4 x 110 px) are wider than the panel,
+            # and the form has no horizontal scroll bar: the row and every
+            # field above it were cut at the right edge (#796).
+            set_compact(btn)
             btn.clicked.connect(_make_handler(mode))
             row.addWidget(btn)
 

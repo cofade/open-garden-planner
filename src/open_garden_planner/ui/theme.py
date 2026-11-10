@@ -12,7 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PyQt6 import sip
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPalette, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
@@ -415,6 +415,23 @@ def set_text_role(
     if style is not None:
         style.unpolish(widget)
         style.polish(widget)
+
+
+#: Padding of a list row (``QListWidget::item``): (horizontal, vertical) px.
+LIST_ITEM_PADDING = (6, 5)
+
+
+def list_row_size_hint(widget: QWidget) -> QSize:
+    """The size hint of a list row that is a WIDGET (``setItemWidget``).
+
+    The view gives an item widget the row's rectangle MINUS the stylesheet's
+    item padding, so a row sized to the widget's own hint squeezes it by twice
+    the padding: a two-line row lost 10 px and cut its descenders (#796). The
+    padding is added back here, from the same constant the stylesheet uses.
+    """
+    hint = widget.sizeHint()
+    horizontal, vertical = LIST_ITEM_PADDING
+    return QSize(hint.width() + 2 * horizontal, hint.height() + 2 * vertical)
 
 
 def set_compact(button: QWidget) -> None:
@@ -914,7 +931,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     }}
 
     QListWidget::item {{
-        padding: 5px 6px;
+        padding: {LIST_ITEM_PADDING[1]}px {LIST_ITEM_PADDING[0]}px;
         border-radius: 4px;
     }}
 
@@ -1230,7 +1247,7 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     /* Constraints-panel delete-all header button */
     QToolButton#constraintsDeleteAllBtn {{
         color: {colors['error']};
-        font-weight: 600;
+        padding: 2px;
     }}
 
     /* Notification banners — widgets carry only an objectName; all styling

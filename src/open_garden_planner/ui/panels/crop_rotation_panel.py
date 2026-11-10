@@ -26,7 +26,7 @@ from open_garden_planner.services.crop_rotation_service import (
     RotationStatus,
 )
 from open_garden_planner.ui.icons import get_pixmap
-from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
 
 # Status -> semantic theme token (resolved live so a theme switch re-tints)
 _STATUS_TOKENS = {
@@ -249,25 +249,34 @@ class CropRotationPanel(QWidget):
 
         # Buttons: add / edit / delete
         btn_layout = QHBoxLayout()
+        # Row buttons as wide as their (translated) text: three dialog-width
+        # buttons do not fit a narrow sidebar, and the 50 px these two asked
+        # for never applied and would cut "Bearbeiten" (PF-UI-38).
         self._add_record_btn = QPushButton(self.tr("Add Planting Record..."))
         self._add_record_btn.setEnabled(False)
+        set_compact(self._add_record_btn)
         self._add_record_btn.clicked.connect(self._on_add_record)
         btn_layout.addWidget(self._add_record_btn)
 
         self._edit_record_btn = QPushButton(self.tr("Edit"))
         self._edit_record_btn.setEnabled(False)
-        self._edit_record_btn.setFixedWidth(50)
+        set_compact(self._edit_record_btn)
         self._edit_record_btn.clicked.connect(self._on_edit_record)
         btn_layout.addWidget(self._edit_record_btn)
 
         self._delete_record_btn = QPushButton(self.tr("Delete"))
         self._delete_record_btn.setEnabled(False)
-        self._delete_record_btn.setFixedWidth(50)
+        set_compact(self._delete_record_btn)
         self._delete_record_btn.clicked.connect(self._on_delete_record)
         btn_layout.addWidget(self._delete_record_btn)
 
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
+
+        # The panel's spare height goes BELOW its content. Without this the
+        # open accordion section's height was shared out between the wrapped
+        # labels, 90 px of nothing between two lines of text (#796).
+        layout.addStretch(1)
 
         # Enable edit/delete when a history entry is selected
         self._history_list.currentItemChanged.connect(self._on_history_selection_changed)

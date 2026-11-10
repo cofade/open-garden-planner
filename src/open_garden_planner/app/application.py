@@ -2588,14 +2588,11 @@ class GardenPlannerApp(QMainWindow):
         constraints_collapsible = CollapsiblePanel(
             self.tr("Constraints"), self.constraints_panel, expanded=False
         )
-        # Delete-all button lives in the header, aligned with individual row × buttons
-        from PyQt6.QtWidgets import QToolButton
-        delete_all_btn = QToolButton()
-        delete_all_btn.setText("\u00d7")
-        delete_all_btn.setFixedSize(20, 20)
+        # Delete-all button lives in the header, aligned with individual row × buttons.
+        # The panel owns it (icon, theme, enabled state); only the place and the
+        # tooltip are the window's.
+        delete_all_btn = self.constraints_panel.delete_all_button
         delete_all_btn.setToolTip(self.tr("Delete all constraints"))
-        delete_all_btn.setObjectName("constraintsDeleteAllBtn")
-        delete_all_btn.clicked.connect(self.constraints_panel.delete_all)
         constraints_collapsible.add_header_widget(delete_all_btn)
         sidebar_layout.addWidget(constraints_collapsible)
 
