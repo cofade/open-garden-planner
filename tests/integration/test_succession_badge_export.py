@@ -211,7 +211,13 @@ def _view(scene: CanvasScene, qtbot, zoom: float) -> CanvasView:
 
 
 def _grab(view: CanvasView) -> np.ndarray:
-    return _channels(view.viewport().grab().toImage())
+    """The bed as the viewport shows it, and a few pixels around it.
+
+    Only the bed: the view paints things of its own around the plan, and on
+    the black bed the badge is the one thing that is green.
+    """
+    frame = view.viewportTransform().mapRect(BED).toAlignedRect().adjusted(-6, -6, 6, 6)
+    return _channels(view.viewport().grab(frame).toImage())
 
 
 def test_the_badge_keeps_its_size_on_screen_while_it_has_room(qtbot) -> None:
@@ -300,3 +306,70 @@ def test_a_plain_scene_still_shows_the_badge(qtbot) -> None:
     scene.render(painter, QRectF(0, 0, 900, 650), QRectF(0, 0, CANVAS_W, CANVAS_H))
     painter.end()
     assert _badge_box(_channels(image)) is not None
+
+
+def test_the_minimap_blanks_the_badge_as_it_blanks_every_screen_space_item(qtbot) -> None:
+    """The minimap suppresses constant-size items with ``ItemHasNoContents``."""
+    from PyQt6.QtWidgets import QGraphicsItem
+
+    scene, bed = _scene()
+
+    def picture() -> np.ndarray:
+        image = QImage(900, 650, QImage.Format.Format_RGB32)
+        image.fill(QColor("white"))
+        painter = QPainter(image)
+        painter.translate(0, 650)
+        painter.scale(1.0, -1.0)
+        scene.render(painter, QRectF(0, 0, 900, 650), scene.canvas_rect)
+        painter.end()
+        return _channels(image)
+
+    assert _badge_box(picture()) is not None
+    bed._succession_badge_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemHasNoContents, True)
+    assert _badge_box(picture()) is None
+
+
+def test_the_badge_is_in_the_svg_as_text_at_the_labels_size(qtbot, tmp_path: Path) -> None:
+    import re
+
+    from PyQt6.QtSvg import QSvgRenderer
+
+    from open_garden_planner.services.svg_export import SVG_UNITS_PER_INCH
+
+    scene, bed = _scene()
+    bed.name = "Bed one"                               # an object label to compare with
+    target = tmp_path / "plan.svg"
+    ExportService.export_to_svg(scene, target, output_width_cm=A4_WIDTH_CM)
+    text = target.read_text(encoding="utf-8")
+
+    def font_size_of(word: str) -> float:
+        """The font size of the group that holds the text *word*, in SVG units."""
+        at = text.index(word)
+        sizes = re.findall(r'font-size="([0-9.]+)"', text[:at])
+        assert sizes, f"{word!r} is not text in the SVG"
+        return float(sizes[-1])
+
+    crop = font_size_of("Radish")
+    assert "Lettuce" in text
+    line_mm = crop / SVG_UNITS_PER_INCH * 25.4
+    assert MIN_LINE_MM <= line_mm <= MAX_LINE_MM, f"the badge's text is {line_mm:.2f} mm in the SVG"
+    # ... which is the size of an object's name (a whole pixel of it at most apart).
+    assert crop == pytest.approx(font_size_of("Bed one"), abs=1.0)
+
+    # The box itself, rasterised. Its text is not measured here: QSvgRenderer is
+    # not a browser and sets the text in a substitute typeface (section 8.36).
+    dpi = 150
+    width = round(A4_WIDTH_CM / 2.54 * dpi)
+    height = round(width * CANVAS_H / CANVAS_W)
+    image = QImage(width, height, QImage.Format.Format_RGB32)
+    image.fill(QColor("white"))
+    painter = QPainter(image)
+    QSvgRenderer(str(target)).render(painter)
+    painter.end()
+    pixels = _channels(image)
+    box = _badge_box(pixels)
+    assert box is not None
+    bed_left, bed_top, bed_right, bed_bottom = _bed_in_pixels(pixels)
+    assert bed_left - 2 <= box[0] and box[2] <= bed_right + 2
+    assert bed_top - 2 <= box[1] and box[3] <= bed_bottom + 2
+    assert MIN_LINE_MM <= (box[3] - box[1] + 1) * 25.4 / dpi / (len(CROPS) + 1) <= MAX_LINE_MM
