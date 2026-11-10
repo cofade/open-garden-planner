@@ -88,7 +88,9 @@ src/open_garden_planner/
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
 │   │                             #   ShadowCaster(footprint, height, base): a raised caster's shadow starts base/tanα out (L1.6)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
-│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4)
+│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4);
+│   │                             #   sun_legend(): what the map's key shows, from the same tables (#794, §8.9.18)
+│   ├── soft_edge.py              # Qt-free: the shadow's soft edge as a blurred field — lattice, exact box sums, falloff table (#793, §8.9.18)
 │   ├── scene3d/                  # Qt-free 3D scene core (Phase 17 L1.1, ADR-059) — see §5.10
 │   │   ├── record.py             #   contract v2: Record (outer rings + holes) / Transform / Material / Params, three signatures, the record grid
 │   │   ├── scene_diff.py         #   diff() → SceneDiff(added, removed, transform, material, geometry, reordered)
@@ -195,8 +197,12 @@ src/open_garden_planner/
 │   │   ├── plan_labels.py        # The scene's label pass: object labels and succession badges painted after every item (#793, #836, §8.9.15)
 │   │   ├── layout_font.py        # The size a font has on the canvas: layout_pixel_size / device_independent (#836, PF-CAN-59)
 │   │   ├── footprints.py         # THE footprint extraction — item_outline / item_footprints / plant_canopy_radius_cm; shadows, heatmap and 3D all read it (Phase 17 L1.1, ADR-059)
-│   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
-│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
+│   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037);
+│   │   │                         #   set_map_shown(): solved but not painted while the hours-of-sun map is shown (#794)
+│   │   ├── shadow_feather.py     # The overlay's soft edge painted from core/soft_edge, the shade cut out in a device layer (#793)
+│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4);
+│   │   │                         #   SunMapLabelItem: the hours as labels of the plan, placed where nothing stands (#794)
+│   │   ├── sun_legend.py         # The map's key: paint_sun_legend (canvas view, pictures) + SunMapLegendItem for pictures (#794, §8.9.18)
 │   │   ├── arrange.py            # THE one apply path for per-object stacking order changes — builds ArrangeItemsCommand via core.stacking (ADR-043)
 │   │   ├── geometry_apply.py     # THE canonical resize/rotate/vertex apply path — panel + handles + agent (US-D2.2/D2.6)
 │   │   ├── geometry_inspect.py   # Live scene-frame geometry projection for Agent API reads (US-D2.6)

@@ -27,6 +27,7 @@ from scripts.translations_l4 import DE as _L4_TRANSLATIONS
 from scripts.translations_l5 import DE as _L5_TRANSLATIONS
 from scripts.translations_l6 import DE as _L6_TRANSLATIONS
 from scripts.translations_l7 import DE as _L7_TRANSLATIONS
+from scripts.translations_sun_map import DE as _SUN_MAP_TRANSLATIONS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -3577,6 +3578,10 @@ for _ctx, _strings in _EXPORTS_TRANSLATIONS.items():
 
 # ── Examples' showcase state: status line, empty seed inventory, folded sun rows (#795) ──
 for _ctx, _strings in _EXAMPLES_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── The key of the hours-of-sun map (#794) ──
+for _ctx, _strings in _SUN_MAP_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

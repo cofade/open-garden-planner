@@ -30,6 +30,26 @@ class _PaintedDiagnostics:
         self._scene.set_diagnostic_overlays_visible(visible)
 
 
+class _PictureOnly:
+    """An item only a picture of the plan shows, as one entry of the hidden-overlay list.
+
+    The seam's other direction (#794). The key of the hours-of-sun map is
+    drawn by the canvas view over its viewport, where it stays in sight at any
+    zoom; a picture has no viewport, so the key is a scene item
+    (``ui.canvas.sun_legend.SunMapLegendItem``) that stays hidden on the
+    canvas. ``_hide_overlay_items`` shows it for the render and appends this
+    entry; "showing" the entry again afterwards hides the item, so the pair of
+    functions stays the one place that says what a picture holds and no caller
+    changes.
+    """
+
+    def __init__(self, item: QGraphicsItem) -> None:
+        self._item = item
+
+    def setVisible(self, visible: bool) -> None:
+        self._item.setVisible(not visible)
+
+
 class ExportService:
     """Service for exporting garden plans to PNG and SVG formats."""
 
@@ -109,11 +129,18 @@ class ExportService:
             SunBadgeItem,
             GuildBadgeItem,
         )
+        from open_garden_planner.ui.canvas.sun_legend import SunMapLegendItem
+
         hidden: list[object] = []
         for item in scene.items():
             if isinstance(item, handle_types) and item.isVisible():
                 item.setVisible(False)
                 hidden.append(item)
+            elif isinstance(item, SunMapLegendItem) and not item.isVisible():
+                # The other direction: the key of a shown hours-of-sun map is
+                # in every picture of the plan and in no canvas (#794).
+                item.setVisible(True)
+                hidden.append(_PictureOnly(item))
 
         # The diagnostic decorations a garden item paints itself (spacing ring,
         # companion ring, antagonist / capacity badge, soil and rotation border)

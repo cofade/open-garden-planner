@@ -832,6 +832,19 @@ looks at every label of the scene, never only at a repainted region, or a partia
 repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
 returns the result for a given transform.
 
+**A label of no object states its own weight.** The hours on the sun map's
+contours are `PlanLabelItem`s with no owner (`sun_heatmap.SunMapLabelItem`, #794):
+they have no object whose size could earn them room, so `free_extent_px` says what
+they count as — the smallest object that still gets a label, rank 2 — and they are
+placed after every object's own labels. An ownerless label with `free_extent_px`
+0, the default, is never shown.
+
+**What is not a label can take room too.** A rectangle no label may touch is a
+*blocker*: a scene item states one with `plan_label_blocker()`, and a view states
+what it draws over its viewport with `CanvasScene.set_label_blockers(viewport,
+rects)`. The sun map's key is both (§8.9.18). Blockers are placed before every
+label and are never painted by the pass.
+
 **Text notes scale with the view.** A `TextItem` or a callout is laid out once and
 scaled by the zoom, so its font is unhinted (`PreferNoHinting`, set with #789;
 PF-CAN-52). An exact point size and the document's design metrics were measured on
@@ -883,8 +896,17 @@ exported picture, warning or not. View-level overlays (grid, rulers, scale bar,
 soil-health tint) were never in an export, because `scene.render()` does not reach
 `CanvasView`.
 
+**The seam also puts one thing in (#794).** The key of the hours-of-sun map is
+drawn by the view over its viewport, so a picture would have none. It is a scene
+item that stays hidden on the canvas (`sun_legend.SunMapLegendItem`);
+`_hide_overlay_items` shows it for the render and appends a `_PictureOnly` entry
+whose "show again" hides it. The pair of functions stays the one place that says
+what a picture holds, in both directions; a second item of that kind joins the
+same branch (§8.9.18).
+
 Pin: `tests/integration/test_spacing_warning_overlay.py`,
-`tests/integration/test_export_overlay_hide.py`.
+`tests/integration/test_export_overlay_hide.py`,
+`tests/integration/test_sun_map_legend.py::test_every_export_path_shows_the_key_through_the_one_seam`.
 
 ### 8.9.17 Handles sit on the outline; the grid lies under the objects (#790, #793)
 
@@ -909,8 +931,137 @@ would not. `CanvasView._grid_region` therefore clips the lines to the plan less
 every drawn object that is not a ground surface (`canvas_scene.on_ground`). A plant
 cuts out what its sprite covers (`GardenItemMixin.grid_cover_path`).
 
+**"Something stands here" is one predicate.** `canvas_scene.is_standing_object`
+(a visible rectangle, circle, ellipse, polygon or polyline that is no ground
+surface) and the item's `grid_cover_path()` answer it for the grid and for the
+hour labels of the sun map (§8.9.18). **A line covers its stroke, not what it
+encloses**: `shape()` of a path item is its stroke united with the path *filled*,
+and a fill closes an open line from its end back to its start. A railing round
+three sides of a balcony covered the whole balcony — the grid was cut out of it
+and no label found a free place — so `PolylineItem.grid_cover_path` returns the
+stroke alone (#794).
+
 Pin: `tests/integration/test_selection_frame.py`,
-`tests/integration/test_canvas_legibility.py`; PF-CAN-51.
+`tests/integration/test_canvas_legibility.py`,
+`tests/integration/test_sun_map_labels.py::test_an_open_fence_covers_its_line_not_the_ground_it_encloses`;
+PF-CAN-51.
+
+### 8.9.18 The sun map's key and labels, and the shadow's soft edge (#794, #793)
+
+What is painted with the sun study besides the shadows and the map themselves,
+and by which of the canvas's mechanisms. Decisions: ADR-037 addendum "the sun
+map's key, its labels and what is painted with it".
+
+**The key is a description first.** `core.heatmap_render.sun_legend(daylight)`
+(Qt-free) says what the key shows: the map's own tints row for row
+(`build_sun_lut`), a mark at 0 h and at every hour the map contours
+(`hour_levels`), and which hours are numbered (`hour_is_labelled`, which the
+contours ask too). The map's pixels and the key look a tint up through one
+function, `ramp_index`. So the key cannot name an hour or show a colour the map
+does not; `tests/unit/test_heatmap_render.py::TestSunLegend` is the drift guard,
+down to a search of the sources for a second copy of the ramp.
+
+**One painter, two places.** `sun_legend.paint_sun_legend(painter, top_left, key,
+font, ink, ground)` takes every measure from the font it is given, paints its text
+with `halo_text.paint_halo_text` and lays the bar's tints on the bare plan's
+colour (the map is translucent: on a lawn its colours are the lawn's too, which no
+key can show).
+
+| Where | Who draws it | Size and colours |
+|---|---|---|
+| The canvas | `CanvasView._draw_sun_legend`, over the viewport, after the scene (`set_sun_legend`; the application passes `SunHeatmapController.legend_key()` on the controller's `computed`); drawn from one kept picture (`sun_legend_picture`), remade when the key, the colours, the pixel ratio or the language change | the scale bar's font; the theme's `scale_bar_fg`, its halo following from it |
+| A picture of the plan (PNG, SVG, PDF report, print, the Agent API's render) | `SunMapLegendItem`, a scene item at the plan's south-west corner that the export seam shows for the render only (§8.9.16) | a `HaloTextItem`, so the export retargets its font with every other constant-size text (PF-CAN-08) and the key grows with it; dark ink on the light halo |
+
+On the canvas the key lies in the bottom-left corner, in the strip the scale bar
+stands in (`SCALE_BAR_RESERVED_PX`, which the overlay widgets already keep clear,
+§8.9.4). Where it does not fit beside the scale bar it is drawn without its title,
+then one strip higher; where even that would lie on the scale bar or an overlay
+widget (the minimap) it is not drawn. The scroll area's own scroll-bar containers
+are no overlay widgets: they keep a rectangle and stay "visible" while their bar
+is hidden. In a picture the key lies inside the plan: a picture is exactly the
+plan, so there is no margin for it, and widening the picture would break the
+pixel-to-plan mapping the Agent API documents (§8.19).
+
+**Two traps of a key drawn over the viewport.** Qt scrolls a viewport's pixels on
+a pan and repaints only the strip that came into view, so anything drawn in
+viewport coordinates is carried off with the plan unless it asks for its own
+rectangle again: `scrollContentsBy` updates the key's rectangle and where the
+scroll moved it to. (Measured: in the application's window a pan repaints the
+whole viewport, with the minimap shown or switched off, which is why the scale
+bar and the rulers have never shown this; a bare `CanvasView` repaints the
+40-px strip of a 40-px pan.) And the labels of the plan are
+painted before the key in the same paint, so the view tells the scene where the
+key lies (`set_label_blockers`, §8.9.15) and paints once more when that changed.
+
+**The hours on the contours** are placed when the map is built, in plan
+coordinates, for the zoom at which the plan fits a window 1100 px wide
+(`_NOMINAL_VIEW_PX`): each evenly spaced place along a contour is tried first,
+then the places along the line to either side, nearest first
+(`heatmap_render.label_candidates_along`). A place is passed over when the
+label's rectangle there would touch a standing object (§8.9.17), lie within a
+ruler's width of the plan's edge, or be closer than 160 cm to a label already
+placed. A contour that is covered all the way has no label. "Touches a standing
+object" is read from one raster of the plan (`sun_heatmap.StandingMask`, cells of
+2.5 cm, painted once per map): asking the scene for each place cost 0.6 s on the
+food-forest example, where contours hug many crowns; with the raster, building
+the contours and labels costs what it did before the labels avoided anything
+(family garden 129 → 118 ms, food forest 68 → 65 ms). At paint time they are
+ordinary labels of the plan (§8.9.15): above every item, one halo, and left out
+where two labels would touch — an object's own name wins over an hour.
+
+**With the map shown, the time-of-day shadows are not painted.** The map lies
+above the shadow overlay (z -450 over -500), but it is translucent: alpha 32
+where the ground is sunny all day. The shadow of one instant showed through it —
+on the family-garden example it changed a third of the viewport's pixels — and a
+14-hour spot read as a 6-hour one. `SunShadowController.set_map_shown(True)`
+hides the overlay's picture and nothing else: state, solves, `drape_polygons()`
+and `shadows_changed` are what they are without a map, so the 3D view's shadow
+drape and every other reader do not notice. The controller's "is there a solve to
+show" is its own flag (`_overlay_wanted`), never `overlay.isVisible()`.
+
+**The sun-mismatch badge** lies on the plan and is scaled with its plant, so it is
+painted for the painter like every bitmap of the canvas (§8.9.14):
+`SunBadgeItem.set_icon` names the icon and `ui.icons.paint_icon(painter, name,
+rect)` draws it through `core.sprite_raster.paint_sprite`. A pixmap of a stated
+pixel size (`get_pixmap`) is for chrome, where a pixel is a pixel. The badge stays
+out of every picture of the plan (§8.9.16).
+
+**The shadow's soft edge is a field, not strokes.** Until #793 it was four stacked
+strokes of 14, 9, 5 and 2.5 cm: four flat bands, each 1.25 to 2.5 cm wide —
+invisible at 100 % zoom, four stripes from 200 % on, and the innermost 15 levels
+darker than the shade it edged. A stroke has one tone, so no number of strokes
+is a falloff. `core/soft_edge.py` (Qt-free, numpy) computes one instead:
+
+1. The shade is rasterised on a coarse lattice anchored in the plan
+   (`feather_grid`): cells of two device pixels when zoomed out, twelve cells to
+   the 7 cm reach when zoomed in. Anchored in the plan so that a pan's strip
+   computes the cells the whole picture computes.
+2. The raster is blurred with two box passes (`box_sums`: exact integers in
+   32-bit running sums that may wrap; four times as fast as floating-point sums,
+   measured). The blurred coverage of a cell is read as its distance to the
+   shade: one half on the edge, nothing at the blur's reach.
+3. `falloff_lut` maps that to the falloff's weight: 1 at the edge, linear to 0
+   at 7 cm, and continued above 1 inside the shade, because the cells there are
+   what the enlargement interpolates from just outside the edge. Where regions
+   differ in tone (#698) a second blur gives each cell the tone of the shade
+   beside it, so a light shade's edge starts at its own tone.
+4. `ui/canvas/shadow_feather.paint_feather` enlarges the field into a layer in
+   device pixels (`core.sprite_raster.paint_layer`, the sprites' own route) and
+   cuts the shade out of it there, with the shade's exact outline. No painter is
+   handed a clip, so an SVG still holds no `<clipPath>` (PF-CAN-53).
+
+The shade's geometry is untouched: the full tone is the outline's fill, to the
+pixel. Beside an edge at 45 degrees the falloff is within 8 % of the tone of the
+one beside an upright edge (two passes are a tent, not a Gaussian; three cost
+half as much again and were no closer). Cost and numbers: §8.37.
+
+Pin: `tests/integration/test_sun_map_legend.py`,
+`tests/integration/test_sun_map_labels.py`,
+`tests/integration/test_sun_map_and_time_shadows.py`,
+`tests/integration/test_sun_badge_sharpness.py`,
+`tests/integration/test_shadow_feather.py`, `tests/unit/test_soft_edge.py`,
+`tests/unit/test_heatmap_render.py` and, through the real window,
+`tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
 ## 8.10 Integration Test Policy
 
@@ -4257,6 +4408,13 @@ heatmap): precompute on change — `scene.changed` debounced (150 ms) +
 `stack_changed` for repaint-less metadata edits — cache the result, and
 let `paint()` only draw the cached path. Guard every timer start with
 `contextlib.suppress(RuntimeError)` (#230).
+
+**What is painted with the sun study** (#794, #793; §8.9.18): the hours-of-sun
+map has a key — over the viewport on the canvas, a scene item in a picture — and
+its hour labels are labels of the plan; while a map is shown the time-of-day
+shadows are solved but not painted (`SunShadowController.set_map_shown`: the map
+is translucent, and a shadow of one instant under it reads as fewer hours); the
+shadow's soft edge is a blurred field, not strokes.
 
 **Threaded canvas-scale computation** (US-E4 heatmap; the pattern for any
 seconds-scale analysis): snapshot plain data on the GUI thread
@@ -8872,12 +9030,21 @@ which raises the limit to 256 MB (never lowers it). That is a ceiling: the cache
 holds what the visible items need (17 MB here, about 110 MB at 4K) and evicts
 beyond it.
 
-**The sun-shadow overlay is rasterised once per solve and zoom.** Its paint is
-four antialiased wide strokes of the whole shadow outline, clipped to the area
-outside the shadow, then the core: 60–130 ms on this plan at fit, 95 % of it the
-strokes, and almost all of that Qt's antialiased rasterisation (the stroker
-takes 0.5 ms; the same strokes without antialiasing 3–5 ms). It is not made
-cheaper — its pixels are the contract — it is made rarer:
+**The sun-shadow overlay is rasterised once per solve and zoom.** When this
+section was measured (#784) its paint was four antialiased wide strokes of the
+whole shadow outline, clipped to the area outside the shadow, then the core:
+60–130 ms on this plan at fit, 95 % of it the strokes, and almost all of that
+Qt's antialiased rasterisation (the stroker took 0.5 ms; the same strokes without
+antialiasing 3–5 ms). #784 did not make it cheaper — it made it rarer, as the
+list below says, and the numbers in that list are of the strokes. Since #793 the
+soft edge is a blurred field (§8.9.18), which is a different cost. Measured on
+this plan, the exact paint into 1149 × 821 device pixels, strokes → field, two
+alternating rounds: 48 → 17 ms at fit (47 %), 25 → 17 ms at 100 %, 14 → 14 ms
+at 200 %, 3.3 → 10 ms at 400 %, 3.4 → 3.7 ms at 1000 %; a 300-dpi A4 picture
+196–242 → 165–175 ms. Cheaper where it was dear and dearer where it was cheap:
+zoomed in, the strokes covered little, and the field still has the viewport's
+lattice to sum. A scrub step at fit should therefore be lighter than the
+"60–130 ms" of the list below; that was not measured again in the application.
 
 - `SunShadowOverlayItem` is `DeviceCoordinateCache`: a repaint, a pan and another
   item's update blit its picture (0.3–0.6 ms). Against the direct paint the

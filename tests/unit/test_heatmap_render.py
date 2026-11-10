@@ -10,12 +10,16 @@ import numpy as np
 
 from open_garden_planner.core.heatmap_render import (
     build_sun_lut,
+    hour_is_labelled,
     hour_levels,
     iso_segments,
+    label_candidates_along,
     label_points_along,
+    ramp_index,
     smooth_field,
     stitch_segments,
     sun_fraction,
+    sun_legend,
 )
 
 
@@ -172,3 +176,110 @@ class TestLabelPointsAlong:
 
     def test_single_point_is_returned(self) -> None:
         assert label_points_along([(3.0, 4.0)], spacing=5.0) == [(3.0, 4.0)]
+
+
+class TestLabelCandidatesAlong:
+    """A label takes the evenly spaced place, or the nearest free one (#794)."""
+
+    def test_the_first_candidate_is_the_evenly_spaced_place(self) -> None:
+        line = [(0.0, 0.0), (10.0, 0.0)]
+        places = label_candidates_along(line, spacing=5.0, step=1.0)
+        assert [group[0] for group in places] == label_points_along(line, spacing=5.0)
+
+    def test_the_others_lie_along_the_line_nearest_first(self) -> None:
+        (places,) = label_candidates_along([(0.0, 0.0), (10.0, 0.0)], spacing=10.0, step=1.0)
+        assert places[0] == (5.0, 0.0)
+        away = [abs(x - 5.0) for x, _y in places]
+        assert away == sorted(away)
+        assert {y for _x, y in places} == {0.0}
+        assert min(x for x, _y in places) >= 0.0 and max(x for x, _y in places) <= 10.0
+
+    def test_no_candidate_strays_into_the_next_labels_stretch(self) -> None:
+        first, second = label_candidates_along([(0.0, 0.0), (20.0, 0.0)], spacing=10.0, step=1.0)
+        assert max(x for x, _y in first) < 10.0 <= min(x for x, _y in second)
+
+    def test_it_follows_a_bend(self) -> None:
+        (places,) = label_candidates_along(
+            [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0)], spacing=8.0, step=1.0)
+        assert places[0] == (4.0, 0.0)
+        assert (3.0, 0.0) in places and (4.0, 1.0) in places
+
+    def test_a_degenerate_line_has_its_one_place(self) -> None:
+        assert label_candidates_along([(3.0, 4.0)], spacing=5.0, step=1.0) == [[(3.0, 4.0)]]
+        assert label_candidates_along([(1.0, 1.0), (1.0, 1.0)], spacing=5.0, step=1.0) == [[(1.0, 1.0)]]
+
+
+class TestSunLegend:
+    """The key of the map is made of what the map is made of (#794)."""
+
+    def test_no_daylight_no_key(self) -> None:
+        assert sun_legend(0.0) is None
+        assert sun_legend(float("nan")) is None
+
+    def test_the_bar_is_the_maps_ramp_row_for_row(self) -> None:
+        legend = sun_legend(16.5 * 60)
+        assert legend is not None
+        lut = build_sun_lut()
+        assert len(legend.colors) == lut.shape[0]
+        assert np.array_equal(np.array(legend.colors, dtype=np.uint8), lut)
+
+    def test_a_tick_at_no_sun_and_at_every_hour_the_map_contours(self) -> None:
+        daylight = 16.5 * 60
+        legend = sun_legend(daylight)
+        assert legend is not None
+        assert [tick.hour for tick in legend.ticks] == [0] + [
+            minutes // 60 for minutes in hour_levels(daylight)
+        ]
+        for tick in legend.ticks:
+            assert tick.position == tick.hour * 60 / daylight
+            assert 0.0 <= tick.position < 1.0
+
+    def test_the_numbered_hours_are_the_numbered_contours(self) -> None:
+        legend = sun_legend(16.5 * 60)
+        assert legend is not None
+        for tick in legend.ticks:
+            assert tick.labelled == hour_is_labelled(tick.hour)
+        assert [tick.hour for tick in legend.ticks if tick.labelled] == [0, 2, 4, 6, 8, 10, 12, 14, 16]
+
+    def test_a_winter_day_has_a_shorter_scale_not_other_colours(self) -> None:
+        summer, winter = sun_legend(16.5 * 60), sun_legend(7.5 * 60)
+        assert summer is not None and winter is not None
+        assert winter.colors == summer.colors
+        assert [tick.hour for tick in winter.ticks] == [0, 1, 2, 3, 4, 5, 6, 7]
+
+    def test_the_colour_of_an_hour_is_the_colour_the_map_gives_it(self) -> None:
+        """The drift guard: the map's pixels and the legend look their tint up
+        through one function (``ramp_index``) in one table."""
+        daylight = 16.5 * 60
+        legend = sun_legend(daylight)
+        assert legend is not None
+        lut = build_sun_lut()
+        minutes = np.linspace(-30.0, daylight + 90.0, 487)
+        rows = ramp_index(sun_fraction(minutes, daylight), lut.shape[0])
+        for value, row in zip(minutes.tolist(), rows.tolist(), strict=True):
+            assert legend.color_at(value) == tuple(int(channel) for channel in lut[row])
+
+    def test_the_ramp_is_stated_in_one_place(self) -> None:
+        """Nobody but ``core/heatmap_render`` holds a colour of the ramp: a
+        second table is how a legend and its map come to disagree."""
+        import re
+        from pathlib import Path
+
+        import open_garden_planner
+
+        root = Path(open_garden_planner.__file__).parent
+        stops = re.compile(r"_SUN_RAMP_STOPS")
+        users = sorted(
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*.py")
+            if stops.search(path.read_text(encoding="utf-8"))
+        )
+        assert users == ["core/heatmap_render.py"]
+        # ... and its indigo and amber ends appear as literals nowhere else
+        ends = re.compile(r"\b39\s*,\s*46\s*,\s*92\b|\b250\s*,\s*233\s*,\s*181\b")
+        holders = sorted(
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*.py")
+            if ends.search(path.read_text(encoding="utf-8"))
+        )
+        assert holders == ["core/heatmap_render.py"]

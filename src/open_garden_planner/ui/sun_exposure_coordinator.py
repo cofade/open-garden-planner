@@ -188,7 +188,11 @@ class SunExposureCoordinator(QObject):
             # The canvas is Y-up. Flip the icon's pixel frame once.
             badge.setTransform(QTransform().scale(1, -1))
             plant._sun_badge = badge
+        # The pixmap gives the badge its 24-unit size and, through its cache
+        # key above, a repaint on a new theme; what is painted is the icon
+        # itself, drawn for the painter (sharp at every zoom, #794).
         badge.setPixmap(pixmap)
+        badge.set_icon("sun_warning")
         size = rectangle.width()
         badge.setScale(size / 24)
         badge.setPos(rectangle.left(), rectangle.bottom())

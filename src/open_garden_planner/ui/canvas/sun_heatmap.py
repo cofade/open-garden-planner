@@ -13,6 +13,17 @@ QGraphicsItems) and whose results arrive via signals on the GUI thread.
 The heatmap is recompute-ON-DEMAND (a button), never wired to
 ``scene.changed`` — it costs seconds, not milliseconds.
 
+What is shown with the map (#794):
+
+- the hours on the even contours are ``SunMapLabelItem``s: object labels in
+  every respect but their owner (``items.halo_text.PlanLabelItem``), so they
+  have the one halo, are painted after every item and are left out where two
+  labels would touch (§8.9.15). They are placed where their contour is in the
+  open: a place a plant or an object stands on is passed over for the nearest
+  free one along the line, and a line that is covered all the way has no label;
+- the key (``sun_legend``): the canvas view draws it over the viewport, and
+  ``SunMapLegendItem`` carries it into a picture of the plan.
+
 Grid/row convention is ``core/shade_aggregation``'s: row 0 = SOUTH edge.
 A ``QGraphicsPixmapItem`` placed at the grid origin draws row *r* at scene
 y ``y0 + r·cell``; the view's Y-flip then renders larger scene-y (north)
@@ -25,12 +36,11 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-from PyQt6.QtCore import QObject, QPointF, Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import (
-    QBrush,
     QColor,
     QFont,
     QImage,
@@ -45,18 +55,21 @@ from PyQt6.QtWidgets import (
     QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
-    QGraphicsSimpleTextItem,
 )
 
 from open_garden_planner.core.heatmap_render import (
     build_sun_lut,
+    hour_is_labelled,
     hour_levels,
     iso_segments,
-    label_points_along,
+    label_candidates_along,
+    ramp_index,
     smooth_field,
     stitch_segments,
     sun_fraction,
+    sun_legend,
 )
+from open_garden_planner.core.label_layout import LABEL_MIN_OWNER_PX
 from open_garden_planner.core.shade_aggregation import (
     GRID_CELL_CM,
     SAMPLE_STEP_MINUTES,
@@ -70,20 +83,29 @@ from open_garden_planner.core.shade_aggregation import (
 )
 from open_garden_planner.core.shadow_geometry import Polygon
 
+from .items.halo_text import PlanLabelItem
 from .sun_exposure_snapshot import ExposureSnapshot, collect_exposure_snapshot
+from .sun_legend import SunLegendKey, SunMapLegendItem
+
+if TYPE_CHECKING:
+    from .items.garden_item import GardenItemMixin
 
 #: Above the background image (−1000), the ground surfaces (a lawn, a path, an
 #: in-ground bed: ``canvas_scene.GROUND_Z_RANGE``) and the shadow overlay (−500),
-#: below every other layer item (≥ 0): the map lies ON the ground. Contour lines and
-#: their hour labels sit just above the fill, still behind what stands on it.
+#: below every other layer item (≥ 0): the map lies ON the ground. Contour lines sit
+#: just above the fill, still behind what stands on it. Their hour labels are painted
+#: by the scene's label pass, after every item (§8.9.15); the z they have only
+#: orders them among the scene's items.
 _HEATMAP_Z = -450.0
 _CONTOUR_Z = -449.0
 _LABEL_Z = -448.0
+#: The key of the map in a picture of the plan: above everything in it.
+_LEGEND_Z = 20_000.0
 
-# Dark cool ink for the topographic hour lines + a light halo for their labels.
+# Dark cool ink for the topographic hour lines and their labels; the labels' halo
+# follows from the ink (``items.halo_text``).
 _CONTOUR_COLOR = QColor(24, 30, 54, 205)
 _LABEL_TEXT_COLOR = QColor(18, 22, 42)
-_LABEL_HALO_COLOR = QColor(255, 255, 255, 220)
 
 # Hour labels are distributed along each contour COMPONENT: ~one per
 # _LABEL_SPACING_CM of arc, skipping any within _LABEL_MIN_DIST_CM of an
@@ -95,6 +117,20 @@ _LABEL_HALO_COLOR = QColor(255, 255, 255, 220)
 # not reinstate it.
 _LABEL_SPACING_CM = 500.0
 _LABEL_MIN_DIST_CM = 160.0
+
+#: The width (pixels) of the window a plan is taken to be shown in when a label's
+#: place is chosen. A label has its size in pixels and its place in the plan, so
+#: how much of the plan it covers depends on the zoom; the place is chosen for the
+#: zoom at which the whole plan fits such a window, where a plan is looked at as a
+#: whole. Zoomed in further the label covers less and is clear all the more.
+_NOMINAL_VIEW_PX = 1100.0
+#: How far (pixels, at that zoom) a label stays from the plan's edge: the width of
+#: the canvas rulers, which lie over the edge of a fitted plan.
+_EDGE_MARGIN_PX = 20.0
+#: The raster of what stands on the plan (``StandingMask``): cells per cell of the
+#: map along each axis, and the most cells it may have.
+_MASK_CELLS_PER_MAP_CELL = 4
+_MASK_MAX_CELLS = 4_000_000
 
 # Cool→warm sun ramp LUT (single source of truth, core/heatmap_render). ARGB32
 # is B,G,R,A on little-endian, so keep a reordered copy for direct pixel packing.
@@ -147,14 +183,93 @@ def build_heatmap_image(
     renders as a smooth surface rather than hard blocks.
     """
     fraction = sun_fraction(sun_minutes, daylight_minutes)
-    n = _SUN_LUT_BGRA.shape[0]
-    idx = np.clip(np.round(fraction * (n - 1)).astype(np.intp), 0, n - 1)
-    bgra = _SUN_LUT_BGRA[idx]  # (rows, cols, 4) uint8, B,G,R,A
+    bgra = _SUN_LUT_BGRA[ramp_index(fraction, _SUN_LUT_BGRA.shape[0])]  # (rows, cols, 4) B,G,R,A
     rows, cols = fraction.shape
     image = QImage(
         bgra.tobytes(), cols, rows, cols * 4, QImage.Format.Format_ARGB32
     )
     return image.copy()  # detach from the temporary buffer
+
+
+class SunMapLabelItem(PlanLabelItem):
+    """The hours on a contour of the map: an object label with no object.
+
+    Runtime-only like the contour it names. It joins the plan's label pass
+    (``ui.canvas.plan_labels``) with the weight of the smallest object that
+    still gets a label, after every object's own: where the two would touch,
+    the object's name stays and the hour is left out.
+    """
+
+    free_extent_px = LABEL_MIN_OWNER_PX
+
+    def __init__(self, text: str) -> None:
+        super().__init__(text, None, rank=2)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        font = QFont()
+        font.setPointSize(9)
+        font.setBold(True)
+        self.setFont(font)
+        self.setBrush(_LABEL_TEXT_COLOR)
+        self.setZValue(_LABEL_Z)
+        self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+
+
+class StandingMask:
+    """Where something stands on the plan: a raster of every drawn object that
+    stands on the ground (``canvas_scene.is_standing_object``, what it covers:
+    ``grid_cover_path``) — what a label of the map keeps clear of.
+
+    Painted once when the map is built. Asking the scene for each place a
+    label might take cost 0.6 s on the food-forest example; the raster costs a
+    few milliseconds and a place is a slice of it. Its cells are a quarter of
+    the map's (2.5 cm), so that "touches a cell" is "touches the place" to
+    within what a label's own margin allows, and a fence a few centimetres
+    wide is not lost between two cells; a very large plan gets coarser cells
+    (``_MASK_MAX_CELLS``).
+    """
+
+    def __init__(self, scene: QGraphicsScene, grid: HeatmapGrid) -> None:
+        from .canvas_scene import is_standing_object
+
+        width_cm, height_cm = grid.cols * grid.cell_cm, grid.rows * grid.cell_cm
+        finest = grid.cell_cm / _MASK_CELLS_PER_MAP_CELL
+        fits = math.sqrt(max(width_cm * height_cm, 1.0) / _MASK_MAX_CELLS)
+        self._cell_cm = max(finest, fits)
+        self._x0, self._y0 = grid.x0_cm, grid.y0_cm
+        columns = max(1, math.ceil(width_cm / self._cell_cm))
+        rows = max(1, math.ceil(height_cm / self._cell_cm))
+        image = QImage(columns, rows, QImage.Format.Format_Grayscale8)
+        image.fill(0)
+        painter = QPainter(image)
+        try:
+            # antialiased, and any coverage counts: a cell an object only
+            # touches is taken
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.scale(1.0 / self._cell_cm, 1.0 / self._cell_cm)
+            painter.translate(-self._x0, -self._y0)
+            white = QColor(255, 255, 255)
+            for item in scene.items():
+                if is_standing_object(item):
+                    covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+                    painter.fillPath(item.mapToScene(covered), white)
+        finally:
+            painter.end()
+        pointer = image.constBits()
+        if pointer is None:
+            raise MemoryError("the raster of what stands on the plan could not be allocated")
+        raw: np.ndarray = np.frombuffer(
+            pointer.asstring(image.sizeInBytes()), dtype=np.uint8
+        ).reshape(rows, image.bytesPerLine())[:, :columns]
+        self._taken = raw > 0
+
+    def covers(self, area: QRectF) -> bool:
+        """Whether a standing object covers part of ``area`` (scene cm)."""
+        rows, columns = self._taken.shape
+        left = max(0, math.floor((area.left() - self._x0) / self._cell_cm))
+        right = min(columns, math.ceil((area.right() - self._x0) / self._cell_cm))
+        low = max(0, math.floor((area.top() - self._y0) / self._cell_cm))
+        high = min(rows, math.ceil((area.bottom() - self._y0) / self._cell_cm))
+        return bool(self._taken[low:high, left:right].any())
 
 
 class SunHeatmapOverlayItem(QGraphicsPixmapItem):
@@ -270,6 +385,8 @@ class SunHeatmapController(QObject):
         self._daylight_minutes: float = 0.0
         #: The map the overlay shows, as plain data (``result()``); None: none shown.
         self._shown: SunHoursMap | None = None
+        #: The key of the shown map in a picture of the plan (``sun_legend``).
+        self._legend_item: SunMapLegendItem | None = None
 
     # ── public API ─────────────────────────────────────────────
 
@@ -303,6 +420,16 @@ class SunHeatmapController(QObject):
     def heatmap_visible(self) -> bool:
         overlay = self._alive_overlay()
         return overlay is not None and overlay.isVisible()
+
+    def legend_key(self) -> SunLegendKey | None:
+        """The key of the map the canvas shows — None while none is shown, and for
+        a day without daylight. A map left on screen as a preview keeps its key,
+        with the day it is the map of."""
+        shown = self._shown
+        if shown is None or not self.heatmap_visible():
+            return None
+        legend = sun_legend(shown.daylight_minutes)
+        return None if legend is None else SunLegendKey(legend, shown.day)
 
     def run_for_day(self, day: date, cell_cm: float = GRID_CELL_CM) -> bool:
         """Snapshot the scene and launch the worker. False if it can't run
@@ -392,6 +519,7 @@ class SunHeatmapController(QObject):
         self.exposure_changed.emit()
         if self._shown is not None:
             self._shown = None
+            self._sync_legend_item()
             self.computed.emit(None)
 
     def set_exposure_hint(self, text: str) -> None:
@@ -471,6 +599,7 @@ class SunHeatmapController(QObject):
             full.sample_shade if full is not None else None,
             full.sample_transmittance if full is not None else None,
         )
+        self._sync_legend_item()
         self.computed.emit(self._shown)
 
     def _on_worker_finished(self) -> None:  # GUI thread
@@ -504,6 +633,43 @@ class SunHeatmapController(QObject):
             self._overlay = overlay
         return overlay
 
+    # ── the key in a picture of the plan ────────────────────
+
+    def _alive_legend_item(self) -> SunMapLegendItem | None:
+        item = self._legend_item
+        if item is None:
+            return None
+        try:
+            if item.scene() is not self._scene:
+                self._legend_item = None
+                return None
+        except RuntimeError:  # C++ object deleted by scene.clear()
+            self._legend_item = None
+            return None
+        return item
+
+    def _sync_legend_item(self) -> None:
+        """Keep ``SunMapLegendItem`` to the shown map: there while a map is
+        shown, with that map's key, at the plan's south-west corner."""
+        key = self.legend_key()
+        item = self._alive_legend_item()
+        if key is None:
+            if item is not None:
+                self._scene.removeItem(item)
+            self._legend_item = None
+            return
+        if item is None:
+            ground = getattr(self._scene, "CANVAS_COLOR", None)
+            item = SunMapLegendItem(key, ground if isinstance(ground, QColor) else QColor("white"))
+            item.setZValue(_LEGEND_Z)
+            self._scene.addItem(item)
+            self._legend_item = item
+        else:
+            item.set_legend_key(key)
+        grid = self._shown.grid if self._shown is not None else None
+        if grid is not None:
+            item.setPos(grid.x0_cm, grid.y0_cm)
+
     # ── contour lines + hour labels ─────────────────────────
 
     def _grid_to_scene(
@@ -531,10 +697,11 @@ class SunHeatmapController(QObject):
     ) -> None:
         """Draw one topographic line per whole hour of sun; labels on even hours.
 
-        Runtime-only ``QGraphicsPathItem`` / ``QGraphicsSimpleTextItem`` — not
-        ``GardenItemMixin``, so ``project._serialize_item_core`` drops them, and
-        their negative z keeps them behind what stands on the ground (above the
-        ground surfaces, ``canvas_scene.GROUND_Z_RANGE``).
+        Runtime-only ``QGraphicsPathItem`` / ``SunMapLabelItem`` — not
+        ``GardenItemMixin``, so ``project._serialize_item_core`` drops them. The
+        lines' negative z keeps them behind what stands on the ground (above the
+        ground surfaces, ``canvas_scene.GROUND_Z_RANGE``); the labels are painted
+        after every item and are placed where no object stands.
         """
         self._clear_contours()
         # Contour on a softened copy so the hour lines are smooth curves, not
@@ -544,12 +711,13 @@ class SunHeatmapController(QObject):
         field = smooth_field(minutes, passes=2)
         max_minutes = float(field.max()) if field.size else 0.0
         placed_labels: list[tuple[float, float]] = []
+        standing = StandingMask(self._scene, grid)
         for threshold in hour_levels(max_minutes):
             segments = iso_segments(field, threshold)
             if not segments:
                 continue
             hour = threshold // 60
-            even = hour % 2 == 0
+            even = hour_is_labelled(hour)
             path = QPainterPath()
             for start, end in segments:
                 sx, sy = self._grid_to_scene(start, grid)
@@ -566,7 +734,7 @@ class SunHeatmapController(QObject):
             self._scene.addItem(line)
             self._contour_items.append(line)
             if even:
-                self._label_contour(hour, segments, grid, placed_labels)
+                self._label_contour(hour, segments, grid, placed_labels, standing)
 
     def _label_contour(
         self,
@@ -574,8 +742,10 @@ class SunHeatmapController(QObject):
         segments: list[tuple[tuple[float, float], tuple[float, float]]],
         grid: HeatmapGrid,
         placed: list[tuple[float, float]],
+        standing: StandingMask,
     ) -> None:
-        """Distribute '{n} h' labels along each contour COMPONENT.
+        """Distribute '{n} h' labels along each contour COMPONENT, where the
+        contour is in the open (``standing``).
 
         Labels are spaced by arc length and skip any spot within
         ``_LABEL_MIN_DIST_CM`` of an already-placed label — so labels stay
@@ -588,14 +758,32 @@ class SunHeatmapController(QObject):
         edge (manual-test finding).
         """
         text = self.tr("{n} h").format(n=hour)
+        # what the label covers of the plan at the zoom its place is chosen for
+        # (``_NOMINAL_VIEW_PX``): half its width and height, in centimetres
+        longer_side = max(grid.cols, grid.rows) * grid.cell_cm
+        cm_per_px = max(longer_side, 1.0) / _NOMINAL_VIEW_PX
+        box = SunMapLabelItem(text).boundingRect()
+        half_w, half_h = box.width() / 2.0 * cm_per_px, box.height() / 2.0 * cm_per_px
         spacing = _LABEL_SPACING_CM / grid.cell_cm  # contour is in grid units
+        step = max(half_w, grid.cell_cm) / grid.cell_cm
+        edge = _EDGE_MARGIN_PX * cm_per_px
+        plan = QRectF(
+            grid.x0_cm, grid.y0_cm, grid.cols * grid.cell_cm, grid.rows * grid.cell_cm
+        ).adjusted(edge, edge, -edge, -edge)
         for polyline in stitch_segments(segments):
-            for point in label_points_along(polyline, spacing):
-                sx, sy = self._grid_to_scene(point, grid)
-                if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
-                    continue
-                self._add_label(text, sx, sy)
-                placed.append((sx, sy))
+            for places in label_candidates_along(polyline, spacing, step):
+                for point in places:
+                    sx, sy = self._grid_to_scene(point, grid)
+                    area = QRectF(sx - half_w, sy - half_h, 2.0 * half_w, 2.0 * half_h)
+                    if not plan.contains(area):
+                        continue  # at the plan's edge: under a ruler, or cut by a picture's frame
+                    if standing.covers(area):
+                        continue  # something stands here: the next place along the line
+                    if self._nearest_label_dist(sx, sy, placed) < _LABEL_MIN_DIST_CM:
+                        continue
+                    self._add_label(text, sx, sy)
+                    placed.append((sx, sy))
+                    break
 
     @staticmethod
     def _nearest_label_dist(
@@ -606,28 +794,8 @@ class SunHeatmapController(QObject):
         return min(math.hypot(x - px, y - py) for px, py in placed)
 
     def _add_label(self, text: str, sx: float, sy: float) -> None:
-        """A readable zoom-stable label: dark text over a light halo (two
-        stacked ``QGraphicsSimpleTextItem``s), legible over any map colour.
-        """
-        for brush_color, pen_width, z in (
-            (_LABEL_HALO_COLOR, 3.0, _LABEL_Z - 0.5),  # fat light halo behind
-            (_LABEL_TEXT_COLOR, 0.0, _LABEL_Z),  # crisp dark text in front
-        ):
-            item = QGraphicsSimpleTextItem(text)
-            item.setFlag(
-                QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
-            )
-            font = QFont()
-            font.setPointSize(9)
-            font.setBold(True)
-            item.setFont(font)
-            item.setBrush(QBrush(brush_color))
-            if pen_width:
-                pen = QPen(brush_color)
-                pen.setWidthF(pen_width)
-                item.setPen(pen)
-            item.setZValue(z)
-            item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
-            item.setPos(sx, sy)
-            self._scene.addItem(item)
-            self._contour_items.append(item)
+        """One hour label, centred on its place on the contour."""
+        item = SunMapLabelItem(text)
+        item.setPos(sx, sy)
+        self._scene.addItem(item)
+        self._contour_items.append(item)

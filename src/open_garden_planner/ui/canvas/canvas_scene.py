@@ -6,7 +6,7 @@ The view handles the Y-flip for display.
 """
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
     QGraphicsLineItem,
     QGraphicsScene,
     QGraphicsSimpleTextItem,
+    QWidget,
 )
 
 from open_garden_planner.core import stacking
@@ -71,6 +72,31 @@ def on_ground(item: QGraphicsItem) -> bool:
         members = [child for child in item.childItems() if stacking.supports_stacking(child)]
         return bool(members) and all(on_ground(child) for child in members)
     return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
+
+
+def is_standing_object(item: QGraphicsItem) -> bool:
+    """Whether ``item`` is a drawn object that stands on the ground and is shown.
+
+    A body: a rectangle, circle, ellipse, polygon or polyline that is no ground
+    surface (``on_ground``). A text note, a callout or a pin is writing on the
+    plan, not a body; a group is its members. What such an object covers of the
+    plan is its ``grid_cover_path()``. The canvas grid is cut out under these
+    (``CanvasView._grid_region``) and the hours on the sun map's contours keep
+    clear of them (``sun_heatmap``): one definition of "something stands here".
+    """
+    from open_garden_planner.ui.canvas.items import (
+        CircleItem,
+        EllipseItem,
+        PolygonItem,
+        PolylineItem,
+        RectangleItem,
+    )
+
+    return (
+        isinstance(item, (RectangleItem, CircleItem, EllipseItem, PolygonItem, PolylineItem))
+        and item.isVisible()
+        and not on_ground(item)
+    )
 
 
 @dataclass
@@ -191,6 +217,9 @@ class CanvasScene(QGraphicsScene):
         # Per viewport, the object labels the last paint chose to show
         # (``_paint_plan_labels``): a change repaints that viewport once.
         self._shown_plan_labels: dict[int, frozenset[int]] = {}
+        # What each viewport's view draws over it that no label may touch
+        # (``set_label_blockers``), by the viewport's id.
+        self._label_blockers: dict[int, tuple[QRectF, ...]] = {}
 
         # Layer management
         self._layers: list[Layer] = create_default_layers()
@@ -282,11 +311,30 @@ class CanvasScene(QGraphicsScene):
         paint_succession_badges(self, painter, rect)
         paint_plan_labels(self, painter, rect, self._shown_plan_labels)
 
-    def plan_labels_shown(self, world: QTransform) -> "list[ShownLabel]":
+    def plan_labels_shown(
+        self, world: QTransform, blocked: "Sequence[QRectF]" = ()
+    ) -> "list[ShownLabel]":
         """The object labels a paint with the transform ``world`` shows (``plan_labels``)."""
         from open_garden_planner.ui.canvas.plan_labels import plan_labels_shown
 
-        return plan_labels_shown(self, world)
+        return plan_labels_shown(self, world, blocked)
+
+    def set_label_blockers(self, viewport: QWidget, rects: "Sequence[QRectF]") -> bool:
+        """State what a view draws over ``viewport`` that no label may touch (device
+        pixels: the key of the sun map). True when that changed — the view then
+        paints once more, with the labels that have room now."""
+        key, new = id(viewport), tuple(QRectF(rect) for rect in rects if not rect.isEmpty())
+        if self._label_blockers.get(key, ()) == new:
+            return False
+        if new:
+            self._label_blockers[key] = new
+        else:
+            self._label_blockers.pop(key, None)
+        return True
+
+    def label_blockers(self, viewport: QWidget) -> "tuple[QRectF, ...]":
+        """What ``set_label_blockers`` stated for ``viewport``."""
+        return self._label_blockers.get(id(viewport), ())
 
     # Shadow management (painted shadows — no QGraphicsEffect overhead)
 
