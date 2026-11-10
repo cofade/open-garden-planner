@@ -1,4 +1,4 @@
-"""The colour tags of a tour's MP4 (#807, ``core/mp4_colour.py``). Qt-free.
+"""The colour tags of a tour's MP4 (#807, ``core/mp4_stream.py``). Qt-free.
 
 The SPS units here are written bit by bit from the H.264 syntax (7.3.2.1.1, Annex E), and the
 MP4s are built box by box, so every branch the rewriter takes is one a test chose. The real
@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from open_garden_planner.core import mp4_colour
-from open_garden_planner.core.mp4_colour import (
+from open_garden_planner.core import mp4_stream
+from open_garden_planner.core.mp4_stream import (
     BT709_LIMITED,
     ColourTags,
     Mp4Error,
@@ -51,7 +51,7 @@ class Bits:
         bits += [0] * (-len(bits) % 8)
         rbsp = bytes(sum(bit << (7 - k) for k, bit in enumerate(bits[i:i + 8]))
                      for i in range(0, len(bits), 8))
-        return b"\x67" + mp4_colour._escape(rbsp)
+        return b"\x67" + mp4_stream._escape(rbsp)
 
 
 def sps(*, profile: int = 66, width_mbs: int = 80, height_mbs: int = 45, crop_bottom: int = 0,
@@ -137,7 +137,7 @@ def test_a_patched_sps_states_bt709_and_keeps_every_other_field(nal: bytes) -> N
 def test_a_patched_sps_keeps_the_bits_after_the_signal_type_and_is_well_escaped(nal: bytes) -> None:
     """The bitstream restriction and everything else behind the rewritten fields survive bit
     for bit; no start code can appear inside the unit."""
-    before, after = mp4_colour._layout(nal), mp4_colour._layout(patch_sps_colour(nal))
+    before, after = mp4_stream._layout(nal), mp4_stream._layout(patch_sps_colour(nal))
     if before.after_signal is not None:
         assert after.after_signal is not None
         tail = before.rbsp, before.after_signal, before.stop
@@ -258,12 +258,12 @@ def nal_bodies(path: Path) -> list[list[bytes]]:
     """Every sample's NAL units, through the file's own tables (offsets, sizes, chunks)."""
     data = path.read_bytes()
     with path.open("rb") as handle:
-        _boxes, _mdat, moov = mp4_colour._layout_of(handle, len(data))
-    track = mp4_colour._video_track(moov)
+        _boxes, _mdat, moov = mp4_stream._layout_of(handle, len(data))
+    track = mp4_stream._video_track(moov)
     out = []
     for offset, size in track.spans():
         sample = data[offset:offset + size]
-        out.append([sample[s:e] for s, e in mp4_colour._nal_units(sample, 4)])
+        out.append([sample[s:e] for s, e in mp4_stream._nal_units(sample, 4)])
     return out
 
 
@@ -304,8 +304,8 @@ def test_the_colr_box_sits_before_btrt_and_an_old_one_is_replaced(tmp_path: Path
     tag_colour(source, once, ColourTags(6, 6, 6, False))
     tag_colour(once, twice)
     with twice.open("rb") as handle:
-        _boxes, _mdat, moov = mp4_colour._layout_of(handle, twice.stat().st_size)
-    entry = mp4_colour._video_track(moov).entry
+        _boxes, _mdat, moov = mp4_stream._layout_of(handle, twice.stat().st_size)
+    entry = mp4_stream._video_track(moov).entry
     assert [child.kind for child in entry.children or ()] == [b"avcC", b"pasp", b"colr", b"btrt"]
     assert read_stream(twice).tagged == BT709_LIMITED
     tag_colour(twice, tmp_path / "thrice.mp4")
@@ -343,13 +343,13 @@ def test_a_file_that_could_outgrow_a_32_bit_mdat_takes_the_free_box(
     """FFmpeg leaves an 8-byte ``free`` box in front of the mdat to widen it later; a file
     whose samples could grow past 4 GB takes it (the limit is lowered to test it)."""
     source = write(tmp_path, mp4(samples_of(MEDIA_FOUNDATION_SPS)))
-    monkeypatch.setattr(mp4_colour, "_MDAT_32_LIMIT", 64)
+    monkeypatch.setattr(mp4_stream, "_MDAT_32_LIMIT", 64)
     target = tmp_path / "tagged.mp4"
     tag_colour(source, target)
     data = target.read_bytes()
     assert source.stat().st_size + 40 > target.stat().st_size >= source.stat().st_size
     with target.open("rb") as handle:
-        kinds = [(box.kind, box.header) for box in mp4_colour._top_level(handle, len(data))]
+        kinds = [(box.kind, box.header) for box in mp4_stream._top_level(handle, len(data))]
     assert kinds == [(b"ftyp", 8), (b"mdat", 16), (b"moov", 8)]
     assert read_stream(target).tagged == BT709_LIMITED
 
@@ -380,10 +380,65 @@ def test_a_write_that_fails_leaves_no_partial_file(tmp_path: Path, monkeypatch: 
     def full_disk(*_arguments: object) -> None:
         raise OSError(28, "No space left on device")
 
-    monkeypatch.setattr(mp4_colour, "_set_samples", full_disk)
+    monkeypatch.setattr(mp4_stream, "_set_samples", full_disk)
     with pytest.raises(OSError):
         tag_colour(source, target)
     assert not target.exists()
+
+
+def frames_at(mbit_s: float, fps: float, seconds: float = 4.0) -> list[int]:
+    """Equal frames (bytes) that make ``mbit_s``."""
+    return [round(mbit_s * 1e6 / 8 / fps)] * round(seconds * fps)
+
+
+@pytest.mark.parametrize(("size", "fps", "mbit_s", "at_least", "level"), [
+    ((1920, 1080), 30, 12.0, 40, 40),     # what Media Foundation labels, and right
+    ((1920, 1080), 30, 36.0, 40, 41),     # constant quality's 36 Mbit/s: not level 4.0
+    ((1920, 1080), 60, 20.0, 0, 42),      # the macroblock rate of 60 frames a second
+    ((1280, 720), 30, 8.0, 31, 31),
+    ((2560, 1440), 30, 40.0, 0, 50),      # the frame size
+    ((3840, 2160), 30, 120.0, 0, 51),
+    ((3840, 2160), 60, 120.0, 0, 52),
+    ((1920, 1080), 30, 900.0, 40, 62),    # beyond every level: the last one
+])
+def test_the_level_is_the_lowest_one_the_stream_fits(size: tuple[int, int], fps: int, mbit_s: float,
+                                                     at_least: int, level: int) -> None:
+    assert mp4_stream.needed_level(*size, fps, frames_at(mbit_s, fps), at_least=at_least) == level
+
+
+def test_a_burst_the_buffer_cannot_hold_needs_a_higher_level() -> None:
+    """Annex C's bucket, not the mean rate: 15 Mbit/s on average, but ten 1.5 MB frames in a
+    row empty level 4.0's 30 Mbit buffer."""
+    steady = frames_at(15.0, 30)
+    burst = steady[:30] + [1_500_000] * 10 + steady[40:]
+    assert mp4_stream.needed_level(1920, 1080, 30, steady, at_least=40) == 40
+    assert mp4_stream.needed_level(1920, 1080, 30, burst, at_least=40) > 40
+
+
+def test_a_file_whose_frames_outgrow_its_level_states_the_one_they_need(tmp_path: Path) -> None:
+    """720p at 30 frames a second labelled 3.1 (14 Mbit/s), with frames of 30 Mbit/s."""
+    big = [AUD + struct.pack(">I", len(MEDIA_FOUNDATION_SPS)) + MEDIA_FOUNDATION_SPS
+           + nal(8, PPS) + nal(5, b"\x88" + bytes(125_000))]
+    small = [AUD + nal(1, b"\x9a" + bytes(125_000))] * 29
+    samples = (big + small) * 2
+    source = write(tmp_path, mp4(samples, per_chunk=10))
+    target = tmp_path / "tagged.mp4"
+    said = tag_colour(source, target)
+    wanted = mp4_stream.needed_level(1280, 720, 15360 / 512, [len(s) + 8 for s in samples], at_least=31)
+    assert wanted > 31
+    assert said.sps is not None and said.sps.level_idc == wanted
+    data = target.read_bytes()
+    with target.open("rb") as handle:
+        _boxes, _mdat, moov = mp4_stream._layout_of(handle, len(data))
+    avcc, _sets, _length = mp4_stream._avcc(mp4_stream._video_track(moov).entry)
+    assert avcc.payload[3] == wanted, "avcC's AVCLevelIndication says the same"
+    assert {units[1][3] for units in nal_bodies(target) if units[1][0] & 0x1F == 7} == {wanted}
+
+
+def test_a_stream_that_fits_its_level_keeps_it(tmp_path: Path) -> None:
+    source = write(tmp_path, mp4(samples_of(MEDIA_FOUNDATION_SPS)))
+    said = tag_colour(source, tmp_path / "tagged.mp4")
+    assert said.sps is not None and said.sps.level_idc == 31
 
 
 def test_the_bit_rate_is_the_samples_over_their_duration(tmp_path: Path) -> None:

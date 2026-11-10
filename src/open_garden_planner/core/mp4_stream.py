@@ -1,4 +1,4 @@
-"""The colour tags of a tour's MP4: read them, and write them where the recorder left none (#807). Qt-free.
+"""What a tour's MP4 says about itself: its colour and its level, read and put right (#807). Qt-free.
 
 Why this module exists (measured, ADR-072 addendum "review-grade video"). Qt's recorder hands
 FFmpeg's Media Foundation encoder (``h264_mf``) no colour description, and FFmpeg's MP4 muxer
@@ -16,8 +16,16 @@ size; Qt's own decoder reported ``ColorSpace_Undefined``. The frames ARE BT.709,
   Foundation repeats it at every IDR frame), as ``video_signal_type`` with a colour description,
   which a decoder reading only the bit stream takes. The rest of each SPS is copied bit for bit.
 
+and, in the same SPS units and in ``avcC``, the LEVEL the stream needs. Asked for constant
+quality, Media Foundation is given no bit rate and labels a 1080p30 stream level 4.0 whatever
+it spends (measured: 36 Mbit/s labelled 4.0, whose limit is 24 Mbit/s for Baseline). The
+level is raised, never lowered, to the lowest one whose frame size, macroblock rate and
+coded picture buffer the samples fit (H.264 Table A-1; the buffer as Annex C's leaky bucket,
+full at the start, filled at the level's rate): a strict hardware decoder then knows what it
+is asked to play.
+
 Nothing else changes: the samples' order and timing, every other NAL unit, every other box.
-``read_stream`` is the check: the profile and level the encoder chose, the colour of the SPS
+``read_stream`` is the check: the profile and level the stream states, the colour of the SPS
 and of the ``colr`` box, the number of samples and their timing.
 
 The layout it rewrites is the one FFmpeg's muxer writes for one video track: ``ftyp``,
@@ -34,8 +42,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Final
 
-__all__ = ["BT709_LIMITED", "ColourTags", "Mp4Error", "SpsInfo", "StreamInfo", "parse_sps",
-           "patch_sps_colour", "read_stream", "tag_colour"]
+__all__ = ["BT709_LIMITED", "ColourTags", "Mp4Error", "SpsInfo", "StreamInfo", "needed_level",
+           "parse_sps", "patch_sps_colour", "read_stream", "tag_colour"]
 
 #: Boxes whose payload is boxes, on the way from ``moov`` to the sample entry.
 _CONTAINERS: Final = frozenset({b"moov", b"trak", b"mdia", b"minf", b"stbl"})
@@ -60,6 +68,19 @@ _SPS_GROWTH_BOUND: Final = 8
 _MAX_32: Final = 0xFFFFFFFF
 #: The largest mdat a 32-bit size field holds (a name of its own, so a test can lower it).
 _MDAT_32_LIMIT = _MAX_32
+#: H.264 Table A-1, level_idc: (MaxMBPS, MaxFS, MaxBR in 1000 bits/s, MaxCPB in 1000 bits),
+#: from level 3 up (a tour is 720p at least). Level 1b and the 9-bit corner cases are below it.
+_LEVELS: Final = {
+    30: (40_500, 1_620, 10_000, 10_000), 31: (108_000, 3_600, 14_000, 14_000),
+    32: (216_000, 5_120, 20_000, 20_000), 40: (245_760, 8_192, 20_000, 25_000),
+    41: (245_760, 8_192, 50_000, 62_500), 42: (522_240, 8_704, 50_000, 62_500),
+    50: (589_824, 22_080, 135_000, 135_000), 51: (983_040, 36_864, 240_000, 240_000),
+    52: (2_073_600, 36_864, 240_000, 240_000), 60: (4_177_920, 139_264, 240_000, 240_000),
+    61: (8_355_840, 139_264, 480_000, 480_000), 62: (16_711_680, 139_264, 800_000, 800_000),
+}
+#: cpbBrNalFactor of Table A-2 by profile_idc (the samples are NAL units): Baseline, Main
+#: and Extended 1200, High 1500, High 10 3600, High 4:2:2 and 4:4:4 4800.
+_NAL_FACTOR: Final = {66: 1200, 77: 1200, 88: 1200, 100: 1500, 110: 3600, 122: 4800, 244: 4800}
 
 
 class Mp4Error(ValueError):
@@ -322,12 +343,46 @@ def parse_sps(nal: bytes) -> SpsInfo:
     return _layout(nal).info
 
 
-def patch_sps_colour(nal: bytes, tags: ColourTags = BT709_LIMITED) -> bytes:
-    """The SPS with ``tags`` as its VUI's video signal type; every other bit as it was.
+def needed_level(width: int, height: int, fps: float, frame_bytes: list[int], *,
+                 profile_idc: int = 66, at_least: int = 0) -> int:
+    """The lowest level_idc (from level 3, and not below ``at_least``) whose limits a stream of
+    these frames fits: frame size, macroblocks a second, and its coded picture buffer at the
+    level's rate (Annex C's leaky bucket, full at the start, never above its size). A stream
+    beyond level 6.2 gets 6.2. ``frame_bytes`` in decoding order."""
+    width_mbs, height_mbs = -(-width // 16), -(-height // 16)
+    frame_mbs = width_mbs * height_mbs
+    factor = _NAL_FACTOR.get(profile_idc, 1200)
+    for level, (max_mbps, max_fs, max_br, max_cpb) in _LEVELS.items():
+        if level < at_least or frame_mbs > max_fs or frame_mbs * fps > max_mbps:
+            continue
+        if max(width_mbs, height_mbs) ** 2 > 8 * max_fs:      # A.3.1 h) and i)
+            continue
+        rate, size = max_br * factor, max_cpb * factor
+        fill, held = rate / fps, float(size)
+        for count in frame_bytes:
+            bits = count * 8
+            if bits > held:
+                break
+            held = min(size, held - bits + fill)
+        else:
+            return level
+    return max(*_LEVELS, at_least)
+
+
+def patch_sps_colour(nal: bytes, tags: ColourTags = BT709_LIMITED, *,
+                     level_idc: int | None = None) -> bytes:
+    """The SPS with ``tags`` as its VUI's video signal type (and ``level_idc`` as its level,
+    when given); every other bit as it was.
 
     An SPS without a VUI gets one that says only that: every other VUI flag 0, which is what
     a decoder assumes without a VUI. ``Mp4Error`` when ``nal`` is not an SPS."""
     layout = _layout(nal)
+    if level_idc is not None:
+        if not 0 <= level_idc <= 255:
+            raise ValueError(f"a level_idc is a byte, got {level_idc!r}")
+        rbsp = layout.rbsp[:2] + bytes([level_idc]) + layout.rbsp[3:]
+        layout = _SpsLayout(layout.info, rbsp, layout.vui_flag, layout.signal_flag,
+                            layout.after_signal, layout.stop)
     out = _BitWriter()
 
     def signal_type() -> None:
@@ -616,23 +671,24 @@ def _set_colr(entry: _Box, tags: ColourTags) -> None:
     children.insert(at, box)
 
 
-def _patched_avcc(avcc: _Box, sets: list[bytes], tags: ColourTags) -> bytes:
+def _patched_avcc(avcc: _Box, sets: list[bytes], tags: ColourTags, level: int) -> bytes:
     payload = avcc.payload
     rebuilt = bytearray(payload[:6])
+    rebuilt[3] = level                           # AVCLevelIndication: the SPS's level
     position = 6
     for nal in sets:
-        patched = patch_sps_colour(nal, tags)
+        patched = patch_sps_colour(nal, tags, level_idc=level)
         rebuilt += struct.pack(">H", len(patched)) + patched
         position += 2 + len(nal)
     return bytes(rebuilt + payload[position:])
 
 
-def _patched_sample(sample: bytes, length_size: int, tags: ColourTags) -> bytes:
+def _patched_sample(sample: bytes, length_size: int, tags: ColourTags, level: int) -> bytes:
     pieces = []
     position = 0
     for start, end in _nal_units(sample, length_size):
         if sample[start] & 0x1F == _NAL_SPS:
-            nal = patch_sps_colour(sample[start:end], tags)
+            nal = patch_sps_colour(sample[start:end], tags, level_idc=level)
             pieces += [sample[position:start - length_size], len(nal).to_bytes(length_size, "big"),
                        nal]
             position = end
@@ -664,9 +720,13 @@ def _rewrite(reading: BinaryIO, length: int, writing: BinaryIO, tags: ColourTags
     _set_colr(entry, tags)
     avc = entry.kind in _AVC_ENTRIES
     length_size = 4
+    level = 0
     if avc:
         avcc, sets, length_size = _avcc(entry)
-        avcc.payload = _patched_avcc(avcc, sets, tags)
+        sps = parse_sps(sets[0])
+        level = needed_level(sps.width, sps.height, _frame_rate(track), track.sizes,
+                             profile_idc=sps.profile_idc, at_least=sps.level_idc)
+        avcc.payload = _patched_avcc(avcc, sets, tags, level)
     body_start, body_end = mdat.start + mdat.header, mdat.start + mdat.size
     if any(not body_start <= offset <= body_end for offset in track.chunk_offsets):
         raise Mp4Error("a chunk lies outside the mdat box")
@@ -703,7 +763,7 @@ def _rewrite(reading: BinaryIO, length: int, writing: BinaryIO, tags: ColourTags
             old = reading.read(track.sizes[sample])
             if len(old) != track.sizes[sample]:
                 raise Mp4Error("the file ends inside a sample")
-            new = _patched_sample(old, length_size, tags) if avc else old
+            new = _patched_sample(old, length_size, tags, level) if avc else old
             writing.write(new)
             new_sizes.append(len(new))
             growth += len(new) - len(old)
@@ -724,6 +784,14 @@ def _rewrite(reading: BinaryIO, length: int, writing: BinaryIO, tags: ColourTags
         else:
             reading.seek(box.start)
             _copy(reading, writing, box.size)
+
+
+def _frame_rate(track: _Track) -> float:
+    """Frames a second: the timescale over the commonest sample duration."""
+    _count, delta = max(track.durations, key=lambda run: run[0], default=(0, 0))
+    if not delta:
+        raise Mp4Error("a track without sample durations")
+    return track.timescale / delta
 
 
 def _set_samples(track: _Track, sizes: list[int], offsets: list[int]) -> None:
