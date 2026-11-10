@@ -244,7 +244,16 @@ def device_bounds(painter: QPainter) -> QRectF:
     # An image or a pixmap (Qt's own item cache among them) reports the pixels it
     # has; a widget reports device-independent ones.
     ratio = 1.0 if isinstance(device, QImage | QPixmap) else device.devicePixelRatioF()
-    return QRectF(0.0, 0.0, device.width() * ratio, device.height() * ratio)
+    # A child widget is painted into its window's backing store: the device
+    # transform then carries the child's offset in the window, which the painter's
+    # own transform does not. The bounds sit at that offset (the canvas's viewport
+    # lies below the toolbars; without it the bottom strip of the viewport was lost).
+    left = top = 0.0
+    own, invertible = painter.combinedTransform().inverted()
+    if invertible:
+        redirection = own * painter.deviceTransform()
+        left, top = redirection.dx(), redirection.dy()
+    return QRectF(left, top, device.width() * ratio, device.height() * ratio)
 
 
 def _exposed_area(painter: QPainter, target: QRectF) -> tuple[QTransform, QTransform, QRect] | None:
