@@ -11807,9 +11807,10 @@ application's chosen language, never the system locale on its own.
 5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
    and the clipboard rows of the shopping list write a decimal point in every language.
    The PDF report's numbers are the export service's own.
-6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit,
-   the Tasks tab, the plan-date strip). Only names — months, weekdays — and the
-   day-and-month label of the calendar dashboard follow the language.
+6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit
+   but the planting calendar's year-less steps, the Tasks tab, the plan-date strip). Only
+   names — months, weekdays — and the day-and-month label of the calendar dashboard
+   follow the language.
 7. **A date or time FIELD takes nothing from the locale's territory** *(review round 1;
    owner to confirm)*. An English UI on a non-English system is `en_US` (decision 2), and
    a field left to that locale read "3:30 PM" and "6/7/26" and its calendar popup started
@@ -11836,24 +11837,38 @@ application's chosen language, never the system locale on its own.
 **Rejected**: the system locale for formats with the UI language for words (the state
 before: two conventions on one screen, and the issue's own counter-example); an
 application-wide Python event filter for the decimal key (it would run for every event
-of every object — the filter sits on the focused spin box only); removing the decimal
-key rewrite and documenting the trap (a silent factor of ten in a CAD field).
+of every object — the rule is a validator on the spin box that takes the focus);
+rewriting key events only (the first version: a paste produces no key event); removing
+the rewrite and documenting the trap (a silent factor of ten in a CAD field).
 
 **Consequences**: a single `,` or `.` is always the decimal mark. That is a trade-off
-and it has a loser: a user who writes a thousands separator. "1,234" entered into an
-English field is 1.234, and "1,234.5" TYPED into it is 1.23 (the comma becomes the
-decimal mark, the fourth digit exceeds the field's two decimals, the second mark is
-refused); before this ADR both were read as English grouping, 1234 and 1234.5. Pasted as
-a whole, "1,234.5" is still 1234.5, because a text with two marks is left to Qt. The
-other choice loses more: a mark that is a decimal mark in one UI language and a group
+and it has a loser: a user who writes a thousands separator. Measured in an English UI,
+in a field with two decimals (three in brackets where it differs):
+
+| Entered | Qt alone (before) | Now, typed | Now, pasted |
+|---|---|---|---|
+| `155,8` | 1558 | 155.8 | 155.8 |
+| `1,234` | 1234 | 1.23 (1.234) | refused, the field keeps its value (1.234) |
+| `1,234.5` | 1234.5 | 1.23 (1.234) | 1234.5 |
+
+Typed, "1,234.5" is 1.23: the comma becomes the decimal mark, the digit beyond the
+field's decimals and the second mark are refused key by key. Pasted as a whole it is
+still 1234.5, because a text with two marks is left to Qt; a pasted "1,234" has one
+mark, which is the decimal mark, and a field with two decimals refuses three. The first
+version of this ADR said of the thousands separator that "nobody is known to do that in
+a CAD field": that was a guess, and it is not the reason. The reason is that the other
+choice loses more: a mark that is the decimal mark in one UI language and a group
 separator in the other is a silent factor of ten or a thousand for everyone whose
 keyboard or clipboard does not match the UI language, which is the owner's own setup.
 The formatters write no group separator, so the UI never shows a number it would read
 back differently, and the coordinate parser has read both marks as decimal since
-Package A. `core/i18n.py` imports QtCore only, because Qt-free services ask it for a
-formatter; the number-field validator and the date-field helper live in `ui/`, and
-`scripts/check_import_boundaries.py` holds that (`QT_CORE_ONLY`). An English UI is `en_US` on a non-English
-system. That locale's month/day order, 12-hour clock and Sunday week start reach a widget
+Package A.
+
+`core/i18n.py` imports QtCore only, because Qt-free services ask it for a formatter; the
+number-field validator and the date-field helper live in `ui/`, and
+`scripts/check_import_boundaries.py` holds that (`QT_CORE_ONLY`).
+
+An English UI is `en_US` on a non-English system. That locale's month/day order, 12-hour clock and Sunday week start reach a widget
 that takes its format from the locale; the app's own date and time fields and its dates in
 text therefore take none of the three from it (decisions 7 to 9). The first version of this
 ADR claimed here that the fields "all set" a display format; the camera tour's four did

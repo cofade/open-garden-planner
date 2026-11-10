@@ -309,6 +309,29 @@ def test_a_pasted_number_with_group_separators_is_qts_to_read(
     assert spin.value() == pytest.approx(7.5 if value is None else value)
 
 
+@pytest.mark.parametrize(("entered", "decimals", "typed", "pasted"), [
+    # ADR-077's table of the trade-off, measured in an English UI. None: the paste is
+    # refused and the field keeps its value.
+    ("155,8", 2, 155.8, 155.8),
+    ("1,234", 2, 1.23, None),
+    ("1,234", 3, 1.234, 1.234),
+    ("1,234.5", 2, 1.23, 1234.5),
+    ("1,234.5", 3, 1.234, 1234.5),
+])
+def test_a_single_mark_is_never_a_thousands_separator(
+        qtbot, speak, entered, decimals, typed, pasted) -> None:
+    speak("en", "de_DE")
+    spin = _focused_spin(qtbot, decimals=decimals)
+    spin.setValue(7.0)
+    spin.selectAll()
+    QTest.keyClicks(spin, entered)
+    QTest.keyClick(spin, Qt.Key.Key_Return)
+    assert spin.value() == pytest.approx(typed)
+    spin.setValue(7.0)
+    _paste(spin, entered, "keyboard")
+    assert spin.value() == pytest.approx(7.0 if pasted is None else pasted)
+
+
 def test_a_whole_number_field_is_left_alone(qtbot, speak) -> None:
     """``QSpinBox`` has no decimal mark: nothing is installed on it, Qt's own rule stays."""
     speak("en", "de_DE")
@@ -350,6 +373,36 @@ def test_the_fields_own_behaviour_survives(qtbot, speak) -> None:
     spin.setFocus(Qt.FocusReason.TabFocusReason)
     qtbot.waitUntil(spin.hasFocus, timeout=3000)
     assert spin.lineEdit().validator() is first, "installed once, not stacked"
+
+
+def test_the_rule_lives_and_dies_with_its_field(qtbot, speak, qapp) -> None:
+    """Qt owns the validator through the field's line edit; Python must hold its Python
+    half meanwhile (a validator Python let go refuses every text), and let go of it when
+    the field is destroyed."""
+    import gc
+
+    from PyQt6 import sip
+
+    from open_garden_planner.ui import number_fields
+
+    speak("en", "de_DE")
+    spin = _focused_spin(qtbot)
+    validator = spin.lineEdit().validator()
+    assert type(validator).__name__ == "_EitherDecimalMark"
+    key = id(validator)
+    assert number_fields._alive[key] is validator
+    del validator
+    gc.collect()                        # nothing but the registry holds it now
+    spin.selectAll()
+    QTest.keyClicks(spin, "155,8")
+    QTest.keyClick(spin, Qt.Key.Key_Return)
+    assert spin.value() == pytest.approx(155.8), "the validator is still the Python one"
+
+    host = spin.host
+    del spin.host
+    sip.delete(host)                    # the window, the field, its line edit, the validator
+    qapp.processEvents()
+    assert key not in number_fields._alive
 
 
 def test_the_app_installs_the_number_field_rule_on_its_application(qapp) -> None:

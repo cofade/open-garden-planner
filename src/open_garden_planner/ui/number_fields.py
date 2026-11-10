@@ -94,6 +94,11 @@ class DecimalMarks(QObject):
 _alive: dict[int, _EitherDecimalMark] = {}
 
 
+def _forget(key: int, *_destroyed: object) -> None:
+    """Drop a validator Qt has destroyed (``destroyed`` passes the object along)."""
+    _alive.pop(key, None)
+
+
 def accept_either_decimal_mark(spin: QDoubleSpinBox) -> None:
     """Put the validator in front of *spin*'s own, once."""
     editor = spin.lineEdit()
@@ -102,7 +107,7 @@ def accept_either_decimal_mark(spin: QDoubleSpinBox) -> None:
         return
     validator = _EitherDecimalMark(spin, own)
     _alive[id(validator)] = validator
-    validator.destroyed.connect(functools.partial(_alive.pop, id(validator), None))
+    validator.destroyed.connect(functools.partial(_forget, id(validator)))
     editor.setValidator(validator)
 
 
