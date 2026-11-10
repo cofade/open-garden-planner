@@ -213,7 +213,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "7da582fb4249079f4f7e26fdb3c885f12807b219709025ed80f72b0990bc330f"
+          "current_sha256": "f2a54b04933e867e9099a1b3e0e7f0969cdae3820929329295c239498aeeea7d"
         },
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -228,7 +228,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "5c50e59288330cae96091eb3e77d5d01742bcec7c92f3da4a621f6a560f4c837"
+          "current_sha256": "a0c51bdf404bac665505cdf942273cc112dc913c70deef263071afcf211a5b10"
         },
         {
           "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "4c54ca6e0eaa9018029d7904c094f406b64f95094794ac7728ac1dcfa23a88d3"
+          "current_sha256": "4261ee2cbb660a69b116d74a84810db5d223b68283b35df09cd466341f779518"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "cf70502b5fac2496f359ddca3abdc627845f746cdcc6d93c2c91e4e32f133f0a"
+          "current_sha256": "6838f9011b9a418564b534c4120ef4310b2890d90110105dc623c08a019b8074"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1613,7 +1613,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "7da582fb4249079f4f7e26fdb3c885f12807b219709025ed80f72b0990bc330f"
+          "current_sha256": "f2a54b04933e867e9099a1b3e0e7f0969cdae3820929329295c239498aeeea7d"
         },
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -1628,7 +1628,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "5c50e59288330cae96091eb3e77d5d01742bcec7c92f3da4a621f6a560f4c837"
+          "current_sha256": "a0c51bdf404bac665505cdf942273cc112dc913c70deef263071afcf211a5b10"
         },
         {
           "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "4c54ca6e0eaa9018029d7904c094f406b64f95094794ac7728ac1dcfa23a88d3"
+          "current_sha256": "4261ee2cbb660a69b116d74a84810db5d223b68283b35df09cd466341f779518"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "cf70502b5fac2496f359ddca3abdc627845f746cdcc6d93c2c91e4e32f133f0a"
+          "current_sha256": "6838f9011b9a418564b534c4120ef4310b2890d90110105dc623c08a019b8074"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2961,6 +2961,20 @@
         ".claude/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
         ".claude/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
         ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md"
+      ]
+    },
+    {
+      "issue": 794,
+      "reason": "The sun map's key, label blockers and the sharp badge add lines to CanvasView, CanvasScene and garden_item.py; refresh the five shifted line citations in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+        ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+        ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+        ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
       ]
     }
   ]

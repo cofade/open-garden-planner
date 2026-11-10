@@ -215,3 +215,4 @@
 | Case study: a device cache that cached nothing (#784) | [Read](217-case-study-a-device-cache-that-cached-nothing-784.md) |
 | Case study: letter gaps in a zoomed text note that the test platform cannot show (#793) | [Read](218-case-study-letter-gaps-that-the-test-platform-cannot-show-793.md) |
 | Case study: the SVG export flooded the plan with roof tiles — the generator drops clips, brush transforms and source rectangles (#787) | [Read](219-case-study-the-svg-export-flooded-the-plan-with-roof-tiles.md) |
+| Case study: the key was in the scene, visible, and in no picture — an item that ignores transformations is found by its rectangle without the painter's flip (#794) | [Read](224-case-study-the-key-was-in-the-scene-visible-and-in-no-picture-794.md) |
