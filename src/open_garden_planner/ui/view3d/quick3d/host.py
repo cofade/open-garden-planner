@@ -1582,15 +1582,18 @@ class Quick3DHost:
 
     def capture(self, size: tuple[int, int], shot: PerspectiveShot | None = None, *,
                 wind_time_s: float | None = None, photo: PhotoSettings | None = None,
-                label: str = "", fitted_shadows: bool = True) -> QImage:
+                label: str = "", fitted_shadows: bool = False) -> QImage:
         """A picture of exactly ``size`` device pixels, without moving anything on screen:
         ``shot`` (None: the camera in place) through the scene's second View3D, whose size
         does not depend on the window's. Selection ring off; the photo settings apply.
         ``wind_time_s``: the wind's clock for this picture (a tour's frames are computed,
         not timed). ``photo``: develop this picture differently from the view (an agent's
-        picture takes ``NO_PHOTO``). ``fitted_shadows``: the key light's shadow map fitted
-        to the casters for this frame (``set_fitted_shadows``) — a picture's camera does not
-        move; a frame of a MOVING camera passes False and keeps the view's stable fit.
+        picture takes ``NO_PHOTO``). ``fitted_shadows=True``: the key light's shadow map
+        fitted to the casters for this frame only (``set_fitted_shadows``) — what a STILL
+        picture asks for (a photo, an agent's picture, a held camera's frame); a frame of a
+        moving camera keeps the default, the view's stable fit. The default is what makes a
+        capture at the view's size the view, pixel for pixel (the self-test's check; #734:
+        a fitted frame differs from the view by up to 24 levels along its shadow edges).
         Legal on a ``LIVE`` host only (``lifecycle.py``); else ``HostStateError``.
         ``EngineError`` when no picture comes back.
 

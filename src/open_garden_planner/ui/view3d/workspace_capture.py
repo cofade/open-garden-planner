@@ -543,7 +543,8 @@ class WorkspaceCaptureCoordinator(QObject):
             raise CaptureRefused("not_open")
         ratio = float(host.device_pixel_ratio())
         size = photo_size(size_key, host.view_size(), ratio)
-        image = host.capture(size, label="photo")
+        # #734: a photo's camera holds still, so its shadow map is fitted to the casters
+        image = host.capture(size, label="photo", fitted_shadows=True)
         self._describe(image)
         return bool(image.save(str(path)))
 
@@ -838,7 +839,8 @@ class WorkspaceCaptureCoordinator(QObject):
             raise CaptureRefused(blocker)
         host = self._get_host()
         try:
-            image = host.capture(size, shot, photo=NO_PHOTO, label="agent")
+            image = host.capture(size, shot, photo=NO_PHOTO, label="agent",
+                                 fitted_shadows=True)   # a still picture (#734)
         except HostStateError as error:   # resized or hidden a moment ago: "not now"
             _LOG.info("render_3d_view: no frame right now (%s)", log_text(error))
             raise CaptureRefused("warming_up") from error

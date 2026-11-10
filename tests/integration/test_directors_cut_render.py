@@ -114,6 +114,28 @@ def test_every_size_comes_out_exact_and_shows_something(host_answers: dict[str, 
         assert not row["flat"], name
 
 
+#: #734: a still picture's shadow map fitted to the casters against the view's locked fit, on
+#: the bench plan at 38° (medium, 640 x 360). Measured on the RTX 4070: 6.0 % of the pixels
+#: more than 8 levels apart, mean 1.32 - every one along a shadow's edge or in a canopy's
+#: self-shadow. Below the floor the fit did nothing; above the ceiling it changed more than
+#: shadow edges.
+FITTED_CHANGED_SHARE = (0.01, 0.15)
+FITTED_MEAN = 3.0
+
+
+def test_a_still_pictures_fitted_shadows_change_only_its_own_frame(host_answers: dict[str, Any]) -> None:
+    """#734: ``capture(fitted_shadows=True)`` - what a photo, an agent's picture and a held
+    camera's frame ask for - sharpens the shadow map for that frame and puts the view's fit
+    back: the view grabbed after it is the view to the level. The default capture stays the
+    view (``test_a_capture_at_the_views_size_is_the_view``; the self-test checks the same)."""
+    fitted = host_answers["fitted"]
+    low, high = FITTED_CHANGED_SHARE
+    assert low <= fitted["changed_share"] <= high, fitted
+    assert fitted["mean"] <= FITTED_MEAN, fitted
+    assert fitted["view_after"]["max"] <= SAME, fitted
+    assert fitted["flag_after"] is False, fitted
+
+
 def test_another_camera_moves_nothing_on_screen(host_answers: dict[str, Any]) -> None:
     assert host_answers["other_vs_view"]["mean"] > 5.0, "the picture really is from elsewhere"
     assert host_answers["view_after_capture"]["max"] <= SAME
