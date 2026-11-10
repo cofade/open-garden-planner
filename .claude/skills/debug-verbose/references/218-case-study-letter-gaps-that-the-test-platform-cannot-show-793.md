@@ -26,4 +26,14 @@ For the scale bar the probe was a count of changed pixels: `painter.drawText` wi
 
 **Fix**: `TextItem._apply_font` and the callout's text set `PreferNoHinting` (the change itself came with #789, for the SVG export; the two other settings were built here first, measured, and taken out). `ui/canvas/items/halo_text.py` strokes `QPainterPath.addText` outlines for every canvas label. The regression test pins the font setup, because pixels cannot show the defect on the suite's platform; the contrast tests measure pixels, because they can (`tests/integration/test_canvas_legibility.py`). PF-CAN-52.
 
-**Lesson**: measure each part of a fix alone before keeping all of them. Before writing a pixel test for a font defect, run the probe on the platform the suite uses. If the number does not move there, pin the cause and write the measured numbers of the real platform next to it. And measure a "halo" before believing the comment that names it.
+**Second round (same issue, found by looking at the captures)**: every contrast test passed, and in the picture the last letter of "Perennial border" stood outside its halo. The halo was the stroked outline of `QPainterPath.addText`; the glyphs were drawn by the item's own text layout. Two layouts of one text:
+
+```
+[HALO] windows   bold 10 pt 'Perennial border': layout 108.16 px, outline ends at 104.22 px
+[HALO] windows   bold  7 pt 'Stepping stones' (an export's size): text ends 6.43 px past its outline
+[HALO] offscreen bold 10 pt: painted text ends in column 119, filled outline in column 104
+```
+
+The contrast helper averages over the glyphs that do have a halo, so it could not see two that had none. Tried first: unhinted label fonts. The two layouts then agree to 0.02 px, but the small area label lost its dark strokes and the contrast test no longer found it. Kept: `text_outline` lays the text out as `QGraphicsSimpleTextItem` does and takes each glyph's outline where that layout puts it. The pin compares the first and last ink column of the painted text and of the filled outline, and here it fails on the suite's platform too. The same look at the captures showed an object's area label missing whenever its name was on: the two are stacked closer than the declutter's gap, and the layout took them for strangers.
+
+**Lesson**: measure each part of a fix alone before keeping all of them. A metric that averages (contrast over all ink) says nothing about the worst glyph: look at the picture, then write the test for what the picture showed. Before writing a pixel test for a font defect, run the probe on the platform the suite uses. If the number does not move there, pin the cause and write the measured numbers of the real platform next to it. And measure a "halo" before believing the comment that names it.

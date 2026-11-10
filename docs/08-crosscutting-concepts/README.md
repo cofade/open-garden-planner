@@ -606,6 +606,15 @@ grey around the plan. No label may rely on what is under it.
 *outline path* in a halo colour and paints the text over it. `QPainter.drawText`
 with a wide pen outlines nothing; that was the scale bar's "halo" for years.
 
+**The outline comes from the layout that draws the glyphs.** `text_outline` lays
+the text out as `QGraphicsSimpleTextItem` does and takes each glyph's outline at
+the place that layout gives it (`QTextLayout.glyphRuns`, `QRawFont.pathForGlyph`).
+`QPainterPath.addText` lays the text out a second time by other rules: a hinted
+layout rounds every advance to a whole pixel, and a bold face came out at the
+regular width. A bold 10 pt "Perennial border" ended 3.9 px past such an outline
+on Windows, where the halo reaches 2.5 px, and 6.4 px at an export's 7 pt.
+`paint_halo_text` strokes and fills one path, so it cannot disagree with itself.
+
 | Use | API |
 |---|---|
 | Immediate painting (the scale bar) | `paint_halo_text(painter, baseline, text, font, colour)` |
@@ -646,7 +655,10 @@ Labels of one object are stacked by `stack_under`, in pixels.
 **Labels that have no room are left out.** `core/label_layout.place_labels`
 (Qt-free) decides in screen pixels: an object smaller than `LABEL_MIN_OWNER_PX`
 on screen gets no label, and of two labels that would touch the larger object's
-wins. A selected object's labels are exempt and placed first. The layout always
+wins. A selected object's labels are exempt and placed first. The name and the
+area of one object are a stack, not neighbours (`LabelCandidate.owner`): they lie
+closer than the gap and do not exclude each other, and when the name has no room
+the area is left out with it. The layout always
 looks at every label of the scene, never only at a repainted region, or a partial
 repaint would choose differently from a full one. `CanvasScene.plan_labels_shown`
 returns the result for a given transform.

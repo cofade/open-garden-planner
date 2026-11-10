@@ -14,13 +14,18 @@ pixels, decide which are painted:
 A selected object's labels are exempt from the size rule and are placed first,
 so the object being worked on always names itself.
 
+The labels of ONE object (its name and the area hung under it) are a stack, not
+neighbours: they lie closer than the gap by construction and do not exclude
+each other. They stand and fall together: when the name has no room, the area
+is left out too, or it would hang under nothing.
+
 The layout looks at every label, never only at the ones in a repainted
 region: a partial repaint must reach the same answer as a full one.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from dataclasses import dataclass
 
 #: An object smaller than this on screen (its longer side, pixels) shows no label.
@@ -41,6 +46,8 @@ class LabelCandidate:
         pinned: Its object is selected: exempt from the size rule, placed first.
         rank: Order among the labels of one object (name 0, area 1).
         tie: Any stable value that orders two otherwise equal labels.
+        owner: What identifies its object, or ``None`` for a label on its own.
+            Labels with the same owner are one stack.
     """
 
     rect: tuple[float, float, float, float]
@@ -48,6 +55,7 @@ class LabelCandidate:
     pinned: bool = False
     rank: int = 0
     tie: str = ""
+    owner: Hashable | None = None
 
 
 def place_labels(
@@ -71,9 +79,13 @@ def place_labels(
             index,
         ),
     )
-    cells: dict[tuple[int, int], list[tuple[float, float, float, float]]] = {}
+    cells: dict[tuple[int, int], list[tuple[float, float, float, float, Hashable | None]]] = {}
     placed: list[int] = []
+    left_out: set[Hashable] = set()
     for index in order:
+        owner = candidates[index].owner
+        if owner is not None and owner in left_out:
+            continue
         left, top, right, bottom = candidates[index].rect
         grown = (left - gap_px, top - gap_px, right + gap_px, bottom + gap_px)
         keys = [
@@ -85,9 +97,12 @@ def place_labels(
             grown[0] < other[2] and other[0] < grown[2] and grown[1] < other[3] and other[1] < grown[3]
             for key in keys
             for other in cells.get(key, ())
+            if owner is None or other[4] != owner
         ):
+            if owner is not None:
+                left_out.add(owner)
             continue
         placed.append(index)
         for key in keys:
-            cells.setdefault(key, []).append((left, top, right, bottom))
+            cells.setdefault(key, []).append((left, top, right, bottom, owner))
     return placed

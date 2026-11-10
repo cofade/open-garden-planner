@@ -61,6 +61,7 @@ def plan_labels_shown(scene: QGraphicsScene, world: QTransform) -> list[ShownLab
                 pinned=pinned,
                 rank=item.rank,
                 tie=item.text(),
+                owner=id(owner) if owner is not None else None,
             )
         )
         labels.append((item, device, box))

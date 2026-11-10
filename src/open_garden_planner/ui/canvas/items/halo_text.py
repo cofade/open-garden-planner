@@ -33,6 +33,7 @@ from PyQt6.QtGui import (
     QPainterPath,
     QPen,
     QPixmap,
+    QTextLayout,
     QTransform,
 )
 from PyQt6.QtWidgets import (
@@ -85,15 +86,33 @@ def halo_pen(halo: QColor, font: QFont) -> QPen:
 def text_outline(text: str, font: QFont, origin: QPointF | None = None) -> QPainterPath:
     """The outline of ``text`` with its top-left corner at ``origin``.
 
-    Lines are stacked the way ``QGraphicsSimpleTextItem`` lays them out, so the
-    outline sits under the glyphs that class paints.
+    The glyphs are put where ``QGraphicsSimpleTextItem`` draws them: the text
+    is laid out the way that class lays it out, and each glyph's outline is
+    taken at the place the layout gives it. ``QPainterPath.addText`` lays the
+    text out a second time, by its own rules, and the two do not agree: a
+    hinted layout rounds every advance to a whole pixel, and the outline of a
+    bold face came out at the regular width. Measured on Windows, a bold 10 pt
+    "Perennial border" ended 3.9 px past such an outline, where the halo
+    reaches 2.5 px: the last letters stood outside their halo.
     """
-    metrics = QFontMetricsF(font)
     top_left = origin if origin is not None else QPointF(0.0, 0.0)
+    layout = QTextLayout(text.replace("\n", " "), font)
+    layout.beginLayout()
+    while layout.createLine().isValid():
+        pass
+    layout.endLayout()
+    # A line has its height only once the next one is begun (or the layout is
+    # ended), so the lines are stacked afterwards, as Qt's own item does.
+    height = 0.0
+    for index in range(layout.lineCount()):
+        line = layout.lineAt(index)
+        line.setPosition(QPointF(0.0, height))
+        height += line.height()
     path = QPainterPath()
-    for index, line in enumerate(text.split("\n")):
-        baseline = QPointF(top_left.x(), top_left.y() + metrics.ascent() + index * metrics.height())
-        path.addText(baseline, font, line)
+    for run in layout.glyphRuns():
+        raw_font = run.rawFont()
+        for glyph, position in zip(run.glyphIndexes(), run.positions(), strict=True):
+            path.addPath(raw_font.pathForGlyph(glyph).translated(top_left + position))
     return path
 
 

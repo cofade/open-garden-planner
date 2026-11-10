@@ -75,6 +75,31 @@ def test_the_name_is_placed_before_the_area_of_the_same_object() -> None:
     assert place_labels(candidates) == [1]
 
 
+def test_the_labels_of_one_object_do_not_push_each_other_out() -> None:
+    """A name and the area hung under it lie closer than the gap, by construction."""
+    candidates = [
+        LabelCandidate(_box(0.0, 13.0), 100.0, rank=1, tie="6.24 m2", owner="bed"),
+        LabelCandidate(_box(0.0, 0.0), 100.0, rank=0, tie="Raised bed", owner="bed"),
+    ]
+    assert place_labels(candidates) == [1, 0]
+    # ...but the same two rects of two different objects still exclude each other
+    strangers = [
+        LabelCandidate(_box(0.0, 13.0), 100.0, rank=1, tie="6.24 m2", owner="bed"),
+        LabelCandidate(_box(0.0, 0.0), 100.0, rank=0, tie="Raised bed", owner="lawn"),
+    ]
+    assert place_labels(strangers) == [1]
+
+
+def test_an_object_whose_name_has_no_room_shows_no_area_either() -> None:
+    """The area hangs under the name; without the name it would hang under nothing."""
+    candidates = [
+        LabelCandidate(_box(0.0, 0.0), 400.0, tie="Terrace", owner="terrace"),
+        LabelCandidate(_box(10.0, 4.0), 100.0, rank=0, tie="Raised bed", owner="bed"),
+        LabelCandidate(_box(10.0, 40.0), 100.0, rank=1, tie="6.24 m2", owner="bed"),
+    ]
+    assert place_labels(candidates) == [0]
+
+
 def test_the_answer_does_not_depend_on_the_order_given_or_on_a_shift_of_the_view() -> None:
     rng = random.Random(793)
     candidates = [

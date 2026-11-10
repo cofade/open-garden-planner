@@ -265,6 +265,95 @@ def test_a_label_is_centred_on_its_object_at_every_zoom(canvas, zoom: float, rot
     assert area_box.top() < box.bottom() + 8.0
 
 
+@pytest.mark.parametrize("zoom", [0.42, 1.0, 3.5])
+def test_the_area_is_shown_together_with_the_name(canvas, zoom: float) -> None:
+    """The area hangs under the name, closer than two strangers' labels may lie.
+
+    The layout took the pair for two labels that touch and left the area out:
+    an object with both labels on showed its name only.
+    """
+    view, scene = canvas
+    bed = _solid(scene, BACKGROUNDS["soil"], QRectF(900, 700, 1200, 600), name="Raised bed")
+    bed.area_label_visible = True
+    view.set_zoom(zoom)
+    view.centerOn(bed)
+    QApplication.processEvents()
+    shown = {item for item, _device, _box in scene.plan_labels_shown(view.viewportTransform())}
+    assert shown == {bed._label_item, bed._area_label_item}
+
+    with_area = _grab(view)
+    ink = bed._area_label_item.brush().color()
+    bed.area_label_visible = False
+    without = _grab(view)
+    centre = view.mapFromScene(bed.mapToScene(bed.rect().center()))
+    region = QRect(centre.x() - 80, centre.y() + 6, 160, 30)        # under the name
+    ratio = _label_contrast(with_area, without, ink, region)
+    assert ratio >= MIN_TEXT_CONTRAST, f"area under the name at zoom {zoom}: {ratio:.2f}:1"
+
+
+def _ink_span(width: int, height: int, draw) -> tuple[int, int]:
+    """Leftmost and rightmost column that ``draw`` darkens on a white picture."""
+    image = QImage(width, height, QImage.Format.Format_RGB32)
+    image.fill(QColor("white"))
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.translate(10.0, 6.0)
+    draw(painter)
+    painter.end()
+    columns = [
+        x for x in range(width)
+        if any(QColor(image.pixel(x, y)).lightness() < 150 for y in range(height))
+    ]
+    return columns[0], columns[-1]
+
+
+@pytest.mark.parametrize("bold", [True, False])
+@pytest.mark.parametrize("points", [5, 7, 10, 14, 22])
+@pytest.mark.parametrize("text", ["Perennial border", "Stepping stones", "12.00 m²"])
+def test_the_halo_ends_where_the_text_ends(qtbot, text: str, points: int, bold: bool) -> None:
+    """The halo is the stroked glyph outline; the glyphs are drawn by the text layout.
+
+    The outline was laid out a second time, by ``QPainterPath.addText``, and
+    the two layouts do not agree: a hinted layout rounds every advance to whole
+    pixels. On Windows a bold 10 pt "Perennial border" ended 3.9 px past its
+    outline, where the halo reaches 2.5 px, and 6.4 px at an export's 7 pt: the
+    last letters stood outside their halo. Measured here on pixels, whatever
+    builds the outline: the ink of the painted text and the ink of the filled
+    outline start and end in the same columns.
+    """
+    from PyQt6.QtWidgets import QGraphicsSimpleTextItem, QStyleOptionGraphicsItem
+
+    from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem
+
+    item = HaloTextItem(text)
+    font = QFont("Arial", points)
+    font.setBold(bold)
+    item.setFont(font)
+    width = int(QGraphicsSimpleTextItem.boundingRect(item).width()) + 40
+    height = int(QGraphicsSimpleTextItem.boundingRect(item).height()) + 20
+
+    glyphs = _ink_span(width, height, lambda painter: QGraphicsSimpleTextItem.paint(
+        item, painter, QStyleOptionGraphicsItem(), None))
+    outline = _ink_span(width, height, lambda painter: painter.fillPath(
+        item._text_outline(), QBrush(QColor("black"))))
+    assert abs(outline[0] - glyphs[0]) <= 1, (glyphs, outline)
+    assert abs(outline[1] - glyphs[1]) <= 1, (glyphs, outline)
+
+
+def test_a_two_line_label_has_its_halo_under_both_lines(qtbot) -> None:
+    from PyQt6.QtWidgets import QGraphicsSimpleTextItem
+
+    from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem
+
+    item = HaloTextItem("Raised bed\n6.24 m²")
+    one_line = HaloTextItem("Raised bed")
+    text_rect = QGraphicsSimpleTextItem.boundingRect(item)
+    outline = item._text_outline().boundingRect()
+    assert outline.height() > one_line._text_outline().boundingRect().height() * 1.6
+    assert outline.top() >= text_rect.top() - 1.0
+    assert outline.bottom() <= text_rect.bottom() + 1.0
+
+
 def test_a_renamed_object_shows_its_new_name_at_once(canvas) -> None:
     """The label is painted from a kept picture; a rename must replace it."""
     view, scene = canvas
