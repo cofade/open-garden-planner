@@ -12,6 +12,9 @@ _SEED_EMPTY = (
 DE = {
     "GardenPlannerApp": {
         "Opened as an untitled copy: {name}": "Als unbenannte Kopie geöffnet: {name}",
+        "Saved: {path}. The plan now follows your own date and time, no longer the example's.": (
+            "Gespeichert: {path}. Der Plan folgt jetzt Ihrem eigenen Datum und Ihrer eigenen Uhrzeit, nicht mehr denen des Beispiels."
+        ),
     },
     "SeedInventoryView": {
         _SEED_EMPTY: (
@@ -27,6 +30,9 @@ DE = {
 ES = {
     "GardenPlannerApp": {
         "Opened as an untitled copy: {name}": "Abierto como copia sin título: {name}",
+        "Saved: {path}. The plan now follows your own date and time, no longer the example's.": (
+            "Guardado: {path}. El plano sigue ahora su propia fecha y hora, ya no las del ejemplo."
+        ),
     },
     "SeedInventoryView": {
         _SEED_EMPTY: (
@@ -42,6 +48,9 @@ ES = {
 RU = {
     "GardenPlannerApp": {
         "Opened as an untitled copy: {name}": "Открыто как безымянная копия: {name}",
+        "Saved: {path}. The plan now follows your own date and time, no longer the example's.": (
+            "Сохранено: {path}. Теперь план следует вашим дате и времени, а не дате и времени примера."
+        ),
     },
     "SeedInventoryView": {
         _SEED_EMPTY: (

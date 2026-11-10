@@ -3690,10 +3690,12 @@ _CHROME_TRANSLATIONS: dict[str, dict[str, str]] = {
     "_GanttWidget": {
         "Plant": "Pflanze",
     },
-    # A Qt date pattern (d = day, MMM = short month name): a day without its
-    # year, in the language's own order ("Jun 21" / "21. Juni").
+    # Qt date patterns (d = day, MMM = short month name, yyyy = year): a day
+    # without its year, in the language's own order ("Jun 21" / "21. Juni"), and
+    # a whole date in UI text ("7 Jun 2026" / "7. Juni 2026").
     "DateFormat": {
         "MMM d": "d. MMM",
+        "d MMM yyyy": "d. MMM yyyy",
     },
     # Tool names in the status bar.
     "ConstructionLineTool": {
