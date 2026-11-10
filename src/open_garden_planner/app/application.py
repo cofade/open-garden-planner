@@ -3555,7 +3555,7 @@ class GardenPlannerApp(QMainWindow):
         """
         if not self._showcase_moment.copy_saved():
             return False
-        self.statusBar().showMessage(self.tr(
+        self._show_status_message(self.tr(
             "Saved: {path}. The plan now follows your own date and time, "
             "no longer the example's.").format(path=file_path))
         return True
