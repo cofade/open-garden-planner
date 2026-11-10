@@ -101,6 +101,7 @@ Item {
     property real aoStrengthGain: 1.0
     property real aoDistanceGain: 1.0
     property real aoBias: 0.0
+    property real builtSnow: 0.0            // snow on built TOPS: a roof, a bed's soil (#687)
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -611,7 +612,11 @@ Item {
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
-            materials: fade < 1.0 ? [vcScreen] : [vcLook]
+            // #687: under snow the tops lie under the ground's snow (built_snow.frag) - only
+            // while it snows, so a snowless frame is the principled look; a building's floor
+            // lies under its roof (Cutaway shows it) and stays bare
+            materials: fade < 1.0 ? [vcScreen]
+                       : root.builtSnow > 0.0 && partName !== "floor" ? [vcSnow] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
                 vertexColorsEnabled: true
@@ -632,6 +637,24 @@ Item {
                 cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: vcSnow
+                // the principled look's albedo through the engine's polynomial (sRGB in)
+                property vector3d uTintSrgb: Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
+                property real uRough: 0.78
+                property real uSpecular: 0.35
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                cullMode: root.roofsHidden ? Material.NoCulling : Material.BackFaceCulling
+                vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
             }
         }
     }
@@ -655,7 +678,8 @@ Item {
             pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
-            materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]
+            materials: root.roofsHidden || fade < 1.0 ? [roofScreen]
+                       : root.builtSnow > 0.0 ? [roofSnow] : [roofLook]   // #687: snow on the roof
             // roof tiles and shingles (ogp-lush-cinematic 4: roughness 0.70-0.85)
             PrincipledMaterial {
                 id: roofLook
@@ -673,6 +697,20 @@ Item {
                 shadingMode: CustomMaterial.Shaded
                 vertexShader: "screen.vert"
                 fragmentShader: "screen.frag"
+            }
+            CustomMaterial {
+                id: roofSnow
+                property vector3d uTintSrgb: Qt.vector3d(tint.r, tint.g, tint.b)
+                property TextureInput uFill: TextureInput { texture: null }
+                property real uHasFill: 0.0
+                property real uRough: 0.80
+                property real uSpecular: 0.15
+                property real uSnowCover: root.builtSnow
+                property real uSnowRough: root.groundRoughness
+                property real uSnowSpecular: root.groundSpecular
+                shadingMode: CustomMaterial.Shaded
+                vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
             }
         }
     }
@@ -1415,6 +1453,26 @@ Item {
                     cullMode: Material.NoCulling
                     vertexShader: "screen.vert"
                     fragmentShader: "screen.frag"
+                }
+            }
+            Model {   // #687: the snow on built tops, so the first snowy frame compiles nothing
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTintSrgb: Qt.vector3d(1, 1, 1)
+                    property TextureInput uFill: TextureInput { texture: null }
+                    property real uHasFill: 0.0
+                    property real uRough: 0.78
+                    property real uSpecular: 0.35
+                    property real uSnowCover: 0.0
+                    property real uSnowRough: 1.0
+                    property real uSnowSpecular: 0.15
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "built_snow.vert"
+                fragmentShader: "built_snow.frag"
                 }
             }
             Model {

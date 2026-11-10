@@ -155,6 +155,10 @@ def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
     assert rows["lights_night"]["lamps"] == 4 and rows["lights_night"]["lamp_lights"] == 4
     # snow lies white: the snowy December frame is the brightest of them
     assert rows["snow"]["mean_luma"] > rows["overcast"]["mean_luma"]
+    # #687: and on the built tops too - roofs, a bed's soil, decks, the trampoline's mat
+    # (ADR-070 decision 6 left them bare); whitened pixels against the same frame bare
+    tops = rows["snow"]["snow_tops"]
+    assert tops["share"] >= 0.02 and tops["luma"] >= tops["bare_luma"] + 40.0, tops
     # a cloudy evening is an evening (3D review of L5, round 3: an overcast sunset was 98 % as
     # bright as noon), and it fades into the night with no step at sunset — every weather
     # (partly cloudy since L7: between the clear evening and the overcast one)

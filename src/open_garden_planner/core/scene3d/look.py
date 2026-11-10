@@ -598,6 +598,9 @@ class AtmosphereSpec:
     ao_strength_gain: float = 1.0
     ao_distance_gain: float = 1.0
     ao_bias_cm: float = 0.0
+    #: How much snow lies on a built part's TOPS (a roof, a bed's soil, a deck), 0..1
+    #: (#687): smooth, they hold a full cover where the meadow still shows its grass.
+    built_snow: float = 0.0
 
 
 #: What every look of L1–L4 has: clear, dry and still.

@@ -206,7 +206,9 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
             continue
         assert "sourceBlend" not in block and "opacity: fade" not in block, name
         assert "visible:" not in block, name     # nothing hides a part to cut or fade it
-    assert "materials: fade < 1.0 ? [vcScreen] : [vcLook]" in blocks["vcPart"]
+    # #687: snow swaps in only where no screen door is drawn (test_snow_lies_on_the_built_tops...)
+    assert ("materials: fade < 1.0 ? [vcScreen] : root.builtSnow > 0.0 && partName !== \"floor\" "
+            "? [vcSnow] : [vcLook]") in " ".join(blocks["vcPart"].split())
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
         assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
@@ -220,11 +222,13 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
     for name in ("screen.vert", "foliage_door.vert", "grass_door.vert"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "#if QSSG_ENABLE_DEPTH_PASS" in source and "if (uOpacity < 1.0)" in source, name
-    assert "materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]" in blocks["roofPart"]
+    assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : root.builtSnow > 0.0 "
+            "? [roofSnow] : [roofLook]") in " ".join(blocks["roofPart"].split())
     assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
     assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
-    # the roofless house reads as a room: its walls drop back-face culling
-    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 2
+    # the roofless house reads as a room: its walls drop back-face culling (the look, the
+    # door and, since #687, the snowy look)
+    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 3
     for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
         assert "screenDoor(FRAGCOORD.xy) >= uOpacity" in source and "discard;" in source, name
@@ -328,7 +332,8 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "ambient.vert", "ambient.frag",     # leaves, butterflies, fireflies, bulbs
                                 # photo mode's depth of field (#743)
                                 "photoblur_layer.frag", "photoblur_rows.frag",
-                                "photoblur_compose.frag"}
+                                "photoblur_compose.frag",
+                                "built_snow.frag", "built_snow.vert"}   # snow on built tops (#687)
     # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {
         "Garden.qml", "AtmosphereSky.qml", "PhotoBlur.qml", "PROVENANCE.md",
@@ -733,3 +738,44 @@ def test_the_photo_blur_finds_its_shaders_beside_itself() -> None:
     assert len(shaders) == 3
     assert all(re.fullmatch(r'Qt\.resolvedUrl\("photoblur_\w+\.frag"\)', value.strip()) for value in shaders)
 
+
+def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() -> None:
+    """#687 (ADR-070 decision 6 as amended): under snow a roof, a bed's soil, a deck or the
+    trampoline's mat lie under the ground's snow. The built parts and the roofs swap to ONE
+    shared material (``built_snow.frag``, no shader per part: ADR-060) only while
+    ``snowCover`` > 0 — every snowless frame is the principled look; an X-ray door or a cut
+    roof keeps its screen door, and a building's floor (under its roof, seen in Cutaway)
+    stays bare. Glass and water are unchanged (whether a glasshouse is heated or a pond
+    frozen is not in the plan). The snow is ``weather.SNOW_LINEAR`` (drift guard, as the
+    ground's) and the albedo goes through the engine's own polynomial, like
+    ``ground.frag``'s."""
+    from open_garden_planner.core.scene3d.weather import SNOW_LINEAR
+
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
+    vc, roof = blocks["vcPart"], blocks["roofPart"]
+    assert ("materials: fade < 1.0 ? [vcScreen] : root.builtSnow > 0.0 && partName !== \"floor\" "
+            "? [vcSnow] : [vcLook]") in " ".join(vc.split())
+    assert ("materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : root.builtSnow > 0.0 "
+            "? [roofSnow] : [roofLook]") in " ".join(roof.split())
+    for block, tint in ((vc, "Qt.vector3d(tint.r * seasonTint.x, tint.g * seasonTint.y, "
+                             "tint.b * seasonTint.z)"),
+                        (roof, "Qt.vector3d(tint.r, tint.g, tint.b)")):
+        assert block.count('fragmentShader: "built_snow.frag"') == 1
+        assert block.count('vertexShader: "built_snow.vert"') == 1   # the colour as COLOR
+        assert f"property vector3d uTintSrgb: {tint}" in block
+        assert "property real uSnowCover: root.builtSnow" in block
+        assert "property real uSnowRough: root.groundRoughness" in block
+        assert "property real uSnowSpecular: root.groundSpecular" in block
+    assert "texture: patternMap ? patternMap : null" in vc.split("id: vcSnow")[1]
+    for kind in ("glassPart", "waterPart", "foliagePart"):
+        assert "built_snow" not in blocks[kind], kind
+    shader = (QML_DIR / "built_snow.frag").read_text(encoding="utf-8")
+    found = re.search(r"mix\(albedo, vec3\(([^)]*)\), lying\)", shader)
+    assert found and tuple(float(v) for v in found.group(1).split(",")) == SNOW_LINEAR
+    assert "c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878)" in shader
+    assert "smoothstep(0.35, 0.75, NORMAL.y)" in shader and "VAR_COLOR" not in shader.split("void MAIN")[1]
+    assert "vColor = COLOR;" in (QML_DIR / "built_snow.vert").read_text(encoding="utf-8")
+    # the first snowy frame compiles nothing new: the warmer draws it with no pixel
+    warmer = code[code.index("id: shaderWarmer"):]
+    assert 'fragmentShader: "built_snow.frag"' in warmer

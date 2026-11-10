@@ -827,6 +827,19 @@ class Board:
                                 "lamps": round(atmosphere.lamps, 3)},
                        "dew": round(atmosphere.dew, 3), "cloud": atmosphere.cloud,
                        **info, **probes.frame_stats(rgb)}
+                if atmosphere.built_snow > 0.0:
+                    # #687: the same frame with bare tops - the pixels the snow whitens
+                    bare, _frame, _info = self.frame(
+                        f"living_{shot.name}_{preset}_bare_tops", records, sun=sun,
+                        look=replace(look, atmosphere=replace(atmosphere, built_snow=0.0)),
+                        ground=self.plan_ground(), registry=registry, baked=True,
+                        shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
+                        ambient=living.buffers, lamps=list(living.lights))
+                    whiter = probes.luma(rgb) - probes.luma(bare) > 15.0
+                    row["snow_tops"] = {
+                        "share": round(float(whiter.mean()), 4),
+                        "luma": round(float(probes.luma(rgb)[whiter].mean()), 2) if whiter.any() else None,
+                        "bare_luma": round(float(probes.luma(bare)[whiter].mean()), 2) if whiter.any() else None}
                 rows.append(row)
                 self.log("living", name=shot.name, preset=preset, weather=weather,
                          mood=row["mood"], luma=row["mean_luma"], ambient=row["ambient_particles"])

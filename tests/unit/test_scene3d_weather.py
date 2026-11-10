@@ -515,7 +515,22 @@ def test_every_field_of_the_atmosphere_has_a_neutral_default() -> None:
     for field in fields(CLEAR_STILL):
         value = getattr(CLEAR_STILL, field.name)
         if field.name in ("leaves", "butterflies", "fireflies", "lamps", "cloud", "dew",
-                          "wetness", "snow_cover", "precip_density", "ao_bias_cm"):
+                          "wetness", "snow_cover", "precip_density", "ao_bias_cm", "built_snow"):
             assert value == 0.0, field.name
         if field.name in ("ao_strength_gain", "ao_distance_gain"):
             assert value == 1.0, field.name
+
+
+def test_snow_lies_white_on_built_tops_and_nowhere_else() -> None:
+    """#687: under the snow weather a built part's TOPS (roof, bed soil, deck, mat) lie under
+    a full cover — smooth, they show no grass through it, and at the meadow's 0.75 a
+    terracotta roof read pink; every other weather lays none (a snowless frame keeps the
+    principled look: Garden.qml swaps the snow material in only above 0)."""
+    from open_garden_planner.core.scene3d.weather import BUILT_SNOW_FULL_AT
+
+    assert BUILT_SNOW_FULL_AT == WEATHER_SPECS["snow"].snow_cover
+    for at in SUNS:
+        assert living_look(at, "high", "snow").atmosphere.built_snow == 1.0
+        for weather in ("clear", "partly_cloudy", "overcast", "rain"):
+            assert living_look(at, "high", weather).atmosphere.built_snow == 0.0, weather
+        assert living_look(at, "high", "clear", dew=False).atmosphere.built_snow == 0.0

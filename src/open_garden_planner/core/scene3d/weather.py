@@ -65,6 +65,7 @@ from .sink import SunState
 
 __all__ = [
     "AO_BIAS_UNDER_CLOUD_CM", "AO_DISTANCE_UNDER_CLOUD", "AO_STRENGTH_UNDER_CLOUD",
+    "BUILT_SNOW_FULL_AT", "SNOW_LINEAR",
     "DEW_FULL_DEG", "DEW_GONE_DEG", "MOODS", "TODAY", "WEATHERS", "WEATHER_CHOICES",
     "WEATHER_SPECS", "WeatherSpec", "apply_weather", "dew_amount", "is_evening", "is_morning",
     "living_look", "mood_of", "noon_azimuth", "normalise_weather", "todays_weather",
@@ -311,6 +312,10 @@ _FIREFLY_FADE_DEG: Final = 25.0
 #: the overcast box's lit-side contact 0.040 (was 0.031, clear 0.022) - a geometric sky
 #: occlusion would be 0.10-0.17: more needs a bias the rim forbids (``ogp-lush-cinematic``
 #: reference 14).
+#: Snow on a built part's tops (#687): full where the ground's cover reaches this. The
+#: meadow's 0.75 is snow with its grass still showing; a roof, a deck or a bed's soil is
+#: smooth and lies white under the same fall - at 0.75 a terracotta roof read pink.
+BUILT_SNOW_FULL_AT: Final = 0.75
 AO_STRENGTH_UNDER_CLOUD: Final = 99.0 / 55.0
 AO_DISTANCE_UNDER_CLOUD: Final = 70.0 / 14.0
 AO_BIAS_UNDER_CLOUD_CM: Final = 21.0
@@ -447,7 +452,8 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         # the sky's share of the light decides how much what hides it darkens (#687)
         ao_strength_gain=1.0 + (AO_STRENGTH_UNDER_CLOUD - 1.0) * light,
         ao_distance_gain=1.0 + (AO_DISTANCE_UNDER_CLOUD - 1.0) * light,
-        ao_bias_cm=AO_BIAS_UNDER_CLOUD_CM * light)
+        ao_bias_cm=AO_BIAS_UNDER_CLOUD_CM * light,
+        built_snow=min(1.0, spec.snow_cover / BUILT_SNOW_FULL_AT))
     weathered = replace(look, mood=mood, sky=sky, shadow=shadow, fog_linear=fog,
                         fill_linear=fill, plain_sky_linear=fog, meadow_albedo=meadow,
                         wind_strength=spec.wind_strength, atmosphere=atmosphere)
