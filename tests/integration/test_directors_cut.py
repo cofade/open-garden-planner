@@ -914,6 +914,36 @@ def test_a_paused_preview_stops_saying_it_waits_when_the_view_comes_back(rig: Ri
     dialog.close()
 
 
+def test_enter_in_a_field_of_the_tour_window_presses_no_button(rig: Rig) -> None:
+    """#796: the older buttons were auto-default, so Enter in a spin box pressed the first."""
+    dialog = dialog_of(rig)
+    buttons = dialog.findChildren(QPushButton)
+    assert buttons
+    assert [b.text() for b in buttons if b.autoDefault() or b.isDefault()] == []
+    dialog.close()
+
+
+def test_a_runs_frame_fits_the_screen_and_goes_when_the_run_ends(rig: Rig) -> None:
+    """#796: the window kept its last frame at full size and was then taller than a small
+    screen, with its buttons below the edge."""
+    dialog = dialog_of(rig)
+    fresh = dialog.height()
+    available = dialog.screen().availableGeometry().height()
+    frame = QImage(640, 360, QImage.Format.Format_RGB32)
+    frame.fill(0)
+    dialog._on_progress(1, 2, frame)
+    shown = dialog._thumbnail.pixmap()
+    assert 96 <= shown.height() <= 360
+    assert abs(shown.width() * 360 - shown.height() * 640) <= 640, "the frame keeps its shape"
+    assert dialog.sizeHint().height() <= available or shown.height() == 96
+    dialog.duration_spin.setValue(dialog.duration_spin.minimum())
+    dialog.preview()
+    rig.qtbot.waitUntil(lambda: dialog._recorder is None, timeout=60000)
+    assert dialog._thumbnail.pixmap().isNull(), "a finished run leaves no frame behind"
+    assert dialog.height() < fresh + 96, "and the window is as tall as before the run"
+    dialog.close()
+
+
 def test_a_clock_that_refuses_at_the_end_of_a_tour_still_lets_the_preset_go(rig: Rig) -> None:
     """#738: a raising clock listener used to skip ``hold_preset(False)``, and automatic
     quality stayed paused for the rest of the session."""

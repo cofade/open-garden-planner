@@ -86,6 +86,10 @@ if TYPE_CHECKING:
     from .workspace_capture import WorkspaceCaptureCoordinator
 
 _LOG: Final = logging.getLogger(__name__)
+#: Window frame, title bar and the gap under a run's frame, in pixels.
+_FRAME_CHROME_PX: Final = 48
+#: A run's frame is never shown smaller than this, however short the screen.
+_MIN_FRAME_PX: Final = 96
 
 __all__ = ["ASK_DISCARD_AFTER_S", "DEFAULT_DAY", "DEFAULT_DURATION_S", "DEFAULT_SEASON",
            "DEFAULT_SIZE", "PREVIEW_SIZE", "TOUR_SIZES", "TourDialog"]
@@ -153,6 +157,11 @@ class TourDialog(QDialog):
         root.addLayout(self._build_buttons())
         capture.tours_changed.connect(self._refresh_tours)
         self._refresh_tours()
+        # Enter in a field starts nothing: no button of this window is the default (#796).
+        for button in self.findChildren(QPushButton):
+            button.setAutoDefault(False)
+            button.setDefault(False)
+        self._height_without_frame = 0
 
     # ── building ─────────────────────────────────────────────────────────────
 
@@ -770,9 +779,37 @@ class TourDialog(QDialog):
 
     def _on_progress(self, done: int, total: int, image: QImage) -> None:
         self._progress.setValue(done)
-        self._thumbnail.setPixmap(QPixmap.fromImage(image))
+        current = self._thumbnail.pixmap()
+        if current is None or current.isNull():
+            self._height_without_frame = self.sizeHint().height()
+        pixmap = QPixmap.fromImage(image)
+        height = self._frame_height(pixmap.height())
+        if 0 < height < pixmap.height():
+            pixmap = pixmap.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation)
+        self._thumbnail.setPixmap(pixmap)
         if self._recording:
             self._status.setText(self.tr("Frame {done} of {total}").format(done=done, total=total))
+
+    def _frame_height(self, frame_height: int) -> int:
+        """How tall a run's frame is shown here: whole where the screen has room, smaller
+        on a short screen, so the buttons below it stay on the screen (#796)."""
+        screen = self.screen()
+        if screen is None:
+            return frame_height
+        room = (screen.availableGeometry().height() - self._height_without_frame
+                - _FRAME_CHROME_PX)
+        return max(_MIN_FRAME_PX, min(frame_height, room))
+
+    def _drop_frame(self) -> None:
+        """A finished run's last frame goes: the window is as tall as it was before."""
+        current = self._thumbnail.pixmap()
+        if current is None or current.isNull():
+            return
+        self._thumbnail.clear()
+        layout = self.layout()
+        if layout is not None:
+            layout.activate()
+        self.resize(self.width(), self.sizeHint().height())
 
     def _refusal(self, code: str) -> str:
         """Why no tour can start, in the user's language (``workspace_capture.BLOCKERS``)."""
@@ -824,6 +861,7 @@ class TourDialog(QDialog):
                 self.show()
         self._status.setText(self._say(result, recording))
         self._sync_controls()
+        self._drop_frame()
         closing, self._close_when_stopped = self._close_when_stopped, False
         if closing and (result.cancelled or result.ok or programmatic):
             self.close()   # a programmatic teardown cannot wait for a failure's reason
