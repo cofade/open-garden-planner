@@ -1108,8 +1108,16 @@ class Board:
         must fade — the mean luminance never rises from 6° to −7° — and crossing sunset
         (0.6° → 0.4°, where the key light leaves as the 2D shadows do) is no larger a
         step than the largest half degree of the day ramp before it (6° … 0.6°).
-        ``weather`` (L5, ``--living``): the same evening under that weather's look."""
+        ``weather`` (L5, ``--living``): the same evening under that weather's look.
+
+        #802: the GARDEN must fade too — the frame is mostly sky, and the ground rose
+        after sunset while the frame fell. Every row carries ``ground_luminance`` (the
+        rows below the horizon) and ``ground_monotone`` judges it by the same noise rule;
+        for the first preset the evening is also rendered from the view's own default
+        framing of the plan (``default_rows``, ``default_monotone``), where the issue
+        was measured."""
         from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.core.scene3d.camera import FOV_DEG, Bounds, frame_pose
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         camera = {shot.name: shot for shot in shots}["golden_hour"]
@@ -1132,7 +1140,13 @@ class Board:
         tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
         self.metrics[f"dusk{tag}"] = out
-        for preset in presets:
+        golden_view = probes.Pinhole(camera.eye, camera.target, camera.fov_deg, self.size)
+        top = max((record.transform.base_cm + float(record.height_cm) for record in records.values()
+                   if record.height_cm is not None), default=0.0)
+        pose = frame_pose(Bounds.of_plan(self.width, self.depth, top), self.size[0] / self.size[1])
+        default_view = probes.Pinhole(pose.eye, pose.target_scene, FOV_DEG, self.size)
+
+        def evening(name: str, preset: str, view: Any) -> list[dict[str, Any]]:
             rows = []
             for target in DUSK_ELEVATIONS:
                 if target not in found:
@@ -1140,19 +1154,29 @@ class Board:
                 moment, sun = found[target]
                 look = weather_look(sun, preset, weather)
                 rgb, _frame, info = self.frame(
-                    f"dusk{tag}_{target:+.1f}_{preset}", records, sun=sun, look=look,
+                    f"{name}{tag}_{target:+.1f}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry,
-                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    shot=PerspectiveShot(view.eye, view.target, view.fov_deg))
                 rows.append({"target": target, "utc": moment.isoformat(),
                              "sun_elev": round(sun.elevation_deg, 3), "twilight": round(look.mood.twilight, 4),
                              "night": look.night, "exposure": round(look.mood.exposure, 4),
                              "key_brightness": round(look.mood.sun_brightness, 4),
-                             "file": info["file"], **probes.frame_stats(rgb)})
-            lums = [row["mean_luminance"] for row in rows]
+                             "twilight_fill": round(float(sum(look.twilight_fill_linear)), 5),
+                             "file": info["file"], **probes.frame_stats(rgb),
+                             "ground_luminance": probes.ground_luminance(rgb, view)})
+            return rows
+
+        def rises_of(values: list[float]) -> list[float]:
             # a rise beyond the frames' own noise (two renders of one light differ by
             # up to 1e-5 in mean luminance: the night rows of the first measurement)
-            rises = [round(after - before, 5) for before, after in zip(lums, lums[1:], strict=False)
-                     if after > before * 1.002 + 1e-5]
+            return [round(after - before, 5) for before, after in zip(values, values[1:], strict=False)
+                    if after > before * 1.002 + 1e-5]
+
+        for preset in presets:
+            rows = evening("dusk", preset, golden_view)
+            lums = [row["mean_luminance"] for row in rows]
+            rises = rises_of(lums)
+            ground_rises = rises_of([row["ground_luminance"] for row in rows])
             by_target = {row["target"]: row["mean_luminance"] for row in rows}
             day_ramp = [target for target in DUSK_ELEVATIONS if target >= 0.6]
             day_steps = [abs(by_target[a] - by_target[b])
@@ -1162,8 +1186,14 @@ class Board:
                         if 0.6 in by_target and 0.4 in by_target else None)
             out[preset] = {"rows": rows, "rises": rises,
                            "monotone": not rises,
+                           "ground_rises": ground_rises, "ground_monotone": not ground_rises,
                            "day_ramp_max_step": round(max(day_steps), 5) if day_steps else None,
                            "sunset_step": None if crossing is None else round(crossing, 5)}
+            if preset == presets[0]:
+                default_rows = evening("dusk_default", preset, default_view)
+                default_rises = rises_of([row["ground_luminance"] for row in default_rows])
+                out[preset].update(default_rows=default_rows, default_rises=default_rises,
+                                   default_monotone=not default_rises)
             # The sky-facing set-sun probe (#695): the meadow camera hides the sun behind
             # the poplar, so a black disc at twilight went unseen for three reviews. A
             # sky-only frame at the sun's own bearing measures it on every weather.
@@ -1192,6 +1222,8 @@ class Board:
             self.log("sky_dusk", weather=weather, preset=preset, ok=out[preset]["sky_dusk_ok"],
                      worst=min(row["dip_luma"] for row in sky_rows))
             self.log("dusk", weather=weather, preset=preset, monotone=not rises,
+                     ground_monotone=not ground_rises,
+                     default_monotone=out[preset].get("default_monotone"),
                      sunset_step=out[preset]["sunset_step"],
                      day_ramp_max_step=out[preset]["day_ramp_max_step"])
             self.write()

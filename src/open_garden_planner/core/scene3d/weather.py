@@ -50,6 +50,7 @@ import numpy as np
 from .color import srgb_to_linear
 from .look import (
     GOLDEN_DEG,
+    NIGHT_BELOW_DEG,
     NOON,
     TWILIGHT_DEG,
     WIND_STRENGTH,
@@ -57,9 +58,11 @@ from .look import (
     LookSpec,
     fill_linear,
     fog_linear,
+    ground_light,
     linear_to_srgb_hex,
     look_for,
     mix_linear,
+    twilight_fill,
 )
 from .sink import SunState
 
@@ -334,13 +337,13 @@ def _midnight_fade(sun: SunState, southern: bool, width_deg: float) -> float:
 
 def _particle_light(look: LookSpec) -> tuple[float, float, float]:
     """The light an unlit particle is drawn in: half the key light — the sun, or once
-    it is down the look's moon (a drop is lit from one side) — plus the sky's light,
-    both in linear light."""
+    it is down the look's moon (a drop is lit from one side) — plus the sky's light and
+    the twilight fill that lights the garden around it (#802), all in linear light."""
     mood, sky = look.mood, look.sky
     key = srgb_to_linear(mood.sun_color).astype(np.float64) * mood.sun_brightness * 0.5
     ambient = ((srgb_to_linear(sky.top) + srgb_to_linear(sky.horizon)).astype(np.float64) / 2.0
                * mood.probe_exposure * sky.sky_energy * 0.9)
-    light = key + ambient
+    light = key + ambient + np.asarray(look.twilight_fill_linear, dtype=np.float64)
     return (float(light[0]), float(light[1]), float(light[2]))
 
 
@@ -354,8 +357,39 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     but the atmosphere. ``dew`` False: no morning dew either — clear weather is then
     the sun's own look at any hour (an Analyze drape on the ground: ``LookController``).
     ``southern``: the place lies south of the equator — where noon and midnight stand.
+    The twilight fill (#802) is the weathered look's own, held to the SAME weather's
+    night (``look.twilight_fill``): a cloudy night is darker than a clear one.
     """
     spec = weather if isinstance(weather, WeatherSpec) else WEATHER_SPECS[weather]
+    weathered = _weathered(look, spec, sun, dew=dew, southern=southern)
+    weathered = replace(weathered, twilight_fill_linear=twilight_fill(
+        weathered, *_anchor_lights(spec)))
+    particle_light = _particle_light(weathered)
+    return replace(weathered, atmosphere=replace(weathered.atmosphere,
+                                                 particle_light_linear=particle_light))
+
+
+#: Each weather's twilight-fill anchors (``_anchor_lights``), by spec.
+_ANCHOR_LIGHTS: dict[WeatherSpec, tuple[float, float]] = {}
+
+
+def _anchor_lights(spec: WeatherSpec) -> tuple[float, float]:
+    """``look.ground_light`` of ``spec``'s night and of its look at sunset
+    (``NIGHT_BELOW_DEG``), no dew, no fill: the anchors of its twilight fill
+    (``look.twilight_fill``). Computed once per weather."""
+    if spec not in _ANCHOR_LIGHTS:
+        lights = []
+        for elevation in (-30.0, NIGHT_BELOW_DEG):
+            sun = SunState(elevation_deg=elevation, azimuth_deg=0.0)
+            lights.append(ground_light(_weathered(look_for(sun), spec, sun, dew=False,
+                                                  southern=False), with_fill=False))
+        _ANCHOR_LIGHTS[spec] = (lights[0], lights[1])
+    return _ANCHOR_LIGHTS[spec]
+
+
+def _weathered(look: LookSpec, spec: WeatherSpec, sun: SunState, *, dew: bool,
+               southern: bool) -> LookSpec:
+    """``apply_weather`` before its twilight fill and its particles' light."""
     cloud = spec.cloud
     light = cloud if spec.light is None else spec.light
     grey = spec.sky_grey
@@ -429,9 +463,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     if cloud == 0.0 and dew_share == 0.0 and spec.precipitation == "none" and spec.name == "clear":
         # clear and dry: the sun's own look, field for field — but its atmosphere
         weathered = replace(look, atmosphere=atmosphere)
-    particle_light = _particle_light(weathered)
-    return replace(weathered, atmosphere=replace(weathered.atmosphere,
-                                                 particle_light_linear=particle_light))
+    return weathered
 
 
 def living_look(sun: SunState, preset: str = "high", weather: str = "clear", *,

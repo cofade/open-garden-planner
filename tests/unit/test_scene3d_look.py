@@ -403,6 +403,95 @@ class TestTheRampIsContinuous:
         assert dataclasses.replace(east, sky=west.sky) == west
 
 
+# ── the twilight fill (#802) ─────────────────────────────────────────────────
+
+
+def _dusk_elevations(step: float = 0.05) -> list[float]:
+    """6.5° down to −8° (the last sunlit frame into the night), ``step`` apart."""
+    return [6.5 - step * k for k in range(round(14.5 / step) + 1)]
+
+
+class TestTheTwilightFill:
+    """#802: the garden got brighter as night fell — the night rig is "day for night", so
+    the ground at the end of the day lay about 0.95 EV under the night it ends in. A flat
+    ambient on the garden (never the sky) fills the gap; the night and the sunset anchor
+    keep the rig's own light (the owner's decision)."""
+
+    @pytest.mark.parametrize("weather", ["clear", "partly_cloudy", "overcast", "rain", "snow"])
+    def test_the_garden_never_brightens_from_the_last_sun_into_the_night(self, weather: str) -> None:
+        """The modelled light on open ground falls monotonically from 6.5° to −8° in
+        0.05° steps, in every weather — with no step at sunset (0.5°) or where the fill
+        begins. The same curve rises at dawn: it depends on the elevation alone. Without
+        the fill the clear garden fell to 0.54 of the night at −1° and rose again."""
+        from open_garden_planner.core.scene3d.weather import living_look
+
+        light = [L.ground_light(living_look(sun(e, 300.0), "high", weather, dew=False))
+                 for e in _dusk_elevations()]
+        night = light[-1]
+        # a rise beyond the frames' own noise, the board's rule (0.2 %): where no fill acts,
+        # the rig's 8-bit sky colours wiggle by up to 0.13 % (snow, at -3° and -5.4°)
+        rises = [(round(e, 2), round(b / a - 1.0, 6)) for e, a, b in
+                 zip(_dusk_elevations()[1:], light, light[1:], strict=False) if b > a * 1.002]
+        assert not rises, (weather, rises[:5])
+        # no cliff anywhere: at most 4 % of the light in 0.05° (an overcast falls 3 % there
+        # just above -6°, its own rig; the fill adds none)
+        steps = [abs(b - a) / a for a, b in zip(light, light[1:], strict=False)]
+        assert max(steps) < 0.04, (weather, max(steps))
+        if weather in ("clear", "partly_cloudy"):     # the fill sets these: strictly falling
+            assert all(b <= a * (1.0 + 1e-9) for a, b in zip(light, light[1:], strict=False))
+        assert min(light) >= night * (1.0 - 1e-9), "never under the night it ends in"
+        dawn = [L.ground_light(living_look(sun(e, 60.0), "high", weather, dew=True))
+                for e in reversed(_dusk_elevations())]
+        assert dawn == pytest.approx(list(reversed(light)), rel=1e-12)
+
+    @pytest.mark.parametrize("preset", PRESETS)
+    @pytest.mark.parametrize("elevation", [-90.0, -18.0, -8.0, -6.0, L.GOLDEN_DEG, 5.89, 15.23, 60.9])
+    def test_the_night_and_the_sunset_anchor_keep_the_rigs_own_light(self, preset: str,
+                                                                      elevation: float) -> None:
+        """No fill at and below the end of civil twilight (the night rig, unchanged) nor from
+        the golden anchor down to the board's sunset shot (5.89°), in any weather: those
+        looks are the rig's, field for field."""
+        from open_garden_planner.core.scene3d.weather import WEATHERS, living_look
+
+        look = look_for(sun(elevation), preset)
+        assert look.twilight_fill_linear == (0.0, 0.0, 0.0), elevation
+        assert look == L._rig_look(sun(elevation), preset)
+        for weather in WEATHERS:
+            assert living_look(sun(elevation), preset, weather).twilight_fill_linear == (0.0, 0.0, 0.0)
+
+    def test_the_fill_lifts_the_ground_to_its_target_in_the_skys_colour(self) -> None:
+        """In twilight the ground's light is exactly the target (``twilight_fill_share`` of
+        the night's: 1.07 at sunset, 1.05 at −3°, 1 at −6°); by day it keeps
+        ``TWILIGHT_FILL_DAY_SHARE`` of its own fall. The fill is the sky top's hue (what the
+        probe gives the ground) and lights only through the scene's ambient."""
+        night, sunset_light = L.anchor_lights()
+        for elevation, share in ((0.4999, 1.07), (0.0, 1.07 - 0.02 * 0.5 / 3.5),
+                                 (-3.0, 1.05), (-4.5, 1.025)):
+            look = look_for(sun(elevation, 300.0))
+            assert L.ground_light(look) == pytest.approx(share * night, rel=1e-5), elevation
+            fill, top = np.asarray(look.twilight_fill_linear), srgb_to_linear(look.sky.top)
+            assert fill.min() > 0.0
+            assert float(fill @ top) / (np.linalg.norm(fill) * np.linalg.norm(top)) == pytest.approx(1.0)
+        day = look_for(sun(2.0, 300.0))
+        natural = L.ground_light(day, with_fill=False)
+        assert L.ground_light(day) == pytest.approx(
+            1.07 * night + L.TWILIGHT_FILL_DAY_SHARE * (natural - sunset_light), rel=1e-9)
+        assert natural < L.ground_light(day) < 1.44 * night
+
+    def test_the_model_and_its_shape_are_the_measured_ones(self) -> None:
+        """The numbers fitted and chosen on the family garden's sweeps (``look.py`` says how);
+        moving one moves every twilight frame, so a change needs a new sweep."""
+        assert (L.PROBE_GROUND_GAIN, L.AMBIENT_GROUND_GAIN, L.TWILIGHT_FILL_DAY_SHARE) == (1.15, 1.2, 0.4)
+        assert L.TWILIGHT_FILL_TARGET == ((-6.0, 1.0), (-3.0, 1.05), (0.5, 1.07))
+        assert L.TWILIGHT_FILL_TOP_DEG == L.GOLDEN_DEG
+        night, sunset_light = L.anchor_lights()
+        # the clear rig at sunset lies 0.58 of the night's light: the gap #802 is about
+        assert sunset_light / night == pytest.approx(0.576, abs=0.002)
+        # the clear fill begins under the sunset anchor, with room to spare
+        first = max(e for e in _dusk_elevations(0.01) if any(look_for(sun(e)).twilight_fill_linear))
+        assert 5.5 < first < 5.89 - 0.1, first
+
+
 # ── presets ──────────────────────────────────────────────────────────────────
 
 

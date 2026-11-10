@@ -44,6 +44,9 @@ Item {
     // sky: the software fallback, the self-test): a plain background and a flat fill
     property color skyColor: "#8f9ca8"
     property color fillColor: "#56657c"
+    // #802: where a sky lights the view, a flat ambient that keeps open ground from falling
+    // below the night it ends in (core/scene3d/look.twilight_fill). Black by day and at night
+    property color twilightFill: "#000000"
     property color meadowColor: "#487f34"   // ONE albedo for the meadow and for bare plan ground
     // the key light's shadows: the preset's cost, the mood's softness
     property string shadowMapQuality: "very_high"   // high | very_high | ultra
@@ -1121,12 +1124,15 @@ Item {
             shadowMapFar: root.topDown ? 9000 : root.shadowFar
             lockShadowmapTexels: true
         }
-        // The flat fill - ONLY where no sky texture lights the view (the truth view, a
-        // host without a sky). No direct light of its own; separate from the key light
-        // so that a frame without one is dim, not black. With a sky, the sky is the fill.
+        // The flat fill - where no sky texture lights the view (the truth view, a host
+        // without a sky). No direct light of its own; separate from the key light so that
+        // a frame without one is dim, not black. With a sky, the sky is the fill - and in
+        // twilight this light carries the look's twilight fill (#802): an ambient lights
+        // the garden and never the skybox, so the ground keeps up with the night while the
+        // sky darkens as it did. Black by day and at night.
         DirectionalLight {
             brightness: 0
-            ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor
+            ambientColor: view.skyShown ? root.twilightFill : root.fillColor
             castsShadow: false
         }
 

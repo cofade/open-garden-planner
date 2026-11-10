@@ -366,12 +366,20 @@ def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
     to a −7° one, one camera: the light never rises, and crossing sunset (0.6° -> 0.4°,
     where the sun's key light goes as the 2D shadows do) is no larger a step than the
     largest half degree of the day ramp before it. Before the ramp: 0.116 -> 0.034
-    (low), 3.0 to 3.4 times the day ramp's largest step."""
+    (low), 3.0 to 3.4 times the day ramp's largest step. #802: nor does the garden's
+    own light (the rows below the horizon) rise, on this camera and on the view's
+    default framing."""
     metrics, _out = board
     for preset in PRESETS:
         dusk = metrics["dusk"][preset]
         assert len(dusk["rows"]) == 16, dusk
         assert dusk["monotone"], (preset, dusk["rises"])
+        # #802: the GARDEN fades too (the frame is mostly sky): the ground rose from 0.5°
+        # to the night before the twilight fill — on the view's default framing as well
+        assert dusk["ground_monotone"], (preset, dusk["ground_rises"])
+        if preset == PRESETS[0]:
+            assert len(dusk["default_rows"]) == 16, dusk
+            assert dusk["default_monotone"], (preset, dusk["default_rises"])
         assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (preset, dusk)
         night = [row for row in dusk["rows"] if row["target"] <= -6.0]
         assert all(row["night"] for row in night) and not any(
