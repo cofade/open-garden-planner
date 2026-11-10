@@ -98,6 +98,12 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
         "trim_extend", "Trim/Extend — X toggles mode", "I", ToolType.TRIM_EXTEND
     ),
     _ToolEntry(
+        "split",
+        "Split along line — cut the eligible closed shapes a two-point line crosses",
+        "Shift+S",
+        ToolType.SPLIT,
+    ),
+    _ToolEntry(
         "offset", "Offset — parallel copy or parallel line", "O", ToolType.OFFSET
     ),
     _ToolEntry("fillet", "Fillet — round a corner", "Shift+F", ToolType.FILLET),

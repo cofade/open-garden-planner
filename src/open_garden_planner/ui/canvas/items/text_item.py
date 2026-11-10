@@ -163,11 +163,13 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     def _apply_font(self) -> None:
         """Apply current font settings (font_size stored in cm, converted to pt)."""
-        # A note is laid out once and then scaled by the view. A hinted font
-        # at a whole point size rounds every letter's advance to the pixel grid
-        # of that ONE size, and the zoom magnifies the rounding into uneven
-        # gaps ("thy me", "f ictional", #793). So the letters are placed by the
-        # font's own design metrics, unhinted, at the exact size.
+        # A note is laid out once, at its nominal size, and then scaled with the
+        # plan — by the zoom, by a 300-dpi export, by an SVG viewer. A hinted
+        # font rounds every glyph's advance to a whole pixel of that nominal
+        # size, and the scaled-up line shows it ("thy me", "f ictional", #793)
+        # and is up to an eighth wider than the same text laid out by an SVG
+        # viewer (#789). So the letters are placed by the font's own design
+        # metrics, unhinted, at the exact size.
         font = QFont(self._font_family)
         font.setPointSizeF(max(1.0, self._font_size * self._CM_TO_PT))
         font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)

@@ -33,7 +33,9 @@ LINE = ((100.0, 300.0), (500.0, 350.0), (900.0, 300.0))
 MIDDLE = (300.0, 325.0)
 TEXTURED = (PathFenceStyle.GRAVEL_PATH, PathFenceStyle.DIRT_PATH)
 
-_LEAF_GROUP = re.compile(r"<g ([^>]*)>(.*?)</g>", re.S)
+# A group that holds no other group: Qt writes flat groups inside one root group,
+# and the root's own default attributes (a black stroke) are not a painted line.
+_LEAF_GROUP = re.compile(r"<g ([^>]*)>((?:(?!<g ).)*?)</g>", re.S)
 _ATTRIBUTE = re.compile(r'([\w-]+)="([^"]*)"')
 
 

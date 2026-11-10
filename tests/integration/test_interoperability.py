@@ -401,88 +401,13 @@ class TestPdfReport:
 # ---------------------------------------------------------------------------
 
 class TestSvgTextureClipping:
-    """Qt's QSvgGenerator emits texture-filled shapes as a large unconstrained
-    `<rect>` (the painter's clip-bounding rect) when the item paint code uses
-    `painter.setClipPath() + drawRect(fill_rect)` — e.g. the HOUSE-with-ridge
-    branch of `PolygonItem._paint_with_ridge`. The painter clip region itself
-    is NOT serialized, so the rect bleeds across the canvas in any browser-
-    based SVG viewer. The post-processor pairs the preceding "shadow" path
-    with the texture group and wraps it in a `<clipPath>`. These tests guard
-    that behavior at the post-processor boundary — the synthetic SVG mirrors
-    the exact structure Qt emits in the wild (verified against an exported
-    real-world `.ogp` project file).
+    """A textured export stays a well-formed SVG.
+
+    The export used to pair Qt's "shadow" groups with texture groups in the
+    written file to recover dropped clips; it now records the clip below the
+    painter (``services/svg_export.py``, #787). What the picture looks like is
+    pinned by ``tests/integration/test_svg_export_fidelity.py``.
     """
-
-    SYNTHETIC_BLEED_SVG = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1133" height="877" viewBox="0 0 1133 877">
-<defs>
-<pattern id="texpattern_X" patternUnits="userSpaceOnUse" width="256" height="256"/>
-</defs>
-<g fill="#000000" fill-opacity="0.156863" stroke="none" transform="matrix(0.5,0,0,-0.5,0,500)">
-<path vector-effect="none" fill-rule="evenodd" d="M2729,1536 L2267,2846 L3256,3187 L3170,3438 L3771,3627 L4192,2268 L3290,1948 L3355,1748 L2729,1536"/>
-</g>
-<g fill="url(#texpattern_X)" fill-opacity="1" stroke="none" transform="matrix(0.5,0,0,-0.5,0,500)" opacity="0.41" >
-<rect x="1035.83" y="393.78" width="4382.73" height="4382.73"/>
-</g>
-</svg>
-"""
-
-    def test_post_processor_wraps_bleed_rect_in_clippath(self) -> None:
-        """Synthetic Qt-shape SVG → post-processor must inject one clipPath."""
-        import re as _re
-        import xml.etree.ElementTree as ET
-
-        from open_garden_planner.services.export_service import ExportService
-
-        with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w", encoding="utf-8") as f:
-            tmp = Path(f.name)
-            f.write(self.SYNTHETIC_BLEED_SVG)
-
-        try:
-            ExportService._fix_svg_qt_texture_clipping(tmp)
-            text = tmp.read_text(encoding="utf-8")
-
-            # SVG must remain well-formed (the rewrite must not break the tree).
-            ET.fromstring(text)
-
-            cps = _re.findall(r'<clipPath\b[^>]*\bid="(ogp_clip_[0-9]+)"', text)
-            refs = _re.findall(r'clip-path="url\(#(ogp_clip_[0-9]+)\)"', text)
-
-            assert len(cps) == 1, f"expected exactly one clipPath, got {cps}"
-            assert sorted(cps) == sorted(refs), f"clipPath/ref mismatch: defs={cps} refs={refs}"
-
-            # The clipPath must reuse the shadow's path data (proves correct
-            # pairing) AND inherit its transform.
-            assert "M2729,1536" in text
-            assert "matrix(0.5,0,0,-0.5,0,500)" in text
-        finally:
-            tmp.unlink(missing_ok=True)
-
-    def test_post_processor_skips_canvas_background_rect(self) -> None:
-        """A texture rect at origin (the canvas background) must NOT be wrapped
-        in a clipPath — that rect IS the canvas, no clipping needed."""
-        import re as _re
-
-        from open_garden_planner.services.export_service import ExportService
-
-        canvas_only = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1133" height="877" viewBox="0 0 1133 877">
-<defs><pattern id="bg" patternUnits="userSpaceOnUse" width="256" height="256"/></defs>
-<g fill="#000000"><path d="M0,0 L1133,0 L1133,877 L0,877 Z"/></g>
-<g fill="url(#bg)"><rect x="0" y="0" width="1133" height="877"/></g>
-</svg>
-"""
-        with tempfile.NamedTemporaryFile(suffix=".svg", delete=False, mode="w", encoding="utf-8") as f:
-            tmp = Path(f.name)
-            f.write(canvas_only)
-
-        try:
-            ExportService._fix_svg_qt_texture_clipping(tmp)
-            text = tmp.read_text(encoding="utf-8")
-            cps = _re.findall(r'<clipPath\b', text)
-            assert not cps, f"canvas background rect was wrapped in clipPath: {cps}"
-        finally:
-            tmp.unlink(missing_ok=True)
 
     def test_textured_export_produces_well_formed_svg(self, scene: CanvasScene) -> None:
         """End-to-end smoke: a real textured polygon export must be well-formed."""

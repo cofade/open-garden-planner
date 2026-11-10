@@ -264,14 +264,14 @@ Pre-defined object types for common property elements:
 - **FR-FILE-08** (issue #199): Save/Open/export dialogs default to a safe, writable location — the open project's folder when one exists, otherwise `<Documents>/Open Garden Planner` (`app/paths.get_projects_dir()`). They must **never** default to the process working directory, which for a packaged build is the install folder; user data stored there is destroyed on upgrade/uninstall. Complemented installer-side by user-data preservation (see deployment view §7.2): the uninstaller backs up any `$INSTDIR\*.ogp` to `Documents\Open Garden Planner\Recovered Plans` before removing the install directory.
 
 ### FR-9.2 Export
-- **FR-EXP-01**: Export to PNG (configurable DPI: 72, 150, 300)
-- **FR-EXP-02**: Export to SVG (vector, scalable)
-- **FR-EXP-03**: Print support with scaling and page layout (Phase 6)
+- **FR-EXP-01**: Export to PNG (configurable DPI: 72, 150, 300). Object labels are sized for the output; a text note keeps the size it has on the plan at every DPI and paper size (#789).
+- **FR-EXP-02**: Export to SVG (vector, scalable). The file states the requested physical size (`width`/`height` in mm) and is the picture the PNG export paints: textures, clipped shapes (roofs, glasshouses, shadows) and pattern angles included. Text stays editable text and names a generic fallback font family (#787, ADR-076).
+- **FR-EXP-03**: Print support with scaling and page layout (Phase 6). At a fixed scale each sheet shows its tile of the plan and nothing else: nothing is printed on the margin or over the footer (#788). Object labels are readable at the printer's resolution; a text note keeps its plan size (#789).
 - **FR-EXP-04**: Export selected objects only or entire canvas
 - **FR-EXP-05**: Export includes visible layers only (or all, user choice)
 - **FR-EXP-06**: Plant list export: CSV with all plant metadata
 - **FR-EXP-07**: Export to DXF (AutoCAD R2010+); shapes map to LWPOLYLINE/CIRCLE/ELLIPSE; layers preserved; 1 unit = 1 cm
-- **FR-EXP-08**: Multi-page PDF report with configurable pages (cover, overview, bed details, plant list, legend); paper size A4/A3/Letter/Legal, landscape/portrait
+- **FR-EXP-08**: Multi-page PDF report with configurable pages (cover, overview, bed details, plant list, legend); paper size A4/A3/Letter/Legal, landscape/portrait. Plan pictures are 300 dpi. The plant list runs over as many pages as it needs and names every plant (its own name, else its species). A bed-detail page shows the bed in context with a minimum extent of 150 cm; small beds next to each other share a page. The legend lists the object types and plants on the plan with a sample of each. The cover carries the plan's title — for a plan opened from an example, the example's name (#788, ADR-076).
 
 ### FR-9.3 Import
 - **FR-IMP-01**: Import `.ogp` project files
@@ -719,6 +719,15 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 - 3D shadow drape consumes WeightedShadowRegion sequences to interpolate linear RGB vertex multipliers in a single persistent "shade" mesh.
 - All 9 built-world families meet the 10% relative-area ratio (0.90 <= area_ratio <= 1.10) and <= 15 cm reach difference across 15°, 35°, and 60° solar elevations.
 
+### FR-SUN-13: Open frames shade as frames (issue #698)
+
+- A **pergola**, a **trellis**, a **swing**, a **hammock** and a **garden light** are open frames: the 2D shadow overlay, the hours-of-sun heatmap, the per-plant sun estimates and the 3D analysis drape cast their footprint prism weighted by the share of the sun the frame lets through, not as a solid block.
+- The share is computed for the item itself and the sun of the moment — its size, its height, its rotation, the sun's elevation and azimuth — from the same members the 3D view builds (a pergola's from the one layout its 2D picture is drawn from). It is between 0 and 1; at the default sizes a pergola lets 64–71 % of the sun through, a trellis 61–68 %, a swing 83–85 %, a hammock 70–79 %, a garden light 63–79 % (sun due south at 15°–60°).
+- Ground under or behind an open frame collects its minutes of sun multiplied by that share; where the shade of two frames overlaps the shares multiply, and a solid's shade stays full shade (FR-SUN-12).
+- The overlay draws an open frame's shade lighter in proportion, with a soft edge of the same strength.
+- A **parasol**, a **greenhouse** and low furniture (tables, bench, chair, trampoline, grill, wheelbarrow, bird bath) keep the solid prism; a string of lights casts no 2D shadow (FR-3D-LIVE-08).
+- For the weighted 2D shadow of each of the five kinds the 3D model's shadow area is within 10 % at 15°, 35° and 60°.
+
 ## Audit A1 data and download safety (issue #453)
 
 - **FR-SAFETY-01**: Opening non-finite/overflowing numeric plan data refuses before
@@ -856,10 +865,10 @@ The built world complete (L4, #388, ADR-065).
   **Object height** field, and casts its shadow in 2D and 3D: also the parasol
   (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
   water tap (80), swing (220), hammock (110) and pergola (250), which had none
-  before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
-  whole footprint (a picket, metal or chain-link fence is weighted by its transmittance
-  since #440; the open
-  frames' and the garden light's is #698; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
+  before L4's owner passes. In 2D an open frame (pergola, trellis, swing, hammock,
+  garden light) shades its footprint prism in part: it is weighted by its transmittance
+  since #698 (FR-SUN-13), as a picket, metal or chain-link fence is since #440; a parasol
+  shades its whole footprint; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).
 - **FR-3D-BUILT-01a** (#769, parametric pergola): A **Pergola** is drawn as a
@@ -1196,3 +1205,76 @@ ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.
   Durable data is pushed before Pages deployment; reports can be rebuilt offline.
 
 Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages deployment.
+
+## FR-35: CAD editing — split along a line and group drill-down (issues #664, #771, ADR-075)
+
+- **FR-SPLIT-01:** A closed shape (polygon, rectangle, circle or ellipse) offers
+  **Split Along Line…** in its context menu, scoped to that shape. The CAD toolbar's
+  Split button and the `Shift+S` shortcut start the same two-point gesture scene-wide:
+  click a first and a second point anywhere, and every eligible closed shape the drawn
+  segment passes through is cut along the segment's supporting axis. A shape the
+  segment crosses end to end is fully split; a shape it clips is cut along the same
+  axis when both pieces are large enough to keep. A segment that only touches an
+  outline — a corner, an edge, a tangent — is not a crossing. The tool takes two
+  snapped scene points, previews the segment, the supporting axis and the pieces of
+  every shape it will split, constrains the line to 45° steps while Shift is held, and
+  cancels on Esc without mutating the scene. `S` alone stays Snap to Grid; the split
+  shortcut must not reuse it (two window shortcuts on one key fire neither).
+- **FR-SPLIT-02:** Applying one gesture replaces every crossed source with its pieces in
+  exactly one undo step. Each piece keeps its source's layer, object type when valid for
+  a polygon, fill/stroke colours, fill pattern and fill-transform, label/area visibility,
+  name, metadata and stacking rank. A rotated source keeps its rotation and material
+  direction; curves become polygons; a concave shape may produce more than two pieces;
+  a result that would contain a hole is refused. A piece whose type has to change (a
+  raised bed becomes a garden bed) still stands as tall as its source: a height that was
+  only the source type's default (a raised bed's 40 cm) is written to the piece as its
+  explicit height. When the source was painted as a sprite, such a piece takes its new
+  type's fill pattern (soil) instead of the stored fill the sprite had hidden; a shape
+  painted by its own brush keeps the pattern the user gave it.
+- **FR-SPLIT-03:** The split is refused without mutation for a plant itself, constrained
+  shapes, locked layers, grouped members,
+  shape types with no polygonal form (for example a container), and any shape whose
+  UUID is still referenced by soil, pest, harvest, succession, crop-rotation,
+  manual-task or task-state project data (`ProjectManager.has_item_references`). A bed,
+  raised bed or other plant parent with a polygonal form IS eligible: its linked plants
+  are re-homed to the piece that contains their standing point in the same undo step,
+  so no plant is orphaned. A house or a greenhouse is split like a garage: its linked
+  roof ridge leaves with it, every piece gets its own ridge, and undo restores the
+  original building and ridge. A building without a ridge (a flat roof) gives pieces
+  without one. A building whose ridge is constrained or on a locked layer is refused.
+  A scene-wide cut splits the eligible crossed shapes and
+  reports how many crossed objects could not be split; when nothing can be split, the
+  reason is shown to the user.
+- **FR-DRILL-01:** With a group selected, a plain click on one of its members focuses
+  that member for editing without ungrouping. The group remains the canvas selection;
+  the focused member is what the Properties, plant-details, companion and crop-rotation
+  panels read (`CanvasView.effective_selection`). Clicking outside the member, pressing
+  Esc, or selecting another object clears the focus. Nothing else does: the focus
+  survives the minimap's refreshes and every other redraw of the running window.
+- **FR-DRILL-02:** While focused, a member can be moved by dragging its body or with the
+  arrow keys, resized/rotated with its own handles, and its
+  geometry/appearance/species/notes can be edited through the Properties panel; each
+  edit is one undo step and moves the member in its group's frame, never the group.
+  The member's layer cannot change, movement of a constrained member or ancestor is
+  refused, and Cut/Delete are refused until the focus is cleared.
+- **FR-DRILL-03:** Smart symbols are not drillable because their members are generated
+  from parameters. Nested groups drill one level per click; the focused member's inner
+  outline is drawn by `GroupItem.paint` and disappears with the selection (exports clear
+  it first).
+
+- **FR-TOOL-ESC-01:** **Esc always returns to the Select tool**, from every drawing,
+  object-placing, CAD and constraint tool. A gesture in progress is cancelled with no
+  preview left behind and the distance/angle prompt is hidden. An inline text or label
+  edit that has the focus is finished by the same Esc. Three narrower meanings take
+  an Esc of their own first: cancelling a calibration, leaving vertex editing and
+  leaving a group drill-down. All of it works wherever the keyboard focus is in the
+  main window - the canvas, a panel, the object search field, the status-bar
+  coordinate field - as long as the focused widget does not use Esc itself (an open
+  search popup closes first). In fullscreen preview an Esc on the canvas first ends a
+  tool that was picked there, and the next one leaves the preview. F1 lists the key
+  under Drawing Tools.
+
+Pins: `tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.

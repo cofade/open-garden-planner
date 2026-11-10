@@ -883,6 +883,7 @@ DERIVING: dict[str, dict[str, str]] = {
     "core/tools/trim_tool.py": {
         "_trim_polyline": "trim (clone_with_points)", "_trim_polygon": "trim", "_trim_rectangle": "trim",
     },
+    "core/tools/split_tool.py": {"_make_piece": "split (#664)"},
     "ui/canvas/items/polyline_item.py": {"clone_with_points": "clone_with_points"},
     "ui/canvas/canvas_view.py": {"boolean_operation": "boolean merge"},
     "ui/canvas/clipboard_operations.py": {
