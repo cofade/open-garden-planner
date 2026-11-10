@@ -145,3 +145,15 @@ def test_living_buffers_accepts_mapping_and_sorts_lamps_by_target() -> None:
     assert assembly.lamps[0].item_id == "lamp_near"
     assert assembly.lamps[1].item_id == "lamp_far"
     assert len(assembly.bulbs) == 2
+
+
+def test_the_assembly_hands_the_lamp_slots_their_faded_lights() -> None:
+    """#687: the product and the board light the scene by ONE rule, ``lit_lamps``."""
+    from open_garden_planner.core.scene3d.lights import lamp_sources, lit_lamps
+    from tests.unit.test_scene3d_particles import lantern
+
+    records = {f"lamp{k}": lantern(f"lamp{k}", east=300.0 * k) for k in range(9)}
+    target = (900.0, 400.0, 0.0)
+    assembly = living_buffers(records, {}, date(2026, 6, 21), 52.0, target)
+    assert assembly.lights == lit_lamps(lamp_sources(records.values()), target)
+    assert len(assembly.lights) == len(assembly.lamps) == 6

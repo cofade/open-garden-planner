@@ -809,7 +809,7 @@ class Board:
                     f"living_{shot.name}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry, baked=True,
                     shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
-                    ambient=living.buffers, lamps=[lamp.light for lamp in living.lamps])
+                    ambient=living.buffers, lamps=list(living.lights))
                 atmosphere = look.atmosphere
                 counts = {kind: sum(e.count for e in living.emitters if e.kind == kind)
                           for kind in ("leaf", "butterfly", "firefly")}

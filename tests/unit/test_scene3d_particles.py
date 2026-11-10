@@ -528,6 +528,42 @@ def test_the_nearest_lamps_light() -> None:
     assert nearest_lamps((), (0.0, 0.0, 0.0)) == ()
 
 
+def test_a_lamp_fades_in_and_out_of_the_lit_six_and_no_pool_pops() -> None:
+    """#687: only the ``LAMP_SLOTS`` lamps nearest the camera's target light; when an orbit
+    swapped the sixth and the seventh, one pool went out and another came on in one frame.
+    Each lit lamp now has a weight by how much nearer it is than the nearest lamp left out
+    (``LAMP_FADE_CM``): at a swap both are dark, so the light is continuous in where the
+    camera looks — stateless, so a recorded tour repeats exactly. Six lamps or fewer: every
+    weight is 1, the frames of before."""
+    from open_garden_planner.core.scene3d.lights import LAMP_FADE_CM, lit_lamps
+
+    row = lamp_sources([lantern(f"lamp{k:02d}", east=300.0 * k, north=0.0) for k in range(12)])
+    weights_before: dict[str, float] = {}
+    worst = 0.0
+    step = 5.0
+    for x in np.arange(-200.0, 3700.0, step):
+        lit = lit_lamps(row, (float(x), 400.0, 0.0))
+        assert len(lit) == LAMP_SLOTS, "the slots stay filled: no light comes or goes"
+        by_place = {}
+        for light in lit:
+            source = next(s for s in row if s.light[:3] == light[:3])
+            assert 0.0 <= light[3] <= source.light[3] + 1e-12
+            by_place[source.item_id] = light[3] / source.light[3]
+        weights = {s.item_id: by_place.get(s.item_id, 0.0) for s in row}
+        if weights_before:
+            worst = max(worst, max(abs(weights[k] - weights_before[k]) for k in weights))
+        weights_before = weights
+    # a smoothstep's steepest slope is 1.5 / LAMP_FADE_CM, and the gap d_out - d changes by
+    # at most 2 cm per cm the target moves (both distances move): no pool jumps (a hard
+    # set swapped a pool from 1 to 0 within one step)
+    assert worst <= 2.0 * 1.5 * step / LAMP_FADE_CM + 1e-9, worst
+    near = lit_lamps(row, (1500.0, 0.0, 0.0))
+    assert max(light[3] for light in near) == pytest.approx(1.0), "the lamp at the target is full"
+    few = lamp_sources([lantern(f"lamp{k}", east=300.0 * k) for k in range(LAMP_SLOTS)])
+    assert lit_lamps(few, (5000.0, 0.0, 0.0)) == tuple(s.light for s in nearest_lamps(few, (5000.0, 0.0, 0.0)))
+    assert lit_lamps((), (0.0, 0.0, 0.0)) == ()
+
+
 def test_the_lamp_pool_is_the_scenes() -> None:
     """Drift guard: ``lights.LAMP_SLOTS`` is ``Garden.qml``'s ``lampSlots``."""
     scene = (QML / "Garden.qml").read_text(encoding="utf-8")
