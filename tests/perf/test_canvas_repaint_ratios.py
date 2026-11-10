@@ -34,7 +34,9 @@ from tests.large_plan import show_large_plan
 #: A full repaint with the grid on may cost this many times one that draws
 #: the grid's lines with nothing cut out of them. Measured 1.09-1.11 with the
 #: kept cut-out (1.47 in one run under load), 3.5 before; 2 leaves room for a
-#: busy machine and none for a cut-out that is built on every paint.
+#: busy machine and none for a cut-out that is built on every paint. Since the
+#: second review the view keeps the finished layer as well, and a repaint lays
+#: it down: 0.70-0.86, cheaper than drawing the lines.
 GRID_CUT_OUT_RATIO = 2.0
 
 #: A 40 x 40 pixel repaint may cost this many times the same repaint with the

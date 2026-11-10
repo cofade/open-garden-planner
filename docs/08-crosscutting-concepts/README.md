@@ -9517,6 +9517,9 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - An outline of more than 256 vertices is not cut out of the grid and does not
   keep the sun map's hour labels off it (§8.9.17). A traced fence of 300 points
   is such an outline.
+- A LINE has no degraded picture above that bound (a polygon has: #472): a
+  zoom step rasterises the whole stroke of a 16,000-vertex zigzag line, 330 ms
+  here and on master alike. Not touched by this branch.
 - The rectangle tool's hover and drag cost 16 and 38 ms a move on 853 objects
   with nothing rebuilt — the same with the grid and the labels off. Not looked
   into here: it is not what is kept.
@@ -9525,8 +9528,9 @@ Pinned as a ratio, never in milliseconds: `tests/perf/test_sun_overlay_repaint.p
 (marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.06–1.14 with
 the fix, 16.9 before) and `tests/perf/test_canvas_repaint_ratios.py` (on the
 853-object plan: a repaint with the grid's cut-out ≤ 2 × the lines alone,
-measured 1.09–1.11 and 1.47 once under load, 3.5 before; a 40-pixel repaint
-with the label pass ≤ 2 × without, measured 1.02–1.09, 2.8 before). Counted, on
+measured 1.09–1.11 and 1.47 once under load, 3.5 before, and 0.70–0.86 since
+the view keeps the finished layer; a 40-pixel repaint with the label pass
+≤ 2 × without, measured 1.02–1.09, 2.8 before). Counted, on
 any machine: `tests/integration/test_sun_overlay_cache.py`,
 `tests/integration/test_grid_cover_cache.py`,
 `tests/integration/test_label_layout_cache.py`,
