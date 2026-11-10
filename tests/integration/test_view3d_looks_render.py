@@ -499,7 +499,10 @@ def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
 #: Review P2: the plan rectangle meets the meadow without a step (luma) on a plan with
 #: nothing on it, in every view along its west and south edge (``plan_edge``). Measured
 #: (960 x 540, low / high): the meadow's material on both, at most 0.21; the plan ground's
-#: old material (roughness 0.92, specular 0.2) up to 4.65 — the positive control.
+#: old material (roughness 0.92, specular 0.2) up to 4.65 — the positive control. Since #798
+#: both sides carry the grass and the board measures the frame LESS the same view without a
+#: plan (``board_probes.difference_frame``): 0.00 at every preset, line 0.93 at most (640 x
+#: 360, 2026-11-10; the frame's own fits read the grass's pattern, to -2.1 / line 3.9).
 MAX_PLAN_EDGE_STEP = 1.0
 #: 3D review of #388: a thin LINE on the edge, which the fitted step cannot see. With the
 #: meadow 5 cm under the plan, ambient occlusion drew one of +-14 luma along every edge

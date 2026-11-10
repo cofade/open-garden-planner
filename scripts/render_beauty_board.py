@@ -42,7 +42,8 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
 ``--fence``    the plan's fences alone against the same frame without them, at the noon
                camera, per preset: how the pickets alias (dark share, Laplacian)
 ``--edge``     an empty plan at golden hour and noon: the luma step where the plan
-               rectangle meets the meadow (gate: within 1)
+               rectangle meets the meadow (gate: within 1) — since #798 on the frame less
+               the same view without a plan, so that the grass on both sides cancels
 ``--meadow``   #798: the meadow and the plan's open ground — the app's default framing and
                an eye-level view from the plan's south side, at the noon shot's sun: the
                share of FLAT pixels (the survey's felt table: local luma std under 1.5),

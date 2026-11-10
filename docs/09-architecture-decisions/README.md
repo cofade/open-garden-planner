@@ -4327,7 +4327,34 @@ snow, dew, the lights' night), e.g. snow 163.83 → 164.22, rain 85.02 → 85.09
 The track was first read on whole pixels and flickered on its own (0.91 luma on the same frames,
 debug-verbose case study 227).
 
-[[GATES]]
+**Gates on the merged tree** (base `1138b0aa` against this branch; bench plan, 640 × 360, RTX
+4070, the painted sky unless said; the board's phases run one at a time with a longer watchdog,
+this machine's offscreen grab taking 4–5 s, and judged with the render tier's own assertions):
+
+| Gate | before (Low / High) | after (Low / Medium / High / Ultra) |
+|---|---|---|
+| plan edge, frame less its plan-free twin: step / line | 0.00 / 0.72 | 0.00 / 0.93 (atmosphere sky 0.00 / 0.72) |
+| plan edge on the frame itself (the grass's pattern): step / line | 0.21 / 1.64 | 2.12 / 3.93 |
+| horizon, per mood (gate 3.6): step / dip / ridge | 3.12 / 0.08 / 0.82 | 3.12 / 0.20 / 0.82 (atmosphere 3.52 / 0.08 / 1.31) |
+| distant horizon rows (gate 3.6) | 3.48 | 3.49 (3.80 before the octave clamp) |
+| shadow IoU 15 / 35 / 60° | 0.918 / 0.967 / 0.962; 0.985 / 0.968 / 0.962 | 0.920 / 0.962 / 0.953; 0.922 / 0.967 / 0.960; 0.984 / 0.967 / 0.961; 0.985 / 0.969 / 0.962 |
+| north-up NCC (identity) | 0.7637 | 0.7637 |
+| sky disc azimuth error | 0.08° | 0.08° (atmosphere 0.06°) |
+| night over noon | 0.0998 / 0.0926 | 0.0998 / 0.0931 / 0.0927 / 0.0931 |
+| dusk monotone, garden monotone, sunset step under the day ramp | yes, yes, yes | yes, yes, yes at every preset |
+
+The plan's edge cannot be judged on the frame any more: a 2 m line of grass is not flat, and the
+fits read its pattern (the same in every preset and mood: −2.1 on one view). The board renders
+every edge view a second time without a plan (`ground=None`) and measures the difference
+(`board_probes.difference_frame`): the plan's ground and the meadow are the same picture to
+0.00 luma. Its positive control is the owner's veto itself: with the plan's open ground flat
+(`--open-ground flat`) the same probe reads a step of 1.84 and a line of 7.5 — the flat colour
+beside the varied grass. Under the veto the edge gate as it stands would fail; its
+`raw_step` on the frame itself reads ±1.6 there (see the handoff). The software adapter (WARP,
+the compatibility mode) renders it with no Qt message (the family garden's default framing
+0.79 → 0.30 flat green at 640 × 360, no light probe there). OpenGL on Mesa llvmpipe could not be
+checked on Windows: the `opengl32sw.dll` PyQt6 ships is Mesa with LLVM 3.6, OpenGL 3.0, and the
+base fails on it as the branch does (Qt Quick's own shaders need GLSL 150).
 
 **Cost** (RTX 4070, Direct3D 11, 1920 × 1080, the family garden's default framing at noon; one
 process holding two hosts — the base's `Garden.qml` and this branch's — shown in turn; per
