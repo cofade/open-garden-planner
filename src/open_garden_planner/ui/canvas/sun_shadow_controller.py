@@ -162,6 +162,12 @@ _SETTLE_MS = 120
 # rasterisation is cheap — is painted directly at every step, as before.
 _PICTURE_MAX_SIDE = 2048
 
+# How far the kept picture may be enlarged to stand in for a rasterisation.
+# Past it the picture is a blur, and the rasterisation is cheap: zoomed in that
+# far little of the shadow is in view (family garden, the overlay's share of a
+# zoom step: 60-130 ms at fit, 25-45 ms at 4 times fit, 6-13 ms at 8 times).
+_PICTURE_MAX_ENLARGEMENT = 4.0
+
 # How many zooms count as "rasterised for": more than one, because two views of
 # one scene (or a view and a redraw at another scale) alternate.
 _SETTLED_SCALES = 4
@@ -200,6 +206,14 @@ def _feather_pens_for(occlusion: float) -> tuple[QPen, ...]:
     return tuple(pens)
 
 
+def _enlargement(kept: tuple[float, ...], now: tuple[float, ...]) -> float:
+    """How many times larger a picture rasterised at the device scale ``kept``
+    is shown at ``now`` (both axis-aligned: ``(m11, m12, m21, m22)``)."""
+    across = abs(now[0]) / abs(kept[0]) if kept[0] else math.inf
+    along = abs(now[3]) / abs(kept[3]) if kept[3] else math.inf
+    return max(across, along)
+
+
 class SunShadowOverlayItem(QGraphicsPathItem):
     """Runtime-only shadow overlay — identifiable by tests, never serialized.
 
@@ -226,8 +240,10 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     - a ZOOM invalidates that cache at every step. While steps keep coming the
       item paints the picture of its last rasterisation, scaled (``_picture``),
       and asks ``settle_requested`` for a call to ``settle()`` once they stop;
-      then it is rasterised for the new zoom, once. ``exact_paints`` counts the
-      rasterisations.
+      then it is rasterised for the new zoom, once. The picture stands in only
+      while it is enlarged at most ``_PICTURE_MAX_ENLARGEMENT`` times; zoomed in
+      past that the overlay is rasterised at every step, which is cheap there.
+      ``exact_paints`` counts the rasterisations.
 
     An export, a print, the minimap and the Agent API render disable item caches
     first: for them — and for an overlay nobody settles — ``paint`` is the plain
@@ -372,6 +388,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             and self._picture is not None
             and self._picture_key is not None
             and self._picture_key[0] == self._generation
+            and _enlargement(self._picture_key[1], scale) <= _PICTURE_MAX_ENLARGEMENT
         ):
             # A zoom step: the last rasterisation, scaled, until the zoom settles.
             # Laid down in DEVICE pixels (the picture is upright there; the view

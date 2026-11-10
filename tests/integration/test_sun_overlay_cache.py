@@ -202,6 +202,26 @@ class TestZoomGesture:
         assert difference[shadow].mean() < 2.0  # the same tone over the shadow
         assert (difference > 30).mean() < 0.02  # edges only: a 1.6x enlarged outline
 
+    def test_a_zoom_far_past_the_picture_is_rasterised_at_once(self, staged) -> None:
+        """The kept picture stands in only while it is enlarged a little. Zoomed
+        in far past it (here 6 times) it would be a blur, and there the
+        rasterisation it stands in for is cheap — little of the shadow is in
+        view (family garden: 6-13 ms at 447 %, against 60-130 ms at fit)."""
+        scene, _controller, view = staged
+        overlay = _overlay(scene)
+        rasterised = overlay.exact_paints
+        view.set_zoom(view.zoom_factor * 6.0)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        assert overlay.exact_paints == rasterised + 1
+        assert overlay._pending is None  # nothing was deferred
+        # ... and a step from THERE is a small enlargement of nothing kept (the
+        # overlay is too large for a picture at this zoom): rasterised as well
+        view.set_zoom(view.zoom_factor * 1.1)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        assert overlay.exact_paints == rasterised + 2
+
     def test_a_new_solve_during_a_zoom_is_rasterised_at_once(self, staged) -> None:
         """A scrub must show the sun where it is: a picture of the previous
         solve is never shown for a new one."""
