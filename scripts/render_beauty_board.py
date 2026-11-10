@@ -42,7 +42,19 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
 ``--fence``    the plan's fences alone against the same frame without them, at the noon
                camera, per preset: how the pickets alias (dark share, Laplacian)
 ``--edge``     an empty plan at golden hour and noon: the luma step where the plan
-               rectangle meets the meadow (gate: within 1)
+               rectangle meets the meadow (gate: within 1) — since #798 on the frame less
+               the same view without a plan, so that the grass on both sides cancels
+``--meadow``   #798: the meadow and the plan's open ground — the app's default framing and
+               an eye-level view from the plan's south side, at the noon shot's sun: the
+               share of FLAT pixels (the survey's felt table: local luma std under 1.5),
+               the meadow's own texture and mean; the far meadow's flicker while the
+               default framing orbits and while the camera flies low beside the plan
+               (fixed ground points followed through the move); and whether the grass's
+               repeat shows, from 60 m straight above the empty meadow.
+               ``--meadow-stills`` renders its two stills only.
+               ``--open-ground grass|flat`` and ``--meadow-surface 0|1|2`` override the
+               look's switch and the preset's surface in EVERY frame of the run (the
+               owner's variants; the cost of a cheaper Low)
 ``--stairs``   #734: a 23.8 m solid panel and a picket fence at the plan's south edge at
                the golden-hour (15.2°) and sunset (5.9°) suns, seen by the golden-hour
                camera and the app's default framing as a picture sees them (the shadow
@@ -331,6 +343,85 @@ def distant_horizon_cameras(width: float, depth: float, size: tuple[int, int], b
     return result
 
 
+def meadow_margin(width: float, depth: float) -> float:
+    """#798: how far outside the plan the judged meadow begins, cm."""
+    return min(MEADOW_MARGIN_CM, MEADOW_MARGIN_SHARE * max(width, depth))
+
+
+def far_meadow_points(view: probes.Pinhole, plan: tuple[float, float, float, float],
+                      margin_cm: float) -> np.ndarray:
+    """#798: the FAR meadow's ground points (east, north) a move follows, from its first
+    view: ``MEADOW_FAR_CM`` from the camera's foot (from nearer for a view that sees no 30 m,
+    ``MEADOW_FAR_SHARE``), outside the plan by ``margin_cm``, at most ``MEADOW_TRACK_POINTS``
+    spread over the band."""
+    east, north, distance = probes.ground_hits(view)
+    seen = probes.meadow_mask(view, plan, margin_cm=margin_cm)
+    if not seen.any():
+        return np.zeros((0, 2))
+    near = min(MEADOW_FAR_CM[0], MEADOW_FAR_SHARE * float(np.nanmax(distance[seen])))
+    mask = probes.meadow_mask(view, plan, margin_cm=margin_cm, near_cm=near, far_cm=MEADOW_FAR_CM[1])
+    picked = np.flatnonzero(mask.ravel())
+    if picked.size > MEADOW_TRACK_POINTS:
+        picked = picked[np.linspace(0, picked.size - 1, MEADOW_TRACK_POINTS).astype(int)]
+    return np.column_stack([east.ravel()[picked], north.ravel()[picked]])
+
+
+def meadow_still(rgb: np.ndarray, view: probes.Pinhole, plan: tuple[float, float, float, float]
+                 ) -> dict[str, Any]:
+    """#798: a still's meadow numbers — ``flat_share`` of the whole frame, of the ground
+    below the horizon and of the meadow (``meadow_margin`` outside ``plan``), the meadow's
+    mean luma and luma std, and the frame's own statistics."""
+    rows, cols = rgb.shape[:2]
+    view = view.scaled((cols, rows))
+    ground = np.zeros((rows, cols), dtype=bool)
+    ground[min(max(int(math.ceil(view.horizon_row())) + 3, 0), rows):] = True
+    mask = probes.meadow_mask(view, plan, margin_cm=meadow_margin(plan[2] - plan[0], plan[3] - plan[1]))
+    values = probes.luma(rgb)
+    return {"frame": probes.flat_share(rgb), "ground": probes.flat_share(rgb, ground),
+            "meadow": probes.flat_share(rgb, mask),
+            "meadow_luma": round(float(values[mask].mean()), 2) if mask.any() else None,
+            "meadow_luma_std": round(float(values[mask].std()), 2) if mask.any() else None,
+            **probes.frame_stats(rgb)}
+
+
+def meadow_move(frames: list[np.ndarray], views: list[probes.Pinhole],
+                plan: tuple[float, float, float, float]) -> dict[str, Any]:
+    """#798: how the far meadow flickers through a move: ``far_meadow_points`` of the first
+    view followed through every frame (``probes.track_luma``, ``probes.temporal_noise``)."""
+    first = views[0].scaled((frames[0].shape[1], frames[0].shape[0]))
+    points = far_meadow_points(first, plan, meadow_margin(plan[2] - plan[0], plan[3] - plan[1]))
+    return {"frames": len(frames), **probes.temporal_noise(probes.track_luma(frames, views, points))}
+
+
+def meadow_cameras(width: float, depth: float, top: float, size: tuple[int, int]
+                   ) -> dict[str, Any]:
+    """#798: the meadow phase's cameras for a plan of ``width`` x ``depth`` cm whose tallest
+    part stands ``top`` cm high, for frames of ``size``: ``default`` (the app's default
+    framing, ``camera.frame_pose``), ``eye`` (the walk shot's camera), ``orbit`` (the
+    default framing turning ``MEADOW_ORBIT_STEP_DEG`` a frame), ``flight`` (low, flying
+    east along the plan's south side) and ``above`` (straight down onto the meadow at the
+    scene origin). Plain arithmetic: ``tests/unit/test_render_beauty_board.py`` checks
+    that each sees what the phase judges."""
+    from open_garden_planner.core.scene3d.camera import FOV_DEG, Bounds, frame_pose
+
+    pose = frame_pose(Bounds.of_plan(width, depth, top), size[0] / size[1])
+    walk = next(shot for shot in default_shots(width, depth) if shot.name == "walk")
+    orbit = [probes.Pinhole(moved.eye, moved.target_scene, FOV_DEG, size)
+             for moved in (replace(pose, yaw_deg=pose.yaw_deg + MEADOW_ORBIT_STEP_DEG * index)
+                           for index in range(MEADOW_FRAMES))]
+    flight = []
+    for index in range(MEADOW_FRAMES):
+        east = -0.25 * width + MEADOW_FLIGHT_STEP_CM * index
+        flight.append(probes.Pinhole(
+            (east, -MEADOW_FLIGHT_SOUTH_CM, MEADOW_FLIGHT_EYE_CM),
+            (east + 4000.0, -MEADOW_FLIGHT_SOUTH_CM + 1500.0, 0.0), FOV_DEG, size))
+    return {"default": probes.Pinhole(pose.eye, pose.target_scene, FOV_DEG, size),
+            "eye": probes.Pinhole(walk.eye, walk.target, walk.fov_deg, size),
+            "orbit": orbit, "flight": flight,
+            "above": probes.Pinhole((0.0, 0.0, MEADOW_REPEAT_HEIGHT_CM), (0.0, 1.0, 0.0),
+                                    MEADOW_REPEAT_FOV_DEG, size)}
+
+
 def caster_footprint() -> list[tuple[float, float]]:
     half, (east, north) = CASTER_SIDE / 2.0, IOU_CENTRE
     return [(east - half, north - half), (east + half, north - half),
@@ -532,6 +623,26 @@ SKY_BAND_INVERSION_RANGE = (0.5, 20.0)
 SKY_BAND_HAZE_DEG, SKY_BAND_DECK_DEG = 3.0, 10.0
 #: #716: the low band every board camera sees.
 SKY_BAND_LOW = (6.0, 15.0)
+#: #798, the meadow phase (``Board.meadow``). Its eye-level view is the walk shot's camera
+#: (a viewer's eye height inside the plan, looking across it to the meadow beyond).
+#: The meadow judged: at least this far outside the plan (a crown overhangs less), and at
+#: most this share of the plan's larger side (a balcony's 3 m margin left 6 % of its view).
+MEADOW_MARGIN_CM, MEADOW_MARGIN_SHARE = 300.0, 0.2
+#: The moves: this many frames; the default framing turned this much a frame (a slow
+#: drone orbit), and a flight this high, this far south of the plan, this far a frame
+#: (7.5 m/s at 30 frames a second), looking along the plan's south side.
+MEADOW_FRAMES, MEADOW_ORBIT_STEP_DEG = 10, 0.5
+MEADOW_FLIGHT_EYE_CM, MEADOW_FLIGHT_SOUTH_CM, MEADOW_FLIGHT_STEP_CM = 250.0, 800.0, 25.0
+#: The FAR meadow whose flicker is followed: this far from the camera's foot (cm) — from
+#: nearer, this share of the farthest ground the view sees, where a view of a small plan
+#: sees no 30 m (the balcony's default framing: 29.5 m) — at most this many ground points,
+#: each the mean of a 3 x 3 pixel square. Beyond about 20 m the 1 cm texels are smaller than
+#: a 1280 x 720 pixel: the grass is minified, where a texture shimmers if it does.
+MEADOW_FAR_CM, MEADOW_FAR_SHARE, MEADOW_TRACK_POINTS = (3000.0, 15000.0), 0.6, 400
+#: The repeat probe: straight down onto the empty meadow from this high (cm), 40 degrees.
+MEADOW_REPEAT_HEIGHT_CM, MEADOW_REPEAT_FOV_DEG = 6000.0, 40.0
+#: The grass's repeat, cm (``core/scene3d/meadow.GRASS_REPEAT_CM``).
+MEADOW_REPEAT_CM = 256.0
 #: The edge probe's cameras stand on the edge's line this far from the middle of the
 #: judged stretch, at eye height — the grazing view under which a sheen shows — and judge
 #: a band this wide on each side of the edge, starting this far from it, this long.
@@ -721,6 +832,17 @@ class Board:
             return look
         return replace(look, sky=replace(look.sky, model=model))
 
+    def with_meadow(self, look: LookSpec) -> LookSpec:
+        """``look`` with the meadow's overrides of the run (#798): ``--open-ground`` (the
+        owner's switch: does the plan's open ground take the grass) and
+        ``--meadow-surface`` (the preset's surface level). Without them: ``look``."""
+        ground, surface = str(self.args.open_ground), self.args.meadow_surface
+        if ground != "look":
+            look = replace(look, open_ground_grass=ground == "grass")
+        if surface is not None:
+            look = replace(look, preset=replace(look.preset, meadow_surface=int(surface)))
+        return look
+
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
@@ -733,7 +855,7 @@ class Board:
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
-        look = self.with_sky_model(look)
+        look = self.with_meadow(self.with_sky_model(look))
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
@@ -1637,7 +1759,15 @@ class Board:
         and a mean of the two would hide it. ``max_line`` is the largest LINE on an edge
         (``probes.plan_edge_step``): a thin line the fits cannot see. ``weather``
         (``--living``): under that weather's look - the ground's values and, since #687, its
-        ambient occlusion are the weather's."""
+        ambient occlusion are the weather's.
+
+        #798: both sides carry the meadow's grass, and a 2 m line of grass is not flat: on
+        the frame itself the fits read the texture's own pattern, the same in every preset
+        and mood (to -2.1 luma on one view). So every view is rendered a second time with
+        no plan at all (``ground=None``: the meadow without its hole), and the step and the
+        line are measured on the DIFFERENCE (``probes.difference_frame``): the grass cancels,
+        and what the plan's ground does otherwise than the meadow stays. The frame's own
+        numbers are kept as ``raw_step`` / ``raw_line``."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
@@ -1673,8 +1803,16 @@ class Board:
                         look=weather_look(sun, preset, weather),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                    rows[name] = {**probes.plan_edge_step(rgb, camera, axis=axis, at=0.0,
-                                                          along=along, reach=reach),
+                    meadow, _twin, _twin_info = self.frame(
+                        f"edge{tag}_{mood}_{name}_{preset}_meadow", {}, sun=sun,
+                        look=weather_look(sun, preset, weather), ground=None,
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    raw = probes.plan_edge_step(rgb, camera, axis=axis, at=0.0, along=along,
+                                                reach=reach)
+                    rows[name] = {**probes.plan_edge_step(probes.difference_frame(rgb, meadow),
+                                                          camera, axis=axis, at=0.0, along=along,
+                                                          reach=reach),
+                                  "raw_step": raw["step"], "raw_line": raw["line"],
                                   "file": info["file"]}
                 for row in rows.values():
                     worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
@@ -1686,6 +1824,93 @@ class Board:
         out["max_abs_step"] = round(worst, 2)
         out["max_line"] = round(worst_line, 2)
         self.write()
+
+    def meadow(self, shots: list[BoardShot], presets: list[str]) -> None:
+        """#798: is the meadow — and the plan's open ground — grass, or a felt table?
+
+        Per preset, at the noon shot's sun and date, the plan's ground baked:
+
+        - ``default``: the app's default framing of the plan (``camera.frame_pose``, the
+          view's own pose) and ``eye``: the walk shot's camera, a viewer's eye height in the
+          plan (where the survey saw the bare plan ground as a football pitch). Each:
+          ``flat_share`` of the whole frame (the survey's number), of the ground below the
+          horizon and of the MEADOW (``probes.meadow_mask``: ground at least
+          ``meadow_margin`` outside the plan whose line of sight never crosses it; none
+          from a camera standing on the plan),
+          with the meadow's mean luma and its luma std;
+        - ``orbit`` / ``flight``: ``MEADOW_FRAMES`` frames of the default framing turning
+          ``MEADOW_ORBIT_STEP_DEG`` a frame, and of a camera ``MEADOW_FLIGHT_EYE_CM`` high
+          flying east along the plan's south side; up to ``MEADOW_TRACK_POINTS`` FAR meadow
+          points (``far_meadow_points``: 30-150 m from the camera's foot, seen in the first frame) are
+          followed through the move (``probes.track_luma``) and their flicker measured
+          (``probes.temporal_noise``: zigzag RMS, frame-to-frame step);
+        - ``repeat``: the empty meadow from ``MEADOW_REPEAT_HEIGHT_CM`` straight above, its
+          luma folded onto one grass repeat (``probes.repeat_amplitude``).
+        """
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        noon = {shot.name: shot for shot in shots}.get("noon") or next(
+            shot for shot in default_shots(self.width, self.depth) if shot.name == "noon")
+        records = self.records_for(plan_day(noon.when_utc))
+        sun = self.sun_at(noon.when_utc)
+        registry = production_registry()
+        plan = (0.0, 0.0, self.width, self.depth)
+        top = max((record.transform.base_cm + float(record.height_cm) for record in records.values()
+                   if record.height_cm is not None), default=0.0)
+        cameras = meadow_cameras(self.width, self.depth, top, self.size)
+        out: dict[str, Any] = {"sun_elev": round(sun.elevation_deg, 2),
+                               "sun_az": round(sun.azimuth_deg, 2),
+                               "open_ground": str(self.args.open_ground),
+                               "meadow_surface": self.args.meadow_surface}
+        self.metrics["meadow"] = out
+
+        def still(name: str, view: probes.Pinhole, look: LookSpec) -> tuple[dict[str, Any], np.ndarray]:
+            rgb, _frame, info = self.frame(
+                name, records, sun=sun, look=look, ground=self.plan_ground(), registry=registry,
+                shot=PerspectiveShot(view.eye, view.target, view.fov_deg), baked=True)
+            row = {"file": info["file"], "eye": list(view.eye), "target": list(view.target),
+                   **meadow_still(rgb, view, plan)}
+            return row, rgb
+
+        def move(name: str, views: list[probes.Pinhole], look: LookSpec) -> dict[str, Any]:
+            frames = []
+            for index, view in enumerate(views):
+                rgb, _frame, _info = self.frame(
+                    f"meadow_{name}_{index:02d}_{preset}", records, sun=sun, look=look,
+                    ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(view.eye, view.target, view.fov_deg), baked=True)
+                frames.append(rgb)
+            return {**meadow_move(frames, views, plan), "first_file": f"meadow_{name}_00_{preset}.png"}
+
+        for preset in presets:
+            look = look_for(sun, preset)
+            block: dict[str, Any] = {}
+            out[preset] = block
+            block["default"], _rgb = still(f"meadow_default_{preset}", cameras["default"], look)
+            block["eye"], _rgb = still(f"meadow_eye_{preset}", cameras["eye"], look)
+            self.log("meadow", preset=preset,
+                     default_flat_green=block["default"]["frame"]["flat_green"],
+                     eye_flat_green=block["eye"]["frame"]["flat_green"],
+                     meadow_std=block["default"]["meadow"]["local_std"])
+            self.write()
+            if self.args.meadow_stills:   # the two stills only (a 1080p proof, a variant)
+                continue
+            block["orbit"] = move("orbit", cameras["orbit"], look)
+            block["flight"] = move("flight", cameras["flight"], look)
+            self.log("meadow_moves", preset=preset, orbit_zigzag=block["orbit"]["zigzag_rms"],
+                     flight_zigzag=block["flight"]["zigzag_rms"])
+            self.write()
+            above = cameras["above"]
+            rgb, _frame, info = self.frame(
+                f"meadow_repeat_{preset}", {}, sun=sun, look=look, ground=None,
+                shot=PerspectiveShot(above.eye, above.target, above.fov_deg))
+            view = above.scaled((rgb.shape[1], rgb.shape[0]))
+            period_px = MEADOW_REPEAT_CM * view._focal / MEADOW_REPEAT_HEIGHT_CM
+            block["repeat"] = {"file": info["file"],
+                               **probes.repeat_amplitude(probes.luma(rgb), period_px)}
+            self.log("meadow_repeat", preset=preset, **block["repeat"])
+            self.write()
 
     def stairs(self, presets: list[str]) -> None:
         """#734: the staircase on a long fence's low-sun shadow, and the streaks in it.
@@ -1946,6 +2171,15 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="#734: a long fence's low-sun shadow edge and its streaks")
     parser.add_argument("--edge", action="store_true",
                         help="an empty plan: the step where the plan rectangle meets the meadow")
+    parser.add_argument("--meadow", action="store_true",
+                        help="#798: flat share, flicker and repeat of the meadow's grass")
+    parser.add_argument("--open-ground", choices=("look", "grass", "flat"), default="look",
+                        help="#798: override the look's switch for the plan's open ground")
+    parser.add_argument("--meadow-surface", type=int, choices=(0, 1, 2), default=None,
+                        help="#798: override the preset's meadow surface (0 flat, 1 grass, "
+                             "2 grass and its variation)")
+    parser.add_argument("--meadow-stills", action="store_true",
+                        help="#798: with --meadow, only its two stills (no moves, no repeat)")
     parser.add_argument("--sky-bands", action="store_true",
                         help="sky-only frames toward, across and away from a low sun, clear and "
                              "under each cloud deck: the sky per elevation band (#716, #719)")
@@ -2047,6 +2281,8 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.fence_moire(default_shots(board.width, board.depth), presets)
     if args.edge:
         board.plan_edge(default_shots(board.width, board.depth), presets)
+    if args.meadow:
+        board.meadow(default_shots(board.width, board.depth), presets)
     if args.sky_bands:
         board.sky_bands(presets)
     if args.stairs:

@@ -711,6 +711,18 @@ def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Se
             "line": round(max(lines), 2) if lines else None}
 
 
+def difference_frame(first: Any, second: Any, *, offset: float = 128.0) -> Array:
+    """``first`` less ``second`` (two frames of one camera), every channel, plus ``offset``:
+    a frame whose luma is the luma difference (luma is linear in the codes) — what
+    ``plan_edge_step`` reads when both sides of an edge carry the same texture (#798): the
+    texture cancels, a difference of material does not."""
+    a = np.asarray(first, dtype=np.float64)[..., :3]
+    b = np.asarray(second, dtype=np.float64)[..., :3]
+    if a.shape != b.shape:
+        raise ValueError(f"two frames of one shape, got {a.shape} and {b.shape}")
+    return np.asarray(a - b + offset)
+
+
 def _edge_line(values: Array, view: Pinhole, pair: Array) -> float | None:
     """``plan_edge_step``'s ``line`` at one station: ``pair`` is the point of the edge
     and a ground point across it, on the plan's side."""
@@ -1224,3 +1236,177 @@ def orientation_scores(seen: Any, predicted: Any) -> dict[str, Any]:
     best = max(scores, key=lambda name: scores[name])
     return {"ncc": {name: round(value, 4) for name, value in scores.items()},
             "best": best, "ok": best == "identity"}
+
+
+# ── the meadow: flat tiles, its own texture, shimmer and repeat (#798) ─────────
+
+#: A FLAT pixel: the luma standard deviation of the ``FLAT_WINDOW_PX`` square around it
+#: is under ``FLAT_STD_LUMA``. The 3D survey's instrument for "a model on a green felt
+#: table" (#798): on master 80 % of the default framing was flat AND green (a meadow
+#: patch read a std of 0.54 at noon, the lawn beside it 41).
+FLAT_STD_LUMA, FLAT_WINDOW_PX = 1.5, 9
+
+
+def box_mean(values: Any, window: int) -> Array:
+    """The mean of ``values`` (h x w) over the ``window`` square (odd) around every pixel,
+    the frame's edge repeated outward — by a summed-area table."""
+    data = np.asarray(values, dtype=np.float64)
+    half = window // 2
+    padded = np.pad(data, ((half + 1, half), (half + 1, half)), mode="edge")
+    table = padded.cumsum(axis=0).cumsum(axis=1)
+    return np.asarray((table[window:, window:] - table[:-window, window:]
+                       - table[window:, :-window] + table[:-window, :-window])
+                      / float(window * window))
+
+
+def local_std(values: Any, window: int = FLAT_WINDOW_PX) -> Array:
+    """The standard deviation of ``values`` (h x w) over the ``window`` square around
+    every pixel (the frame's edge repeated outward): two box filters."""
+    data = np.asarray(values, dtype=np.float64)
+    mean, square = box_mean(data, window), box_mean(data * data, window)
+    return np.asarray(np.sqrt(np.maximum(square - mean * mean, 0.0)))
+
+
+def flat_share(rgb: Any, mask: Any = None) -> dict[str, Any]:
+    """How much of a frame (or of ``mask`` in it) is FLAT (``FLAT_STD_LUMA``).
+
+    ``flat_green``: the share that is flat and green (green the largest channel) — the
+    survey's number; ``flat``: flat in any colour (a plain sky is flat too);
+    ``local_std``: the mean of the local standard deviation over the region (the
+    texture a viewer sees, free of the large gradients of light and fog)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    spread = local_std(luma(frame))
+    region = (np.ones(spread.shape, dtype=bool) if mask is None
+              else np.asarray(mask, dtype=bool))
+    count = int(region.sum())
+    if count == 0:
+        return {"flat_green": None, "flat": None, "local_std": None, "pixels": 0}
+    green = (frame[..., 1] > frame[..., 0]) & (frame[..., 1] > frame[..., 2])
+    flat = spread < FLAT_STD_LUMA
+    return {"flat_green": round(float((flat & green)[region].mean()), 4),
+            "flat": round(float(flat[region].mean()), 4),
+            "local_std": round(float(spread[region].mean()), 3), "pixels": count}
+
+
+def ground_hits(camera: Pinhole) -> tuple[Array, Array, Array]:
+    """Where every pixel's ray meets the ground (z = 0): east, north (cm) and the
+    distance along the ground from the camera's foot — NaN where the ray never
+    reaches it (at or above the horizon)."""
+    width, height = camera.size
+    xs, ys = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(xs, ys)
+    eye = np.asarray(camera.eye, dtype=np.float64)
+    down = rays[..., 2] < -1e-9
+    t = np.where(down, -eye[2] / np.where(down, rays[..., 2], -1.0), np.nan)
+    east, north = eye[0] + t * rays[..., 0], eye[1] + t * rays[..., 1]
+    return (np.asarray(east), np.asarray(north),
+            np.asarray(np.hypot(east - eye[0], north - eye[1])))
+
+
+def meadow_mask(camera: Pinhole, plan: tuple[float, float, float, float], *,
+                margin_cm: float = 300.0, near_cm: float = 0.0,
+                far_cm: float = math.inf) -> Mask:
+    """The pixels that see the MEADOW and nothing of the plan: the ground at least
+    ``margin_cm`` outside the plan rectangle ``plan`` = (east0, north0, east1, north1),
+    ``near_cm`` .. ``far_cm`` from the camera's foot, whose line of sight does not pass
+    over the plan (grown by the margin) — what stands in a garden can hide only what
+    lies behind it, and a crown overhangs the plan's edge by less than the margin."""
+    east, north, distance = ground_hits(camera)
+    x0, y0 = plan[0] - margin_cm, plan[1] - margin_cm
+    x1, y1 = plan[2] + margin_cm, plan[3] + margin_cm
+    with np.errstate(invalid="ignore"):
+        valid = np.isfinite(distance) & (distance >= near_cm) & (distance <= far_cm)
+        outside = (east < x0) | (east > x1) | (north < y0) | (north > y1)
+    # Liang-Barsky: does the segment from the camera's foot to the hit cross the grown plan?
+    start = np.asarray(camera.eye[:2], dtype=np.float64)
+    dx, dy = east - start[0], north - start[1]
+    low, high = np.zeros(east.shape), np.ones(east.shape)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for delta, begin, lower, upper in ((dx, start[0], x0, x1), (dy, start[1], y0, y1)):
+            parallel = np.abs(delta) < 1e-12
+            first, second = (lower - begin) / delta, (upper - begin) / delta
+            near = np.where(parallel, -np.inf, np.minimum(first, second))
+            far = np.where(parallel, np.inf, np.maximum(first, second))
+            inside_slab = (begin >= lower) & (begin <= upper)
+            low = np.where(parallel & ~inside_slab, 2.0, np.maximum(low, near))
+            high = np.where(parallel & ~inside_slab, -1.0, np.minimum(high, far))
+    crosses = low <= high
+    return np.asarray(valid & outside & ~crosses)
+
+
+def track_luma(frames: Sequence[Any], cameras: Sequence[Pinhole], points: Any, *,
+               radius_px: int = 1) -> Array:
+    """The luma of fixed GROUND points through a camera move: ``(frames, points)``, the
+    mean of a ``2 radius + 1`` square centred EXACTLY where each frame's camera puts the
+    point (the frame box-filtered, then read bilinearly: a window snapped to whole pixels
+    jumps a pixel as the point crosses one, and on a textured ground that jump is a flicker
+    of the instrument's own); NaN where it falls out of the frame or behind the camera."""
+    world = np.atleast_2d(np.asarray(points, dtype=np.float64))
+    if world.shape[1] == 2:
+        world = np.column_stack([world, np.zeros(len(world))])
+    out = np.full((len(frames), len(world)), np.nan)
+    for index, (rgb, camera) in enumerate(zip(frames, cameras, strict=True)):
+        values = box_mean(luma(np.asarray(rgb, dtype=np.float64)[..., :3]), 2 * radius_px + 1)
+        rows, cols = values.shape
+        x, y, front = camera.scaled((cols, rows)).project(world)
+        seen = (front & (x >= radius_px + 1) & (x < cols - radius_px - 1)
+                & (y >= radius_px + 1) & (y < rows - radius_px - 1))
+        out[index, seen] = _bilinear(values, x[seen], y[seen])
+    return out
+
+
+def temporal_noise(series: Any) -> dict[str, Any]:
+    """How ground points flicker through a camera move (``track_luma``'s array). A
+    smooth move changes a point's luma smoothly; aliasing and crawl change it from frame
+    to frame. ``zigzag_rms``: the RMS of ``x[i] - (x[i-1] + x[i+1]) / 2`` over every
+    point seen in three frames running (the day-lapse instrument of #799); ``step_mean``:
+    the mean frame-to-frame change; ``step_p95`` its 95th percentile."""
+    data = np.asarray(series, dtype=np.float64)
+    if data.shape[0] < 3:
+        return {"zigzag_rms": None, "step_mean": None, "step_p95": None, "points": 0}
+    zigzag = data[1:-1] - (data[:-2] + data[2:]) / 2.0
+    steps = np.abs(np.diff(data, axis=0))
+    zig, step = zigzag[np.isfinite(zigzag)], steps[np.isfinite(steps)]
+    seen = int(np.isfinite(zigzag).any(axis=0).sum())
+    if zig.size == 0:
+        return {"zigzag_rms": None, "step_mean": None, "step_p95": None, "points": 0}
+    return {"zigzag_rms": round(float(np.sqrt((zig * zig).mean())), 3),
+            "step_mean": round(float(step.mean()), 3),
+            "step_p95": round(float(np.percentile(step, 95)), 3), "points": seen}
+
+
+#: The repeat probe's bins per period (each holds every pixel of that phase in the frame)
+#: and the blur, as a share of the period, that keeps only what a viewer sees as a pattern.
+REPEAT_BINS, REPEAT_BLUR_SHARE = 32, 0.12
+
+
+def repeat_amplitude(values: Any, period_px: float) -> dict[str, Any]:
+    """Does a texture's REPEAT show? ``values`` (h x w luma) is ground seen straight from
+    above with east right and north up, ``period_px`` the texture's repeat in pixels.
+
+    The picture, blurred to what reads as a pattern (``REPEAT_BLUR_SHARE`` of a period) and
+    less its mean over two periods (the light's gradient), is FOLDED onto one period:
+    every pixel is averaged into the bin of its phase (``REPEAT_BINS`` per axis). What
+    repeats survives the fold; what does not averages away. ``periodic``: the luma std of
+    the folded tile — the amplitude of the lattice a repeated texture draws; ``control``:
+    the same folded at 0.61 and 1.37 periods, where nothing repeats; ``residual``: the
+    std of the whole detrended picture, for scale. (#798's first round: a repeat visible
+    from 60 m read 2.15 luma, its grain-only successor 0.86, the flat meadow 0.002.)"""
+    raw = np.asarray(values, dtype=np.float64)
+    blur = max(1, int(round(REPEAT_BLUR_SHARE * period_px)) | 1)
+    data = box_mean(raw, blur) if blur > 1 else raw
+    data = data - box_mean(data, 2 * max(1, int(round(period_px))) + 1)
+    rows, cols = np.mgrid[0:data.shape[0], 0:data.shape[1]]
+
+    def folded(period: float) -> float:
+        bin_x = np.minimum(((cols % period) / period * REPEAT_BINS).astype(int), REPEAT_BINS - 1)
+        bin_y = np.minimum(((rows % period) / period * REPEAT_BINS).astype(int), REPEAT_BINS - 1)
+        index = (bin_y * REPEAT_BINS + bin_x).ravel()
+        sums = np.bincount(index, data.ravel(), REPEAT_BINS * REPEAT_BINS)
+        counts = np.bincount(index, None, REPEAT_BINS * REPEAT_BINS)
+        filled = counts > 0
+        return float((sums[filled] / counts[filled]).std())
+
+    return {"periodic": round(folded(float(period_px)), 3),
+            "control": round(max(folded(0.61 * period_px), folded(1.37 * period_px)), 3),
+            "residual": round(float(data.std()), 3), "period_px": round(float(period_px), 2)}

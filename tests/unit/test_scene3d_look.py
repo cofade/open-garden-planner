@@ -978,3 +978,27 @@ class TestTheCapturesOcclusionScale:
     @pytest.mark.parametrize("bad", [-100.0, math.inf, math.nan])
     def test_a_height_that_is_none_is_the_reference(self, bad: float) -> None:
         assert L.ao_distance_scale(bad) == 1.0
+
+
+class TestTheMeadowsSurface:
+    """#798: the meadow's grass by preset, and the owner's switch for the plan's open ground."""
+
+    def test_low_draws_the_grass_without_its_variation_and_the_rest_with_it(self) -> None:
+        """Low (the compatibility mode's level) skips the variation's value noise — 2.1 ms of a
+        960 x 540 frame on the software adapter; Medium, High and Ultra draw it."""
+        assert L.PRESET_SPECS["low"].meadow_surface == L.MEADOW_GRASS
+        for name in ("medium", "high", "ultra"):
+            assert L.PRESET_SPECS[name].meadow_surface == L.MEADOW_GRASS_VARIED, name
+        assert (L.MEADOW_FLAT, L.MEADOW_GRASS, L.MEADOW_GRASS_VARIED) == (0, 1, 2)
+        with pytest.raises(ValueError, match="meadow_surface"):
+            dataclasses.replace(L.PRESET_SPECS["high"], meadow_surface=3)
+
+    def test_the_open_ground_switch_is_the_looks_and_reaches_the_scene(self) -> None:
+        from open_garden_planner.ui.view3d.quick3d.look import scene_properties
+
+        look = L.look_for(SunState(elevation_deg=40.0, azimuth_deg=180.0), "low")
+        assert look.open_ground_grass is L.OPEN_GROUND_GRASS is True
+        properties = scene_properties(look)
+        assert properties["openGroundGrass"] is True and properties["meadowSurface"] == L.MEADOW_GRASS
+        vetoed = scene_properties(dataclasses.replace(look, open_ground_grass=False))
+        assert vetoed["openGroundGrass"] is False

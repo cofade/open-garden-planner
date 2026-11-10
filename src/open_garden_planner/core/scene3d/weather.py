@@ -456,11 +456,10 @@ def _weathered(look: LookSpec, spec: WeatherSpec, sun: SunState, *, dew: bool,
     wetness = max(spec.wetness, _DEW_WETNESS * dew_share)
     haze = spec.haze * (1.0 + (_DEW_HAZE - 1.0) * dew_share)
     darken = 1.0 - _WET_GROUND_DARKEN * spec.wetness      # the rain's, not the dew's
+    # the meadow keeps its ONE albedo (#798): the rain's darkening and the snow are the
+    # ground's tint and cover below, which ground.frag applies to the meadow's grass and
+    # to the plan's tiles alike - weathering the albedo too would weather the meadow twice
     meadow = look.meadow_albedo
-    if spec.wetness > 0.0:
-        meadow = linear_to_srgb_hex(srgb_to_linear(meadow).astype(np.float64) * darken)
-    if spec.snow_cover > 0.0:
-        meadow = mix_linear(meadow, linear_to_srgb_hex(SNOW_LINEAR), spec.snow_cover)
     elevation = float(sun.elevation_deg)
     sun_up = sun.is_up        # the ONE test of "the sun is down" (look_for, the 2D shadows)
     blowing = math.radians(WIND_FROM_DEG + 180.0)      # the wind blows TOWARDS this

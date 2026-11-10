@@ -371,11 +371,18 @@ def test_a_particle_is_lit_like_the_frame(weather: str, at: SunState) -> None:
 
 def test_the_ground_takes_one_set_of_values() -> None:
     """The meadow, the bare plan and the tiles take the SAME tint, roughness and
-    specular — the plan meets the meadow without a step in every weather."""
+    specular — the plan meets the meadow without a step in every weather. Since #798
+    the meadow draws ``ground.frag`` too, so the weather reaches it through that ONE
+    tint and cover, and its albedo stays the one meadow albedo (weathering it as well
+    would darken a wet meadow twice and snow it twice)."""
+    from open_garden_planner.core.scene3d.look import MEADOW_ALBEDO
+
     rain = living_look(AFTERNOON, "high", "rain")
     assert rain.atmosphere.ground_roughness < 1.0 < rain.atmosphere.ground_specular + 1.0
     assert rain.atmosphere.ground_tint_linear[0] < 1.0
-    assert rain.meadow_albedo != look_for(AFTERNOON, "high").meadow_albedo
+    snow = living_look(sun(15.0), "high", "snow")
+    assert snow.atmosphere.snow_cover > 0.0
+    assert rain.meadow_albedo == snow.meadow_albedo == look_for(AFTERNOON, "high").meadow_albedo         == MEADOW_ALBEDO
     clear = living_look(AFTERNOON, "high", "clear").atmosphere
     assert (clear.ground_tint_linear, clear.ground_roughness, clear.ground_specular) == (
         (1.0, 1.0, 1.0), 1.0, 0.15)
@@ -424,8 +431,8 @@ def test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_th
 
 def test_the_ground_shaders_snow_is_the_weathers() -> None:
     """Drift guard (senior review of L5): ``ground.frag``'s snow colour is
-    ``weather.SNOW_LINEAR`` — the meadow's snow (``apply_weather``) and the plan's tiles
-    meet without a step only while they are one colour."""
+    ``weather.SNOW_LINEAR`` — since #798 the meadow and the plan's tiles both take their
+    snow in that shader, and the built tops (``built_snow.frag``, #687) the same colour."""
     import re
     from pathlib import Path
 

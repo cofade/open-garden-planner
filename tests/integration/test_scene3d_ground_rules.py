@@ -52,6 +52,7 @@ from open_garden_planner.ui.canvas.items import path_style_paint as style_paint
 from open_garden_planner.ui.view3d import ground_bake
 from open_garden_planner.ui.view3d.ground_bake import (
     BAKE_BUDGET_S,
+    OPEN_ALPHA,
     TILE_RECORDS,
     TILE_VERTICES,
     GroundBaker,
@@ -1250,3 +1251,67 @@ def test_a_flat_item_the_solid_path_refuses_is_converted_once_a_tick(
     converted.clear()
     assert bake.step().is_empty  # an idle tick
     assert converted == [16_384, 16_384]
+
+
+# ── open ground (#798): the meadow's grass is laid where no item covers ───────
+
+
+def _tile_pixels(baker: GroundBaker) -> np.ndarray:
+    """The baker's tiles as the ENGINE gets them (raw bytes, alpha included), north up."""
+    grid = baker.grid
+    assert grid is not None
+    whole = np.zeros((grid.height_px, grid.width_px, 4), dtype=np.int16)
+    for tile in baker.tiles():
+        x0, y0, width, height = grid.tile_px_rect(tile.key)
+        top = grid.height_px - y0 - height
+        whole[top:top + height, x0:x0 + width] = np.frombuffer(
+            tile.pixels, np.uint8).reshape(height, width, 4)
+    return whole
+
+
+class TestOpenGround:
+    """#798: a tile's alpha says how much of a pixel an item covers. Open ground is the
+    meadow's colour at ``OPEN_ALPHA`` (0) — ``ground.frag`` lays the meadow's grass there,
+    the same function as on the meadow outside the plan — and the colour bytes are
+    exactly what they were before the alpha meant anything."""
+
+    def test_open_ground_is_open_and_an_opaque_item_covers_its_pixels(self, qtbot: Any) -> None:
+        records = {"lawn": surface("lawn", (200.0, 150.0), (400.0, 300.0), GREEN)}
+        baker, image = baked(records)
+        raw = _tile_pixels(baker)
+        # row 0 is north: the lawn spans east 200..600, north 150..450 -> rows 250..550
+        assert tuple(raw[300, 400]) == (*GREEN[:3], 255)            # under the lawn
+        assert tuple(raw[50, 900]) == (*MEADOW_RGB, OPEN_ALPHA)     # open ground
+        assert OPEN_ALPHA == 0
+        # the colour is what the opaque meadow under the lawn gives: the picture of old
+        whole = unbounded(records, 1100.0, 700.0)
+        assert not apart(raw, whole).any()
+        # GroundBaker.image(): the same colours, opaque
+        assert np.all(image[..., 3] == 255) and not apart(image, whole).any()
+
+    def test_an_antialiased_edge_carries_its_coverage(self, qtbot: Any) -> None:
+        """A lawn turned 30° has antialiased edges: there the alpha is the share the lawn
+        covers, between the open ground's and the lawn's own."""
+        records = {"lawn": surface("lawn", (200.0, 150.0), (550.0, 350.0), GREEN, turn=30.0)}
+        baker, _image = baked(records)
+        alpha = _tile_pixels(baker)[..., 3]
+        partial = (alpha > 0) & (alpha < 255)
+        assert partial.sum() > 500, partial.sum()                   # the turned outline
+        assert (alpha == 255).sum() > 100_000 and (alpha == 0).sum() > 500_000
+
+    def test_a_translucent_item_leaves_the_ground_partly_open(self, qtbot: Any) -> None:
+        """At half opacity a lawn covers half of each pixel: the alpha says so, and the
+        colour is the lawn over the meadow's colour as it always was — the engine adds the
+        grass's own variation to the open half."""
+        records = {"lawn": surface("lawn", (200.0, 150.0), (400.0, 300.0), GREEN, opacity=0.5)}
+        baker, _image = baked(records)
+        raw = _tile_pixels(baker)
+        assert abs(int(raw[300, 400, 3]) - 128) <= 1, raw[300, 400]
+        whole = unbounded(records, 1100.0, 700.0)
+        assert not apart(raw, whole).any()
+
+    def test_every_bare_tile_shares_one_block_of_open_ground(self, qtbot: Any) -> None:
+        baker, _image = baked({})
+        tiles = baker.tiles()
+        assert len({id(tile.pixels) for tile in tiles}) <= 4
+        assert all(set(tile.pixels[3::4]) == {OPEN_ALPHA} for tile in tiles)

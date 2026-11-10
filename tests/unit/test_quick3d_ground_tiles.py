@@ -152,20 +152,17 @@ class TestTheTileComponent:
         measured 2-8 luma darker). The tile takes the meadow's roughness and
         specular amount, whatever they are — since L5 (#389) the weather's, ONE pair of
         scene properties every piece of ground binds (1.0 / 0.15 dry, ``look.CLEAR_STILL``)."""
-        # the endless meadow: the Model with id meadow (comments are stripped from CODE)
+        # the endless meadow: the Model with id meadow (comments are stripped from CODE).
+        # Since #798 the meadow, the bare rectangle and the tiles all draw ground.frag
+        # and bind the same two
         (meadow,) = [block for found in re.finditer(r"Model\s*\{", CODE)
                      if re.search(r"\bid:\s*meadow\b",
                                   block := _block(CODE[found.start():], r"Model\s*\{"))]
-        values = {}
-        for name, block in (("tile", TILE), ("meadow", meadow)):
-            roughness = re.search(r"roughness:\s*([\w.]+)", block)
-            specular = re.search(r"specularAmount:\s*([\w.]+)", block)
-            assert roughness and specular, name
-            values[name] = (roughness.group(1), specular.group(1))
-        assert values["tile"] == values["meadow"] == ("root.groundRoughness", "root.groundSpecular")
-        # … the custom tile shader takes the same two (ground.frag)
-        assert "property real uRough: root.groundRoughness" in TILE
-        assert "property real uSpecular: root.groundSpecular" in TILE
+        for block in (TILE, meadow):
+            assert 'fragmentShader: "ground.frag"' in block
+            assert "property real uRough: root.groundRoughness" in block
+            assert "property real uSpecular: root.groundSpecular" in block
+            assert "PrincipledMaterial" not in block
         dry = re.search(r"property real groundRoughness:\s*([0-9.]+)", CODE)
         shiny = re.search(r"property real groundSpecular:\s*([0-9.]+)", CODE)
         assert dry and shiny and (float(dry.group(1)), float(shiny.group(1))) == (1.0, 0.15)

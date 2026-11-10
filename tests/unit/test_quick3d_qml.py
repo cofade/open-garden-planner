@@ -349,7 +349,10 @@ def test_the_ground_detail_shader_flips_v_itself() -> None:
     code = "\n".join(line.split("//")[0] for line in
                      (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
     assert re.search(r"\buv\s*=\s*vec2\(\s*UV0\.x\s*,\s*1\.0\s*-\s*UV0\.y\s*\)", code)
-    samples = re.findall(r"texture\(\s*uBaseMap\s*,\s*([^;]*?)\)\s*\.rgb", code)
+    # the tile itself (rgba: its alpha says where the ground is open, #798) and its four
+    # neighbours for the detail normals - every one through the flipped coordinate
+    starts = [found.end() for found in re.finditer(r"texture\(\s*uBaseMap\s*,\s*", code)]
+    samples = [code[start:code.index(")", start)] for start in starts]
     assert len(samples) == 5 and all(sample.startswith("uv") for sample in samples), samples
 
 
@@ -740,6 +743,100 @@ def test_the_photo_blur_finds_its_shaders_beside_itself() -> None:
     shaders = re.findall(r"shader:\s*(.+)", blur)
     assert len(shaders) == 3
     assert all(re.fullmatch(r'Qt\.resolvedUrl\("photoblur_\w+\.frag"\)', value.strip()) for value in shaders)
+
+
+# ── #798: one ground shader, the meadow's grass ───────────────────────────────
+
+
+def _ground_material_blocks() -> dict[str, str]:
+    """The ``CustomMaterial`` bodies of the three pieces of ground: the baked tile, the
+    endless meadow and the bare plan rectangle (comments stripped)."""
+    code = strip_comments(SCENE.read_text(encoding="utf-8"))
+
+    def body(text: str, start: int) -> str:
+        opening = text.index("{", start)
+        depth, index = 1, opening + 1
+        while depth:
+            depth += {"{": 1, "}": -1}.get(text[index], 0)
+            index += 1
+        return text[opening + 1:index - 1]
+
+    models = [body(code, found.start()) for found in re.finditer(r"\bModel\s*\{", code)]
+    (meadow_model,) = [model for model in models if re.search(r"\bid:\s*meadow\b", model)]
+    (bare_model,) = [model for model in models
+                     if "visible: root.groundVisible && !root.groundTiled" in model]
+    blocks = {"tile": body(code, code.index("CustomMaterial", code.index("id: tileDetail") - 60))}
+    for name, model in (("meadow", meadow_model), ("bare", bare_model)):
+        blocks[name] = body(model, model.index("CustomMaterial"))
+    return blocks
+
+
+def test_every_piece_of_ground_draws_the_one_ground_shader_with_the_same_inputs() -> None:
+    """#798: the plan's edge is the SAME function on both sides — the tile (its open ground,
+    alpha 0), the bare rectangle and the meadow all draw ``ground.frag`` with the same grass,
+    surface, meadow colour and weather. Only two inputs differ: whether there is a tile,
+    and whether the open ground takes the grass (always on the meadow; on the plan the
+    owner's switch)."""
+    blocks = _ground_material_blocks()
+    shared = ['fragmentShader: "ground.frag"', "shadingMode: CustomMaterial.Shaded",
+              "property TextureInput uGrass: TextureInput { texture: grassTexture }",
+              "property real uGrassRelief: root.grassRelief",
+              "property vector4d uMeadowVariation: root.grassVariation",
+              "property real uSurface: root.groundSurface",
+              "property real uDetail: root.detailNormals",
+              "property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, "
+              "root.meadowColor.b)",
+              "property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, "
+              "root.groundTint.b)",
+              "property real uRough: root.groundRoughness",
+              "property real uSpecular: root.groundSpecular",
+              "property real uSnowCover: root.snowCover"]
+    for name, block in blocks.items():
+        flat = " ".join(block.split())
+        for line in shared:
+            assert line in flat, (name, line)
+    assert "property real uHasTile: 1.0" in blocks["tile"]
+    assert "property real uHasTile: 0.0" in blocks["meadow"] and "uHasTile: 0.0" in blocks["bare"]
+    assert "property real uGrassShare: 1.0" in blocks["meadow"]
+    for name in ("tile", "bare"):
+        assert "property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0" in blocks[name], name
+
+
+def test_the_truth_view_keeps_the_flat_meadow_and_the_grass_is_one_texture_for_life() -> None:
+    """The top-down truth view (shadow IoU, north-up) draws the flat colour, as before
+    #798; the grass texture is ONE ``Texture`` whose data the host sets once, repeated
+    and mipmapped."""
+    code = strip_comments(SCENE.read_text(encoding="utf-8"))
+    assert re.search(r"readonly property int groundSurface:\s*topDown\s*\|\|\s*grassDetail\s*===\s*null"
+                     r"\s*\?\s*0\s*:\s*meadowSurface", code)
+    start = code.index("id: grassTexture")
+    texture = code[start:code.index("}", start)]
+    assert "textureData: root.grassDetail" in texture
+    assert "tilingModeHorizontal: Texture.Repeat" in texture
+    assert "tilingModeVertical: Texture.Repeat" in texture
+    assert "generateMipmaps: true" in texture and "mipFilter: Texture.Linear" in texture
+    assert len(re.findall(r"\bid:\s*grassTexture\b", code)) == 1
+    assert len(re.findall(r"textureData:\s*root\.grassDetail\b", code)) == 1
+    # no ground piece keeps a PrincipledMaterial of its own (the meadow had one before #798)
+    assert len(re.findall(r'fragmentShader:\s*"ground\.frag"', code)) == 3
+
+
+def test_the_ground_shader_lays_grass_only_where_the_ground_is_open() -> None:
+    """``ground.frag``: the grass's deviation from the flat colour is added in proportion to
+    the OPEN share of the point — ``1 - tile alpha``, times the switch — so an item's own
+    picture is never textured over, and its mean is the flat colour's."""
+    code = "\n".join(line.split("//")[0] for line in
+                     (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
+    assert "float open = (1.0 - tile.a) * uGrassShare;" in code
+    assert "albedo += open * groundLinear(uMeadow) * (grass - 1.0);" in code
+    assert "vec4 tile = uHasTile > 0.5 ? texture(uBaseMap, uv) : vec4(uMeadow, 0.0);" in code
+    # the grass is laid in WORLD space, the same on the meadow and on the plan
+    assert "meadowGrass(VAR_WORLD_POSITION.xz, max(reach.x, reach.y), grassSlope)" in code
+    # every octave of the variation is clamped by the pixel's reach (it has no mips)
+    assert code.count("meadowOctave(") == 5 and "vec2 reach = fwidth(VAR_WORLD_POSITION.xz);" in code
+    # the snow and the rain still come after it, for every piece of ground at once
+    assert code.index("albedo += open") < code.index("albedo *= groundLinear(uGroundTint)") < code.index(
+        "mix(albedo, vec3(0.80, 0.84, 0.89), uSnowCover)")
 
 
 def test_snow_lies_on_the_built_tops_through_one_shader_only_while_it_snows() -> None:

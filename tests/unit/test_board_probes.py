@@ -888,6 +888,105 @@ def test_an_edge_that_stays_put_while_the_camera_moves_does_not_swim_and_one_tha
     assert P.edge_swim([framed(EDGE_CAMERA, EDGE_NORTH)]) == []
 
 
+# ── the meadow (#798) ────────────────────────────────────────────────────────
+
+#: A camera at a viewer's height south of a plan of 20 x 10 m (east 0..2000, north 0..1000),
+#: looking north at its middle.
+MEADOW_CAMERA = P.Pinhole(eye=(1000.0, -1500.0, 400.0), target=(1000.0, 500.0, 0.0), fov_deg=50.0,
+                          size=(320, 180))
+MEADOW_PLAN = (0.0, 0.0, 2000.0, 1000.0)
+
+
+def test_a_felt_table_is_flat_and_green_and_grass_is_not() -> None:
+    """The survey's instrument (#798): a flat green frame is all flat green; the same
+    green with a texture of std 10 is not flat; a flat grey sky is flat but not green; a
+    mask confines the count."""
+    rng = np.random.default_rng(798)
+    felt = np.zeros((90, 160, 3)) + MEADOW
+    grass = felt + rng.normal(0.0, 10.0, felt.shape[:2])[..., None]
+    sky = np.zeros_like(felt) + 170.0
+    assert P.flat_share(felt) == {"flat_green": 1.0, "flat": 1.0, "local_std": 0.0, "pixels": 14400}
+    textured = P.flat_share(grass)
+    assert textured["flat_green"] < 0.01 and textured["local_std"] > 7.0, textured
+    assert P.flat_share(sky)["flat"] == 1.0 and P.flat_share(sky)["flat_green"] == 0.0
+    half = np.zeros(felt.shape[:2], dtype=bool)
+    half[:, :80] = True
+    mixed = np.where(half[..., None], felt, grass)
+    assert P.flat_share(mixed, half)["flat_green"] > 0.9       # the window reaches 4 px over
+    assert P.flat_share(mixed, ~half)["flat_green"] < 0.05
+    assert P.flat_share(mixed, np.zeros_like(half))["pixels"] == 0
+
+
+def test_the_local_spread_of_a_step_is_seen_only_near_it() -> None:
+    values = np.zeros((40, 40))
+    values[:, 20:] = 10.0
+    spread = P.local_std(values, 9)
+    assert spread[:, :15].max() == pytest.approx(0.0, abs=1e-9)
+    assert spread[:, 25:].max() == pytest.approx(0.0, abs=1e-6)
+    assert spread[20, 19] == pytest.approx(5.0, abs=0.6)       # half and half: std 5
+
+
+def test_the_meadow_mask_sees_the_meadow_and_never_the_plan_or_what_lies_behind_it() -> None:
+    east, north, distance = P.ground_hits(MEADOW_CAMERA)
+    mask = P.meadow_mask(MEADOW_CAMERA, MEADOW_PLAN, margin_cm=100.0)
+    with np.errstate(invalid="ignore"):
+        on_plan = (east >= -100) & (east <= 2100) & (north >= -100) & (north <= 1100)
+        behind = (north > 1100) & (east > 0) & (east < 2000)    # seen across the plan
+    assert mask.any() and not (mask & on_plan).any() and not (mask & behind).any()
+    assert not mask[:int(MEADOW_CAMERA.horizon_row())].any()   # no sky
+    assert mask[-1, :].all()                                    # the meadow at the camera's feet
+    assert np.nanmax(distance[mask]) < np.inf
+    near = P.meadow_mask(MEADOW_CAMERA, MEADOW_PLAN, margin_cm=100.0, far_cm=1000.0)
+    assert near.sum() < mask.sum() and not (near & (distance > 1000.0)).any()
+    # the camera's foot inside the grown plan: every line of sight crosses it
+    above = P.Pinhole((1000.0, 500.0, 2000.0), (1000.0, 2500.0, 0.0), 50.0, (320, 180))
+    assert not P.meadow_mask(above, MEADOW_PLAN).any()
+
+
+def test_a_still_or_smooth_move_does_not_flicker_and_aliasing_does() -> None:
+    """``track_luma`` follows fixed ground points through camera moves; ``temporal_noise``
+    tells a smooth change (a move) from a frame-to-frame one (crawl, shimmer)."""
+    rng = np.random.default_rng(799)
+    east, north, _distance = P.ground_hits(MEADOW_CAMERA)
+    points = np.column_stack([np.linspace(400.0, 1600.0, 40), np.full(40, -600.0)])
+
+    def frame(level: float, noise: float) -> np.ndarray:
+        rgb = np.zeros(east.shape + (3,)) + level
+        return rgb + rng.normal(0.0, noise, east.shape)[..., None] if noise else rgb
+
+    cameras = [MEADOW_CAMERA] * 6
+    still = P.temporal_noise(P.track_luma([frame(120.0, 0.0)] * 6, cameras, points))
+    ramp = P.temporal_noise(P.track_luma([frame(120.0 + 2.0 * i, 0.0) for i in range(6)], cameras,
+                                         points))
+    shimmer = P.temporal_noise(P.track_luma([frame(120.0, 6.0) for _ in range(6)], cameras, points))
+    assert still["zigzag_rms"] == 0.0 and still["step_mean"] == 0.0 and still["points"] == 40
+    assert ramp["zigzag_rms"] == pytest.approx(0.0, abs=1e-9) and ramp["step_mean"] == 2.0
+    assert shimmer["zigzag_rms"] > 1.5 and shimmer["step_mean"] > 1.5, shimmer
+    # a point the camera cannot see is never counted
+    hidden = P.track_luma([frame(120.0, 0.0)] * 3, cameras[:3], [(1000.0, -5000.0)])
+    assert np.isnan(hidden).all() and P.temporal_noise(hidden)["points"] == 0
+    assert P.temporal_noise(np.zeros((2, 4)))["zigzag_rms"] is None
+
+
+def test_a_repeated_tile_folds_onto_its_period_and_noise_does_not() -> None:
+    """``repeat_amplitude`` folds a picture onto one period: a tiled pattern keeps its
+    amplitude there, fresh noise of the same strength averages away, and a gradient across
+    the frame (the light) is taken out first."""
+    rng = np.random.default_rng(256)
+    tile = rng.normal(0.0, 8.0, (32, 32))
+    tile = P.box_mean(np.tile(tile, (3, 3)), 5)[32:64, 32:64]   # a pattern, not pixel noise
+    gradient = np.linspace(0.0, 60.0, 512)[None, :] + np.zeros((384, 512))
+    tiled = np.tile(tile, (12, 16)) + gradient
+    fresh = P.box_mean(rng.normal(0.0, 8.0, (384, 512)), 5) + gradient
+    repeated = P.repeat_amplitude(tiled, 32.0)
+    noise = P.repeat_amplitude(fresh, 32.0)
+    assert repeated["periodic"] > 0.6 * repeated["residual"] > 0.3, repeated
+    assert repeated["control"] < 0.3 * repeated["periodic"], repeated
+    assert noise["periodic"] < 0.3 * repeated["periodic"], (noise, repeated)
+    flat = P.repeat_amplitude(gradient, 32.0)
+    assert flat["periodic"] < 0.1 and flat["residual"] < 0.5, flat
+
+
 # ── ambient occlusion under a weather (#687) ─────────────────────────────────
 
 
@@ -955,3 +1054,25 @@ def test_the_ground_polygon_mask_is_where_the_ground_inside_shows() -> None:
     mask = P.ground_polygon_mask(CAMERA, polygon)
     truth = hit & (east > 0.0) & (east < 500.0) & (north > 0.0) & (north < 400.0)
     assert (mask != truth).sum() <= 0.01 * truth.sum() + 2 * (SIZE[0] + SIZE[1]), "a pixel of edge at most"
+
+
+def test_a_textured_edge_is_judged_on_the_difference_with_its_plan_free_twin() -> None:
+    """#798: with the grass on both sides a 2 m line of ground is not flat, and the fits read
+    the texture's own pattern as a step. The board renders the same view without the plan;
+    on the DIFFERENCE (``difference_frame``) the texture cancels and a real step stays."""
+    camera = P.Pinhole(eye=(0.0, -700.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
+    along = [500.0, 650.0, 800.0, 950.0, 1100.0]
+    rng = np.random.default_rng(798)
+    grain = P.box_mean(rng.normal(0.0, 14.0, (SIZE[1], SIZE[0])), 3)[..., None]
+    twin = _ground_frame(camera, 0.0, 0.014) + grain        # the meadow alone, textured
+    same = _ground_frame(camera, 0.0, 0.014) + grain        # the plan's ground: the same function
+    darker = _ground_frame(camera, -1.5, 0.014) + grain     # a material 1.5 luma darker
+    raw = P.plan_edge_step(same, camera, axis="east", at=0.0, along=along)
+    assert raw["line"] > 2.0, raw                            # the grain fools the line
+    clean = P.plan_edge_step(P.difference_frame(same, twin), camera, axis="east", at=0.0, along=along)
+    assert clean["step"] == pytest.approx(0.0, abs=0.01) and clean["line"] < 0.01, clean
+    stepped = P.plan_edge_step(P.difference_frame(darker, twin), camera, axis="east", at=0.0,
+                               along=along)
+    assert stepped["step"] == pytest.approx(-1.5, abs=0.2), "the positive control"
+    with pytest.raises(ValueError, match="one shape"):
+        P.difference_frame(same, twin[:10])

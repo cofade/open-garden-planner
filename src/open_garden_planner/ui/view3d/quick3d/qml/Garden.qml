@@ -83,6 +83,12 @@ Item {
     property bool lawnBlades: true
     // L4.5: the ground's detail normals (0 = flat), see the groundTile component
     property real detailNormals: 3.0
+    // #798: the meadow's surface (ground.frag): 0 its flat colour, 1 the grass texture,
+    // 2 the grass with its slow variation - the preset's; the truth view is always flat
+    property int meadowSurface: 2
+    // #798: the plan's OPEN ground (no item covers it) takes the meadow's grass too -
+    // the owner's call (look.OPEN_GROUND_GRASS); false: it keeps the flat colour
+    property bool openGroundGrass: true
     // ---- the living garden (Phase 17 L5, ADR-070; look.AtmosphereSpec) ----
     // A LOOK and nothing else: no property here moves the sun, a shadow or a plant.
     // The defaults are look.CLEAR_STILL: clear, dry and still.
@@ -123,6 +129,15 @@ Item {
     // true while baked tiles lie on the plan (quick3d/ground_tiles.py, L1.5): the bare
     // rectangle below is then not drawn — two coplanar surfaces would fight for the depth
     property bool groundTiled: false
+    // #798: the meadow's grass, set once by the host (core/scene3d/meadow.py): the canvas's
+    // GRASS texture as its linear colour over its mean less its mottle (RGBA16F), the
+    // relief's scale and the variation (brightness at 3.1, 9 and 41 m, hue) - ONE Texture for the scene's
+    // life (grassTexture), never re-pointed (ogp-3d-renderer section 5)
+    property var grassDetail: null
+    property real grassRelief: 0.0
+    property vector4d grassVariation: Qt.vector4d(0, 0, 0, 0)
+    // what every piece of ground draws: the truth view keeps the flat colour
+    readonly property int groundSurface: topDown || grassDetail === null ? 0 : meadowSurface
 
     // ---- the living garden's host side (Quick3DHost, L5) ----
     // where the precipitation falls: a box around the camera's target, engine frame
@@ -870,28 +885,28 @@ Item {
                 generateMipmaps: true
                 mipFilter: Texture.Linear
             }
-            // L4.5: from the Medium preset up the ground shades with detail normals of its
-            // own picture (ground.frag); Low and the compatibility mode keep the flat look
-            // — unless snow lies on it (L5): a texture is only multiplied by a principled
-            // material, and snow is a mix
-            materials: root.detailNormals > 0.0 || root.snowCover > 0.0 ? [tileDetail] : [tileFlat]
-            PrincipledMaterial {
-                id: tileFlat
-                baseColorMap: tileTexture
-                baseColor: root.groundTint     // L5: the rain darkens the ground (white: as it is)
-                // the endless meadow's values (below): PrincipledMaterial scales the
-                // sky's diffuse light by (1 - specularAmount), so any other pair puts a
-                // luma step where a baked lawn meets the meadow at the plan's edge
-                // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2). L5: the
-                // weather changes them for every piece of ground at once
-                roughness: root.groundRoughness
-                specularAmount: root.groundSpecular
-            }
+            // ground.frag at every preset (#798): the tile's picture, its open ground (alpha
+            // 0) the meadow's grass; from Medium up with detail normals of its own picture
+            // (L4.5) - Low (detailNormals 0) and the compatibility mode keep the flat relief
+            materials: [tileDetail]
             CustomMaterial {
                 id: tileDetail
                 property TextureInput uBaseMap: TextureInput { texture: tileTexture }
+                property real uHasTile: 1.0
                 property real uDetail: root.detailNormals
-                // L5: the weather (ground.frag) - the same values the meadow takes
+                // #798: the meadow's grass where the tile is open ground - and only if the
+                // plan's open ground takes it (the owner's call)
+                property TextureInput uGrass: TextureInput { texture: grassTexture }
+                property real uGrassRelief: root.grassRelief
+                property vector4d uMeadowVariation: root.grassVariation
+                property real uSurface: root.groundSurface
+                property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
+                property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
+                // L5: the weather (ground.frag) - the same values the meadow takes. The
+                // endless meadow's roughness and specular: PrincipledMaterial-style
+                // lighting scales the sky's diffuse light by (1 - specularAmount), so any
+                // other pair puts a luma step where a baked lawn meets the meadow at the
+                // plan's edge (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
                 property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
                 property real uRough: root.groundRoughness
                 property real uSpecular: root.groundSpecular
@@ -1241,24 +1256,50 @@ Item {
         // review of #388: one quad under the plan lost the depth test to it). Its ONE
         // geometry is the host's: loaded at start and whenever the plan's rectangle
         // changes, as the selection ring's (Quick3DHost._show_meadow).
+        // #798: the meadow's grass - the canvas's GRASS texture as linear colour over its
+        // mean, one texel a centimetre, repeated in world space (ground.frag samples it
+        // twice); its mips keep the mean (RGBA16F: they average linear light)
+        Texture {
+            id: grassTexture
+            textureData: root.grassDetail
+            tilingModeHorizontal: Texture.Repeat
+            tilingModeVertical: Texture.Repeat
+            generateMipmaps: true
+            mipFilter: Texture.Linear
+        }
         Model {
             id: meadow
             visible: geometry !== null
             pickable: false
             receivesShadows: true
             castsShadows: false
-            materials: PrincipledMaterial {
-                baseColor: root.meadowColor
-                roughness: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
-                specularAmount: root.groundSpecular // 0.15 dry
+            // ground.frag without a tile: the meadow's grass everywhere (#798) - the same
+            // function as the plan's open ground, so the plan's edge has no step
+            materials: CustomMaterial {
+                property TextureInput uBaseMap: TextureInput { texture: null }
+                property real uHasTile: 0.0
+                property real uDetail: root.detailNormals
+                property TextureInput uGrass: TextureInput { texture: grassTexture }
+                property real uGrassRelief: root.grassRelief
+                property vector4d uMeadowVariation: root.grassVariation
+                property real uSurface: root.groundSurface
+                property real uGrassShare: 1.0
+                property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
+                property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
+                property real uSpecular: root.groundSpecular   // 0.15 dry
+                property real uSnowCover: root.snowCover
+                shadingMode: CustomMaterial.Shaded
+                fragmentShader: "ground.frag"
             }
         }
 
-        // the plan rectangle, bare: ground in the meadow's albedo. Drawn only while no
-        // baked tiles lie on the plan (L1.5: the groundTile component above). The
-        // MEADOW's material too (roughness 1.0, specular 0.15): at 0.92 / 0.2 its sheen
-        // made the plan read as a darker or brighter rectangle under a grazing view
-        // (-8.9 luma at golden hour; L1.4 fix round 1); the tiles keep these values.
+        // the plan rectangle, bare: open ground. Drawn only while no baked tiles lie on
+        // the plan (L1.5: the groundTile component above). The MEADOW's material
+        // (roughness 1.0, specular 0.15: at 0.92 / 0.2 its sheen made the plan read as a
+        // darker or brighter rectangle under a grazing view, -8.9 luma at golden hour;
+        // L1.4 fix round 1) - since #798 its very shader: the grass where the plan's open
+        // ground takes it, the flat colour where it does not.
         Model {
             source: "#Rectangle"
             position: Qt.vector3d(root.groundCenter.x, 0, root.groundCenter.z)
@@ -1267,10 +1308,22 @@ Item {
             receivesShadows: true
             castsShadows: false
             visible: root.groundVisible && !root.groundTiled
-            materials: PrincipledMaterial {
-                baseColor: root.meadowColor
-                roughness: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
-                specularAmount: root.groundSpecular // 0.15 dry
+            materials: CustomMaterial {
+                property TextureInput uBaseMap: TextureInput { texture: null }
+                property real uHasTile: 0.0
+                property real uDetail: root.detailNormals
+                property TextureInput uGrass: TextureInput { texture: grassTexture }
+                property real uGrassRelief: root.grassRelief
+                property vector4d uMeadowVariation: root.grassVariation
+                property real uSurface: root.groundSurface
+                property real uGrassShare: root.openGroundGrass ? 1.0 : 0.0
+                property vector3d uMeadow: Qt.vector3d(root.meadowColor.r, root.meadowColor.g, root.meadowColor.b)
+                property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uRough: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
+                property real uSpecular: root.groundSpecular   // 0.15 dry
+                property real uSnowCover: root.snowCover
+                shadingMode: CustomMaterial.Shaded
+                fragmentShader: "ground.frag"
             }
         }
 

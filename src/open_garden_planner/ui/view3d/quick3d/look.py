@@ -161,6 +161,8 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         "fog": bool(preset.fog),
         "lawnBlades": bool(preset.lawn_blades),
         "detailNormals": float(preset.detail_normals),
+        "meadowSurface": int(preset.meadow_surface),      # #798: the meadow's grass
+        "openGroundGrass": bool(look.open_ground_grass),  # #798: the owner's call
         # wind: the lawn's blades take the strength, a plant the sway vector (#800)
         "windStrength": float(look.wind_strength),
         "windSway": _wind_sway(look.wind_strength),
