@@ -1174,6 +1174,16 @@
     "state": "MERGED",
     "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
   },
+  "784": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D canvas: the sun-shadow overlay makes every repaint cost ~130-160 ms (pan, zoom and timeline scrub stutter)"
+  },
+  "785": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D canvas: sprites and fill textures are rasterised at 1 px per cm - blurry above 100 % zoom and in high-resolution exports"
+  },
   "786": {
     "is_pr": false,
     "state": "OPEN",

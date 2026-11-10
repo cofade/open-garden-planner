@@ -19,8 +19,8 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import (
     is_furniture_type,
+    paint_furniture,
     paints_picture,
-    render_furniture_pixmap,
 )
 from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.object_types import (
@@ -36,6 +36,7 @@ from open_garden_planner.ui.canvas.roof_ridge_link import (
     ridge_points_local,
 )
 
+from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin
 from .greenhouse_paint import paint_greenhouse
 from .pergola_paint import paint_pergola
@@ -308,25 +309,13 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         if is_furniture_type(self.object_type):
             rect = self.rect()
-            pixmap = render_furniture_pixmap(
-                object_type=self.object_type,
-                width=rect.width(),
-                height=rect.height(),
-            )
-            if pixmap is not None:
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-                # The canvas (and every export) draws the scene through a
-                # scale(1, -1) Y-flip, so a pixmap blitted in item-local
-                # coordinates comes out upside-down (fire-pit flames pointing
-                # down, #308 manual test). Flip it back about the rect centre —
-                # same idea as background_image_item's flip transform.
-                painter.save()
-                painter.translate(rect.center())
-                painter.scale(1.0, -1.0)
-                painter.translate(-rect.center())
-                painter.drawPixmap(rect.toAlignedRect(), pixmap)
-                painter.restore()
-
+            # The canvas (and every export) draws the scene through a
+            # scale(1, -1) Y-flip, so a picture laid into item-local
+            # coordinates comes out upside-down (fire-pit flames pointing
+            # down, #308 manual test): paint_furniture flips it back about the
+            # rect centre, and rasterises it at the painter's own resolution
+            # (#785, core.raster_resolution) instead of 1 px per cm.
+            if paint_furniture(painter, rect, self.object_type):
                 # Draw grid overlay on raised beds rendered as furniture
                 if self._grid_enabled and is_bed_type(self.object_type):
                     self._draw_grid_overlay(painter)
@@ -354,11 +343,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         if self.object_type == ObjectType.PERGOLA:
             height = effective_height_cm(self.object_type, self.metadata)
             if not paint_pergola(painter, self.rect(), height or 250.0):
-                super().paint(painter, option, widget)
+                paint_shape(self, painter, option, widget, super().paint)
         # A GREENHOUSE is a first-class building now (#768): its glass fill, then
         # the aluminium glazing bars the 3D frame puts at the same bay lines.
         elif self.object_type == ObjectType.GREENHOUSE:
-            super().paint(painter, option, widget)
+            paint_shape(self, painter, option, widget, super().paint)
             polygon = outline_polygon(self)
             if polygon is not None:
                 paint_greenhouse(
@@ -387,9 +376,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self.fill_transform,
                 )
             else:
-                super().paint(painter, option, widget)
+                paint_shape(self, painter, option, widget, super().paint)
         else:
-            super().paint(painter, option, widget)
+            # The fill tile at the painter's resolution (#785); at 100 % zoom
+            # this IS the base class's paint.
+            paint_shape(self, painter, option, widget, super().paint)
 
         # Draw square-foot grid overlay inside bed
         if self._grid_enabled and is_bed_type(self.object_type):

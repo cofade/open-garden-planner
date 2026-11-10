@@ -38,6 +38,8 @@ from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
 
+from .item_cache import ensure_item_cache_budget
+
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.plan_labels import ShownLabel
 
@@ -150,6 +152,9 @@ class CanvasScene(QGraphicsScene):
             parent: Parent object
         """
         super().__init__(parent)
+        # Qt keeps the items' device caches in QPixmapCache, 10 MB by default:
+        # one plan's worth does not fit, and the cache thrashes (#784).
+        ensure_item_cache_budget()
         self._plan_clock: SimClock | None = None
         self._painted_plan_date: date | None = None
 

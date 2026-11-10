@@ -10,6 +10,7 @@ viewport) so that panning/scrolling the scene does not move the overlay.
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer
@@ -85,10 +86,10 @@ class MinimapWidget(QWidget):
         self._update_timer.setInterval(_UPDATE_INTERVAL_MS)
         self._update_timer.timeout.connect(self._do_update)
 
-        # Connect signals for viewport changes
-        canvas_view.zoom_changed.connect(self._schedule_update)
-        canvas_view.horizontalScrollBar().valueChanged.connect(self._schedule_update)
-        canvas_view.verticalScrollBar().valueChanged.connect(self._schedule_update)
+        # A viewport change moves the frame; only a scene change renders.
+        canvas_view.zoom_changed.connect(self._on_viewport_changed)
+        canvas_view.horizontalScrollBar().valueChanged.connect(self._on_viewport_changed)
+        canvas_view.verticalScrollBar().valueChanged.connect(self._on_viewport_changed)
         canvas_scene.changed.connect(self._on_scene_changed)
 
         # Install event filter on the *view* to catch resize, and on its
@@ -160,6 +161,25 @@ class MinimapWidget(QWidget):
         """Schedule a throttled thumbnail re-render."""
         if not self._update_timer.isActive():
             self._update_timer.start()
+
+    def _on_viewport_changed(self, *_args: object) -> None:
+        """The view was panned or zoomed: move the viewport frame.
+
+        The thumbnail is the whole plan and does not depend on the view, so it
+        is NOT rendered again. A render is not only the cost of painting the
+        scene: it disables every item's cache for its duration, which drops
+        their device pictures, and the canvas then paints every visible item
+        again at the next step of the very pan or zoom that caused it (#784).
+        """
+        if not self._enabled:
+            return
+        if self._thumbnail is None:
+            self._schedule_update()  # nothing to frame yet
+            return
+        # The view's scroll bars also move while the view is torn down.
+        with contextlib.suppress(RuntimeError):
+            self._check_auto_hide()
+            self.update()
 
     def _on_scene_changed(self, rects: list[QRectF]) -> None:
         """`scene.changed` slot — ignore the changes the minimap caused itself.
