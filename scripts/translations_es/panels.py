@@ -388,6 +388,8 @@ TRANSLATIONS = {
     "PropertiesPanel": {
         "H: ": "Al: ",
         "W: ": "An: ",
+        "A group member stays on its group's layer":
+            "Un miembro del grupo permanece en la capa de su grupo",
         "Symbol definition version mismatch — saved geometry is read-only.": "Discrepancia de versión de definición de símbolo — la geometría guardada es de solo lectura.",
         "Invalid symbol parameter value — geometry unchanged.": "Valor de parámetro de símbolo no válido — geometría sin cambios.",
         "0 = auto-compute from footprint × height; set a value to override": "0 = calcular automáticamente a partir de huella × altura; introduzca un valor para anular",

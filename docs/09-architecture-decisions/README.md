@@ -11313,6 +11313,162 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
 
+## ADR-075: CAD editing keeps the group frame and the command stack (issues #664, #771)
+
+**Status**: Shipped in v1.37.10 (PR #783)
+
+**Context**: Two CAD editing gaps shared the canvas selection and command seams. A
+closed shape could not be cut into pieces: the only workaround lost the layer, look,
+fill transform, label state and metadata. And a group's members could not be edited
+without ungrouping it. Qt constrains the second problem more than the first: a
+`QGraphicsItemGroup` routes a child's selection back to the group (`scene.selectedItems()`
+returns only the group), and the child's own resize/vertex handles do not receive a
+usable drag while the group is the selection. Detaching the child on drill-down and
+re-adding it on exit looks simple, but commands captured while detached store local
+`pos()`/`rect()` values in the child's temporary top-level frame; re-adding changes
+that frame, so a later undo on a moved or rotated group can restore the wrong place.
+
+**Decision**:
+1. **Drill-down is a logical focus, not a reparent.** `CanvasView.drill_down_item` names
+   one direct member of the selected group. The group stays the Qt selection; the
+   member stays its child, so its layer guard, saved group data and transform frame
+   are unchanged. `CanvasView.effective_selection()` is the one selection seam every
+   panel uses (`_on_selection_changed`, properties, plant details, companion, crop
+   rotation), and `drill_down_changed` replaces Qt's `selectionChanged` for that focus
+   because Qt does not emit one. `GroupItem.paint` draws the focused member's outline
+   only while the group is selected, so exports (which clear selection) never paint it.
+2. **Geometry edits of a focused member stay in the group frame.** A body drag is a
+   view-owned gesture (`begin_drill_down_drag`/`_finish_drill_down_drag`), not Qt's
+   group drag; the arrow keys and the Properties panel convert a scene delta through
+   `_delta_in_parent_frame()` before writing `item.pos()`. The member's own resize and
+   rotation handles are shown, and the view replays their press/move/release through
+   `ResizeHandle.begin_drag/apply_drag/end_drag` and the `RotationHandle` equivalents,
+   because Qt routes a group child's handle press to the group. Every grouped
+   ancestor's `ItemIsMovable` flag is cleared while the member is focused and restored
+   on exit. Changing the member's layer is refused in the context menu, the panel and
+   `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
+   refused while a member is focused.
+3. **Split works in the source's local frame and replaces it in one command.**
+   The context menu and the CAD toolbar button next to Trim/Extend reach the
+   same tool, but with different scopes: the context menu arms the clicked
+   closed shape, while the toolbar and the `Shift+S` shortcut start a scene-wide
+   two-point cut with no prior selection. In scene-wide mode the first click is
+   the line's first point and every closed shape the drawn segment passes
+   through is cut along the segment's supporting axis; shapes on the line's
+   infinite extension but not reached by the segment are not cut, and a
+   boundary touch (a corner, an edge, a tangent) is not a crossing.
+   `core/shape_split.py` clips each item's local `QPainterPath` against the two
+   half-planes of the two-point axis; one `SplitShapeCommand` per source removes
+   it and adds ordinary `PolygonItem`s, and the whole gesture is one undo step
+   (a bare command when no membership reconciliation is needed, otherwise a
+   `CompoundCommand`). Pieces copy
+   the source's layer, object
+   type (when valid for a polygon), name, label/area state, metadata, stack order and
+   `fill_transform`; using the local frame keeps a rotated source's rotation and
+   pattern direction. Curves flatten to polygons, a concave shape may yield more than
+   two pieces, and a result that contains a hole is refused because a `QPolygonF`
+   cannot carry it.
+4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
+   a plant itself, constraints, locked layers, grouped members (ridge-bearing
+   buildings too at first; the second addendum lifts that), shape types without a
+   polygonal form, and any source
+   whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
+   manual-task or task-state data. The last check is
+   `ProjectManager.has_item_references`, the single central query. A bed or other
+   plant parent with a polygonal form is NOT refused for having plants: a
+   `ReconcileBedMembershipCommand` in the same undo step re-homes each linked plant
+   to the piece that contains its standing point, using the established
+   plant→bed mutator.
+
+**Alternatives considered**:
+- *Detach the member and re-add it on exit.* Rejected: command snapshots are in the
+  temporary top-level frame; undo after a moved or rotated group would restore a
+  different place. It also changes the group's serialized children while focused.
+- *Duplicate the member as an edit proxy and apply it back on exit.* Rejected: the
+  edit commands would target a deleted proxy after the apply, leaving a broken stack.
+- *Copy the split geometry into `shape_boolean` or the tool.* Rejected: the roof
+  painter already has a line split, and a second copy would drift; `shape_split`
+  reuses `item_to_local_painter_path` and the shared `path_has_hole` / area floor.
+- *Produce scene-frame pieces.* Rejected: a rotated source's brush transform would be
+  recomputed from the scene origin, so the material would visibly jump at the cut.
+- *Allow a split of tracked beds and let the records follow one arbitrary piece.*
+  Rejected: the user did not choose which piece inherits the history; refusing is
+  reversible, silently reassigning is not.
+
+**Consequences**: New `core/shape_split.py`, `core/tools/split_tool.py` and
+`ui/canvas/items/split_menu.py`; `SplitShapeCommand` in `core/commands.py`; group
+drill-down state and `drill_down_changed` in `ui/canvas/canvas_view.py`. No
+`FILE_VERSION` bump: the pieces are ordinary polygons and drill-down is runtime-only.
+User-visible strings are covered in EN/DE/ES/RU. Pins:
+`tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
+
+**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
+required a selected shape (or a shape-picking first click), so a line could cut only
+one object and a scene-wide cut took three clicks. The owner's expectation is the
+CAD-knife one: choose the tool, click two points anywhere, and every object the line
+crosses is split, fully or partly. The tool now takes the first click as the line's
+start with no source selected, freezes the visible closed-shape candidates at that
+point, previews every crossed shape's pieces while the second point moves, and applies
+all cuts in one undo step. The context-menu action keeps its explicit one-shape scope
+and returns to Select; the toolbar stays armed for another cut. The candidate test is
+the **drawn segment** (`segment_crosses_item`), not the infinite axis: a shape lying on
+the line's extension but not reached by the segment is never touched, while a segment
+that starts or ends inside a shape still divides it along the supporting axis.
+
+The shortcut changed from `S` to `Shift+S` because the first version was dead in the
+real window: `S` is `snap_action`'s window shortcut, and a second window shortcut on
+the same key makes Qt fire neither (measured on Qt 6.12 with a `QToolButton` and a
+`QAction` in one window; PF-UI-36). `Shift+S` is free and leaves `S` as Snap to Grid.
+
+Review then found two consequences worth stating. A **touch is not a crossing**:
+`segment_crosses_path` splits the segment at its outline crossings and accepts only
+an interval whose midpoint is strictly inside (offset points on both sides must be
+inside), so a snapped pick on a bed's corner, a segment along an edge, or a tangent
+returns False. And **a bed with plants is eligible**: refusing every plant parent
+would make the headline feature unable to touch the normal object in a garden. The
+`SplitShapeTool` adds a `ReconcileBedMembershipCommand` to the same undo step for
+every split source that has children; the existing plant→bed mutator moves each
+plant to the new piece containing its standing point, and undo restores the source's
+links before the source itself comes back.
+
+**Addendum 2 (2026-11-09) — decisions from the owner's manual test of PR #783.**
+Behaviour is specified in FR-35 and the mechanics in §8.35; this records what was
+decided and what was rejected.
+
+1. **A building with a ridge is split like a garage.** The first version refused every
+   ridge-bearing building because its linked `ROOF_RIDGE` would be orphaned. The ridge
+   is derived geometry (ADR-046), so nothing has to be preserved: `SplitShapeCommand`
+   removes the source's ridge with the source and builds every piece its own through
+   `roof_ridge_link.build_copy_ridges`. A source without a ridge (the user's flat roof)
+   gives pieces without one. A ridge that is constrained or on a locked layer still
+   refuses the split, like the shape itself.
+2. **A rebuild's type change keeps the height.** A raised bed's 40 cm is a per-type
+   default (ADR-037, rung 4); its garden-bed pieces had none. The height the object
+   stood at is written as an explicit `object_height_cm`
+   (`object_height.carry_height_across_type_change`), in the one entry point for a
+   rebuild's type change, `item_look.adopt_rebuilt_type`, which the split, the corner
+   tools and the loader's raised-bed migration share. Accepted trade-off: the piece then
+   shows a custom height, so a later manual type change no longer follows the new type's
+   default. The Properties panel's own type change is unchanged.
+3. **A sprite's stored fill is not its look.** A piece of a sprite-painted source takes
+   its new type's fill pattern; a source painted by its own brush keeps the user's
+   pattern (`adopt_rebuilt_type(keep_fill=...)`). The wooden frame stays a
+   rectangle-only sprite (owner decision 2026-10-31): a piece is a garden bed with soil
+   and a height, which the 3D view builds as an edged bed.
+4. **Esc ends every tool, and means the same wherever the focus is.** The canvas
+   leaves one narrower mode per press (calibration, vertex editing, drill-down), else
+   ends the tool (`return_to_select_tool`); the main window calls the same two steps
+   (`CanvasView.handle_escape`) for an Esc no focused widget consumed. Rejected: a
+   window-level `QShortcut` on Esc, which would pre-empt every line edit, popup and
+   inline editor in the window (and a second shortcut on one key fires neither,
+   PF-UI-36). The focused inline editor receives the same Esc first.
+5. **The minimap hides a selected group's descendants by opacity** instead of a flag
+   (PF-CAN-48).
 ## ADR-076: Exports paint one picture — a recorded SVG, raster plan pages in the PDF, live SVG text (#787, #788, #789)
 
 **Status**: Accepted (visual-polish package, 2026-11-09)

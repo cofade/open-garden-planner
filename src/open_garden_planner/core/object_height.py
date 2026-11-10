@@ -357,6 +357,36 @@ def effective_height_cm(
     return resolve_height(object_type, metadata, at_date)[0]
 
 
+def carry_height_across_type_change(
+    metadata: dict[str, Any], previous_type: Any, new_type: Any
+) -> None:
+    """A rebuilt shape stands as tall as the shape it replaces.
+
+    Some heights are a per-type default (rung 4 of the ladder): a ``RAISED_BED``
+    is 40 cm with nothing stored. Rebuilding it as a polygon makes it a
+    ``GARDEN_BED``, whose default is "no height" - the bed silently sank into
+    the ground (manual test 2 of PR #783: a split raised bed went from 40 cm to
+    Auto). When a real type change would alter the resolved height and the user
+    stored none, the height the object had is written as its explicit
+    ``object_height_cm``. An explicit height already wins on both sides, and a
+    type change that leaves the height alone writes nothing.
+
+    This is for a REBUILD (split, corner edit, the loader's migration), where
+    the object is still the same thing. The Properties panel's type change is
+    the user's own decision and keeps following the new type's default.
+    """
+    if previous_type is None or new_type is None:
+        return
+    if _type_name(previous_type) == _type_name(new_type):
+        return
+    if explicit_height_cm(metadata) is not None:
+        return
+    before = resolve_height(previous_type, metadata)[0]
+    after = resolve_height(new_type, metadata)[0]
+    if before is not None and before != after:
+        metadata[METADATA_KEY] = before
+
+
 def soil_surface_cm(object_type: Any, height_cm: float | None) -> float:
     """Height above ground of the soil in a soil parent of that type, ``height_cm``
     tall. 0.0 without a usable height: none at all (an in-ground bed), not
