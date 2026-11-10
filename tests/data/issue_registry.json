@@ -1183,5 +1183,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
+  },
+  "799": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a day time-lapse flickers on alternate frames at dawn and dusk (sky and ambient light rebuilt only every 1° of sun)"
+  },
+  "802": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: the garden gets brighter as night falls (ground luma rises after sunset)"
   }
 }

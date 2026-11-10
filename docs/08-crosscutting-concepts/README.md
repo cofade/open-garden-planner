@@ -2315,6 +2315,12 @@ audit evidence for the command, machine and measured limitations.
 - **The recorder's seams are callables** (`capture`, `set_clock`, `settled`), so its waits, pause,
   back-pressure and failures are pinned without a GPU; the render tier then runs the real thing
   through `view3d_capture_driver.py`.
+- **A flicker is measured as an alternation, not a zigzag** (#799). The `daylapse` scenario records
+  a held-camera dawn and dusk at the survey's 3.9 min of clock a frame and the test reads the third
+  difference over eight (exactly ±a for a step every second frame, 0 for any quadratic trend),
+  leaving out the rig's deliberate corners; the survey's zigzag RMS also counts a curve's bend and
+  read 0.79 at dawn after the fix. The test also asserts the cause: every twilight and day frame
+  was taken under the sky of its own sun.
 - **`QComboBox.findData` does not find a tuple** (PyQt wraps it): the size combo started on
   "nothing", and only an end-to-end test through the dialog met it.
 - **A blur is measured in tiles of detail, at two sizes of one shot** (#743). The gradient a 60 px
@@ -5837,6 +5843,19 @@ saturation 1.06 -> 0.6, the sky draws no sun, and the key light is the moon fadi
 the fraction: no key and no shadow just under 0.5°). Below −6°, night. The key light is never brighter than at noon; a low sun is
 warmer and more exposed, not stronger; the light never rises as the sun sinks.
 
+**The garden never brightens as night falls (#802).** The night rig is "day for night" (a 0.32
+moon 38° high, exposure 2.4), so a garden lit by a 0.5° sun's sky alone lay about 0.95 EV under
+the night it ends in, and twilight sank further before the moon rose to it. Neither anchor
+moves: the twilight fill (`look.twilight_fill`, `LookSpec.twilight_fill_linear`) is a flat
+ambient in the sky top's colour that `Garden.qml`'s fill light carries where a sky lights the
+view — it lights the garden, never the skybox. It lifts a model of the light on open ground
+(`look.ground_light`) to a target in units of the same weather's night: in twilight a line
+from 1.07 at sunset through 1.05 at −3° to 1 at −6°; by day the ground keeps 40 % of its own
+fall down to that sunset level. Black from 6° up (the sunset shot keeps the rig's own light)
+and at night; an overcast, rain and snow need none. The compatibility mode and the top-down
+truth view keep their flat fill without it. ADR-059 addendum "a recorded frame's own sky and
+the twilight fill".
+
 **Presets are cost, never mood.** `low` / `medium` / `high` / `ultra` (`PRESET_SPECS`) differ in
 the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, glow and (ultra)
 screen-space reflections — and no preset costs less than the one below it in any of them
@@ -5879,7 +5898,10 @@ the old 150 ms timer fired between every two steps (#722); a change of the sky's
 (`sky_phase`: day with a sun disc, twilight, night) is
 built at once — sunset at 0.5°, nightfall at −6°, dawn; through twilight the sky follows the sun
 by the degree (its colours do); a night sky is never rebuilt for the sun's position (it draws no
-disc). A sky the engine cannot build is logged once and the session goes on with the plain sky
+disc). A RECORDED frame (a camera tour, `LookController.settle_sky`) is the exception: it gets
+the sky of its own sun exactly (`RECORDING_SKY_REBUILD_DEG` 0, #799) — under the 1° rule a day
+lapse, whose sun moves 0.5–0.7° a frame, rebuilt the sky and its probe every second frame and
+flickered at dawn and dusk; a flight with a held clock builds nothing. A sky the engine cannot build is logged once and the session goes on with the plain sky
 and the flat fill — the look itself is sent separately, so a failing sky never keeps it from
 the screen. Light, exposure and fog follow every instant — the fog is computed for the sky
 ON SCREEN while the sky lags, so it still meets the horizon. Every build is a FRESH `Texture`
