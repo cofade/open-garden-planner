@@ -15,7 +15,12 @@ A record is painted when the snapshot gave it a paint description
 it (the ``solid`` ids ``SceneSync`` hands in). A lawn is on the ground; a house
 is not, and what lies UNDER a house is whatever flat item was drawn there, or
 meadow. Records are painted bottom to top in the snapshot's order — the
-canvas's stacking order. Plan ground no item covers is meadow (``MEADOW_RGB``).
+canvas's stacking order. Plan ground no item covers is meadow (``MEADOW_RGB``)
+and OPEN: its alpha is 0 (#798), so the engine lays the meadow's grass there
+(``ground.frag``); what an item covers carries its coverage in the alpha — 255
+under an opaque fill, its share along an antialiased edge, its opacity under a
+translucent one — while the colour bytes are what they always were (the item
+over the meadow's colour). ``image()``, the whole ground as one picture, is opaque.
 
 Not painted, by decision: selection, labels, the canvas's drop shadows, the
 square-foot grid of a bed and the diagnostic borders and badges (crop rotation,
@@ -160,6 +165,7 @@ from dataclasses import dataclass
 from itertools import pairwise
 from typing import Final
 
+import numpy as np
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPainterPath, QPen, QPolygonF, QTransform
 
@@ -200,7 +206,7 @@ from open_garden_planner.ui.canvas.items.path_style_paint import (
     style_paint_reach,
 )
 
-__all__ = ["BAKE_BUDGET_S", "SPRITE_MAX_PIXELS", "TILE_DASHES", "TILE_ELEMENTS", "TILE_RECORDS",
+__all__ = ["BAKE_BUDGET_S", "OPEN_ALPHA", "SPRITE_MAX_PIXELS", "TILE_DASHES", "TILE_ELEMENTS", "TILE_RECORDS",
            "TILE_VERTICES", "TILE_WALK_STEPS", "GroundBaker", "WalkBudget", "paint_bounds",
            "paint_record", "tile_budget"]
 
@@ -211,9 +217,16 @@ _log = logging.getLogger(__name__)
 _PLAIN_PAINT: Final = Paint()
 #: The image format a tile is painted in. Premultiplied, because that is what
 #: ``QPainter`` blends fastest in (measured: a textured fill of a 512 px tile 0.16
-#: ms against 0.22 ms); and as the ground is opaque everywhere its bytes ARE
-#: plain RGBA8 — no conversion on the way out.
+#: ms against 0.22 ms). Its bytes go to the engine as they are (RGBA8): the colour
+#: of a pixel is what it always was, the item over the meadow's colour, and the alpha
+#: is how much of the pixel an item covers (#798) — open ground starts as the meadow's
+#: colour at alpha 0, which ``QPainter``'s premultiplied source-over leaves in place
+#: wherever nothing is painted and blends exactly as an opaque meadow under an item
+#: (the colour is ``src + dst (1 - src_alpha)``, the destination's alpha never enters
+#: it), while the alpha becomes the item's coverage.
 _TILE_FORMAT: Final = QImage.Format.Format_RGBA8888_Premultiplied
+#: The alpha of OPEN ground in a tile (#798): no item covers it.
+OPEN_ALPHA: Final = 0
 #: How far a mitred join can reach from its corner, in pen widths: the limit the pens
 #: painted with here really have — Qt's default, which no painter changes (2.0).
 _MITRE_LIMIT: Final = float(QPen().miterLimit())
@@ -1151,12 +1164,19 @@ class GroundBaker:
         whole = QImage(grid.width_px, grid.height_px, _TILE_FORMAT)
         whole.fill(QColor(*self._bare_rgb))
         painter = QPainter(whole)
+        # the tiles' bytes as they are (their open ground is the meadow's colour at
+        # alpha 0, #798): copied, not blended - then the picture is made opaque
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
         for key in grid.tile_keys():
             x0, y0, width, height = grid.tile_px_rect(key)
             tile = self._tiles[key]
             part = QImage(tile.pixels, width, height, 4 * width, _TILE_FORMAT)
             painter.drawImage(x0, grid.height_px - y0 - height, part)
         painter.end()
+        bits = whole.bits()
+        if bits is not None:
+            bits.setsize(whole.sizeInBytes())
+            np.frombuffer(bits, dtype=np.uint8).reshape(-1, 4)[:, 3] = 255
         return whole
 
     # ── GroundBaking ─────────────────────────────────────────────────────────
@@ -1444,11 +1464,17 @@ class GroundBaker:
         """A tile of bare ground: the bytes are shared by all bare tiles of its size."""
         _x0, _y0, width, height = grid.tile_px_rect(key)
         east, north, width_cm, depth_cm = grid.tile_cm_rect(key)
+        return GroundTile(key[0], key[1], east, north, width_cm, depth_cm, width, height,
+                          self._open_pixels(width, height))
+
+    def _open_pixels(self, width: int, height: int) -> bytes:
+        """A tile's worth of OPEN ground: the meadow's colour at ``OPEN_ALPHA`` (#798).
+        Shared by every tile of that size."""
         pixels = self._bare_pixels.get((width, height))
         if pixels is None:
-            pixels = bytes((*self._bare_rgb, 255)) * (width * height)
+            pixels = bytes((*self._bare_rgb, OPEN_ALPHA)) * (width * height)
             self._bare_pixels[(width, height)] = pixels
-        return GroundTile(key[0], key[1], east, north, width_cm, depth_cm, width, height, pixels)
+        return pixels
 
     def _paint_tile(self, grid: GroundGrid, key: TileKey, records: list[Record],
                     capped: bool) -> GroundTile:
@@ -1463,10 +1489,12 @@ class GroundBaker:
             self._capped.discard(key)
             self._failed.pop(key, None)
             return self._bare_tile(grid, key)
-        image = QImage(width, height, _TILE_FORMAT)
+        # open ground first (#798): the meadow's colour at alpha 0 - QImage.fill would
+        # premultiply it to black; a copy owns its bytes
+        image = QImage(self._open_pixels(width, height), width, height, 4 * width,
+                       _TILE_FORMAT).copy()
         if image.isNull():
             raise MemoryError(f"no image of {width} x {height} px for ground tile {key}")
-        image.fill(QColor(*self._bare_rgb))
         scale = grid.px_per_cm
         # scene (east, north) → this tile's pixels, north up: row 0 is its north edge.
         # Whole-pixel offsets of ONE grid: every tile is a crop of the same image.

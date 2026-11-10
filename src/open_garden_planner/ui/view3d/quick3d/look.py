@@ -159,6 +159,8 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         "fog": bool(preset.fog),
         "lawnBlades": bool(preset.lawn_blades),
         "detailNormals": float(preset.detail_normals),
+        "meadowSurface": int(preset.meadow_surface),      # #798: the meadow's grass
+        "openGroundGrass": bool(look.open_ground_grass),  # #798: the owner's call
         # wind
         "windStrength": float(look.wind_strength),
         # the living garden (L5, ADR-070)

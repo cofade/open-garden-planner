@@ -61,6 +61,7 @@ __all__ = [
     "CLEAR_STILL",
     "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
     "GOLDEN_DEG", "AtmosphereSpec",
+    "MEADOW_FLAT", "MEADOW_GRASS", "MEADOW_GRASS_VARIED", "OPEN_GROUND_GRASS",
     "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
     "AMBIENT_GROUND_GAIN", "PROBE_GROUND_GAIN", "TWILIGHT_FILL_DAY_SHARE", "TWILIGHT_FILL_TARGET",
@@ -94,8 +95,18 @@ NOON_DEG: Final = 30.0
 #: ONE albedo for the endless meadow and for plan ground no item covers (the linear
 #: mean of ``resources/textures/grass.png``, hue 104°). Night comes from the light
 #: and the exposure, never from a darker albedo: the L0 board's per-mood meadow
-#: colours made the plan glow as an island at night (5.6x its surround).
+#: colours made the plan glow as an island at night (5.6x its surround). Nor from the
+#: weather (#798): the rain's darkening and the snow are the ground's ONE tint and cover
+#: (``AtmosphereSpec``), applied by ``ground.frag`` to the meadow and the tiles alike.
 MEADOW_ALBEDO: Final = "#487f34"
+#: #798: the meadow's surface by preset (``PresetSpec.meadow_surface``): its flat colour,
+#: the grass texture, or the grass with its slow variation.
+MEADOW_FLAT, MEADOW_GRASS, MEADOW_GRASS_VARIED = 0, 1, 2
+#: #798, THE OWNER'S CALL: the plan's OPEN ground (no item covers it) takes the meadow's
+#: grass too — one surface inside and outside the plan, so the plan rectangle is no
+#: "football pitch" and its edge no step. False: open plan ground keeps the flat meadow
+#: colour (the L0 answer "an honest 'no lawn here'") and only the meadow outside is grass.
+OPEN_GROUND_GRASS: Final = True
 #: Fog = sky horizon x probe exposure x this factor, in LINEAR light. The skybox is
 #: drawn x probe exposure and the fog is not; "horizon x 0.6" still sat 20-26 luma
 #: over the sky row above the horizon, x probe x 0.8 measured -0.7 / -0.5 / +1.4
@@ -444,6 +455,10 @@ class PresetSpec:
     #: L4.5: how strongly the ground's shading follows its texture's luminance (detail
     #: normals derived from the baked ground itself, no new asset), 0 = flat.
     detail_normals: float = 0.0
+    #: #798: the meadow's surface (``ground.frag``): ``MEADOW_FLAT`` its one colour,
+    #: ``MEADOW_GRASS`` the canvas's grass texture, ``MEADOW_GRASS_VARIED`` the grass
+    #: with its slow variation (``core/scene3d/meadow.py``).
+    meadow_surface: int = MEADOW_GRASS_VARIED
 
     def __post_init__(self) -> None:
         if self.shadow_map_quality not in ("high", "very_high", "ultra"):
@@ -456,6 +471,8 @@ class PresetSpec:
             raise ValueError(f"PresetSpec.antialiasing_quality: {self.antialiasing_quality!r}")
         if not 0 <= self.shadow_cascades <= 3:
             raise ValueError(f"PresetSpec.shadow_cascades: {self.shadow_cascades!r}")
+        if self.meadow_surface not in (MEADOW_FLAT, MEADOW_GRASS, MEADOW_GRASS_VARIED):
+            raise ValueError(f"PresetSpec.meadow_surface: {self.meadow_surface!r}")
 
 
 #: Low: a 2048 map with ONE cascade — Medium-sized without cascades stair-stepped and
@@ -649,6 +666,8 @@ class LookSpec:
     #: sun, whose direction is not part of any look.
     moon_travel_scene: tuple[float, float, float] | None
     meadow_albedo: str = MEADOW_ALBEDO
+    #: #798: the plan's open ground takes the meadow's grass (``OPEN_GROUND_GRASS``).
+    open_ground_grass: bool = OPEN_GROUND_GRASS
     wind_strength: float = WIND_STRENGTH
     #: L5 (ADR-070): the weather, the dew, the particles and the garden lights of
     #: this look — ``core/scene3d/weather.py`` paints it (``living_look``);

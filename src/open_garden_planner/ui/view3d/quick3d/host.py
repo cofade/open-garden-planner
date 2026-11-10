@@ -145,7 +145,7 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_vectors,
 )
 from open_garden_planner.core.scene3d.look import ATMOSPHERE, ao_distance_scale, fog_depth_cm
-from open_garden_planner.core.scene3d.meadow import meadow_frame
+from open_garden_planner.core.scene3d.meadow import GRASS_RELIEF, GRASS_VARIATION, meadow_frame
 from open_garden_planner.core.scene3d.particles import (
     precipitation_buffers,
     precipitation_volume,
@@ -183,7 +183,7 @@ from .look import (
     sky_properties,
 )
 from .materials import PART_COMPONENTS, tint_uniform
-from .patterns import PatternTexture
+from .patterns import GrassDetailTexture, PatternTexture
 from .shots import PerspectiveShot, Shot, TopDownShot
 
 if TYPE_CHECKING:
@@ -553,6 +553,7 @@ class Quick3DHost:
         self._log("qml_loaded", ms=round(self.qml_load_ms, 1), source=source.name)
         try:
             self.set_look(look)
+            self._show_grass()
             self._show_meadow(None)
         except Exception:
             self.close()  # a scene file without the look's properties: no half-built host
@@ -832,6 +833,20 @@ class Quick3DHost:
     _meadow_plan: tuple[float, float, float, float] | None | bool = False
     #: How often the meadow's data was loaded into the engine (the gates read it).
     meadow_loads = 0
+
+    #: The meadow's grass (#798): ONE texture for the host's life, made before the first
+    #: frame and never replaced — ``Garden.qml``'s ``grassTexture`` is never re-pointed.
+    _grass: GrassDetailTexture | None = None
+
+    def _show_grass(self) -> None:
+        """Hand the scene the meadow's grass (``core/scene3d/meadow.py``): its texture,
+        the relief's scale and the slow variation. Once, at construction."""
+        if self._grass is not None:
+            return
+        self._grass = GrassDetailTexture()
+        _set(self._root, "grassRelief", float(GRASS_RELIEF))
+        _set(self._root, "grassVariation", QVector3D(*(float(value) for value in GRASS_VARIATION)))
+        _set(self._root, "grassDetail", self._grass)
 
     def _show_meadow(self, plan: tuple[float, float, float, float] | None) -> None:
         """Lay the meadow around ``plan`` (east0, north0, east1, north1 in scene cm; None:
