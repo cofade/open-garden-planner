@@ -1183,5 +1183,15 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Raster exports force one point size on authored text notes"
+  },
+  "791": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Theme gaps: planting calendar and rulers ignore the dark theme; light theme on dark-mode Windows has unreadable text and invisible checkboxes"
+  },
+  "796": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "UI polish: 1280x720 toolbar overflow, clipped panel fields, calendar task rows and other layout nits"
   }
 }
