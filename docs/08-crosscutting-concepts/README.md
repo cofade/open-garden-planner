@@ -63,6 +63,32 @@ Full commands, source declaration rules and new-language steps: [translation gui
 Latin scientific names, provider/user text and machine identifiers are not catalog prose;
 finite bundled common names are extracted from the actual bundled species JSON.
 
+### Locale: the UI language decides (#792, ADR-077)
+
+`core/i18n.load_translator` is the one place that decides the application's locale, and it
+makes it Qt's default (`QLocale.setDefault`) before any widget is built — a widget keeps the
+locale it was created with. The language decides; the operating system contributes its region
+only when it speaks the same language (`de` on an Austrian system is `de_AT`, `en` on a German
+one is `en_US`).
+
+- **A number in UI text** is written by `format_decimal(value, decimals)` — never an f-string
+  with `:.2f`. `format_trimmed` drops trailing zeros, `format_integer` adds group separators to
+  a count. A translated template that carries its precision keeps it and is handed a
+  `LocalizedNumber`: `self.tr("{d:.2f} m").format(d=LocalizedNumber(x))`.
+- **A month or a day**: `month_abbreviation(m)` for a column header, `format_day_month(date)`
+  for a day without its year (the order is a translated Qt pattern, context `DateFormat`).
+  Date FIELDS and keys stay ISO (`yyyy-MM-dd`).
+- **A typed number**: a `QDoubleSpinBox` needs nothing — either decimal key types the field's
+  decimal mark. Free text is read with `parse_decimal`. What the UI shows, it accepts back.
+- **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
+  in every language (`tests/integration/test_locale_chrome.py`).
+- **In tests** the locale is process-wide state. `conftest._app_locale` starts every test in
+  English on a pinned system locale; a test that needs another replaces `i18n._system_locale`
+  and calls `load_translator` (the `speak` fixture of `tests/unit/test_app_locale.py`).
+
+Numbers drawn on the plan (dimension lines, vertex labels, the scale bar) still write a decimal
+point. Pitfall: PF-I18-09.
+
 ### Translation rules
 
 - **Always use `self.tr("string")`** for every user-visible string in any `QWidget` subclass.
@@ -106,6 +132,8 @@ Base/surface/text/border/accent/status tokens plus the #279 semantic additions: 
 
 **The no-hex rule**: widget code never hardcodes a chrome color. Styling comes either from the generated stylesheet (via the dynamic properties below) or from the live-palette helpers `theme_color()` / `theme_qcolor()` / `rgba(token, alpha)`. Enforced mechanically by `tests/unit/test_no_hardcoded_qss_colors.py` — the allowlist is EMPTY and stays that way without an ADR-039-documented reason.
 
+**A widget that paints** (a chart, a ruler, a delegate) reads `theme_qcolor(token)` inside its paint — a module constant is a light picture in the dark theme, which is what the Planting Calendar chart, the soil sparkline and the canvas rulers were (#791). A DATA colour that keeps its hue in both themes (a chart series) goes through `readable_on(color, surface)`, which shades it until it stands out on the theme's surface. The same test file holds a second gate, `PAINTED_LITERALS`: every painted colour literal left in chrome, by file and count, with the reason it is not chrome (drawn on the plan, on paper, on a photo, or data). `palette(...)` in a widget stylesheet is a theme colour since the app owns the palette.
+
 ### 8.4.2 Typography & widget roles (dynamic properties)
 
 Styled centrally in the generated stylesheet, assigned via `theme.set_text_role(widget, role, color_role)` (which re-polishes, so post-polish changes apply — the §8.17.6 gotcha):
@@ -113,6 +141,7 @@ Styled centrally in the generated stylesheet, assigned via `theme.set_text_role(
 - `QLabel[textRole="h1"/"h2"/"hint"/"small"/"placeholder"]` — size/weight/style
 - `QLabel[colorRole="success"/"warning"/"error"/"info"/"caution"/"disabled"/"secondary"]` — semantic text color (orthogonal to textRole; combinable)
 - `QPushButton[buttonRole="primary"/"secondary"]` — accent-branded dialog CTAs (welcome dialog)
+- `QPushButton[compact="true"]` — a button in a row, a header or a table, via `theme.set_compact(button)` (§8.4.5)
 - `QLineEdit[inputError="true"]`, `QFrame[weatherCard="true"][frostSeverity="orange"/"red"]`
 - objectName rules: `#TaskReminderBar` (warning_bg banner), `#UpdateBar` (info_bg), `#constraintsDeleteAllBtn`
 
@@ -122,11 +151,31 @@ Weight uses `font-weight: 600` (support pinned by `test_theme_tokens.py`; docume
 
 ### 8.4.3 Theme propagation contract
 
-`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live), notifies `register_theme_listener` subscribers (the icon provider clears its cache), restyles via `app.setStyleSheet`, then walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
+`apply_theme()` publishes the resolved palette FIRST (`current_colors()` / `is_dark_theme()` read it live), notifies `register_theme_listener` subscribers (the icon provider clears its cache), then sets ALL THREE carriers of light-or-dark (#791, PF-UI-37): Qt's colour scheme (`_pin_color_scheme` — the native style draws what no stylesheet rule covers in it), the application palette (`build_palette(colors)` — `palette(...)` in a widget stylesheet, rich-text links and placeholder text read it) and the stylesheet (`app.setStyleSheet`). Nothing that detects the system's mode may read `QApplication.palette()`: it is the app's own. Then it walks `allWidgets()` duck-typed: widgets exposing `apply_theme_colors(colors)` get palette-driven redraws (CanvasView, dashboards — typically a debounced `schedule_refresh()`); widgets exposing `refresh_theme_icons()` re-request their icons (the three toolbars, the main window's tracked menu actions). New widgets opt in by defining one of the two hooks — no registration list.
 
 ### 8.4.4 QSS capability limits
 
 No box-shadow, no transitions, no outline focus rings — focus is a 2 px border swap with 1 px padding compensation (no layout jump). Tabs are underline-style (documentMode: style `QTabBar::tab` directly, `::pane` is partially ignored). Outer popup frames (QMenu/QToolTip) stay square on Windows (rounded corners artifact); only inner menu-item pills get radii.
+
+### 8.4.5 Sizes the stylesheet decides (#796)
+
+A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF-UI-39):
+
+- **`QPushButton` has a dialog-button minimum** (80 px plus padding and border: 110 px), and it
+  replaces the minimum `setFixedWidth` / `setFixedSize` set. An icon button or a row button calls
+  `set_compact(button)`. A compact button with a translated text gets no fixed width; columns of
+  such buttons are aligned by measuring (`TasksView._align_action_columns`), never by a constant.
+- **A list row that is a widget** (`setItemWidget`) gets the row's rectangle minus the item
+  padding: size the row with `list_row_size_hint(widget)`.
+- **A scroll area that must be as tall as its rows** cannot use `QScrollArea.sizeHint()`, which
+  remembers the first answer; and a row added to a visible parent counts in no hint until the
+  event loop has turned. `_FittedScrollArea` (the calendar dashboard) is the pattern.
+- **The tool toolbars wrap** (`ui/widgets/toolbar_rows.py`): a toolbar that does not fit the
+  window starts a new row instead of losing buttons to the overflow popup. A toolbar added to
+  that row later joins it with `ToolbarRows.append`.
+- **The sidebar is 450 px by default, on purpose.** A share of the window was built and
+  measured: the Properties form has no horizontal scroll bar and its German rows need 388 to
+  406 px (`test_the_sidebar_keeps_the_width_its_widest_form_needs`).
 
 ## 8.5 Graphics Asset Pipeline
 
@@ -458,8 +507,10 @@ it:
 - **The top-level window stays a raster window** (`surfaceType() == RasterSurface`, asserted in
   the render tier): embedding the container did not switch the main window to a composited
   path, and a 2D pan step costs the same with the view beside it (×1.04).
-- The floating mode switch of the workspace follows §8.9.1 to §8.9.3 — but it is parented to the
-  WORKSPACE and floats over the canvas only; in 3D mode it moves into the pane's strip.
+- The mode switch of the workspace floats over the canvas only where nothing hosts the
+  workspace (it then follows §8.9.1 to §8.9.3, parented to the WORKSPACE). The main window
+  adopts it (`Workspace.adopt_mode_switch`) and lays it out on the tab bar's row, where it
+  covers nothing of the plan (#796, ADR-060 addendum); in 3D mode the pane's strip has its own.
 
 ### 8.9.10 Selection transparency preserves interactive handles (#522)
 
@@ -5614,7 +5665,8 @@ below it, the notices, one per line — the status line, "N objects are not show
 > **Rule: nothing overlays the 3D view.** It is a native window; a sibling widget does not paint
 > over it. A control or a notice for 3D goes into the strip above the view, beside it, or in its
 > place — never on top. (The one floating thing in the workspace is the mode switch in Plan and
-> Split, and it floats over the canvas.)
+> Split, and it floats over the canvas — unless the hosting window adopted it, as the main
+> window does: ADR-060 addendum, #796.)
 
 **The life of the 3D pane** (`View3DState`): `not_started` → (first switch to 3D or Split: the
 start marker is written, the engine factory runs) → `starting` → (the health poll sees the first

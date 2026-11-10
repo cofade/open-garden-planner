@@ -11542,3 +11542,107 @@ The report is three to eight times larger than at 72 dpi.
 
 Cross-refs: PF-CAN-08, PF-CAN-12, PF-CAN-13, PF-CAN-53, PF-CAN-54; §8.36; FR-EXP-01,
 FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
+
+## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
+
+**Status**: Accepted (visual-polish package, 2026-11-10)
+
+**Context**: the app let the user choose a UI language and never told Qt a locale. Spin
+boxes, date edits and every bare `QLocale()` formatted in the SYSTEM locale; Python
+f-strings always wrote a decimal point. On the owner's machine (UI English, Windows
+German) the planting calendar read "Mrz, Mai, Okt, Dez" and a spin box "155,8" beside a
+status bar that said "0.00 cm"; the German UI showed "6361.7 cm²". Issue #792 states the
+rule it expects: month names, decimal separators and every word follow the
+application's chosen language, never the system locale on its own.
+
+**Decision**:
+
+1. **`core/i18n.load_translator` is the one place that decides.** It sets Qt's default
+   locale (`QLocale.setDefault`) from the UI language, before any widget exists.
+   Everything else asks `current_locale()` or a formatter below; a bare `QLocale()`
+   agrees, because the decision is also Qt's default.
+2. **The language decides; the system contributes its region only in the same
+   language.** A German UI on an Austrian or Swiss system is `de_AT` / `de_CH`; an
+   English UI on a German system is `en_US`. The locale is built from Qt's own data
+   (`QLocale(language, territory)`), never the `QLocale.system()` object, whose names
+   are Windows' ("Mrz", "Mo") — the same language must read the same on every machine.
+3. **Every number in UI text goes through one formatter.** `format_decimal` (fixed
+   decimals, no group separator: in a CAD readout "1.234" must never be readable as a
+   decimal), `format_trimmed`, `format_integer` (counts, with group separators),
+   `month_abbreviation`, `format_day_month` (the order of day and month is a translated
+   Qt pattern). A translated template that carries its precision (`"{d:.2f} m"`) is
+   handed a `LocalizedNumber`, so no source string and no catalog entry changes.
+4. **A typed `,` or `.` is the decimal mark in a number field.** A `QDoubleSpinBox`
+   silently drops the other convention's mark (measured: locale `en`, typed "155,8",
+   value 1558). Since the locale follows the UI language and the keyboard does not, a
+   German numeric keypad would enter values ten times too large into an English UI.
+   `_DecimalKeys` watches the focused spin box and rewrites the key; `parse_decimal`
+   does the same for free text (the typed-coordinate field, the shopping list's price).
+   What the UI shows, it accepts back — in either convention.
+5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
+   and the clipboard rows of the shopping list write a decimal point in every language.
+   The PDF report's numbers are the export service's own.
+6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit,
+   the Tasks tab, the plan-date strip). Only names — months, weekdays — and the
+   day-and-month label of the calendar dashboard follow the language.
+
+**Rejected**: the system locale for formats with the UI language for words (the state
+before: two conventions on one screen, and the issue's own counter-example); an
+application-wide Python event filter for the decimal key (it would run for every event
+of every object — the filter sits on the focused spin box only); removing the decimal
+key rewrite and documenting the trap (a silent factor of ten in a CAD field).
+
+**Consequences**: a user who types a group separator into a number field gets a decimal
+mark instead; nobody is known to do that in a CAD field, and the coordinate parser has
+read both marks as decimal since Package A. An English UI is `en_US` on a non-English
+system (month/day order, 12-hour clock where a widget shows a time without a display
+format of its own) — the app's own time and date fields all set one. The test session
+has the application's locale like the app does (`conftest._app_locale`); before, it ran
+in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
+labels, the scale bar) still use a decimal point and are the canvas's next step.
+
+Cross-refs: PF-I18-09; §8.3 "Locale"; FR-I18N-10, FR-I18N-11; debug-verbose case study 220.
+
+### ADR-039 addendum: the app owns the palette and the colour scheme, and chrome that paints reads tokens (#791)
+
+ADR-039 made `ui/theme.py` the single source of chrome colours and delivered them through
+ONE carrier, the generated stylesheet. A Qt application has three: the stylesheet, the
+application palette and Qt's colour scheme. The two the app left alone stayed the
+operating system's, so the app's light theme on a dark Windows had white text on cream
+wherever a widget asked the palette (`palette(text)`, rich-text links, placeholder text)
+and near-invisible native controls wherever no stylesheet rule reached.
+
+1. **`apply_theme()` sets all three.** `build_palette(colors)` maps every palette role to
+   a token (new token `link`); `_pin_color_scheme` tells Qt the app's scheme and, for
+   `ThemeMode.SYSTEM`, hands it back first. `palette(...)` in a widget stylesheet is
+   therefore a theme colour now.
+2. **Detection never reads the application palette** (`detect_system_theme` asks
+   `QStyleHints.colorScheme()`): the palette is the app's own, and a detection that read
+   it could never follow the system again.
+3. **A widget that paints reads `theme_qcolor(token)` while it paints.** The Planting
+   Calendar chart, the soil sparkline, the canvas rulers and the seed-viability cells
+   were light pictures in the dark theme. A DATA colour that keeps its hue in both themes
+   (a chart series) is passed through `readable_on(color, surface)`.
+   `tests/unit/test_no_hardcoded_qss_colors.py` gained a second gate that lists every
+   painted colour literal left in chrome with the reason it is not chrome; the QSS
+   allow-list stays empty.
+4. **Geometry roles.** `set_compact(button)` and `list_row_size_hint(widget)` join
+   `set_text_role` as the ways widget code states an intent the stylesheet answers
+   (PF-UI-38).
+
+Not built: following a change of the Windows mode while the app runs in `SYSTEM` (it
+never did; `QStyleHints.colorSchemeChanged` is where it would be connected).
+
+Cross-refs: PF-UI-37, PF-UI-38; §8.4.1 to §8.4.3, §8.4.5.
+
+### ADR-060 addendum: the main window adopts the mode switch (#796)
+
+Decision 2 put the Plan / 3D / Split row "floating over the canvas in Plan and Split". At
+(28, 28) it covered the plan's top-left corner. `Workspace.adopt_mode_switch()` hands the
+row to the window that hosts the workspace; the main window lays it out on the tab bar's
+row, left of the frost badge, inside a holder it shows on the Garden Plan tab only. WHEN
+the row shows is still the workspace's decision (Plan and Split, with the rest of the
+chrome; in 3D the pane's strip has its own row), so `set_mode`, the fullscreen preview
+and decision 3 ("nothing overlays the native 3D window") are unchanged. A workspace
+without a host that adopts the row — every test that builds one alone — floats it as
+before.

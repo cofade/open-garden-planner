@@ -75,12 +75,16 @@ All rows **production** unless noted.
 | `appearance/show_spacing_circles` | `show_spacing_circles` | bool | `True` | `canvas_view.py`, spacing-ring paint gate |
 
 > **TRAP (§11.4, verified in `docs/11-risks-and-technical-debt/README.md`):
-> `ThemeColors.get_colors(ThemeMode.SYSTEM)` ignores the user's theme choice.**
-> `apply_theme()` only writes a stylesheet and never mutates
-> `QApplication.palette()`, so SYSTEM-mode detection probes the *OS* palette. A
-> user who explicitly picked LIGHT on a dark-default OS gets the dark palette
-> dict. Rule: only `theme.py` may call `get_colors(ThemeMode.SYSTEM)`; every
-> other consumer must call `ThemeColors.get_colors(get_settings().theme_mode)`.
+> `ThemeColors.get_colors(ThemeMode.SYSTEM)` asks the operating system, not the
+> user's theme choice.** SYSTEM-mode detection reads Qt's colour scheme. Rule:
+> only `theme.py` may call `get_colors(ThemeMode.SYSTEM)`; every other consumer
+> reads `theme_qcolor()` / `current_colors()` or calls
+> `ThemeColors.get_colors(get_settings().theme_mode)`. Since #791
+> `apply_theme()` sets all three carriers of light-or-dark — the stylesheet,
+> the application palette and Qt's colour scheme (PF-UI-37) — so nothing that
+> DETECTS the system's mode may read `QApplication.palette()`: it is the app's
+> own. `appearance/language` also decides the LOCALE (numbers, month names:
+> PF-I18-09, ADR-077).
 
 ### Canvas snap & input (Phase 13 CAD packages)
 

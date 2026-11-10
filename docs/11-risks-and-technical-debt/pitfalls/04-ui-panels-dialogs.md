@@ -110,7 +110,7 @@ deletion, valid clicks, absent-date rejection and newly created replacement item
 - **Status:** standing
 - **Legacy:** b1faaa9 README L315
 
-- **`ThemeColors.get_colors(ThemeMode.SYSTEM)` ignores the user's theme choice**: `apply_theme()` only writes a stylesheet — it does *not* mutate `QApplication.palette()`. So `detect_system_theme()` (called via `ThemeMode.SYSTEM`) probes the OS palette regardless of what the user picked in Settings → Appearance. A user with `theme_mode=LIGHT` running on a dark-default OS will get the dark-mode palette dict for any code that asks "what colors am I drawing on top of?". Fix: always pass the user's preference — `ThemeColors.get_colors(get_settings().theme_mode)`. Only `theme.py` should call `get_colors()` with `ThemeMode.SYSTEM`; every other consumer must read `get_settings().theme_mode`.
+- **`ThemeColors.get_colors(ThemeMode.SYSTEM)` asks the operating system, not the user's choice**: `detect_system_theme()` reads Qt's colour scheme. Code that draws on the theme reads `theme_qcolor()` / `current_colors()` (the palette `apply_theme()` last published) or passes `get_settings().theme_mode`; only `theme.py` passes `ThemeMode.SYSTEM`. Since #791 `apply_theme()` also sets the application palette and pins the scheme (PF-UI-37), so while an explicit theme is applied the scheme answers "the theme on screen" — the rule stands for the moment before the first `apply_theme()` and for `SYSTEM` itself.
 
 ### PF-UI-10
 

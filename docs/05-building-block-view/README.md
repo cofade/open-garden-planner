@@ -151,7 +151,7 @@ src/open_garden_planner/
 │   ├── stacking.py               # Qt-free per-object stacking order (Bring to Front/Forward/Backward/Back), block expansion, parent clamp (ADR-043, §8.25)
 │   ├── canvas_bounds.py          # Qt-free canvas clamping math — the ONE shared rule keeping items on-plan across GUI and Agent API (#380)
 │   ├── alignment.py              # Object alignment helpers
-│   ├── i18n.py                   # Internationalization, translator loading
+│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month formatters, decimal keys (ADR-077)
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -253,6 +253,8 @@ src/open_garden_planner/
 │   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
 │   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
 │   │   ├── category_toolbar.py   # CategoryToolbar (10 category dropdowns + global search) (ADR-018)
+│   │   ├── toolbar_rows.py       # ToolbarRows: the tool toolbars wrap with the window (#796)
+│   │   ├── soil_overlay_legend.py # Key to the soil-health overlay's tints, in its toolbar (#796)
 │   │   ├── category_dropdown.py  # Popup palette under each category button (ADR-018)
 │   │   ├── global_search.py      # Toolbar object search across all categories (ADR-018)
 │   │   ├── gallery_data.py       # Source of truth for placeable objects (ADR-018)
@@ -465,7 +467,7 @@ Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
-| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
+| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), the application palette built from the tokens (`build_palette`) and the colour-scheme pin (#791), the geometry roles `set_compact` / `list_row_size_hint` (#796), `contrast_ratio` / `readable_on` for data colours, `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
 | `ui/icons.py` | Central themed icon provider — the ONLY render path for `resources/icons/ui/`: substitutes theme colors into the contract SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, Normal + fully-grayed Disabled modes, cache per (name, size, dpr, tint, accent) cleared via theme listener; `None` for unknown names so every caller's text fallback survives. | name (+ size/tint) → `QIcon`/`QPixmap` \| `None` |
 | `resources/icons/ui/` | The icon set: 150 Tabler-vendored (MIT, pinned v3.45.0; 62 in #279 + 88 in #310) + 12 bespoke glyphs (10 in #279, `lawn` + `partly_cloudy` in #310) on the 24×24 currentColor+sentinel contract, with the binding house-style README, `PROVENANCE.md` (cross-checked by the gate in both directions) and the vendored MIT license text. | files |
 | `scripts/normalize_icons.py` / `check_icon_conformance.py` / `vendor_tabler_icons.py` | Icon asset-forge toolchain: deterministic SVG canonicalizer (idempotence is itself a gate; `--check` for CI drift), mechanical contract+provenance gate (pinned into pytest by `tests/unit/test_icon_conformance.py`), pinned-release Tabler vendoring (the PROVENANCE reproduction recipe). | SVG files → normalized/verified set |
