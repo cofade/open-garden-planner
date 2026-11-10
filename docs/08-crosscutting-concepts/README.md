@@ -7803,21 +7803,22 @@ frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle
 
 ### 8.29.13 The living garden — playback, weather, particles, garden lights (L5, #389, ADR-070)
 
-The decisions and the measurements are **ADR-070**; the requirements FR-3D-LIVE-01 … 09; the
-test patterns §8.10.16; the lesson PF-L3D-18.
+The decisions and the measurements are **ADR-070** (and its #687 addendum); the requirements
+FR-3D-LIVE-01 … 09; the test patterns §8.10.16; the lessons PF-L3D-18, PF-L3D-26, PF-L3D-27,
+PF-E3D-28 and PF-E3D-29.
 
 | Part | Engine? | What it does |
 |---|---|---|
 | `core/playback.py` | Qt-free | one step of the day or the year playback (`next_step`): the day wraps onto the same date, the year inside its year |
 | `ui/widgets/sun_sim_toolbar.py` | no | Animate's menu (The Day / The Year, Slow / Normal / Fast); writes the clock through its slider and `date_requested` |
-| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather` |
+| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather`; the occlusion under cloud (`AO_*_UNDER_CLOUD`) and the snow on built tops (`BUILT_SNOW_FULL_AT`, #687) |
 | `core/scene3d/look.py` | Qt-free | `AtmosphereSpec` (`CLEAR_STILL` is every look of L1–L4), `SkySpec.cloud`, `sky_must_build_now`, `sky_phase` by elevation |
-| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters`, `precipitation_volume`, the caps |
-| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps` |
+| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters` (a leaf in its own crown's colours, #687), `precipitation_volume`, the caps |
+| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps`, `lit_lamps` (the slots' faded lights, #687) |
 | `ui/view3d/look_controller.py` | no | `set_weather`, `set_todays_weather`, `set_analysing`, `set_southern` (where the place's noon stands: the dew's fade, the fireflies' midnight), `mood` / `mood_changed`: the look is `living_look` |
-| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the nearest lamps, the forecast |
+| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the lamps that light (`aim_lamps`: a picture's own, #687), the forecast |
 | `ui/view3d/quick3d/host.py` | **yes** | `set_ambient`, `set_life_enabled`, `set_lamps`, the precipitation's one load, the rain's volume with every `set_camera` |
-| `qml/Garden.qml`, `precipitation.*`, `ambient.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values |
+| `qml/Garden.qml`, `precipitation.*`, `ambient.*`, `built_snow.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values, its occlusion (`aoStrengthGain`, `aoDistanceGain`, `aoBias`) and the snow on built tops (`builtSnow`) |
 
 **Truth stays where it was.** A weather is a look: `apply_weather` changes the sky's colours
 and energy, the key light's strength, the shadows' darkness and softness, the grade, the fog,
@@ -7847,6 +7848,34 @@ per vertex (some corners beyond the far plane tear it into a sliver). Rain and s
 box around the camera's target, world-anchored: the box slides, the drops do not. In the
 top-down truth view no particle is drawn.
 
+**Under cloud the occlusion is the weather's (#687).** The sky is the light under cloud, and
+what an object hides of it is what grounds it; but Qt's pass reads a camera-facing normal, so
+flat ground seen at a slant occludes ITSELF everywhere except beside a nearer object — the
+clear values greyed open snow 17 levels under Low and drew a 10-level light rim round every
+silhouette. A weather takes its light share (`WeatherSpec.light`) of a stronger, wider pass
+WITH a bias of 0.3 of its reach (`AtmosphereSpec.ao_strength_gain`, `ao_distance_gain`,
+`ao_bias_cm`: 99 / 70 / 21 cm at a full overcast), and the bias follows the capture's AO scale
+at every picture size (PF-L3D-26). Clear, the dew and an Analyze drape keep the spike's 55 / 14
+/ 0, so no clear frame changes. The board's `--living` measures it (`living_occlusion`: rim,
+self-occlusion, open ground, snow against Low, a box caster's foot per weather) and runs
+`--far-plan` and `--edge` under every cloudy weather. What Qt's pass leaves is a ring of
+self-occluded far meadow whose distance moves with the picture's size (PF-E3D-28, #831).
+
+**Snow lies on built tops (#687).** While snow lies (`AtmosphereSpec.built_snow`, 1 under the
+snow weather: smooth tops lie white where the meadow's 0.75 still shows grass), every `vc` part
+and every roof swaps to ONE material, `built_snow.vert/.frag`; snowless, every frame keeps the
+principled look. The albedo is the principled look's (the vertex colour through its own vertex
+stage — `VAR_COLOR` is not it —, the tint and fill picture through the engine's polynomial);
+snow mixes in by `built_snow × smoothstep(0.35, 0.75, NORMAL.y)` with the snowy ground's
+roughness and specular. A building's floor (under its roof, shown by Cutaway), glass, water and
+an X-ray door stay as they are. The material is in the shader warmer.
+
+**A falling leaf is its crown's colour (#687).** `ambient_emitters` gives each dropping tree's
+emitter eight samples of the Forge's leaf colours for its own palette
+(`plant_forge.palette_leaf_colors`, outer and upper leaves) times the season's tint
+(`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id: a red maple drops red
+leaves, and no palette literal is left.
+
 **When the ambient buffer is rebuilt.** On the Plant Forge's phenology (`season_sink`: a plan
 or date change — at most twice a second during the year playback) and when a pass changed the
 garden lights; never for a time of day. Equal emitters are not sent again.
@@ -7868,8 +7897,12 @@ thin shadow (ADR-070's owner addendum).
 
 **The lamp pool.** Six `PointLight`s are made once by the scene (`lampSlots`), each bound to
 one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill
-them follows the camera's target (`nearest_lamps`), so a large plan's lights are lit where one
-looks. The foliage and lawn shaders light leaves from a point light as from the sun
+them follows the camera's target, so a large plan's lights are lit where one looks; each is
+weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest lamp left
+out (`lit_lamps`, #687), so a pool fades in and out as the camera turns instead of switching in
+one frame — with no clock, so a recorded tour repeats exactly, and with six lamps or fewer every
+weight is 1. A picture from another camera (a tour's frame, an agent's view) is lit by ITS
+target's lamps (`aim_lamps`, PF-E3D-29). The foliage and lawn shaders light leaves from a point light as from the sun
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
 1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light
@@ -8041,20 +8074,35 @@ close, naming the unfinished output if it cannot.
 `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
 shown pauses it the same way.
 
+**An orbit** (#807) turns at one speed and loops, or eases (`DroneOrbit.ease`: a raised-cosine
+speed over the first and last 15 % of its time) and ends at rest on its first view; it never does
+both, or a looped video would stop at its seam. Its tilt is one value in the dialog
+(`TourDialog._orbit_pitch`), shown by the tilt control, brought exactly by a saved tour, set from
+the view by Use Current View, and kept inside `orbit_pitch_range` (the view's 5-89 degrees, the eye
+20 cm or more above the ground). A new orbit tilts `DEFAULT_ORBIT_PITCH_DEG` (18) and lasts
+`ORBIT_SECONDS_PER_TURN` (30 s) a turn until the user sets a duration (`default_duration_s`; a
+time-lapse keeps 12 s). A moving camera keeps the view's locked shadow map (#734): an eased orbit's
+slow ends crawl less than its cruise.
+
 **Where the frames go** (`video_writer.py`, the only module that imports Qt Multimedia, on first
 use): `Mp4Writer` writes the first free `<stem>.part[<n>].mp4` and renames it on success, so a
 cancelled or failed tour never replaces a good video and a render kept because its target was held
 open is never deleted by a later recording; `PngSequenceWriter` writes `frame_000001.png` on two
 workers and refuses a folder that holds another tour's frames; `NullWriter` is a preview's.
-`best_codec` picks from `CODECS`.
+`best_codec` picks from `CODECS`. The encoder runs at constant quality (`VIDEO_QUALITIES`, Qt's High
+or Very High: PF-E3D-30); Qt asks for no profile, so H.264 is Constrained Baseline. Before the part
+gets the user's name, a worker thread rewrites it once through `core/mp4_stream.py`: BT.709 limited
+range in the `colr` box and every SPS, and the level the samples need (PF-E3D-31). A part it cannot
+rewrite is renamed as it is; the log names profile, level, bit rate, quality and colour of every
+delivered file.
 
 **The agent's picture.** `capture_blocker()` decides without waiting; `agent_picture` renders with
 `photo=NO_PHOTO` and reports what the picture shows. See §8.19.
 
 Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
-detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
-colour tag; a year tour started within an hour of midnight uses the nearest reading within the
+detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the H.264
+profile is Constrained Baseline (no Qt API for another); a year tour started within an hour of midnight uses the nearest reading within the
 missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
 sun moves by at most that hour).
 

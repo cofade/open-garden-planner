@@ -1066,6 +1066,137 @@ def thin_geometry_moire(with_it: Any, without_it: Any, reference: Any = None, *,
             "laplacian": round(float(laplacian[mask].mean()), 2), "alias_error": error}
 
 
+# ── ambient occlusion under a weather (#687) ─────────────────────────────────
+
+#: An OBJECT pixel: the frame without occlusion differs from the same view of the empty
+#: plan (also without occlusion) by more than this luma.
+OBJECT_LUMA_STEP = 10.0
+#: The far ground lies at least this many pixels (chessboard) from every object; the rim
+#: is read in the rows 1 .. ``RIM_ROWS`` straight above a silhouette.
+FAR_FROM_OBJECTS_PX, RIM_ROWS = 30, 14
+#: The open ground of the plan lies at least this many pixels from every object.
+OPEN_FROM_OBJECTS_PX = 16
+
+
+def chessboard_rings(mask: Any, steps: int) -> list[Mask]:
+    """``rings[k]``: the pixels whose chessboard distance to ``mask`` is at most ``k``."""
+    current = np.asarray(mask, dtype=bool).copy()
+    rings = [current.copy()]
+    for _ in range(steps):
+        grown = current.copy()
+        grown[1:, :] |= current[:-1, :]
+        grown[:-1, :] |= current[1:, :]
+        grown[:, 1:] |= current[:, :-1]
+        grown[:, :-1] |= current[:, 1:]
+        grown[1:, 1:] |= current[:-1, :-1]
+        grown[:-1, :-1] |= current[1:, 1:]
+        grown[1:, :-1] |= current[:-1, 1:]
+        grown[:-1, 1:] |= current[1:, :-1]
+        rings.append(grown)
+        current = grown
+    return rings
+
+
+def occlusion_rim(with_ao: Any, without_ao: Any, empty: Any, ground: Any, *,
+                  horizon_row: float) -> dict[str, Any]:
+    """How ambient occlusion treats open GROUND seen past an object (#687).
+
+    ``with_ao`` and ``without_ao`` are the same frame with and without occlusion;
+    ``empty`` the same view of the plan with nothing on it (no occlusion): where it
+    differs by ``OBJECT_LUMA_STEP`` an object stands. ``ground`` (a mask) is the ground
+    to judge (the meadow outside the plan, say); rows above ``horizon_row`` are sky.
+    ``D`` = luma without occlusion minus with it.
+
+    ``far_darkening``: ``D`` of the ground ``FAR_FROM_OBJECTS_PX`` from every object —
+    flat open ground occluding ITSELF (Qt's pass reads a camera-facing normal), which
+    honest occlusion never does. ``rim``: ``far_darkening`` minus the least ``D`` in the
+    rows 1 .. ``RIM_ROWS`` straight above a silhouette — where that self-occlusion is
+    lost beside a nearer object, a light band (the survey's rim round the beds).
+    ``profile``: the median ``D`` row by row above silhouettes."""
+    a, b, e = luma(with_ao), luma(without_ao), luma(empty)
+    objects = np.abs(b - e) > OBJECT_LUMA_STEP
+    open_ground = np.asarray(ground, dtype=bool) & ~objects
+    first = int(math.ceil(horizon_row)) + 4
+    if first > 0:
+        open_ground[:min(first, open_ground.shape[0])] = False
+    darkening = b - a
+    rings = chessboard_rings(objects, FAR_FROM_OBJECTS_PX)
+    far = open_ground & ~rings[FAR_FROM_OBJECTS_PX]
+    profile: list[float | None] = []
+    seen = objects.copy()
+    for rows in range(1, RIM_ROWS + 1):
+        above = np.zeros_like(objects)
+        above[:-rows] = objects[rows:]
+        band = above & ~seen & open_ground
+        seen |= above
+        profile.append(round(float(np.median(darkening[band])), 2) if band.sum() > 40 else None)
+    if far.sum() < 100:
+        return {"far_darkening": None, "rim": None, "profile": profile, "far_px": int(far.sum())}
+    far_d = float(np.median(darkening[far]))
+    measured = [value for value in profile if value is not None]
+    return {"far_darkening": round(far_d, 2),
+            "rim": round(far_d - min(measured), 2) if measured else None,
+            "profile": profile, "far_px": int(far.sum())}
+
+
+def open_ground_luma(with_ao: Any, without_ao: Any, empty: Any, ground: Any) -> dict[str, Any]:
+    """The open ground of ``ground`` (``OPEN_FROM_OBJECTS_PX`` from every object, objects
+    found as in ``occlusion_rim``): its median luma with and without occlusion, and the
+    darkening between them."""
+    a, b, e = luma(with_ao), luma(without_ao), luma(empty)
+    objects = np.abs(b - e) > OBJECT_LUMA_STEP
+    open_ground = (np.asarray(ground, dtype=bool)
+                   & ~chessboard_rings(objects, OPEN_FROM_OBJECTS_PX)[OPEN_FROM_OBJECTS_PX])
+    if open_ground.sum() < 100:
+        return {"luma": None, "luma_without_ao": None, "darkening": None, "mask": open_ground}
+    return {"luma": round(float(np.median(a[open_ground])), 2),
+            "luma_without_ao": round(float(np.median(b[open_ground])), 2),
+            "darkening": round(float(np.median((b - a)[open_ground])), 2), "mask": open_ground}
+
+
+def ground_polygon_mask(camera: Pinhole, polygon: Polygon) -> Mask:
+    """The pixels where the GROUND inside ``polygon`` (scene cm, z = 0) shows — or would,
+    were nothing standing on it."""
+    corners = np.array([(east, north, 0.0) for east, north in polygon], dtype=np.float64)
+    x, y, _front = camera.project(corners)
+    ys, xs = np.mgrid[0:camera.size[1], 0:camera.size[0]]
+    return polygon_mask(xs + 0.5, ys + 0.5, list(zip(x.tolist(), y.tolist(), strict=True)))
+
+
+def caster_contact(rgb: Any, camera: Pinhole, centre: tuple[float, float], half_side: float, *,
+                   ring_cm: tuple[float, float] = (2.0, 14.0),
+                   open_cm: tuple[float, float] = (60.0, 120.0), step_cm: float = 4.0
+                   ) -> dict[str, dict[str, float | None]]:
+    """How much darker the ground at a box caster's FOOT is than the open ground beyond
+    it, per side: ``contact`` = 1 − luma(ring ``ring_cm`` out) / luma(band ``open_cm``
+    out), sampled along the middle of each side (15 cm short of its corners). N, E, S, W
+    are the sides facing north, east, south, west; a side the camera does not see reads
+    None."""
+    luma_values = luma(rgb)
+    east0, north0 = centre
+    sides = {"N": ((0.0, 1.0), (1.0, 0.0)), "E": ((1.0, 0.0), (0.0, 1.0)),
+             "S": ((0.0, -1.0), (1.0, 0.0)), "W": ((-1.0, 0.0), (0.0, 1.0))}
+    width, height = camera.size
+    out: dict[str, dict[str, float | None]] = {}
+    for name, (normal, along) in sides.items():
+        bands: dict[str, float | None] = {}
+        for band, (low, high) in (("ring", ring_cm), ("open", open_cm)):
+            points = [(east0 + normal[0] * (half_side + out_cm) + along[0] * t,
+                       north0 + normal[1] * (half_side + out_cm) + along[1] * t, 0.0)
+                      for out_cm in np.arange(low, high + 0.01, step_cm)
+                      for t in np.arange(-half_side + 15.0, half_side - 15.0 + 0.01, 5.0)]
+            px, py, front = camera.project(np.array(points))
+            x, y = np.floor(px).astype(int), np.floor(py).astype(int)
+            seen = front & (x >= 0) & (y >= 0) & (x < width) & (y < height)
+            bands[band] = float(luma_values[y[seen], x[seen]].mean()) if seen.sum() > 5 else None
+        ring, open_ = bands["ring"], bands["open"]
+        out[name] = {"ring": None if ring is None else round(ring, 2),
+                     "open": None if open_ is None else round(open_, 2),
+                     "contact": (round(1.0 - ring / open_, 4)
+                                 if ring is not None and open_ else None)}
+    return out
+
+
 # ── north is up: the orientation of a top-down frame ─────────────────────────
 
 

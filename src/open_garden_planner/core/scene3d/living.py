@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from open_garden_planner.core.phenology import PhenologyState
 
 from .interleave import EngineBuffers
-from .lights import LampSource, lamp_sources, nearest_lamps
+from .lights import LampSource, lamp_sources, lit_lamps, nearest_lamps
 from .particles import Emitter, ambient_buffers, ambient_emitters
 from .record import Record
 
@@ -30,6 +30,9 @@ class LivingAssembly:
     emitters: tuple[Emitter, ...]
     sources: tuple[LampSource, ...]
     bulbs: tuple[Emitter, ...] = ()
+    #: What the scene's lamp slots hold: ``lamps`` faded at the edge of the set
+    #: (``lights.lit_lamps``, #687) — what ``Quick3DHost.set_lamps`` is told.
+    lights: tuple[tuple[float, float, float, float], ...] = ()
 
     def __iter__(self) -> Iterator[Any]:
         """Allow tuple unpacking: ``buffers, lamps = living_buffers(...)``."""
@@ -56,5 +59,6 @@ def living_buffers(
     bulbs = tuple(bulb for source in sources for bulb in source.bulbs())
     buffers = ambient_buffers((*emitters, *bulbs))
     return LivingAssembly(
-        buffers=buffers, lamps=lamps, emitters=emitters, sources=sources, bulbs=bulbs
+        buffers=buffers, lamps=lamps, emitters=emitters, sources=sources, bulbs=bulbs,
+        lights=lit_lamps(sources, target),
     )

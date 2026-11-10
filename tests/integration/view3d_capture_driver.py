@@ -713,6 +713,17 @@ def scenario_tour(out: Path) -> dict[str, Any]:
                             "unsettled": tour.unsettled}
         result["expected_frames"] = frame_count(spec)
         result["part_left"] = (out / "tour.part.mp4").exists()
+        from open_garden_planner.core.mp4_stream import read_stream
+
+        stream = read_stream(path)   # what the file states (#807)
+        result["stream"] = {
+            "codec": stream.codec, "profile": stream.sps.profile if stream.sps else None,
+            "level": stream.sps.level if stream.sps else None, "samples": stream.samples,
+            "deltas": sorted({delta for _count, delta in stream.durations}),
+            "timescale": stream.timescale, "mbit_s": round(stream.bit_rate / 1e6, 2),
+            "tagged": None if stream.tagged is None else [
+                stream.tagged.primaries, stream.tagged.transfer, stream.tagged.matrix,
+                stream.tagged.full_range]}
         read = read_video(path)
         first, last = read.pop("first"), read.pop("last")
         result["video"] = read

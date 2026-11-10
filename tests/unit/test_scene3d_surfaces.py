@@ -236,8 +236,9 @@ def test_the_scene_file_reads_every_surface_number_the_host_writes(component: st
     assert not re.search(r"roughness: \d", block) and not re.search(r"uRough: \d", block)
     assert not re.search(r"specularAmount: \d", block) and not re.search(r"uSpecular: \d", block)
     assert block.count("roughness: surfaceRough") == 1
-    assert block.count("uRough: surfaceRough") == 2              # the screen door, the detail
-    assert block.count("uSpecular: surfaceSpecular") == 2
+    # the screen door, the detail material (#801) and the snowy look (#687)
+    assert block.count("uRough: surfaceRough") == 3
+    assert block.count("uSpecular: surfaceSpecular") == 3
 
 
 def test_a_part_of_no_surface_kind_gets_no_surface_look() -> None:

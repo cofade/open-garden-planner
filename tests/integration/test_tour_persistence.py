@@ -31,7 +31,7 @@ from PyQt6.QtCore import QDate, QTime
 from PyQt6.QtWidgets import QInputDialog, QMessageBox
 
 from open_garden_planner.agent_api.mapping import plan_summary_from_snapshot
-from open_garden_planner.core.camera_path import frame_count, tour_frames
+from open_garden_planner.core.camera_path import CameraKey, frame_count, tour_frames
 from open_garden_planner.core.camera_tours import (
     MAX_TOUR_KEYS,
     MAX_TOURS,
@@ -41,11 +41,12 @@ from open_garden_planner.core.camera_tours import (
 )
 from open_garden_planner.core.plan_io import PlanValidationError, validate_plan_data
 from open_garden_planner.core.project import FILE_VERSION, ProjectData, ProjectManager
+from open_garden_planner.core.scene3d.camera import CameraPose
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.view3d.tour_dialog import TourDialog
 from tests.integration.test_directors_cut import Rig
 from tests.integration.test_view3d_workspace import build_app3d, first_pass
-from tests.unit.test_camera_tours import HOSTILE, flight, held, orbit
+from tests.unit.test_camera_tours import HOSTILE, ORBIT_BEFORE_EASING, flight, held, orbit
 
 REPO = Path(__file__).resolve().parents[2]
 #: The last release whose loader does not know ``camera_tours``. Fixed: "the previous
@@ -240,10 +241,12 @@ def test_a_saved_orbit_or_held_view_plays_from_its_saved_view_until_the_user_let
     dialog = rig.dialog()
     dialog.motion_combo.setCurrentIndex(dialog.motion_combo.findData(motion))
     button = dialog.orbit_view_button if motion == "orbit" else dialog.held_view_button
-    assert not button.isVisible()
+    # (#807: the orbit's button is always there - it also takes the view's tilt)
+    assert not dialog.starts_at_saved_view and button.isVisible() == (motion == "orbit")
     start = dialog.spec().motion.at(0.0)
     save_as(dialog, monkeypatch, "Saved View")
-    assert button.isVisible(), "the tour starts at its saved view now, and offers to let go"
+    assert dialog.starts_at_saved_view and button.isVisible(), \
+        "the tour starts at its saved view now, and offers to let go"
     rig.turn()
     assert rig.workspace.capture.camera_key() != start, "the view is somewhere else"
     assert dialog.spec().motion.at(0.0) == start
@@ -254,12 +257,12 @@ def test_a_saved_orbit_or_held_view_plays_from_its_saved_view_until_the_user_let
     rig.open_plan(path)
     rig.turn()
     choose(dialog, "Saved View")
-    assert dialog.motion_combo.currentData() == motion and button.isVisible()
+    assert dialog.motion_combo.currentData() == motion and dialog.starts_at_saved_view
     assert dialog.spec().motion.at(0.0) == start, "after a reopen too"
 
     depth = rig.commands.undo_depth
     button.click()                       # "Use Current View"
-    assert not button.isVisible() and dialog.spec().motion.at(0.0) != start
+    assert not dialog.starts_at_saved_view and dialog.spec().motion.at(0.0) != start
     assert dialog.save_tour_button.isEnabled() and rig.commands.undo_depth == depth
     now = dialog.spec().motion.at(0.0)
     dialog.save_tour_button.click()
@@ -463,7 +466,7 @@ def test_another_plan_does_not_inherit_tours_or_the_draft(
 
     rig.open_plan(first)
     assert offered(dialog) == ["Tour of A"] and dialog.bound_tour is None
-    assert not dialog.orbit_view_button.isVisible(), "plan B's saved view went with plan B"
+    assert not dialog.starts_at_saved_view, "plan B's saved view went with plan B"
     rig.open_plan(second)
     assert offered(dialog) == ["Tour of B"]
     dialog.close()
@@ -496,6 +499,67 @@ def test_save_as_a_template_and_a_new_season_keep_the_tours(rig: TourRig, tmp_pa
     rig.new_plan()
     rig.plan.load(rig.scene, tmp_path / "template.ogp", as_template=True)
     assert rig.plan.camera_tours == tours and rig.plan.current_file is None
+
+
+# ── an orbit's ease and tilt (#807) ──────────────────────────────────────────
+
+
+def test_an_orbit_saved_before_ease_and_tilt_flies_its_old_frames_through_the_dialog(
+        rig: TourRig, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A plan written before #807 holds an orbit with no "ease" and a tilt the new control
+    shows rounded. Chosen in the dialog it is the even loop it always was, at its own tilt to
+    the last bit, frame for frame; nothing reads as changed; saved again, the entry is the
+    same."""
+    rig.bed()
+    path = tmp_path / "older.ogp"
+    rig.save(path)
+    data = json.loads(path.read_text("utf-8"))
+    data[PLAN_KEY] = [ORBIT_BEFORE_EASING]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    dialog = rig.dialog()
+    rig.open_plan(path)
+    choose(dialog, "Drone")
+    assert dialog.bound_tour == "Drone" and dialog.motion_combo.currentData() == "orbit"
+    assert not dialog.ease_check.isChecked()
+    assert dialog.pitch_spin.value() == pytest.approx(28.25, abs=0.06), "shown, rounded ..."
+    spec = dialog.spec()
+    assert spec.motion.pose.pitch_deg == 28.25, "... and flown exactly"
+    frames = list(tour_frames(spec))
+    pose = spec.motion.pose
+    assert len(frames) == 360
+    for frame in frames:   # the formula every orbit used before #807
+        yaw = pose.yaw_deg + -1.0 * 360.0 * 2.0 * (frame.index / len(frames))
+        at = CameraPose(pose.target, pose.distance_cm, yaw, pose.pitch_deg)
+        assert frame.key == CameraKey(at.eye, at.target_scene, 40.0)
+    assert not dialog.save_tour_button.isEnabled(), "showing it changed nothing"
+    assert dialog.duration_spin.value() == 12.0, "its own length, not 30 s a turn"
+    rig.save(tmp_path / "again.ogp")
+    assert json.loads((tmp_path / "again.ogp").read_text("utf-8"))[PLAN_KEY] == [ORBIT_BEFORE_EASING]
+    dialog.close()
+
+
+def test_an_eased_tilted_orbit_is_kept_and_flown_again_the_same(
+        rig: TourRig, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    dialog = rig.dialog()
+    dialog.pitch_spin.setValue(15.0)
+    assert dialog.ease_check.isChecked()
+    flown = list(tour_frames(dialog.spec()))
+    save_as(dialog, monkeypatch, "Promo Orbit")
+    path = tmp_path / "garden.ogp"
+    rig.save(path)
+    entry = json.loads(path.read_text("utf-8"))[PLAN_KEY][0]
+    assert entry["orbit"]["ease"] is True and entry["orbit"]["pitch_deg"] == 15.0
+    assert entry["duration_s"] == 30.0
+    rig.new_plan()
+    rig.turn()
+    dialog.pitch_spin.setValue(40.0)    # the draft's tilt moves on ...
+    rig.open_plan(path)
+    choose(dialog, "Promo Orbit")       # ... and the saved tour brings its own back
+    assert dialog.pitch_spin.value() == 15.0 and dialog.ease_check.isChecked()
+    assert list(tour_frames(dialog.spec())) == flown
+    dialog.ease_check.setChecked(False)
+    assert dialog.save_tour_button.isEnabled(), "a changed ease is a change to save"
+    dialog.close()
 
 
 # ── the file format: additive, and the last release still opens it ───────────

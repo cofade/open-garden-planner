@@ -13,6 +13,12 @@ swing through a hedge on the way; the centripetal one cannot form a cusp or a lo
 inside a segment (Yuksel et al., 2011). It is travelled at constant speed, measured
 along the spline, and an open path eases in and out.
 
+A ``DroneOrbit`` turns at one speed and loops: its last frame leads straight back into its
+first. One that ``ease``\\ s starts and stops at rest instead (#807) and is not a loop. Its
+speed follows a raised cosine over the first and last ``ORBIT_EASE_SHARE`` of the time, so
+the speed and its change are continuous everywhere; a keyframe path keeps its own linear
+ramp, because a saved path must fly the frames it flew when it was saved.
+
 Truth (``ogp-lush-cinematic`` §1): a tour moves the camera and the clock and nothing
 else. The sun, the plants and the weather are whatever the plan says at that moment.
 """
@@ -28,12 +34,13 @@ from typing import Final, Protocol
 import numpy as np
 from numpy.typing import NDArray
 
-from .scene3d.camera import CameraPose
+from .scene3d.camera import MAX_PITCH_DEG, MIN_PITCH_DEG, CameraPose
 
 __all__ = ["DATE_STEPS_PER_S", "DEFAULT_FPS", "EYE_SAMPLES_PER_S", "FRAME_RATES", "MAX_DURATION_S",
-           "MIN_DURATION_S", "MIN_EYE_CM", "WIND_START_S",
+           "MIN_DURATION_S", "MIN_EYE_CM", "ORBIT_EASE_SHARE", "WIND_START_S",
            "CameraKey", "CameraMotion", "CameraPath", "DroneOrbit", "HeldCamera", "TourFrame",
-           "TourSpec", "distinct_keys", "frame_count", "path_eyes", "tour_frames"]
+           "TourSpec", "clamp_orbit_pitch", "distinct_keys", "frame_count", "orbit_pitch_range",
+           "path_eyes", "tour_frames"]
 
 Point3 = tuple[float, float, float]
 
@@ -63,10 +70,32 @@ DATE_STEPS_PER_S: Final = 8.0
 EYE_SAMPLES_PER_S: Final = 4.0
 _ALPHA: Final = 0.5
 _EASE_SHARE: Final = 0.15
+#: An eased orbit speeds up over this share of its time and slows down over as much (#807):
+#: the share a keyframe path eases over. At 30 s a turn that is 4.5 s at each end, and the
+#: cruise is 1 / (1 - share) = 1.18 times the even orbit's speed.
+ORBIT_EASE_SHARE: Final = 0.15
 
 
 def _finite(*values: float) -> bool:
     return all(math.isfinite(value) for value in values)
+
+
+def orbit_pitch_range(distance_cm: float) -> tuple[float, float]:
+    """How far an orbit at ``distance_cm`` may tilt down, in degrees: the view's own range
+    (``MIN_PITCH_DEG``..``MAX_PITCH_DEG``, never at or under the horizon), and never so low
+    that its eye comes closer than ``MIN_EYE_CM`` to the ground (#807). The target is on the
+    ground, so the eye's height is ``distance * sin(pitch)``."""
+    if not _finite(distance_cm) or distance_cm <= 0.0:
+        raise ValueError(f"an orbit's distance must be positive, got {distance_cm!r}")
+    ratio = MIN_EYE_CM / distance_cm
+    ground = math.degrees(math.asin(ratio)) if ratio < 1.0 else MAX_PITCH_DEG
+    return min(max(MIN_PITCH_DEG, ground), MAX_PITCH_DEG), MAX_PITCH_DEG
+
+
+def clamp_orbit_pitch(pitch_deg: float, distance_cm: float) -> float:
+    """``pitch_deg`` put back into ``orbit_pitch_range(distance_cm)``."""
+    low, high = orbit_pitch_range(distance_cm)
+    return min(max(float(pitch_deg), low), high)
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +145,23 @@ def _ease(u: float) -> float:
     if u > 1.0 - share:
         rest = 1.0 - u
         return 1.0 - 0.5 * peak * rest * rest / share
+    return peak * (u - share / 2.0)
+
+
+def _ease_smooth(u: float, share: float = ORBIT_EASE_SHARE) -> float:
+    """Constant speed with a soft start and stop whose speed follows a raised cosine over the
+    first and last ``share`` of the time: 0 at rest, the cruise at the joint, and the change
+    of speed 0 at both, so nothing kicks. It covers what the linear ramp covers, so the
+    cruise is ``1 / (1 - share)`` of the mean speed either way."""
+    peak = 1.0 / (1.0 - share)
+
+    def ramp(t: float) -> float:
+        return peak * (t / 2.0 - share / (2.0 * math.pi) * math.sin(math.pi * t / share))
+
+    if u < share:
+        return ramp(u)
+    if u > 1.0 - share:
+        return 1.0 - ramp(1.0 - u)
     return peak * (u - share / 2.0)
 
 
@@ -204,12 +250,16 @@ class CameraPath:
 class DroneOrbit:
     """Around a point on the ground at one distance and pitch. Starts at ``pose`` (so a
     tour starts where the user framed it) and turns ``turns`` times; the eye comes from
-    the orbit camera's own ``CameraPose.eye``, so yaw means what it means in the view."""
+    the orbit camera's own ``CameraPose.eye``, so yaw means what it means in the view.
+
+    ``ease``: start and stop at rest (module docstring). An eased orbit is not a loop, so
+    its last frame is its first view again, at rest; an even one with whole turns loops."""
 
     pose: CameraPose
     fov_deg: float = 40.0
     turns: float = 1.0
     clockwise: bool = True
+    ease: bool = False
 
     def __post_init__(self) -> None:
         if not _finite(self.turns) or self.turns == 0.0:
@@ -217,10 +267,12 @@ class DroneOrbit:
 
     @property
     def closed(self) -> bool:
-        return float(self.turns).is_integer()
+        return float(self.turns).is_integer() and not self.ease
 
     def at(self, u: float) -> CameraKey:
         share = min(max(float(u), 0.0), 1.0)
+        if self.ease:
+            share = _ease_smooth(share)
         sign = 1.0 if self.clockwise else -1.0
         pose = CameraPose(self.pose.target, self.pose.distance_cm,
                           self.pose.yaw_deg + sign * 360.0 * self.turns * share,

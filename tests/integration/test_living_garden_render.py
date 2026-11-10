@@ -155,6 +155,10 @@ def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
     assert rows["lights_night"]["lamps"] == 4 and rows["lights_night"]["lamp_lights"] == 4
     # snow lies white: the snowy December frame is the brightest of them
     assert rows["snow"]["mean_luma"] > rows["overcast"]["mean_luma"]
+    # #687: and on the built tops too - roofs, a bed's soil, decks, the trampoline's mat
+    # (ADR-070 decision 6 left them bare); whitened pixels against the same frame bare
+    tops = rows["snow"]["snow_tops"]
+    assert tops["share"] >= 0.02 and tops["luma"] >= tops["bare_luma"] + 40.0, tops
     # a cloudy evening is an evening (3D review of L5, round 3: an overcast sunset was 98 % as
     # bright as noon), and it fades into the night with no step at sunset — every weather
     # (partly cloudy since L7: between the clear evening and the overcast one)
@@ -175,3 +179,42 @@ def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
         # measured at medium: 0.761 / 0.781 / 0.674 (ADR-070's high-preset figures: 0.77 /
         # 0.79 / 0.68); 0.98 before the round-3 fix
         assert evening["luminance"] < 0.85, (weather, evening)
+    # #687: under a full cloud the sky is the light, and what an object hides of it grounds
+    # it: the box's lit-side foot at least twice the clear look's (measured at this size
+    # 0.144 / 0.146 / 0.121 against clear's 0.044; 0.060 / 0.059 / 0.053 before), and open
+    # flat ground does not occlude itself (far meadow 0.21 / 0.07 / 0.0; 1.0 / 0.93 / 2.0)
+    occlusion = metrics["living_occlusion"]["medium"]
+    clear_foot = occlusion["clear"]["contact"]["S"]["contact"]
+    for weather in ("overcast", "rain", "snow"):
+        row = occlusion[weather]
+        assert row["contact"]["S"]["contact"] >= 2.0 * clear_foot, (weather, row["contact"], clear_foot)
+        assert row["far_darkening"] is not None and row["far_darkening"] <= 0.75, (weather, row)
+        assert row["rim"] is not None and row["rim"] <= 3.0, (weather, row)
+
+
+def test_under_cloud_open_snow_has_no_rim_and_stays_with_low(tmp_path: Path) -> None:
+    """#687 and its comment, at the board's own frame (high, 1280 x 720, the family garden,
+    where the survey saw it): under snow the open ground is within 3 luma of the Low preset
+    (no occlusion) and no light rim above 3 runs above a silhouette — the clear values gave
+    -17 and 10.1, the meadow occluding itself everywhere but beside a nearer object; and an
+    overcast box's lit-side foot is at least the clear look's (the issue's gate, on the side
+    where occlusion alone darkens in both looks: the shadow side's is the cast shadow)."""
+    out = tmp_path / "board"
+    plan = REPO / "src" / "open_garden_planner" / "resources" / "examples" / "family-garden.ogp"
+    proc = _run([sys.executable, str(BOARD), "--plan", str(plan), "--out", str(out),
+                 "--size", "1280x720", "--shots", "none", "--living", "--presets", "high",
+                 "--watchdog-s", str(TIMEOUT_S - 60)], out)
+    metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    assert proc.returncode == 0 and metrics["status"] == "ok", (proc.returncode, metrics.get("error"))
+    occlusion = metrics["living_occlusion"]["high"]
+    snow = occlusion["snow"]
+    assert abs(snow["snow_minus_low"]) <= 3.0, snow            # measured -2.93 (was -17.0)
+    for weather in ("overcast", "rain", "snow"):
+        row = occlusion[weather]
+        assert row["rim"] is not None and row["rim"] <= 3.0, (weather, row)   # 1.92 / 1.21 / 2.07
+        assert row["far_darkening"] <= 3.0, (weather, row)                    # 2.64 / 1.93 / 2.79
+    clear, overcast = occlusion["clear"]["contact"], occlusion["overcast"]["contact"]
+    assert overcast["S"]["contact"] >= clear["S"]["contact"], (overcast, clear)   # 0.0395 / 0.0223
+    # the clear look keeps the spike's occlusion (#687 changes no clear frame): its rim is
+    # recorded, not judged (8.0 measured; a follow-up for the owner)
+    assert occlusion["clear"]["rim"] is not None

@@ -39,8 +39,8 @@ from .particles import MAX_BULBS, Emitter
 if TYPE_CHECKING:
     from .record import Record
 
-__all__ = ["LAMP_SLOTS", "LIGHT_KINDS", "MAX_BULBS", "LampSource", "lamp_sources",
-           "nearest_lamps"]
+__all__ = ["LAMP_FADE_CM", "LAMP_SLOTS", "LIGHT_KINDS", "MAX_BULBS", "LampSource", "lamp_sources",
+           "lit_lamps", "nearest_lamps"]
 
 #: The kinds whose bulbs light up at night.
 LIGHT_KINDS: Final = KINDS
@@ -112,3 +112,33 @@ def nearest_lamps(sources: Iterable[LampSource], target_scene: Iterable[float],
     tx, ty, tz = (float(v) for v in target_scene)
     ranked = sorted(sources, key=lambda s: (math.dist(s.light[:3], (tx, ty, tz)), s.item_id))
     return tuple(ranked[:max(0, slots)])
+
+
+#: A lamp joins or leaves the lit ones over this many cm of how much nearer it is than the
+#: nearest lamp left out (#687): when an orbit swapped the sixth and the seventh lamp, one
+#: pool went out and another came on in one frame. A pool is a few metres across.
+LAMP_FADE_CM: Final = 200.0
+
+
+def lit_lamps(sources: Iterable[LampSource], target_scene: Iterable[float],
+              slots: int = LAMP_SLOTS) -> tuple[tuple[float, float, float, float], ...]:
+    """What the scene's ``slots`` point lights hold for a camera looking at
+    ``target_scene``: ``nearest_lamps``, each ``(east, north, up, strength × weight)``.
+
+    The weight is ``smoothstep(0, LAMP_FADE_CM, d_out − d)`` with ``d_out`` the distance of
+    the nearest lamp LEFT OUT: where two lamps swap places at the edge of the set, both
+    are dark, so the light changes continuously with where the camera looks — no clock, so
+    the same camera gives the same light (a recorded tour repeats). With no lamp left out
+    every weight is 1."""
+    tx, ty, tz = (float(v) for v in target_scene)
+    ranked = sorted(sources, key=lambda s: (math.dist(s.light[:3], (tx, ty, tz)), s.item_id))
+    chosen = ranked[:max(0, slots)]
+    if len(ranked) <= len(chosen):
+        return tuple(source.light for source in chosen)
+    cut = math.dist(ranked[len(chosen)].light[:3], (tx, ty, tz))
+    out = []
+    for source in chosen:
+        east, north, up, strength = source.light
+        t = min(max((cut - math.dist((east, north, up), (tx, ty, tz))) / LAMP_FADE_CM, 0.0), 1.0)
+        out.append((east, north, up, strength * t * t * (3.0 - 2.0 * t)))
+    return tuple(out)

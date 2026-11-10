@@ -373,6 +373,26 @@ Symptom: in the app's default framing, a solid panel's shadow 20–40 m out step
 
 Symptom: the family garden's fence shadow at golden hour showed regular stair steps, identical with a 4096 map, a tighter cascade and a 32-bit map. Root cause: the L0 picket fence lowered its pickets by `index * 7919 % 13 / 13 * 4` cm — and `7919 mod 13 = 2`, so the tops climbed 0.6 cm a picket for seven pickets and dropped, repeating every 13; at 15° every centimetre is 3.7 cm of shadow. The same formula made every picket fence in every plan a clone. Fix: each picket's drop is a hash of the item's seed (`fences.unit_hash`, `picket_seed`), 0.5–1.5 cm (`PICKET_DROP_CM`). The test checks the autocorrelation of the tops at lags 1–20 (the ramp reads 1.0 at lag 13) — one frame's look cannot tell a ramp from noise.
 
+### PF-L3D-26
+
+- **Rule:** Under a weather whose sky is the light, ambient occlusion takes the weather's LIGHT share of a stronger, wider pass AND a bias of at least 0.3 of its reach (`weather.AO_STRENGTH_UNDER_CLOUD` 99/55, `AO_DISTANCE_UNDER_CLOUD` 70/14, `AO_BIAS_UNDER_CLOUD_CM` 21): Qt's pass reads a camera-facing normal, so flat ground seen at a slant occludes itself everywhere except beside a nearer object — a grey ground with a light rim round every silhouette. Never raise strength or reach without the bias; keep the bias a share of the reach at every picture size (`aoBias: root.aoBias * root.captureAoDistanceScale`). Clear keeps the spike's 55 / 14 / 0.
+- **Pinned by:** `tests/unit/test_scene3d_weather.py::test_under_cloud_the_occlusion_grows_with_the_light_share_and_clear_keeps_the_spikes`; `tests/unit/test_quick3d_qml.py::test_the_environments_constants_are_the_spikes`; `tests/integration/test_living_garden_render.py::test_under_cloud_open_snow_has_no_rim_and_stays_with_low`; `tests/integration/test_living_garden_render.py::test_the_living_board_renders_every_shot`
+- **Source:** #687 (items 1 and the snow comment); ADR-070 addendum (#687)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: under Snow on High, open snow read 160 against 180 on Low and a light band ran round the raised beds; under Overcast an object barely touched the ground. Measured with the board's `--living` occlusion probe (High, 1280 x 720, family garden): at the clear values every open surface under cloud occluded itself (snow lawn 25 levels darker than without AO, 17 under Low; the overcast lawn 15.6), and the meadow straight above a silhouette was 9.5-10 levels lighter than far from objects — the rim. The issue's proposal (strength 99, reach 35, no bias) made both worse (snow -49). A bias moves the samples towards the camera: at 0.16 of the reach the rim stayed 6-8, at 0.25 3.1 on snow, at 0.3 1.2-2.1 (overcast 1.92, rain 1.21, snow 2.07; far self-occlusion 1.9-2.8; snow lawn 2.93 under Low); at 0.5 the pass did nothing at all (an overcast box's lit-side foot 0.004 against the clear look's 0.022). At 0.3 the box's lit-side foot reads 0.040 (was 0.031). Not scaling the bias at a 4K capture put the picture 4.5 levels over 1080p (scaled: 1.25). Left as measured: the self-occlusion that is left lies in a ring of the far meadow whose distance moves with the picture's size (PF-E3D-28).
+
+### PF-L3D-27
+
+- **Rule:** Clamp every array bound a probe computes from a camera before slicing with it: a horizon row above the frame is NEGATIVE, and `mask[:row]` with a negative `row` takes every row but the last ones — the "sky" mask of a downward camera covered 82 % of the frame and the probe judged only its bottom sixth.
+- **Pinned by:** `tests/unit/test_board_probes.py::test_a_light_band_above_a_silhouette_is_a_rim_and_even_darkening_is_not`
+- **Source:** #687; debug-verbose case study 216
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the owner's survey saw a light rim round the beds on snow; two probes of the first #687 session reported none at any AO setting, and the session concluded the survey had misread the frame. `camera.horizon_row()` was -131 on the board's overcast and snow cameras; `obj[:horizon_row + 4] = True` marked rows 0-592 of 720 as sky. Fix: `occlusion_rim` takes sky rows only when the horizon row lies inside the frame. With the bound right the rim measured 9.5-10 levels (PF-L3D-26).
+
 ### PF-L3D-28
 
 - **Rule:** A recorded frame shows its own moment: whatever the live view lets lag behind a threshold (the sky texture and its light probe follow the sun by 1°) is rebuilt EXACTLY on the recording path, or a lapse whose per-frame step is under the threshold updates it on alternate frames and flickers at half the frame rate.

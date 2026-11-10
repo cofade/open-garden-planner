@@ -10584,7 +10584,7 @@ cost (nothing animates there), and one canonical path per behaviour.
    materials bind the same `groundRoughness` / `groundSpecular` / `groundTint` (and the tile
    shader `snowCover`), so the plan meets the meadow without a step in every weather (the L1.4
    plan-edge rule). Roofs and a bed's soil (principled `vc` parts) are not snow-covered — an
-   accepted limitation.
+   accepted limitation (amended by the #687 addendum below: built tops lie under snow).
 7. **Today's weather follows the app's forecast, only on today.** The Planting Calendar's
    weather widget already fetches Open-Meteo's daily forecast; `forecast_days_ready` fans its
    `(ISO date, WMO code)` days out to the workspace (no second fetch, nothing from the 3D view to
@@ -10933,6 +10933,109 @@ contract above, both in `core/string_lights.layout` and `builders.lights`:
 Pinned by `tests/unit/test_string_lights.py` (gap, filleted L at r 25/100, self-crossing
 clearance) and `test_scene3d_particles.py` (open/closed light, the one-layout call).
 
+**Addendum (#687, the L5 polish: occlusion under cloud, snow on built tops, leaves, lamp
+pools, the dew mist).** The five deferred P2 findings of the L5 review and the snow comment
+of the 3D survey. Measured on the board's `--living` shots (high, 1280 x 720, family garden)
+with its new `living_occlusion` phase, and through `Quick3DHost.capture` for #831. Truth is
+untouched: no sun, shadow, plant or date moves, and every clear frame is the same to the
+level (the board's clear shots and every Low frame: max difference 0).
+
+1. **Under cloud the ambient occlusion is the weather's.** Qt's pass reads a camera-facing
+   normal (`ogp-3d-renderer` reference 24): flat ground seen at a slant occludes itself
+   wherever no nearer object stands in its samples. At the clear values every open surface
+   under cloud was grey (snow's lawn 17 levels under Low — the survey's 160 against 180 —,
+   the overcast lawn 15.6 under its own frame without occlusion) and the meadow straight
+   above every silhouette was 9.5-10 levels LIGHTER than far away: the survey's light rim.
+   The issue's proposal (strength 99, reach 35, no bias) made both worse (snow -49). A weather
+   now takes its light share (`WeatherSpec.light`) of strength 55 → 99, reach 14 → 70 cm and
+   bias 0 → 21 cm (`AtmosphereSpec.ao_*`), and the bias follows the capture's AO scale. At 0.3
+   of the reach the bias ends the self-occlusion near and far (0.16: rim 6-8; 0.25: 3.1 on
+   snow; 0.5: no occlusion at all, a caster's lit-side foot 0.004). Result: rim 1.92 / 1.21 /
+   2.07 (overcast / rain / snow), far self-occlusion 2.64 / 1.93 / 2.79, snow's lawn 2.93
+   under Low, partly cloudy rim 4.92 (its 0.15 share); at 1080p 1.00 / 1.00 / 0.28, snow 0.58
+   over Low. The cloudy frames are brighter for it (1080p board luma: overcast 116.9 → 126.1,
+   rain 132.7 → 137.8, snow 154.2 → 174.9, the snow tops included). Clear, the dew and an Analyze drape
+   keep 55 / 14 / 0 — the clear look keeps its own 8-level rim (below).
+2. **The overcast contact gate compares the LIT sides — decided on the evidence.** The issue
+   asked for "contact darkness under overcast at least that of the clear look at 15°". On the
+   box caster's shadow side the clear look's 0.49 is its cast shadow; an occlusion that
+   matched it would be a dark ring on every side, a shadow the sun does not cast. On the lit
+   side occlusion alone darkens in both looks. So the gate: the lit-side foot under overcast
+   ≥ the clear look's (0.040 ≥ 0.022 at 720p; at the render tier's 360 px ≥ 2× clear: 0.144
+   against 0.044), with the rim ≤ 3 and the far self-occlusion ≤ 3 (720p) / 0.75 (360 px) for
+   overcast, rain and snow. Stated plainly: today's 0.031 already passed the literal lit-side
+   comparison, because the old "contact" was mostly the self-occluded ground round it; the
+   shadow side reads 0.044 (was 0.063) for the same reason. The geometry of a 1 x 1 x 2 m box
+   under a sky-lit day predicts 0.10-0.17 (sky view factor of its foot ring against the open
+   ground, display luma); Qt's pass cannot give more without the rim. Looked at, the overcast
+   box stands on darker ground at its foot and the ground round it is no longer grey. **At
+   1080p the gate FAILS by a hair**: Qt's foot shrinks with the picture in every look (clear
+   0.044 / 0.022 / 0.0096 at 360 px / 720p / 1080p), and the overcast foot reads 0.0065 against
+   clear's 0.0096 (today's values 0.0156) — about 0.4 levels, while the rim falls 11.71 → 1.00,
+   the open overcast ground's self-occlusion 15.63 → 0.21 and snow against Low -17.42 → +0.58.
+   An open question for the review: a foot that is invisible at 1080p in both looks, or a grey
+   ground with a rim.
+3. **Snow lies on built tops** (decision 6 amended). While snow lies (`AtmosphereSpec.built_snow`
+   = min(1, snow cover / 0.75): smooth tops lie white where the meadow's 0.75 still shows
+   grass — at 0.75 a terracotta roof read pink and the mat lilac), every `vc` part and roof
+   swaps to ONE material (`built_snow.vert/.frag`; no shader per part, ADR-060); snowless, every
+   frame is the principled look. Its albedo is the principled look's: the vertex colour through
+   its own vertex stage (read as `VAR_COLOR` a roof pixel came out 136 / 46 / 39 against the
+   principled 187 / 99 / 71; through `COLOR` 187 / 99 / 71), the tint and fill picture through
+   the engine's polynomial; snow mixes in by `built_snow × smoothstep(0.35, 0.75, NORMAL.y)`
+   with the snowy ground's roughness and specular. A building's floor (under its roof, shown
+   by Cutaway), glass (heated or not is not in the plan), water (frozen or not likewise) and an
+   X-ray door stay as they are. The board's snow shot whitens 2 % or more of the frame against
+   the same frame with bare tops (render gate).
+4. **A falling leaf is its crown's colour.** `ambient_emitters` gives each dropping tree eight
+   samples of the Forge's leaf colours for its own palette (outer, upper leaves) times the
+   season's tint (`foliage_tint_linear`, the crown's `seasonTint`), seeded by the item id;
+   `LEAF_PALETTE` is gone. A red maple drops red leaves (hue under 20°), every leaf within 10° of
+   its crown's mean hue (unit test), two trees of one species drop different samples. In the
+   frame a falling leaf reads 8-12° yellower than its crown (the board's autumn shot, the best
+   measured tree: 47.8° against 36.0°; the literal's amber read 39.6° there by chance): the
+   colour data are the crown's (39.7° against 39.1°), but a leaf particle is drawn in the
+   look's flat particle light while the crown's own leaves are shaded and occluded — a
+   follow-up for the particle light, not for the colours.
+5. **Lamp pools fade at the edge of the lit six, and a picture lights its own.** Each lit
+   lamp is weighted `smoothstep(0, 200 cm, d_out − d)` by how much nearer it is than the nearest
+   lamp left out (`lights.lit_lamps`): at a swap both are dark, so no pool switches in a frame;
+   no clock, so a recorded tour repeats; six lamps or fewer keep weight 1; a slot never turns
+   invisible, so no shader recompiles. Measured with a fixed night camera over ten lanterns and
+   the lamp target walking along them: the largest frame-to-frame step of a pool, 60 cm of
+   target travel a frame, 61.3 levels with the hard set and 49.0 faded; at 15 cm a frame (a
+   pan, a tour's path) 61.3 against 14.9 (p99 41.4 / 13.1) — the fade's step grows with the
+   travel per frame (up to 1.5 × 2 × travel / 200 cm of a pool), the hard set's does not. Found while designing it: a camera tour's frames were lit
+   by the six lamps of the PANE's target (`camera_moved` follows the view only). A tour's frame
+   and an agent's `render_3d_view` with a camera now light by their own target
+   (`WorkspaceCaptureCoordinator` → `WorkspaceLivingCoordinator.aim_lamps`; PF-E3D-29).
+6. **No dew mist.** Qt 6.12's height fog is a slab: on the morning-dew shot the ground at the
+   camera's feet +121.6 levels (fully fogged), the far rows +0.8, and density 1 / 0.3 and curve
+   1 / 4 drew the same frame. A sheet mist would be a new blended Model sorted against the
+   particles and the glass, and a post effect cannot join a chain that already holds the photo
+   blur with glow on (PF-E3D-21): left out, the morning dew stays "a nearer haze and a sheen".
+7. **Picture size (#831), measured, not fixed.** Pane-sized (640 x 360) against 1080p of the
+   same camera, overcast at medium (#831's setup): the mean gap +4.14 → +0.73, but the 40-row
+   bands now swing both ways (+13.4 / -11.7 at 360 px, +5.1 / -7.5 at 720p, +11.1 / -7.9 at 4K;
+   at the clear values +10.5 / 0, +3.9 / 0, +2.1 / -4.0): the self-occlusion the bias leaves
+   lies in a ring of far meadow whose distance moves with the picture (PF-E3D-28). Not scaling
+   the bias at 4K: +4.51 mean. A bias scaled by 1080/height below 1080p over-corrected. The
+   clear look (#831's own numbers +4.74 / +12.27) is unchanged.
+
+Taste calls left to the owner: full snow on built tops against the meadow's 0.75; partly
+cloudy's 4.9-level rim; whether the clear look should take the bias too (its 8-level rim
+would go, every clear frame would change, and its far meadow would brighten by up to 13
+levels). Rejected: the issue's 99 / 35 without a bias (above), a bias without the stronger
+pass (55 / 14 / 3: the contact went from 0.022 to 0.007), Qt's height fog (a slab). Tests:
+`test_scene3d_weather.py` (the occlusion and the built snow per weather), `test_quick3d_qml.py`
+(the bindings, the one snow shader, its warmer, the bias's capture scale),
+`test_scene3d_particles.py` (a leaf's crown colour, the lamp fade's continuity),
+`test_scene3d_living.py`, `test_directors_cut.py` (a tour's lamps), `test_board_probes.py`
+(the rim, open ground, a caster's foot), and the render tier
+`test_living_garden_render.py` (the 360 px occlusion bounds, the built snow, and
+`test_under_cloud_open_snow_has_no_rim_and_stays_with_low` at 720p). Lessons PF-L3D-26,
+PF-L3D-27, PF-E3D-28, PF-E3D-29; debug-verbose case study 216.
+
 
 
 ## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)
@@ -11123,7 +11226,8 @@ view on any steady path.
   data (follow-up: keep tours in the file as additive metadata).
 - A year's time-lapse still spends #531's 2 MB per regrowth; a 12 s video about 200 MB.
 - An MP4 carries no colour tag: the writer relies on the HD convention (decision 9), which the
-  owner's manual test confirms in real players. Qt offers no way to set the tag.
+  owner's manual test confirms in real players. Qt offers no way to set the tag. *(Superseded by
+  the addendum "review-grade video" (#807): the app writes the tags into the finished file.)*
 - **The blur is only roughly the same in the pane and in a saved photo.** Qt blurs a half-resolution copy
   with three taps, so the blur is about 2 px at any picture size: a 4K photo looks sharper than its
   preview (gradient ratio in the middle of the garden at blur 0.8: 0.66 in the pane, 0.91 in a 4K save
@@ -11225,7 +11329,8 @@ Two decisions #729 left open, and the measured cause of a look that differed by 
    reads an untagged HD stream as BT.709 reads what the frames are (decision 9). The
    assumption is now pinned: `test_the_stream_is_tagged_bt709_and_every_offered_size_is_hd`.
    A player that gets it wrong is a bug report with a named player, not a reason to invent
-   a second colour path.
+   a second colour path. *(#807: the frames are unchanged, and the finished file now states
+   them in its `colr` box and every SPS - addendum "review-grade video".)*
 3. **A bigger picture keeps 1080p's look by scaling the occlusion, not the glow.** #733
    read a 4K picture's horizon band as about 9 levels darker than 1080p and suspected Qt's
    pixel-sized glow. Measured on the family garden at the sunset anchor, the glow is not the
@@ -11464,6 +11569,141 @@ failed on Qt's blur at 0.394 apart; the slider; blur 0; the bench; `ultra_blur` 
 reflections stand down under the blur and come back without it), `tests/unit/test_scene3d_photo.py`
 (the sigma share and the band floors), and `tests/unit/test_quick3d_qml.py` (the effect's wiring,
 the shared shader code, the silhouette weight, the shader paths).
+
+### ADR-072 addendum: review-grade video, and an orbit's ease and tilt (#807)
+
+**Status**: proposed in the visual-polish package; not yet accepted by the owner. Decisions 5, 6
+and 7 are the owner's to confirm (each is one constant).
+
+**Context**: the 3D promo survey found the MP4 review-grade only: H.264 Constrained Baseline at
+0.2 bit/px (12 Mbit/s at 1080p30), no colour tags, and an orbit that starts and stops at full
+speed, tilted 31.6 degrees, one degree a frame. The owner will record a promo video with the
+Camera Tour, so the file must be good enough to publish as it is. Measured on 1080p30 PNG
+frames rendered on Ultra (RTX 4070, 2026-11-10): a foliage-heavy held shot (food forest, wind,
+180 frames) and a slow orbit (family garden, 0.5 degrees a frame, 180 frames), each encoded
+through the app's own writer and read back through Qt's decoder against the very YUV the writer
+fed the encoder. Detail is the mean gradient decoded/source over 32 px tiles whose source
+gradient is 8 levels or more (leaves, mulch, pickets); colour is the 32 px tile means through the
+BT.709 oracle (the 4:2:0 round trip alone reads 0.70-0.73 at worst) and the frame mean.
+
+| | before (0.2 bit/px) | 0.35 bit/px (the issue) | Standard | Best |
+|---|---|---|---|---|
+| orbit: Mbit/s (MB per minute) | 12.0 (90) | 19.4 (146) | 26.5 (199) | 35.7 (268) |
+| orbit: Y-PSNR mean / worst frame | 42.6 / 41.8 dB | 45.3 / 42.0 | 47.5 / 47.1 | 49.5 / 49.2 |
+| orbit: detail kept, mean / worst frame | 0.966 / 0.941 | 0.978 / 0.941 | 0.983 / 0.969 | 0.986 / 0.978 |
+| orbit: colour, frame mean / worst tile | 0.59 / 3.35 levels | | 0.35 / 1.80 | 0.63 / 2.06 |
+| foliage: Mbit/s (MB per minute) | 10.0 (75) | 10.6 (79) | 7.9 (59) | 11.4 (86) |
+| foliage: Y-PSNR mean / worst frame | 46.7 / 40.4 dB | 47.2 / 40.4 | 46.0 / 45.8 | 48.2 / 48.1 |
+| foliage: detail kept, mean / worst frame | 0.988 / 0.957 | 0.989 / 0.957 | 0.986 / 0.977 | 0.992 / 0.985 |
+| foliage: colour, frame mean / worst tile | 0.27 / 2.57 levels | | 0.06 / 1.51 | 0.27 / 1.71 |
+| profile / level | Constrained Baseline 4.0 | 4.0 | 4.0 (4.1 when it needs it) | 4.1 |
+| colour tags, as Qt reads them | none (`ColorSpace_Undefined`) | none | BT.709, limited | BT.709, limited |
+| timing | 180 of 180 frames at 33.333 ms everywhere | | | |
+
+The new default orbit (decisions 5 to 7) recorded end to end at 1080p30, Best: 30 s, 900 of 900
+frames at 33.333 ms, 24.8 Mbit/s (186 MB per minute), 50.5 / 49.9 dB, detail 0.986 / 0.972,
+colour 0.51 frame mean, level 4.1, BT.709 limited.
+
+**4K, once, end to end** (the slow orbit at 3840 x 2160, Ultra, one run writing the MP4 at Best
+and a PNG of every frame, nothing else of the slice running): 180 of 180 frames in 61.9 s, every
+one 33.333 ms; the process's peak working set 3.3 GB and peak commit 7.1 GB (the PNG writers'
+queue included), the GPU from 0.76 to 3.65 GB; no out-of-memory error (#809 records one on a
+machine short of commit). The same frames, before / Standard / Best: 44.6 / 76.7 / 109.9 Mbit/s
+(335 / 575 / 824 MB per minute), 45.1 / 43.0, 48.1 / 47.7 and 50.0 / 49.7 dB (mean / worst frame),
+detail 0.973 / 0.938, 0.984 / 0.967 and 0.987 / 0.978, colour 0.59, 0.34 and 0.66 levels (frame
+mean); level 5.1, BT.709 limited.
+
+**Decision**:
+
+1. **Constant quality, not a bit rate.** Qt's `AverageBitRateEncoding` reaches Windows' encoder
+   (`h264_mf`) as CBR (the average and the CBR modes wrote byte-identical files): the first 18
+   frames of every video read 40.4 to 42.0 dB at any rate from 0.2 to 1.0 bit/px, and above 0.7
+   bit/px it spent no more (31.0, then 32.1 Mbit/s). `Mp4Writer` asks for
+   `ConstantQualityEncoding`; the dialog's **Video quality** offers **Standard** (Qt's
+   `HighQuality`, Media Foundation's quality 90) and **Best, for Publishing** (`VeryHighQuality`,
+   100). A choice beats one fixed setting here: Best costs 1.35 to 1.45 times the size for about
+   2 dB. Standard is the default. The quality is not part of a saved tour: like the look, it is the
+   render's (addendum #737, decision 2), and it lives as long as the dialog. `BITS_PER_PIXEL` is gone.
+2. **The profile is what Windows writes: Constrained Baseline.** `QMediaRecorder` has no profile
+   setting, Qt 6.12 hands `h264_mf` only `rate_control` and `quality` (the strings in
+   `ffmpegmediaplugin.dll`), and FFmpeg's Media Foundation encoder takes an unset profile as
+   Baseline. High (CABAC, 8x8 transforms, B-frames) would need a Qt change, FFmpeg called around Qt,
+   or an encoder of our own: a new dependency, which #807 rules out. The constant quality pays for
+   the profile in bits. The writer logs the profile and level every file got.
+3. **The file states its colour.** Qt's recorder writes no colour description, and Qt's own
+   decoder read the file as `ColorSpace_Undefined`. `core/mp4_stream.py` (Qt-free) rewrites the
+   finished part once, on a worker thread, before it gets the user's name: a `colr` box (`nclx`
+   1/1/1, `full_range_flag` 0) in the sample entry, and the same values as `video_signal_type` in
+   every SPS (Media Foundation repeats the SPS at each IDR frame, once a second; a tag in `avcC`
+   alone would be overruled in the stream). Every other bit stays. The range is limited because the
+   frames are (decision 9). Checked without new tools: Qt's player prints FFmpeg's stream line,
+   `yuv420p(progressive)` before and `yuv420p(tv, bt709, progressive)` after; its frames report
+   BT.709 / BT.709 / video range; the decoded planes were identical, 180 of 180. A file the module
+   cannot rewrite (an MP4 layout other than FFmpeg's, a full disk) is saved untagged and the log
+   says so: the tags are a statement about a render, never a reason to lose it.
+4. **The file states the level its frames need.** Asked for constant quality, Media Foundation is
+   given no bit rate and labels a 1080p30 stream level 4.0 at any rate (36 Mbit/s as 4.0, whose
+   Baseline limit is 24). The same rewrite raises the level, never lowers it, to the lowest one
+   whose frame size, macroblock rate and coded picture buffer the samples fit (H.264 Table A-1,
+   the buffer as Annex C's leaky bucket, full at the start): Best's orbit says 4.1.
+5. **A new orbit eases in and out; a looping one does not** (owner's to confirm). `DroneOrbit.ease`
+   follows a raised cosine over the first and last `ORBIT_EASE_SHARE` (0.15) of the time, the share
+   a keyframe path eases over: the speed rises from 0 with no kick and joins the cruise with no kick,
+   and the cruise is 1.18 times the even speed. An eased orbit is not a loop: it ends at rest on its
+   first view. The dialog's **Start and stop smoothly** is on for a new orbit and off for a loop.
+   It is a stored, additive, defaulted field of a saved orbit (`"ease": true`, written only when
+   set): an orbit saved before it has no field, loads as the even loop, flies the frames it flew
+   (pinned frame by frame on the pre-#807 entry), and is written back unchanged. A keyframe path
+   keeps its linear ramp: changing it would move every saved path's frames.
+6. **The orbit has a tilt control, 18 degrees for a new orbit** (owner's to confirm). The view's
+   31.6 degrees shows no sky at all (the survey's 0.7-2.8 % were blue pixels below the horizon:
+   the pond, the trampoline, the haze); at 18 degrees the sky is 5.4 % of the picture (measured 5.37,
+   analytic 5.36 at 40 degrees' field of view), the horizon sits in the top fifth and every bed
+   still shows at every turn of the family garden; at 12 degrees the house hides the garden from
+   behind. The range is the view's own, 5 to 89 degrees, and never so low that the eye comes closer
+   than `MIN_EYE_CM` (20 cm) to the ground (`orbit_pitch_range`: at a 1 m orbit the floor is 11.5
+   degrees). The tilt is one value: the control shows it, a saved tour brings its own exactly (not
+   the control's rounding), and **Use Current View**, now always on the orbit page, puts the view's
+   own tilt into it so the first frame is the view. The orbit's place and distance still come from
+   the view (or the saved tour).
+7. **A new orbit takes 30 s a turn** (owner's to confirm). At 12 s a turn the horizon a lower tilt
+   brings into view moves 26 px a frame across a 1080p picture; at 30 s 10 px (12 px at the eased
+   cruise). The duration follows the camera until the user sets one: 30 s a turn for an orbit that
+   leaves the clock alone, 12 s for everything else, because a year's regrowths cost a second and
+   2 MB each, eight per second of video (#531). A file that names no duration still gets 12 s.
+8. **A moving camera keeps the view's locked shadow map** (decision 5 of this ADR, #734). An eased
+   orbit's slow ends crawl less, not more: the board's `--stairs` orbit, locked, High, 1080p, the
+   shadow's edge 0-10 / 10-20 m out: 0.079 / 0.094 px a frame at 0.5 degrees a frame (the reference),
+   0.071 / 0.064 at 0.05, 0.043 / 0.036 at 0.01.
+
+The second proposal of the issue, a PNG sequence for an external master-quality encode, has been
+there since L6.2: **Save PNG Sequence...** writes every frame losslessly (`frame_000001.png`, ...).
+
+**Alternatives rejected**: a higher bit rate in the average mode (the first second stays starved,
+and the encoder stops spending near 32 Mbit/s); one fixed quality (Best everywhere costs 1.4 times
+Standard's size for files that are not published); High profile through `ctypes` into the wheel's
+`avcodec` (version-specific structure layouts, a second encoder path to keep in step with Qt's);
+an `ffmpeg.exe` or `imageio-ffmpeg` (rejected again, ADR-072); tagging only the `colr` box (a decoder
+that reads only the bit stream would still guess); tagging only `avcC` (the in-band SPS at every IDR
+frame overrules it); easing every orbit (a looped video would stop at its seam); easing paths with
+the new curve (saved paths would fly other frames); a tilt saved apart from the orbit's pose (two
+truths for one number); a 30 s default for every tour (a year's time-lapse would cost 2.5 times the
+regrowths and #531's memory).
+
+**Consequences**: no `FILE_VERSION` change: one additive field inside a saved orbit, which an
+older build ignores (and drops when it saves the tour again, like any field it does not know).
+A finished video costs one extra copy of the file on disk while it is tagged (about 1 GB a minute
+at 4K Best, see below), and the delivery waits for it. 12 new UI strings. The consequences above
+that say "an MP4 carries no colour tag" (this ADR) and "the MP4 keeps relying on the HD
+convention" (addendum #733, decision 2) are superseded: the frames are still HD and BT.709, and the
+file now says so. Pinned by `tests/unit/test_mp4_stream.py` (every SPS variant, the box rewrite,
+the level, the refusals), `tests/unit/test_camera_path.py` (the even orbit's old frames, the eased
+one's rest and smoothness, the tilt range), `tests/unit/test_camera_tours.py` (the pre-#807 orbit,
+the new field, the default duration), `tests/integration/test_video_writer.py` (constant quality, the
+tags read back by Qt, the untagged fallback, the kept render), `tests/integration/test_directors_cut.py`
+(the dialog's defaults, the tilt clamp, Use Current View, Save Video end to end) and
+`tests/integration/test_tour_persistence.py` (the older orbit through the dialog, an eased tilted
+orbit kept and flown again); the render tier's tour scenario probes its MP4.
 
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 
