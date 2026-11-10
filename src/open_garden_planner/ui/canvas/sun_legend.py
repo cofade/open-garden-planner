@@ -46,6 +46,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
 
 from open_garden_planner.core.heatmap_render import SunLegend
+from open_garden_planner.core.i18n import format_short_date
 from open_garden_planner.ui.canvas.items.halo_text import (
     HaloTextItem,
     halo_colors,
@@ -76,11 +77,14 @@ class SunLegendKey:
 
 def legend_title(day: date | None) -> str:
     """The key's title in the application's language: what the bar measures
-    and, when known, the day."""
+    and, when known, the day — written as every legend, label and card writes
+    a date (``core.i18n.format_short_date``: "21 Jun 2026", "21. Juni 2026"),
+    on the canvas and in a picture of the plan alike. ISO is for a date field,
+    a file and the Agent API, not for a text a person reads."""
     if day is None:
         return QCoreApplication.translate("SunMapLegend", "Hours of sun")
     return QCoreApplication.translate("SunMapLegend", "Hours of sun · {date}").format(
-        date=day.isoformat()
+        date=format_short_date(day)
     )
 
 

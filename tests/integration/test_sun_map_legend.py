@@ -115,7 +115,7 @@ def test_the_key_names_the_day_and_the_hours_in_the_applications_language(mapped
     key = view.sun_legend()
     assert key is not None and key == controller.legend_key()
     assert key.day == SUMMER
-    assert legend_title(key.day) == "Hours of sun · 2026-06-21"
+    assert legend_title(key.day) == "Hours of sun · 21 Jun 2026"   # UI text, not ISO
     assert hour_text(4) == controller.tr("{n} h").format(n=4) == "4 h"
     # the day's daylight in Berlin on 21 June: sixteen and three quarter hours
     assert [tick.hour for tick in key.legend.ticks] == list(range(17))
