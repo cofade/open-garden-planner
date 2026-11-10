@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFocusEvent, QIcon
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
@@ -176,8 +176,17 @@ class ColorButton(QPushButton):
         self._color = color
         self.setFixedWidth(FIELD_WIDTH)
         self.setFixedHeight(30)
+        # Without this the app stylesheet's button minimum (110 px) replaces
+        # the fixed width's own, and the swatch is 10 px narrower than every
+        # other field of the column (PF-UI-38). A stylesheet minimum still
+        # replaces the code's, so the fixed width is only the maximum from
+        # here on: the size hint says the rest.
+        set_compact(self)
         self._update_style()
         self.clicked.connect(self._pick_color)
+
+    def sizeHint(self) -> QSize:
+        return QSize(FIELD_WIDTH, 30)
 
     @property
     def color(self) -> QColor:

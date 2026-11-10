@@ -171,7 +171,7 @@ painted literal that may stay, with its reason.
 ### PF-UI-38
 
 - **Rule:** A stylesheet's box rules beat the sizes code sets: a `QPushButton` in a row, a header or a table opts out of the 80 px dialog minimum with `theme.set_compact()`, and a list row that is a widget is sized with `theme.list_row_size_hint()`, which adds the item padding back.
-- **Pinned by:** `tests/integration/test_chrome_layout.py::test_a_compact_button_keeps_the_size_its_code_asks_for`; `tests/integration/test_chrome_layout.py::test_find_plants_rows_keep_their_descenders`; `tests/integration/test_chrome_layout.py::test_the_selection_panels_fit_the_sidebar`
+- **Pinned by:** `tests/integration/test_chrome_layout.py::test_a_compact_button_keeps_the_size_its_code_asks_for`; `tests/integration/test_chrome_layout.py::test_find_plants_rows_keep_their_descenders`; `tests/integration/test_chrome_layout.py::test_the_selection_panels_fit_the_sidebar`; `tests/integration/test_chrome_layout.py::test_the_colour_swatch_is_as_wide_as_the_fields_beside_it`
 - **Source:** #796
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -185,7 +185,11 @@ row AND every field above it; the Tasks tab's arrow was 110 px wide; and every `
 on an Edit or Delete button was dead code. Removing the minimum globally was rejected: those dead
 fixed widths would start to apply and cut their texts. `set_compact(button)` sets a `compact`
 property the stylesheet answers with `min-width: 0`; a compact button with a translated text gets
-NO fixed width.
+NO fixed width. A stylesheet minimum still replaces the code's (it is now the padding alone), so a
+compact button's fixed width is its MAXIMUM and the layout gives it its size hint: an icon button
+is a pixel or two under its fixed size, and a button that must be exactly N px wide also answers
+`sizeHint()` with N. The Properties panel's colour swatch was 110 px in a column of 120 px fields
+that way, and the test that pins the column passed only in a process no earlier test had themed.
 
 The same box model squeezes a list row that is a widget: the view gives an item widget the row's
 rectangle minus `QListWidget::item`'s padding, so a row sized to `widget.sizeHint()` was 10 px too

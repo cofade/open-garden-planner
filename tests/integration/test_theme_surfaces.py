@@ -240,6 +240,54 @@ def test_seed_viability_colours_are_the_themes(themed, mode, windows_dark, statu
     assert ratio >= TEXT_CONTRAST
 
 
+# ── Text that asked the palette ──────────────────────────────────────────────
+
+@pytest.mark.parametrize(("mode", "windows_dark"), _COMBINATIONS)
+def test_plant_detail_links_are_readable(themed, qtbot, mode, windows_dark) -> None:
+    """Wikipedia · PFAF · POWO were salmon on cream (1.98:1): a rich-text link
+    takes ``QPalette.Link``, which was Windows' and is the theme's now."""
+    from open_garden_planner.ui.panels.plant_database_panel import PlantDatabasePanel
+
+    themed(mode, windows_dark)
+    panel = PlantDatabasePanel()
+    panel._profile_links.setText(
+        "<a href='https://en.wikipedia.org/wiki/Magnolia'>Wikipedia</a> · "
+        "<a href='https://pfaf.org'>PFAF</a>")
+    _host(qtbot, panel, width=450, height=700)
+    links = panel._profile_links
+    # The profile block is hidden until a plant is selected: show it and
+    # whatever holds it, as a selection does.
+    widget: QWidget | None = links
+    while widget is not None and widget is not panel:
+        widget.setVisible(True)
+        widget = widget.parentWidget()
+    qtbot.wait(50)
+    assert links.isVisible()
+    ratio = text_contrast(links)
+    _report("Plant Details: links", mode, windows_dark, ratio)
+    assert ratio >= TEXT_CONTRAST
+
+
+@pytest.mark.parametrize(("mode", "windows_dark"), _COMBINATIONS)
+def test_the_calibration_prompt_is_readable(themed, qtbot, mode, windows_dark) -> None:
+    """It was ``palette(highlight)``; the theme's selection colour is no text colour."""
+    from PyQt6.QtGui import QPixmap
+
+    from open_garden_planner.ui.dialogs.calibration_dialog import CalibrationDialog
+
+    themed(mode, windows_dark)
+    picture = QPixmap(200, 120)
+    picture.fill(QColor("#808080"))
+    dialog = CalibrationDialog(picture)
+    dialog.setModal(False)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    qtbot.waitExposed(dialog)
+    ratio = text_contrast(dialog._status_label)
+    _report("Calibration dialog: prompt", mode, windows_dark, ratio)
+    assert ratio >= TEXT_CONTRAST
+
+
 # ── End to end: the real main window ─────────────────────────────────────────
 
 def _indicator_rect(box: QCheckBox) -> QRect:

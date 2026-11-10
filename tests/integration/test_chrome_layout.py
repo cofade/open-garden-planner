@@ -118,6 +118,27 @@ def test_a_compact_button_keeps_the_size_its_code_asks_for(qtbot) -> None:
     assert text.sizeHint().width() < 80  # a row button is as wide as its text
 
 
+def test_the_colour_swatch_is_as_wide_as_the_fields_beside_it(qtbot, qapp) -> None:
+    """With the app stylesheet the swatch was 110 px in a column of 120 px
+    fields — and the test that pins the column passed only in a process no
+    earlier test had themed."""
+    from open_garden_planner.core.commands import CommandManager
+    from open_garden_planner.ui.panels.properties_panel import (
+        FIELD_WIDTH,
+        ColorButton,
+        PropertiesPanel,
+    )
+
+    item = RectangleItem(0, 0, 400, 250, object_type=ObjectType.RAISED_BED)
+    panel = PropertiesPanel(CommandManager())
+    panel.set_selected_items([item])
+    _host(qtbot, panel, width=450, height=900)
+    qtbot.wait(80)
+    swatches = panel.findChildren(ColorButton)
+    assert swatches
+    assert {swatch.width() for swatch in swatches} == {FIELD_WIDTH}
+
+
 # ── Calendar: "Today's Tasks" ────────────────────────────────────────────────
 
 def _dashboard_tasks(count: int, frost_every: int = 0) -> list[calendar._DashboardTask]:
