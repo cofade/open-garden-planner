@@ -38,7 +38,11 @@ if TYPE_CHECKING:
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
-from open_garden_planner.ui.canvas.items.halo_text import LABEL_LAYOUT_CHANGES, note_label_changed
+from open_garden_planner.ui.canvas.items.halo_text import (
+    LABEL_LAYOUT_CHANGES,
+    label_text,
+    note_label_changed,
+)
 from open_garden_planner.ui.canvas.layout_font import device_independent
 
 
@@ -178,10 +182,14 @@ class SuccessionBadgeItem(QGraphicsItem):
         note_label_changed(self)
 
     def set_lines(self, lines: list[tuple[str, bool]]) -> None:
+        """Set the crops the tag names, each as a label shows a name
+        (``label_text``): a crop's name comes from the plan's species data, and
+        the tag measures and draws every row by hand at every paint."""
+        lines = [(label_text(name), current) for name, current in lines]
         if lines == self._lines:
             return
         self.prepareGeometryChange()
-        self._lines = list(lines)
+        self._lines = lines
         self._recompute_size()
         self.update()
         note_label_changed(self)

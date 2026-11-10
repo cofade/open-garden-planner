@@ -880,6 +880,24 @@ what it draws over its viewport with `CanvasScene.set_label_blockers(viewport,
 rects)`. The sun map's key is both (§8.9.18). Blockers are placed before every
 label and are never painted by the pass.
 
+**A label shows a bounded text.** An object's name comes from a plan file, which
+is untrusted input (§8.11), and a label lays its text out and strokes every
+glyph's outline. `PlanLabelItem` therefore shows `halo_text.label_text` of what
+it is given, at both places it gets a text (its constructor and `setText`):
+`core.plain_text.clip_line` — one line, `NAME_MAX_CHARS` (80) characters, an
+ellipsis where something was cut, control characters replaced. That is the name
+as the 3D info card and the problems list show it, so a name that was pasted
+with a line break in it reads the same on the plan as in the panels. The name
+itself is untouched (`item.name`, the file, the name editor). The succession
+badge clips each crop name the same way (`SuccessionBadgeItem.set_lines`): it
+measures and draws its rows by hand at every paint. Measured with a real font,
+a raised bed whose name is a million characters: the first paint of the canvas
+46.9 s → 20 ms; with a million and a half, an access violation in Qt's stroker →
+21 ms. A text note or a callout is not a label: its text is the user's own and
+may be long, Qt lays its document out once and the item's device cache paints
+it (a note of a million characters: 0.2 s to make, 1 ms a repaint, 126 ms a
+repaint while it is selected and uncached).
+
 **A label takes no click.** `PlanLabelItem.shape()` and
 `SuccessionBadgeItem.shape()` are empty. Whether a label is painted is the pass's
 decision, per paint and per view; the item knows nothing of it. With its rectangle
@@ -899,7 +917,8 @@ top of that and change nothing: the letter gaps of a rendered note are the same 
 
 Pin: `tests/integration/test_canvas_legibility.py`, `tests/unit/test_legibility.py`,
 `tests/unit/test_label_layout.py`, `tests/integration/test_plan_label_hits.py`,
-`tests/integration/test_label_layout_cache.py`. PF-CAN-60.
+`tests/integration/test_label_layout_cache.py`,
+`tests/integration/test_plan_label_text_bound.py`. PF-CAN-52, PF-CAN-60.
 
 ### 8.9.16 Diagnostic decorations stay out of a picture of the plan (#786)
 
@@ -3043,7 +3062,14 @@ The rule, and the one helper (`core/plain_text.py`, standard library only):
    `core/scene3d/sync.py`, the `record_failed` and refusal records in `ui/view3d/snapshot.py`
    — still attach the exception at ERROR or write its message as it came: that story's
    records, pinned by its tests, and an open item.
-4. **Do not write invisible characters into source.** An editing tool turned three `\u`
+4. **What is PAINTED from plan text is capped too.** The rule was written for tooltips, labels
+   and log lines, and the canvas was not on the list: an object's name went into its label on
+   the plan as it came, and the label strokes every glyph's outline. A name of a million
+   characters froze the canvas for 47 s at its first paint; one of a million and a half crashed
+   Qt's stroker. `ui/canvas/items/halo_text.label_text` is `clip_line`, applied where a plan
+   label and a succession badge get their text (§8.9.15, PF-CAN-52). A consumer that does work
+   for every character of a plan string is a consumer of this rule, whatever it does with it.
+5. **Do not write invisible characters into source.** An editing tool turned three `\u`
    escapes into the characters themselves, in the very module that defines the separators.
    Named escapes (`\N{LINE SEPARATOR}`), and `tests/unit/test_plain_text.py` scans `src/` and
    `tests/` for characters a reader cannot see.
@@ -3051,8 +3077,9 @@ The rule, and the one helper (`core/plain_text.py`, standard library only):
 Pinned by `tests/unit/test_plain_text.py` (each separator in turn yields the same capped result;
 the positive control — the old splitter — fails),
 `tests/integration/test_view3d_workspace_widget.py::test_a_hostile_name_is_shown_as_its_characters_everywhere`
-(checked against Qt's own renderer, with the unescaped string as the control) and
-`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`.
+(checked against Qt's own renderer, with the unescaped string as the control),
+`tests/integration/test_view3d_sync_controller.py::test_an_engine_error_that_quotes_the_plan_is_one_log_line_per_event`
+and `tests/integration/test_plan_label_text_bound.py` (the canvas's labels, with the suite's real font).
 
 **Agent API exposure (US-D1.1, §8.19):** the embedded MCP server is a network listener. It is **on by default but read-only** and **bound to `127.0.0.1` only** (never `0.0.0.0`/LAN — so Bandit's B104 does not apply); a Preferences toggle disables it. Default-on is acceptable while read-only (a garden layout isn't sensitive) and removes the discovery friction for AI clients. Reads have no auth (loopback trust). **Writes (US-D2.0 through D2.6, including `undo`/`redo`) are token-gated**: the scene-mutating tools ship only when the user enables editing (off by default) AND require the token — presented in the connect URL as a `?token=` query param (the reliable route; some clients don't transmit auth headers on tool calls) or as an `Authorization: Bearer <token>` header — checked with constant-time comparison. A default-on, unauthenticated *mutate* surface reachable by any local process is exactly what this prevents (ADR-036, §8.19); delivering the token in the URL keeps that protection (a caller still needs the secret) at the cost of a URL-borne secret — mitigated by disabling the uvicorn access log and stripping the `token` param from the request scope right after extraction, so the residual exposure is the client's own config. The gate is per-tool so read-only clients are unaffected. The pre-bind port check uses a plain `socket.bind` and is not a high-severity finding.
 

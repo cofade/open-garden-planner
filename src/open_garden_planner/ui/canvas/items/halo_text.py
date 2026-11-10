@@ -45,6 +45,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.legibility import halo_for, legible_ink
+from open_garden_planner.core.plain_text import clip_line
 
 #: Width of the stroke under the glyphs as a share of the font's ascent; half of
 #: it shows around each glyph. A share, not a pixel count: an export gives the
@@ -81,6 +82,15 @@ LABEL_LAYOUT_CHANGES = frozenset({
     QGraphicsItem.GraphicsItemChange.ItemSceneHasChanged,
     QGraphicsItem.GraphicsItemChange.ItemParentHasChanged,
 })
+
+
+def label_text(text: str | None) -> str:
+    """What a label on the plan shows of ``text``: one line of at most
+    ``core.plain_text.NAME_MAX_CHARS`` characters, with an ellipsis where
+    something was cut (``clip_line``) — a name as the 3D info card and the
+    problems list show it. It reads a prefix of ``text`` whose length depends
+    on the cap alone, so a name of any length costs what the cap costs."""
+    return clip_line(text or "")
 
 
 def halo_colors(requested: QColor) -> tuple[QColor, QColor]:
@@ -381,13 +391,20 @@ class PlanLabelItem(HaloTextItem):
     selection (a third of an 853-plant plan at fit). A label is writing on the
     plan, not a body; what lies under it takes the click, the double click, the
     context menu and the tooltip.
+
+    **Its text is bounded** (``label_text``). A name comes from a plan file,
+    which is untrusted input (§8.11), and a label lays its text out and strokes
+    every glyph's outline: a name of a million characters froze the canvas for
+    47 s at its first paint, and one of a million and a half crashed Qt's
+    stroker. Both ways a label gets its text go through the one rule that every
+    row and card showing a name uses.
     """
 
     #: The size on screen an ownerless label is placed as (pixels); see the class.
     free_extent_px: float = 0.0
 
     def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
-        super().__init__(text, parent, centered=True)
+        super().__init__(label_text(text), parent, centered=True)
         self.rank = rank
         note_label_changed(self)
 
@@ -399,7 +416,8 @@ class PlanLabelItem(HaloTextItem):
     # when it changed what that layout was taken from (``note_label_changed``).
 
     def setText(self, text: str | None) -> None:
-        super().setText(text)
+        """Set the text the label shows: ``label_text`` of ``text``."""
+        super().setText(label_text(text))
         note_label_changed(self)
 
     def setFont(self, font: QFont) -> None:
