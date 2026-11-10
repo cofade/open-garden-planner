@@ -625,7 +625,18 @@ TRANSLATIONS = {
         "tender": "sensible a las heladas",
     },
     "_GanttWidget": {
+        "Plant": "Planta",
         "Propagation": "Propagación",
+    },
+    "DateFormat": {
+        # A Qt date pattern (d = day, MMM = short month name).
+        "MMM d": "d MMM",
+    },
+    "SoilOverlayLegend": {
+        "Fair": "Regular",
+        "Good": "Bueno",
+        "No soil test": "Sin análisis de suelo",
+        "Poor": "Deficiente",
     },
     "_WeatherFetchWorker": {
         "Forecast unavailable": "Pronóstico no disponible",

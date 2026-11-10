@@ -3679,6 +3679,39 @@ for _ctx, _strings in _CAD_EDITING_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Application chrome: theme, locale and layout (#791, #792, #796) ──
+_CHROME_TRANSLATIONS: dict[str, dict[str, str]] = {
+    # The planting calendar's first column header.
+    "_GanttWidget": {
+        "Plant": "Pflanze",
+    },
+    # A Qt date pattern (d = day, MMM = short month name): a day without its
+    # year, in the language's own order ("Jun 21" / "21. Juni").
+    "DateFormat": {
+        "MMM d": "d. MMM",
+    },
+    # Tool names in the status bar.
+    "ConstructionLineTool": {
+        "Construction Line": "Hilfslinie",
+    },
+    "ConstructionCircleTool": {
+        "Construction Circle": "Hilfskreis",
+    },
+    "TrimExtendTool": {
+        "Trim/Extend": "Trimmen/Erweitern",
+    },
+    # The key to the soil-health overlay's tints.
+    "SoilOverlayLegend": {
+        "Good": "Gut",
+        "Fair": "Mittel",
+        "Poor": "Schlecht",
+        "No soil test": "Kein Bodentest",
+    },
+}
+for _ctx, _strings in _CHROME_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 def fill_translations() -> None:
     """Fill in German translations in the .ts file."""
     tree = ET.parse(TS_FILE)
