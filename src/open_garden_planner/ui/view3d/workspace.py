@@ -500,6 +500,9 @@ class Workspace(QWidget):
         # on the widget itself too: the shortcuts work whichever button row is shown
         self.addActions(self.mode_actions())
         self._floating = ModeSwitch(self.mode_actions(), self)
+        #: True once a host window has taken the switch into its own chrome
+        #: (``adopt_mode_switch``): it no longer floats over the canvas.
+        self._switch_adopted = False
         self._place_floating()
 
     # ── wiring ───────────────────────────────────────────────────────────────
@@ -709,10 +712,25 @@ class Workspace(QWidget):
         self._camera.frame(controller.plan_bounds(), self._aspect())
         self._start_camera()
 
+    def adopt_mode_switch(self) -> QWidget:
+        """Hand the Plan / 3D / Split row to the window that hosts the workspace.
+
+        On its own the switch floats over the canvas and covers the plan's
+        top-left corner (#796). A host with chrome of its own — the main window
+        puts it on the tab bar's row — takes it here and lays it out itself.
+        WHEN it shows stays the workspace's decision (Plan and Split, with the
+        rest of the chrome; in 3D the pane's strip has its own), so the caller
+        must not show or hide the widget — only a container around it.
+        """
+        self._switch_adopted = True
+        self._floating.setAutoFillBackground(False)
+        self._floating.setFrameShape(QFrame.Shape.NoFrame)
+        return self._floating
+
     def _place_floating(self) -> None:
         visible = self._chrome_visible and self._mode is not WorkspaceMode.VIEW3D
         self._floating.setVisible(visible)
-        if visible:
+        if visible and not self._switch_adopted:
             self._floating.move(_FLOAT_OFFSET, _FLOAT_OFFSET)
             self._floating.raise_()
 

@@ -371,11 +371,19 @@ def readable_on(color: QColor, surface: QColor, minimum: float = 3.0) -> QColor:
     A colour that already does is returned unchanged.
     """
     result = QColor(color)
-    lighten = contrast_ratio(QColor("#ffffff"), surface) > contrast_ratio(QColor("#000000"), surface)
-    for _ in range(12):
+    white, black = QColor("#ffffff"), QColor("#000000")
+    toward = white if contrast_ratio(white, surface) > contrast_ratio(black, surface) else black
+    # Mixed toward white (or black) in small steps, not HSV-lightened: a pure
+    # red only gets brighter that way and ends as a glaring #ff0000.
+    for step in range(1, 13):
         if contrast_ratio(result, surface) >= minimum:
             break
-        result = result.lighter(112) if lighten else result.darker(112)
+        share = step * 0.08
+        result = QColor(
+            round(color.red() + (toward.red() - color.red()) * share),
+            round(color.green() + (toward.green() - color.green()) * share),
+            round(color.blue() + (toward.blue() - color.blue()) * share),
+        )
     return result
 
 

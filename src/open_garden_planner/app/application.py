@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any, Literal, NoReturn
 from uuid import UUID
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
-from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
+from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence, QShowEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
     QMenu,
@@ -101,6 +102,8 @@ from open_garden_planner.ui.widgets import (
     TaskReminderBar,
     UpdateBar,
 )
+from open_garden_planner.ui.widgets.soil_overlay_legend import SoilOverlayLegend
+from open_garden_planner.ui.widgets.toolbar_rows import ToolbarRows
 
 if TYPE_CHECKING:
     import datetime
@@ -110,6 +113,12 @@ if TYPE_CHECKING:
     from open_garden_planner.services.update_checker import ReleaseInfo
 
 logger = logging.getLogger(__name__)
+
+#: The sidebar's default width in a window without a saved layout: a share of
+#: the window, between the widest panel row and the width it always had (#796).
+_SIDEBAR_DEFAULT_SHARE = 0.30
+_SIDEBAR_MIN_DEFAULT_WIDTH = 360
+_SIDEBAR_MAX_DEFAULT_WIDTH = 450
 
 
 
@@ -2009,6 +2018,10 @@ class GardenPlannerApp(QMainWindow):
 
         self.category_toolbar = CategoryToolbar(self)
         self.addToolBar(self.category_toolbar)
+        # ... while the window is wide enough: a toolbar that no longer fits
+        # starts a row of its own instead of losing buttons to a popup (#796).
+        self._toolbar_rows = ToolbarRows(
+            self, (self.main_toolbar, self.constraint_toolbar, self.category_toolbar))
 
         # ── Companion planting service (shared by sidebar panel and highlights) ─
         self._companion_service = CompanionPlantingService()
@@ -2050,8 +2063,10 @@ class GardenPlannerApp(QMainWindow):
         self._main_splitter.setStretchFactor(0, 1)  # Canvas takes most space
         self._main_splitter.setStretchFactor(1, 0)  # Sidebar fixed width
         self._main_splitter.setHandleWidth(1)  # Minimal splitter handle
-        # Set initial sizes: give sidebar 450px, canvas gets the rest
-        self._main_splitter.setSizes([1000, 450])
+        # Set initial sizes: give sidebar 450px, canvas gets the rest. A window
+        # that has no saved splitter state gets its share on first show
+        # (_apply_default_sidebar_width).
+        self._main_splitter.setSizes([1000, _SIDEBAR_MAX_DEFAULT_WIDTH])
         splitter = self._main_splitter
 
         # Connect canvas signals to status bar updates
@@ -2404,7 +2419,21 @@ class GardenPlannerApp(QMainWindow):
         self._frost_badge.setToolTip(self.tr("Frost alert — click to view details in Planting Calendar"))
         self._frost_badge.clicked.connect(lambda: self._tab_widget.setCurrentIndex(1))
         self._frost_badge.hide()
-        self._tab_widget.setCornerWidget(self._frost_badge, Qt.Corner.TopRightCorner)
+        # The tab bar's corner holds the frost badge and, left of it, the
+        # workspace's Plan / 3D / Split switch: on the tab row it covers nothing
+        # of the plan (it floated over the canvas's top-left corner, #796). The
+        # switch belongs to the Garden Plan tab, so its holder shows there only.
+        corner = QWidget(self._tab_widget)
+        corner_row = QHBoxLayout(corner)
+        corner_row.setContentsMargins(0, 0, 0, 0)
+        corner_row.setSpacing(8)
+        self._mode_switch_holder = QWidget(corner)
+        holder_row = QHBoxLayout(self._mode_switch_holder)
+        holder_row.setContentsMargins(0, 0, 0, 0)
+        holder_row.addWidget(self._workspace.adopt_mode_switch())
+        corner_row.addWidget(self._mode_switch_holder)
+        corner_row.addWidget(self._frost_badge)
+        self._tab_widget.setCornerWidget(corner, Qt.Corner.TopRightCorner)
         self.calendar_view.frost_alert_ready.connect(self._on_frost_alert_ready)
 
         # ── Tasks tab wiring (US-C2, #188) ───────────────────────────────────
@@ -3885,8 +3914,32 @@ class GardenPlannerApp(QMainWindow):
         # while retaining the toolbar rows built by _setup_central_widget.
         self._geometry_restored = self._ui_state.restore_geometry(
             self, restore_window_state=False)
-        self._ui_state.restore_splitter("main", self._main_splitter)
+        # A saved splitter is the user's own choice and is kept as it is.
+        self._sidebar_width_decided = self._ui_state.restore_splitter(
+            "main", self._main_splitter)
         self._enforce_toolbar_visibility()
+
+    def showEvent(self, event: QShowEvent | None) -> None:
+        super().showEvent(event)
+        if not self._sidebar_width_decided:
+            self._sidebar_width_decided = True
+            # After the event: a maximised window has its real size by then.
+            QTimer.singleShot(0, self._apply_default_sidebar_width)
+
+    def _apply_default_sidebar_width(self) -> None:
+        """Give the sidebar its default share of a window with no saved layout.
+
+        A fixed 450 px was 35 % of a 1280 px window (#796). The default is a
+        share of the window between two bounds: wide enough for the widest
+        panel row (the three plant-database buttons, 342 px), and never wider
+        than before.
+        """
+        total = self._main_splitter.width()
+        sidebar = max(
+            _SIDEBAR_MIN_DEFAULT_WIDTH,
+            min(_SIDEBAR_MAX_DEFAULT_WIDTH, round(total * _SIDEBAR_DEFAULT_SHARE)),
+        )
+        self._main_splitter.setSizes([max(0, total - sidebar), sidebar])
 
     def _enforce_toolbar_visibility(self) -> None:
         """Toolbar visibility is owned by the app, never by the restored state.
@@ -4253,8 +4306,13 @@ class GardenPlannerApp(QMainWindow):
             self._on_soil_overlay_param_changed
         )
         self.soil_overlay_toolbar.addWidget(self._soil_param_combo)
+        # The key to the tints, beside the picker: there while the overlay is (#796).
+        self._soil_overlay_legend = SoilOverlayLegend(self.soil_overlay_toolbar)
+        self.soil_overlay_toolbar.addWidget(self._soil_overlay_legend)
         self.addToolBar(self.soil_overlay_toolbar)
         self.soil_overlay_toolbar.setVisible(False)
+        # It shares the tools' row while there is room for it and its legend.
+        self._toolbar_rows.append(self.soil_overlay_toolbar)
 
     def _on_toggle_soil_overlay(self, checked: bool) -> None:
         """Show/hide the soil-health overlay and its parameter toolbar."""
@@ -6661,6 +6719,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_tab_changed(self, index: int) -> None:
         """Refresh tab views when they become active."""
+        self._mode_switch_holder.setVisible(index == 0)
         if index == 1:
             self.calendar_view.refresh()
         elif index == 2:

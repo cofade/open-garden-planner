@@ -16,7 +16,7 @@ import datetime
 from dataclasses import dataclass
 from typing import Any
 
-from PyQt6.QtCore import QDate, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QDate, QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QPen, QPolygon
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -241,13 +241,26 @@ class _FittedScrollArea(QScrollArea):
     and never asks again (measured: 18 px for a list that had grown to 336 px,
     PF-UI-39). The dashboard is built empty and filled later, so its 18 tasks
     got the room of one and a half rows (#796). Here the hint is the content's
-    own, asked every time; ``updateGeometry()`` after a rebuild is enough.
+    own, asked every time, and the area tells its layout whenever the content's
+    layout changes. That is later than the rebuild: a row added to a visible
+    parent is shown by a queued call, and until then the content's hint does
+    not count it (measured: 8 px right after adding 13 rows, 375 px one turn
+    of the event loop later).
     """
 
     def __init__(self, floor: int, cap: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._floor = floor
         self._cap = cap
+
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+        if (
+            event is not None
+            and event.type() == QEvent.Type.LayoutRequest
+            and obj is self.widget()
+        ):
+            self.updateGeometry()
+        return super().eventFilter(obj, event)
 
     def _content_height(self) -> int:
         widget = self.widget()
@@ -356,7 +369,6 @@ class _DashboardPanel(QFrame):
             self._empty_lbl.setText(self.tr("No upcoming tasks in the next 30 days."))
             self._empty_lbl.show()
             self._toggle_btn.setEnabled(False)
-            self._content_scroll.updateGeometry()
             return
 
         self._empty_lbl.hide()
@@ -403,9 +415,6 @@ class _DashboardPanel(QFrame):
                 )
 
         self._content_layout.addStretch()
-        # The list is as tall as its rows now: tell the layout (PF-UI-39).
-        self._content_layout.activate()
-        self._content_scroll.updateGeometry()
 
     @staticmethod
     def _date_column_width(label: QLabel) -> int:
