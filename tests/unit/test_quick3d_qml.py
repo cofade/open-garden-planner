@@ -465,8 +465,9 @@ def test_the_look_rules_the_spike_paid_for() -> None:
     # half-resolution depth of field is never switched on
     assert "effects: root.depthOfFieldActive ? [photoBlur] : []" in code
     assert "depthOfField" not in code.replace("depthOfFieldActive", ""), "Qt's blur is not used"
-    # with a sky the sky is the fill; without one, the look's flat fill
-    assert "ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor" in code
+    # with a sky the sky is the fill (and in twilight the look's twilight fill, #802: an
+    # ambient lights the garden, never the skybox); without one, the look's flat fill
+    assert "ambientColor: view.skyShown ? root.twilightFill : root.fillColor" in code
 
 
 def test_the_sky_is_built_on_request_and_never_bound_live() -> None:

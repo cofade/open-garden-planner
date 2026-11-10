@@ -306,6 +306,35 @@ def test_twilight_rebuilds_the_sky_once_per_degree(qtbot) -> None:
     assert all(not each.night and each.sun_disc == each.horizon for each in host.named("sky")[1:])
 
 
+def test_a_recorded_frame_builds_the_sky_of_its_own_sun(qtbot) -> None:
+    """#799: ``settle_sky`` is the recording path's (a tour's frame, ``workspace_capture``).
+    It builds the sky of the frame's very sun, however small the move: under the live 1°
+    rule a day lapse rebuilt the sky every second frame and its sky band zigzagged. The
+    live path keeps its rule; a held clock (a flight) builds nothing; the night sky does not
+    follow the sun."""
+    host = Host()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    look.set_sun(sun(1.0, 60.0))
+    host.take()
+    look.set_sun(sun(1.55, 60.3))       # 0.6° on: the live view keeps the sky it has
+    assert host.named("sky") == [] and not look._sky_timer.isActive()
+    look.settle_sky()                    # the frame is taken now: its own sky
+    frame = living_look(sun(1.55, 60.3), "high")
+    assert host.named("sky") == [frame.sky] and look.sky == frame.sky
+    assert host.named("look")[-1] == frame, "the fog meets the new horizon"
+    host.take()
+    look.settle_sky()                    # the next frame of a flight: the same sun
+    assert host.calls == []
+    look.set_sun(sun(-8.0, 330.0))       # nightfall: built at once, as live
+    host.take()
+    look.set_sun(sun(-9.0, 335.0))
+    look.settle_sky()
+    assert host.named("sky") == [], "the night sky does not follow the sun's position"
+    qtbot.wait(SKY_SETTLE_MS + 60)
+    assert host.named("sky") == []
+
+
 def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:
     """Gate G5's premise: the fog is the horizon of the sky that is SHOWN x the live
     probe exposure — not of a sky that is not built yet."""

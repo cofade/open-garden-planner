@@ -372,3 +372,24 @@ Symptom: in the app's default framing, a solid panel's shadow 20–40 m out step
 - **Legacy:** none (new entry)
 
 Symptom: the family garden's fence shadow at golden hour showed regular stair steps, identical with a 4096 map, a tighter cascade and a 32-bit map. Root cause: the L0 picket fence lowered its pickets by `index * 7919 % 13 / 13 * 4` cm — and `7919 mod 13 = 2`, so the tops climbed 0.6 cm a picket for seven pickets and dropped, repeating every 13; at 15° every centimetre is 3.7 cm of shadow. The same formula made every picket fence in every plan a clone. Fix: each picket's drop is a hash of the item's seed (`fences.unit_hash`, `picket_seed`), 0.5–1.5 cm (`PICKET_DROP_CM`). The test checks the autocorrelation of the tops at lags 1–20 (the ramp reads 1.0 at lag 13) — one frame's look cannot tell a ramp from noise.
+
+### PF-L3D-28
+
+- **Rule:** A recorded frame shows its own moment: whatever the live view lets lag behind a threshold (the sky texture and its light probe follow the sun by 1°) is rebuilt EXACTLY on the recording path, or a lapse whose per-frame step is under the threshold updates it on alternate frames and flickers at half the frame rate.
+- **Pinned by:** `tests/unit/test_scene3d_look.py::test_a_recorded_frame_asks_for_the_sky_of_its_own_sun`; `tests/integration/test_view3d_look_controller.py::test_a_recorded_frame_builds_the_sky_of_its_own_sun`; `tests/integration/test_directors_cut_render.py::test_a_day_lapse_does_not_flicker_at_dawn_or_dusk`
+- **Source:** #799
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: a day time-lapse (04:00-23:00, 300 frames) stepped every second frame at dawn and dusk: the sky band of the family garden's default view zigzagged at RMS 3.86 luma (max 7.3), the frame-difference autocorrelation peaked at lag 2, the day was clean. Root cause: the tour's `settle_sky` used the live view's `SKY_REBUILD_DEG` 1°; the sun moves 0.5-0.7° a frame, so the sky and its probe (and the fog, which follows the SHOWN sky's horizon) were rebuilt on alternate frames while the key light and the exposure followed every frame. Fix: `sky_is_stale(..., threshold_deg=0)` is exact and `settle_sky` asks for it (`RECORDING_SKY_REBUILD_DEG`); the live timer keeps 1°. Measured: the alternation (third difference over eight, outside the rig's corners) 1.86 → 0.08 at dawn; the cost is a sky build a frame, 147 → 291 builds and 158 → 198 s for the 300-frame lapse. The survey's zigzag RMS still reads 0.79 at dawn after the fix: it also counts a smooth curve's bend and the rig's deliberate corners (0.5°, ±6°, the dew's −2°), which is why the gate measures the alternation.
+
+### PF-L3D-29
+
+- **Rule:** Judge a dusk on the GARDEN's light (the rows below the horizon), never only the whole frame — a sky-filled frame fades while the ground brightens — and size any light that is computed from a model on more than one framing: a flat ambient lifts a view full of vertical faces about 1.4x as much as a view of open meadow.
+- **Pinned by:** `tests/unit/test_scene3d_look.py::test_the_garden_never_brightens_from_the_last_sun_into_the_night`; `tests/integration/test_view3d_looks_render.py::test_dusk_fades_and_sunset_is_no_cliff`; `tests/integration/test_living_garden_render.py::test_the_living_board_renders_every_shot`
+- **Source:** #802
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the garden grew brighter as night fell (family garden, default framing: ground luminance 0.0196 at a 0.5° sun, 0.0188 at −1°, 0.0379 at night) while the board's `--dusk` gate, which reads the whole frame, passed. Root cause: not the twilight ramp's shape (the survey's guess): the night rig is "day for night" and lights flat ground about 0.95 EV above a 0.5° sun's sky, so the two anchors conflict and no ramp between them can fall monotonically. Fix: the twilight fill (`look.twilight_fill`): an ambient in the sky top's colour, carried by `Garden.qml`'s fill light where a sky lights the view, lifting a calibrated model of the light on open ground (`look.ground_light`) to a target that falls from the golden anchor into the night; both anchors keep the rig's own light. The first prototype held the default framing level but brightened the board's golden-hour camera by 14 % from 4° to 1° (the fill lit its vertical faces 1.12x as much while its fogged rows fell only 0.8x as fast): the day part keeps 40 % of the ground's own fall. On the small examples whose default framing is mostly meadow (balcony, raised bed) the fill lifts less than modelled and twilight still rises by up to 7 % (before: up to 140 %); on the balcony's golden-hour camera the night is brighter than its own 6° frame, which no fill can change while both anchors stay.
+

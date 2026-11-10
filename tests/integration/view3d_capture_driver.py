@@ -17,6 +17,7 @@ Scenarios:
 ``tour``      The workspace's own recording: a drone orbit into an MP4, read back with Qt.
 ``detail``    A recording close to the plants: its frames have the flight's plant detail.
 ``timelapse`` A day and a stretch of the year: the clock is put back, frames follow it.
+``daylapse``  A held-camera day lapse through dawn and dusk (#799): per frame the sky band.
 ``agent``     The MCP tool's provider on the real workspace: its refusals and its picture.
 """
 
@@ -629,8 +630,8 @@ def committed_mb() -> float:
     return counters.private / 1e6
 
 
-def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
-    """The app's real window on the plan, in 3D (the settings store is this process's).
+def main_window_on_plan(clock_zone: Any = None, plan: Path = PLAN) -> tuple[Any, Any]:
+    """The app's real window on ``plan``, in 3D (the settings store is this process's).
 
     ``clock_zone`` builds the one SimClock through its public ``tz`` constructor instead of
     the system zone - a test seam, not a private attribute write."""
@@ -653,7 +654,7 @@ def main_window_on_plan(clock_zone: Any = None) -> tuple[Any, Any]:
         assert window._sim_clock.tz is clock_zone, "the test clock zone did not reach the app"
     window.resize(1100, 700)
     window.show()
-    window._project_manager.load(window.canvas_scene, PLAN)
+    window._project_manager.load(window.canvas_scene, plan)
     window._sim_clock.set_datetime(datetime(2026, 6, 21, 15, 0))
     workspace = window._workspace
     workspace.set_mode(WorkspaceMode.VIEW3D)
@@ -858,6 +859,73 @@ def scenario_timelapse(out: Path) -> dict[str, Any]:
         pump(100)
 
 
+#: #799: the day lapse's dawn and dusk, wall times of the family garden's day (Berlin, 21 June,
+#: CEST): the sun from below -8° to above +8°. 42 frames over 2 h 40 min is 3.9 min of clock
+#: a frame - the survey's 10 s, 30 fps lapse of 04:00-23:00 (3.8 min): 0.33-0.51° of
+#: elevation a frame, 0.5-0.7° of great circle.
+DAYLAPSE_WINDOWS = (("dawn", day_time(3, 20), day_time(6, 0)),
+                    ("dusk", day_time(20, 10), day_time(22, 50)))
+DAYLAPSE_SECONDS, DAYLAPSE_FPS = 1.75, 24
+#: The bands of a frame the lapse statistics read (the survey's): the top 12 % of rows (the
+#: horizon's fog under the default framing, which follows the SHOWN sky) and the whole frame.
+SKY_BAND_SHARE = 0.12
+
+
+def scenario_daylapse(out: Path) -> dict[str, Any]:
+    """#799: a held-camera day lapse through dawn and dusk on the family garden's default
+    framing, the workspace's own recording path. Raw answers per frame: the mean luma of the
+    sky band and of the frame, the frame's sun, the sun the sky on screen draws, and the skies
+    built (the test computes the zigzag)."""
+    from open_garden_planner.core.camera_path import HeldCamera, TourSpec
+    from open_garden_planner.ui.view3d.video_writer import PngSequenceWriter
+    from tests.integration.quick3d_render_support import EU_DST, load_rgb, luma
+
+    window, workspace = main_window_on_plan(EU_DST, plan=FAMILY_GARDEN)
+    try:
+        result: dict[str, Any] = {"settled_s": settled(workspace, 180.0)}
+        capture, look = workspace.capture, workspace.look
+        runs: dict[str, Any] = {}
+        for name, start, end in DAYLAPSE_WINDOWS:
+            settled(workspace, 120.0)
+            spec = TourSpec(HeldCamera(capture.camera_key()), DAYLAPSE_SECONDS, DAYLAPSE_FPS,
+                            time_range=(start, end))
+            folder = out / name
+            frames: list[dict[str, Any]] = []
+            built = [look.sky_rebuilds]
+
+            def note(*_arguments: Any, frames: list[dict[str, Any]] = frames,
+                     built: list[int] = built) -> None:
+                sun, shown = look._sun, look.sky
+                frames.append({"elev": round(sun.elevation_deg, 4), "az": round(sun.azimuth_deg, 3),
+                               "sky_elev": None if shown is None else round(shown.sun_elevation_deg, 4),
+                               "sky_builds": look.sky_rebuilds - built[0]})
+                built[0] = look.sky_rebuilds
+
+            outcome: list[Any] = []
+            recorder = capture.start_tour(spec, (640, 360), PngSequenceWriter(folder))
+            recorder.progress.connect(note)
+            recorder.finished.connect(outcome.append)
+            started = time.monotonic()
+            wait_until(outcome.__len__, 400.0)
+            tour = outcome[0] if outcome else None
+            files = sorted(folder.glob("frame_*.png"))
+            for row, path in zip(frames, files, strict=False):
+                values = luma(load_rgb(path))
+                row["sky_luma"] = round(float(values[:max(1, round(values.shape[0] * SKY_BAND_SHARE))].mean()), 4)
+                row["frame_luma"] = round(float(values.mean()), 4)
+            runs[name] = {"ok": tour.ok if tour else None, "frames": tour.frames if tour else None,
+                          "unsettled": tour.unsettled if tour else None,
+                          "message": tour.message if tour else "no end",
+                          "wall_s": round(time.monotonic() - started, 1), "files": len(files),
+                          "rows": frames}
+        result["runs"] = runs
+        return result
+    finally:
+        workspace.shutdown()
+        window.close()
+        pump(100)
+
+
 def scenario_daysoak(out: Path) -> dict[str, Any]:
     """Memory over a long time-lapse of a day and of a year (a sky per sun, plants per date):
     committed memory every 60 frames, and what is left a moment after each."""
@@ -959,7 +1027,8 @@ def scenario_agent(out: Path) -> dict[str, Any]:
 SCENARIOS: dict[str, Callable[[Path], dict[str, Any]]] = {
     "host": scenario_host, "grades": scenario_grades, "tour": scenario_tour,
     "detail": scenario_detail,
-    "timelapse": scenario_timelapse, "agent": scenario_agent, "soak": scenario_soak,
+    "timelapse": scenario_timelapse, "daylapse": scenario_daylapse, "agent": scenario_agent,
+    "soak": scenario_soak,
     "daysoak": scenario_daysoak, "ultra_blur": scenario_ultra_blur,
     "picture": scenario_picture, "blur_bench": scenario_blur_bench,
 }

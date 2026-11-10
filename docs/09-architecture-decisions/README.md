@@ -7111,6 +7111,115 @@ the routing; `test_directors_cut_render.py::test_a_still_pictures_fitted_shadows
 and the self-test that a fitted capture changes only its own frame and a default one is the
 view. PF-L3D-24, PF-L3D-25.
 
+### ADR-059 addendum: a recorded frame's own sky and the twilight fill (#799, #802)
+
+**Status**: Accepted (2026-11-10, visual-polish package; the owner decided #802's direction:
+"build the ground-only twilight fill; the night rig and the sunset shot stay"). Amends
+decisions 1 and 5 of the L1.4 addendum above.
+
+**Context.** Two faults of a day time-lapse, both found by the 3D promo-readiness survey and
+re-measured on the family garden's default view (Berlin, 21 June, high, 640 × 360):
+
+- *#799, flicker.* A 10 s, 30 fps lapse of 04:00–23:00 moves the sun 0.5–0.7° a frame. The
+  tour's `settle_sky` used decision 5's 1° rule, so the sky texture, its light probe and the fog
+  that follows the shown sky's horizon changed on alternate frames while the key light and the
+  exposure changed every frame: the sky band's zigzag RMS was 3.86 luma at dawn (max 7.3),
+  1.73 at dusk, 0.07 by day.
+- *#802, a brighter night.* The garden's own light ROSE after sunset (ground luminance 0.0196 at
+  a 0.5° sun, 0.0188 at −1°, 0.0379 at night) while the board's `--dusk` gate, which reads the
+  whole frame (mostly sky), passed. The survey blamed the twilight ramp's linear moon and
+  exposure. The cause is the anchors: the night rig is "day for night" (moon 0.32 at 38°,
+  exposure 2.4) and lights flat ground about 0.95 EV above what a 0.5° sun's sky gives
+  (probe 0.42, exposure 1.25; the 0.5° anchor is frozen against the L0 spike). With both
+  anchors fixed no ramp between them can fall monotonically. A square-root moon ramp (the
+  survey's proposal) only moves the rise earlier; a moon already on at sunset is a step up;
+  more exposure or probe at the low sun brightens the sunset sky above the 6° sky; a darker
+  night breaks the night rig the owner accepted.
+
+**Decision.**
+
+1. **A recorded frame gets the sky of its own sun exactly.** `sky_is_stale(shown, wanted,
+   threshold_deg)` with a threshold of 0 or less rebuilds whenever the wanted sky differs from
+   the shown one (`RECORDING_SKY_REBUILD_DEG` = 0); the same sky is never rebuilt and the night
+   sky still never follows the sun's position. `LookController.settle_sky` — called only by a
+   tour's frame (`workspace_capture._tour_settled`) — asks for it; the live settle timer and the
+   1 s ceiling keep decision 5's 1°. A finer threshold is no cheaper: at dawn a 1° lag moved the
+   band 10–16 luma, so an alternation under 0.3 luma needs a lag under about 0.03°.
+2. **The twilight fill.** `LookSpec.twilight_fill_linear` is a flat ambient in the colour of the
+   sky's top (what the probe gives the ground). `Garden.qml`'s existing fill light carries it
+   where a sky lights the view (`ambientColor: view.skyShown ? root.twilightFill :
+   root.fillColor`), so it lights the garden and never the skybox, adds no light count, no shadow
+   and no direction; the compatibility mode and the top-down truth view keep their flat fill
+   without it. It lifts a MODEL of the light on open ground (`look.ground_light`: the key at its
+   height, the probe as 1.15 × probe exposure × sky energy × the sky top's luminance, an ambient
+   at 1.2 × itself, all read as the meadow's albedo reflects them, × exposure) to a target in
+   units of the SAME weather's night light (`look.twilight_fill`, the weather's anchors cached
+   per `WeatherSpec`): in twilight a line through 1.07 at sunset, 1.05 at −3° and 1 at −6°; by
+   day the sunset level plus 40 % of how far the look's own light lies above the weather's
+   sunset light, so the ground keeps 40 % of its own fall. Black from 6° up and at night: the
+   board's sunset shot (5.89°; the clear fill begins at about 5.65°) and the night keep the
+   rig's own light. An overcast, rain and snow need none (their own light stays above their
+   darker night). Unlit particles take the fill into their light.
+3. **The garden's light is a gate.** The board's `--dusk` records `ground_luminance` (the rows
+   below the horizon) per row: `ground_monotone` joins `monotone`, by the same noise rule
+   (0.2 % + 1e-5), on both skies and in every weather of `--living`. The clear evening is also
+   rendered from the view's own default framing for the first preset (`default_monotone`) —
+   once per board, so `--living` stays inside its render-tier timeout. The board's presets
+   after the first had been rendered from the set-sun probe's sky camera (the loop rebound
+   `camera`); each now takes the golden-hour camera, as documented.
+
+**Alternatives rejected.** For #799: interpolating two built skies (Qt cannot blend two light
+probes) and a finer threshold (decision 1). For #802: the levers in the context; a fill shaped
+like the moon (a second directional light from the night rig's moon): composition-proof in
+twilight, but with the probe's 0.58 of the night still present at sunset it puts the sunset
+ground above the 5.89° anchor; and a flat fill target near the night level (the first
+prototype), which held the default framing but brightened the golden-hour camera 14 % from 4°
+to 1°: that camera's vertical faces take 1.12 × the modelled lift while its fogged rows fall
+only 0.8 × as fast, so the fill may make up only part of the day's own fall.
+
+**Consequences.**
+
+- A recorded lapse builds a sky per frame in twilight and by day: 147 → 291 builds and 158 →
+  198 s of wall time for the 300-frame lapse (sky build median 139 ms). Flights build none.
+- The garden at sunset and through twilight is brighter than before (default framing at 0.5°:
+  0.0196 → 0.0421, 2.1 × — the ground now stands a little above the night it ends in) and the
+  evening reads as a blue hour; the sky is unchanged. The owner has not judged this look yet.
+- The fill is open-loop: the model fits the family garden's default framing; a view that is
+  mostly open meadow takes less lift (balcony, raised bed: up to 1.2 % rise a step in twilight;
+  before up to 140 %), and a view whose night outshines its own 6° frame (the balcony from the
+  board's golden-hour camera: 0.0371 against 0.0316) cannot be monotone while both anchors
+  stay. PF-L3D-29.
+- The board's `--dusk` renders 16 more frames (the default framing, once): about 70 s at the
+  4.4 s a frame measured with other agents on the GPU. Under that load the looks render tier's
+  full board (`test_view3d_looks_render.py`, watchdog 780 s) reached its watchdog in the `high`
+  dusk run; by its own timeline it would have needed about 820 s without these frames too.
+
+**Evidence** (RTX 4070, Direct3D 11; family garden unless named; 640 × 360, high, painted).
+
+| What | Before | After |
+|---|---|---|
+| #799 300-frame lapse: sky-band zigzag RMS dawn / dusk (luma) | 3.863 / 1.728 | 0.794 / 0.285 |
+| #799 alternation, sky band, dawn / dusk (third difference / 8, outside the rig's corners) | 1.855 / 0.848 | 0.084 / 0.041 |
+| #799 render tier, 42-frame dawn / dusk lapses: sky builds; alternation (sky band, frame) | 18 / 19 builds; 1.74, 0.80 / 0.89, 0.66 | 34 / 36 (every twilight and day frame); 0.04–0.07 |
+| #802 ground at sunset → an hour later, lapse frame mean (luma) | 37.2 → 51.5 (+38 %) | 53.6 → 51.8 (−3 %) |
+| #802 sweeps with a rise beyond noise: family default / golden, dusk + dawn | 16 / 11 | 0 / 0 |
+| … December, 60° N, atmosphere sky, partly cloudy, bench_small, food forest (four series each) | 19–30 per run | 0 |
+| … overcast | 0 (no fill: 108 frames pixel-identical) | 0 |
+| … balcony default, raised bed default | 26, 23 | 17, 5 (worst −1.21 %, −0.52 % a step) |
+| #802 board `--dusk`, bench_small high: ground monotone, golden / default | no / no | yes / yes |
+| #802 board `--dusk`, all four presets, painted and atmosphere: frame, ground and (low) default monotone | — | yes on all 8 (sunset step 0.0053–0.0075 ≤ day ramp 0.0184–0.0201; 0 Qt errors) |
+| #802 living board (medium), both skies: ground monotone under partly cloudy, overcast, rain, snow, clear | — | yes on all 10; render-tier test 2 passed |
+| #802 board: sunset step against the largest day-ramp step | 0.0066 ≤ 0.0293 | 0.0053 ≤ 0.0199 |
+| #802 night and 6° frames, sweeps and board | — | pixel-identical (max difference 0) |
+
+Tests: `tests/unit/test_scene3d_look.py` (`TestSkyStaleness`, `TestTheTwilightFill`),
+`tests/integration/test_view3d_look_controller.py`
+(`test_a_recorded_frame_builds_the_sky_of_its_own_sun`), `tests/unit/test_quick3d_qml.py`; render
+tier `tests/integration/test_directors_cut_render.py::test_a_day_lapse_does_not_flicker_at_dawn_or_dusk`
+(the `daylapse` scenario), `test_view3d_looks_render.py::test_dusk_fades_and_sunset_is_no_cliff`,
+`test_living_garden_render.py::test_the_living_board_renders_every_shot`. Pitfalls PF-L3D-28,
+PF-L3D-29.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first

@@ -38,6 +38,7 @@ from collections.abc import Sequence
 from typing import Final
 
 import numpy as np
+import numpy.typing as npt
 
 from ..build import item_seed
 from ..mesh import Mesh, MeshPart
@@ -262,7 +263,7 @@ def _scale(height_cm: float) -> float:
     return min(1.0, height_cm / 60.0)
 
 
-def unit_hash(seed: int, index: F64) -> F64:
+def unit_hash(seed: int, index: npt.NDArray[np.integer] | F64) -> F64:
     """A value in [0, 1) per (``seed``, ``index``), each unrelated to its neighbours: the
     ``lowbias32`` integer hash (C. Wellons) of the index XOR a 32-bit fold of the seed.
     Order-free and stable — a picket keeps its value when the fence grows — where a

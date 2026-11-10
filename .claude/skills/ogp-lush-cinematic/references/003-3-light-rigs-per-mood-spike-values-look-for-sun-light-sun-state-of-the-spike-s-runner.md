@@ -24,6 +24,14 @@ noon** (a low sun crosses more air): the golden mood is its exposure and colour.
 | Low sun | 0.5° | `#ff9655` / 1.7 | `#4a6fb0` / `#f2b47c` (`#ffb070`) | 0.42 / 1.25 |
 | Twilight (production, L1.4) | 0.5° → −6° | the low-sun rig mixed into the night rig by t = (0.5 − e) / 6.5 (colours in linear light, exposure in stops); the key light is the moon at 0.32 · t — none, and no shadow, just under 0.5° | mixed; no sun disc; sky and ground energy 1 → 0.25 | mixed; saturation 1.06 → 0.6 |
 | Night | < 0.5° (spike), < −6° (production) | moonlight `#8ea4d6` / 0.32 from az 165°, elev 38°; soft faint moon shadows (factor 25, PCF 8); saturation 0.6 | `#070d22` / `#1b2747` (`#9fb2e0`) | 0.35 / 2.4 |
+| Twilight fill (#802, production) | under ~5.65° → −6° | a flat ambient in the sky top's colour on the garden, never the sky (`look.twilight_fill`): the light on open ground held to 1.07 × the weather's night at sunset, 1.05 at −3°, 1.00 at −6°; by day the ground keeps 40 % of its own fall | unchanged | unchanged |
+
+The night rig lights flat ground about 0.95 EV above a 0.5° sun's sky (the anchors conflict),
+so without the fill the garden got brighter as night fell. The fill is black from 6° up and at
+night: the sunset shot (5.89°) and the night are pixel-identical to the rig's own. It is sized
+from a model (`look.ground_light`, fitted on the family garden's default framing): a view of
+mostly open meadow takes less lift (balcony, raised bed still rise up to 1.2 % a step in
+twilight) — PF-L3D-29, ADR-059 addendum "a recorded frame's own sky and the twilight fill".
 
 On the board (bench_small, Berlin): golden_hour 15.23° → sun `#ffd0a8` / 1.9, horizon
 `#e7d8c8`, probe 0.519, exposure 1.024 (was 1.15: mean luma 109.8 → 105.2, low);
