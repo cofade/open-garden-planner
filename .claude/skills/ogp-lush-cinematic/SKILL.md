@@ -30,3 +30,4 @@ from dated measurements. New lessons belong in a new reference and index row.
 | The living garden's polish — occlusion under cloud, snow on built tops, leaves, lamp pools, no dew mist (#687) | [Read](references/014-living-garden-polish-687.md) |
 | A tour video good enough to publish, and the orbit that films it — how to measure, the numbers, promo settings (#807) | [Read](references/015-review-grade-video-and-the-promo-orbit-807.md) |
 | The atmosphere sky at the painted horizon — profile and deck anchor (#716, #719) | [Read](references/016-atmosphere-horizon-716-719.md) |
+| Foliage in motion, the leaves' stripes and the autumn crown — the wind's values, AO not acne, the leaf-size options, why the autumn crown is muddy (#800, #805) | [Read](references/018-foliage-wind-leaf-stripes-and-autumn-800-805.md) |
