@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QCoreApplication, QPointF, Qt
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
 if TYPE_CHECKING:
@@ -150,15 +150,18 @@ class BaseTool(ABC):
         on every read (the constraint tools); or a CLASS attribute holding the
         English source (``QT_TR_NOOP("Select")``, or a ``translate()`` call that
         ran at import, before any translator was loaded). Only the last still
-        needs its catalog entry, and its context is the class that defines it.
+        needs its catalog entry: such a class overrides :meth:`_translated_name`
+        with a lookup in its own context (a literal one — the translation gate
+        reads the call).
         """
-        name = self.display_name
         if "display_name" in vars(self):
-            return name
-        for cls in type(self).__mro__:
-            if "display_name" in vars(cls):
-                return QCoreApplication.translate(cls.__name__, name)
-        return name
+            return self.display_name
+        return self._translated_name()
+
+    def _translated_name(self) -> str:
+        """The class's own name, translated now. The default is for a tool whose
+        ``display_name`` already is (a property that translates on every read)."""
+        return self.display_name
 
     #: If ``True``, CanvasView's Package A point-snap is skipped before
     #: dispatching mouse events to this tool.  Tools that run their own

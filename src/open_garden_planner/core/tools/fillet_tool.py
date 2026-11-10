@@ -49,6 +49,9 @@ class FilletTool(CornerEditTool):
     display_name = QCoreApplication.translate("FilletTool", "Fillet")
     shortcut = "Shift+F"
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("FilletTool", "Fillet")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._radius: float = get_settings().fillet_last_radius_cm

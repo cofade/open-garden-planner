@@ -9,11 +9,12 @@ from __future__ import annotations
 from datetime import date
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
+from PyQt6.QtGui import QFont, QPainter, QPaintEvent, QPen
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.models.soil_test import SoilTestRecord
+from open_garden_planner.ui.theme import theme_qcolor
 
 _PARAM_ATTR: dict[str, str] = {
     "ph": "ph",
@@ -36,10 +37,12 @@ _PARAM_HARD_BOUNDS: dict[str, tuple[float, float]] = {
     "k": (0.0, 4.0),
 }
 
-_AXIS_COLOR = QColor(180, 180, 180)
-_LINE_COLOR = QColor(40, 40, 40)
-_DOT_COLOR = QColor(40, 40, 40)
-_LABEL_COLOR = QColor(110, 110, 110)
+# Colours are theme tokens read while painting (#791): the chart was a white
+# block with near-black ink in the dark theme.
+_BACKGROUND_TOKEN = "input"
+_AXIS_TOKEN = "border"
+_LINE_TOKEN = "text_primary"
+_LABEL_TOKEN = "text_secondary"
 
 
 class SoilSparklineWidget(QWidget):
@@ -67,7 +70,7 @@ class SoilSparklineWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         rect = self.rect()
-        painter.fillRect(rect, QColor(255, 255, 255))
+        painter.fillRect(rect, theme_qcolor(_BACKGROUND_TOKEN))
 
         attr = _PARAM_ATTR[self._parameter]
         points = [
@@ -95,7 +98,7 @@ class SoilSparklineWidget(QWidget):
         )
 
         # Axes
-        painter.setPen(QPen(_AXIS_COLOR, 1))
+        painter.setPen(QPen(theme_qcolor(_AXIS_TOKEN), 1))
         painter.drawLine(plot.topLeft(), plot.bottomLeft())
         painter.drawLine(plot.bottomLeft(), plot.bottomRight())
 
@@ -106,14 +109,14 @@ class SoilSparklineWidget(QWidget):
 
         # Polyline
         if len(screen_points) >= 2:
-            pen = QPen(_LINE_COLOR, 1.5)
+            pen = QPen(theme_qcolor(_LINE_TOKEN), 1.5)
             painter.setPen(pen)
             for i in range(len(screen_points) - 1):
                 painter.drawLine(screen_points[i], screen_points[i + 1])
 
         # Dots
-        painter.setPen(QPen(_DOT_COLOR, 1))
-        painter.setBrush(_DOT_COLOR)
+        painter.setPen(QPen(theme_qcolor(_LINE_TOKEN), 1))
+        painter.setBrush(theme_qcolor(_LINE_TOKEN))
         for p in screen_points:
             painter.drawEllipse(p, 2.0, 2.0)
 
@@ -121,7 +124,7 @@ class SoilSparklineWidget(QWidget):
         self._paint_labels(painter, rect, plot, x_dates, y_min, y_max)
 
     def _paint_placeholder(self, painter: QPainter, rect: QRectF) -> None:
-        painter.setPen(_LABEL_COLOR)
+        painter.setPen(theme_qcolor(_LABEL_TOKEN))
         font = QFont(painter.font())
         font.setPointSize(8)
         painter.setFont(font)
@@ -196,7 +199,7 @@ class SoilSparklineWidget(QWidget):
         font = QFont(painter.font())
         font.setPointSize(7)
         painter.setFont(font)
-        painter.setPen(_LABEL_COLOR)
+        painter.setPen(theme_qcolor(_LABEL_TOKEN))
 
         y_decimals = 1 if self._parameter == "ph" else 0
         painter.drawText(

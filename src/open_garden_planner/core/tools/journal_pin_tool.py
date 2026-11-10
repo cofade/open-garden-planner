@@ -10,7 +10,7 @@ in the project's ``garden_journal_notes`` store.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
 from .base_tool import BaseTool, ToolType
@@ -23,6 +23,9 @@ class JournalPinTool(BaseTool):
     display_name = QT_TR_NOOP("Journal Pin")
     shortcut = "J"
     cursor = Qt.CursorShape.CrossCursor
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("JournalPinTool", "Journal Pin")
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         if event.button() != Qt.MouseButton.LeftButton:

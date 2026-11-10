@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.paths import get_projects_dir
 from open_garden_planner.ui.icons import get_icon
-from open_garden_planner.ui.theme import theme_color
+from open_garden_planner.ui.theme import theme_color, theme_qcolor
 
 _EXISTS_ROLE = Qt.ItemDataRole.UserRole + 1  # bool: linked file exists (check vs cross)
 
@@ -187,7 +187,7 @@ class SeasonManagerDialog(QDialog):
                 item.setFont(font)
             item.setData(Qt.ItemDataRole.UserRole, {"year": year, "file": file_str, "resolved": resolved})
             if not exists:
-                item.setForeground(Qt.GlobalColor.gray)
+                item.setForeground(theme_qcolor("text_disabled"))
             self._seasons_list.addItem(item)
 
     def refresh_theme_icons(self) -> None:

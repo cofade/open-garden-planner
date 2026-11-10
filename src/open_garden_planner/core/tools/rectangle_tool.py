@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, QRectF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsRectItem
 
@@ -28,6 +28,9 @@ class RectangleTool(BaseTool):
     display_name = QT_TR_NOOP("Rectangle")
     shortcut = "R"
     cursor = Qt.CursorShape.CrossCursor
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("RectangleTool", "Rectangle")
 
     def __init__(
         self,

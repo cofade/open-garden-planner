@@ -374,6 +374,9 @@ class OffsetTool(BaseTool):
     shortcut = "O"
     cursor = Qt.CursorShape.CrossCursor
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("OffsetTool", "Offset")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._target: QGraphicsItem | None = None

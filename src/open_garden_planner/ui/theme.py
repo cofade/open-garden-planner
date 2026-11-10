@@ -478,6 +478,8 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     _check_path = _glyph_file("check", colors["accent_text"], "M2 5.4 L4.2 7.5 L8 2.8")
     _dash_path = _glyph_file("dash", colors["accent_text"], "M2.5 5 L7.5 5")
     _check_off_path = _glyph_file("check_off", colors["text_disabled"], "M2 5.4 L4.2 7.5 L8 2.8")
+    _more_path = _glyph_file(
+        "more", colors["text_primary"], "M2 2.5 L4.5 5 L2 7.5 M5.5 2.5 L8 5 L5.5 7.5")
 
     # Banner-button hover wash derived from on_status so it flips with the
     # mode (a white wash is imperceptible over dark-on-amber in dark mode).
@@ -670,6 +672,24 @@ def generate_stylesheet(mode: ThemeMode) -> str:
     QToolButton:checked {{
         background-color: {colors['selection']};
         border-color: {colors['accent']};
+    }}
+
+    /* A toolbar's overflow button ("more tools"). Two things made it nearly
+       invisible (#791): the style draws it from a picture of its own — dark
+       chevrons in one style, the colour scheme's in another — and the
+       QToolButton rule above left 2 px of its 12 px width for that picture
+       (4 px padding and a border on each side). The glyph is the theme's, in
+       every style, and it has the whole button. AFTER the QToolButton rules:
+       both are type selectors, so the later one wins. */
+    QToolBarExtension {{
+        qproperty-icon: url("{_more_path}");
+        padding: 0px;
+        border: none;
+    }}
+
+    QToolBarExtension:hover {{
+        background-color: {colors['button_hover']};
+        border: none;
     }}
 
     /* A text button that only opens a menu (InstantPopup): the style draws its arrow

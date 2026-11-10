@@ -37,7 +37,7 @@ from open_garden_planner.models.plant_lists import (
     PlantListStore,
     get_plant_list_store,
 )
-from open_garden_planner.ui.theme import set_text_role, theme_color
+from open_garden_planner.ui.theme import set_text_role, theme_color, theme_qcolor
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -262,10 +262,10 @@ class PlantListsPanel(QWidget):
         # Fallback circle icon
         fallback = QPixmap(32, 32)
         fallback.fill(Qt.GlobalColor.transparent)
-        from PyQt6.QtGui import QColor, QPainter
+        from PyQt6.QtGui import QPainter
         painter = QPainter(fallback)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor("#4CAF50"))
+        painter.setBrush(theme_qcolor("accent"))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(2, 2, 28, 28)
         painter.end()

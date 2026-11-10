@@ -4379,9 +4379,10 @@ class CanvasView(QGraphicsView):
         10000,
     ]
     _RULER_MIN_TICK_PX = 50  # Minimum pixels between labelled ticks
-    #: The rulers are chrome around the plan, not part of it: their colours are
-    #: theme tokens read while painting (#791), slightly translucent.
-    _RULER_ALPHA = 230
+    # The rulers are chrome around the plan, not part of it: their colours are
+    # theme tokens read while painting (#791). Opaque: drawn translucent over
+    # the bright plan, the dark theme's strip turned muddy and its labels fell
+    # under 4.5:1.
 
     def _pick_ruler_interval(self) -> float:
         """Choose a tick interval in cm so ticks are at least _RULER_MIN_TICK_PX apart."""
@@ -4408,9 +4409,7 @@ class CanvasView(QGraphicsView):
 
         # ── Background strips ──────────────────────────────────────────────
         strip = theme_qcolor("surface")
-        strip.setAlpha(self._RULER_ALPHA)
         corner = theme_qcolor("surface_alt")
-        corner.setAlpha(self._RULER_ALPHA)
         painter.fillRect(rs, 0, vp.width() - rs, rs, strip)  # top
         painter.fillRect(0, rs, rs, vp.height() - rs, strip)  # left
         painter.fillRect(0, 0, rs, rs, corner)  # corner box

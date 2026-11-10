@@ -38,6 +38,9 @@ class ChamferTool(CornerEditTool):
     display_name = QCoreApplication.translate("ChamferTool", "Chamfer")
     shortcut = "Shift+C"
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("ChamferTool", "Chamfer")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         self._distance: float = get_settings().chamfer_last_distance_cm
