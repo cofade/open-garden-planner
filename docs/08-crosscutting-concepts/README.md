@@ -9119,13 +9119,41 @@ lattice to sum. A scrub step at fit should therefore be lighter than the
 - A **zoom** invalidates a device cache at every wheel step. While steps keep
   coming the overlay paints the picture of its last rasterisation, scaled, and
   asks its controller's 120-ms single-shot timer for `settle()`; then it is
-  rasterised for the new zoom, once (`TestZoomGesture`). The picture is kept
-  only up to 2048 px a side (16 MB) and stands in only while it is enlarged
-  at most 4 times — past that it is a blur and the rasterisation is cheap,
-  because little of the shadow is in view (the overlay's share of a zoom step:
-  60–130 ms at fit, 25–45 ms at 4 × fit, 6–13 ms at 8 × fit); a new solve is
-  never shown with an old picture (a scrub rasterises at once); an overlay
-  without a controller never defers.
+  rasterised for the new zoom, once (`TestZoomGesture`). The kept picture is
+  at most 2048 px a side (16 MB: that bound is unchanged) and stands in only
+  while it is enlarged at most 4 times — past that it is a blur and the
+  rasterisation is cheap, because little of the shadow is in view (the
+  overlay's share of a zoom step: 60–130 ms at fit, 25–45 ms at 4 × fit,
+  6–13 ms at 8 × fit); a new solve is never shown with an old picture (a scrub
+  rasterises at once); an overlay without a controller never defers.
+- An overlay **larger than 2048 px** that the device holds whole is painted
+  directly, exact, and keeps a picture of itself *reduced* to 2048 px
+  (`TestAboveTheCap`). That is every viewport of about 2100 device pixels and
+  more at fit: a 4K window, and a 150 % display from about 1365 logical pixels
+  (`QPainter.deviceTransform()` carries the ratio). Until the review of #784
+  nothing was kept there and every wheel step rasterised the overlay again. The
+  reduced picture is not made with the rasterisation but when the settle timer
+  next fires with no zoom under way (120 ms later), so a scrub — a
+  rasterisation per solve — pays nothing for it; a zoom that begins before then
+  makes it at its first step. Its reduction counts as enlargement already
+  spent, so it stands in for a shorter zoom than an exact picture would.
+  Zoomed in far, where Qt's cache holds only the part in view, nothing is kept
+  and every step is rasterised, as before: a picture of the whole overlay would
+  cost more there than what it stands in for. Measured on a plan of 60 casters
+  and 40 trees (3000 × 1800 cm), 8 wheel steps of 5 %, offscreen platform:
+
+  | Viewport (logical), ratio | Overlay, device px | Before: rasterisations, ms a step | After |
+  |---|---|---|---|
+  | 1469 × 901, 1.0 | 1380 × 845 | 0, 8 ms | 0, 8 ms |
+  | 2560 × 1300, 1.0 | 2032 × 1244 | 0, 14 ms | 0, 17 ms |
+  | 3840 × 2000, 1.0 | 3143 × 1925 | 8, 72 ms | 0, 31 ms |
+  | 1469 × 901, 1.5 | 2070 × 1268 | 8, 51 ms | 0, 15 ms |
+  | 2560 × 1300, 1.5 | 3047 × 1867 | 8, 70 ms | 0, 23 ms |
+
+  A scrub step on the same plan is unchanged (21 → 22 ms at 3840 × 2000,
+  23 → 24 ms at 2560 × 1300 and 150 %), and no stand-in is made during one.
+  The ratio 1.5 is `QT_SCALE_FACTOR` on the offscreen platform; a real
+  high-density display was not measured.
 
 **The minimap renders the plan on a scene change, never on a pan or a zoom.**
 Its render disables every item's cache (`scene.render` is not a viewport

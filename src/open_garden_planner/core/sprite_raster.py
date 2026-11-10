@@ -210,7 +210,7 @@ def _lay_tint(painter: QPainter, rect: QRect, tint: QColor | None) -> None:
     painter.fillRect(rect, QColor(tint.red(), tint.green(), tint.blue(), TINT_ALPHA))
 
 
-def _device_bounds(painter: QPainter) -> QRectF:
+def device_bounds(painter: QPainter) -> QRectF:
     """The painter's device in the pixels its device transform maps to."""
     device = painter.device()
     if device is None:
@@ -231,7 +231,7 @@ def _paint_exposed(
     from_device, invertible = to_device.inverted()
     if not invertible:
         return False
-    exposed = to_device.mapRect(target).intersected(_device_bounds(painter))
+    exposed = to_device.mapRect(target).intersected(device_bounds(painter))
     if painter.hasClipping():
         exposed = exposed.intersected(to_device.mapRect(painter.clipBoundingRect()))
     area = exposed.toAlignedRect()
@@ -302,6 +302,7 @@ __all__ = [
     "TINT_ALPHA",
     "PixmapLru",
     "clear_sprite_cache",
+    "device_bounds",
     "paint_layer",
     "paint_sprite",
     "rasterise",

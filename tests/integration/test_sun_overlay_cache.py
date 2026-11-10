@@ -315,6 +315,165 @@ class TestHighDensityDevice:
         assert (difference > 30).mean() < 0.02  # edges only
 
 
+class TestAboveTheCap:
+    """An overlay larger than the kept picture may be (2048 device pixels a
+    side: a 4K viewport, or a 150 % display from about 1365 logical pixels) is
+    painted directly, exact. Until the review of #784 that was all: with no
+    picture to stand in, every wheel step rasterised it again (143 ms a step
+    in a 3840 x 2000 viewport). It keeps a smaller picture now, made when the
+    settle timer fires, and shows that during a zoom."""
+
+    #: The stand-in is the overlay reduced to the cap and enlarged again by the
+    #: zoom step: the same tone over the shade, softer at its edges.
+    TONE_TOLERANCE = 2.0
+    EDGE_SHARE = 0.02
+    #: Device pixels a centimetre at which the test overlay (548 cm wide with
+    #: its soft edge) is 2192 pixels wide: above the cap.
+    ABOVE = 4.0
+
+    @staticmethod
+    def _overlay() -> SunShadowOverlayItem:
+        overlay = SunShadowOverlayItem()
+        path = QPainterPath()
+        path.moveTo(40, 30)  # most of the canvas, and no symmetry
+        path.lineTo(560, 60)
+        path.lineTo(520, 350)
+        path.lineTo(90, 380)
+        path.closeSubpath()
+        overlay.set_clip_rect(QRectF(0, 0, 600, 400))
+        overlay.set_shadow_path(path)
+        return overlay
+
+    @staticmethod
+    def _frame(
+        overlay: SunShadowOverlayItem, ratio: float, zoom: float, *, exact: bool,
+        holds: float = 5.8,
+    ) -> np.ndarray:
+        """The overlay painted through the Y-flip of the canvas into a picture
+        of ``ratio`` device pixels a pixel. The picture holds the whole plan up
+        to ``holds`` device pixels a centimetre."""
+        width, height = round(600 * holds + 40 * ratio), round(400 * holds + 40 * ratio)
+        image = QImage(width, height, QImage.Format.Format_ARGB32_Premultiplied)
+        image.setDevicePixelRatio(ratio)
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        painter.translate(20, height / ratio - 20)
+        painter.scale(zoom, -zoom)
+        if exact:
+            overlay._paint_exact(painter)
+        else:
+            overlay.paint(painter, None, None)
+        painter.end()
+        return _pixels(image)
+
+    @pytest.mark.parametrize("ratio", [1.0, 1.5, 2.0])
+    def test_a_zoom_step_rasterises_nothing_and_lands_on_the_overlay(self, qtbot, ratio: float) -> None:
+        overlay = self._overlay()
+        settles: list[int] = []
+        overlay.settle_requested = lambda: settles.append(1)
+        zoom = self.ABOVE / ratio
+        # 1. settled: painted directly, exact, and a stand-in is asked for
+        shown = self._frame(overlay, ratio, zoom, exact=False)
+        assert overlay.exact_paints == 1 and overlay.stand_in_paints == 0
+        direct = self._frame(overlay, ratio, zoom, exact=True)
+        assert np.abs(direct - 255).max() > 20  # there is a shadow in the frame
+        assert np.array_equal(shown, direct)     # exact: not one level of one pixel
+        assert settles == [1]
+        overlay.settle()                         # the timer fired: the stand-in is made
+        assert overlay.stand_in_paints == 1
+        picture = overlay._picture
+        assert picture is not None and max(picture.width(), picture.height()) <= 2048
+        # 2. a zoom gesture: nothing is rasterised, the picture stands in
+        rasterised = overlay.exact_paints
+        for step in (1.1, 1.25, 1.4):
+            stepped = self._frame(overlay, ratio, zoom * step, exact=False)
+            assert overlay.exact_paints == rasterised and overlay.stand_in_paints == 1
+            direct = self._frame(overlay, ratio, zoom * step, exact=True)
+            rasterised = overlay.exact_paints
+            shadow = np.abs(direct - 255).max(axis=2) > 20
+            difference = np.abs(stepped - direct).max(axis=2)
+            assert difference[shadow].mean() < self.TONE_TOLERANCE
+            assert (difference > 30).mean() < self.EDGE_SHARE
+        assert len(settles) == 4                 # every step asked to be settled
+        # 3. the zoom has stopped: rasterised for it, exact again
+        overlay.settle()
+        settled = self._frame(overlay, ratio, zoom * 1.4, exact=False)
+        assert overlay.exact_paints == rasterised + 1
+        assert np.array_equal(settled, self._frame(overlay, ratio, zoom * 1.4, exact=True))
+        assert len(settles) == 5                 # ... and a stand-in for THIS zoom is asked for
+
+    def test_a_zoom_that_begins_before_the_timer_makes_the_stand_in_once(self, qtbot) -> None:
+        """Wheel steps come with pauses: the zoom settles, is rasterised, and
+        the next step arrives before the stand-in was made. That step makes it
+        (a quarter to a half of a rasterisation) and the following ones are free."""
+        overlay = self._overlay()
+        overlay.settle_requested = lambda: None
+        self._frame(overlay, 1.0, self.ABOVE, exact=False)
+        assert (overlay.exact_paints, overlay.stand_in_paints) == (1, 0)
+        for step in (1.1, 1.2, 1.3, 1.4):
+            self._frame(overlay, 1.0, self.ABOVE * step, exact=False)
+            assert (overlay.exact_paints, overlay.stand_in_paints) == (1, 1)
+
+    def test_a_new_solve_rasterises_once_and_makes_no_stand_in(self, qtbot) -> None:
+        """A scrub of the timeline is a solve per step. It must not pay for a
+        zoom that may never come: the stand-in waits for the timer."""
+        overlay = self._overlay()
+        overlay.settle_requested = lambda: None
+        self._frame(overlay, 1.0, self.ABOVE, exact=False)
+        overlay.settle()
+        assert (overlay.exact_paints, overlay.stand_in_paints) == (1, 1)
+        for shift in (10.0, 20.0, 30.0):
+            path = QPainterPath()
+            path.addRect(QRectF(20 + shift, 20, 540, 360))
+            overlay.set_shadow_path(path)
+            before = overlay.exact_paints
+            shown = self._frame(overlay, 1.0, self.ABOVE, exact=False)
+            assert overlay.exact_paints == before + 1 and overlay.stand_in_paints == 1
+            assert np.array_equal(shown, self._frame(overlay, 1.0, self.ABOVE, exact=True))
+        # ... and a picture of the solve before is never shown for this one
+        self._frame(overlay, 1.0, self.ABOVE * 1.1, exact=False)
+        assert overlay.stand_in_paints == 2
+
+    def test_zoomed_in_far_nothing_is_kept(self, qtbot) -> None:
+        """Where the device shows only part of the overlay a rasterisation is
+        cheap and a picture of the whole overlay is not: as before, every
+        step is rasterised and nothing is asked of the timer."""
+        overlay = self._overlay()
+        settles: list[int] = []
+        overlay.settle_requested = lambda: settles.append(1)
+        for step, zoom in enumerate((8.0, 8.8, 9.7), start=1):
+            self._frame(overlay, 1.0, zoom, exact=False, holds=3.0)   # 4000 px and more in an 1840-px picture
+            assert (overlay.exact_paints, overlay.stand_in_paints) == (step, 0)
+        assert settles == [] and overlay._picture is None
+
+    def test_wheel_steps_in_a_large_viewport_do_not_rasterise(self, qtbot) -> None:
+        """Through the real view, its item cache and the timer of the controller."""
+        scene, controller = _scene()
+        controller.set_sim_datetime(SUNS["evening"])       # long shadows: the overlay spans the plan
+        view = CanvasView(scene)
+        view.resize(3000, 2200)
+        view.show()
+        qtbot.addWidget(view)
+        qtbot.waitExposed(view)
+        view.fit_in_view()
+        QApplication.processEvents()
+        view.viewport().repaint()
+        overlay = _overlay(scene)
+        on_screen = overlay.deviceTransform(view.viewportTransform()).mapRect(overlay.boundingRect())
+        assert max(on_screen.width(), on_screen.height()) > 2048, "the test needs an overlay above the cap"
+        qtbot.waitUntil(lambda: overlay.stand_in_paints == 1, timeout=3000)   # the timer fired
+        rasterised = overlay.exact_paints
+        for _ in range(8):
+            view.set_zoom(view.zoom_factor * 1.05)
+            view.centerOn(QPointF(600, 450))
+            view.viewport().repaint()
+        assert overlay.exact_paints == rasterised and overlay.stand_in_paints == 1
+        qtbot.waitUntil(lambda: overlay._pending is None, timeout=3000)
+        view.viewport().repaint()
+        view.viewport().repaint()
+        assert overlay.exact_paints == rasterised + 1
+
+
 class TestPixelsUnchanged:
     @pytest.mark.parametrize("sun", list(SUNS))
     @pytest.mark.parametrize("zoom", [0.6, 1.0, 3.0])
