@@ -22,6 +22,14 @@
 
 **Fix**: `ui/canvas/item_cache.ensure_item_cache_budget()` (256 MB ceiling, called by `CanvasScene.__init__`), the overlay as `DeviceCoordinateCache`, and a kept picture shown scaled while a zoom is under way (`SunShadowOverlayItem`, `settle()`). Pinned by paint COUNTS (`tests/integration/test_sun_overlay_cache.py`, `TestPanIsCheap`) and by an on/off repaint RATIO on the quiet runner (`tests/perf/test_sun_overlay_repaint.py`: 16.9 before, 1.06 after).
 
-**What it did not fix**: a timeline scrub at fit still costs one rasterisation of the overlay per solve (about 130 ms) - the cache makes a paint rarer, not cheaper.
+**A third cause, found a day later**: the probe repainted the viewport in a loop and never ran the event loop. With a gesture driven at 33 Hz and events processed between steps, a pan at twice fit still cost 52 ms a step and up to 150 ms:
 
-**Lesson**: a cache mode is a request, not a fact. Count how often `paint()` runs, or time the same frame twice, before believing an item is cached - and when two unrelated things both look expensive (the overlay, the rings), suspect what they share. Two smaller traps on the same hunt: under `QT_QPA_PLATFORM=offscreen` a `set_zoom` without `centerOn` scrolls the items out of view and "no paints" looks like a perfect cache; and a pixmap drawn into an item-space rectangle under the canvas's Y-flip is mirrored - draw device-space pictures with the device transform made the identity.
+```
+[merged] pan at 2x fit : 40 steps in 3296 ms (82.4 ms a step, 30 of it waiting; worst step 150 ms); overlay paints during 72
+```
+
+The minimap re-rendered its thumbnail 100 ms after every scroll-bar change, its render switches every item's cache mode off and on, and switching a cache mode drops the item's device picture. Fix: the minimap repaints its viewport frame on a pan or a zoom and renders on `scene.changed` only (`MinimapWidget._on_viewport_changed`; `TestViewportChangesDoNotRender`). After it: 21 ms a step, worst 64.
+
+**What it did not fix**: a timeline scrub at fit still costs one rasterisation of the overlay per solve (about 100-130 ms) - the cache makes a paint rarer, not cheaper. Any scene change still makes the minimap render and drop the caches once.
+
+**Lesson**: a cache mode is a request, not a fact. Count how often `paint()` runs, or time the same frame twice, before believing an item is cached - and when two unrelated things both look expensive (the overlay, the rings), suspect what they share. Measure an interaction with the event loop running: timers are part of it. Two smaller traps on the same hunt: under `QT_QPA_PLATFORM=offscreen` a `set_zoom` without `centerOn` scrolls the items out of view and "no paints" looks like a perfect cache; and a pixmap drawn into an item-space rectangle under the canvas's Y-flip is mirrored - draw device-space pictures with the device transform made the identity.
