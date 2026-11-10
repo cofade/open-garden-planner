@@ -243,6 +243,33 @@ def test_find_plants_rows_keep_their_descenders(qtbot, qapp, point_size) -> None
         qapp.setFont(font)
 
 
+# ── Crop Rotation ────────────────────────────────────────────────────────────
+
+def test_crop_rotation_lines_sit_under_each_other(qtbot, qapp) -> None:
+    """The open accordion section's spare height was shared out between the
+    wrapped labels: 90 px of nothing between two lines of text."""
+    from open_garden_planner.services.crop_rotation_service import CropRotationService
+    from open_garden_planner.ui.panels.crop_rotation_panel import CropRotationPanel
+
+    panel = CropRotationPanel(CropRotationService())
+    panel._status_label.setText("Raised bed 3: No History")
+    panel._recommendation_label.setText("No planting history — any crop is suitable.")
+    panel._suggest_label.setText("Next: Heavy Feeder")
+    _host(qtbot, panel, width=450, height=800)     # far taller than the content
+    qapp.processEvents()
+
+    lines = (panel._status_label, panel._recommendation_label, panel._suggest_label)
+    for upper, lower in zip(lines, lines[1:], strict=False):
+        gap = lower.y() - (upper.y() + upper.height())
+        assert gap <= 12, f"{gap} px between {upper.text()!r} and {lower.text()!r}"
+    for label in lines:
+        assert label.height() <= label.sizeHint().height() + 4, label.text()
+    # The three row buttons are as wide as their text and stay inside the panel.
+    for button in (panel._add_record_btn, panel._edit_record_btn, panel._delete_record_btn):
+        assert button.width() >= button.sizeHint().width()
+        assert _right_edge(button, panel) <= panel.width()
+
+
 # ── Constraints header ───────────────────────────────────────────────────────
 
 def test_the_constraints_delete_all_button_is_a_readable_icon(qtbot, qapp) -> None:
