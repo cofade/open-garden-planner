@@ -10,7 +10,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import (
@@ -43,6 +43,7 @@ from open_garden_planner.models.layer import Layer, create_default_layers
 from .item_cache import ensure_item_cache_budget
 
 if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
     from open_garden_planner.ui.canvas.plan_labels import LabelPass, ShownLabel
 
 #: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
@@ -116,7 +117,8 @@ def collect_standing_covers(scene: QGraphicsScene) -> list[StandingCover]:
     covers: list[StandingCover] = []
     for item in scene.items():
         if is_standing_object(item):
-            cover = item.sceneTransform().map(item.grid_cover_path())  # type: ignore[attr-defined]
+            covered: QPainterPath = cast("GardenItemMixin", item).grid_cover_path()
+            cover = item.sceneTransform().map(covered)
             covers.append((cover.boundingRect(), cover))
     return covers
 
