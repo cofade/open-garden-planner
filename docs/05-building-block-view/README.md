@@ -254,6 +254,7 @@ src/open_garden_planner/
 │   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
 │   │   ├── category_toolbar.py   # CategoryToolbar (10 category dropdowns + global search) (ADR-018)
 │   │   ├── toolbar_rows.py       # ToolbarRows: the tool toolbars wrap with the window (#796)
+│   │   ├── elided_label.py       # ElidedLabel: a one-line label that gives way to its row (#796)
 │   │   ├── soil_overlay_legend.py # Key to the soil-health overlay's tints, in its toolbar (#796)
 │   │   ├── category_dropdown.py  # Popup palette under each category button (ADR-018)
 │   │   ├── global_search.py      # Toolbar object search across all categories (ADR-018)

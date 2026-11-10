@@ -167,6 +167,9 @@ A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF
   such buttons are aligned by measuring (`TasksView._align_action_columns`), never by a constant.
 - **A list row that is a widget** (`setItemWidget`) gets the row's rectangle minus the item
   padding: size the row with `list_row_size_hint(widget)`.
+- **A one-line text in a row of fixed columns** is an `ElidedLabel`
+  (`ui/widgets/elided_label.py`): a plain `QLabel` is never narrower than its text, so one
+  long task title pushed the date, the arrow and the buttons of every row out of view.
 - **A scroll area that must be as tall as its rows** cannot use `QScrollArea.sizeHint()`, which
   remembers the first answer; and a row added to a visible parent counts in no hint until the
   event loop has turned. `_FittedScrollArea` (the calendar dashboard) is the pattern.
