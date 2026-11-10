@@ -6,6 +6,7 @@ The view handles the Y-flip for display.
 """
 
 import contextlib
+import weakref
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -304,8 +305,14 @@ class CanvasScene(QGraphicsScene):
         # made at the first paint.
         self._label_pass: LabelPass | None = None
         # What each viewport's view draws over it that no label may touch
-        # (``set_label_blockers``), by the viewport's id.
-        self._label_blockers: dict[int, tuple[QRectF, ...]] = {}
+        # (``set_label_blockers``), by the viewport itself, held weakly: an
+        # entry goes with its widget. Not by ``id(viewport)``, as it was: an id
+        # is an address, and a new widget at a dead one's address was handed
+        # the dead one's blockers. And not dropped from a slot on the widget's
+        # ``destroyed``: a Python callable there runs during teardown.
+        self._label_blockers: weakref.WeakKeyDictionary[QWidget, tuple[QRectF, ...]] = (
+            weakref.WeakKeyDictionary()
+        )
 
         # Layer management
         self._layers: list[Layer] = create_default_layers()
@@ -424,18 +431,28 @@ class CanvasScene(QGraphicsScene):
         """State what a view draws over ``viewport`` that no label may touch (device
         pixels: the key of the sun map). True when that changed — the view then
         paints once more, with the labels that have room now."""
-        key, new = id(viewport), tuple(QRectF(rect) for rect in rects if not rect.isEmpty())
-        if self._label_blockers.get(key, ()) == new:
+        new = tuple(QRectF(rect) for rect in rects if not rect.isEmpty())
+        if self._label_blockers.get(viewport, ()) == new:
             return False
         if new:
-            self._label_blockers[key] = new
+            self._label_blockers[viewport] = new
         else:
-            self._label_blockers.pop(key, None)
+            self._label_blockers.pop(viewport, None)
         return True
+
+    @property
+    def label_viewports_kept(self) -> int:
+        """For how many viewports the label pass keeps a layout right now."""
+        return self._label_pass.viewports if self._label_pass is not None else 0
+
+    @property
+    def label_blocker_viewports(self) -> int:
+        """For how many viewports a view has stated blockers right now."""
+        return len(self._label_blockers)
 
     def label_blockers(self, viewport: QWidget) -> "tuple[QRectF, ...]":
         """What ``set_label_blockers`` stated for ``viewport``."""
-        return self._label_blockers.get(id(viewport), ())
+        return self._label_blockers.get(viewport, ())
 
     # Shadow management (painted shadows — no QGraphicsEffect overhead)
 
