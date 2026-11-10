@@ -512,6 +512,91 @@ class TestMinimapIdleQuiescence:
         assert minimap._thumbnail is not None
 
 
+class TestViewportChangesDoNotRender:
+    """A pan or a zoom moves the blue viewport frame; the picture of the plan
+    under it stays what it was. Rendering it again was not only wasted work:
+    the render disables every item's cache for its duration, which drops their
+    device pictures — so 100 ms into a pan the canvas painted every visible
+    item again, the sun-shadow overlay among them (#784: a pan step at twice
+    fit on the family-garden example cost 52 ms on average and up to 150 ms,
+    with the event loop running; 21 ms and up to 64 without the render)."""
+
+    @staticmethod
+    def _staged(
+        canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> tuple[CanvasView, MinimapWidget, dict[str, int]]:
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        scene.addItem(QGraphicsRectItem(500, 500, 900, 600))
+        minimap = MinimapWidget(view, scene)
+        view.set_zoom(0.5)  # 2500 x 1500 px of plan in an 800 x 600 view: not all in view
+        qtbot.wait(300)  # type: ignore[attr-defined]
+        assert minimap._thumbnail is not None
+        renders = TestMinimapIdleQuiescence._count_scene_renders(scene)
+        return view, minimap, renders
+
+    def test_a_pan_and_a_zoom_do_not_render_the_scene(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        view, _minimap, renders = self._staged(canvas_pair, qtbot)
+        for bar in (view.horizontalScrollBar(), view.verticalScrollBar()):
+            bar.setValue(bar.value() + 40)
+            qtbot.wait(150)  # type: ignore[attr-defined]
+        view.set_zoom(view.zoom_factor * 1.5)
+        qtbot.wait(300)  # type: ignore[attr-defined]
+        assert renders["n"] == 0, f"{renders['n']} scene renders for a pan and a zoom"
+
+    def test_the_frame_follows_the_view(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object, monkeypatch
+    ) -> None:
+        view, minimap, _renders = self._staged(canvas_pair, qtbot)
+        painted: list[QRectF] = []
+        real = MinimapWidget.paintEvent
+
+        def paint_event(self: MinimapWidget, event: object) -> None:
+            painted.append(self._viewport_rect_on_minimap())
+            real(self, event)
+
+        monkeypatch.setattr(MinimapWidget, "paintEvent", paint_event)
+        before = minimap._viewport_rect_on_minimap()
+        bar = view.horizontalScrollBar()
+        bar.setValue(bar.value() + 200)
+        qtbot.wait(150)  # type: ignore[attr-defined]
+        assert painted, "the minimap was not repainted after a pan"
+        assert painted[-1].x() > before.x() + 5  # 200 px at 50 % = 400 cm = 19 minimap px
+        thumbnail = minimap._thumbnail
+        view.set_zoom(view.zoom_factor * 2.0)
+        qtbot.wait(150)  # type: ignore[attr-defined]
+        assert painted[-1].width() < before.width() * 0.6
+        assert minimap._thumbnail is thumbnail  # the same picture under the frame
+
+    def test_auto_hide_follows_the_view(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """The minimap hides while the whole plan is in view and comes back
+        when it is not — on the viewport change itself, without a render."""
+        view, minimap, renders = self._staged(canvas_pair, qtbot)
+        assert minimap.isVisible()
+        view.set_zoom(0.1)  # 500 x 300 px: the whole plan is in view
+        qtbot.wait(150)  # type: ignore[attr-defined]
+        assert not minimap.isVisible()
+        view.set_zoom(1.0)
+        qtbot.wait(150)  # type: ignore[attr-defined]
+        assert minimap.isVisible()
+        assert renders["n"] == 0
+
+    def test_a_scene_change_still_renders(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, minimap, renders = self._staged(canvas_pair, qtbot)
+        view.scene().addItem(QGraphicsRectItem(2000, 1000, 300, 300))
+        qtbot.wait(300)  # type: ignore[attr-defined]
+        assert renders["n"] >= 1
+
+
 def _dense_path(start: QPointF, end: QPointF) -> PolylineItem:
     """A path in the chain-link style, 5 cm wide: its mesh every 0.8 widths places an
     element every 4 cm (and a post every 40 cm) — the spacing of the gravel path's
