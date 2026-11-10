@@ -49,7 +49,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.camera_path import CameraKey, TourFrame, TourSpec, path_eyes
+from open_garden_planner.core.camera_path import (
+    CameraKey,
+    HeldCamera,
+    TourFrame,
+    TourSpec,
+    path_eyes,
+)
 from open_garden_planner.core.camera_tours import SavedTour
 from open_garden_planner.core.commands import (
     DeleteCameraTourCommand,
@@ -174,6 +180,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_holds_utc = False
         self._tour_utc_time: day_time | None = None
         self._tour_size: tuple[int, int] = (16, 16)
+        self._tour_still = False   # a held camera's tour fits its shadows (#734)
         self._dialog: TourDialog | None = None
         #: Where the plan's saved tours live (a ``ProjectManager``) and the undo stack
         #: their edits go through (``connect_tours``). None: tours cannot be kept.
@@ -536,7 +543,8 @@ class WorkspaceCaptureCoordinator(QObject):
             raise CaptureRefused("not_open")
         ratio = float(host.device_pixel_ratio())
         size = photo_size(size_key, host.view_size(), ratio)
-        image = host.capture(size, label="photo")
+        # #734: a photo's camera holds still, so its shadow map is fitted to the casters
+        image = host.capture(size, label="photo", fitted_shadows=True)
         self._describe(image)
         return bool(image.save(str(path)))
 
@@ -655,6 +663,9 @@ class WorkspaceCaptureCoordinator(QObject):
         from .tour_recorder import TourRecorder
 
         self._tour_size = size
+        # #734: a held camera's frames (a time-lapse) fit the shadow map like a picture; a
+        # moving camera's keep the view's stable fit — a fitted map would crawl with it
+        self._tour_still = isinstance(spec.motion, HeldCamera)
         recorder = TourRecorder(spec, writer, self._tour_frame, self._tour_clock,
                                 self._tour_settled, realtime=realtime,
                                 view_showing=self._is_pane_showing, parent=self)
@@ -684,7 +695,8 @@ class WorkspaceCaptureCoordinator(QObject):
         key = frame.key
         image: QImage = self._get_host().capture(
             self._tour_size, PerspectiveShot(key.eye, key.target, key.fov_deg),
-            wind_time_s=frame.wind_time_s, label=f"tour{frame.index}")
+            wind_time_s=frame.wind_time_s, label=f"tour{frame.index}",
+            fitted_shadows=self._tour_still)
         return image
 
     def _tour_clock(self, day: date | None, moment: day_time | None) -> None:
@@ -827,7 +839,8 @@ class WorkspaceCaptureCoordinator(QObject):
             raise CaptureRefused(blocker)
         host = self._get_host()
         try:
-            image = host.capture(size, shot, photo=NO_PHOTO, label="agent")
+            image = host.capture(size, shot, photo=NO_PHOTO, label="agent",
+                                 fitted_shadows=True)   # a still picture (#734)
         except HostStateError as error:   # resized or hidden a moment ago: "not now"
             _LOG.info("render_3d_view: no frame right now (%s)", log_text(error))
             raise CaptureRefused("warming_up") from error

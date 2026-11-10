@@ -6839,6 +6839,119 @@ with `view3d_looks_driver.py` (§8.10.11).
   bound — ADR-060 addendum "the default and the removal".)*
   The looks' render gates are not in CI's render job; L1.9 decides, with L1.8's selection file.
 
+### ADR-059 addendum: low-sun shadows — a still frame's map fitted to the casters, pickets without a ramp (#734)
+
+**Context.** At golden hour the family garden's outer fence threw a long shadow onto the meadow
+whose edge showed coarse stair steps; at the 5.9° sunset the meadow behind it was strewn with
+bright streaks; both reached promotional 4K pictures and the first frames of a time-lapse. The
+issue asked which shadow setting decides it. Measured one variable at a time (`ogp-3d-renderer`
+§23, `ogp-lush-cinematic` reference 13, the board's new `--stairs` probe): two mechanisms.
+
+1. **The builder.** The L0 picket fence lowered each picket by `index * 7919 % 13 / 13 × 4` cm.
+   `7919 mod 13 = 2`: a ramp of seven pickets climbing 0.6 cm, then a drop, every 13. A low
+   sun turns each centimetre into `1 / tan(elevation)` of shadow (3.7 at 15°), so the fence's
+   long shadow carried a regular staircase whatever the map — a 4096 map, a tighter reach
+   and a 32-bit map left it pixel for pixel. Every picket fence of every plan was the same.
+   This was the issue's staircase.
+2. **The cascade fit.** `lockShadowmapTexels: true` sizes each cascade by the bounding sphere of
+   its whole frustum slice (Qt 6.12's `setupCascadingCamerasForShadowMap`): with
+   `shadowMapFar` ≥ 9000 cm, High's last cascade spans about 170 m on 2048 texels — 8.3 cm. A
+   long edge 20–40 m out stepped, the foot of every caster showed lit teeth one texel tall in
+   light space (`texel / sin(elevation)` long on the ground: the ground does not cast), and
+   the 0.5 cm slits an oblique sun leaves between 2.2 cm thick pickets aliased into streaks.
+   `pcfFactor` is a radius in scene units (2 cm by day) for every cascade; it cannot hide a
+   larger texel. Unlocked, Qt spans each cascade by the casters' box clipped to the slice —
+   about 1 cm texels on a 24 m plan — but that box moves with the camera: through the
+   product's capture path, orbiting the family garden 0.5° a frame, the fence's edge crawled
+   0.69 / 0.38 px a frame 0–10 / 10–20 m out (averaged over 30 cm) against 0.16 / 0.17 locked.
+   A single cascade crawled as far (0.32 / 0.39): the hero view never holds the whole plan.
+
+**Decision.**
+
+1. **A frame whose camera does not move fits the shadow map to the casters; a moving camera
+   keeps the locked fit.** `Garden.qml`: `lockShadowmapTexels: root.topDown ||
+   !root.fittedShadows`. `Quick3DHost.capture(..., fitted_shadows=False)`: the default is the
+   view's fit, so a capture that does not ask is the view to the level — the self-test's check,
+   which a fitted default failed on the renderer by 24 levels. The still pictures ask by name:
+   `WorkspaceCaptureCoordinator.write_photo`, `agent_picture` and the frames of a `HeldCamera`
+   tour (a time-lapse: the light turns under either fit, and the fitted grid crawls less —
+   measured below). An orbit, a flight and the live view keep the locked fit. The flag holds
+   for the capture's own frame and is put back in its `finally`, like its AO scale (a capture's
+   frame is never presented). `set_fitted_shadows` is the host's call for it;
+   `render_records(fitted_shadows=)` and the board's `--photo-shadows` render a picture's fit.
+   The orthographic truth view stays locked. `shadowMapFar`, the splits, the maps, the filters
+   and the bias are unchanged.
+2. **Each picket stops its own 0.5–1.5 cm under the posts** (`fences.PICKET_DROP_CM`), drawn
+   by a hash of the item's seed (`unit_hash`, `picket_seed`): the posts stay proud, no two
+   neighbours level, no period, no two fences alike. The fence's height (the posts) is the
+   plan's; nothing in the data moved. It holds in every frame, the view's included.
+
+**Measured** (RTX 4070, Direct3D 11, `--stairs` on bench_small at 1920 × 1080; the panel's edge
+20–40 m out in the default framing, spread across it; the foot: the lit share of a line 15 cm
+out from the panel's shaded face at 5.9°; streaks: the picket fence's 5.9° shadow,
+one-pitch-filtered, over the shadow's contrast, the worse of two cameras):
+
+| Setting (High, one at a time) | edge 15.2° | edge 5.9° | foot | streaks | cost / catch |
+|---|---|---|---|---|---|
+| locked, ≥ 9000 cm (the view, as before) | 5 cm / 2.24 px | 11 cm / 6.23 px | 0.339 | 0.49 | — |
+| reach without the 9000 cm floor | 3 cm / 1.68 px | 9 cm / 5.70 px | — | — | the golden-hour camera's 10–20 m band worse (1.08 → 2.04 px) |
+| `pcfFactor` 4 / 6 | 4 / 4 cm | 5 / 3 cm | — | smeared into bands | every contact softer |
+| 4096 map | 2 cm / 0.99 px | 3 cm / 1.70 px | — | 0.29 | 4 × the shadow passes' texels |
+| `csmSplit2` 0.45 | 3 cm | 5 cm | — | 0.76 | worse near (2.19 px at 10–20 m) |
+| **fitted to the casters (a still frame)** | **1 cm / 0.32 px** | **2 cm / 1.40 px** | **0.011** | **0.12** | no measurable frame cost (below); crawls with a moving camera |
+
+Ultra locked 1 / 2 cm, foot 0.011, streaks 0.30; fitted 1 / 2 cm, 0.011, 0.10. Low and medium
+fitted: 1 / 2 cm, 0.009–0.011, 0.13–0.21. What is left at 5.9° is Qt's per-pixel PCF dither,
+not texels. The final design in the render gate (2026-11-10, High / Ultra, every frame a still
+picture's fit): the panel's far edge 0.64 / 0.63 cm at 15.2° and 2.24 / 2.27 cm at 5.9°, the
+foot lit 0.023 at worst, streaks 0.165 / 0.136 at worst. The `--stairs` orbit (the golden-hour
+camera round the plan, the panel and a 10 m column at each plan corner, 0.5° a frame, averaged
+over 30 cm): locked 0.079 / 0.094 px at 0–10 / 10–20 m (Ultra 0.082 / 0.087), fitted 0.21 /
+0.146 (Ultra 0.106 / 0.117). The `--stairs` time-lapse (the same scene, that camera held, the
+sun stepping 0.4° / 0.55° a frame, each frame against its own sun's edge): 8 frames from 15.2° to 12.4°, locked 0.336 / 0.682 px at 0–10 / 10–20 m (Ultra 0.175 / 0.321), fitted 0.265 / 0.517 (Ultra 0.167 / 0.298); 24
+frames from golden hour to sunset in the same scene: locked 0.66 / 0.79 px, fitted 0.35 /
+0.37. The picket fence's golden-hour edge in the hero camera, 0–10 m: 6.65 px (the ramp) →
+4.59 px (the posts' bumps, 0.5–1.5 cm proud; level pickets 2 cm under read 5.39). In a fitted
+frame the far tree shadows show Qt's dither (high-pass spread in their penumbra 1.79 → 2.14
+luma at 4K; the near shadows' 6.01 → 6.03). The picket fence against its 2D caster model
+(`scripts/measure_built_world_shadows.py`): area ratio 1.01 / 1.01 / 1.00, IoU 0.66 / 0.67 /
+0.68, tip +2.0 / +2.0 / +2.4 cm (before 1.00 / 1.00 / 1.00, 0.65 / 0.66 / 0.68, the same tips).
+The family garden's board on the view's path against the base (High, 1920 × 1080, seven
+shots): 0.03–0.12 levels mean, at most 0.27 % of pixels more than 8 apart (the fences' tops),
+luma, clipping and dark-pixel counts unchanged; on the photo's path against the view's: 0.2–2.1
+levels mean, 0.01–7.9 % of pixels (December noon's long shadows and the lawn blades' own).
+
+**Cost.** Fitting changes which texels a cascade covers, not how many passes or pages there
+are. Captures of the family garden at golden hour, fitted and locked strictly alternating in
+one process, two warm-ups, the minimum of 12 each (the GPU was shared with two other renders,
+which only add time): 1920 × 1080 fitted − locked −0.7 ms (low, 17.8 ms locked), +2.3 (medium,
+21.0), −0.6 (high, 25.3), +2.1 (ultra, 40.3); 3840 × 2160 on High +2.9 ms minimum, +0.7 ms
+median (54.2 / 57.0 against 51.3 / 56.3 ms, 12 pairs). No cost beyond that noise; the live
+view's frames are the base's (it keeps the locked fit). The board's `--fps-seconds` readback
+A/B swung 3 × between rounds under the shared GPU and decided nothing.
+
+**Truth gates.** The view's fit is the base's: its shadow IoU in perspective with each preset's
+cascades (640 × 360) stays low 0.919 / 0.967 / 0.962, medium 0.919 / 0.969 / 0.958, high
+0.985 / 0.968 / 0.962, ultra 0.986 / 0.970 / 0.965 at 15° / 35° / 60° (gate 0.85). In a
+picture's fit: low 0.985 / 0.975 / 0.970, medium 0.985 / 0.975 / 0.961, high 0.986 / 0.980 /
+0.967, ultra 0.986 / 0.981 / 0.968; far plan (bench_large, 2× / 4× framing, High) 3,768 /
+3,761 shadowed samples against 3,512 / 3,420, the outer row step 0.77 / 1.55 either way (gate 3.0).
+
+**Consequences.** A picture's shadows are sharper than the view's at a low sun, the photo-mode
+preview's included: ADR-072 decision 5's "all off is the view" holds for a capture that does
+not ask (amended there). A recording that moves its camera shows the view's shadows. A fitted
+map's texels depend on the plan's extent (a 50 m plan about 2.5 cm), not on the camera's
+distance. Open: the live view at rest could take the fitted map too, at the cost of a visible
+sharpening when the camera stops — a taste question for the owner (follow-up). The render
+tier's `test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks` gates a
+picture's fit, the view's orbit and the measured reasons for the routing (observed failing on
+the base: 4.97 cm against 2.5 at High, 15.2°); the builder pin
+`test_picket_tops_repeat_no_pattern_and_follow_the_items_seed` gates the ramp and the clones;
+`test_directors_cut.py::test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views`
+the routing; `test_directors_cut_render.py::test_a_still_pictures_fitted_shadows_change_only_its_own_frame`
+and the self-test that a fitted capture changes only its own frame and a default one is the
+view. PF-L3D-24, PF-L3D-25.
+
 ### ADR-059 addendum: ground bake — flat surfaces painted from records into ground tiles (Phase 17, L1.5)
 
 **Status**: Accepted (2026-10-12, #385 story L1.5); amended the same day by the story's first
@@ -10665,6 +10778,10 @@ view on any steady path.
    point becomes a depth along the view's axis), a vignette towards black and a colour grade, all `ExtendedSceneEnvironment` features on the one environment, so the view previews
    what is saved. All off is the view, pixel for pixel. A click sets the focus while photo mode
    is on: selection has its 2D side. No setting is saved in the plan.
+   *(#734: a saved photo, an agent's picture and a held camera's frames fit the shadow map to
+   the casters; all off, such a picture differs from the view along shadow edges only, and a
+   low sun's long shadows are sharper in it than in the preview — ADR-059 addendum "low-sun
+   shadows". A capture that does not ask for it is still the view, pixel for pixel.)*
 
 6. **A grade is a procedural table, and it carries the look's saturation and contrast.** Qt
    applies them unclamped right before its table lookup, and that lookup is a `texelFetch` whose
@@ -11359,3 +11476,160 @@ Cross-refs: AUD-073, AUD-077, AUD-078 in
 `docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md`;
 ADR-051 (wiki publication), ADR-068 (agent context), `AGENTS.md` "Where to Pick Up After
 Restart", `docs/wiki/README.md`.
+
+## ADR-075: CAD editing keeps the group frame and the command stack (issues #664, #771)
+
+**Status**: Shipped in v1.37.10 (PR #783)
+
+**Context**: Two CAD editing gaps shared the canvas selection and command seams. A
+closed shape could not be cut into pieces: the only workaround lost the layer, look,
+fill transform, label state and metadata. And a group's members could not be edited
+without ungrouping it. Qt constrains the second problem more than the first: a
+`QGraphicsItemGroup` routes a child's selection back to the group (`scene.selectedItems()`
+returns only the group), and the child's own resize/vertex handles do not receive a
+usable drag while the group is the selection. Detaching the child on drill-down and
+re-adding it on exit looks simple, but commands captured while detached store local
+`pos()`/`rect()` values in the child's temporary top-level frame; re-adding changes
+that frame, so a later undo on a moved or rotated group can restore the wrong place.
+
+**Decision**:
+1. **Drill-down is a logical focus, not a reparent.** `CanvasView.drill_down_item` names
+   one direct member of the selected group. The group stays the Qt selection; the
+   member stays its child, so its layer guard, saved group data and transform frame
+   are unchanged. `CanvasView.effective_selection()` is the one selection seam every
+   panel uses (`_on_selection_changed`, properties, plant details, companion, crop
+   rotation), and `drill_down_changed` replaces Qt's `selectionChanged` for that focus
+   because Qt does not emit one. `GroupItem.paint` draws the focused member's outline
+   only while the group is selected, so exports (which clear selection) never paint it.
+2. **Geometry edits of a focused member stay in the group frame.** A body drag is a
+   view-owned gesture (`begin_drill_down_drag`/`_finish_drill_down_drag`), not Qt's
+   group drag; the arrow keys and the Properties panel convert a scene delta through
+   `_delta_in_parent_frame()` before writing `item.pos()`. The member's own resize and
+   rotation handles are shown, and the view replays their press/move/release through
+   `ResizeHandle.begin_drag/apply_drag/end_drag` and the `RotationHandle` equivalents,
+   because Qt routes a group child's handle press to the group. Every grouped
+   ancestor's `ItemIsMovable` flag is cleared while the member is focused and restored
+   on exit. Changing the member's layer is refused in the context menu, the panel and
+   `PropertyEdits`; Cut/Delete and movement of a constrained member or ancestor are
+   refused while a member is focused.
+3. **Split works in the source's local frame and replaces it in one command.**
+   The context menu and the CAD toolbar button next to Trim/Extend reach the
+   same tool, but with different scopes: the context menu arms the clicked
+   closed shape, while the toolbar and the `Shift+S` shortcut start a scene-wide
+   two-point cut with no prior selection. In scene-wide mode the first click is
+   the line's first point and every closed shape the drawn segment passes
+   through is cut along the segment's supporting axis; shapes on the line's
+   infinite extension but not reached by the segment are not cut, and a
+   boundary touch (a corner, an edge, a tangent) is not a crossing.
+   `core/shape_split.py` clips each item's local `QPainterPath` against the two
+   half-planes of the two-point axis; one `SplitShapeCommand` per source removes
+   it and adds ordinary `PolygonItem`s, and the whole gesture is one undo step
+   (a bare command when no membership reconciliation is needed, otherwise a
+   `CompoundCommand`). Pieces copy
+   the source's layer, object
+   type (when valid for a polygon), name, label/area state, metadata, stack order and
+   `fill_transform`; using the local frame keeps a rotated source's rotation and
+   pattern direction. Curves flatten to polygons, a concave shape may yield more than
+   two pieces, and a result that contains a hole is refused because a `QPolygonF`
+   cannot carry it.
+4. **A split may not orphan project data.** `CanvasView.split_refusal_reason` refuses
+   a plant itself, constraints, locked layers, grouped members (ridge-bearing
+   buildings too at first; the second addendum lifts that), shape types without a
+   polygonal form, and any source
+   whose UUID is still named by soil, pest, harvest, succession, crop-rotation,
+   manual-task or task-state data. The last check is
+   `ProjectManager.has_item_references`, the single central query. A bed or other
+   plant parent with a polygonal form is NOT refused for having plants: a
+   `ReconcileBedMembershipCommand` in the same undo step re-homes each linked plant
+   to the piece that contains its standing point, using the established
+   plant→bed mutator.
+
+**Alternatives considered**:
+- *Detach the member and re-add it on exit.* Rejected: command snapshots are in the
+  temporary top-level frame; undo after a moved or rotated group would restore a
+  different place. It also changes the group's serialized children while focused.
+- *Duplicate the member as an edit proxy and apply it back on exit.* Rejected: the
+  edit commands would target a deleted proxy after the apply, leaving a broken stack.
+- *Copy the split geometry into `shape_boolean` or the tool.* Rejected: the roof
+  painter already has a line split, and a second copy would drift; `shape_split`
+  reuses `item_to_local_painter_path` and the shared `path_has_hole` / area floor.
+- *Produce scene-frame pieces.* Rejected: a rotated source's brush transform would be
+  recomputed from the scene origin, so the material would visibly jump at the cut.
+- *Allow a split of tracked beds and let the records follow one arbitrary piece.*
+  Rejected: the user did not choose which piece inherits the history; refusing is
+  reversible, silently reassigning is not.
+
+**Consequences**: New `core/shape_split.py`, `core/tools/split_tool.py` and
+`ui/canvas/items/split_menu.py`; `SplitShapeCommand` in `core/commands.py`; group
+drill-down state and `drill_down_changed` in `ui/canvas/canvas_view.py`. No
+`FILE_VERSION` bump: the pieces are ordinary polygons and drill-down is runtime-only.
+User-visible strings are covered in EN/DE/ES/RU. Pins:
+`tests/unit/test_shape_split.py`, `tests/integration/test_split_shapes.py`,
+`tests/integration/test_group_drill_down.py`, `tests/unit/test_project.py::TestItemReferences`,
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect`,
+`tests/unit/test_object_height.py::TestHeightAcrossATypeChange`.
+Cross-refs: FR-35, §8.35, PF-CAN-46, PF-CAN-48.
+
+**Addendum (2026-11-09) — the split tool is scene-wide, and its shortcut is Shift+S.**
+Manual testing of PR #783 rejected the first interaction: the toolbar's Split tool
+required a selected shape (or a shape-picking first click), so a line could cut only
+one object and a scene-wide cut took three clicks. The owner's expectation is the
+CAD-knife one: choose the tool, click two points anywhere, and every object the line
+crosses is split, fully or partly. The tool now takes the first click as the line's
+start with no source selected, freezes the visible closed-shape candidates at that
+point, previews every crossed shape's pieces while the second point moves, and applies
+all cuts in one undo step. The context-menu action keeps its explicit one-shape scope
+and returns to Select; the toolbar stays armed for another cut. The candidate test is
+the **drawn segment** (`segment_crosses_item`), not the infinite axis: a shape lying on
+the line's extension but not reached by the segment is never touched, while a segment
+that starts or ends inside a shape still divides it along the supporting axis.
+
+The shortcut changed from `S` to `Shift+S` because the first version was dead in the
+real window: `S` is `snap_action`'s window shortcut, and a second window shortcut on
+the same key makes Qt fire neither (measured on Qt 6.12 with a `QToolButton` and a
+`QAction` in one window; PF-UI-36). `Shift+S` is free and leaves `S` as Snap to Grid.
+
+Review then found two consequences worth stating. A **touch is not a crossing**:
+`segment_crosses_path` splits the segment at its outline crossings and accepts only
+an interval whose midpoint is strictly inside (offset points on both sides must be
+inside), so a snapped pick on a bed's corner, a segment along an edge, or a tangent
+returns False. And **a bed with plants is eligible**: refusing every plant parent
+would make the headline feature unable to touch the normal object in a garden. The
+`SplitShapeTool` adds a `ReconcileBedMembershipCommand` to the same undo step for
+every split source that has children; the existing plant→bed mutator moves each
+plant to the new piece containing its standing point, and undo restores the source's
+links before the source itself comes back.
+
+**Addendum 2 (2026-11-09) — decisions from the owner's manual test of PR #783.**
+Behaviour is specified in FR-35 and the mechanics in §8.35; this records what was
+decided and what was rejected.
+
+1. **A building with a ridge is split like a garage.** The first version refused every
+   ridge-bearing building because its linked `ROOF_RIDGE` would be orphaned. The ridge
+   is derived geometry (ADR-046), so nothing has to be preserved: `SplitShapeCommand`
+   removes the source's ridge with the source and builds every piece its own through
+   `roof_ridge_link.build_copy_ridges`. A source without a ridge (the user's flat roof)
+   gives pieces without one. A ridge that is constrained or on a locked layer still
+   refuses the split, like the shape itself.
+2. **A rebuild's type change keeps the height.** A raised bed's 40 cm is a per-type
+   default (ADR-037, rung 4); its garden-bed pieces had none. The height the object
+   stood at is written as an explicit `object_height_cm`
+   (`object_height.carry_height_across_type_change`), in the one entry point for a
+   rebuild's type change, `item_look.adopt_rebuilt_type`, which the split, the corner
+   tools and the loader's raised-bed migration share. Accepted trade-off: the piece then
+   shows a custom height, so a later manual type change no longer follows the new type's
+   default. The Properties panel's own type change is unchanged.
+3. **A sprite's stored fill is not its look.** A piece of a sprite-painted source takes
+   its new type's fill pattern; a source painted by its own brush keeps the user's
+   pattern (`adopt_rebuilt_type(keep_fill=...)`). The wooden frame stays a
+   rectangle-only sprite (owner decision 2026-10-31): a piece is a garden bed with soil
+   and a height, which the 3D view builds as an edged bed.
+4. **Esc ends every tool, and means the same wherever the focus is.** The canvas
+   leaves one narrower mode per press (calibration, vertex editing, drill-down), else
+   ends the tool (`return_to_select_tool`); the main window calls the same two steps
+   (`CanvasView.handle_escape`) for an Esc no focused widget consumed. Rejected: a
+   window-level `QShortcut` on Esc, which would pre-empt every line edit, popup and
+   inline editor in the window (and a second shortcut on one key fires neither,
+   PF-UI-36). The focused inline editor receives the same Esc first.
+5. **The minimap hides a selected group's descendants by opacity** instead of a flag
+   (PF-CAN-48).

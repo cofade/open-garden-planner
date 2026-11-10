@@ -31,11 +31,13 @@ def _polygon_area(poly: QPolygonF) -> float:
     return abs(area) / 2.0
 
 
-def item_to_painter_path(item: QGraphicsItem) -> QPainterPath | None:
-    """Convert a shape item to a QPainterPath in scene coordinates.
+def item_to_local_painter_path(item: QGraphicsItem) -> QPainterPath | None:
+    """Convert a shape item to a QPainterPath in its own local coordinates.
 
     Supports PolygonItem, RectangleItem, CircleItem and EllipseItem. Returns
-    None for unsupported item types.
+    None for unsupported item types. ``item_to_painter_path`` is this path
+    mapped to the scene; a split works in the local frame so the source's
+    position, rotation and fill pattern survive the cut (#664).
     """
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
@@ -56,6 +58,19 @@ def item_to_painter_path(item: QGraphicsItem) -> QPainterPath | None:
     elif isinstance(item, EllipseItem):
         local_path.addEllipse(item.rect())
     else:
+        return None
+
+    return local_path
+
+
+def item_to_painter_path(item: QGraphicsItem) -> QPainterPath | None:
+    """Convert a shape item to a QPainterPath in scene coordinates.
+
+    Supports PolygonItem, RectangleItem, CircleItem and EllipseItem. Returns
+    None for unsupported item types.
+    """
+    local_path = item_to_local_painter_path(item)
+    if local_path is None:
         return None
 
     # Map to scene coordinates to handle position, rotation, transforms

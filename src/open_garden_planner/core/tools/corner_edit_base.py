@@ -364,7 +364,7 @@ def rebuild_with_corner_replaced(
     (raised bed → garden bed); types with no polygonal form are refused.
     """
     from open_garden_planner.core.item_look import (
-        adopt_type_fill,
+        adopt_rebuilt_type,
         copy_visual_style,
         inherit_item_identity,
     )
@@ -420,12 +420,13 @@ def rebuild_with_corner_replaced(
             layer_id=item.layer_id,
         )
         copy_visual_style(item, polygon_clone)
-        adopt_type_fill(
+        # After the identity: the height rule reads the inherited metadata.
+        inherit_item_identity(item, polygon_clone)
+        adopt_rebuilt_type(
             polygon_clone,
             getattr(item, "object_type", None),
             mapped_type,
         )
-        inherit_item_identity(item, polygon_clone)
         return polygon_clone
 
     return None

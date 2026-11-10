@@ -2664,8 +2664,9 @@ def test_a_capture_restores_the_view_when_its_resting_frame_raises(host) -> None
     host._drop_capture_view = refuse  # type: ignore[method-assign]
     with pytest.raises((RuntimeError, EngineError), match="resting frame|no picture|refused"):
         host.capture((64, 48), PerspectiveShot((10.0, 10.0, 500.0), (10.0, 10.0, 0.0)),
-                     wind_time_s=3.0)
+                     wind_time_s=3.0, fitted_shadows=True)
     assert host.scene_property("captureAoDistanceScale") == 1.0, "the view's own occlusion"
+    assert host.scene_property("fittedShadows") is False, "the view's own shadow fit (#734)"
     assert host.scene_property("selectionVisible") is True, "the ring is the view's again"
     assert host.scene_property("windTime") == wind_before
     assert host._camera_scene == PerspectiveShot(  # noqa: SLF001

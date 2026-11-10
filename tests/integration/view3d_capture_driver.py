@@ -302,6 +302,16 @@ def scenario_host(out: Path) -> dict[str, Any]:
         result["camera_kept"] = bool(camera_before == (host.scene_property("camPos"),
                                                        host.scene_property("camTarget")))
         result["capture_off_after"] = host.scene_property("captureWanted") is False
+        # #734: a still picture's shadow map fitted to the casters differs from the view only
+        # where a shadow's edge is, and only in its own frame - the view after it is the view
+        fitted_image = host.capture(size, label="fitted", fitted_shadows=True)
+        fitted_image.save(str(out / "fitted.png"))
+        fitted = rgb(fitted_image)
+        fitted_delta = np.abs(fitted - view).max(axis=-1)
+        result["fitted"] = {**difference(view, fitted),
+                            "changed_share": round(float((fitted_delta > 8).mean()), 5),
+                            "view_after": difference(view, rgb(host.grab("after fitted"))),
+                            "flag_after": host.scene_property("fittedShadows")}
         # the same camera set on the view: the capture of a shot IS the view from there
         host.set_camera(*OTHER)
         result["other_vs_view_moved"] = difference(rgb(host.grab("moved")), rgb(other))
@@ -429,7 +439,7 @@ def scenario_grades(out: Path) -> dict[str, Any]:
 def scenario_ultra_blur(out: Path) -> dict[str, Any]:
     """The Ultra preset draws screen-space reflections, a high-quality glow and ambient occlusion.
     With depth of field in the same effect chain Qt's render thread crashed in d3d11.dll
-    (OMSetRenderTargets on a released view) at the first focus click of an owner's manual test
+    (a read at address 0x16d in OMSetRenderTargets, #744) at the first focus click of an owner's manual test
     of #390. The picture is blurred in the shown window and in a capture, over and over, and
     the blur is really there."""
     from PyQt6.QtCore import QObject

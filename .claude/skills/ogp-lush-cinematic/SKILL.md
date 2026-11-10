@@ -26,3 +26,4 @@ from dated measurements. New lessons belong in a new reference and index row.
 | The living garden — weather, dew and life values (L5) | [Read](references/010-living-garden-weather-l5.md) |
 | The atmosphere sky — values and open taste questions (L7) | [Read](references/011-atmosphere-sky-l7.md) |
 | Photo mode and tours — the values (L6) | [Read](references/012-photo-mode-and-tours-l6.md) |
+| Low-sun shadow edges — steps, lit teeth, streaks and the `--stairs` probe (#734) | [Read](references/013-low-sun-shadow-edges-734.md) |

@@ -23,6 +23,8 @@ from PyQt6.QtWidgets import QMessageBox, QPushButton
 
 from open_garden_planner.core.camera_path import (
     CameraKey,
+    CameraPath,
+    DroneOrbit,
     HeldCamera,
     TourSpec,
     frame_count,
@@ -74,11 +76,11 @@ class CapturingHost(FakeHost):
         return False
 
     def capture(self, size: tuple[int, int], shot: Any = None, *, wind_time_s: float | None = None,
-                photo: Any = None, label: str = "") -> QImage:
+                photo: Any = None, label: str = "", fitted_shadows: bool = False) -> QImage:
         if self.capture_error is not None:
             raise self.capture_error
         self.pictures.append({"size": size, "shot": shot, "wind": wind_time_s, "photo": photo,
-                              "label": label})
+                              "label": label, "fitted_shadows": fitted_shadows})
         image = QImage(size[0], size[1], QImage.Format.Format_RGBX8888)
         image.fill(Qt.GlobalColor.darkGreen)
         return image
@@ -473,6 +475,35 @@ def test_a_tour_renders_every_frame_from_its_own_camera_without_moving_the_view(
     assert host.pictures[1]["wind"] > host.pictures[0]["wind"]
     assert rig.workspace.camera.pose == pose and len(host.cameras) == cameras
     assert host.sessions == ["begin", "end"], "the capture view rests again after it"
+
+
+def test_a_still_camera_fits_its_shadows_and_a_moving_one_keeps_the_views(rig: Rig,
+                                                                           tmp_path: Path) -> None:
+    """#734: a frame whose camera does not move - a photo, an agent's picture, a held
+    camera's time-lapse - asks for the shadow map fitted to the casters; the frames of an
+    orbit and of a flight keep the view's stable fit (a fitted map moves with the camera: it
+    crawled two to four times as far in an orbit). The host's default is the view's fit, so a picture
+    path that forgets to ask gets the view (the fake mirrors ``Quick3DHost.capture``)."""
+    rig.open_3d()
+    host, capture = rig.host, rig.workspace.capture
+    assert capture.write_photo(tmp_path / "picture.png", "1080p")
+    assert host.pictures[-1]["fitted_shadows"] is True
+    capture.agent_picture((640, 360))
+    assert host.pictures[-1]["fitted_shadows"] is True
+    host.pictures.clear()
+    assert run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24)).ok
+    assert len(host.pictures) == 24
+    assert {picture["fitted_shadows"] for picture in host.pictures} == {True}
+    host.pictures.clear()
+    assert run_tour(rig, TourSpec(DroneOrbit(capture.orbit_pose()), 1.0, 24)).ok
+    assert len(host.pictures) == 24
+    assert {picture["fitted_shadows"] for picture in host.pictures} == {False}
+    host.pictures.clear()
+    start = capture.camera_key()
+    away = CameraKey((start.eye[0] + 500.0, start.eye[1], start.eye[2]), start.target, start.fov_deg)
+    assert run_tour(rig, TourSpec(CameraPath([start, away]), 1.0, 24)).ok
+    assert len(host.pictures) == 24
+    assert {picture["fitted_shadows"] for picture in host.pictures} == {False}
 
 
 def test_a_time_lapse_moves_the_clock_frame_by_frame_and_puts_it_back(rig: Rig) -> None:
