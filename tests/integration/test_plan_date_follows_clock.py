@@ -114,6 +114,41 @@ class TestCalendarAndTasks:
         view._on_task_toggled("harvest:tomato", True)
         assert pm.task_states["harvest:tomato"]["done_date"] == "2031-07-01"
 
+    def test_a_new_manual_task_defaults_to_the_plan_day(self, qtbot) -> None:
+        from PyQt6.QtCore import QDate
+
+        from open_garden_planner.ui.dialogs.task_dialog import TaskDialog
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        dialog = TaskDialog(scene=scene)
+        qtbot.addWidget(dialog)
+        assert dialog._date_edit.date() == QDate(2031, 7, 1)
+
+    def test_snooze_counts_from_the_plan_day(self, qtbot, monkeypatch) -> None:
+        from PyQt6.QtWidgets import QMenu, QWidget
+
+        from open_garden_planner.services.task_generator import Task
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        view = TasksView(scene, pm)
+        qtbot.addWidget(view)
+        monkeypatch.setattr(
+            QMenu, "exec", lambda menu, *_args: menu.actions()[1].trigger()
+        )
+        view._snooze_menu(
+            Task(task_id="harvest:tomato", source="calendar",
+                 task_type="harvest", title="Tomato"),
+            QWidget(),
+        )
+        assert pm.task_states["harvest:tomato"]["snooze_until"] == "2031-07-08"
+
 
 class TestSuccessionBadge:
     def test_the_badge_follows_the_plan_day_and_is_rebuilt_on_a_date_change(

@@ -560,8 +560,9 @@ class GardenPrintManager:
         first_page = True
         # Page 1 is the plan's TOP row, in reading order. The rows are anchored
         # at the top so a height that is not a whole number of tiles leaves the
-        # SHORT row at the BOTTOM of the last sheet — it used to be drawn first
-        # and left sheets 1 and 2 blank below their strip (#871).
+        # plan's short BOTTOM row on the LAST page — its strip at the top of that
+        # sheet, with blank paper below it. The old bottom-to-top mapping put the
+        # remainder first and left sheets 1 and 2 blank below their strip (#871).
         for row in range(rows):
             top_cm = max(0.0, canvas_h - row * tile_h_cm)
             bottom_cm = max(0.0, canvas_h - (row + 1) * tile_h_cm)

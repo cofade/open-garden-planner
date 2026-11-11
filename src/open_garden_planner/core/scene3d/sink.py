@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
 
 from ..shadow_geometry import MIN_SUN_ELEVATION_DEG
+from ..solar import scene_azimuth
 from .frame import sun_direction_scene
 from .ground import GroundTile
 from .mesh import MeshPart
@@ -83,8 +84,8 @@ class SunState:
 
     @property
     def scene_azimuth_deg(self) -> float:
-        """The compass bearing in the plan frame (#663): ``(azimuth + north) % 360``."""
-        return (self.azimuth_deg + self.north_angle_deg) % 360.0
+        """The compass bearing in the plan frame (#663): ``scene_azimuth``."""
+        return scene_azimuth(self.azimuth_deg, self.north_angle_deg)
 
     @property
     def direction_scene(self) -> tuple[float, float, float]:

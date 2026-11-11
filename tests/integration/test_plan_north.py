@@ -137,6 +137,21 @@ class TestNorthInTheSolarFrame:
         assert right_x > 65.0
         assert right_y > 50.0
 
+        # At 180° the letter must sit beyond the arrow's tip, not over its shaft.
+        image = QImage(120, 120, QImage.Format.Format_RGB32)
+        image.fill(QColor("white"))
+        painter = QPainter(image)
+        try:
+            _draw_north_arrow(painter, 60, 60, 40, 180.0)
+        finally:
+            painter.end()
+        lowest = max(
+            (y for y in range(image.height()) for x in range(image.width())
+             if QColor(image.pixel(x, y)).lightness() < 120),
+            default=0,
+        )
+        assert lowest > 84
+
 
 class TestNorthInThePlan:
     def test_the_2d_shadow_overlay_turns_with_the_plan(self, qtbot) -> None:

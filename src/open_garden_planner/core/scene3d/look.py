@@ -531,7 +531,8 @@ class SkySpec:
     """The inputs of ONE procedural sky texture. Two equal specs are the same sky."""
 
     #: Where the sky draws its sun (the plan's sun, elevation floored at
-    #: ``SKY_MIN_ELEVATION_DEG``). Truth: the disc sits at the solar azimuth.
+    #: ``SKY_MIN_ELEVATION_DEG``). Truth: the disc sits at the sun's bearing in
+    #: the plan frame (compass + plan north, #663).
     sun_elevation_deg: float
     sun_azimuth_deg: float
     top: str

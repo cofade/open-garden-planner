@@ -216,14 +216,20 @@ def _draw_north_arrow(
     angle = math.radians(float(north_angle_deg))
     tip_x = cx + half * math.sin(angle)
     tip_y = cy - half * math.cos(angle)
+    text_h = _pt(5)
+    gap = _pt(2)
+    centre_x = tip_x + math.sin(angle) * (gap + text_h / 2.0)
+    centre_y = tip_y - math.cos(angle) * (gap + text_h / 2.0)
+    painter.save()
     font = _font(max(4, int(size * 0.4)))
     painter.setFont(font)
     painter.setPen(pen)
     painter.drawText(
-        QRectF(tip_x - size / 2, tip_y - half - _pt(5), size, _pt(5)),
+        QRectF(centre_x - size / 2, centre_y - text_h / 2, size, text_h),
         Qt.AlignmentFlag.AlignCenter,
         _tr("N"),
     )
+    painter.restore()
 
 
 _SCALE_BAR_PREFERRED_CM = 1000.0   # 10 m, where it fits
