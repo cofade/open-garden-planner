@@ -233,7 +233,9 @@ class TestPdfPagination:
             ShoppingListItem,
         )
         from open_garden_planner.services.pdf_report_service import (
-            _shopping_list_fits,
+            _section_pages,
+            _shopping_list_rows,
+            _table_rows_per_page,
         )
 
         # 200 priced items — guaranteed to overflow A4 portrait.
@@ -244,17 +246,52 @@ class TestPdfPagination:
             )
             for i in range(200)
         ]
-        # Probe helper directly: a small page rect can't fit 200 rows.
+        # The ONE paginator of the report (#870): a small page rect cuts 200
+        # rows into several pages, and one row stays on one page.
         small_rect = QRectF(0, 0, 595, 842)  # A4 portrait points
-        assert not _shopping_list_fits(items, small_rect)
-        # Single-item slice fits.
-        assert _shopping_list_fits(items[:1], small_rect)
+        rows = _shopping_list_rows(items)
+        per_page = _table_rows_per_page(small_rect)
+        assert len(_section_pages(rows, per_page)) > 1
+        assert len(_section_pages(rows[:1], per_page)) == 1
 
         # End-to-end PDF render runs to completion without infinite loop.
         out = tmp_path / "shopping_paginated.pdf"
         from open_garden_planner.services.pdf_report_service import PdfReportService
         PdfReportService.export_shopping_list_to_pdf(items, out)
         assert out.exists() and out.stat().st_size > 0
+
+    def test_the_grand_total_is_the_footer_of_the_last_page_only(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        from open_garden_planner.models.shopping_list import (
+            ShoppingListCategory as Cat,
+        )
+        from open_garden_planner.models.shopping_list import ShoppingListItem
+        from open_garden_planner.services import pdf_report_service as svc
+
+        items = [
+            ShoppingListItem(
+                id=f"x:{i}", category=Cat.PLANTS, name=f"Plant {i}",
+                quantity=1.0, unit="x", price_each=1.25,
+            )
+            for i in range(200)
+        ]
+        seen: list[str | None] = []
+        real = svc._render_table_page
+
+        def spy(painter, page_rect, title, columns, rows, first_index=0,
+                empty_text="", footer=None):
+            seen.append(footer)
+            real(painter, page_rect, title, columns, rows, first_index,
+                 empty_text, footer)
+
+        monkeypatch.setattr(svc, "_render_table_page", spy)
+        svc.PdfReportService.export_shopping_list_to_pdf(
+            items, tmp_path / "shopping_footer.pdf"
+        )
+        assert len(seen) > 1
+        assert all(footer is None for footer in seen[:-1])
+        assert seen[-1] is not None and "Grand total" in seen[-1]
 
 
 

@@ -42,6 +42,7 @@ from __future__ import annotations
 import contextlib
 import math
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from datetime import date, datetime
 from functools import lru_cache
 from typing import Any
@@ -111,7 +112,7 @@ from open_garden_planner.core.shadow_geometry import (
     shadow_region,
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
-from open_garden_planner.core.solar import solar_position
+from open_garden_planner.core.solar import scene_azimuth, solar_position
 from open_garden_planner.core.sprite_raster import device_bounds
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
@@ -929,10 +930,12 @@ class SunShadowController(QObject):
         parent: QObject | None = None,
         *,
         clock: SimClock | None = None,
+        north_provider: Callable[[], float] | None = None,
     ) -> None:
         super().__init__(parent)
         self._scene = scene
         self._location_provider = location_provider
+        self._north_provider = north_provider or (lambda: 0.0)
         self._enabled = False
         self._clock = clock if clock is not None else SimClock()
         # Qt-free channel (ADR-053): like a Qt connection it holds this bound
@@ -1070,6 +1073,10 @@ class SunShadowController(QObject):
             self._set_state(STATE_NO_LOCATION)
             return
         position = solar_position(latitude, longitude, self._clock.utc)
+        north = float(self._north_provider())
+        position = replace(
+            position, azimuth_deg=scene_azimuth(position.azimuth_deg, north)
+        )
         canvas_rect = self._canvas_rect()
         if position.elevation_deg < MIN_SUN_ELEVATION_DEG:
             # Night: the whole garden lies in shade — not "no shadow". Fill the
@@ -1104,6 +1111,7 @@ class SunShadowController(QObject):
         key = (
             round(position.elevation_deg, 4),
             round(position.azimuth_deg, 4),
+            round(north, 4),
             canvas_key,
             # the base too: a bed that keeps its footprint but changes what its
             # plants stand on must not be skipped as "nothing changed"

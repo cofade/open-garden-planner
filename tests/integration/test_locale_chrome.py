@@ -300,8 +300,8 @@ def test_the_shopping_list_shows_german_numbers_and_copies_plain_ones(qtbot, spe
     assert ShoppingListDialog._plain_total(item) in ("3.12", "3.13")   # float rounding
 
 
-def test_a_pdf_scale_label_keeps_a_decimal_point(qtbot, speak) -> None:
-    """The report's numbers are the export services' own, not the UI formatters'."""
+def test_a_pdf_scale_label_follows_the_ui_language(qtbot, speak) -> None:
+    """#860: the report and print numbers use the UI language's decimal mark."""
     speak("de", "en_US")
-    assert format_scale_distance(150) == "1.5 m"
-    assert format_scale_distance(250000) == "2.5 km"
+    assert format_scale_distance(150) == "1,5 m"
+    assert format_scale_distance(250000) == "2,5 km"

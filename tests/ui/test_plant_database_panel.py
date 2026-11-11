@@ -56,6 +56,42 @@ class TestUnknownEnumRendersDash:
         assert panel.cycle_combo.currentText() != "—"
 
 
+class TestPlantProfilePicture:
+    """#857: the profile picture is the plant's drawing, large in its tile."""
+
+    def test_the_drawn_picture_fills_the_96_px_tile(self, qtbot) -> None:
+        from open_garden_planner.core.project import ProjectManager
+        from open_garden_planner.services import pdf_report_service as svc
+        from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+        scene = CanvasScene()
+        ProjectManager().load(
+            scene, BUNDLED_EXAMPLES / "family-garden.ogp", as_template=True
+        )
+        plant = svc._plant_items(scene)[0]
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        panel.show()
+        panel.set_selected_items([plant])
+        panel._show_drawn_thumbnail()
+        pixmap = panel._profile_thumbnail.pixmap()
+        assert pixmap is not None and not pixmap.isNull()
+        image = pixmap.toImage()
+        xs: list[int] = []
+        ys: list[int] = []
+        for y in range(image.height()):
+            for x in range(image.width()):
+                if image.pixelColor(x, y).alpha() > 0:
+                    xs.append(x)
+                    ys.append(y)
+        assert xs and ys
+        drawn_w = max(xs) - min(xs) + 1
+        drawn_h = max(ys) - min(ys) + 1
+        # The tile is 96 logical px; the old bug drew a tiny sprite in it.
+        assert drawn_w >= 72 and drawn_h >= 72
+
+
 class TestMissingDimensionsShowDash:
     """Missing dimension/pH/hardiness traits render as "—", not "0 cm"/"0"/"0.0" (#231).
 

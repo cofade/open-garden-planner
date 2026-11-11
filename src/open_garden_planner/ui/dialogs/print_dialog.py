@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import date
 from typing import Any
 
-from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QPageLayout, QPageSize, QPainter, QPen
 from PyQt6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PyQt6.QtWidgets import (
@@ -241,12 +241,14 @@ class GardenPrintManager:
         project_name: str = "Garden Plan",
         *,
         snapshot_validator: Callable[[], None] | None = None,
+        grid_size_cm: float = 50.0,
     ) -> None:
         """Initialize the print manager.
 
         Args:
             scene: The canvas scene to print
             project_name: Name of the project for the legend
+            grid_size_cm: The canvas's grid spacing, used when "Grid" is on
         """
         self._scene = scene
         self._project_name = project_name
@@ -257,6 +259,7 @@ class GardenPrintManager:
         self._include_grid = False
         self._include_labels = True
         self._include_legend = True
+        self._grid_size_cm = float(grid_size_cm) if grid_size_cm > 0 else 50.0
 
         # State saved/restored during printing
         self._saved_labels_visible: bool | None = None
@@ -503,6 +506,9 @@ class GardenPrintManager:
         self._scene.render(painter, target_rect, canvas_rect)
         painter.restore()
 
+        if self._include_grid:
+            self._draw_print_grid(painter, canvas_rect, target_rect, resolution)
+
         # Draw legend (outside the flip)
         if legend_h_mm > 0:
             # The scale the plan was fitted at — by its width or by its height,
@@ -552,12 +558,13 @@ class GardenPrintManager:
         content_h_px = content_h_mm / 25.4 * resolution
 
         first_page = True
-        # Iterate rows bottom-to-top in scene coords so that the output
-        # matches the Y-flipped view the user sees (CAD convention: Y-up).
+        # Page 1 is the plan's TOP row, in reading order. The rows are anchored
+        # at the top so a height that is not a whole number of tiles leaves the
+        # SHORT row at the BOTTOM of the last sheet — it used to be drawn first
+        # and left sheets 1 and 2 blank below their strip (#871).
         for row in range(rows):
-            # Map to scene row: the user's top row corresponds to the
-            # bottom of the scene (highest Y values).
-            scene_row = rows - 1 - row
+            top_cm = max(0.0, canvas_h - row * tile_h_cm)
+            bottom_cm = max(0.0, canvas_h - (row + 1) * tile_h_cm)
             for col in range(cols):
                 if not first_page:
                     printer.newPage()
@@ -565,9 +572,9 @@ class GardenPrintManager:
 
                 # Source rect in scene coordinates (cm)
                 src_x = canvas_rect.x() + col * tile_w_cm
-                src_y = canvas_rect.y() + scene_row * tile_h_cm
+                src_y = canvas_rect.y() + bottom_cm
                 src_w = min(tile_w_cm, canvas_w - col * tile_w_cm)
-                src_h = min(tile_h_cm, canvas_h - scene_row * tile_h_cm)
+                src_h = max(0.0, top_cm - bottom_cm)
                 source_rect = QRectF(src_x, src_y, src_w, src_h)
 
                 # Target rect in printer pixels (proportional to source)
@@ -586,6 +593,9 @@ class GardenPrintManager:
                 self._scene.render(painter, target_rect, source_rect)
                 painter.restore()
 
+                if self._include_grid:
+                    self._draw_print_grid(painter, source_rect, target_rect, resolution)
+
                 # Draw legend on each page (outside the flip)
                 if legend_h_mm > 0:
                     page_label = ""
@@ -597,6 +607,49 @@ class GardenPrintManager:
                         painter, printer, printable_w_mm, content_h_mm,
                         legend_h_mm, self._scale_denom, page_label,
                     )
+
+    def _draw_print_grid(
+        self,
+        painter: QPainter,
+        source_rect: QRectF,
+        target_rect: QRectF,
+        resolution: float,
+    ) -> None:
+        """The canvas grid on a printed page, in the page's own transform (#868).
+
+        Drawn after the scene so it reads over the plan, at the canvas's own
+        spacing: every grid line, every fifth one darker. The pen is a stated
+        width in mm (0.15 mm) converted to device pixels, because a cosmetic
+        pixel at 1200 dpi is a hairline a reader cannot see.
+        """
+        if source_rect.width() <= 0 or source_rect.height() <= 0:
+            return
+        step = self._grid_size_cm
+        if step <= 0:
+            return
+        scale_x = target_rect.width() / source_rect.width()
+        scale_y = target_rect.height() / source_rect.height()
+        minor = QColor(200, 200, 200, 110)
+        major = QColor(170, 170, 170, 150)
+        width = max(1.0, resolution * 0.15 / 25.4)
+        painter.save()
+        painter.setClipRect(target_rect, Qt.ClipOperation.IntersectClip)
+
+        line = math.ceil(source_rect.left() / step) * step
+        while line <= source_rect.right() + 1e-9:
+            x = target_rect.left() + (line - source_rect.left()) * scale_x
+            painter.setPen(QPen(major if round(line / step) % 5 == 0 else minor, width))
+            painter.drawLine(QPointF(x, target_rect.top()), QPointF(x, target_rect.bottom()))
+            line += step
+
+        line = math.ceil(source_rect.top() / step) * step
+        while line <= source_rect.top() + source_rect.height() + 1e-9:
+            y = (target_rect.top() + target_rect.height()
+                 - (line - source_rect.top()) * scale_y)
+            painter.setPen(QPen(major if round(line / step) % 5 == 0 else minor, width))
+            painter.drawLine(QPointF(target_rect.left(), y), QPointF(target_rect.right(), y))
+            line += step
+        painter.restore()
 
     def _draw_legend(
         self,

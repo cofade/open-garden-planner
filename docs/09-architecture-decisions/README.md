@@ -1326,6 +1326,37 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **Not decided here** (#830, the owner's): the parasol as a raised canopy, what glasshouse glass transmits, and the 0 h cell under every plant — which is why contours still crowd round every solid.
 
+### ADR-037 addendum - the plan's north orientation (#663, 2026-11-11)
+
+**Decision.** A plan-level `north_angle_deg` says where **true north** lies on the
+drawing, in degrees clockwise from plan-up: 0 = up, 90 = right, 135 = down-right.
+It is additive plan metadata in the `.ogp` (`FILE_VERSION` stays 1.4), read as 0 for
+every older file and kept by a template export. **No object coordinate is ever
+rewritten.** Rotating the whole drawing was rejected: it destroys the alignment of
+an imported survey or satellite background, dimensions and construction geometry,
+and cannot express "north is off the sheet".
+
+**Frame rule.** `core.solar.scene_azimuth(azimuth, north)` returns
+`(azimuth + north) % 360`. Scene +Y is plan-up (ADR-002), and the shadow and 3D
+formulas read an azimuth clockwise from +Y, so a compass azimuth is turned **once**
+into that frame. The 2D shadow overlay, the hours-of-sun sampling
+(`daylight_samples`), the 3D `SunState`, the 3D sun path and compass, and the PDF
+overview arrow all use this rule; none of them invents its own sign. A sun due east
+(compass 90°) on a plan whose north lies at 45° is at scene bearing 135° and throws its
+shadow up-left. The issue's shorthand `solar_azimuth - north_angle` assumed the
+inverse definition of the angle; the arrow's stated meaning (135° points down-right)
+fixes the sign recorded here.
+
+**Write path and staleness.** `SetPlanNorthCommand` is one undo step;
+`ProjectManager.set_north_angle` is the only writer besides load and new, and refuses
+a bool, a non-number or a non-finite angle **before** mutating. `ExposureSnapshot`
+carries the angle, so a worker result computed for the old north is refused rather
+than shown as current; the app invalidates the shown heatmap on every change. The 2D
+`N` arrow is a viewport overlay (never an export); the PDF draws its own arrow with
+the same angle.
+
+Cross-refs: §8.20, §8.36; FR-SUN-14; PF-DOM-34.
+
 ### ADR-037 addendum: base stacking in the shared caster model (Phase 17, L1.6)
 
 **Status**: Accepted (2026-10-11, #385 story L1.6); amended the same day after the senior review's first round — the membership half of decision 5, the container soil rule in decision 4, the strict caster type in decision 1 and the two gates of decision 3 are that round's — and after its second: the POINT the lift asks and the per-walk shape, both in decision 5. **Changes shipped 2D behaviour** — the sun & shade overlay (FR-SUN-03) and the hours-of-sun heatmap (FR-SUN-05) — for one class of item: a plant that is linked to, and stands inside, a soil container with a height (FR-SUN-11).
@@ -10607,6 +10638,20 @@ tutorial annotation or soil sample (the teaching plans' gates keep theirs), and 
 fields stay canonical in `de/` and `es/`: the localizer now translates only a species' common
 name, since "Iris" is both a plant's name and a genus.
 
+### ADR-066 addendum - File > Open of a bundled example is a copy (#865, 2026-11-11)
+
+**Decision.** A shipped example opened by its path through **File > Open** takes the
+same identity as one opened from the gallery: an untitled, dirty copy. The one load
+path (`_load_project_file`) asks `core.templates.is_bundled_example` — the sidecar
+trust predicate — and routes a known bundled path through `as_template=True`. The
+result is `current_file is None`, Save goes to Save As, autosave cannot land in the
+install tree, the file does not enter Recent, the showcase moment applies, and
+`display_name` is the sidecar's translated name rather than the file stem. The
+bundled bytes are never written. The gallery and File > Open now share one identity
+rule instead of two.
+
+Cross-refs: §8.33; FR-EXAMPLE-04, FR-EXAMPLE-08.
+
 ### ADR-066 addendum: examples open in a showcase state (#795)
 
 **Date:** 2026-11-10. **Status:** shipped in v1.38.0 (PR #838); the owner confirmed the decisions marked
@@ -13016,7 +13061,55 @@ FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
 Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
 FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
 
-## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
+**Addendum (plan-truth package, 2026-11-11) - print and report follow-ups**:
+
+15. **The print "Grid" checkbox paints the canvas grid** (#868). It was stored and
+    never read. The grid is drawn after the scene, in the page's own transform, at the
+    canvas's grid spacing, with a **stated 0.15 mm pen** converted to device pixels — a
+    cosmetic 1-px line at 1200 dpi is invisible. Rejected: rendering a second scene
+    with the view's grid pass — that pass is view-level by design and cannot be
+    reused through `QGraphicsScene.render`.
+16. **A fixed-scale print's pages run top row first; the short row is last** (#871).
+    Rows are anchored at the top of the plan, so a height that is not a whole number
+    of tiles leaves the remainder at the **bottom** of the last sheet. The old
+    bottom-to-top mapping put that remainder first and left sheets 1-2 blank below
+    their strip.
+17. **The shopping-list PDF uses the report's one paginator** (#870). `_section_pages`
+    and `_render_table_page` now cut and paint it; the footer hook carries the grand
+    total on the last page only. The separate `_shopping_list_fits` /
+    `_render_shopping_list` loop is gone.
+18. **A plant's legend sample includes the sprite's overhang and is 9 mm** (#864).
+    `CircleItem` paints the sprite 15 % larger than the footprint; the sample patch
+    clipped that foliage, leaving a pale root. The patch is scaled by
+    `_LEGEND_SPRITE_OVERHANG` (a drift guard pins it to
+    `CircleItem._PLANT_FILL_SCALE`) and the swatch grew from 7 mm to 9 mm with a
+    10.5 mm row.
+19. **The plant list's Type column is the species' cycle, not the canvas object type**
+    (#869). Every gallery plant is `ObjectType.PERENNIAL`, so carrots and lettuce
+    read "Perennial". `core.plant_cycle_label` is the one translated cycle vocabulary;
+    the plant list, Plant Details, custom-plant table and plant search use it.
+
+Cross-refs: §8.36; FR-EXP-03, FR-EXP-08; PF-CAN-55.
+
+**Addendum (plan-truth package, 2026-11-11) - locale of plan numbers and harvest
+units (#860, #863, #899)**:
+
+20. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
+    readouts, vertex and resize labels, area labels, the ruler and scale bar,
+    constraint conflict rows, the 3D focus distance, the report's plant positions and
+    money cells, the PDF harvest total and the persisted harvest-journal text used
+    Python's `:g`/`:.2f` and kept a decimal point in a German UI. They now call
+    `format_decimal` / `format_trimmed` (or `LocalizedNumber` inside a translated
+    template).
+21. **A harvest unit is a stable stored key, translated only at display.** `kg`, `g`,
+    `pcs`, `bunch` and `L` remain untranslated in `HarvestRecord.unit` and in the CSV
+    (PF-I18-05); the dialog's combo carries the key as item data while showing
+    `harvest_unit_label`, and the Harvest tab and PDF summary show the same label.
+    A custom unit is shown as typed.
+
+Cross-refs: FR-HARVEST-02, FR-HARVEST-07, FR-HARVEST-09; PF-I18-05; §8.36.
+
+## ADR-077: The UI language decides the locale - one root for numbers, months and typed decimals (#792)
 
 **Status**: Accepted (visual-polish package, 2026-11-10); shipped in v1.38.0 (PR #838)
 

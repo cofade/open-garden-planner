@@ -442,6 +442,7 @@ class Workspace(QWidget):
         self._scene: QGraphicsScene | None = None
         self._clock: SimClock | None = None
         self._location: LocationProvider = lambda: None
+        self._north: Callable[[], float] = lambda: 0.0
         self._ui_state: Any = None
         self._pane: _Pane3D | None = None
         self._host: EngineHost | None = None
@@ -508,7 +509,8 @@ class Workspace(QWidget):
     # ── wiring ───────────────────────────────────────────────────────────────
 
     def connect_plan(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
-                     command_manager: Any = None, ui_state: Any = None) -> None:
+                     command_manager: Any = None, ui_state: Any = None, *,
+                     north: Any = None) -> None:
         """What the 3D pipeline reads: the canvas scene, the one sim clock, the garden
         location and, optionally, the store the Split position is kept in.
 
@@ -524,6 +526,7 @@ class Workspace(QWidget):
         validation). The workspace listens to it here; nobody tells it by hand."""
         del command_manager
         self._scene, self._clock, self._location = scene, clock, location
+        self._north = north or (lambda: 0.0)
         self._ui_state = ui_state
         self._living.connect_clock(clock)  # L5: a new plan date may change today's weather
         replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
@@ -879,7 +882,7 @@ class Workspace(QWidget):
             # ONE baker for this engine's life: it holds the ground's tiles, and paints
             # for at most its budget (10 ms) a pass — the controller runs the rest
             controller = Scene3DController(scene, clock, self._location, sink, parent=self,
-                                           ground_baker=GroundBaker())
+                                           ground_baker=GroundBaker(), north=self._north)
             from ...core.scene3d.look import PRESET_SPECS
 
             controller.set_lawn_blades(PRESET_SPECS[look.preset].lawn_blades)
@@ -1198,6 +1201,15 @@ class Workspace(QWidget):
             self._analysis.location_changed()  # L2: the sun path is the place's
             self._update_legend()
         self._refresh_forge()
+
+    def north_changed(self, *_arguments: object) -> None:
+        """The plan's north orientation changed (#663): relight the 3D sun and
+        rebuild the sun path and compass for the new frame."""
+        if self._controller is not None:
+            self._controller.refresh_sun()
+        if self._analysis is not None:
+            self._analysis.north_changed()
+            self._update_legend()
 
     def _on_applied(self, report: TickReport) -> None:
         # A pass went through: the build is over, and so is a failed update. What the
@@ -1643,6 +1655,7 @@ class Workspace(QWidget):
             get_controller=lambda: self._controller,
             get_clock=lambda: self._clock,
             get_location=lambda: self._location(),
+            get_north=lambda: self._north(),
             get_scene=lambda: self._scene,
             get_camera_now=self._camera_now,
             get_held_parts=lambda: self._walk_coordinator.held_parts(),

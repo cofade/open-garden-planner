@@ -38,6 +38,11 @@ from open_garden_planner.core.plan_io import (
     validate_plan_data,
     write_plan,
 )
+from open_garden_planner.core.plan_north import (
+    DEFAULT_NORTH_ANGLE_DEG,
+    normalize_north_angle,
+    north_angle_from_plan,
+)
 from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
 
@@ -87,6 +92,9 @@ class ProjectData:
     constraints: list[dict[str, Any]] = field(default_factory=list)
     guides: list[dict[str, Any]] = field(default_factory=list)
     location: dict[str, Any] | None = None
+    # #663: the direction of true north on the plan, clockwise from plan-up
+    # (0 = north up). Additive: old files read 0, old apps ignore the key.
+    north_angle_deg: float = DEFAULT_NORTH_ANGLE_DEG
     task_completions: list[str] = field(default_factory=list)
     seed_inventory: list[dict[str, Any]] = field(default_factory=list)
     # US-9.5: per-species user overrides for propagation step dates
@@ -166,6 +174,8 @@ class ProjectData:
             data["guides"] = self.guides
         if self.location:
             data["location"] = self.location
+        if self.north_angle_deg:
+            data["north_angle_deg"] = self.north_angle_deg
         if self.task_completions:
             data["task_completions"] = sorted(self.task_completions)
         if self.seed_inventory:
@@ -219,6 +229,7 @@ class ProjectData:
             constraints=data.get("constraints", []),
             guides=data.get("guides", []),
             location=data.get("location") or None,
+            north_angle_deg=north_angle_from_plan(data.get("north_angle_deg")),
             task_completions=data.get("task_completions", []),
             seed_inventory=data.get("seed_inventory", []),
             propagation_overrides=data.get("propagation_overrides", {}),
@@ -258,6 +269,7 @@ class ProjectManager(QObject):
     dirty_changed = pyqtSignal(bool)
     before_save = pyqtSignal()
     location_changed = pyqtSignal(object)  # dict or None
+    north_angle_changed = pyqtSignal(float)  # degrees clockwise from plan-up (#663)
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
     propagation_overrides_changed = pyqtSignal(object)  # dict
@@ -286,6 +298,7 @@ class ProjectManager(QObject):
         self._template_title: str | None = None
         self._dirty = False
         self._location: dict[str, Any] | None = None
+        self._north_angle_deg: float = DEFAULT_NORTH_ANGLE_DEG
         self._task_completions: set[str] = set()
         self._seed_inventory: list[dict[str, Any]] = []
         self._propagation_overrides: dict[str, Any] = {}
@@ -368,6 +381,30 @@ class ProjectManager(QObject):
     def location(self) -> dict[str, Any] | None:
         """Garden location data, or None if not set."""
         return self._location
+
+    @property
+    def north_angle_deg(self) -> float:
+        """The direction of true north on the plan, clockwise from plan-up (#663).
+
+        0 = north up; 135 = north down-right. Solar consumers turn a compass
+        azimuth by this angle; no object is ever rotated.
+        """
+        return self._north_angle_deg
+
+    def set_north_angle(self, angle_deg: object) -> None:
+        """Set the plan's north orientation and mark the project dirty.
+
+        The ONE writer besides load and new: the undoable
+        ``SetPlanNorthCommand`` calls it for execute and for undo. Raises
+        ``ValueError`` for a bool, a non-number or a non-finite angle, before
+        anything is mutated.
+        """
+        angle = normalize_north_angle(angle_deg)
+        if angle == self._north_angle_deg:
+            return
+        self._north_angle_deg = angle
+        self.north_angle_changed.emit(angle)
+        self.mark_dirty()
 
     @property
     def task_completions(self) -> set[str]:
@@ -950,6 +987,7 @@ class ProjectManager(QObject):
         self._template_title = None
         self._dirty = False
         self._location = None
+        self._north_angle_deg = DEFAULT_NORTH_ANGLE_DEG
         self._task_completions = set()
         self._seed_inventory = []
         self._propagation_overrides = {}
@@ -974,6 +1012,7 @@ class ProjectManager(QObject):
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
+        self.north_angle_changed.emit(DEFAULT_NORTH_ANGLE_DEG)
         self.task_completions_changed.emit(set())
         self.seed_inventory_changed.emit([])
         self.propagation_overrides_changed.emit({})
@@ -1030,6 +1069,7 @@ class ProjectManager(QObject):
         """
         data = self._serialize_scene(scene)
         data.location = self._location
+        data.north_angle_deg = self._north_angle_deg
         data.task_completions = sorted(self._task_completions)
         data.seed_inventory = list(self._seed_inventory)
         data.propagation_overrides = dict(self._propagation_overrides)
@@ -1273,6 +1313,8 @@ class ProjectManager(QObject):
         """Restore non-scene project metadata and emit change signals."""
         self._location = data.location
         self.location_changed.emit(self._location)
+        self._north_angle_deg = normalize_north_angle(data.north_angle_deg)
+        self.north_angle_changed.emit(self._north_angle_deg)
         self._task_completions = set(data.task_completions)
         self.task_completions_changed.emit(self._task_completions)
         self._seed_inventory = list(data.seed_inventory)
@@ -1343,6 +1385,7 @@ class ProjectManager(QObject):
         current_data = self._serialize_scene(scene)
         current_data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
         current_data.location = self._location
+        current_data.north_angle_deg = self._north_angle_deg
         current_data.task_completions = []
         current_data.seed_inventory = list(self._seed_inventory)
         current_data.propagation_overrides = dict(self._propagation_overrides)

@@ -131,3 +131,18 @@ The grid's cut-out and the label pass both read the whole scene inside a paint, 
 - **Legacy:** none (new entry)
 
 `CanvasView.scrollContentsBy` read `self._sun_legend_rect`, an attribute added with the sun map's key. A view and its scene reference each other, so a pair that is dropped without `close()` and `deleteLater()` is garbage only the cyclic collector finds. It clears the attributes of every object of that garbage first and destroys them afterwards, in an order of its own. When the scene's C++ object goes first, Qt takes the scene from the view (`setScene(nullptr)`), which recomputes the scroll bars and calls `scrollContentsBy` — a virtual, so PyQt enters the Python override on a view whose `__dict__` is empty. The `AttributeError` cannot propagate through C++; PyQt prints it and calls `qFatal`: exit code 0xC0000409 at the first `gc.collect()`, nothing on stdout, and in a test run a worker that is simply gone. The application did not hit it (it closes and deletes its window) and neither did the suite (an autouse fixture closes and deletes every widget, which destroys them in Qt's order), so it was found only by a probe that drops a view. Which methods Qt enters during such a collection was recorded, not guessed: with every method of the view, the scene, the minimap, the shadow controller and every item wrapped, over nine ways of dropping a canvas (bare, shown, with the minimap, a selection and its handles, scroll bars, the scene owned by the view, the key's item, the controller), the only Python code Qt entered was `scrollContentsBy` and `_refresh_dense_vertex_overlays`, which it calls. The fix is the one `CanvasScene._paint_revision` already had for a slot Qt calls from the scene's destructor: a class-level default, so the lookup finds a value when the instance has none. `getattr(self, name, default)` at the read is the same thing, said at every read instead of once. A `paint()`, a `boundingRect()` and an `itemChange()` are not entered during a collection — Qt calls no virtual on an item it is destroying — so they need no such default; a new override of something Qt calls from ANOTHER object's destructor (scroll bars, a scene's signals, an event filter on a parent) does.
+
+### PF-CAN-62
+
+- **Rule:** A print page's order and decoration belong to the page's own transform. Anchor fixed-scale rows at the TOP of the plan so a non-whole tile leaves the short row LAST; draw the optional grid after the scene at the canvas's spacing with a pen stated in millimetres, because a cosmetic pixel at 1200 dpi is invisible.
+- **Pinned by:** `tests/integration/test_pdf_report_pages.py::test_the_short_tile_row_is_the_last_page_not_the_first`; `tests/integration/test_pdf_report_pages.py::test_the_print_grid_option_paints_the_canvas_grid`
+- **Source:** #868, #871
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`_render_scaled` mapped page row 0 to `rows - 1` in scene coordinates. With a plan
+height that is not a whole number of tiles, that is the SHORT top row, so sheets 1 and
+2 were blank below their strip. Anchoring rows at the top puts the remainder at the
+bottom of the last sheet. The Grid checkbox had been stored and never read; the grid
+now paints over the plan in the page transform. Both defects are visible only in a
+rasterised printout, which is what the tests read.

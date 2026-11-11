@@ -1621,9 +1621,11 @@ class GardenItemMixin(PositionLockMixin):
     @staticmethod
     def _format_area(area_cm2: float) -> str:
         """Format area with auto unit switching at 10 000 cm² = 1 m²."""
+        from open_garden_planner.core.i18n import format_decimal
+
         if area_cm2 >= 10_000:
-            return f"{area_cm2 / 10_000:.2f} m²"
-        return f"{area_cm2:.1f} cm²"
+            return f"{format_decimal(area_cm2 / 10_000, 2)} m²"
+        return f"{format_decimal(area_cm2, 1)} cm²"
 
     def _update_area_label(self) -> None:
         """Create, update, or remove the area label child item."""

@@ -32,6 +32,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.services.task_generator import (
     Task,
     build_plan_state,
@@ -47,6 +48,7 @@ from open_garden_planner.ui.theme import (
     theme_color,
     urgency_dot,
 )
+from open_garden_planner.ui.views.task_text import task_row_text
 from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
@@ -160,7 +162,8 @@ class TasksView(QWidget):
         self._action_boxes = []
         try:
             state = build_plan_state(
-                self._scene, self._pm, self._frost_alerts, self._soil_service
+                self._scene, self._pm, self._frost_alerts, self._soil_service,
+                today=plan_day_of(self._scene),
             )
         except RuntimeError:
             return  # scene torn down (shutdown)
@@ -366,9 +369,10 @@ class TasksView(QWidget):
         return row
 
     def _row_text(self, task: Task) -> str:
+        label = task_row_text(task.task_type, task.title)
         if task.notes:
-            return f"{task.title} — {task.notes}"
-        return task.title
+            return f"{label} - {task.notes}"
+        return label
 
     # ── actions ───────────────────────────────────────────────────────────────
     def _navigate(self, task: Task) -> None:

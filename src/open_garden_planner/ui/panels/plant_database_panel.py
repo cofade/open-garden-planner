@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.plant_cycle_label import plant_cycle_label
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
 from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.models.plant_data import (
@@ -592,17 +593,12 @@ class PlantDatabasePanel(QWidget):
 
         # Cycle (annual/perennial)
         self.cycle_combo = QComboBox()
-        cycle_labels = {
-            PlantCycle.ANNUAL: self.tr("Annual"),
-            PlantCycle.BIENNIAL: self.tr("Biennial"),
-            PlantCycle.PERENNIAL: self.tr("Perennial"),
-        }
         # Leading neutral entry so a species with no cycle data shows "—" rather
         # than being misrepresented as the first concrete option (#231).
         self.cycle_combo.addItem(self.tr("—"), PlantCycle.UNKNOWN.value)
         for item in PlantCycle:
             if item != PlantCycle.UNKNOWN:
-                self.cycle_combo.addItem(cycle_labels.get(item, item.value), item.value)
+                self.cycle_combo.addItem(plant_cycle_label(item), item.value)
         self.cycle_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Cycle:"), self.cycle_combo)

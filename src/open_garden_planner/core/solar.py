@@ -108,6 +108,23 @@ def plan_place(location: object) -> tuple[float, float] | None:
     return (place[0], place[1])
 
 
+def scene_azimuth(azimuth_deg: float, north_angle_deg: float = 0.0) -> float:
+    """A compass azimuth in the plan's scene frame (#663).
+
+    ``north_angle_deg`` is the direction of true north on the plan, clockwise
+    from plan-up (``core.plan_north``). Scene +Y is plan-up, and the shadow and
+    3D sun formulas read their azimuth clockwise from +Y, so the scene bearing
+    is the compass bearing PLUS the plan's north angle: with north at 45° (up-
+    right), a sun due east (compass 90°) lies at scene bearing 135° (down-
+    right). The result is normalised to ``[0, 360)``.
+
+    Every solar consumer applies this once — the 2D shadow overlay, the hours-
+    of-sun sampling, the 3D light and sun path. None of them rotate an object:
+    the offset belongs to the frame, not the geometry.
+    """
+    return (float(azimuth_deg) + float(north_angle_deg)) % 360.0
+
+
 def solar_position(lat_deg: float, lon_deg: float, dt_utc: datetime) -> SolarPosition:
     """NOAA solar position for a UTC instant.
 

@@ -16,6 +16,8 @@ KEEP_PROJECT_FIELDS = frozenset({
     "succession_plans", "auto_assign_permaculture_layers",
     # #737: a camera tour is a path through the geometry that is kept, and no site data.
     "camera_tours",
+    # #663: north is the plan's drawing frame, not personal site data.
+    "north_angle_deg",
 })
 STRIP_PROJECT_FIELDS = frozenset({
     "location", "task_completions", "seed_inventory", "propagation_overrides",
@@ -102,6 +104,16 @@ def _bundled_sidecar(source: Path) -> tuple[dict[str, Any], str] | None:
     if f"name_{locale}" not in meta or f"description_{locale}" not in meta:
         return None
     return meta, locale
+
+
+def is_bundled_example(source: Path) -> bool:
+    """Whether *source* is one of the shipped examples (its sidecar is trusted).
+
+    The one public predicate for "this is a bundled example". File > Open uses
+    it too (#865): a shipped example opened by its path must become an untitled
+    copy like the gallery's, never the live file Save would write into.
+    """
+    return _bundled_sidecar(source) is not None
 
 
 #: What a shipped example keeps beyond the portable subset: its public place, its

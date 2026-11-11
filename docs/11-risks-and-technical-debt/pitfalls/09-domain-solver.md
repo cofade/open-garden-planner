@@ -511,6 +511,22 @@ Properties resize both refuse the edit and ask the user to remove the constraint
 first.
 
 
+### PF-DOM-34
+
+- **Rule:** A plan's north angle is applied to a compass azimuth ONCE, with the sign the drawn arrow states: `scene_azimuth = (azimuth + north) % 360`. The 2D shadow overlay, `daylight_samples`, the 3D `SunState`, the 3D sun path/compass and the PDF arrow call that one helper. Never rotate an object to "fix" the sun, and never apply the inverse in a consumer. A worker result that carries the old angle must be refused (it is part of `ExposureSnapshot`).
+- **Pinned by:** `tests/integration/test_plan_north.py`
+- **Source:** #663
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The issue's shorthand said `solar_azimuth - north_angle`, but its own definition -
+135° points down-right - makes that the inverse. The sign is fixed by the worked
+cardinal test, not by the prose: a sun due east on a plan whose north is at 45° has
+scene bearing 135° and its shadow points up-left. Every consumer takes its azimuth
+from `scene_azimuth`, so a second sign has nowhere to hide.
+
+
+
 ### PF-DOM-33
 
 - **Rule:** Scope an edit refusal to what the edit actually invalidates. A corner replacement removes one vertex and shortens its two incident edges, so it refuses only a constraint on those anchors; every later indexed anchor renumbers inside the command (with a captured before-state for undo). Refusing the whole item blocks valid corners.

@@ -46,7 +46,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..sim_clock import SimInstant
-from ..solar import solar_position
+from ..solar import scene_azimuth, solar_position
 from .color import Rgba, srgb8_to_linear
 from .mesh import Mesh
 from .polygon import (
@@ -182,8 +182,12 @@ def _crossing(lat: float, lon: float, below: SunPoint, above: SunPoint) -> SunPo
 
 
 def day_arc(lat_deg: float, lon_deg: float, day: date, tz: tzinfo | None, kind: str = "today",
-            step_minutes: int = ARC_STEP_MINUTES) -> DayArc:
-    """The sun's path over the LOCAL ``day`` at a place (module docstring)."""
+            step_minutes: int = ARC_STEP_MINUTES, north_angle_deg: float = 0.0) -> DayArc:
+    """The sun's path over the LOCAL ``day`` at a place (module docstring).
+
+    ``north_angle_deg`` maps every point's compass azimuth into the plan's
+    scene frame (#663), so the dome agrees with the 2D shadows and the 3D light.
+    """
     steps = 24 * 60 // step_minutes
     samples = [_position(lat_deg, lon_deg, SimInstant.from_datetime(
         datetime.combine(day, time()) + timedelta(minutes=step_minutes * k), tz).utc)
@@ -215,6 +219,12 @@ def day_arc(lat_deg: float, lon_deg: float, day: date, tz: tzinfo | None, kind: 
         segments.append(tuple(run))
     if noon is not None:
         segments = [_with_noon(segment, noon) for segment in segments]
+    if north_angle_deg:
+        def turned(point: SunPoint) -> SunPoint:
+            return SunPoint(point.utc, point.elevation_deg,
+                            scene_azimuth(point.azimuth_deg, north_angle_deg))
+        segments = [tuple(turned(point) for point in segment) for segment in segments]
+        noon = turned(noon) if noon is not None else None
     return DayArc(kind, day, tuple(segments), noon)
 
 
@@ -423,13 +433,17 @@ def _oriented_regions(rings: Sequence[GlyphRing]) -> tuple[Region, ...]:
 
 
 def compass_mesh(center: tuple[float, float], radius_cm: float,
-                 glyphs: Mapping[float, Sequence[GlyphRing]] | None = None) -> Mesh:
+                 glyphs: Mapping[float, Sequence[GlyphRing]] | None = None,
+                 north_angle_deg: float = 0.0) -> Mesh:
     """The compass rose on the ground at the dome's rim (module docstring).
 
     ``glyphs``: by bearing (``CARDINAL_BEARINGS``), each letter's outlines in em
     units — centred on (0, 0), one unit high, y up the letter. They lie flat, their
     top pointing away from the centre. A letter whose outlines cannot be filled is
     left out (logged); the rest of the rose stands.
+
+    ``north_angle_deg`` turns the whole rose with the plan's north (#663): the
+    red arrow and the N stand where true north lies on this plan, not at plan-up.
     """
     builder = _Builder.new()
     lift = COMPASS_LIFT_CM
@@ -451,14 +465,21 @@ def compass_mesh(center: tuple[float, float], radius_cm: float,
         triangles.append((a, b, b + segments))
     builder.add(positions, np.tile([0.0, 0.0, 1.0], (2 * segments, 1)), COMPASS_RGBA,
                 np.asarray(triangles, dtype=np.int64))
+    cardinal_bearings = tuple(scene_azimuth(bearing, north_angle_deg)
+                              for bearing in CARDINAL_BEARINGS)
     for step in range(24):
-        bearing = step * 15.0
-        cardinal = step % 6 == 0
-        length = (CARDINAL_TICK_SHARE if cardinal else TICK_SHARE) * radius_cm
-        width = rim * (1.6 if cardinal else 1.0)
-        _flat(builder, _bar(center, bearing, radius_cm - length, radius_cm, width), COMPASS_RGBA,
-              lift)
-    out = np.array(_radial(0.0))
+        bearing = scene_azimuth(step * 15.0, north_angle_deg)
+        if any(abs(((bearing - cardinal + 180.0) % 360.0) - 180.0) < 1e-9
+               for cardinal in cardinal_bearings):
+            continue
+        _flat(builder, _bar(center, bearing, radius_cm - TICK_SHARE * radius_cm, radius_cm, rim),
+              COMPASS_RGBA, lift)
+    for turned in cardinal_bearings:
+        _flat(builder,
+              _bar(center, turned, radius_cm - CARDINAL_TICK_SHARE * radius_cm, radius_cm,
+                   rim * 1.6),
+              COMPASS_RGBA, lift)
+    out = np.array(_radial(north_angle_deg))
     across = np.array([out[1], -out[0]])
     c = np.array(center)
     base = c + out * (radius_cm + 2.0 * rim)
@@ -467,7 +488,8 @@ def compass_mesh(center: tuple[float, float], radius_cm: float,
                       c + out * (radius_cm + 2.0 * rim + ARROW_SHARE * radius_cm)])
     _flat(builder, arrow, NORTH_RGBA, lift + 0.1)
     for bearing, rings in (glyphs or {}).items():
-        _letter(builder, center, radius_cm, float(bearing), rings, lift)
+        _letter(builder, center, radius_cm,
+                scene_azimuth(float(bearing), north_angle_deg), rings, lift)
     return builder.mesh()
 
 

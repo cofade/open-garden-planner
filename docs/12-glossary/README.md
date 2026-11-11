@@ -236,6 +236,7 @@
 | **Curated agent schema** | The stable pydantic contract (`agent_api/schema.py`, e.g. `PlanSummary`) the Agent API returns to clients — decoupled from the `.ogp` save format / `FILE_VERSION` so agent integrations don't break on format changes. Built from `ProjectManager.snapshot_dict` by the Qt-free `agent_api/mapping.py`. See ADR-034 |
 | **snapshot_dict** | `ProjectManager.snapshot_dict(scene)` — an in-memory, read-only `.ogp`-shaped dict (plus an `agent_meta` block) used by the Agent API. Unlike `save()`, it does NOT reconcile journal-pin positions, so reading the plan never mutates state |
 | **Azimuth** | Compass bearing of the sun, degrees clockwise from true north (N=0, E=90, S=180, W=270). Computed by `core/solar.py` (US-E1) |
+| **Plan north (`north_angle_deg`)** | Where true north lies on the drawing, in degrees clockwise from plan-up (0 = up, 135 = down-right). Additive plan metadata (FR-SUN-14); every solar consumer uses `scene_azimuth(azimuth, north) = (azimuth + north) % 360`. No object is rotated |
 | **Elevation angle (solar)** | The sun's angle above the horizon (α). Geometric (airless) by default; shadow features use the geometric value. `elevation_refracted_deg` carries the NOAA refraction correction |
 | **Declination (δ)** | Angle of the sun above/below Earth's equatorial plane; ranges ±23.44° over the year (the axial tilt) |
 | **Equation of time (EoT)** | True solar time minus mean clock time, in minutes; ranges about −14.2 … +16.4 min over the year |
