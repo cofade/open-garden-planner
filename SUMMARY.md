@@ -20,6 +20,7 @@ Prereleases are left out of the window table (not of the totals).
 
 | Snapshot (UTC) | Window (h) | Installer | SHA256SUMS.txt | Note |
 | --- | ---: | ---: | ---: | --- |
+| 2026-11-11 06:24 | 23.1 | 8 | 2 |  |
 | 2026-11-10 07:20 | 24.8 | 7 | 2 |  |
 | 2026-11-09 06:33 | 24.5 | 6 | 3 |  |
 | 2026-11-08 06:03 | 24.1 | 3 | 1 |  |
@@ -34,11 +35,13 @@ Prereleases are left out of the window table (not of the totals).
 | 2026-10-30 05:51 | 24 | 218 | 217 |  |
 | 2026-10-29 05:50 | 12.5 | 2 | 0 | window is not about a day; new release or asset |
 
-## Totals per release (counters at 2026-11-10T07:20:50Z)
+## Totals per release (counters at 2026-11-11T06:24:40Z)
 
 | Release | Installer | SHA256SUMS.txt |
 | --- | ---: | ---: |
-| v1.37.10 | 2 | 1 |
+| v1.39.0 | 2 | 1 |
+| v1.38.0 | 2 | 1 |
+| v1.37.10 | 4 | 1 |
 | v1.37.9 | 7 | 2 |
 | v1.37.8 | 4 | 3 |
 | v1.37.7 | 3 | 1 |
@@ -55,10 +58,10 @@ Prereleases are left out of the window table (not of the totals).
 | v1.35.0 | 4 | 1 |
 | v1.34.13 | 1 | 1 |
 | v1.34.12 | 1 | 1 |
-| v1.34.11 | 4 | 1 |
+| v1.34.11 | 5 | 1 |
 | v1.34.10 | 1 | 1 |
 | v1.34.9 | 6 | 3 |
-| v1.34.8 | 4 | 1 |
+| v1.34.8 | 5 | 1 |
 | v1.34.7 | 3 | 2 |
 | v1.34.6 | 2 | 2 |
 | v1.34.5 | 4 | 1 |
@@ -263,4 +266,4 @@ Prereleases are left out of the window table (not of the totals).
 | v1.0.2 | 2 | 2 |
 | v1.0.1 | 5 | 2 |
 | v1.0.0 | 2 | 2 |
-| **All** | 962 | 336 |
+| **All** | 970 | 338 |
