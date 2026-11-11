@@ -71,9 +71,10 @@ class CommandManager(QObject):
         can_undo_changed: Emitted when undo availability changes
         can_redo_changed: Emitted when redo availability changes
         command_executed: Emitted after a command is executed (description)
-        stack_changed: Emitted whenever the stack mutates via execute/undo/redo
-            (but NOT clear). Wire mark_dirty to this so undo/redo dirty the
-            document too — command_executed only fires on execute. See issue #209.
+        stack_changed: Emitted whenever the stack mutates via
+            execute/register_applied/undo/redo/discard (but NOT clear). Wire
+            mark_dirty to this so undo/redo dirty the document too —
+            command_executed only fires on execute. See issue #209.
     """
 
     can_undo_changed = pyqtSignal(bool)
@@ -93,11 +94,14 @@ class CommandManager(QObject):
 
     @property
     def last_command(self) -> Command | None:
-        """The command whose execute/undo/redo just emitted ``stack_changed``.
+        """The command whose execute/undo/redo/discard just emitted ``stack_changed``.
 
         Set immediately before the signal, so a ``stack_changed`` slot can ask
         what changed (``CanvasScene._restack_ground_changes`` does, #592).
-        ``None`` before the first command and after ``clear()``.
+        After ``undo``/``redo``/``discard`` the command named here lives on the
+        *other* stack (or on neither, after a discard) — it is the command that
+        caused the signal, not the current undo top. ``None`` before the first
+        command and after ``clear()``.
         """
         return self._last_command
 
@@ -193,6 +197,40 @@ class CommandManager(QObject):
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
         self.stack_changed.emit()
         self.history_navigated.emit()  # redo is a history transition too (#560)
+
+    def discard(self, command: Command) -> bool:
+        """Remove *command* from the undo stack without executing or redoing it (#827).
+
+        The sanctioned way OFF the stack for a gesture that was cancelled
+        before it became a real change: an empty text annotation placed with a
+        click and removed again with Esc. ``undo()`` is no substitute — it
+        moves the command to the redo stack, where a redo would resurrect the
+        item the cancellation just removed from the scene.
+
+        Only the exact object on TOP of the stack is discarded: the LIFO
+        identity guard refuses a buried or unknown command, so a caller whose
+        bookkeeping is stale (another command was pushed in between) gets
+        ``False`` and an untouched stack instead of corrupting the history.
+        The redo stack is never touched.
+
+        Emits ``can_undo_changed`` and ``stack_changed`` — the stack mutated,
+        so dirtiness and panel refreshes must hear it (#209) — but NOT
+        ``command_executed`` (nothing was executed) and not the history
+        navigation pair: a discard is not a user history transition (#560).
+        ``last_command`` becomes the discarded command, mirroring ``undo()``,
+        so the restack slots judge the command that caused the signal.
+
+        Returns True when the command was discarded, False when it was absent
+        or not on top (stack unchanged, no signals).
+        """
+        if not self._undo_stack or self._undo_stack[-1] is not command:
+            return False
+        self._undo_stack.pop()
+
+        self._last_command = command
+        self.can_undo_changed.emit(len(self._undo_stack) > 0)
+        self.stack_changed.emit()
+        return True
 
     def clear(self) -> None:
         """Clear all undo/redo history."""

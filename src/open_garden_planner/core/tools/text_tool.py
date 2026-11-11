@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
+from open_garden_planner.core.commands import Command
+
 from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
@@ -27,6 +29,10 @@ class TextTool(BaseTool):
     def __init__(self, view: "CanvasView") -> None:
         super().__init__(view)
         self._pending_item: object | None = None  # TextItem while editing
+        # The CreateItemCommand add_item executed for that item, kept so an
+        # empty cancellation can take the pair off scene AND stack (#827).
+        # Assigned and cleared together with _pending_item.
+        self._pending_command: Command | None = None
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Place a text item on left click."""
@@ -44,8 +50,9 @@ class TextTool(BaseTool):
             content="",
             layer_id=layer_id,
         )
-        self._view.add_item(item, "text")
+        command = self._view.add_item(item, "text")
         self._pending_item = item
+        self._pending_command = command
         item.start_editing()
         return True
 
@@ -63,10 +70,35 @@ class TextTool(BaseTool):
         return False
 
     def cancel(self) -> None:
-        """Remove a pending empty text item."""
-        if self._pending_item is not None:
-            item = self._pending_item
-            self._pending_item = None
-            scene = self._view.scene()
-            if scene and item.scene() is not None and not item.toPlainText().strip():
-                scene.removeItem(item)  # type: ignore[arg-type]
+        """Cancel a pending text annotation, keeping scene and history in step (#827).
+
+        The placement click already executed its ``CreateItemCommand``, so
+        removing the item from the scene alone left the command on the undo
+        stack: undo became a no-op and redo resurrected the empty annotation.
+        The sequence therefore discards the command FIRST and removes the item
+        from the scene only when the discard proved the command left the stack.
+
+        Interleaving fallback: if another command was pushed on top in the
+        meantime, ``discard`` refuses (LIFO identity guard) and the empty item
+        STAYS in the scene — an item-plus-command pair is consistent in both
+        directions, a scene without its command is exactly the bug (#827).
+        A non-empty annotation is a real change and keeps item and command
+        together, as before.
+
+        Both pending references are cleared first, so repeated
+        cancel/deactivate calls are no-ops.
+        """
+        item = self._pending_item
+        command = self._pending_command
+        self._pending_item = None
+        self._pending_command = None
+
+        if item is None or command is None:
+            return
+        scene = self._view.scene()
+        if scene is None or item.toPlainText().strip():
+            return  # nothing pending, or a real annotation: keep item + command
+        if not self._view.command_manager.discard(command):
+            return  # interleaved: item stays in the scene with its command
+        if item.scene() is not None:
+            scene.removeItem(item)  # type: ignore[arg-type]

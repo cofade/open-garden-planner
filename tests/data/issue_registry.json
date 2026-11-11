@@ -1173,5 +1173,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#681, #664, #771): cad editing - split along a line, group drill-down, dependency review"
+  },
+  "827": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Text tool: Esc on an empty annotation leaves a ghost item on the undo stack"
   }
 }

@@ -13,6 +13,7 @@ Verifies that:
 
 from unittest.mock import MagicMock
 
+import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
@@ -250,6 +251,216 @@ class TestEscapeReturnsToSelect:
 
         assert canvas.tool_manager.active_tool_type == ToolType.SELECT
         assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+
+    def test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """#827: the empty item and its CreateItemCommand leave together.
+
+        Before the fix Esc removed only the scene item: the executed
+        ``CreateItemCommand`` stayed on the stack, so undo swallowed a dead
+        entry and redo resurrected the ghost annotation (which could then be
+        serialized). The rectangle proves the real history survives intact.
+        """
+        from PyQt6.QtCore import QCoreApplication, QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        # Baseline: one real rectangle committed through the normal draw path.
+        draw = _left_click_event()
+        canvas.set_active_tool(ToolType.RECTANGLE)
+        rect_tool = canvas.tool_manager.active_tool
+        rect_tool.mouse_press(draw, QPointF(50, 50))
+        rect_tool.mouse_move(draw, QPointF(250, 150))
+        rect_tool.mouse_release(draw, QPointF(250, 150))
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+        assert depth_before == 1
+        assert _rect_count(canvas) == 1
+
+        # The placement click registers its creation command...
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(500, 400))
+        assert any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert manager.undo_depth == depth_before + 1
+
+        # ...and Esc takes both the item and the command away again.
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert manager.undo_depth == depth_before
+        assert manager.undo_description == QCoreApplication.translate(
+            "Commands", "Create {item_type}"
+        ).format(item_type="rectangle")
+
+        # The baseline rectangle still round-trips; the ghost never returns.
+        manager.undo()
+        assert _rect_count(canvas) == 0
+        manager.redo()
+        assert _rect_count(canvas) == 1
+        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert manager.undo_depth == depth_before
+
+    def test_non_empty_text_annotation_escape_preserves_undo_history(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Non-empty text annotation remains in scene and can be undone/redone."""
+        from PyQt6.QtCore import QCoreApplication, QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        item = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+        item.setPlainText("Garden Bed #1")
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert item.scene() is canvas.scene()
+        assert item.content == "Garden Bed #1"
+        assert manager.undo_depth == depth_before + 1
+        assert manager.undo_description == QCoreApplication.translate(
+            "Commands", "Create {item_type}"
+        ).format(item_type="text")
+
+        manager.undo()
+        assert item.scene() is None
+        assert manager.undo_depth == depth_before
+
+        manager.redo()
+        assert item.scene() is canvas.scene()
+        assert manager.undo_depth == depth_before + 1
+
+    def test_repeated_escape_on_empty_text_annotation_is_idempotent(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Pressing Escape repeatedly does not raise or corrupt history."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        assert any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert manager.undo_depth == depth_before + 1
+
+        # First escape removes empty item and discards command
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert manager.undo_depth == depth_before
+
+        # Subsequent escapes must not crash or mutate history
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+        assert manager.undo_depth == depth_before
+        assert not manager.can_redo
+
+    def test_cancellation_with_interleaved_command_preserves_consistency(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Interleaved command prevents discard; scene item and command stay together."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        # Place pending text annotation
+        canvas.set_active_tool(ToolType.TEXT)
+        text_tool = canvas.tool_manager.active_tool
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        text_item = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+        assert manager.undo_depth == depth_before + 1
+
+        # Interleave another command onto the stack
+        other_item = RectangleItem(10, 10, 50, 50)
+        other_cmd = CreateItemCommand(canvas.scene(), other_item, "rectangle")
+        manager.execute(other_cmd)
+        assert manager.undo_depth == depth_before + 2
+
+        # Cancellation must fail discard and keep text item in scene
+        assert text_tool is not None
+        text_tool.cancel()
+
+        assert text_item.scene() is canvas.scene(), "empty item must remain if discard fails"
+        assert other_item.scene() is canvas.scene()
+        assert manager.undo_depth == depth_before + 2
+
+        # Undoing in sequence works cleanly
+        manager.undo()  # undos rectangle
+        assert other_item.scene() is None
+        assert text_item.scene() is canvas.scene()
+
+        manager.undo()  # undos text annotation
+        assert text_item.scene() is None
+
+        manager.redo()  # restores text annotation
+        assert text_item.scene() is canvas.scene()
+
+        manager.redo()  # restores rectangle
+        assert other_item.scene() is canvas.scene()
+
+    def test_cancellation_on_discard_failure_leaves_scene_item(
+        self, canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When discard returns False, cancel() keeps item in scene."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        canvas.set_active_tool(ToolType.TEXT)
+        text_tool = canvas.tool_manager.active_tool
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        text_item = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+
+        # Force discard to return False
+        monkeypatch.setattr(manager, "discard", lambda _cmd: False)
+
+        assert text_tool is not None
+        text_tool.cancel()
+
+        assert text_item.scene() is canvas.scene()
+        assert manager.undo_depth == depth_before + 1
 
     def test_a_label_editor_under_a_drawing_tool_closes_on_the_first_escape(
         self, canvas: CanvasView, qtbot: object

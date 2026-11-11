@@ -411,3 +411,28 @@ stayed; the owner's saved plan recorded exactly that split. The command now walk
 `group_item.selection_tree` for members, and `_apply_item_visibility` takes the
 outermost group ancestor's layer as the effective one, so pre-fix plans render
 correctly without a migration.
+
+
+### PF-PER-28
+
+- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command.
+- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`
+- **Source:** #827
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Esc on an empty text annotation removed the `TextItem` from the scene but left its
+executed `CreateItemCommand` on the undo stack: undo swallowed a dead entry and redo
+resurrected the ghost annotation, which `ProjectManager` would then serialize into
+`.ogp`. Root cause: `CanvasView.add_item()` executes the command as a side effect of
+placement, while `TextTool.cancel()` only called `scene.removeItem` — the test that
+existed checked the scene, never the stack. Fix: `add_item()` returns the command,
+`TextTool` tracks it while the annotation is pending, and `CommandManager.discard()`
+is the one sanctioned way OFF the stack: it pops only the exact top command (LIFO
+identity — a buried or unknown command returns `False` with no mutation), never
+touches the redo stack, emits `stack_changed` + `can_undo_changed` but not
+`command_executed`, and updates `last_command` so the restack slots judge the
+command that caused the signal. The cancellation sequence discards first and
+removes the item only on success; if another command was pushed on top the discard
+refuses and the empty item stays, because scene and history must move together
+(§8.2, ADR-004 addendum).

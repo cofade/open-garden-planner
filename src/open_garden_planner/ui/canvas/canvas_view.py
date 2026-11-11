@@ -853,15 +853,21 @@ class CanvasView(QGraphicsView):
         """The command manager for undo/redo."""
         return self._command_manager
 
-    def add_item(self, item: QGraphicsItem, item_type: str = "item") -> None:
+    def add_item(self, item: QGraphicsItem, item_type: str = "item") -> Command:
         """Add an item to the scene with undo support.
 
         Args:
             item: The graphics item to add
             item_type: Description for undo (e.g., "rectangle", "polygon")
+
+        Returns:
+            The executed CreateItemCommand. A tool that may still cancel the
+            placement (the Text tool on an empty annotation, #827) keeps the
+            exact command so it can hand it to ``CommandManager.discard``.
         """
         command = CreateItemCommand(self.scene(), item, item_type)
         self._command_manager.execute(command)
+        return command
 
     def request_soil_test(self, target_id: str, display_name: str = "") -> None:
         """Forward a soil-test request from a bed's context menu (US-12.10a).

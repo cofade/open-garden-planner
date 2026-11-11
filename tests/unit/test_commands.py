@@ -148,6 +148,154 @@ class TestCommandManager:
             manager.execute(command)
 
 
+class TestCommandManagerDiscard:
+    """``discard()`` — the sanctioned way OFF the stack for a cancelled gesture (#827).
+
+    An empty text annotation is placed with a click (which executes its
+    CreateItemCommand) and removed again with Esc: the command must leave the
+    stack too, or undo becomes a no-op and redo resurrects the ghost item.
+    ``undo()`` is no substitute — it parks the command on the redo stack.
+    """
+
+    @pytest.fixture
+    def manager(self, qtbot) -> CommandManager:
+        """Create a command manager for testing."""
+        return CommandManager()
+
+    @pytest.fixture
+    def scene(self, qtbot) -> QGraphicsScene:
+        """Create a scene for testing."""
+        return QGraphicsScene()
+
+    @staticmethod
+    def _create(name: str, scene: QGraphicsScene) -> CreateItemCommand:
+        return CreateItemCommand(scene, QGraphicsRectItem(0, 0, 10, 10), name)
+
+    def test_discard_removes_the_matching_top_command(self, manager, scene) -> None:
+        """The exact top command leaves the stack, and so does its history entry."""
+        command = self._create("test", scene)
+        manager.execute(command)
+
+        assert manager.discard(command) is True
+
+        assert not manager.can_undo
+        assert manager.undo_depth == 0
+        assert manager.undo_description is None
+        # The redo stack must NOT receive it: a redo would resurrect the item.
+        assert not manager.can_redo
+        assert manager.redo_depth == 0
+
+    def test_discard_refuses_a_command_that_is_not_on_top(self, manager, scene) -> None:
+        """The LIFO identity guard: a buried command is refused, nothing moves."""
+        first = self._create("first", scene)
+        second = self._create("second", scene)
+        manager.execute(first)
+        manager.execute(second)
+
+        assert manager.discard(first) is False
+
+        assert manager.undo_depth == 2
+        assert manager.undo_description == "Create second"
+        assert not manager.can_redo
+
+    def test_discard_with_an_empty_stack_returns_false(self, manager) -> None:
+        """A never-executed (or already-gone) command is refused without mutation."""
+        ghost = self._create("ghost", QGraphicsScene())
+
+        assert manager.discard(ghost) is False
+
+        assert manager.undo_depth == 0
+        assert not manager.can_undo
+        assert not manager.can_redo
+
+    def test_discard_refuses_a_command_already_moved_to_redo(self, manager, scene) -> None:
+        """Undo parks the command on the redo stack — discard must not steal it there."""
+        command = self._create("test", scene)
+        manager.execute(command)
+        manager.undo()
+        assert manager.can_redo
+
+        assert manager.discard(command) is False
+
+        assert manager.redo_depth == 1
+        assert manager.redo_description == "Create test"
+        assert not manager.can_undo
+
+    def test_discard_keeps_undo_and_redo_depths_consistent(self, manager, scene) -> None:
+        """Depth after a discard equals depth minus one; the rest still undoes cleanly."""
+        commands = [self._create(name, scene) for name in ("first", "second", "third")]
+        for command in commands:
+            manager.execute(command)
+        assert manager.undo_depth == 3
+
+        assert manager.discard(commands[2]) is True
+
+        assert manager.undo_depth == 2
+        assert manager.undo_description == "Create second"
+        manager.undo()
+        manager.undo()
+        assert manager.undo_depth == 0
+        assert not manager.can_undo
+        # The two remaining commands undid normally; the discarded one is gone.
+        assert manager.redo_depth == 2
+
+    def test_discard_emits_stack_signals_but_not_execute_or_history(
+        self, manager, scene
+    ) -> None:
+        """The stack mutated: can_undo_changed + stack_changed fire — and only those.
+
+        ``command_executed`` is execute-only, ``history_navigated``/
+        ``before_history_navigation`` are user-undo/redo-only (#560), and a
+        refusal emits nothing at all (no phantom dirtiness, no refresh).
+        """
+        manager.execute(self._create("test", scene))
+        top_command = manager._undo_stack[-1]
+        events: list[str] = []
+        manager.can_undo_changed.connect(lambda _ok: events.append("can_undo_changed"))
+        manager.can_redo_changed.connect(lambda _ok: events.append("can_redo_changed"))
+        manager.command_executed.connect(lambda _desc: events.append("command_executed"))
+        manager.stack_changed.connect(lambda: events.append("stack_changed"))
+        manager.before_history_navigation.connect(
+            lambda: events.append("before_history_navigation")
+        )
+        manager.history_navigated.connect(lambda: events.append("history_navigated"))
+        stray = self._create("stray", scene)  # never executed → not on the stack
+
+        assert manager.discard(stray) is False
+        assert events == [], "a refused discard must emit nothing"
+
+        assert manager.discard(top_command) is True
+        assert events == ["can_undo_changed", "stack_changed"]
+
+    def test_discard_updates_last_command_for_stack_changed_readers(
+        self, manager, scene
+    ) -> None:
+        """``last_command`` names the discarded command, mirroring undo()/redo().
+
+        ``CanvasScene._restack_ground_changes`` reads it inside the
+        ``stack_changed`` slot (#592), so it must be set before the emit — and
+        a refused discard must leave it alone.
+        """
+        first = self._create("first", scene)
+        second = self._create("second", scene)
+        manager.execute(first)
+        manager.execute(second)
+
+        seen: list[Command | None] = []
+        manager.stack_changed.connect(lambda: seen.append(manager.last_command))
+
+        assert manager.discard(second) is True
+        assert seen == [second]
+        assert manager.last_command is second
+
+        third = self._create("third", scene)
+        manager.execute(third)
+        seen.clear()
+        assert manager.discard(first) is False  # buried under third
+        assert seen == [], "a refused discard must not signal or move last_command"
+        assert manager.last_command is third
+
+
 class TestCompoundCommand:
     """Several commands undone as ONE step (a drag that also links a plant, #627)."""
 

@@ -74,6 +74,28 @@ shared custom-library updates are intentionally not rolled back. No dependency,
 new persisted lock flag or file-format change. See section 8.32 and the package
 integration tests.
 
+### Addendum (2026-11-10, #827 — the way OFF the stack)
+
+`CommandManager.discard(command)` is the sanctioned removal for a gesture
+cancelled before it became a real change: an empty text annotation is placed
+with a click (which executes its `CreateItemCommand`) and Esc must take the
+item and the command away together — `undo()` is no substitute, because it
+parks the command on the redo stack and a redo would resurrect the item the
+cancellation just removed. `discard` pops only the exact top command (LIFO
+identity — a buried or unknown command returns `False` with no mutation),
+never touches the redo stack, and emits `can_undo_changed` + `stack_changed`
+(so dirtiness and panel refreshes follow, #209) but not `command_executed`
+and not the history-navigation pair (#560). `CanvasView.add_item()` returns
+the command it executed so the creating tool can hand it back; the tool
+discards FIRST and removes the scene item only on success — if another
+command was pushed on top, the discard refuses and the empty item stays in
+the scene, because an item-plus-command pair is consistent in both
+directions while a scene without its command is the bug. The two entry
+points onto the stack (invariant: `execute` / `register_applied`) are
+unchanged. Section 8.2 and PF-PER-28 hold the contract; pinned by
+`tests/unit/test_commands.py::TestCommandManagerDiscard` and
+`tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`.
+
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
 **Status**: Accepted
