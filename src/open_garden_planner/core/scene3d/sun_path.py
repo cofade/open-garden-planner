@@ -16,7 +16,7 @@ Where the sun goes over the garden, drawn as arcs on a dome over the plan:
   A UTC civil day (the heatmap's sampling window) would split the arc of a garden
   far from Greenwich in two; a local day never does.
 - ``dome_point`` — THE one mapping from a sun position to the dome: elevation ``e``
-  and azimuth ``a`` (compass bearing, clockwise from north) go to
+  and scene azimuth ``a`` (a compass bearing turned by the plan's north, #663) go to
   ``centre + R · (cos e · sin a, cos e · cos a, sin e)`` in the scene frame (E, N,
   up) — ``frame.sun_direction_scene`` scaled by the radius. The gate of L2.2: the
   noon point of every arc IS ``dome_point`` of ``solar_position`` at its instant.

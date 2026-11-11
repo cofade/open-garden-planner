@@ -43,7 +43,7 @@ class NorthCompassWidget(QWidget):
         return self._angle
 
     def set_angle(self, angle_deg: object) -> None:
-        angle = normalize_north_angle(angle_deg)
+        angle = round(normalize_north_angle(angle_deg), 1) % 360.0
         if angle == self._angle:
             return
         self._angle = angle

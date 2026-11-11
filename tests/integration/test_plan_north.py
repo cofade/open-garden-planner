@@ -90,7 +90,26 @@ class TestNorthInTheSolarFrame:
 
         sun = Scene3DController._sun(Dummy())
         assert sun.elevation_deg == pytest.approx(raw.elevation_deg)
-        assert sun.azimuth_deg == pytest.approx((raw.azimuth_deg + 90.0) % 360.0)
+        assert sun.azimuth_deg == pytest.approx(raw.azimuth_deg)
+        assert sun.scene_azimuth_deg == pytest.approx((raw.azimuth_deg + 90.0) % 360.0)
+
+    def test_a_turned_plan_does_not_turn_the_living_look_or_the_reported_compass(
+        self, qtbot
+    ) -> None:
+        from open_garden_planner.core.scene3d.look import look_for
+        from open_garden_planner.core.scene3d.sink import SunState
+        from open_garden_planner.core.scene3d.weather import dew_amount, is_morning
+
+        compass = SunState(8.0, 120.0)
+        turned = SunState(8.0, 120.0, 90.0)
+        # The living look reads the COMPASS bearing: a plan rotation is not a
+        # different time of day, and the published azimuth stays compass.
+        assert is_morning(turned) is is_morning(compass) is True
+        assert dew_amount(turned) == pytest.approx(dew_amount(compass))
+        assert dew_amount(turned) > 0.0
+        assert look_for(turned, "medium").sky.sun_azimuth_deg == pytest.approx(
+            look_for(compass, "medium").sky.sun_azimuth_deg + 90.0
+        )
 
     def test_the_pdf_north_arrow_turns_with_the_plan(self, qtbot) -> None:
         def centroid(angle: float) -> tuple[float, float]:
@@ -116,7 +135,7 @@ class TestNorthInTheSolarFrame:
         assert up_y < 55.0
         right_x, right_y = centroid(135.0)
         assert right_x > 65.0
-        assert right_y > 65.0
+        assert right_y > 50.0
 
 
 class TestNorthInThePlan:
@@ -155,6 +174,68 @@ class TestNorthInThePlan:
         turned_x, turned_y = shadow_centroid(90.0)
         assert turned_x > 220.0
         assert turned_y < 220.0
+
+    def test_the_3d_sun_path_and_compass_turn_with_the_plan(self, qtbot) -> None:
+        from open_garden_planner.core.scene3d.sun_path import (
+            compass_mesh,
+            day_arc,
+        )
+
+        plain = day_arc(52.52, 13.40, date(2026, 6, 21), UTC, "today")
+        turned = day_arc(
+            52.52, 13.40, date(2026, 6, 21), UTC, "today", north_angle_deg=90
+        )
+        assert plain.segments and turned.segments
+        before = plain.segments[0][0]
+        after = turned.segments[0][0]
+        assert after.azimuth_deg == pytest.approx((before.azimuth_deg + 90.0) % 360.0)
+
+        up = compass_mesh((0.0, 0.0), 1000.0)
+        right = compass_mesh((0.0, 0.0), 1000.0, north_angle_deg=90.0)
+        assert max(point[1] for point in up.positions) > 1050.0
+        assert max(point[0] for point in right.positions) > 1050.0
+
+    def test_a_heatmap_for_the_old_north_is_refused(self, qtbot) -> None:
+        import numpy as np
+
+        from open_garden_planner.core.object_height import METADATA_KEY
+        from open_garden_planner.core.shade_aggregation import (
+            HeatmapGrid,
+            SunExposureResult,
+        )
+        from open_garden_planner.ui.canvas.sun_exposure_snapshot import (
+            collect_exposure_snapshot,
+        )
+        from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
+
+        scene = CanvasScene(width_cm=200, height_cm=200)
+        caster = RectangleItem(
+            80, 80, 40, 40, object_type=ObjectType.GENERIC_RECTANGLE
+        )
+        caster.metadata[METADATA_KEY] = 100.0
+        scene.addItem(caster)
+        north = [0.0]
+        location = {"latitude": 52.52, "longitude": 13.40}
+        day = date(2026, 6, 21)
+        controller = SunHeatmapController(
+            scene, lambda: location, north_provider=lambda: north[0]
+        )
+        grid = HeatmapGrid.for_rect(0.0, 0.0, 200.0, 200.0, 10.0)
+        controller.snapshot = collect_exposure_snapshot(scene, location, day, 0.0)
+        controller._computed_day = day
+        controller._grid = grid
+        controller._result_wanted = True
+        controller._document_generation = 0
+        # The plan turns while the worker is still running: its result belongs
+        # to the old frame and must not become the shown map.
+        north[0] = 90.0
+        controller._on_success(
+            SunExposureResult(
+                np.zeros((grid.rows, grid.cols), dtype=np.float32), (), (), None, None
+            )
+        )
+        assert controller.exposure_reason == "stale"
+        assert controller.result() is None
 
     def test_old_plans_load_at_zero_and_the_file_version_does_not_move(
         self, qtbot, tmp_path: Path

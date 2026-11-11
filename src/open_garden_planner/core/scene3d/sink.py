@@ -51,30 +51,45 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class SunState:
-    """Where the sun is — plain solar data from ``core/solar``, nothing chosen.
+    """Where the sun is — the composited state the engine is given.
 
     ``elevation_deg``: geometric elevation above the horizon. ``azimuth_deg``:
-    compass bearing, clockwise from north. The light a sink sets up travels
-    along ``light_travel_scene`` (ADR-037: light = −sun vector). L1.4 adds the
-    look (colour, brightness, sky) on top; the direction is never art-directed.
+    **compass** bearing, clockwise from true north (the value ``core/solar``
+    produces, and the one the living look's dew/dawn maths and the published
+    render metadata read). ``north_angle_deg``: the plan's north orientation
+    (#663), so :attr:`scene_azimuth_deg` is the bearing in the plan frame the
+    light, sky and dome use. ``light_travel_scene`` is built from that scene
+    bearing (ADR-037: light = −sun vector); the direction is never art-directed.
     """
 
     elevation_deg: float
     azimuth_deg: float
+    north_angle_deg: float = 0.0
 
     def __post_init__(self) -> None:
-        if not (math.isfinite(self.elevation_deg) and math.isfinite(self.azimuth_deg)):
+        if not (
+            math.isfinite(self.elevation_deg)
+            and math.isfinite(self.azimuth_deg)
+            and math.isfinite(self.north_angle_deg)
+        ):
             raise ValueError(f"SunState needs finite angles, got {self!r}")
 
     @classmethod
-    def from_solar_position(cls, position: SolarPosition) -> SunState:
+    def from_solar_position(
+        cls, position: SolarPosition, north_angle_deg: float = 0.0
+    ) -> SunState:
         """From ``core.solar.solar_position(...)`` — the only source of sun angles."""
-        return cls(position.elevation_deg, position.azimuth_deg)
+        return cls(position.elevation_deg, position.azimuth_deg, north_angle_deg)
+
+    @property
+    def scene_azimuth_deg(self) -> float:
+        """The compass bearing in the plan frame (#663): ``(azimuth + north) % 360``."""
+        return (self.azimuth_deg + self.north_angle_deg) % 360.0
 
     @property
     def direction_scene(self) -> tuple[float, float, float]:
         """Unit vector pointing AT the sun, scene frame (E, N, up)."""
-        return sun_direction_scene(self.elevation_deg, self.azimuth_deg)
+        return sun_direction_scene(self.elevation_deg, self.scene_azimuth_deg)
 
     @property
     def light_travel_scene(self) -> tuple[float, float, float]:

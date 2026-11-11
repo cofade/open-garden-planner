@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING, Any
 from PyQt6.QtCore import QCoreApplication, QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
 
+from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.i18n import format_decimal, format_trimmed
 from open_garden_planner.core.measurements import (
     SCALE_BAR_NICE_DISTANCES_CM,
     format_scale_distance,
 )
 from open_garden_planner.core.plant_cycle_label import plant_cycle_label
-from open_garden_planner.services.harvest_units import harvest_unit_label
 
 
 def _tr(text: str) -> str:
@@ -194,6 +194,7 @@ def _draw_north_arrow(
     painter: QPainter, cx: float, cy: float, size: float, north_angle_deg: float = 0.0
 ) -> None:
     """Draw a north arrow centred at (cx, cy), turned with the plan's north (#663)."""
+    half = size / 2.0
     painter.save()
     painter.translate(cx, cy)
     # QPainter is y-down: a positive rotation is clockwise, the sign the plan's
@@ -204,21 +205,25 @@ def _draw_north_arrow(
     pen.setWidthF(1.0)
     painter.setPen(pen)
 
-    half = size / 2.0
     # Arrow body
     painter.drawLine(QPointF(0, half), QPointF(0, -half))
     # Arrowhead
     painter.drawLine(QPointF(0, -half), QPointF(-size * 0.2, -half + size * 0.35))
     painter.drawLine(QPointF(0, -half), QPointF(size * 0.2, -half + size * 0.35))
+    painter.restore()
 
+    # The letter stays upright at the arrow's tip, whichever way the plan turns.
+    angle = math.radians(float(north_angle_deg))
+    tip_x = cx + half * math.sin(angle)
+    tip_y = cy - half * math.cos(angle)
     font = _font(max(4, int(size * 0.4)))
     painter.setFont(font)
+    painter.setPen(pen)
     painter.drawText(
-        QRectF(-size / 2, -half - _pt(5), size, _pt(5)),
+        QRectF(tip_x - size / 2, tip_y - half - _pt(5), size, _pt(5)),
         Qt.AlignmentFlag.AlignCenter,
         _tr("N"),
     )
-    painter.restore()
 
 
 _SCALE_BAR_PREFERRED_CM = 1000.0   # 10 m, where it fits
@@ -705,13 +710,16 @@ def _plant_rows(scene: Any) -> list[tuple[str, str, str, str]]:
         metadata = getattr(item, "metadata", {}) or {}
         notes = (metadata.get("plant_instance") or {}).get("notes", "") or ""
         species = metadata.get("plant_species") or {}
-        cycle_text = plant_cycle_label(
-            species.get("cycle") if isinstance(species, dict) else None
-        )
+        if isinstance(species, dict) and species:
+            # A species with an unknown cycle is a user-created one: say so
+            # rather than borrowing the canvas object type's "Perennial" (#869).
+            type_text = plant_cycle_label(species.get("cycle"), unknown="—")
+        else:
+            type_text = get_translated_display_name(item.object_type)
         name = _plant_display_name(item) or _tr("Unnamed")
         found.append((_natural_key(name), center.x(), center.y(), (
             name,
-            cycle_text or get_translated_display_name(item.object_type),
+            type_text,
             f"({format_decimal(center.x(), 0)}, {format_decimal(center.y(), 0)})",
             str(notes),
         )))

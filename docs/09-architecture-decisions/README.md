@@ -1340,12 +1340,13 @@ and cannot express "north is off the sheet".
 `(azimuth + north) % 360`. Scene +Y is plan-up (ADR-002), and the shadow and 3D
 formulas read an azimuth clockwise from +Y, so a compass azimuth is turned **once**
 into that frame. The 2D shadow overlay, the hours-of-sun sampling
-(`daylight_samples`), the 3D `SunState`, the 3D sun path and compass, and the PDF
-overview arrow all use this rule; none of them invents its own sign. A sun due east
-(compass 90°) on a plan whose north lies at 45° is at scene bearing 135° and throws its
-shadow up-left. The issue's shorthand `solar_azimuth - north_angle` assumed the
-inverse definition of the angle; the arrow's stated meaning (135° points down-right)
-fixes the sign recorded here.
+(`daylight_samples`), the 3D light (`SunState` carries the compass bearing and the
+plan north, and `scene_azimuth_deg` is their sum), the 3D sun path and compass, and
+the PDF overview arrow all use this rule; none of them invents its own sign. A sun
+due east (compass 90°) on a plan whose north lies at 45° is at scene bearing 135° and
+throws its shadow up-left. The issue's shorthand `solar_azimuth - north_angle`
+assumed the inverse definition of the angle; the arrow's stated meaning (135° points
+down-right) fixes the sign recorded here.
 
 **Write path and staleness.** `SetPlanNorthCommand` is one undo step;
 `ProjectManager.set_north_angle` is the only writer besides load and new, and refuses
@@ -10650,7 +10651,7 @@ install tree, the file does not enter Recent, the showcase moment applies, and
 bundled bytes are never written. The gallery and File > Open now share one identity
 rule instead of two.
 
-Cross-refs: §8.33; FR-EXAMPLE-04, FR-EXAMPLE-08.
+Cross-refs: §8.33; FR-EXAMPLE-04, FR-EXAMPLE-08, FR-EXAMPLE-11.
 
 ### ADR-066 addendum: examples open in a showcase state (#795)
 
@@ -13071,9 +13072,9 @@ FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
     reused through `QGraphicsScene.render`.
 16. **A fixed-scale print's pages run top row first; the short row is last** (#871).
     Rows are anchored at the top of the plan, so a height that is not a whole number
-    of tiles leaves the remainder at the **bottom** of the last sheet. The old
-    bottom-to-top mapping put that remainder first and left sheets 1-2 blank below
-    their strip.
+    of tiles leaves the plan's **short bottom row on the last page**. That row's strip
+    sits at the top of its sheet, with blank paper below it. The old bottom-to-top
+    mapping put the remainder first and left sheets 1-2 blank below their strip.
 17. **The shopping-list PDF uses the report's one paginator** (#870). `_section_pages`
     and `_render_table_page` now cut and paint it; the footer hook carries the grand
     total on the last page only. The separate `_shopping_list_fits` /
@@ -13091,25 +13092,7 @@ FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
 
 Cross-refs: §8.36; FR-EXP-03, FR-EXP-08; PF-CAN-55.
 
-**Addendum (plan-truth package, 2026-11-11) - locale of plan numbers and harvest
-units (#860, #863, #899)**:
-
-20. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
-    readouts, vertex and resize labels, area labels, the ruler and scale bar,
-    constraint conflict rows, the 3D focus distance, the report's plant positions and
-    money cells, the PDF harvest total and the persisted harvest-journal text used
-    Python's `:g`/`:.2f` and kept a decimal point in a German UI. They now call
-    `format_decimal` / `format_trimmed` (or `LocalizedNumber` inside a translated
-    template).
-21. **A harvest unit is a stable stored key, translated only at display.** `kg`, `g`,
-    `pcs`, `bunch` and `L` remain untranslated in `HarvestRecord.unit` and in the CSV
-    (PF-I18-05); the dialog's combo carries the key as item data while showing
-    `harvest_unit_label`, and the Harvest tab and PDF summary show the same label.
-    A custom unit is shown as typed.
-
-Cross-refs: FR-HARVEST-02, FR-HARVEST-07, FR-HARVEST-09; PF-I18-05; §8.36.
-
-## ADR-077: The UI language decides the locale - one root for numbers, months and typed decimals (#792)
+## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
 
 **Status**: Accepted (visual-polish package, 2026-11-10); shipped in v1.38.0 (PR #838)
 
@@ -13229,6 +13212,24 @@ labels, the scale bar) still use a decimal point and are the canvas's next step.
 Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Locale";
 FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
 version cited case study 220, which is the #791 theme case and says nothing about locale.
+
+**Addendum (plan-truth package, 2026-11-11) - locale of plan numbers and harvest
+units (#860, #863, #899)**:
+
+20. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
+    readouts, vertex and resize labels, area labels, the ruler and scale bar,
+    constraint conflict rows, the 3D focus distance, the report's plant positions and
+    money cells, the PDF harvest total and the persisted harvest-journal text used
+    Python's `:g`/`:.2f` and kept a decimal point in a German UI. They now call
+    `format_decimal` / `format_trimmed` (or `LocalizedNumber` inside a translated
+    template).
+21. **A harvest unit is a stable stored key, translated only at display.** `kg`, `g`,
+    `pcs`, `bunch` and `L` remain untranslated in `HarvestRecord.unit` and in the CSV
+    (PF-I18-05); the dialog's combo carries the key as item data while showing
+    `harvest_unit_label`, and the Harvest tab, PDF summary and linked journal note
+    show the same label. A custom unit is shown as typed.
+
+Cross-refs: FR-HARVEST-02, FR-HARVEST-07, FR-HARVEST-09; PF-I18-05; §8.36.
 
 ### ADR-039 addendum: the app owns the palette and the colour scheme, and chrome that paints reads tokens (#791)
 

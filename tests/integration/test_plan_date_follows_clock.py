@@ -89,6 +89,31 @@ class TestCalendarAndTasks:
 
         assert plan_day_of(Plain()) == datetime.date.today()
 
+    def test_marking_done_writes_the_plan_day(self, qtbot) -> None:
+        from open_garden_planner.services.task_generator import Task
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        view = TasksView(scene, pm)
+        qtbot.addWidget(view)
+        view._mark_done(Task(task_id="harvest:tomato", source="calendar",
+                             task_type="harvest", title="Tomato"))
+        assert pm.task_states["harvest:tomato"]["done_date"] == "2031-07-01"
+
+    def test_the_calendar_dashboard_done_toggle_writes_the_plan_day(self, qtbot) -> None:
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        view = PlantingCalendarView(scene, pm)
+        qtbot.addWidget(view)
+        view._on_task_toggled("harvest:tomato", True)
+        assert pm.task_states["harvest:tomato"]["done_date"] == "2031-07-01"
+
 
 class TestSuccessionBadge:
     def test_the_badge_follows_the_plan_day_and_is_rebuilt_on_a_date_change(

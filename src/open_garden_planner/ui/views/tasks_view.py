@@ -371,7 +371,7 @@ class TasksView(QWidget):
     def _row_text(self, task: Task) -> str:
         label = task_row_text(task.task_type, task.title)
         if task.notes:
-            return f"{label} - {task.notes}"
+            return f"{label} — {task.notes}"
         return label
 
     # ── actions ───────────────────────────────────────────────────────────────
@@ -385,7 +385,7 @@ class TasksView(QWidget):
 
     def _mark_done(self, task: Task) -> None:
         self._pm.set_task_status(
-            task.task_id, "done", done_date=datetime.date.today().isoformat()
+            task.task_id, "done", done_date=plan_day_of(self._scene).isoformat()
         )
 
     def _snooze_menu(self, task: Task, anchor: QWidget) -> None:
@@ -393,7 +393,7 @@ class TasksView(QWidget):
 
         menu = QMenu(self)
         menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        today = datetime.date.today()
+        today = plan_day_of(self._scene)
         options = [
             (self.tr("1 day"), 1),
             (self.tr("1 week"), 7),

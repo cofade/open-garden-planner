@@ -511,21 +511,6 @@ Properties resize both refuse the edit and ask the user to remove the constraint
 first.
 
 
-### PF-DOM-34
-
-- **Rule:** A plan's north angle is applied to a compass azimuth ONCE, with the sign the drawn arrow states: `scene_azimuth = (azimuth + north) % 360`. The 2D shadow overlay, `daylight_samples`, the 3D `SunState`, the 3D sun path/compass and the PDF arrow call that one helper. Never rotate an object to "fix" the sun, and never apply the inverse in a consumer. A worker result that carries the old angle must be refused (it is part of `ExposureSnapshot`).
-- **Pinned by:** `tests/integration/test_plan_north.py`
-- **Source:** #663
-- **Status:** standing
-- **Legacy:** none (new entry)
-
-The issue's shorthand said `solar_azimuth - north_angle`, but its own definition -
-135° points down-right - makes that the inverse. The sign is fixed by the worked
-cardinal test, not by the prose: a sun due east on a plan whose north is at 45° has
-scene bearing 135° and its shadow points up-left. Every consumer takes its azimuth
-from `scene_azimuth`, so a second sign has nowhere to hide.
-
-
 
 ### PF-DOM-33
 
@@ -559,3 +544,17 @@ constraint. `RECT_CORNER_POLYGON_ORDER = (0, 1, 3, 2)` is now the one map, used 
 rewrite every surviving anchor to its polygon index before the inserted shift.
 The parametrised 4×4 rectangle matrix in `test_geometry_identity.py` pins every
 edited/constrained pair through undo and redo.
+
+### PF-DOM-34
+
+- **Rule:** A plan's north angle is applied to a compass azimuth ONCE, with the sign the drawn arrow states: `scene_azimuth = (azimuth + north) % 360`. The 2D shadow overlay, `daylight_samples`, the 3D `SunState`, the 3D sun path/compass and the PDF arrow use the same angle and sign. Never rotate an object to "fix" the sun, and never apply the inverse in a consumer. A worker result that carries the old angle must be refused (it is part of `ExposureSnapshot`).
+- **Pinned by:** `tests/integration/test_plan_north.py`
+- **Source:** #663
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The issue's shorthand said `solar_azimuth - north_angle`, but its own definition -
+135° points down-right - makes that the inverse. The sign is fixed by the worked
+cardinal test, not by the prose: a sun due east on a plan whose north is at 45° has
+scene bearing 135° and its shadow points up-left. Every consumer uses the same angle
+and sign, so a second one has nowhere to hide.

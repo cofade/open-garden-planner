@@ -642,3 +642,18 @@ def test_the_plant_list_type_is_the_species_cycle_not_the_object_type(qtbot) -> 
     assert kinds["Radish"] == {"Annual"}
     assert kinds["Lettuce"] == {"Annual"}
     assert kinds["Chives"] == {"Perennial"}
+
+
+def test_an_unknown_cycle_does_not_borrow_the_canvas_object_type(qtbot) -> None:
+    scene = CanvasScene(width_cm=500, height_cm=500)
+    plant = CircleItem(
+        center_x=100, center_y=100, radius=20,
+        object_type=ObjectType.PERENNIAL, name="Mystery herb",
+    )
+    plant.metadata["plant_species"] = {
+        "common_name": "Mystery herb", "scientific_name": "Mysteria herba",
+        "cycle": "unknown",
+    }
+    scene.addItem(plant)
+    rows = svc._plant_rows(scene)
+    assert rows and rows[0][1] == "—"

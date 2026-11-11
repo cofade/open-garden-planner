@@ -463,7 +463,9 @@ class ProjectManager(QObject):
             for task_id in self._task_completions
         )
 
-    def set_task_completion(self, task_id: str, done: bool) -> None:
+    def set_task_completion(
+        self, task_id: str, done: bool, done_date: date | None = None
+    ) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's
         "Done" toggle.
 
@@ -471,11 +473,13 @@ class ProjectManager(QObject):
         single source of truth for task status (#228). ``set_task_status`` keeps
         the legacy ``task_completions`` set in sync for ``.ogp`` forward/back
         compatibility, so there is now exactly one write-path. See ADR-029.
+
+        ``done_date`` is the plan's local day the caller acts on (#859); None
+        keeps the wall date for a caller that has no plan clock.
         """
         if done:
-            self.set_task_status(
-                task_id, "done", done_date=datetime.now().date().isoformat()
-            )
+            day = done_date if done_date is not None else datetime.now().date()
+            self.set_task_status(task_id, "done", done_date=day.isoformat())
         else:
             self.set_task_status(task_id, "open")
 

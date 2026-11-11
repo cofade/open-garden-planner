@@ -15,4 +15,6 @@ def test_a_plant_task_gets_its_verb(qtbot) -> None:
 def test_a_complete_label_is_not_decorated(qtbot) -> None:
     assert task_row_text("manual", "Order compost") == "Order compost"
     assert task_row_text("soil_mismatch", "Basil — acid soil") == "Basil — acid soil"
+    # A succession title is a bare crop name: the calendar dashboard adds the
+    # bed from its own map, this helper has no bed and adds nothing.
     assert task_row_text("succession_sow", "Lettuce") == "Lettuce"

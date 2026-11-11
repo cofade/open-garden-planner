@@ -11,8 +11,11 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QCoreApplication
 
-#: Task types whose title is a bare plant name and need their verb. Every other
-#: type (succession, soil, manual) carries a complete label in ``title``.
+#: Task types whose title is a bare PLANT name and need their verb. Every other
+#: type falls through to its own title: soil and manual tasks carry a complete
+#: label, while a succession task's title is a bare crop name (the dashboard
+#: adds "Sow … in … (succession)" itself, with the bed name it has and this
+#: helper does not).
 _VERB_TEMPLATES = {
     "indoor_sow": "Start indoor sowing of %1",
     "direct_sow": "Direct sow %1",

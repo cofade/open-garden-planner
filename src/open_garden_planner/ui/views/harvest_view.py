@@ -29,9 +29,9 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_save_path
+from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.services.harvest_aggregation import aggregate_by_species_year
-from open_garden_planner.services.harvest_units import harvest_unit_label
 from open_garden_planner.ui.theme import set_text_role
 
 # Refresh debounce — coalesce edit bursts to at most one regeneration/second.

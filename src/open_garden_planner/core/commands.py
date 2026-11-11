@@ -16,6 +16,7 @@ from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find_tour
+from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.core.plan_north import normalize_north_angle
 from open_garden_planner.core.stacking import STACK_STEP
@@ -4245,10 +4246,10 @@ def _harvest_note_text(record: "Any", species_name: str) -> str:
     if species_name:
         return QCoreApplication.translate(
             "HarvestJournal", "Harvested {qty} {unit} of {name}"
-        ).format(qty=qty, unit=record.unit, name=species_name)
+        ).format(qty=qty, unit=harvest_unit_label(record.unit), name=species_name)
     return QCoreApplication.translate(
         "HarvestJournal", "Harvested {qty} {unit}"
-    ).format(qty=qty, unit=record.unit)
+    ).format(qty=qty, unit=harvest_unit_label(record.unit))
 
 
 class AddHarvestRecordCommand(Command):
@@ -4484,7 +4485,6 @@ class SetPlanNorthCommand(Command):
     """
 
     changes_ground_band = False
-    changes_containment = False
 
     def __init__(self, project_manager: "Any", new_angle_deg: object) -> None:
         self._pm = project_manager

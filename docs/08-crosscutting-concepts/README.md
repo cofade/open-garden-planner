@@ -4571,8 +4571,9 @@ clockwise from plan-up. Every solar consumer maps the compass bearing once:
 applies the formula above unchanged. With north at 45° a sun due east
 (`Az=90`) is at scene bearing 135° and its shadow points up-left. Do not rotate
 any item: the offset belongs to the frame. The 2D overlay, the heatmap's
-samples, the 3D sun, the 3D sun path/compass and the PDF arrow all call the one
-helper; a second sign anywhere is the classic bug in a new coat. The angle is
+samples, the 3D light (`SunState.scene_azimuth_deg`, from its compass bearing and
+the plan north), the 3D sun path/compass and the PDF arrow all use the same angle
+and sign; a second one anywhere is the classic bug in a new coat. The angle is
 additive plan metadata (`FILE_VERSION` unchanged) and is part of
 `ExposureSnapshot`, so a heatmap for the old north cannot pass as current.
 

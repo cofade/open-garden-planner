@@ -40,9 +40,9 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_dialog_dir
+from open_garden_planner.core.harvest_units import UNIT_CHOICES, harvest_unit_label
 from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
-from open_garden_planner.services.harvest_units import UNIT_CHOICES, harvest_unit_label
 from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.theme import set_text_role, theme_color
 

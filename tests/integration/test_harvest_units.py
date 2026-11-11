@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from PyQt6.QtCore import QCoreApplication, QTranslator
 
+from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
-from open_garden_planner.services.harvest_units import harvest_unit_label
 from open_garden_planner.services.pdf_report_service import (
     PdfReportOptions,
     _harvest_rows,
@@ -21,7 +21,7 @@ class _German(QTranslator):
     def translate(self, context, source, disambiguation=None, n=-1):
         if context == "HarvestUnits":
             return {"bunch": "Bund", "pcs": "Stk."}.get(source, source)
-        return ""
+        return source
 
 
 @pytest.fixture
@@ -79,3 +79,13 @@ def test_the_pdf_harvest_summary_shows_the_translated_unit(german) -> None:
         PdfReportOptions(harvest_logs={"plant-1": _history().to_dict()})
     )
     assert rows and rows[0][3] == "Bund"
+
+
+def test_the_linked_journal_note_also_names_the_translated_unit(german) -> None:
+    from open_garden_planner.core.commands import _harvest_note_text
+
+    text = _harvest_note_text(
+        HarvestRecord(date="2026-06-21", quantity=2.0, unit="bunch"), "Basil"
+    )
+    assert "Bund" in text
+    assert "bunch" not in text

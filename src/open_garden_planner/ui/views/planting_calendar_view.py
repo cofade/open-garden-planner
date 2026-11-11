@@ -1651,7 +1651,9 @@ class PlantingCalendarView(QWidget):
         already schedules a (debounced) full refresh in the app.
         """
         if hasattr(self._project_manager, "set_task_completion"):
-            self._project_manager.set_task_completion(task_id, done)
+            self._project_manager.set_task_completion(
+                task_id, done, done_date=plan_day_of(self._canvas_scene)
+            )
         self._rebuild_dashboard()
 
     def _on_propagation_toggled(self, checked: bool) -> None:

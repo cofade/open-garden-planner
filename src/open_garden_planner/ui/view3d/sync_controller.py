@@ -176,7 +176,7 @@ from open_garden_planner.core.scene3d.mesh import MeshPart
 from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES, lawn_blade_share
 from open_garden_planner.core.scene3d.scene_diff import diff
 from open_garden_planner.core.sim_clock import SimChange, SimClock
-from open_garden_planner.core.solar import plan_place, scene_azimuth, solar_position
+from open_garden_planner.core.solar import plan_place, solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .snapshot import SkippedItem, snapshot_steps
@@ -1526,7 +1526,8 @@ class Scene3DController(QObject):
         if not isinstance(location, Mapping) or not location:
             return SunState(
                 NO_LOCATION_SUN.elevation_deg,
-                scene_azimuth(NO_LOCATION_SUN.azimuth_deg, north),
+                NO_LOCATION_SUN.azimuth_deg,
+                north,
             )
         place = plan_place(location)
         if place is None:
@@ -1534,19 +1535,22 @@ class Scene3DController(QObject):
                          log_text(repr(location)))
             return SunState(
                 NO_LOCATION_SUN.elevation_deg,
-                scene_azimuth(NO_LOCATION_SUN.azimuth_deg, north),
+                NO_LOCATION_SUN.azimuth_deg,
+                north,
             )
         latitude, longitude = place
         try:
             position = solar_position(latitude, longitude, self._clock.utc)
             return SunState(
                 position.elevation_deg,
-                scene_azimuth(position.azimuth_deg, north),
+                position.azimuth_deg,
+                north,
             )
         except (TypeError, ValueError, OverflowError):
             _LOG.warning("3D sync: no sun for location %s; using the default light",
                          log_text(repr(location)))
             return SunState(
                 NO_LOCATION_SUN.elevation_deg,
-                scene_azimuth(NO_LOCATION_SUN.azimuth_deg, north),
+                NO_LOCATION_SUN.azimuth_deg,
+                north,
             )

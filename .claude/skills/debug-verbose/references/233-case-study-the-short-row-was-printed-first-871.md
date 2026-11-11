@@ -26,9 +26,9 @@ they put the remainder where the reader starts.
 
 **Fix**: rows are anchored at the TOP of the plan. Page row `r` takes
 `top = max(0, canvas_h - r*tile_h)` and `bottom = max(0, canvas_h - (r+1)*tile_h)`,
-so page 1 is a full row and the last page carries the remainder at its bottom. The
-test now asserts the last painted row of page 1 is lower on the sheet than page 2's,
-i.e. the short sheet is last.
+so page 1 is a full row and the last page carries the plan's short bottom row at the
+top of its sheet, with blank paper below it. The test now asserts the last painted
+row of page 1 is lower on the sheet than page 2's, i.e. the short sheet is last.
 
 **Lesson**: a test that recomputes the implementation's formula cannot catch a
 wrong formula; assert the user-visible relation (first page is full, last is short)

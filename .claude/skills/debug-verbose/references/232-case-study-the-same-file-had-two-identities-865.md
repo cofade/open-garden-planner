@@ -20,9 +20,9 @@ data was simply going somewhere nobody intended.
 sidecar for exactly the shipped path (used by `example_copy_plan`, the showcase
 moment and the title). The gallery passed `as_template=True`; `_on_open_project`
 never asked. The one load path was therefore branching on the CALLER instead of on
-the FILE. A test at `test_templates_gallery.py` had even pinned the buggy identity
-(`current_file == bundled path`) because it only asserted that an export did not move
-it.
+the FILE. A test at `test_templates_gallery.py` could not see it: it compared the
+identity after an export with whatever the loader had chosen, so it tolerated the
+gallery's `None` and File > Open's bundled path alike.
 
 **Root cause**: two entry points for one file made two identities. The truth is a
 property of the file (is its sidecar trusted?), not of the menu item that opened it.
