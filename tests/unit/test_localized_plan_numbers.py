@@ -62,3 +62,30 @@ def test_the_harvest_journal_writes_a_localized_quantity(german) -> None:
     )
     assert "2,5" in text
     assert "2.5" not in text
+
+
+def test_measure_and_constraint_previews_use_the_german_decimal_comma(german, qtbot) -> None:
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.core.tools.constraint_tool import (
+        _angle_preview_text,
+        _distance_preview_text,
+    )
+    from open_garden_planner.core.tools.measure_tool import MeasureTool
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+    assert _distance_preview_text(250.0) == "2,50 m"
+    assert _angle_preview_text(45.0) == "45,0°"
+
+    scene = CanvasScene(1000, 1000)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    tool = MeasureTool(view)
+    tool._draw_measurement(QPointF(0, 0), QPointF(250, 0))
+    texts = [
+        item.toPlainText()
+        for item in tool._graphics_items
+        if hasattr(item, "toPlainText")
+    ]
+    assert texts and texts[-1] == "2,50 m"

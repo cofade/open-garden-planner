@@ -17,13 +17,14 @@ from open_garden_planner.core.plan_north import (
     normalize_north_angle,
     north_direction,
 )
-from open_garden_planner.core.project import FILE_VERSION, ProjectData, ProjectManager
+from open_garden_planner.core.project import FILE_VERSION, ProjectManager
 from open_garden_planner.core.shade_aggregation import daylight_samples
 from open_garden_planner.core.shadow_geometry import shadow_direction_scene
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.core.solar import scene_azimuth, solar_position
 from open_garden_planner.services.pdf_report_service import _draw_north_arrow
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
@@ -279,9 +280,37 @@ class TestNorthInThePlan:
         old_pm.load(old_scene, old_path)
         assert old_pm.north_angle_deg == 0.0
 
-    def test_an_invalid_file_value_is_ignored_and_the_plan_still_opens(self) -> None:
-        data = ProjectData.from_dict({"north_angle_deg": "sideways"})
-        assert data.north_angle_deg == 0.0
+    def test_a_non_numeric_file_value_is_ignored_and_the_plan_still_opens(
+        self, qtbot, tmp_path: Path
+    ) -> None:
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        pm = ProjectManager()
+        target = tmp_path / "bad-north.ogp"
+        pm.save(scene, target)
+        raw = json.loads(target.read_text(encoding="utf-8"))
+        raw["north_angle_deg"] = "sideways"
+        target.write_text(json.dumps(raw), encoding="utf-8")
+
+        reopened = CanvasScene(width_cm=500, height_cm=500)
+        again = ProjectManager()
+        again.load(reopened, target)
+        assert again.north_angle_deg == 0.0
+
+    def test_a_non_finite_file_value_is_refused_like_every_numeric(
+        self, qtbot, tmp_path: Path
+    ) -> None:
+        from open_garden_planner.core.plan_io import PlanValidationError
+
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        pm = ProjectManager()
+        target = tmp_path / "infinite-north.ogp"
+        pm.save(scene, target)
+        raw = json.loads(target.read_text(encoding="utf-8"))
+        raw["north_angle_deg"] = float("inf")
+        target.write_text(json.dumps(raw), encoding="utf-8")
+
+        with pytest.raises(PlanValidationError):
+            ProjectManager().load(CanvasScene(width_cm=500, height_cm=500), target)
 
     def test_setting_north_is_one_undo_step_and_keeps_every_object(self, qtbot, tmp_path) -> None:
         scene = CanvasScene(width_cm=500, height_cm=500)
@@ -331,3 +360,97 @@ class TestNorthInTheApp:
         window._sun_heatmap.snapshot = object()  # a computed day would be here
         window._project_manager.set_north_angle(90)
         assert window._sun_heatmap.snapshot is None
+
+    def test_the_canvas_north_arrow_turns_with_the_plan(self, qtbot) -> None:
+        from PyQt6.QtGui import QColor, QImage, QPainter
+        from PyQt6.QtWidgets import QApplication
+
+        view = CanvasView(CanvasScene(width_cm=500, height_cm=500))
+        qtbot.addWidget(view)
+        view.resize(400, 300)
+        view.show()
+        QApplication.processEvents()
+
+        def dark_bounds(angle: float) -> tuple[int, int, int, int]:
+            view.set_north_angle(angle)
+            image = QImage(view.viewport().size(), QImage.Format.Format_RGB32)
+            image.fill(QColor("white"))
+            painter = QPainter(image)
+            try:
+                view._draw_north_arrow(painter)
+            finally:
+                painter.end()
+            xs: list[int] = []
+            ys: list[int] = []
+            for y in range(image.height()):
+                for x in range(image.width()):
+                    if QColor(image.pixel(x, y)).lightness() < 120:
+                        xs.append(x)
+                        ys.append(y)
+            assert xs and ys
+            return min(xs), max(xs), min(ys), max(ys)
+
+        _, up_max_x, up_min_y, _ = dark_bounds(0.0)
+        _, right_max_x, right_min_y, _ = dark_bounds(90.0)
+        # North up draws the arrow and its N above the rose; north right draws
+        # them to the right of it — a flipped `up` vector would fail both.
+        assert up_min_y < right_min_y
+        assert right_max_x > up_max_x
+
+    def test_the_sun_exposure_diagnostics_read_the_plan_north(self, window) -> None:
+        # #663 names the plant sun-exposure diagnostics as a solar consumer. The
+        # coordinator compares its own ExposureSnapshot with the heatmap's; a
+        # snapshot without the plan north never matches, so a valid "ready"
+        # result would be withdrawn on the next refresh.
+        from open_garden_planner.ui.canvas.sun_exposure_snapshot import (
+            collect_exposure_snapshot,
+        )
+
+        window._project_manager.set_location({"latitude": 52.52, "longitude": 13.40})
+        window._project_manager.set_north_angle(45)
+        day = window._sim_clock.plan_date
+        snapshot = collect_exposure_snapshot(
+            window.canvas_scene, window._project_manager.location, day, 45.0
+        )
+        window._sun_heatmap.snapshot = snapshot
+        window._sun_heatmap.displayed_snapshot = snapshot
+        window._sun_heatmap.exposure_reason = "ready"
+        window.sun_exposure_coordinator._refresh()
+        assert window._sun_heatmap.exposure_reason == "ready"
+
+
+class TestNorthInThe3dWiring:
+    """The real constructors, not a Dummy: a wiring typo must fail a test."""
+
+    def test_a_real_scene3d_controller_carries_the_north_into_the_light(self, qtbot) -> None:
+        from open_garden_planner.core.scene3d import RecordingSink
+        from open_garden_planner.ui.view3d.sync_controller import Scene3DController
+
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        clock = SimClock()
+        clock.set_datetime(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+        controller = Scene3DController(
+            scene,
+            clock,
+            lambda: {"latitude": 52.52, "longitude": 13.40},
+            RecordingSink(),
+            north=lambda: 45.0,
+        )
+        sun = controller._sun()
+        raw = solar_position(52.52, 13.40, clock.utc)
+        assert sun.north_angle_deg == pytest.approx(45.0)
+        assert sun.azimuth_deg == pytest.approx(raw.azimuth_deg)
+        assert sun.scene_azimuth_deg == pytest.approx((raw.azimuth_deg + 45.0) % 360.0)
+
+    def test_the_workspace_forwards_its_north_provider(self, qtbot) -> None:
+        from open_garden_planner.ui.view3d.workspace import Workspace
+
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        workspace = Workspace(view)
+        qtbot.addWidget(workspace)
+        workspace.connect_plan(scene, SimClock(), lambda: None, north=lambda: 90.0)
+        assert workspace._north() == pytest.approx(90.0)
+        # No engine was started: a north change must be a quiet no-op, not a crash.
+        workspace.north_changed()

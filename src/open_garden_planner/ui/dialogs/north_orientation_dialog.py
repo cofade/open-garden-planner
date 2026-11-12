@@ -97,13 +97,16 @@ class NorthCompassWidget(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(centre, radius, radius)
 
-        # A tick every 15 degrees; the four cardinals are longer.
+        # A tick every 15 degrees; the four cardinals are longer. The cardinals
+        # turn with true north, so the long graduations sit under N/E/S/W.
         for step in range(24):
             bearing = step * 15.0
-            length = radius * (0.12 if step % 6 == 0 else 0.06)
+            turn = (bearing - self._angle) % 90.0
+            cardinal = turn < 1e-6 or 90.0 - turn < 1e-6
+            length = radius * (0.12 if cardinal else 0.06)
             outer = self._point(centre, radius, bearing)
             inner = self._point(centre, radius - length, bearing)
-            painter.setPen(QPen(border, 1.6 if step % 6 == 0 else 1.0))
+            painter.setPen(QPen(border, 1.6 if cardinal else 1.0))
             painter.drawLine(inner, outer)
 
         # Plan-up: the drawing's own 0 degrees, distinct from true north.

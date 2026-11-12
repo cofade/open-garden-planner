@@ -383,7 +383,12 @@ class Render3DMeta(BaseModel):
         default=None, description="The sun's elevation in this picture, degrees. Null: no sun yet."
     )
     sun_azimuth_deg: float | None = Field(
-        default=None, description="The sun's compass bearing in this picture, degrees."
+        default=None,
+        description=(
+            "The sun's compass bearing in this picture, degrees clockwise from true "
+            "north. The plan's north orientation is not exposed, so a client cannot "
+            "place the sun in the image when the plan is turned."
+        ),
     )
     weather: str | None = Field(default=None, description="The weather the view shows.")
     quality_preset: str | None = Field(

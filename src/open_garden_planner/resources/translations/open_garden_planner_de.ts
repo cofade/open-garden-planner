@@ -1959,7 +1959,7 @@
         <message>
             <location filename="../../core/commands.py" line="4496" />
             <source>Set north orientation</source>
-            <translation>Nordaustrichtung festlegen</translation>
+            <translation>Nordausrichtung festlegen</translation>
         </message>
         <message>
             <location filename="../../core/commands.py" line="3722" />
@@ -6494,7 +6494,7 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
         <message>
             <location filename="../../app/application.py" line="6150" />
             <source>North orientation set to {angle}°</source>
-            <translation>Nordaustrichtung auf {angle}° gesetzt</translation>
+            <translation>Nordausrichtung auf {angle}° gesetzt</translation>
         </message>
         <message>
             <location filename="../../app/application.py" line="3826" />
@@ -6866,7 +6866,7 @@ Neue Saison jetzt öffnen?</translation>
         <message>
             <location filename="../../app/application.py" line="1199" />
             <source>Set North Orientation...</source>
-            <translation>Nordaustrichtung festlegen...</translation>
+            <translation>Nordausrichtung festlegen...</translation>
         </message>
         <message>
             <source>Set OGP_GOOGLE_MAPS_KEY in your .env file to enable satellite background loading</source>
@@ -9095,7 +9095,7 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
         <message>
             <location filename="../../ui/dialogs/north_orientation_dialog.py" line="151" />
             <source>Set North Orientation</source>
-            <translation>Nordaustrichtung festlegen</translation>
+            <translation>Nordausrichtung festlegen</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/north_orientation_dialog.py" line="166" />

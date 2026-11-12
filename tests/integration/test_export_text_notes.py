@@ -21,8 +21,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PyQt6.QtCore import QMarginsF, QRectF, QSize
-from PyQt6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter
+from PyQt6.QtCore import QRectF, QSize
+from PyQt6.QtGui import QColor, QImage, QPageSize, QPainter
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPrintSupport import QPrinter
 from PyQt6.QtSvg import QSvgRenderer
@@ -35,7 +35,7 @@ from open_garden_planner.services.export_service import ExportService
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.items.text_item import TextItem
-from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager
+from open_garden_planner.ui.dialogs.print_dialog import GardenPrintManager, default_page_layout
 
 CANVAS_W, CANVAS_H = 1000.0, 600.0
 NOTE_INK = QColor(255, 0, 255)
@@ -197,9 +197,7 @@ def test_a_note_keeps_its_size_in_a_printout(
     printer = QPrinter(QPrinter.PrinterMode.HighResolution)
     printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
     printer.setOutputFileName(str(target))
-    printer.setPageLayout(QPageLayout(
-        QPageSize(QPageSize.PageSizeId.A3), QPageLayout.Orientation.Landscape, QMarginsF(10, 10, 10, 10)
-    ))
+    printer.setPageLayout(default_page_layout(QPageSize.PageSizeId.A3))
     manager = GardenPrintManager(scene, project_name="Plan")
     manager.configure(scale_denominator=denominator, include_grid=False, include_labels=True,
                       include_legend=False)

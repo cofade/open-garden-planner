@@ -44,10 +44,17 @@ PRINT_MARGIN_MM = 10.0
 LEGEND_HEIGHT_MM = 12
 
 
-def default_page_layout() -> QPageLayout:
-    """The page a printout starts from: A4 landscape, ``PRINT_MARGIN_MM`` all round."""
+def default_page_layout(
+    page_size: QPageSize.PageSizeId = QPageSize.PageSizeId.A4,
+) -> QPageLayout:
+    """The page a printout starts from: *page_size* landscape, ``PRINT_MARGIN_MM`` all round.
+
+    The ONE page-layout chokepoint: the printout, the Print Options dialog and the
+    print tests ask here, so the sheet the dialog counted is the sheet that comes
+    out (#870's second half).
+    """
     return QPageLayout(
-        QPageSize(QPageSize.PageSizeId.A4),
+        QPageSize(page_size),
         QPageLayout.Orientation.Landscape,
         QMarginsF(PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM),
         QPageLayout.Unit.Millimeter,

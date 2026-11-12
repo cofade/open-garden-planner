@@ -547,7 +547,7 @@ edited/constrained pair through undo and redo.
 
 ### PF-DOM-34
 
-- **Rule:** A plan's north angle is applied to a compass azimuth ONCE, with the sign the drawn arrow states: `scene_azimuth = (azimuth + north) % 360`. The 2D shadow overlay, `daylight_samples`, the 3D `SunState`, the 3D sun path/compass and the PDF arrow use the same angle and sign. Never rotate an object to "fix" the sun, and never apply the inverse in a consumer. A worker result that carries the old angle must be refused (it is part of `ExposureSnapshot`).
+- **Rule:** A plan's north angle is applied to a compass azimuth ONCE, with the sign the drawn arrow states: `scene_azimuth = (azimuth + north) % 360`. The 2D shadow overlay, `daylight_samples`, the plant-exposure snapshot, the 3D `SunState`, the 3D sun path/compass and the PDF arrow use the same angle and sign. Never rotate an object to "fix" the sun, and never apply the inverse in a consumer. A worker result that carries the old angle must be refused (it is part of `ExposureSnapshot`).
 - **Pinned by:** `tests/integration/test_plan_north.py`
 - **Source:** #663
 - **Status:** standing

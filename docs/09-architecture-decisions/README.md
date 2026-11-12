@@ -1340,9 +1340,10 @@ and cannot express "north is off the sheet".
 `(azimuth + north) % 360`. Scene +Y is plan-up (ADR-002), and the shadow and 3D
 formulas read an azimuth clockwise from +Y, so a compass azimuth is turned **once**
 into that frame. The 2D shadow overlay, the hours-of-sun sampling
-(`daylight_samples`), the 3D light (`SunState` carries the compass bearing and the
-plan north, and `scene_azimuth_deg` is their sum), the 3D sun path and compass, and
-the PDF overview arrow all use this rule; none of them invents its own sign. A sun
+(`daylight_samples`), the plant sun-exposure diagnostics, the 3D light (`SunState`
+carries the compass bearing and the plan north, and `scene_azimuth_deg` is their
+sum), the 3D sun path and compass, and the PDF overview arrow all use this rule;
+none of them invents its own sign. A sun
 due east (compass 90°) on a plan whose north lies at 45° is at scene bearing 135° and
 throws its shadow up-left. The issue's shorthand `solar_azimuth - north_angle`
 assumed the inverse definition of the angle; the arrow's stated meaning (135° points
@@ -12256,7 +12257,8 @@ bump (it locks every older install out of data it can ignore).
 **Consequences:** 23 new UI strings in every registered locale. A year's range is absolute
 dates, so a tour carried into a new season still names last year's dates until the user
 changes them. The autosave file holds the scene only, so a plan recovered after a crash has
-no tours, like the rest of the plan's metadata (location, soil tests, tasks); that is older
+no tours, like the rest of the plan's metadata (location, soil tests, tasks, and the
+plan's north orientation since #663); that is older
 than tours and is not changed here. Pinned by `tests/unit/test_camera_tours.py` (the model,
 one probe per class of hostile entry, the three commands' step counts) and
 `tests/integration/test_tour_persistence.py` (the dialog's own controls, save and reopen, the
@@ -13216,14 +13218,15 @@ version cited case study 220, which is the #791 theme case and says nothing abou
 **Addendum (plan-truth package, 2026-11-11) - locale of plan numbers and harvest
 units (#860, #863, #899)**:
 
-20. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
+10. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
     readouts, vertex and resize labels, area labels, the ruler and scale bar,
-    constraint conflict rows, the 3D focus distance, the report's plant positions and
-    money cells, the PDF harvest total and the persisted harvest-journal text used
+    constraint conflict rows, the measure and constraint previews, the 3D focus
+    distance, the report's plant positions and money cells, the PDF harvest total,
+    the persisted harvest-journal text and the sun-mismatch diagnostic used
     Python's `:g`/`:.2f` and kept a decimal point in a German UI. They now call
     `format_decimal` / `format_trimmed` (or `LocalizedNumber` inside a translated
     template).
-21. **A harvest unit is a stable stored key, translated only at display.** `kg`, `g`,
+11. **A harvest unit is a stable stored key, translated only at display.** `kg`, `g`,
     `pcs`, `bunch` and `L` remain untranslated in `HarvestRecord.unit` and in the CSV
     (PF-I18-05); the dialog's combo carries the key as item data while showing
     `harvest_unit_label`, and the Harvest tab, PDF summary and linked journal note

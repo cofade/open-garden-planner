@@ -382,14 +382,14 @@ PRINTABLE_W_MM, PRINTABLE_H_MM = 297.0 - 2 * PRINT_MARGIN_MM, 210.0 - 2 * PRINT_
 
 def _printed_pages(
     scene: CanvasScene, tmp_path: Path, denominator: int, *, include_grid: bool = False,
-    target_name: str = "print",
+    target_name: str = "print", grid_size_cm: float = 50.0,
 ) -> tuple[Path, int]:
     target = tmp_path / f"{target_name}.pdf"
     printer = QPrinter(QPrinter.PrinterMode.HighResolution)
     printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
     printer.setOutputFileName(str(target))
     printer.setPageLayout(default_page_layout())
-    manager = GardenPrintManager(scene, project_name="Plan", grid_size_cm=50.0)
+    manager = GardenPrintManager(scene, project_name="Plan", grid_size_cm=grid_size_cm)
     manager.configure(scale_denominator=denominator, include_grid=include_grid,
                       include_labels=True, include_legend=True)
     manager._render_to_printer(printer)
@@ -458,6 +458,15 @@ def test_the_print_grid_option_paints_the_canvas_grid(qtbot, tmp_path: Path) -> 
     changed = np.abs(grid.astype(int) - plain.astype(int)).max(axis=2) > 4
     # Grid lines are thin but cover the plan: a few percent of the page.
     assert changed.mean() > 0.02
+
+    # At the canvas's own spacing: half the step means twice the lines. A grid
+    # size that was stored and ignored would paint the same picture.
+    fine_path, _ = _printed_pages(
+        scene, tmp_path, 0, include_grid=True, target_name="grid25", grid_size_cm=25.0
+    )
+    fine = _channels(_pdf_page(fine_path, 0, 200))
+    changed_fine = np.abs(fine.astype(int) - plain.astype(int)).max(axis=2) > 4
+    assert changed_fine.mean() > 1.5 * changed.mean()
 
 
 def test_the_short_tile_row_is_the_last_page_not_the_first(qtbot, tmp_path: Path) -> None:

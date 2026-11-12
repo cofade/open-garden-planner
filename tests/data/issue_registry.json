@@ -1319,10 +1319,25 @@
     "state": "OPEN",
     "title": "Tasks tab rows show only the plant name, while the calendar dashboard says what to do"
   },
+  "860": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "German UI: numbers drawn on the plan, the scale bar and the PDF report keep a decimal point"
+  },
+  "863": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Harvest units (\"bunch\") are not translated"
+  },
   "865": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Opening a bundled example through File > Open attaches Save to the shipped file"
+  },
+  "868": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Print Options: the \"Grid\" checkbox does nothing"
   },
   "871": {
     "is_pr": false,

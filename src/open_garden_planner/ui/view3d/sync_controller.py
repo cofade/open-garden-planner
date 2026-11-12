@@ -1520,37 +1520,21 @@ class Scene3DController(QObject):
         return float(rect.width()), float(rect.height())
 
     def _sun(self) -> SunState:
-        north_provider = getattr(self, "_north", None)
-        north = float(north_provider()) if north_provider is not None else 0.0
+        north = float(self._north())
         location = self._location()
         if not isinstance(location, Mapping) or not location:
-            return SunState(
-                NO_LOCATION_SUN.elevation_deg,
-                NO_LOCATION_SUN.azimuth_deg,
-                north,
-            )
+            return replace(NO_LOCATION_SUN, north_angle_deg=north)
         place = plan_place(location)
         if place is None:
             _LOG.warning("3D sync: no sun for location %s; using the default light",
                          log_text(repr(location)))
-            return SunState(
-                NO_LOCATION_SUN.elevation_deg,
-                NO_LOCATION_SUN.azimuth_deg,
-                north,
-            )
+            return replace(NO_LOCATION_SUN, north_angle_deg=north)
         latitude, longitude = place
         try:
-            position = solar_position(latitude, longitude, self._clock.utc)
-            return SunState(
-                position.elevation_deg,
-                position.azimuth_deg,
-                north,
+            return SunState.from_solar_position(
+                solar_position(latitude, longitude, self._clock.utc), north
             )
         except (TypeError, ValueError, OverflowError):
             _LOG.warning("3D sync: no sun for location %s; using the default light",
                          log_text(repr(location)))
-            return SunState(
-                NO_LOCATION_SUN.elevation_deg,
-                NO_LOCATION_SUN.azimuth_deg,
-                north,
-            )
+            return replace(NO_LOCATION_SUN, north_angle_deg=north)

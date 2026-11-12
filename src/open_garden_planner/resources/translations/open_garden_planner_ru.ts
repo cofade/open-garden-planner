@@ -9544,7 +9544,7 @@ You can capture the satellite view directly from the map below instead.</source>
         <message>
             <location filename="../../services/pdf_report_service.py" line="225" />
             <source>N</source>
-            <translation>N</translation>
+            <translation>С</translation>
         </message>
         <message>
             <location filename="../../services/pdf_report_service.py" line="745" />

@@ -4571,9 +4571,10 @@ clockwise from plan-up. Every solar consumer maps the compass bearing once:
 applies the formula above unchanged. With north at 45° a sun due east
 (`Az=90`) is at scene bearing 135° and its shadow points up-left. Do not rotate
 any item: the offset belongs to the frame. The 2D overlay, the heatmap's
-samples, the 3D light (`SunState.scene_azimuth_deg`, from its compass bearing and
-the plan north), the 3D sun path/compass and the PDF arrow all use the same angle
-and sign; a second one anywhere is the classic bug in a new coat. The angle is
+samples, the plant sun-exposure diagnostics, the 3D light (`SunState.scene_azimuth_deg`,
+from its compass bearing and the plan north), the 3D sun path/compass and the PDF arrow
+all use the same angle and sign; a second one anywhere is
+the classic bug in a new coat. The angle is
 additive plan metadata (`FILE_VERSION` unchanged) and is part of
 `ExposureSnapshot`, so a heatmap for the old north cannot pass as current.
 
@@ -9410,7 +9411,8 @@ pagination loop.
 grid in the page's own transform at the canvas's spacing, with a stated 0.15 mm pen
 (a cosmetic pixel at 1200 dpi is a hairline nobody sees). Fixed-scale pages run **top
 row first**; a plan height that is not a whole number of tiles leaves the short row at
-the bottom of the last sheet, never first.
+the **bottom of the plan**, drawn at the **top of the last sheet** with blank paper
+below it, never first.
 
 **The report's Type column and legend samples (#869, #864).** The plant list's Type is
 the species' `cycle` through `core.plant_cycle_label`, not the canvas object type

@@ -255,7 +255,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Current release: **v1.39.0** (2026-11-10). No roadmap phase is active; the next
   work is in the open issues.
 - Next work: the plan-truth package (draft [PR #903](https://github.com/cofade/open-garden-planner/pull/903):
-  #663, #856-#871, #899) awaits the owner's manual test. Keep it a draft and merge
+  #663, #856-#860, #863-#865, #868-#871, #899) awaits the owner's manual test. Keep it a draft and merge
   only after that confirmation.
 - Live decisions that constrain the next change:
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's

@@ -49,8 +49,9 @@ def north_angle_from_plan(value: object) -> float:
     """The angle a loaded plan carries, or the default for a missing/bad one.
 
     Load is a trust boundary: an unreadable value must not keep a plan from
-    opening. A malformed value is logged and read as 0 (north up), the same
-    state every older file has.
+    opening. A non-numeric or malformed value is logged and read as 0 (north
+    up), the same state every older file has. A non-finite number never reaches
+    this function: ``plan_io`` refuses it like every other numeric in the file.
     """
     if value is None:
         return DEFAULT_NORTH_ANGLE_DEG

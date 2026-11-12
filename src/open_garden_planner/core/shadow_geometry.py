@@ -170,8 +170,10 @@ def shadow_length_cm(height_cm: float | None, elevation_deg: float) -> float | N
 def shadow_direction_scene(azimuth_deg: float) -> Point:
     """Unit shadow direction in scene coordinates (+x = East, +y = North).
 
-    ``(-sin Az, -cos Az)`` — opposite the sun's compass bearing. Scene +y is
-    already North (ADR-002); do NOT re-flip the y component downstream.
+    ``azimuth_deg`` is the sun's bearing in the PLAN frame — the compass bearing
+    already turned by the plan's north (``core.solar.scene_azimuth``, #663).
+    Returns ``(-sin Az, -cos Az)``, opposite the sun. Scene +y is already North
+    (ADR-002); do NOT re-flip the y component downstream.
     """
     az = math.radians(azimuth_deg)
     return (-math.sin(az), -math.cos(az))
