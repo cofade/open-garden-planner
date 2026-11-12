@@ -252,11 +252,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.39.0** (2026-11-10). No roadmap phase is active; the next
-  work is in the open issues.
-- Next work: the plan-truth package (draft [PR #903](https://github.com/cofade/open-garden-planner/pull/903):
-  #663, #856-#860, #863-#865, #868-#871, #899) awaits the owner's manual test. Keep it a draft and merge
-  only after that confirmation.
+- Current release: **v1.39.1** (2026-11-12). No roadmap phase is active; the next
+  work is in the open issues (the roadmap's "Current work" themes).
 - Live decisions that constrain the next change:
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
     Partner Center registration and three `OGP_MSIX_*` repository variables. Never
@@ -273,6 +270,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     export or a number or date field. Scene-wide paint state is kept and invalidated
     through the scene's paint revision, never rebuilt inside a paint; UI numbers and
     dates go through `core/i18n.py`, `ui/number_fields.py` and `ui/date_fields.py`.
+  - Plan truth and reports: north reads the ADR-037 addendum and §8.20; the
+    plan date reads ADR-062, §8.31 and FR-TASK-01/04; the identity of an opened
+    bundled example reads the ADR-066 addendum and §8.33.
+    One `scene_azimuth` rule serves every sun surface. A live frost alert is
+    classified against the wall day on every surface; an agent task read stays
+    bounded by the window it reports.
   - 3D look (#687-#807): read the ADR-059 and ADR-072 addenda and the
     `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
     part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or

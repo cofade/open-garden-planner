@@ -1328,6 +1328,8 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 ### ADR-037 addendum - the plan's north orientation (#663, 2026-11-11)
 
+**Status**: Shipped in v1.39.1 (PR #903; owner's manual test 2026-11-12).
+
 **Decision.** A plan-level `north_angle_deg` says where **true north** lies on the
 drawing, in degrees clockwise from plan-up: 0 = up, 90 = right, 135 = down-right.
 It is additive plan metadata in the `.ogp` (`FILE_VERSION` stays 1.4), read as 0 for
@@ -9235,6 +9237,9 @@ feedback loop. The structural decision selected by the owner on 2026-10-24 is ex
 
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 
+**Status**: Accepted (US-F4); the plan-date task-reminder change shipped in v1.39.1
+(PR #903; owner's manual test 2026-11-12).
+
 ### Context
 
 Season Manager copies a whole plan into a separate yearly file. Multi-year designs
@@ -10649,6 +10654,8 @@ fields stay canonical in `de/` and `es/`: the localizer now translates only a sp
 name, since "Iris" is both a plant's name and a genus.
 
 ### ADR-066 addendum - File > Open of a bundled example is a copy (#865, 2026-11-11)
+
+**Status**: Shipped in v1.39.1 (PR #903; owner's manual test 2026-11-12).
 
 **Decision.** A shipped example opened by its path through **File > Open** takes the
 same identity as one opened from the gallery: an untitled, dirty copy. The one load
@@ -13072,7 +13079,7 @@ FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
 Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
 FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
 
-**Addendum (plan-truth package, 2026-11-11) - print and report follow-ups**:
+**Addendum (plan-truth package, 2026-11-11; shipped in v1.39.1, PR #903) - print and report follow-ups**:
 
 15. **The print "Grid" checkbox paints the canvas grid** (#868). It was stored and
     never read. The grid is drawn after the scene, in the page's own transform, at the
@@ -13225,8 +13232,8 @@ Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Loca
 FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
 version cited case study 220, which is the #791 theme case and says nothing about locale.
 
-**Addendum (plan-truth package, 2026-11-11) - locale of plan numbers and harvest
-units (#860, #863, #899)**:
+**Addendum (plan-truth package, 2026-11-11; shipped in v1.39.1, PR #903) - locale of
+plan numbers and harvest units (#860, #863, #899)**:
 
 10. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
     readouts, vertex and resize labels, area labels, the ruler and scale bar,
