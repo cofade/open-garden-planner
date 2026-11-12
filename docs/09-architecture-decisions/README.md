@@ -9278,7 +9278,9 @@ could disagree with the existing date-projected 3D canopy.
   wall-clock default applies only to a caller that supplies neither. A **live frost
   forecast** is the exception: its alerts name real calendar days and are classified
   against `PlanState.weather_today` (the wall day), never dropped by the plan-day
-  window, so a 2031 plan still warns about tomorrow's frost.
+  window on a GUI surface, so a 2031 plan still warns about tomorrow's frost. The
+  **Agent API's `get_tasks` stays window-bounded**: it returns only tasks inside the
+  `from_date`/`to_date` window it reports.
   Historical calendar windows end before removal; actionable plant tasks stop
   once all instances of that species are removed. A surviving undated/later-removal
   instance keeps the species schedule. Future sowing tasks are useful before planting

@@ -502,20 +502,18 @@ def build_plan_state(
     ``year`` selects the calendar/frost year independently of the reference
     date. ``actionable_only=False`` retains dated tasks outside the urgency
     window for annual calendars and explicit agent date windows; the GUI keeps
-    the default True. Urgency is always classified against ``today``.
+    the default True. Urgency is classified against ``today``.
 
     ``today`` overrides the reference date (US-D3.3). It defaults to the wall
     clock for a caller that names no day; both GUI callers now pass the plan's
     day (#859), and an agent passes its own explicit reference day. Every
-    generator and
-    :func:`classify_urgency` already reads ``PlanState.today`` rather than
-    calling ``date.today()`` themselves, so this one parameter is the whole
-    seam. Without it an agent read of "what is due" is untestable (a suite that
-    pins "today" silently rots the day after it is written) and an agent cannot
-    name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
-    application side, which owns parsing and refusal of a malformed value.
-    Every generator and ``classify_urgency`` reads ``PlanState.today``; the frost
-    generator reads ``weather_today`` instead (a live forecast names real days).
+    generator and ``classify_urgency`` reads ``PlanState.today`` rather than
+    calling ``date.today()`` themselves — the frost generator's filter uses
+    ``weather_today`` (below) — so this parameter is the whole seam. Without it
+    an agent read of "what is due" is untestable (a suite that pins "today"
+    silently rots the day after it is written) and an agent cannot name the date
+    it reasoned about. This mirrors ``_parse_agent_date`` on the application
+    side, which owns parsing and refusal of a malformed value.
 
     ``weather_today`` is the REAL-WORLD day a live frost forecast is expressed
     in; it is deliberately separate from ``today`` (#859), because a plan can

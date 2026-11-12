@@ -9013,7 +9013,9 @@ calendar's "Today" and dashboard, and a new manual task's default read the plan 
 used only by a caller that supplies none (an agent read passes its own). A live frost
 forecast is the exception: its alerts name real calendar days, so they are classified
 against `PlanState.weather_today` (the wall day) and are never dropped by the plan-day
-window — a plan standing in 2031 still warns about tomorrow's frost. Plant task
+window on a GUI surface — a plan standing in 2031 still warns about tomorrow's frost.
+The Agent API's `get_tasks` stays window-bounded (it returns only tasks inside the
+`from_date`/`to_date` window it reports). Plant task
 windows stop at removal;
 species aggregation keeps the schedule while any instance remains. Manual/succession
 dates and Season Manager file copies retain their existing behavior.
