@@ -1039,6 +1039,11 @@
     "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
+  "663": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Decouple plan north from drawing orientation (north arrow without rotating the plan)"
+  },
   "664": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1309,6 +1314,11 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
+  "856": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Tasks tab rows show only the plant name, while the calendar dashboard says what to do"
+  },
   "865": {
     "is_pr": false,
     "state": "OPEN",
@@ -1318,5 +1328,15 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Print at a fixed scale puts the short row of tiles on top"
+  },
+  "899": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "PDF report: harvest summary shows the untranslated unit \"bunch\" in a German export"
+  },
+  "903": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#663, #856-#871, #899): plan truth, reports and print correctness"
   }
 }
