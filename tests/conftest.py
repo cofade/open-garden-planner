@@ -763,3 +763,12 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     if sys.platform == "win32":
         disable_windows_power_throttling()
+
+
+@pytest.fixture(autouse=True)
+def _reset_unit_system():
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+    get_unit_preference().set_system(UnitSystem.METRIC)
+    yield
+    get_unit_preference().set_system(UnitSystem.METRIC)
