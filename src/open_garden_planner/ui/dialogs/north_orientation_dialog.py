@@ -172,6 +172,10 @@ class NorthOrientationDialog(QDialog):
         self._angle_field.setWrapping(True)
         self._angle_field.setSuffix(self.tr("° clockwise from up"))
         self._angle_field.setValue(normalize_north_angle(angle_deg))
+        # What the user was shown when the dialog opened (the field's one
+        # decimal and its 359.9 clamp applied). Accepting the dialog unchanged
+        # is a no-op; a stored 45.123 or 359.96 must not mint a command.
+        self._shown_angle = self._angle_field.value()
         row.addWidget(self._angle_field, 1)
         layout.addLayout(row)
 
@@ -199,6 +203,11 @@ class NorthOrientationDialog(QDialog):
     @property
     def angle_deg(self) -> float:
         return normalize_north_angle(self._angle_field.value())
+
+    @property
+    def shown_angle(self) -> float:
+        """The angle the dialog displayed when it opened (its seeded value)."""
+        return normalize_north_angle(self._shown_angle)
 
     def _on_compass_changed(self, angle: float) -> None:
         self._angle_field.blockSignals(True)

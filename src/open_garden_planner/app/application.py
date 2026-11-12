@@ -6145,10 +6145,10 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         angle = dialog.angle_deg
-        # The dialog's field carries one decimal; a file may store more. Accepting
-        # it unchanged must not mint a command (and an undo step) for a 0.02°
-        # rounding of the value the dialog was opened with.
-        if round(angle, 1) == round(current, 1):
+        # The value the dialog DISPLAYED when it opened (its one decimal and its
+        # 359.9 clamp applied): accepting it unchanged must not mint a command
+        # for a stored 45.123 or 359.96.
+        if angle == dialog.shown_angle:
             return
         self.canvas_view.command_manager.execute(
             SetPlanNorthCommand(self._project_manager, angle)

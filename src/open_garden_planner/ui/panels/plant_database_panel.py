@@ -1305,11 +1305,15 @@ class PlantDatabasePanel(QWidget):
         """Re-derive the age label after the plan's day moved (#859).
 
         The panel is a passive view of the selection; the plan clock is one of
-        its inputs, so the app calls this from its date-change fan-out.
+        its inputs, so the app calls this from its date-change fan-out. Only the
+        readout is touched: the date editors may hold an uncommitted edit.
         """
         item = self._current_plant_item
-        if item is not None:
-            self._refresh_lifetime_dates(item)
+        if item is None:
+            return
+        from open_garden_planner.core.plan_timeline import instance_date
+
+        self._update_age_label(instance_date(getattr(item, "metadata", None), "planting_date"))
 
     def _update_age_label(self, planting_date: date | None) -> None:
         """Update the age label based on planting date.

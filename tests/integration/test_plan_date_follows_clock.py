@@ -163,12 +163,71 @@ class TestPlantDetailsAge:
         assert window.plant_database_panel.age_label.text()  # "(future)" on a 2026 clock
 
         window._sim_clock.set_date(datetime.date(2031, 3, 1))
-        window._on_sim_date_changed(datetime.date(2031, 3, 1))
         assert "(1 mo)" in window.plant_database_panel.age_label.text()
 
         window._sim_clock.set_date(datetime.date(2033, 1, 1))
-        window._on_sim_date_changed(datetime.date(2033, 1, 1))
         assert "(2y)" in window.plant_database_panel.age_label.text()
+
+
+class TestFrostAlertsAreLive:
+    def test_a_live_alert_reaches_both_task_surfaces_on_a_2031_plan(self, window) -> None:
+        """#859: the forecast's real day must not be filtered by the plan day."""
+        from PyQt6.QtWidgets import QLabel
+
+        from open_garden_planner.services.weather_service import FrostAlert
+
+        alert = FrostAlert(
+            date=(datetime.date.today() + datetime.timedelta(days=1)).isoformat(),
+            min_temp=-1.0,
+            severity="red",
+            affected_plant_ids=["p1"],
+        )
+        window._sim_clock.set_date(datetime.date(2031, 7, 1))
+        window.calendar_view._current_frost_alerts = [alert]
+        window.calendar_view._rebuild_dashboard()
+        window.tasks_view.set_frost_alerts([alert])
+        window.tasks_view.refresh()
+
+        dashboard = [
+            task
+            for task in window.calendar_view._current_dashboard_tasks
+            if task.task_type.startswith("frost_alert")
+        ]
+        assert len(dashboard) == 1
+        assert dashboard[0].task_id == f"frost:{alert.date}:red"
+
+        rows = [
+            label.text()
+            for label in window.tasks_view.findChildren(QLabel)
+            if label.text().startswith("Frost")
+        ]
+        assert len(rows) == 1
+
+
+class TestOverdueReminderBar:
+    def test_the_bar_counts_plan_day_overdue_tasks(self, window) -> None:
+        """#859: the reminder must agree with the Tasks tab's plan-day bucket."""
+        from PyQt6.QtWidgets import QLabel
+
+        from open_garden_planner.models.task import ManualTask
+
+        window._sim_clock.set_date(datetime.date(2031, 7, 1))
+        window._project_manager.set_manual_task(
+            ManualTask(id="m1", date="2031-06-01", title="Water the seedlings")
+        )
+        window._check_overdue_tasks()
+        labels = [label.text() for label in window._task_reminder_bar.findChildren(QLabel)]
+        assert any("1" in text and "overdue" in text for text in labels)
+
+        # A wall-date-only count would show 1 (only the 2026 task), not 2:
+        # the 2031 task would be silently dropped.
+        window._task_reminder_bar.hide()
+        window._project_manager.set_manual_task(
+            ManualTask(id="m2", date="2026-06-01", title="Old task")
+        )
+        window._check_overdue_tasks()
+        labels = [label.text() for label in window._task_reminder_bar.findChildren(QLabel)]
+        assert any("2" in text and "overdue" in text for text in labels)
 
 
 class TestSuccessionBadge:
@@ -190,16 +249,13 @@ class TestSuccessionBadge:
         window._project_manager.set_succession_plan(str(bed.item_id), plan.to_dict())
 
         window._sim_clock.set_date(datetime.date(2031, 7, 1))
-        window._on_sim_date_changed(datetime.date(2031, 7, 1))
         assert ("Lettuce", True) in bed._succession_lines
         assert ("Kale", False) in bed._succession_lines
 
         window._sim_clock.set_date(datetime.date(2031, 8, 1))
-        window._on_sim_date_changed(datetime.date(2031, 8, 1))
         assert ("Kale", True) in bed._succession_lines
         assert ("Lettuce", False) not in bed._succession_lines
 
     def test_a_date_change_schedules_the_calendar_refresh(self, window) -> None:
         window._sim_clock.set_date(datetime.date(2031, 7, 1))
-        window._on_sim_date_changed(datetime.date(2031, 7, 1))
         assert window.calendar_view._refresh_timer.isActive()

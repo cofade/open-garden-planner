@@ -448,15 +448,16 @@ class TestNorthInTheApp:
         ]
         assert actions, "the File menu action is missing"
 
+    @pytest.mark.parametrize("stored", [45.123, 359.96])
     def test_accepting_the_dialog_without_a_real_change_adds_no_undo_step(
-        self, window, monkeypatch
+        self, window, monkeypatch, stored
     ) -> None:
         from PyQt6.QtWidgets import QDialog
 
         from open_garden_planner.ui.dialogs import north_orientation_dialog as dialog_module
 
-        window._project_manager.set_north_angle(45.123)
-        dialog = dialog_module.NorthOrientationDialog(45.123, window)
+        window._project_manager.set_north_angle(stored)
+        dialog = dialog_module.NorthOrientationDialog(stored, window)
         monkeypatch.setattr(
             dialog_module.NorthOrientationDialog,
             "exec",
@@ -467,7 +468,7 @@ class TestNorthInTheApp:
         before = len(stack)
         window._on_set_north_orientation()
         assert len(stack) == before
-        assert window._project_manager.north_angle_deg == pytest.approx(45.123)
+        assert window._project_manager.north_angle_deg == pytest.approx(stored)
 
     def test_a_north_change_clears_the_days_heatmap(self, window) -> None:
         window._project_manager.set_location({"latitude": 52.52, "longitude": 13.40})

@@ -514,11 +514,13 @@ def build_plan_state(
     pins "today" silently rots the day after it is written) and an agent cannot
     name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
     application side, which owns parsing and refusal of a malformed value.
+    Every generator and ``classify_urgency`` reads ``PlanState.today``; the frost
+    generator reads ``weather_today`` instead (a live forecast names real days).
 
     ``weather_today`` is the REAL-WORLD day a live frost forecast is expressed
     in; it is deliberately separate from ``today`` (#859), because a plan can
     stand in 2031 while tomorrow's frost is still real. None falls back to
-    ``today`` (an agent read with no forecast).
+    ``today`` (a caller with no forecast).
     """
     from open_garden_planner.core.object_types import (
         get_translated_display_name,

@@ -1636,6 +1636,9 @@ class AgentHost:
             year=year,
             actionable_only=actionable_only,
             include_propagation=True,
+            # A live frost alert keeps its real-world reference day (#859), the
+            # same rule the GUI surfaces use.
+            weather_today=datetime.date.today(),
         )
 
 
