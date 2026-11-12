@@ -3,7 +3,7 @@
 Object positions are reported in cm, CAD Y-up (schema.py / ADR-002): a larger
 scene y is further north. ``render_scene_region``'s ``y_flip=True`` (kept for
 visual parity with the live CAD view and every existing PNG/PDF export) makes the
-output PNG Y-up too (north at the top), so — because pixel rows count top-down —
+output PNG Y-up too (plan-up at the top; true north on a north-up plan), so — because pixel rows count top-down —
 a small scene-y lands near the BOTTOM of the image. This test pins the exact
 correction formula documented on ``RenderMeta.px_per_cm`` so a future refactor
 can't silently break agent visual grounding without a red test.

@@ -111,7 +111,8 @@ class PlanSummary(BaseModel):
 #
 # Coordinates are in the plan's native scene frame: centimetres, CAD Y-up
 # (ADR-002) — origin at the south-west (bottom-left) corner, +x east/right and
-# +y NORTH/up. A larger y is further north / higher on the rendered canvas.
+# +y plan-up (north on a north-up plan; the plan's north orientation may turn
+# true north away from it). A larger y is higher on the rendered canvas.
 # This is the same frame used by every object's stored position AND by
 # move_object, so an agent can move an object relative to a position it just
 # read. Non-rectangular shapes are summarised by their axis-aligned bounding box.
@@ -324,7 +325,8 @@ class Measurement(BaseModel):
 #
 # render_canvas_image renders with y_flip=True (matching the live CAD view and
 # every existing PNG/PDF export): the output PNG is Y-up like the canvas, so
-# NORTH (a larger scene y) is at the TOP of the image. Because image pixel ROWS
+# PLAN-UP (a larger scene y) is at the TOP of the image (true north only on a
+# north-up plan). Because image pixel ROWS
 # count from the top down, a scene point's pixel row is inverted relative to its
 # scene y — see RenderMeta.px_per_cm below for the exact formula. Empirically
 # verified in tests/unit/test_agent_api_render_coordinate_frame.py.

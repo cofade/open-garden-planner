@@ -5,7 +5,7 @@ A *shot* says where the camera is for one frame, in SCENE coordinates
 the engine frame; nothing else does.
 
 ``TopDownShot`` is the truth view: an orthographic camera looking straight down
-with north at the top of the image, so a scene point lands on a pixel that
+with plan-up at the top of the image (true north on a north-up plan), so a scene point lands on a pixel that
 plain arithmetic predicts — ``top_down_pixel``, our own projection, independent
 of the engine's. The render tier compares the two; a mirrored or swapped
 mapping cannot pass.
