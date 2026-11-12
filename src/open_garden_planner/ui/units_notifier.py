@@ -1,4 +1,5 @@
 """Qt lifetime-safe adapter for the process unit preference."""
+
 from __future__ import annotations
 
 from PyQt6 import sip

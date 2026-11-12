@@ -34,8 +34,10 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.core.i18n import format_day_month, month_abbreviation
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.core.solar import plan_place
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
@@ -62,6 +64,7 @@ from open_garden_planner.ui.theme import (
     theme_qcolor,
     urgency_dot,
 )
+from open_garden_planner.ui.units_notifier import units_notifier
 from open_garden_planner.ui.views.task_text import task_row_text
 from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
@@ -875,6 +878,8 @@ class _DetailPanel(QFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._last_species_args: tuple[PlantSpeciesData, str] | None = None
+        units_notifier().changed.connect(self._on_units_changed)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 6, 10, 6)
@@ -1105,6 +1110,31 @@ class _DetailPanel(QFrame):
         else:
             self.setMaximumHeight(90)
 
+    def _render_species_info(self, sp: PlantSpeciesData, no_data_text: str) -> None:
+        name = sp.common_name or sp.scientific_name
+        sci = f" ({sp.scientific_name})" if sp.scientific_name and sp.scientific_name != name else ""
+        self._name_lbl.setText(f"{name}{sci}")
+        parts: list[str] = []
+        if sp.days_to_germination_min is not None:
+            parts.append(self.tr("Germination: {min}–{max} days").format(
+                min=sp.days_to_germination_min, max=sp.days_to_germination_max))
+        if sp.min_germination_temp_c is not None:
+            parts.append(self.tr("Min. germ. temp: {temp} °C").format(temp=sp.min_germination_temp_c))
+        if sp.seed_depth_cm is not None:
+            parts.append(self.tr("Seed depth: {depth}").format(depth=length_text(sp.seed_depth_cm, style=LengthStyle.DEPTH)))
+        if sp.frost_tolerance:
+            parts.append(self.tr("Frost tolerance: {level}").format(
+                level=self._frost_tolerance_text(sp.frost_tolerance)))
+        if sp.days_to_maturity_min is not None:
+            parts.append(self.tr("Maturity: {min}–{max} days").format(
+                min=sp.days_to_maturity_min, max=sp.days_to_maturity_max))
+        self._info_lbl.setText("  ·  ".join(parts) if parts else no_data_text)
+
+
+    def _on_units_changed(self) -> None:
+        if self._last_species_args is not None:
+            self._render_species_info(*self._last_species_args)
+
     def show_species(
         self,
         sp: PlantSpeciesData,
@@ -1127,27 +1157,11 @@ class _DetailPanel(QFrame):
         # Reversing either reintroduces a cross-species misattribution, so
         # `test_show_species_reassigns_after_the_flush` pins it.
         self._flush_pending_steps()
+        self._last_species_args = (sp, no_data_text)
         self._current_species_key = species_key
         self._current_plan = prop_plan
 
-        name = sp.common_name or sp.scientific_name
-        sci = f" ({sp.scientific_name})" if sp.scientific_name and sp.scientific_name != name else ""
-        self._name_lbl.setText(f"{name}{sci}")
-        parts: list[str] = []
-        if sp.days_to_germination_min is not None:
-            parts.append(self.tr("Germination: {min}–{max} days").format(
-                min=sp.days_to_germination_min, max=sp.days_to_germination_max))
-        if sp.min_germination_temp_c is not None:
-            parts.append(self.tr("Min. germ. temp: {temp} °C").format(temp=sp.min_germination_temp_c))
-        if sp.seed_depth_cm is not None:
-            parts.append(self.tr("Seed depth: {depth} cm").format(depth=sp.seed_depth_cm))
-        if sp.frost_tolerance:
-            parts.append(self.tr("Frost tolerance: {level}").format(
-                level=self._frost_tolerance_text(sp.frost_tolerance)))
-        if sp.days_to_maturity_min is not None:
-            parts.append(self.tr("Maturity: {min}–{max} days").format(
-                min=sp.days_to_maturity_min, max=sp.days_to_maturity_max))
-        self._info_lbl.setText("  ·  ".join(parts) if parts else no_data_text)
+        self._render_species_info(sp, no_data_text)
 
         # Update propagation editor
         if self._show_propagation and prop_plan is not None:

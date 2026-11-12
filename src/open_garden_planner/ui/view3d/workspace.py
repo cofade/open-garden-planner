@@ -105,9 +105,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
+from open_garden_planner.ui.units_notifier import units_notifier
 
 from .analysis_modes import DrapeMode
 from .init_guard import Init3DGuard, ModeReason, RenderMode, default_directory
@@ -431,6 +433,7 @@ class Workspace(QWidget):
     def __init__(self, canvas_view: QWidget, *, engine_factory: EngineFactory | None = None,
                  guard: Init3DGuard | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        units_notifier().changed.connect(self._on_units_changed)
         self._canvas = canvas_view
         #: THE TEST SEAM: what builds the engine on first use. Replace it BEFORE the
         #: first switch to 3D / Split (``(host, sink) = factory(prefer_software)``).
@@ -1824,6 +1827,12 @@ class Workspace(QWidget):
     @property
     def _sun_hours(self) -> Any:
         return self._analysis_coordinator.sun_hours
+
+    def _on_units_changed(self) -> None:
+        self._refresh_card()
+        people = (self.tr("Adult"), self.tr("Smaller adult"), self.tr("Child"))
+        for who, action in zip(people, self.eye_height_actions, strict=False):
+            action.setText(self.tr("{who} – {height}").format(who=who, height=length_text(action.data())))
 
     def _build_walk_controls(self, pane: _Pane3D) -> None:
         from open_garden_planner.core.measurements import format_length

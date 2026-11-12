@@ -231,3 +231,4 @@
 | Case study: a dropped canvas ended the process with 0xC0000409 and not a word — Qt called a virtual on a view whose attributes the collector had already cleared (#794) | [Read](231-case-study-a-dropped-canvas-ended-the-process-without-a-word-794.md) |
 | Case study: the same file had two identities — the gallery made a copy, File > Open attached Save to the installed example (#865) | [Read](232-case-study-the-same-file-had-two-identities-865.md) |
 | Case study: the short row was printed first — the page loop started at the plan's top, and the top held the remainder (#871) | [Read](233-case-study-the-short-row-was-printed-first-871.md) |
+| Case study: an edited unit test waited at cleanup (#673) | [Read](234-case-study-an-edited-unit-test-waited-at-cleanup-673.md) |

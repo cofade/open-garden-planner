@@ -1,4 +1,5 @@
 """The process's display preference; never persisted in a plan."""
+
 from __future__ import annotations
 
 from open_garden_planner.core.sim_clock import Channel

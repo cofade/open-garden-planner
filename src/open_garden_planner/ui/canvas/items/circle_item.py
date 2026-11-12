@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import is_furniture_type, paint_furniture
 from open_garden_planner.core.growth_model import grown_spread_cm
+from open_garden_planner.core.measurement_display import length_text as _format_edge_length
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
 from open_garden_planner.core.plant_renderer import (
     PlantCategory,
@@ -35,7 +36,6 @@ from .resize_handle import (
     ResizeHandlesMixin,
     RotationHandleMixin,
     _format_coordinate,
-    _format_edge_length,
     resize_rect_item_keeping_anchor,
 )
 

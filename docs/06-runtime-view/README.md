@@ -1188,3 +1188,25 @@ restores the group flag; Cut/Delete are refused while the focus is active. The
 minimap re-renders 100 ms after each of these changes and must leave the group
 selected: it hides the member's handles by opacity, never by a flag (PF-CAN-48).
 
+
+
+## Unit preference switch (ADR-078)
+
+```mermaid
+sequenceDiagram
+    participant P as Preferences
+    participant A as Application
+    participant U as UnitPreference
+    participant Q as UnitsNotifier
+    participant V as Existing surfaces
+    P->>P: Save AppSettings.unit_system
+    P->>A: Accepted
+    A->>U: set_system(settings.unit_system)
+    U->>Q: changed(system)
+    Q->>V: changed(system)
+    V->>V: Reformat text; block field edit signals
+```
+
+Startup applies the setting before widgets are built. The preference transition
+never writes a command or a plan value. Properties defers its form rebuild by one
+event-loop turn; read-only calendar and 3D card content refresh in place.

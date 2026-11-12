@@ -255,6 +255,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Current release: **v1.39.1** (2026-11-12). No roadmap phase is active; the next
   work is in the open issues (the roadmap's "Current work" themes).
 - Live decisions that constrain the next change:
+  - Measurement units (#673, ADR-078): geometry and Agent API units stay cm;
+    display/input use the global preference and shared unit formatters.
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
     Partner Center registration and three `OGP_MSIX_*` repository variables. Never
     claim Store availability before the first certified version is live.

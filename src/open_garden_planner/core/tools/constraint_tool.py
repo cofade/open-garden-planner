@@ -36,7 +36,8 @@ from open_garden_planner.core.measure_snapper import (
 )
 from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
-from open_garden_planner.core.units import LengthStyle
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -83,7 +84,7 @@ class DistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "DistanceInputDialog",
                 "Enter the target distance (meters):",
-            )
+            ) if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("DistanceInputDialog", "Enter the target distance:")
         )
         layout.addWidget(label)
 
@@ -3827,7 +3828,7 @@ class HDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "HDistanceInputDialog",
                 "Enter the target horizontal distance (meters):",
-            )
+            ) if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("HDistanceInputDialog", "Enter the target horizontal distance:")
         )
         layout.addWidget(label)
 
@@ -3878,7 +3879,7 @@ class VDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "VDistanceInputDialog",
                 "Enter the target vertical distance (meters):",
-            )
+            ) if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("VDistanceInputDialog", "Enter the target vertical distance:")
         )
         layout.addWidget(label)
 

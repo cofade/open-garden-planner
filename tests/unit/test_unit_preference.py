@@ -1,4 +1,5 @@
 """The preference has one process-wide value and one Qt notification seam."""
+
 import ast
 from pathlib import Path
 
@@ -22,15 +23,19 @@ def test_set_system_emits_once():
 
 
 def test_module_is_qt_free():
-    tree = ast.parse(Path('src/open_garden_planner/core/unit_preference.py').read_text())
-    allowed = {'__future__', 'open_garden_planner.core.units', 'open_garden_planner.core.sim_clock'}
+    tree = ast.parse(Path("src/open_garden_planner/core/unit_preference.py").read_text())
+    allowed = {"__future__", "open_garden_planner.core.units", "open_garden_planner.core.sim_clock"}
     assert all(n.module in allowed for n in ast.walk(tree) if isinstance(n, ast.ImportFrom))
 
 
 def test_setting_default_and_round_trip(qtbot):
     settings = AppSettings()
-    assert settings.unit_system == 'metric'
-    for value, expected in [('imperial', 'imperial'), (' Imperial ', 'imperial'), ('furlongs', 'metric')]:
+    assert settings.unit_system == "metric"
+    for value, expected in [
+        ("imperial", "imperial"),
+        (" Imperial ", "imperial"),
+        ("furlongs", "metric"),
+    ]:
         settings.unit_system = value
         assert settings.unit_system == expected
 

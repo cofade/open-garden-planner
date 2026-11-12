@@ -4663,7 +4663,9 @@ class CanvasView(QGraphicsView):
     def _on_unit_system_changed(self, system: UnitSystem) -> None:
         self.set_grid_size(grid_size_cm(system))
         self._set_calibration_unit_hint()
-        self.viewport().update()
+        viewport = self.viewport()
+        if viewport is not None:
+            viewport.update()
 
     def _pick_ruler_interval(self) -> float:
         """Choose a tick interval in cm so ticks are at least _RULER_MIN_TICK_PX apart."""

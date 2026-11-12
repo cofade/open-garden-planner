@@ -5,6 +5,7 @@ supplied value_unit_cm), and litres for volumes. Metric uses Qt's native text,
 decimals, suffix and steps. A unit switch blocks signals and retains the exact
 value; merely focusing a rounded imperial readout never writes it back.
 """
+
 from __future__ import annotations
 
 import math
@@ -100,12 +101,12 @@ class _UnitSpinBox(QDoubleSpinBox):
 
     def _number_text(self, text: str) -> str:
         prefix = self.prefix()
-        return text[len(prefix):].strip() if prefix and text.startswith(prefix) else text.strip()
+        return text[len(prefix) :].strip() if prefix and text.startswith(prefix) else text.strip()
 
-    def valueFromText(self, text: str) -> float:
+    def valueFromText(self, text: str | None) -> float:
         if self._system == UnitSystem.METRIC:
             return super().valueFromText(text)
-        number = self._number_text(text)
+        number = self._number_text(text or "")
         if number == self._imperial_text(super().value()):
             return self._exact
         try:
@@ -121,11 +122,17 @@ class _UnitSpinBox(QDoubleSpinBox):
             return QValidator.State.Acceptable, text, pos
         try:
             value = self._parse_imperial(self._number_text(text))
-            state = (QValidator.State.Acceptable if self.minimum() <= value <= self.maximum()
-                     else QValidator.State.Intermediate)
+            state = (
+                QValidator.State.Acceptable
+                if self.minimum() <= value <= self.maximum()
+                else QValidator.State.Intermediate
+            )
         except ValueError:
-            state = (QValidator.State.Intermediate if re.fullmatch(r"[\s\d.,/'\"+\-a-zA-Z]*", text)
-                     else QValidator.State.Invalid)
+            state = (
+                QValidator.State.Intermediate
+                if re.fullmatch(r"[\s\d.,/'\"+\-a-zA-Z]*", text)
+                else QValidator.State.Invalid
+            )
         return state, text, pos
 
     def _imperial_text(self, value: float) -> str:
@@ -136,19 +143,34 @@ class _UnitSpinBox(QDoubleSpinBox):
 
 
 class LengthSpinBox(_UnitSpinBox):
-    def __init__(self, style: LengthStyle = LengthStyle.AUTO, parent: QWidget | None = None,
-                 *, value_unit_cm: float = 1.0) -> None:
+    def __init__(
+        self,
+        style: LengthStyle = LengthStyle.AUTO,
+        parent: QWidget | None = None,
+        *,
+        value_unit_cm: float = 1.0,
+    ) -> None:
         self._style = style
         self._value_unit_cm = value_unit_cm
         super().__init__(parent)
 
     def _imperial_text(self, value: float) -> str:
-        return format_length(value * self._value_unit_cm, UnitSystem.IMPERIAL, self._style,
-                             decimal_mark=self.locale().decimalPoint())
+        return format_length(
+            value * self._value_unit_cm,
+            UnitSystem.IMPERIAL,
+            self._style,
+            decimal_mark=self.locale().decimalPoint(),
+        )
 
     def _parse_imperial(self, text: str) -> float:
-        return parse_length(text, UnitSystem.IMPERIAL,
-                            bare_unit_cm=30.48 if self._value_unit_cm == 100 else 2.54) / self._value_unit_cm
+        return (
+            parse_length(
+                text,
+                UnitSystem.IMPERIAL,
+                bare_unit_cm=30.48 if self._value_unit_cm == 100 else 2.54,
+            )
+            / self._value_unit_cm
+        )
 
     def stepBy(self, steps: int) -> None:
         if self._system == UnitSystem.METRIC:
@@ -173,12 +195,21 @@ class VolumeSpinBox(_UnitSpinBox):
             super().stepBy(steps)
             return
         self.interpretText()
-        self.setValue((math.floor(self.value() / LITRES_PER_US_QUART + 0.5) + steps) * LITRES_PER_US_QUART)
+        self.setValue(
+            (math.floor(self.value() / LITRES_PER_US_QUART + 0.5) + steps) * LITRES_PER_US_QUART
+        )
 
 
-def get_length(parent: QWidget | None, title: str, label: str, value_cm: float,
-               minimum_cm: float, maximum_cm: float, *,
-               style: LengthStyle = LengthStyle.AUTO) -> tuple[float, bool]:
+def get_length(
+    parent: QWidget | None,
+    title: str,
+    label: str,
+    value_cm: float,
+    minimum_cm: float,
+    maximum_cm: float,
+    *,
+    style: LengthStyle = LengthStyle.AUTO,
+) -> tuple[float, bool]:
     if active_unit_system() == UnitSystem.METRIC:
         return QInputDialog.getDouble(parent, title, label, value_cm, minimum_cm, maximum_cm, 2)
     dialog = QDialog(parent)
@@ -189,7 +220,9 @@ def get_length(parent: QWidget | None, title: str, label: str, value_cm: float,
     box.setRange(minimum_cm, maximum_cm)
     box.setValue(value_cm)
     layout.addWidget(box)
-    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+    )
     buttons.accepted.connect(dialog.accept)
     buttons.rejected.connect(dialog.reject)
     layout.addWidget(buttons)

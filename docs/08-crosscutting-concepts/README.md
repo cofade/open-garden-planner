@@ -1265,6 +1265,30 @@ Pin: `tests/integration/test_sun_map_legend.py`,
 `tests/unit/test_heatmap_render.py` and, through the real window,
 `tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
+### 8.9.19 Unit-aware measurement fields (ADR-078, #673)
+
+Use `LengthSpinBox` for physical lengths and `VolumeSpinBox` for real litres. Their
+value, ranges, setValue and valueChanged retain the caller's metric unit. A field
+whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
+Keep the existing metric decimals, suffix and singleStep calls. Style specifies
+layout, plant size, depth or elevation. Leave angles, percentages, pixels and DXF
+scale factors as ordinary numeric fields.
+
+Read-only text uses `core/measurement_display.length_text`, `area_text` and
+`volume_text`, which supply the active preference and UI decimal mark to the pure
+`core/units.py` formatters. Never append a physical unit after formatting a number.
+Qt surfaces subscribe through `units_notifier().changed`; transient overlays read
+the preference on their next redraw. A preference switch must not emit a value edit
+or rebuild geometry. Read-only calendar refresh does not flush pending date edits.
+
+Qt's C++ typing/stepping path bypasses a Python setValue override. The spin box
+therefore remembers valueChanged before caller slots, retains exact values during
+signal-blocked switching, and returns that value for unchanged rounded text.
+`tests/ui/test_unit_spin_box.py` exercises the real key/Return path, native steps,
+foreign decimal marks, special text and silent switches. A whole-window test that
+edits a plan must handle the unsaved-changes prompt during pytest-qt cleanup; the
+unit surface fixture explicitly discards its own test document.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer

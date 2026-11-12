@@ -85,7 +85,7 @@ from open_garden_planner.core.camera_tours import (
     default_duration_s,
     find_tour,
 )
-from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.camera import (
     FOV_DEG,
@@ -433,11 +433,11 @@ class TourDialog(QDialog):
         self._sync_controls()
 
     def _key_text(self, number: int, key: CameraKey) -> str:
-        return self.tr("View {number}: from {east:.1f} / {north:.1f} m, "
-                       "{height:.1f} m high").format(
-            number=number, east=LocalizedNumber(key.eye[0] / 100.0),
-            north=LocalizedNumber(key.eye[1] / 100.0),
-            height=LocalizedNumber(key.eye[2] / 100.0))
+        return self.tr("View {number}: from {east} / {north}, "
+                       "{height} high").format(
+            number=number, east=length_text(key.eye[0]),
+            north=length_text(key.eye[1]),
+            height=length_text(key.eye[2]))
 
     def _show_keys(self) -> None:
         """The list says what the keys are (a saved tour or another plan came)."""

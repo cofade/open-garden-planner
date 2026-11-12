@@ -201,9 +201,6 @@ from .vertex_handles import (
     _format_coordinate as _format_coordinate,
 )
 from .vertex_handles import (
-    _format_edge_length as _format_edge_length,
-)
-from .vertex_handles import (
     _map_to_scene as _map_to_scene,
 )
 from .vertex_handles import (

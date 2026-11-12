@@ -62,7 +62,7 @@ from open_garden_planner.core.commands import (
     RenameCameraTourCommand,
     SaveCameraTourCommand,
 )
-from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.photo import (
     DEFAULT_BLUR,
@@ -473,8 +473,8 @@ class WorkspaceCaptureCoordinator(QObject):
             label.setText(_tr("Click the view to set the focus"))
             return
         eye = self._get_camera_now()[0]
-        label.setText(_tr("Focus {distance:.1f} m away").format(
-            distance=LocalizedNumber(math.dist(eye, point) / 100.0)))
+        label.setText(_tr("Focus {distance} away").format(
+            distance=length_text(math.dist(eye, point))))
 
     def take_click(self, hit: object) -> bool:
         """A click in the view (``OrbitInput.picked``): photo mode takes it for the focus.

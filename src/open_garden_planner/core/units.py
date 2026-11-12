@@ -88,7 +88,9 @@ def format_length(
         else:
             return _feet_inches(
                 cm,
-                1 if style in (LengthStyle.PLANT_SIZE, LengthStyle.PLANT_METRES, LengthStyle.RULER) else fraction,
+                1
+                if style in (LengthStyle.PLANT_SIZE, LengthStyle.PLANT_METRES, LengthStyle.RULER)
+                else fraction,
                 depth=style == LengthStyle.DEPTH,
                 omit_zero_inches=style == LengthStyle.RULER,
             )
@@ -233,7 +235,7 @@ def imperial_step_inches(metric_step_cm: float, style: LengthStyle) -> float:
         return 0.125
     if style == LengthStyle.FEET:
         return 12.0
-    candidates = (0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 6.0, 12.0)
+    candidates: tuple[float, ...] = (0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 6.0, 12.0)
     if style == LengthStyle.PLANT_SIZE:
         candidates = tuple(c for c in candidates if c >= 1)
     target = cm_to_inches(max(metric_step_cm, 1e-12))

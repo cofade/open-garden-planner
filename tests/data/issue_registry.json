@@ -1039,11 +1039,6 @@
     "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
-  "663": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Decouple plan north from drawing orientation (north arrow without rotating the plan)"
-  },
   "664": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1058,6 +1053,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Incidence consistency: compatible POINT_ON_EDGE/COINCIDENT links are rejected or left broken (six reproduced cases)"
+  },
+  "673": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Metric/imperial unit system preference: render and enter every measurement in the chosen units"
   },
   "674": {
     "is_pr": false,
@@ -1314,44 +1314,14 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
-  "856": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Tasks tab rows show only the plant name, while the calendar dashboard says what to do"
-  },
-  "860": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "German UI: numbers drawn on the plan, the scale bar and the PDF report keep a decimal point"
-  },
-  "863": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Harvest units (\"bunch\") are not translated"
-  },
   "865": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Opening a bundled example through File > Open attaches Save to the shipped file"
-  },
-  "868": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Print Options: the \"Grid\" checkbox does nothing"
   },
   "871": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Print at a fixed scale puts the short row of tiles on top"
-  },
-  "899": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "PDF report: harvest summary shows the untranslated unit \"bunch\" in a German export"
-  },
-  "903": {
-    "is_pr": true,
-    "state": "OPEN",
-    "title": "feat(#663, #856-#871, #899): plan truth, reports and print correctness"
   }
 }
