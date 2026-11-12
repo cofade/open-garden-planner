@@ -51,7 +51,6 @@ from PyQt6.QtWidgets import (
     QGestureEvent,
     QGraphicsItem,
     QGraphicsView,
-    QInputDialog,
     QLineEdit,
     QMenu,
     QPinchGesture,
@@ -151,6 +150,7 @@ from open_garden_planner.core.units import (
     grid_size_cm,
     nice_distances,
     nudge_fine_cm,
+    parse_length,
 )
 from open_garden_planner.services.soil_service import (
     ALL_PARAMS,
@@ -456,7 +456,7 @@ class CanvasView(QGraphicsView):
 
         # Calibration input widget (hidden by default)
         self._calibration_input = QLineEdit(self)
-        self._calibration_input.setPlaceholderText(self.tr("Distance in cm"))
+        self._set_calibration_unit_hint()
         self._calibration_input.setFixedWidth(150)
         self._calibration_input.hide()
         self._calibration_input.returnPressed.connect(
@@ -4655,8 +4655,14 @@ class CanvasView(QGraphicsView):
     # the bright plan, the dark theme's strip turned muddy and its labels fell
     # under 4.5:1.
 
+    def _set_calibration_unit_hint(self) -> None:
+        self._calibration_input.setPlaceholderText(
+            self.tr("Distance in cm") if active_unit_system() == UnitSystem.METRIC
+            else self.tr("Distance, e.g. 12' 6\""))
+
     def _on_unit_system_changed(self, system: UnitSystem) -> None:
         self.set_grid_size(grid_size_cm(system))
+        self._set_calibration_unit_hint()
         self.viewport().update()
 
     def _pick_ruler_interval(self) -> float:
@@ -4789,15 +4795,15 @@ class CanvasView(QGraphicsView):
     def _edit_guide_position(self, guide: GuideLine) -> None:
         """Show input dialog to set guide position numerically."""
         axis = self.tr("Y") if guide.is_horizontal else self.tr("X")
-        label = self.tr("{axis} position (cm)").format(axis=axis)
-        value, ok = QInputDialog.getDouble(
+        label = (self.tr("{axis} position (cm)") if active_unit_system() == UnitSystem.METRIC else self.tr("{axis} position")).format(axis=axis)
+        from open_garden_planner.ui.widgets.unit_spin_box import get_length
+        value, ok = get_length(
             self,
             self.tr("Guide position"),
             label,
             guide.position,
             -1_000_000.0,
             1_000_000.0,
-            2,
         )
         if ok:
             guide.position = value
@@ -5877,14 +5883,15 @@ class CanvasView(QGraphicsView):
         """Handle Enter key in calibration input."""
         text = self._calibration_input.text().strip()
         try:
-            distance_cm = float(text)
+            distance_cm = parse_length(text, active_unit_system())
             if distance_cm > 0:
                 self._canvas_scene.finish_calibration(distance_cm)
             else:
                 self.set_status_message(self.tr("Distance must be positive"))
         except ValueError:
             self.set_status_message(
-                self.tr("Invalid distance. Enter a number in centimeters.")
+                self.tr("Invalid distance. Enter a number in centimeters.") if active_unit_system() == UnitSystem.METRIC
+                else self.tr("Invalid distance. Enter a length such as 12' 6\" or 150 in.")
             )
 
     def _clamp_individual_deltas(

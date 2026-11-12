@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.i18n import format_decimal
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import UnitSystem, parse_length
 from open_garden_planner.ui.theme import set_text_role
 
 
@@ -86,11 +88,11 @@ class CalibrationDialog(QDialog):
         distance_layout.addWidget(QLabel(self.tr("Real-world distance:")))
 
         self._distance_input = QLineEdit()
-        self._distance_input.setPlaceholderText("e.g., 1200 (cm) or 12 (m)")
+        self._distance_input.setPlaceholderText(self.tr("e.g., 1200 (cm) or 12 (m)") if active_unit_system() == UnitSystem.METRIC else self.tr("Distance, e.g. 12' 6\""))
         self._distance_input.setEnabled(False)
         distance_layout.addWidget(self._distance_input)
 
-        self._unit_label = QLabel("cm")
+        self._unit_label = QLabel("cm" if active_unit_system() == UnitSystem.METRIC else "")
         distance_layout.addWidget(self._unit_label)
 
         self._reset_button = QPushButton(self.tr("Reset Points"))
@@ -196,7 +198,7 @@ class CalibrationDialog(QDialog):
         # Parse distance input
         try:
             distance_text = self._distance_input.text().strip()
-            distance = float(distance_text)
+            distance = parse_length(distance_text, active_unit_system())
             if distance <= 0:
                 return None
             # Distance is already in cm

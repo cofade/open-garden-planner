@@ -14,6 +14,7 @@ from open_garden_planner.core.coordinate_input.parser import (
     ParseError,
     parse,
 )
+from open_garden_planner.core.unit_preference import active_unit_system
 
 
 class CoordinateInputBuffer(QObject):
@@ -74,7 +75,7 @@ class CoordinateInputBuffer(QObject):
         if not self._text.strip():
             return None
         try:
-            return parse(self._text, self._anchor)
+            return parse(self._text, self._anchor, system=active_unit_system())
         except ParseError as exc:
             self.parse_error.emit(str(exc))
             return None
