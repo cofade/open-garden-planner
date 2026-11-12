@@ -32,7 +32,9 @@ class NorthCompassWidget(QWidget):
 
     def __init__(self, angle_deg: float = 0.0, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._angle = normalize_north_angle(angle_deg)
+        # One decimal, like the dialog's field: the two controls then start in
+        # agreement even when a file stored more precision.
+        self._angle = round(normalize_north_angle(angle_deg), 1) % 360.0
         self._dragging = False
         self.setMinimumSize(200, 200)
         self.setCursor(Qt.CursorShape.CrossCursor)
@@ -173,8 +175,9 @@ class NorthOrientationDialog(QDialog):
         self._angle_field.setSuffix(self.tr("° clockwise from up"))
         self._angle_field.setValue(normalize_north_angle(angle_deg))
         # What the user was shown when the dialog opened (the field's one
-        # decimal and its 359.9 clamp applied). Accepting the dialog unchanged
-        # is a no-op; a stored 45.123 or 359.96 must not mint a command.
+        # decimal and its wrap at 360 applied: a stored 359.96 shows 0.0).
+        # Accepting the dialog unchanged is a no-op; a stored 45.123 or 359.96
+        # must not mint a command.
         self._shown_angle = self._angle_field.value()
         row.addWidget(self._angle_field, 1)
         layout.addLayout(row)

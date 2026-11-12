@@ -470,6 +470,21 @@ class TestNorthInTheApp:
         assert len(stack) == before
         assert window._project_manager.north_angle_deg == pytest.approx(stored)
 
+    def test_the_dialog_seeds_both_controls_from_the_stored_value(self, qtbot) -> None:
+        from open_garden_planner.ui.dialogs.north_orientation_dialog import (
+            NorthOrientationDialog,
+        )
+
+        dialog = NorthOrientationDialog(45.123)
+        qtbot.addWidget(dialog)
+        assert dialog.shown_angle == pytest.approx(45.1)
+        assert dialog._compass.angle_deg == pytest.approx(45.1)
+
+        wrapped = NorthOrientationDialog(359.96)
+        qtbot.addWidget(wrapped)
+        # The field wraps at 360, so 359.96 is displayed as 0.0.
+        assert wrapped.shown_angle == pytest.approx(0.0)
+
     def test_a_north_change_clears_the_days_heatmap(self, window) -> None:
         window._project_manager.set_location({"latitude": 52.52, "longitude": 13.40})
         window._sun_heatmap.snapshot = object()  # a computed day would be here

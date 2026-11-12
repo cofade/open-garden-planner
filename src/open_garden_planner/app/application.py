@@ -6146,7 +6146,7 @@ class GardenPlannerApp(QMainWindow):
             return
         angle = dialog.angle_deg
         # The value the dialog DISPLAYED when it opened (its one decimal and its
-        # 359.9 clamp applied): accepting it unchanged must not mint a command
+        # wrap at 360 applied): accepting it unchanged must not mint a command
         # for a stored 45.123 or 359.96.
         if angle == dialog.shown_angle:
             return

@@ -196,12 +196,12 @@ class TestFrostAlertsAreLive:
         assert len(dashboard) == 1
         assert dashboard[0].task_id == f"frost:{alert.date}:red"
 
-        rows = [
-            label.text()
-            for label in window.tasks_view.findChildren(QLabel)
-            if label.text().startswith("Frost")
-        ]
-        assert len(rows) == 1
+        labels = [label.text() for label in window.tasks_view.findChildren(QLabel)]
+        assert sum(text.startswith("Frost") for text in labels) == 1
+        # The bucket is the proof: a plan-day bucket would read "Overdue (1)"
+        # for a 2026 alert on a 2031 plan.
+        assert "This Week (1)" in labels
+        assert "Overdue (1)" not in labels
 
 
 class TestOverdueReminderBar:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import datetime
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
@@ -13,10 +14,6 @@ from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.services.soil_service import (
     SoilService,
 )
-
-if TYPE_CHECKING:
-    import datetime
-
 
 if TYPE_CHECKING:
     from open_garden_planner.app.application import GardenPlannerApp
@@ -1625,8 +1622,6 @@ class AgentHost:
         whole answer reproducible.
         """
         host = self._host
-        import datetime
-
         from open_garden_planner.services.task_generator import build_plan_state
 
         return build_plan_state(
@@ -1688,7 +1683,10 @@ class AgentHost:
             TASK_SOURCES,
             get_tasks_for_agent,
         )
-        from open_garden_planner.services.task_generator import generate_for_date_window
+        from open_garden_planner.services.task_generator import (
+            generate_for_date_window,
+            generate_frost_tasks,
+        )
 
         if source is not None and source not in TASK_SOURCES:
             raise ValueError(
@@ -1713,12 +1711,24 @@ class AgentHost:
         state = host._agent_build_task_state(
             reference, actionable_only=from_date is None and to_date is None,
         )
+        tasks = generate_for_date_window(
+            state,
+            start or reference - datetime.timedelta(days=30),
+            end or reference + datetime.timedelta(days=30),
+        )
+        # A live frost forecast names a REAL day (#859): keep its actionable
+        # alerts even when the agent's simulated window is elsewhere, exactly as
+        # the GUI's task list does. A year-bucketed calendar read does not.
+        from dataclasses import replace
+
+        listed = {task.task_id for task in tasks}
+        tasks.extend(
+            task
+            for task in generate_frost_tasks(replace(state, actionable_only=True))
+            if task.task_id not in listed
+        )
         view = get_tasks_for_agent(
-            generate_for_date_window(
-                state,
-                start or reference - datetime.timedelta(days=30),
-                end or reference + datetime.timedelta(days=30),
-            ),
+            tasks,
             today=reference,
             task_states=host._project_manager.task_states,
             from_date=start,
