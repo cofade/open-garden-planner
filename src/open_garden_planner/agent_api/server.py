@@ -2352,6 +2352,10 @@ def build_server(
             exist, is not a file, or if the file cannot be parsed; and if the
             plan is dirty and force is not set.
 
+            A bundled example opens as an untitled copy: the result then has
+            ``file_path: null`` and ``opened_as_copy: true``, because the first
+            save must be a save-as and the installed file must never be written.
+
             Args:
                 file_path: Path to the ``.ogp`` file to load.
                 force: Discard unsaved changes instead of refusing.

@@ -71,10 +71,14 @@ src/open_garden_planner/
 │   │   └── resolve.py            #   resolve_sprite(): species / category / type → sprite and recipe — the ONE rule for 2D and 3D
 │   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028);
 │   │                             #   spacing storeys and where a spacing warning is drawn (#786)
+│   ├── plan_north.py             # Qt-free plan north metadata: validation + the ONE scene_azimuth frame rule (#663, ADR-037 addendum)
+│   ├── harvest_units.py          # Display names for the harvest log's stable unit keys (#863, #899)
+│   ├── plant_cycle_label.py      # The one translated Annual/Biennial/Perennial vocabulary (#869)
 │   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.15)
 │   ├── label_layout.py           # Qt-free: which object labels are shown when room is short, and whether a badge has room on its object (#793, #836, §8.9.15)
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037);
-│   │                             #   plan_place(): the validity rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
+│   │                             #   scene_azimuth(): the ONE compass→plan-frame rule (#663); plan_place(): the validity
+│   │                             #   rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
 │   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document or a save (#795)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
@@ -248,6 +252,7 @@ src/open_garden_planner/
 │   │   └── journal_panel.py      # Garden-journal browser w/ search + date range (US-12.9)
 │   ├── dialogs/
 │   │   ├── new_project_dialog.py
+│   │   ├── north_orientation_dialog.py # Clickable compass + angle for the plan's true north (#663, ADR-037 addendum)
 │   │   ├── welcome_dialog.py
 │   │   ├── calibration_dialog.py
 │   │   ├── custom_plants_dialog.py
@@ -263,7 +268,8 @@ src/open_garden_planner/
 │   │   ├── task_dialog.py        # Create/edit a ManualTask (US-C2, ADR-029)
 │   │   └── properties_dialog.py
 │   ├── views/
-│   │   └── tasks_view.py         # Unified Tasks dashboard tab + build_plan_state (US-C2, ADR-029)
+│   │   ├── tasks_view.py         # Unified Tasks dashboard tab + build_plan_state (US-C2, ADR-029)
+│   │   └── task_text.py          # ONE row text for a generated task, shared by the Tasks tab and the calendar dashboard (#856)
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
 │   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
@@ -715,6 +721,22 @@ through the garden. Everything here lives in the workspace (§5.12). Concept: §
 | `ui/view3d/growth_jump.py`, `wipe.py`, `compass_glyphs.py`, `analysis_modes.py` (L2) | `GrowthJump` (+N years on the clock, Back, the two pictures — the only frames besides the click's pick); `BeforeAfterWipe` (in the view's place in the pane); the translated compass letters as outlines; `DrapeMode` / `JUMP_YEARS` (importable without an engine module). | — |
 | `ui/view3d/workspace.py` (L2 seams) | The "Analyze" menu (drape actions, sun path, sweep, Cutaway, jumps, Back), the sun path legend, the ground click → probe (`OrbitInput.ground_clicked`, `perspective_ray`), the X-ray after a resting camera (150 ms), the wipe page; `connect_analysis(shadows, heatmap, request_sun_hours)`; the strip's control row wraps (`_WrapRow`). | — |
 | `ui/view3d/quick3d/` (L2 additions) | `Garden.qml`: `drapeOverlay` / `linesOverlay` (one Model each, `overlay.vert` / `overlay.frag`), a `fade` per part Model (blending only while < 1, alpha kept), `roofsHidden`. `host.py`: `set_overlay`, `set_roofs_hidden`, `set_faded_items`. `offscreen.render_records(overlays=, roofs_hidden=, faded=)`. `selftest.py`: a drape patch and a lines patch judged. | — |
+
+## 5.16 Plan Frame and Shared Display Vocabularies (plan-truth package)
+
+Black-box view of the plan-level data and the one display vocabulary each surface now shares. See ADR-037/066/076/077 addenda; FR-SUN-14, FR-EXP-08, FR-TASK-01, FR-HARVEST-02.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `core/plan_north.py` | True north on the drawing, degrees clockwise from plan-up (0 = up, 135 = down-right). `normalize_north_angle` is the one validity rule (rejects bool, non-number, non-finite); `north_angle_from_plan` reads a file value at load; `north_direction` is the unit vector the canvas/PDF arrows draw. Additive plan metadata; `FILE_VERSION` unchanged. | number → angle in [0, 360); plan dict → angle; angle → vector |
+| `core/solar.py` (`scene_azimuth`) | The ONE compass→scene rule: `(azimuth + north) % 360`. Every solar consumer (2D shadow, heatmap sampling, plant exposure diagnostics, 3D light, sun path/compass, PDF arrow) calls it once; no consumer applies the inverse. | compass azimuth, plan north → scene bearing |
+| `core/harvest_units.py` | Display names for the harvest log's stable unit keys (`kg`, `g`, `pcs`, `bunch`, `L`); an unknown/custom unit is shown as typed. The stored key and the CSV never change. | unit key → translated label |
+| `core/plant_cycle_label.py` | The one translated Annual/Biennial/Perennial vocabulary for the plant list, Plant Details, the custom-plant table and the plant search; an unknown cycle shows the caller's placeholder, not the canvas object type. | cycle value → translated label |
+| `ui/views/task_text.py` | The one row text for a generated task, shared by the Tasks tab and the planting calendar's dashboard ("Harvest Rosemary", not "Rosemary"). | task type, name → row text |
+| `ui/dialogs/north_orientation_dialog.py` | `File > Set North Orientation…`: a clickable/draggable compass plus a numeric angle, with the two controls kept in sync. Returns one validated angle; the caller wraps it in `SetPlanNorthCommand` (one undo step). | current angle → accepted angle |
+
+The north-change fan-out is §6.12; the canvas arrow is a viewport overlay (§8.9.16) and the PDF draws its own with the same angle.
+
 
 ## Developer quality and release tooling
 

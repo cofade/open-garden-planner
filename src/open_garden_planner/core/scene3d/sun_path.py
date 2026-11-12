@@ -19,7 +19,8 @@ Where the sun goes over the garden, drawn as arcs on a dome over the plan:
   and scene azimuth ``a`` (a compass bearing turned by the plan's north, #663) go to
   ``centre + R · (cos e · sin a, cos e · cos a, sin e)`` in the scene frame (E, N,
   up) — ``frame.sun_direction_scene`` scaled by the radius. The gate of L2.2: the
-  noon point of every arc IS ``dome_point`` of ``solar_position`` at its instant.
+  noon point of every arc IS ``dome_point`` of ``solar_position`` at its instant —
+  at north 0; a turned arc's noon is the same point turned by the plan's north.
 
 The meshes (scene frame, scene origin, normals for an unshaded material):
 

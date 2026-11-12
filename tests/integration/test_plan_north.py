@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QColor, QImage, QPainter
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -25,6 +26,7 @@ from open_garden_planner.core.solar import scene_azimuth, solar_position
 from open_garden_planner.services.pdf_report_service import _draw_north_arrow
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
@@ -155,6 +157,36 @@ class TestNorthInTheSolarFrame:
 
 
 class TestNorthInThePlan:
+    @pytest.mark.parametrize("north", [0.0, 45.0, 135.0, 270.0])
+    def test_the_2d_shadow_points_along_the_scene_frame(self, north, qtbot) -> None:
+        import math
+
+        from open_garden_planner.core.object_height import METADATA_KEY
+        from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowController
+
+        scene = CanvasScene(width_cm=500, height_cm=500)
+        caster = CircleItem(250, 250, 20, object_type=ObjectType.TREE)
+        caster.metadata[METADATA_KEY] = 300.0
+        scene.addItem(caster)
+        controller = SunShadowController(
+            scene,
+            lambda: {"latitude": 52.52, "longitude": 13.40},
+            north_provider=lambda: north,
+        )
+        instant = datetime(2026, 6, 21, 12, 0, tzinfo=UTC)
+        controller.set_sim_datetime(instant)
+        controller.set_enabled(True)
+        polygons = controller.drape_polygons()
+        controller.set_enabled(False)
+        assert polygons
+        points = [point for polygon in polygons for point in polygon]
+        cx = sum(point[0] for point in points) / len(points)
+        cy = sum(point[1] for point in points) / len(points)
+        bearing = math.degrees(math.atan2(cx - 250.0, cy - 250.0)) % 360.0
+        sun = solar_position(52.52, 13.40, instant)
+        expected = (sun.azimuth_deg + 180.0 + north) % 360.0
+        assert bearing == pytest.approx(expected, abs=1.0)
+
     def test_the_2d_shadow_overlay_turns_with_the_plan(self, qtbot) -> None:
         from open_garden_planner.core.object_height import METADATA_KEY
         from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowController
@@ -312,6 +344,16 @@ class TestNorthInThePlan:
         with pytest.raises(PlanValidationError):
             ProjectManager().load(CanvasScene(width_cm=500, height_cm=500), target)
 
+    def test_a_template_export_keeps_the_north(self) -> None:
+        from open_garden_planner.core.templates import template_plan
+
+        exported = template_plan({
+            "version": FILE_VERSION,
+            "canvas": {"width": 500.0, "height": 500.0},
+            "north_angle_deg": 45.0,
+        })
+        assert exported["north_angle_deg"] == 45.0
+
     def test_setting_north_is_one_undo_step_and_keeps_every_object(self, qtbot, tmp_path) -> None:
         scene = CanvasScene(width_cm=500, height_cm=500)
         item = RectangleItem(100, 100, 80, 60, object_type=ObjectType.RAISED_BED, name="Bed")
@@ -354,6 +396,57 @@ class TestNorthInTheApp:
         window._load_project_file(str(target))
         assert window._project_manager.north_angle_deg == pytest.approx(45.0)
         assert window.canvas_view.north_angle_deg() == pytest.approx(45.0)
+
+    def test_the_north_dialog_and_file_menu_are_wired(self, window, monkeypatch, qtbot) -> None:
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtGui import QAction
+        from PyQt6.QtWidgets import QDialog
+
+        from open_garden_planner.ui.dialogs import north_orientation_dialog as dialog_module
+
+        compass = dialog_module.NorthCompassWidget(0.0, window)
+        compass.resize(200, 200)
+        centre = compass._centre()
+        # Screen y grows down; the compass angle is clockwise from plan-up.
+        assert compass._angle_at(QPointF(centre.x(), centre.y() - 40)) == pytest.approx(0.0)
+        assert compass._angle_at(QPointF(centre.x() + 40, centre.y())) == pytest.approx(90.0)
+        assert compass._angle_at(QPointF(centre.x(), centre.y() + 40)) == pytest.approx(180.0)
+        assert compass._angle_at(QPointF(centre.x() - 40, centre.y())) == pytest.approx(270.0)
+        qtbot.mouseClick(compass, Qt.MouseButton.LeftButton, pos=QPoint(150, 100))
+        assert compass.angle_deg == pytest.approx(90.0)
+
+        dialog = dialog_module.NorthOrientationDialog(0.0, window)
+        qtbot.addWidget(dialog)
+        dialog._angle_field.setValue(135.0)
+        assert dialog._compass.angle_deg == pytest.approx(135.0)
+        dialog._compass.set_angle(45.0)
+        assert dialog._angle_field.value() == pytest.approx(45.0)
+
+        # File menu -> dialog -> one command -> one undo step.
+        dialog._angle_field.setValue(135.0)
+        monkeypatch.setattr(
+            dialog_module.NorthOrientationDialog,
+            "exec",
+            lambda *_args: QDialog.DialogCode.Accepted,
+        )
+        monkeypatch.setattr(
+            dialog_module, "NorthOrientationDialog", lambda *_args: dialog
+        )
+        stack = window.canvas_view.command_manager._undo_stack
+        before = len(stack)
+        window._on_set_north_orientation()
+        assert window._project_manager.north_angle_deg == pytest.approx(135.0)
+        assert window.canvas_view.north_angle_deg() == pytest.approx(135.0)
+        assert len(stack) == before + 1
+        window.canvas_view.command_manager.undo()
+        assert window._project_manager.north_angle_deg == pytest.approx(0.0)
+
+        actions = [
+            action
+            for action in window.findChildren(QAction)
+            if action.text().replace("&", "") == "Set North Orientation..."
+        ]
+        assert actions, "the File menu action is missing"
 
     def test_a_north_change_clears_the_days_heatmap(self, window) -> None:
         window._project_manager.set_location({"latitude": 52.52, "longitude": 13.40})
@@ -442,7 +535,7 @@ class TestNorthInThe3dWiring:
         assert sun.azimuth_deg == pytest.approx(raw.azimuth_deg)
         assert sun.scene_azimuth_deg == pytest.approx((raw.azimuth_deg + 45.0) % 360.0)
 
-    def test_the_workspace_forwards_its_north_provider(self, qtbot) -> None:
+    def test_the_workspace_stores_its_north_provider(self, qtbot) -> None:
         from open_garden_planner.ui.view3d.workspace import Workspace
 
         scene = CanvasScene(width_cm=500, height_cm=500)

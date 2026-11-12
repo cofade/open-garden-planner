@@ -88,6 +88,21 @@ def test_file_open_of_a_bundled_example_is_an_untitled_copy(window, tmp_path):
     assert entry.path.stat().st_mtime_ns == mtime
 
 
+def test_agent_open_plan_reports_a_bundled_example_as_a_copy(window) -> None:
+    """#865: the agent calls the same copy path; its result must carry that identity."""
+    from open_garden_planner.agent_api.exports import save_plan_file
+
+    entry = bundled_examples()[0]
+    result = window._agent_host._do_agent_open_plan(str(entry.path), force=True)
+    assert result["file_path"] is None
+    assert result["opened_as_copy"] is True
+    assert window._project_manager.current_file is None
+    with pytest.raises(ValueError, match="No file is currently open"):
+        save_plan_file(
+            window.canvas_scene, window._project_manager, window._soil_service, None
+        )
+
+
 def test_file_template_export_and_reimport_through_menu_slots(window, monkeypatch, tmp_path):
     window._load_project_file(str(bundled_examples()[0].path))
     manager = window._project_manager

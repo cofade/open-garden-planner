@@ -511,7 +511,6 @@ Properties resize both refuse the edit and ask the user to remove the constraint
 first.
 
 
-
 ### PF-DOM-33
 
 - **Rule:** Scope an edit refusal to what the edit actually invalidates. A corner replacement removes one vertex and shortens its two incident edges, so it refuses only a constraint on those anchors; every later indexed anchor renumbers inside the command (with a captured before-state for undo). Refusing the whole item blocks valid corners.

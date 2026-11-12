@@ -448,7 +448,12 @@ class PlanLifecycleResult(BaseModel):
 
     file_path: str | None = Field(
         description="Path of the now-open plan file; null for a new plan, which "
-        "has never been saved."
+        "has never been saved, and for a bundled example opened as an untitled copy."
+    )
+    opened_as_copy: bool = Field(
+        default=False,
+        description="True when the opened file is a bundled example that became an "
+        "untitled copy: file_path is null and the first save is a save-as.",
     )
     width_cm: float = Field(description="Canvas width now in effect, in centimetres.")
     height_cm: float = Field(description="Canvas height now in effect, in centimetres.")

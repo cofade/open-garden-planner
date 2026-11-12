@@ -376,4 +376,3 @@ path. Mirror the whole result with signals blocked before publishing it to
 SimClock, so midnight cannot briefly appear on the old date. Group layouts
 reparent the editors; find their toolbar ancestor rather than assuming their
 immediate parent is the toolbar. Do not retain a Python parent/child cycle.
-

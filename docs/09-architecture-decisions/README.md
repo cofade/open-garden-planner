@@ -13138,9 +13138,10 @@ application's chosen language, never the system locale on its own.
    digits and at most one mark; it refuses a group separator, an exponent and everything
    only Python's `float` reads (`nan`, `inf`, `1_000`), and its result is finite.
    What the UI shows, it accepts back — in either convention.
-5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
-   and the clipboard rows of the shopping list write a decimal point in every language.
-   The PDF report's numbers are the export service's own.
+5. **Machine-readable data never uses these formatters; a reader-facing picture does.**
+   The plan file, DXF, CSV and the clipboard rows of the shopping list write a decimal point
+   in every language. An SVG or PDF is a document for a reader — its text follows the UI
+   language exactly as the canvas does (see the plan-truth addendum below).
 6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit
    but the planting calendar's year-less steps, the Tasks tab, the plan-date strip). Only
    names — months, weekdays — and the day-and-month label of the calendar dashboard

@@ -217,7 +217,7 @@ class Bench:
 
     def __init__(self, view: CanvasView, qtbot: Any, folder: Path, *,
                  fail_first: Exception | None = None, ui_state: Any = None,
-                 location: Any = None) -> None:
+                 location: Any = None, north: Any = None) -> None:
         self.view, self.qtbot, self.folder = view, qtbot, folder
         self.scene, self.commands = view.scene(), view.command_manager
         self.clock = SimClock(NOON)
@@ -234,7 +234,7 @@ class Bench:
         #: The garden's location (L2's analysis needs one); None: the plan has none.
         self.location = location
         self.workspace.connect_plan(self.scene, self.clock, lambda: self.location, self.commands,
-                                    ui_state)
+                                    ui_state, north=north)
         layout.addWidget(self.workspace)
         # The canvas view now lives in this window, and pytest-qt holds the widgets it
         # closes WEAKLY, before any fixture is torn down. A Bench that is a local of the
@@ -303,6 +303,19 @@ def test_it_starts_as_the_plan_and_nothing_3d_exists(bench: Bench) -> None:
     assert workspace.reset_view_action.isEnabled() is False
     assert workspace._floating.isVisible()
     assert [button.text() for button in workspace._floating.buttons] == ["Plan", "3D", "Split"]
+
+
+def test_the_plan_north_reaches_the_real_3d_controller(
+    canvas: CanvasView, qtbot: Any, tmp_path: Path
+) -> None:
+    """#663: the workspace's north provider is wired into the controller it builds."""
+    bench = Bench(canvas, qtbot, tmp_path, north=lambda: 45.0)
+    bench.workspace.set_mode(VIEW3D)
+    controller = bench.workspace.controller
+    assert controller is not None
+    sun = controller._sun()
+    assert sun.north_angle_deg == pytest.approx(45.0)
+    assert sun.scene_azimuth_deg == pytest.approx((sun.azimuth_deg + 45.0) % 360.0)
 
 
 def test_entering_3d_builds_the_engine_once_and_frames_the_plan(bench: Bench) -> None:

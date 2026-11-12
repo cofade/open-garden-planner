@@ -305,8 +305,13 @@ class AgentHost:
         # needs. The GUI's _open_project_file is the same call wrapped in a
         # modal QMessageBox, which an agent must never raise on its behalf.
         host._load_project_file(str(resolved))
+        # #865: a bundled example is loaded as an UNTITLED COPY, so the document's
+        # identity is the manager's, never the path this call was given. Reporting
+        # `resolved` would claim a file the user cannot save over.
+        current = host._project_manager.current_file
         return {
-            "file_path": str(resolved),
+            "file_path": str(current) if current is not None else None,
+            "opened_as_copy": current is None,
             "width_cm": host.canvas_scene.width_cm,
             "height_cm": host.canvas_scene.height_cm,
             # A load resets the dirty flag, so read it BEFORE, for the same

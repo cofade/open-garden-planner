@@ -64,6 +64,14 @@ def test_the_dialog_shows_the_translation_but_stores_the_stable_key(qtbot, germa
     assert dialog.result_record().unit == "bunch"
 
 
+def test_a_typed_translated_unit_is_stored_as_its_key(qtbot, german) -> None:
+    dialog = HarvestLogDialog()
+    qtbot.addWidget(dialog)
+    dialog._unit_combo.setEditText("Bund")
+    dialog._quantity_spin.setValue(1.0)
+    assert dialog.result_record().unit == "bunch"
+
+
 def test_the_harvest_tab_shows_the_translated_unit(qtbot, german) -> None:
     scene = CanvasScene(width_cm=500, height_cm=500)
     pm = ProjectManager()

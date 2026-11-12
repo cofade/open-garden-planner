@@ -6,9 +6,11 @@ leaks the issue names: "Select" in a German status bar, the welcome tab that
 lost its ampersand, raw type names in the Diagnostics panel, and the raw theme
 name in a status message.
 
-The other half of the same rule is pinned here too: what the UI formats for a
-reader, a FILE never contains. The plan file, the SVG and the CSV exports are
-byte-for-byte the same under an English and a German locale.
+The other half of the same rule is pinned here too: machine-readable data keeps
+its decimal point, while a reader-facing picture follows the UI language. The
+plan file, the DXF and the CSV exports are byte-for-byte the same under an
+English and a German locale; an SVG's geometry is the same and its text (an
+area label) is not.
 """
 
 from __future__ import annotations
@@ -219,7 +221,7 @@ def test_the_theme_message_names_the_theme_in_the_ui_language(qtbot, monkeypatch
         apply_theme(QApplication.instance(), ThemeMode.LIGHT)
 
 
-# ── A file never speaks the UI's locale ──────────────────────────────────────
+# ── Machine-readable data stays locale-plain; a picture speaks the language ──
 
 def _plan() -> CanvasScene:
     scene = CanvasScene(width_cm=1000.5, height_cm=800.25)
@@ -275,6 +277,31 @@ def test_the_svg_export_is_the_same_in_every_locale(qtbot, speak, tmp_path: Path
         exported[language] = path.read_bytes()
     assert exported["en"] == exported["de"]
     assert b"," not in exported["en"].split(b"viewBox=")[1].split(b'"')[1]
+
+
+def test_the_svg_picture_localizes_a_plan_label_but_keeps_its_geometry(
+    qtbot, speak, tmp_path: Path
+) -> None:
+    """An SVG is a document for a reader: its label follows the UI language (#860)."""
+    texts: dict[str, str] = {}
+    for language, system in (("en", "de_DE"), ("de", "en_US")):
+        speak(language, system)
+        scene = CanvasScene(width_cm=1000.5, height_cm=800.25)
+        bed = RectangleItem(
+            155.8, 20.5, 315.5, 201.5, object_type=ObjectType.GARDEN_BED
+        )
+        bed.area_label_visible = True
+        scene.addItem(bed)
+        path = tmp_path / f"labelled_{language}.svg"
+        ExportService.export_to_svg(scene, path, output_width_cm=10.0)
+        texts[language] = path.read_text(encoding="utf-8")
+    assert "6.36 m²" in texts["en"]
+    assert "6,36 m²" in texts["de"]
+    # The same bed, at the same size: only the reader-facing text differs.
+    import re
+
+    view_box = re.compile(r'viewBox="([^"]+)"')
+    assert view_box.search(texts["en"]).group(1) == view_box.search(texts["de"]).group(1)
 
 
 def test_csv_exports_keep_a_decimal_point_in_a_german_ui(qtbot, speak, tmp_path: Path) -> None:

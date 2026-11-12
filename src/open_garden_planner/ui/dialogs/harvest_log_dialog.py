@@ -484,11 +484,16 @@ class HarvestLogDialog(QDialog):
         return HarvestRecord(**kwargs)
 
     def _stored_unit(self) -> str:
-        """The stable unit key: the chosen item's data, or the gardener's own text."""
+        """The stable unit key: the chosen item's data, a typed translated label, or text."""
         data = self._unit_combo.currentData()
         text = self._unit_combo.currentText().strip()
         if data is not None and text == harvest_unit_label(str(data)):
             return str(data)
+        # A German user may type the label they see ("Bund") instead of the
+        # stored key; it must not split the aggregation from "bunch".
+        for unit in UNIT_CHOICES:
+            if text and text == harvest_unit_label(unit):
+                return unit
         return text or "kg"
 
     # ── Test helpers ─────────────────────────────────────────────────────────

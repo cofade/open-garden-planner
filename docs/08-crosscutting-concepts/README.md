@@ -96,14 +96,17 @@ one is `en_US`).
   for numbers and dates lives in `ui/number_fields.py` and `ui/date_fields.py`;
   `scripts/check_import_boundaries.py` fails when a `QT_CORE_ONLY` module reaches a widget
   module through its eager imports.
-- **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
-  in every language (`tests/integration/test_locale_chrome.py`).
+- **Machine-readable data keeps a decimal point; a reader-facing picture follows the language.**
+  `.ogp`, DXF, CSV and clipboard rows keep a decimal point in every language
+  (`tests/integration/test_locale_chrome.py`). An SVG or PDF is a document for a reader: its
+  text (an area label, a dimension, the report's positions and totals) follows the UI language
+  exactly as the canvas does.
 - **In tests** the locale is process-wide state. `conftest._app_locale` starts every test in
   English on a pinned system locale; a test that needs another replaces `i18n._system_locale`
   and calls `load_translator` (the `speak` fixture of `tests/unit/test_app_locale.py`).
 
-Numbers drawn on the plan (dimension lines, vertex labels, the scale bar) still write a decimal
-point. Pitfall: PF-I18-09.
+Numbers on the canvas (dimension lines, vertex labels, the scale bar, measure and constraint
+previews) go through the same formatters. Pitfall: PF-I18-09.
 
 ### Translation rules
 
