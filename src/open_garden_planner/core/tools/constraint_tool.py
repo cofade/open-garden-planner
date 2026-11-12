@@ -35,7 +35,9 @@ from open_garden_planner.core.measure_snapper import (
     find_nearest_anchor,
     get_anchor_points,
 )
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
+from open_garden_planner.core.units import LengthStyle
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -54,7 +56,7 @@ PEN_WIDTH = 2.5
 
 def _distance_preview_text(distance_cm: float) -> str:
     """A constraint drag's distance, in the UI language's decimal mark (#860)."""
-    return f"{format_decimal(distance_cm / 100.0, 2)} m"
+    return length_text(distance_cm, style=LengthStyle.METRES)
 
 
 def _angle_preview_text(angle_deg: float) -> str:
@@ -3960,8 +3962,8 @@ class HorizontalDistanceConstraintTool(ConstraintTool):
 
         h_dist_cm = abs(end_pos.x() - start.x())
         text = QCoreApplication.translate(
-            "HorizontalDistanceConstraintTool", "↔ {d:.2f} m"
-        ).format(d=LocalizedNumber(h_dist_cm / 100.0))
+            "HorizontalDistanceConstraintTool", "↔ {d}"
+        ).format(d=length_text(h_dist_cm, style=LengthStyle.METRES))
 
         mid_x = (start.x() + snapped_end.x()) / 2
         mid_y = start.y()
@@ -4069,8 +4071,8 @@ class VerticalDistanceConstraintTool(ConstraintTool):
 
         v_dist_cm = abs(end_pos.y() - start.y())
         text = QCoreApplication.translate(
-            "VerticalDistanceConstraintTool", "↕ {d:.2f} m"
-        ).format(d=LocalizedNumber(v_dist_cm / 100.0))
+            "VerticalDistanceConstraintTool", "↕ {d}"
+        ).format(d=length_text(v_dist_cm, style=LengthStyle.METRES))
 
         mid_x = start.x()
         mid_y = (start.y() + snapped_end.y()) / 2

@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.i18n import format_decimal, list_separator
+from open_garden_planner.core.measurement_display import length_text as _format_edge_length
 
 from .garden_item import PositionLockMixin
 
@@ -513,18 +514,6 @@ def _format_coordinate(x_cm: float, y_cm: float) -> str:
             f"{format_decimal(y_cm, 1)}) cm")
 
 
-def _format_edge_length(length_cm: float) -> str:
-    """Format an edge length for display.
-
-    Args:
-        length_cm: Length in centimeters
-
-    Returns:
-        Formatted string like "2.35 m" or "45.2 cm"
-    """
-    if length_cm >= 100:
-        return f"{format_decimal(length_cm / 100, 2)} m"
-    return f"{format_decimal(length_cm, 1)} cm"
 
 
 def _edge_length(p1: QPointF, p2: QPointF) -> float:

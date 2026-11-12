@@ -2611,8 +2611,8 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="59" />
-            <source>Edge {d:.2f} m</source>
-            <translation>Arista {d:.2f} m</translation>
+            <source>Edge {d}</source>
+            <translation>Arista {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="86" />
@@ -2687,8 +2687,8 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="60" />
-            <source>{a} edge length: {d:.2f} m</source>
-            <translation>{a} longitud de arista: {d:.2f} m</translation>
+            <source>{a} edge length: {d}</source>
+            <translation>{a} longitud de arista: {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="87" />
@@ -2737,23 +2737,23 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="105" />
-            <source>{a} tangent to {b} (r={d:.2f} m)</source>
-            <translation>{a} tangente a {b} (r={d:.2f} m)</translation>
+            <source>{a} tangent to {b} (r={d})</source>
+            <translation>{a} tangente a {b} (r={d})</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="93" />
-            <source>{a} to {b}: horizontal distance {d:.2f} m</source>
-            <translation>{a} a {b}: distancia horizontal {d:.2f} m</translation>
+            <source>{a} to {b}: horizontal distance {d}</source>
+            <translation>{a} a {b}: distancia horizontal {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="96" />
-            <source>{a} to {b}: vertical distance {d:.2f} m</source>
-            <translation>{a} a {b}: distancia vertical {d:.2f} m</translation>
+            <source>{a} to {b}: vertical distance {d}</source>
+            <translation>{a} a {b}: distancia vertical {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="57" />
-            <source>{a} to {b}: {d:.2f} m</source>
-            <translation>{a} a {b}: {d:.2f} m</translation>
+            <source>{a} to {b}: {d}</source>
+            <translation>{a} a {b}: {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="66" />
@@ -2777,8 +2777,8 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="17" />
-            <source>{d:.2f} m</source>
-            <translation>{d:.2f} m</translation>
+            <source>{d}</source>
+            <translation>{d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="42" />
@@ -7838,8 +7838,8 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="3952" />
-            <source>↔ {d:.2f} m</source>
-            <translation>↔ {d:.2f} m</translation>
+            <source>↔ {d}</source>
+            <translation>↔ {d}</translation>
         </message>
     </context>
     <context>
@@ -15653,8 +15653,8 @@ Open Garden Planner se cerrará cuando comience la instalación.
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="4061" />
-            <source>↕ {d:.2f} m</source>
-            <translation>↕ {d:.2f} m</translation>
+            <source>↕ {d}</source>
+            <translation>↕ {d}</translation>
         </message>
     </context>
     <context>

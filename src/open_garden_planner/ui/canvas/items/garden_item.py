@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from PyQt6.QtWidgets import QMenu
 
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
+from open_garden_planner.core.measurement_display import area_text
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
 from open_garden_planner.ui.canvas.items.halo_text import (
@@ -1618,14 +1619,6 @@ class GardenItemMixin(PositionLockMixin):
         """Return the area in cm². Override in concrete shape items."""
         return None
 
-    @staticmethod
-    def _format_area(area_cm2: float) -> str:
-        """Format area with auto unit switching at 10 000 cm² = 1 m²."""
-        from open_garden_planner.core.i18n import format_decimal
-
-        if area_cm2 >= 10_000:
-            return f"{format_decimal(area_cm2 / 10_000, 2)} m²"
-        return f"{format_decimal(area_cm2, 1)} cm²"
 
     def _update_area_label(self) -> None:
         """Create, update, or remove the area label child item."""
@@ -1641,7 +1634,7 @@ class GardenItemMixin(PositionLockMixin):
         area = self._compute_area_cm2()
         if area is None:
             return
-        text = self._format_area(area)
+        text = area_text(area)
         if self._area_label_item is None:
             from .halo_text import PlanLabelItem
 

@@ -25,6 +25,8 @@ from open_garden_planner.core.constraints import (
 )
 from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+from open_garden_planner.core.measurement_display import length_text
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
 from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem
@@ -542,8 +544,7 @@ class DimensionLineManager:
         self._add_arrowhead(group, dim_b, -nx, -ny, color)
 
         # Distance text
-        dist_m = target_distance / 100.0
-        text_str = f"{format_decimal(dist_m, 2)} m"
+        text_str = length_text(target_distance, style=LengthStyle.METRES)
         text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
@@ -613,8 +614,7 @@ class DimensionLineManager:
         self._add_arrowhead(group, dim_b, -1.0, 0.0, color)  # pointing left
 
         # Distance text
-        dist_m = target_distance / 100.0
-        text_str = f"↔ {format_decimal(dist_m, 2)} m"
+        text_str = "↔ " + length_text(target_distance, style=LengthStyle.METRES)
         text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
@@ -678,8 +678,7 @@ class DimensionLineManager:
         self._add_arrowhead(group, dim_b, 0.0, -1.0, color)  # pointing up
 
         # Distance text
-        dist_m = target_distance / 100.0
-        text_str = f"↕ {format_decimal(dist_m, 2)} m"
+        text_str = "↕ " + length_text(target_distance, style=LengthStyle.METRES)
         text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)

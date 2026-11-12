@@ -1,6 +1,8 @@
+
 """Tests for US-6.4: Visual scale bar on canvas."""
 
 
+from open_garden_planner.core.units import UnitSystem, nice_distances
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
@@ -64,7 +66,7 @@ class TestScaleBarDistancePicking:
         # At default zoom (1.0), target ~150px => 150cm = 1.5m
         # Closest nice distance should be 100cm or 200cm
         dist = view._pick_scale_bar_distance()
-        assert dist in CanvasView._SCALE_BAR_NICE_DISTANCES
+        assert dist in nice_distances(UnitSystem.METRIC)
 
     def test_zoomed_in_picks_smaller_distance(self, qtbot) -> None:
         scene = CanvasScene()

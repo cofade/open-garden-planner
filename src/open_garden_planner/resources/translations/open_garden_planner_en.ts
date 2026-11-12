@@ -2627,8 +2627,8 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="59" />
-            <source>Edge {d:.2f} m</source>
-            <translation>Edge {d:.2f} m</translation>
+            <source>Edge {d}</source>
+            <translation>Edge {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="86" />
@@ -2703,8 +2703,8 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="60" />
-            <source>{a} edge length: {d:.2f} m</source>
-            <translation>{a} edge length: {d:.2f} m</translation>
+            <source>{a} edge length: {d}</source>
+            <translation>{a} edge length: {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="87" />
@@ -2753,23 +2753,23 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="105" />
-            <source>{a} tangent to {b} (r={d:.2f} m)</source>
-            <translation>{a} tangent to {b} (r={d:.2f} m)</translation>
+            <source>{a} tangent to {b} (r={d})</source>
+            <translation>{a} tangent to {b} (r={d})</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="93" />
-            <source>{a} to {b}: horizontal distance {d:.2f} m</source>
-            <translation>{a} to {b}: horizontal distance {d:.2f} m</translation>
+            <source>{a} to {b}: horizontal distance {d}</source>
+            <translation>{a} to {b}: horizontal distance {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="96" />
-            <source>{a} to {b}: vertical distance {d:.2f} m</source>
-            <translation>{a} to {b}: vertical distance {d:.2f} m</translation>
+            <source>{a} to {b}: vertical distance {d}</source>
+            <translation>{a} to {b}: vertical distance {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="57" />
-            <source>{a} to {b}: {d:.2f} m</source>
-            <translation>{a} to {b}: {d:.2f} m</translation>
+            <source>{a} to {b}: {d}</source>
+            <translation>{a} to {b}: {d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="66" />
@@ -2787,15 +2787,15 @@
             <translation>{a} – {b} – {c}   {detail}</translation>
         </message>
         <message>
-            <source>{a} ↔ H-dist {b}: {d:.2f} m</source>
+            <source>{a} ↔ H-dist {b}: {d}</source>
             <translation type="vanished" />
         </message>
         <message>
-            <source>{a} ↔ {b}: {d:.2f} m</source>
-            <translation type="vanished">{a} ↔ {b}: {d:.2f} m</translation>
+            <source>{a} ↔ {b}: {d}</source>
+            <translation type="vanished">{a} ↔ {b}: {d}</translation>
         </message>
         <message>
-            <source>{a} ↕ V-dist {b}: {d:.2f} m</source>
+            <source>{a} ↕ V-dist {b}: {d}</source>
             <translation type="vanished" />
         </message>
         <message>
@@ -2805,8 +2805,8 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="17" />
-            <source>{d:.2f} m</source>
-            <translation>{d:.2f} m</translation>
+            <source>{d}</source>
+            <translation>{d}</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="42" />
@@ -8009,8 +8009,8 @@ Please save your project to a permanent location.</translation>
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="3952" />
-            <source>↔ {d:.2f} m</source>
-            <translation>↔ {d:.2f} m</translation>
+            <source>↔ {d}</source>
+            <translation>↔ {d}</translation>
         </message>
     </context>
     <context>
@@ -15888,8 +15888,8 @@ Continue?</translation>
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="4061" />
-            <source>↕ {d:.2f} m</source>
-            <translation>↕ {d:.2f} m</translation>
+            <source>↕ {d}</source>
+            <translation>↕ {d}</translation>
         </message>
     </context>
     <context>

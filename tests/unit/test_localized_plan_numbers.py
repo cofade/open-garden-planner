@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from open_garden_planner.core.i18n import set_current_language
+from open_garden_planner.core.measurement_display import area_text
 from open_garden_planner.core.measurements import format_scale_distance
 from open_garden_planner.services.pdf_report_service import (
     _shopping_list_rows,
@@ -29,11 +30,10 @@ def test_the_scale_bar_and_ruler_use_the_german_decimal_comma(german) -> None:
 
 
 def test_area_and_edge_labels_use_the_german_decimal_comma(german) -> None:
-    from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
     from open_garden_planner.ui.canvas.items.vertex_handles import _format_edge_length
 
-    assert GardenItemMixin._format_area(15_000) == "1,50 m²"
-    assert GardenItemMixin._format_area(150) == "150,0 cm²"
+    assert area_text(15_000) == "1,50 m²"
+    assert area_text(150) == "150,0 cm²"
     assert _format_edge_length(250) == "2,50 m"
 
 

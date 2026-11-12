@@ -2603,7 +2603,7 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="59" />
-            <source>Edge {d:.2f} m</source>
+            <source>Edge {d}</source>
             <translation>Ребро: {d:.2f} м</translation>
         </message>
         <message>
@@ -2679,7 +2679,7 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="60" />
-            <source>{a} edge length: {d:.2f} m</source>
+            <source>{a} edge length: {d}</source>
             <translation>Длина ребра {a}: {d:.2f} м</translation>
         </message>
         <message>
@@ -2729,22 +2729,22 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="105" />
-            <source>{a} tangent to {b} (r={d:.2f} m)</source>
+            <source>{a} tangent to {b} (r={d})</source>
             <translation>{a} касается {b} (радиус r={d:.2f} м)</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="93" />
-            <source>{a} to {b}: horizontal distance {d:.2f} m</source>
+            <source>{a} to {b}: horizontal distance {d}</source>
             <translation>Горизонтальное расстояние от {a} до {b}: {d:.2f} м</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="96" />
-            <source>{a} to {b}: vertical distance {d:.2f} m</source>
+            <source>{a} to {b}: vertical distance {d}</source>
             <translation>Вертикальное расстояние от {a} до {b}: {d:.2f} м</translation>
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="57" />
-            <source>{a} to {b}: {d:.2f} m</source>
+            <source>{a} to {b}: {d}</source>
             <translation>Расстояние от {a} до {b}: {d:.2f} м</translation>
         </message>
         <message>
@@ -2763,15 +2763,15 @@
             <translation>{a} – {b} – {c}   {detail}</translation>
         </message>
         <message>
-            <source>{a} ↔ H-dist {b}: {d:.2f} m</source>
+            <source>{a} ↔ H-dist {b}: {d}</source>
             <translation type="vanished">{a} ↔ горизонтальное расстояние до {b}: {d:.2f} м</translation>
         </message>
         <message>
-            <source>{a} ↔ {b}: {d:.2f} m</source>
+            <source>{a} ↔ {b}: {d}</source>
             <translation type="vanished">{a} ↔ {b}: {d:.2f} м</translation>
         </message>
         <message>
-            <source>{a} ↕ V-dist {b}: {d:.2f} m</source>
+            <source>{a} ↕ V-dist {b}: {d}</source>
             <translation type="vanished">{a} ↕ вертикальное расстояние до {b}: {d:.2f} м</translation>
         </message>
         <message>
@@ -2781,7 +2781,7 @@
         </message>
         <message>
             <location filename="../../ui/constraint_presentation.py" line="17" />
-            <source>{d:.2f} m</source>
+            <source>{d}</source>
             <translation>{d:.2f} м</translation>
         </message>
         <message>
@@ -7965,8 +7965,8 @@ Please save your project to a permanent location.</source>
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="3952" />
-            <source>↔ {d:.2f} m</source>
-            <translation>↔ {d:.2f} m</translation>
+            <source>↔ {d}</source>
+            <translation>↔ {d}</translation>
         </message>
     </context>
     <context>
@@ -15805,7 +15805,7 @@ Open Garden Planner закроется, когда начнётся устано
         </message>
         <message>
             <location filename="../../core/tools/constraint_tool.py" line="4061" />
-            <source>↕ {d:.2f} m</source>
+            <source>↕ {d}</source>
             <translation>↕ {d:.2f} м</translation>
         </message>
     </context>

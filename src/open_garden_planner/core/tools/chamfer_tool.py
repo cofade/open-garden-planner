@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QApplication, QInputDialog
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
 from open_garden_planner.core.commands import ChamferCornerCommand
-from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditRefusal,
@@ -20,6 +20,7 @@ from open_garden_planner.core.tools.corner_edit_base import (
     corner_edit_refusal,
     rebuild_with_corner_replaced,
 )
+from open_garden_planner.core.units import LengthStyle
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -50,8 +51,8 @@ class ChamferTool(CornerEditTool):
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "ChamferTool",
-                "Chamfer distance: {distance:.1f} cm — press D to change",
-            ).format(distance=LocalizedNumber(self._distance))
+                "Chamfer distance: {distance} — press D to change",
+            ).format(distance=length_text(self._distance, style=LengthStyle.CENTIMETRES))
             self._view.set_status_message(msg)
         # Defer the modal dialog onto the next event-loop tick — see the
         # matching note in `FilletTool.activate()`.

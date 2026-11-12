@@ -4,9 +4,10 @@ from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsTextItem
 
-from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.measure_snapper import AnchorPoint, find_nearest_anchor
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
+from open_garden_planner.core.units import LengthStyle
 
 # Visual constants for the snap indicator
 SNAP_INDICATOR_RADIUS = 8.0  # Scene units (cm)
@@ -269,8 +270,7 @@ class MeasureTool(BaseTool):
 
         # Show distance preview
         distance_cm = QLineF(start, end).length()
-        distance_m = distance_cm / 100.0
-        distance_text = f"{format_decimal(distance_m, 2)} m"
+        distance_text = length_text(distance_cm, style=LengthStyle.METRES)
 
         text_item = self._create_text_item(distance_text, start, end)
         self._graphics_items.append(text_item)
@@ -322,8 +322,7 @@ class MeasureTool(BaseTool):
 
         # Show final distance
         distance_cm = QLineF(start, end).length()
-        distance_m = distance_cm / 100.0
-        distance_text = f"{format_decimal(distance_m, 2)} m"
+        distance_text = length_text(distance_cm, style=LengthStyle.METRES)
 
         text_item = self._create_text_item(distance_text, start, end)
         self._graphics_items.append(text_item)
