@@ -1106,7 +1106,7 @@ class TaskListView(BaseModel):
         description="What the answer is based on: 'full' when a frost date is "
         "known, or 'no_frost_dates' when the plan has no geo-location. The "
         "latter still returns every non-calendar task (manual, succession, "
-        "soil) — it never means 'nothing to do'."
+        "soil, frost) — it never means 'nothing to do'."
     )
     total: int = Field(description="Number of tasks in `tasks` after filtering.")
     tasks: list[TaskView] = Field(

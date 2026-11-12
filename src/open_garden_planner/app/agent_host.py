@@ -98,7 +98,6 @@ def _parse_agent_date(
     quietly ignored, because a wrong reference date produces a confidently wrong
     current_entry.
     """
-    import datetime
 
     if value is None or value == "":
         return fallback
@@ -1327,7 +1326,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_succession_plan`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import get_succession_plan_for_agent
 
@@ -1364,7 +1362,6 @@ class AgentHost:
     ) -> list[dict[str, Any]]:
         """Main-thread body of the read-only ``find_succession_gaps`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import find_succession_gaps_for_agent
 
@@ -1556,7 +1553,6 @@ class AgentHost:
         ``succession_plans_changed`` signal chain, not by a duplicated call here.
         """
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import (
             SuccessionPlanError,
@@ -1641,7 +1637,6 @@ class AgentHost:
 
     def _agent_reference_date(self, today: str | None) -> datetime.date:
         """Parse the tool's injected reference date, defaulting to the wall clock."""
-        import datetime
 
         return _parse_agent_date(today, datetime.date.today(), "today")
 
@@ -1677,16 +1672,12 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_tasks`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import (
             TASK_SOURCES,
             get_tasks_for_agent,
         )
-        from open_garden_planner.services.task_generator import (
-            generate_for_date_window,
-            generate_frost_tasks,
-        )
+        from open_garden_planner.services.task_generator import generate_for_date_window
 
         if source is not None and source not in TASK_SOURCES:
             raise ValueError(
@@ -1711,24 +1702,12 @@ class AgentHost:
         state = host._agent_build_task_state(
             reference, actionable_only=from_date is None and to_date is None,
         )
-        tasks = generate_for_date_window(
-            state,
-            start or reference - datetime.timedelta(days=30),
-            end or reference + datetime.timedelta(days=30),
-        )
-        # A live frost forecast names a REAL day (#859): keep its actionable
-        # alerts even when the agent's simulated window is elsewhere, exactly as
-        # the GUI's task list does. A year-bucketed calendar read does not.
-        from dataclasses import replace
-
-        listed = {task.task_id for task in tasks}
-        tasks.extend(
-            task
-            for task in generate_frost_tasks(replace(state, actionable_only=True))
-            if task.task_id not in listed
-        )
         view = get_tasks_for_agent(
-            tasks,
+            generate_for_date_window(
+                state,
+                start or reference - datetime.timedelta(days=30),
+                end or reference + datetime.timedelta(days=30),
+            ),
             today=reference,
             task_states=host._project_manager.task_states,
             from_date=start,
@@ -1761,7 +1740,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_task_calendar`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import get_task_calendar_for_agent
         from open_garden_planner.services.task_generator import generate_for_date_window
@@ -1837,7 +1815,6 @@ class AgentHost:
         stack. One command either way, so one call is exactly one undo step.
         """
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.schema import ManualTaskResult
         from open_garden_planner.core.commands import (
@@ -2213,7 +2190,6 @@ class AgentHost:
         badges and the dashboard all agree with the new reading.
         """
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import (
             SoilTestError,

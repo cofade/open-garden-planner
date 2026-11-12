@@ -832,6 +832,10 @@ def generate_actionable_for_surface(
     tasks = generate_for_date_window(
         replace(state, actionable_only=False), span_start, span_end
     )
+    # Frost alerts are re-added below from their own generator, which applies the
+    # wall-day urgency rule. The window pass ran with ``actionable_only=False``,
+    # so leaving its frost tasks in could leak a non-actionable alert.
+    tasks = [task for task in tasks if task.source != "frost"]
 
     # Manual tasks are added from their OWN generator, not harvested from the
     # date-window pass: they carry absolute dates, so the span above drops a

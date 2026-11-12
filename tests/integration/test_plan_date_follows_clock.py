@@ -199,8 +199,11 @@ class TestFrostAlertsAreLive:
         labels = [label.text() for label in window.tasks_view.findChildren(QLabel)]
         assert sum(text.startswith("Frost") for text in labels) == 1
         # The bucket is the proof: a plan-day bucket would read "Overdue (1)"
-        # for a 2026 alert on a 2031 plan.
-        assert "This Week (1)" in labels
+        # for a 2026 alert on a 2031 plan. The alert is tomorrow, so the wall
+        # day's own bucket may read "Today" or "This Week".
+        assert any(
+            text in ("Today (1)", "This Week (1)") for text in labels
+        )
         assert "Overdue (1)" not in labels
 
 

@@ -835,8 +835,7 @@ def get_tasks_for_agent(
         has_frost_dates: False when the plan has no geo-location, which sets
             ``coverage`` to ``'no_frost_dates'``. The tasks themselves are
             unaffected: the calendar generator already returned nothing.
-        window_days: Half-width of the default window. A live frost alert is
-            exempt from the window: it names a real calendar day (#859).
+        window_days: Half-width of the default window.
 
     Returns:
         A :class:`TaskListView`. Ordering is ``(start_date, task_id)`` so two
@@ -855,9 +854,7 @@ def get_tasks_for_agent(
             continue
         if species_key is not None and (task.species_key or "") != species_key:
             continue
-        # A live frost alert names a REAL day (#859), not a day in the plan's
-        # simulated window: keep it, exactly as the GUI's task list does.
-        if task.source != "frost" and not _matches_window(task, start, end):
+        if not _matches_window(task, start, end):
             continue
         view = _task_view(task, today=today, task_states=states)
         if not include_dismissed and view.status in HIDDEN_WHEN_NOT_INCLUDE_DISMISSED:

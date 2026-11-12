@@ -735,7 +735,7 @@ Black-box view of the plan-level data and the one display vocabulary each surfac
 | `ui/views/task_text.py` | The one row text for a generated task, shared by the Tasks tab and the planting calendar's dashboard ("Harvest Rosemary", not "Rosemary"). | task type, name → row text |
 | `ui/dialogs/north_orientation_dialog.py` | `File > Set North Orientation…`: a clickable/draggable compass plus a numeric angle, with the two controls kept in sync. Returns one validated angle; the caller wraps it in `SetPlanNorthCommand` (one undo step). | current angle → accepted angle |
 
-The north-change fan-out is §6.12; the canvas arrow is a viewport overlay (§8.9.16) and the PDF draws its own with the same angle.
+The north-change fan-out is §6.8; the canvas arrow is a viewport overlay (§8.9.16) and the PDF draws its own with the same angle.
 
 
 ## Developer quality and release tooling
