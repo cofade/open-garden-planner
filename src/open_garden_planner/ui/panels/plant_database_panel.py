@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.plant_cycle_label import plant_cycle_label
-from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE, plan_day_of
 from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.models.plant_data import (
     FlowerType,
@@ -1311,7 +1311,11 @@ class PlantDatabasePanel(QWidget):
             self.age_label.setText("")
             return
 
-        today = date.today()
+        # The plant's age follows the PLAN's day (#859): the canvas and 3D grow
+        # it at that date, so a wall-clock age would contradict the tree drawn
+        # beside the label. A panel with no scene reads the wall date.
+        item = self._current_plant_item
+        today = plan_day_of(item.scene() if item is not None else None)
         if planting_date > today:
             self.age_label.setText(self.tr("(future)"))
             return

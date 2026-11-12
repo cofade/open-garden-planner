@@ -133,6 +133,39 @@ class TestDaylightWindow:
         assert float(minutes.max()) == 0.0
 
 
+class TestPlanNorth:
+    def test_the_plan_north_turns_the_heatmap(self) -> None:
+        """#663: a caster's daily map follows the plan frame, not just the clock."""
+        day = date(2026, 6, 21)
+        north_up = compute_heatmap(
+            WALL_CASTERS, BERLIN_LAT, BERLIN_LON, day, POINT_GRID,
+            point_rasterizer_reference, north_angle_deg=0.0,
+        )
+        north_down = compute_heatmap(
+            WALL_CASTERS, BERLIN_LAT, BERLIN_LON, day, POINT_GRID,
+            point_rasterizer_reference, north_angle_deg=180.0,
+        )
+        assert north_up is not None and north_down is not None
+        # The toy point is 50 cm NORTH of the wall in the scene. With the
+        # plan's north down, the sun's path is turned 180° and that side is
+        # the sunlit one, so the point collects clearly more sun.
+        assert float(north_up[0, 0]) == pytest.approx(540.0, abs=15.0)
+        assert float(north_down[0, 0]) > float(north_up[0, 0]) + 60.0
+
+    def test_the_same_wall_turns_the_map_a_quarter_turn(self) -> None:
+        day = date(2026, 6, 21)
+        plain = compute_heatmap(
+            WALL_CASTERS, BERLIN_LAT, BERLIN_LON, day, POINT_GRID,
+            point_rasterizer_reference, north_angle_deg=0.0,
+        )
+        turned = compute_heatmap(
+            WALL_CASTERS, BERLIN_LAT, BERLIN_LON, day, POINT_GRID,
+            point_rasterizer_reference, north_angle_deg=90.0,
+        )
+        assert plain is not None and turned is not None
+        assert float(turned[0, 0]) != float(plain[0, 0])
+
+
 class TestBands:
     def test_thresholds_are_the_documented_bands(self) -> None:
         assert BAND_THRESHOLDS_MINUTES == (120, 240, 360)

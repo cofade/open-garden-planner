@@ -438,6 +438,7 @@ The canvas draws a **scale bar** in the bottom-right corner and **rulers** along
 |---------------|----------|----------------|
 | Rulers (top & left) | top 20 px, left 20 px | `CanvasView.RULER_SIZE = 20` |
 | Scale bar | bottom-right | `CanvasView.SCALE_BAR_RESERVED_PX = 40` |
+| North arrow (#663) | top-right, below the top ruler | 26 px box + 14 px margin (`CanvasView._draw_north_arrow`) |
 
 ```python
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -9005,8 +9006,12 @@ The date-present set drives companion/spacing/capacity, guild and data diagnosti
 independently of drawing-layer visibility. PDF data pages retain hidden beds and
 date-present plants. Solar receivers/casters and rendered overlays additionally
 honor layer visibility. Use CanvasScene.is_present for data and isVisible for drawing.
-Sprite growth, shadow casters, heatmaps and 3D all use the plan date, while task
-reminders retain their real-world reference day. Plant task windows stop at removal;
+Sprite growth, shadow casters, heatmaps and 3D all use the plan date. So do the GUI's
+task surfaces: the Tasks tab's buckets (and its Done/Snooze writes), the planting
+calendar's "Today" and dashboard, and a new manual task's default read the plan clock.
+`build_plan_state` still accepts an explicit reference day; its wall-clock default is
+used only by a caller that supplies none (an agent read passes its own). Plant task
+windows stop at removal;
 species aggregation keeps the schedule while any instance remains. Manual/succession
 dates and Season Manager file copies retain their existing behavior.
 

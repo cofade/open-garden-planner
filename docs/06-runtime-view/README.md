@@ -942,13 +942,15 @@ sequenceDiagram
 A failed preparation preserves the previous scene, history and autosave. Exporting
 a template flushes pending editors, snapshots without journal mutation, filters and
 atomically writes a separate file. It leaves the current file and dirty state intact.
+
 **File > Open of a bundled example takes the same identity (#865):** `_load_project_file`
 asks `core.templates.is_bundled_example` and routes a known bundled path through
 `as_template=True`, so the sequence above runs — `current_file` None, Save As, no Recent
 entry, the sidecar's title on the report cover, and the showcase moment. The Agent API's
 `open_plan` calls the same path and returns `file_path: null` with `opened_as_copy: true`
-for that case; `save_plan` then refuses without an explicit path, exactly as the GUI's
-Save opens Save As.
+for that case. `save_plan` without an explicit path then refuses (an agent has no Save
+dialog); the GUI's Save opens Save As instead.
+
 The public catalog resource reads only bundled sidecars and never opens a document.
 The catalog selects a shipped language-specific plan when available. Before normal
 preparation, `example_copy_plan` retains public location, fictional soil records

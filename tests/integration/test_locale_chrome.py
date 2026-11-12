@@ -8,9 +8,9 @@ name in a status message.
 
 The other half of the same rule is pinned here too: machine-readable data keeps
 its decimal point, while a reader-facing picture follows the UI language. The
-plan file, the DXF and the CSV exports are byte-for-byte the same under an
-English and a German locale; an SVG's geometry is the same and its text (an
-area label) is not.
+plan file is byte-for-byte the same under an English and a German locale; the
+DXF and CSV exports keep a decimal point (their own GUIDs and timestamps aside),
+and an SVG's geometry is the same while its text (an area label) is not.
 """
 
 from __future__ import annotations
@@ -268,7 +268,7 @@ def test_the_plan_file_is_the_same_in_every_locale(qtbot, speak, tmp_path: Path)
     assert widths == [120.125, 315.5]
 
 
-def test_the_svg_export_is_the_same_in_every_locale(qtbot, speak, tmp_path: Path) -> None:
+def test_the_svg_geometry_is_the_same_in_every_locale(qtbot, speak, tmp_path: Path) -> None:
     exported = {}
     for language, system in (("en", "de_DE"), ("de", "en_US")):
         speak(language, system)
@@ -276,6 +276,7 @@ def test_the_svg_export_is_the_same_in_every_locale(qtbot, speak, tmp_path: Path
         ExportService.export_to_svg(_plan(), path, output_width_cm=10.0)
         exported[language] = path.read_bytes()
     assert exported["en"] == exported["de"]
+    assert b"M500.25,300.75" in exported["en"] and b"L620.375,300.75" in exported["en"]
     assert b"," not in exported["en"].split(b"viewBox=")[1].split(b'"')[1]
 
 
@@ -302,6 +303,16 @@ def test_the_svg_picture_localizes_a_plan_label_but_keeps_its_geometry(
 
     view_box = re.compile(r'viewBox="([^"]+)"')
     assert view_box.search(texts["en"]).group(1) == view_box.search(texts["de"]).group(1)
+
+
+def test_the_dxf_export_keeps_a_decimal_point_in_a_german_ui(qtbot, speak, tmp_path: Path) -> None:
+    from open_garden_planner.services.dxf_service import DxfExportService
+
+    speak("de", "en_US")
+    path = tmp_path / "plan.dxf"
+    DxfExportService.export(_plan(), path)
+    text = path.read_text(encoding="utf-8")
+    assert "155.8" in text and "155,8" not in text
 
 
 def test_csv_exports_keep_a_decimal_point_in_a_german_ui(qtbot, speak, tmp_path: Path) -> None:

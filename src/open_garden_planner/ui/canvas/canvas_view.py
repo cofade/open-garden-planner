@@ -4958,7 +4958,7 @@ class CanvasView(QGraphicsView):
             return
         size = 26.0
         margin = 14.0
-        top = margin + (20.0 if self._guides_visible else 0.0)
+        top = margin + (float(self.RULER_SIZE) if self._guides_visible else 0.0)
         centre = QPointF(viewport.width() - margin - size / 2.0, top + size / 2.0)
         outline = QColor(self._scale_bar_outline)
         fg = QColor(self._scale_bar_fg)

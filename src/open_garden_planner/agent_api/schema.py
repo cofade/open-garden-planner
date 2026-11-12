@@ -349,8 +349,9 @@ class RenderMeta(BaseModel):
         "in this image: "
         "px_x = (x_cm - region_x_cm) * px_per_cm; "
         "px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm "
-        "(the image is Y-up/CAD-style like the live canvas view — north at the "
-        "top — while pixel rows count top-down, so a larger scene y maps to a "
+        "(the image is Y-up/CAD-style like the live canvas view — plan-up at the "
+        "top; true north may be turned by the plan's north orientation — while "
+        "pixel rows count top-down, so a larger scene y maps to a "
         "smaller pixel row)."
     )
     layers_rendered: list[str] | None = Field(

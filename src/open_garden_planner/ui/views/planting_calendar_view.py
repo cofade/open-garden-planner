@@ -1820,7 +1820,13 @@ class PlantingCalendarView(QWidget):
 
     @staticmethod
     def _frost_alert_actionable(alert: Any) -> bool:
-        """Whether a frost alert falls inside the actionable urgency window."""
+        """Whether a frost alert falls inside the actionable urgency window.
+
+        A frost alert comes from the LIVE weather service, whose dates are real
+        calendar days, not the plan's simulated day: it is classified against
+        the wall clock on purpose (the #859 plan-day rule covers the plan's own
+        tasks, not a real-world forecast).
+        """
         try:
             d = datetime.date.fromisoformat(alert.date)
         except (ValueError, AttributeError):

@@ -71,7 +71,7 @@ src/open_garden_planner/
 │   │   └── resolve.py            #   resolve_sprite(): species / category / type → sprite and recipe — the ONE rule for 2D and 3D
 │   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028);
 │   │                             #   spacing storeys and where a spacing warning is drawn (#786)
-│   ├── plan_north.py             # Qt-free plan north metadata: validation + the ONE scene_azimuth frame rule (#663, ADR-037 addendum)
+│   ├── plan_north.py             # Qt-free plan north metadata: validation + the plan angle (#663, ADR-037 addendum); the frame rule is core/solar.scene_azimuth
 │   ├── harvest_units.py          # Display names for the harvest log's stable unit keys (#863, #899)
 │   ├── plant_cycle_label.py      # The one translated Annual/Biennial/Perennial vocabulary (#869)
 │   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.15)
@@ -728,7 +728,7 @@ Black-box view of the plan-level data and the one display vocabulary each surfac
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
-| `core/plan_north.py` | True north on the drawing, degrees clockwise from plan-up (0 = up, 135 = down-right). `normalize_north_angle` is the one validity rule (rejects bool, non-number, non-finite); `north_angle_from_plan` reads a file value at load; `north_direction` is the unit vector the canvas/PDF arrows draw. Additive plan metadata; `FILE_VERSION` unchanged. | number → angle in [0, 360); plan dict → angle; angle → vector |
+| `core/plan_north.py` | True north on the drawing, degrees clockwise from plan-up (0 = up, 135 = down-right). `normalize_north_angle` is the one validity rule (rejects bool, non-number, non-finite); `north_angle_from_plan` reads a file value at load; `north_direction` is the unit vector the canvas arrow draws (the PDF rotates its own arrow). Additive plan metadata; `FILE_VERSION` unchanged. The compass→scene rule itself lives in `core.solar.scene_azimuth`. | number → angle in [0, 360); plan dict → angle; angle → vector |
 | `core/solar.py` (`scene_azimuth`) | The ONE compass→scene rule: `(azimuth + north) % 360`. Every solar consumer (2D shadow, heatmap sampling, plant exposure diagnostics, 3D light, sun path/compass, PDF arrow) calls it once; no consumer applies the inverse. | compass azimuth, plan north → scene bearing |
 | `core/harvest_units.py` | Display names for the harvest log's stable unit keys (`kg`, `g`, `pcs`, `bunch`, `L`); an unknown/custom unit is shown as typed. The stored key and the CSV never change. | unit key → translated label |
 | `core/plant_cycle_label.py` | The one translated Annual/Biennial/Perennial vocabulary for the plant list, Plant Details, the custom-plant table and the plant search; an unknown cycle shows the caller's placeholder, not the canvas object type. | cycle value → translated label |

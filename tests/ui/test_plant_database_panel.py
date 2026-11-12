@@ -92,6 +92,30 @@ class TestPlantProfilePicture:
         assert drawn_w >= 72 and drawn_h >= 72
 
 
+class TestPlantAge:
+    def test_the_age_label_follows_the_plan_day(self, qtbot) -> None:
+        """#859: a plan standing in 2031 must not show a planted tree as future."""
+        from datetime import date
+
+        from open_garden_planner.core.sim_clock import SimClock
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(date(2031, 3, 1))
+        scene.bind_plan_clock(clock)
+        plant = _plant(
+            PlantSpeciesData(scientific_name="Solanum lycopersicum", common_name="Tomato")
+        )
+        plant.metadata["plant_instance"] = {"planting_date": "2031-01-01"}
+        scene.addItem(plant)
+
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        panel.set_selected_items([plant])
+        assert "(1 mo)" in panel.age_label.text()
+
+
 class TestMissingDimensionsShowDash:
     """Missing dimension/pH/hardiness traits render as "—", not "0 cm"/"0"/"0.0" (#231).
 

@@ -426,4 +426,3 @@ path, so Save wrote into the installation and the autosave file landed beside it
 fix routes a known bundled path through `as_template=True`; the test asserts the
 bundle bytes and mtime are unchanged after a save, the title is the sidecar name, and
 Recent is untouched.
-

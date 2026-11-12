@@ -1258,7 +1258,7 @@ Both stories write stored document state rather than scene state, joining D3.2's
 - **One canonical mismatch path, extracted not copied.** `get_mismatched_plants` is now a projection of a new `get_mismatch_details`, which yields `(reason_code, display_text)` pairs. **Its signature and both in-app callers (`tasks_view`, `canvas_view`) are unchanged**, and a test pins the projection as behaviour-identical. The alternative — inferring a code from the finished sentence in the agent layer — would have been a second implementation of the judgement, which is how the Tasks tab and the planting calendar came to disagree in #227/#228.
 - **Agent task-status writes are REFUSED, deliberately.** Dismissal and completion are a `task_status` mutation, not a scene edit, so D2's undo contract does not obviously cover them — and on inspection `ProjectManager.set_task_status` is **not a command**: it mutates in place, emits signals and calls `mark_dirty()`. There is no `SetTaskStatusCommand`. Allowing it would have made it **the first agent write a single Ctrl+Z cannot reverse**, breaking the contract this ADR states. So `edit_manual_task` / `delete_manual_task` refuse a generated task by name (it is derived state, rebuilt on every read, so editing it would be undone by the next call), and no agent tool mutates task status at all. The user does that in the Tasks tab. *Adding `SetTaskStatusCommand` is deliberately out of scope* — it touches the subsystem invariant 6 guards and `task_completions` scar tissue, and would grow the package into a third domain.
 - **Hidden statuses match the Tasks tab exactly.** `get_tasks` hides `archived` **and** `dismissed` by default, because `ui/views/tasks_view.py` hides exactly those two. Hiding only `dismissed` — the first implementation — would have made the agent a third surface disagreeing with the other two about one shared store, which is the defect invariant 6 exists to prevent. `include_dismissed=True` reveals both.
-- **`build_plan_state` grew a `today` parameter, defaulting to the wall clock.** Reproducibility was an acceptance criterion and the seam was in the wrong place: every generator and `classify_urgency` already read `PlanState.today`, and only `build_plan_state` called `date.today()` itself. One parameter with a wall-clock default leaves both GUI callers untouched. Parsing and refusal of a malformed value stay in `application.py::_parse_agent_date`, the helper D3.2 introduced.
+- **`build_plan_state` grew a `today` parameter, defaulting to the wall clock.** Reproducibility was an acceptance criterion and the seam was in the wrong place: every generator and `classify_urgency` already read `PlanState.today`, and only `build_plan_state` called `date.today()` itself. One parameter; the GUI callers pass the plan's day (#859) and an agent passes its own reference day. Parsing and refusal of a malformed value stay in `application.py::_parse_agent_date`, the helper D3.2 introduced.
 
 **Cross-refs:** ADR-034 (D3.3/D3.4 addenda — the localisation convention), §8.19, §8.14/ADR-017 (`is_bed_type` gates every soil read and write, so a TRELLIS is refused), issues #332, #333, §11.4.
 
@@ -9272,8 +9272,11 @@ could disagree with the existing date-projected 3D canopy.
 - Both 2D sprites and the existing shadow/heatmap/3D collectors use the shared date
   with the unchanged US-E8 growth model. Sprites invalidate their cached paint after
   a scrub; mature drawing geometry and spacing reservations remain unchanged.
-- Task reminders keep their real-world reference day (or an explicit API reference
-  day). Historical calendar windows end before removal; actionable plant tasks stop
+- Task reminders use the plan's day: the Tasks tab's buckets and Done/Snooze writes,
+  the calendar dashboard's "Today", and a new manual task's default read the plan clock
+  (#859). An agent read may pass an explicit API reference day; `build_plan_state`'s
+  wall-clock default applies only to a caller that supplies neither.
+  Historical calendar windows end before removal; actionable plant tasks stop
   once all instances of that species are removed. A surviving undated/later-removal
   instance keeps the species schedule. Future sowing tasks are useful before planting
   and are retained. Manual tasks and succession plans retain their independent dates.
@@ -13209,8 +13212,9 @@ text therefore take none of the three from it (decisions 7 to 9). The first vers
 ADR claimed here that the fields "all set" a display format; the camera tour's four did
 not, and no field set a week start. The test session
 has the application's locale like the app does (`conftest._app_locale`); before, it ran
-in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
-labels, the scale bar) still use a decimal point and are the canvas's next step.
+in whatever the machine spoke. Numbers drawn on the plan (dimension lines, vertex labels,
+the scale bar) **still used a decimal point when this ADR was written**; the plan-truth
+addendum below (decision 10) is the later decision that changed them.
 
 Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Locale";
 FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
