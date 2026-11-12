@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsLineItem,
@@ -88,7 +87,8 @@ class DistanceInputDialog(QDialog):
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(0.01, 999.99)
         self._spin.setDecimals(2)
         self._spin.setSuffix(" m")
@@ -101,8 +101,8 @@ class DistanceInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "DistanceInputDialog",
-                "Current distance: {distance:.2f} m",
-            ).format(distance=LocalizedNumber(current_distance_cm / 100.0))
+                "Current distance: {distance}",
+            ).format(distance=length_text(current_distance_cm, style=LengthStyle.METRES))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -1061,7 +1061,8 @@ class AngleInputDialog(QDialog):
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(1.0, 179.0)
         self._spin.setDecimals(1)
         self._spin.setSuffix("°")
@@ -3830,7 +3831,8 @@ class HDistanceInputDialog(QDialog):
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(0.01, 999.99)
         self._spin.setDecimals(2)
         self._spin.setSuffix(" m")
@@ -3842,8 +3844,8 @@ class HDistanceInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "HDistanceInputDialog",
-                "Current horizontal distance: {distance:.2f} m",
-            ).format(distance=LocalizedNumber(current_h_dist_cm / 100.0))
+                "Current horizontal distance: {distance}",
+            ).format(distance=length_text(current_h_dist_cm, style=LengthStyle.METRES))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3880,7 +3882,8 @@ class VDistanceInputDialog(QDialog):
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(0.01, 999.99)
         self._spin.setDecimals(2)
         self._spin.setSuffix(" m")
@@ -3892,8 +3895,8 @@ class VDistanceInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "VDistanceInputDialog",
-                "Current vertical distance: {distance:.2f} m",
-            ).format(distance=LocalizedNumber(current_v_dist_cm / 100.0))
+                "Current vertical distance: {distance}",
+            ).format(distance=length_text(current_v_dist_cm, style=LengthStyle.METRES))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")

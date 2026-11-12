@@ -23,6 +23,7 @@ class LengthStyle(Enum):
     COORDINATE = auto()
     RULER = auto()
     SCALE_BAR = auto()
+    PLANT_METRES = auto()
     PLANT_SIZE = auto()
     DEPTH = auto()
     FEET = auto()
@@ -87,7 +88,7 @@ def format_length(
         else:
             return _feet_inches(
                 cm,
-                1 if style in (LengthStyle.PLANT_SIZE, LengthStyle.RULER) else fraction,
+                1 if style in (LengthStyle.PLANT_SIZE, LengthStyle.PLANT_METRES, LengthStyle.RULER) else fraction,
                 depth=style == LengthStyle.DEPTH,
                 omit_zero_inches=style == LengthStyle.RULER,
             )
@@ -107,6 +108,8 @@ def format_length(
             if cm >= 100
             else f"{cm:g} cm"
         )
+    elif style == LengthStyle.PLANT_METRES:
+        result = f"{cm / 100:.1f} m"
     elif style == LengthStyle.PLANT_SIZE:
         result = f"{cm:.0f} cm"
     elif style == LengthStyle.DEPTH:

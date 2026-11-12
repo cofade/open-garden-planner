@@ -13,6 +13,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+
 
 class ArrayAlongPathDialog(QDialog):
     """Dialog for creating an array of items along a polyline path.
@@ -50,7 +52,7 @@ class ArrayAlongPathDialog(QDialog):
 
         # Spacing
         spacing_layout = QHBoxLayout()
-        self._spacing_spin = QDoubleSpinBox()
+        self._spacing_spin = LengthSpinBox()
         self._spacing_spin.setRange(1.0, 10000.0)
         self._spacing_spin.setValue(50.0)
         self._spacing_spin.setDecimals(1)

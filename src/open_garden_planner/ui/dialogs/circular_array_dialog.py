@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+
 
 class CircularArrayDialog(QDialog):
     """Dialog for creating a circular array of an object.
@@ -43,7 +45,7 @@ class CircularArrayDialog(QDialog):
 
         # Radius
         radius_layout = QHBoxLayout()
-        self._radius_spin = QDoubleSpinBox()
+        self._radius_spin = LengthSpinBox()
         self._radius_spin.setRange(1.0, 100000.0)
         self._radius_spin.setValue(100.0)
         self._radius_spin.setDecimals(1)

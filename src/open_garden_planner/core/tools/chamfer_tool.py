@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication, QInputDialog
+from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
@@ -77,14 +77,14 @@ class ChamferTool(CornerEditTool):
     def _prompt_for_distance(self) -> None:
         title = QCoreApplication.translate("ChamferTool", "Chamfer")
         label = QCoreApplication.translate("ChamferTool", "Distance (cm):")
-        value, ok = QInputDialog.getDouble(
+        from open_garden_planner.ui.widgets.unit_spin_box import get_length
+        value, ok = get_length(
             self._view,
             title,
             label,
             self._distance,
             0.01,
             100000.0,
-            2,
         )
         if ok:
             self._distance = float(value)

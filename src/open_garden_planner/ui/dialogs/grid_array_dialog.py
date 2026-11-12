@@ -4,7 +4,6 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -12,6 +11,8 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
+
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
 class GridArrayDialog(QDialog):
@@ -50,7 +51,7 @@ class GridArrayDialog(QDialog):
 
         # Row spacing
         row_spacing_layout = QHBoxLayout()
-        self._row_spacing_spin = QDoubleSpinBox()
+        self._row_spacing_spin = LengthSpinBox()
         self._row_spacing_spin.setRange(1.0, 100000.0)
         self._row_spacing_spin.setValue(100.0)
         self._row_spacing_spin.setDecimals(1)
@@ -65,7 +66,7 @@ class GridArrayDialog(QDialog):
 
         # Column spacing
         col_spacing_layout = QHBoxLayout()
-        self._col_spacing_spin = QDoubleSpinBox()
+        self._col_spacing_spin = LengthSpinBox()
         self._col_spacing_spin.setRange(1.0, 100000.0)
         self._col_spacing_spin.setValue(100.0)
         self._col_spacing_spin.setDecimals(1)

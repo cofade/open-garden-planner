@@ -3280,8 +3280,8 @@ class GardenPlannerApp(QMainWindow):
         status_bar = self.statusBar()
         if status_bar:
             status_bar.showMessage(
-                self.tr("New project created: {width}m x {height}m").format(
-                    width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
+                self.tr("New project created: {width} x {height}").format(
+                    width=length_text(width_m * 100), height=length_text(height_m * 100)
                 )
             )
 
@@ -3311,8 +3311,8 @@ class GardenPlannerApp(QMainWindow):
             status_bar = self.statusBar()
             if status_bar:
                 status_bar.showMessage(
-                    self.tr("Canvas resized to {width}m x {height}m").format(
-                        width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
+                    self.tr("Canvas resized to {width} x {height}").format(
+                        width=length_text(width_m * 100), height=length_text(height_m * 100)
                     )
                 )
 
@@ -6117,24 +6117,24 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(
                 self.tr(
                     "Loaded satellite background (captured map view, zoom {zoom}) — "
-                    "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+                    "canvas resized to {w_m} x {h_m}"
                 ).format(
                     zoom=result.zoom,
-                    w_m=canvas_w_cm / 100,
-                    h_m=canvas_h_cm / 100,
+                    w_m=length_text(canvas_w_cm),
+                    h_m=length_text(canvas_h_cm),
                 )
             )
         else:
             self.statusBar().showMessage(
                 self.tr(
                     "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — "
-                    "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+                    "canvas resized to {w_m} x {h_m}"
                 ).format(
                     cols=result.tile_grid[0],
                     rows=result.tile_grid[1],
                     zoom=result.zoom,
-                    w_m=canvas_w_cm / 100,
-                    h_m=canvas_h_cm / 100,
+                    w_m=length_text(canvas_w_cm),
+                    h_m=length_text(canvas_h_cm),
                 )
             )
 

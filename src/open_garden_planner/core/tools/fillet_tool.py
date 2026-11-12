@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QTimer
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication, QInputDialog
+from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
@@ -95,14 +95,14 @@ class FilletTool(CornerEditTool):
     def _prompt_for_radius(self) -> None:
         title = QCoreApplication.translate("FilletTool", "Fillet")
         label = QCoreApplication.translate("FilletTool", "Radius (cm):")
-        value, ok = QInputDialog.getDouble(
+        from open_garden_planner.ui.widgets.unit_spin_box import get_length
+        value, ok = get_length(
             self._view,
             title,
             label,
             self._radius,
             0.01,
             100000.0,
-            2,
         )
         if ok:
             self._radius = float(value)
