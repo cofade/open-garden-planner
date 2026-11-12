@@ -8,9 +8,10 @@ from open_garden_planner.ui.dialogs.preferences_dialog import PreferencesDialog
 
 
 @pytest.fixture
-def window(qtbot):
+def window(qtbot, monkeypatch):
     win = GardenPlannerApp()
     qtbot.addWidget(win)
+    monkeypatch.setattr(win, '_confirm_discard_changes', lambda: True)
     return win
 
 
@@ -82,3 +83,54 @@ def test_grid_and_scale_bar_follow_units(window):
     window._apply_unit_setting()
     assert window.canvas_view.grid_size == 30.48
     assert window.canvas_view._pick_scale_bar_distance() in nice_distances(UnitSystem.IMPERIAL)
+
+
+def test_properties_rect_imperial(window, qtbot):
+    from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+    a = RectangleItem(0, 0, 243.84, 121.92)
+    window.canvas_scene.addItem(a)
+    a.setSelected(True)
+    get_settings().unit_system = 'imperial'
+    window._apply_unit_setting()
+    qtbot.wait(1)
+    texts = [box.text() for box in window.properties_panel.findChildren(LengthSpinBox)]
+    assert "W: 8' 0\"" in texts
+    assert "H: 4' 0\"" in texts
+
+
+@pytest.mark.parametrize(('system', 'typed', 'expected'), [('imperial', '12', 30.48), ('metric', '31', 31)])
+def test_soil_depth_preserves_native_input(window, qtbot, system, typed, expected):
+    from PyQt6.QtCore import Qt
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+    a = RectangleItem(0, 0, 243.84, 121.92, object_type=ObjectType.RAISED_BED)
+    window.canvas_scene.addItem(a)
+    a.setSelected(True)
+    get_settings().unit_system = system
+    window._apply_unit_setting()
+    qtbot.wait(1)
+    box = next(b for b in window.properties_panel.findChildren(LengthSpinBox) if 'Fill depth' in b.toolTip())
+    box.lineEdit().selectAll()
+    qtbot.keyClicks(box, typed)
+    qtbot.keyClick(box, Qt.Key.Key_Return)
+    assert a.metadata['soil_depth_cm'] == expected
+    if system == 'metric':
+        assert isinstance(a.metadata['soil_depth_cm'], int)
+
+
+def test_no_write_back_on_rebuild(window, qtbot):
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+    a = CircleItem(200, 200, 30, object_type=ObjectType.TREE)
+    a.metadata['spacing_radius_cm'] = 60.0
+    window.canvas_scene.addItem(a)
+    a.setSelected(True)
+    manager = window.canvas_view.command_manager
+    before = len(manager._undo_stack)
+    get_settings().unit_system = 'imperial'
+    window._apply_unit_setting()
+    qtbot.wait(1)
+    window.properties_panel._rebuild_for_theme()
+    window.properties_panel._rebuild_for_theme()
+    assert a.metadata['spacing_radius_cm'] == 60
+    assert len(manager._undo_stack) == before
