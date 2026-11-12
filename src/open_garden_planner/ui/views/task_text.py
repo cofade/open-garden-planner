@@ -2,9 +2,11 @@
 
 The Today dashboard (``planting_calendar_view``) and the Tasks tab used to
 render the same task differently: the dashboard said "Harvest Rosemary" through
-its templates, the Tasks tab showed only "Rosemary". Both now ask this module,
-so a new task type or a translation change cannot reach one surface and miss
-the other.
+its templates, the Tasks tab showed only "Rosemary". Both now ask this module for
+the plant-task vocabulary, so a new task type or a translation change cannot
+reach one surface and miss the other. A succession row is the exception: the
+dashboard adds its bed phrase itself, and the tab shows the crop name it always
+did.
 """
 
 from __future__ import annotations

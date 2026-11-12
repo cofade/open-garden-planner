@@ -2849,14 +2849,15 @@ class GardenPlannerApp(QMainWindow):
         toggle (default ON). Idempotent: safe to call from multiple deferred
         startup/open paths.
         """
-        from datetime import date
-
         from open_garden_planner.app.settings import get_settings
+        from open_garden_planner.core.sim_clock import plan_day_of
 
         if not get_settings().notify_overdue_tasks_on_startup:
             self._task_reminder_bar.hide()
             return
-        today_iso = date.today().isoformat()
+        # The bar counts the same plan-day overdue tasks the Tasks tab buckets
+        # (#859), not the wall date's.
+        today_iso = plan_day_of(self.canvas_scene).isoformat()
         states = self._project_manager.task_states
         overdue = 0
         for tid, raw in self._project_manager.manual_tasks.items():
@@ -4238,6 +4239,9 @@ class GardenPlannerApp(QMainWindow):
         self.calendar_view.schedule_refresh()
         self.tasks_view.schedule_refresh()
         self._refresh_succession_indicators()
+        # The Plant Details age label is a plan-day readout too (#859); the
+        # panel is passive, so the fan-out has to tell it.
+        self.plant_database_panel.refresh_plan_date()
         # A tour moves the clock for its frames and puts the owner's moment back. The
         # heatmap the owner computed is the heatmap for that restored date, so the
         # frames must not throw it away (#738).
@@ -6141,7 +6145,10 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         angle = dialog.angle_deg
-        if angle == current:
+        # The dialog's field carries one decimal; a file may store more. Accepting
+        # it unchanged must not mint a command (and an undo step) for a 0.02°
+        # rounding of the value the dialog was opened with.
+        if round(angle, 1) == round(current, 1):
             return
         self.canvas_view.command_manager.execute(
             SetPlanNorthCommand(self._project_manager, angle)

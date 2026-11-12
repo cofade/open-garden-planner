@@ -4576,9 +4576,9 @@ applies the formula above unchanged. With north at 45° a sun due east
 (`Az=90`) is at scene bearing 135° and its shadow points up-left. Do not rotate
 any item: the offset belongs to the frame. The 2D overlay, the heatmap's
 samples, the plant sun-exposure diagnostics, the 3D light (`SunState.scene_azimuth_deg`,
-from its compass bearing and the plan north), the 3D sun path/compass and the PDF arrow
-all use the same angle and sign; a second one anywhere is
-the classic bug in a new coat. The angle is
+from its compass bearing and the plan north), and the 3D sun path/compass all use the
+same helper; the PDF arrow applies the same angle as a painter rotation. A second sign
+anywhere is the classic bug in a new coat. The angle is
 additive plan metadata (`FILE_VERSION` unchanged) and is part of
 `ExposureSnapshot`, so a heatmap for the old north cannot pass as current.
 
@@ -9010,7 +9010,10 @@ Sprite growth, shadow casters, heatmaps and 3D all use the plan date. So do the 
 task surfaces: the Tasks tab's buckets (and its Done/Snooze writes), the planting
 calendar's "Today" and dashboard, and a new manual task's default read the plan clock.
 `build_plan_state` still accepts an explicit reference day; its wall-clock default is
-used only by a caller that supplies none (an agent read passes its own). Plant task
+used only by a caller that supplies none (an agent read passes its own). A live frost
+forecast is the exception: its alerts name real calendar days, so they are classified
+against `PlanState.weather_today` (the wall day) and are never dropped by the plan-day
+window — a plan standing in 2031 still warns about tomorrow's frost. Plant task
 windows stop at removal;
 species aggregation keeps the schedule while any instance remains. Manual/succession
 dates and Season Manager file copies retain their existing behavior.

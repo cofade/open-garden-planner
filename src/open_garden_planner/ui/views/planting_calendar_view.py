@@ -1935,6 +1935,8 @@ class PlantingCalendarView(QWidget):
             frost_alerts=self._current_frost_alerts,
             soil_service=self._soil_service,
             today=today,
+            # A live forecast names real days (#859): keep its own reference.
+            weather_today=datetime.date.today(),
             # include_propagation (rather than a pre-built single-year
             # ``prop_plans`` dict) so the anchor-year machinery runs inside the
             # shared generator — this surface used to pass one plan per species,
@@ -1975,7 +1977,10 @@ class PlantingCalendarView(QWidget):
         it falls outside the calendar's actionable window (undated/too far)."""
         if task.start_date is None or task.end_date is None:
             return None
-        urgency = classify_urgency(task.start_date, task.end_date, today)
+        # A live frost alert is real-world data (#859): classify it against the
+        # wall day, or a 2031 plan would hide tomorrow's warning.
+        reference = datetime.date.today() if task.source == "frost" else today
+        urgency = classify_urgency(task.start_date, task.end_date, reference)
         if urgency is None:
             return None
         # Frost rows carry no species_key; their "→" highlight selects the

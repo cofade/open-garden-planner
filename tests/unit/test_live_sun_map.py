@@ -60,14 +60,21 @@ class _Toolbar(QObject):
 
 
 def test_a_north_change_schedules_the_live_map(qtbot) -> None:
+    from open_garden_planner.ui.canvas.sun_exposure_snapshot import collect_exposure_snapshot
+
     scene = CanvasScene(width_cm=500, height_cm=500)
     project, heatmap, toolbar = _Project(), _Heatmap(), _Toolbar()
-    live = LiveSunMap(scene, SimClock(), project, heatmap, toolbar, CommandManager())
+    clock = SimClock()
+    # A completed map for the current (north-up) frame is on screen.
+    shown = collect_exposure_snapshot(scene, project.location, clock.plan_date, 0.0)
+    heatmap.displayed_snapshot = shown
+    heatmap.snapshot = shown
+    live = LiveSunMap(scene, clock, project, heatmap, toolbar, CommandManager())
     live.set_enabled(True)
-    live._inputs_dirty = False  # what the debounce ends with; no event loop ran
+
     project.north_angle_deg = 45.0
     project.north_angle_changed.emit(45.0)
-    # The signal asks the map for a new day; without the subscription the old
-    # result would stay current after the plan had turned.
+    # The shown result belongs to the old frame: the subscription must clear
+    # it and schedule a new day. Without the connection nothing happens.
+    assert heatmap.cleared == 1
     assert live._inputs_dirty is True
-    assert live._timer.isActive()

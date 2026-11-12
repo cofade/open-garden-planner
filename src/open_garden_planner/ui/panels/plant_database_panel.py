@@ -1301,6 +1301,16 @@ class PlantDatabasePanel(QWidget):
         self.removal_date_edit.blockSignals(False)
         self._update_age_label(planted)
 
+    def refresh_plan_date(self) -> None:
+        """Re-derive the age label after the plan's day moved (#859).
+
+        The panel is a passive view of the selection; the plan clock is one of
+        its inputs, so the app calls this from its date-change fan-out.
+        """
+        item = self._current_plant_item
+        if item is not None:
+            self._refresh_lifetime_dates(item)
+
     def _update_age_label(self, planting_date: date | None) -> None:
         """Update the age label based on planting date.
 

@@ -12,6 +12,7 @@ from open_garden_planner.services.task_generator import (
     PlantRowInput,
     Task,
     classify_urgency,
+    generate_actionable_for_surface,
     generate_all,
     generate_calendar_tasks,
     generate_for_date_window,
@@ -317,6 +318,23 @@ class TestFrostTasks:
             affected_plant_ids=["p1"],
         )
         assert generate_frost_tasks(_state(frost_alerts=(alert,))) == []
+
+    def test_a_live_alert_survives_a_plan_standing_in_another_year(self) -> None:
+        """#859: the forecast's real day is not the plan's simulated day."""
+        alert = FrostAlert(
+            date=(TODAY + datetime.timedelta(days=1)).isoformat(),
+            min_temp=-1.0,
+            severity="red",
+            affected_plant_ids=["p1"],
+        )
+        state = _state(
+            today=datetime.date(2031, 7, 1),
+            year=2031,
+            weather_today=TODAY,
+            frost_alerts=(alert,),
+        )
+        frost = [t for t in generate_actionable_for_surface(state) if t.source == "frost"]
+        assert [t.task_id for t in frost] == [f"frost:{alert.date}:red"]
 
 
 class TestManualTasks:

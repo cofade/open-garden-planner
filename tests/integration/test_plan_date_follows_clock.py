@@ -150,6 +150,27 @@ class TestCalendarAndTasks:
         assert pm.task_states["harvest:tomato"]["snooze_until"] == "2031-07-08"
 
 
+class TestPlantDetailsAge:
+    def test_the_age_label_follows_the_plan_day_and_a_date_change(self, window) -> None:
+        """#859: the panel is a plan-day readout and must refresh on a scrub."""
+        plant = CircleItem(100, 100, 20, object_type=ObjectType.PERENNIAL, name="Tomato")
+        plant.metadata["plant_species"] = {
+            "common_name": "Tomato", "scientific_name": "Solanum lycopersicum",
+        }
+        plant.metadata["plant_instance"] = {"planting_date": "2031-01-01"}
+        window.canvas_scene.addItem(plant)
+        window.plant_database_panel.set_selected_items([plant])
+        assert window.plant_database_panel.age_label.text()  # "(future)" on a 2026 clock
+
+        window._sim_clock.set_date(datetime.date(2031, 3, 1))
+        window._on_sim_date_changed(datetime.date(2031, 3, 1))
+        assert "(1 mo)" in window.plant_database_panel.age_label.text()
+
+        window._sim_clock.set_date(datetime.date(2033, 1, 1))
+        window._on_sim_date_changed(datetime.date(2033, 1, 1))
+        assert "(2y)" in window.plant_database_panel.age_label.text()
+
+
 class TestSuccessionBadge:
     def test_the_badge_follows_the_plan_day_and_is_rebuilt_on_a_date_change(
         self, window

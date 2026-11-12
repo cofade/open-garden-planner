@@ -1342,8 +1342,8 @@ formulas read an azimuth clockwise from +Y, so a compass azimuth is turned **onc
 into that frame. The 2D shadow overlay, the hours-of-sun sampling
 (`daylight_samples`), the plant sun-exposure diagnostics, the 3D light (`SunState`
 carries the compass bearing and the plan north, and `scene_azimuth_deg` is their
-sum), the 3D sun path and compass, and the PDF overview arrow all use this rule;
-none of them invents its own sign. A sun
+sum), and the 3D sun path and compass all use this rule; the PDF overview arrow
+applies the same angle as a painter rotation. None of them invents its own sign. A sun
 due east (compass 90°) on a plan whose north lies at 45° is at scene bearing 135° and
 throws its shadow up-left. The issue's shorthand `solar_azimuth - north_angle`
 assumed the inverse definition of the angle; the arrow's stated meaning (135° points
@@ -9275,7 +9275,10 @@ could disagree with the existing date-projected 3D canopy.
 - Task reminders use the plan's day: the Tasks tab's buckets and Done/Snooze writes,
   the calendar dashboard's "Today", and a new manual task's default read the plan clock
   (#859). An agent read may pass an explicit API reference day; `build_plan_state`'s
-  wall-clock default applies only to a caller that supplies neither.
+  wall-clock default applies only to a caller that supplies neither. A **live frost
+  forecast** is the exception: its alerts name real calendar days and are classified
+  against `PlanState.weather_today` (the wall day), never dropped by the plan-day
+  window, so a 2031 plan still warns about tomorrow's frost.
   Historical calendar windows end before removal; actionable plant tasks stop
   once all instances of that species are removed. A surviving undated/later-removal
   instance keeps the species schedule. Future sowing tasks are useful before planting

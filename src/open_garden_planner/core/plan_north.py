@@ -66,8 +66,8 @@ def north_direction(angle_deg: object) -> tuple[float, float]:
     """A unit vector pointing at true north, in the scene frame (E, N).
 
     ``(sin a, cos a)`` for a clockwise-from-up angle: 0 -> (0, 1) up,
-    90 -> (1, 0) right, 135 -> down-right. Shared by the canvas arrow, the PDF
-    arrow and any surface that must point north on the plan.
+    90 -> (1, 0) right, 135 -> down-right. Shared by the canvas arrow; the PDF
+    report applies the same angle as a painter rotation and draws its own letter.
     """
     angle = math.radians(normalize_north_angle(angle_deg))
     return (math.sin(angle), math.cos(angle))

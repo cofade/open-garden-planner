@@ -165,6 +165,26 @@ class TestPlanNorth:
         assert plain is not None and turned is not None
         assert float(turned[0, 0]) != float(plain[0, 0])
 
+    def test_the_shipped_exposure_entry_point_forwards_the_north(self) -> None:
+        """The app calls compute_sun_exposure (via SunHeatmapController), not
+        compute_heatmap: pin the 0/180 direction through that seam."""
+        day = date(2026, 6, 21)
+        receiver = SunReceiver("point", 0.0, 50.0)
+        wall = IdentifiedCaster("wall", (WALL_FOOTPRINT,), 200.0)
+        north_up = compute_sun_exposure(
+            [wall], [receiver], BERLIN_LAT, BERLIN_LON, day, POINT_GRID,
+            point_rasterizer_reference, north_angle_deg=0.0,
+        )
+        north_down = compute_sun_exposure(
+            [wall], [receiver], BERLIN_LAT, BERLIN_LON, day, POINT_GRID,
+            point_rasterizer_reference, north_angle_deg=180.0,
+        )
+        assert north_up is not None and north_down is not None
+        up = float(dict(north_up.receiver_minutes)["point"])
+        down = float(dict(north_down.receiver_minutes)["point"])
+        assert up == pytest.approx(540.0, abs=15.0)
+        assert down > up + 60.0
+
 
 class TestBands:
     def test_thresholds_are_the_documented_bands(self) -> None:
