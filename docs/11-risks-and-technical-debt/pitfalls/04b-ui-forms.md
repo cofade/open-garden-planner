@@ -215,3 +215,13 @@ event loop later. A child added to a VISIBLE parent is shown by a queued call, a
 not count a hidden child. `_FittedScrollArea` (`ui/views/planting_calendar_view.py`) therefore
 answers `sizeHint()` from its content every time and calls `updateGeometry()` whenever the content
 posts a `LayoutRequest`, which is when the rows have arrived.
+
+### PF-UI-40
+
+- **Rule:** A `QStatusBar`'s transient message gets what the permanent widgets leave. On a narrow window, fixed minimum widths on optional segments clip it ("Opened:" at 1280 px). Give the permanent labels no minimum widths, let the optional segments step aside at stated width thresholds, and keep the message to a file NAME, not a full path.
+- **Pinned by:** `tests/integration/test_status_bar_compact.py::test_optional_status_segments_step_aside_on_a_narrow_window`; `tests/integration/test_status_bar_compact.py::test_the_opened_message_names_the_file_not_its_whole_path`
+- **Source:** #858
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Selection, tool and season hide below 1500 px; location below 1200 px.

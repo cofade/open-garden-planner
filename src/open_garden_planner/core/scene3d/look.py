@@ -531,7 +531,8 @@ class SkySpec:
     """The inputs of ONE procedural sky texture. Two equal specs are the same sky."""
 
     #: Where the sky draws its sun (the plan's sun, elevation floored at
-    #: ``SKY_MIN_ELEVATION_DEG``). Truth: the disc sits at the solar azimuth.
+    #: ``SKY_MIN_ELEVATION_DEG``). Truth: the disc sits at the sun's bearing in
+    #: the plan frame (compass + plan north, #663).
     sun_elevation_deg: float
     sun_azimuth_deg: float
     top: str
@@ -920,7 +921,7 @@ def _rig_look(sun: SunState, preset: str = "high") -> LookSpec:
                       contrast=_CONTRAST, twilight=t),
         sky=SkySpec(
             sun_elevation_deg=max(float(sun.elevation_deg), SKY_MIN_ELEVATION_DEG),
-            sun_azimuth_deg=float(sun.azimuth_deg) % 360.0,
+            sun_azimuth_deg=float(sun.scene_azimuth_deg) % 360.0,
             top=rig.sky_top, horizon=rig.sky_horizon,
             sun_disc=rig.sky_horizon if sun_down else rig.sun_disc,
             ground_bottom=mix_linear(_DAY_GROUND_BOTTOM, _NIGHT_GROUND_BOTTOM, t),

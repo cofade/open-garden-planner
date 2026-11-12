@@ -441,6 +441,30 @@ flowchart TD
     IC --> O --> M
 ```
 
+**The north-change fan-out (#663).** One plan angle, one write path, one update per
+solar consumer. The command validates before mutating; a rejected value never reaches
+the signal. A heatmap computed for the old frame is cleared (or refused by its
+snapshot); no object is rotated.
+
+```mermaid
+flowchart TD
+    U([File &gt; Set North Orientation…<br/>or undo / load / new])
+    C["SetPlanNorthCommand (one undo step)<br/>→ ProjectManager.set_north_angle"]
+    S["north_angle_changed(angle)"]
+    L["GardenPlannerApp._on_north_angle_changed"]
+    A["CanvasView.set_north_angle<br/>→ viewport N arrow turns"]
+    D["SunShadowController.schedule_recompute<br/>→ 2D overlay at scene_azimuth"]
+    E["SunExposureCoordinator.schedule<br/>→ plant badges and evaluations"]
+    H["live map on: schedule a new day<br/>off: clear the old map and toolbar"]
+    W["Workspace.north_changed<br/>→ 3D relight; AnalysisController compass/sun path"]
+    U --> C --> S --> L
+    L --> A
+    L --> D
+    L --> E
+    L --> H
+    L --> W
+```
+
 **The forecast fan-out (L5.3).** The Planting Calendar's weather widget is the app's one
 weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`, with
 the `(lat, lon)` they were fetched for:
@@ -918,6 +942,15 @@ sequenceDiagram
 A failed preparation preserves the previous scene, history and autosave. Exporting
 a template flushes pending editors, snapshots without journal mutation, filters and
 atomically writes a separate file. It leaves the current file and dirty state intact.
+
+**File > Open of a bundled example takes the same identity (#865):** `_load_project_file`
+asks `core.templates.is_bundled_example` and routes a known bundled path through
+`as_template=True`, so the sequence above runs — `current_file` None, Save As, no Recent
+entry, the sidecar's title on the report cover, and the showcase moment. The Agent API's
+`open_plan` calls the same path and returns `file_path: null` with `opened_as_copy: true`
+for that case. `save_plan` without an explicit path then refuses (an agent has no Save
+dialog); the GUI's Save opens Save As instead.
+
 The public catalog resource reads only bundled sidecars and never opens a document.
 The catalog selects a shipped language-specific plan when available. Before normal
 preparation, `example_copy_plan` retains public location, fictional soil records

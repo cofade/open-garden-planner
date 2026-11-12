@@ -74,7 +74,7 @@ from open_garden_planner.core.scene3d.sun_path import (
 from open_garden_planner.core.scene3d.xray import XRAY_OPACITY, XrayScene, occluders, xray_scene
 from open_garden_planner.core.shade_aggregation import SunHoursMap
 from open_garden_planner.core.sim_clock import SimChange, SimClock, SimInstant
-from open_garden_planner.core.solar import plan_place, solar_position
+from open_garden_planner.core.solar import plan_place, scene_azimuth, solar_position
 from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.sun_mismatch_service import band_of
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
@@ -156,13 +156,16 @@ class AnalysisController(QObject):
 
     def __init__(self, host: AnalysisHost, clock: SimClock, location: LocationProvider,
                  plan_size: Callable[[], tuple[float, float]], *,
-                 glyphs: GlyphProvider | None = None, parent: QObject | None = None) -> None:
+                 glyphs: GlyphProvider | None = None,
+                 north: Callable[[], float] | None = None,
+                 parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._host = host
         self._clock = clock
         self._location = location
         self._plan_size = plan_size
         self._glyphs = glyphs
+        self._north = north or (lambda: 0.0)
         self._active = False
         self._drape_mode = DrapeMode.NONE
         #: What lay on the ground before the hours of sun did — back when they go off.
@@ -178,7 +181,7 @@ class AnalysisController(QObject):
         self._arcs_key: tuple[Any, ...] | None = None
         self._arcs: tuple[DayArc, ...] = ()
         self._arcs_mesh: Mesh = Mesh.empty()
-        self._compass_key: tuple[float, float] | None = None
+        self._compass_key: tuple[float, float, float] | None = None
         self._compass: Mesh = Mesh.empty()
         # the day sweep
         self._sweep = QTimer(self)
@@ -367,6 +370,14 @@ class AnalysisController(QObject):
 
     def location_changed(self) -> None:
         self._arcs_key = None
+        self._refresh_lines()
+        self.changed.emit()
+
+    def north_changed(self) -> None:
+        """The plan's north orientation changed (#663): rebuild the compass and
+        sun path for the new frame; the 3D light itself is the sync controller's."""
+        self._arcs_key = None
+        self._compass_key = None
         self._refresh_lines()
         self.changed.emit()
 
@@ -681,29 +692,32 @@ class AnalysisController(QObject):
         width, depth = self._plan_size()
         center = (width / 2.0, depth / 2.0)
         radius = dome_radius(width, depth)
+        north = float(self._north())
         meshes: list[Mesh] = []
         if self._sun_path:
-            if self._compass_key != (width, depth):
+            if self._compass_key != (width, depth, north):
                 glyphs = self._glyphs() if self._glyphs is not None else None
-                self._compass = compass_mesh(center, radius, glyphs)
-                self._compass_key = (width, depth)
+                self._compass = compass_mesh(center, radius, glyphs, north_angle_deg=north)
+                self._compass_key = (width, depth, north)
             meshes.append(self._compass)
             place = _latlon(self._location())
             if place is not None:
-                meshes.append(self._arcs_for(place, center, radius))
+                meshes.append(self._arcs_for(place, center, radius, north))
                 position = solar_position(*place, self._clock.utc)
                 meshes.append(sun_path_mesh((), center, radius, sun=SunPoint(
-                    self._clock.utc, position.elevation_deg, position.azimuth_deg)))
+                    self._clock.utc, position.elevation_deg,
+                    scene_azimuth(position.azimuth_deg, north))))
         if self._probe_point is not None:
             meshes.append(probe_pin_mesh(self._probe_point, radius))
         return Mesh.merge(meshes)
 
     def _arcs_for(self, place: tuple[float, float], center: tuple[float, float],
-                  radius: float) -> Mesh:
-        key = (place, self._clock.tz, self._clock.plan_date, center, radius)
+                  radius: float, north: float) -> Mesh:
+        key = (place, self._clock.tz, self._clock.plan_date, center, radius, north)
         if key != self._arcs_key:
             days = key_days(self._clock.plan_date)
-            self._arcs = tuple(day_arc(*place, days[kind], self._clock.tz, kind)
+            self._arcs = tuple(day_arc(*place, days[kind], self._clock.tz, kind,
+                                       north_angle_deg=north)
                                for kind in ARC_KINDS)
             marks = hour_marks(self._arcs[0], self._clock.tz)
             self._arcs_mesh = sun_path_mesh(self._arcs, center, radius, hour_marks=marks)

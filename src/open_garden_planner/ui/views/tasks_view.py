@@ -32,6 +32,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.services.task_generator import (
     Task,
     build_plan_state,
@@ -47,6 +48,7 @@ from open_garden_planner.ui.theme import (
     theme_color,
     urgency_dot,
 )
+from open_garden_planner.ui.views.task_text import task_row_text
 from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
@@ -160,7 +162,9 @@ class TasksView(QWidget):
         self._action_boxes = []
         try:
             state = build_plan_state(
-                self._scene, self._pm, self._frost_alerts, self._soil_service
+                self._scene, self._pm, self._frost_alerts, self._soil_service,
+                today=plan_day_of(self._scene),
+                weather_today=datetime.date.today(),
             )
         except RuntimeError:
             return  # scene torn down (shutdown)
@@ -237,12 +241,18 @@ class TasksView(QWidget):
     @staticmethod
     def _bucket(task: Task, today: datetime.date) -> str:
         """Render-time urgency bucket for a task (manual tasks may fall outside
-        the generators' actionable window, so re-derive defensively)."""
+        the generators' actionable window, so re-derive defensively).
+
+        A frost alert is REAL-WORLD data (#859): it is bucketed against the wall
+        day, not the plan's simulated day, or a live warning would read as years
+        overdue on a plan standing in 2031.
+        """
         if task.start_date is not None and task.end_date is not None:
-            urgency = classify_urgency(task.start_date, task.end_date, today)
+            reference = datetime.date.today() if task.source == "frost" else today
+            urgency = classify_urgency(task.start_date, task.end_date, reference)
             if urgency is not None:
                 return urgency
-            return "overdue" if task.end_date < today else "upcoming"
+            return "overdue" if task.end_date < reference else "upcoming"
         return "no_date"
 
     def _clear_content(self) -> None:
@@ -366,9 +376,10 @@ class TasksView(QWidget):
         return row
 
     def _row_text(self, task: Task) -> str:
+        label = task_row_text(task.task_type, task.title)
         if task.notes:
-            return f"{task.title} — {task.notes}"
-        return task.title
+            return f"{label} — {task.notes}"
+        return label
 
     # ── actions ───────────────────────────────────────────────────────────────
     def _navigate(self, task: Task) -> None:
@@ -381,7 +392,7 @@ class TasksView(QWidget):
 
     def _mark_done(self, task: Task) -> None:
         self._pm.set_task_status(
-            task.task_id, "done", done_date=datetime.date.today().isoformat()
+            task.task_id, "done", done_date=plan_day_of(self._scene).isoformat()
         )
 
     def _snooze_menu(self, task: Task, anchor: QWidget) -> None:
@@ -389,7 +400,7 @@ class TasksView(QWidget):
 
         menu = QMenu(self)
         menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        today = datetime.date.today()
+        today = plan_day_of(self._scene)
         options = [
             (self.tr("1 day"), 1),
             (self.tr("1 week"), 7),

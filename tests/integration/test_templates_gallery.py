@@ -66,6 +66,43 @@ def test_welcome_opens_untitled_copy_and_save_as_leaves_bundle_unchanged(window,
     assert target.exists()
 
 
+def test_file_open_of_a_bundled_example_is_an_untitled_copy(window, tmp_path):
+    """#865: File > Open of a shipped example must not attach Save to the bundle."""
+    from open_garden_planner.core.i18n import current_language
+    from open_garden_planner.core.templates import template_title
+
+    entry = bundled_examples()[0]
+    source, mtime = entry.path.read_bytes(), entry.path.stat().st_mtime_ns
+    recent = get_settings().recent_files
+    window._load_project_file(str(entry.path))
+    manager = window._project_manager
+    assert manager.current_file is None and manager.is_dirty
+    assert manager.display_name == template_title(entry.path, current_language())
+    assert manager.display_name != entry.path.stem
+    assert get_settings().recent_files == recent
+
+    target = tmp_path / "my-copy.ogp"
+    window._save_to_file(target)
+    assert manager.current_file == target
+    assert entry.path.read_bytes() == source
+    assert entry.path.stat().st_mtime_ns == mtime
+
+
+def test_agent_open_plan_reports_a_bundled_example_as_a_copy(window) -> None:
+    """#865: the agent calls the same copy path; its result must carry that identity."""
+    from open_garden_planner.agent_api.exports import save_plan_file
+
+    entry = bundled_examples()[0]
+    result = window._agent_host._do_agent_open_plan(str(entry.path), force=True)
+    assert result["file_path"] is None
+    assert result["opened_as_copy"] is True
+    assert window._project_manager.current_file is None
+    with pytest.raises(ValueError, match="No file is currently open"):
+        save_plan_file(
+            window.canvas_scene, window._project_manager, window._soil_service, None
+        )
+
+
 def test_file_template_export_and_reimport_through_menu_slots(window, monkeypatch, tmp_path):
     window._load_project_file(str(bundled_examples()[0].path))
     manager = window._project_manager

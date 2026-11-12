@@ -96,14 +96,17 @@ one is `en_US`).
   for numbers and dates lives in `ui/number_fields.py` and `ui/date_fields.py`;
   `scripts/check_import_boundaries.py` fails when a `QT_CORE_ONLY` module reaches a widget
   module through its eager imports.
-- **A file never uses these.** `.ogp`, SVG, DXF, CSV and clipboard rows keep a decimal point
-  in every language (`tests/integration/test_locale_chrome.py`).
+- **Machine-readable data keeps a decimal point; a reader-facing picture follows the language.**
+  `.ogp`, DXF, CSV and clipboard rows keep a decimal point in every language
+  (`tests/integration/test_locale_chrome.py`). An SVG or PDF is a document for a reader: its
+  text (an area label, a dimension, the report's positions and totals) follows the UI language
+  exactly as the canvas does.
 - **In tests** the locale is process-wide state. `conftest._app_locale` starts every test in
   English on a pinned system locale; a test that needs another replaces `i18n._system_locale`
   and calls `load_translator` (the `speak` fixture of `tests/unit/test_app_locale.py`).
 
-Numbers drawn on the plan (dimension lines, vertex labels, the scale bar) still write a decimal
-point. Pitfall: PF-I18-09.
+Numbers on the canvas (dimension lines, vertex labels, the scale bar, measure and constraint
+previews) go through the same formatters. Pitfall: PF-I18-09.
 
 ### Translation rules
 
@@ -435,6 +438,7 @@ The canvas draws a **scale bar** in the bottom-right corner and **rulers** along
 |---------------|----------|----------------|
 | Rulers (top & left) | top 20 px, left 20 px | `CanvasView.RULER_SIZE = 20` |
 | Scale bar | bottom-right | `CanvasView.SCALE_BAR_RESERVED_PX = 40` |
+| North arrow (#663) | top-right, below the top ruler | 26 px box + 14 px margin (`CanvasView._draw_north_arrow`) |
 
 ```python
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -4563,6 +4567,20 @@ clockwise from true north, so the sun's horizontal direction in the scene
 frame is `(sin Az, cos Az)` and the shadow extends opposite:
 `d_scene = (−sin Az, −cos Az)`. Shadow length is `L = h / tan α`
 (`core/shadow_geometry.shadow_length_cm`, geometric elevation, flat ground).
+
+**The plan's north is a second angle (#663, ADR-037 addendum).** A plan may
+have true north at an angle to its drawing; `north_angle_deg` is that angle,
+clockwise from plan-up. Every solar consumer maps the compass bearing once:
+`Az_scene = core.solar.scene_azimuth(Az, north) = (Az + north) % 360`, then
+applies the formula above unchanged. With north at 45° a sun due east
+(`Az=90`) is at scene bearing 135° and its shadow points up-left. Do not rotate
+any item: the offset belongs to the frame. The 2D overlay, the heatmap's
+samples, the plant sun-exposure diagnostics, the 3D light (`SunState.scene_azimuth_deg`,
+from its compass bearing and the plan north), and the 3D sun path/compass all use the
+same helper; the PDF arrow applies the same angle as a painter rotation. A second sign
+anywhere is the classic bug in a new coat. The angle is
+additive plan metadata (`FILE_VERSION` unchanged) and is part of
+`ExposureSnapshot`, so a heatmap for the old north cannot pass as current.
 
 **Worked example (oracle-pinned).** Berlin 52.52N/13.405E,
 2026-06-21 12:00 UTC → α = 59.29°, Az = 203.74°. `sin Az = −0.4025`,
@@ -8988,8 +9006,17 @@ The date-present set drives companion/spacing/capacity, guild and data diagnosti
 independently of drawing-layer visibility. PDF data pages retain hidden beds and
 date-present plants. Solar receivers/casters and rendered overlays additionally
 honor layer visibility. Use CanvasScene.is_present for data and isVisible for drawing.
-Sprite growth, shadow casters, heatmaps and 3D all use the plan date, while task
-reminders retain their real-world reference day. Plant task windows stop at removal;
+Sprite growth, shadow casters, heatmaps and 3D all use the plan date. So do the GUI's
+task surfaces: the Tasks tab's buckets (and its Done/Snooze writes), the planting
+calendar's "Today" and dashboard, and a new manual task's default read the plan clock.
+`build_plan_state` still accepts an explicit reference day; its wall-clock default is
+used only by a caller that supplies none (an agent read passes its own). A live frost
+forecast is the exception: its alerts name real calendar days, so they are classified
+against `PlanState.weather_today` (the wall day) and are never dropped by the plan-day
+window on a GUI surface — a plan standing in 2031 still warns about tomorrow's frost.
+The Agent API's `get_tasks` stays window-bounded (it returns only tasks inside the
+`from_date`/`to_date` window it reports). Plant task
+windows stop at removal;
 species aggregation keeps the schedule while any instance remains. Manual/succession
 dates and Season Manager file copies retain their existing behavior.
 
@@ -9137,7 +9164,12 @@ Welcome's Examples & templates tab and File > New from example share
 normal document-load path with template-copy semantics. Save opens Save As for the
 untitled copy. File > Save as template explains the exact data categories removed
 and writes by default under `<app-data>/templates/`; that folder is also listed in
-the gallery. Export does not rename or clean the live project.
+the gallery. Export does not rename or clean the live project. **File > Open of a
+bundled example takes the same copy semantics** (#865): `_load_project_file` asks
+`core.templates.is_bundled_example` (the trusted sidecar predicate) and passes
+`as_template=True`, so `current_file` is None, Save is Save As, autosave cannot land
+in the install tree, Recent is untouched, and the report cover carries the sidecar's
+name.
 
 To author a bundled example, edit `scripts/generate_examples.py`, run it in the
 locked environment, inspect all three rendered previews and add its provenance.
@@ -9382,6 +9414,24 @@ a painter exists is measured with `_page_metrics`: the page is laid out at 72 un
 inch, and `QFontMetricsF(font)` answers for the screen's 96, a third wider (the notes
 wrapped at three quarters of the page). The rasterised PDF is what a test of a section
 reads; a page painted into a `QImage` sets the same fonts a third larger.
+
+**The shopping list is a table of the report too (#870).** `export_shopping_list_to_pdf`
+uses the same `_section_pages` / `_render_table_page` pair; its grand total is the
+footer of the last page, in the row space the paginator reserves. There is no second
+pagination loop.
+
+**A printout's grid and page order (#868, #871).** The Grid checkbox draws the canvas
+grid in the page's own transform at the canvas's spacing, with a stated 0.15 mm pen
+(a cosmetic pixel at 1200 dpi is a hairline nobody sees). Fixed-scale pages run **top
+row first**; a plan height that is not a whole number of tiles leaves the short row at
+the **bottom of the plan**, drawn at the **top of the last sheet** with blank paper
+below it, never first.
+
+**The report's Type column and legend samples (#869, #864).** The plant list's Type is
+the species' `cycle` through `core.plant_cycle_label`, not the canvas object type
+(every gallery plant is `ObjectType.PERENNIAL`). A plant's legend sample includes the
+sprite's 15 % overhang (`_LEGEND_SPRITE_OVERHANG`, pinned to
+`CircleItem._PLANT_FILL_SCALE`) and is 9 mm wide.
 
 **The succession badge is plan content (#836).** It names the crops that follow in a
 bed, so it is in every picture of the plan, unlike the diagnostic decorations of

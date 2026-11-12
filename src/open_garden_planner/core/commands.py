@@ -16,6 +16,9 @@ from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find_tour
+from open_garden_planner.core.harvest_units import harvest_unit_label
+from open_garden_planner.core.i18n import format_trimmed
+from open_garden_planner.core.plan_north import normalize_north_angle
 from open_garden_planner.core.stacking import STACK_STEP
 
 if TYPE_CHECKING:
@@ -4239,14 +4242,14 @@ class DeletePestLogCommand(Command):
 
 def _harvest_note_text(record: "Any", species_name: str) -> str:
     """Build the summary text for a harvest's linked journal note (US-C1)."""
-    qty = f"{record.quantity:g}"
+    qty = format_trimmed(record.quantity)
     if species_name:
         return QCoreApplication.translate(
             "HarvestJournal", "Harvested {qty} {unit} of {name}"
-        ).format(qty=qty, unit=record.unit, name=species_name)
+        ).format(qty=qty, unit=harvest_unit_label(record.unit), name=species_name)
     return QCoreApplication.translate(
         "HarvestJournal", "Harvested {qty} {unit}"
-    ).format(qty=qty, unit=record.unit)
+    ).format(qty=qty, unit=harvest_unit_label(record.unit))
 
 
 class AddHarvestRecordCommand(Command):
@@ -4468,6 +4471,35 @@ class SetSuccessionPlanCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_succession_plan(self._bed_id, self._old)
+
+
+class SetPlanNorthCommand(Command):
+    """Set the plan's north orientation — ONE undo step (#663).
+
+    The old and the new angle are fixed at construction; the new one is
+    validated there (``normalize_north_angle``), before anything reaches the
+    undo stack. A north change touches no canvas item, so the two O(items)
+    restack scans are skipped. Changing it invalidates date-stamped solar
+    results through ``north_angle_changed`` (the app clears the heatmap and its
+    snapshot carries the angle), never by rewriting object geometry.
+    """
+
+    changes_ground_band = False
+
+    def __init__(self, project_manager: "Any", new_angle_deg: object) -> None:
+        self._pm = project_manager
+        self._old: float = project_manager.north_angle_deg
+        self._new: float = normalize_north_angle(new_angle_deg)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Set north orientation")
+
+    def execute(self) -> None:
+        self._pm.set_north_angle(self._new)
+
+    def undo(self) -> None:
+        self._pm.set_north_angle(self._old)
 
 
 class AddJournalNoteCommand(Command):
@@ -4774,6 +4806,7 @@ CONTAINMENT_NEUTRAL_COMMANDS = (
     CreateItemCommand,
     CreateItemsCommand,
     DeleteItemsCommand,
+    SetPlanNorthCommand,
     _CameraToursCommand,
     SaveCameraTourCommand,
     RenameCameraTourCommand,

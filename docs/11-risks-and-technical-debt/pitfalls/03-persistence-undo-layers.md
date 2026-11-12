@@ -411,3 +411,18 @@ stayed; the owner's saved plan recorded exactly that split. The command now walk
 `group_item.selection_tree` for members, and `_apply_item_visibility` takes the
 outermost group ancestor's layer as the effective one, so pre-fix plans render
 correctly without a migration.
+
+### PF-PER-28
+
+- **Rule:** Opening a file is a decision about the plan's IDENTITY, not only its data. A shipped read-only resource opened through the generic Open path must take the same copy identity as the gallery: no current file, Save As on the first save, no autosave beside the bundle, no Recent entry, and the trusted display title. Ask the trusted predicate (`core.templates.is_bundled_example`) at the one load path; never attach Save to an install-tree file.
+- **Pinned by:** `tests/integration/test_templates_gallery.py::test_file_open_of_a_bundled_example_is_an_untitled_copy`
+- **Source:** #865
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The gallery and File > Open had two identities for the same file: the gallery made an
+in-memory copy (`current_file=None`), while Open set `current_file` to the bundled
+path, so Save wrote into the installation and the autosave file landed beside it. The
+fix routes a known bundled path through `as_template=True`; the test asserts the
+bundle bytes and mtime are unchanged after a save, the title is the sidecar name, and
+Recent is untouched.

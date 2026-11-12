@@ -10,6 +10,7 @@ from PyQt6.QtCore import QObject, Qt, QTimer
 from PyQt6.QtGui import QTransform
 
 from open_garden_planner.core.guild_commands import guild_plant_bounds
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.object_types import ObjectType, is_plant_type
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.plant_data import SunRequirement
@@ -47,6 +48,11 @@ class SunExposureCoordinator(QObject):
         scene.document_replaced.connect(self.reset)
         heatmap.exposure_changed.connect(self.schedule)
         project_manager.location_changed.connect(self.schedule)
+        # #663: the exposure snapshot carries the plan's north, so a turn of the
+        # plan makes the shown result stale here like a moved plant does.
+        north_changed = getattr(project_manager, "north_angle_changed", None)
+        if north_changed is not None:
+            north_changed.connect(self.schedule)
         # The clock is not a Qt object: a QObject listens to it through
         # connect_qobject (ADR-053 addendum), which asks at every delivery whether
         # Qt has destroyed the receiver. Nothing hangs on this object's own
@@ -91,9 +97,15 @@ class SunExposureCoordinator(QObject):
         with contextlib.suppress(RuntimeError):
             self._refresh()
 
+    def _north(self) -> float:
+        """The plan's north orientation (#663); a plain test double reads 0."""
+        return float(getattr(self.project_manager, "north_angle_deg", 0.0))
+
     def _refresh(self) -> None:
         location = self.project_manager.location
-        snapshot = collect_exposure_snapshot(self.scene, location, self.clock.plan_date)
+        snapshot = collect_exposure_snapshot(
+            self.scene, location, self.clock.plan_date, self._north()
+        )
         measured = (self.heatmap.displayed_snapshot if self.heatmap.exposure_reason == "ready"
                     else self.heatmap.snapshot)
         if measured is not None and snapshot != measured:
@@ -138,7 +150,7 @@ class SunExposureCoordinator(QObject):
             if mismatch is not None:
                 details["direction"] = mismatch.direction
                 diagnostics.append({"kind": "sun_mismatch", "severity": "warning", "item_ids": [str(root.item_id)],
-                                    "message": f"{details['label']} receives {mismatch.hours:.1f} h direct sun on {evaluation.reference_date.isoformat()} "
+                                    "message": f"{details['label']} receives {format_decimal(mismatch.hours, 1)} h direct sun on {evaluation.reference_date.isoformat()} "
                                                f"({mismatch.direction}; requires {evaluation.required.value}).", "details": details})
             elif evaluation.hours is None and evaluation.required != SunRequirement.UNKNOWN:
                 details["status"] = "not_evaluated"

@@ -457,6 +457,24 @@ class TestTaskReads:
         assert result["to_date"] == "2026-11-02"
         assert isinstance(result["tasks"], list)
 
+    def test_frost_alerts_follow_the_requested_window(self, app: Any) -> None:
+        """#859: a live alert is real-world data, but an agent read stays
+        bounded by the window it reports (the GUI is the live surface)."""
+        from open_garden_planner.services.weather_service import FrostAlert
+
+        alert = FrostAlert(
+            date=(datetime.date.today() + datetime.timedelta(days=1)).isoformat(),
+            min_temp=-1.0,
+            severity="red",
+            affected_plant_ids=["p1"],
+        )
+        app._agent_set_frost_alerts([alert])
+        future = [t["task_id"] for t in app._agent_get_tasks(today="2031-07-01")["tasks"]]
+        assert f"frost:{alert.date}:red" not in future
+
+        ids = [t["task_id"] for t in app._agent_get_tasks()["tasks"]]
+        assert ids.count(f"frost:{alert.date}:red") == 1
+
     def test_get_tasks_is_reproducible(self, app: Any) -> None:
         """Two calls, same reference date, byte-identical answer."""
         assert app._agent_get_tasks(today=TODAY) == app._agent_get_tasks(today=TODAY)

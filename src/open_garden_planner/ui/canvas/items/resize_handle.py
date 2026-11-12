@@ -322,8 +322,12 @@ class DimensionDisplay(QGraphicsItem):
             pos: Position in scene coordinates to display near
         """
         # Format dimensions (convert cm to m if > 100cm)
-        width_str = f"{width / 100:.2f}m" if width >= 100 else f"{width:.1f}cm"
-        height_str = f"{height / 100:.2f}m" if height >= 100 else f"{height:.1f}cm"
+        from open_garden_planner.core.i18n import format_decimal
+
+        width_str = (f"{format_decimal(width / 100, 2)}m" if width >= 100
+                     else f"{format_decimal(width, 1)}cm")
+        height_str = (f"{format_decimal(height / 100, 2)}m" if height >= 100
+                      else f"{format_decimal(height, 1)}cm")
 
         # Set text
         text = f"{width_str} × {height_str}"
@@ -790,7 +794,9 @@ class AngleDisplay(QGraphicsItem):
             display_angle += 360
 
         # Set text
-        text = f"{display_angle:.1f}°"
+        from open_garden_planner.core.i18n import format_decimal
+
+        text = f"{format_decimal(display_angle, 1)}°"
         self._text.setText(text)
 
         # Update background size based on text

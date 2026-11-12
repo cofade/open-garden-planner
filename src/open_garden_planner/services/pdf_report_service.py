@@ -13,10 +13,13 @@ from typing import TYPE_CHECKING, Any
 from PyQt6.QtCore import QCoreApplication, QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
 
+from open_garden_planner.core.harvest_units import harvest_unit_label
+from open_garden_planner.core.i18n import format_decimal, format_trimmed
 from open_garden_planner.core.measurements import (
     SCALE_BAR_NICE_DISTANCES_CM,
     format_scale_distance,
 )
+from open_garden_planner.core.plant_cycle_label import plant_cycle_label
 
 
 def _tr(text: str) -> str:
@@ -70,6 +73,8 @@ class PdfReportOptions:
     project_name: str = "Garden Plan"
     author: str = ""
     export_date: str = field(default_factory=lambda: date.today().isoformat())
+    #: The plan's north orientation (#663), degrees clockwise from plan-up.
+    north_angle_deg: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -185,26 +190,42 @@ def _draw_title_block(
     )
 
 
-def _draw_north_arrow(painter: QPainter, cx: float, cy: float, size: float) -> None:
-    """Draw a simple north arrow centred at (cx, cy)."""
+def _draw_north_arrow(
+    painter: QPainter, cx: float, cy: float, size: float, north_angle_deg: float = 0.0
+) -> None:
+    """Draw a north arrow centred at (cx, cy), turned with the plan's north (#663)."""
+    half = size / 2.0
     painter.save()
     painter.translate(cx, cy)
+    # QPainter is y-down: a positive rotation is clockwise, the sign the plan's
+    # north angle uses. The arrow is drawn pointing up and then turned.
+    painter.rotate(float(north_angle_deg))
 
     pen = QPen(QColor("#333333"))
     pen.setWidthF(1.0)
     painter.setPen(pen)
 
-    half = size / 2.0
     # Arrow body
     painter.drawLine(QPointF(0, half), QPointF(0, -half))
     # Arrowhead
     painter.drawLine(QPointF(0, -half), QPointF(-size * 0.2, -half + size * 0.35))
     painter.drawLine(QPointF(0, -half), QPointF(size * 0.2, -half + size * 0.35))
+    painter.restore()
 
+    # The letter stays upright at the arrow's tip, whichever way the plan turns.
+    angle = math.radians(float(north_angle_deg))
+    tip_x = cx + half * math.sin(angle)
+    tip_y = cy - half * math.cos(angle)
+    text_h = _pt(5)
+    gap = _pt(2)
+    centre_x = tip_x + math.sin(angle) * (gap + text_h / 2.0)
+    centre_y = tip_y - math.cos(angle) * (gap + text_h / 2.0)
+    painter.save()
     font = _font(max(4, int(size * 0.4)))
     painter.setFont(font)
+    painter.setPen(pen)
     painter.drawText(
-        QRectF(-size / 2, -half - _pt(5), size, _pt(5)),
+        QRectF(centre_x - size / 2, centre_y - text_h / 2, size, text_h),
         Qt.AlignmentFlag.AlignCenter,
         _tr("N"),
     )
@@ -382,6 +403,7 @@ def _render_overview(
         content_rect.right() - north_size,
         content_rect.top() + north_size,
         north_size,
+        opts.north_angle_deg,
     )
 
     # Scale bar, at the scale the plan was drawn at
@@ -579,12 +601,14 @@ def _render_table_page(
     rows: list[tuple[str, ...]],
     first_index: int = 0,
     empty_text: str = "",
+    footer: str | None = None,
 ) -> None:
     """One page of a titled table: header, then *rows*, striped by their index.
 
     *columns* is ``(heading, share of the page width)``. A cell too long for
     its column is elided, never cut at a character count. *empty_text* is what
-    the page says when the table has no row at all.
+    the page says when the table has no row at all. *footer* is one right-aligned
+    line in the space ``_TABLE_FOOT_MM`` reserves at the foot (a grand total).
     """
     header_font = _font(9)
     header_font.setBold(True)
@@ -635,6 +659,18 @@ def _render_table_page(
             empty_text,
         )
 
+    if footer:
+        footer_font = _font(8)
+        footer_font.setBold(True)
+        painter.setFont(footer_font)
+        painter.setPen(QColor("#2e7d32"))
+        painter.drawText(
+            QRectF(page_rect.left(), page_rect.bottom() - _pt(_TABLE_FOOT_MM),
+                   page_rect.width(), _pt(_TABLE_FOOT_MM)),
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+            footer,
+        )
+
 
 def _plant_display_name(item: Any) -> str:
     """A plant's name as the plant panels show it: its own name, else its species'."""
@@ -679,11 +715,18 @@ def _plant_rows(scene: Any) -> list[tuple[str, str, str, str]]:
         center = item.mapToScene(selection_frame_rect(item).center())
         metadata = getattr(item, "metadata", {}) or {}
         notes = (metadata.get("plant_instance") or {}).get("notes", "") or ""
+        species = metadata.get("plant_species") or {}
+        if isinstance(species, dict) and species:
+            # A species with an unknown cycle is a user-created one: say so
+            # rather than borrowing the canvas object type's "Perennial" (#869).
+            type_text = plant_cycle_label(species.get("cycle"), unknown="—")
+        else:
+            type_text = get_translated_display_name(item.object_type)
         name = _plant_display_name(item) or _tr("Unnamed")
         found.append((_natural_key(name), center.x(), center.y(), (
             name,
-            get_translated_display_name(item.object_type),
-            f"({center.x():.0f}, {center.y():.0f})",
+            type_text,
+            f"({format_decimal(center.x(), 0)}, {format_decimal(center.y(), 0)})",
             str(notes),
         )))
     # By name, and plants of one name from left to right.
@@ -726,8 +769,8 @@ def _harvest_rows(opts: PdfReportOptions) -> list[tuple[str, str, str, str, str]
         (
             agg.species_name or _tr("Unnamed"),
             str(agg.year),
-            f"{agg.total_quantity:g}",
-            agg.unit,
+            format_trimmed(agg.total_quantity),
+            harvest_unit_label(agg.unit),
             str(agg.entry_count),
         )
         for agg in aggregate_by_species_year(opts.harvest_logs or {})
@@ -934,8 +977,13 @@ def _wrap_to_width(
 # The legend lists what is on the plan: every kind of object in use and every
 # plant, each with a swatch painted by the item itself, so the legend shows the
 # fill, the texture or the sprite the reader sees on the plan pages (#788).
-_LEGEND_ROW_H_MM = 9.0
-_LEGEND_SWATCH_MM = 7.0
+_LEGEND_ROW_H_MM = 10.5
+_LEGEND_SWATCH_MM = 9.0
+#: A plant's sprite is painted this much larger than its footprint
+#: (``CircleItem._PLANT_FILL_SCALE``); the swatch must include the overhang or
+#: the outer foliage is clipped and a pale root vegetable reads faint (#864).
+#: A drift guard in ``test_pdf_report_pages`` keeps the two numbers equal.
+_LEGEND_SPRITE_OVERHANG = 1.15
 _LEGEND_PATCH_CM = 150.0
 _LEGEND_LINE_PATCH_MIN_CM = 30.0
 _LEGEND_LINE_WIDTHS = 8.0
@@ -1014,7 +1062,7 @@ def _legend_swatch(item: Any, side_pt: float, dpi: float | None = None) -> QImag
         # The plant itself: its bounding rect also holds its spacing circle.
         own = item.rect() if hasattr(item, "rect") else bounds
         if own.width() > 0 and own.height() > 0:
-            side = max(own.width(), own.height())
+            side = max(own.width(), own.height()) * _LEGEND_SPRITE_OVERHANG
             centre = own.center()
     else:
         # A patch of an area, not the whole lawn squeezed into a stamp; on a
@@ -1138,47 +1186,9 @@ def _render_legend(
         )
 
 
-def _shopping_list_fits(items: list[Any], page_rect: QRectF) -> bool:
-    """Return True when ``items`` (plus title + header + footer slack) all fit
-    on a single page of size ``page_rect``."""
-    title_h = _pt(14)
-    row_h = _pt(7)
-    footer_slack = _pt(20)
-    available = page_rect.bottom() - page_rect.top() - title_h - _pt(4) - row_h - footer_slack
-    return len(items) * row_h <= available
-
-
-def _render_shopping_list(
-    painter: QPainter,
-    page_rect: QRectF,
-    items: list[Any],
-    grand_total: float | None = None,
-) -> int:
-    """Render shopping list rows into ``page_rect``.
-
-    Returns the index of the first item that did not fit so the caller can
-    paginate; returns ``len(items)`` when everything fit.
-
-    ``grand_total`` is the whole-list total to print as a footer; pass it only
-    on the final page to avoid showing per-page subtotals labelled "Grand total".
-    """
-    title_font = _font(14)
-    title_font.setBold(True)
-    header_font = _font(9)
-    header_font.setBold(True)
-    row_font = _font(8)
-
-    painter.setFont(title_font)
-    painter.setPen(QColor("#2e7d32"))
-
-    title_h = _pt(14)
-    painter.drawText(
-        QRectF(page_rect.left(), page_rect.top(), page_rect.width(), title_h),
-        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-        _tr("Shopping List"),
-    )
-
-    cols = [
+def _shopping_list_columns() -> list[tuple[str, float]]:
+    """The shopping list's columns, shared by every page."""
+    return [
         (_tr("Category"), 0.13),
         (_tr("Item"), 0.32),
         (_tr("Quantity"), 0.12),
@@ -1188,74 +1198,21 @@ def _render_shopping_list(
         (_tr("Notes"), 0.13),
     ]
 
-    row_h = _pt(7)
-    y = page_rect.top() + title_h + _pt(4)
 
-    painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), QColor("#2e7d32"))
-    painter.setFont(header_font)
-    painter.setPen(QColor("white"))
-    x = page_rect.left()
-    for label, frac in cols:
-        col_w = page_rect.width() * frac
-        painter.drawText(
-            QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            label,
-        )
-        x += col_w
-    y += row_h
-
-    painter.setFont(row_font)
-    rendered = 0
-    for idx, item in enumerate(items):
-        if y + row_h > page_rect.bottom() - _pt(20):
-            return idx
-        bg = QColor("#f9f9f9") if idx % 2 == 0 else QColor("white")
-        painter.fillRect(QRectF(page_rect.left(), y, page_rect.width(), row_h), bg)
-        painter.setPen(QColor("#333333"))
-        price_str = "" if item.price_each is None else f"{item.price_each:.2f}"
-        total_str = "" if item.total_cost is None else f"{item.total_cost:.2f}"
-        values = [
+def _shopping_list_rows(items: list[Any]) -> list[tuple[str, ...]]:
+    """The stable cell values of the shopping list, numbers in the UI locale."""
+    return [
+        (
             item.category.value,
             item.name,
-            f"{item.quantity:g}",
+            format_trimmed(item.quantity),
             item.unit,
-            price_str,
-            total_str,
+            "" if item.price_each is None else format_decimal(item.price_each, 2),
+            "" if item.total_cost is None else format_decimal(item.total_cost, 2),
             item.notes,
-        ]
-        x = page_rect.left()
-        for val, frac in zip(values, [f for _, f in cols], strict=True):
-            col_w = page_rect.width() * frac
-            painter.drawText(
-                QRectF(x + _pt(2), y, col_w - _pt(4), row_h),
-                Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                str(val)[:60],
-            )
-            x += col_w
-        y += row_h
-        rendered = idx + 1
-
-    if grand_total is not None:
-        y += _pt(4)
-        painter.setFont(header_font)
-        painter.setPen(QColor("#2e7d32"))
-        painter.drawText(
-            QRectF(page_rect.left(), y, page_rect.width(), row_h),
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
-            f"{_tr('Grand total')}: {grand_total:.2f}",
         )
-
-    if not items:
-        painter.setFont(row_font)
-        painter.setPen(QColor("#777777"))
-        painter.drawText(
-            QRectF(page_rect.left(), y + _pt(4), page_rect.width(), _pt(10)),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            _tr("Shopping list is empty."),
-        )
-
-    return rendered
+        for item in items
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -1446,30 +1403,36 @@ class PdfReportService:
         if not painter.begin(writer):
             raise RuntimeError("Failed to start PDF painter")
         try:
-            remaining = list(items)
-            first = True
-            while True:
-                if not first:
+            # One paginator for every table of the report (#870): the same
+            # _section_pages / _render_table_page pair the plant list, the
+            # harvest summary and the legend use. The grand total is a footer
+            # on the last page, in the row space the paginator reserves.
+            rows = _shopping_list_rows(items)
+            columns = _shopping_list_columns()
+            page_rect = QRectF(painter.viewport())
+            pages = _section_pages(rows, _table_rows_per_page(page_rect))
+            for index, (chunk, page, page_count, first_index) in enumerate(pages):
+                if index:
                     writer.newPage()
-                first = False
-                page_rect = QRectF(painter.viewport())
+                    page_rect = QRectF(painter.viewport())
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing)
                 painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
                 painter.fillRect(page_rect, QColor("white"))
-                # Probe whether the whole remaining slice fits on this page;
-                # if so, this is the final page → emit the grand total here.
-                fits_on_page = _shopping_list_fits(remaining, page_rect)
-                rendered = _render_shopping_list(
-                    painter, page_rect, remaining,
-                    grand_total=grand_total if fits_on_page else None,
-                )
-                if rendered >= len(remaining):
-                    break
-                if rendered == 0:
-                    raise RuntimeError(
-                        "Shopping list row too large to fit on a page"
+                footer = None
+                if index == len(pages) - 1 and grand_total is not None:
+                    footer = _tr("Grand total: {total}").format(
+                        total=format_decimal(grand_total, 2)
                     )
-                remaining = remaining[rendered:]
+                _render_table_page(
+                    painter,
+                    page_rect,
+                    _paged_title(_tr("Shopping List"), page, page_count),
+                    columns,
+                    chunk,
+                    first_index,
+                    _tr("Shopping list is empty."),
+                    footer,
+                )
         finally:
             painter.end()
 

@@ -10,7 +10,6 @@ in structure and style.
 from __future__ import annotations
 
 import uuid
-from datetime import date as _date
 
 from PyQt6.QtCore import QDate
 from PyQt6.QtWidgets import (
@@ -30,6 +29,7 @@ from open_garden_planner.core.object_types import (
     get_translated_display_name,
     is_bed_type,
 )
+from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.models.task import ManualTask
 from open_garden_planner.ui.date_fields import as_date_field
 
@@ -56,11 +56,11 @@ class TaskDialog(QDialog):
         self.setMinimumWidth(440)
 
         self._setup_ui()
-        # Always start at today; _populate overrides this only if the task
-        # actually carries a date string (a freshly built ManualTask has
-        # ``date=""`` and would otherwise leave the QDateEdit at its Qt
-        # default of 2000-01-01).
-        today = _date.today()
+        # Start on the plan's local day (#859), not the wall date: the Tasks tab
+        # classifies against the plan day, so a manual task created in 2031 must
+        # not land in 2026 and read as overdue. _populate overrides this only if
+        # the task actually carries a date string.
+        today = plan_day_of(scene)
         self._date_edit.setDate(QDate(today.year, today.month, today.day))
         if task is not None:
             self._populate(task)

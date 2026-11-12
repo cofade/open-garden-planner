@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.core.i18n import format_day_month, month_abbreviation
+from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
@@ -61,6 +62,7 @@ from open_garden_planner.ui.theme import (
     theme_qcolor,
     urgency_dot,
 )
+from open_garden_planner.ui.views.task_text import task_row_text
 from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
@@ -384,19 +386,6 @@ class _DashboardPanel(QFrame):
             "this_week": self.tr("This Week"),
             "coming_up": self.tr("Coming Up"),
         }
-        # Templates substitute the task's display_name into %1. Types not listed
-        # (succession_sow/clear, soil_mismatch, soil_amendment, manual) fall
-        # through to "%1" — their display_name is already a complete label.
-        task_templates = {
-            "indoor_sow":         self.tr("Start indoor sowing of %1"),
-            "direct_sow":         self.tr("Direct sow %1"),
-            "transplant":         self.tr("Transplant %1 outdoors"),
-            "harvest":            self.tr("Harvest %1"),
-            "prick_out":          self.tr("Prick out %1 seedlings"),
-            "harden_off":         self.tr("Start hardening off %1"),
-            "frost_alert_orange": "%1",  # marker = row icon (#310)
-            "frost_alert_red":    "%1",
-        }
 
         for urgency in _URGENCY_ORDER:
             group = grouped[urgency]
@@ -413,7 +402,7 @@ class _DashboardPanel(QFrame):
 
             for task in group:
                 self._content_layout.addWidget(
-                    self._make_task_row(task, task_templates, color)
+                    self._make_task_row(task, color)
                 )
 
         self._content_layout.addStretch()
@@ -437,7 +426,6 @@ class _DashboardPanel(QFrame):
     def _make_task_row(
         self,
         task: _DashboardTask,
-        templates: dict[str, str],
         color: QColor,
     ) -> QWidget:
         row = QWidget()
@@ -461,8 +449,7 @@ class _DashboardPanel(QFrame):
         # Elided, not a plain label: one frost alert that names twenty plants
         # is wider than the window, and a label is never narrower than its
         # text — it pushed every row's date, arrow and Done out of view (#796).
-        template = templates.get(task.task_type, "%1")
-        lbl = ElidedLabel(template.replace("%1", task.display_name))
+        lbl = ElidedLabel(task_row_text(task.task_type, task.display_name))
         lbl.setStyleSheet("font-size: 9pt;")
         layout.addWidget(lbl, 1)
 
@@ -523,6 +510,9 @@ class _GanttWidget(QWidget):
         super().__init__(parent)
         self._rows: list[_PlantRow] = []
         self._year: int = datetime.date.today().year
+        #: The plan's local day the chart stands at (#859): the "Today" marker
+        #: and the displayed year are the plan clock's, not the wall clock's.
+        self._today: datetime.date = datetime.date.today()
         self._last_frost: datetime.date | None = None
         self._first_fall: datetime.date | None = None
         self._selected: int = -1
@@ -559,6 +549,7 @@ class _GanttWidget(QWidget):
         first_fall: datetime.date | None,
         windows: dict[str, list[_GanttWindow]] | None = None,
         prop_steps: dict[str, list[_PropStepWindow]] | None = None,
+        today: datetime.date | None = None,
     ) -> None:
         """Set the rows and the already-computed windows to draw for ``year``.
 
@@ -573,6 +564,8 @@ class _GanttWidget(QWidget):
         """
         self._rows = rows
         self._year = year
+        if today is not None:
+            self._today = today
         self._last_frost = last_frost
         self._first_fall = first_fall
         self._windows = windows or {}
@@ -821,7 +814,7 @@ class _GanttWidget(QWidget):
         painter.setFont(normal)
 
     def _paint_today(self, painter: QPainter) -> None:
-        today = datetime.date.today()
+        today = self._today
         if today.year != self._year:
             return
         x = int(self._x(today))
@@ -1379,7 +1372,7 @@ class PlantingCalendarView(QWidget):
     ) -> tuple[list[_PlantRow], datetime.date | None, datetime.date | None, dict[str, str]]:
         """Collect unique plant species, frost dates, and seed packet links from current project state."""
         location = self._project_manager.location
-        year = datetime.date.today().year
+        year = plan_day_of(self._canvas_scene).year
         last_frost: datetime.date | None = None
         first_fall: datetime.date | None = None
 
@@ -1558,9 +1551,11 @@ class PlantingCalendarView(QWidget):
             return
 
         self._empty_lbl.hide()
-        year = datetime.date.today().year
+        today = plan_day_of(self._canvas_scene)
+        year = today.year
         windows, prop_steps = self._compute_gantt_windows(year)
-        self._gantt.set_data(rows, year, last_frost, first_fall, windows, prop_steps)
+        self._gantt.set_data(rows, year, last_frost, first_fall, windows, prop_steps,
+                             today=today)
         self._scroll.show()
 
     def _compute_gantt_windows(
@@ -1656,7 +1651,9 @@ class PlantingCalendarView(QWidget):
         already schedules a (debounced) full refresh in the app.
         """
         if hasattr(self._project_manager, "set_task_completion"):
-            self._project_manager.set_task_completion(task_id, done)
+            self._project_manager.set_task_completion(
+                task_id, done, done_date=plan_day_of(self._canvas_scene)
+            )
         self._rebuild_dashboard()
 
     def _on_propagation_toggled(self, checked: bool) -> None:
@@ -1823,7 +1820,13 @@ class PlantingCalendarView(QWidget):
 
     @staticmethod
     def _frost_alert_actionable(alert: Any) -> bool:
-        """Whether a frost alert falls inside the actionable urgency window."""
+        """Whether a frost alert falls inside the actionable urgency window.
+
+        A frost alert comes from the LIVE weather service, whose dates are real
+        calendar days, not the plan's simulated day: it is classified against
+        the wall clock on purpose (the #859 plan-day rule covers the plan's own
+        tasks, not a real-world forecast).
+        """
         try:
             d = datetime.date.fromisoformat(alert.date)
         except (ValueError, AttributeError):
@@ -1925,12 +1928,15 @@ class PlantingCalendarView(QWidget):
         Separate from :meth:`refresh` so the async weather callback can update
         the frost rows without re-triggering the weather fetch (which would loop).
         """
-        today = datetime.date.today()
+        today = plan_day_of(self._canvas_scene)
         state = build_plan_state(
             self._canvas_scene,
             self._project_manager,
             frost_alerts=self._current_frost_alerts,
             soil_service=self._soil_service,
+            today=today,
+            # A live forecast names real days (#859): keep its own reference.
+            weather_today=datetime.date.today(),
             # include_propagation (rather than a pre-built single-year
             # ``prop_plans`` dict) so the anchor-year machinery runs inside the
             # shared generator — this surface used to pass one plan per species,
@@ -1971,7 +1977,10 @@ class PlantingCalendarView(QWidget):
         it falls outside the calendar's actionable window (undated/too far)."""
         if task.start_date is None or task.end_date is None:
             return None
-        urgency = classify_urgency(task.start_date, task.end_date, today)
+        # A live frost alert is real-world data (#859): classify it against the
+        # wall day, or a 2031 plan would hide tomorrow's warning.
+        reference = datetime.date.today() if task.source == "frost" else today
+        urgency = classify_urgency(task.start_date, task.end_date, reference)
         if urgency is None:
             return None
         # Frost rows carry no species_key; their "→" highlight selects the

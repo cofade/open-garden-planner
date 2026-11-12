@@ -42,6 +42,7 @@ from PyQt6.QtGui import (
     QPainter,
     QPaintEvent,
     QPen,
+    QPolygonF,
     QTransform,
     QWheelEvent,
 )
@@ -77,6 +78,7 @@ from open_garden_planner.core.commands import (
     iter_plant_parents,
 )
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
+from open_garden_planner.core.i18n import format_decimal, format_trimmed
 from open_garden_planner.core.measurements import (
     SCALE_BAR_NICE_DISTANCES_CM,
     format_scale_distance,
@@ -297,6 +299,8 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+        # The plan's north orientation (#663), degrees clockwise from plan-up.
+        self._north_angle_deg = 0.0
         # The key of the hours-of-sun map (#794): what it shows while a map is
         # shown, and where it was last painted (viewport pixels).
         self._sun_legend: SunLegendKey | None = None
@@ -1776,6 +1780,22 @@ class CanvasView(QGraphicsView):
         self._scale_bar_visible = visible
         self.viewport().update()
 
+    def north_angle_deg(self) -> float:
+        """The plan's north orientation, degrees clockwise from plan-up (#663)."""
+        return self._north_angle_deg
+
+    def set_north_angle(self, angle_deg: float) -> None:
+        """Turn the canvas's north arrow with the plan's north orientation (#663)."""
+        from open_garden_planner.core.plan_north import normalize_north_angle
+
+        angle = normalize_north_angle(angle_deg)
+        if angle == self._north_angle_deg:
+            return
+        self._north_angle_deg = angle
+        viewport = self.viewport()
+        if viewport is not None:
+            viewport.update()
+
     def set_constraints_visible(self, visible: bool) -> None:
         """Set constraint dimension line visibility."""
         self._canvas_scene.set_constraints_visible(visible)
@@ -2053,9 +2073,9 @@ class CanvasView(QGraphicsView):
                 ConstraintType.TANGENT,
             ):
                 # abs() is defensive; TANGENT's target is the (non-negative) radius.
-                rows.append((cid, f"{name} — {abs(c.target_distance) / 100.0:.2f} m"))
+                rows.append((cid, f"{name} — {format_decimal(abs(c.target_distance) / 100.0, 2)} m"))
             elif c.constraint_type == ConstraintType.ANGLE:
-                rows.append((cid, f"{name} — {c.target_distance:.1f}°"))
+                rows.append((cid, f"{name} — {format_decimal(c.target_distance, 1)}°"))
             else:
                 rows.append((cid, name))
 
@@ -4492,6 +4512,9 @@ class CanvasView(QGraphicsView):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self._draw_scale_bar(painter)
 
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self._draw_north_arrow(painter)
+
         self._draw_sun_legend(painter)
 
         if self._guides_visible:
@@ -4748,11 +4771,10 @@ class CanvasView(QGraphicsView):
 
     @staticmethod
     def _ruler_label(value: float) -> str:
-        """Format a ruler tick label compactly (cm values)."""
+        """Format a ruler tick label compactly (cm values), in the UI locale."""
         if abs(value) >= 100:
-            m = value / 100
-            return f"{m:g}m"
-        return f"{value:g}"
+            return f"{format_trimmed(value / 100)}m"
+        return format_trimmed(value)
 
     # Guide line interaction helpers
 
@@ -4921,6 +4943,67 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.ui.canvas.items.halo_text import paint_halo_text
 
         paint_halo_text(painter, QPointF(int(text_x), int(text_y)), label, font, fg_color)
+
+    def _draw_north_arrow(self, painter: QPainter) -> None:
+        """A small compass arrow at the top-right: where true north lies (#663).
+
+        A viewport overlay, like the scale bar: it stays in sight at any zoom and
+        pan and is never part of an export (the PDF report draws its own arrow
+        with the same angle).
+        """
+        from open_garden_planner.core.plan_north import north_direction
+
+        viewport = self.viewport()
+        if viewport is None:
+            return
+        size = 26.0
+        margin = 14.0
+        top = margin + (float(self.RULER_SIZE) if self._guides_visible else 0.0)
+        centre = QPointF(viewport.width() - margin - size / 2.0, top + size / 2.0)
+        outline = QColor(self._scale_bar_outline)
+        fg = QColor(self._scale_bar_fg)
+
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(outline, 4.0))
+        painter.drawEllipse(centre, size / 2.0, size / 2.0)
+        painter.setPen(QPen(fg, 1.2))
+        painter.drawEllipse(centre, size / 2.0, size / 2.0)
+
+        east, north = north_direction(self._north_angle_deg)
+        up = QPointF(east, -north)  # screen y grows down
+        tip = QPointF(
+            centre.x() + up.x() * size * 0.32,
+            centre.y() + up.y() * size * 0.32,
+        )
+        tail = QPointF(
+            centre.x() - up.x() * size * 0.22,
+            centre.y() - up.y() * size * 0.22,
+        )
+        painter.setPen(QPen(fg, 2.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(tail, tip)
+
+        head = size * 0.16
+        across = QPointF(-up.y(), up.x())
+        left = QPointF(tip.x() - up.x() * head + across.x() * head * 0.6,
+                       tip.y() - up.y() * head + across.y() * head * 0.6)
+        right = QPointF(tip.x() - up.x() * head - across.x() * head * 0.6,
+                        tip.y() - up.y() * head - across.y() * head * 0.6)
+        painter.setBrush(fg)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPolygon(QPolygonF([tip, left, right]))
+
+        label_font = QFont()
+        label_font.setPointSize(7)
+        label_font.setBold(True)
+        painter.setFont(label_font)
+        painter.setPen(QPen(fg))
+        anchor = QPointF(tip.x() + up.x() * size * 0.28,
+                         tip.y() + up.y() * size * 0.28)
+        painter.drawText(
+            QRectF(anchor.x() - 8.0, anchor.y() - 7.0, 16.0, 14.0),
+            Qt.AlignmentFlag.AlignCenter,
+            self.tr("N"),
+        )
 
     # ------------------------------------------------------------------
     # Group / Ungroup

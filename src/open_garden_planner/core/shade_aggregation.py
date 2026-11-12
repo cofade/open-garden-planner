@@ -41,7 +41,7 @@ from .shadow_geometry import (
     compute_weighted_shadows,
 )
 from .sim_clock import SimInstant
-from .solar import solar_position
+from .solar import scene_azimuth, solar_position
 
 #: Daylight sampling step. 15 min × ≤64 daylight samples covers the perf
 #: budget; the toy-case gate allows one sample of slack.
@@ -309,7 +309,8 @@ def daylight_samples(
     lon_deg: float,
     day: date,
     step_minutes: int = SAMPLE_STEP_MINUTES,
-
+    *,
+    north_angle_deg: float = 0.0,
 ) -> list[SunSample]:
     """Sun-up sample instants across the UTC civil day, at ``step_minutes``.
 
@@ -321,6 +322,10 @@ def daylight_samples(
     undercount every cell's sun by ~10 min/day at Berlin's solstice.
     ``compute_heatmap`` clamps the elevation it feeds the shadow machinery
     instead (see there).
+
+    ``north_angle_deg`` is the plan's north orientation (#663): each sample's
+    azimuth is mapped into the scene frame here, once, so every cell's
+    receiver-side shading uses the same frame as the 2D shadow overlay.
     """
     samples: list[SunSample] = []
     instant = datetime(day.year, day.month, day.day, tzinfo=UTC)
@@ -330,7 +335,11 @@ def daylight_samples(
         position = solar_position(lat_deg, lon_deg, instant)
         if position.elevation_deg > 0.0:
             samples.append(
-                SunSample(instant, position.elevation_deg, position.azimuth_deg)
+                SunSample(
+                    instant,
+                    position.elevation_deg,
+                    scene_azimuth(position.azimuth_deg, north_angle_deg),
+                )
             )
         instant += step
     return samples
@@ -372,6 +381,7 @@ def compute_heatmap(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    north_angle_deg: float = 0.0,
 
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
@@ -393,7 +403,8 @@ def compute_heatmap(
     oracle's 540).
     """
     result = _aggregate_day(casters, lat_deg, lon_deg, day, grid, rasterize,
-                            step_minutes=step_minutes, progress=progress, should_cancel=should_cancel)
+                            step_minutes=step_minutes, north_angle_deg=north_angle_deg,
+                            progress=progress, should_cancel=should_cancel)
     return result.minutes if result is not None else None
 
 
@@ -407,6 +418,7 @@ def compute_sun_exposure(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    north_angle_deg: float = 0.0,
     include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
@@ -420,6 +432,7 @@ def compute_sun_exposure(
     # sweeps (base included); the anonymous list is only for a caller without ids.
     return _aggregate_day((), lat_deg, lon_deg, day, grid, rasterize,
                           identified=casters, receivers=receivers, step_minutes=step_minutes,
+                          north_angle_deg=north_angle_deg,
                           include_sample_masks=include_sample_masks,
                           progress=progress, should_cancel=should_cancel)
 
@@ -469,11 +482,14 @@ def _aggregate_day(
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
     *, identified: Sequence[IdentifiedCaster] = (), receivers: Sequence[SunReceiver] = (),
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    north_angle_deg: float = 0.0,
     include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> SunExposureResult | None:
-    samples = daylight_samples(lat_deg, lon_deg, day, step_minutes)
+    samples = daylight_samples(
+        lat_deg, lon_deg, day, step_minutes, north_angle_deg=north_angle_deg
+    )
     minutes = np.zeros((grid.rows, grid.cols), dtype=np.float32)
     valid = [receiver for receiver in receivers
              if math.isfinite(receiver.x_cm) and math.isfinite(receiver.y_cm)

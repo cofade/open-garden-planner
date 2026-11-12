@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.plant_cycle_label import plant_cycle_label
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services import get_plant_library
 from open_garden_planner.ui.theme import set_text_role
@@ -151,13 +152,7 @@ class CustomPlantsDialog(QDialog):
             self.table.setItem(row, 2, family_item)
 
             # Cycle
-            _cycle_names = {
-                "unknown": "",
-                "annual": self.tr("Annual"),
-                "biennial": self.tr("Biennial"),
-                "perennial": self.tr("Perennial"),
-            }
-            cycle_text = _cycle_names.get(plant.cycle.value, plant.cycle.value)
+            cycle_text = plant_cycle_label(plant.cycle)
             cycle_item = QTableWidgetItem(cycle_text)
             self.table.setItem(row, 3, cycle_item)
 

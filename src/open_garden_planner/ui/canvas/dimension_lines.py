@@ -23,6 +23,7 @@ from open_garden_planner.core.constraints import (
     ConstraintGraph,
     ConstraintType,
 )
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
@@ -542,7 +543,7 @@ class DimensionLineManager:
 
         # Distance text
         dist_m = target_distance / 100.0
-        text_str = f"{dist_m:.2f} m"
+        text_str = f"{format_decimal(dist_m, 2)} m"
         text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
@@ -613,7 +614,7 @@ class DimensionLineManager:
 
         # Distance text
         dist_m = target_distance / 100.0
-        text_str = f"↔ {dist_m:.2f} m"
+        text_str = f"↔ {format_decimal(dist_m, 2)} m"
         text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
@@ -678,7 +679,7 @@ class DimensionLineManager:
 
         # Distance text
         dist_m = target_distance / 100.0
-        text_str = f"↕ {dist_m:.2f} m"
+        text_str = f"↕ {format_decimal(dist_m, 2)} m"
         text_item = HaloTextItem(text_str, centered=True)
         font = QFont()
         font.setPointSize(10)
@@ -1391,7 +1392,7 @@ class DimensionLineManager:
             pos_b.x() + math.cos(mid_angle_rad) * label_r,
             pos_b.y() + math.sin(mid_angle_rad) * label_r,
         )
-        text_str = f"{target_angle_deg:.1f}°"
+        text_str = f"{format_decimal(target_angle_deg, 1)}°"
         text_item = HaloTextItem(text_str)
         font = QFont()
         font.setPointSize(9)

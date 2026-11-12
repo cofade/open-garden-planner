@@ -95,7 +95,7 @@ PAINTED_LITERALS: dict[str, tuple[int, str]] = {
         2, "the measuring line is drawn on the user's photo, not on chrome"),
     "ui/dialogs/insert_guild_dialog.py": (
         1, "a preview marker drawn on the plan (the canvas is bright in both themes)"),
-    "ui/dialogs/print_dialog.py": (2, "drawn on paper"),
+    "ui/dialogs/print_dialog.py": (4, "drawn on paper"),
     "ui/dialogs/properties_dialog.py": (
         2, "default values of an object's own fill and stroke colour (data)"),
     "ui/dialogs/succession_plan_dialog.py": (

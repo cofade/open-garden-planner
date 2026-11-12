@@ -380,15 +380,18 @@ def _extent(mask: np.ndarray) -> tuple[int, int, int, int]:
 PRINTABLE_W_MM, PRINTABLE_H_MM = 297.0 - 2 * PRINT_MARGIN_MM, 210.0 - 2 * PRINT_MARGIN_MM
 
 
-def _printed_pages(scene: CanvasScene, tmp_path: Path, denominator: int) -> tuple[Path, int]:
-    target = tmp_path / "print.pdf"
+def _printed_pages(
+    scene: CanvasScene, tmp_path: Path, denominator: int, *, include_grid: bool = False,
+    target_name: str = "print", grid_size_cm: float = 50.0,
+) -> tuple[Path, int]:
+    target = tmp_path / f"{target_name}.pdf"
     printer = QPrinter(QPrinter.PrinterMode.HighResolution)
     printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
     printer.setOutputFileName(str(target))
     printer.setPageLayout(default_page_layout())
-    manager = GardenPrintManager(scene, project_name="Plan")
-    manager.configure(scale_denominator=denominator, include_grid=False, include_labels=True,
-                      include_legend=True)
+    manager = GardenPrintManager(scene, project_name="Plan", grid_size_cm=grid_size_cm)
+    manager.configure(scale_denominator=denominator, include_grid=include_grid,
+                      include_labels=True, include_legend=True)
     manager._render_to_printer(printer)
     del printer
     return target, _pdf_page_count(target)
@@ -412,7 +415,7 @@ def test_a_print_tile_paints_nothing_on_its_margin_or_footer(qtbot, tmp_path: Pa
             row, col = divmod(number, cols)
             tile_x = 0.0
             tile_w = min(PRINTABLE_W_MM, scene.width_cm * 10 / denominator - col * PRINTABLE_W_MM)
-            tile_h = min(content_h, scene.height_cm * 10 / denominator - (rows - 1 - row) * content_h)
+            tile_h = min(content_h, scene.height_cm * 10 / denominator - row * content_h)
         else:
             fit = min(PRINTABLE_W_MM / scene.width_cm, content_h / scene.height_cm)
             tile_w, tile_h = scene.width_cm * fit, scene.height_cm * fit
@@ -438,6 +441,53 @@ def test_a_print_tile_paints_nothing_on_its_margin_or_footer(qtbot, tmp_path: Pa
         assert not painted[bottom + 3:rule - 3, :].any(), f"{where}: painted below its tile"
         # The footer holds its three texts and nothing else.
         assert painted[rule + 3:, :].mean() < 0.08, f"{where}: the plan runs over the footer"
+
+
+def test_the_print_grid_option_paints_the_canvas_grid(qtbot, tmp_path: Path) -> None:
+    """#868: the Grid checkbox changes the printed page, not just a field."""
+    import numpy as np
+
+    scene = CanvasScene(width_cm=1000, height_cm=700)
+    plain_path, plain_pages = _printed_pages(scene, tmp_path, 0, target_name="plain")
+    grid_path, grid_pages = _printed_pages(
+        scene, tmp_path, 0, include_grid=True, target_name="grid"
+    )
+    assert plain_pages == grid_pages == 1
+    plain = _channels(_pdf_page(plain_path, 0, 200))
+    grid = _channels(_pdf_page(grid_path, 0, 200))
+    changed = np.abs(grid.astype(int) - plain.astype(int)).max(axis=2) > 4
+    # Grid lines are thin but cover the plan: a few percent of the page.
+    assert changed.mean() > 0.02
+
+    # At the canvas's own spacing: half the step means twice the lines. A grid
+    # size that was stored and ignored would paint the same picture.
+    fine_path, _ = _printed_pages(
+        scene, tmp_path, 0, include_grid=True, target_name="grid25", grid_size_cm=25.0
+    )
+    fine = _channels(_pdf_page(fine_path, 0, 200))
+    changed_fine = np.abs(fine.astype(int) - plain.astype(int)).max(axis=2) > 4
+    assert changed_fine.mean() > 1.5 * changed.mean()
+
+
+def test_the_short_tile_row_is_the_last_page_not_the_first(qtbot, tmp_path: Path) -> None:
+    """#871: a height that is not a whole number of tiles leaves the short row last."""
+    import numpy as np
+
+    # 1600 cm at 1:50 is two rows: a full ~890 cm top row and a ~710 cm short
+    # bottom row. Page 1 must be the full one.
+    scene = CanvasScene(width_cm=1200, height_cm=1600)
+    target, pages = _printed_pages(scene, tmp_path, 50)
+    assert pages == 2
+    content_h = PRINTABLE_H_MM - GardenPrintManager.LEGEND_HEIGHT_MM
+    mm = 100 / 25.4
+
+    def last_painted_row(number: int) -> int:
+        page = _channels(_pdf_page(target, number, 100))
+        painted = page.min(axis=2) < 235
+        rows = np.flatnonzero(painted[:round((PRINT_MARGIN_MM + content_h) * mm) - 3].any(axis=1))
+        return int(rows[-1]) if len(rows) else 0
+
+    assert last_painted_row(0) > last_painted_row(1) + 20
 
 
 def test_report_pages_paint_the_plan_only_inside_their_frame(qtbot) -> None:
@@ -559,3 +609,60 @@ def test_the_cover_shows_the_title_it_is_given(qtbot, monkeypatch: pytest.Monkey
     options = svc.PdfReportOptions(project_name="Family garden - 24 x 16 m")
     _image, texts = _page_image(scene, "cover", None, monkeypatch, options)
     assert "Family garden - 24 x 16 m" in texts
+
+
+def test_the_legend_swatch_includes_the_sprite_overhang_and_is_not_faint(qtbot) -> None:
+    """#864: the carrot and onion samples must show their foliage, not a pale smudge."""
+    import numpy as np
+
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    # Drift guard: the legend's copy of the sprite scale is the canvas's own.
+    assert svc._LEGEND_SPRITE_OVERHANG == CircleItem._PLANT_FILL_SCALE
+
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / "family-garden.ogp", as_template=True)
+    wanted = {"Carrot", "Onion"}
+    found = {
+        svc._plant_display_name(item): item
+        for item in svc._plant_items(scene)
+        if svc._plant_display_name(item) in wanted
+    }
+    assert wanted <= set(found)
+    for name in wanted:
+        image = svc._legend_swatch(found[name], svc._pt(svc._LEGEND_SWATCH_MM), 300)
+        image = image.convertToFormat(image.Format.Format_RGB32)
+        lightness = np.array([
+            [image.pixel(x, y) & 255 for x in range(image.width())]
+            for y in range(image.height())
+        ])
+        assert lightness.mean() < 215.0, name
+        assert (lightness < 230).mean() > 0.5, name
+
+
+def test_the_plant_list_type_is_the_species_cycle_not_the_object_type(qtbot) -> None:
+    """#869: carrots are biennial, radishes and lettuce annual — not "Perennial"."""
+    scene = CanvasScene()
+    ProjectManager().load(scene, BUNDLED_EXAMPLES / "raised-bed.ogp", as_template=True)
+    kinds: dict[str, set[str]] = {}
+    for name, kind, _position, _notes in svc._plant_rows(scene):
+        kinds.setdefault(name, set()).add(kind)
+    assert kinds["Carrot"] == {"Biennial"}
+    assert kinds["Radish"] == {"Annual"}
+    assert kinds["Lettuce"] == {"Annual"}
+    assert kinds["Chives"] == {"Perennial"}
+
+
+def test_an_unknown_cycle_does_not_borrow_the_canvas_object_type(qtbot) -> None:
+    scene = CanvasScene(width_cm=500, height_cm=500)
+    plant = CircleItem(
+        center_x=100, center_y=100, radius=20,
+        object_type=ObjectType.PERENNIAL, name="Mystery herb",
+    )
+    plant.metadata["plant_species"] = {
+        "common_name": "Mystery herb", "scientific_name": "Mysteria herba",
+        "cycle": "unknown",
+    }
+    scene.addItem(plant)
+    rows = svc._plant_rows(scene)
+    assert rows and rows[0][1] == "—"

@@ -34,7 +34,8 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+from open_garden_planner.core.plant_cycle_label import plant_cycle_label
+from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE, plan_day_of
 from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.models.plant_data import (
     FlowerType,
@@ -592,17 +593,12 @@ class PlantDatabasePanel(QWidget):
 
         # Cycle (annual/perennial)
         self.cycle_combo = QComboBox()
-        cycle_labels = {
-            PlantCycle.ANNUAL: self.tr("Annual"),
-            PlantCycle.BIENNIAL: self.tr("Biennial"),
-            PlantCycle.PERENNIAL: self.tr("Perennial"),
-        }
         # Leading neutral entry so a species with no cycle data shows "—" rather
         # than being misrepresented as the first concrete option (#231).
         self.cycle_combo.addItem(self.tr("—"), PlantCycle.UNKNOWN.value)
         for item in PlantCycle:
             if item != PlantCycle.UNKNOWN:
-                self.cycle_combo.addItem(cycle_labels.get(item, item.value), item.value)
+                self.cycle_combo.addItem(plant_cycle_label(item), item.value)
         self.cycle_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Cycle:"), self.cycle_combo)
@@ -1305,6 +1301,20 @@ class PlantDatabasePanel(QWidget):
         self.removal_date_edit.blockSignals(False)
         self._update_age_label(planted)
 
+    def refresh_plan_date(self) -> None:
+        """Re-derive the age label after the plan's day moved (#859).
+
+        The panel is a passive view of the selection; the plan clock is one of
+        its inputs, so the app calls this from its date-change fan-out. Only the
+        readout is touched: the date editors may hold an uncommitted edit.
+        """
+        item = self._current_plant_item
+        if item is None:
+            return
+        from open_garden_planner.core.plan_timeline import instance_date
+
+        self._update_age_label(instance_date(getattr(item, "metadata", None), "planting_date"))
+
     def _update_age_label(self, planting_date: date | None) -> None:
         """Update the age label based on planting date.
 
@@ -1315,7 +1325,11 @@ class PlantDatabasePanel(QWidget):
             self.age_label.setText("")
             return
 
-        today = date.today()
+        # The plant's age follows the PLAN's day (#859): the canvas and 3D grow
+        # it at that date, so a wall-clock age would contradict the tree drawn
+        # beside the label. A panel with no scene reads the wall date.
+        item = self._current_plant_item
+        today = plan_day_of(item.scene() if item is not None else None)
         if planting_date > today:
             self.age_label.setText(self.tr("(future)"))
             return

@@ -294,6 +294,7 @@ class HeatmapWorker(QThread):
         parent: QObject | None = None,
         *, receivers: tuple[SunReceiver, ...] = (),
         include_sample_masks: bool = False,
+        north_angle_deg: float = 0.0,
     ) -> None:
         super().__init__(parent)
         self._casters = casters
@@ -303,6 +304,7 @@ class HeatmapWorker(QThread):
         self._day = day
         self._grid = grid
         self._include_sample_masks = include_sample_masks
+        self._north_angle_deg = north_angle_deg
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -318,6 +320,7 @@ class HeatmapWorker(QThread):
             self._grid,
             rasterize_polygons_qimage,
             include_sample_masks=self._include_sample_masks,
+            north_angle_deg=self._north_angle_deg,
             progress=lambda done, total: self.progress.emit(done, total),
             should_cancel=lambda: self._cancelled,
         )
@@ -350,10 +353,13 @@ class SunHeatmapController(QObject):
         scene: QGraphicsScene,
         location_provider: Callable[[], dict[str, Any] | None],
         parent: QObject | None = None,
+        *,
+        north_provider: Callable[[], float] | None = None,
     ) -> None:
         super().__init__(parent)
         self._scene = scene
         self._location_provider = location_provider
+        self._north_provider = north_provider or (lambda: 0.0)
         self.include_sample_masks: bool = False
         self._overlay: SunHeatmapOverlayItem | None = None
         self._worker: HeatmapWorker | None = None
@@ -450,25 +456,28 @@ class SunHeatmapController(QObject):
         else:
             x0, y0, w, h = 0.0, 0.0, float(width), float(height)
         grid = HeatmapGrid.for_rect(x0, y0, w, h, cell_cm)
+        north = float(self._north_provider())
         # Ramp ceiling = the worker's maximum possible accumulation. MUST use
         # the same (lat, lon, day, step) compute_heatmap samples with, or a
         # fully-sunny cell won't reach fraction 1.0 (they agree by construction
         # today: both use SAMPLE_STEP_MINUTES).
         self._daylight_minutes = float(
-            len(daylight_samples(latitude, longitude, day)) * SAMPLE_STEP_MINUTES
+            len(daylight_samples(latitude, longitude, day, north_angle_deg=north))
+            * SAMPLE_STEP_MINUTES
         )
         # US-E8: the heatmap sees the same date-projected plant sizes as the
         # shadow overlay and the 3D view — one growth timeline everywhere, keyed
         # on the plan's LOCAL date (L1.0's sim clock; the app passes
         # ``clock.plan_date``). Before L1.0 the overlay used the instant's UTC
         # date, which named a different day after local midnight east of UTC.
-        snapshot = collect_exposure_snapshot(self._scene, location, day)
+        snapshot = collect_exposure_snapshot(self._scene, location, day, north)
         x0, y0, w, h = snapshot.bounds
         receivers = tuple(receiver for receiver in snapshot.receivers
                           if x0 <= receiver.x_cm < x0 + w and y0 <= receiver.y_cm < y0 + h)
         worker = HeatmapWorker(
             list(snapshot.casters), latitude, longitude, day, grid, self,
             receivers=receivers, include_sample_masks=self.include_sample_masks,
+            north_angle_deg=snapshot.north_angle_deg,
         )
         worker.progress.connect(self.progress)
         worker.success.connect(self._on_success)
@@ -563,7 +572,10 @@ class SunHeatmapController(QObject):
         if (grid is None or self._computed_day is None or not self._result_wanted
                 or self._document_generation != getattr(self._scene, "_document_generation", 0)):
             return
-        if self.snapshot != collect_exposure_snapshot(self._scene, self._location_provider(), self._computed_day):
+        if self.snapshot != collect_exposure_snapshot(
+            self._scene, self._location_provider(), self._computed_day,
+            float(self._north_provider()),
+        ):
             self.invalidate_exposure()
             return
         # ndarray compatibility for existing controlled-worker tests; production

@@ -111,7 +111,8 @@ class PlanSummary(BaseModel):
 #
 # Coordinates are in the plan's native scene frame: centimetres, CAD Y-up
 # (ADR-002) — origin at the south-west (bottom-left) corner, +x east/right and
-# +y NORTH/up. A larger y is further north / higher on the rendered canvas.
+# +y plan-up (north on a north-up plan; the plan's north orientation may turn
+# true north away from it). A larger y is higher on the rendered canvas.
 # This is the same frame used by every object's stored position AND by
 # move_object, so an agent can move an object relative to a position it just
 # read. Non-rectangular shapes are summarised by their axis-aligned bounding box.
@@ -324,7 +325,8 @@ class Measurement(BaseModel):
 #
 # render_canvas_image renders with y_flip=True (matching the live CAD view and
 # every existing PNG/PDF export): the output PNG is Y-up like the canvas, so
-# NORTH (a larger scene y) is at the TOP of the image. Because image pixel ROWS
+# PLAN-UP (a larger scene y) is at the TOP of the image (true north only on a
+# north-up plan). Because image pixel ROWS
 # count from the top down, a scene point's pixel row is inverted relative to its
 # scene y — see RenderMeta.px_per_cm below for the exact formula. Empirically
 # verified in tests/unit/test_agent_api_render_coordinate_frame.py.
@@ -349,8 +351,9 @@ class RenderMeta(BaseModel):
         "in this image: "
         "px_x = (x_cm - region_x_cm) * px_per_cm; "
         "px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm "
-        "(the image is Y-up/CAD-style like the live canvas view — north at the "
-        "top — while pixel rows count top-down, so a larger scene y maps to a "
+        "(the image is Y-up/CAD-style like the live canvas view — plan-up at the "
+        "top; true north may be turned by the plan's north orientation — while "
+        "pixel rows count top-down, so a larger scene y maps to a "
         "smaller pixel row)."
     )
     layers_rendered: list[str] | None = Field(
@@ -383,7 +386,12 @@ class Render3DMeta(BaseModel):
         default=None, description="The sun's elevation in this picture, degrees. Null: no sun yet."
     )
     sun_azimuth_deg: float | None = Field(
-        default=None, description="The sun's compass bearing in this picture, degrees."
+        default=None,
+        description=(
+            "The sun's compass bearing in this picture, degrees clockwise from true "
+            "north. The plan's north orientation is not exposed, so a client cannot "
+            "place the sun in the image when the plan is turned."
+        ),
     )
     weather: str | None = Field(default=None, description="The weather the view shows.")
     quality_preset: str | None = Field(
@@ -443,7 +451,12 @@ class PlanLifecycleResult(BaseModel):
 
     file_path: str | None = Field(
         description="Path of the now-open plan file; null for a new plan, which "
-        "has never been saved."
+        "has never been saved, and for a bundled example opened as an untitled copy."
+    )
+    opened_as_copy: bool = Field(
+        default=False,
+        description="True when the opened file is a bundled example that became an "
+        "untitled copy: file_path is null and the first save is a save-as.",
     )
     width_cm: float = Field(description="Canvas width now in effect, in centimetres.")
     height_cm: float = Field(description="Canvas height now in effect, in centimetres.")
@@ -1093,7 +1106,7 @@ class TaskListView(BaseModel):
         description="What the answer is based on: 'full' when a frost date is "
         "known, or 'no_frost_dates' when the plan has no geo-location. The "
         "latter still returns every non-calendar task (manual, succession, "
-        "soil) — it never means 'nothing to do'."
+        "soil, frost) — it never means 'nothing to do'."
     )
     total: int = Field(description="Number of tasks in `tasks` after filtering.")
     tasks: list[TaskView] = Field(

@@ -237,7 +237,9 @@ satellite-picker scale/coords), `season_year` + `linked_seasons`,
 `prefer_organic` (default `True`), `succession_plans`,
 `garden_journal_notes`, `manual_tasks`, `task_states`, `harvest_logs`,
 `camera_tours` (saved camera tours; `core/camera_tours.load_tours` is the
-one reader, hostile entries are dropped).
+one reader, hostile entries are dropped), `north_angle_deg` (the direction of
+true north on the drawing, clockwise from plan-up; default `0`, additive, no
+`FILE_VERSION` bump).
 
 Rule of thumb: user preference about the *app* → §1 QSettings; data or
 preference about *this garden* → `ProjectData`.

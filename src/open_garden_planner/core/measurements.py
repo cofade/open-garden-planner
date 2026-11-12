@@ -5,7 +5,7 @@ import math
 from PyQt6.QtWidgets import QGraphicsItem
 
 from open_garden_planner.core.geometry import Point, Polygon
-from open_garden_planner.core.i18n import format_decimal
+from open_garden_planner.core.i18n import format_decimal, format_trimmed
 
 
 def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | None:
@@ -88,10 +88,10 @@ SCALE_BAR_NICE_DISTANCES_CM: tuple[int, ...] = (
 def format_scale_distance(cm: float) -> str:
     """A scale bar's label for a distance in cm: "50 cm", "2 m", "1.5 km"."""
     if cm >= 100000:
-        return f"{cm / 100000:g} km"
+        return f"{format_trimmed(cm / 100000)} km"
     if cm >= 100:
-        return f"{cm / 100:g} m"
-    return f"{cm:g} cm"
+        return f"{format_trimmed(cm / 100)} m"
+    return f"{format_trimmed(cm)} cm"
 
 
 def format_area(area_cm2: float) -> str:

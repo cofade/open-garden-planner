@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, NoReturn
 from uuid import UUID
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
-from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence
+from PyQt6.QtGui import QAction, QCloseEvent, QKeySequence, QResizeEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -1195,6 +1195,15 @@ class GardenPlannerApp(QMainWindow):
         self._set_action_icon(location_action, "location")
         menu.addAction(location_action)
 
+        # Set North Orientation (#663)
+        north_action = QAction(self.tr("Set North Orientation..."), self)
+        north_action.setStatusTip(
+            self.tr("Point true north on the plan without rotating the drawing")
+        )
+        north_action.triggered.connect(self._on_set_north_orientation)
+        self._set_action_icon(north_action, "sun_sim")
+        menu.addAction(north_action)
+
         menu.addSeparator()
 
         # Export submenu
@@ -1919,9 +1928,10 @@ class GardenPlannerApp(QMainWindow):
 
         # Coordinate label (left side, permanent). Every segment carries a
         # small themed icon (#310) so the bar scans as a row of instruments.
-        status_bar.addPermanentWidget(self._make_icon_label("status_coords", tooltip=self.tr("Cursor position")))
+        self._coord_icon = self._make_icon_label(
+            "status_coords", tooltip=self.tr("Cursor position"))
+        status_bar.addPermanentWidget(self._coord_icon)
         self.coord_label = QLabel(self.tr("X: 0.00 cm  Y: 0.00 cm"))
-        self.coord_label.setMinimumWidth(200)
         status_bar.addPermanentWidget(self.coord_label)
 
         # Typed coordinate input (Package A US-A1/A2). Wired up after
@@ -1929,34 +1939,39 @@ class GardenPlannerApp(QMainWindow):
         self.coordinate_input_field: CoordinateInputField | None = None
 
         # Zoom label
-        status_bar.addPermanentWidget(self._make_icon_label("status_zoom", tooltip=self.tr("Zoom level")))
+        self._zoom_icon = self._make_icon_label(
+            "status_zoom", tooltip=self.tr("Zoom level"))
+        status_bar.addPermanentWidget(self._zoom_icon)
         self.zoom_label = QLabel("100%")
-        self.zoom_label.setMinimumWidth(60)
         status_bar.addPermanentWidget(self.zoom_label)
 
         # Selection info label
-        status_bar.addPermanentWidget(self._make_icon_label("select", tooltip=self.tr("Selection")))
+        self._selection_icon = self._make_icon_label(
+            "select", tooltip=self.tr("Selection"))
+        status_bar.addPermanentWidget(self._selection_icon)
         self.selection_label = QLabel(self.tr("No selection"))
-        self.selection_label.setMinimumWidth(150)
         status_bar.addPermanentWidget(self.selection_label)
 
         # Tool label
-        status_bar.addPermanentWidget(self._make_icon_label("status_tool", tooltip=self.tr("Active tool")))
+        self._tool_icon = self._make_icon_label(
+            "status_tool", tooltip=self.tr("Active tool"))
+        status_bar.addPermanentWidget(self._tool_icon)
         self.tool_label = QLabel(self.tr("Select"))
-        self.tool_label.setMinimumWidth(80)
         status_bar.addPermanentWidget(self.tool_label)
 
         # Location label
-        status_bar.addPermanentWidget(self._make_icon_label("location", tooltip=self.tr("Garden location")))
+        self._location_icon = self._make_icon_label(
+            "location", tooltip=self.tr("Garden location"))
+        status_bar.addPermanentWidget(self._location_icon)
         self.location_label = QLabel(self.tr("No location set"))
-        self.location_label.setMinimumWidth(160)
         self.location_label.setToolTip(self.tr("Garden GPS location — use File > Set Garden Location to configure"))
         status_bar.addPermanentWidget(self.location_label)
 
         # Season label (US-10.7)
-        status_bar.addPermanentWidget(self._make_icon_label("season", tooltip=self.tr("Season")))
+        self._season_icon = self._make_icon_label(
+            "season", tooltip=self.tr("Season"))
+        status_bar.addPermanentWidget(self._season_icon)
         self.season_label = QLabel(self.tr("Season: —"))
-        self.season_label.setMinimumWidth(100)
         self.season_label.setToolTip(self.tr("Current season year — use File > Manage Seasons to configure"))
         status_bar.addPermanentWidget(self.season_label)
 
@@ -1977,6 +1992,36 @@ class GardenPlannerApp(QMainWindow):
 
         # Show ready message
         status_bar.showMessage(self.tr("Ready"))
+        self._apply_status_bar_compact()
+
+    def _apply_status_bar_compact(self) -> None:
+        """Keep the status MESSAGE readable on a narrow window (#858).
+
+        The permanent widgets sit on the right and the transient message gets
+        what is left. Fixed minimum widths used to consume it: "Opened:" was
+        clipped at 1280 px and the path at 1600 px. The optional segments now
+        step aside — selection + tool + season below 1500 px, location below
+        1200 — while the coordinates, zoom and the message keep their room.
+        """
+        width = self.width()
+        compact = width < 1500
+        for widget in (
+            getattr(self, "_selection_icon", None), getattr(self, "selection_label", None),
+            getattr(self, "_tool_icon", None), getattr(self, "tool_label", None),
+            getattr(self, "_season_icon", None), getattr(self, "season_label", None),
+        ):
+            if widget is not None:
+                widget.setVisible(not compact)
+        narrow = width < 1200
+        for widget in (
+            getattr(self, "_location_icon", None), getattr(self, "location_label", None),
+        ):
+            if widget is not None:
+                widget.setVisible(not narrow)
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        self._apply_status_bar_compact()
 
     def _setup_central_widget(self) -> None:
         """Set up the central widget area with canvas and sidebar panels."""
@@ -2191,6 +2236,7 @@ class GardenPlannerApp(QMainWindow):
             lambda: self._project_manager.location,
             self,
             clock=self._sim_clock,
+            north_provider=lambda: self._project_manager.north_angle_deg,
         )
         self._sun_controller.state_changed.connect(self._on_sun_state_changed)
         self._sun_toolbar = SunSimToolbar(self, scene=self.canvas_scene)
@@ -2216,7 +2262,10 @@ class GardenPlannerApp(QMainWindow):
         from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
 
         self._sun_heatmap = SunHeatmapController(
-            self.canvas_scene, lambda: self._project_manager.location, self
+            self.canvas_scene,
+            lambda: self._project_manager.location,
+            self,
+            north_provider=lambda: self._project_manager.north_angle_deg,
         )
         # While a map is shown the canvas carries its key, and the time-of-day
         # shadows are not painted (#794): the map is the day's total and
@@ -2257,8 +2306,10 @@ class GardenPlannerApp(QMainWindow):
             lambda: self._project_manager.location,
             self.canvas_view.command_manager,
             self._ui_state,
+            north=lambda: self._project_manager.north_angle_deg,
         )
         self._project_manager.location_changed.connect(self._workspace.location_changed)
+        self._project_manager.north_angle_changed.connect(self._on_north_angle_changed)
         # Analyze in 3D (Phase 17 L2, #386): the 3D ground shows the 2D analysis — the
         # shadow overlay's polygons and the heatmap's map, never a second computation —
         # and "Hours of Sun on the Ground" switches the shared Hours of Sun on.
@@ -2798,14 +2849,15 @@ class GardenPlannerApp(QMainWindow):
         toggle (default ON). Idempotent: safe to call from multiple deferred
         startup/open paths.
         """
-        from datetime import date
-
         from open_garden_planner.app.settings import get_settings
+        from open_garden_planner.core.sim_clock import plan_day_of
 
         if not get_settings().notify_overdue_tasks_on_startup:
             self._task_reminder_bar.hide()
             return
-        today_iso = date.today().isoformat()
+        # The bar counts the same plan-day overdue tasks the Tasks tab buckets
+        # (#859), not the wall date's.
+        today_iso = plan_day_of(self.canvas_scene).isoformat()
         states = self._project_manager.task_states
         overdue = 0
         for tid, raw in self._project_manager.manual_tasks.items():
@@ -3329,6 +3381,13 @@ class GardenPlannerApp(QMainWindow):
         been a #337-class bug waiting on the caller the extraction created.
         """
         try:
+            # #865: a shipped example opened by its path is a COPY, exactly as the
+            # gallery opens it. Otherwise Save writes into the install tree and the
+            # PDF cover shows the file stem instead of the example's name.
+            from open_garden_planner.core.templates import is_bundled_example
+
+            if not as_template and is_bundled_example(Path(file_path)):
+                as_template = True
             if as_template:
                 self._project_manager.load(self.canvas_scene, Path(file_path), as_template=True)
             else:
@@ -3369,7 +3428,8 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(
                 self.tr("Opened as an untitled copy: {name}").format(
                     name=self._project_manager.display_name)
-                if as_template else self.tr("Opened: {path}").format(path=file_path))
+                if as_template else self.tr("Opened: {name}").format(
+                    name=Path(file_path).name))
         # Load compare overlay if previous seasons are linked (US-10.7)
         self._load_compare_overlay_from_previous_season()
         self.tasks_view.refresh()
@@ -3713,6 +3773,7 @@ class GardenPlannerApp(QMainWindow):
                     self.canvas_scene,
                     project_name=self._project_manager.display_name,
                     snapshot_validator=validate_snapshot,
+                    grid_size_cm=self.canvas_view.grid_size,
                 )
                 print_mgr.configure(
                     scale_denominator=options.scale_denominator,
@@ -3858,6 +3919,7 @@ class GardenPlannerApp(QMainWindow):
             include_legend=dialog.include_legend,
             project_name=dialog.project_name,
             author=dialog.author,
+            north_angle_deg=self._project_manager.north_angle_deg,
         )
 
         def generate() -> None:
@@ -4171,6 +4233,15 @@ class GardenPlannerApp(QMainWindow):
         self._update_companion_highlights()
         self._update_spacing_overlaps()
         self.canvas_view.refresh_soil_mismatches()
+        # #859: every date-driven surface follows the plan's shared day, not the
+        # wall clock — the calendar's "Today" line and dashboard, the Tasks tab,
+        # and the succession badges on the beds.
+        self.calendar_view.schedule_refresh()
+        self.tasks_view.schedule_refresh()
+        self._refresh_succession_indicators()
+        # The Plant Details age label is a plan-day readout too (#859); the
+        # panel is passive, so the fan-out has to tell it.
+        self.plant_database_panel.refresh_plan_date()
         # A tour moves the clock for its frames and puts the owner's moment back. The
         # heatmap the owner computed is the heatmap for that restored date, so the
         # frames must not throw it away (#738).
@@ -6060,6 +6131,50 @@ class GardenPlannerApp(QMainWindow):
             self._project_manager.set_location(dialog.location_data)
             self.statusBar().showMessage(self.tr("Garden location updated"), 3000)
 
+    def _on_set_north_orientation(self) -> None:
+        """Handle Set North Orientation (#663): one undoable plan setting."""
+        from PyQt6.QtWidgets import QDialog
+
+        from open_garden_planner.core.commands import SetPlanNorthCommand
+        from open_garden_planner.ui.dialogs.north_orientation_dialog import (
+            NorthOrientationDialog,
+        )
+
+        current = self._project_manager.north_angle_deg
+        dialog = NorthOrientationDialog(current, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        angle = dialog.angle_deg
+        # The value the dialog DISPLAYED when it opened (its one decimal and its
+        # wrap at 360 applied): accepting it unchanged must not mint a command
+        # for a stored 45.123 or 359.96.
+        if angle == dialog.shown_angle:
+            return
+        self.canvas_view.command_manager.execute(
+            SetPlanNorthCommand(self._project_manager, angle)
+        )
+        self._show_status_message(
+            self.tr("North orientation set to {angle}°").format(
+                angle=format_decimal(angle, 1)
+            ),
+            3000,
+        )
+
+    def _on_north_angle_changed(self, angle: float) -> None:
+        """Every north change — dialog, undo, load, new — reaches the solar consumers."""
+        angle = float(angle)
+        self.canvas_view.set_north_angle(angle)
+        self._sun_controller.schedule_recompute()
+        # The heatmap is a daily total for the old frame: refuse it. With the
+        # live map on, it schedules a fresh run for the new north; otherwise the
+        # shown map goes away and the toolbar says so.
+        if self._live_sun_map.enabled:
+            self._live_sun_map.schedule()
+        else:
+            self._sun_heatmap.clear()
+            self._sun_toolbar.set_heatmap_active(False)
+        self._workspace.north_changed()
+
     def _on_soil_test_requested(self, target_id: str, display_name: str) -> None:
         """Open SoilTestDialog for a bed (US-12.10a)."""
         self._open_soil_test_dialog(target_id, display_name)
@@ -6332,7 +6447,7 @@ class GardenPlannerApp(QMainWindow):
             GardenItemMixin,
         )
 
-        today = datetime.date.today()
+        today = self._sim_clock.plan_date
         plans = self._project_manager.succession_plans
         scene = getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
         if scene is None:

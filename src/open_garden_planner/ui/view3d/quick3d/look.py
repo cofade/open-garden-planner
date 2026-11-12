@@ -234,11 +234,12 @@ def photo_properties(settings: PhotoSettings, eye: tuple[float, float, float],
 
 
 def sky_longitude(azimuth_deg: float) -> float:
-    """Compass azimuth (clockwise from north) -> ``ProceduralSkyTextureData.sunLongitude``.
+    """Plan-frame azimuth (compass + plan north) -> ``ProceduralSkyTextureData.sunLongitude``.
 
     Measured by the L0 spike's sky probe and again by the L1.4 render tier (the
-    disc read 25° off-centre): with longitude L the sky draws its sun at compass
-    bearing L - 90°. Re-measure after any Qt upgrade (the render tier does).
+    disc read 25° off-centre): with longitude L the sky draws its sun at plan
+    bearing L - 90°. The L0/L1.4 measurements were taken at north 0. Re-measure
+    after any Qt upgrade (the render tier does).
     """
     return (azimuth_deg + 90.0) % 360.0
 

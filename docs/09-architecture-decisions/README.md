@@ -913,7 +913,7 @@ Absolute propagation steps use their overridden start-date year as their canonic
 
 **Addendum (US-D1.3 — vision tool):** `render_canvas_image(x?, y?, width?, height?, layers?, image_width_px?)` returns a PNG of the live canvas plus a `RenderMeta` metadata block, reusing `services/scene_rendering.render_scene_region` (the same pipeline `ExportService.export_to_png`/the PDF report already use — no new rendering logic). Two facts below were **empirically verified**, not assumed, mirroring the D1.2 dict-first-union discovery:
 - **`Image` is not pydantic-representable, so the naive design crashes the server at build time.** `async def render_canvas_image(...) -> list[Image | RenderMeta]` registered the normal way makes `@mcp.tool()` raise `PydanticSchemaGenerationError` the moment the server builds (verified against mcp 1.28.1). Annotating `list[Any]` instead defers the same crash to call time — strictly worse. **Fix:** `@mcp.tool(structured_output=False)` skips schema/model creation entirely and routes straight to `_convert_to_content()`'s flattening dispatcher, which correctly turns `Image` → `ImageContent` and a bare `RenderMeta` instance → `TextContent` (pydantic_core JSON dump); confirmed end-to-end via a live `mcp.call_tool()`. **Consequence:** this tool has no `structuredContent`, unlike the other 9 — a client must parse the `TextContent` block's JSON for render metadata. A second, independent pitfall surfaced only by actually running the test suite (not the isolated SDK probe that found the first one): with `from __future__ import annotations` in effect, every `@mcp.tool()` registration calls `inspect.signature(func, eval_str=True)` inside the SDK's `func_metadata` (unconditionally, regardless of `structured_output`) to resolve each stringified annotation via the **function's own `__globals__`**, not the enclosing `build_server()` call's locals — so `Image` must be a genuine module-level import in `server.py`, not merely imported inside `build_server()` (which raises `NameError: name 'Image' is not defined` at server-build time). Costs nothing extra: both names live under the same `mcp.server.fastmcp` package that `FastMCP` itself already pulls in at server-start time, and `agent_api.server` stays behind `agent_api/__init__.py`'s existing lazy `__getattr__` gate either way.
-- **The rendered image's pixel Y-axis is inverted relative to the D1.2 scene frame.** `render_scene_region`'s `y_flip=True` (kept here for visual parity with the live CAD view and every existing PNG/PDF export) makes the output PNG Y-up (north at the top), so a scene point's pixel row is inverted relative to its Y-up scene y (pixel rows count top-down). Empirically pinned by rendering a known-position `CircleItem` and scanning the actual output pixels (`tests/unit/test_agent_api_render_coordinate_frame.py`), including a `y_flip=False` cross-check isolating the flip as the sole cause. **Accepted correction formula**, documented on `RenderMeta.px_per_cm` as the permanent agent-facing contract: `px_x = (x_cm - region_x_cm) * px_per_cm`; `px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm`.
+- **The rendered image's pixel Y-axis is inverted relative to the D1.2 scene frame.** `render_scene_region`'s `y_flip=True` (kept here for visual parity with the live CAD view and every existing PNG/PDF export) makes the output PNG Y-up (plan-up at the top; true north on a north-up plan), so a scene point's pixel row is inverted relative to its Y-up scene y (pixel rows count top-down). Empirically pinned by rendering a known-position `CircleItem` and scanning the actual output pixels (`tests/unit/test_agent_api_render_coordinate_frame.py`), including a `y_flip=False` cross-check isolating the flip as the sole cause. **Accepted correction formula**, documented on `RenderMeta.px_per_cm` as the permanent agent-facing contract: `px_x = (x_cm - region_x_cm) * px_per_cm`; `px_y = image_height_px - (y_cm - region_y_cm) * px_per_cm`.
 - **Region params mirror `objects_in_region`'s existing flat `x, y, width, height` convention** (scene cm) rather than a nested object — all four given together or all omitted (full canvas, resolved from `scene.canvas_rect` on the **same** main-thread hop as the render itself, avoiding a second hop and any TOCTOU race if the canvas is resized in between).
 - **`AgentProviders.render`** is the first **parametrized** provider (unlike the no-arg `snapshot`/`diagnostics`): `Callable[[region | None, layers | None, image_width_px], dict]`, implemented as one atomic `run_on_main` hop that resolves the default region, temporarily forces layer-bearing item visibility to match `layers` (new context manager, `_hidden_layers_not_in`), renders, and encodes to PNG bytes.
 - **Output size is double-clamped**, not just width-capped: `agent_api/render.py::resolve_image_pixel_size` clamps the requested width **and** the aspect-ratio-derived height independently to `[128, 2048]`, so a pathological region (e.g. 1cm × 10 000cm) can't turn a modest width request into a runaway-large image.
@@ -1258,7 +1258,7 @@ Both stories write stored document state rather than scene state, joining D3.2's
 - **One canonical mismatch path, extracted not copied.** `get_mismatched_plants` is now a projection of a new `get_mismatch_details`, which yields `(reason_code, display_text)` pairs. **Its signature and both in-app callers (`tasks_view`, `canvas_view`) are unchanged**, and a test pins the projection as behaviour-identical. The alternative — inferring a code from the finished sentence in the agent layer — would have been a second implementation of the judgement, which is how the Tasks tab and the planting calendar came to disagree in #227/#228.
 - **Agent task-status writes are REFUSED, deliberately.** Dismissal and completion are a `task_status` mutation, not a scene edit, so D2's undo contract does not obviously cover them — and on inspection `ProjectManager.set_task_status` is **not a command**: it mutates in place, emits signals and calls `mark_dirty()`. There is no `SetTaskStatusCommand`. Allowing it would have made it **the first agent write a single Ctrl+Z cannot reverse**, breaking the contract this ADR states. So `edit_manual_task` / `delete_manual_task` refuse a generated task by name (it is derived state, rebuilt on every read, so editing it would be undone by the next call), and no agent tool mutates task status at all. The user does that in the Tasks tab. *Adding `SetTaskStatusCommand` is deliberately out of scope* — it touches the subsystem invariant 6 guards and `task_completions` scar tissue, and would grow the package into a third domain.
 - **Hidden statuses match the Tasks tab exactly.** `get_tasks` hides `archived` **and** `dismissed` by default, because `ui/views/tasks_view.py` hides exactly those two. Hiding only `dismissed` — the first implementation — would have made the agent a third surface disagreeing with the other two about one shared store, which is the defect invariant 6 exists to prevent. `include_dismissed=True` reveals both.
-- **`build_plan_state` grew a `today` parameter, defaulting to the wall clock.** Reproducibility was an acceptance criterion and the seam was in the wrong place: every generator and `classify_urgency` already read `PlanState.today`, and only `build_plan_state` called `date.today()` itself. One parameter with a wall-clock default leaves both GUI callers untouched. Parsing and refusal of a malformed value stay in `application.py::_parse_agent_date`, the helper D3.2 introduced.
+- **`build_plan_state` grew a `today` parameter, defaulting to the wall clock.** Reproducibility was an acceptance criterion and the seam was in the wrong place: every generator and `classify_urgency` already read `PlanState.today`, and only `build_plan_state` called `date.today()` itself. One parameter; the GUI callers pass the plan's day (#859) and an agent passes its own reference day. Parsing and refusal of a malformed value stay in `application.py::_parse_agent_date`, the helper D3.2 introduced.
 
 **Cross-refs:** ADR-034 (D3.3/D3.4 addenda — the localisation convention), §8.19, §8.14/ADR-017 (`is_bed_type` gates every soil read and write, so a TRELLIS is refused), issues #332, #333, §11.4.
 
@@ -1325,6 +1325,39 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **7. The shadow's soft edge is a field.** Four stacked strokes are four flat bands (1.25 to 2.5 cm wide), and the innermost was 15 levels darker than the shade it edged; more strokes are more bands and more cost (the strokes were 95 % of the overlay's paint). The edge is a blurred raster of the shade read as a distance and mapped to a linear falloff from the shade's own tone to nothing at 7 cm — the reach the strokes had, and half the tone on average as they had (0.51). The shade's geometry is not touched: the full tone is the outline's fill to the pixel, and the 2D-3D shadow agreement and the golden caster tests are unchanged. Largest step of the falloff, of 97 levels: 29 → 15 at 100 %, 35 → 8 at 200 %, 39 → 4 at 400 %, 35 → 2 at 1000 %; flat runs of three pixels or more inside it: 2-4 → 0. The exact paint costs less where it was dear (48 → 17 ms at fit on the family garden) and more where it was cheap (3.3 → 10 ms at 400 %); §8.37. An SVG holds the edge as an embedded picture now, not as stroke outlines (+0.4 to +0.6 MB on the two examples), and still no `<clipPath>`. **The edge is never darker than the shade** (second review): blurred coverage is a distance beside a straight edge only, and in an inside corner, in the cusp between two round shades, in a sunlit hole or a narrow sunlit gap the first version painted sunlit ground up to 41 of 97 levels darker than the shade beside it. The falloff's weight is therefore clamped to the shade's own tone where the ground is painted, after the enlargement, at the device's resolution (a mask added to itself with saturation); where the shade has regions of different tone (#698) the limit is the darkest shade within the blur's reach, and beside one region alone that region's tone. What a concave place shows instead is the shade's own tone: an inside corner is rounded by the reach, and a sunlit gap between two shades is filled by the two edges that meet in it — measured in its middle: the shade's full tone up to a gap of 4 cm, 0.82 of it at 6 cm, 0.42 at 10 cm, nothing from 14 cm on (twice the reach). That is what a 7 cm soft edge on both sides of a gap means, but a gap of 4 cm that the geometry says is lit is painted as shade, so it is the owner's to confirm. The geometry, the solves, the 3D drape and the hours-of-sun map are untouched by it. Cost: 11.9 → 12.3 ms at 100 %, 8.2 → 9.5 ms at 400 %, 4.6 → 5.7 ms at 1000 % for the exact paint into 1149 × 821 pixels (§8.37). *Rejected*: clamping on the lattice — the cells the shade does not cover (a cell's width of too-dark ground is left along every concave outline: 29 levels in an 8 cm hole) or every cell (every falloff then starts under the shade's tone: a step of 3 levels and three flat pixels at 1000 %, a band again); more strokes; `QGraphicsEffect` blur (the scene avoids effects; it would blur the shade's own edge); a clip instead of cutting the shade out of a layer (`QSvgRenderer` ignores a clip, PF-CAN-53); three blur passes (half as dear again, no closer to the linear falloff).
 
 **Not decided here** (#830, the owner's): the parasol as a raised canopy, what glasshouse glass transmits, and the 0 h cell under every plant — which is why contours still crowd round every solid.
+
+### ADR-037 addendum - the plan's north orientation (#663, 2026-11-11)
+
+**Decision.** A plan-level `north_angle_deg` says where **true north** lies on the
+drawing, in degrees clockwise from plan-up: 0 = up, 90 = right, 135 = down-right.
+It is additive plan metadata in the `.ogp` (`FILE_VERSION` stays 1.4), read as 0 for
+every older file and kept by a template export. **No object coordinate is ever
+rewritten.** Rotating the whole drawing was rejected: it destroys the alignment of
+an imported survey or satellite background, dimensions and construction geometry,
+and cannot express "north is off the sheet".
+
+**Frame rule.** `core.solar.scene_azimuth(azimuth, north)` returns
+`(azimuth + north) % 360`. Scene +Y is plan-up (ADR-002), and the shadow and 3D
+formulas read an azimuth clockwise from +Y, so a compass azimuth is turned **once**
+into that frame. The 2D shadow overlay, the hours-of-sun sampling
+(`daylight_samples`), the plant sun-exposure diagnostics, the 3D light (`SunState`
+carries the compass bearing and the plan north, and `scene_azimuth_deg` is their
+sum), and the 3D sun path and compass all use this rule; the PDF overview arrow
+applies the same angle as a painter rotation. None of them invents its own sign. A sun
+due east (compass 90°) on a plan whose north lies at 45° is at scene bearing 135° and
+throws its shadow up-left. The issue's shorthand `solar_azimuth - north_angle`
+assumed the inverse definition of the angle; the arrow's stated meaning (135° points
+down-right) fixes the sign recorded here.
+
+**Write path and staleness.** `SetPlanNorthCommand` is one undo step;
+`ProjectManager.set_north_angle` is the only writer besides load and new, and refuses
+a bool, a non-number or a non-finite angle **before** mutating. `ExposureSnapshot`
+carries the angle, so a worker result computed for the old north is refused rather
+than shown as current; the app invalidates the shown heatmap on every change. The 2D
+`N` arrow is a viewport overlay (never an export); the PDF draws its own arrow with
+the same angle.
+
+Cross-refs: §8.20, §8.36; FR-SUN-14; PF-DOM-34.
 
 ### ADR-037 addendum: base stacking in the shared caster model (Phase 17, L1.6)
 
@@ -9239,8 +9272,16 @@ could disagree with the existing date-projected 3D canopy.
 - Both 2D sprites and the existing shadow/heatmap/3D collectors use the shared date
   with the unchanged US-E8 growth model. Sprites invalidate their cached paint after
   a scrub; mature drawing geometry and spacing reservations remain unchanged.
-- Task reminders keep their real-world reference day (or an explicit API reference
-  day). Historical calendar windows end before removal; actionable plant tasks stop
+- Task reminders use the plan's day: the Tasks tab's buckets and Done/Snooze writes,
+  the calendar dashboard's "Today", and a new manual task's default read the plan clock
+  (#859). An agent read may pass an explicit API reference day; `build_plan_state`'s
+  wall-clock default applies only to a caller that supplies neither. A **live frost
+  forecast** is the exception: its alerts name real calendar days and are classified
+  against `PlanState.weather_today` (the wall day), never dropped by the plan-day
+  window on a GUI surface, so a 2031 plan still warns about tomorrow's frost. The
+  **Agent API's `get_tasks` stays window-bounded**: it returns only tasks inside the
+  `from_date`/`to_date` window it reports.
+  Historical calendar windows end before removal; actionable plant tasks stop
   once all instances of that species are removed. A surviving undated/later-removal
   instance keeps the species schedule. Future sowing tasks are useful before planting
   and are retained. Manual tasks and succession plans retain their independent dates.
@@ -10606,6 +10647,20 @@ on 21 June). It needs no
 tutorial annotation or soil sample (the teaching plans' gates keep theirs), and its botanical
 fields stay canonical in `de/` and `es/`: the localizer now translates only a species' common
 name, since "Iris" is both a plant's name and a genus.
+
+### ADR-066 addendum - File > Open of a bundled example is a copy (#865, 2026-11-11)
+
+**Decision.** A shipped example opened by its path through **File > Open** takes the
+same identity as one opened from the gallery: an untitled, dirty copy. The one load
+path (`_load_project_file`) asks `core.templates.is_bundled_example` — the sidecar
+trust predicate — and routes a known bundled path through `as_template=True`. The
+result is `current_file is None`, Save goes to Save As, autosave cannot land in the
+install tree, the file does not enter Recent, the showcase moment applies, and
+`display_name` is the sidecar's translated name rather than the file stem. The
+bundled bytes are never written. The gallery and File > Open now share one identity
+rule instead of two.
+
+Cross-refs: §8.33; FR-EXAMPLE-04, FR-EXAMPLE-08, FR-EXAMPLE-11.
 
 ### ADR-066 addendum: examples open in a showcase state (#795)
 
@@ -12210,7 +12265,8 @@ bump (it locks every older install out of data it can ignore).
 **Consequences:** 23 new UI strings in every registered locale. A year's range is absolute
 dates, so a tour carried into a new season still names last year's dates until the user
 changes them. The autosave file holds the scene only, so a plan recovered after a crash has
-no tours, like the rest of the plan's metadata (location, soil tests, tasks); that is older
+no tours, like the rest of the plan's metadata (location, soil tests, tasks, and the
+plan's north orientation since #663); that is older
 than tours and is not changed here. Pinned by `tests/unit/test_camera_tours.py` (the model,
 one probe per class of hostile entry, the three commands' step counts) and
 `tests/integration/test_tour_persistence.py` (the dialog's own controls, save and reopen, the
@@ -13016,6 +13072,36 @@ FR-EXP-02, FR-EXP-03, FR-EXP-08; debug-verbose case study 219.
 Cross-refs of the addendum: PF-CAN-59; §8.36, §8.9.15, §8.9.16; FR-EXP-01, FR-EXP-03,
 FR-EXP-08, FR-VIS-07, FR-VIS-09; debug-verbose case study 225.
 
+**Addendum (plan-truth package, 2026-11-11) - print and report follow-ups**:
+
+15. **The print "Grid" checkbox paints the canvas grid** (#868). It was stored and
+    never read. The grid is drawn after the scene, in the page's own transform, at the
+    canvas's grid spacing, with a **stated 0.15 mm pen** converted to device pixels — a
+    cosmetic 1-px line at 1200 dpi is invisible. Rejected: rendering a second scene
+    with the view's grid pass — that pass is view-level by design and cannot be
+    reused through `QGraphicsScene.render`.
+16. **A fixed-scale print's pages run top row first; the short row is last** (#871).
+    Rows are anchored at the top of the plan, so a height that is not a whole number
+    of tiles leaves the plan's **short bottom row on the last page**. That row's strip
+    sits at the top of its sheet, with blank paper below it. The old bottom-to-top
+    mapping put the remainder first and left sheets 1-2 blank below their strip.
+17. **The shopping-list PDF uses the report's one paginator** (#870). `_section_pages`
+    and `_render_table_page` now cut and paint it; the footer hook carries the grand
+    total on the last page only. The separate `_shopping_list_fits` /
+    `_render_shopping_list` loop is gone.
+18. **A plant's legend sample includes the sprite's overhang and is 9 mm** (#864).
+    `CircleItem` paints the sprite 15 % larger than the footprint; the sample patch
+    clipped that foliage, leaving a pale root. The patch is scaled by
+    `_LEGEND_SPRITE_OVERHANG` (a drift guard pins it to
+    `CircleItem._PLANT_FILL_SCALE`) and the swatch grew from 7 mm to 9 mm with a
+    10.5 mm row.
+19. **The plant list's Type column is the species' cycle, not the canvas object type**
+    (#869). Every gallery plant is `ObjectType.PERENNIAL`, so carrots and lettuce
+    read "Perennial". `core.plant_cycle_label` is the one translated cycle vocabulary;
+    the plant list, Plant Details, custom-plant table and plant search use it.
+
+Cross-refs: §8.36; FR-EXP-03, FR-EXP-08; PF-CAN-55.
+
 ## ADR-077: The UI language decides the locale — one root for numbers, months and typed decimals (#792)
 
 **Status**: Accepted (visual-polish package, 2026-11-10); shipped in v1.38.0 (PR #838)
@@ -13060,9 +13146,10 @@ application's chosen language, never the system locale on its own.
    digits and at most one mark; it refuses a group separator, an exponent and everything
    only Python's `float` reads (`nan`, `inf`, `1_000`), and its result is finite.
    What the UI shows, it accepts back — in either convention.
-5. **A file never uses these formatters.** The plan file, the SVG, DXF and CSV exports
-   and the clipboard rows of the shopping list write a decimal point in every language.
-   The PDF report's numbers are the export service's own.
+5. **Machine-readable data never uses these formatters; a reader-facing picture does.**
+   The plan file, DXF, CSV and the clipboard rows of the shopping list write a decimal point
+   in every language. An SVG or PDF is a document for a reader — its text follows the UI
+   language exactly as the canvas does (see the plan-truth addendum below).
 6. **Dates stay ISO where they are fields or keys** (`yyyy-MM-dd` in every date edit
    but the planting calendar's year-less steps, the Tasks tab, the plan-date strip). Only
    names — months, weekdays — and the day-and-month label of the calendar dashboard
@@ -13130,12 +13217,32 @@ text therefore take none of the three from it (decisions 7 to 9). The first vers
 ADR claimed here that the fields "all set" a display format; the camera tour's four did
 not, and no field set a week start. The test session
 has the application's locale like the app does (`conftest._app_locale`); before, it ran
-in whatever the machine spoke. Numbers DRAWN ON THE PLAN (dimension lines, vertex
-labels, the scale bar) still use a decimal point and are the canvas's next step.
+in whatever the machine spoke. Numbers drawn on the plan (dimension lines, vertex labels,
+the scale bar) **still used a decimal point when this ADR was written**; the plan-truth
+addendum below (decision 10) is the later decision that changed them.
 
 Cross-refs: PF-I18-09 (the account of the root cause and its traps); §8.3 "Locale";
 FR-I18N-10, FR-I18N-11, FR-I18N-12. No debug-verbose case study covers this ADR: the first
 version cited case study 220, which is the #791 theme case and says nothing about locale.
+
+**Addendum (plan-truth package, 2026-11-11) - locale of plan numbers and harvest
+units (#860, #863, #899)**:
+
+10. **Every number a reader sees goes through `core.i18n`.** Dimension/angle
+    readouts, vertex and resize labels, area labels, the ruler and scale bar,
+    constraint conflict rows, the measure and constraint previews, the 3D focus
+    distance, the report's plant positions and money cells, the PDF harvest total,
+    the persisted harvest-journal text and the sun-mismatch diagnostic used
+    Python's `:g`/`:.2f` and kept a decimal point in a German UI. They now call
+    `format_decimal` / `format_trimmed` (or `LocalizedNumber` inside a translated
+    template).
+11. **A harvest unit is a stable stored key, translated only at display.** `kg`, `g`,
+    `pcs`, `bunch` and `L` remain untranslated in `HarvestRecord.unit` and in the CSV
+    (PF-I18-05); the dialog's combo carries the key as item data while showing
+    `harvest_unit_label`, and the Harvest tab, PDF summary and linked journal note
+    show the same label. A custom unit is shown as typed.
+
+Cross-refs: FR-HARVEST-02, FR-HARVEST-07, FR-HARVEST-09; PF-I18-05; §8.36.
 
 ### ADR-039 addendum: the app owns the palette and the colour scheme, and chrome that paints reads tokens (#791)
 
