@@ -1625,6 +1625,8 @@ class AgentHost:
         whole answer reproducible.
         """
         host = self._host
+        import datetime
+
         from open_garden_planner.services.task_generator import build_plan_state
 
         return build_plan_state(
