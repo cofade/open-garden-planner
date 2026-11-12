@@ -569,28 +569,28 @@
             <translation type="vanished">Здание и его конёк нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5156" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5158" />
             <source>A constrained member or group cannot be moved while drilled down</source>
             <translation>Элемент или группа с ограничениями не могут перемещаться в режиме детализации</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5544" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5557" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5546" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5559" />
             <source>A constrained shape cannot be split</source>
             <translation>Форму с ограничениями нельзя разделить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5698" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5700" />
             <source>All shapes must be on the same layer</source>
             <translation>Все фигуры должны быть на одном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5976" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5978" />
             <source>Already at back</source>
             <translation>Уже на заднем плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5975" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5977" />
             <source>Already at front</source>
             <translation>Уже на переднем плане</translation>
         </message>
@@ -600,12 +600,12 @@
             <translation>Угол</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5834" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5836" />
             <source>Applied boolean {op}</source>
             <translation>Применена булева операция {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5792" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5794" />
             <source>Apply boolean {op}?</source>
             <translation>Применить булеву операцию {op}?</translation>
         </message>
@@ -625,12 +625,12 @@
             <translation>Купалка для птиц</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5679" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5681" />
             <source>Boolean operations refuse plants, linked objects, constraints, and locked layers</source>
             <translation>Булевы операции не поддерживают растения, связанные объекты, ограничения и заблокированные слои</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5721" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5723" />
             <source>Boolean operations require closed shapes (polygon, rectangle, circle, or ellipse)</source>
             <translation>Булевы операции требуют замкнутых фигур (полигон, прямоугольник, круг или эллипс)</translation>
         </message>
@@ -639,12 +639,12 @@
             <translation type="vanished">Для булевых операций требуются замкнутые фигуры (многоугольник, прямоугольник или окружность)</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5791" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5793" />
             <source>Boolean {op}</source>
             <translation>Булева операция {op}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5763" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5765" />
             <source>Boolean {op} produced an empty result</source>
             <translation>Булева операция {op} дала пустой результат</translation>
         </message>
@@ -658,7 +658,7 @@
             <translation type="vanished">Щёлкните замкнутую форму для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5598" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5600" />
             <source>Click the first point of the cutting line. Esc cancels.</source>
             <translation>Щёлкните первую точку линии разреза. Esc отменяет.</translation>
         </message>
@@ -751,7 +751,7 @@
             <translation>Расстояние в см</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5890" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5892" />
             <source>Distance must be positive</source>
             <translation>Расстояние должно быть положительным</translation>
         </message>
@@ -816,12 +816,12 @@
             <translation>Теплица</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5433" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5435" />
             <source>Grouped {n} items</source>
             <translation>Сгруппировано {n} объектов</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4802" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4804" />
             <source>Guide position</source>
             <translation>Позиция направляющей</translation>
         </message>
@@ -870,12 +870,12 @@
             <translation>Импортировать фоновое изображение…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5894" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5896" />
             <source>Invalid distance. Enter a length such as 12' 6" or 150 in.</source>
             <translation>Недопустимое расстояние. Введите длину, например 12' 6" или 150 in.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5893" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5895" />
             <source>Invalid distance. Enter a number in centimeters.</source>
             <translation>Некорректное расстояние. Введите число в сантиметрах.</translation>
         </message>
@@ -895,22 +895,22 @@
             <translation>Шезлонг</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5005" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5007" />
             <source>N</source>
             <translation>С</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5449" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5451" />
             <source>No group selected</source>
             <translation>Группа не выбрана</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5978" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5980" />
             <source>No overlapping object behind</source>
             <translation>Нет перекрывающегося объекта сзади</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5977" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5979" />
             <source>No overlapping object in front</source>
             <translation>Нет перекрывающегося объекта спереди</translation>
         </message>
@@ -932,7 +932,7 @@
             <translation>Результат смещения пуст — попробуйте уменьшить расстояние</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5523" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5525" />
             <source>Only closed shapes (polygon, rectangle, circle, or ellipse) can be split</source>
             <translation>Разделять можно только замкнутые формы (многоугольник, прямоугольник, круг или эллипс)</translation>
         </message>
@@ -982,7 +982,7 @@
             <translation>Кашпо/Горшок/Pot</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5546" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5548" />
             <source>Plants and linked objects cannot be split</source>
             <translation>Растения и связанные объекты нельзя разделить</translation>
         </message>
@@ -1003,7 +1003,7 @@
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="3690" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5473" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5475" />
             <source>Press Esc to leave the group before cutting or deleting one of its members</source>
             <translation>Нажмите Esc, чтобы выйти из группы, прежде чем вырезать или удалять её элемент</translation>
         </message>
@@ -1028,7 +1028,7 @@
             <translation>Песочница</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5428" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5430" />
             <source>Select 2 or more items to group</source>
             <translation>Выберите 2 или более объектов для группировки</translation>
         </message>
@@ -1038,23 +1038,23 @@
             <translation>Выберите фигуру для смещения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5974" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5981" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5976" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5983" />
             <source>Select an object to arrange</source>
             <translation>Выберите объект для упорядочивания</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5936" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5938" />
             <source>Select at least 2 objects to align</source>
             <translation>Выберите не менее 2 объектов для выравнивания</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5996" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5998" />
             <source>Select at least 3 objects to distribute</source>
             <translation>Выберите не менее 3 объектов для распределения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5641" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5643" />
             <source>Select at least two shapes (intersection and subtraction need exactly two)</source>
             <translation>Выберите как минимум две фигуры (для пересечения и вычитания требуется ровно две)</translation>
         </message>
@@ -1092,12 +1092,12 @@
             <translation type="vanished">Фигуры должны пересекаться для выполнения булевых операций</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5753" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5755" />
             <source>Shapes must overlap for this operation</source>
             <translation>Для этой операции фигуры должны перекрываться</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5732" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5734" />
             <source>Shapes must touch or overlap</source>
             <translation>Фигуры должны соприкасаться или перекрываться</translation>
         </message>
@@ -1137,12 +1137,12 @@
             <translation>Терраса/Патио</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5742" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5744" />
             <source>The merged outline would contain a hole; keep the shapes separate</source>
             <translation>Объединённый контур содержал бы отверстие; оставьте фигуры раздельными</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5773" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5775" />
             <source>The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.</source>
             <translation>Результат содержал бы {count} вершин; план поддерживает не более {limit}. Оставьте фигуры раздельными.</translation>
         </message>
@@ -1152,28 +1152,28 @@
             <translation>Выбранные грядки содержат растения. Что хотите сделать?</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5568" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5570" />
             <source>The shape carries links that a split cannot preserve</source>
             <translation>Форма содержит связи, которые нельзя сохранить при разделении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5578" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5580" />
             <source>The shape has tracking records that a split cannot preserve</source>
             <translation>У формы есть записи отслеживания, которые нельзя сохранить при разделении</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5527" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5529" />
             <source>The shape is no longer in this plan</source>
             <translation>Формы больше нет в этом плане</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5539" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5551" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5541" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5553" />
             <source>The shape is on a locked layer</source>
             <translation>Форма находится на заблокированном слое</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5711" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5713" />
             <source>The shapes contain different data; keep them separate or make their data consistent</source>
             <translation>Фигуры содержат разные данные; оставьте их раздельными или согласуйте их данные</translation>
         </message>
@@ -1183,12 +1183,12 @@
             <translation>Эта длина ребра принадлежит жёсткой фигуре. Удалите ограничение и измените размер фигуры.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5531" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5533" />
             <source>This shape has no closed outline to split</source>
             <translation>У этой формы нет замкнутого контура для разделения</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5570" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5572" />
             <source>This shape type has no polygonal form to split into</source>
             <translation>У этого типа формы нет многоугольной формы для разделения</translation>
         </message>
@@ -1213,22 +1213,22 @@
             <translation>Шпалера</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5529" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5531" />
             <source>Ungroup the shape before splitting it</source>
             <translation>Разгруппируйте форму перед разделением</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5457" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5459" />
             <source>Ungroup {n} groups</source>
             <translation>Разгруппировать {n} групп</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5462" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5464" />
             <source>Ungrouped</source>
             <translation>Разгруппировано</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5464" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5466" />
             <source>Ungrouped {n} groups</source>
             <translation>Разгруппировано {n} групп</translation>
         </message>
@@ -1268,12 +1268,12 @@
             <translation>Тачка</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4797" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4799" />
             <source>X</source>
             <translation>X</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4797" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4799" />
             <source>Y</source>
             <translation>Y</translation>
         </message>
@@ -1288,12 +1288,12 @@
             <translation>наружу</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4798" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4800" />
             <source>{axis} position</source>
             <translation>Позиция {axis}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="4798" />
+            <location filename="../../ui/canvas/canvas_view.py" line="4800" />
             <source>{axis} position (cm)</source>
             <translation>Позиция по оси {axis} (см)</translation>
         </message>
@@ -1337,29 +1337,29 @@
     <context>
         <name>ChamferTool</name>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="161" />
+            <location filename="../../core/tools/chamfer_tool.py" line="162" />
             <source>Cannot edit this corner: a constraint is attached to it or to its edges</source>
             <translation>Невозможно изменить этот угол: к нему или его рёбрам привязано ограничение</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="153" />
+            <location filename="../../core/tools/chamfer_tool.py" line="154" />
             <source>Cannot edit this corner: the object is inside a group</source>
             <translation>Невозможно изменить этот угол: объект находится в группе</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="157" />
+            <location filename="../../core/tools/chamfer_tool.py" line="158" />
             <source>Cannot edit this corner: this object type has no polygonal form</source>
             <translation>Невозможно изменить этот угол: этот тип объекта не имеет полигональной формы</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="39" />
-            <location filename="../../core/tools/chamfer_tool.py" line="43" />
-            <location filename="../../core/tools/chamfer_tool.py" line="78" />
+            <location filename="../../core/tools/chamfer_tool.py" line="40" />
+            <location filename="../../core/tools/chamfer_tool.py" line="44" />
+            <location filename="../../core/tools/chamfer_tool.py" line="79" />
             <source>Chamfer</source>
             <translation>Фаска</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="145" />
+            <location filename="../../core/tools/chamfer_tool.py" line="146" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Расстояние для фаски слишком велико для этого угла</translation>
         </message>
@@ -1368,14 +1368,19 @@
             <translation type="vanished">Расстояние фаски: {distance:.1f} см — нажмите D, чтобы изменить</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="52" />
+            <location filename="../../core/tools/chamfer_tool.py" line="53" />
             <source>Chamfer distance: {distance} — press D to change</source>
             <translation>Расстояние фаски: {distance} — нажмите D для изменения</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="79" />
+            <location filename="../../core/tools/chamfer_tool.py" line="80" />
             <source>Distance (cm):</source>
             <translation>Расстояние (см):</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="80" />
+            <source>Distance:</source>
+            <translation>Расстояние:</translation>
         </message>
     </context>
     <context>
@@ -1603,38 +1608,38 @@
             <translation>Добавить узел</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5950" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5952" />
             <source>Align bottom</source>
             <translation>Выровнять по нижнему краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5951" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5953" />
             <source>Align center horizontally</source>
             <translation>Выровнять по центру горизонтально</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5952" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5954" />
             <source>Align center vertically</source>
             <translation>Выровнять по центру вертикально</translation>
         </message>
         <message>
             <location filename="../../core/commands.py" line="2132" />
-            <location filename="../../ui/canvas/canvas_view.py" line="5955" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5957" />
             <source>Align items</source>
             <translation>Выровнять объекты</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5947" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5949" />
             <source>Align left</source>
             <translation>Выровнять по левому краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5948" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5950" />
             <source>Align right</source>
             <translation>Выровнять по правому краю</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="5949" />
+            <location filename="../../ui/canvas/canvas_view.py" line="5951" />
             <source>Align top</source>
             <translation>Выровнять по верхнему краю</translation>
         </message>
@@ -1782,17 +1787,17 @@
             <translation>Отвязать растение от грядки</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6006" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6008" />
             <source>Distribute horizontally</source>
             <translation>Распределить по горизонтали</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6010" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6012" />
             <source>Distribute items</source>
             <translation>Распределить объекты</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/canvas_view.py" line="6007" />
+            <location filename="../../ui/canvas/canvas_view.py" line="6009" />
             <source>Distribute vertically</source>
             <translation>Распределить по вертикали</translation>
         </message>
@@ -1880,7 +1885,7 @@
             <translation>Переместить объект</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2824" />
+            <location filename="../../ui/panels/properties_panel.py" line="2826" />
             <source>Move item (constrained)</source>
             <translation>Переместить объект (с ограничениями)</translation>
         </message>
@@ -2062,7 +2067,7 @@
             <translation>Размер шрифта</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2146" />
+            <location filename="../../ui/panels/properties_panel.py" line="2148" />
             <source>frost protection</source>
             <translation>Защита от заморозков</translation>
         </message>
@@ -2092,7 +2097,7 @@
             <translation>Видимость подписей</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="3094" />
+            <location filename="../../ui/panels/properties_panel.py" line="3096" />
             <source>name</source>
             <translation>Название</translation>
         </message>
@@ -2142,7 +2147,7 @@
             <translation>глубина почвы</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2164" />
+            <location filename="../../ui/panels/properties_panel.py" line="2166" />
             <source>spacing radius</source>
             <translation>Радиус размещения</translation>
         </message>
@@ -2167,12 +2172,12 @@
             <translation>параметр символа</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2345" />
+            <location filename="../../ui/panels/properties_panel.py" line="2347" />
             <source>text color</source>
             <translation>Цвет текста</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2314" />
+            <location filename="../../ui/panels/properties_panel.py" line="2316" />
             <source>text content</source>
             <translation>Текст подписи</translation>
         </message>
@@ -4034,29 +4039,29 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>FilletTool</name>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="184" />
+            <location filename="../../core/tools/fillet_tool.py" line="185" />
             <source>Cannot edit this corner: a constraint is attached to it or to its edges</source>
             <translation>Невозможно изменить этот угол: к нему или его рёбрам привязано ограничение</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="176" />
+            <location filename="../../core/tools/fillet_tool.py" line="177" />
             <source>Cannot edit this corner: the object is inside a group</source>
             <translation>Невозможно изменить этот угол: объект находится в группе</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="180" />
+            <location filename="../../core/tools/fillet_tool.py" line="181" />
             <source>Cannot edit this corner: this object type has no polygonal form</source>
             <translation>Невозможно изменить этот угол: этот тип объекта не имеет полигональной формы</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="50" />
-            <location filename="../../core/tools/fillet_tool.py" line="54" />
-            <location filename="../../core/tools/fillet_tool.py" line="96" />
+            <location filename="../../core/tools/fillet_tool.py" line="51" />
+            <location filename="../../core/tools/fillet_tool.py" line="55" />
+            <location filename="../../core/tools/fillet_tool.py" line="97" />
             <source>Fillet</source>
             <translation>Скругление</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="168" />
+            <location filename="../../core/tools/fillet_tool.py" line="169" />
             <source>Fillet radius too large for this corner</source>
             <translation>Радиус скругления слишком велик для этого угла</translation>
         </message>
@@ -4065,14 +4070,19 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation type="vanished">Радиус скругления: {radius:.1f} см — нажмите R, чтобы изменить</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="63" />
+            <location filename="../../core/tools/fillet_tool.py" line="64" />
             <source>Fillet radius: {radius} — press R to change</source>
             <translation>Радиус скругления: {radius} — нажмите R для изменения</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="97" />
+            <location filename="../../core/tools/fillet_tool.py" line="98" />
             <source>Radius (cm):</source>
             <translation>Радиус (см):</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/fillet_tool.py" line="98" />
+            <source>Radius:</source>
+            <translation>Радиус:</translation>
         </message>
     </context>
     <context>
@@ -12131,17 +12141,17 @@ to assign species data.</source>
             <translation>Автоматически</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2451" />
+            <location filename="../../ui/panels/properties_panel.py" line="2453" />
             <source>Bark</source>
             <translation>Кора</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2255" />
+            <location filename="../../ui/panels/properties_panel.py" line="2257" />
             <source>Bold</source>
             <translation>Жирный</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2450" />
+            <location filename="../../ui/panels/properties_panel.py" line="2452" />
             <source>Brick</source>
             <translation>Кирпич</translation>
         </message>
@@ -12156,7 +12166,7 @@ to assign species data.</source>
             <translation>На передний план</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2912" />
+            <location filename="../../ui/panels/properties_panel.py" line="2914" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Невозможно изменить размер этой фигуры: длина её ребра ограничена. Сначала удалите ограничение.</translation>
         </message>
@@ -12166,22 +12176,22 @@ to assign species data.</source>
             <translation>Ячейки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2459" />
+            <location filename="../../ui/panels/properties_panel.py" line="2461" />
             <source>Clay</source>
             <translation>Глина</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2277" />
+            <location filename="../../ui/panels/properties_panel.py" line="2279" />
             <source>Color:</source>
             <translation>Цвет:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2457" />
+            <location filename="../../ui/panels/properties_panel.py" line="2459" />
             <source>Compost</source>
             <translation>Компост</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2440" />
+            <location filename="../../ui/panels/properties_panel.py" line="2442" />
             <source>Concrete</source>
             <translation>Бетон</translation>
         </message>
@@ -12196,12 +12206,12 @@ to assign species data.</source>
             <translation>Контейнер</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2200" />
+            <location filename="../../ui/panels/properties_panel.py" line="2202" />
             <source>Content:</source>
             <translation>Содержимое:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2461" />
+            <location filename="../../ui/panels/properties_panel.py" line="2463" />
             <source>Corten steel</source>
             <translation>Сталь Corten</translation>
         </message>
@@ -12216,17 +12226,17 @@ to assign species data.</source>
             <translation>Индивидуальная высота (0 = вернуться к автоматическому расчёту)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2531" />
+            <location filename="../../ui/panels/properties_panel.py" line="2533" />
             <source>Dash Dot</source>
             <translation>Штрих-точка</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2529" />
+            <location filename="../../ui/panels/properties_panel.py" line="2531" />
             <source>Dashed</source>
             <translation>Пунктир</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2460" />
+            <location filename="../../ui/panels/properties_panel.py" line="2462" />
             <source>Decking</source>
             <translation>Настил</translation>
         </message>
@@ -12241,7 +12251,7 @@ to assign species data.</source>
             <translation>Диаметр:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2530" />
+            <location filename="../../ui/panels/properties_panel.py" line="2532" />
             <source>Dotted</source>
             <translation>Точки</translation>
         </message>
@@ -12256,12 +12266,12 @@ to assign species data.</source>
             <translation>Эффективный:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2430" />
+            <location filename="../../ui/panels/properties_panel.py" line="2432" />
             <source>Fill Color:</source>
             <translation>Цвет заливки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2475" />
+            <location filename="../../ui/panels/properties_panel.py" line="2477" />
             <source>Fill Pattern:</source>
             <translation>Узор заливки:</translation>
         </message>
@@ -12271,7 +12281,7 @@ to assign species data.</source>
             <translation>Глубина засыпки, используемая для расчёта объёма грунта в списке покупок</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2458" />
+            <location filename="../../ui/panels/properties_panel.py" line="2460" />
             <source>Flagstone</source>
             <translation>Плитняк</translation>
         </message>
@@ -12281,12 +12291,12 @@ to assign species data.</source>
             <translation>Плоская</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2236" />
+            <location filename="../../ui/panels/properties_panel.py" line="2238" />
             <source>Font height on the plan. Capital letters are about 70 % as tall. The text takes the nearest available size.</source>
             <translation>Высота шрифта на плане. Заглавные буквы составляют около 70 % этой высоты. Текст принимает ближайший доступный размер.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2218" />
+            <location filename="../../ui/panels/properties_panel.py" line="2220" />
             <source>Font:</source>
             <translation>Шрифт:</translation>
         </message>
@@ -12306,7 +12316,7 @@ to assign species data.</source>
             <translation>На основе измеренной текущей высоты</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2123" />
+            <location filename="../../ui/panels/properties_panel.py" line="2125" />
             <source>Frost protection:</source>
             <translation>Защита от мороза:</translation>
         </message>
@@ -12316,17 +12326,17 @@ to assign species data.</source>
             <translation>Двускатная</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2448" />
+            <location filename="../../ui/panels/properties_panel.py" line="2450" />
             <source>Glass</source>
             <translation>Стекло</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2438" />
+            <location filename="../../ui/panels/properties_panel.py" line="2440" />
             <source>Grass</source>
             <translation>Трава</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2439" />
+            <location filename="../../ui/panels/properties_panel.py" line="2441" />
             <source>Gravel</source>
             <translation>Гравий</translation>
         </message>
@@ -12356,7 +12366,7 @@ to assign species data.</source>
             <translation>Есть дренажные отверстия</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2449" />
+            <location filename="../../ui/panels/properties_panel.py" line="2451" />
             <source>Hedge</source>
             <translation>Живая изгородь</translation>
         </message>
@@ -12371,12 +12381,12 @@ to assign species data.</source>
             <translation>Вальмовая</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2051" />
+            <location filename="../../ui/panels/properties_panel.py" line="2053" />
             <source>Invalid symbol parameter value — geometry unchanged.</source>
             <translation>Недопустимое значение параметра символа — геометрия не изменена.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2260" />
+            <location filename="../../ui/panels/properties_panel.py" line="2262" />
             <source>Italic</source>
             <translation>Курсив</translation>
         </message>
@@ -12386,7 +12396,7 @@ to assign species data.</source>
             <translation>Метка:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2456" />
+            <location filename="../../ui/panels/properties_panel.py" line="2458" />
             <source>Lattice</source>
             <translation>Решётка</translation>
         </message>
@@ -12397,7 +12407,7 @@ to assign species data.</source>
             <translation>Слой:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2689" />
+            <location filename="../../ui/panels/properties_panel.py" line="2691" />
             <source>Locked in place: unlock to move (Fix in place constraint).</source>
             <translation>Зафиксировано: разблокируйте для перемещения (ограничение фиксации на месте).</translation>
         </message>
@@ -12412,7 +12422,7 @@ to assign species data.</source>
             <translation>Металл</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2444" />
+            <location filename="../../ui/panels/properties_panel.py" line="2446" />
             <source>Mulch</source>
             <translation>Мульча</translation>
         </message>
@@ -12429,7 +12439,7 @@ not yet implemented</source>
             <translation>Имя:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2100" />
+            <location filename="../../ui/panels/properties_panel.py" line="2102" />
             <source>Needs frost protection</source>
             <translation>Требуется защита от мороза</translation>
         </message>
@@ -12458,7 +12468,7 @@ not yet implemented</source>
             <translation>Высота объекта:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2114" />
+            <location filename="../../ui/panels/properties_panel.py" line="2116" />
             <source>Override frost sensitivity:
 checked = always protect, unchecked = never protect, indeterminate = use the plant database default</source>
             <translation>Переопределить чувствительность к морозу:
@@ -12470,22 +12480,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Родительская грядка</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2572" />
+            <location filename="../../ui/panels/properties_panel.py" line="2574" />
             <source>Pattern Angle:</source>
             <translation>Угол узора:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2602" />
+            <location filename="../../ui/panels/properties_panel.py" line="2604" />
             <source>Pattern Offset:</source>
             <translation>Смещение узора:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2579" />
+            <location filename="../../ui/panels/properties_panel.py" line="2581" />
             <source>Pattern Scale:</source>
             <translation>Масштаб узора:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2454" />
+            <location filename="../../ui/panels/properties_panel.py" line="2456" />
             <source>Pebbles</source>
             <translation>Галька</translation>
         </message>
@@ -12500,22 +12510,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Позиция:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2087" />
+            <location filename="../../ui/panels/properties_panel.py" line="2089" />
             <source>Recommended spacing radius (half of plant spread)</source>
             <translation>Рекомендуемый радиус шага (половина ширины разрастания растения)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2620" />
+            <location filename="../../ui/panels/properties_panel.py" line="2622" />
             <source>Reset Pattern</source>
             <translation>Сбросить узор</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2622" />
+            <location filename="../../ui/panels/properties_panel.py" line="2624" />
             <source>Restore the pattern's original angle, scale and offset</source>
             <translation>Восстанавливает исходный угол, масштаб и смещение узора</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2445" />
+            <location filename="../../ui/panels/properties_panel.py" line="2447" />
             <source>Roof Tiles</source>
             <translation>Черепица</translation>
         </message>
@@ -12535,7 +12545,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Форма крыши:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2446" />
+            <location filename="../../ui/panels/properties_panel.py" line="2448" />
             <source>Sand</source>
             <translation>Песок</translation>
         </message>
@@ -12576,17 +12586,17 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1334" />
-            <location filename="../../ui/panels/properties_panel.py" line="2248" />
+            <location filename="../../ui/panels/properties_panel.py" line="2250" />
             <source>Size:</source>
             <translation>Размер:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2455" />
+            <location filename="../../ui/panels/properties_panel.py" line="2457" />
             <source>Slate</source>
             <translation>Сланец</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2443" />
+            <location filename="../../ui/panels/properties_panel.py" line="2445" />
             <source>Soil</source>
             <translation>Почва</translation>
         </message>
@@ -12606,13 +12616,13 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Объём грунта:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2437" />
-            <location filename="../../ui/panels/properties_panel.py" line="2528" />
+            <location filename="../../ui/panels/properties_panel.py" line="2439" />
+            <location filename="../../ui/panels/properties_panel.py" line="2530" />
             <source>Solid</source>
             <translation>Сплошной</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2091" />
+            <location filename="../../ui/panels/properties_panel.py" line="2093" />
             <source>Spacing radius:</source>
             <translation>Радиус шага:</translation>
         </message>
@@ -12622,28 +12632,28 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Шаг:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2447" />
+            <location filename="../../ui/panels/properties_panel.py" line="2449" />
             <source>Stone</source>
             <translation>Камень</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2497" />
+            <location filename="../../ui/panels/properties_panel.py" line="2499" />
             <source>Stroke Color:</source>
             <translation>Цвет обводки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2545" />
+            <location filename="../../ui/panels/properties_panel.py" line="2547" />
             <source>Stroke Style:</source>
             <translation>Стиль обводки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2516" />
+            <location filename="../../ui/panels/properties_panel.py" line="2518" />
             <source>Stroke Width:</source>
             <translation>Толщина обводки:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2268" />
-            <location filename="../../ui/panels/properties_panel.py" line="2403" />
+            <location filename="../../ui/panels/properties_panel.py" line="2270" />
+            <location filename="../../ui/panels/properties_panel.py" line="2405" />
             <source>Style:</source>
             <translation>Стиль:</translation>
         </message>
@@ -12659,12 +12669,12 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1543" />
-            <location filename="../../ui/panels/properties_panel.py" line="2453" />
+            <location filename="../../ui/panels/properties_panel.py" line="2455" />
             <source>Terracotta</source>
             <translation>Терракота</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2177" />
+            <location filename="../../ui/panels/properties_panel.py" line="2179" />
             <source>Text</source>
             <translation>Текст</translation>
         </message>
@@ -12674,7 +12684,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Всего: {count} растение(й)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2566" />
+            <location filename="../../ui/panels/properties_panel.py" line="2568" />
             <source>Turns the 2D texture only; the object's geometry and measurements stay unchanged</source>
             <translation>Поворачивает только 2D-текстуру; геометрия и размеры объекта не меняются</translation>
         </message>
@@ -12694,18 +12704,18 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Ш: </translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2442" />
+            <location filename="../../ui/panels/properties_panel.py" line="2444" />
             <source>Water</source>
             <translation>Вода</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2452" />
+            <location filename="../../ui/panels/properties_panel.py" line="2454" />
             <source>Wildflower Meadow</source>
             <translation>Луг с полевыми цветами</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1545" />
-            <location filename="../../ui/panels/properties_panel.py" line="2441" />
+            <location filename="../../ui/panels/properties_panel.py" line="2443" />
             <source>Wood</source>
             <translation>Дерево</translation>
         </message>
@@ -12719,17 +12729,17 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation type="vanished">{litres:.1f} л</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2083" />
+            <location filename="../../ui/panels/properties_panel.py" line="2085" />
             <source>—</source>
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2380" />
+            <location filename="../../ui/panels/properties_panel.py" line="2382" />
             <source>── Fences ──</source>
             <translation>── Заборы ──</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2365" />
+            <location filename="../../ui/panels/properties_panel.py" line="2367" />
             <source>── Paths ──</source>
             <translation>── Дорожки ──</translation>
         </message>
@@ -15273,17 +15283,17 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
     <context>
         <name>TourDialog</name>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="366" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="368" />
             <source> s</source>
             <translation> с</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="251" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="252" />
             <source> °</source>
             <translation> °</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="957" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="959" />
             <source>3D is not available on this computer.</source>
             <translation>3D недоступно на этом компьютере.</translation>
         </message>
@@ -15293,22 +15303,22 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Не удалось сохранить кадр. Диск заполнен?</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="769" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="771" />
             <source>A plan keeps at most {count} tours. Delete one first.</source>
             <translation>В плане может быть не более {count} облётов. Сначала удалите один.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="956" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="958" />
             <source>A recording is already running.</source>
             <translation>Запись уже идёт.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="785" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="787" />
             <source>A tour named '{name}' already exists.</source>
             <translation>Облёт с названием "{name}" уже существует.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="773" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="775" />
             <source>A tour named '{name}' already exists. Replace it?</source>
             <translation>Облёт с названием "{name}" уже существует. Заменить его?</translation>
         </message>
@@ -15319,252 +15329,252 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Не удалось подготовить кадр видео.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="286" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="288" />
             <source>Add Current View</source>
             <translation>Добавить текущий вид</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="388" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="390" />
             <source>Best, for Publishing</source>
             <translation>Наилучшее, для публикации</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="226" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="227" />
             <source>Camera</source>
             <translation>Камера</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="1046" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="169" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="816" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="1048" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="170" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="818" />
             <source>Camera Tour</source>
             <translation>Облёт камеры</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="257" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="258" />
             <source>Camera tilt:</source>
             <translation>Наклон камеры:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="411" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="413" />
             <source>Cancel</source>
             <translation>Отмена</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="1009" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="1011" />
             <source>Cancelled.</source>
             <translation>Отменено.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="243" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="244" />
             <source>Clockwise</source>
             <translation>По часовой стрелке</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="415" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="417" />
             <source>Close</source>
             <translation>Закрыть</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="214" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="215" />
             <source>Delete</source>
             <translation>Удалить</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="798" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="800" />
             <source>Deleted the tour '{name}'. Undo brings it back.</source>
             <translation>Облёт "{name}" удалён. Команда «Отменить» вернёт его.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="683" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="685" />
             <source>Discard the changes to the current tour?</source>
             <translation>Отказаться от изменений текущего облёта?</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="229" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="230" />
             <source>Drone Orbit Around the Plan</source>
             <translation>Облёт плана дроном</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="372" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="374" />
             <source>Duration:</source>
             <translation>Длительность:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="964" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="966" />
             <source>Finishing the file…</source>
             <translation>Завершение файла…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="230" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="231" />
             <source>Fly Through My Keyframes</source>
             <translation>Пролететь через мои ключевые виды</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="292" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="294" />
             <source>Fly back to the start</source>
             <translation>Вернуться к началу</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="864" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="866" />
             <source>Folder for the frames (*)</source>
             <translation>Папка для кадров (*)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="378" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="380" />
             <source>Frame rate:</source>
             <translation>Частота кадров:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="929" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="931" />
             <source>Frame {done} of {total}</source>
             <translation>Кадр {done} из {total}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="330" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="341" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="332" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="343" />
             <source>From:</source>
             <translation>С:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="368" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="370" />
             <source>How long the video lasts. A drone orbit takes 30 s a turn until you set a length here.</source>
             <translation>Продолжительность видео. Облёт дроном длится 30 с на оборот, пока вы не зададите длительность здесь.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="390" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="392" />
             <source>How much detail the video keeps. Best keeps nearly every leaf and makes a larger file: use it for a video you publish. Only for Save Video: a PNG sequence keeps every detail.</source>
             <translation>Сколько деталей сохраняет видео. «Наилучшее» сохраняет почти каждый лист и даёт файл большего размера: используйте его для видео, которое вы публикуете. Только для «Сохранить видео»: последовательность PNG сохраняет все детали.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="253" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="254" />
             <source>How steeply the camera looks down at the garden. A low tilt shows the horizon and the sky; a high one looks down into the beds.</source>
             <translation>Насколько круто камера смотрит вниз на сад. При малом наклоне видны горизонт и небо, при большом камера смотрит сверху на грядки.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="231" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="232" />
             <source>Keep the Current View</source>
             <translation>Оставить текущий вид</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="857" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="859" />
             <source>MP4 video (*.mp4)</source>
             <translation>Видео MP4 (*.mp4)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="803" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="809" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="805" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="811" />
             <source>Name of the tour:</source>
             <translation>Название облёта:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="955" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="957" />
             <source>Open the 3D view first: switch to 3D or Split.</source>
             <translation>Сначала откройте 3D-вид: переключитесь на 3D или Разделение.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="361" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="363" />
             <source>Picture</source>
             <translation>Изображение</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="400" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="402" />
             <source>Play the tour small and in real time, here in this window. Saves nothing.</source>
             <translation>Воспроизвести облёт в уменьшенном виде и в реальном времени прямо в этом окне. Ничего не сохраняет.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="399" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="401" />
             <source>Preview</source>
             <translation>Предпросмотр</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="289" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="291" />
             <source>Remove</source>
             <translation>Удалить</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="809" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="811" />
             <source>Rename Tour</source>
             <translation>Переименовать облёт</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="212" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="213" />
             <source>Rename...</source>
             <translation>Переименовать...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="908" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="975" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="910" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="977" />
             <source>Rendering…</source>
             <translation>Рендеринг…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="863" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="865" />
             <source>Save PNG Sequence</source>
             <translation>Сохранить последовательность PNG</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="408" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="410" />
             <source>Save PNG Sequence...</source>
             <translation>Сохранить последовательность PNG...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="208" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="209" />
             <source>Save Tour</source>
             <translation>Сохранить облёт</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="803" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="805" />
             <source>Save Tour As</source>
             <translation>Сохранить облёт как</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="210" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="211" />
             <source>Save Tour As...</source>
             <translation>Сохранить облёт как...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="856" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="858" />
             <source>Save Video</source>
             <translation>Сохранить видео</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="405" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="407" />
             <source>Save Video...</source>
             <translation>Сохранить видео...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="748" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="750" />
             <source>Saved the tour '{name}' in the plan.</source>
             <translation>Облёт "{name}" сохранён в плане.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="1015" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="1017" />
             <source>Saved {frames} frames to {path}.</source>
             <translation>Сохранено кадров: {frames}, в {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="384" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="386" />
             <source>Size:</source>
             <translation>Размер:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="387" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="389" />
             <source>Standard</source>
             <translation>Стандартное</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="258" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="259" />
             <source>Start and stop smoothly</source>
             <translation>Плавный старт и остановка</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="271" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="272" />
             <source>Start the orbit exactly where the 3D view is now, with the view's own tilt.</source>
             <translation>Начать облёт точно с текущего 3D-вида, с его собственным наклоном.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="573" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="575" />
             <source>Starts at the view saved with this tour.</source>
             <translation>Начинается с вида, сохранённого вместе с этим облётом.</translation>
         </message>
@@ -15573,47 +15583,47 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Начинается там, где сейчас вид, на том же расстоянии и той же высоте.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="574" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="576" />
             <source>Starts where the view is now, at the same distance, with the tilt set here.</source>
             <translation>Начинается с текущего вида, на том же расстоянии, с заданным здесь наклоном.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="316" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="318" />
             <source>Stay at the Plan's Date and Time</source>
             <translation>Оставить дату и время плана</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="1041" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="1043" />
             <source>Stop the recording? It has been running for {seconds:.0f} s, and the video is not saved yet.</source>
             <translation>Остановить запись? Она идёт уже {seconds:.0f} с, а видео ещё не сохранено.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="1036" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="1038" />
             <source>Stop the render? The frames already written to {path} stay.</source>
             <translation>Остановить рендеринг? Уже записанные в {path} кадры останутся.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="980" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="982" />
             <source>Stopping…</source>
             <translation>Остановка…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="958" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="960" />
             <source>The 3D view is still building. Try again in a moment.</source>
             <translation>3D-вид ещё строится. Повторите попытку через мгновение.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="260" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="261" />
             <source>The camera speeds up gently at the start and slows down to a stop at the end. Turn it off for a video that plays in a loop: then the end leads straight back into the start.</source>
             <translation>Камера плавно разгоняется в начале и замедляется до остановки в конце. Отключите для видео, которое воспроизводится по кругу: тогда конец сразу переходит в начало.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="577" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="579" />
             <source>The camera stays at the view saved with this tour. Good for a time-lapse.</source>
             <translation>Камера остаётся на виде, сохранённом вместе с этим облётом. Подходит для замедленной съёмки.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="579" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="581" />
             <source>The camera stays where the view is now. Good for a time-lapse.</source>
             <translation>Камера остаётся там, где сейчас вид. Подходит для замедленной съёмки.</translation>
         </message>
@@ -15623,7 +15633,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Запись не удалась: {message}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="203" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="204" />
             <source>The tours kept in this plan. They are saved with the plan file.</source>
             <translation>Облёты, сохранённые в этом плане. Они сохраняются вместе с файлом плана.</translation>
         </message>
@@ -15648,44 +15658,44 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>В этой папке уже лежат кадры другого облёта. Выберите пустую папку.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="313" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="315" />
             <source>Time</source>
             <translation>Время</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="318" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="320" />
             <source>Time-Lapse Through the Year</source>
             <translation>Замедленная съёмка через весь год</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="317" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="319" />
             <source>Time-Lapse of a Day</source>
             <translation>Замедленная съёмка одного дня</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="332" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="343" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="334" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="345" />
             <source>To:</source>
             <translation>По:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="200" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="201" />
             <source>Tours in This Plan</source>
             <translation>Облёты в этом плане</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="242" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="243" />
             <source>Turns:</source>
             <translation>Обороты:</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="660" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="662" />
             <source>Unsaved Tour</source>
             <translation>Несохранённый облёт</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="269" />
-            <location filename="../../ui/view3d/tour_dialog.py" line="303" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="270" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="305" />
             <source>Use Current View</source>
             <translation>Использовать текущий вид</translation>
         </message>
@@ -15695,7 +15705,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Видео недоступно в этой сборке приложения.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="394" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="396" />
             <source>Video quality:</source>
             <translation>Качество видео:</translation>
         </message>
@@ -15704,17 +15714,17 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation type="vanished">Вид {number}: из точки {east:.1f} / {north:.1f} м, высота {height:.1f} м</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="436" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="438" />
             <source>View {number}: from {east} / {north}, {height} high</source>
             <translation>Вид {number}: из {east} / {north}, высота {height}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="968" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="970" />
             <source>Waiting: the 3D view is not visible. The recording goes on when it is back.</source>
             <translation>Ожидание: 3D-вид не виден. Запись продолжится, когда он вернётся.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="1018" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="1020" />
             <source>{count} frames were rendered before the 3D view had caught up with their date.</source>
             <translation>Кадров, отрисованных до того, как 3D-вид дошёл до их даты: {count}.</translation>
         </message>
@@ -15724,7 +15734,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Не удалось заменить {path} ({error}). Видео сохранено как {part}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_dialog.py" line="375" />
+            <location filename="../../ui/view3d/tour_dialog.py" line="377" />
             <source>{rate} frames per second</source>
             <translation>{rate} кадров в секунду</translation>
         </message>
@@ -16514,7 +16524,7 @@ Details: {error}</source>
 Подробности: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="123" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="124" />
             <source>4K (3840 x 2160)</source>
             <translation>4K (3840 x 2160)</translation>
         </message>
@@ -16524,7 +16534,7 @@ Details: {error}</source>
             <translation>Ясное небо: солнце и тени соответствуют анализу инсоляции плана</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="274" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="276" />
             <source>A colour grade for the whole picture</source>
             <translation>Цветокоррекция для всего изображения</translation>
         </message>
@@ -16566,17 +16576,17 @@ Details: {error}</source>
             <translation>До: {date}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="118" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="119" />
             <source>Black and White</source>
             <translation>Чёрно-белый</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="267" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="269" />
             <source>Blur</source>
             <translation>Размытие</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="264" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="266" />
             <source>Brighter or darker, in photographers' stops</source>
             <translation>Светлее или темнее, в ступенях экспозиции</translation>
         </message>
@@ -16586,18 +16596,18 @@ Details: {error}</source>
             <translation>Построение 3D-вида…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="215" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="216" />
             <source>Camera &amp;Tour...</source>
             <translation>Облёт &amp;камеры...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="833" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="835" />
             <source>Camera Tour</source>
             <translation>Облёт камеры</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="226" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="565" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="228" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="567" />
             <source>Capture</source>
             <translation>Съёмка</translation>
         </message>
@@ -16623,8 +16633,8 @@ Details: {error}</source>
             <translation>Нажмите на грунт, чтобы узнать часы инсоляции.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="278" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="473" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="280" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="475" />
             <source>Click the view to set the focus</source>
             <translation>Щёлкните по виду, чтобы задать фокус</translation>
         </message>
@@ -16639,12 +16649,12 @@ Details: {error}</source>
             <translation>При следующем запуске приложения будет использоваться режим совместимости.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="118" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="119" />
             <source>Cool Morning</source>
             <translation>Прохладное утро</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="117" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="118" />
             <source>Crisp Day</source>
             <translation>Ясный день</translation>
         </message>
@@ -16654,7 +16664,7 @@ Details: {error}</source>
             <translation>Разрез (Cutaway)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="266" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="268" />
             <source>Darken the corners of the picture</source>
             <translation>Затемнить углы изображения</translation>
         </message>
@@ -16664,17 +16674,17 @@ Details: {error}</source>
             <translation>День</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="210" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="211" />
             <source>Develop the view like a photo and save it, up to 4K</source>
             <translation>Обработать вид как фотографию и сохранить, вплоть до 4K</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="262" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="264" />
             <source>Exposure</source>
             <translation>Экспозиция</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="211" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="212" />
             <source>Exposure, colour grade, vignette and a click to set the focus. Changes how the picture looks, never what stands in the garden.</source>
             <translation>Экспозиция, цветокоррекция, виньетка и щелчок для задания фокуса. Меняет то, как выглядит изображение, но никогда не то, что стоит в саду.</translation>
         </message>
@@ -16684,7 +16694,7 @@ Details: {error}</source>
             <translation>Высота глаз при прогулке</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="217" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="218" />
             <source>Fly a camera through the garden and save it as a video or a PNG sequence</source>
             <translation>Провести камеру по саду и сохранить как видео или последовательность PNG</translation>
         </message>
@@ -16693,17 +16703,17 @@ Details: {error}</source>
             <translation type="vanished">Фокус на расстоянии {distance:.1f} м</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="476" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="478" />
             <source>Focus {distance} away</source>
             <translation>Фокус на расстоянии {distance}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="122" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="123" />
             <source>Full HD (1920 x 1080)</source>
             <translation>Full HD (1920 x 1080)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="117" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="118" />
             <source>Golden Hour</source>
             <translation>Золотой час</translation>
         </message>
@@ -16733,7 +16743,7 @@ Details: {error}</source>
             <translation>Часы солнца на грунте</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="268" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="270" />
             <source>How far out of focus everything else goes. Click the view to choose what stays sharp.</source>
             <translation>Насколько размывается всё остальное. Щёлкните по виду, чтобы выбрать, что останется резким.</translation>
         </message>
@@ -16768,7 +16778,7 @@ Details: {error}</source>
             <translation>Ночь</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="117" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="118" />
             <source>No Grade</source>
             <translation>Без цветокоррекции</translation>
         </message>
@@ -16789,12 +16799,12 @@ Details: {error}</source>
             <translation>Пасмурно</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="207" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="208" />
             <source>P&amp;hoto Mode</source>
             <translation>&amp;Фоторежим</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="522" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="524" />
             <source>PNG image (*.png);;JPEG image (*.jpg)</source>
             <translation>Изображение PNG (*.png);;Изображение JPEG (*.jpg)</translation>
         </message>
@@ -16814,7 +16824,7 @@ Details: {error}</source>
             <translation>Воспроизведите дату плана от восхода до заката и наблюдайте накопление солнечных часов</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="123" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="124" />
             <source>QHD (2560 x 1440)</source>
             <translation>QHD (2560 x 1440)</translation>
         </message>
@@ -16830,12 +16840,12 @@ Details: {error}</source>
             <translation>Дождь: серое небо, влажные листья и земля, падающие капли</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="521" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="523" />
             <source>Save Photo</source>
             <translation>Сохранить фото</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="292" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="294" />
             <source>Save Photo...</source>
             <translation>Сохранить фото...</translation>
         </message>
@@ -16912,7 +16922,7 @@ Details: {error}</source>
             <translation>Снег на земле и листьях, снегопад</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="118" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="119" />
             <source>Soft Film</source>
             <translation>Мягкая плёнка</translation>
         </message>
@@ -16966,7 +16976,7 @@ Details: {error}</source>
             <translation>Не удалось обновить 3D-вид. Повторная попытка будет выполнена при следующем изменении.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="530" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="532" />
             <source>The 3D view is not visible right now. Bring it back and try again.</source>
             <translation>3D-вид сейчас не виден. Верните его и повторите попытку.</translation>
         </message>
@@ -16981,7 +16991,7 @@ Details: {error}</source>
             <translation>Анализ на поверхности использует цвета ясного солнца; погода вернётся, когда анализ отключится.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="469" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="471" />
             <source>The focus moves to the new plan when it is shown</source>
             <translation>Фокус перейдёт на новый план, когда он будет показан</translation>
         </message>
@@ -17011,17 +17021,17 @@ Details: {error}</source>
             <translation>Не удалось рассчитать часы солнца для изменённого плана.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="535" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="537" />
             <source>The picture could not be made: {error}</source>
             <translation>Не удалось создать изображение: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="540" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="542" />
             <source>The picture could not be saved to {path}.</source>
             <translation>Не удалось сохранить изображение в {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="834" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="836" />
             <source>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</source>
             <translation>Не удалось закрыть запись до закрытия окна. Незавершённый файл может остаться по пути {path}.</translation>
         </message>
@@ -17031,7 +17041,7 @@ Details: {error}</source>
             <translation>Не удалось изменить настройку. Подробности записаны в файл журнала.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="288" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="290" />
             <source>The size of the saved picture. The other sizes keep the view's height in the picture and show more or less at the sides.</source>
             <translation>Размер сохраняемого изображения. Другие размеры сохраняют высоту вида на изображении и показывают больше или меньше по бокам.</translation>
         </message>
@@ -17086,12 +17096,12 @@ Details: {error}</source>
             <translation>Использовать режим совместимости в следующий раз</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="122" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="123" />
             <source>View Size</source>
             <translation>Размер вида</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="265" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="267" />
             <source>Vignette</source>
             <translation>Виньетка</translation>
         </message>

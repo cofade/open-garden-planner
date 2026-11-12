@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QGraphicsItem
 from open_garden_planner.core.geometry import Point, Polygon
 from open_garden_planner.core.measurement_display import area_text as format_area
 from open_garden_planner.core.measurement_display import length_text as format_length
+from open_garden_planner.core.units import UnitSystem, nice_distances
 
 __all__ = ["calculate_area_and_perimeter", "format_length", "format_area", "format_scale_distance", "SCALE_BAR_NICE_DISTANCES_CM"]
 
@@ -71,27 +72,8 @@ def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | N
 
 # The round distances a scale bar may show, in cm, ascending. The canvas's bar
 # and the PDF report's bar both pick from this one list (#782).
-SCALE_BAR_NICE_DISTANCES_CM: tuple[int, ...] = (
-    1,
-    2,
-    5,
-    10,
-    20,
-    50,
-    100,
-    200,
-    500,
-    1000,
-    2000,
-    5000,
-    10000,
-)
 
-
-
-
-
-
+SCALE_BAR_NICE_DISTANCES_CM = nice_distances(UnitSystem.METRIC)
 
 
 def format_scale_distance(cm: float) -> str:

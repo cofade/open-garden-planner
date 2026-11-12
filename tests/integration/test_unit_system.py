@@ -32,6 +32,7 @@ def test_switching_units_updates_every_surface_and_keeps_the_file(qtbot, monkeyp
     scene.dimension_line_manager.update_all()
     bed.setSelected(True)
     window.update_coordinates(30.48, 60.96)
+    initial_zoom = view._zoom_factor
     metric = (
         window.coord_label.text(),
         bed._area_label_item.text(),
@@ -61,6 +62,8 @@ def test_switching_units_updates_every_surface_and_keeps_the_file(qtbot, monkeyp
     window._project_manager.load(scene, path)
     qtbot.wait(1)
     loaded = window._project_manager.snapshot_dict(scene)
+    # Loading a document fits its view. Compare unit text at the same zoom.
+    view.set_zoom(initial_zoom)
     geometry_keys = (
         "item_id",
         "type",
@@ -82,3 +85,28 @@ def test_switching_units_updates_every_surface_and_keeps_the_file(qtbot, monkeyp
         reloaded_bed._area_label_item.text(),
         view._format_distance(view._pick_scale_bar_distance()),
     ) == metric
+
+
+def test_switching_units_refreshes_photo_focus_and_tour_rows(canvas, qtbot, tmp_path):
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+    from open_garden_planner.ui.view3d.tour_dialog import TourDialog
+    from tests.integration.test_directors_cut import Rig
+    rig = Rig(canvas, qtbot, tmp_path)
+    rig.open_3d()
+    capture = rig.workspace.capture
+    capture.set_photo_mode(True)
+    capture._blur.setValue(60)
+    dialog = TourDialog(capture, rig.workspace)
+    qtbot.addWidget(dialog)
+    dialog.motion_combo.setCurrentIndex(dialog.motion_combo.findData('path'))
+    dialog.add_key_button.click()
+    keys, camera, photo = tuple(dialog._keys), rig.workspace._camera_now(), capture.settings
+    before = capture._focus_label.text(), dialog.keys_list.item(0).text()
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    qtbot.wait(1)
+    assert capture._focus_label.text() != before[0]
+    assert dialog.keys_list.item(0).text() != before[1]
+    assert tuple(dialog._keys) == keys
+    assert rig.workspace._camera_now() == camera
+    assert capture.settings == photo

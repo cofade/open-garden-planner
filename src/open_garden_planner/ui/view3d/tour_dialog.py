@@ -94,6 +94,7 @@ from open_garden_planner.core.scene3d.camera import (
     CameraPose,
 )
 from open_garden_planner.ui.date_fields import as_date_field, as_time_field
+from open_garden_planner.ui.units_notifier import units_notifier
 
 from .tour_recorder import TourRecorder, TourResult, translated_failure
 from .video_writer import (
@@ -281,6 +282,7 @@ class TourDialog(QDialog):
         keys_layout = QGridLayout(keys)
         keys_layout.setContentsMargins(0, 0, 0, 0)
         self.keys_list = QListWidget(keys)
+        units_notifier().changed.connect(self._show_keys)
         self.keys_list.setMaximumHeight(110)
         keys_layout.addWidget(self.keys_list, 0, 0, 3, 1)
         self.add_key_button = QPushButton(self.tr("Add Current View"), keys)

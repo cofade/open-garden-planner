@@ -72,6 +72,7 @@ from open_garden_planner.core.scene3d.photo import (
     NO_PHOTO,
     PhotoSettings,
 )
+from open_garden_planner.ui.units_notifier import units_notifier
 
 if TYPE_CHECKING:
     from .tour_dialog import TourDialog
@@ -217,6 +218,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self.tour_action.setStatusTip(_tr(
             "Fly a camera through the garden and save it as a video or a PNG sequence"))
         self.tour_action.triggered.connect(self.open_tour_dialog)
+        units_notifier().changed.connect(self._say_focus)
 
     # ── the controls ─────────────────────────────────────────────────────────
 

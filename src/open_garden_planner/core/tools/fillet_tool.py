@@ -20,7 +20,8 @@ from open_garden_planner.core.tools.corner_edit_base import (
     corner_edit_refusal,
     rebuild_with_corner_replaced,
 )
-from open_garden_planner.core.units import LengthStyle
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -94,7 +95,7 @@ class FilletTool(CornerEditTool):
 
     def _prompt_for_radius(self) -> None:
         title = QCoreApplication.translate("FilletTool", "Fillet")
-        label = QCoreApplication.translate("FilletTool", "Radius (cm):")
+        label = (QCoreApplication.translate("FilletTool", "Radius (cm):") if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("FilletTool", "Radius:"))
         from open_garden_planner.ui.widgets.unit_spin_box import get_length
         value, ok = get_length(
             self._view,

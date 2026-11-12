@@ -2,7 +2,7 @@
 
 This is the guard that should have caught two P0s and did not.
 
-* `offset_tool.py`'s ``"Created {dir} offset of {dist:.1f} cm"`` — wrapped in
+* `offset_tool.py`'s ``"Created {dir} offset of {dist}"`` — wrapped in
   ``self._view.tr(...)``, which pylupdate6 cannot extract because it only walks
   ``self.tr`` inside QObject subclasses.
 * `canvas_scene.py`'s three calibration strings — **bare literals**, not wrapped in
@@ -596,7 +596,7 @@ class TestRegisteredStatusStringsResolve:
              "ersten Punkt"),
             ("CanvasScene", "Calibration: Click second point on the image",
              "zweiten Punkt"),
-            ("CanvasView", "Created {dir} offset of {dist:.1f} cm", "Versatz"),
+            ("CanvasView", "Created {dir} offset of {dist}", "Versatz"),
         ],
         ids=["complete", "first-point", "second-point", "offset"],
     )
@@ -744,7 +744,7 @@ class TestTheGuardWouldHaveCaughtTheTwoKnownP0Shapes:
         tree = ast.parse(
             "def f(self):\n"
             "    self.set_status_message(self._view.tr("
-            "'Created {dir} offset of {dist:.1f} cm'))\n"
+            "'Created {dir} offset of {dist}'))\n"
         )
         call = next(
             n for n in ast.walk(tree)
@@ -869,7 +869,7 @@ class TestTheContextBoundaryIsStatedByTests:
             "class Whatever:\n"
             "    def f(self):\n"
             "        self.set_status_message(self._view.tr("
-            "'Created {dir} offset of {dist:.1f} cm'))\n"
+            "'Created {dir} offset of {dist}'))\n"
         ) == "ok", "the registered offset string must pass"
 
     def test_a_non_self_receiver_with_an_unknown_source_is_caught(self) -> None:

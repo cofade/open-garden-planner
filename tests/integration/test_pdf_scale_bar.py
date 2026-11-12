@@ -151,7 +151,7 @@ def test_the_picked_distance_fits_and_prefers_ten_metres(
 
 def test_the_canvas_and_the_report_share_one_list_of_round_distances() -> None:
     from open_garden_planner.core.measurements import SCALE_BAR_NICE_DISTANCES_CM
-    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+    from open_garden_planner.core.units import UnitSystem, nice_distances
 
-    assert tuple(CanvasView._SCALE_BAR_NICE_DISTANCES) == SCALE_BAR_NICE_DISTANCES_CM
+    assert nice_distances(UnitSystem.METRIC) == SCALE_BAR_NICE_DISTANCES_CM
     assert list(SCALE_BAR_NICE_DISTANCES_CM) == sorted(SCALE_BAR_NICE_DISTANCES_CM)

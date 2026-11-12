@@ -20,7 +20,8 @@ from open_garden_planner.core.tools.corner_edit_base import (
     corner_edit_refusal,
     rebuild_with_corner_replaced,
 )
-from open_garden_planner.core.units import LengthStyle
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -76,7 +77,7 @@ class ChamferTool(CornerEditTool):
 
     def _prompt_for_distance(self) -> None:
         title = QCoreApplication.translate("ChamferTool", "Chamfer")
-        label = QCoreApplication.translate("ChamferTool", "Distance (cm):")
+        label = (QCoreApplication.translate("ChamferTool", "Distance (cm):") if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("ChamferTool", "Distance:"))
         from open_garden_planner.ui.widgets.unit_spin_box import get_length
         value, ok = get_length(
             self._view,

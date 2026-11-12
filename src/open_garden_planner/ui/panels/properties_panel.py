@@ -2000,12 +2000,14 @@ class PropertiesPanel(QWidget):
             else:
                 spin: QAbstractSpinBox
                 if param.type == "number":
-                    spin = QSpinBox()
+                    spin = LengthSpinBox() if param.unit == "cm" else QSpinBox()
+                    if isinstance(spin, LengthSpinBox):
+                        spin.setDecimals(0)
                     spin.setRange(int(param.min if param.min is not None else 0),
                                   int(param.max if param.max is not None else 9999))
                     spin.setValue(int(current))
                 else:  # length
-                    spin = QDoubleSpinBox()
+                    spin = LengthSpinBox() if param.unit == "cm" else QDoubleSpinBox()
                     spin.setDecimals(1)
                     spin.setRange(float(param.min if param.min is not None else 0.0),
                                   float(param.max if param.max is not None else 100000.0))
