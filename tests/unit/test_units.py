@@ -246,3 +246,9 @@ def test_unit_dependent_constants():
     assert (grid_size_cm(U.METRIC), grid_size_cm(U.IMPERIAL)) == (50.0, 30.48)
     assert (nudge_fine_cm(U.METRIC), nudge_fine_cm(U.IMPERIAL)) == (1.0, 0.635)
     assert (default_bare_unit_cm(U.METRIC), default_bare_unit_cm(U.IMPERIAL)) == (1.0, 2.54)
+
+
+@pytest.mark.parametrize("parser", [parse_length, parse_volume])
+def test_overflowing_fraction_is_a_parse_error(parser):
+    with pytest.raises(ValueError):
+        parser("9" * 400 + "/1", U.IMPERIAL)

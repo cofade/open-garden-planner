@@ -233,3 +233,4 @@
 | Case study: the short row was printed first — the page loop started at the plan's top, and the top held the remainder (#871) | [Read](233-case-study-the-short-row-was-printed-first-871.md) |
 | Case study: an edited unit test waited at cleanup (#673) | [Read](234-case-study-an-edited-unit-test-waited-at-cleanup-673.md) |
 | Case study: two open 3D labels stayed metric (#673) | [Read](235-case-study-two-open-3d-labels-stayed-metric-673.md) |
+| Case study: a large fraction escaped field validation (#673) | [Read](236-case-study-a-large-fraction-escaped-field-validation-673.md) |

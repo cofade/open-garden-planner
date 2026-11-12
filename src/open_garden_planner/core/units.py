@@ -170,9 +170,12 @@ def _amount(text: str) -> float:
     denominator_value = int(denominator)
     if denominator_value == 0:
         raise ValueError("zero denominator")
-    return (int(whole_parts[0]) if len(whole_parts) > 1 else 0) + int(
-        whole_parts[-1]
-    ) / denominator_value
+    try:
+        return (int(whole_parts[0]) if len(whole_parts) > 1 else 0) + int(
+            whole_parts[-1]
+        ) / denominator_value
+    except OverflowError as exc:
+        raise ValueError("non-finite amount") from exc
 
 
 def default_bare_unit_cm(system: UnitSystem) -> float:
