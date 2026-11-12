@@ -383,6 +383,11 @@ class ShoppingListService:
         Only marks the project dirty if stale keys were actually found.
         """
         current_ids = {item.id for item in self.build()}
+        # Changing display units hides an alternative price, not its material.
+        # Keep both native price records until the material itself disappears.
+        for identities in ({"soil_fill:m3", "soil_fill:ft3"}, {"mulch:m2", "mulch:ft2"}):
+            if current_ids & identities:
+                current_ids.update(identities)
         saved = self._project_manager.shopping_list_prices
         stale = saved.keys() - current_ids
         if stale:

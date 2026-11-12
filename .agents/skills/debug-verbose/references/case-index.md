@@ -234,3 +234,4 @@
 | Case study: an edited unit test waited at cleanup (#673) | [Read](234-case-study-an-edited-unit-test-waited-at-cleanup-673.md) |
 | Case study: two open 3D labels stayed metric (#673) | [Read](235-case-study-two-open-3d-labels-stayed-metric-673.md) |
 | Case study: a large fraction escaped field validation (#673) | [Read](236-case-study-a-large-fraction-escaped-field-validation-673.md) |
+| Case study: unit switch pruned alternate material prices (#673) | [Read](237-case-study-unit-switch-pruned-alternate-material-prices-673.md) |

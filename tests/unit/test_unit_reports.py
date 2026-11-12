@@ -35,3 +35,20 @@ def test_seed_depth_refreshes_without_reselection(qtbot):
     )
     get_unit_preference().set_system(UnitSystem.IMPERIAL)
     assert 'Seed depth: 1/4"' in panel._info_lbl.text()
+
+
+def test_saving_in_either_system_keeps_both_native_price_records(qtbot):
+    scene = CanvasScene()
+    bed = RectangleItem(0, 0, 100, 100, object_type=ObjectType.RAISED_BED)
+    scene.addItem(bed)
+    project = ProjectManager()
+    prices = {"soil_fill:m3": 50.0, "soil_fill:ft3": 2.0, "mulch:m2": 4.0, "mulch:ft2": 0.5}
+    project.set_shopping_list_prices(prices)
+    service = ShoppingListService(scene, MagicMock(get_effective_record=MagicMock(return_value=None)), project)
+    for system in (UnitSystem.IMPERIAL, UnitSystem.METRIC):
+        get_unit_preference().set_system(system)
+        service.prune_stale_prices()
+        assert project.shopping_list_prices == prices
+    scene.removeItem(bed)
+    service.prune_stale_prices()
+    assert project.shopping_list_prices == {}
