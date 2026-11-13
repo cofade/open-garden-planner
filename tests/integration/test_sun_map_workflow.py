@@ -101,6 +101,12 @@ def test_hours_of_sun_from_the_button_to_the_export_and_back(window, qtbot, tmp_
     # -- the map on ---------------------------------------------------------------
     _press_hours_of_sun(win, qtbot, True)
     assert win._sun_heatmap.heatmap_visible()
+    # Mismatch badges arrive independently of the heatmap. Both screenshots
+    # must include them, or their arrival looks like a time-of-day change.
+    qtbot.waitUntil(
+        lambda: any(isinstance(item, SunBadgeItem) and item.isVisible() for item in scene.items()),
+        timeout=20000,
+    )
     with_map = _grab(win)
 
     # 1. the key, on the canvas, in the scale bar's strip
@@ -133,8 +139,6 @@ def test_hours_of_sun_from_the_button_to_the_export_and_back(window, qtbot, tmp_
     assert any(id(label) in shown for label in hours)
 
     # 4. the mismatch badge is an icon drawn for the painter
-    qtbot.waitUntil(lambda: any(
-        isinstance(item, SunBadgeItem) and item.isVisible() for item in scene.items()), timeout=20000)
     badge = next(item for item in scene.items() if isinstance(item, SunBadgeItem) and item.isVisible())
     assert badge._icon_name == "sun_warning"
 

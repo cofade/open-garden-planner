@@ -3100,6 +3100,14 @@ audit evidence for the command, machine and measured limitations.
   And a docs sentence is a claim too: the first statement of the rule ("never delivers")
   was too general — a `@pyqtSlot`-decorated slot does receive the queued result.
 
+**Independent visible layers need independent readiness checks (#673).** A
+whole-viewport comparison records its reference only after every visible async
+layer has settled. The sun-map workflow waits for its mismatch badge before
+capturing either time-of-day image: heatmap readiness does not imply badge
+readiness. A controlled run found nine badge pixels changing between captures;
+the exact image-equality assertion remains unchanged. Pinned by
+`tests/integration/test_sun_map_workflow.py::test_hours_of_sun_from_the_button_to_the_export_and_back`.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).

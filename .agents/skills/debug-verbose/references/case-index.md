@@ -241,3 +241,4 @@
 | Case study: repainting retained unit text did not reformat it (#673) | [Read](241-case-study-repainting-retained-unit-text-did-not-reformat-it-673.md) |
 | Case study: unit feedback waited for a focused form rebuild (#673) | [Read](242-case-study-unit-feedback-waited-for-a-focused-form-rebuild-673.md) |
 | Case study: untouched Return wrote the rounded metric readout (#673) | [Read](243-case-study-untouched-return-wrote-the-rounded-metric-readout-673.md) |
+| Case study: an async badge changed a sun-map comparison (#673) | [Read](244-case-study-an-async-badge-changed-a-sun-map-comparison-673.md) |
