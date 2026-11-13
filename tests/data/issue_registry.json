@@ -1304,6 +1304,11 @@
     "state": "OPEN",
     "title": "3D: no recovery when the graphics device is lost or memory runs out - frames silently miss scene parts"
   },
+  "827": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Text tool: Esc on an empty annotation leaves a ghost item on the undo stack"
+  },
   "831": {
     "is_pr": false,
     "state": "OPEN",
