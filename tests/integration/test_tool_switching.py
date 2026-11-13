@@ -231,26 +231,6 @@ class TestEscapeReturnsToSelect:
         assert item.scene() is canvas.scene()
         assert item.content == "abc"
 
-    def test_escape_on_an_empty_text_annotation_removes_it(
-        self, canvas: CanvasView, qtbot: object
-    ) -> None:
-        from PyQt6.QtCore import QPoint
-        from PyQt6.QtTest import QTest
-
-        from open_garden_planner.ui.canvas.items.text_item import TextItem
-
-        canvas.resize(800, 600)
-        canvas.show()
-        QTest.qWaitForWindowExposed(canvas)
-        canvas.set_active_tool(ToolType.TEXT)
-        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
-        assert any(isinstance(i, TextItem) for i in canvas.scene().items())
-
-        QTest.keyClick(canvas, Qt.Key.Key_Escape)
-
-        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
-        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
-
     def test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
@@ -377,6 +357,43 @@ class TestEscapeReturnsToSelect:
         QTest.keyClick(canvas, Qt.Key.Key_Escape)
         assert manager.undo_depth == depth_before
         assert not manager.can_redo
+
+    def test_clicking_away_with_no_text_leaves_no_empty_annotation(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A second click finishes the first annotation, empty or not (#827).
+
+        Clicking elsewhere is the documented way to finish an annotation, so
+        an empty first annotation must leave neither a scene item nor a stack
+        entry — otherwise "click away" silently plants a blank note that is
+        then saved with the plan.
+        """
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        assert manager.undo_depth == depth_before + 1
+
+        # The second click finishes the empty first annotation and starts another.
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(500, 400))
+        items = [i for i in canvas.scene().items() if isinstance(i, TextItem)]
+        assert len(items) == 1, "the empty first annotation must not survive the click"
+        assert items[0].toPlainText() == ""
+        assert manager.undo_depth == depth_before + 1
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert manager.undo_depth == depth_before
 
     def test_cancellation_with_interleaved_command_preserves_consistency(
         self, canvas: CanvasView, qtbot: object

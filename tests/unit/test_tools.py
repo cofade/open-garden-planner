@@ -413,7 +413,12 @@ class TestCircleTool:
 
 
 class TestTextTool:
-    """Unit tests for the TextTool class."""
+    """Unit tests for the TextTool class.
+
+    The cancel *behaviour* (empty, non-empty, repeated, interleaved) is pinned
+    end to end in ``tests/integration/test_tool_switching.py`` against a real
+    canvas and command manager; only the refusal branch is worth a mock here.
+    """
 
     @pytest.fixture
     def mock_view(self):
@@ -423,69 +428,6 @@ class TestTextTool:
         view.scene = MagicMock()
         view.command_manager = MagicMock()
         return view
-
-    def test_tool_properties(self, mock_view) -> None:
-        """Test TextTool has correct type, display name, and cursor."""
-        tool = TextTool(mock_view)
-        assert tool.tool_type == ToolType.TEXT
-        assert tool.display_name == "Text"
-        assert tool.cursor == Qt.CursorShape.IBeamCursor
-        assert tool.shortcut == ""
-
-    def test_cancel_when_nothing_pending_is_safe(self, mock_view) -> None:
-        """Cancelling an idle tool does nothing and does not crash."""
-        tool = TextTool(mock_view)
-        tool.cancel()
-        assert tool._pending_item is None
-        assert tool._pending_command is None
-        mock_view.command_manager.discard.assert_not_called()
-
-    def test_cancel_empty_annotation_discards_command_and_removes_item(
-        self, mock_view
-    ) -> None:
-        """Escape on empty text annotation discards command and removes item."""
-        tool = TextTool(mock_view)
-        scene = MagicMock()
-        mock_view.scene.return_value = scene
-        mock_view.command_manager.discard.return_value = True
-
-        mock_item = MagicMock()
-        mock_item.toPlainText.return_value = ""
-        mock_item.scene.return_value = scene
-        mock_command = MagicMock()
-
-        tool._pending_item = mock_item
-        tool._pending_command = mock_command
-
-        tool.cancel()
-
-        assert tool._pending_item is None
-        assert tool._pending_command is None
-        mock_view.command_manager.discard.assert_called_once_with(mock_command)
-        scene.removeItem.assert_called_once_with(mock_item)
-
-    def test_cancel_non_empty_annotation_keeps_item_and_command(
-        self, mock_view
-    ) -> None:
-        """Escape on text annotation with content retains item and history."""
-        tool = TextTool(mock_view)
-        scene = MagicMock()
-        mock_view.scene.return_value = scene
-
-        mock_item = MagicMock()
-        mock_item.toPlainText.return_value = "Non-empty note"
-        mock_item.scene.return_value = scene
-        mock_command = MagicMock()
-
-        tool._pending_item = mock_item
-        tool._pending_command = mock_command
-
-        tool.cancel()
-
-        assert tool._pending_item is None
-        assert tool._pending_command is None
-        mock_view.command_manager.discard.assert_not_called()
-        scene.removeItem.assert_not_called()
 
     def test_cancel_when_discard_fails_keeps_item_in_scene(
         self, mock_view
@@ -508,24 +450,3 @@ class TestTextTool:
 
         mock_view.command_manager.discard.assert_called_once_with(mock_command)
         scene.removeItem.assert_not_called()
-
-    def test_repeated_cancel_is_idempotent(self, mock_view) -> None:
-        """Calling cancel repeatedly only discards and removes once."""
-        tool = TextTool(mock_view)
-        scene = MagicMock()
-        mock_view.scene.return_value = scene
-        mock_view.command_manager.discard.return_value = True
-
-        mock_item = MagicMock()
-        mock_item.toPlainText.return_value = ""
-        mock_item.scene.return_value = scene
-        mock_command = MagicMock()
-
-        tool._pending_item = mock_item
-        tool._pending_command = mock_command
-
-        tool.cancel()
-        tool.cancel()
-
-        mock_view.command_manager.discard.assert_called_once_with(mock_command)
-        scene.removeItem.assert_called_once_with(mock_item)

@@ -5,11 +5,10 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
-from open_garden_planner.core.commands import Command
-
 from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
+    from open_garden_planner.core.commands import Command
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
     from open_garden_planner.ui.canvas.items.text_item import TextItem
 
@@ -43,6 +42,11 @@ class TextTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
+        # A click is also how a pending annotation is finished: resolve the
+        # previous pair before this click replaces it, or an empty first
+        # annotation would keep both its scene item and its stack entry.
+        self.cancel()
+
         from open_garden_planner.ui.canvas.items.text_item import TextItem
 
         scene = self._view.scene()
@@ -67,7 +71,7 @@ class TextTool(BaseTool):
         return False
 
     def key_press(self, event: QKeyEvent) -> bool:
-        """Escape cancels placement (removes empty item)."""
+        """Escape cancels placement: an empty annotation leaves no trace."""
         if event.key() == Qt.Key.Key_Escape:
             self.cancel()
             return True
@@ -90,7 +94,7 @@ class TextTool(BaseTool):
         together, as before.
 
         Both pending references are cleared first, so repeated
-        cancel/deactivate calls are no-ops.
+        cancel/deactivate/click calls are no-ops.
         """
         item = self._pending_item
         command = self._pending_command

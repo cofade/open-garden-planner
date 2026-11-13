@@ -700,7 +700,14 @@ def iter_plant_parents(items: Sequence[QGraphicsItem]) -> list[Any]:
 
 
 class CreateItemCommand(Command):
-    """Command for creating a new item on the scene."""
+    """Command for creating a new item on the scene.
+
+    ``CommandManager.discard`` removes a command from history without running
+    its ``undo()``, so it is only safe for a command whose whole effect is the
+    scene item itself (a fresh text annotation, #827). ``execute`` also
+    reconciles bed membership and auto-parents a plant; a caller that discards
+    this command must reverse those effects itself.
+    """
 
     def __init__(
         self,

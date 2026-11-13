@@ -222,11 +222,13 @@ class TestCommandManagerDiscard:
         assert not manager.can_undo
 
     def test_discard_leaves_a_non_empty_redo_stack_alone(self, manager, scene) -> None:
-        """A redo parked by an earlier undo survives the discard untouched.
+        """``discard`` never drains or shifts the redo side (API contract).
 
-        execute A, execute B, undo B parks B on the redo stack while A stays
-        on top of the undo stack; discarding A must pop A only — B must
-        remain redoable, so ``discard`` never drains or shifts the redo side.
+        No production caller reaches this today — the #827 placement's own
+        ``execute()`` already cleared the redo stack — but the contract is
+        what makes the method safe to reuse: execute A, execute B, undo B
+        parks B on the redo stack while A stays on top; discarding A must pop
+        A only, and the surviving redo must still restore the second item.
         """
         first = self._create("first", scene)
         second = self._create("second", scene)
