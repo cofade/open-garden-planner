@@ -429,7 +429,7 @@ Recent is untouched.
 
 ### PF-PER-29
 
-- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair. Resolve the pending pair on **every** way the placement can finish — Esc, a tool switch, and a click that starts the next annotation — not only on the one path the bug report named.
+- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair. Resolve the pending pair on **every** way the placement can finish — Esc, a tool switch, and a click that starts the next annotation — not only on the one path the bug report named, and commit a note that has text before keeping the pair (`TextItem.finish_editing`): focus-out is not guaranteed on the tool-switch and click paths, and `TextItem.content`, not the live document, is what the plan serializes.
 - **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/integration/test_tool_switching.py::test_clicking_away_with_no_text_leaves_no_empty_annotation`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`; `tests/unit/test_commands.py::test_discard_leaves_a_non_empty_redo_stack_alone`
 - **Source:** #827
 - **Status:** standing
@@ -456,4 +456,6 @@ every way the placement finishes, not only on Esc: a tool switch goes through
 `deactivate()`, and a click that starts the next annotation calls `cancel()`
 first — before that path existed, clicking away with no text left the empty
 annotation and its command behind: consistent, but an empty note in the saved
-plan.
+plan. `cancel()` also commits a note that has text (`TextItem.finish_editing`),
+because those two paths end the placement without a focus-out and `_content`,
+which the serializer reads, is only synced by the commit.

@@ -78,7 +78,8 @@ integration tests.
 
 `CommandManager.discard(command)` is the sanctioned removal for a gesture
 cancelled before it became a real change — an empty text annotation placed
-with a click and removed again with Esc. `undo()` is no substitute: it parks
+with a click and removed again with Esc or by the click that starts the next
+annotation. `undo()` is no substitute: it parks
 the command on the redo stack, where a redo resurrects the item the
 cancellation just removed. `discard` pops only the exact top command (LIFO
 identity, refused otherwise with no mutation), never touches the redo stack,
