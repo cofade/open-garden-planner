@@ -426,3 +426,36 @@ path, so Save wrote into the installation and the autosave file landed beside it
 fix routes a known bundled path through `as_template=True`; the test asserts the
 bundle bytes and mtime are unchanged after a save, the title is the sidecar name, and
 Recent is untouched.
+
+### PF-PER-29
+
+- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair. Resolve the pending pair on **every** way the placement can finish — Esc, a tool switch, and a click that starts the next annotation — not only on the one path the bug report named, and commit a note that has text before keeping the pair (`TextItem.finish_editing`): focus-out is not guaranteed on the tool-switch and click paths, and `TextItem.content`, not the live document, is what the plan serializes.
+- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/integration/test_tool_switching.py::test_clicking_away_with_no_text_leaves_no_empty_annotation`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`; `tests/unit/test_commands.py::test_discard_leaves_a_non_empty_redo_stack_alone`
+- **Source:** #827
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Esc on an empty text annotation removed the `TextItem` from the scene but left its
+executed `CreateItemCommand` on the undo stack: undo swallowed a dead entry and redo
+resurrected the ghost annotation, which `ProjectManager` would then serialize into
+`.ogp`. Root cause: `CanvasView.add_item()` executes the command as a side effect of
+placement, while `TextTool.cancel()` only called `scene.removeItem` — the test that
+existed checked the scene, never the stack. Fix: `add_item()` returns the command,
+`TextTool` tracks it while the annotation is pending, and `CommandManager.discard()`
+is the one sanctioned way OFF the stack: it pops only the exact top command (LIFO
+identity — a buried or unknown command returns `False` with no mutation), never
+touches the redo stack, emits `stack_changed` + `can_undo_changed` but not
+`command_executed`, and updates `last_command` so the restack slots judge the
+command that caused the signal. The cancellation sequence discards first and
+removes the item only on success; if another command was pushed on top the discard
+refuses and the empty item stays, because scene and history must move together
+(§8.2, ADR-004 addendum). A refused discard leaves a blank `TextItem` that is
+fully serializable (`type: "text"`, `content: ""` round-trips through `.ogp`), so
+the fallback state is a valid plan, not a corrupt one. The pair is resolved on
+every way the placement finishes, not only on Esc: a tool switch goes through
+`deactivate()`, and a click that starts the next annotation calls `cancel()`
+first — before that path existed, clicking away with no text left the empty
+annotation and its command behind: consistent, but an empty note in the saved
+plan. `cancel()` also commits a note that has text (`TextItem.finish_editing`),
+because those two paths end the placement without a focus-out and `_content`,
+which the serializer reads, is only synced by the commit.

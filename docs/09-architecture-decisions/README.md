@@ -74,6 +74,36 @@ shared custom-library updates are intentionally not rolled back. No dependency,
 new persisted lock flag or file-format change. See section 8.32 and the package
 integration tests.
 
+### Addendum (2026-11-10, #827 — the way OFF the stack)
+
+`CommandManager.discard(command)` is the sanctioned removal for a gesture
+cancelled before it became a real change — an empty text annotation placed
+with a click and removed again with Esc or by the click that starts the next
+annotation. `undo()` is no substitute: it parks
+the command on the redo stack, where a redo resurrects the item the
+cancellation just removed. `discard` pops only the exact top command (LIFO
+identity, refused otherwise with no mutation), never touches the redo stack,
+emits `can_undo_changed` + `stack_changed` but neither `command_executed` nor
+the history-navigation pair, and leaves reversing the command's effect to the
+caller. `CanvasView.add_item()` returns the command it executed so the
+creating tool can hand it back; the tool discards FIRST and removes the scene
+item only on a `True` return, so scene and history always move together. A
+refused discard leaves the blank item in the scene — an item-plus-command
+pair is consistent in both directions, and `project.py` round-trips an empty
+`TextItem` — while a scene without its command is exactly the #827 bug.
+Section 8.2 and PF-PER-29 hold the mechanics; the two entry points onto the
+stack (`execute` / `register_applied`) are unchanged.
+
+Retained tradeoff: a click+Esc placement still marks a previously clean
+project dirty and bumps `plan_revision` for a net-zero gesture, because the
+click's `execute()` fires `stack_changed` before the cancellation exists and
+neither `mark_dirty` nor the monotonic revision counter can be withdrawn from
+`discard()` alone. Making the gesture truly net-zero is a design of its own
+(defer the execute, or snapshot and reconcile dirty state + revision across
+`ProjectManager` and `CanvasScene`); tracked in #909. Pinned by
+`tests/unit/test_commands.py::TestCommandManagerDiscard` and
+`tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`.
+
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
 **Status**: Accepted

@@ -11,6 +11,7 @@ from open_garden_planner.core.tools import (
     PolygonTool,
     RectangleTool,
     SelectTool,
+    TextTool,
     ToolType,
 )
 
@@ -409,3 +410,70 @@ class TestCircleTool:
         result = tool.mouse_release(event, scene_pos)
 
         assert result is False
+
+
+class TestTextTool:
+    """Unit tests for the TextTool class.
+
+    The cancel *behaviour* (empty, non-empty, click-away, interleaved) is
+    pinned end to end in ``tests/integration/test_tool_switching.py`` against a
+    real canvas and command manager; the two branches that are cheapest to
+    isolate — a refused discard and a repeated cancel — are pinned here.
+    """
+
+    @pytest.fixture
+    def mock_view(self):
+        """Create a mock canvas view."""
+        view = MagicMock()
+        view.setCursor = MagicMock()
+        view.scene = MagicMock()
+        view.command_manager = MagicMock()
+        return view
+
+    def test_cancel_when_discard_fails_keeps_item_in_scene(
+        self, mock_view
+    ) -> None:
+        """If discard fails (e.g. interleaved command), item stays in scene."""
+        tool = TextTool(mock_view)
+        scene = MagicMock()
+        mock_view.scene.return_value = scene
+        mock_view.command_manager.discard.return_value = False
+
+        mock_item = MagicMock()
+        mock_item.toPlainText.return_value = ""
+        mock_item.scene.return_value = scene
+        mock_command = MagicMock()
+
+        tool._pending_item = mock_item
+        tool._pending_command = mock_command
+
+        tool.cancel()
+
+        mock_view.command_manager.discard.assert_called_once_with(mock_command)
+        scene.removeItem.assert_not_called()
+
+    def test_repeated_cancel_only_discards_and_removes_once(self, mock_view) -> None:
+        """Both pending references are cleared first, so a second cancel is a no-op.
+
+        The click path calls ``cancel()`` and the Esc that follows reaches it
+        again through ``deactivate()``; the second call must not discard or
+        remove a second time.
+        """
+        tool = TextTool(mock_view)
+        scene = MagicMock()
+        mock_view.scene.return_value = scene
+        mock_view.command_manager.discard.return_value = True
+
+        mock_item = MagicMock()
+        mock_item.toPlainText.return_value = ""
+        mock_item.scene.return_value = scene
+        mock_command = MagicMock()
+
+        tool._pending_item = mock_item
+        tool._pending_command = mock_command
+
+        tool.cancel()
+        tool.cancel()
+
+        mock_view.command_manager.discard.assert_called_once_with(mock_command)
+        scene.removeItem.assert_called_once_with(mock_item)
