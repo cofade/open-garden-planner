@@ -131,9 +131,11 @@ def test_metres_value_unit(qtbot):
     assert box.value() == pytest.approx(1.524)
 
 
-def test_garbage_rejected(qtbot):
+@pytest.mark.parametrize("prefix", ["", "W: "])
+def test_garbage_rejected(qtbot, prefix):
     switch()
     box = make(qtbot)
+    box.setPrefix(prefix)
     box.setValue(30.48)
     enter(qtbot, box, "abc")
     assert box.value() == 30.48
@@ -167,3 +169,40 @@ def test_get_length_metric_delegates(qtbot, monkeypatch):
     )
     assert get_length(None, "Title", "Distance", 30.48, 0, 100) == (30.48, True)
     assert calls == [(None, "Title", "Distance", 30.48, 0, 100, 2)]
+
+
+@pytest.mark.parametrize("prefix", ["", "W: ", "X: ", "Größe: "])
+@pytest.mark.parametrize(
+    ("text", "expected"), [('12 1/2"', 31.75), ("5' 6\"", 167.64), ("30 cm", 30)]
+)
+@pytest.mark.parametrize("accept", ["return", "blur"])
+def test_prefixed_length_accepts_each_typed_character(qtbot, prefix, text, expected, accept):
+    switch()
+    box = make(qtbot)
+    box.setPrefix(prefix)
+    box.setValue(240)
+    box.show()
+    box.activateWindow()
+    box.setFocus()
+    qtbot.waitUntil(box.hasFocus)
+    box.lineEdit().selectAll()
+    for index, char in enumerate(text, 1):
+        qtbot.keyClicks(box, char)
+        assert box.lineEdit().text() == prefix + text[:index]
+    if accept == "return":
+        qtbot.keyClick(box, Qt.Key.Key_Return)
+    else:
+        box.clearFocus()
+    assert box.value() == pytest.approx(expected)
+
+
+def test_prefixed_volume_accepts_a_partial_unit_token(qtbot):
+    switch()
+    box = make(qtbot, VolumeSpinBox)
+    box.setPrefix("V: ")
+    box.lineEdit().selectAll()
+    for index, char in enumerate("2 qt", 1):
+        qtbot.keyClicks(box, char)
+        assert box.lineEdit().text() == "V: " + "2 qt"[:index]
+    qtbot.keyClick(box, Qt.Key.Key_Return)
+    assert box.value() == pytest.approx(1.892705892)

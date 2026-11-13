@@ -242,3 +242,4 @@
 | Case study: unit feedback waited for a focused form rebuild (#673) | [Read](242-case-study-unit-feedback-waited-for-a-focused-form-rebuild-673.md) |
 | Case study: untouched Return wrote the rounded metric readout (#673) | [Read](243-case-study-untouched-return-wrote-the-rounded-metric-readout-673.md) |
 | Case study: an async badge changed a sun-map comparison (#673) | [Read](244-case-study-an-async-badge-changed-a-sun-map-comparison-673.md) |
+| Case study: prefixed fields refused partial fractions (#673) | [Read](245-case-study-prefixed-fields-refused-partial-fractions-673.md) |

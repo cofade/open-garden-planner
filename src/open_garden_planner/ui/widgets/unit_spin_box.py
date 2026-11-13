@@ -145,8 +145,9 @@ class _UnitSpinBox(QDoubleSpinBox):
             return super().validate(text, pos)
         if self.specialValueText() and text == self.specialValueText():
             return QValidator.State.Acceptable, text, pos
+        number = self._number_text(text)
         try:
-            value = self._parse_imperial(self._number_text(text))
+            value = self._parse_imperial(number)
             state = (
                 QValidator.State.Acceptable
                 if self.minimum() <= value <= self.maximum()
@@ -155,7 +156,7 @@ class _UnitSpinBox(QDoubleSpinBox):
         except ValueError:
             state = (
                 QValidator.State.Intermediate
-                if re.fullmatch(r"[\s\d.,/'\"+\-a-zA-Z]*", text)
+                if re.fullmatch(r"[\s\d.,/'\"+\-a-zA-Z]*", number)
                 else QValidator.State.Invalid
             )
         return state, text, pos

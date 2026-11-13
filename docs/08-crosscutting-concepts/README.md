@@ -1293,6 +1293,12 @@ signal-blocked switching, and returns that value for unchanged rounded text in
 either system. Qt emits valueChanged again on Return even without an edit; unchanged
 readout acceptance suppresses that duplicate while preserving editingFinished and
 the dialog default-button behavior.
+Complete parsing and intermediate validation both use the numeric text after
+removing the spin box prefix. A caption such as `W: ` must not make a partially
+typed fraction or unit token invalid. Regression tests type each character,
+including spaces and slashes, into prefixed and unprefixed fields; the Family
+Garden greenhouse workflow also checks Return, focus loss, one undo step and
+save/reopen.
 `tests/ui/test_unit_spin_box.py` exercises the real key/Return path, native steps,
 foreign decimal marks, special text and silent switches. A whole-window test that
 edits a plan must handle the unsaved-changes prompt during pytest-qt cleanup; the

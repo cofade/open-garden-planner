@@ -15,6 +15,82 @@ from open_garden_planner.ui.canvas.items import RectangleItem
 from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"), [('12 1/2"', 31.75), ("5' 6\"", 167.64), ("30 cm", 30)]
+)
+@pytest.mark.parametrize("accept", ["return", "blur"])
+def test_family_garden_greenhouse_accepts_prefixed_width(
+    qtbot, monkeypatch, tmp_path, text, expected, accept
+):
+    from pathlib import Path
+
+    from PyQt6.QtCore import Qt
+
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    window.resize(1500, 950)
+    window.show()
+    example = (
+        Path(__file__).parents[2] / "src/open_garden_planner/resources/examples/family-garden.ogp"
+    )
+    window._load_project_file(str(example))
+    greenhouse = next(
+        item
+        for item in window.canvas_scene.items()
+        if getattr(item, "object_type", None) == ObjectType.GREENHOUSE
+    )
+    window.canvas_scene.clearSelection()
+    greenhouse.setSelected(True)
+    get_settings().unit_system = "imperial"
+    window._apply_unit_setting()
+    qtbot.wait(1)
+    width = next(
+        box for box in window.properties_panel.findChildren(LengthSpinBox) if box.prefix() == "W: "
+    )
+    height = next(
+        box for box in window.properties_panel.findChildren(LengthSpinBox) if box.prefix() == "H: "
+    )
+    manager = window.canvas_view.command_manager
+    before = len(manager._undo_stack)
+    initial_width = greenhouse.rect().width()
+    window.activateWindow()
+    width.setFocus()
+    qtbot.waitUntil(width.hasFocus)
+    width.lineEdit().selectAll()
+    for index, char in enumerate(text, 1):
+        qtbot.keyClicks(width, char)
+        assert width.lineEdit().text() == "W: " + text[:index]
+    assert greenhouse.rect().width() == initial_width
+    assert len(manager._undo_stack) == before
+    if accept == "return":
+        qtbot.keyClick(width, Qt.Key.Key_Return)
+    else:
+        qtbot.mouseClick(height, Qt.MouseButton.LeftButton)
+    assert greenhouse.rect().width() == pytest.approx(expected)
+    assert len(manager._undo_stack) == before + 1
+    manager.undo()
+    assert greenhouse.rect().width() == initial_width
+    manager.redo()
+    assert greenhouse.rect().width() == pytest.approx(expected)
+    for _ in range(3):
+        for system in ("metric", "imperial"):
+            get_settings().unit_system = system
+            window._apply_unit_setting()
+            qtbot.wait(1)
+            assert greenhouse.rect().width() == pytest.approx(expected)
+            assert len(manager._undo_stack) == before + 1
+    path = tmp_path / "greenhouse-width.ogp"
+    window._project_manager.save(window.canvas_scene, path)
+    window._project_manager.load(window.canvas_scene, path)
+    reopened = next(
+        item
+        for item in window.canvas_scene.items()
+        if getattr(item, "object_type", None) == ObjectType.GREENHOUSE
+    )
+    assert reopened.rect().width() == pytest.approx(expected)
+
+
 def test_switching_units_updates_every_surface_and_keeps_the_file(qtbot, monkeypatch, tmp_path):
     window = GardenPlannerApp()
     qtbot.addWidget(window)

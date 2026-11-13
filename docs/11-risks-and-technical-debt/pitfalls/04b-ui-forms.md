@@ -243,3 +243,18 @@ and normal dialog acceptance. Test both Return and focus loss on a shown, focuse
 widget: directly calling `interpretText()` does not exercise the full path. Refresh
 read-only feedback through the panel's field refresh rather than a form rebuild,
 whose focus guard deliberately defers replacement of an active editor.
+
+### PF-UI-42
+
+- **Rule:** A custom spin box validator removes the field prefix for both complete parsing and intermediate input checks, while returning Qt's original text and cursor position.
+- **Pinned by:** `tests/ui/test_unit_spin_box.py::test_prefixed_length_accepts_each_typed_character`; `tests/ui/test_unit_spin_box.py::test_prefixed_volume_accepts_a_partial_unit_token`; `tests/integration/test_unit_system.py::test_family_garden_greenhouse_accepts_prefixed_width`
+- **Source:** #673; owner manual test
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt passes the prefix to `QDoubleSpinBox.validate()`. The complete imperial parser
+removed it, but the fallback character check did not: `W: 12 1` became Invalid
+because of the colon, while unprefixed `12 1` was correctly Intermediate. Qt then
+refused the next fraction digit. Normalize once and use that numeric text on both
+paths. Check real character-by-character entry; parsing a completed value alone
+cannot expose this failure.
