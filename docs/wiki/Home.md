@@ -15,7 +15,7 @@ It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view.
 
 ## Current status
 
-Latest release: [v1.39.1](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.39.2](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
