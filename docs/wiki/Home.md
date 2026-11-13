@@ -1,7 +1,8 @@
 # Open Garden Planner Wiki
 
-Open Garden Planner is a free desktop application for garden planning with metric precision.
+Open Garden Planner is a free desktop application for precision garden planning.
 It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view.
+Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes.
 
 ## Start here
 
@@ -15,12 +16,12 @@ It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view.
 
 ## Current status
 
-Latest release: [v1.39.2](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.40.0](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
 owns current work and delivery status. [Open issues](https://github.com/cofade/open-garden-planner/issues)
-own the work list. The current themes are Store/MSIX readiness, 3D rendering quality and
+own the work list. The current themes are remaining measurement quantities, Store/MSIX readiness, 3D rendering quality and
 performance, CAD and drawing tools, and architecture and technical debt. See the roadmap's
 "Current work" section for the issue pointers.
 

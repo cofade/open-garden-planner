@@ -32,7 +32,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 
 | Theme | Open issues | Why it matters |
 |-------|-------------|----------------|
-| Measurement units | #673 | A consistent Metric / Imperial (US) display and input preference (ADR-078); #907 tracks the remaining quantities and Canadian preset. |
+| Measurement units | #907 | Temperature, precipitation, harvest mass and a Canadian mixed preset. |
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #534, #531, #883, #886, #889, #891, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #828, #666 | Precision and editing depth. |
@@ -49,6 +49,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 | ✅ | Package 2D visual polish (#698, #782, #784–#796, #836) | Sharp sprites and fills, a cheap repaint with the sun overlay, quiet spacing warnings, legible labels, true exports, theme and locale fixes, examples in a showcase state, a key for the hours-of-sun map | v1.38.0; [PR #838](https://github.com/cofade/open-garden-planner/pull/838); ADR-076, ADR-077; §8.36, §8.37 |
 | ✅ | Package 3D visual polish (#687, #716, #719, #734, #737, #743, #798–#803, #805, #807) | Grass on the meadow, built parts that look like their material, tiled roofs, sharp low-sun shadows in stills, a clean horizon, a steady day lapse with a twilight fill, wind that shows, publishable tour video with an eased orbit, tours kept in the plan | v1.39.0; [PR #882](https://github.com/cofade/open-garden-planner/pull/882); ADR-059 and ADR-072 addenda |
 | ✅ | Package plan truth & reports (#663, #856–#860, #863–#865, #868–#871, #899) | Plan north, the plan date on every date-driven surface, one identity for an opened example, task row text, status-bar room, locale numbers, harvest units, PDF legend/plant-list, print grid/order and the shopping-list paginator | v1.39.1; [PR #903](https://github.com/cofade/open-garden-planner/pull/903); ADR-037/066/076/077 addenda; ADR-062; FR-SUN-14, FR-EXAMPLE-11, FR-TASK-01/04; §8.20, §8.31, §8.33, §8.36 |
+| ✅ | Measurement units (#673) | Metric / Imperial (US) display and input | v1.40.0; [PR #908](https://github.com/cofade/open-garden-planner/pull/908); ADR-078; FR-MEAS-07 |
 
 ### Phase 16: Platform & Community (future)
 
