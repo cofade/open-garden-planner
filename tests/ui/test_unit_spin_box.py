@@ -63,15 +63,23 @@ def test_switch_emits_no_value_changed(qtbot):
     assert box.value() == 60
 
 
-def test_untouched_metric_readout_after_switch_keeps_exact_value(qtbot):
+@pytest.mark.parametrize("accept", ["return", "blur"])
+def test_untouched_metric_readout_after_switch_keeps_exact_value(qtbot, accept):
     box = make(qtbot)
     box.setDecimals(0)
     switch()
     box.setValue(30.48)
+    box.show()
+    box.activateWindow()
+    box.setFocus()
+    qtbot.waitUntil(box.hasFocus)
     switch(U.METRIC)
     assert box.value() == 30.48
     with qtbot.assertNotEmitted(box.valueChanged):
-        qtbot.keyClick(box, Qt.Key.Key_Return)
+        if accept == "return":
+            qtbot.keyClick(box, Qt.Key.Key_Return)
+        else:
+            box.clearFocus()
     assert box.value() == 30.48
 
 
