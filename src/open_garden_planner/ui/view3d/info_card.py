@@ -93,9 +93,11 @@ from open_garden_planner.core.scene3d import (
     SHAPE_RECTANGLE,
     Record,
 )
+from open_garden_planner.core.units import UnitSystem
 from open_garden_planner.services.sun_mismatch_service import band_of
 from open_garden_planner.services.task_generator import calendar_windows
 from open_garden_planner.ui.sun_exposure_text import sun_requirement_label
+from open_garden_planner.ui.units_notifier import units_notifier
 
 #: A scientific name is clipped like any name, but may be a little longer.
 _SPECIES_MAX_CHARS: Final = 120
@@ -231,6 +233,8 @@ class View3DInfoCard(QFrame):
         # Ignored, both ways: the card takes the room its slot has and asks for none
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self._item_id = ""
+        self._subject: CardSubject | None = None
+        units_notifier().changed.connect(self._on_unit_system_changed)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(*_MARGINS)
         outer.setSpacing(_SPACING)
@@ -251,6 +255,10 @@ class View3DInfoCard(QFrame):
         self._rows: list[tuple[str, str]] = []
         self._note_text = ""
         self.hide()
+
+    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+        if self._subject is not None:
+            self.show_subject(self._subject)
 
     def _label(self, text: str = "", *, bold: bool = False, wrap: bool = False) -> QLabel:
         label = QLabel(text, self)
@@ -318,6 +326,7 @@ class View3DInfoCard(QFrame):
 
     def clear(self) -> None:
         """Show nothing (and hide)."""
+        self._subject = None
         self._item_id = ""
         self._set_body((), "")
         self._title.setText("")
@@ -325,6 +334,7 @@ class View3DInfoCard(QFrame):
 
     def show_subject(self, subject: CardSubject) -> None:
         """Fill the card for one item and show it."""
+        self._subject = subject
         item, record = subject.item, subject.record
         self._item_id = str(getattr(item, "item_id", "") or "")
         kind = self._kind_text(item, record)

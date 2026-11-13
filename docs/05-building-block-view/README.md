@@ -14,6 +14,16 @@
 
 ## 5.1 High-Level Architecture
 
+### Measurement display and input (ADR-078, #673)
+
+| Block | Responsibility |
+|---|---|
+| `core/units.py` | Standard-library-only conversions, parsers, length styles, area/volume formatting and native grid/step distances. The system, decimal mark and numeric-format policies are explicit inputs. |
+| `core/unit_preference.py` | Process-wide unit preference, with weak bound-method subscriptions through `Channel`; never part of a plan. |
+| `core/measurement_display.py` | Adapts the active preference and the UI locale to the pure formatters. Legacy measurement exports alias these adapters. |
+| `ui/units_notifier.py` | Qt signal adapter; destroyed widgets disconnect through Qt, without leaving dead signal emitters on the plain channel. |
+| `ui/widgets/unit_spin_box.py` | Length/volume fields keep their callers' metric value unit and preserve exact values while displaying native units. |
+
 ```mermaid
 flowchart TD
     subgraph Pres["Presentation Layer"]

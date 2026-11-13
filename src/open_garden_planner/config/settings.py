@@ -249,6 +249,10 @@ class AppSettings:
     KEY_VIEW3D_AUTO_LEVEL = "view3d/auto_quality_level"
     KEY_VIEW3D_AUTO_BARS = "view3d/auto_quality_bars"
     # Phase 17 L7 (#391): which sky the 3D view draws
+    KEY_UNIT_SYSTEM = "units/system"
+    UNIT_SYSTEMS = ("metric", "imperial")
+    DEFAULT_UNIT_SYSTEM = "metric"
+
     KEY_VIEW3D_SKY_MODEL = "view3d/sky_model"
 
     # Default values
@@ -924,6 +928,16 @@ class AppSettings:
     @view3d_reduced_motion.setter
     def view3d_reduced_motion(self, value: bool) -> None:
         self._settings.setValue(self.KEY_VIEW3D_REDUCED_MOTION, bool(value))
+
+    @property
+    def unit_system(self) -> str:
+        value = str(self._settings.value(self.KEY_UNIT_SYSTEM, self.DEFAULT_UNIT_SYSTEM)).strip().lower()
+        return value if value in self.UNIT_SYSTEMS else self.DEFAULT_UNIT_SYSTEM
+
+    @unit_system.setter
+    def unit_system(self, value: str) -> None:
+        text = str(value).strip().lower()
+        self._settings.setValue(self.KEY_UNIT_SYSTEM, text if text in self.UNIT_SYSTEMS else self.DEFAULT_UNIT_SYSTEM)
 
     @property
     def view3d_sky_model(self) -> str:

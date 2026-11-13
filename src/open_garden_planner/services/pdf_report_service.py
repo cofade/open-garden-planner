@@ -15,11 +15,13 @@ from PyQt6.QtGui import QColor, QFont, QImage, QPageLayout, QPageSize, QPainter,
 
 from open_garden_planner.core.harvest_units import harvest_unit_label
 from open_garden_planner.core.i18n import format_decimal, format_trimmed
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.measurements import (
-    SCALE_BAR_NICE_DISTANCES_CM,
     format_scale_distance,
 )
 from open_garden_planner.core.plant_cycle_label import plant_cycle_label
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem, nice_distances
 
 
 def _tr(text: str) -> str:
@@ -258,27 +260,28 @@ def _fit_rect(source: QRectF, bounds: QRectF) -> QRectF:
     )
 
 
-def _pick_pdf_scale_distance(pt_per_cm: float, page_width_pt: float) -> float:
+def _pick_pdf_scale_distance(pt_per_cm: float, page_width_pt: float, system: UnitSystem = UnitSystem.METRIC) -> float:
     """The round distance, in cm, that the overview's scale bar shows.
 
     10 m where a bar of 10 m is between 20 pt and a quarter of the page;
     otherwise the round distance nearest to 10 m that is. The bar is drawn at
     exactly this distance, so its label is always its length.
     """
+    preferred = 762.0 if system == UnitSystem.IMPERIAL else _SCALE_BAR_PREFERRED_CM
     longest = page_width_pt * _SCALE_BAR_MAX_PAGE_SHARE
     fitting = [
-        float(d) for d in SCALE_BAR_NICE_DISTANCES_CM
+        float(d) for d in nice_distances(system)
         if _SCALE_BAR_MIN_PT <= d * pt_per_cm <= longest
     ]
-    if _SCALE_BAR_PREFERRED_CM in fitting:
-        return _SCALE_BAR_PREFERRED_CM
+    if preferred in fitting:
+        return preferred
     if fitting:
-        return min(fitting, key=lambda d: abs(math.log(d / _SCALE_BAR_PREFERRED_CM)))
+        return min(fitting, key=lambda d: abs(math.log(d / preferred)))
     # No round distance fits (a plan of many kilometres, or one of centimetres):
     # the one whose bar is nearest the allowed range. Still drawn to scale.
     target = math.sqrt(_SCALE_BAR_MIN_PT * longest)
     return float(min(
-        SCALE_BAR_NICE_DISTANCES_CM,
+        nice_distances(system),
         key=lambda d: abs(math.log(max(d * pt_per_cm, 1e-9) / target)),
     ))
 
@@ -295,7 +298,7 @@ def _draw_scale_bar(
     *pt_per_cm* is the scale the plan was drawn at. The bar is never clamped:
     its length is its label's distance at that scale.
     """
-    bar_cm = _pick_pdf_scale_distance(pt_per_cm, page_width_pt)
+    bar_cm = _pick_pdf_scale_distance(pt_per_cm, page_width_pt, active_unit_system())
     bar_pt = bar_cm * pt_per_cm
 
     pen = QPen(QColor("#333333"))
@@ -726,7 +729,8 @@ def _plant_rows(scene: Any) -> list[tuple[str, str, str, str]]:
         found.append((_natural_key(name), center.x(), center.y(), (
             name,
             type_text,
-            f"({format_decimal(center.x(), 0)}, {format_decimal(center.y(), 0)})",
+            (f"({format_decimal(center.x(), 0)}, {format_decimal(center.y(), 0)})" if active_unit_system() == UnitSystem.METRIC
+             else f"({length_text(center.x(), style=LengthStyle.PLANT_SIZE)}, {length_text(center.y(), style=LengthStyle.PLANT_SIZE)})"),
             str(notes),
         )))
     # By name, and plants of one name from left to right.
@@ -750,7 +754,7 @@ def _render_plant_list(
         [
             (_tr("Name"), 0.35),
             (_tr("Type"), 0.20),
-            (_tr("Position (cm)"), 0.25),
+            (_tr("Position (cm)") if active_unit_system() == UnitSystem.METRIC else _tr("Position"), 0.25),
             (_tr("Notes"), 0.20),
         ],
         list(rows),

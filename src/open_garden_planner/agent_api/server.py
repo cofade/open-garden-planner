@@ -396,7 +396,8 @@ def build_server(
             "get_diagnostics for the plan's current warnings. save_plan/"
             "export_pdf/export_dxf/export_csv write a file to disk (the "
             "project's own .ogp, or a PDF/DXF/CSV deliverable) but do not "
-            "otherwise modify the plan." + write_note
+            "otherwise modify the plan. All lengths are in centimetres and all areas "
+            "in square centimetres, whatever unit system the user has chosen for display." + write_note
         ),
         stateless_http=stateless_http,
         log_level="WARNING",

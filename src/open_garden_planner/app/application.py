@@ -45,13 +45,14 @@ from open_garden_planner.app.paths import default_dialog_dir, default_save_path
 from open_garden_planner.core import (
     ProjectManager,
     calculate_area_and_perimeter,
-    format_area,
-    format_length,
 )
 from open_garden_planner.core.i18n import format_decimal, format_trimmed, list_separator
+from open_garden_planner.core.measurement_display import area_text, length_text
 from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.core.solar import plan_place
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.core.unit_preference import get_unit_preference
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 from open_garden_planner.services.companion_planting_service import (
     ANTAGONISTIC,
     BENEFICIAL,
@@ -89,6 +90,7 @@ from open_garden_planner.ui.theme import (
     set_text_role,
     theme_color,
 )
+from open_garden_planner.ui.units_notifier import units_notifier
 from open_garden_planner.ui.views.harvest_view import HarvestView
 from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
 from open_garden_planner.ui.views.seed_inventory_view import SeedInventoryView
@@ -194,6 +196,8 @@ class GardenPlannerApp(QMainWindow):
     def __init__(self) -> None:
         """Initialize the main window."""
         super().__init__()
+        self._apply_unit_setting()
+        self._last_cursor_cm = (0.0, 0.0)
         self._agent_frost_alerts: list[Any] = []
         self._agent_host = AgentHost(self)
 
@@ -1931,7 +1935,9 @@ class GardenPlannerApp(QMainWindow):
         self._coord_icon = self._make_icon_label(
             "status_coords", tooltip=self.tr("Cursor position"))
         status_bar.addPermanentWidget(self._coord_icon)
-        self.coord_label = QLabel(self.tr("X: 0.00 cm  Y: 0.00 cm"))
+        self.coord_label = QLabel()
+        self.update_coordinates(0.0, 0.0)
+        units_notifier().changed.connect(self._on_unit_system_changed)
         status_bar.addPermanentWidget(self.coord_label)
 
         # Typed coordinate input (Package A US-A1/A2). Wired up after
@@ -3274,8 +3280,8 @@ class GardenPlannerApp(QMainWindow):
         status_bar = self.statusBar()
         if status_bar:
             status_bar.showMessage(
-                self.tr("New project created: {width}m x {height}m").format(
-                    width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
+                self.tr("New project created: {width} x {height}").format(
+                    width=length_text(width_m * 100), height=length_text(height_m * 100)
                 )
             )
 
@@ -3305,8 +3311,8 @@ class GardenPlannerApp(QMainWindow):
             status_bar = self.statusBar()
             if status_bar:
                 status_bar.showMessage(
-                    self.tr("Canvas resized to {width}m x {height}m").format(
-                        width=format_decimal(width_m, 1), height=format_decimal(height_m, 1)
+                    self.tr("Canvas resized to {width} x {height}").format(
+                        width=length_text(width_m * 100), height=length_text(height_m * 100)
                     )
                 )
 
@@ -5611,6 +5617,7 @@ class GardenPlannerApp(QMainWindow):
         before = _agent_api_state()
         dialog = PreferencesDialog(self)
         if dialog.exec():
+            self._apply_unit_setting()
             self._update_satellite_menu_state()
             self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4), sky (L7)
             # Canvas (#321): touch gestures take effect at once, like the look settings.
@@ -5901,6 +5908,15 @@ class GardenPlannerApp(QMainWindow):
 
     # Public methods for updating status bar
 
+    def _apply_unit_setting(self) -> None:
+        from open_garden_planner.config.settings import get_settings
+        get_unit_preference().set_system(UnitSystem(get_settings().unit_system))
+
+    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+        self.update_coordinates(*self._last_cursor_cm)
+        selected = self.canvas_scene.selectedItems()
+        self.update_selection(len(selected), selected)
+
     def update_coordinates(self, x: float, y: float) -> None:
         """Update the coordinate display in the status bar.
 
@@ -5908,8 +5924,10 @@ class GardenPlannerApp(QMainWindow):
             x: X coordinate in centimeters
             y: Y coordinate in centimeters
         """
-        self.coord_label.setText(self.tr("X: {x} cm  Y: {y} cm").format(
-            x=format_decimal(x, 2), y=format_decimal(y, 2)))
+        self._last_cursor_cm = (x, y)
+        self.coord_label.setText(self.tr("X: {x}  Y: {y}").format(
+            x=length_text(x, style=LengthStyle.COORDINATE),
+            y=length_text(y, style=LengthStyle.COORDINATE)))
 
     def update_zoom(self, zoom_percent: float) -> None:
         """Update the zoom display in the status bar.
@@ -5935,8 +5953,8 @@ class GardenPlannerApp(QMainWindow):
                 measurements = calculate_area_and_perimeter(item)
                 if measurements:
                     area, perimeter = measurements
-                    area_str = format_area(area)
-                    length_str = format_length(perimeter)
+                    area_str = area_text(area)
+                    length_str = length_text(perimeter)
                     self.selection_label.setText(
                         self.tr("1 object | Area: {area} | Perimeter: {perimeter}").format(
                             area=area_str, perimeter=length_str
@@ -5962,8 +5980,8 @@ class GardenPlannerApp(QMainWindow):
                         measurable_count += 1
 
                 if measurable_count > 0:
-                    area_str = format_area(total_area)
-                    length_str = format_length(total_perimeter)
+                    area_str = area_text(total_area)
+                    length_str = length_text(total_perimeter)
                     self.selection_label.setText(
                         self.tr(
                             "{count} objects | Total Area: {area} | Total Perimeter: {perimeter}"
@@ -6099,24 +6117,24 @@ class GardenPlannerApp(QMainWindow):
             self.statusBar().showMessage(
                 self.tr(
                     "Loaded satellite background (captured map view, zoom {zoom}) — "
-                    "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+                    "canvas resized to {w_m} x {h_m}"
                 ).format(
                     zoom=result.zoom,
-                    w_m=canvas_w_cm / 100,
-                    h_m=canvas_h_cm / 100,
+                    w_m=length_text(canvas_w_cm),
+                    h_m=length_text(canvas_h_cm),
                 )
             )
         else:
             self.statusBar().showMessage(
                 self.tr(
                     "Loaded satellite background ({cols}x{rows} tiles, zoom {zoom}) — "
-                    "canvas resized to {w_m:.0f}m x {h_m:.0f}m"
+                    "canvas resized to {w_m} x {h_m}"
                 ).format(
                     cols=result.tile_grid[0],
                     rows=result.tile_grid[1],
                     zoom=result.zoom,
-                    w_m=canvas_w_cm / 100,
-                    h_m=canvas_h_cm / 100,
+                    w_m=length_text(canvas_w_cm),
+                    h_m=length_text(canvas_h_cm),
                 )
             )
 

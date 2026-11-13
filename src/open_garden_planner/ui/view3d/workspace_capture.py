@@ -62,7 +62,7 @@ from open_garden_planner.core.commands import (
     RenameCameraTourCommand,
     SaveCameraTourCommand,
 )
-from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.photo import (
     DEFAULT_BLUR,
@@ -72,6 +72,7 @@ from open_garden_planner.core.scene3d.photo import (
     NO_PHOTO,
     PhotoSettings,
 )
+from open_garden_planner.ui.units_notifier import units_notifier
 
 if TYPE_CHECKING:
     from .tour_dialog import TourDialog
@@ -217,6 +218,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self.tour_action.setStatusTip(_tr(
             "Fly a camera through the garden and save it as a video or a PNG sequence"))
         self.tour_action.triggered.connect(self.open_tour_dialog)
+        units_notifier().changed.connect(self._say_focus)
 
     # ── the controls ─────────────────────────────────────────────────────────
 
@@ -473,8 +475,8 @@ class WorkspaceCaptureCoordinator(QObject):
             label.setText(_tr("Click the view to set the focus"))
             return
         eye = self._get_camera_now()[0]
-        label.setText(_tr("Focus {distance:.1f} m away").format(
-            distance=LocalizedNumber(math.dist(eye, point) / 100.0)))
+        label.setText(_tr("Focus {distance} away").format(
+            distance=length_text(math.dist(eye, point))))
 
     def take_click(self, hit: object) -> bool:
         """A click in the view (``OrbitInput.picked``): photo mode takes it for the focus.

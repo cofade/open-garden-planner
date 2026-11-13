@@ -35,7 +35,10 @@ from open_garden_planner.core.measure_snapper import (
     find_nearest_anchor,
     get_anchor_points,
 )
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -54,7 +57,7 @@ PEN_WIDTH = 2.5
 
 def _distance_preview_text(distance_cm: float) -> str:
     """A constraint drag's distance, in the UI language's decimal mark (#860)."""
-    return f"{format_decimal(distance_cm / 100.0, 2)} m"
+    return length_text(distance_cm, style=LengthStyle.METRES)
 
 
 def _angle_preview_text(angle_deg: float) -> str:
@@ -82,11 +85,12 @@ class DistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "DistanceInputDialog",
                 "Enter the target distance (meters):",
-            )
+            ) if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("DistanceInputDialog", "Enter the target distance:")
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(0.01, 999.99)
         self._spin.setDecimals(2)
         self._spin.setSuffix(" m")
@@ -99,8 +103,8 @@ class DistanceInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "DistanceInputDialog",
-                "Current distance: {distance:.2f} m",
-            ).format(distance=LocalizedNumber(current_distance_cm / 100.0))
+                "Current distance: {distance}",
+            ).format(distance=length_text(current_distance_cm, style=LengthStyle.METRES))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3824,11 +3828,12 @@ class HDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "HDistanceInputDialog",
                 "Enter the target horizontal distance (meters):",
-            )
+            ) if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("HDistanceInputDialog", "Enter the target horizontal distance:")
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(0.01, 999.99)
         self._spin.setDecimals(2)
         self._spin.setSuffix(" m")
@@ -3840,8 +3845,8 @@ class HDistanceInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "HDistanceInputDialog",
-                "Current horizontal distance: {distance:.2f} m",
-            ).format(distance=LocalizedNumber(current_h_dist_cm / 100.0))
+                "Current horizontal distance: {distance}",
+            ).format(distance=length_text(current_h_dist_cm, style=LengthStyle.METRES))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3874,11 +3879,12 @@ class VDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "VDistanceInputDialog",
                 "Enter the target vertical distance (meters):",
-            )
+            ) if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("VDistanceInputDialog", "Enter the target vertical distance:")
         )
         layout.addWidget(label)
 
-        self._spin = QDoubleSpinBox()
+        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
+        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
         self._spin.setRange(0.01, 999.99)
         self._spin.setDecimals(2)
         self._spin.setSuffix(" m")
@@ -3890,8 +3896,8 @@ class VDistanceInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "VDistanceInputDialog",
-                "Current vertical distance: {distance:.2f} m",
-            ).format(distance=LocalizedNumber(current_v_dist_cm / 100.0))
+                "Current vertical distance: {distance}",
+            ).format(distance=length_text(current_v_dist_cm, style=LengthStyle.METRES))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3960,8 +3966,8 @@ class HorizontalDistanceConstraintTool(ConstraintTool):
 
         h_dist_cm = abs(end_pos.x() - start.x())
         text = QCoreApplication.translate(
-            "HorizontalDistanceConstraintTool", "↔ {d:.2f} m"
-        ).format(d=LocalizedNumber(h_dist_cm / 100.0))
+            "HorizontalDistanceConstraintTool", "↔ {d}"
+        ).format(d=length_text(h_dist_cm, style=LengthStyle.METRES))
 
         mid_x = (start.x() + snapped_end.x()) / 2
         mid_y = start.y()
@@ -4069,8 +4075,8 @@ class VerticalDistanceConstraintTool(ConstraintTool):
 
         v_dist_cm = abs(end_pos.y() - start.y())
         text = QCoreApplication.translate(
-            "VerticalDistanceConstraintTool", "↕ {d:.2f} m"
-        ).format(d=LocalizedNumber(v_dist_cm / 100.0))
+            "VerticalDistanceConstraintTool", "↕ {d}"
+        ).format(d=length_text(v_dist_cm, style=LengthStyle.METRES))
 
         mid_x = start.x()
         mid_y = (start.y() + snapped_end.y()) / 2

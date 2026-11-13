@@ -10,11 +10,13 @@ from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication
 
 from open_garden_planner.core.constraints import ConstraintType
 from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
+from open_garden_planner.core.units import LengthStyle
 
 _PAIR = QT_TR_NOOP("{a} – {b}   {detail}")
 _SINGLE = QT_TR_NOOP("{a}   {detail}")
 _TRIPLE = QT_TR_NOOP("{a} – {b} – {c}   {detail}")
-_METRES = QT_TR_NOOP("{d:.2f} m")
+_METRES = QT_TR_NOOP("{d}")
 VIOLATED_COLOR = (220, 40, 40)
 
 
@@ -35,6 +37,7 @@ class ConstraintDescriptor:
     target_divisor: float = 100.0
     absolute_target: bool = False
     always_colored: bool = False
+    length_target: bool = False
 
     def render(self, label_a: str, label_b: str, target: float) -> tuple[str, str]:
         """Translate first, then interpolate; no cached language-dependent text."""
@@ -42,10 +45,12 @@ class ConstraintDescriptor:
             "a": label_a, "b": label_b, "c": _tr("…"),
             # Preserve the prior division operation, including rounding ties.
             # ... and print it in the UI language's number format (#792): the
-            # templates keep their own precision ("{d:.2f} m").
+            # templates keep their own precision ("{d}").
             "d": LocalizedNumber(
                 (abs(target) if self.absolute_target else target) / self.target_divisor),
         }
+        if self.length_target:
+            values["d"] = length_text(abs(target) if self.absolute_target else target, style=LengthStyle.METRES)
         detail = _tr(self.detail_template).format(**values)
         text = _tr(self.row_template).format(**values, detail=detail).rstrip()
         return text, _tr(self.tooltip_template).format(**values)
@@ -54,10 +59,10 @@ class ConstraintDescriptor:
 CONSTRAINT_DESCRIPTORS: Mapping[ConstraintType, ConstraintDescriptor] = MappingProxyType({
     ConstraintType.DISTANCE: ConstraintDescriptor(
         "constraint_distance", (0, 120, 200), _METRES,
-        QT_TR_NOOP("{a} to {b}: {d:.2f} m")),
+        QT_TR_NOOP("{a} to {b}: {d}"), length_target=True),
     ConstraintType.EDGE_LENGTH: ConstraintDescriptor(
-        "constraint_edge_length", (0, 120, 200), QT_TR_NOOP("Edge {d:.2f} m"),
-        QT_TR_NOOP("{a} edge length: {d:.2f} m"), row_template=_SINGLE),
+        "constraint_edge_length", (0, 120, 200), QT_TR_NOOP("Edge {d}"),
+        QT_TR_NOOP("{a} edge length: {d}"), row_template=_SINGLE, length_target=True),
     ConstraintType.HORIZONTAL: ConstraintDescriptor(
         "constraint_horizontal", (120, 0, 180), QT_TR_NOOP("Horizontal"),
         QT_TR_NOOP("{a} horizontal align {b}")),
@@ -90,10 +95,10 @@ CONSTRAINT_DESCRIPTORS: Mapping[ConstraintType, ConstraintDescriptor] = MappingP
         QT_TR_NOOP("{a} is fixed in place"), row_template=_SINGLE, always_colored=True),
     ConstraintType.HORIZONTAL_DISTANCE: ConstraintDescriptor(
         "constraint_h_distance", (0, 120, 200), _METRES,
-        QT_TR_NOOP("{a} to {b}: horizontal distance {d:.2f} m")),
+        QT_TR_NOOP("{a} to {b}: horizontal distance {d}"), length_target=True),
     ConstraintType.VERTICAL_DISTANCE: ConstraintDescriptor(
         "constraint_v_distance", (0, 120, 200), _METRES,
-        QT_TR_NOOP("{a} to {b}: vertical distance {d:.2f} m")),
+        QT_TR_NOOP("{a} to {b}: vertical distance {d}"), length_target=True),
     ConstraintType.POINT_ON_EDGE: ConstraintDescriptor(
         "snap_nearest", (0, 120, 200), QT_TR_NOOP("On edge"),
         QT_TR_NOOP("{a} lies on the edge of {b}")),
@@ -102,7 +107,7 @@ CONSTRAINT_DESCRIPTORS: Mapping[ConstraintType, ConstraintDescriptor] = MappingP
         QT_TR_NOOP("{a} lies on the circle of {b}")),
     ConstraintType.TANGENT: ConstraintDescriptor(
         "snap_tangent", (0, 120, 200), QT_TR_NOOP("Tangent"),
-        QT_TR_NOOP("{a} tangent to {b} (r={d:.2f} m)"), absolute_target=True),
+        QT_TR_NOOP("{a} tangent to {b} (r={d})"), absolute_target=True, length_target=True),
 })
 
 

@@ -36,7 +36,9 @@ from typing import Literal
 
 from PyQt6.QtCore import QPointF
 
-_NUMBER_RE = re.compile(r"^[+-]?\d+(?:[.,]\d+)?$")
+from open_garden_planner.core.units import UnitSystem, parse_length
+
+_NUMBER_RE = re.compile(r"^[+-]?\d+(?:[.,]\d+)?(?:mm|cm|m|in|ft|\"|')?$", re.I)
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,7 @@ def parse(
     last_point: QPointF | None = None,
     *,
     prefer_locale_decimal: bool = True,
+    system: UnitSystem = UnitSystem.METRIC,
 ) -> ParsedCoordinate:
     """Parse a coordinate string into a ``ParsedCoordinate``.
 
@@ -100,8 +103,8 @@ def parse(
         ang_str = s[idx + 1 :].strip()
         if not dist_str or not ang_str:
             raise ParseError("Polar input requires distance and angle")
-        distance = _parse_number(dist_str)
-        angle_deg = _parse_number(ang_str)
+        distance = _parse_number(dist_str, system)
+        angle_deg = _parse_number(ang_str, angle=True)
         # Polar input always implies a base point — CAD convention.
         # We require an anchor whether or not the user typed '@'; a silent
         # fallback to origin would place a vertex far from the cursor
@@ -125,8 +128,8 @@ def parse(
 
     # Cartesian: split into two terms using the disambiguation rules
     a_str, b_str = _split_cartesian(s, prefer_locale_decimal=prefer_locale_decimal)
-    a = _parse_number(a_str)
-    b = _parse_number(b_str)
+    a = _parse_number(a_str, system)
+    b = _parse_number(b_str, system)
 
     if relative:
         if last_point is None:
@@ -157,6 +160,12 @@ def _split_cartesian(s: str, *, prefer_locale_decimal: bool) -> tuple[str, str]:
         if len(parts) != 2:
             raise ParseError("Expected two values separated by ';'")
         return parts[0], parts[1]
+
+    # A comma followed or preceded by whitespace is an explicit separator,
+    # rather than the decimal comma inside a token.
+    if re.search(r",\s|\s,", s) and s.count(",") == 1:
+        a, b = s.split(",", 1)
+        return a.strip(), b.strip()
 
     # Rule E: whitespace as separator (only when no ambiguity)
     if re.search(r"\s", s) and "," not in s:
@@ -201,7 +210,7 @@ def _split_cartesian(s: str, *, prefer_locale_decimal: bool) -> tuple[str, str]:
     raise ParseError("Too many ',' separators to disambiguate")
 
 
-def _parse_number(token: str) -> float:
+def _parse_number(token: str, system: UnitSystem = UnitSystem.METRIC, *, angle: bool = False) -> float:
     """Parse a single numeric token. Accepts ``.`` or ``,`` as decimal mark."""
     from PyQt6.QtCore import QCoreApplication
 
@@ -212,7 +221,7 @@ def _parse_number(token: str) -> float:
         # ``parse_decimal`` is the stricter of the two (ASCII digits, a finite
         # result): what it refuses is "not a number" here as well.
         try:
-            return parse_decimal(token)
+            return parse_decimal(token) if angle else parse_length(token, system)
         except ValueError:
             pass
     # Translate the template first so format() substitutes into the
@@ -249,6 +258,7 @@ def looks_like_explicit_coord(text: str) -> bool:
 def parse_alternative(
     text: str,
     last_point: QPointF | None = None,
+    *, system: UnitSystem = UnitSystem.METRIC,
 ) -> ParsedCoordinate | None:
     """Return the alternative interpretation for the 2-comma ambiguity.
 
@@ -263,6 +273,6 @@ def parse_alternative(
     if body.count(",") != 2:
         return None
     try:
-        return parse(text, last_point, prefer_locale_decimal=False)
+        return parse(text, last_point, prefer_locale_decimal=False, system=system)
     except ParseError:
         return None

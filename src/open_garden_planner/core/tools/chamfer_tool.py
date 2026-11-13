@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication, QInputDialog
+from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
 from open_garden_planner.core.commands import ChamferCornerCommand
-from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditRefusal,
@@ -20,6 +20,8 @@ from open_garden_planner.core.tools.corner_edit_base import (
     corner_edit_refusal,
     rebuild_with_corner_replaced,
 )
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -50,8 +52,8 @@ class ChamferTool(CornerEditTool):
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "ChamferTool",
-                "Chamfer distance: {distance:.1f} cm — press D to change",
-            ).format(distance=LocalizedNumber(self._distance))
+                "Chamfer distance: {distance} — press D to change",
+            ).format(distance=length_text(self._distance, style=LengthStyle.CENTIMETRES))
             self._view.set_status_message(msg)
         # Defer the modal dialog onto the next event-loop tick — see the
         # matching note in `FilletTool.activate()`.
@@ -75,15 +77,15 @@ class ChamferTool(CornerEditTool):
 
     def _prompt_for_distance(self) -> None:
         title = QCoreApplication.translate("ChamferTool", "Chamfer")
-        label = QCoreApplication.translate("ChamferTool", "Distance (cm):")
-        value, ok = QInputDialog.getDouble(
+        label = (QCoreApplication.translate("ChamferTool", "Distance (cm):") if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("ChamferTool", "Distance:"))
+        from open_garden_planner.ui.widgets.unit_spin_box import get_length
+        value, ok = get_length(
             self._view,
             title,
             label,
             self._distance,
             0.01,
             100000.0,
-            2,
         )
         if ok:
             self._distance = float(value)

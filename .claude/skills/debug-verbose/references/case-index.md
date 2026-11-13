@@ -232,3 +232,15 @@
 | Case study: the same file had two identities — the gallery made a copy, File > Open attached Save to the installed example (#865) | [Read](232-case-study-the-same-file-had-two-identities-865.md) |
 | Case study: the short row was printed first — the page loop started at the plan's top, and the top held the remainder (#871) | [Read](233-case-study-the-short-row-was-printed-first-871.md) |
 | Case study: the undo entry outlived the annotation it created — a test of the scene is not a test of the stack (#827) | [Read](234-case-study-a-ghost-undo-entry-that-outlived-the-annotation-827.md) |
+| Case study: two open 3D labels stayed metric (#673) | [Read](235-case-study-two-open-3d-labels-stayed-metric-673.md) |
+| Case study: a large fraction escaped field validation (#673) | [Read](236-case-study-a-large-fraction-escaped-field-validation-673.md) |
+| Case study: unit switch pruned alternate material prices (#673) | [Read](237-case-study-unit-switch-pruned-alternate-material-prices-673.md) |
+| Case study: an angle dialog was migrated as a length (#673) | [Read](238-case-study-an-angle-dialog-was-migrated-as-length-673.md) |
+| Case study: decimal marks did not preserve Qt rounding (#673) | [Read](239-case-study-decimal-marks-did-not-preserve-qt-rounding-673.md) |
+| Case study: a paired coordinate escaped the unit guard (#673) | [Read](240-case-study-a-paired-coordinate-escaped-the-unit-guard-673.md) |
+| Case study: repainting retained unit text did not reformat it (#673) | [Read](241-case-study-repainting-retained-unit-text-did-not-reformat-it-673.md) |
+| Case study: unit feedback waited for a focused form rebuild (#673) | [Read](242-case-study-unit-feedback-waited-for-a-focused-form-rebuild-673.md) |
+| Case study: untouched Return wrote the rounded metric readout (#673) | [Read](243-case-study-untouched-return-wrote-the-rounded-metric-readout-673.md) |
+| Case study: an async badge changed a sun-map comparison (#673) | [Read](244-case-study-an-async-badge-changed-a-sun-map-comparison-673.md) |
+| Case study: prefixed fields refused partial fractions (#673) | [Read](245-case-study-prefixed-fields-refused-partial-fractions-673.md) |
+| Case study: an edited unit test waited at cleanup (#673) | [Read](246-case-study-an-edited-unit-test-waited-at-cleanup-673.md) |

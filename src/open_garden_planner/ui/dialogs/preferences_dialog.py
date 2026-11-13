@@ -251,6 +251,14 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(tasks_group)
 
+        units_group = QGroupBox(self.tr("Units"))
+        units_layout = QFormLayout(units_group)
+        self._unit_system_combo = QComboBox()
+        self._unit_system_combo.addItem(self.tr("Metric (cm, m)"), "metric")
+        self._unit_system_combo.addItem(self.tr("Imperial (in, ft)"), "imperial")
+        units_layout.addRow(self._unit_system_combo)
+        layout.addWidget(units_group)
+
         # --- Canvas (#321): touch gestures ---
         canvas_group = QGroupBox(self.tr("Canvas"))
         canvas_layout = QFormLayout(canvas_group)
@@ -458,6 +466,7 @@ class PreferencesDialog(QDialog):
         from open_garden_planner.app.settings import get_settings
 
         settings = get_settings()
+        self._unit_system_combo.setCurrentIndex(self._unit_system_combo.findData(settings.unit_system))
         self._trefle_token.setText(settings.trefle_api_token)
         self._perenual_key.setText(settings.perenual_api_key)
         self._permapeople_key_id.setText(settings.permapeople_key_id)
@@ -586,6 +595,7 @@ class PreferencesDialog(QDialog):
         from open_garden_planner.app.settings import get_settings
 
         settings = get_settings()
+        settings.unit_system = self._unit_system_combo.currentData()
         settings.trefle_api_token = self._trefle_token.text().strip()
         settings.perenual_api_key = self._perenual_key.text().strip()
         settings.permapeople_key_id = self._permapeople_key_id.text().strip()

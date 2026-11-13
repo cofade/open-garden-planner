@@ -8,7 +8,6 @@ from PyQt6.QtWidgets import (
     QCompleter,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -21,6 +20,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import UnitSystem
 from open_garden_planner.models.guild import GuildTemplate
 from open_garden_planner.models.plant_data import PlantFunction
 from open_garden_planner.services.guild_library import GuildLibrary
@@ -28,6 +29,7 @@ from open_garden_planner.services.species_catalog import offline_catalog
 from open_garden_planner.ui.guild_errors import guild_error_message
 from open_garden_planner.ui.plant_traits import species_display_name
 from open_garden_planner.ui.widgets.trait_filters import trait_label
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
 class RadiusEditor(QWidget):
@@ -39,8 +41,8 @@ class RadiusEditor(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.mode = QComboBox()
         self.mode.addItem(self.tr("Canopy edge"), "canopy_edge")
-        self.mode.addItem(self.tr("Distance (cm)"), "distance")
-        self.distance = QDoubleSpinBox()
+        self.mode.addItem(self.tr("Distance (cm)") if active_unit_system() == UnitSystem.METRIC else self.tr("Distance"), "distance")
+        self.distance = LengthSpinBox()
         self.distance.setRange(0.1, 1000000)
         self.distance.setValue(float(value) if value != "canopy_edge" else 100)
         self.mode.setCurrentIndex(0 if value == "canopy_edge" else 1)

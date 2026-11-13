@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -15,6 +14,8 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
+
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
 class NewProjectDialog(QDialog):
@@ -56,7 +57,7 @@ class NewProjectDialog(QDialog):
 
         # Width input
         width_layout = QHBoxLayout()
-        self.width_spinbox = QDoubleSpinBox()
+        self.width_spinbox = LengthSpinBox(value_unit_cm=100.0)
         self.width_spinbox.setRange(self.MIN_SIZE_M, self.MAX_SIZE_M)
         self.width_spinbox.setValue(self.DEFAULT_WIDTH_M)
         self.width_spinbox.setDecimals(1)
@@ -68,7 +69,7 @@ class NewProjectDialog(QDialog):
 
         # Height input
         height_layout = QHBoxLayout()
-        self.height_spinbox = QDoubleSpinBox()
+        self.height_spinbox = LengthSpinBox(value_unit_cm=100.0)
         self.height_spinbox.setRange(self.MIN_SIZE_M, self.MAX_SIZE_M)
         self.height_spinbox.setValue(self.DEFAULT_HEIGHT_M)
         self.height_spinbox.setDecimals(1)

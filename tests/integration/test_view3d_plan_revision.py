@@ -49,7 +49,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QGraphicsSceneMouseEvent,
-    QSpinBox,
 )
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -80,6 +79,7 @@ from open_garden_planner.ui.view3d.snapshot import snapshot_records
 from open_garden_planner.ui.view3d.sync_controller import TickReport
 from open_garden_planner.ui.view3d.workspace import WorkspaceMode
 from open_garden_planner.ui.widgets import sun_sim_toolbar
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 from tests.integration.test_scene3d_plants import drop
 from tests.integration.test_scene3d_snapshot import _recolour as recolour_fill
 from tests.integration.test_view3d_workspace import Engines, build_app3d
@@ -465,7 +465,7 @@ def _container_through_the_panel(live: Live, what: str) -> None:
     live.window._update_properties_panel()
     _turns()
     if what == "height":
-        spin = next(box for box in panel.findChildren(QSpinBox)
+        spin = next(box for box in panel.findChildren(LengthSpinBox)
                     if box.maximum() == 300 and box.suffix() == " cm")
         assert spin.value() == 30
         spin.setValue(70)
@@ -676,7 +676,7 @@ def test_the_seven_property_edits_of_the_properties_panel_announce_themselves_to
     _select(live, live.bed)
     live.window._update_properties_panel()
     _turns()
-    depth = next(box for box in panel.findChildren(QSpinBox)
+    depth = next(box for box in panel.findChildren(LengthSpinBox)
                  if box.maximum() == 200 and box.suffix() == " cm")
     through("soil depth", lambda: depth.setValue(depth.value() + 5))
     grid = next(box for box in panel.findChildren(QCheckBox) if "grid" in box.text().lower())

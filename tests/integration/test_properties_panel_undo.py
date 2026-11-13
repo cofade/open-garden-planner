@@ -26,7 +26,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QLabel,
-    QSpinBox,
 )
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -36,6 +35,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
 @pytest.fixture()
@@ -116,7 +116,7 @@ def test_the_soil_depth_of_a_bed_is_one_undo_step(
     manager = canvas.command_manager
 
     depth = _field(panel, "Soil depth:")
-    assert isinstance(depth, QSpinBox)
+    assert isinstance(depth, LengthSpinBox)
     steps = manager.undo_depth
 
     depth.setValue(45)
@@ -140,7 +140,7 @@ def test_the_container_edits_are_one_undo_step_each(
     height = _field(panel, "Height:")
     volume = _field(panel, "Soil volume:")
     assert isinstance(material, QComboBox) and isinstance(drainage, QCheckBox)
-    assert isinstance(height, QSpinBox) and isinstance(volume, QDoubleSpinBox)
+    assert isinstance(height, LengthSpinBox) and isinstance(volume, QDoubleSpinBox)
 
     steps = manager.undo_depth
     material.setCurrentIndex(material.findData("metal"))
@@ -239,7 +239,7 @@ def test_an_edit_announces_the_plan_change_the_3d_view_follows(
     container = _container(canvas)
     panel.set_selected_items([container])
     height = _field(panel, "Height:")
-    assert isinstance(height, QSpinBox)
+    assert isinstance(height, LengthSpinBox)
 
     before = canvas.scene().plan_revision
     height.setValue(70)
@@ -258,7 +258,7 @@ def test_an_edit_marks_the_plan_modified(
     container = _container(canvas)
     panel.set_selected_items([container])
     height = _field(panel, "Height:")
-    assert isinstance(height, QSpinBox)
+    assert isinstance(height, LengthSpinBox)
 
     announced: list[int] = []
     canvas.command_manager.stack_changed.connect(
@@ -276,7 +276,7 @@ def test_an_unchanged_value_commits_nothing(
     container = _container(canvas)
     panel.set_selected_items([container])
     height = _field(panel, "Height:")
-    assert isinstance(height, QSpinBox)
+    assert isinstance(height, LengthSpinBox)
 
     steps = canvas.command_manager.undo_depth
     height.setValue(height.value())
@@ -294,6 +294,6 @@ def test_the_panel_without_a_command_manager_still_edits(
     panel.set_selected_items([container])
 
     height = _field(panel, "Height:")
-    assert isinstance(height, QSpinBox)
+    assert isinstance(height, LengthSpinBox)
     height.setValue(70)
     assert container.metadata["container_height_cm"] == 70.0

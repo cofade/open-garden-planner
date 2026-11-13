@@ -51,7 +51,6 @@ from PyQt6.QtWidgets import (
     QGestureEvent,
     QGraphicsItem,
     QGraphicsView,
-    QInputDialog,
     QLineEdit,
     QMenu,
     QPinchGesture,
@@ -78,11 +77,8 @@ from open_garden_planner.core.commands import (
     iter_plant_parents,
 )
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
-from open_garden_planner.core.i18n import format_decimal, format_trimmed
-from open_garden_planner.core.measurements import (
-    SCALE_BAR_NICE_DISTANCES_CM,
-    format_scale_distance,
-)
+from open_garden_planner.core.i18n import format_decimal
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.object_types import (
     ObjectType,
     is_bed_type,
@@ -147,6 +143,15 @@ from open_garden_planner.core.tools import (
     VerticalConstraintTool,
     VerticalDistanceConstraintTool,
 )
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import (
+    LengthStyle,
+    UnitSystem,
+    grid_size_cm,
+    nice_distances,
+    nudge_fine_cm,
+    parse_length,
+)
 from open_garden_planner.services.soil_service import (
     ALL_PARAMS,
     PARAM_OVERALL,
@@ -177,6 +182,7 @@ from open_garden_planner.ui.canvas.sun_legend import (
     sun_legend_size,
 )
 from open_garden_planner.ui.theme import theme_qcolor
+from open_garden_planner.ui.units_notifier import units_notifier
 
 _log = logging.getLogger(__name__)
 
@@ -297,7 +303,8 @@ class CanvasView(QGraphicsView):
         # onto circles / arcs, off by default.
         self._tangent_snap_enabled = False
         self._dynamic_input_enabled = True
-        self._grid_size = 50.0  # 50cm default grid
+        self._grid_size = grid_size_cm(active_unit_system())
+        units_notifier().changed.connect(self._on_unit_system_changed)
         self._scale_bar_visible = True
         # The plan's north orientation (#663), degrees clockwise from plan-up.
         self._north_angle_deg = 0.0
@@ -449,7 +456,7 @@ class CanvasView(QGraphicsView):
 
         # Calibration input widget (hidden by default)
         self._calibration_input = QLineEdit(self)
-        self._calibration_input.setPlaceholderText(self.tr("Distance in cm"))
+        self._set_calibration_unit_hint()
         self._calibration_input.setFixedWidth(150)
         self._calibration_input.hide()
         self._calibration_input.returnPressed.connect(
@@ -2079,7 +2086,7 @@ class CanvasView(QGraphicsView):
                 ConstraintType.TANGENT,
             ):
                 # abs() is defensive; TANGENT's target is the (non-negative) radius.
-                rows.append((cid, f"{name} — {format_decimal(abs(c.target_distance) / 100.0, 2)} m"))
+                rows.append((cid, f"{name} — {length_text(abs(c.target_distance), style=LengthStyle.METRES)}"))
             elif c.constraint_type == ConstraintType.ANGLE:
                 rows.append((cid, f"{name} — {format_decimal(c.target_distance, 1)}°"))
             else:
@@ -3891,7 +3898,7 @@ class CanvasView(QGraphicsView):
 
         # Determine move distance: 1cm precision with Shift, otherwise grid size
         distance = (
-            1.0
+            nudge_fine_cm(active_unit_system())
             if event.modifiers() & Qt.KeyboardModifier.ShiftModifier
             else self._grid_size
         )
@@ -4647,33 +4654,36 @@ class CanvasView(QGraphicsView):
             viewport.update()
 
     # Ruler tick intervals (cm), used to pick a nice spacing based on zoom
-    _RULER_NICE_INTERVALS = [
-        1,
-        2,
-        5,
-        10,
-        20,
-        50,
-        100,
-        200,
-        500,
-        1000,
-        2000,
-        5000,
-        10000,
-    ]
+
     _RULER_MIN_TICK_PX = 50  # Minimum pixels between labelled ticks
     # The rulers are chrome around the plan, not part of it: their colours are
     # theme tokens read while painting (#791). Opaque: drawn translucent over
     # the bright plan, the dark theme's strip turned muddy and its labels fell
     # under 4.5:1.
 
+    def _set_calibration_unit_hint(self) -> None:
+        self._calibration_input.setPlaceholderText(
+            self.tr("Distance in cm") if active_unit_system() == UnitSystem.METRIC
+            else self.tr("Distance, e.g. 12' 6\""))
+
+    def _on_unit_system_changed(self, system: UnitSystem) -> None:
+        from open_garden_planner.core.tools.measure_tool import MeasureTool
+
+        self.set_grid_size(grid_size_cm(system))
+        self._set_calibration_unit_hint()
+        tool = self._tool_manager.active_tool
+        if isinstance(tool, MeasureTool):
+            tool.refresh_unit_text()
+        viewport = self.viewport()
+        if viewport is not None:
+            viewport.update()
+
     def _pick_ruler_interval(self) -> float:
         """Choose a tick interval in cm so ticks are at least _RULER_MIN_TICK_PX apart."""
-        for interval in self._RULER_NICE_INTERVALS:
+        for interval in nice_distances(active_unit_system()):
             if interval * self._zoom_factor >= self._RULER_MIN_TICK_PX:
                 return float(interval)
-        return float(self._RULER_NICE_INTERVALS[-1])
+        return float(nice_distances(active_unit_system())[-1])
 
     def _draw_rulers(self, painter: QPainter) -> None:
         """Draw horizontal (top) and vertical (left) rulers in viewport coordinates.
@@ -4778,9 +4788,7 @@ class CanvasView(QGraphicsView):
     @staticmethod
     def _ruler_label(value: float) -> str:
         """Format a ruler tick label compactly (cm values), in the UI locale."""
-        if abs(value) >= 100:
-            return f"{format_trimmed(value / 100)}m"
-        return format_trimmed(value)
+        return length_text(value, style=LengthStyle.RULER)
 
     # Guide line interaction helpers
 
@@ -4800,15 +4808,15 @@ class CanvasView(QGraphicsView):
     def _edit_guide_position(self, guide: GuideLine) -> None:
         """Show input dialog to set guide position numerically."""
         axis = self.tr("Y") if guide.is_horizontal else self.tr("X")
-        label = self.tr("{axis} position (cm)").format(axis=axis)
-        value, ok = QInputDialog.getDouble(
+        label = (self.tr("{axis} position (cm)") if active_unit_system() == UnitSystem.METRIC else self.tr("{axis} position")).format(axis=axis)
+        from open_garden_planner.ui.widgets.unit_spin_box import get_length
+        value, ok = get_length(
             self,
             self.tr("Guide position"),
             label,
             guide.position,
             -1_000_000.0,
             1_000_000.0,
-            2,
         )
         if ok:
             guide.position = value
@@ -4816,7 +4824,6 @@ class CanvasView(QGraphicsView):
             self.viewport().update()
 
     # Scale bar constants
-    _SCALE_BAR_NICE_DISTANCES = SCALE_BAR_NICE_DISTANCES_CM
     _SCALE_BAR_MARGIN = 12
     _SCALE_BAR_TICK_H = 5
     _SCALE_BAR_LINE_WIDTH = 2
@@ -4834,7 +4841,7 @@ class CanvasView(QGraphicsView):
         Returns:
             Formatted string (e.g., "50 cm", "2 m", "1.5 km")
         """
-        return format_scale_distance(cm)
+        return length_text(cm, style=LengthStyle.SCALE_BAR)
 
     def _pick_scale_bar_distance(self) -> float:
         """Pick the best round distance for the scale bar at current zoom.
@@ -4843,10 +4850,10 @@ class CanvasView(QGraphicsView):
             Distance in cm that produces a bar of reasonable pixel width.
         """
         target_px = 150.0
-        best = self._SCALE_BAR_NICE_DISTANCES[0]
+        best = nice_distances(active_unit_system())[0]
         best_diff = abs(best * self._zoom_factor - target_px)
 
-        for d in self._SCALE_BAR_NICE_DISTANCES:
+        for d in nice_distances(active_unit_system()):
             px = d * self._zoom_factor
             diff = abs(px - target_px)
             if diff < best_diff:
@@ -5889,14 +5896,15 @@ class CanvasView(QGraphicsView):
         """Handle Enter key in calibration input."""
         text = self._calibration_input.text().strip()
         try:
-            distance_cm = float(text)
+            distance_cm = parse_length(text, active_unit_system())
             if distance_cm > 0:
                 self._canvas_scene.finish_calibration(distance_cm)
             else:
                 self.set_status_message(self.tr("Distance must be positive"))
         except ValueError:
             self.set_status_message(
-                self.tr("Invalid distance. Enter a number in centimeters.")
+                self.tr("Invalid distance. Enter a number in centimeters.") if active_unit_system() == UnitSystem.METRIC
+                else self.tr("Invalid distance. Enter a length such as 12' 6\" or 150 in.")
             )
 
     def _clamp_individual_deltas(

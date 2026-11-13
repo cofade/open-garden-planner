@@ -225,3 +225,36 @@ posts a `LayoutRequest`, which is when the rows have arrived.
 - **Legacy:** none (new entry)
 
 Selection, tool and season hide below 1500 px; location below 1200 px.
+
+### PF-UI-41
+
+- **Rule:** A unit-aware spin box keeps its exact model value separately from its rounded readout. Switching units or accepting unchanged text must emit no value change, including when Return enters Qt's C++ acceptance path.
+- **Pinned by:** `tests/ui/test_unit_spin_box.py::test_switch_emits_no_value_changed`; `tests/ui/test_unit_spin_box.py::test_untouched_metric_readout_after_switch_keeps_exact_value`; `tests/ui/test_unit_dialogs.py::test_unchanged_return_still_accepts_the_dialog`; `tests/ui/test_units_surfaces.py::test_focused_container_form_switches_feedback_without_rounding_edits`
+- **Source:** #673; ADR-078
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`QDoubleSpinBox.setDecimals()` rounds its stored value, and C++ edits do not call a
+Python `setValue()` override. `LengthSpinBox` and `VolumeSpinBox` capture changes through
+their first `valueChanged` connection, restore the exact value under `QSignalBlocker`
+when changing precision, and recognize their unchanged canonical text. Return needs
+the same signal protection around the base handler, while retaining `editingFinished`
+and normal dialog acceptance. Test both Return and focus loss on a shown, focused
+widget: directly calling `interpretText()` does not exercise the full path. Refresh
+read-only feedback through the panel's field refresh rather than a form rebuild,
+whose focus guard deliberately defers replacement of an active editor.
+
+### PF-UI-42
+
+- **Rule:** A custom spin box validator removes the field prefix for both complete parsing and intermediate input checks, while returning Qt's original text and cursor position.
+- **Pinned by:** `tests/ui/test_unit_spin_box.py::test_prefixed_length_accepts_each_typed_character`; `tests/ui/test_unit_spin_box.py::test_prefixed_volume_accepts_a_partial_unit_token`; `tests/integration/test_unit_system.py::test_family_garden_greenhouse_accepts_prefixed_width`
+- **Source:** #673; owner manual test
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt passes the prefix to `QDoubleSpinBox.validate()`. The complete imperial parser
+removed it, but the fallback character check did not: `W: 12 1` became Invalid
+because of the colon, while unprefixed `12 1` was correctly Intermediate. Qt then
+refused the next fraction digit. Normalize once and use that numeric text on both
+paths. Check real character-by-character entry; parsing a completed value alone
+cannot expose this failure.

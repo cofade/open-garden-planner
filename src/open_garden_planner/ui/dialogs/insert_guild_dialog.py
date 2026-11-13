@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QGraphicsEllipseItem,
     QHBoxLayout,
@@ -35,6 +34,7 @@ from open_garden_planner.ui.dialogs.guild_template_editor import GuildTemplateEd
 from open_garden_planner.ui.guild_errors import guild_error_message
 from open_garden_planner.ui.plant_traits import species_display_name
 from open_garden_planner.ui.widgets.trait_filters import trait_label
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
 class InsertGuildDialog(QDialog):
@@ -74,7 +74,7 @@ class InsertGuildDialog(QDialog):
         form.addRow(self.tr("Instance name:"), self.name_edit)
         form.addRow(self.tr("Centre species:"), self.centre_combo)
         form.addRow(self.tr("Existing centre:"), self.existing_combo)
-        self.x_spin, self.y_spin = QDoubleSpinBox(), QDoubleSpinBox()
+        self.x_spin, self.y_spin = LengthSpinBox(), LengthSpinBox()
         for spin, size in ((self.x_spin, scene.width_cm), (self.y_spin, scene.height_cm)):
             spin.setRange(0, size)
             spin.setDecimals(2)

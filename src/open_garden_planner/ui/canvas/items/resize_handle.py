@@ -201,9 +201,6 @@ from .vertex_handles import (
     _format_coordinate as _format_coordinate,
 )
 from .vertex_handles import (
-    _format_edge_length as _format_edge_length,
-)
-from .vertex_handles import (
     _map_to_scene as _map_to_scene,
 )
 from .vertex_handles import (
@@ -321,13 +318,10 @@ class DimensionDisplay(QGraphicsItem):
             height: Height in centimeters
             pos: Position in scene coordinates to display near
         """
-        # Format dimensions (convert cm to m if > 100cm)
-        from open_garden_planner.core.i18n import format_decimal
+        from open_garden_planner.core.measurement_display import length_text
 
-        width_str = (f"{format_decimal(width / 100, 2)}m" if width >= 100
-                     else f"{format_decimal(width, 1)}cm")
-        height_str = (f"{format_decimal(height / 100, 2)}m" if height >= 100
-                      else f"{format_decimal(height, 1)}cm")
+        width_str = length_text(width)
+        height_str = length_text(height)
 
         # Set text
         text = f"{width_str} × {height_str}"

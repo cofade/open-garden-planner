@@ -36,13 +36,13 @@ from open_garden_planner.core.commands import (
 )
 from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
-from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.item_look import (
     MAX_FENCE_WIDTH_CM,
     MAX_LINE_WIDTH_CM,
     MAX_STROKE_WIDTH,
     MIN_STROKE_WIDTH,
 )
+from open_garden_planner.core.measurement_display import volume_text
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
@@ -51,6 +51,8 @@ from open_garden_planner.core.object_types import (
     get_translated_path_fence_style_name,
     is_bed_type,
 )
+from open_garden_planner.core.plant_renderer import is_plant_type
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 from open_garden_planner.ui.canvas.items import (
     CircleItem,
     EllipseItem,
@@ -62,6 +64,8 @@ from open_garden_planner.ui.canvas.items import (
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
 from open_garden_planner.ui.panels.property_edits import PropertyEdits
 from open_garden_planner.ui.theme import set_compact, set_text_role, theme_color
+from open_garden_planner.ui.units_notifier import units_notifier
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox, VolumeSpinBox
 
 # Clean, translatable description fragments for TextItem font properties.
 #: The largest stored text size the size field offers (letters 38 m tall), and
@@ -166,6 +170,10 @@ class FocusOutTextEdit(QTextEdit):
         """Emit ``editing_finished`` after the default focus-out handling."""
         super().focusOutEvent(event)
         self.editing_finished.emit()
+
+
+def _cm_value(value: float) -> int | float:
+    return int(value) if float(value).is_integer() else value
 
 
 class ColorButton(QPushButton):
@@ -281,6 +289,7 @@ class PropertiesPanel(QWidget):
         # edit is not destroyed with its widget and lost from undo (#210).
         self._pending_text_commits: list[Callable[[], None]] = []
         self._setup_ui()
+        units_notifier().changed.connect(self._on_unit_system_changed)
         # Wire history_navigated at construction: the application hands the
         # manager to the constructor and never calls set_command_manager(), so
         # connecting only there left the #560 history refresh dead in production.
@@ -361,6 +370,12 @@ class PropertiesPanel(QWidget):
         then re-tint on the next rebuild instead of stealing the caret.
         """
         QTimer.singleShot(0, self._rebuild_for_theme)
+
+    def _on_unit_system_changed(self, _system: UnitSystem) -> None:
+        # Unit fields reformat themselves. Reuse the normal in-place refresh
+        # for derived labels: it protects the focused editor and never has to
+        # destroy a form whose focus was just restored by Preferences.
+        QTimer.singleShot(0, self._refresh_field_values)
 
     def _rebuild_for_theme(self) -> None:
         if not self._current_items:
@@ -1217,7 +1232,7 @@ class PropertiesPanel(QWidget):
         pos_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         # X coordinate
-        x_spin = QDoubleSpinBox()
+        x_spin = LengthSpinBox(LengthStyle.AUTO)
         x_spin.setRange(-100000.0, 100000.0)
         x_spin.setDecimals(1)
         x_spin.setSingleStep(10.0)
@@ -1229,7 +1244,7 @@ class PropertiesPanel(QWidget):
         pos_layout.addWidget(x_spin)
 
         # Y coordinate
-        y_spin = QDoubleSpinBox()
+        y_spin = LengthSpinBox(LengthStyle.AUTO)
         y_spin.setRange(-100000.0, 100000.0)
         y_spin.setDecimals(1)
         y_spin.setSingleStep(10.0)
@@ -1264,7 +1279,7 @@ class PropertiesPanel(QWidget):
 
         # Type-specific geometry (editable)
         if isinstance(item, CircleItem):
-            diameter_spin = QDoubleSpinBox()
+            diameter_spin = LengthSpinBox(LengthStyle.PLANT_SIZE if is_plant_type(item.object_type) else LengthStyle.AUTO)
             diameter_spin.setRange(1.0, 100000.0)
             diameter_spin.setDecimals(1)
             diameter_spin.setSingleStep(10.0)
@@ -1287,7 +1302,7 @@ class PropertiesPanel(QWidget):
             size_layout.setContentsMargins(0, 0, 0, 0)
             size_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            w_spin = QDoubleSpinBox()
+            w_spin = LengthSpinBox(LengthStyle.AUTO)
             w_spin.setRange(1.0, 100000.0)
             w_spin.setDecimals(1)
             w_spin.setSingleStep(10.0)
@@ -1298,7 +1313,7 @@ class PropertiesPanel(QWidget):
             w_spin.setValue(rect.width())
             size_layout.addWidget(w_spin)
 
-            h_spin = QDoubleSpinBox()
+            h_spin = LengthSpinBox(LengthStyle.AUTO)
             h_spin.setRange(1.0, 100000.0)
             h_spin.setDecimals(1)
             h_spin.setSingleStep(10.0)
@@ -1333,7 +1348,7 @@ class PropertiesPanel(QWidget):
             axes_layout.setContentsMargins(0, 0, 0, 0)
             axes_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            rx_spin = QDoubleSpinBox()
+            rx_spin = LengthSpinBox(LengthStyle.AUTO)
             rx_spin.setRange(0.5, 100000.0)
             rx_spin.setDecimals(1)
             rx_spin.setSingleStep(5.0)
@@ -1345,7 +1360,7 @@ class PropertiesPanel(QWidget):
             rx_spin.setValue(rect.width() / 2)
             axes_layout.addWidget(rx_spin)
 
-            ry_spin = QDoubleSpinBox()
+            ry_spin = LengthSpinBox(LengthStyle.AUTO)
             ry_spin.setRange(0.5, 100000.0)
             ry_spin.setDecimals(1)
             ry_spin.setSingleStep(5.0)
@@ -1395,7 +1410,7 @@ class PropertiesPanel(QWidget):
             cell_count_label = QLabel(str(item.grid_cell_count()))
 
         # Spacing spinbox
-        spacing_spin = QDoubleSpinBox()
+        spacing_spin = LengthSpinBox(LengthStyle.AUTO)
         spacing_spin.setRange(1.0, 200.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setDecimals(1)
@@ -1470,28 +1485,29 @@ class PropertiesPanel(QWidget):
         separator.setStyleSheet("margin-top: 8px;")
         self._form_layout.addRow(separator)
 
-        depth_spin = QSpinBox()
+        depth_spin = LengthSpinBox(LengthStyle.AUTO)
+        depth_spin.setDecimals(0)
         depth_spin.setRange(1, 200)
         depth_spin.setSuffix(" cm")
         _style_numeric_field(depth_spin)
-        depth_spin.setValue(int(item.metadata.get("soil_depth_cm", 30)))
+        depth_spin.setValue(float(item.metadata.get("soil_depth_cm", 30)))
         depth_spin.setToolTip(self.tr("Fill depth used to calculate soil volume in the Shopping List"))
 
-        def on_depth_changed(val: int) -> None:
+        def on_depth_changed(val: float) -> None:
             if self._updating:
                 return
             old = item.metadata.get("soil_depth_cm")
             if old == val:
                 return
 
-            def apply_depth(itm: QGraphicsItem, value: int | None) -> None:
+            def apply_depth(itm: QGraphicsItem, value: int | float | None) -> None:
                 if value is None:
                     itm.metadata.pop("soil_depth_cm", None)  # type: ignore[attr-defined]
                 else:
-                    itm.metadata["soil_depth_cm"] = int(value)  # type: ignore[attr-defined]
+                    itm.metadata["soil_depth_cm"] = _cm_value(value)  # type: ignore[attr-defined]
 
             cmd = ChangePropertyCommand(
-                item, "soil depth", old, int(val), apply_func=apply_depth,
+                item, "soil depth", old, _cm_value(val), apply_func=apply_depth,
             )
             self._commit_edit(item, cmd)
 
@@ -1499,7 +1515,7 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(self.tr("Soil depth:"), depth_spin)
         self._register_refresh(
             depth_spin,
-            lambda s=depth_spin, it=item: s.setValue(int(it.metadata.get("soil_depth_cm", 30))),
+            lambda s=depth_spin, it=item: s.setValue(float(it.metadata.get("soil_depth_cm", 30))),
         )
 
     def _add_container_properties(self, item: QGraphicsItem) -> None:
@@ -1545,15 +1561,16 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(self.tr("Drainage:"), drainage_check)
 
         # Height spin (drives auto soil volume)
-        height_spin = QSpinBox()
+        height_spin = LengthSpinBox(LengthStyle.AUTO)
+        height_spin.setDecimals(0)
         height_spin.setRange(1, 300)
         height_spin.setSuffix(" cm")
         _style_numeric_field(height_spin)
-        height_spin.setValue(int(cm.container_height_cm(meta)))
+        height_spin.setValue(float(cm.container_height_cm(meta)))
         self._form_layout.addRow(self.tr("Height:"), height_spin)
 
         # Soil volume override — 0 means "auto-compute from footprint × height".
-        volume_spin = QDoubleSpinBox()
+        volume_spin = VolumeSpinBox()
         volume_spin.setRange(0.0, 100000.0)
         volume_spin.setDecimals(1)
         volume_spin.setSuffix(" L")
@@ -1584,7 +1601,7 @@ class PropertiesPanel(QWidget):
         def update_feedback() -> None:
             litres = cm.effective_soil_volume_litres(meta, footprint_cm2())
             effective_label.setText(
-                self.tr("{litres:.1f} L").format(litres=LocalizedNumber(litres)))
+                volume_text(litres))
             # Translate the two atoms separately and join — never translate a
             # runtime-concatenated combined string (keeps the registered source
             # set small + non-combinatorial; see container_model.material_hint).
@@ -1642,7 +1659,7 @@ class PropertiesPanel(QWidget):
             self._commit_edit(item, cmd)
             update_feedback()
 
-        def on_height_changed(val: int) -> None:
+        def on_height_changed(val: float) -> None:
             if self._updating:
                 return
             old = meta.get("container_height_cm")
@@ -1692,7 +1709,7 @@ class PropertiesPanel(QWidget):
         )
         self._register_refresh(
             height_spin,
-            lambda s=height_spin, it=item: s.setValue(int(cm.container_height_cm(it.metadata))),
+            lambda s=height_spin, it=item: s.setValue(float(cm.container_height_cm(it.metadata))),
         )
         self._register_refresh(
             volume_spin,
@@ -1731,7 +1748,7 @@ class PropertiesPanel(QWidget):
         ):
             return
 
-        height_spin = QDoubleSpinBox()
+        height_spin = LengthSpinBox(LengthStyle.PLANT_SIZE if is_plant_type(item.object_type) else LengthStyle.AUTO)
         height_spin.setRange(0.0, 5000.0)
         height_spin.setDecimals(0)
         height_spin.setSingleStep(10.0)
@@ -1852,7 +1869,7 @@ class PropertiesPanel(QWidget):
         self._explain_row(pitch_spin, hint)
         self._register_refresh(pitch_spin, refresh_pitch)
 
-        overhang_spin = QDoubleSpinBox()
+        overhang_spin = LengthSpinBox(LengthStyle.AUTO)
         overhang_spin.setRange(-1.0, rs.MAX_OVERHANG_CM)  # -1: "Auto" (0 is a real overhang)
         overhang_spin.setDecimals(0)
         overhang_spin.setSingleStep(5.0)
@@ -1986,12 +2003,14 @@ class PropertiesPanel(QWidget):
             else:
                 spin: QAbstractSpinBox
                 if param.type == "number":
-                    spin = QSpinBox()
+                    spin = LengthSpinBox() if param.unit == "cm" else QSpinBox()
+                    if isinstance(spin, LengthSpinBox):
+                        spin.setDecimals(0)
                     spin.setRange(int(param.min if param.min is not None else 0),
                                   int(param.max if param.max is not None else 9999))
                     spin.setValue(int(current))
                 else:  # length
-                    spin = QDoubleSpinBox()
+                    spin = LengthSpinBox() if param.unit == "cm" else QDoubleSpinBox()
                     spin.setDecimals(1)
                     spin.setRange(float(param.min if param.min is not None else 0.0),
                                   float(param.max if param.max is not None else 100000.0))
@@ -2061,7 +2080,7 @@ class PropertiesPanel(QWidget):
         if not is_plant_type(getattr(item, 'object_type', None)):
             return
 
-        spacing_spin = QDoubleSpinBox()
+        spacing_spin = LengthSpinBox(LengthStyle.PLANT_SIZE)
         spacing_spin.setRange(0.0, 10000.0)
         spacing_spin.setDecimals(1)
         spacing_spin.setSingleStep(5.0)
@@ -2211,7 +2230,7 @@ class PropertiesPanel(QWidget):
         # it is; the conversion happens here, at the edge. Fonts come in whole
         # points, 1.33 cm apart, so the field shows the size the note HAS after
         # an edit (its refresher), and one step is wider than that gap.
-        size_spin = QDoubleSpinBox()
+        size_spin = LengthSpinBox(LengthStyle.AUTO)
         size_spin.setRange(
             item.em_height_for_font_size(item.MIN_FONT_SIZE),
             item.em_height_for_font_size(_TEXT_MAX_FONT_SIZE),
@@ -2484,8 +2503,8 @@ class PropertiesPanel(QWidget):
         self._register_refresh(stroke_btn, lambda b=stroke_btn: b.set_color(_read_stroke()))
 
         # Stroke width — a line's (a path's, a fence's) is its width on the ground, in cm
-        width_spin = QDoubleSpinBox()
         is_line = isinstance(item, PolylineItem)
+        width_spin = LengthSpinBox() if is_line else QDoubleSpinBox()
         is_path = is_line and getattr(item, "object_type", None) == ObjectType.PATH
         width_spin.setRange(MIN_STROKE_WIDTH, MAX_LINE_WIDTH_CM if is_path
                             else MAX_FENCE_WIDTH_CM if is_line else MAX_STROKE_WIDTH)
@@ -2564,14 +2583,14 @@ class PropertiesPanel(QWidget):
         scale_spin.setValue(transform.scale)
         self._form_layout.addRow(self.tr("Pattern Scale:"), scale_spin)
 
-        x_spin = QDoubleSpinBox()
+        x_spin = LengthSpinBox(LengthStyle.AUTO)
         x_spin.setRange(-10000.0, 10000.0)
         x_spin.setDecimals(1)
         x_spin.setSingleStep(1.0)
         x_spin.setSuffix(" cm")
         x_spin.setPrefix("X ")  # an axis label, not translated
         x_spin.setValue(transform.offset_x_cm)
-        y_spin = QDoubleSpinBox()
+        y_spin = LengthSpinBox(LengthStyle.AUTO)
         y_spin.setRange(-10000.0, 10000.0)
         y_spin.setDecimals(1)
         y_spin.setSingleStep(1.0)

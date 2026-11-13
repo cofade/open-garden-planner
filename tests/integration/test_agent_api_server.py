@@ -406,3 +406,12 @@ def test_prompts_end_to_end(canvas: Any, qtbot: Any) -> None:
         server.stop()
 
     assert server.is_running is False
+
+
+def test_server_states_display_preferences_do_not_change_api_units(canvas, qtbot):
+    from open_garden_planner.agent_api.server import build_server
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    server = build_server(_providers(canvas.scene()))
+    assert 'centimetres, whatever unit system' in server.instructions

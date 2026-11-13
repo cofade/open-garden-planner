@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from PyQt6.QtCore import QLineF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QLineF, QSignalBlocker, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -21,6 +21,7 @@ from open_garden_planner.core.object_types import get_translated_display_name
 from open_garden_planner.ui.constraint_presentation import VIOLATED_COLOR, descriptor_for_name
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import theme_color
+from open_garden_planner.ui.units_notifier import units_notifier
 
 if TYPE_CHECKING:
     from open_garden_planner.core.constraints import Constraint, ConstraintGraph
@@ -149,6 +150,7 @@ class ConstraintsPanel(QWidget):
         #: to delete); the main window places it and gives it its tooltip.
         self.delete_all_button = self._make_delete_all_button()
         self._setup_ui()
+        units_notifier().changed.connect(self._on_units_changed)
 
     def _make_delete_all_button(self) -> QToolButton:
         button = QToolButton()
@@ -196,6 +198,17 @@ class ConstraintsPanel(QWidget):
     def set_scene(self, scene: CanvasScene) -> None:
         """Set the canvas scene to read constraints from."""
         self._scene = scene
+
+    def _on_units_changed(self) -> None:
+        current = self._list.currentItem()
+        selected_id = current.data(Qt.ItemDataRole.UserRole) if current is not None else None
+        with QSignalBlocker(self._list):
+            self.refresh()
+            for row in range(self._list.count()):
+                item = self._list.item(row)
+                if item is not None and item.data(Qt.ItemDataRole.UserRole) == selected_id:
+                    self._list.setCurrentRow(row)
+                    break
 
     def refresh(self) -> None:
         """Rebuild the constraint list from the scene's constraint graph."""

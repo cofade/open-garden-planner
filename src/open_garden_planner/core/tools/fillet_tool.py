@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QTimer
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QApplication, QInputDialog
+from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import fillet_corner, sample_arc_points
 from open_garden_planner.core.commands import FilletCornerCommand
-from open_garden_planner.core.i18n import LocalizedNumber
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import ToolType
 from open_garden_planner.core.tools.corner_edit_base import (
     CornerEditRefusal,
@@ -20,6 +20,8 @@ from open_garden_planner.core.tools.corner_edit_base import (
     corner_edit_refusal,
     rebuild_with_corner_replaced,
 )
+from open_garden_planner.core.unit_preference import active_unit_system
+from open_garden_planner.core.units import LengthStyle, UnitSystem
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -61,8 +63,8 @@ class FilletTool(CornerEditTool):
         if hasattr(self._view, "set_status_message"):
             msg = QCoreApplication.translate(
                 "FilletTool",
-                "Fillet radius: {radius:.1f} cm — press R to change",
-            ).format(radius=LocalizedNumber(self._radius))
+                "Fillet radius: {radius} — press R to change",
+            ).format(radius=length_text(self._radius, style=LengthStyle.CENTIMETRES))
             self._view.set_status_message(msg)
         # Defer the modal dialog onto the next event-loop tick so tool
         # activation fully completes first and the canvas keeps its mouse
@@ -93,15 +95,15 @@ class FilletTool(CornerEditTool):
 
     def _prompt_for_radius(self) -> None:
         title = QCoreApplication.translate("FilletTool", "Fillet")
-        label = QCoreApplication.translate("FilletTool", "Radius (cm):")
-        value, ok = QInputDialog.getDouble(
+        label = (QCoreApplication.translate("FilletTool", "Radius (cm):") if active_unit_system() == UnitSystem.METRIC else QCoreApplication.translate("FilletTool", "Radius:"))
+        from open_garden_planner.ui.widgets.unit_spin_box import get_length
+        value, ok = get_length(
             self._view,
             title,
             label,
             self._radius,
             0.01,
             100000.0,
-            2,
         )
         if ok:
             self._radius = float(value)

@@ -17,7 +17,9 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.frost_dates import is_valid_frost_date
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.ui.theme import theme_color
+from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
 
 
 class _FrostLookupWorker(QThread):
@@ -116,7 +118,7 @@ class LocationDialog(QDialog):
 
         # Elevation (optional)
         elev_row = QHBoxLayout()
-        self._elev_spin = QDoubleSpinBox()
+        self._elev_spin = LengthSpinBox(LengthStyle.FEET, value_unit_cm=100.0)
         # Use -9999 as "not set" sentinel
         self._elev_spin.setRange(-9999.0, 9000.0)
         self._elev_spin.setDecimals(0)

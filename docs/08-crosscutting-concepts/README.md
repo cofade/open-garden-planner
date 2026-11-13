@@ -1266,6 +1266,45 @@ Pin: `tests/integration/test_sun_map_legend.py`,
 `tests/unit/test_heatmap_render.py` and, through the real window,
 `tests/integration/test_sun_map_workflow.py`. PF-CAN-57, PF-CAN-58.
 
+### 8.9.19 Unit-aware measurement fields (ADR-078, #673)
+
+Use `LengthSpinBox` for physical lengths and `VolumeSpinBox` for real litres. Their
+value, ranges, setValue and valueChanged retain the caller's metric unit. A field
+whose existing value is metres supplies `value_unit_cm=100`; all others use cm.
+Keep the existing metric decimals, suffix and singleStep calls. Style specifies
+layout, plant size, depth or elevation. Leave angles, percentages, pixels and DXF
+scale factors as ordinary numeric fields.
+
+Read-only text uses `core/measurement_display.length_text`, `area_text` and
+`volume_text`, which supply the active preference and UI decimal mark to the pure
+`core/units.py` formatters. Never append a physical unit after formatting a number.
+Qt surfaces subscribe through `units_notifier().changed`; the scene refreshes retained
+vertex/circle labels and handle tooltips, the Constraints panel rebuilds its rows while
+keeping the selected constraint, and the view refreshes the active measurement readout.
+The plain tools and graphics-item mixins never subscribe to an application-wide Qt
+signal themselves: the owning view/scene supplies their lifetime. Other transient
+overlays read the preference on their next redraw. A preference switch must not emit a value edit
+or rebuild geometry. Properties uses its existing in-place refresh, which skips a
+focused editor but updates derived labels; a theme rebuild has different focus
+rules and is not the unit refresh path. Read-only calendar refresh does not flush pending date edits.
+
+Qt's C++ typing/stepping path bypasses a Python setValue override. The spin box
+therefore remembers valueChanged before caller slots, retains exact values during
+signal-blocked switching, and returns that value for unchanged rounded text in
+either system. Qt emits valueChanged again on Return even without an edit; unchanged
+readout acceptance suppresses that duplicate while preserving editingFinished and
+the dialog default-button behavior.
+Complete parsing and intermediate validation both use the numeric text after
+removing the spin box prefix. A caption such as `W: ` must not make a partially
+typed fraction or unit token invalid. Regression tests type each character,
+including spaces and slashes, into prefixed and unprefixed fields; the Family
+Garden greenhouse workflow also checks Return, focus loss, one undo step and
+save/reopen.
+`tests/ui/test_unit_spin_box.py` exercises the real key/Return path, native steps,
+foreign decimal marks, special text and silent switches. A whole-window test that
+edits a plan must handle the unsaved-changes prompt during pytest-qt cleanup; the
+unit surface fixture explicitly discards its own test document.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer
@@ -3067,6 +3106,14 @@ audit evidence for the command, machine and measured limitations.
   connected control that receives it (`test_a_result_queued_before_the_place_changed_never_lands`).
   And a docs sentence is a claim too: the first statement of the rule ("never delivers")
   was too general — a `@pyqtSlot`-decorated slot does receive the queued result.
+
+**Independent visible layers need independent readiness checks (#673).** A
+whole-viewport comparison records its reference only after every visible async
+layer has settled. The sun-map workflow waits for its mismatch badge before
+capturing either time-of-day image: heatmap readiness does not imply badge
+readiness. A controlled run found nine badge pixels changing between captures;
+the exact image-equality assertion remains unchanged. Pinned by
+`tests/integration/test_sun_map_workflow.py::test_hours_of_sun_from_the_button_to_the_export_and_back`.
 
 ## 8.11 Security Scanning (SAST)
 

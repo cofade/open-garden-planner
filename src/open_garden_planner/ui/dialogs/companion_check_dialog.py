@@ -25,7 +25,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.i18n import format_decimal
+from open_garden_planner.core.measurement_display import length_text
+from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.ui.theme import rgba, theme_color, theme_qcolor
 
 if TYPE_CHECKING:
@@ -244,7 +245,7 @@ class CompanionCheckDialog(QDialog):
             items = [
                 QTableWidgetItem(pair.plant_a_name),
                 QTableWidgetItem(pair.plant_b_name),
-                QTableWidgetItem(f"{format_decimal(pair.distance_cm / 100, 2)} m"),
+                QTableWidgetItem(length_text(pair.distance_cm, style=LengthStyle.METRES)),
                 QTableWidgetItem(self._service.get_relationship_reason(pair.relationship, self._lang)),
             ]
             for col, item in enumerate(items):

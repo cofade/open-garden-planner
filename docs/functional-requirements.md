@@ -234,12 +234,13 @@ Pre-defined object types for common property elements:
 
 ## FR-7: Measurement Tools
 
-- **FR-MEAS-01**: Distance tool: click two points, displays distance in chosen units
+- **FR-MEAS-01**: Distance tool: click two points, displays distance in the global unit system (FR-MEAS-07).
 - **FR-MEAS-02**: Persistent dimension annotations (add to plan, editable)
 - **FR-MEAS-03**: Area display for selected polygon and circle objects
 - **FR-MEAS-04**: Perimeter/circumference display for selected objects
 - **FR-MEAS-05**: Scale bar overlay (Phase 6)
 - **FR-MEAS-06**: Measurements snap to object vertices/edges
+- **FR-MEAS-07**: Preferences offers Metric (default) and Imperial (US). Switching updates layout lengths, plant sizes, seed depth, area and real container volume without reopening the plan. Imperial layout uses feet and eighth-inches, plants whole inches, depth fractional inches, area in²/ft², volume US qt/gal. Input accepts explicit units and either decimal mark; bare imperial entries mean inches, or feet in fields whose metric value unit is metres. Switching or viewing rounded text creates no model edit. Scene values, saved geometry, Agent API units and DXF export retain centimetres (issue #673; ADR-078). Temperature, precipitation, harvest mass and a Canadian preset are tracked in #907.
 
 ## FR-8: Object Library & Plant Lists
 

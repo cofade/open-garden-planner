@@ -1,12 +1,14 @@
 """Measurement tool for measuring distances between points."""
 
+from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsTextItem
 
-from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.measure_snapper import AnchorPoint, find_nearest_anchor
+from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
+from open_garden_planner.core.units import LengthStyle
 
 # Visual constants for the snap indicator
 SNAP_INDICATOR_RADIUS = 8.0  # Scene units (cm)
@@ -38,6 +40,20 @@ class MeasureTool(BaseTool):
         self._graphics_items: list = []  # Track all created items for cleanup
         self._snap_indicator: QGraphicsEllipseItem | None = None
         self._current_snap: AnchorPoint | None = None
+        self._measurement_readout: tuple[QGraphicsTextItem, QPointF, QPointF] | None = None
+
+    def refresh_unit_text(self) -> None:
+        """Called by the owning view, whose Qt subscription has its lifetime."""
+        if self._measurement_readout is None:
+            return
+        item, start, end = self._measurement_readout
+        if sip.isdeleted(item) or item.scene() is None:
+            self._measurement_readout = None
+            return
+        item.setPlainText(length_text(QLineF(start, end).length(), style=LengthStyle.METRES))
+        rect = item.boundingRect()
+        item.setPos((start.x() + end.x() - rect.width()) / 2,
+                    (start.y() + end.y() - rect.height()) / 2)
 
     @property
     def tool_type(self) -> ToolType:
@@ -269,14 +285,14 @@ class MeasureTool(BaseTool):
 
         # Show distance preview
         distance_cm = QLineF(start, end).length()
-        distance_m = distance_cm / 100.0
-        distance_text = f"{format_decimal(distance_m, 2)} m"
+        distance_text = length_text(distance_cm, style=LengthStyle.METRES)
 
         text_item = self._create_text_item(distance_text, start, end)
         self._graphics_items.append(text_item)
 
     def _clear_preview_items(self) -> None:
         """Clear preview items (line and text) but keep start point marker."""
+        self._measurement_readout = None
         scene = self._view.scene()
         if not scene:
             return
@@ -322,8 +338,7 @@ class MeasureTool(BaseTool):
 
         # Show final distance
         distance_cm = QLineF(start, end).length()
-        distance_m = distance_cm / 100.0
-        distance_text = f"{format_decimal(distance_m, 2)} m"
+        distance_text = length_text(distance_cm, style=LengthStyle.METRES)
 
         text_item = self._create_text_item(distance_text, start, end)
         self._graphics_items.append(text_item)
@@ -346,6 +361,7 @@ class MeasureTool(BaseTool):
             return QGraphicsTextItem()
 
         text_item = scene.addText(text)
+        assert text_item is not None
         text_item.setDefaultTextColor(Qt.GlobalColor.blue)
 
         # Set larger font size (similar to menu text)
@@ -367,6 +383,8 @@ class MeasureTool(BaseTool):
 
         text_item.setZValue(1001)
 
+        self._measurement_readout = (text_item, QPointF(start), QPointF(end))
+
         return text_item
 
     def _clear_measurement(self) -> None:
@@ -377,6 +395,7 @@ class MeasureTool(BaseTool):
 
     def _clear_measurement_visuals(self) -> None:
         """Remove all measurement graphics items from the scene."""
+        self._measurement_readout = None
         scene = self._view.scene()
         if not scene:
             return

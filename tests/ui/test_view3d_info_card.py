@@ -412,3 +412,14 @@ def test_last_fact_row_visible_at_narrowest_split_width(
     )
     # The harvest row is actually part of the rows and text
     assert slot.card.value("Harvest:") is not None or any("Harvest" in r[0] for r in slot.card.rows())
+
+
+def test_units_switch_refreshes_shown_card(card):
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+    shown(card, item=item(), record=record(height=30.48), has_model=True)
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    assert card.value("Height:") == "1' 0\""
+    card.clear()
+    get_unit_preference().set_system(UnitSystem.METRIC)
+    assert card.item_id == '' and card.rows() == []
