@@ -1283,11 +1283,16 @@ keeping the selected constraint, and the view refreshes the active measurement r
 The plain tools and graphics-item mixins never subscribe to an application-wide Qt
 signal themselves: the owning view/scene supplies their lifetime. Other transient
 overlays read the preference on their next redraw. A preference switch must not emit a value edit
-or rebuild geometry. Read-only calendar refresh does not flush pending date edits.
+or rebuild geometry. Properties uses its existing in-place refresh, which skips a
+focused editor but updates derived labels; a theme rebuild has different focus
+rules and is not the unit refresh path. Read-only calendar refresh does not flush pending date edits.
 
 Qt's C++ typing/stepping path bypasses a Python setValue override. The spin box
 therefore remembers valueChanged before caller slots, retains exact values during
-signal-blocked switching, and returns that value for unchanged rounded text.
+signal-blocked switching, and returns that value for unchanged rounded text in
+either system. Qt emits valueChanged again on Return even without an edit; unchanged
+readout acceptance suppresses that duplicate while preserving editingFinished and
+the dialog default-button behavior.
 `tests/ui/test_unit_spin_box.py` exercises the real key/Return path, native steps,
 foreign decimal marks, special text and silent switches. A whole-window test that
 edits a plan must handle the unsaved-changes prompt during pytest-qt cleanup; the

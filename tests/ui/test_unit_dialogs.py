@@ -52,3 +52,17 @@ def test_angle_entry_is_degrees_in_imperial(qtbot):
     qtbot.keyClicks(dialog._spin, "45")
     qtbot.keyClick(dialog._spin, Qt.Key.Key_Return)
     assert dialog.angle_degrees() == 45
+
+
+def test_unchanged_return_still_accepts_the_dialog(qtbot):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QDialog
+
+    from open_garden_planner.core.tools.constraint_tool import DistanceInputDialog
+
+    dialog = DistanceInputDialog(300)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    dialog._spin.setFocus()
+    qtbot.keyClick(dialog._spin, Qt.Key.Key_Return)
+    assert dialog.result() == QDialog.DialogCode.Accepted

@@ -239,3 +239,5 @@
 | Case study: decimal marks did not preserve Qt rounding (#673) | [Read](239-case-study-decimal-marks-did-not-preserve-qt-rounding-673.md) |
 | Case study: a paired coordinate escaped the unit guard (#673) | [Read](240-case-study-a-paired-coordinate-escaped-the-unit-guard-673.md) |
 | Case study: repainting retained unit text did not reformat it (#673) | [Read](241-case-study-repainting-retained-unit-text-did-not-reformat-it-673.md) |
+| Case study: unit feedback waited for a focused form rebuild (#673) | [Read](242-case-study-unit-feedback-waited-for-a-focused-form-rebuild-673.md) |
+| Case study: untouched Return wrote the rounded metric readout (#673) | [Read](243-case-study-untouched-return-wrote-the-rounded-metric-readout-673.md) |

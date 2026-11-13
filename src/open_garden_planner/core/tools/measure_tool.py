@@ -361,6 +361,7 @@ class MeasureTool(BaseTool):
             return QGraphicsTextItem()
 
         text_item = scene.addText(text)
+        assert text_item is not None
         text_item.setDefaultTextColor(Qt.GlobalColor.blue)
 
         # Set larger font size (similar to menu text)

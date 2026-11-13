@@ -63,6 +63,18 @@ def test_switch_emits_no_value_changed(qtbot):
     assert box.value() == 60
 
 
+def test_untouched_metric_readout_after_switch_keeps_exact_value(qtbot):
+    box = make(qtbot)
+    box.setDecimals(0)
+    switch()
+    box.setValue(30.48)
+    switch(U.METRIC)
+    assert box.value() == 30.48
+    with qtbot.assertNotEmitted(box.valueChanged):
+        qtbot.keyClick(box, Qt.Key.Key_Return)
+    assert box.value() == 30.48
+
+
 def test_no_write_back(qtbot):
     switch()
     box = make(qtbot, style=S.PLANT_SIZE)

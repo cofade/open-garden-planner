@@ -179,3 +179,55 @@ def test_no_write_back_on_rebuild(window, qtbot):
     window.properties_panel._rebuild_for_theme()
     assert a.metadata["spacing_radius_cm"] == 60
     assert len(manager._undo_stack) == before
+
+
+@pytest.mark.parametrize("focused_field", ["height", "volume"])
+def test_focused_container_form_switches_feedback_without_rounding_edits(qtbot, focused_field):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QFormLayout, QLabel
+
+    from open_garden_planner.core.commands import CommandManager
+    from open_garden_planner.core.measurement_display import volume_text
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
+    from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox, VolumeSpinBox
+
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    scene = CanvasScene()
+    item = RectangleItem(0, 0, 100, 100, object_type=ObjectType.CONTAINER)
+    item.metadata["container_height_cm"] = 30.48
+    scene.addItem(item)
+    manager = CommandManager()
+    panel = PropertiesPanel(manager)
+    qtbot.addWidget(panel)
+    panel.set_selected_items([item])
+    panel.show()
+    panel.activateWindow()
+    field = (
+        panel.findChildren(VolumeSpinBox)[0]
+        if focused_field == "volume"
+        else next(box for box in panel.findChildren(LengthSpinBox) if box.maximum() == 300)
+    )
+    field.setFocus()
+    qtbot.waitUntil(field.hasFocus)
+    get_unit_preference().set_system(UnitSystem.METRIC)
+    qtbot.wait(1)
+    effective = None
+    for row in range(panel._form_layout.rowCount()):
+        label_item = panel._form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+        label = label_item.widget() if label_item is not None else None
+        if isinstance(label, QLabel) and label.text() == "Effective:":
+            effective = panel._form_layout.itemAt(row, QFormLayout.ItemRole.FieldRole).widget()
+            break
+    assert effective is not None
+    assert effective.text() == volume_text(304.8)
+    assert field.hasFocus()
+    qtbot.keyClick(field, Qt.Key.Key_Return)
+    assert item.metadata["container_height_cm"] == 30.48
+    assert len(manager._undo_stack) == 0
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    qtbot.wait(1)
+    assert effective.text() == volume_text(304.8)

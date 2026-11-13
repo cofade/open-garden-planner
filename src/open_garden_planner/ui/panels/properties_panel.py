@@ -372,7 +372,10 @@ class PropertiesPanel(QWidget):
         QTimer.singleShot(0, self._rebuild_for_theme)
 
     def _on_unit_system_changed(self, _system: UnitSystem) -> None:
-        QTimer.singleShot(0, self._rebuild_for_theme)
+        # Unit fields reformat themselves. Reuse the normal in-place refresh
+        # for derived labels: it protects the focused editor and never has to
+        # destroy a form whose focus was just restored by Preferences.
+        QTimer.singleShot(0, self._refresh_field_values)
 
     def _rebuild_for_theme(self) -> None:
         if not self._current_items:

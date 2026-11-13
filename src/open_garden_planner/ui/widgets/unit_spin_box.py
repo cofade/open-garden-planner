@@ -11,8 +11,8 @@ from __future__ import annotations
 import math
 import re
 
-from PyQt6.QtCore import QSignalBlocker
-from PyQt6.QtGui import QValidator
+from PyQt6.QtCore import QSignalBlocker, Qt
+from PyQt6.QtGui import QKeyEvent, QValidator
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -99,12 +99,37 @@ class _UnitSpinBox(QDoubleSpinBox):
             return super().textFromValue(value)
         return self._imperial_text(value)
 
+    def keyPressEvent(self, event: QKeyEvent | None) -> None:
+        if event is None:
+            return
+        rendered = self.prefix() + self.textFromValue(super().value()) + self.suffix()
+        editor = self.lineEdit()
+        if (
+            event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+            and editor is not None
+            and editor.text() == rendered
+        ):
+            # Qt deliberately emits valueChanged again on Return, even for
+            # unchanged text. After switching to coarse metric precision that
+            # can write the rounded display back. Preserve normal key handling
+            # (including a dialog's default button) and editingFinished only.
+            exact = self._exact
+            with QSignalBlocker(self):
+                super().keyPressEvent(event)
+            self._exact = exact
+            self.editingFinished.emit()
+            return
+        super().keyPressEvent(event)
+
     def _number_text(self, text: str) -> str:
         prefix = self.prefix()
         return text[len(prefix) :].strip() if prefix and text.startswith(prefix) else text.strip()
 
     def valueFromText(self, text: str | None) -> float:
         if self._system == UnitSystem.METRIC:
+            rendered = self.prefix() + super().textFromValue(super().value()) + self.suffix()
+            if text == rendered:
+                return self._exact
             return super().valueFromText(text)
         number = self._number_text(text or "")
         if number == self._imperial_text(super().value()):

@@ -1208,5 +1208,5 @@ sequenceDiagram
 ```
 
 Startup applies the setting before widgets are built. The preference transition
-never writes a command or a plan value. Properties defers its form rebuild by one
-event-loop turn; read-only calendar and 3D card content refresh in place.
+never writes a command or a plan value. Properties defers its in-place value/feedback refresh by one event-loop turn,
+protecting the focused editor; read-only calendar and 3D card content refresh in place.
