@@ -13328,7 +13328,7 @@ before.
 
 ## ADR-078: A unit preference over the centimetre model (issue #673)
 
-**Status**: Accepted (issue #673; discussion #671, with defaults informed by @ciru-chan).
+**Status**: Shipped in v1.40.0; owner confirmed manual acceptance (issue #673; discussion #671, with defaults informed by @ciru-chan).
 
 **Context**: US gardeners read seed packets, plants and site dimensions in different native units. Converting the model would break geometry, constraints, saved plans and clients. The issue's November 8 survey predates ADR-077's locale formatting and the shipped #782 PDF scale-bar correction; both remain in effect.
 

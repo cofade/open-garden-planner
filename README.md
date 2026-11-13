@@ -21,12 +21,13 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 ## Features
 
 - **Metric Accuracy**: Plan with centimeter-level precision on a calibrated canvas
+- **Metric and Imperial Units**: Choose metric or imperial lengths and areas, and litres or US quarts and gallons for container volumes. In Imperial mode, length fields accept feet, inches and fractions
 - **Image Calibration**: Import satellite imagery and calibrate to real-world scale
 - **Rich Plant Metadata**: Track species, varieties, planting dates, and growing requirements
 - **Online Plant Database**: Search Trefle.io, Perenual, and Permapeople for plant data
 - **Object Library**: Property structures, garden beds, containers, trellises, plants, paths, fences
 - **CAD Precision Tools**: Relative/polar coordinate input, snapping (midpoint, intersection, tangent, perpendicular), Bezier/arc drawing, fillet/chamfer
-- **Smart Symbols**: Reusable parametric blocks (raised beds, pergolas, greenhouses) that regenerate on parameter edit
+- **Parametric Structures**: Configure greenhouses and pergolas with matching 2D and 3D layouts
 - **Layers**: Organize objects into manageable layers with visibility/lock controls
 - **Standard Formats**: JSON project files (.ogp), PNG/SVG/PDF/DXF export, CSV plant lists
 - **Garden Smart Features**: Harvest tracking, task management & reminders, succession planting, soil health tracking
