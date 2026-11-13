@@ -35,7 +35,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | Measurement units | #673 | A consistent Metric / Imperial (US) display and input preference (ADR-078); #907 tracks the remaining quantities and Canadian preset. |
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
 | 3D rendering quality and performance | #744, #534, #531, #883, #886, #889, #891, #894 | The 3D view's trust and frame budget. |
-| CAD and drawing tools | #828, #827, #666 | Precision and editing depth. |
+| CAD and drawing tools | #828, #666 | Precision and editing depth. |
 | Architecture and tech debt | #829, #667 | Remove redundant surfaces and make tests repeatable. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
