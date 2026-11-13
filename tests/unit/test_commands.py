@@ -185,6 +185,20 @@ class TestCommandManagerDiscard:
         assert not manager.can_redo
         assert manager.redo_depth == 0
 
+    def test_discard_removes_a_registered_command(self, manager, scene) -> None:
+        """A command recorded with ``register_applied`` is discardable too.
+
+        The docstring admits registered commands; the interactive path must
+        not be a second, unguarded stack writer.
+        """
+        command = self._create("registered", scene)
+        command.execute()
+        manager.register_applied(command)
+
+        assert manager.discard(command) is True
+        assert manager.undo_depth == 0
+        assert not manager.can_redo
+
     def test_discard_refuses_a_command_that_is_not_on_top(self, manager, scene) -> None:
         """The LIFO identity guard: a buried command is refused, nothing moves."""
         first = self._create("first", scene)

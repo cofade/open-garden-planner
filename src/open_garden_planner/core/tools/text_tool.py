@@ -86,12 +86,14 @@ class TextTool(BaseTool):
         The sequence therefore discards the command FIRST and removes the item
         from the scene only when the discard proved the command left the stack.
 
+        A note that has text is a real change: it is committed first (the
+        placement can end without a focus-out — a tool switch, a click that
+        starts the next annotation), then item and command are kept together.
+
         Interleaving fallback: if another command was pushed on top in the
         meantime, ``discard`` refuses (LIFO identity guard) and the empty item
         STAYS in the scene — an item-plus-command pair is consistent in both
         directions, a scene without its command is exactly the bug (#827).
-        A non-empty annotation is a real change and keeps item and command
-        together, as before.
 
         Both pending references are cleared first, so repeated
         cancel/deactivate/click calls are no-ops.
@@ -104,8 +106,11 @@ class TextTool(BaseTool):
         if item is None or command is None:
             return
         scene = self._view.scene()
-        if scene is None or item.toPlainText().strip():
-            return  # nothing pending, or a real annotation: keep item + command
+        if scene is None:
+            return
+        item.finish_editing()
+        if item.toPlainText().strip():
+            return  # a real annotation: keep item + command
         if not self._view.command_manager.discard(command):
             return  # interleaved: item stays in the scene with its command
         if item.scene() is not None:

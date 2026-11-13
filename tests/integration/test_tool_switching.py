@@ -361,12 +361,14 @@ class TestEscapeReturnsToSelect:
     def test_clicking_away_with_no_text_leaves_no_empty_annotation(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
-        """A second click finishes the first annotation, empty or not (#827).
+        """A second click finishes the first annotation (#827).
 
         Clicking elsewhere is the documented way to finish an annotation, so
         an empty first annotation must leave neither a scene item nor a stack
         entry — otherwise "click away" silently plants a blank note that is
-        then saved with the plan.
+        then saved with the plan. Identity, not just the count, is asserted:
+        a regression that finishes the first note without starting the second
+        would pass a count-only check.
         """
         from PyQt6.QtCore import QPoint
         from PyQt6.QtTest import QTest
@@ -382,18 +384,62 @@ class TestEscapeReturnsToSelect:
 
         canvas.set_active_tool(ToolType.TEXT)
         QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        first = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
         assert manager.undo_depth == depth_before + 1
 
         # The second click finishes the empty first annotation and starts another.
         QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(500, 400))
         items = [i for i in canvas.scene().items() if isinstance(i, TextItem)]
         assert len(items) == 1, "the empty first annotation must not survive the click"
-        assert items[0].toPlainText() == ""
+        survivor = items[0]
+        assert survivor is not first
+        assert first.scene() is None
+        assert survivor.toPlainText() == ""
+        assert canvas.scene().focusItem() is survivor, "the new note is the one being edited"
         assert manager.undo_depth == depth_before + 1
 
         QTest.keyClick(canvas, Qt.Key.Key_Escape)
         assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
         assert manager.undo_depth == depth_before
+
+    def test_clicking_away_with_text_keeps_the_note_and_its_text(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A non-empty note is committed by the click, not lost (#827).
+
+        The placement can end without a focus-out (a tool switch, a click that
+        starts the next annotation), and ``TextItem.content`` is what the plan
+        serializes. The click path must therefore commit the note itself, or
+        the text is on screen and empty in the saved file.
+        """
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        first = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+        first.setPlainText("Garden Bed #1")
+
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(500, 400))
+
+        assert first.scene() is canvas.scene()
+        assert first.content == "Garden Bed #1", "the click must commit the note"
+        assert first._editing is False
+        assert manager.undo_depth == depth_before + 2
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+        notes = [i for i in canvas.scene().items() if isinstance(i, TextItem)]
+        assert notes == [first], "only the empty second note leaves; the real one stays"
+        assert manager.undo_depth == depth_before + 1
 
     def test_cancellation_with_interleaved_command_preserves_consistency(
         self, canvas: CanvasView, qtbot: object
@@ -447,6 +493,70 @@ class TestEscapeReturnsToSelect:
 
         manager.redo()  # restores rectangle
         assert other_item.scene() is canvas.scene()
+
+    def test_click_path_refuses_a_buried_command_and_keeps_the_pair(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The refusal branch also holds through the click that finishes a note.
+
+        If another command was pushed after the placement, the finishing click
+        cannot discard the empty note's command: the click *asks* discard (the
+        spy proves the new caller is wired), is refused, the note stays with
+        its command, and the click starts a second note.
+        """
+        from unittest.mock import patch
+
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        first = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+        first_command = manager.peek_undo()
+        assert manager.undo_depth == depth_before + 1
+
+        # Bury the placement's command, then finish the empty note with a click.
+        other_item = RectangleItem(10, 10, 50, 50)
+        manager.execute(CreateItemCommand(canvas.scene(), other_item, "rectangle"))
+        assert manager.undo_depth == depth_before + 2
+
+        calls: list[tuple[object, bool]] = []
+        real_discard = manager.discard
+
+        def recording(command):
+            result = real_discard(command)
+            calls.append((command, result))
+            return result
+
+        with patch.object(manager, "discard", side_effect=recording) as spy:
+            QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(500, 400))
+
+        assert spy.call_count == 1, "the click path must ask discard"
+        assert calls == [(first_command, False)], "a buried command is refused"
+
+        notes = [i for i in canvas.scene().items() if isinstance(i, TextItem)]
+        assert len(notes) == 2
+        assert first.scene() is canvas.scene(), "a refused discard keeps the pair"
+        assert manager.undo_depth == depth_before + 3
+
+        manager.undo()  # the second, empty note
+        assert first.scene() is canvas.scene()
+        manager.undo()  # the interleaved rectangle
+        assert other_item.scene() is None
+        assert first.scene() is canvas.scene()
+        manager.undo()  # the first note
+        assert first.scene() is None
 
     def test_a_label_editor_under_a_drawing_tool_closes_on_the_first_escape(
         self, canvas: CanvasView, qtbot: object

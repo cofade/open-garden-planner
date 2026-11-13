@@ -234,8 +234,14 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         cursor.select(QTextCursor.SelectionType.Document)
         self.setTextCursor(cursor)
 
-    def _commit_edit(self) -> None:
-        """Commit the current text and exit editing mode."""
+    def finish_editing(self) -> None:
+        """Commit the current text and leave edit mode (idempotent).
+
+        ``_content`` is what the plan serializes, and only this syncs it from
+        the document. Focus-out is not guaranteed — a tool switch or a click
+        that starts the next annotation ends the placement without one — so
+        the tool calls this itself when it finishes a note.
+        """
         if not self._editing:
             return
         self._editing = False
@@ -267,13 +273,13 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     def focusOutEvent(self, event: Any) -> None:
         """Commit text when focus is lost."""
         if self._editing:
-            self._commit_edit()
+            self.finish_editing()
         super().focusOutEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Escape exits edit mode; Enter/Tab pass through while editing."""
         if self._editing and event.key() == Qt.Key.Key_Escape:
-            self._commit_edit()
+            self.finish_editing()
             event.accept()
         else:
             super().keyPressEvent(event)
