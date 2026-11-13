@@ -77,47 +77,29 @@ integration tests.
 ### Addendum (2026-11-10, #827 — the way OFF the stack)
 
 `CommandManager.discard(command)` is the sanctioned removal for a gesture
-cancelled before it became a real change: an empty text annotation is placed
-with a click (which executes its `CreateItemCommand`) and Esc must take the
-item and the command away together — `undo()` is no substitute, because it
-parks the command on the redo stack and a redo would resurrect the item the
+cancelled before it became a real change — an empty text annotation placed
+with a click and removed again with Esc. `undo()` is no substitute: it parks
+the command on the redo stack, where a redo resurrects the item the
 cancellation just removed. `discard` pops only the exact top command (LIFO
-identity — a buried or unknown command returns `False` with no mutation),
-never touches the redo stack, and emits `can_undo_changed` + `stack_changed`
-(so dirtiness and panel refreshes follow, #209) but not `command_executed`
-and not the history-navigation pair (#560).
+identity, refused otherwise with no mutation), never touches the redo stack,
+emits `can_undo_changed` + `stack_changed` but neither `command_executed` nor
+the history-navigation pair, and leaves reversing the command's effect to the
+caller. `CanvasView.add_item()` returns the command it executed so the
+creating tool can hand it back; the tool discards FIRST and removes the scene
+item only on a `True` return, so scene and history always move together. A
+refused discard leaves the blank item in the scene — an item-plus-command
+pair is consistent in both directions, and `project.py` round-trips an empty
+`TextItem` — while a scene without its command is exactly the #827 bug.
+Section 8.2 and PF-PER-29 hold the mechanics; the two entry points onto the
+stack (`execute` / `register_applied`) are unchanged.
 
-Preconditions on the caller: the command was executed (or registered) and is
-still on the undo stack — one already moved to redo by `undo()` is refused;
-`discard` pops the history entry only and never calls the command's `undo()`,
-so reversing the effect (removing the scene item) stays the caller's half of
-the pair, done after a `True` return; and nothing but the command's own
-`execute()` may have pushed on top since it ran. `CanvasView.add_item()`
-returns the command it executed so the creating tool can hand it back; the
-tool discards FIRST and removes the scene item only on success — if another
-command was pushed on top, the discard refuses and the empty item stays in
-the scene, because an item-plus-command pair is consistent in both
-directions while a scene without its command is the bug. A refused discard
-leaves that blank `TextItem` in a fully serializable state (`project.py`
-saves `type: "text"` with `content: ""` and reloads it), so the fallback
-never writes a malformed plan. The two entry points onto the stack
-(invariant: `execute` / `register_applied`) are unchanged. Section 8.2 and
-PF-PER-29 hold the contract.
-
-Retained tradeoff (documented, not fixed here): a click+Esc placement still
-marks a previously clean project dirty and bumps `plan_revision` twice for a
-net-zero gesture. `mark_dirty` is idempotent and already fired on the click's
-`execute()`, and `note_plan_changed` increments on every `stack_changed`, so
-neither effect can be withdrawn from `discard()` alone — the click happened
-first. Making the gesture truly net-zero means either deferring the
-command's `execute()` until the annotation is committed (changes the
-execute-immediately contract every placement tool relies on, and the item
-would sit in the scene with no history entry while edited) or a cross-
-manager rollback that snapshots dirty-state and revision at `execute()` and
-reconciles them on `discard` (new abstraction across ProjectManager and
-CanvasScene). Both are redesigns; the current behaviour keeps stack, scene
-and serialization consistent, which is the invariant this change protects.
-Pinned by
+Retained tradeoff: a click+Esc placement still marks a previously clean
+project dirty and bumps `plan_revision` for a net-zero gesture, because the
+click's `execute()` fires `stack_changed` before the cancellation exists and
+neither `mark_dirty` nor the monotonic revision counter can be withdrawn from
+`discard()` alone. Making the gesture truly net-zero is a design of its own
+(defer the execute, or snapshot and reconcile dirty state + revision across
+`ProjectManager` and `CanvasScene`); tracked in #909. Pinned by
 `tests/unit/test_commands.py::TestCommandManagerDiscard` and
 `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`.
 

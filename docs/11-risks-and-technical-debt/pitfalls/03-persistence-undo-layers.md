@@ -429,8 +429,8 @@ Recent is untouched.
 
 ### PF-PER-29
 
-- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair.
-- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`; `tests/unit/test_commands.py::test_discard_leaves_a_non_empty_redo_stack_alone`
+- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair. Resolve the pending pair on **every** way the placement can finish — Esc, a tool switch, and a click that starts the next annotation — not only on the one path the bug report named.
+- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/integration/test_tool_switching.py::test_clicking_away_with_no_text_leaves_no_empty_annotation`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`; `tests/unit/test_commands.py::test_discard_leaves_a_non_empty_redo_stack_alone`
 - **Source:** #827
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -451,4 +451,9 @@ removes the item only on success; if another command was pushed on top the disca
 refuses and the empty item stays, because scene and history must move together
 (§8.2, ADR-004 addendum). A refused discard leaves a blank `TextItem` that is
 fully serializable (`type: "text"`, `content: ""` round-trips through `.ogp`), so
-the fallback state is a valid plan, not a corrupt one.
+the fallback state is a valid plan, not a corrupt one. The pair is resolved on
+every way the placement finishes, not only on Esc: a tool switch goes through
+`deactivate()`, and a click that starts the next annotation calls `cancel()`
+first — before that path existed, clicking away with no text left the empty
+annotation and its command behind: consistent, but an empty note in the saved
+plan.
