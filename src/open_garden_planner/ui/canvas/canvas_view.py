@@ -904,7 +904,7 @@ class CanvasView(QGraphicsView):
         """The command manager for undo/redo."""
         return self._command_manager
 
-    def add_item(self, item: QGraphicsItem, item_type: str = "item") -> Command:
+    def add_item(self, item: QGraphicsItem, item_type: str = "item") -> CreateItemCommand:
         """Add an item to the scene with undo support.
 
         Args:

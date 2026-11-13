@@ -216,7 +216,20 @@ class CommandManager(QObject):
         identity guard refuses a buried or unknown command, so a caller whose
         bookkeeping is stale (another command was pushed in between) gets
         ``False`` and an untouched stack instead of corrupting the history.
-        The redo stack is never touched.
+        The redo stack is never touched — a redo left over from an earlier
+        gesture survives a discard unchanged (the #827 placement flow finds
+        it already empty, because that placement's ``execute()`` cleared it).
+
+        Preconditions on the caller:
+        - The command was executed (or registered) and is still on the undo
+          stack; a command that was undone first lives on the redo stack and
+          is refused.
+        - ``discard`` pops the history entry ONLY — it never calls the
+          command's ``undo()``. Reversing the effect (removing the scene
+          item) stays the caller's half of the pair, performed after a
+          ``True`` return so scene and stack move together.
+        - The stack contents are the caller's own work: nothing but this
+          command's own ``execute()`` may have pushed on top since.
 
         Emits ``can_undo_changed`` and ``stack_changed`` — the stack mutated,
         so dirtiness and panel refreshes must hear it (#209) — but NOT

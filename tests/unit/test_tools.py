@@ -463,6 +463,7 @@ class TestTextTool:
         assert tool._pending_command is None
         mock_view.command_manager.discard.assert_called_once_with(mock_command)
         scene.removeItem.assert_called_once_with(mock_item)
+
     def test_cancel_non_empty_annotation_keeps_item_and_command(
         self, mock_view
     ) -> None:

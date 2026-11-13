@@ -429,8 +429,8 @@ Recent is untouched.
 
 ### PF-PER-29
 
-- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command.
-- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`
+- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair.
+- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`; `tests/unit/test_commands.py::test_discard_leaves_a_non_empty_redo_stack_alone`
 - **Source:** #827
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -449,4 +449,6 @@ touches the redo stack, emits `stack_changed` + `can_undo_changed` but not
 command that caused the signal. The cancellation sequence discards first and
 removes the item only on success; if another command was pushed on top the discard
 refuses and the empty item stays, because scene and history must move together
-(§8.2, ADR-004 addendum).
+(§8.2, ADR-004 addendum). A refused discard leaves a blank `TextItem` that is
+fully serializable (`type: "text"`, `content: ""` round-trips through `.ogp`), so
+the fallback state is a valid plan, not a corrupt one.

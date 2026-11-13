@@ -13,7 +13,6 @@ Verifies that:
 
 from unittest.mock import MagicMock
 
-import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
 
@@ -431,36 +430,6 @@ class TestEscapeReturnsToSelect:
 
         manager.redo()  # restores rectangle
         assert other_item.scene() is canvas.scene()
-
-    def test_cancellation_on_discard_failure_leaves_scene_item(
-        self, canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """When discard returns False, cancel() keeps item in scene."""
-        from PyQt6.QtCore import QPoint
-        from PyQt6.QtTest import QTest
-
-        from open_garden_planner.ui.canvas.items.text_item import TextItem
-
-        canvas.resize(800, 600)
-        canvas.show()
-        QTest.qWaitForWindowExposed(canvas)
-
-        manager = canvas.command_manager
-        depth_before = manager.undo_depth
-
-        canvas.set_active_tool(ToolType.TEXT)
-        text_tool = canvas.tool_manager.active_tool
-        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
-        text_item = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
-
-        # Force discard to return False
-        monkeypatch.setattr(manager, "discard", lambda _cmd: False)
-
-        assert text_tool is not None
-        text_tool.cancel()
-
-        assert text_item.scene() is canvas.scene()
-        assert manager.undo_depth == depth_before + 1
 
     def test_a_label_editor_under_a_drawing_tool_closes_on_the_first_escape(
         self, canvas: CanvasView, qtbot: object

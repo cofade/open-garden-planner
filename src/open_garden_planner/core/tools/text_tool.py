@@ -11,6 +11,7 @@ from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_view import CanvasView
+    from open_garden_planner.ui.canvas.items.text_item import TextItem
 
 
 class TextTool(BaseTool):
@@ -31,7 +32,7 @@ class TextTool(BaseTool):
 
     def __init__(self, view: "CanvasView") -> None:
         super().__init__(view)
-        self._pending_item: object | None = None  # TextItem while editing
+        self._pending_item: TextItem | None = None
         # The CreateItemCommand add_item executed for that item, kept so an
         # empty cancellation can take the pair off scene AND stack (#827).
         # Assigned and cleared together with _pending_item.
@@ -104,4 +105,4 @@ class TextTool(BaseTool):
         if not self._view.command_manager.discard(command):
             return  # interleaved: item stays in the scene with its command
         if item.scene() is not None:
-            scene.removeItem(item)  # type: ignore[arg-type]
+            scene.removeItem(item)

@@ -221,6 +221,30 @@ class TestCommandManagerDiscard:
         assert manager.redo_description == "Create test"
         assert not manager.can_undo
 
+    def test_discard_leaves_a_non_empty_redo_stack_alone(self, manager, scene) -> None:
+        """A redo parked by an earlier undo survives the discard untouched.
+
+        execute A, execute B, undo B parks B on the redo stack while A stays
+        on top of the undo stack; discarding A must pop A only — B must
+        remain redoable, so ``discard`` never drains or shifts the redo side.
+        """
+        first = self._create("first", scene)
+        second = self._create("second", scene)
+        manager.execute(first)
+        manager.execute(second)
+        manager.undo()  # parks second on the redo stack
+        assert manager.redo_depth == 1
+
+        assert manager.discard(first) is True
+
+        assert manager.undo_depth == 0
+        assert manager.redo_depth == 1
+        assert manager.redo_description == "Create second"
+        # The surviving redo still works and restores the second item.
+        manager.redo()
+        assert manager.undo_depth == 1
+        assert not manager.can_redo
+
     def test_discard_keeps_undo_and_redo_depths_consistent(self, manager, scene) -> None:
         """Depth after a discard equals depth minus one; the rest still undoes cleanly."""
         commands = [self._create(name, scene) for name in ("first", "second", "third")]
