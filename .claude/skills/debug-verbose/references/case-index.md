@@ -235,3 +235,6 @@
 | Case study: two open 3D labels stayed metric (#673) | [Read](235-case-study-two-open-3d-labels-stayed-metric-673.md) |
 | Case study: a large fraction escaped field validation (#673) | [Read](236-case-study-a-large-fraction-escaped-field-validation-673.md) |
 | Case study: unit switch pruned alternate material prices (#673) | [Read](237-case-study-unit-switch-pruned-alternate-material-prices-673.md) |
+| Case study: an angle dialog was migrated as a length (#673) | [Read](238-case-study-an-angle-dialog-was-migrated-as-length-673.md) |
+| Case study: decimal marks did not preserve Qt rounding (#673) | [Read](239-case-study-decimal-marks-did-not-preserve-qt-rounding-673.md) |
+| Case study: a paired coordinate escaped the unit guard (#673) | [Read](240-case-study-a-paired-coordinate-escaped-the-unit-guard-673.md) |

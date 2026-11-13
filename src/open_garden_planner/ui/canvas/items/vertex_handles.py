@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
-from open_garden_planner.core.i18n import format_decimal, list_separator
+from open_garden_planner.core.measurement_display import coordinate_text
 from open_garden_planner.core.measurement_display import length_text as _format_edge_length
 
 from .garden_item import PositionLockMixin
@@ -507,11 +507,7 @@ def _format_coordinate(x_cm: float, y_cm: float) -> str:
     Returns:
         Formatted string like "(3.50, 2.10) m" or "(45.2, 30.1) cm"
     """
-    if abs(x_cm) >= 100 or abs(y_cm) >= 100:
-        return (f"({format_decimal(x_cm / 100, 2)}{list_separator()}"
-                f"{format_decimal(y_cm / 100, 2)}) m")
-    return (f"({format_decimal(x_cm, 1)}{list_separator()}"
-            f"{format_decimal(y_cm, 1)}) cm")
+    return coordinate_text(x_cm, y_cm)
 
 
 

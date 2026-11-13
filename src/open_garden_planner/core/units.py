@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from enum import Enum, StrEnum, auto
 
 
@@ -65,6 +66,14 @@ def _feet_inches(
     return f'{sign}{part}"' if ticks or not omit_zero_inches else "0"
 
 
+def _fixed(value: float, decimals: int, formatter: Callable[[float, int], str] | None) -> str:
+    return formatter(value, decimals) if formatter is not None else f"{value:.{decimals}f}"
+
+
+def _compact(value: float, formatter: Callable[[float], str] | None) -> str:
+    return formatter(value) if formatter is not None else f"{value:g}"
+
+
 def format_length(
     cm: float,
     system: UnitSystem = UnitSystem.METRIC,
@@ -72,6 +81,8 @@ def format_length(
     *,
     fraction: int = 8,
     decimal_mark: str = ".",
+    number_format: Callable[[float, int], str] | None = None,
+    compact_format: Callable[[float], str] | None = None,
 ) -> str:
     """Format centimetres. Fraction denominators are positive integers."""
     if fraction < 1:
@@ -83,7 +94,9 @@ def format_length(
         if style == LengthStyle.SCALE_BAR:
             inches = cm_to_inches(cm)
             result = (
-                f"{round(inches, 3):g} in" if abs(inches) < 12 else f"{round(inches / 12, 3):g} ft"
+                f"{_compact(round(inches, 3), compact_format)} in"
+                if abs(inches) < 12
+                else f"{_compact(round(inches / 12, 3), compact_format)} ft"
             )
         else:
             return _feet_inches(
@@ -95,60 +108,99 @@ def format_length(
                 omit_zero_inches=style == LengthStyle.RULER,
             )
     elif style == LengthStyle.METRES:
-        result = f"{cm / 100.0:.2f} m"
+        result = f"{_fixed(cm / 100.0, 2, number_format)} m"
     elif style == LengthStyle.CENTIMETRES:
-        result = f"{cm:.1f} cm"
+        result = f"{_fixed(cm, 1, number_format)} cm"
     elif style == LengthStyle.COORDINATE:
-        result = f"{cm:.2f} cm"
+        result = f"{_fixed(cm, 2, number_format)} cm"
     elif style == LengthStyle.RULER:
-        result = f"{cm / 100:g}m" if abs(cm) >= 100 else f"{cm:g}"
+        result = (
+            f"{_compact(cm / 100, compact_format)}m"
+            if abs(cm) >= 100
+            else _compact(cm, compact_format)
+        )
     elif style == LengthStyle.SCALE_BAR:
         result = (
-            f"{cm / 100000:g} km"
+            f"{_compact(cm / 100000, compact_format)} km"
             if cm >= 100000
-            else f"{cm / 100:g} m"
+            else f"{_compact(cm / 100, compact_format)} m"
             if cm >= 100
-            else f"{cm:g} cm"
+            else f"{_compact(cm, compact_format)} cm"
         )
     elif style == LengthStyle.PLANT_METRES:
-        result = f"{cm / 100:.1f} m"
+        result = f"{_fixed(cm / 100, 1, number_format)} m"
     elif style == LengthStyle.PLANT_SIZE:
-        result = f"{cm:.0f} cm"
+        result = f"{_fixed(cm, 0, number_format)} cm"
     elif style == LengthStyle.DEPTH:
         result = f"{cm} cm"
     elif style == LengthStyle.FEET:
-        result = f"{cm / 100:.0f} m"
+        result = f"{_fixed(cm / 100, 0, number_format)} m"
     else:
-        result = f"{cm / 100:.2f} m" if cm >= 100 else f"{cm:.1f} cm"
+        result = (
+            f"{_fixed(cm / 100, 2, number_format)} m"
+            if cm >= 100
+            else f"{_fixed(cm, 1, number_format)} cm"
+        )
     return result.replace(".", decimal_mark)
 
 
 def format_area(
-    cm2: float, system: UnitSystem = UnitSystem.METRIC, *, decimal_mark: str = "."
+    cm2: float,
+    system: UnitSystem = UnitSystem.METRIC,
+    *,
+    decimal_mark: str = ".",
+    number_format: Callable[[float, int], str] | None = None,
 ) -> str:
     if system == UnitSystem.IMPERIAL:
         result = (
-            f"{cm2 / CM2_PER_SQ_FOOT:.2f} ft²"
+            f"{_fixed(cm2 / CM2_PER_SQ_FOOT, 2, number_format)} ft²"
             if cm2 >= CM2_PER_SQ_FOOT
-            else f"{cm2 / CM2_PER_SQ_INCH:.1f} in²"
+            else f"{_fixed(cm2 / CM2_PER_SQ_INCH, 1, number_format)} in²"
         )
     else:
-        result = f"{cm2 / 10000:.2f} m²" if cm2 >= 10000 else f"{cm2:.1f} cm²"
+        result = (
+            f"{_fixed(cm2 / 10000, 2, number_format)} m²"
+            if cm2 >= 10000
+            else f"{_fixed(cm2, 1, number_format)} cm²"
+        )
     return result.replace(".", decimal_mark)
 
 
 def format_volume(
-    litres: float, system: UnitSystem = UnitSystem.METRIC, *, decimal_mark: str = "."
+    litres: float,
+    system: UnitSystem = UnitSystem.METRIC,
+    *,
+    decimal_mark: str = ".",
+    number_format: Callable[[float, int], str] | None = None,
 ) -> str:
     if system == UnitSystem.IMPERIAL:
         result = (
-            f"{litres / LITRES_PER_US_QUART:.1f} qt"
+            f"{_fixed(litres / LITRES_PER_US_QUART, 1, number_format)} qt"
             if litres < LITRES_PER_US_GALLON
-            else f"{litres / LITRES_PER_US_GALLON:.1f} gal"
+            else f"{_fixed(litres / LITRES_PER_US_GALLON, 1, number_format)} gal"
         )
     else:
-        result = f"{litres:.1f} L"
+        result = f"{_fixed(litres, 1, number_format)} L"
     return result.replace(".", decimal_mark)
+
+
+def format_coordinates(
+    x_cm: float,
+    y_cm: float,
+    system: UnitSystem = UnitSystem.METRIC,
+    *,
+    decimal_mark: str = ".",
+    separator: str = ", ",
+    number_format: Callable[[float, int], str] | None = None,
+) -> str:
+    """Vertex annotations retain a shared metric unit, or two native lengths."""
+    if system == UnitSystem.IMPERIAL:
+        return f"({format_length(x_cm, system)}{separator}{format_length(y_cm, system)})"
+    metres = abs(x_cm) >= 100 or abs(y_cm) >= 100
+    divisor, decimals, unit = (100, 2, "m") if metres else (1, 1, "cm")
+    x = _fixed(x_cm / divisor, decimals, number_format).replace(".", decimal_mark)
+    y = _fixed(y_cm / divisor, decimals, number_format).replace(".", decimal_mark)
+    return f"({x}{separator}{y}) {unit}"
 
 
 _DECIMAL = r"(?:\d+(?:[.,]\d*)?|[.,]\d+)"

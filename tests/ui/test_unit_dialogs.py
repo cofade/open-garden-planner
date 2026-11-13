@@ -36,3 +36,19 @@ def test_constraint_dialog_returns_centimetres(qtbot):
     qtbot.addWidget(dialog)
     assert dialog._spin.text() == "12' 0\""
     assert dialog.distance_cm() == 365.76
+
+
+def test_angle_entry_is_degrees_in_imperial(qtbot):
+    from PyQt6.QtCore import Qt
+
+    from open_garden_planner.core.tools.constraint_tool import AngleInputDialog
+
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    dialog = AngleInputDialog(90)
+    qtbot.addWidget(dialog)
+    assert not isinstance(dialog._spin, LengthSpinBox)
+    assert dialog._spin.text() == "90.0°"
+    dialog._spin.lineEdit().selectAll()
+    qtbot.keyClicks(dialog._spin, "45")
+    qtbot.keyClick(dialog._spin, Qt.Key.Key_Return)
+    assert dialog.angle_degrees() == 45

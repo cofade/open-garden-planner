@@ -10,8 +10,8 @@ ALLOWLIST = {
     "services/svg_export.py": "SVG XML width/height physical-unit syntax, independent of display preference (FR-EXP-02).",
 }
 UNIT = r"(?:cm²|m²|cm|mm|km|m|L)\b"
-INLINE = re.compile(r"\{[^}]*\}\s?" + UNIT)
-AFTER_VALUE = re.compile(r"^\s?" + UNIT)
+INLINE = re.compile(r"\{[^}]*\}[)\]]?\s?" + UNIT)
+AFTER_VALUE = re.compile(r"^[)\]]?\s?" + UNIT)
 
 
 class MeasurementGuard(ast.NodeVisitor):
@@ -94,3 +94,10 @@ def test_one_definition_per_formatter():
             if isinstance(node, ast.FunctionDef) and node.name == name
         ]
         assert locations == ["core/units.py"]
+
+
+def test_guard_catches_paired_coordinate_units():
+    for source in ['text = f"({x}, {y}) m"', 'text = "({x}, {y}) cm"']:
+        visitor = MeasurementGuard()
+        visitor.visit(ast.parse(source))
+        assert visitor.hits

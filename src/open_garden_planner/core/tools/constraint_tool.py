@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsLineItem,
@@ -1062,8 +1063,7 @@ class AngleInputDialog(QDialog):
         )
         layout.addWidget(label)
 
-        from open_garden_planner.ui.widgets.unit_spin_box import LengthSpinBox
-        self._spin = LengthSpinBox(LengthStyle.METRES, value_unit_cm=100.0)
+        self._spin = QDoubleSpinBox()
         self._spin.setRange(1.0, 179.0)
         self._spin.setDecimals(1)
         self._spin.setSuffix("°")
