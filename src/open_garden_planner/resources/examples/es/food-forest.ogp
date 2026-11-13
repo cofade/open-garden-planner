@@ -435,9 +435,9 @@
       "content": "21 sep 2026 \u00b7 1  Gremio: manzano \u2192 Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014\u20132026; observe los \u00e1rboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias.",
       "font_family": "Arial",
       "font_size": 0.65,
-      "bold": false,
+      "bold": true,
       "italic": false,
-      "text_color": "#ff243528",
+      "text_color": "#fffdfbee",
       "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
       "stack_order": 9216
     },
@@ -8303,6 +8303,204 @@
     "frost_dates": {
       "last_spring_frost": "05-15",
       "first_fall_frost": "10-15"
+    }
+  },
+  "harvest_logs": {
+    "34e1f622-7446-5a7c-8e09-d492ff11aae4": {
+      "target_id": "34e1f622-7446-5a7c-8e09-d492ff11aae4",
+      "records": [
+        {
+          "id": "9711af90-8f80-5e44-968e-dd6c1cdccba9",
+          "date": "2025-09-20",
+          "quantity": 38,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "b13a42e8-98f8-5ca5-8e68-9e729708a056",
+          "date": "2025-10-04",
+          "quantity": 22,
+          "unit": "kg",
+          "quality": "dulce",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "2caff7af-ade6-5c9d-a70c-4db55ea674b5",
+          "date": "2026-09-12",
+          "quantity": 31,
+          "unit": "kg",
+          "quality": "primera recogida",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "malus domestica",
+      "species_name": "Manzano"
+    },
+    "91997b71-f81e-5468-90b5-ead8dc131cc7": {
+      "target_id": "91997b71-f81e-5468-90b5-ead8dc131cc7",
+      "records": [
+        {
+          "id": "3f1c6a64-be93-5c94-b232-6f717eef1924",
+          "date": "2025-08-16",
+          "quantity": 14,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "8d215ce7-9e15-5928-9e23-deb42c4b33de",
+          "date": "2026-08-12",
+          "quantity": 9,
+          "unit": "kg",
+          "quality": "dulce",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "269a0dc6-13eb-5799-9705-f953e0bedff6",
+          "date": "2026-08-22",
+          "quantity": 7.5,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "prunus persica",
+      "species_name": "Melocotonero"
+    },
+    "af2f5c9c-a7c6-5182-a382-ef185c69346a": {
+      "target_id": "af2f5c9c-a7c6-5182-a382-ef185c69346a",
+      "records": [
+        {
+          "id": "b853764a-ff3d-5c7b-9b38-a67da9b17b0d",
+          "date": "2025-07-06",
+          "quantity": 3.2,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "9878af3d-e351-5731-92b0-75f52269443a",
+          "date": "2026-07-04",
+          "quantity": 2.8,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "295faaaa-1c1a-5abe-a420-0dc7fa4ea9fd",
+          "date": "2026-07-11",
+          "quantity": 1.6,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "ribes rubrum",
+      "species_name": "Grosellero"
+    },
+    "1cfe51c0-63ad-557c-a533-695650693166": {
+      "target_id": "1cfe51c0-63ad-557c-a533-695650693166",
+      "records": [
+        {
+          "id": "5236ddcf-17f8-5cf9-be31-d6fab2908709",
+          "date": "2025-06-10",
+          "quantity": 1.8,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "538fb19e-607b-58a4-aee7-ea56c5c0131d",
+          "date": "2025-06-20",
+          "quantity": 2.4,
+          "unit": "kg",
+          "quality": "dulce",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "b0ee32b7-e8a9-5065-85c2-25d2e66e4843",
+          "date": "2026-06-08",
+          "quantity": 2.1,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "124e956e-ca56-5e92-a3fd-13f2ade29fd7",
+          "date": "2026-06-17",
+          "quantity": 2.9,
+          "unit": "kg",
+          "quality": "arom\u00e1tico",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "fragaria ananassa",
+      "species_name": "Fresa"
+    },
+    "42979925-e042-5ed4-8b8f-1af185d50365": {
+      "target_id": "42979925-e042-5ed4-8b8f-1af185d50365",
+      "records": [
+        {
+          "id": "60e9a15b-469c-54b2-91b4-73db90692911",
+          "date": "2026-08-05",
+          "quantity": 1.2,
+          "unit": "kg",
+          "quality": "tierno",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "d72348b7-9351-54d9-b466-69d433156cd8",
+          "date": "2026-08-26",
+          "quantity": 1.9,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "533937f8-b904-540c-af89-792e2e4730f6",
+          "date": "2026-09-14",
+          "quantity": 1.1,
+          "unit": "kg",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "phaseolus coccineus",
+      "species_name": "Jud\u00eda escarlata"
+    },
+    "13b36bd3-ad25-55ee-a1c5-c8cfeef0fa13": {
+      "target_id": "13b36bd3-ad25-55ee-a1c5-c8cfeef0fa13",
+      "records": [
+        {
+          "id": "f067daa8-500c-5574-98aa-a6a59d009482",
+          "date": "2025-05-10",
+          "quantity": 4,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "fccb717d-0e53-55ca-afe6-b715079e8f9d",
+          "date": "2026-05-02",
+          "quantity": 3,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        },
+        {
+          "id": "85025739-fa84-5119-82ee-efab1030c82e",
+          "date": "2026-07-25",
+          "quantity": 2,
+          "unit": "bunch",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "allium schoenoprasum",
+      "species_name": "Cebollino"
+    },
+    "129d1248-70ac-5493-ad04-13cd610ed2ed": {
+      "target_id": "129d1248-70ac-5493-ad04-13cd610ed2ed",
+      "records": [
+        {
+          "id": "f85fe3af-acd6-5916-b9d7-78114c1592fd",
+          "date": "2026-09-18",
+          "quantity": 1.4,
+          "unit": "kg",
+          "quality": "aclareo",
+          "notes": "Entrada ficticia de ejemplo; no es un registro real de cosecha."
+        }
+      ],
+      "species_key": "daucus carota",
+      "species_name": "Zanahoria"
     }
   }
 }

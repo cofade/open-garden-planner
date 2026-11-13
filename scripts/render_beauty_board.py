@@ -42,7 +42,34 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
 ``--fence``    the plan's fences alone against the same frame without them, at the noon
                camera, per preset: how the pickets alias (dark share, Laplacian)
 ``--edge``     an empty plan at golden hour and noon: the luma step where the plan
-               rectangle meets the meadow (gate: within 1)
+               rectangle meets the meadow (gate: within 1) — since #798 on the frame less
+               the same view without a plan, so that the grass on both sides cancels
+``--meadow``   #798: the meadow and the plan's open ground — the app's default framing and
+               an eye-level view from the plan's south side, at the noon shot's sun: the
+               share of FLAT pixels (the survey's felt table: local luma std under 1.5),
+               the meadow's own texture and mean; the far meadow's flicker while the
+               default framing orbits and while the camera flies low beside the plan
+               (fixed ground points followed through the move); and whether the grass's
+               repeat shows, from 60 m straight above the empty meadow.
+               ``--meadow-stills`` renders its two stills only.
+               ``--open-ground grass|flat`` and ``--meadow-surface 0|1|2`` override the
+               look's switch and the preset's surface in EVERY frame of the run (the
+               owner's variants; the cost of a cheaper Low)
+``--stairs``   #734: a 23.8 m solid panel and a picket fence at the plan's south edge at
+               the golden-hour (15.2°) and sunset (5.9°) suns, seen by the golden-hour
+               camera and the app's default framing as a picture sees them (the shadow
+               map fitted to the casters): the long shadow's edge against the analytic
+               line per view-depth bin (its staircase, cm and px), the lit share of the
+               panel's foot, the streaks in the fence's shadow; and the edge's crawl while
+               the golden-hour camera orbits 0.5° a frame, and while it is held and the sun
+               moves (a time-lapse), each in the view's fit and a picture's
+``--photo-shadows``  every frame with a picture's shadow fit (to the casters) instead of
+               the view's texel-locked one (#734)
+``--sky-bands`` sky-only frames toward, across and away from a 300° sun, clear and under
+               each closed weather, binned by world elevation (#716, #719): how far the
+               clear sky darkens toward the horizon, its 6–15° band, and the haze band
+               (3°) against the cloud deck (10°). Recorded only; the render tier judges
+               it against the painted sky's board
 ``--fps-seconds N``  frames a SHOWN view presents per second with the wind running,
                per preset — or, where nothing is presented (the display asleep), the
                cost of a finished readback, labelled as such
@@ -234,10 +261,55 @@ HORIZON_DISTANCES_M = (67, 202, 403, 600)
 #: with and without L7), every other row at most 2.74. The old 3.0 came from L4's
 #: earlier fog; re-derived, and the reason recorded in ADR-059's addendum.
 HORIZON_STEP_BOUND = 3.6
+#: #734: a long fence's low-sun shadow on the meadow. The family-garden plan's south fence
+#: (120 cm, 23.8 m, the plan's south edge) as a probe of its own on a bare plan, built by
+#: the production builders in two sections: the picket fence of the issue and a solid
+#: panel (``PLAIN``: what the shadow map does with a straight edge, without the pickets).
+#: The suns are the board's golden hour and sunset on that plan (Berlin, 21 June), from
+#: the WNW: the shadow falls south across the meadow, toward the board's cameras.
+STAIRS_SUNS = ((15.2, 288.8), (5.9, 301.5))
+STAIRS_HEIGHT_CM, STAIRS_NORTH_CM, STAIRS_INSET_CM = 120.0, 10.0, 10.0
+STAIRS_CASTERS = ("WOODEN_FENCE", "PLAIN")
+#: The solid panel's thickness (cm): its stroke.
+STAIRS_PANEL_CM = 8.0
+#: The line along the panel's foot: this far out from its shaded face (cm) — past the
+#: 10 cm the shadow bias lights at a 6° sun (5 cm across the line), inside the teeth a
+#: coarse cascade lights there (one texel / sin(elevation) along the light).
+STAIRS_FOOT_CM = 15.0
+#: The orbit: the default framing turned this much per frame, for this many frames, the
+#: edge averaged over this length before frames are compared (``probes.edge_swim``).
+STAIRS_ORBIT_STEP_DEG, STAIRS_ORBIT_FRAMES, STAIRS_SWIM_SMOOTH_CM = 0.5, 8, 30.0
+#: The orbit's scene spans a garden: the panel and a column this tall at each plan corner
+#: (a garden's casters fill the plan and stand as tall as its trees; with the panel alone
+#: the near cascades never cut the casters' box, and a fitted map did not crawl).
+STAIRS_COLUMN_CM, STAIRS_COLUMN_HEIGHT_CM = 50.0, 1000.0
+#: The time-lapse: the orbit's scene, the golden-hour camera HELD, the sun stepping this far a
+#: frame (elevation, azimuth) from the golden hour toward sunset, ``STAIRS_ORBIT_FRAMES``
+#: frames — a day's time-lapse at about 3.5 minutes a frame (golden hour to sunset in 24).
+STAIRS_TIMELAPSE_STEP_DEG = (-0.4, 0.55)
+#: The streak lines: this far south of the fence (cm), inside its shadow at the 6° sun
+#: (they see the slits between the pickets under, between and over the rails).
+STAIRS_STREAK_OFFSETS_CM = (100.0, 250.0, 350.0, 420.0)
 #: The weathers whose sky is not the clear one (L5; partly cloudy since L7): ``--living``
 #: runs the horizon probe, the mood strip and the dusk under each — an overcast sky draws
 #: its horizon otherwise (3D review of L5).
 HORIZON_WEATHERS = ("partly_cloudy", "overcast", "rain", "snow")
+#: #687: the weathers whose ambient occlusion ``--living`` measures (clear for comparison):
+#: each on the overcast shot's camera (snow on the snow shot's), and the box caster's foot
+#: at this sun.
+OCCLUSION_WEATHERS = ("clear", "partly_cloudy", "overcast", "rain", "snow")
+OCCLUSION_ELEVATION = 15.0
+
+
+def sky_band_camera(bearing_deg: float, size: tuple[int, int]) -> probes.Pinhole:
+    """The sky-band probe's camera (#716, #719): eye height over the empty meadow, looking
+    along ``bearing_deg`` pitched ``SKY_BAND_PITCH_DEG`` up."""
+    bearing = math.radians(bearing_deg)
+    return probes.Pinhole(
+        eye=(0.0, 0.0, 160.0),
+        target=(math.sin(bearing) * 1000.0, math.cos(bearing) * 1000.0,
+                160.0 + 1000.0 * math.tan(math.radians(SKY_BAND_PITCH_DEG))),
+        fov_deg=SKY_BAND_FOV_DEG, size=size)
 
 
 def weather_look(sun: SunState, preset: str, weather: str = "clear") -> LookSpec:
@@ -269,6 +341,85 @@ def distant_horizon_cameras(width: float, depth: float, size: tuple[int, int], b
                    target[1] - math.cos(bearing) * reach * math.cos(angle), reach * math.sin(angle))
             result.append((distance_m, pitch, probes.Pinhole(eye, target, 40.0, size)))
     return result
+
+
+def meadow_margin(width: float, depth: float) -> float:
+    """#798: how far outside the plan the judged meadow begins, cm."""
+    return min(MEADOW_MARGIN_CM, MEADOW_MARGIN_SHARE * max(width, depth))
+
+
+def far_meadow_points(view: probes.Pinhole, plan: tuple[float, float, float, float],
+                      margin_cm: float) -> np.ndarray:
+    """#798: the FAR meadow's ground points (east, north) a move follows, from its first
+    view: ``MEADOW_FAR_CM`` from the camera's foot (from nearer for a view that sees no 30 m,
+    ``MEADOW_FAR_SHARE``), outside the plan by ``margin_cm``, at most ``MEADOW_TRACK_POINTS``
+    spread over the band."""
+    east, north, distance = probes.ground_hits(view)
+    seen = probes.meadow_mask(view, plan, margin_cm=margin_cm)
+    if not seen.any():
+        return np.zeros((0, 2))
+    near = min(MEADOW_FAR_CM[0], MEADOW_FAR_SHARE * float(np.nanmax(distance[seen])))
+    mask = probes.meadow_mask(view, plan, margin_cm=margin_cm, near_cm=near, far_cm=MEADOW_FAR_CM[1])
+    picked = np.flatnonzero(mask.ravel())
+    if picked.size > MEADOW_TRACK_POINTS:
+        picked = picked[np.linspace(0, picked.size - 1, MEADOW_TRACK_POINTS).astype(int)]
+    return np.column_stack([east.ravel()[picked], north.ravel()[picked]])
+
+
+def meadow_still(rgb: np.ndarray, view: probes.Pinhole, plan: tuple[float, float, float, float]
+                 ) -> dict[str, Any]:
+    """#798: a still's meadow numbers — ``flat_share`` of the whole frame, of the ground
+    below the horizon and of the meadow (``meadow_margin`` outside ``plan``), the meadow's
+    mean luma and luma std, and the frame's own statistics."""
+    rows, cols = rgb.shape[:2]
+    view = view.scaled((cols, rows))
+    ground = np.zeros((rows, cols), dtype=bool)
+    ground[min(max(int(math.ceil(view.horizon_row())) + 3, 0), rows):] = True
+    mask = probes.meadow_mask(view, plan, margin_cm=meadow_margin(plan[2] - plan[0], plan[3] - plan[1]))
+    values = probes.luma(rgb)
+    return {"frame": probes.flat_share(rgb), "ground": probes.flat_share(rgb, ground),
+            "meadow": probes.flat_share(rgb, mask),
+            "meadow_luma": round(float(values[mask].mean()), 2) if mask.any() else None,
+            "meadow_luma_std": round(float(values[mask].std()), 2) if mask.any() else None,
+            **probes.frame_stats(rgb)}
+
+
+def meadow_move(frames: list[np.ndarray], views: list[probes.Pinhole],
+                plan: tuple[float, float, float, float]) -> dict[str, Any]:
+    """#798: how the far meadow flickers through a move: ``far_meadow_points`` of the first
+    view followed through every frame (``probes.track_luma``, ``probes.temporal_noise``)."""
+    first = views[0].scaled((frames[0].shape[1], frames[0].shape[0]))
+    points = far_meadow_points(first, plan, meadow_margin(plan[2] - plan[0], plan[3] - plan[1]))
+    return {"frames": len(frames), **probes.temporal_noise(probes.track_luma(frames, views, points))}
+
+
+def meadow_cameras(width: float, depth: float, top: float, size: tuple[int, int]
+                   ) -> dict[str, Any]:
+    """#798: the meadow phase's cameras for a plan of ``width`` x ``depth`` cm whose tallest
+    part stands ``top`` cm high, for frames of ``size``: ``default`` (the app's default
+    framing, ``camera.frame_pose``), ``eye`` (the walk shot's camera), ``orbit`` (the
+    default framing turning ``MEADOW_ORBIT_STEP_DEG`` a frame), ``flight`` (low, flying
+    east along the plan's south side) and ``above`` (straight down onto the meadow at the
+    scene origin). Plain arithmetic: ``tests/unit/test_render_beauty_board.py`` checks
+    that each sees what the phase judges."""
+    from open_garden_planner.core.scene3d.camera import FOV_DEG, Bounds, frame_pose
+
+    pose = frame_pose(Bounds.of_plan(width, depth, top), size[0] / size[1])
+    walk = next(shot for shot in default_shots(width, depth) if shot.name == "walk")
+    orbit = [probes.Pinhole(moved.eye, moved.target_scene, FOV_DEG, size)
+             for moved in (replace(pose, yaw_deg=pose.yaw_deg + MEADOW_ORBIT_STEP_DEG * index)
+                           for index in range(MEADOW_FRAMES))]
+    flight = []
+    for index in range(MEADOW_FRAMES):
+        east = -0.25 * width + MEADOW_FLIGHT_STEP_CM * index
+        flight.append(probes.Pinhole(
+            (east, -MEADOW_FLIGHT_SOUTH_CM, MEADOW_FLIGHT_EYE_CM),
+            (east + 4000.0, -MEADOW_FLIGHT_SOUTH_CM + 1500.0, 0.0), FOV_DEG, size))
+    return {"default": probes.Pinhole(pose.eye, pose.target_scene, FOV_DEG, size),
+            "eye": probes.Pinhole(walk.eye, walk.target, walk.fov_deg, size),
+            "orbit": orbit, "flight": flight,
+            "above": probes.Pinhole((0.0, 0.0, MEADOW_REPEAT_HEIGHT_CM), (0.0, 1.0, 0.0),
+                                    MEADOW_REPEAT_FOV_DEG, size)}
 
 
 def caster_footprint() -> list[tuple[float, float]]:
@@ -313,6 +464,114 @@ def lamp_records(width: float, depth: float) -> dict[str, Record]:
     return out
 
 
+def stairs_record(style: str, west: float, east: float) -> Record:
+    """``--stairs``' caster: a straight line from ``west`` to ``east`` at the plan's south
+    edge, ``STAIRS_HEIGHT_CM`` tall, built in ``style`` (a fence style or ``PLAIN``)."""
+    width = STAIRS_PANEL_CM if style == "PLAIN" else 3.0
+    middle = (west + east) / 2.0
+    line = ((west - middle, 0.0), (east - middle, 0.0))
+    strip = tuple(tuple(ring) for ring in polyline_footprint(list(line), width))
+    return Record(item_id="stairs", kind="FENCE", shape="polyline", footprints=strip, path=line,
+                  path_width_cm=width,
+                  transform=Transform(east_cm=middle, north_cm=STAIRS_NORTH_CM),
+                  material=Material("FENCE", stroke_rgba=(139, 90, 43, 255)),
+                  height_cm=STAIRS_HEIGHT_CM, params=Params({"seed": "stairs", "path_style": style}))
+
+
+def column_record(item_id: str, east: float, north: float, height: float) -> Record:
+    """A square column (``STAIRS_COLUMN_CM`` a side): a ``PLAIN`` line as long as it is wide."""
+    side = STAIRS_COLUMN_CM
+    line = ((-side / 2.0, 0.0), (side / 2.0, 0.0))
+    strip = tuple(tuple(ring) for ring in polyline_footprint(list(line), side))
+    return Record(item_id=item_id, kind="FENCE", shape="polyline", footprints=strip, path=line,
+                  path_width_cm=side, transform=Transform(east_cm=east, north_cm=north),
+                  material=Material("FENCE", stroke_rgba=(110, 110, 110, 255)), height_cm=height,
+                  params=Params({"seed": item_id, "path_style": "PLAIN"}))
+
+
+def stairs_motion_records(width: float, depth: float) -> dict[str, Record]:
+    """The scene the orbit and the time-lapse move through: the panel and a tall column at
+    each plan corner (``STAIRS_COLUMN_*``)."""
+    records = {"stairs": stairs_record("PLAIN", STAIRS_INSET_CM, width - STAIRS_INSET_CM)}
+    for index, (east, north) in enumerate(((0.0, 0.0), (width, 0.0), (0.0, depth), (width, depth))):
+        records[f"column_{index}"] = column_record(f"column_{index}", east, north,
+                                                   STAIRS_COLUMN_HEIGHT_CM)
+    return records
+
+
+def stairs_timelapse_suns(frames: int = STAIRS_ORBIT_FRAMES) -> list[tuple[float, float]]:
+    """The time-lapse's suns (elevation, azimuth): from the board's golden hour, one
+    ``STAIRS_TIMELAPSE_STEP_DEG`` a frame."""
+    elevation, azimuth = max(STAIRS_SUNS)
+    step_elevation, step_azimuth = STAIRS_TIMELAPSE_STEP_DEG
+    return [(round(elevation + step_elevation * k, 3), round(azimuth + step_azimuth * k, 3))
+            for k in range(frames)]
+
+
+def stairs_cameras(width: float, depth: float, size: tuple[int, int]) -> dict[str, probes.Pinhole]:
+    """``--stairs``' two production cameras for a plan of ``width`` x ``depth`` cm: the
+    board's golden-hour camera (``hero``) and the app's default framing (``framed``)."""
+    from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
+
+    hero = next(shot for shot in default_shots(width, depth) if shot.name == "golden_hour")
+    pose = frame_pose(Bounds.of_plan(width, depth), size[0] / size[1])
+    return {"hero": probes.Pinhole(hero.eye, hero.target, hero.fov_deg, size),
+            "framed": probes.Pinhole(pose.eye, pose.target_scene, 40.0, size)}
+
+
+def stairs_trace(rgb: np.ndarray, camera: probes.Pinhole, caster: str, elevation: float,
+                 azimuth: float, width: float) -> dict[str, Any]:
+    """The ``--stairs`` caster's shadow edge in one frame (``probes.shadow_edge_trace``):
+    against the analytic line — the panel's south face, the fence's centre line (its
+    posts are ``STAIRS_HEIGHT_CM`` tall) — shifted by height / tan(elevation) along the
+    shadow, read 40 % of the shadow's depth either side (at most 120 cm)."""
+    west, east = STAIRS_INSET_CM, width - STAIRS_INSET_CM
+    reach = STAIRS_HEIGHT_CM / math.tan(math.radians(elevation))
+    travel = math.radians(azimuth + 180.0)
+    shift = (math.sin(travel) * reach, math.cos(travel) * reach)
+    face = STAIRS_PANEL_CM / 2.0 if caster == "PLAIN" else 0.0
+    return probes.shadow_edge_trace(
+        rgb, camera, (west + shift[0], STAIRS_NORTH_CM - face + shift[1]),
+        (east + shift[0], STAIRS_NORTH_CM - face + shift[1]), (0.0, -1.0),
+        half_width_cm=min(0.4 * abs(shift[1]), 120.0))
+
+
+def stairs_measure(rgb: np.ndarray, camera: probes.Pinhole, caster: str, elevation: float,
+                   azimuth: float, width: float) -> dict[str, Any]:
+    """One ``--stairs`` frame's numbers. ``edge``: the shadow's far edge
+    (``stairs_trace``) and its staircase per view-depth bin (``probes.edge_staircase``).
+    For the picket fence under the lowest sun, ``streaks``: lines inside its shadow
+    (``STAIRS_STREAK_OFFSETS_CM`` south of it) box-filtered over one picket pitch
+    (``probes.shadow_streaks``) against the lit plan north of the fence."""
+    from open_garden_planner.core.scene3d.builders.fences import PICKET_PITCH_CM
+
+    west, east = STAIRS_INSET_CM, width - STAIRS_INSET_CM
+    trace = stairs_trace(rgb, camera, caster, elevation, azimuth, width)
+    out: dict[str, Any] = {"edge": probes.edge_staircase(trace)}
+    if caster == "PLAIN":   # its foot: in the shadow from the face on (past the bias)
+        reach = STAIRS_HEIGHT_CM / math.tan(math.radians(elevation))
+        band = abs(math.cos(math.radians(azimuth + 180.0))) * reach
+        face = STAIRS_NORTH_CM - STAIRS_PANEL_CM / 2.0
+
+        def line(north: float) -> np.ndarray:
+            return probes.ground_line_luma(rgb, camera, (west, north), (east, north))
+
+        base, deep = line(face - STAIRS_FOOT_CM), line(face - 0.5 * band)
+        out["foot"] = {"lit_share": probes.lit_share(base, deep, line(STAIRS_NORTH_CM + 150.0)),
+                       "samples": int(len(base))}
+    if caster != "PLAIN" and elevation == min(sun[0] for sun in STAIRS_SUNS):
+        lit = probes.shadow_streaks(rgb, camera, (west + 200.0, STAIRS_NORTH_CM + 150.0),
+                                    (east - 200.0, STAIRS_NORTH_CM + 150.0),
+                                    period_cm=PICKET_PITCH_CM, lit_luma=0.0, min_period_px=0.0)
+        lit_luma = lit.get("mean_luma")
+        out["streaks"] = {} if lit_luma is None else {
+            f"{offset:g}cm": probes.shadow_streaks(
+                rgb, camera, (west, STAIRS_NORTH_CM - offset), (east, STAIRS_NORTH_CM - offset),
+                period_cm=PICKET_PITCH_CM, lit_luma=float(lit_luma))
+            for offset in STAIRS_STREAK_OFFSETS_CM}
+    return out
+
+
 def iou_camera(elevation: float, size: tuple[int, int]) -> probes.Pinhole:
     """A camera that sees the caster and the whole of its shadow from the side: the
     shadow falls north-east, the camera stands south-east of its middle."""
@@ -347,6 +606,43 @@ DUSK_ELEVATIONS = (6.0, 3.1, 2.6, 2.1, 1.6, 1.1, 0.6, 0.4, 0.0, -1.0, -2.0, -3.0
 #: below it, and how far a sky row may dip under the rows beside it.
 SKY_DUSK_ELEVATIONS = (1.0, 0.4, 0.0, -1.0, -3.0)
 SKY_DUSK_DIP_BOUND = 10.0
+#: The sky-band probe (#716, #719): sky-only frames over the empty meadow at one sun
+#: azimuth (the 3D review's 300°), looking toward the sun, across it and away from it,
+#: pitched to see from below the horizon to 30°; the profile is binned by WORLD
+#: elevation (``board_probes.sky_profile``). The clear sky at a high, a golden, a
+#: sunset and two setting suns; the cloud decks at the sunset sun and the setting one.
+SKY_BAND_AZIMUTH = 300.0
+SKY_BAND_DIRECTIONS = (("toward", 0.0), ("across", 90.0), ("away", 180.0))
+SKY_BAND_CLEAR_SUNS = (60.0, 15.0, 6.0, 2.0, 0.5)
+SKY_BAND_CLOUD_SUNS = (6.0, 0.5)
+SKY_BAND_WEATHERS = ("overcast", "rain", "snow")
+SKY_BAND_PITCH_DEG, SKY_BAND_FOV_DEG = 10.0, 40.0
+#: #716: from here down to the horizon the clear sky may not darken.
+SKY_BAND_INVERSION_RANGE = (0.5, 20.0)
+#: #719: the haze band's middle against the deck above it.
+SKY_BAND_HAZE_DEG, SKY_BAND_DECK_DEG = 3.0, 10.0
+#: #716: the low band every board camera sees.
+SKY_BAND_LOW = (6.0, 15.0)
+#: #798, the meadow phase (``Board.meadow``). Its eye-level view is the walk shot's camera
+#: (a viewer's eye height inside the plan, looking across it to the meadow beyond).
+#: The meadow judged: at least this far outside the plan (a crown overhangs less), and at
+#: most this share of the plan's larger side (a balcony's 3 m margin left 6 % of its view).
+MEADOW_MARGIN_CM, MEADOW_MARGIN_SHARE = 300.0, 0.2
+#: The moves: this many frames; the default framing turned this much a frame (a slow
+#: drone orbit), and a flight this high, this far south of the plan, this far a frame
+#: (7.5 m/s at 30 frames a second), looking along the plan's south side.
+MEADOW_FRAMES, MEADOW_ORBIT_STEP_DEG = 10, 0.5
+MEADOW_FLIGHT_EYE_CM, MEADOW_FLIGHT_SOUTH_CM, MEADOW_FLIGHT_STEP_CM = 250.0, 800.0, 25.0
+#: The FAR meadow whose flicker is followed: this far from the camera's foot (cm) — from
+#: nearer, this share of the farthest ground the view sees, where a view of a small plan
+#: sees no 30 m (the balcony's default framing: 29.5 m) — at most this many ground points,
+#: each the mean of a 3 x 3 pixel square. Beyond about 20 m the 1 cm texels are smaller than
+#: a 1280 x 720 pixel: the grass is minified, where a texture shimmers if it does.
+MEADOW_FAR_CM, MEADOW_FAR_SHARE, MEADOW_TRACK_POINTS = (3000.0, 15000.0), 0.6, 400
+#: The repeat probe: straight down onto the empty meadow from this high (cm), 40 degrees.
+MEADOW_REPEAT_HEIGHT_CM, MEADOW_REPEAT_FOV_DEG = 6000.0, 40.0
+#: The grass's repeat, cm (``core/scene3d/meadow.GRASS_REPEAT_CM``).
+MEADOW_REPEAT_CM = 256.0
 #: The edge probe's cameras stand on the edge's line this far from the middle of the
 #: judged stretch, at eye height — the grazing view under which a sheen shows — and judge
 #: a band this wide on each side of the edge, starting this far from it, this long.
@@ -536,18 +832,30 @@ class Board:
             return look
         return replace(look, sky=replace(look.sky, model=model))
 
+    def with_meadow(self, look: LookSpec) -> LookSpec:
+        """``look`` with the meadow's overrides of the run (#798): ``--open-ground`` (the
+        owner's switch: does the plan's open ground take the grass) and
+        ``--meadow-surface`` (the preset's surface level). Without them: ``look``."""
+        ground, surface = str(self.args.open_ground), self.args.meadow_surface
+        if ground != "look":
+            look = replace(look, open_ground_grass=ground == "grass")
+        if surface is not None:
+            look = replace(look, preset=replace(look.preset, meadow_surface=int(surface)))
+        return look
+
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
               baked: bool = False, ambient: Any = None,
-              lamps: Any = ()) -> tuple[np.ndarray, Any, dict[str, Any]]:
+              lamps: Any = (), fitted: bool = False) -> tuple[np.ndarray, Any, dict[str, Any]]:
         """Render one frame in a host of its own, save it, account for its Qt messages.
         ``baked``: the plan's flat surfaces are painted onto its ground (L1.5 —
-        every board shot; the probes' oracles want it bare, #586)."""
+        every board shot; the probes' oracles want it bare, #586). ``fitted``: the shadow
+        map fitted to the casters, as a picture's (#734; ``--photo-shadows`` for every frame)."""
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
-        look = self.with_sky_model(look)
+        look = self.with_meadow(self.with_sky_model(look))
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
@@ -557,7 +865,8 @@ class Board:
                 graphics_info=True, sky_light=sky and not self.software,
                 prefer_software=self.software, plant_date=build_date,
                 latitude_deg=float(self.location.get("latitude", 52.0)),
-                frost_dates=self.location.get("frost_dates"), ambient=ambient, lamps=lamps)
+                frost_dates=self.location.get("frost_dates"), ambient=ambient, lamps=lamps,
+                fitted_shadows=fitted or bool(self.args.photo_shadows))
         except RenderError as error:
             self._count(dict(error.qt))
             self.write()             # what Qt said is in metrics.json before the run ends
@@ -655,7 +964,7 @@ class Board:
                     f"living_{shot.name}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry, baked=True,
                     shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
-                    ambient=living.buffers, lamps=[lamp.light for lamp in living.lamps])
+                    ambient=living.buffers, lamps=list(living.lights))
                 atmosphere = look.atmosphere
                 counts = {kind: sum(e.count for e in living.emitters if e.kind == kind)
                           for kind in ("leaf", "butterfly", "firefly")}
@@ -673,10 +982,98 @@ class Board:
                                 "lamps": round(atmosphere.lamps, 3)},
                        "dew": round(atmosphere.dew, 3), "cloud": atmosphere.cloud,
                        **info, **probes.frame_stats(rgb)}
+                if atmosphere.built_snow > 0.0:
+                    # #687: the same frame with bare tops - the pixels the snow whitens
+                    bare, _frame, _info = self.frame(
+                        f"living_{shot.name}_{preset}_bare_tops", records, sun=sun,
+                        look=replace(look, atmosphere=replace(atmosphere, built_snow=0.0)),
+                        ground=self.plan_ground(), registry=registry, baked=True,
+                        shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
+                        ambient=living.buffers, lamps=list(living.lights))
+                    whiter = probes.luma(rgb) - probes.luma(bare) > 15.0
+                    row["snow_tops"] = {
+                        "share": round(float(whiter.mean()), 4),
+                        "luma": round(float(probes.luma(rgb)[whiter].mean()), 2) if whiter.any() else None,
+                        "bare_luma": round(float(probes.luma(bare)[whiter].mean()), 2) if whiter.any() else None}
                 rows.append(row)
                 self.log("living", name=shot.name, preset=preset, weather=weather,
                          mood=row["mood"], luma=row["mean_luma"], ambient=row["ambient_particles"])
                 self.write()
+
+    def living_occlusion(self, presets: list[str]) -> None:
+        """How each weather's ambient occlusion treats open ground and a caster's foot
+        (#687), per preset. On the overcast shot's camera (snow: the snow shot's), the
+        weather's look without its rain or snow (``weather_look``), each frame with and
+        without occlusion and the empty plan beside it (``probes.occlusion_rim``):
+
+        - ``rim``: how much lighter the meadow is straight above a silhouette than far
+          from every object — open ground that occludes ITSELF except beside a nearer
+          object (the survey's light rim round the beds); ``far_darkening`` that
+          self-occlusion itself;
+        - ``open``: the plan's open ground, its luma with and without occlusion; for snow
+          also against the Low preset (no occlusion), ``snow_minus_low``;
+        - ``contact``: the box caster's foot against the open ground beyond it, per side,
+          at a ``OCCLUSION_ELEVATION`` sun (``probes.caster_contact``; S is lit, E lies in
+          its shadow)."""
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        registry = production_registry()
+        shots = {shot.name: shot for shot, _weather in living_shots(self.width, self.depth)}
+        plan = [(0.0, 0.0), (self.width, 0.0), (self.width, self.depth), (0.0, self.depth)]
+        out: dict[str, Any] = {}
+        self.metrics["living_occlusion"] = out
+        low_snow: np.ndarray | None = None
+        for preset in presets:
+            rows: dict[str, Any] = {}
+            for weather in OCCLUSION_WEATHERS:
+                shot = shots["snow" if weather == "snow" else "overcast"]
+                records = self.records_for(plan_day(shot.when_utc))
+                sun = self.sun_at(shot.when_utc)
+                look = weather_look(sun, preset, weather)
+                plain = replace(look, preset=replace(look.preset, ambient_occlusion=False))
+                view = PerspectiveShot(shot.eye, shot.target, shot.fov_deg)
+                camera = probes.Pinhole(shot.eye, shot.target, shot.fov_deg, self.size)
+                name = f"occlusion_{weather}_{preset}"
+                frames, files = {}, {}
+                for label, chosen, items in (("ao", look, records), ("no_ao", plain, records),
+                                             ("empty", plain, {})):
+                    frames[label], _frame, info = self.frame(
+                        name if label == "ao" else f"{name}_{label}", items, sun=sun, look=chosen,
+                        ground=self.plan_ground(), registry=registry, shot=view, baked=True)
+                    files[label] = info["file"]
+                ground = probes.ground_polygon_mask(camera, plan)
+                rim = probes.occlusion_rim(frames["ao"], frames["no_ao"], frames["empty"], ~ground,
+                                           horizon_row=camera.horizon_row())
+                open_ground = probes.open_ground_luma(frames["ao"], frames["no_ao"], frames["empty"],
+                                                      ground)
+                mask = open_ground.pop("mask")
+                row: dict[str, Any] = {"rim": rim["rim"], "far_darkening": rim["far_darkening"],
+                                       "rim_profile": rim["profile"], "open": open_ground,
+                                       "file": files["ao"]}
+                if weather == "snow" and open_ground["luma"] is not None:
+                    if low_snow is None:
+                        low_look = weather_look(sun, "low", "snow")
+                        low_snow, _frame, _info = self.frame(
+                            "occlusion_snow_low_reference", records, sun=sun, look=low_look,
+                            ground=self.plan_ground(), registry=registry, shot=view, baked=True)
+                    row["snow_minus_low"] = round(
+                        open_ground["luma"] - float(np.median(probes.luma(low_snow)[mask])), 2)
+                caster_sun = SunState(OCCLUSION_ELEVATION, IOU_AZIMUTH)
+                caster_view = iou_camera(OCCLUSION_ELEVATION, self.size)
+                contact_rgb, _frame, _info = self.frame(
+                    f"occlusion_contact_{weather}_{preset}", {"caster": caster_record()},
+                    sun=caster_sun, look=weather_look(caster_sun, preset, weather), ground=IOU_GROUND,
+                    shot=PerspectiveShot(caster_view.eye, caster_view.target, caster_view.fov_deg))
+                contact = probes.caster_contact(contact_rgb, caster_view, IOU_CENTRE, CASTER_SIDE / 2.0)
+                row["contact"] = {side: contact[side] for side in ("S", "E")}
+                rows[weather] = row
+                self.log("occlusion", preset=preset, weather=weather, rim=row["rim"],
+                         far=row["far_darkening"], open_darkening=open_ground["darkening"],
+                         snow_minus_low=row.get("snow_minus_low"),
+                         contact_s=row["contact"]["S"]["contact"], contact_e=row["contact"]["E"]["contact"])
+                self.write()
+            out[preset] = rows
 
     def analysis(self, shots: list[BoardShot], presets: list[str]) -> None:
         """Analyze in 3D (L2, #386): each shot again with the 2D sun analysis on the
@@ -1054,8 +1451,10 @@ class Board:
         if any(not row["ok"] for rows in distant.values() for row in rows):
             raise RuntimeError(f"distant horizon exceeds {HORIZON_STEP_BOUND:g} luma; see metrics.json")
 
-    def far_plan(self, presets: list[str]) -> None:
-        """Rendered pins for AO continuity and shadow presence at 2x/4x framing (#624)."""
+    def far_plan(self, presets: list[str], weather: str = "clear") -> None:
+        """Rendered pins for AO continuity and shadow presence at 2x/4x framing (#624).
+        ``weather`` (``--living``): under that weather's look - its ambient occlusion is
+        the weather's own since #687."""
         from open_garden_planner.core.scene3d.builders.surfaces import _inside
         from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
@@ -1073,18 +1472,19 @@ class Board:
                 for ring in record.footprints:
                     ground_only &= ~_inside(samples, np.asarray(pose_ring(record.transform, ring)))
         rows = []
-        self.metrics["far_plan"] = rows
+        tag = "" if weather == "clear" else f"_{weather}"
+        self.metrics[f"far_plan{tag}"] = rows
         for preset in presets:
-            look = look_for(sun, preset)
+            look = weather_look(sun, preset, weather)
             for multiple in (2.0, 4.0):
                 moved = replace(pose, distance_cm=pose.distance_cm * multiple)
                 camera = probes.Pinhole(moved.eye, moved.target_scene, 40.0, self.size)
                 shot = PerspectiveShot(camera.eye, camera.target, camera.fov_deg)
                 rgb, _frame, info = self.frame(
-                    f"far_plan_{int(multiple)}x_{preset}", records, shot=shot, sun=sun,
+                    f"far_plan{tag}_{int(multiple)}x_{preset}", records, shot=shot, sun=sun,
                     look=look, ground=self.plan_ground(), baked=True)
                 reference, _frame, clear = self.frame(
-                    f"far_plan_{int(multiple)}x_{preset}_no_shadows", records, shot=shot, sun=sun,
+                    f"far_plan{tag}_{int(multiple)}x_{preset}_no_shadows", records, shot=shot, sun=sun,
                     look=replace(look, shadow=replace(look.shadow, factor=0.0)),
                     ground=self.plan_ground(), baked=True)
                 px, py, front = camera.project(np.column_stack([samples, np.zeros(len(samples))]))
@@ -1092,7 +1492,7 @@ class Board:
                 valid = (ground_only & front & (x >= 0) & (y >= 0)
                          & (x < self.size[0]) & (y < self.size[1]))
                 delta = probes.luma(reference)[y[valid], x[valid]] - probes.luma(rgb)[y[valid], x[valid]]
-                row = {"preset": preset, "framing_multiple": multiple,
+                row = {"preset": preset, "weather": weather, "framing_multiple": multiple,
                        "distance_cm": moved.distance_cm, "ground_samples": int(valid.sum()),
                        "shadowed_samples": int((delta > 2.0).sum()),
                        "shadow_delta_max": round(float(delta.max()), 3),
@@ -1108,8 +1508,16 @@ class Board:
         must fade — the mean luminance never rises from 6° to −7° — and crossing sunset
         (0.6° → 0.4°, where the key light leaves as the 2D shadows do) is no larger a
         step than the largest half degree of the day ramp before it (6° … 0.6°).
-        ``weather`` (L5, ``--living``): the same evening under that weather's look."""
+        ``weather`` (L5, ``--living``): the same evening under that weather's look.
+
+        #802: the GARDEN must fade too — the frame is mostly sky, and the ground rose
+        after sunset while the frame fell. Every row carries ``ground_luminance`` (the
+        rows below the horizon) and ``ground_monotone`` judges it by the same noise rule;
+        for the first preset of the clear evening it is also rendered from the view's own
+        default framing of the plan (``default_rows``, ``default_monotone``), where the
+        issue was measured (once per board: ``--living`` would add 16 frames per weather)."""
         from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.core.scene3d.camera import FOV_DEG, Bounds, frame_pose
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         camera = {shot.name: shot for shot in shots}["golden_hour"]
@@ -1132,7 +1540,13 @@ class Board:
         tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
         self.metrics[f"dusk{tag}"] = out
-        for preset in presets:
+        golden_view = probes.Pinhole(camera.eye, camera.target, camera.fov_deg, self.size)
+        top = max((record.transform.base_cm + float(record.height_cm) for record in records.values()
+                   if record.height_cm is not None), default=0.0)
+        pose = frame_pose(Bounds.of_plan(self.width, self.depth, top), self.size[0] / self.size[1])
+        default_view = probes.Pinhole(pose.eye, pose.target_scene, FOV_DEG, self.size)
+
+        def evening(name: str, preset: str, view: Any) -> list[dict[str, Any]]:
             rows = []
             for target in DUSK_ELEVATIONS:
                 if target not in found:
@@ -1140,19 +1554,29 @@ class Board:
                 moment, sun = found[target]
                 look = weather_look(sun, preset, weather)
                 rgb, _frame, info = self.frame(
-                    f"dusk{tag}_{target:+.1f}_{preset}", records, sun=sun, look=look,
+                    f"{name}{tag}_{target:+.1f}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry,
-                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    shot=PerspectiveShot(view.eye, view.target, view.fov_deg))
                 rows.append({"target": target, "utc": moment.isoformat(),
                              "sun_elev": round(sun.elevation_deg, 3), "twilight": round(look.mood.twilight, 4),
                              "night": look.night, "exposure": round(look.mood.exposure, 4),
                              "key_brightness": round(look.mood.sun_brightness, 4),
-                             "file": info["file"], **probes.frame_stats(rgb)})
-            lums = [row["mean_luminance"] for row in rows]
+                             "twilight_fill": round(float(sum(look.twilight_fill_linear)), 5),
+                             "file": info["file"], **probes.frame_stats(rgb),
+                             "ground_luminance": probes.ground_luminance(rgb, view)})
+            return rows
+
+        def rises_of(values: list[float]) -> list[float]:
             # a rise beyond the frames' own noise (two renders of one light differ by
             # up to 1e-5 in mean luminance: the night rows of the first measurement)
-            rises = [round(after - before, 5) for before, after in zip(lums, lums[1:], strict=False)
-                     if after > before * 1.002 + 1e-5]
+            return [round(after - before, 5) for before, after in zip(values, values[1:], strict=False)
+                    if after > before * 1.002 + 1e-5]
+
+        for preset in presets:
+            rows = evening("dusk", preset, golden_view)
+            lums = [row["mean_luminance"] for row in rows]
+            rises = rises_of(lums)
+            ground_rises = rises_of([row["ground_luminance"] for row in rows])
             by_target = {row["target"]: row["mean_luminance"] for row in rows}
             day_ramp = [target for target in DUSK_ELEVATIONS if target >= 0.6]
             day_steps = [abs(by_target[a] - by_target[b])
@@ -1162,8 +1586,14 @@ class Board:
                         if 0.6 in by_target and 0.4 in by_target else None)
             out[preset] = {"rows": rows, "rises": rises,
                            "monotone": not rises,
+                           "ground_rises": ground_rises, "ground_monotone": not ground_rises,
                            "day_ramp_max_step": round(max(day_steps), 5) if day_steps else None,
                            "sunset_step": None if crossing is None else round(crossing, 5)}
+            if preset == presets[0] and weather == "clear":   # the render tier's time: once
+                default_rows = evening("dusk_default", preset, default_view)
+                default_rises = rises_of([row["ground_luminance"] for row in default_rows])
+                out[preset].update(default_rows=default_rows, default_rises=default_rises,
+                                   default_monotone=not default_rises)
             # The sky-facing set-sun probe (#695): the meadow camera hides the sun behind
             # the poplar, so a black disc at twilight went unseen for three reviews. A
             # sky-only frame at the sun's own bearing measures it on every weather.
@@ -1192,6 +1622,8 @@ class Board:
             self.log("sky_dusk", weather=weather, preset=preset, ok=out[preset]["sky_dusk_ok"],
                      worst=min(row["dip_luma"] for row in sky_rows))
             self.log("dusk", weather=weather, preset=preset, monotone=not rises,
+                     ground_monotone=not ground_rises,
+                     default_monotone=out[preset].get("default_monotone"),
                      sunset_step=out[preset]["sunset_step"],
                      day_ramp_max_step=out[preset]["day_ramp_max_step"])
             self.write()
@@ -1204,6 +1636,72 @@ class Board:
                 raise RuntimeError(
                     f"the set sun dips more than {SKY_DUSK_DIP_BOUND:g} luma under its rows "
                     f"({weather}, {preset}); see metrics.json")
+
+    def sky_bands(self, presets: list[str]) -> None:
+        """How the sky meets the painted horizon (#716, #719), per elevation band.
+
+        Sky-only frames over the empty meadow (``ground=None``) at ``SKY_BAND_AZIMUTH``,
+        toward, across and away from the sun, under the clear sky (``SKY_BAND_CLEAR_SUNS``)
+        and each cloud deck (``SKY_BAND_WEATHERS`` at ``SKY_BAND_CLOUD_SUNS``), on the
+        first preset. Per frame: the profile by world elevation, how far it darkens on the
+        way down to the horizon (``inversion``, #716), the haze band (3°) minus the deck
+        (10°) (#719), the low band's mean luminance (6–15°, #716) and the meadow's luma
+        (−6…−3°). Measures and records only: the render tier judges the numbers, and the
+        sky-to-sky ratio needs both skies' boards. Nothing on a software adapter: no sky.
+        """
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        if self.software:
+            self.metrics["sky_bands"] = {"skipped": "no sky texture on a software adapter"}
+            return
+        preset = presets[0]
+        out: dict[str, Any] = {"preset": preset, "azimuth_deg": SKY_BAND_AZIMUTH,
+                               "inversion_range_deg": list(SKY_BAND_INVERSION_RANGE),
+                               "haze_deg": SKY_BAND_HAZE_DEG, "deck_deg": SKY_BAND_DECK_DEG,
+                               "low_band_deg": list(SKY_BAND_LOW)}
+        self.metrics["sky_bands"] = out
+        plan = [("clear", SKY_BAND_CLEAR_SUNS)] + [(weather, SKY_BAND_CLOUD_SUNS)
+                                                   for weather in SKY_BAND_WEATHERS]
+        for weather, suns in plan:
+            by_sun: dict[str, Any] = {}
+            out[weather] = by_sun
+            for elevation in suns:
+                sun = SunState(elevation, SKY_BAND_AZIMUTH)
+                look = weather_look(sun, preset, weather)
+                rows: dict[str, Any] = {}
+                for label, turn in SKY_BAND_DIRECTIONS:
+                    bearing = (SKY_BAND_AZIMUTH + turn) % 360.0
+                    camera = sky_band_camera(bearing, self.size)
+                    rgb, _frame, info = self.frame(
+                        f"skyband_{weather}_{elevation:g}_{label}_{preset}", {}, sun=sun, look=look,
+                        ground=None, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    profile = probes.sky_profile(
+                        rgb, camera, bearing, sun=(SKY_BAND_AZIMUTH, elevation),
+                        lowest_deg=SKY_BAND_PITCH_DEG - SKY_BAND_FOV_DEG / 2.0,
+                        highest_deg=SKY_BAND_PITCH_DEG + SKY_BAND_FOV_DEG / 2.0)
+                    haze = probes.profile_at(profile, SKY_BAND_HAZE_DEG)
+                    deck = probes.profile_at(profile, SKY_BAND_DECK_DEG)
+                    rows[label] = {
+                        "file": info["file"], "bearing_deg": bearing,
+                        "inversion": probes.horizon_inversion(profile, *SKY_BAND_INVERSION_RANGE),
+                        "haze_luma": haze, "deck_luma": deck,
+                        "band_minus_deck": (None if haze is None or deck is None
+                                            else round(haze - deck, 3)),
+                        "low_band_luminance": probes.profile_mean(profile, *SKY_BAND_LOW),
+                        "ground_luma": probes.profile_mean(profile, -6.0, -3.0, key="luma"),
+                        "profile": profile}
+                # toward, across (twice: left and right are one sky) and away: four points
+                # of the azimuth
+                lows = [rows[label]["low_band_luminance"] for label in ("toward", "across",
+                                                                         "across", "away")]
+                rows["azimuth_mean_low_band_luminance"] = (
+                    None if any(value is None for value in lows) else round(float(np.mean(lows)), 6))
+                by_sun[f"{elevation:g}"] = rows
+                self.log("sky_bands", weather=weather, sun=elevation, **{
+                    f"{label}_{key}": (rows[label]["inversion"]["inversion_luma"] if key == "inv"
+                                       else rows[label]["band_minus_deck"])
+                    for label, _turn in SKY_BAND_DIRECTIONS for key in ("inv", "step")})
+                self.write()
 
     def fence_moire(self, shots: list[BoardShot], presets: list[str]) -> None:
         """How the plan's fences alias, per preset: the fences alone at the noon camera
@@ -1247,7 +1745,7 @@ class Board:
                                                       if k != "file"})
             self.write()
 
-    def plan_edge(self, shots: list[BoardShot], presets: list[str]) -> None:
+    def plan_edge(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
         """The plan rectangle against the meadow on a plan with nothing on it: the luma
         step across its west and its south edge at golden hour and at noon, per preset.
 
@@ -1259,7 +1757,17 @@ class Board:
         that differs makes the plan darker looking one way and brighter looking the
         other (the old material: -4.1 and +4.3 along the south edge at golden hour),
         and a mean of the two would hide it. ``max_line`` is the largest LINE on an edge
-        (``probes.plan_edge_step``): a thin line the fits cannot see."""
+        (``probes.plan_edge_step``): a thin line the fits cannot see. ``weather``
+        (``--living``): under that weather's look - the ground's values and, since #687, its
+        ambient occlusion are the weather's.
+
+        #798: both sides carry the meadow's grass, and a 2 m line of grass is not flat: on
+        the frame itself the fits read the texture's own pattern, the same in every preset
+        and mood (to -2.1 luma on one view). So every view is rendered a second time with
+        no plan at all (``ground=None``: the meadow without its hole), and the step and the
+        line are measured on the DIFFERENCE (``probes.difference_frame``): the grass cancels,
+        and what the plan's ground does otherwise than the meadow stays. The frame's own
+        numbers are kept as ``raw_step`` / ``raw_line``."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
@@ -1279,7 +1787,8 @@ class Board:
                                    "north", south_along),
         }
         out: dict[str, Any] = {}
-        self.metrics["plan_edge"] = out
+        tag = "" if weather == "clear" else f"_{weather}"
+        self.metrics[f"plan_edge{tag}"] = out
         worst = 0.0
         worst_line = 0.0
         for preset in presets:
@@ -1290,21 +1799,232 @@ class Board:
                 for name, (eye, target, axis, along) in views.items():
                     camera = probes.Pinhole(eye=eye, target=target, fov_deg=40.0, size=self.size)
                     rgb, _frame, info = self.frame(
-                        f"edge_{mood}_{name}_{preset}", {}, sun=sun, look=look_for(sun, preset),
+                        f"edge{tag}_{mood}_{name}_{preset}", {}, sun=sun,
+                        look=weather_look(sun, preset, weather),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                    rows[name] = {**probes.plan_edge_step(rgb, camera, axis=axis, at=0.0,
-                                                          along=along, reach=reach),
+                    meadow, _twin, _twin_info = self.frame(
+                        f"edge{tag}_{mood}_{name}_{preset}_meadow", {}, sun=sun,
+                        look=weather_look(sun, preset, weather), ground=None,
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    raw = probes.plan_edge_step(rgb, camera, axis=axis, at=0.0, along=along,
+                                                reach=reach)
+                    rows[name] = {**probes.plan_edge_step(probes.difference_frame(rgb, meadow),
+                                                          camera, axis=axis, at=0.0, along=along,
+                                                          reach=reach),
+                                  "raw_step": raw["step"], "raw_line": raw["line"],
                                   "file": info["file"]}
                 for row in rows.values():
                     worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
                     worst_line = max(worst_line, row["line"] if row["line"] is not None else math.inf)
                 out[preset][mood] = rows
-                self.log("plan_edge", preset=preset, mood=mood,
+                self.log("plan_edge", weather=weather, preset=preset, mood=mood,
                          **{name: row["step"] for name, row in rows.items()})
             self.write()
         out["max_abs_step"] = round(worst, 2)
         out["max_line"] = round(worst_line, 2)
+        self.write()
+
+    def meadow(self, shots: list[BoardShot], presets: list[str]) -> None:
+        """#798: is the meadow — and the plan's open ground — grass, or a felt table?
+
+        Per preset, at the noon shot's sun and date, the plan's ground baked:
+
+        - ``default``: the app's default framing of the plan (``camera.frame_pose``, the
+          view's own pose) and ``eye``: the walk shot's camera, a viewer's eye height in the
+          plan (where the survey saw the bare plan ground as a football pitch). Each:
+          ``flat_share`` of the whole frame (the survey's number), of the ground below the
+          horizon and of the MEADOW (``probes.meadow_mask``: ground at least
+          ``meadow_margin`` outside the plan whose line of sight never crosses it; none
+          from a camera standing on the plan),
+          with the meadow's mean luma and its luma std;
+        - ``orbit`` / ``flight``: ``MEADOW_FRAMES`` frames of the default framing turning
+          ``MEADOW_ORBIT_STEP_DEG`` a frame, and of a camera ``MEADOW_FLIGHT_EYE_CM`` high
+          flying east along the plan's south side; up to ``MEADOW_TRACK_POINTS`` FAR meadow
+          points (``far_meadow_points``: 30-150 m from the camera's foot, seen in the first frame) are
+          followed through the move (``probes.track_luma``) and their flicker measured
+          (``probes.temporal_noise``: zigzag RMS, frame-to-frame step);
+        - ``repeat``: the empty meadow from ``MEADOW_REPEAT_HEIGHT_CM`` straight above, its
+          luma folded onto one grass repeat (``probes.repeat_amplitude``).
+        """
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        noon = {shot.name: shot for shot in shots}.get("noon") or next(
+            shot for shot in default_shots(self.width, self.depth) if shot.name == "noon")
+        records = self.records_for(plan_day(noon.when_utc))
+        sun = self.sun_at(noon.when_utc)
+        registry = production_registry()
+        plan = (0.0, 0.0, self.width, self.depth)
+        top = max((record.transform.base_cm + float(record.height_cm) for record in records.values()
+                   if record.height_cm is not None), default=0.0)
+        cameras = meadow_cameras(self.width, self.depth, top, self.size)
+        out: dict[str, Any] = {"sun_elev": round(sun.elevation_deg, 2),
+                               "sun_az": round(sun.azimuth_deg, 2),
+                               "open_ground": str(self.args.open_ground),
+                               "meadow_surface": self.args.meadow_surface}
+        self.metrics["meadow"] = out
+
+        def still(name: str, view: probes.Pinhole, look: LookSpec) -> tuple[dict[str, Any], np.ndarray]:
+            rgb, _frame, info = self.frame(
+                name, records, sun=sun, look=look, ground=self.plan_ground(), registry=registry,
+                shot=PerspectiveShot(view.eye, view.target, view.fov_deg), baked=True)
+            row = {"file": info["file"], "eye": list(view.eye), "target": list(view.target),
+                   **meadow_still(rgb, view, plan)}
+            return row, rgb
+
+        def move(name: str, views: list[probes.Pinhole], look: LookSpec) -> dict[str, Any]:
+            frames = []
+            for index, view in enumerate(views):
+                rgb, _frame, _info = self.frame(
+                    f"meadow_{name}_{index:02d}_{preset}", records, sun=sun, look=look,
+                    ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(view.eye, view.target, view.fov_deg), baked=True)
+                frames.append(rgb)
+            return {**meadow_move(frames, views, plan), "first_file": f"meadow_{name}_00_{preset}.png"}
+
+        for preset in presets:
+            look = look_for(sun, preset)
+            block: dict[str, Any] = {}
+            out[preset] = block
+            block["default"], _rgb = still(f"meadow_default_{preset}", cameras["default"], look)
+            block["eye"], _rgb = still(f"meadow_eye_{preset}", cameras["eye"], look)
+            self.log("meadow", preset=preset,
+                     default_flat_green=block["default"]["frame"]["flat_green"],
+                     eye_flat_green=block["eye"]["frame"]["flat_green"],
+                     meadow_std=block["default"]["meadow"]["local_std"])
+            self.write()
+            if self.args.meadow_stills:   # the two stills only (a 1080p proof, a variant)
+                continue
+            block["orbit"] = move("orbit", cameras["orbit"], look)
+            block["flight"] = move("flight", cameras["flight"], look)
+            self.log("meadow_moves", preset=preset, orbit_zigzag=block["orbit"]["zigzag_rms"],
+                     flight_zigzag=block["flight"]["zigzag_rms"])
+            self.write()
+            above = cameras["above"]
+            rgb, _frame, info = self.frame(
+                f"meadow_repeat_{preset}", {}, sun=sun, look=look, ground=None,
+                shot=PerspectiveShot(above.eye, above.target, above.fov_deg))
+            view = above.scaled((rgb.shape[1], rgb.shape[0]))
+            period_px = MEADOW_REPEAT_CM * view._focal / MEADOW_REPEAT_HEIGHT_CM
+            block["repeat"] = {"file": info["file"],
+                               **probes.repeat_amplitude(probes.luma(rgb), period_px)}
+            self.log("meadow_repeat", preset=preset, **block["repeat"])
+            self.write()
+
+    def stairs(self, presets: list[str]) -> None:
+        """#734: the staircase on a long fence's low-sun shadow, and the streaks in it.
+
+        A 23.8 m line at the plan's south edge (``STAIRS_*``) in each of
+        ``STAIRS_CASTERS``, under each of ``STAIRS_SUNS``, seen by two production cameras
+        (``stairs_cameras``) as a PICTURE sees it (the shadow map fitted to the casters,
+        ``Quick3DHost.capture``); every frame measured by ``stairs_measure``. Then the
+        orbit (``stairs_orbit``) and the time-lapse (``stairs_timelapse``) in both fits."""
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        cameras = stairs_cameras(self.width, self.depth, self.size)
+        registry = production_registry()
+        out: dict[str, Any] = {}
+        self.metrics["stairs"] = out
+        for preset in presets:
+            rows: list[dict[str, Any]] = []
+            out[preset] = rows
+            for elevation, azimuth in STAIRS_SUNS:
+                sun = SunState(elevation, azimuth)
+                look = look_for(sun, preset)
+                for caster in STAIRS_CASTERS:
+                    records = {"stairs": stairs_record(caster, STAIRS_INSET_CM,
+                                                       self.width - STAIRS_INSET_CM)}
+                    for label, camera in cameras.items():
+                        rgb, _frame, info = self.frame(
+                            f"stairs_{caster.lower()}_{elevation:g}_{label}_{preset}", records,
+                            sun=sun, look=look, ground=self.plan_ground(), registry=registry,
+                            shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
+                            fitted=True)
+                        row = {"caster": caster, "sun_elev": elevation, "sun_az": azimuth,
+                               "camera": label, "file": info["file"],
+                               **stairs_measure(rgb, camera, caster, elevation, azimuth, self.width)}
+                        rows.append(row)
+                        self.log("stairs", preset=preset, caster=caster, sun=elevation,
+                                 camera=label, **{
+                                     f"wobble_px_{int(r['depth_m'][0])}m": r.get("wobble_px")
+                                     for r in row["edge"] if "wobble_px" in r},
+                                 **{f"streak_{k}": v["streak"]
+                                    for k, v in row.get("streaks", {}).items()})
+                        self.write()
+            self.stairs_orbit(preset, registry)
+            self.stairs_timelapse(preset, registry)
+
+    def stairs_orbit(self, preset: str, registry: Any) -> None:
+        """The panel (with a tall column at each plan corner: ``STAIRS_COLUMN_*``) under the
+        golden-hour sun while the golden-hour camera orbits the plan's centre by
+        ``STAIRS_ORBIT_STEP_DEG`` a frame (what a drone tour does), in the
+        view's texel-locked fit (``view``) and in a picture's fit to the casters
+        (``fitted``): how the shadow's edge crawls on the ground (``probes.edge_swim``,
+        averaged over ``STAIRS_SWIM_SMOOTH_CM`` along the edge — Qt's filter re-dithers a
+        soft edge per pixel whenever the camera moves). A fitted map follows the camera
+        through the casters: the reason a moving camera keeps the locked one (#734)."""
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        elevation, azimuth = max(STAIRS_SUNS)
+        sun = SunState(elevation, azimuth)
+        look = look_for(sun, preset)
+        records = stairs_motion_records(self.width, self.depth)
+        hero = next(shot for shot in default_shots(self.width, self.depth) if shot.name == "golden_hour")
+        centre = (self.width / 2.0, self.depth / 2.0)
+        reach = math.hypot(hero.eye[0] - centre[0], hero.eye[1] - centre[1])
+        start = math.atan2(hero.eye[1] - centre[1], hero.eye[0] - centre[0])
+        out: dict[str, Any] = {"sun_elev": elevation, "step_deg": STAIRS_ORBIT_STEP_DEG,
+                               "frames": STAIRS_ORBIT_FRAMES, "smooth_cm": STAIRS_SWIM_SMOOTH_CM}
+        for label, fitted in (("view", False), ("fitted", True)):
+            traces = []
+            for step in range(STAIRS_ORBIT_FRAMES):
+                angle = start + math.radians(STAIRS_ORBIT_STEP_DEG * step)
+                eye = (centre[0] + reach * math.cos(angle), centre[1] + reach * math.sin(angle),
+                       hero.eye[2])
+                camera = probes.Pinhole(eye, hero.target, hero.fov_deg, self.size)
+                rgb, _frame, _info = self.frame(
+                    f"stairs_orbit_{label}_{preset}_{step:02d}", records, sun=sun, look=look,
+                    ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), fitted=fitted)
+                traces.append(stairs_trace(rgb, camera, "PLAIN", elevation, azimuth, self.width))
+            out[label] = probes.edge_swim(traces, smooth_cm=STAIRS_SWIM_SMOOTH_CM)
+            self.log("stairs_orbit", preset=preset, fit=label, **{
+                f"swim_px_{int(r['depth_m'][0])}m": r.get("swim_px")
+                for r in out[label] if "swim_px" in r})
+        self.metrics.setdefault("stairs_orbit", {})[preset] = out
+        self.write()
+
+    def stairs_timelapse(self, preset: str, registry: Any) -> None:
+        """The orbit's scene with the golden-hour camera HELD while the sun moves
+        (``stairs_timelapse_suns``), in both fits: what a held camera's time-lapse shows.
+        Each frame is traced against its OWN sun's analytic edge, so the shadow's true
+        motion drops out and ``probes.edge_swim`` reads what moves besides it — the texel
+        grid turning with the light, and the pixel dither. The light turns under either
+        fit; a held camera's frames are fitted because the fitted grid's finer texels
+        crawl less (#734)."""
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        records = stairs_motion_records(self.width, self.depth)
+        hero = next(shot for shot in default_shots(self.width, self.depth) if shot.name == "golden_hour")
+        camera = probes.Pinhole(hero.eye, hero.target, hero.fov_deg, self.size)
+        suns = stairs_timelapse_suns()
+        out: dict[str, Any] = {"suns": [list(sun) for sun in suns], "smooth_cm": STAIRS_SWIM_SMOOTH_CM}
+        for label, fitted in (("view", False), ("fitted", True)):
+            traces = []
+            for step, (elevation, azimuth) in enumerate(suns):
+                sun = SunState(elevation, azimuth)
+                rgb, _frame, _info = self.frame(
+                    f"stairs_timelapse_{label}_{preset}_{step:02d}", records, sun=sun,
+                    look=look_for(sun, preset), ground=self.plan_ground(), registry=registry,
+                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), fitted=fitted)
+                traces.append(stairs_trace(rgb, camera, "PLAIN", elevation, azimuth, self.width))
+            out[label] = probes.edge_swim(traces, smooth_cm=STAIRS_SWIM_SMOOTH_CM)
+            self.log("stairs_timelapse", preset=preset, fit=label, **{
+                f"swim_px_{int(r['depth_m'][0])}m": r.get("swim_px")
+                for r in out[label] if "swim_px" in r})
+        self.metrics.setdefault("stairs_timelapse", {})[preset] = out
         self.write()
 
     def restore_check(self, shot: BoardShot, preset: str) -> None:
@@ -1390,6 +2110,8 @@ class Board:
             )
             self.metrics["frame_rate"]["parts"] = host.part_count()
             host.set_camera(shot.eye, shot.target, shot.fov_deg)
+            if self.args.photo_shadows:   # what a picture's frame costs (#734)
+                host.set_fitted_shadows(True)
             host.set_look(look_for(sun, presets[0]))
             if not self.software:
                 host.set_sky(self.with_sky_model(look_for(sun, presets[0])).sky)
@@ -1443,8 +2165,24 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="the evening from 6 to -7 degrees on one camera: the light must fade")
     parser.add_argument("--fence", action="store_true",
                         help="the plan's fences alone at the noon camera: how they alias, per preset")
+    parser.add_argument("--photo-shadows", action="store_true",
+                        help="every frame with a picture's shadow fit (to the casters, #734)")
+    parser.add_argument("--stairs", action="store_true",
+                        help="#734: a long fence's low-sun shadow edge and its streaks")
     parser.add_argument("--edge", action="store_true",
                         help="an empty plan: the step where the plan rectangle meets the meadow")
+    parser.add_argument("--meadow", action="store_true",
+                        help="#798: flat share, flicker and repeat of the meadow's grass")
+    parser.add_argument("--open-ground", choices=("look", "grass", "flat"), default="look",
+                        help="#798: override the look's switch for the plan's open ground")
+    parser.add_argument("--meadow-surface", type=int, choices=(0, 1, 2), default=None,
+                        help="#798: override the preset's meadow surface (0 flat, 1 grass, "
+                             "2 grass and its variation)")
+    parser.add_argument("--meadow-stills", action="store_true",
+                        help="#798: with --meadow, only its two stills (no moves, no repeat)")
+    parser.add_argument("--sky-bands", action="store_true",
+                        help="sky-only frames toward, across and away from a low sun, clear and "
+                             "under each cloud deck: the sky per elevation band (#716, #719)")
     parser.add_argument("--fps-seconds", type=float, default=0.0,
                         help="frames a SHOWN window presents per second, per preset (0 = off)")
     parser.add_argument("--software", action="store_true",
@@ -1510,6 +2248,7 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.shoot(shots, presets)
     if args.living:
         board.living(presets)
+        board.living_occlusion(presets)
         for weather in HORIZON_WEATHERS:   # the cloudy skies, probed like the clear one
             if args.horizon:
                 board.horizon(default_shots(board.width, board.depth), presets, weather)
@@ -1517,6 +2256,12 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
                 board.mood_strip(default_shots(board.width, board.depth), presets, weather)
             if args.dusk:
                 board.dusk(default_shots(board.width, board.depth), presets, weather)
+            # #687: the weather's own ambient occlusion and ground, at the plan's far
+            # framings and its edge
+            if args.far_plan:
+                board.far_plan(presets, weather)
+            if args.edge:
+                board.plan_edge(default_shots(board.width, board.depth), presets, weather)
     if args.analysis:
         board.analysis(shots, presets)
     if args.moods:
@@ -1536,7 +2281,14 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.fence_moire(default_shots(board.width, board.depth), presets)
     if args.edge:
         board.plan_edge(default_shots(board.width, board.depth), presets)
-    if shots and (args.iou or args.orient or args.horizon or args.dusk or args.fence or args.edge):
+    if args.meadow:
+        board.meadow(default_shots(board.width, board.depth), presets)
+    if args.sky_bands:
+        board.sky_bands(presets)
+    if args.stairs:
+        board.stairs(presets)
+    if shots and (args.iou or args.orient or args.horizon or args.dusk or args.fence or args.edge
+                  or args.stairs):
         board.restore_check(shots[0], presets[0])
     if args.fps_seconds > 0 and shots:
         board.frame_rate(shots[0], presets, float(args.fps_seconds))

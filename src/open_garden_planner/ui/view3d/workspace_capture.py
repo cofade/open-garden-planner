@@ -16,6 +16,10 @@ frame of a tour IS paced by a timer, one the user started and can stop.
 Photo mode changes how pictures are developed, never what stands in the garden
 (``core/scene3d/photo.py``). While it is on, a click in the view sets the focus instead of
 selecting: the click is the camera's, and selection has its 2D side.
+
+A tour can be kept in the plan under a name (issue #737, ``core/camera_tours.py``). The plan
+owns the list (``ProjectManager.camera_tours``); this coordinator is the dialog's way to it,
+and every edit it makes is ONE command on the undo stack (``connect_tours``).
 """
 
 from __future__ import annotations
@@ -45,7 +49,20 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.camera_path import CameraKey, TourFrame, TourSpec, path_eyes
+from open_garden_planner.core.camera_path import (
+    CameraKey,
+    HeldCamera,
+    TourFrame,
+    TourSpec,
+    path_eyes,
+)
+from open_garden_planner.core.camera_tours import SavedTour
+from open_garden_planner.core.commands import (
+    DeleteCameraTourCommand,
+    RenameCameraTourCommand,
+    SaveCameraTourCommand,
+)
+from open_garden_planner.core.i18n import LocalizedNumber
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.photo import (
     DEFAULT_BLUR,
@@ -130,6 +147,9 @@ class WorkspaceCaptureCoordinator(QObject):
     clock_wanted = pyqtSignal()
     #: Photo mode went on or off.
     photo_mode_changed = pyqtSignal(bool)
+    #: The plan's saved tours changed: one was saved, renamed or deleted, an undo or a
+    #: redo put the list back, or another plan came with its own.
+    tours_changed = pyqtSignal()
 
     def __init__(self, get_host: Callable[[], Any], get_controller: Callable[[], Any],
                  get_look: Callable[[], Any], get_clock: Callable[[], Any],
@@ -137,7 +157,8 @@ class WorkspaceCaptureCoordinator(QObject):
                  forge_pending: Callable[[], int], is_pane_showing: Callable[[], bool],
                  view_state: Callable[[], str], ground_point: Callable[[float, float], Any],
                  default_path: Callable[[str], str], fly_path: Callable[[Any], None],
-                 is_walking: Callable[[], bool], parent: QWidget) -> None:
+                 is_walking: Callable[[], bool], parent: QWidget,
+                 aim_lamps: Callable[[Any], None] | None = None) -> None:
         super().__init__(parent)
         self._get_host = get_host
         self._get_controller = get_controller
@@ -152,6 +173,9 @@ class WorkspaceCaptureCoordinator(QObject):
         self._is_walking = is_walking
         self.default_path = default_path
         self._fly_path = fly_path
+        #: The garden lights that light follow a picture's own camera target (#687;
+        #: ``WorkspaceLivingCoordinator.aim_lamps``); None gives the view's back.
+        self._aim_lamps: Callable[[Any], None] = aim_lamps or (lambda _target: None)
         self._parent = parent
         self._settings: PhotoSettings = NO_PHOTO
         self._photo_on = False
@@ -161,7 +185,12 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_holds_utc = False
         self._tour_utc_time: day_time | None = None
         self._tour_size: tuple[int, int] = (16, 16)
+        self._tour_still = False   # a held camera's tour fits its shadows (#734)
         self._dialog: TourDialog | None = None
+        #: Where the plan's saved tours live (a ``ProjectManager``) and the undo stack
+        #: their edits go through (``connect_tours``). None: tours cannot be kept.
+        self._tour_plan: Any = None
+        self._tour_commands: Any = None
         #: A dialog whose engine stopped while its file was still closing. It is not the
         #: session's any more; it is forgotten when it really closes.
         self._dialog_closing: TourDialog | None = None
@@ -280,7 +309,7 @@ class WorkspaceCaptureCoordinator(QObject):
             self.set_photo_mode(False)
             dialog = self._dialog
             if dialog is not None:
-                # A dialog the user closed stays for the session (its keys live in it);
+                # A dialog the user closed stays for the session (an unsaved tour lives in it);
                 # one the engine stops is the old engine's and is forgotten when it has
                 # really closed. Otherwise a Tour action could open a twin beside it.
                 dialog.close_for_shutdown()
@@ -297,6 +326,8 @@ class WorkspaceCaptureCoordinator(QObject):
         focus is not re-established here. ``document_shown`` does that, once the camera is in
         place; until then the view is the view, and the label says what is happening."""
         self.cancel_recording()
+        if self._dialog is not None:
+            self._dialog.document_changed()   # #737: its draft was a path through the old plan
         if self._photo_on or self._settings.focus_scene is not None:
             self._settings = replace(self._settings, focus_scene=None)
             self._focus_pending = True
@@ -443,7 +474,7 @@ class WorkspaceCaptureCoordinator(QObject):
             return
         eye = self._get_camera_now()[0]
         label.setText(_tr("Focus {distance:.1f} m away").format(
-            distance=math.dist(eye, point) / 100.0))
+            distance=LocalizedNumber(math.dist(eye, point) / 100.0)))
 
     def take_click(self, hit: object) -> bool:
         """A click in the view (``OrbitInput.picked``): photo mode takes it for the focus.
@@ -517,7 +548,8 @@ class WorkspaceCaptureCoordinator(QObject):
             raise CaptureRefused("not_open")
         ratio = float(host.device_pixel_ratio())
         size = photo_size(size_key, host.view_size(), ratio)
-        image = host.capture(size, label="photo")
+        # #734: a photo's camera holds still, so its shadow map is fitted to the casters
+        image = host.capture(size, label="photo", fitted_shadows=True)
         self._describe(image)
         return bool(image.save(str(path)))
 
@@ -549,7 +581,7 @@ class WorkspaceCaptureCoordinator(QObject):
 
     def _on_dialog_closed(self, dialog: Any) -> None:
         """The engine stopped this dialog: forget it once it has really closed. A dialog the
-        user closed is kept - the tour's keys live in the session, which is the dialog."""
+        user closed is kept - a tour that was not saved in the plan lives in the dialog."""
         if self._dialog_closing is dialog:
             self._dialog_closing = None
             if self._engine_enabled:
@@ -558,6 +590,41 @@ class WorkspaceCaptureCoordinator(QObject):
     @property
     def dialog(self) -> TourDialog | None:
         return self._dialog
+
+    # ── tours kept in the plan (#737) ────────────────────────────────────────
+
+    def connect_tours(self, project_manager: Any, command_manager: Any) -> None:
+        """Where the plan keeps its tours, and the undo stack every edit of them goes
+        through. Without this call the dialog offers no saved tours."""
+        self._tour_plan, self._tour_commands = project_manager, command_manager
+        project_manager.camera_tours_changed.connect(self._on_plan_tours_changed)
+
+    def _on_plan_tours_changed(self, _tours: object) -> None:
+        self.tours_changed.emit()
+
+    @property
+    def tours_connected(self) -> bool:
+        return self._tour_plan is not None and self._tour_commands is not None
+
+    def saved_tours(self) -> tuple[SavedTour, ...]:
+        """The plan's saved tours, in the order they were saved."""
+        if self._tour_plan is None:
+            return ()
+        tours: tuple[SavedTour, ...] = self._tour_plan.camera_tours
+        return tours
+
+    def save_tour(self, tour: SavedTour) -> None:
+        """Keep ``tour`` in the plan, in place of one of its name if there is one. One
+        undo step."""
+        self._tour_commands.execute(SaveCameraTourCommand(self._tour_plan, tour))
+
+    def rename_tour(self, name: str, new_name: str) -> None:
+        """One undo step. ``ValueError``: no such tour, or the new name is taken."""
+        self._tour_commands.execute(RenameCameraTourCommand(self._tour_plan, name, new_name))
+
+    def delete_tour(self, name: str) -> None:
+        """One undo step. ``ValueError``: no such tour."""
+        self._tour_commands.execute(DeleteCameraTourCommand(self._tour_plan, name))
 
     @property
     def recording(self) -> bool:
@@ -588,6 +655,24 @@ class WorkspaceCaptureCoordinator(QObject):
         moment = self._clock_hold
         return moment.date() if moment is not None else None
 
+    def held_reading(self) -> datetime | None:
+        """The wall reading a clock-moving tour will put back; ``None`` without one
+        (``core/showcase_moment.InnerClockHold``)."""
+        return self._clock_hold
+
+    def rebase_hold(self) -> None:
+        """The open document was replaced, or left its showcase, while a tour holds the
+        clock: what the tour puts back is the reading the document has NOW (#795).
+
+        The showcase is the outer holder of "the user's reading" and writes the clock for
+        the new document; this inner hold follows it, so the tour's finish cannot put the
+        old document's reading (an example's moment) onto the plan that is open by then.
+        A tour that holds nothing has nothing to follow.
+        """
+        clock = self._get_clock()
+        if self._clock_hold is not None and clock is not None:
+            self._clock_hold = clock.wall
+
     def start_tour(self, spec: TourSpec, size: tuple[int, int], writer: FrameSink, *,
                    realtime: bool = False) -> TourRecorder:
         """Render ``spec`` at ``size`` into ``writer``. The caller connects the recorder's
@@ -601,6 +686,9 @@ class WorkspaceCaptureCoordinator(QObject):
         from .tour_recorder import TourRecorder
 
         self._tour_size = size
+        # #734: a held camera's frames (a time-lapse) fit the shadow map like a picture; a
+        # moving camera's keep the view's stable fit — a fitted map would crawl with it
+        self._tour_still = isinstance(spec.motion, HeldCamera)
         recorder = TourRecorder(spec, writer, self._tour_frame, self._tour_clock,
                                 self._tour_settled, realtime=realtime,
                                 view_showing=self._is_pane_showing, parent=self)
@@ -628,9 +716,11 @@ class WorkspaceCaptureCoordinator(QObject):
         from .quick3d.shots import PerspectiveShot
 
         key = frame.key
+        self._aim_lamps(key.target)   # its lamps, not the view's (#687)
         image: QImage = self._get_host().capture(
             self._tour_size, PerspectiveShot(key.eye, key.target, key.fov_deg),
-            wind_time_s=frame.wind_time_s, label=f"tour{frame.index}")
+            wind_time_s=frame.wind_time_s, label=f"tour{frame.index}",
+            fitted_shadows=self._tour_still)
         return image
 
     def _tour_clock(self, day: date | None, moment: day_time | None) -> None:
@@ -684,6 +774,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._tour_holds_utc = False
         try:
             try:
+                self._aim_lamps(None)   # the view's own lamps again (#687)
                 self._fly_path(None)
                 host = self._get_host()
                 if host is not None:
@@ -772,11 +863,17 @@ class WorkspaceCaptureCoordinator(QObject):
         if blocker is not None:
             raise CaptureRefused(blocker)
         host = self._get_host()
+        if shot is not None:
+            self._aim_lamps(shot.target)   # its own lamps, not the view's (#687)
         try:
-            image = host.capture(size, shot, photo=NO_PHOTO, label="agent")
+            image = host.capture(size, shot, photo=NO_PHOTO, label="agent",
+                                 fitted_shadows=True)   # a still picture (#734)
         except HostStateError as error:   # resized or hidden a moment ago: "not now"
             _LOG.info("render_3d_view: no frame right now (%s)", log_text(error))
             raise CaptureRefused("warming_up") from error
+        finally:
+            if shot is not None:
+                self._aim_lamps(None)
         buffer = QBuffer()
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         image.save(buffer, "PNG")

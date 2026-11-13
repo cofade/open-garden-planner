@@ -441,6 +441,30 @@ flowchart TD
     IC --> O --> M
 ```
 
+**The north-change fan-out (#663).** One plan angle, one write path, one update per
+solar consumer. The command validates before mutating; a rejected value never reaches
+the signal. A heatmap computed for the old frame is cleared (or refused by its
+snapshot); no object is rotated.
+
+```mermaid
+flowchart TD
+    U([File &gt; Set North Orientation…<br/>or undo / load / new])
+    C["SetPlanNorthCommand (one undo step)<br/>→ ProjectManager.set_north_angle"]
+    S["north_angle_changed(angle)"]
+    L["GardenPlannerApp._on_north_angle_changed"]
+    A["CanvasView.set_north_angle<br/>→ viewport N arrow turns"]
+    D["SunShadowController.schedule_recompute<br/>→ 2D overlay at scene_azimuth"]
+    E["SunExposureCoordinator.schedule<br/>→ plant badges and evaluations"]
+    H["live map on: schedule a new day<br/>off: clear the old map and toolbar"]
+    W["Workspace.north_changed<br/>→ 3D relight; AnalysisController compass/sun path"]
+    U --> C --> S --> L
+    L --> A
+    L --> D
+    L --> E
+    L --> H
+    L --> W
+```
+
 **The forecast fan-out (L5.3).** The Planting Calendar's weather widget is the app's one
 weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`, with
 the `(lat, lon)` they were fetched for:
@@ -908,18 +932,36 @@ sequenceDiagram
     PM->>PM: Read / validate version / filter / prepare / apply
     PM-->>App: current_file=None, dirty=True
     App->>App: Clear old history/autosave; fit view; refresh panels
+    App->>App: ShowcaseMoment.document_opened(example's moment or None)
     User->>App: Save
     App->>User: Save As dialog
+    App->>PM: save(scene, path)
+    App->>App: ShowcaseMoment.copy_saved(): the user's reading is back
 ```
 
 A failed preparation preserves the previous scene, history and autosave. Exporting
 a template flushes pending editors, snapshots without journal mutation, filters and
 atomically writes a separate file. It leaves the current file and dirty state intact.
+
+**File > Open of a bundled example takes the same identity (#865):** `_load_project_file`
+asks `core.templates.is_bundled_example` and routes a known bundled path through
+`as_template=True`, so the sequence above runs — `current_file` None, Save As, no Recent
+entry, the sidecar's title on the report cover, and the showcase moment. The Agent API's
+`open_plan` calls the same path and returns `file_path: null` with `opened_as_copy: true`
+for that case. `save_plan` without an explicit path then refuses (an agent has no Save
+dialog); the GUI's Save opens Save As instead.
+
 The public catalog resource reads only bundled sidecars and never opens a document.
 The catalog selects a shipped language-specific plan when available. Before normal
-preparation, `example_copy_plan` retains public location and fictional soil records
-only for known bundled paths; an external copy receives the ordinary portable
-filter. Neither opening a demonstration nor exporting a template changes SimClock.
+preparation, `example_copy_plan` retains public location, fictional soil records
+and the fictional harvest history only for known bundled paths; an external copy
+receives the ordinary portable filter. Exporting a template never changes SimClock.
+Opening a shipped example moves it to the moment the example's sidecar names (its
+reference date, a daytime sun); the next New, Open or recovery puts back the reading
+the user had before, and so does a successful Save or Save As of the copy, which makes
+it the user's own plan (#795, ADR-066 addendum). The same call runs as the last step
+of every document replacement, with no moment for a document that is not a shipped
+example.
 
 
 ### L4 follow-up: lawn quality and complete render rest
@@ -1082,6 +1124,35 @@ restores the owner's date and time at the end; a flight preview never writes the
 therefore restores nothing, so a date set while it runs survives it. During a clock-moving
 tour, agent reads report the owner's held date (`as_of_date`) and agent-created plants are
 stamped with it, not with the frame being rendered (ADR-072 addendum, issue #730).
+
+When the last frame is out, the recorder emits `finishing` (Cancel is too late from here) and
+`Mp4Writer` stops Qt's recorder, waits for the part file to close, then hands it to a worker
+thread: `core/mp4_stream.tag_colour` writes a tagged copy (colour in the `colr` box and every SPS,
+the level the frames need), the copy replaces the user's file, the part goes. The GUI thread polls
+the worker and emits `finished` with its outcome; a part that cannot be tagged is renamed as it is
+(issue #807).
+
+A tour kept in the plan (issue #737) takes the plan's write path, not the capture's:
+
+```mermaid
+sequenceDiagram
+    participant Dialog as TourDialog (the draft)
+    participant Coord as WorkspaceCaptureCoordinator
+    participant Stack as CommandManager
+    participant Plan as ProjectManager
+    Dialog->>Dialog: the controls as a SavedTour (None: no tour yet)
+    Dialog->>Coord: save_tour / rename_tour / delete_tour
+    Coord->>Stack: execute(one tour command: the list before, the list after)
+    Stack->>Plan: set_camera_tours(the list after)
+    Plan-->>Coord: camera_tours_changed
+    Coord-->>Dialog: tours_changed: the combo names the plan's tours
+    Stack-->>Plan: stack_changed: the plan is dirty
+    Note over Stack,Plan: undo and redo call set_camera_tours with the other list
+```
+
+`ProjectManager.save` writes the list as the file's `camera_tours` key; `load` hands the raw
+key to `load_tours`, which skips what is no tour, and `new_project` empties the list. The
+scene's `document_replaced` clears the dialog's draft before the new plan's tours arrive.
 
 ## 6.12 CAD editing: split along a line and group drill-down (#664, #771, ADR-075)
 

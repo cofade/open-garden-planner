@@ -35,52 +35,30 @@ from open_garden_planner.models.seed_inventory import (
     ViabilityStatus,
 )
 from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.theme import readable_on, theme_qcolor
 
-# ── Viability colours — separate palettes for light and dark mode ───────────────
-
-_STATUS_BG_LIGHT: dict[ViabilityStatus, QColor] = {
-    ViabilityStatus.GOOD:    QColor(210, 240, 210),
-    ViabilityStatus.REDUCED: QColor(255, 243, 200),
-    ViabilityStatus.EXPIRED: QColor(255, 220, 220),
-    ViabilityStatus.UNKNOWN: QColor(230, 230, 230),
+# ── Viability colours — the theme's status tokens (#791) ────────────────────────
+# (surface token, ink token) per status. This dialog used to carry four colour
+# tables of its own and chose between them by the application palette's
+# lightness: a second palette beside the theme's, and one that followed
+# Windows, not the app.
+_STATUS_TOKENS: dict[ViabilityStatus, tuple[str, str]] = {
+    ViabilityStatus.GOOD:    ("success_bg", "success"),
+    ViabilityStatus.REDUCED: ("warning_bg", "warning"),
+    ViabilityStatus.EXPIRED: ("error_bg", "error"),
+    ViabilityStatus.UNKNOWN: ("surface_alt", "text_secondary"),
 }
-_STATUS_BG_DARK: dict[ViabilityStatus, QColor] = {
-    ViabilityStatus.GOOD:    QColor(20,  60,  20),
-    ViabilityStatus.REDUCED: QColor(65,  45,   0),
-    ViabilityStatus.EXPIRED: QColor(75,  18,  18),
-    ViabilityStatus.UNKNOWN: QColor(45,  45,  45),
-}
-_STATUS_FG_LIGHT: dict[ViabilityStatus, QColor] = {
-    ViabilityStatus.GOOD:    QColor(25, 120,  25),
-    ViabilityStatus.REDUCED: QColor(155,  90,   0),
-    ViabilityStatus.EXPIRED: QColor(175,  25,  25),
-    ViabilityStatus.UNKNOWN: QColor(100, 100, 100),
-}
-_STATUS_FG_DARK: dict[ViabilityStatus, QColor] = {
-    ViabilityStatus.GOOD:    QColor(100, 220, 100),
-    ViabilityStatus.REDUCED: QColor(240, 180,  50),
-    ViabilityStatus.EXPIRED: QColor(240,  80,  80),
-    ViabilityStatus.UNKNOWN: QColor(160, 160, 160),
-}
-
-
-def _is_dark_palette() -> bool:
-    """Return True when the application is running with a dark palette."""
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance()
-    if app is None:
-        return False
-    return app.palette().window().color().lightness() < 128
 
 
 def _status_bg(status: ViabilityStatus) -> QColor:
-    table = _STATUS_BG_DARK if _is_dark_palette() else _STATUS_BG_LIGHT
-    return table.get(status, QColor(128, 128, 128))
+    surface, _ink = _STATUS_TOKENS.get(status, _STATUS_TOKENS[ViabilityStatus.UNKNOWN])
+    return theme_qcolor(surface)
 
 
 def _status_fg(status: ViabilityStatus) -> QColor:
-    table = _STATUS_FG_DARK if _is_dark_palette() else _STATUS_FG_LIGHT
-    return table.get(status, QColor(200, 200, 200))
+    """The status ink as TEXT on its own surface: the token's hue, at 4.5:1."""
+    _surface, ink = _STATUS_TOKENS.get(status, _STATUS_TOKENS[ViabilityStatus.UNKNOWN])
+    return readable_on(theme_qcolor(ink), _status_bg(status), 4.5)
 
 # Column indices
 _COL_NAME = 0

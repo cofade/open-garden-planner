@@ -23,8 +23,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 
+from open_garden_planner.core.scene3d.look import GOLDEN_DEG, NIGHT_BELOW_DEG, TWILIGHT_DEG
+from open_garden_planner.core.scene3d.weather import DEW_RISE_DEG
 from tests.integration.quick3d_render_support import (
     REPO,
     keep_artifacts,
@@ -52,6 +55,29 @@ DST_STEP_BOUND = 4.0
 PICTURE_BAND_DELTA = 1.0
 PICTURE_BUCKET_DELTA = 1.6
 PICTURE_SKY_DELTA = 0.5
+#: #743: how far the preview's blur may lie from a 4K save's, seen at the preview's size, in
+#: gradient ratio (the share of a 60 px tile's detail the blur keeps; mean over the tiles, and
+#: the middle third of the picture). Qt's half-resolution blur measured 0.394 / 0.366 apart
+#: (preview 0.527, save 0.917); the picture-relative blur of ADR-072's addendum is the gate.
+BLUR_PARITY_MEAN = 0.06
+BLUR_PARITY_MIDDLE = 0.06
+#: The slider (#743, 3D review): from 0.05 to 1.0 the share of 60 px tiles that lost a fifth
+#: of their detail rises by at least this, and the tile under the focus keeps 0.9 of its own.
+SLIDER_SOFT_RISE = 0.20
+SLIDER_FOCUS_KEPT = 0.9
+#: The blur bench (#743): levels the in-focus bar's colour may add to the blurred wall beside it
+#: (measured 0.0; Qt's blur 7-8 at 4K), how far a preview's measure may lie from a 4K save's as a
+#: share of the save's (measured 10 % and 20 %; Qt's 260 %), and the near bar's rim at 360 px and
+#: at 4K (measured 20 and 4; 47 at 360 px with full-weight silhouettes, PF-E3D-27).
+BENCH_FRINGE = 1.0
+BENCH_SHARE_TOLERANCE = 0.30
+BENCH_RIM = (26.0, 8.0)
+#: #799: the largest alternation (luma, ``_alternation``: a step every second frame) of a
+#: day lapse's sky band and whole frame between a -8° and a +8° sun, at dawn and at dusk -
+#: the issue's 0.3. Measured on the base: 0.66-1.74; with the recording's exact sky:
+#: 0.04-0.07. The rig's deliberate corners, by sun elevation, that the measure leaves out.
+DAYLAPSE_ALTERNATION = 0.3
+DAYLAPSE_CORNERS_DEG = (NIGHT_BELOW_DEG, TWILIGHT_DEG, GOLDEN_DEG, TWILIGHT_DEG + DEW_RISE_DEG)
 
 
 def drive(tmp_path: Path, scenario: str, **env: str) -> dict[str, Any]:
@@ -97,6 +123,28 @@ def test_every_size_comes_out_exact_and_shows_something(host_answers: dict[str, 
         assert not row["flat"], name
 
 
+#: #734: a still picture's shadow map fitted to the casters against the view's locked fit, on
+#: the bench plan at 38° (medium, 640 x 360). Measured on the RTX 4070: 6.0 % of the pixels
+#: more than 8 levels apart, mean 1.32 - every one along a shadow's edge or in a canopy's
+#: self-shadow. Below the floor the fit did nothing; above the ceiling it changed more than
+#: shadow edges.
+FITTED_CHANGED_SHARE = (0.01, 0.15)
+FITTED_MEAN = 3.0
+
+
+def test_a_still_pictures_fitted_shadows_change_only_its_own_frame(host_answers: dict[str, Any]) -> None:
+    """#734: ``capture(fitted_shadows=True)`` - what a photo, an agent's picture and a held
+    camera's frame ask for - sharpens the shadow map for that frame and puts the view's fit
+    back: the view grabbed after it is the view to the level. The default capture stays the
+    view (``test_a_capture_at_the_views_size_is_the_view``; the self-test checks the same)."""
+    fitted = host_answers["fitted"]
+    low, high = FITTED_CHANGED_SHARE
+    assert low <= fitted["changed_share"] <= high, fitted
+    assert fitted["mean"] <= FITTED_MEAN, fitted
+    assert fitted["view_after"]["max"] <= SAME, fitted
+    assert fitted["flag_after"] is False, fitted
+
+
 def test_another_camera_moves_nothing_on_screen(host_answers: dict[str, Any]) -> None:
     assert host_answers["other_vs_view"]["mean"] > 5.0, "the picture really is from elsewhere"
     assert host_answers["view_after_capture"]["max"] <= SAME
@@ -114,6 +162,53 @@ def test_photo_settings_develop_the_picture_and_off_is_the_view_again(host_answe
     assert host_answers["no_photo_again"]["max"] <= SAME
     assert host_answers["photo_override"]["max"] <= SAME, "an agent's picture is undeveloped"
     assert host_answers["photo_kept"], "and the owner's settings stay"
+
+
+def test_a_saved_photo_has_the_blur_its_preview_shows(host_answers: dict[str, Any]) -> None:
+    """#743: Qt's blur was about 2 px at any picture size, so a 4K save was much sharper than the
+    pane that previewed it (0.53 against 0.92 of the detail kept). The blur is a share of the
+    picture's height: the save, shrunk to the preview's size, keeps what the preview keeps."""
+    parity = host_answers["blur"]["parity"]
+    assert parity["tiles"] >= 20, parity
+    assert parity["preview_mean"] < 0.85, f"blur 0.8 really blurs: {parity}"
+    assert parity["mean_abs_difference"] <= BLUR_PARITY_MEAN, parity
+    assert abs(parity["preview_middle"] - parity["save_middle"]) <= BLUR_PARITY_MIDDLE, parity
+
+
+def test_the_blur_slider_moves_the_picture_and_keeps_the_focus_sharp(
+        host_answers: dict[str, Any]) -> None:
+    """The 3D review of #729: the only pin was ``mean > 1.0``, which passed while the owner saw
+    no difference between a high and a low blur."""
+    slider = host_answers["blur"]["slider"]
+    faint, strong = slider["0.05"], slider["1.0"]
+    assert strong["soft_share"] - faint["soft_share"] >= SLIDER_SOFT_RISE, slider
+    for row in (faint, strong):
+        assert row["focus_ratio"] >= SLIDER_FOCUS_KEPT, slider
+
+
+def test_the_blur_bleeds_no_sharp_colour_and_softens_a_near_edge(tmp_path: Path) -> None:
+    """#743 on a bench with known answers (``photoblur_bench.qml``, the product's PhotoBlur.qml).
+    Qt's blur, measured on the same bench: a 7-8 level fringe of the in-focus bar on the blurred
+    wall at 4K, a thin far line 3.6 times wider (as a share of the picture) at 360 px than at 4K,
+    and the near bar's edge 1 px wide at 4K. PF-E3D-27: the bar's rim read 47 levels at 360 px
+    while a multisampled edge pixel had full weight."""
+    result = drive(tmp_path, "blur_bench")
+    small, large = result["360"], result["2160"]
+    for size in (small, large):
+        blurred, sharp = size["blurred"], size["sharp"]
+        assert blurred["fringe"] <= BENCH_FRINGE, size
+        assert blurred["line_humps"] == 1, f"one smooth hump, no copies: {size}"
+        assert blurred["line_width_share"] > 1.6 * sharp["line_width_share"], size
+        assert blurred["near_edge_share"] >= 2.5 * sharp["near_edge_share"], f"a soft near edge: {size}"
+    shares = [(small["blurred"][key], large["blurred"][key]) for key in ("line_width_share", "near_edge_share")]
+    for preview, save in shares:
+        assert abs(preview - save) <= BENCH_SHARE_TOLERANCE * save, shares
+    assert small["blurred"]["near_rim"] <= BENCH_RIM[0] and large["blurred"]["near_rim"] <= BENCH_RIM[1], result
+
+
+def test_no_blur_with_a_focus_is_the_view_to_the_level(host_answers: dict[str, Any]) -> None:
+    """Blur 0 draws no blur effect at all: the frame is the view's, not a level apart."""
+    assert host_answers["blur"]["zero"]["max"] == 0, host_answers["blur"]["zero"]
 
 
 def test_the_engine_reported_nothing(host_answers: dict[str, Any]) -> None:
@@ -139,11 +234,17 @@ def test_a_grades_table_is_the_view_through_it_and_turns_nothing_red(tmp_path: P
 
 def test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down(tmp_path: Path) -> None:
     """Ultra's reflections + glow + occlusion with depth of field in one chain crashed d3d11.dll
-    at an owner's first focus click (#390's manual test): no result file, a dead process."""
+    at an owner's first focus click (#390's manual test): no result file, a dead process. With
+    the app's own blur in Qt's place the chain still crashes (#744: with glow, ANY two effects
+    ahead of Qt's scene effect - 3 of 3 on Ultra with reflections kept), so reflections still
+    stand down while the blur is drawn, and come back with it."""
     result = drive(tmp_path, "ultra_blur")
     rows = result["rows"]
+    assert result["reflections_without_blur"], "Ultra draws reflections"
+    assert rows["0.0"]["reflections_drawn"], "and has them back when the blur is off"
     for blur in ("0.3", "1.0"):
         assert rows[blur]["blur_drawn"], blur
+        assert not rows[blur]["reflections_drawn"], f"PF-E3D-21: reflections under blur {blur}"
         assert rows[blur]["capture_vs_sharp"]["mean"] > 0.05, f"blur {blur} changed nothing: {rows[blur]}"
     assert rows["1.0"]["capture_vs_sharp"]["mean"] > rows["0.3"]["capture_vs_sharp"]["mean"]
     assert not rows["0.0"]["blur_drawn"]
@@ -166,6 +267,14 @@ def test_a_tour_writes_every_frame_and_leaves_the_view_where_it_was(tmp_path: Pa
     assert video["duration_ms"] == 2000 and video["size"] == [1280, 720], video
     assert video["frames"] == result["expected_frames"], video
     assert result["camera_kept"] and result["clock_kept"]
+    # #807: the file states BT.709 limited range everywhere, every frame lasts a 30th of a
+    # second, and the profile is what Windows' encoder writes (Qt cannot ask for another)
+    stream = result["stream"]
+    assert stream["tagged"] == [1, 1, 1, False], stream
+    assert stream["samples"] == result["expected_frames"]
+    assert stream["deltas"] == [stream["timescale"] // 30], stream
+    assert stream["codec"] != "avc1" or stream["profile"] == "Constrained Baseline", stream
+    assert stream["mbit_s"] > 0.0
 
 
 def test_a_tours_frames_show_the_plants_as_the_view_would_from_there(tmp_path: Path) -> None:
@@ -209,6 +318,56 @@ def test_a_year_time_lapse_does_not_jump_at_the_clock_change(
     steps = dst["luma_steps"]
     assert max(steps) <= DST_STEP_BOUND, dst
     assert dst["clock_back"]
+
+
+def _alternation(rows: list[dict[str, Any]], key: str) -> dict[str, float]:
+    """How much of a lapse's series ``key`` steps every SECOND frame (#799), over the
+    frames whose sun lies between -8° and +8°.
+
+    ``zigzag``: the survey's measure, ``z[i] = x[i] - (x[i-1] + x[i+1]) / 2``, RMS. It also
+    reads a smooth curve's bend and the rig's deliberate corners (the sun's key light at
+    0.5°, the anchors at ±6°, the dew's full point at -2°), so it is reported, not gated.
+    ``alternation``: the third difference over eight, ``(x[i+3] - 3 x[i+2] + 3 x[i+1] -
+    x[i]) / 8`` - exactly ``a`` for a step of ±a every second frame and 0 for any quadratic
+    trend - RMS over the four-frame spans that hold none of those corners."""
+    elevations = np.array([row["elev"] for row in rows], dtype=np.float64)
+    series = np.array([row[key] for row in rows], dtype=np.float64)
+    inner = elevations[1:-1]
+    zig = (series[1:-1] - (series[:-2] + series[2:]) / 2.0)[(inner > -8.0) & (inner < 8.0)]
+    third = (series[3:] - 3.0 * series[2:-1] + 3.0 * series[1:-2] - series[:-3]) / 8.0
+    low = np.minimum(elevations[:-3], elevations[3:])
+    high = np.maximum(elevations[:-3], elevations[3:])
+    keep = (low > -8.0) & (high < 8.0)
+    for corner in DAYLAPSE_CORNERS_DEG:
+        keep &= ~((low <= corner) & (corner <= high))
+    return {"zigzag": float(np.sqrt(np.mean(zig ** 2))),
+            "alternation": float(np.sqrt(np.mean(third[keep] ** 2))), "spans": int(keep.sum())}
+
+
+def test_a_day_lapse_does_not_flicker_at_dawn_or_dusk(tmp_path: Path) -> None:
+    """#799: a held-camera day lapse moves the sun about 0.6° a frame. The sky and its light
+    probe followed only every 1° (the live view's rule) while the light and the exposure
+    followed every frame, so the family garden's default view stepped every second frame:
+    sky band zigzag 3.86 / 1.80 luma (dawn / dusk), alternation 1.74 / 0.89; whole frame
+    alternation 0.80 / 0.66. A recorded frame now builds the sky of its own sun: alternation
+    0.04-0.07 everywhere (``DAYLAPSE_ALTERNATION``)."""
+    result = drive(tmp_path, "daylapse")
+    for name in ("dawn", "dusk"):
+        run = result["runs"][name]
+        assert run["ok"] and run["unsettled"] == 0 and run["files"] == run["frames"] == 42, run
+        rows = run["rows"]
+        elevations = [row["elev"] for row in rows]
+        assert min(elevations) < -8.0 and max(elevations) > 8.0, (name, elevations)
+        steps = [abs(b - a) for a, b in zip(elevations, elevations[1:], strict=False)]
+        assert 0.3 < float(np.median(steps)) < 0.7, ("the survey's step of sun", steps)
+        # every frame in twilight and by day was taken under the sky of its own sun
+        lagging = [row for row in rows if -6.0 < row["elev"] < 8.0 and row["sky_elev"] is not None
+                   and abs(row["sky_elev"] - row["elev"]) > 1e-3]
+        assert not lagging, (name, lagging)
+        for key in ("sky_luma", "frame_luma"):
+            measured = _alternation(rows, key)
+            assert measured["spans"] >= 15, (name, key, measured)
+            assert measured["alternation"] < DAYLAPSE_ALTERNATION, (name, key, measured)
 
 
 def test_a_4k_picture_keeps_the_low_suns_horizon_band_within_1080ps_look(

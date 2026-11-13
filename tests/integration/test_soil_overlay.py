@@ -209,6 +209,51 @@ class TestOverlayPainting:
             # overlay lives in view.drawForeground, not scene.drawForeground.
             spy.assert_not_called()
 
+    def test_the_plan_and_the_legend_hatch_an_untested_bed_in_one_grey(
+        self, view_with_service: tuple, qtbot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """One definition (``SoilService.unknown_rgba``): the legend held a copy of the
+        view's literal, and nothing kept the two together."""
+        from open_garden_planner.services import soil_service
+        from open_garden_planner.ui.widgets.soil_overlay_legend import _Swatch
+
+        view, _svc, _ = view_with_service
+        view.set_soil_overlay_visible(True)
+        view.resize(400, 400)
+        view.fit_in_view()
+        swatch = _Swatch(HealthLevel.UNKNOWN)
+        qtbot.addWidget(swatch)
+
+        def magentas(image: QImage) -> int:
+            return sum(
+                1 for x in range(image.width()) for y in range(image.height())
+                if (image.pixelColor(x, y).red() > 200 and image.pixelColor(x, y).blue() > 200
+                    and image.pixelColor(x, y).green() < 80))
+
+        def plan() -> QImage:
+            image = QImage(200, 200, QImage.Format.Format_ARGB32)
+            image.fill(0)
+            painter = QPainter(image)
+            view.render(painter, QRectF(0, 0, 200, 200), view.rect())
+            painter.end()
+            return image
+
+        assert magentas(plan()) == 0 and magentas(swatch.grab().toImage()) == 0
+        assert SoilService.unknown_rgba() == (140, 140, 140, 40)
+        monkeypatch.setattr(soil_service, "_UNKNOWN_RGBA", (255, 0, 255, 255))
+        assert magentas(plan()) > 5, "the plan's hatch follows the one definition"
+        assert magentas(swatch.grab().toImage()) > 5, "and so does the legend's chip"
+
+    def test_the_untested_grey_is_written_once_in_the_source(self) -> None:
+        from pathlib import Path
+
+        import open_garden_planner
+
+        root = Path(open_garden_planner.__file__).parent
+        holders = [path.relative_to(root).as_posix() for path in sorted(root.rglob("*.py"))
+                   if "140, 140, 140, 40" in path.read_text(encoding="utf-8")]
+        assert holders == ["services/soil_service.py"]
+
     @staticmethod
     def _render_view(view: CanvasView) -> None:
         """Trigger drawForeground by rendering the view to an offscreen image."""

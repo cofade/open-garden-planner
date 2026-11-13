@@ -20,7 +20,7 @@ import datetime
 from typing import Any
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFontMetrics
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -28,11 +28,11 @@ from PyQt6.QtWidgets import (
     QMenu,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
+from open_garden_planner.core.sim_clock import plan_day_of
 from open_garden_planner.services.task_generator import (
     Task,
     build_plan_state,
@@ -41,7 +41,15 @@ from open_garden_planner.services.task_generator import (
 )
 from open_garden_planner.services.task_status import effective_status
 from open_garden_planner.ui.icons import get_icon
-from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_color, urgency_dot
+from open_garden_planner.ui.theme import (
+    URGENCY_TOKENS,
+    set_compact,
+    set_text_role,
+    theme_color,
+    urgency_dot,
+)
+from open_garden_planner.ui.views.task_text import task_row_text
+from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 
 # ``build_plan_state`` lives in the (Qt-free) task_generator module now and is
 # shared with the planting-calendar dashboard (#228); re-exported here for the
@@ -84,6 +92,9 @@ class TasksView(QWidget):
         self._cmd = command_manager
         self._soil_service: Any | None = None
         self._frost_alerts: list = []
+        #: Each row's action buttons sit in a box; all boxes get one width after
+        #: a rebuild, so the columns left of them line up (#796).
+        self._action_boxes: list[QWidget] = []
 
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setSingleShot(True)
@@ -148,9 +159,12 @@ class TasksView(QWidget):
     def refresh(self) -> None:
         """Rebuild the task list from current project state."""
         self._clear_content()
+        self._action_boxes = []
         try:
             state = build_plan_state(
-                self._scene, self._pm, self._frost_alerts, self._soil_service
+                self._scene, self._pm, self._frost_alerts, self._soil_service,
+                today=plan_day_of(self._scene),
+                weather_today=datetime.date.today(),
             )
         except RuntimeError:
             return  # scene torn down (shutdown)
@@ -201,21 +215,44 @@ class TasksView(QWidget):
                 self.tr("Done"), theme_color("text_disabled"), done, is_done=True
             )
 
+        self._align_action_columns()
+
         if not any_rows and not snoozed and not done:
             empty = QLabel(self.tr("No tasks — you're all caught up."))
             set_text_role(empty, color_role="secondary")
             empty.setStyleSheet("padding: 24px;")
             self._content_layout.insertWidget(self._content_layout.count() - 1, empty)
 
+    def _align_action_columns(self) -> None:
+        """Give every row's action box the width of the widest one.
+
+        A row has one to four buttons (Done / Snooze, then Dismiss or Edit +
+        Delete). Right-aligned as they were, each extra button pushed the date
+        and the arrow of ITS row to the left, so those two columns zig-zagged
+        down the list (#796). The boxes are measured, never a constant: the
+        button texts are translated.
+        """
+        if not self._action_boxes:
+            return
+        width = max(box.sizeHint().width() for box in self._action_boxes)
+        for box in self._action_boxes:
+            box.setFixedWidth(width)
+
     @staticmethod
     def _bucket(task: Task, today: datetime.date) -> str:
         """Render-time urgency bucket for a task (manual tasks may fall outside
-        the generators' actionable window, so re-derive defensively)."""
+        the generators' actionable window, so re-derive defensively).
+
+        A frost alert is REAL-WORLD data (#859): it is bucketed against the wall
+        day, not the plan's simulated day, or a live warning would read as years
+        overdue on a plan standing in 2031.
+        """
         if task.start_date is not None and task.end_date is not None:
-            urgency = classify_urgency(task.start_date, task.end_date, today)
+            reference = datetime.date.today() if task.source == "frost" else today
+            urgency = classify_urgency(task.start_date, task.end_date, reference)
             if urgency is not None:
                 return urgency
-            return "overdue" if task.end_date < today else "upcoming"
+            return "overdue" if task.end_date < reference else "upcoming"
         return "no_date"
 
     def _clear_content(self) -> None:
@@ -265,69 +302,84 @@ class TasksView(QWidget):
         dot.setPixmap(urgency_dot(QColor(color)))
         layout.addWidget(dot)
 
-        label = QLabel(self._row_text(task))
-        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        # Elided: a long title and its notes must not push the row's date,
+        # arrow and buttons out of view (a label is never narrower than its text).
+        label = ElidedLabel(self._row_text(task))
         if is_done:
             set_text_role(label, color_role="disabled")
             label.setStyleSheet("text-decoration: line-through;")
         layout.addWidget(label, 1)
 
-        if task.start_date is not None:
-            date_lbl = QLabel(task.start_date.isoformat())
-            set_text_role(date_lbl, color_role="secondary")
-            layout.addWidget(date_lbl)
+        # The date, the arrow and the action box are three COLUMNS: every row
+        # has all three at the same width, filled or not (#796).
+        date_lbl = QLabel(task.start_date.isoformat() if task.start_date is not None else "")
+        set_text_role(date_lbl, color_role="secondary")
+        date_lbl.setFixedWidth(QFontMetrics(date_lbl.font()).horizontalAdvance("8888-88-88") + 6)
+        layout.addWidget(date_lbl)
 
         # Navigate
+        go = QPushButton()
+        go_icon = get_icon("go_to")
+        if go_icon is not None:
+            go.setIcon(go_icon)
+        go.setFixedWidth(28)
+        set_compact(go)
+        go.setToolTip(self.tr("Show on canvas"))
+        policy = go.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        go.setSizePolicy(policy)
+        layout.addWidget(go)
         if task.bed_id or task.species_key or task.item_ids:
-            go = QPushButton()
-            go_icon = get_icon("go_to")
-            if go_icon is not None:
-                go.setIcon(go_icon)
-            go.setFixedWidth(28)
-            go.setToolTip(self.tr("Show on canvas"))
             go.clicked.connect(lambda _=False, t=task: self._navigate(t))
-            layout.addWidget(go)
+        else:
+            go.hide()
+
+        actions = QWidget()
+        action_layout = QHBoxLayout(actions)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setSpacing(6)
+        layout.addWidget(actions)
+        self._action_boxes.append(actions)
+
+        def add_action(text: str) -> QPushButton:
+            # No fixed width: the 56 px of "Done" cut "Erledigt". A row button
+            # is as wide as its text, without the dialog-button minimum.
+            button = QPushButton(text)
+            set_compact(button)
+            action_layout.addWidget(button)
+            return button
 
         if snoozed:
-            unsnooze = QPushButton(self.tr("Un-snooze"))
+            unsnooze = add_action(self.tr("Un-snooze"))
             unsnooze.clicked.connect(lambda _=False, t=task: self._pm.clear_task_status(t.task_id))
-            layout.addWidget(unsnooze)
-            return row
-
-        if not is_done:
-            done_btn = QPushButton(self.tr("Done"))
-            done_btn.setFixedWidth(56)
+        elif not is_done:
+            done_btn = add_action(self.tr("Done"))
             done_btn.clicked.connect(lambda _=False, t=task: self._mark_done(t))
-            layout.addWidget(done_btn)
 
-            snooze_btn = QPushButton(self.tr("Snooze"))
+            snooze_btn = add_action(self.tr("Snooze"))
             snooze_btn.clicked.connect(lambda _=False, t=task, b=snooze_btn: self._snooze_menu(t, b))
-            layout.addWidget(snooze_btn)
 
             if task.source == "manual":
-                edit_btn = QPushButton(self.tr("Edit"))
-                edit_btn.setFixedWidth(48)
+                edit_btn = add_action(self.tr("Edit"))
                 edit_btn.clicked.connect(lambda _=False, t=task: self._edit_manual(t))
-                layout.addWidget(edit_btn)
-                del_btn = QPushButton(self.tr("Delete"))
+                del_btn = add_action(self.tr("Delete"))
                 del_btn.clicked.connect(lambda _=False, t=task: self._delete_manual(t))
-                layout.addWidget(del_btn)
             elif task.dismissible:
-                dismiss_btn = QPushButton(self.tr("Dismiss"))
+                dismiss_btn = add_action(self.tr("Dismiss"))
                 dismiss_btn.clicked.connect(
                     lambda _=False, t=task: self._pm.set_task_status(t.task_id, "dismissed")
                 )
-                layout.addWidget(dismiss_btn)
         else:
-            reopen = QPushButton(self.tr("Reopen"))
+            reopen = add_action(self.tr("Reopen"))
             reopen.clicked.connect(lambda _=False, t=task: self._pm.clear_task_status(t.task_id))
-            layout.addWidget(reopen)
+        action_layout.addStretch(1)
         return row
 
     def _row_text(self, task: Task) -> str:
+        label = task_row_text(task.task_type, task.title)
         if task.notes:
-            return f"{task.title} — {task.notes}"
-        return task.title
+            return f"{label} — {task.notes}"
+        return label
 
     # ── actions ───────────────────────────────────────────────────────────────
     def _navigate(self, task: Task) -> None:
@@ -340,7 +392,7 @@ class TasksView(QWidget):
 
     def _mark_done(self, task: Task) -> None:
         self._pm.set_task_status(
-            task.task_id, "done", done_date=datetime.date.today().isoformat()
+            task.task_id, "done", done_date=plan_day_of(self._scene).isoformat()
         )
 
     def _snooze_menu(self, task: Task, anchor: QWidget) -> None:
@@ -348,7 +400,7 @@ class TasksView(QWidget):
 
         menu = QMenu(self)
         menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        today = datetime.date.today()
+        today = plan_day_of(self._scene)
         options = [
             (self.tr("1 day"), 1),
             (self.tr("1 week"), 7),

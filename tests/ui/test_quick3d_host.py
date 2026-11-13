@@ -853,6 +853,34 @@ class TestSky:
         host.set_sky(replace(sky, model="painted"))
         assert host.scene_property("atmosphereBuilt") is False and _sky_texture(host) is not None
 
+    def test_a_new_weather_at_the_same_sun_refills_the_atmospheres_profile(self, host) -> None:
+        """#716: the sky-view table's alpha is the painted sky's per-elevation profile, so a
+        weather at the same sun must refill the ONE table (never a new Texture), and the
+        same sky must not."""
+        from dataclasses import replace
+
+        import numpy as np
+
+        from open_garden_planner.core.scene3d.atmosphere_lut import sky_profile
+        from open_garden_planner.core.scene3d.look import ATMOSPHERE
+        from open_garden_planner.core.scene3d.weather import living_look
+        from open_garden_planner.ui.view3d.quick3d.look import atmosphere_sun_direction, painted_sky
+
+        sun = SunState(8.0, 250.0)
+        clear = replace(living_look(sun, "high", "clear").sky, model=ATMOSPHERE)
+        host.set_sky(clear)
+        table = host._sky_view
+        assert table is not None and table.painted == painted_sky(clear)
+        first = bytes(table.textureData())
+        overcast = replace(living_look(sun, "high", "overcast").sky, model=ATMOSPHERE)
+        assert atmosphere_sun_direction(overcast) == atmosphere_sun_direction(clear)
+        host.set_sky(overcast)
+        assert host._sky_view is table, "one table for the host's life, refilled"
+        assert table.painted == painted_sky(overcast) and bytes(table.textureData()) != first
+        alpha = np.frombuffer(bytes(table.textureData()), dtype="<f2").reshape(128, 128, 4)[..., 3]
+        expected = sky_profile(atmosphere_sun_direction(overcast), painted_sky(overcast))
+        assert np.allclose(alpha[:, 0], expected.astype(np.float16))
+
     def test_without_the_probe_the_atmosphere_alone_backs_the_view(self, host) -> None:
         """``sky_probe`` False (the self-test on a machine without a GPU): no painted
         sky, no probe to filter — the atmosphere backs the frame alone."""
@@ -2664,8 +2692,9 @@ def test_a_capture_restores_the_view_when_its_resting_frame_raises(host) -> None
     host._drop_capture_view = refuse  # type: ignore[method-assign]
     with pytest.raises((RuntimeError, EngineError), match="resting frame|no picture|refused"):
         host.capture((64, 48), PerspectiveShot((10.0, 10.0, 500.0), (10.0, 10.0, 0.0)),
-                     wind_time_s=3.0)
+                     wind_time_s=3.0, fitted_shadows=True)
     assert host.scene_property("captureAoDistanceScale") == 1.0, "the view's own occlusion"
+    assert host.scene_property("fittedShadows") is False, "the view's own shadow fit (#734)"
     assert host.scene_property("selectionVisible") is True, "the ring is the view's again"
     assert host.scene_property("windTime") == wind_before
     assert host._camera_scene == PerspectiveShot(  # noqa: SLF001

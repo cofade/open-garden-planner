@@ -442,6 +442,7 @@ class Workspace(QWidget):
         self._scene: QGraphicsScene | None = None
         self._clock: SimClock | None = None
         self._location: LocationProvider = lambda: None
+        self._north: Callable[[], float] = lambda: 0.0
         self._ui_state: Any = None
         self._pane: _Pane3D | None = None
         self._host: EngineHost | None = None
@@ -500,12 +501,16 @@ class Workspace(QWidget):
         # on the widget itself too: the shortcuts work whichever button row is shown
         self.addActions(self.mode_actions())
         self._floating = ModeSwitch(self.mode_actions(), self)
+        #: True once a host window has taken the switch into its own chrome
+        #: (``adopt_mode_switch``): it no longer floats over the canvas.
+        self._switch_adopted = False
         self._place_floating()
 
     # ── wiring ───────────────────────────────────────────────────────────────
 
     def connect_plan(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
-                     command_manager: Any = None, ui_state: Any = None) -> None:
+                     command_manager: Any = None, ui_state: Any = None, *,
+                     north: Any = None) -> None:
         """What the 3D pipeline reads: the canvas scene, the one sim clock, the garden
         location and, optionally, the store the Split position is kept in.
 
@@ -521,6 +526,7 @@ class Workspace(QWidget):
         validation). The workspace listens to it here; nobody tells it by hand."""
         del command_manager
         self._scene, self._clock, self._location = scene, clock, location
+        self._north = north or (lambda: 0.0)
         self._ui_state = ui_state
         self._living.connect_clock(clock)  # L5: a new plan date may change today's weather
         replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
@@ -709,10 +715,25 @@ class Workspace(QWidget):
         self._camera.frame(controller.plan_bounds(), self._aspect())
         self._start_camera()
 
+    def adopt_mode_switch(self) -> QWidget:
+        """Hand the Plan / 3D / Split row to the window that hosts the workspace.
+
+        On its own the switch floats over the canvas and covers the plan's
+        top-left corner (#796). A host with chrome of its own — the main window
+        puts it on the tab bar's row — takes it here and lays it out itself.
+        WHEN it shows stays the workspace's decision (Plan and Split, with the
+        rest of the chrome; in 3D the pane's strip has its own), so the caller
+        must not show or hide the widget — only a container around it.
+        """
+        self._switch_adopted = True
+        self._floating.setAutoFillBackground(False)
+        self._floating.setFrameShape(QFrame.Shape.NoFrame)
+        return self._floating
+
     def _place_floating(self) -> None:
         visible = self._chrome_visible and self._mode is not WorkspaceMode.VIEW3D
         self._floating.setVisible(visible)
-        if visible:
+        if visible and not self._switch_adopted:
             self._floating.move(_FLOAT_OFFSET, _FLOAT_OFFSET)
             self._floating.raise_()
 
@@ -861,7 +882,7 @@ class Workspace(QWidget):
             # ONE baker for this engine's life: it holds the ground's tiles, and paints
             # for at most its budget (10 ms) a pass — the controller runs the rest
             controller = Scene3DController(scene, clock, self._location, sink, parent=self,
-                                           ground_baker=GroundBaker())
+                                           ground_baker=GroundBaker(), north=self._north)
             from ...core.scene3d.look import PRESET_SPECS
 
             controller.set_lawn_blades(PRESET_SPECS[look.preset].lawn_blades)
@@ -1180,6 +1201,15 @@ class Workspace(QWidget):
             self._analysis.location_changed()  # L2: the sun path is the place's
             self._update_legend()
         self._refresh_forge()
+
+    def north_changed(self, *_arguments: object) -> None:
+        """The plan's north orientation changed (#663): relight the 3D sun and
+        rebuild the sun path and compass for the new frame."""
+        if self._controller is not None:
+            self._controller.refresh_sun()
+        if self._analysis is not None:
+            self._analysis.north_changed()
+            self._update_legend()
 
     def _on_applied(self, report: TickReport) -> None:
         # A pass went through: the build is over, and so is a failed update. What the
@@ -1616,6 +1646,7 @@ class Workspace(QWidget):
             is_walking=lambda: self.walking,
             default_path=lambda name: self.default_save_path(name),
             parent=self,
+            aim_lamps=self._living.aim_lamps,   # a picture's own lamps (#687)
         )
         self._capture.photo_mode_changed.connect(lambda _on: self._refresh_notices())
         self._selection_coordinator.take_click = self._capture.take_click
@@ -1624,6 +1655,7 @@ class Workspace(QWidget):
             get_controller=lambda: self._controller,
             get_clock=lambda: self._clock,
             get_location=lambda: self._location(),
+            get_north=lambda: self._north(),
             get_scene=lambda: self._scene,
             get_camera_now=self._camera_now,
             get_held_parts=lambda: self._walk_coordinator.held_parts(),

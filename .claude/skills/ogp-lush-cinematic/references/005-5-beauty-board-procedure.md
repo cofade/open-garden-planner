@@ -17,9 +17,12 @@ venv/Scripts/python.exe scripts/render_beauty_board.py --out <dir>   --presets l
 -s "-screen 0 1920x1080x24"` and use `venv/bin/python`.) `--plan` takes another plan
 (`bench_large.ogp`), `--size` the frame (`960x540` is what the L0 and L1.4 boards were judged
 at), `--dusk` the evening from 6° to −7° on the golden-hour camera (must fade monotonically;
-sunset no larger a step than a half degree of the day ramp), `--fence` the plan's fences alone
-against a 2x-supersampled render (aliasing), `--edge` the plan ground against the meadow along
-its edges (a step ≤ 1 luma), `--software` renders on the graphics API's software adapter (WARP: the workspace's
+sunset no larger a step than a half degree of the day ramp; since #802 the garden's own
+light too — `ground_luminance`, the rows below the horizon — on that camera, and for the
+clear evening's first preset on the view's default framing: `ground_monotone` /
+`default_monotone`), `--fence` the plan's fences alone
+against a 2x-supersampled render (aliasing), `--meadow` the meadow's grass (#798: the flat share of the default framing and the walk camera, the far meadow's flicker in an orbit and a low flight, the repeat from 60 m above; `--open-ground` / `--meadow-surface` override the owner's switch and the preset's surface, `--meadow-stills` renders the stills only), `--edge` the plan ground against the meadow along
+its edges (a step ≤ 1 luma; since #798 on the frame less the same view without a plan, so the grass cancels), `--software` renders on the graphics API's software adapter (WARP: the workspace's
 compatibility mode — no sky texture, a plain sky and a flat fill), `--fps-seconds N` shows a
 window and measures the frames it PRESENTS per preset with the wind running (and, labelled as
 such, the cost of a finished readback), `--list` prints the shots and their suns. `<dir>/board.log`

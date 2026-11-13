@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.i18n import format_decimal
+from open_garden_planner.core.plant_cycle_label import plant_cycle_label
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.services.plant_api import (
     PlantAPIManager,
@@ -387,12 +389,7 @@ class PlantSearchDialog(QDialog):
             html += "</ul>"
 
         # Growing requirements
-        _cycle_names = {
-            "unknown": self.tr("Unknown"),
-            "annual": self.tr("Annual"),
-            "biennial": self.tr("Biennial"),
-            "perennial": self.tr("Perennial"),
-        }
+        cycle_name = plant_cycle_label(plant.cycle, unknown=self.tr("Unknown"))
         _sun_names = {
             "unknown": self.tr("Unknown"),
             "full_sun": self.tr("Full Sun"),
@@ -407,7 +404,7 @@ class PlantSearchDialog(QDialog):
             "high": self.tr("High"),
         }
         html += f"<h3>{self.tr('Growing Requirements')}</h3><ul>"
-        html += f"<li><b>{self.tr('Cycle:')}</b> {_cycle_names.get(plant.cycle.value, plant.cycle.value)}</li>"
+        html += f"<li><b>{self.tr('Cycle:')}</b> {cycle_name}</li>"
         html += f"<li><b>{self.tr('Sun:')}</b> {_sun_names.get(plant.sun_requirement.value, plant.sun_requirement.value)}</li>"
         html += f"<li><b>{self.tr('Water:')}</b> {_water_names.get(plant.water_needs.value, plant.water_needs.value)}</li>"
 
@@ -426,10 +423,10 @@ class PlantSearchDialog(QDialog):
             html += f"<h3>{self.tr('Size')}</h3><ul>"
             if plant.max_height_cm:
                 height_m = plant.max_height_cm / 100
-                html += f"<li><b>{self.tr('Max Height:')}</b> {height_m:.1f} m</li>"
+                html += f"<li><b>{self.tr('Max Height:')}</b> {format_decimal(height_m, 1)} m</li>"
             if plant.max_spread_cm:
                 spread_m = plant.max_spread_cm / 100
-                html += f"<li><b>{self.tr('Max Spread:')}</b> {spread_m:.1f} m</li>"
+                html += f"<li><b>{self.tr('Max Spread:')}</b> {format_decimal(spread_m, 1)} m</li>"
             html += "</ul>"
 
         # Additional attributes

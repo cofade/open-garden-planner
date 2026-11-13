@@ -36,6 +36,7 @@ from PyQt6.QtCore import QCoreApplication
 
 from open_garden_planner.core.calendar_windows import calendar_windows as calendar_windows
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
 from open_garden_planner.models.succession import SuccessionPlan
@@ -139,6 +140,11 @@ class PlanState:
     succession_plans: dict[str, dict] = field(default_factory=dict)
     manual_tasks: tuple[ManualTask, ...] = ()
     frost_alerts: tuple[FrostAlert, ...] = ()
+    #: The REAL-WORLD day the weather forecast's alerts are expressed in (#859).
+    #: It is a different fact from ``today``: the plan may stand in 2031 while a
+    #: live frost alert names 2026. None falls back to ``today`` (an agent read
+    #: with no forecast).
+    weather_today: datetime.date | None = None
     # GUI reminder surfaces keep only actionable generated tasks. Annual agent
     # calendars opt into the complete dated schedule before applying their filter.
     actionable_only: bool = True
@@ -368,20 +374,27 @@ def generate_soil_mismatch_tasks(state: PlanState) -> list[Task]:
 
 
 def generate_frost_tasks(state: PlanState) -> list[Task]:
-    """Frost-alert reminder tasks from the weather service's alerts."""
+    """Frost-alert reminder tasks from the weather service's alerts.
+
+    A forecast is REAL-WORLD data: its alerts name real calendar days, so they
+    are classified against ``state.weather_today`` (the wall day), never the
+    plan's simulated day (#859). A plan standing in 2031 must still warn about
+    tomorrow's frost.
+    """
     tasks: list[Task] = []
+    reference = state.weather_today or state.today
     for alert in state.frost_alerts:
         alert_date = _parse_iso(alert.date)
         if alert_date is None:
             continue
-        if state.actionable_only and classify_urgency(alert_date, alert_date, state.today) is None:
+        if state.actionable_only and classify_urgency(alert_date, alert_date, reference) is None:
             continue
         task_type = (
             "frost_alert_red" if alert.severity == "red" else "frost_alert_orange"
         )
         title = QCoreApplication.translate(
             "Tasks", "Frost {temp}°C"
-        ).format(temp=f"{alert.min_temp:.1f}")
+        ).format(temp=format_decimal(alert.min_temp, 1))
         tasks.append(Task(
             task_id=f"frost:{alert.date}:{alert.severity}",
             source="frost",
@@ -472,6 +485,7 @@ def build_plan_state(
     year: int | None = None,
     actionable_only: bool = True,
     include_propagation: bool = False,
+    weather_today: datetime.date | None = None,
 ) -> PlanState:
     """Snapshot the live scene + project into a Qt-free :class:`PlanState`.
 
@@ -488,17 +502,23 @@ def build_plan_state(
     ``year`` selects the calendar/frost year independently of the reference
     date. ``actionable_only=False`` retains dated tasks outside the urgency
     window for annual calendars and explicit agent date windows; the GUI keeps
-    the default True. Urgency is always classified against ``today``.
+    the default True. Urgency is classified against ``today``.
 
     ``today`` overrides the reference date (US-D3.3). It defaults to the wall
-    clock, so both GUI callers are unaffected, but a caller that must be
-    reproducible passes it explicitly: every generator and
-    :func:`classify_urgency` already reads ``PlanState.today`` rather than
-    calling ``date.today()`` themselves, so this one parameter is the whole
-    seam. Without it an agent read of "what is due" is untestable (a suite that
-    pins "today" silently rots the day after it is written) and an agent cannot
-    name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
-    application side, which owns parsing and refusal of a malformed value.
+    clock for a caller that names no day; both GUI callers now pass the plan's
+    day (#859), and an agent passes its own explicit reference day. Every
+    generator and ``classify_urgency`` reads ``PlanState.today`` rather than
+    calling ``date.today()`` themselves — the frost generator's filter uses
+    ``weather_today`` (below) — so this parameter is the whole seam. Without it
+    an agent read of "what is due" is untestable (a suite that pins "today"
+    silently rots the day after it is written) and an agent cannot name the date
+    it reasoned about. This mirrors ``_parse_agent_date`` on the application
+    side, which owns parsing and refusal of a malformed value.
+
+    ``weather_today`` is the REAL-WORLD day a live frost forecast is expressed
+    in; it is deliberately separate from ``today`` (#859), because a plan can
+    stand in 2031 while tomorrow's frost is still real. None falls back to
+    ``today`` (a caller with no forecast).
     """
     from open_garden_planner.core.object_types import (
         get_translated_display_name,
@@ -607,6 +627,7 @@ def build_plan_state(
         succession_plans=dict(project_manager.succession_plans),
         manual_tasks=manual_tasks,
         frost_alerts=tuple(frost_alerts or ()),
+        weather_today=weather_today,
         actionable_only=actionable_only,
         propagation_species=propagation_species,
         propagation_overrides=overrides,
@@ -809,16 +830,29 @@ def generate_actionable_for_surface(
     tasks = generate_for_date_window(
         replace(state, actionable_only=False), span_start, span_end
     )
+    # Frost alerts are re-added below from their own generator, which applies the
+    # wall-day urgency rule. The window pass ran with ``actionable_only=False``,
+    # so leaving its frost tasks in could leak a non-actionable alert.
+    tasks = [task for task in tasks if task.source != "frost"]
 
     # Manual tasks are added from their OWN generator, not harvested from the
     # date-window pass: they carry absolute dates, so the span above drops a
     # long-past or far-future to-do before this function can exempt it. They need
     # no anchor-year expansion, and ``generate_manual_tasks`` documents that a
     # manual task is never filtered out by urgency.
+    #
+    # Frost alerts come from the same place for the same reason (#859): a live
+    # forecast names REAL calendar days, so its own generator classifies it
+    # against ``weather_today`` and the plan-day window must not drop it.
     listed = {t.task_id for t in tasks}
     tasks = [
         *tasks,
         *(t for t in generate_manual_tasks(state) if t.task_id not in listed),
+        *(
+            t
+            for t in generate_frost_tasks(replace(state, actionable_only=True))
+            if t.task_id not in listed
+        ),
     ]
 
     actionable: list[Task] = []
@@ -832,8 +866,10 @@ def generate_actionable_for_surface(
             # cannot be classified, so keep it rather than crash or drop it.
             actionable.append(task)
             continue
-        if task.source == "manual":
-            # Absolute-date manual task: never urgency-filtered.
+        if task.source in {"manual", "frost"}:
+            # Absolute-date tasks with their own reference day (manual: never
+            # filtered; frost: classified against the wall clock by its own
+            # generator). Never filter them against the plan's day.
             actionable.append(task)
             continue
         if classify_urgency(task.start_date, task.end_date, state.today) is not None:

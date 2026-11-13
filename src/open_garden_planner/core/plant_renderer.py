@@ -12,8 +12,8 @@ import math
 from enum import Enum, auto
 from pathlib import Path
 
-from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QColor, QImage, QPainter, QPixmap
+from PyQt6.QtCore import QRectF
+from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 
 from .object_types import ObjectType
@@ -25,6 +25,7 @@ from .plant_art.resolve import (
     SpriteRef,
     resolve_sprite,
 )
+from .sprite_raster import PixmapLru, paint_sprite, rasterise
 
 # Directory containing plant SVG files
 _PLANTS_DIR = Path(__file__).parent.parent / "resources" / "plants"
@@ -84,11 +85,15 @@ _OBJECT_TYPE_DEFAULT_CATEGORY: dict[ObjectType, PlantCategory] = {
 # Cache for QSvgRenderer instances (path -> renderer)
 _renderer_cache: dict[str, QSvgRenderer] = {}
 
-# Cache for rendered pixmaps (cache_key -> QPixmap)
-_pixmap_cache: dict[str, QPixmap] = {}
-
-# Maximum pixmap cache entries before eviction
+# Maximum pixmap cache entries and bytes before the least recently used goes.
+# These are the pixmaps ``render_plant_pixmap`` hands out at a caller's own
+# pixel size (list icons, thumbnails); what the canvas paints is cached by
+# ``core.sprite_raster.SPRITE_CACHE`` (#785).
 _PIXMAP_CACHE_MAX = 500
+_PIXMAP_CACHE_MAX_BYTES = 32 * 1024 * 1024
+
+# Cache for rendered pixmaps (cache_key -> QPixmap), least recently used first
+_pixmap_cache = PixmapLru(_PIXMAP_CACHE_MAX_BYTES, _PIXMAP_CACHE_MAX)
 
 
 def _get_renderer(svg_path: Path) -> QSvgRenderer | None:
@@ -174,6 +179,61 @@ def _stable_random_for_item(item_id: str, seed_offset: int = 0) -> float:
     return int(h[:8], 16) / 0xFFFFFFFF
 
 
+def _plant_rotation(item_id: str) -> float:
+    """The stable turn (degrees) one plant's sprite is drawn with."""
+    if not item_id:
+        return 0.0
+    return _stable_random_for_item(item_id, seed_offset=0) * 360.0
+
+
+def _draw_plant(
+    painter: QPainter, rect: QRectF, renderer: QSvgRenderer, rotation: float
+) -> None:
+    """THE way a plant sprite is drawn: turned about the middle of ``rect``."""
+    painter.save()
+    if abs(rotation) > 0.5:
+        center = rect.center()
+        painter.translate(center)
+        painter.rotate(rotation)
+        painter.translate(-center)
+    renderer.render(painter, rect)
+    painter.restore()
+
+
+def paint_plant(
+    painter: QPainter,
+    rect: QRectF,
+    object_type: ObjectType,
+    item_id: str = "",
+    species: str = "",
+    category: PlantCategory | None = None,
+    tint_color: QColor | None = None,
+) -> bool:
+    """Paint a plant's sprite into ``rect`` (item units) as fine as ``painter``
+    shows it — the canvas's way to draw a plant (#785).
+
+    The resolution is ``core.sprite_raster.paint_sprite``'s, i.e. the one rule
+    of ``core.raster_resolution``: this function never sees a pixel size.
+
+    Returns:
+        False if the type has no sprite (the caller paints its plain shape).
+    """
+    svg_path = _resolve_svg_path(object_type, species, category)
+    if svg_path is None:
+        return False
+    renderer = _get_renderer(svg_path)
+    if renderer is None:
+        return False
+    rotation = _plant_rotation(item_id)
+    return paint_sprite(
+        painter,
+        rect,
+        ("plant", str(svg_path), int(rotation)),
+        lambda p, r: _draw_plant(p, r, renderer, rotation),
+        tint=tint_color,
+    )
+
+
 def render_plant_pixmap(
     object_type: ObjectType,
     diameter: float,
@@ -217,52 +277,23 @@ def render_plant_pixmap(
     size = max(int(min(diameter, _MAX_RENDER_DIAMETER_PX)), 4)
 
     # Generate stable random rotation for this specific item
-    rotation = 0.0
-    if item_id:
-        rotation = _stable_random_for_item(item_id, seed_offset=0) * 360.0
+    rotation = _plant_rotation(item_id)
 
     # Build cache key
     tint_key = tint_color.rgba() if tint_color else 0
     cache_key = f"{svg_path}:{size}:{int(rotation)}:{tint_key}"
 
-    if cache_key in _pixmap_cache:
-        cached = _pixmap_cache[cache_key]
-        return None if cached.isNull() else cached
+    cached = _pixmap_cache.get(cache_key)
+    if cached is not None:
+        return cached
 
-    # Evict cache if too large
-    if len(_pixmap_cache) >= _PIXMAP_CACHE_MAX:
-        _pixmap_cache.clear()
-
-    # Render SVG to QImage (for compositing)
-    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
-    image.fill(Qt.GlobalColor.transparent)
-
-    painter = QPainter(image)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-
-    # Apply rotation around center
-    if abs(rotation) > 0.5:
-        center = size / 2.0
-        painter.translate(center, center)
-        painter.rotate(rotation)
-        painter.translate(-center, -center)
-
-    # Render SVG into the full area
-    renderer.render(painter, QRectF(0, 0, size, size))
-
-    # Apply color tint if specified
-    if tint_color is not None and tint_color.alpha() > 0:
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceAtop)
-        tint = QColor(tint_color.red(), tint_color.green(), tint_color.blue(), 60)
-        painter.fillRect(0, 0, size, size, tint)
-
-    painter.end()
-
-    pixmap = QPixmap.fromImage(image)
-    if pixmap.isNull():
+    # Render the SVG (turned, then tinted) to a pixmap of that size
+    pixmap = rasterise(
+        size, size, lambda p, r: _draw_plant(p, r, renderer, rotation), tint_color
+    )
+    if pixmap is None:
         return None
-    _pixmap_cache[cache_key] = pixmap
+    _pixmap_cache.put(cache_key, pixmap)
     return pixmap
 
 

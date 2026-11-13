@@ -169,6 +169,79 @@ class TestRoundingTieMargin:
         )
 
 
+class TestDetailTiles:
+    """The detail tiles (#785, ``textures/x2/``): the painter's own 512-px canvas
+    before its box downsample, emitted by the same run of the same recipe and
+    held to the same pixel gate. The app paints fills with them above 100 % zoom
+    (``core.fill_patterns.brush_for_painter``)."""
+
+    def test_registry_matches_files(self) -> None:
+        on_disk = {p.stem for p in (_TEXTURES / "x2").glob("*.png")}
+        assert on_disk == set(ALL_NAMES)
+        assert forge.detail_dir() == _TEXTURES / "x2" and forge.DETAIL_SCALE == 2
+
+    @pytest.mark.parametrize("name", ALL_NAMES)
+    def test_is_512_rgb(self, name: str) -> None:
+        with Image.open(_TEXTURES / "x2" / f"{name}.png") as im:
+            assert im.size == (forge.C, forge.C) == (512, 512), im.size
+            assert im.mode == "RGB", im.mode
+
+    @pytest.mark.parametrize("name", ALL_NAMES)
+    def test_pixels_match_generator_and_average_to_the_tile(self, name: str) -> None:
+        """One run of the recipe makes both: the committed detail tile is the
+        generator's, and its 2x2 box average is the committed 256-px tile to the
+        rounding of the two (0.75 of a level at most)."""
+        tile, detail = forge.build_both(name)
+        want = np.asarray(detail)
+        have = forge.committed_pixels(_TEXTURES / "x2" / f"{name}.png")
+        assert have is not None and have.shape == want.shape and np.array_equal(have, want), (
+            f"x2/{name}.png differs from the generator — run "
+            "scripts/generate_asset_forge_textures.py and commit"
+        )
+        blocks = want.astype(np.float64).reshape(256, 2, 256, 2, 3)
+        difference = np.abs(blocks.mean(axis=(1, 3)) - np.asarray(tile, dtype=np.float64))
+        # ... except where the canvas ran past white or black: a detail pixel is
+        # clipped on its own, the tile after the average (wildflower's petals)
+        clipped = (blocks.max(axis=(1, 3)) == 255) | (blocks.min(axis=(1, 3)) == 0)
+        assert difference[~clipped].max() <= 0.75
+
+    def test_no_pre_rint_value_sits_near_a_rounding_tie(self, monkeypatch) -> None:
+        """The cross-platform margin of ``TestRoundingTieMargin``, for the four
+        times as many values a detail tile rounds."""
+        margins: dict[str, float] = {}
+        real_finish = forge.Tile.finish
+
+        def spy(self, blur=0.0):
+            arr = self.detail_array(blur)
+            spy.last = float(np.abs((arr - np.floor(arr)) - 0.5).min())
+            return real_finish(self, blur)
+
+        monkeypatch.setattr(forge.Tile, "finish", spy)
+        for name in ALL_NAMES:
+            forge.build_texture(name)
+            margins[name] = spy.last
+        worst = min(margins, key=margins.get)
+        assert margins[worst] > TestRoundingTieMargin.MIN_TIE_MARGIN, (worst, margins[worst])
+
+    def test_check_flags_a_single_pixel_edit(self, tmp_path: Path) -> None:
+        src = _TEXTURES / "x2" / "sand.png"
+        dst = tmp_path / "sand.png"
+        with Image.open(src) as im:
+            arr = np.array(im.convert("RGB"))
+        arr[10, 10, 0] = (int(arr[10, 10, 0]) + 7) % 256
+        Image.fromarray(arr, "RGB").save(dst)
+        assert not forge.is_detail_current("sand", dst)
+        assert forge.is_detail_current("sand", src)
+
+    def test_check_reports_a_missing_detail_tile(self, tmp_path: Path, monkeypatch) -> None:
+        shutil.copy(_TEXTURES / "sand.png", tmp_path / "sand.png")
+        monkeypatch.setattr(forge, "TEXTURES_DIR", tmp_path)
+        assert forge.main(["--check", "--only", "sand"]) == 1  # the tile is there, x2/ is not
+        assert forge.main(["--only", "sand"]) == 0
+        assert (tmp_path / "x2" / "sand.png").exists()
+        assert forge.main(["--check", "--only", "sand"]) == 0
+
+
 class TestGateMechanics:
     """The determinism gate must have teeth and must not churn files."""
 

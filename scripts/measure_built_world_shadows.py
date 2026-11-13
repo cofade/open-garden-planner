@@ -13,8 +13,9 @@ What is compared, for one item at a sun elevation:
   ``core.shadow_geometry.compute_scene_shadows`` of its footprint (for a line item
   the STROKE strip, ``polyline_footprint``) extruded to its height — a solid prism,
   except (``compute_weighted_shadows``, #440) a pitched building (its roof and wall
-  triangles) and a picket, metal or chain-link fence (the strip weighted by its
-  transmittance: the ratio column).
+  triangles), a picket, metal or chain-link fence (the strip weighted by its
+  transmittance: the ratio column) and (#698) an open frame — a pergola, a trellis,
+  a swing, a hammock, a garden light — whose prism is weighted the same way.
 * **3D** — the ground shadow of the mesh its production builder makes: every
   triangle projected along the sun ray onto the ground, united. What a shadow map
   of that mesh shows, without the map's resolution.
@@ -61,7 +62,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np
 import pyclipper
 
-from open_garden_planner.core.object_height import NO_2D_SHADOW_TYPE_NAMES
+from open_garden_planner.core.object_height import (
+    NO_2D_SHADOW_TYPE_NAMES,
+    OPEN_FRAME_TYPE_NAMES,
+)
 from open_garden_planner.core.scene3d import (
     Material,
     MeshPart,
@@ -77,8 +81,11 @@ from open_garden_planner.core.scene3d.builders.fences import (
     POROUS_FENCE_STYLES,
     fence_transmittance,
 )
+from open_garden_planner.core.scene3d.builders.open_frames import open_frame_triangles_for_record
 from open_garden_planner.core.shadow_geometry import (
     GroupedCaster,
+    OpenFrame,
+    caster_transmittance,
     circle_footprint,
     compute_scene_shadows,
     compute_weighted_shadows,
@@ -190,8 +197,9 @@ def l4_cases() -> tuple[Case, ...]:
         assert height is not None
         record = (_circle(kind, size, height) if isinstance(size, float)
                   else _polygon(kind, _rectangle(*size), height))
-        result.append(Case(kind.lower().replace("_", " "), record, SOUTH,
-                           "shape and porosity vs solid 2D prism"))
+        why = ("open frame: the prism weighted by its transmittance"
+               if kind in OPEN_FRAME_TYPE_NAMES else "shape and porosity vs solid 2D prism")
+        result.append(Case(kind.lower().replace("_", " "), record, SOUTH, why))
     return tuple(result)
 
 
@@ -319,7 +327,15 @@ def caster_shadow(record: Record, elevation_deg: float,
 
 
 def caster_occlusion(record: Record, elevation_deg: float, azimuth_deg: float) -> float:
-    """Analytical 2D shadow occlusion weight ``1.0 - transmittance`` (#440)."""
+    """Analytical 2D shadow occlusion weight ``1.0 - transmittance`` (#440): a porous
+    fence's, and (#698) an open frame's — asked of the caster the production walk
+    would make of the record, through the one hook every 2D consumer reads
+    (``core.shadow_geometry.caster_transmittance``)."""
+    members = open_frame_triangles_for_record(record)
+    if members is not None:
+        caster = GroupedCaster(record.footprints, float(record.height_cm or 0.0),
+                               frame=OpenFrame(members, record.footprints[0]))
+        return 1.0 - caster_transmittance(caster, elevation_deg, azimuth_deg)
     if record.kind in ("FENCE", "WALL") and record.shape == "polyline":
         style = record.params.get("path_style")
         if isinstance(style, str) and style in POROUS_FENCE_STYLES:
@@ -363,6 +379,8 @@ def measure(selected: Sequence[Case] | None = None) -> tuple[Row, ...]:
 
 #: The table as documented (ADR-059 builders addendum, §8.29.6, ``ogp-lush-cinematic``
 #: §1): name -> (3D / 2D area, IoU, reach 3D - 2D in cm), each at 15 / 35 / 60 degrees.
+#: The area column divides by the 2D model's WEIGHTED area (a porous fence's and an open
+#: frame's transmittance, #440 / #698); the IoU is of the two outlines, unweighted.
 #: Measured by this script; ``--check`` and the test hold the builders to
 #: it within ``TOLERANCE`` (``REACH_TOLERANCE_CM`` for the reach). A builder change that
 #: moves a number updates this table AND the docs.
@@ -402,18 +420,21 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "planter pot": ((0.83, 0.81, 0.81), (0.83, 0.81, 0.81), (-0.6, -0.6, -0.3)),
     "sandbox": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "hot tub": ((1.00, 0.85, 0.60), (1.00, 0.85, 0.60), (0.0, 0.0, 0.0)),
-    "swing": ((0.17, 0.16, 0.15), (0.17, 0.16, 0.15), (-71.0, -71.0, -70.6)),
-    "hammock": ((0.21, 0.26, 0.30), (0.21, 0.26, 0.30), (-56.3, -56.3, -56.0)),
+    "swing": ((1.00, 1.00, 1.00), (0.17, 0.16, 0.15), (-71.0, -71.0, -70.6)),
+    "hammock": ((1.00, 1.00, 1.00), (0.21, 0.26, 0.30), (-56.3, -56.3, -56.0)),
     "compost bin": ((0.93, 0.94, 0.89), (0.93, 0.94, 0.89), (-0.8, -0.8, -0.5)),
     "cold frame": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "rain barrel": ((0.81, 0.79, 0.76), (0.81, 0.79, 0.76), (-20.1, -10.9, -7.5)),
     "water tap": ((0.64, 0.63, 0.61), (0.64, 0.63, 0.61), (-6.0, -6.0, -6.0)),
     "wheelbarrow": ((0.44, 0.45, 0.46), (0.44, 0.45, 0.46), (-22.0, -22.0, -22.0)),
     "bird bath": ((0.40, 0.47, 0.61), (0.40, 0.47, 0.61), (-0.8, -0.8, -0.8)),
-    "pergola": ((0.28, 0.32, 0.36), (0.28, 0.32, 0.36), (-16.7, -7.5, -3.8)),
+    # #698: the five open frames are weighted by their transmittance — the area column
+    # is 3D against the WEIGHTED 2D prism; their IoU column still shows how little of
+    # the prism the frame shades (it is that share: the frame's shadow lies inside it)
+    "pergola": ((0.99, 0.99, 0.99), (0.28, 0.32, 0.36), (-16.7, -7.5, -3.8)),
     # Phase 17 L5.4 (#389): a lantern's post and head
-    "garden light": ((0.21, 0.28, 0.37), (0.21, 0.28, 0.37), (-18.4, -12.0, -9.6)),
-    "trellis": ((0.32, 0.34, 0.39), (0.32, 0.34, 0.39), (-7.0, -7.0, -6.8)),
+    "garden light": ((1.00, 1.00, 1.00), (0.21, 0.28, 0.37), (-18.4, -12.0, -9.6)),
+    "trellis": ((1.00, 1.00, 1.00), (0.32, 0.34, 0.39), (-7.0, -7.0, -6.8)),
 }
 
 

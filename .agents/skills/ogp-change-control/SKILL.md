@@ -32,7 +32,7 @@ around — every rule below was paid for with a real incident, cited inline.
 
 Facts date-stamped **as of 2026-09-05**: released version **v1.27.7** (matching
 `pyproject.toml` and `src/open_garden_planner/__init__.py`), `.ogp` file format
-`FILE_VERSION = "1.4"` (`src/open_garden_planner/core/project.py:35` `FILE_VERSION`), default branch
+`FILE_VERSION = "1.4"` (`src/open_garden_planner/core/project.py:60` `FILE_VERSION`), default branch
 `master`, repo owner `cofade`.
 
 ## Glossary (read once, used everywhere)

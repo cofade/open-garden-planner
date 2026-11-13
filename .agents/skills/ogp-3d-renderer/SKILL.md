@@ -35,5 +35,13 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 19. The living garden on the engine (L5) | [Read](references/019-19-the-living-garden-on-the-engine-l5.md) |
 | 20. Qt 6.12 and the atmosphere sky (L7) — SkyMaterial, the cull-aware pick | [Read](references/020-20-qt-6-12-and-the-atmosphere-sky-l7.md) |
 | 21. Pictures beside a shown view (L6) — the capture view, grabToImage, LUT chain, Qt Multimedia | [Read](references/021-21-pictures-beside-a-shown-view-l6.md) |
+| 22. Post effects in the environment (#743, #744) — user effect order, the glow chain limit, shader paths, the photo blur, AO by picture size | [Read](references/022-22-post-effects-in-the-environment-photo-blur.md) |
+| 23. Cascaded shadows (#734) — the fit (locked sphere vs the casters' box), why only a still frame is fitted, `pcfFactor` in scene units, the pixel dither, lit teeth under a caster's foot | [Read](references/023-23-cascaded-shadows-and-the-still-frame-fit-734.md) |
+| 24. Ambient occlusion under a weather (#687) — flat ground occluding itself, the bias and the rim, the ring that moves with picture size, height fog is a slab, `VAR_COLOR` vs `COLOR`, `NORMAL` | [Read](references/024-24-ssao-under-a-weather-height-fog-vertex-colour-687.md) |
+| 25. Recording a video (#807) — what Qt hands Windows' H.264 encoder (CBR or a quality, never a profile), the level, the stream's layout, colour tags Qt's decoder reads, a 4K tour's memory | [Read](references/025-25-recording-a-video-what-reaches-the-encoder-807.md) |
+| 26. The atmosphere sky at the painted horizon (#716, #719) — table alpha, calibrating in the frame, a full shared GPU | [Read](references/026-26-the-atmosphere-sky-at-the-horizon-716-719.md) |
+| 27. The meadow's grass on the engine (#798) — no anisotropy, `VAR_WORLD_POSITION`, RGBA16F mips keep the mean, the tile alpha as data, premultiplied `QImage` traps | [Read](references/027-27-the-meadows-grass-on-the-engine-798.md) |
+| 28. A plant's sway in every pass and AO on flat leaves (#800, #805) — the shadow pass runs a custom vertex MAIN (`QSSG_ENABLE_ORTHO_SHADOW_PASS`), world to model axes, a material swapped while the clock runs, SSAO bands on flat micro-leaves and `OCCLUSION_AMOUNT`, whole cycles per clock wrap | [Read](references/028-28-a-plants-sway-in-every-pass-and-ao-on-flat-leaves-800-805.md) |
+| 29. Built materials on the engine (#801, #803) — `specularAmount` is a switch at 0.01, `Texture` has no anisotropy, a `TextureInput` is sampled raw, a cotangent frame from screen derivatives, `SPECULAR_LIGHT()` and the soft-capped glint, one Model per surface | [Read](references/029-29-built-materials-on-the-engine-801-803.md) |
 
 The host state contract is owned by `ui/view3d/quick3d/lifecycle.py`.

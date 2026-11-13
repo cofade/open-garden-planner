@@ -44,14 +44,23 @@ class LiveSunMap(QObject):
         scene.timeline_changed.connect(self.schedule)
         commands.stack_changed.connect(self.schedule)
         project.location_changed.connect(self.schedule)
+        north_changed = getattr(project, "north_angle_changed", None)
+        if north_changed is not None:
+            north_changed.connect(self.schedule)
         scene.document_replaced.connect(self.reset_document)
         heatmap.finished.connect(self._finished)
         heatmap.exposure_changed.connect(self._reflect)
         toolbar.heatmap_requested.connect(lambda: self.set_enabled(True))
         toolbar.heatmap_cleared.connect(lambda: self.set_enabled(False))
 
+    def _north(self) -> float:
+        """The plan's north angle (#663); a plain test double reads 0."""
+        return float(getattr(self.project, "north_angle_deg", 0.0))
+
     def _snapshot(self) -> ExposureSnapshot:
-        return collect_exposure_snapshot(self.scene, self.project.location, self.clock.plan_date)
+        return collect_exposure_snapshot(
+            self.scene, self.project.location, self.clock.plan_date, self._north(),
+        )
 
     def set_enabled(self, enabled: bool) -> None:
         changed = enabled != self.enabled
@@ -81,9 +90,14 @@ class LiveSunMap(QObject):
         bounds = ((0.0, 0.0, float(width), float(height)) if width is not None and height is not None
                   else (rect.x(), rect.y(), rect.width(), rect.height()))
         location = self.project.location or {}
-        if shown is not None and (shown.generation, shown.latitude, shown.longitude, shown.bounds) != (
+        if shown is not None and (
+                shown.generation, shown.latitude, shown.longitude, shown.bounds,
+                shown.north_angle_deg,
+        ) != (
                 getattr(self.scene, "_document_generation", 0), location.get("latitude"),
-                location.get("longitude"), bounds):
+                location.get("longitude"), bounds,
+                self._north(),
+        ):
             self.heatmap.clear()
         self.heatmap.suspend_measurements()
         if self.heatmap.snapshot is not None and self.heatmap.snapshot.day != self.clock.plan_date:

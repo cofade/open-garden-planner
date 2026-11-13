@@ -44,6 +44,19 @@ all come out of one generator:
   tinted with the real default fill colour) sent 2026-08-18; final sign-off is
   the Package-3b manual test of the draft PR.
 
+## Detail tiles — `x2/<name>.png` (#785, 2026-11-09)
+
+Every texture above also ships as a 512 × 512 detail tile in `x2/`, used by the
+canvas above 100 % zoom (`core/fill_patterns.brush_for_painter`). It is **the same
+generator run of the same recipe and seed**: the painter's own 512-px canvas
+before the 2 × 2 box downsample that makes the 256-px tile (`Tile.detail_array`
+/ `build_both`). Nothing else was used; the license basis, the determinism
+contract (`--check` compares the decoded pixels of both files) and the
+tileability gate are those of the tile it comes from, pinned by
+`tests/unit/test_texture_forge_conformance.py::TestDetailTiles` and
+`tests/unit/test_fill_pattern_levels.py`. A detail tile is never edited by hand
+and never regenerated apart from its tile.
+
 ## Per-file register (all: generator above, seed `ogp-<name>-lush`, 2026-08-18)
 
 | File | Material recipe (builder) | Notes |

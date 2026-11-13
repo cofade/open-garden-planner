@@ -252,8 +252,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - The issue tracker is the only work list. Read the issue and the roadmap's
   "Current work" section, then `git status` and `git log --oneline -20`.
-- Current release: **v1.37.10** (2026-11-09). No roadmap phase is active; the next
-  work is in the open issues.
+- Current release: **v1.39.1** (2026-11-12). No roadmap phase is active; the next
+  work is in the open issues (the roadmap's "Current work" themes).
 - Live decisions that constrain the next change:
   - Distribution trust (ADR-073): the Microsoft Store listing is pending the owner's
     Partner Center registration and three `OGP_MSIX_*` repository variables. Never
@@ -265,6 +265,21 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
     The Smart Symbols panel and bundled templates are retired.
   - CAD editing (#664/#771): read ADR-075, §8.35 and PF-CAN-48 before touching
     group drill-down, a rebuild that changes an object's type, or Esc handling.
+  - 2D canvas, exports and locale (#784-#796, #836): read §8.9.14-§8.9.18, §8.36,
+    §8.37, ADR-076 and ADR-077 before touching a canvas painter, a plan label, an
+    export or a number or date field. Scene-wide paint state is kept and invalidated
+    through the scene's paint revision, never rebuilt inside a paint; UI numbers and
+    dates go through `core/i18n.py`, `ui/number_fields.py` and `ui/date_fields.py`.
+  - Plan truth and reports: north reads the ADR-037 addendum and §8.20; the
+    plan date reads ADR-062, §8.31 and FR-TASK-01/04; the identity of an opened
+    bundled example reads the ADR-066 addendum and §8.33.
+    One `scene_azimuth` rule serves every sun surface. A live frost alert is
+    classified against the wall day on every surface; an agent task read stays
+    bounded by the window it reports.
+  - 3D look (#687-#807): read the ADR-059 and ADR-072 addenda and the
+    `ogp-lush-cinematic` references 013-019 before touching `ground.frag`, a built
+    part's surface (`core/scene3d/materials.SURFACES`), the twilight fill, wind or
+    the tour video. One shader draws all ground; a still fits its own shadow map.
 - Docs of record: `docs/roadmap.md` (current work and status), the ADRs (decisions),
   `docs/functional-requirements.md` (capabilities), and the `ogp-architecture-contract`
   skill (invariants). If a fact is not there, it does not belong in this file.

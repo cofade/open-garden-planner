@@ -208,6 +208,13 @@ def test_only_add_and_delete_commands_are_containment_neutral() -> None:
         commands_module.CreateItemCommand,
         commands_module.CreateItemsCommand,
         commands_module.DeleteItemsCommand,
+        # A plan-level angle touches no scene item (#663).
+        commands_module.SetPlanNorthCommand,
+        # Camera tours (#737) live in the plan's own list, not in the scene.
+        commands_module._CameraToursCommand,
+        commands_module.SaveCameraTourCommand,
+        commands_module.RenameCameraTourCommand,
+        commands_module.DeleteCameraTourCommand,
     }, "a new neutral command must be a deliberate decision"
     for cls in (
         commands_module.MoveItemsCommand,

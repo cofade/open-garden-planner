@@ -342,6 +342,15 @@ def _calls(node: ast.AST) -> list[str]:
     return names
 
 
+#: The ``itemChange`` hooks of the classes that are not garden items with a cache:
+#: the journal pin announces only; a label of the plan tells the label pass.
+_OTHER_HOOKS = {
+    "JournalPinItem": "announce_plan_change",
+    "PlanLabelItem": "note_label_changed",
+    "SuccessionBadgeItem": "note_label_changed",
+}
+
+
 def _first_statement_calls(function: ast.FunctionDef) -> list[str]:
     body = [statement for statement in function.body
             if not (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant))]
@@ -354,20 +363,23 @@ def test_every_plan_item_class_announces_through_the_one_hook() -> None:
     item class of the running app HAS such an ``itemChange`` — a new item type cannot
     forget it, and nobody calls the cache half alone any more. The journal pin calls
     the announcing half only: it is drawn at a constant pixel size and was never
-    cached."""
+    cached. A label of the plan (an object's name or area, a bed's succession tag) is
+    no plan item: its ``itemChange`` tells the scene's label pass instead
+    (``note_label_changed``, PF-CAN-60), and changes nothing in the plan."""
     hooked: dict[str, str] = {}
     for path in sorted(ITEMS.glob("*.py")):
         for node in _classes(path):
             change = _method(node, "itemChange")
             if change is None:
                 continue
-            hook = "announce_plan_change" if node.name == "JournalPinItem" else "handle_item_change"
+            hook = _OTHER_HOOKS.get(node.name, "handle_item_change")
             assert _first_statement_calls(change) == [hook], (
                 f"{path.name}: {node.name}.itemChange must call the hook first")
             hooked[node.name] = path.name
     assert sorted(hooked) == [
         "ArcItem", "BezierItem", "CalloutItem", "CircleItem", "EllipseItem", "GroupItem",
-        "JournalPinItem", "PolygonItem", "PolylineItem", "RectangleItem", "TextItem"], hooked
+        "JournalPinItem", "PlanLabelItem", "PolygonItem", "PolylineItem", "RectangleItem",
+        "SuccessionBadgeItem", "TextItem"], hooked
 
     # every garden item class the running app knows resolves itemChange to one of those
     # (a class without one of its own — the smart symbol — inherits its parent's)

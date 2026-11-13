@@ -336,8 +336,11 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
 
     A disc at a low sun can be dimmer than the warm horizon band around it, so the
     finder first looks for the disc's own signature — the largest 4-connected plateau
-    of at least 20 pixels with every channel at least 250 — and takes its centroid
-    (#717; worst measured error 0.13°). A compactness test (bounding box at most 4:1,
+    of at least 20 CLIPPED pixels, luma at least 250 — and takes its centroid (#717;
+    worst measured error 0.13°). Luma, not every channel: a warm core clips red and green
+    first, and whether blue clips too depends on the sky behind the disc — the
+    atmosphere's 6° core read (255, 255, 243) once its sky was matched to the painted one,
+    and the warm fallback read it 0.49° low (#716). A compactness test (bounding box at most 4:1,
     at least 40 % filled) keeps a thin white streak from reading as a disc. When no
     such plateau exists it falls back to the peak of "bright AND warm" above the
     horizon. ``found`` is False when nothing stands out (contrast of the peak over the
@@ -350,7 +353,7 @@ def sun_disc(rgb: Any, camera: Pinhole) -> dict[str, Any]:
     sky = frame[:band]
     score = luma(sky) + 0.8 * (sky[:, :, 0] - sky[:, :, 2])
     median = float(np.median(score))
-    white = np.all(sky >= 250.0, axis=2)
+    white = luma(sky) >= 250.0
     plateau, count = _largest_blob(white, compact_only=True)
     if count >= 20:
         plateau_rows, plateau_cols = np.nonzero(plateau)
@@ -438,6 +441,93 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
     if at_band is not None:
         out["elevation_deg"] = round((at_band + 0.5) * band_deg, 2)
     return out
+
+
+def sky_profile(rgb: Any, camera: Pinhole, bearing_deg: float, *, half_width_deg: float = 4.0,
+                band_deg: float = 0.5, lowest_deg: float = -8.0, highest_deg: float = 30.0,
+                min_samples: int = 20, sun: tuple[float, float] | None = None,
+                sun_radius_deg: float = 3.0) -> dict[str, list[float]]:
+    """The sky's brightness per WORLD ELEVATION along one compass bearing (#716, #719).
+
+    Pixels within ``half_width_deg`` of ``bearing_deg`` are binned by the elevation of
+    their ray in bands ``band_deg`` wide, centred on its multiples (the band "3°" is
+    2.75–3.25° at 0.5°). An image row is a plane, not a cone (PF-L3D-19): off-axis pixels
+    of one row of a pitched camera sit higher in the sky, so a row mean mixes elevations.
+    Per band: ``luma`` the median luma (codes; robust to the dither and a stray cloud
+    edge), ``luminance`` the mean relative luminance (linear light), ``count`` the pixels.
+    Bands with fewer than ``min_samples`` pixels are left out. ``sun`` = (azimuth,
+    elevation) in degrees leaves out the pixels within ``sun_radius_deg`` of it: the disc
+    is not the sky's brightness, and a white core would pull two skies' means together.
+    """
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
+    rays = view.rays(xs, ys)
+    rays /= np.linalg.norm(rays, axis=2, keepdims=True)
+    bearing = (np.degrees(np.arctan2(rays[..., 0], rays[..., 1])) + 360.0) % 360.0
+    near = np.abs(((bearing - bearing_deg + 180.0) % 360.0) - 180.0) <= half_width_deg
+    if sun is not None:
+        azimuth, height = (math.radians(value) for value in sun)
+        towards = np.array([math.cos(height) * math.sin(azimuth),
+                            math.cos(height) * math.cos(azimuth), math.sin(height)])
+        near &= np.degrees(np.arccos(np.clip(rays @ towards, -1.0, 1.0))) > sun_radius_deg
+    elevation = np.degrees(np.arcsin(np.clip(rays[..., 2], -1.0, 1.0)))
+    bands = np.rint(elevation / band_deg).astype(np.int64)
+    lum, linear = luma(frame), luminance(frame)
+    out: dict[str, list[float]] = {"elevation_deg": [], "luma": [], "luminance": [], "count": []}
+    first, last = int(math.ceil(lowest_deg / band_deg)), int(math.floor(highest_deg / band_deg))
+    for band in range(first, last + 1):
+        chosen = near & (bands == band)
+        count = int(chosen.sum())
+        if count < min_samples:
+            continue
+        out["elevation_deg"].append(round(band * band_deg, 4))
+        out["luma"].append(round(float(np.median(lum[chosen])), 3))
+        out["luminance"].append(round(float(linear[chosen].mean()), 6))
+        out["count"].append(float(count))
+    return out
+
+
+def profile_at(profile: dict[str, list[float]], elevation_deg: float, key: str = "luma") -> float | None:
+    """The value of the ``sky_profile`` band whose centre is ``elevation_deg`` (None when
+    that band was not measured)."""
+    for centre, value in zip(profile["elevation_deg"], profile[key], strict=True):
+        if abs(centre - elevation_deg) < 1e-6:
+            return value
+    return None
+
+
+def profile_mean(profile: dict[str, list[float]], low_deg: float, high_deg: float,
+                 key: str = "luminance") -> float | None:
+    """The mean of a ``sky_profile`` value over the bands centred in [low, high]."""
+    values = [value for centre, value in zip(profile["elevation_deg"], profile[key], strict=True)
+              if low_deg - 1e-6 <= centre <= high_deg + 1e-6]
+    return float(np.mean(values)) if values else None
+
+
+def horizon_inversion(profile: dict[str, list[float]], low_deg: float = 0.5,
+                      high_deg: float = 20.0) -> dict[str, Any]:
+    """How far the sky DARKENS on the way down to the horizon (#716).
+
+    Walking the bands from ``high_deg`` down to ``low_deg``, the luma should never fall
+    (the painted sky rises steadily toward its horizon). ``inversion_luma`` is the largest
+    amount any band lies under a brighter band above it — 0 for a sky that only brightens
+    toward the horizon — and ``at_deg`` / ``above_deg`` name the pair. ``measured`` is
+    False when fewer than two bands lie in the range: nothing measured is not a pass.
+    """
+    pairs = [(centre, value) for centre, value in zip(profile["elevation_deg"], profile["luma"], strict=True)
+             if low_deg - 1e-6 <= centre <= high_deg + 1e-6]
+    pairs.sort(key=lambda pair: -pair[0])
+    worst, at, above = 0.0, None, None
+    peak, peak_at = -math.inf, None
+    for centre, value in pairs:
+        if peak - value > worst:
+            worst, at, above = peak - value, centre, peak_at
+        if value > peak:
+            peak, peak_at = value, centre
+    return {"inversion_luma": round(worst, 3), "at_deg": at, "above_deg": above,
+            "measured": len(pairs) >= 2}
 
 
 def bearing_error_deg(measured: float, expected: float) -> float:
@@ -621,6 +711,18 @@ def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Se
             "line": round(max(lines), 2) if lines else None}
 
 
+def difference_frame(first: Any, second: Any, *, offset: float = 128.0) -> Array:
+    """``first`` less ``second`` (two frames of one camera), every channel, plus ``offset``:
+    a frame whose luma is the luma difference (luma is linear in the codes) — what
+    ``plan_edge_step`` reads when both sides of an edge carry the same texture (#798): the
+    texture cancels, a difference of material does not."""
+    a = np.asarray(first, dtype=np.float64)[..., :3]
+    b = np.asarray(second, dtype=np.float64)[..., :3]
+    if a.shape != b.shape:
+        raise ValueError(f"two frames of one shape, got {a.shape} and {b.shape}")
+    return np.asarray(a - b + offset)
+
+
 def _edge_line(values: Array, view: Pinhole, pair: Array) -> float | None:
     """``plan_edge_step``'s ``line`` at one station: ``pair`` is the point of the edge
     and a ground point across it, on the plan's side."""
@@ -641,6 +743,289 @@ def _edge_line(values: Array, view: Pinhole, pair: Array) -> float | None:
     samples = values[rows, cols]
     near = np.abs(offsets) <= EDGE_LINE_PX
     return float(np.abs(samples[near] - np.median(samples)).max())
+
+
+# ── a long shadow's edge: stair steps (#734) ─────────────────────────────────
+
+#: The view-depth bins (m) a traced shadow edge is reported in. A cascade's texels grow
+#: with the distance from the camera: one number over the whole edge hides the far
+#: steps behind the clean near ones (PF-L3D-19 — bin by the world quantity).
+EDGE_DEPTH_BINS_M = (0.0, 10.0, 20.0, 40.0, 80.0)
+#: A station needs this much luma between the shadow's level and the lit level.
+EDGE_MIN_CONTRAST = 6.0
+
+
+def _bilinear(values: Array, px: Array, py: Array) -> Array:
+    """``values`` (rows x cols) at continuous pixel positions (pixel (i, j) covers
+    [i, i+1) x [j, j+1), its centre at +0.5), bilinearly."""
+    rows, cols = values.shape
+    x = np.clip(np.asarray(px, dtype=np.float64) - 0.5, 0.0, cols - 1.000001)
+    y = np.clip(np.asarray(py, dtype=np.float64) - 0.5, 0.0, rows - 1.000001)
+    x0, y0 = np.floor(x).astype(np.int64), np.floor(y).astype(np.int64)
+    fx, fy = x - x0, y - y0
+    x1, y1 = np.minimum(x0 + 1, cols - 1), np.minimum(y0 + 1, rows - 1)
+    return np.asarray(values[y0, x0] * (1 - fx) * (1 - fy) + values[y0, x1] * fx * (1 - fy)
+                      + values[y1, x0] * (1 - fx) * fy + values[y1, x1] * fx * fy)
+
+
+def shadow_edge_trace(rgb: Any, camera: Pinhole, start: tuple[float, float],
+                      end: tuple[float, float], lit_side: tuple[float, float], *,
+                      half_width_cm: float, spacing_px: float = 0.5, across: int = 241,
+                      min_contrast: float = EDGE_MIN_CONTRAST) -> dict[str, Any]:
+    """Where a STRAIGHT shadow edge on the ground (z = 0) lies, all along it.
+
+    ``start`` / ``end``: (east, north) of the analytic edge; ``lit_side``: the unit
+    (east, north) normal of it that points out of the shadow. Stations lie along the
+    edge ``spacing_px`` apart ON SCREEN (a uniform step in centimetres would give the
+    near end a few stations per step and the far end hundreds); at each the ground is
+    read on a line across the edge, ``half_width_cm`` either side, ``across`` samples.
+
+    The edge's position is the AREA estimator, not a threshold crossing: with the luma
+    normalised between the shadow's level (the median of the inner 40 % on the shadow
+    side) and the lit level (the outer 40 % on the lit side), ``f`` in [0, 1], a step
+    at ``u*`` gives ``∫ f du = W - u*``. It is sub-pixel, has one answer per station
+    even where noise crosses the threshold several times, and a blurred edge sits where
+    the sharp one would. A station counts when its whole line is in front of the camera
+    and inside the frame, and the two levels differ by ``min_contrast``.
+
+    Returns per station: ``along_cm`` (from ``start``), ``offset_cm`` (+ = toward the lit
+    side: the shadow reaches past the analytic line; - = it ends short), ``depth_cm`` (view depth of the
+    station's point on the analytic line), ``px_per_cm`` (screen pixels per centimetre
+    across the edge there) and ``valid``; and ``spacing_px``."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    values = luma(frame)
+    eye, forward, _right, _up = view._basis()
+    a, b = np.asarray(start, dtype=np.float64), np.asarray(end, dtype=np.float64)
+    length = float(np.linalg.norm(b - a))
+    direction = (b - a) / max(length, 1e-9)
+    normal = np.asarray(lit_side, dtype=np.float64)
+    normal = normal / max(float(np.linalg.norm(normal)), 1e-9)
+    empty: dict[str, Any] = {key: np.zeros(0) for key in ("along_cm", "offset_cm", "depth_cm",
+                                                         "px_per_cm")}
+    empty["spacing_px"] = spacing_px
+    # stations uniform on screen: a dense walk, then its screen arc length inverted
+    dense = np.linspace(0.0, length, 8001)
+    points = np.column_stack([a[0] + dense * direction[0], a[1] + dense * direction[1],
+                              np.zeros_like(dense)])
+    px, py, front = view.project(points)
+    seen = front & (px >= 0) & (px < cols) & (py >= 0) & (py < rows)
+    if seen.sum() < 2:
+        return {**empty, "valid": np.zeros(0, dtype=bool)}
+    first, last = np.flatnonzero(seen)[[0, -1]]
+    dense, px, py = dense[first:last + 1], px[first:last + 1], py[first:last + 1]
+    arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(px), np.diff(py)))])
+    along = np.interp(np.arange(0.0, arc[-1], spacing_px), arc, dense)
+    u = np.linspace(-half_width_cm, half_width_cm, across)
+    east = a[0] + along[:, None] * direction[0] + u[None, :] * normal[0]
+    north = a[1] + along[:, None] * direction[1] + u[None, :] * normal[1]
+    grid = np.column_stack([east.ravel(), north.ravel(), np.zeros(east.size)])
+    gx, gy, gfront = view.project(grid)
+    gx, gy = gx.reshape(east.shape), gy.reshape(east.shape)
+    inside = (gfront.reshape(east.shape) & (gx >= 0) & (gx < cols) & (gy >= 0) & (gy < rows)).all(axis=1)
+    profile = _bilinear(values, gx, gy)
+    inner = u <= -0.6 * half_width_cm
+    outer = u >= 0.6 * half_width_cm
+    dark = np.median(profile[:, inner], axis=1)
+    lit = np.median(profile[:, outer], axis=1)
+    contrast = lit - dark
+    share = np.clip((profile - dark[:, None]) / np.where(contrast > 1e-9, contrast, 1.0)[:, None], 0.0, 1.0)
+    offset = half_width_cm - np.trapezoid(share, u, axis=1)
+    # the screen scale across the edge, and each station's view depth
+    on_line = np.column_stack([a[0] + along * direction[0], a[1] + along * direction[1],
+                               np.zeros_like(along)])
+    ox, oy, _f = view.project(on_line)
+    nx, ny, _f = view.project(on_line + np.array([normal[0], normal[1], 0.0]))
+    tx, ty, _f = view.project(on_line + np.array([direction[0], direction[1], 0.0]))
+    tangent = np.column_stack([tx - ox, ty - oy])
+    tangent /= np.maximum(np.linalg.norm(tangent, axis=1), 1e-12)[:, None]
+    shift = np.column_stack([nx - ox, ny - oy])
+    px_per_cm = np.abs(shift[:, 0] * tangent[:, 1] - shift[:, 1] * tangent[:, 0])
+    depth = (on_line - eye) @ forward
+    return {"along_cm": along, "offset_cm": offset, "depth_cm": depth, "px_per_cm": px_per_cm,
+            "valid": inside & (contrast >= min_contrast), "spacing_px": spacing_px}
+
+
+def edge_staircase(trace: dict[str, Any], *, bins_m: Sequence[float] = EDGE_DEPTH_BINS_M,
+                   keep: Any = None, min_stations: int = 40) -> list[dict[str, Any]]:
+    """How far a traced shadow edge (``shadow_edge_trace``) strays from a straight line,
+    per view-depth bin. ``keep``: an extra mask of the stations to judge (e.g. away from
+    other casters' shadows).
+
+    In each bin the offsets are detrended by a straight line along the edge (a constant
+    offset is bias or a caster's own shape; a staircase is what is left). ``wobble_cm``
+    / ``wobble_px``: the spread (95th minus 5th percentile) of what is left, in
+    centimetres on the ground and in screen pixels across the edge — the size of the
+    steps the eye sees. ``jump_px``: the 99th percentile of the change between stations
+    one screen pixel apart (a soft edge that wanders is not a staircase; a riser is —
+    and a riser can be one station pair in twenty).
+    ``offset_cm``: the median offset (+: the shadow reaches past the line, -: short)."""
+    valid = np.array(trace["valid"], dtype=bool)   # a copy: the trace is the caller's
+    if keep is not None:
+        valid &= np.asarray(keep, dtype=bool)
+    along, offset = trace["along_cm"], trace["offset_cm"]
+    depth_m, scale = trace["depth_cm"] / 100.0, trace["px_per_cm"]
+    rows: list[dict[str, Any]] = []
+    for low, high in zip(bins_m[:-1], bins_m[1:], strict=True):
+        mask = valid & (depth_m >= low) & (depth_m < high)
+        count = int(mask.sum())
+        row: dict[str, Any] = {"depth_m": [low, high], "stations": count}
+        if count < min_stations:
+            rows.append(row)
+            continue
+        s, o, k = along[mask], offset[mask], scale[mask]
+        fit = np.polyfit(s, o, 1)
+        rest = o - np.polyval(fit, s)
+        rest_px = rest * k
+        # stations lie spacing_px apart on screen: compare those one pixel apart
+        stride = max(1, int(round(1.0 / float(trace["spacing_px"]))))
+        jumps = np.abs(np.diff(rest_px[::stride])) if count > stride else np.zeros(1)
+        row.update({
+            "offset_cm": round(float(np.median(o)), 2),
+            "wobble_cm": round(float(np.percentile(rest, 95) - np.percentile(rest, 5)), 2),
+            "wobble_px": round(float(np.percentile(rest_px, 95) - np.percentile(rest_px, 5)), 3),
+            "jump_px": round(float(np.percentile(jumps, 99)), 3),
+            "px_per_cm": round(float(np.median(k)), 4)})
+        rows.append(row)
+    return rows
+
+
+def ground_line_luma(rgb: Any, camera: Pinhole, start: tuple[float, float],
+                     end: tuple[float, float], *, step_cm: float = 1.0) -> Array:
+    """The luma under a ground line ``start`` -> ``end``, every ``step_cm``, where the
+    camera sees it (bilinear; points off the frame or behind the camera are left out)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    a, b = np.asarray(start, dtype=np.float64), np.asarray(end, dtype=np.float64)
+    length = float(np.linalg.norm(b - a))
+    along = np.arange(0.0, length, step_cm)
+    points = a[None, :] + along[:, None] * ((b - a) / max(length, 1e-9))[None, :]
+    px, py, front = view.project(np.column_stack([points, np.zeros(len(points))]))
+    seen = front & (px >= 1) & (px < cols - 1) & (py >= 1) & (py < rows - 1)
+    return _bilinear(luma(frame), px[seen], py[seen])
+
+
+def lit_share(base: Array, shadow: Array, lit: Array) -> float | None:
+    """The share of ``base`` samples brighter than halfway between the medians of
+    ``shadow`` and ``lit`` — e.g. how much of a line just behind a caster's foot the
+    sun reaches where its shadow should lie (a shadow map's lit teeth under a caster)."""
+    if not len(base) or not len(shadow) or not len(lit):
+        return None
+    threshold = (float(np.median(shadow)) + float(np.median(lit))) / 2.0
+    return round(float((np.asarray(base) > threshold).mean()), 4)
+
+
+def edge_swim(traces: Sequence[dict[str, Any]], *, grid_cm: float = 2.0, smooth_cm: float = 0.0,
+              bins_m: Sequence[float] = EDGE_DEPTH_BINS_M) -> list[dict[str, Any]]:
+    """How a shadow edge CRAWLS between the frames of a camera move, the sun held still.
+
+    ``traces``: ``shadow_edge_trace`` of the same edge in consecutive frames. The true
+    edge does not move in the world, so each trace's offsets are put on one world grid
+    along the edge (``grid_cm``) and consecutive frames compared where both saw it. Per
+    view-depth bin of the later frame: ``swim_cm`` / ``swim_px``, the 95th percentile of
+    the change (in pixels with that frame's scale), and ``pairs`` compared.
+    ``smooth_cm``: the offsets are first averaged along the edge over this length. Qt's
+    filter turns its samples by a per-PIXEL noise, so a moving camera re-dithers a soft
+    edge everywhere; a shadow map's texels that move with the camera shift whole stretches
+    of it. Averaged over a few centimetres the dither cancels and a crawl stays."""
+    if len(traces) < 2:
+        return []
+    top = max(float(np.max(t["along_cm"])) for t in traces if len(t["along_cm"]))
+    grid = np.arange(0.0, top, grid_cm)
+
+    def on_grid(trace: dict[str, Any]) -> tuple[Array, Array, Array]:
+        valid = np.asarray(trace["valid"], dtype=bool)
+        along = trace["along_cm"][valid]
+        if len(along) < 2:
+            nothing = np.full(len(grid), np.nan)
+            return nothing, nothing, nothing
+        inside = (grid >= along[0]) & (grid <= along[-1])
+        values = [np.where(inside, np.interp(grid, along, trace[key][valid]), np.nan)
+                  for key in ("offset_cm", "px_per_cm", "depth_cm")]
+        # a gap in the valid stations wider than two grid steps is not interpolated across
+        gaps = np.interp(grid, along[1:], np.diff(along), left=np.inf, right=np.inf) > 2 * grid_cm
+        values = [np.where(gaps, np.nan, value) for value in values]
+        width = int(round(smooth_cm / grid_cm))
+        if width > 1:   # a running mean that leaves a window touching a gap undefined
+            kernel = np.ones(width) / width
+            values[0] = np.convolve(values[0], kernel, mode="same")
+        return values[0], values[1], values[2]
+
+    sampled = [on_grid(trace) for trace in traces]
+    changes_cm: list[Array] = []
+    changes_px: list[Array] = []
+    depths: list[Array] = []
+    for (o0, _k0, _d0), (o1, k1, d1) in zip(sampled[:-1], sampled[1:], strict=True):
+        both = np.isfinite(o0) & np.isfinite(o1)
+        changes_cm.append(np.abs(o1[both] - o0[both]))
+        changes_px.append(np.abs(o1[both] - o0[both]) * k1[both])
+        depths.append(d1[both] / 100.0)
+    change_cm, change_px, depth = (np.concatenate(changes_cm), np.concatenate(changes_px),
+                                   np.concatenate(depths))
+    rows: list[dict[str, Any]] = []
+    for low, high in zip(bins_m[:-1], bins_m[1:], strict=True):
+        mask = (depth >= low) & (depth < high)
+        row: dict[str, Any] = {"depth_m": [low, high], "pairs": int(mask.sum())}
+        if mask.sum() >= 40:
+            row.update({"swim_cm": round(float(np.percentile(change_cm[mask], 95)), 3),
+                        "swim_px": round(float(np.percentile(change_px[mask], 95)), 3)})
+        rows.append(row)
+    return rows
+
+
+def _longest_run(mask: Any) -> tuple[int, int] | None:
+    """[first, last) of the longest run of True in a 1-D mask (None: no True)."""
+    flags = np.concatenate([[False], np.asarray(mask, dtype=bool), [False]])
+    edges = np.flatnonzero(np.diff(flags.astype(np.int8)))
+    if not len(edges):
+        return None
+    starts, stops = edges[0::2], edges[1::2]
+    best = int(np.argmax(stops - starts))
+    return int(starts[best]), int(stops[best])
+
+
+def shadow_streaks(rgb: Any, camera: Pinhole, start: tuple[float, float], end: tuple[float, float],
+                   *, period_cm: float, lit_luma: float, step_cm: float = 1.0,
+                   min_period_px: float = 8.0) -> dict[str, Any]:
+    """How a porous caster's shadow STREAKS along a ground line ``start`` -> ``end``.
+
+    The luma is read every ``step_cm`` along the line and box-filtered over one
+    ``period_cm`` (a picket fence's pitch along the line): a pattern that repeats with
+    the caster's own period — the true picket stripes, sharp or soft — averages to a
+    constant, and what is left is the low-frequency beat a shadow map makes when its
+    texels alias the slits (some slits leak a whole texel of light, others none).
+    Judged only where one period spans ``min_period_px`` on screen (the longest such
+    run of the line): further out the PIXELS alias the true stripes into a moiré of
+    their own — the anti-aliasing's business, not the shadow map's.
+    ``streak``: the spread (95th minus 5th percentile) of the filtered luma, as a share
+    of the contrast between ``lit_luma`` and the line's median luma (``contrast``)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    view = camera.scaled((cols, rows))
+    a, b = np.asarray(start, dtype=np.float64), np.asarray(end, dtype=np.float64)
+    length = float(np.linalg.norm(b - a))
+    along = np.arange(0.0, length, step_cm)
+    points = a[None, :] + along[:, None] * ((b - a) / max(length, 1e-9))[None, :]
+    px, py, front = view.project(np.column_stack([points, np.zeros(len(points))]))
+    window = max(1, int(round(period_cm / step_cm)))
+    spacing = np.hypot(np.gradient(px), np.gradient(py)) if len(px) > 1 else np.zeros(len(px))
+    seen = (front & (px >= 1) & (px < cols - 1) & (py >= 1) & (py < rows - 1)
+            & (spacing * window >= min_period_px))
+    run = _longest_run(seen)
+    if run is None or run[1] - run[0] < 3 * window:
+        return {"samples": 0 if run is None else run[1] - run[0], "streak": None,
+                "mean_luma": None}
+    first, last = run
+    values = _bilinear(luma(frame), px[first:last], py[first:last])
+    smoothed = np.convolve(values, np.ones(window) / window, mode="valid")
+    level = float(np.median(values))
+    contrast = max(lit_luma - level, 1e-6)
+    return {"samples": int(len(values)),
+            "streak": round(float(np.percentile(smoothed, 95) - np.percentile(smoothed, 5)) / contrast, 4),
+            "mean_luma": round(float(values.mean()), 2), "lit_luma": round(lit_luma, 2),
+            "contrast": round(contrast, 2)}
 
 
 # ── aliasing of thin repeated geometry (picket fences) ───────────────────────
@@ -693,6 +1078,137 @@ def thin_geometry_moire(with_it: Any, without_it: Any, reference: Any = None, *,
             "laplacian": round(float(laplacian[mask].mean()), 2), "alias_error": error}
 
 
+# ── ambient occlusion under a weather (#687) ─────────────────────────────────
+
+#: An OBJECT pixel: the frame without occlusion differs from the same view of the empty
+#: plan (also without occlusion) by more than this luma.
+OBJECT_LUMA_STEP = 10.0
+#: The far ground lies at least this many pixels (chessboard) from every object; the rim
+#: is read in the rows 1 .. ``RIM_ROWS`` straight above a silhouette.
+FAR_FROM_OBJECTS_PX, RIM_ROWS = 30, 14
+#: The open ground of the plan lies at least this many pixels from every object.
+OPEN_FROM_OBJECTS_PX = 16
+
+
+def chessboard_rings(mask: Any, steps: int) -> list[Mask]:
+    """``rings[k]``: the pixels whose chessboard distance to ``mask`` is at most ``k``."""
+    current = np.asarray(mask, dtype=bool).copy()
+    rings = [current.copy()]
+    for _ in range(steps):
+        grown = current.copy()
+        grown[1:, :] |= current[:-1, :]
+        grown[:-1, :] |= current[1:, :]
+        grown[:, 1:] |= current[:, :-1]
+        grown[:, :-1] |= current[:, 1:]
+        grown[1:, 1:] |= current[:-1, :-1]
+        grown[:-1, :-1] |= current[1:, 1:]
+        grown[1:, :-1] |= current[:-1, 1:]
+        grown[:-1, 1:] |= current[1:, :-1]
+        rings.append(grown)
+        current = grown
+    return rings
+
+
+def occlusion_rim(with_ao: Any, without_ao: Any, empty: Any, ground: Any, *,
+                  horizon_row: float) -> dict[str, Any]:
+    """How ambient occlusion treats open GROUND seen past an object (#687).
+
+    ``with_ao`` and ``without_ao`` are the same frame with and without occlusion;
+    ``empty`` the same view of the plan with nothing on it (no occlusion): where it
+    differs by ``OBJECT_LUMA_STEP`` an object stands. ``ground`` (a mask) is the ground
+    to judge (the meadow outside the plan, say); rows above ``horizon_row`` are sky.
+    ``D`` = luma without occlusion minus with it.
+
+    ``far_darkening``: ``D`` of the ground ``FAR_FROM_OBJECTS_PX`` from every object —
+    flat open ground occluding ITSELF (Qt's pass reads a camera-facing normal), which
+    honest occlusion never does. ``rim``: ``far_darkening`` minus the least ``D`` in the
+    rows 1 .. ``RIM_ROWS`` straight above a silhouette — where that self-occlusion is
+    lost beside a nearer object, a light band (the survey's rim round the beds).
+    ``profile``: the median ``D`` row by row above silhouettes."""
+    a, b, e = luma(with_ao), luma(without_ao), luma(empty)
+    objects = np.abs(b - e) > OBJECT_LUMA_STEP
+    open_ground = np.asarray(ground, dtype=bool) & ~objects
+    first = int(math.ceil(horizon_row)) + 4
+    if first > 0:
+        open_ground[:min(first, open_ground.shape[0])] = False
+    darkening = b - a
+    rings = chessboard_rings(objects, FAR_FROM_OBJECTS_PX)
+    far = open_ground & ~rings[FAR_FROM_OBJECTS_PX]
+    profile: list[float | None] = []
+    seen = objects.copy()
+    for rows in range(1, RIM_ROWS + 1):
+        above = np.zeros_like(objects)
+        above[:-rows] = objects[rows:]
+        band = above & ~seen & open_ground
+        seen |= above
+        profile.append(round(float(np.median(darkening[band])), 2) if band.sum() > 40 else None)
+    if far.sum() < 100:
+        return {"far_darkening": None, "rim": None, "profile": profile, "far_px": int(far.sum())}
+    far_d = float(np.median(darkening[far]))
+    measured = [value for value in profile if value is not None]
+    return {"far_darkening": round(far_d, 2),
+            "rim": round(far_d - min(measured), 2) if measured else None,
+            "profile": profile, "far_px": int(far.sum())}
+
+
+def open_ground_luma(with_ao: Any, without_ao: Any, empty: Any, ground: Any) -> dict[str, Any]:
+    """The open ground of ``ground`` (``OPEN_FROM_OBJECTS_PX`` from every object, objects
+    found as in ``occlusion_rim``): its median luma with and without occlusion, and the
+    darkening between them."""
+    a, b, e = luma(with_ao), luma(without_ao), luma(empty)
+    objects = np.abs(b - e) > OBJECT_LUMA_STEP
+    open_ground = (np.asarray(ground, dtype=bool)
+                   & ~chessboard_rings(objects, OPEN_FROM_OBJECTS_PX)[OPEN_FROM_OBJECTS_PX])
+    if open_ground.sum() < 100:
+        return {"luma": None, "luma_without_ao": None, "darkening": None, "mask": open_ground}
+    return {"luma": round(float(np.median(a[open_ground])), 2),
+            "luma_without_ao": round(float(np.median(b[open_ground])), 2),
+            "darkening": round(float(np.median((b - a)[open_ground])), 2), "mask": open_ground}
+
+
+def ground_polygon_mask(camera: Pinhole, polygon: Polygon) -> Mask:
+    """The pixels where the GROUND inside ``polygon`` (scene cm, z = 0) shows — or would,
+    were nothing standing on it."""
+    corners = np.array([(east, north, 0.0) for east, north in polygon], dtype=np.float64)
+    x, y, _front = camera.project(corners)
+    ys, xs = np.mgrid[0:camera.size[1], 0:camera.size[0]]
+    return polygon_mask(xs + 0.5, ys + 0.5, list(zip(x.tolist(), y.tolist(), strict=True)))
+
+
+def caster_contact(rgb: Any, camera: Pinhole, centre: tuple[float, float], half_side: float, *,
+                   ring_cm: tuple[float, float] = (2.0, 14.0),
+                   open_cm: tuple[float, float] = (60.0, 120.0), step_cm: float = 4.0
+                   ) -> dict[str, dict[str, float | None]]:
+    """How much darker the ground at a box caster's FOOT is than the open ground beyond
+    it, per side: ``contact`` = 1 − luma(ring ``ring_cm`` out) / luma(band ``open_cm``
+    out), sampled along the middle of each side (15 cm short of its corners). N, E, S, W
+    are the sides facing north, east, south, west; a side the camera does not see reads
+    None."""
+    luma_values = luma(rgb)
+    east0, north0 = centre
+    sides = {"N": ((0.0, 1.0), (1.0, 0.0)), "E": ((1.0, 0.0), (0.0, 1.0)),
+             "S": ((0.0, -1.0), (1.0, 0.0)), "W": ((-1.0, 0.0), (0.0, 1.0))}
+    width, height = camera.size
+    out: dict[str, dict[str, float | None]] = {}
+    for name, (normal, along) in sides.items():
+        bands: dict[str, float | None] = {}
+        for band, (low, high) in (("ring", ring_cm), ("open", open_cm)):
+            points = [(east0 + normal[0] * (half_side + out_cm) + along[0] * t,
+                       north0 + normal[1] * (half_side + out_cm) + along[1] * t, 0.0)
+                      for out_cm in np.arange(low, high + 0.01, step_cm)
+                      for t in np.arange(-half_side + 15.0, half_side - 15.0 + 0.01, 5.0)]
+            px, py, front = camera.project(np.array(points))
+            x, y = np.floor(px).astype(int), np.floor(py).astype(int)
+            seen = front & (x >= 0) & (y >= 0) & (x < width) & (y < height)
+            bands[band] = float(luma_values[y[seen], x[seen]].mean()) if seen.sum() > 5 else None
+        ring, open_ = bands["ring"], bands["open"]
+        out[name] = {"ring": None if ring is None else round(ring, 2),
+                     "open": None if open_ is None else round(open_, 2),
+                     "contact": (round(1.0 - ring / open_, 4)
+                                 if ring is not None and open_ else None)}
+    return out
+
+
 # ── north is up: the orientation of a top-down frame ─────────────────────────
 
 
@@ -720,3 +1236,177 @@ def orientation_scores(seen: Any, predicted: Any) -> dict[str, Any]:
     best = max(scores, key=lambda name: scores[name])
     return {"ncc": {name: round(value, 4) for name, value in scores.items()},
             "best": best, "ok": best == "identity"}
+
+
+# ── the meadow: flat tiles, its own texture, shimmer and repeat (#798) ─────────
+
+#: A FLAT pixel: the luma standard deviation of the ``FLAT_WINDOW_PX`` square around it
+#: is under ``FLAT_STD_LUMA``. The 3D survey's instrument for "a model on a green felt
+#: table" (#798): on master 80 % of the default framing was flat AND green (a meadow
+#: patch read a std of 0.54 at noon, the lawn beside it 41).
+FLAT_STD_LUMA, FLAT_WINDOW_PX = 1.5, 9
+
+
+def box_mean(values: Any, window: int) -> Array:
+    """The mean of ``values`` (h x w) over the ``window`` square (odd) around every pixel,
+    the frame's edge repeated outward — by a summed-area table."""
+    data = np.asarray(values, dtype=np.float64)
+    half = window // 2
+    padded = np.pad(data, ((half + 1, half), (half + 1, half)), mode="edge")
+    table = padded.cumsum(axis=0).cumsum(axis=1)
+    return np.asarray((table[window:, window:] - table[:-window, window:]
+                       - table[window:, :-window] + table[:-window, :-window])
+                      / float(window * window))
+
+
+def local_std(values: Any, window: int = FLAT_WINDOW_PX) -> Array:
+    """The standard deviation of ``values`` (h x w) over the ``window`` square around
+    every pixel (the frame's edge repeated outward): two box filters."""
+    data = np.asarray(values, dtype=np.float64)
+    mean, square = box_mean(data, window), box_mean(data * data, window)
+    return np.asarray(np.sqrt(np.maximum(square - mean * mean, 0.0)))
+
+
+def flat_share(rgb: Any, mask: Any = None) -> dict[str, Any]:
+    """How much of a frame (or of ``mask`` in it) is FLAT (``FLAT_STD_LUMA``).
+
+    ``flat_green``: the share that is flat and green (green the largest channel) — the
+    survey's number; ``flat``: flat in any colour (a plain sky is flat too);
+    ``local_std``: the mean of the local standard deviation over the region (the
+    texture a viewer sees, free of the large gradients of light and fog)."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    spread = local_std(luma(frame))
+    region = (np.ones(spread.shape, dtype=bool) if mask is None
+              else np.asarray(mask, dtype=bool))
+    count = int(region.sum())
+    if count == 0:
+        return {"flat_green": None, "flat": None, "local_std": None, "pixels": 0}
+    green = (frame[..., 1] > frame[..., 0]) & (frame[..., 1] > frame[..., 2])
+    flat = spread < FLAT_STD_LUMA
+    return {"flat_green": round(float((flat & green)[region].mean()), 4),
+            "flat": round(float(flat[region].mean()), 4),
+            "local_std": round(float(spread[region].mean()), 3), "pixels": count}
+
+
+def ground_hits(camera: Pinhole) -> tuple[Array, Array, Array]:
+    """Where every pixel's ray meets the ground (z = 0): east, north (cm) and the
+    distance along the ground from the camera's foot — NaN where the ray never
+    reaches it (at or above the horizon)."""
+    width, height = camera.size
+    xs, ys = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    rays = camera.rays(xs, ys)
+    eye = np.asarray(camera.eye, dtype=np.float64)
+    down = rays[..., 2] < -1e-9
+    t = np.where(down, -eye[2] / np.where(down, rays[..., 2], -1.0), np.nan)
+    east, north = eye[0] + t * rays[..., 0], eye[1] + t * rays[..., 1]
+    return (np.asarray(east), np.asarray(north),
+            np.asarray(np.hypot(east - eye[0], north - eye[1])))
+
+
+def meadow_mask(camera: Pinhole, plan: tuple[float, float, float, float], *,
+                margin_cm: float = 300.0, near_cm: float = 0.0,
+                far_cm: float = math.inf) -> Mask:
+    """The pixels that see the MEADOW and nothing of the plan: the ground at least
+    ``margin_cm`` outside the plan rectangle ``plan`` = (east0, north0, east1, north1),
+    ``near_cm`` .. ``far_cm`` from the camera's foot, whose line of sight does not pass
+    over the plan (grown by the margin) — what stands in a garden can hide only what
+    lies behind it, and a crown overhangs the plan's edge by less than the margin."""
+    east, north, distance = ground_hits(camera)
+    x0, y0 = plan[0] - margin_cm, plan[1] - margin_cm
+    x1, y1 = plan[2] + margin_cm, plan[3] + margin_cm
+    with np.errstate(invalid="ignore"):
+        valid = np.isfinite(distance) & (distance >= near_cm) & (distance <= far_cm)
+        outside = (east < x0) | (east > x1) | (north < y0) | (north > y1)
+    # Liang-Barsky: does the segment from the camera's foot to the hit cross the grown plan?
+    start = np.asarray(camera.eye[:2], dtype=np.float64)
+    dx, dy = east - start[0], north - start[1]
+    low, high = np.zeros(east.shape), np.ones(east.shape)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for delta, begin, lower, upper in ((dx, start[0], x0, x1), (dy, start[1], y0, y1)):
+            parallel = np.abs(delta) < 1e-12
+            first, second = (lower - begin) / delta, (upper - begin) / delta
+            near = np.where(parallel, -np.inf, np.minimum(first, second))
+            far = np.where(parallel, np.inf, np.maximum(first, second))
+            inside_slab = (begin >= lower) & (begin <= upper)
+            low = np.where(parallel & ~inside_slab, 2.0, np.maximum(low, near))
+            high = np.where(parallel & ~inside_slab, -1.0, np.minimum(high, far))
+    crosses = low <= high
+    return np.asarray(valid & outside & ~crosses)
+
+
+def track_luma(frames: Sequence[Any], cameras: Sequence[Pinhole], points: Any, *,
+               radius_px: int = 1) -> Array:
+    """The luma of fixed GROUND points through a camera move: ``(frames, points)``, the
+    mean of a ``2 radius + 1`` square centred EXACTLY where each frame's camera puts the
+    point (the frame box-filtered, then read bilinearly: a window snapped to whole pixels
+    jumps a pixel as the point crosses one, and on a textured ground that jump is a flicker
+    of the instrument's own); NaN where it falls out of the frame or behind the camera."""
+    world = np.atleast_2d(np.asarray(points, dtype=np.float64))
+    if world.shape[1] == 2:
+        world = np.column_stack([world, np.zeros(len(world))])
+    out = np.full((len(frames), len(world)), np.nan)
+    for index, (rgb, camera) in enumerate(zip(frames, cameras, strict=True)):
+        values = box_mean(luma(np.asarray(rgb, dtype=np.float64)[..., :3]), 2 * radius_px + 1)
+        rows, cols = values.shape
+        x, y, front = camera.scaled((cols, rows)).project(world)
+        seen = (front & (x >= radius_px + 1) & (x < cols - radius_px - 1)
+                & (y >= radius_px + 1) & (y < rows - radius_px - 1))
+        out[index, seen] = _bilinear(values, x[seen], y[seen])
+    return out
+
+
+def temporal_noise(series: Any) -> dict[str, Any]:
+    """How ground points flicker through a camera move (``track_luma``'s array). A
+    smooth move changes a point's luma smoothly; aliasing and crawl change it from frame
+    to frame. ``zigzag_rms``: the RMS of ``x[i] - (x[i-1] + x[i+1]) / 2`` over every
+    point seen in three frames running (the day-lapse instrument of #799); ``step_mean``:
+    the mean frame-to-frame change; ``step_p95`` its 95th percentile."""
+    data = np.asarray(series, dtype=np.float64)
+    if data.shape[0] < 3:
+        return {"zigzag_rms": None, "step_mean": None, "step_p95": None, "points": 0}
+    zigzag = data[1:-1] - (data[:-2] + data[2:]) / 2.0
+    steps = np.abs(np.diff(data, axis=0))
+    zig, step = zigzag[np.isfinite(zigzag)], steps[np.isfinite(steps)]
+    seen = int(np.isfinite(zigzag).any(axis=0).sum())
+    if zig.size == 0:
+        return {"zigzag_rms": None, "step_mean": None, "step_p95": None, "points": 0}
+    return {"zigzag_rms": round(float(np.sqrt((zig * zig).mean())), 3),
+            "step_mean": round(float(step.mean()), 3),
+            "step_p95": round(float(np.percentile(step, 95)), 3), "points": seen}
+
+
+#: The repeat probe's bins per period (each holds every pixel of that phase in the frame)
+#: and the blur, as a share of the period, that keeps only what a viewer sees as a pattern.
+REPEAT_BINS, REPEAT_BLUR_SHARE = 32, 0.12
+
+
+def repeat_amplitude(values: Any, period_px: float) -> dict[str, Any]:
+    """Does a texture's REPEAT show? ``values`` (h x w luma) is ground seen straight from
+    above with east right and north up, ``period_px`` the texture's repeat in pixels.
+
+    The picture, blurred to what reads as a pattern (``REPEAT_BLUR_SHARE`` of a period) and
+    less its mean over two periods (the light's gradient), is FOLDED onto one period:
+    every pixel is averaged into the bin of its phase (``REPEAT_BINS`` per axis). What
+    repeats survives the fold; what does not averages away. ``periodic``: the luma std of
+    the folded tile — the amplitude of the lattice a repeated texture draws; ``control``:
+    the same folded at 0.61 and 1.37 periods, where nothing repeats; ``residual``: the
+    std of the whole detrended picture, for scale. (#798's first round: a repeat visible
+    from 60 m read 2.15 luma, its grain-only successor 0.86, the flat meadow 0.002.)"""
+    raw = np.asarray(values, dtype=np.float64)
+    blur = max(1, int(round(REPEAT_BLUR_SHARE * period_px)) | 1)
+    data = box_mean(raw, blur) if blur > 1 else raw
+    data = data - box_mean(data, 2 * max(1, int(round(period_px))) + 1)
+    rows, cols = np.mgrid[0:data.shape[0], 0:data.shape[1]]
+
+    def folded(period: float) -> float:
+        bin_x = np.minimum(((cols % period) / period * REPEAT_BINS).astype(int), REPEAT_BINS - 1)
+        bin_y = np.minimum(((rows % period) / period * REPEAT_BINS).astype(int), REPEAT_BINS - 1)
+        index = (bin_y * REPEAT_BINS + bin_x).ravel()
+        sums = np.bincount(index, data.ravel(), REPEAT_BINS * REPEAT_BINS)
+        counts = np.bincount(index, None, REPEAT_BINS * REPEAT_BINS)
+        filled = counts > 0
+        return float((sums[filled] / counts[filled]).std())
+
+    return {"periodic": round(folded(float(period_px)), 3),
+            "control": round(max(folded(0.61 * period_px), folded(1.37 * period_px)), 3),
+            "residual": round(float(data.std()), 3), "period_px": round(float(period_px), 2)}

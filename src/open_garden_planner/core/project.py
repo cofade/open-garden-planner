@@ -19,7 +19,8 @@ from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.config.settings import get_settings
+from open_garden_planner.config.settings import active_language, get_settings
+from open_garden_planner.core import camera_tours as plan_tours
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.item_look import (
     adopt_pen,
@@ -36,6 +37,11 @@ from open_garden_planner.core.plan_io import (
     read_plan,
     validate_plan_data,
     write_plan,
+)
+from open_garden_planner.core.plan_north import (
+    DEFAULT_NORTH_ANGLE_DEG,
+    normalize_north_angle,
+    north_angle_from_plan,
 )
 from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.models.task import TASK_BED_ID_SEGMENTS
@@ -86,6 +92,9 @@ class ProjectData:
     constraints: list[dict[str, Any]] = field(default_factory=list)
     guides: list[dict[str, Any]] = field(default_factory=list)
     location: dict[str, Any] | None = None
+    # #663: the direction of true north on the plan, clockwise from plan-up
+    # (0 = north up). Additive: old files read 0, old apps ignore the key.
+    north_angle_deg: float = DEFAULT_NORTH_ANGLE_DEG
     task_completions: list[str] = field(default_factory=list)
     seed_inventory: list[dict[str, Any]] = field(default_factory=list)
     # US-9.5: per-species user overrides for propagation step dates
@@ -141,6 +150,10 @@ class ProjectData:
     # or bed UUID string.
     harvest_logs: dict[str, Any] = field(default_factory=dict)
 
+    # #737: named camera tours, [SavedTour.to_dict()]. Raw and untrusted here:
+    # ``core/camera_tours.load_tours`` is the one reader (ADR-072 addendum).
+    camera_tours: list[dict[str, Any]] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data: dict[str, Any] = {
@@ -161,6 +174,8 @@ class ProjectData:
             data["guides"] = self.guides
         if self.location:
             data["location"] = self.location
+        if self.north_angle_deg:
+            data["north_angle_deg"] = self.north_angle_deg
         if self.task_completions:
             data["task_completions"] = sorted(self.task_completions)
         if self.seed_inventory:
@@ -198,6 +213,8 @@ class ProjectData:
             data["task_states"] = self.task_states
         if self.harvest_logs:
             data["harvest_logs"] = self.harvest_logs
+        if self.camera_tours:
+            data[plan_tours.PLAN_KEY] = self.camera_tours
         return data
 
     @classmethod
@@ -212,6 +229,7 @@ class ProjectData:
             constraints=data.get("constraints", []),
             guides=data.get("guides", []),
             location=data.get("location") or None,
+            north_angle_deg=north_angle_from_plan(data.get("north_angle_deg")),
             task_completions=data.get("task_completions", []),
             seed_inventory=data.get("seed_inventory", []),
             propagation_overrides=data.get("propagation_overrides", {}),
@@ -231,6 +249,7 @@ class ProjectData:
             manual_tasks=data.get("manual_tasks", {}),
             task_states=data.get("task_states", {}),
             harvest_logs=data.get("harvest_logs", {}),
+            camera_tours=data.get(plan_tours.PLAN_KEY) or [],  # of any type: load_tours decides
             # Note: `data.get("paper_layouts", ...)` is intentionally
             # not consumed here — the Paper Space feature was dropped
             # before PR #191 merged but earlier draft builds may have
@@ -250,6 +269,7 @@ class ProjectManager(QObject):
     dirty_changed = pyqtSignal(bool)
     before_save = pyqtSignal()
     location_changed = pyqtSignal(object)  # dict or None
+    north_angle_changed = pyqtSignal(float)  # degrees clockwise from plan-up (#663)
     task_completions_changed = pyqtSignal(object)  # set[str]
     seed_inventory_changed = pyqtSignal(object)    # list[SeedPacket]
     propagation_overrides_changed = pyqtSignal(object)  # dict
@@ -268,13 +288,17 @@ class ProjectManager(QObject):
     manual_tasks_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     task_states_changed = pyqtSignal(object)  # dict[str, dict] (US-C2)
     harvest_logs_changed = pyqtSignal(object)  # dict[str, dict] (US-C1)
+    camera_tours_changed = pyqtSignal(object)  # tuple[SavedTour, ...] (#737)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Initialize the project manager."""
         super().__init__(parent)
         self._current_file: Path | None = None
+        # The title of the example or template this unsaved plan was opened from.
+        self._template_title: str | None = None
         self._dirty = False
         self._location: dict[str, Any] | None = None
+        self._north_angle_deg: float = DEFAULT_NORTH_ANGLE_DEG
         self._task_completions: set[str] = set()
         self._seed_inventory: list[dict[str, Any]] = []
         self._propagation_overrides: dict[str, Any] = {}
@@ -294,7 +318,9 @@ class ProjectManager(QObject):
         self._manual_tasks: dict[str, Any] = {}
         self._task_states: dict[str, Any] = {}
         self._harvest_logs: dict[str, Any] = {}
+        self._camera_tours: tuple[plan_tours.SavedTour, ...] = ()
         self._last_load_skipped_items_count: int = 0
+        self._last_load_skipped_tours_count: int = 0
 
     @property
     def last_load_skipped_items_count(self) -> int:
@@ -313,15 +339,72 @@ class ProjectManager(QObject):
 
     @property
     def project_name(self) -> str:
-        """Display name for the project."""
+        """Display name for the project, in the UI language.
+
+        A plan that was never saved has no name of its own; the word it gets is
+        the UI language's (#836). It is on a report's cover, a printout's
+        footer, the window title and in the file name a save dialog SUGGESTS to
+        the user. The Agent API does not build file names from it:
+        :attr:`file_stem`.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return self.tr("Untitled")
+
+    @property
+    def file_stem(self) -> str:
+        """The stem the Agent API builds a default export file name from.
+
+        The file's stem, like :attr:`project_name`; for a plan that was never
+        saved the untranslated ``Untitled``. A file an agent asks for without a
+        path must have one name in every UI language: "Unbenannt.pdf" under a
+        German UI is a file the agent's next call cannot predict.
+        """
         if self._current_file:
             return self._current_file.stem
         return "Untitled"
 
     @property
+    def display_name(self) -> str:
+        """The plan's title for a reader: a report's cover, a print legend.
+
+        The file's stem once the plan has a file. A plan opened from an example
+        or a template has none yet and carries that template's title (#788) —
+        ``project_name`` stays the name a save dialog suggests and ``file_stem``
+        the one the Agent API's default file names are built from.
+        """
+        if self._current_file:
+            return self._current_file.stem
+        return self._template_title or self.project_name
+
+    @property
     def location(self) -> dict[str, Any] | None:
         """Garden location data, or None if not set."""
         return self._location
+
+    @property
+    def north_angle_deg(self) -> float:
+        """The direction of true north on the plan, clockwise from plan-up (#663).
+
+        0 = north up; 135 = north down-right. Solar consumers turn a compass
+        azimuth by this angle; no object is ever rotated.
+        """
+        return self._north_angle_deg
+
+    def set_north_angle(self, angle_deg: object) -> None:
+        """Set the plan's north orientation and mark the project dirty.
+
+        The ONE writer besides load and new: the undoable
+        ``SetPlanNorthCommand`` calls it for execute and for undo. Raises
+        ``ValueError`` for a bool, a non-number or a non-finite angle, before
+        anything is mutated.
+        """
+        angle = normalize_north_angle(angle_deg)
+        if angle == self._north_angle_deg:
+            return
+        self._north_angle_deg = angle
+        self.north_angle_changed.emit(angle)
+        self.mark_dirty()
 
     @property
     def task_completions(self) -> set[str]:
@@ -380,7 +463,9 @@ class ProjectManager(QObject):
             for task_id in self._task_completions
         )
 
-    def set_task_completion(self, task_id: str, done: bool) -> None:
+    def set_task_completion(
+        self, task_id: str, done: bool, done_date: date | None = None
+    ) -> None:
         """Mark a task done/not-done from the planting-calendar dashboard's
         "Done" toggle.
 
@@ -388,11 +473,13 @@ class ProjectManager(QObject):
         single source of truth for task status (#228). ``set_task_status`` keeps
         the legacy ``task_completions`` set in sync for ``.ogp`` forward/back
         compatibility, so there is now exactly one write-path. See ADR-029.
+
+        ``done_date`` is the plan's local day the caller acts on (#859); None
+        keeps the wall date for a caller that has no plan clock.
         """
         if done:
-            self.set_task_status(
-                task_id, "done", done_date=datetime.now().date().isoformat()
-            )
+            day = done_date if done_date is not None else datetime.now().date()
+            self.set_task_status(task_id, "done", done_date=day.isoformat())
         else:
             self.set_task_status(task_id, "open")
 
@@ -825,6 +912,28 @@ class ProjectManager(QObject):
         """Reset a task to open (remove any stored state)."""
         self.set_task_status(task_id, "open")
 
+    # ── Camera tours (#737, ADR-072 addendum) ────────────────────────────────
+    @property
+    def camera_tours(self) -> tuple[plan_tours.SavedTour, ...]:
+        """The plan's saved camera tours, in the order they were saved. Immutable."""
+        return self._camera_tours
+
+    @property
+    def last_load_skipped_tours_count(self) -> int:
+        """Count of camera-tour entries the last project load could not read."""
+        return self._last_load_skipped_tours_count
+
+    def set_camera_tours(self, tours: Iterable[plan_tours.SavedTour]) -> None:
+        """Replace the plan's camera tours and mark the project dirty.
+
+        The ONE writer besides load and new: the three tour commands of
+        ``core/commands.py`` call it for execute and for undo, with the whole list,
+        so undo restores exactly what was there. ``ValueError`` for a name used twice
+        or more than ``MAX_TOURS`` tours (``checked_tours``)."""
+        self._camera_tours = plan_tours.checked_tours(tours)
+        self.camera_tours_changed.emit(self._camera_tours)
+        self.mark_dirty()
+
     def _sync_journal_note_positions(
         self, scene: QGraphicsScene, notes: dict[str, Any] | None = None
     ) -> None:
@@ -879,8 +988,10 @@ class ProjectManager(QObject):
     def new_project(self) -> None:
         """Start a new untitled project."""
         self._current_file = None
+        self._template_title = None
         self._dirty = False
         self._location = None
+        self._north_angle_deg = DEFAULT_NORTH_ANGLE_DEG
         self._task_completions = set()
         self._seed_inventory = []
         self._propagation_overrides = {}
@@ -900,9 +1011,12 @@ class ProjectManager(QObject):
         self._manual_tasks = {}
         self._task_states = {}
         self._harvest_logs = {}
+        self._camera_tours = ()
+        self._last_load_skipped_tours_count = 0
         self.project_changed.emit(None)
         self.dirty_changed.emit(False)
         self.location_changed.emit(None)
+        self.north_angle_changed.emit(DEFAULT_NORTH_ANGLE_DEG)
         self.task_completions_changed.emit(set())
         self.seed_inventory_changed.emit([])
         self.propagation_overrides_changed.emit({})
@@ -920,6 +1034,7 @@ class ProjectManager(QObject):
         self.manual_tasks_changed.emit({})
         self.task_states_changed.emit({})
         self.harvest_logs_changed.emit({})
+        self.camera_tours_changed.emit(())
 
     def save(self, scene: QGraphicsScene, file_path: Path) -> None:
         """Save the project to a file.
@@ -958,6 +1073,7 @@ class ProjectManager(QObject):
         """
         data = self._serialize_scene(scene)
         data.location = self._location
+        data.north_angle_deg = self._north_angle_deg
         data.task_completions = sorted(self._task_completions)
         data.seed_inventory = list(self._seed_inventory)
         data.propagation_overrides = dict(self._propagation_overrides)
@@ -986,6 +1102,7 @@ class ProjectManager(QObject):
         data.manual_tasks = dict(self._manual_tasks)
         data.task_states = dict(self._task_states)
         data.harvest_logs = dict(self._harvest_logs)
+        data.camera_tours = plan_tours.dump_tours(self._camera_tours)
         return data
 
     def snapshot_dict(self, scene: QGraphicsScene, *,
@@ -1141,6 +1258,7 @@ class ProjectManager(QObject):
                 which corrupts the user's data — better to fail loudly.
         """
         self._last_load_skipped_items_count = 0
+        self._last_load_skipped_tours_count = 0
         scene_mutated = False
         try:
             raw_data = read_plan(file_path)
@@ -1175,7 +1293,11 @@ class ProjectManager(QObject):
             self._sync_custom_plants(scene)
 
             self._current_file = None if as_template else file_path
+            self._template_title = None
             if as_template:
+                from open_garden_planner.core.templates import template_title
+
+                self._template_title = template_title(file_path, active_language())
                 self.mark_dirty()
             else:
                 self.mark_clean()
@@ -1186,6 +1308,7 @@ class ProjectManager(QObject):
         except Exception:
             if scene_mutated:
                 self._current_file = None
+                self._template_title = None
                 self.mark_dirty()
                 self.project_changed.emit(None)
             raise
@@ -1194,6 +1317,8 @@ class ProjectManager(QObject):
         """Restore non-scene project metadata and emit change signals."""
         self._location = data.location
         self.location_changed.emit(self._location)
+        self._north_angle_deg = normalize_north_angle(data.north_angle_deg)
+        self.north_angle_changed.emit(self._north_angle_deg)
         self._task_completions = set(data.task_completions)
         self.task_completions_changed.emit(self._task_completions)
         self._seed_inventory = list(data.seed_inventory)
@@ -1235,6 +1360,11 @@ class ProjectManager(QObject):
             self._task_states.setdefault(tid, {"status": "done"})
         self.manual_tasks_changed.emit(self._manual_tasks)
         self.task_states_changed.emit(self._task_states)
+        # #737: the tours of THIS plan, whatever the last one had. Untrusted input:
+        # what is not a tour is skipped and counted, never raised (``load_tours``).
+        self._camera_tours, self._last_load_skipped_tours_count = plan_tours.load_tours(
+            data.camera_tours)
+        self.camera_tours_changed.emit(self._camera_tours)
 
     def create_new_season(
         self,
@@ -1259,6 +1389,7 @@ class ProjectManager(QObject):
         current_data = self._serialize_scene(scene)
         current_data.auto_assign_permaculture_layers = self.auto_assign_permaculture_layers
         current_data.location = self._location
+        current_data.north_angle_deg = self._north_angle_deg
         current_data.task_completions = []
         current_data.seed_inventory = list(self._seed_inventory)
         current_data.propagation_overrides = dict(self._propagation_overrides)
@@ -1294,6 +1425,8 @@ class ProjectManager(QObject):
                 rec.journal_note_id = None
             carried_harvest[tid] = history.to_dict()
         current_data.harvest_logs = carried_harvest
+        # #737: a tour is a camera path through the structures, and those carry over.
+        current_data.camera_tours = plan_tours.dump_tours(self._camera_tours)
 
         # Filter objects based on keep_plants flag
         if not keep_plants:

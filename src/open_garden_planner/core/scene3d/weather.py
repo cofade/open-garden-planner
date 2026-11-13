@@ -49,7 +49,9 @@ import numpy as np
 
 from .color import srgb_to_linear
 from .look import (
+    AO_FLAT_BIAS_CM,
     GOLDEN_DEG,
+    NIGHT_BELOW_DEG,
     NOON,
     TWILIGHT_DEG,
     WIND_STRENGTH,
@@ -57,13 +59,18 @@ from .look import (
     LookSpec,
     fill_linear,
     fog_linear,
+    ground_light,
     linear_to_srgb_hex,
     look_for,
     mix_linear,
+    twilight_fill,
 )
 from .sink import SunState
+from .wind import WIND_FROM_DEG
 
 __all__ = [
+    "AO_BIAS_UNDER_CLOUD_CM", "AO_DISTANCE_UNDER_CLOUD", "AO_STRENGTH_UNDER_CLOUD",
+    "BUILT_SNOW_FULL_AT", "SNOW_LINEAR",
     "DEW_FULL_DEG", "DEW_GONE_DEG", "MOODS", "TODAY", "WEATHERS", "WEATHER_CHOICES",
     "WEATHER_SPECS", "WeatherSpec", "apply_weather", "dew_amount", "is_evening", "is_morning",
     "living_look", "mood_of", "noon_azimuth", "normalise_weather", "todays_weather",
@@ -275,10 +282,9 @@ SNOW_LINEAR: Final = (0.80, 0.84, 0.89)
 _DEW_HAZE: Final = 0.62
 _DEW_SATURATION: Final = 0.94
 _DEW_WETNESS: Final = 0.6
-#: Where the wind blows the particles: from the west-south-west (a prevailing
-#: westerly), this many cm/s per unit of the shaders' wind strength. A look, not
-#: meteorology.
-_WIND_FROM_DEG: Final = 250.0
+#: Where the wind blows the particles: from ``wind.WIND_FROM_DEG`` (the west-south-west,
+#: the way the plants sway, #800), this many cm/s per unit of the shaders' wind strength.
+#: A look, not meteorology.
 _DRIFT_PER_WIND: Final = 22.0
 #: The share of the precipitation's particles a preset draws.
 _PRECIP_DENSITY: Final = MappingProxyType({"none": 0.0, "rain": 1.0, "snow": 1.0})
@@ -293,6 +299,30 @@ _FOG_UNDER_CLOUD_NIGHT: Final = 0.23
 #: Fireflies fade out over this many degrees of azimuth before solar midnight (the sun
 #: crossing the meridian below the horizon), instead of all going out at once.
 _FIREFLY_FADE_DEG: Final = 25.0
+#: The ambient occlusion under a full cloud (#687), as factors on the spike's strength 55
+#: and reach 14, and Qt's bias in cm; a weather takes its LIGHT share of each (partly
+#: cloudy 0.15, snow 0.85). Under cloud the sky IS the light, and the sky an object hides
+#: is what grounds it. But Qt's pass reads its normal off a depth normalised over the
+#: camera's whole range: flat ground seen at a slant occludes ITSELF, and only beside a
+#: nearer object does it not. At the clear values every open surface under cloud was
+#: greyed (snow 17 levels under Low, the overcast lawn 15.6 under its own frame without
+#: occlusion) and a light rim 9.5-10 levels bright ran above every silhouette against
+#: the meadow behind it (the survey's rim round the beds) - and that greyed ground was
+#: most of what "contact" there was. Strength and reach alone (the issue's 99 / 35) made
+#: both worse. The bias moves the samples towards the camera and ends the self-occlusion;
+#: at a bias of 0.3 of the reach it is gone on the far meadow too, and the rim with it
+#: (0.25: a 3.1-level rim on snow; 0.16: 6-8). Measured (high, 1280 x 720, family garden):
+#: rim 1.9 / 2.1 (overcast / snow, was 9.5 / 10.1), snow's lawn 2.9 under Low (was 17),
+#: the overcast box's lit-side contact 0.040 (was 0.031, clear 0.022) - a geometric sky
+#: occlusion would be 0.10-0.17: more needs a bias the rim forbids (``ogp-lush-cinematic``
+#: reference 14).
+#: Snow on a built part's tops (#687): full where the ground's cover reaches this. The
+#: meadow's 0.75 is snow with its grass still showing; a roof, a deck or a bed's soil is
+#: smooth and lies white under the same fall - at 0.75 a terracotta roof read pink.
+BUILT_SNOW_FULL_AT: Final = 0.75
+AO_STRENGTH_UNDER_CLOUD: Final = 99.0 / 55.0
+AO_DISTANCE_UNDER_CLOUD: Final = 70.0 / 14.0
+AO_BIAS_UNDER_CLOUD_CM: Final = 21.0
 
 
 def _luminance(linear: np.ndarray) -> float:
@@ -334,13 +364,13 @@ def _midnight_fade(sun: SunState, southern: bool, width_deg: float) -> float:
 
 def _particle_light(look: LookSpec) -> tuple[float, float, float]:
     """The light an unlit particle is drawn in: half the key light — the sun, or once
-    it is down the look's moon (a drop is lit from one side) — plus the sky's light,
-    both in linear light."""
+    it is down the look's moon (a drop is lit from one side) — plus the sky's light and
+    the twilight fill that lights the garden around it (#802), all in linear light."""
     mood, sky = look.mood, look.sky
     key = srgb_to_linear(mood.sun_color).astype(np.float64) * mood.sun_brightness * 0.5
     ambient = ((srgb_to_linear(sky.top) + srgb_to_linear(sky.horizon)).astype(np.float64) / 2.0
                * mood.probe_exposure * sky.sky_energy * 0.9)
-    light = key + ambient
+    light = key + ambient + np.asarray(look.twilight_fill_linear, dtype=np.float64)
     return (float(light[0]), float(light[1]), float(light[2]))
 
 
@@ -354,8 +384,39 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     but the atmosphere. ``dew`` False: no morning dew either — clear weather is then
     the sun's own look at any hour (an Analyze drape on the ground: ``LookController``).
     ``southern``: the place lies south of the equator — where noon and midnight stand.
+    The twilight fill (#802) is the weathered look's own, held to the SAME weather's
+    night (``look.twilight_fill``): a cloudy night is darker than a clear one.
     """
     spec = weather if isinstance(weather, WeatherSpec) else WEATHER_SPECS[weather]
+    weathered = _weathered(look, spec, sun, dew=dew, southern=southern)
+    weathered = replace(weathered, twilight_fill_linear=twilight_fill(
+        weathered, *_anchor_lights(spec)))
+    particle_light = _particle_light(weathered)
+    return replace(weathered, atmosphere=replace(weathered.atmosphere,
+                                                 particle_light_linear=particle_light))
+
+
+#: Each weather's twilight-fill anchors (``_anchor_lights``), by spec.
+_ANCHOR_LIGHTS: dict[WeatherSpec, tuple[float, float]] = {}
+
+
+def _anchor_lights(spec: WeatherSpec) -> tuple[float, float]:
+    """``look.ground_light`` of ``spec``'s night and of its look at sunset
+    (``NIGHT_BELOW_DEG``), no dew, no fill: the anchors of its twilight fill
+    (``look.twilight_fill``). Computed once per weather."""
+    if spec not in _ANCHOR_LIGHTS:
+        lights = []
+        for elevation in (-30.0, NIGHT_BELOW_DEG):
+            sun = SunState(elevation_deg=elevation, azimuth_deg=0.0)
+            lights.append(ground_light(_weathered(look_for(sun), spec, sun, dew=False,
+                                                  southern=False), with_fill=False))
+        _ANCHOR_LIGHTS[spec] = (lights[0], lights[1])
+    return _ANCHOR_LIGHTS[spec]
+
+
+def _weathered(look: LookSpec, spec: WeatherSpec, sun: SunState, *, dew: bool,
+               southern: bool) -> LookSpec:
+    """``apply_weather`` before its twilight fill and its particles' light."""
     cloud = spec.cloud
     light = cloud if spec.light is None else spec.light
     grey = spec.sky_grey
@@ -395,14 +456,13 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     wetness = max(spec.wetness, _DEW_WETNESS * dew_share)
     haze = spec.haze * (1.0 + (_DEW_HAZE - 1.0) * dew_share)
     darken = 1.0 - _WET_GROUND_DARKEN * spec.wetness      # the rain's, not the dew's
+    # the meadow keeps its ONE albedo (#798): the rain's darkening and the snow are the
+    # ground's tint and cover below, which ground.frag applies to the meadow's grass and
+    # to the plan's tiles alike - weathering the albedo too would weather the meadow twice
     meadow = look.meadow_albedo
-    if spec.wetness > 0.0:
-        meadow = linear_to_srgb_hex(srgb_to_linear(meadow).astype(np.float64) * darken)
-    if spec.snow_cover > 0.0:
-        meadow = mix_linear(meadow, linear_to_srgb_hex(SNOW_LINEAR), spec.snow_cover)
     elevation = float(sun.elevation_deg)
     sun_up = sun.is_up        # the ONE test of "the sun is down" (look_for, the 2D shadows)
-    blowing = math.radians(_WIND_FROM_DEG + 180.0)     # the wind blows TOWARDS this
+    blowing = math.radians(WIND_FROM_DEG + 180.0)      # the wind blows TOWARDS this
     drift = spec.wind_strength * _DRIFT_PER_WIND
     dry = spec.precipitation == "none"
     twilight = look.mood.twilight
@@ -422,16 +482,19 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         fireflies=(_ramp(twilight, 0.15, 0.6) * _midnight_fade(sun, southern, _FIREFLY_FADE_DEG)
                    if (dry and is_evening(sun)) else 0.0),
         # the lights come on with dusk and stay on through the night
-        lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0)
+        lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0,
+        # the sky's share of the light decides how much what hides it darkens (#687)
+        ao_strength_gain=1.0 + (AO_STRENGTH_UNDER_CLOUD - 1.0) * light,
+        ao_distance_gain=1.0 + (AO_DISTANCE_UNDER_CLOUD - 1.0) * light,
+        ao_bias_cm=max(AO_FLAT_BIAS_CM, AO_BIAS_UNDER_CLOUD_CM * light),
+        built_snow=min(1.0, spec.snow_cover / BUILT_SNOW_FULL_AT))
     weathered = replace(look, mood=mood, sky=sky, shadow=shadow, fog_linear=fog,
                         fill_linear=fill, plain_sky_linear=fog, meadow_albedo=meadow,
                         wind_strength=spec.wind_strength, atmosphere=atmosphere)
     if cloud == 0.0 and dew_share == 0.0 and spec.precipitation == "none" and spec.name == "clear":
         # clear and dry: the sun's own look, field for field — but its atmosphere
         weathered = replace(look, atmosphere=atmosphere)
-    particle_light = _particle_light(weathered)
-    return replace(weathered, atmosphere=replace(weathered.atmosphere,
-                                                 particle_light_linear=particle_light))
+    return weathered
 
 
 def living_look(sun: SunState, preset: str = "high", weather: str = "clear", *,

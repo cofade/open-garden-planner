@@ -41,9 +41,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.i18n import LocalizedNumber, format_decimal
 from open_garden_planner.models.amendment import AmendmentRecommendation
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
 from open_garden_planner.services.soil_service import SoilService
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.widgets import SoilSparklineWidget
 
 # Categorical labels for Rapitest scale. Index = stored level value.
@@ -151,9 +153,7 @@ class SoilTestDialog(QDialog):
 
         # Date row
         meta_form = QFormLayout()
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         today = _date.today()
         self._date_edit.setDate(QDate(today.year, today.month, today.day))
         meta_form.addRow(self.tr("Date"), self._date_edit)
@@ -416,7 +416,7 @@ class SoilTestDialog(QDialog):
                 calendar_view.refresh()
 
     def _format_history_row(self, rec: SoilTestRecord) -> str:
-        ph = f"{rec.ph:.1f}" if rec.ph is not None else self.tr("(no pH)")
+        ph = format_decimal(rec.ph, 1) if rec.ph is not None else self.tr("(no pH)")
         n = str(rec.n_level) if rec.n_level is not None else "—"
         p = str(rec.p_level) if rec.p_level is not None else "—"
         k = str(rec.k_level) if rec.k_level is not None else "—"
@@ -738,11 +738,11 @@ def format_amendment_line(
     if rec.target_kind == "ph":
         if rec.target_value > rec.current_value:
             rationale = dialog.tr("Raises pH {cur:.1f} → {tgt:.1f}").format(
-                cur=rec.current_value, tgt=rec.target_value
+                cur=LocalizedNumber(rec.current_value), tgt=LocalizedNumber(rec.target_value)
             )
         else:
             rationale = dialog.tr("Lowers pH {cur:.1f} → {tgt:.1f}").format(
-                cur=rec.current_value, tgt=rec.target_value
+                cur=LocalizedNumber(rec.current_value), tgt=LocalizedNumber(rec.target_value)
             )
     else:
         nutrient = rec.target_kind.upper()
@@ -771,7 +771,7 @@ def _level_label(level: int, kind: str, dialog: QWidget) -> str:
 def _format_quantity(grams: float) -> str:
     """Format a gram quantity. ≥1000 g shown in kg; else g."""
     if grams >= 1000.0:
-        return f"{grams / 1000.0:.2f} kg"
+        return f"{format_decimal(grams / 1000.0, 2)} kg"
     return f"{grams:.0f} g"
 
 

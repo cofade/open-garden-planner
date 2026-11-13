@@ -2,6 +2,21 @@
 
 Loads tileable PNG textures from resources/textures/ and recolours each one to
 the item's fill colour to create QBrush objects for rendering garden items.
+
+A pattern's tile exists at two LEVELS (#785), in texture pixels per cm:
+
+- **1** — the 256-px tile every brush is made with (``create_pattern_brush``),
+  and what a fill is painted with at 100 % zoom and below: unchanged, pixel for
+  pixel.
+- **2** — the detail tile ``textures/x2/<name>.png``: the generator's own 512-px
+  canvas before the box downsample that makes the 256-px tile. Used above
+  100 %, where the 256-px tile is an upscaled bitmap.
+
+``brush_for_painter`` swaps a brush's tile for the level its painter shows it
+at — ``core.raster_resolution``'s rule, the one the sprites follow — and scales
+the brush transform to match, so the pattern's size, phase and ``FillTransform``
+are exactly what they were. (Coarser tiles for a zoomed-out view were measured
+and left out: ``raster_resolution.MIN_LEVEL``.)
 """
 
 import math
@@ -11,7 +26,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PyQt6.QtGui import QBrush, QColor, QImage, QPixmap, QTransform
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPixmap, QTransform
+
+from .raster_resolution import device_scale, raster_level
+from .sprite_raster import PixmapLru
 
 # Directory containing texture PNG files
 _TEXTURES_DIR = Path(__file__).parent.parent / "resources" / "textures"
@@ -24,6 +43,26 @@ _tinted_cache: dict[tuple["FillPattern", int], QPixmap] = {}
 
 # Maximum number of tinted texture cache entries before clearing
 _TINTED_CACHE_MAX = 200
+
+# The detail tiles (#785): the same texture at DETAIL_LEVEL texture px per cm,
+# emitted by scripts/generate_asset_forge_textures.py beside the 256-px tile.
+DETAIL_LEVEL = 2.0
+_DETAIL_DIR = _TEXTURES_DIR / "x2"
+
+# Which (pattern, colour) a tinted 256-px tile is, by its pixmap cache key: how
+# ``brush_for_painter`` recognises a brush it may refine. Entries are two ints.
+# The table outlives the tinted cache's own eviction — an item that still holds
+# an evicted tile stays recognisable — and is emptied only by
+# ``clear_texture_cache()`` and when it outgrows this.
+_brush_tiles: dict[int, tuple["FillPattern", int]] = {}
+_BRUSH_TILES_MAX = 4096
+
+# Untinted detail tiles (pattern -> QImage or None if the file is missing) and
+# the tinted detail tiles ((pattern, rgba, level) -> QPixmap), least recently
+# used first. A level-2 tile is 1 MB.
+_detail_cache: dict["FillPattern", QImage | None] = {}
+LEVEL_TILE_CACHE_MAX_BYTES = 48 * 1024 * 1024
+_level_tiles = PixmapLru(LEVEL_TILE_CACHE_MAX_BYTES, 512)
 
 
 def _is_finite(value: float) -> bool:
@@ -250,24 +289,42 @@ def _tint_texture(texture: QPixmap, color: QColor) -> QPixmap:
     Returns:
         Recoloured pixmap
     """
-    image = texture.toImage().convertToFormat(QImage.Format.Format_RGB32)
-    width, height = image.width(), image.height()
-    if width == 0 or height == 0:
+    image = texture.toImage()
+    if image.width() == 0 or image.height() == 0:
         return QPixmap(texture.size())
+    return _tint_image(image, color, _mean_luminance(image))
 
+
+def _luminance(image: QImage) -> np.ndarray:
+    """Per-pixel luminance of ``image`` (float32, rows x columns)."""
+    image = image.convertToFormat(QImage.Format.Format_RGB32)
+    width, height = image.width(), image.height()
     # Qt's stub types the raw pointer as voidptr; Any here is the typing gap,
-    # not a semantic choice. The copy is trivial: 256x256, once per
+    # not a semantic choice. The copy is trivial: one tile, once per
     # pattern+colour, then cached.
     buffer: Any = image.bits()
     buffer.setsize(image.sizeInBytes())
     rows = np.frombuffer(buffer, dtype=np.uint8).reshape(height, image.bytesPerLine() // 4, 4)
     pixels = rows[:, :width, :]
-    lum = (
+    luminance: np.ndarray = (
         0.114 * pixels[:, :, 0].astype(np.float32)
         + 0.587 * pixels[:, :, 1].astype(np.float32)
         + 0.299 * pixels[:, :, 2].astype(np.float32)
     )
-    mean_lum = max(float(lum.mean()), 1.0)
+    return luminance
+
+
+def _mean_luminance(image: QImage) -> float:
+    """The mean a texture's tint is normalised with (never below 1)."""
+    return max(float(_luminance(image).mean()), 1.0)
+
+
+def _tint_image(image: QImage, color: QColor, mean_lum: float) -> QPixmap:
+    """``image`` recoloured to ``color`` by its luminance relative to
+    ``mean_lum`` (``_tint_texture``'s map). A detail tile is tinted with the
+    256-px tile's mean, so the two levels are the same picture."""
+    lum = _luminance(image)
+    height, width = lum.shape
     scale = lum / mean_lum
 
     out = np.empty((height, width, 4), dtype=np.uint8)
@@ -316,28 +373,114 @@ def create_pattern_brush(
         # Fallback to solid color if texture not found
         return QBrush(color)
 
-    # Check tinted cache
+    brush = QBrush(_tinted_tile(pattern, texture, color))
+    if transform is not None and not transform.is_identity:
+        brush.setTransform(transform.brush_transform())
+    return brush
+
+
+def _tinted_tile(pattern: FillPattern, texture: QPixmap, color: QColor) -> QPixmap:
+    """The 256-px tile of ``pattern`` in ``color`` — cached, and registered so
+    ``brush_for_painter`` knows a brush made of it."""
     key = (pattern, _color_key(color))
     tinted = _tinted_cache.get(key)
     if tinted is None:
         # Evict cache if too large
         if len(_tinted_cache) >= _TINTED_CACHE_MAX:
             _tinted_cache.clear()
-
         # Create tinted texture
         tinted = _tint_texture(texture, color)
         _tinted_cache[key] = tinted
+    if len(_brush_tiles) >= _BRUSH_TILES_MAX:
+        _brush_tiles.clear()
+    _brush_tiles[tinted.cacheKey()] = key
+    return tinted
 
-    brush = QBrush(tinted)
-    if transform is not None and not transform.is_identity:
-        brush.setTransform(transform.brush_transform())
-    return brush
+
+def _load_detail(pattern: FillPattern) -> QImage | None:
+    """The untinted detail tile of ``pattern`` (``DETAIL_LEVEL`` px per cm), or
+    None when the file is missing — the fill then keeps its 256-px tile."""
+    if pattern in _detail_cache:
+        return _detail_cache[pattern]
+    image: QImage | None = None
+    filename = _TEXTURE_FILES.get(pattern)
+    if filename is not None:
+        path = _DETAIL_DIR / f"{filename}.png"
+        if path.exists():
+            loaded = QImage(str(path))
+            if not loaded.isNull():
+                image = loaded
+    _detail_cache[pattern] = image
+    return image
+
+
+def tile_level(scale: float) -> float:
+    """The tile level for a fill shown at ``scale`` device pixels per texture
+    cm: ``raster_level`` within the levels a tile has."""
+    return min(raster_level(scale), DETAIL_LEVEL)
+
+
+def level_tile(pattern: FillPattern, color: QColor, level: float) -> QPixmap | None:
+    """The tinted tile of ``pattern`` at ``level`` texture px per cm, or None
+    when that level does not exist (SOLID, a missing file, level 1 — which is
+    ``create_pattern_brush``'s own tile)."""
+    if pattern == FillPattern.SOLID or level == 1.0:
+        return None
+    key = (pattern, _color_key(color), level)
+    cached = _level_tiles.get(key)
+    if cached is not None:
+        return cached
+    texture = _load_texture(pattern)
+    detail = _load_detail(pattern) if level == DETAIL_LEVEL else None
+    if texture is None or detail is None:
+        return None
+    # normalised with the 256-px tile's mean: the same picture, finer
+    tile = _tint_image(detail, color, _mean_luminance(texture.toImage()))
+    _level_tiles.put(key, tile)
+    return tile
+
+
+def brush_for_painter(brush: QBrush, painter: QPainter) -> QBrush | None:
+    """``brush`` with its tile at the level ``painter`` shows it at, or None when
+    the brush is right as it is (#785).
+
+    A pattern brush's tile has 1 texture px per cm. Above 100 % zoom (or on a
+    high-density display, or in a 300-dpi export) that is an upscaled bitmap.
+    The answer is the same tile at another level (module docstring) under a
+    brush transform scaled by ``1 / level``, so the pattern keeps its size, its
+    phase and the item's ``FillTransform``. The level follows
+    ``core.raster_resolution`` — the device pixels one texture cm covers, the
+    brush's own transform included — rounded up to a power of two.
+
+    None for a solid brush, a tile this module did not make, and level 1: at
+    100 % and below a fill is painted with exactly the brush it has.
+    """
+    if brush.style() != Qt.BrushStyle.TexturePattern:
+        return None
+    entry = _brush_tiles.get(brush.texture().cacheKey())
+    if entry is None:
+        return None
+    pattern, rgba = entry
+    own = brush.transform()
+    stretch = max(math.hypot(own.m11(), own.m12()), math.hypot(own.m21(), own.m22()))
+    if not _is_finite(stretch) or stretch <= 0.0:
+        stretch = 1.0
+    level = tile_level(device_scale(painter) * stretch)
+    tile = level_tile(pattern, QColor.fromRgba(rgba), level)
+    if tile is None:
+        return None
+    refined = QBrush(tile)
+    refined.setTransform(QTransform.fromScale(1.0 / level, 1.0 / level) * own)
+    return refined
 
 
 def clear_texture_cache() -> None:
     """Clear all cached textures. Useful for testing or theme changes."""
     _texture_cache.clear()
     _tinted_cache.clear()
+    _brush_tiles.clear()
+    _detail_cache.clear()
+    _level_tiles.clear()
 
 
 def pattern_from_name(name: str | None) -> FillPattern | None:
@@ -352,6 +495,45 @@ def pattern_from_name(name: str | None) -> FillPattern | None:
     if pattern is None or pattern == FillPattern.SOLID:
         return None
     return pattern
+
+
+def pattern_pixels(pattern: FillPattern) -> tuple[int, int, bytes] | None:
+    """A fill pattern's own texture, UNTINTED — RGBA8, top-down, opaque, rows as the
+    image's (row 0 its top); one tile is 256 cm wide in the plan's coordinates.
+
+    What the 3D meadow's grass is made of (#798: ``core.scene3d.meadow.grass_detail``):
+    the canvas's GRASS picture as the asset forge drew it, not a recolouring of it.
+    Read with ``QImage`` (no ``QPixmap``), so it needs no running application. ``None``
+    for SOLID or a missing texture."""
+    filename = _TEXTURE_FILES.get(pattern)
+    if filename is None:
+        return None
+    image = QImage(str(_TEXTURES_DIR / f"{filename}.png"))
+    if image.isNull():
+        return None
+    image = image.convertToFormat(QImage.Format.Format_RGBA8888)
+    width, height = image.width(), image.height()
+    buffer: Any = image.constBits()
+    buffer.setsize(image.sizeInBytes())
+    if image.bytesPerLine() != width * 4:  # RGBA8888 is packed; a padded row would shear it
+        raise ValueError(f"the {pattern.name} texture has {image.bytesPerLine()} bytes a row "
+                         f"for {width} pixels")
+    data = bytearray(buffer)
+    data[3::4] = b"\xff" * (width * height)
+    return width, height, bytes(data)
+
+
+def pattern_rgb(pattern: FillPattern) -> np.ndarray | None:
+    """A fill pattern's own picture, untinted: (rows, columns, 3) uint8, row 0 the
+    image's top — or None for SOLID or a missing texture. What a 3D surface's detail
+    picture is made from (#801, ``core.scene3d.surface_detail``). The same read as
+    ``pattern_pixels`` (the meadow's grass, #798), without its alpha channel."""
+    pixels = pattern_pixels(pattern)
+    if pixels is None:
+        return None
+    width, height, data = pixels
+    rgba = np.frombuffer(data, dtype=np.uint8).reshape(height, width, 4)
+    return np.array(rgba[:, :, :3])
 
 
 def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int, bytes] | None:
@@ -373,13 +555,7 @@ def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int
     texture = _load_texture(pattern)
     if texture is None:
         return None
-    key = (pattern, _color_key(color))
-    tinted = _tinted_cache.get(key)
-    if tinted is None:
-        if len(_tinted_cache) >= _TINTED_CACHE_MAX:
-            _tinted_cache.clear()
-        tinted = _tint_texture(texture, color)
-        _tinted_cache[key] = tinted
+    tinted = _tinted_tile(pattern, texture, color)
     image = tinted.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
     width, height = image.width(), image.height()
     buffer: Any = image.bits()

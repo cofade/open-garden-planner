@@ -16,8 +16,9 @@
 //    is core/scene3d/cloud_noise.py, a port of the example's CloudNoiseTextureData);
 //  - the painted-sky base, the haze band, the twilight weight, the gains, the clouds'
 //    hue and the disc colour of atmosphere.frag (paintedTop .. sunDiscColor below), the
-//    clouds' fade distance (cloudMaxDistanceKm), the silver lining faded with the cover
-//    and the clouds' sunlight faded through civil twilight;
+//    clouds' fade distance (cloudMaxDistanceKm), the silver lining and the sun side of
+//    the clouds' ambient faded with the cover, the clouds' sunlight faded through civil
+//    twilight, and the clear sky's profile per elevation in the table's alpha (#716);
 //  - it only BACKS the view, drawn on screen (enableIBL false, ScreenSpaceHalf; the
 //    example lit the scene through a Cubemap): Qt 6.12.0's pre-filter of that cube
 //    crashed the app (PF-E3D-17), and the painted sky's probe lights the garden;
@@ -102,6 +103,8 @@ SkyMaterial {
     // a port of the example's transmittance.frag and skytexture.frag) and handed in at
     // creation as texture DATA: a SkyMaterial compiles its shader only once every texture
     // it samples exists, and the example's QuadTextureProvider textures exist only after
-    // their first render - so its first frame was white (measured, L7)
+    // their first render - so its first frame was white (measured, L7). Its alpha is the
+    // sky's profile per elevation (#716: atmosphere_lut.sky_profile), which only the clear
+    // sky reads; the clouds' ambient samples take the rgb
     property Texture skytextureBuffer: null
 }

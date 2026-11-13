@@ -266,6 +266,8 @@ _MAX_FLUSH_ROUNDS: Final = 4
 NO_LOCATION_SUN: Final = SunState(elevation_deg=50.0, azimuth_deg=180.0)
 
 LocationProvider = Callable[[], Mapping[str, Any] | None]
+#: The plan's north orientation in degrees clockwise from plan-up (#663).
+NorthProvider = Callable[[], float]
 #: ``stage(previous_records, records, width_cm, depth_cm) -> GroundSpec`` (module docstring).
 GroundStage = Callable[[Mapping[str, Record], Mapping[str, Record], float, float], GroundSpec]
 
@@ -440,7 +442,8 @@ class Scene3DController(QObject):
     def __init__(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
                  sink: EngineSink, registry: BuilderRegistry | None = None, *,
                  parent: QObject | None = None, tick_ms: int = TICK_MS,
-                 quiet_ms: int | None = None, ground_baker: GroundBaker | None = None) -> None:
+                 quiet_ms: int | None = None, ground_baker: GroundBaker | None = None,
+                 north: NorthProvider | None = None) -> None:
         """``scene``: the canvas scene. A ``CanvasScene`` announces its plan's
         changes (``plan_changed``); any other ``QGraphicsScene`` announces nothing
         and is kept in step by the net alone — after its quiet time, never at once.
@@ -455,6 +458,7 @@ class Scene3DController(QObject):
         self._scene = scene
         self._clock = clock
         self._location = location
+        self._north = north or (lambda: 0.0)
         self._baker = ground_baker
         self._sync = SceneSync(sink, registry, ground_baker=ground_baker)
         self._ground_stage: GroundStage = plain_ground
@@ -1516,19 +1520,21 @@ class Scene3DController(QObject):
         return float(rect.width()), float(rect.height())
 
     def _sun(self) -> SunState:
+        north = float(self._north())
         location = self._location()
         if not isinstance(location, Mapping) or not location:
-            return NO_LOCATION_SUN
+            return replace(NO_LOCATION_SUN, north_angle_deg=north)
         place = plan_place(location)
         if place is None:
             _LOG.warning("3D sync: no sun for location %s; using the default light",
                          log_text(repr(location)))
-            return NO_LOCATION_SUN
+            return replace(NO_LOCATION_SUN, north_angle_deg=north)
         latitude, longitude = place
         try:
             return SunState.from_solar_position(
-                solar_position(latitude, longitude, self._clock.utc))
+                solar_position(latitude, longitude, self._clock.utc), north
+            )
         except (TypeError, ValueError, OverflowError):
             _LOG.warning("3D sync: no sun for location %s; using the default light",
                          log_text(repr(location)))
-            return NO_LOCATION_SUN
+            return replace(NO_LOCATION_SUN, north_angle_deg=north)

@@ -7,6 +7,7 @@ from typing import Any
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtWidgets import QComboBox, QLabel, QListWidget, QListWidgetItem, QVBoxLayout, QWidget
 
+from open_garden_planner.core.object_types import ObjectType, get_translated_display_name
 from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.diagnostics import DiagnosticRecord
 from open_garden_planner.ui.canvas.select_by_id import select_by_ids
@@ -93,6 +94,9 @@ class DiagnosticsPanel(ObjectNavigator):
         name = details.get("label", "")
         if record.kind in ("sun_mismatch", "sun_evaluation") and details.get("label_is_species"):
             name = QCoreApplication.translate("GalleryData", name)
+        elif details.get("label_is_type") and name in ObjectType.__members__:
+            # Never the enum's name ("TREE: spacing overlap", #792).
+            name = get_translated_display_name(ObjectType[name])
         if record.kind == "sun_evaluation":
             return self.tr("{name}: {status}").format(name=name, status=unavailable_message(details["reason"]))
         if record.kind == "sun_mismatch":
@@ -116,21 +120,47 @@ class DiagnosticsPanel(ObjectNavigator):
         }
         return templates.get(record.kind, self.tr("{name}: diagnostic warning")).format(name=name)
 
+    def _listed(self, records: list[DiagnosticRecord]) -> list[tuple[str, list[str]]]:
+        """The rows of ``records``: each one's text and the items it selects.
+
+        A plant whose sun exposure is not evaluated has its own record, and all of
+        them say the same thing for the same reason: with Hours of Sun off, a plan
+        of 174 plants listed 174 identical rows around its few real warnings
+        (#795). Records of one reason are therefore one row that names how many
+        plants it stands for and selects them all. The records themselves, and
+        what an agent reads, stay one per plant.
+        """
+        groups: dict[str, list[DiagnosticRecord]] = {}
+        for record in records:
+            if record.kind == "sun_evaluation":
+                groups.setdefault(record.details["reason"], []).append(record)
+        listed: list[tuple[str, list[str]]] = []
+        for record in records:
+            group = groups.get(record.details["reason"]) if record.kind == "sun_evaluation" else None
+            if group is None or len(group) == 1:
+                listed.append((self._message(record), record.item_ids))
+            elif record is group[0]:
+                ids = list(dict.fromkeys(item_id for member in group for item_id in member.item_ids))
+                listed.append((self.tr("Plants ({count}): {status}").format(
+                    count=len(group), status=unavailable_message(record.details["reason"])), ids))
+        return listed
+
     def _render(self) -> None:
         selected = self.rows.currentItem()
         selected_ids = selected.data(Qt.ItemDataRole.UserRole) if selected is not None else None
         scrollbar = self.rows.verticalScrollBar()
         scroll = scrollbar.value() if scrollbar is not None else 0
         self.rows.clear()
-        visible = [record for record in self.records
-                   if (self.kind_filter.currentData() in (None, record.kind))
-                   and (self.severity_filter.currentData() in (None, record.severity))]
-        self.count_label.setText(self.tr("{shown} of {total} diagnostics").format(shown=len(visible), total=len(self.records)))
-        for record in visible:
-            row = QListWidgetItem(self._message(record))
-            row.setData(Qt.ItemDataRole.UserRole, record.item_ids)
+        visible = self._listed([record for record in self.records
+                                if (self.kind_filter.currentData() in (None, record.kind))
+                                and (self.severity_filter.currentData() in (None, record.severity))])
+        self.count_label.setText(self.tr("{shown} of {total} diagnostics").format(
+            shown=len(visible), total=len(self._listed(self.records))))
+        for text, item_ids in visible:
+            row = QListWidgetItem(text)
+            row.setData(Qt.ItemDataRole.UserRole, item_ids)
             self.rows.addItem(row)
-            if record.item_ids == selected_ids:
+            if item_ids == selected_ids:
                 self.rows.setCurrentItem(row)
         if scrollbar is not None:
             scrollbar.setValue(scroll)

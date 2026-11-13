@@ -142,6 +142,27 @@ class BaseTool(ABC):
     shortcut: str
     cursor: Qt.CursorShape = Qt.CursorShape.ArrowCursor
 
+    def localized_name(self) -> str:
+        """The tool's name in the UI language — what the status bar shows (#792).
+
+        A tool's ``display_name`` is one of three things: a text the view set on
+        the INSTANCE, already translated ("House"); a property that translates
+        on every read (the constraint tools); or a CLASS attribute holding the
+        English source (``QT_TR_NOOP("Select")``, or a ``translate()`` call that
+        ran at import, before any translator was loaded). Only the last still
+        needs its catalog entry: such a class overrides :meth:`_translated_name`
+        with a lookup in its own context (a literal one — the translation gate
+        reads the call).
+        """
+        if "display_name" in vars(self):
+            return self.display_name
+        return self._translated_name()
+
+    def _translated_name(self) -> str:
+        """The class's own name, translated now. The default is for a tool whose
+        ``display_name`` already is (a property that translates on every read)."""
+        return self.display_name
+
     #: If ``True``, CanvasView's Package A point-snap is skipped before
     #: dispatching mouse events to this tool.  Tools that run their own
     #: anchor logic (measure, constraint, select) set this to avoid

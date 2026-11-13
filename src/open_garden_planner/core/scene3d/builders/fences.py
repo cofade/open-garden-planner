@@ -38,9 +38,12 @@ from collections.abc import Sequence
 from typing import Final
 
 import numpy as np
+import numpy.typing as npt
 
+from ..build import item_seed
+from ..materials import DEFAULT_SURFACE
 from ..mesh import Mesh, MeshPart
-from ..record import ParamValue, Record
+from ..record import PARAM_SEED, ParamValue, Record
 from .hedges import (
     CORE_DROP_CM,
     CORE_INSET_CM,
@@ -75,6 +78,16 @@ RAIL_TALL_CM: Final = 6.0
 PICKET_PITCH_CM: Final = 12.0
 PICKET_WIDE_CM: Final = PICKET_PITCH_CM * 0.62
 PICKET_THICK_CM: Final = 2.2
+#: How far under the posts' top a picket stops (cm), each its own way: a hand-cut fence,
+#: no two neighbours level, the posts proud. A low sun stretches every centimetre of it
+#: into 1 / tan(elevation) of shadow along the shadow's edge (3.7 cm at 15°, 9.7 cm at
+#: 6°). The L0 fence's 0.3-4 cm in a RAMP (``index * 7919 % 13`` is ``2 * index % 13``:
+#: seven pickets climbing 0.6 cm each, then a drop) drew the long shadow of a fence at
+#: golden hour as a regular staircase (#734); ``unit_hash`` keyed by the item's seed draws
+#: each picket's own drop. The range: the edge's spread on the board's ``--stairs``
+#: probe (golden hour, 0-10 m, 1080p) was 7.6 px hashed over the old range, 4.6 px over
+#: this one and 5.4 px with every picket 2 cm under the posts — what is left is the posts.
+PICKET_DROP_CM: Final = (0.5, 1.5)
 # metal fence
 METAL_POST_CM: Final = 4.0
 METAL_RAIL_CM: Final = 2.5
@@ -251,7 +264,29 @@ def _scale(height_cm: float) -> float:
     return min(1.0, height_cm / 60.0)
 
 
-def picket_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
+def unit_hash(seed: int, index: npt.NDArray[np.integer] | F64) -> F64:
+    """A value in [0, 1) per (``seed``, ``index``), each unrelated to its neighbours: the
+    ``lowbias32`` integer hash (C. Wellons) of the index XOR a 32-bit fold of the seed.
+    Order-free and stable — a picket keeps its value when the fence grows — where a
+    multiplicative step modulo a small prime is a RAMP (``i * 7919 % 13`` is
+    ``2 * i % 13``)."""
+    mask = np.uint64(0xFFFFFFFF)
+    fold = np.uint64((seed ^ (seed >> 32)) & 0xFFFFFFFF)
+    x = (np.asarray(index).astype(np.uint64) ^ fold) & mask
+    x ^= x >> np.uint64(16)
+    x = (x * np.uint64(0x7FEB352D)) & mask
+    x ^= x >> np.uint64(15)
+    x = (x * np.uint64(0x846CA68B)) & mask
+    x ^= x >> np.uint64(16)
+    return np.asarray(x.astype(np.float64) / 4294967296.0)
+
+
+def picket_seed(record: Record) -> int:
+    """The seed of a picket fence's tops: the item's own (``params["seed"]``)."""
+    return item_seed(str(record.params.get(PARAM_SEED, "")), "pickets")
+
+
+def picket_fence(run: _Run, height_cm: float, post_cm: float, seed: int = 0) -> Mesh:
     k = _scale(height_cm)
     post_at, post_angle = run.posts(POST_SPACING_CM)
     posts = bevelled_boxes(post_at, (post_cm, post_cm), 0.0, height_cm, POST_BEVEL_CM * k,
@@ -260,9 +295,10 @@ def picket_fence(run: _Run, height_cm: float, post_cm: float) -> Mesh:
     rails = [boxes(run.mid(), rail_size, share * height_cm,
                    min(share * height_cm + RAIL_TALL_CM, (share + 0.2) * height_cm), run.angle, TINT)
              for share in (0.25, 0.75)]
-    at, angle, index = run.every(PICKET_PITCH_CM)
-    jitter = (index * 7919 % 13) / 13.0 * 4.0  # 0 … 3.7 cm: no two neighbours level
-    pickets = boxes(at, (PICKET_WIDE_CM, PICKET_THICK_CM), 2.0 * k, height_cm - (4.0 - jitter) * k,
+    at, angle, _index = run.every(PICKET_PITCH_CM)
+    low, high = PICKET_DROP_CM
+    drop = low + (high - low) * unit_hash(seed, np.arange(len(at)))
+    pickets = boxes(at, (PICKET_WIDE_CM, PICKET_THICK_CM), 2.0 * k, height_cm - drop * k,
                     angle, TINT)
     return Mesh.merge([posts, *rails, pickets])
 
@@ -344,10 +380,20 @@ def fence_parts(record: Record, line: F64, closed: bool, height_cm: float,
         mesh = plain_fence(line, closed, plain_width_cm(record), height_cm)
     elif style in _POST_FENCES:
         build, post_cm = _POST_FENCES[style]
-        mesh = build(_Run(line, closed), height_cm, max(post_cm, record.path_width_cm or 0.0))
+        run, post = _Run(line, closed), max(post_cm, record.path_width_cm or 0.0)
+        if style == "WOODEN_FENCE":    # the one style whose parts differ per item
+            mesh = picket_fence(run, height_cm, post, picket_seed(record))
+        else:
+            mesh = build(run, height_cm, post)
     else:
         raise ValueError(f"no fence is built in the style {style!r}")
-    return (MeshPart(mesh, "vc", tinted=True, name="fence"),)
+    return (MeshPart(mesh, "vc", tinted=True, name="fence",
+                     surface=FENCE_SURFACES.get(style, DEFAULT_SURFACE)),)
+
+
+#: What each post fence is made of (#803): its surface. A plain panel is the item's stroke
+#: with no material the plan names, so it keeps the default surface.
+FENCE_SURFACES: Final = {"WOODEN_FENCE": "wood", "METAL_FENCE": "iron", "CHAIN_LINK": "steel"}
 
 
 def triangle_budget(line: F64, closed: bool, segments: int, style: str) -> int:

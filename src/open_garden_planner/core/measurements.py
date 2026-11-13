@@ -5,6 +5,7 @@ import math
 from PyQt6.QtWidgets import QGraphicsItem
 
 from open_garden_planner.core.geometry import Point, Polygon
+from open_garden_planner.core.i18n import format_decimal, format_trimmed
 
 
 def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | None:
@@ -65,6 +66,34 @@ def calculate_area_and_perimeter(item: QGraphicsItem) -> tuple[float, float] | N
     return None
 
 
+# The round distances a scale bar may show, in cm, ascending. The canvas's bar
+# and the PDF report's bar both pick from this one list (#782).
+SCALE_BAR_NICE_DISTANCES_CM: tuple[int, ...] = (
+    1,
+    2,
+    5,
+    10,
+    20,
+    50,
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000,
+    10000,
+)
+
+
+def format_scale_distance(cm: float) -> str:
+    """A scale bar's label for a distance in cm: "50 cm", "2 m", "1.5 km"."""
+    if cm >= 100000:
+        return f"{format_trimmed(cm / 100000)} km"
+    if cm >= 100:
+        return f"{format_trimmed(cm / 100)} m"
+    return f"{format_trimmed(cm)} cm"
+
+
 def format_area(area_cm2: float) -> str:
     """Format area for display with appropriate units.
 
@@ -72,13 +101,14 @@ def format_area(area_cm2: float) -> str:
         area_cm2: Area in square centimeters
 
     Returns:
-        Formatted string (e.g., "2.35 m²", "45.2 cm²")
+        Formatted string in the UI language's number format
+        (e.g., "2.35 m²", "45.2 cm²"; "2,35 m²" in German)
     """
     if area_cm2 >= 10000:  # >= 1 m²
         area_m2 = area_cm2 / 10000
-        return f"{area_m2:.2f} m²"
+        return f"{format_decimal(area_m2, 2)} m²"
     else:
-        return f"{area_cm2:.1f} cm²"
+        return f"{format_decimal(area_cm2, 1)} cm²"
 
 
 def format_length(length_cm: float) -> str:
@@ -88,10 +118,11 @@ def format_length(length_cm: float) -> str:
         length_cm: Length in centimeters
 
     Returns:
-        Formatted string (e.g., "2.35 m", "45.2 cm")
+        Formatted string in the UI language's number format
+        (e.g., "2.35 m", "45.2 cm"; "2,35 m" in German)
     """
     if length_cm >= 100:  # >= 1 m
         length_m = length_cm / 100
-        return f"{length_m:.2f} m"
+        return f"{format_decimal(length_m, 2)} m"
     else:
-        return f"{length_cm:.1f} cm"
+        return f"{format_decimal(length_cm, 1)} cm"

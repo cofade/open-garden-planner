@@ -21,18 +21,21 @@ from typing import Final
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ["BLUR_MAX", "DEFAULT_BLUR", "EXPOSURE_EV_RANGE", "GRADES", "LUT_SIZE", "NO_GRADE",
-           "NO_PHOTO", "VIGNETTE_MAX", "PhotoSettings", "blur_amount", "exposure_gain",
+__all__ = ["BLUR_SIGMA_SHARE", "DEFAULT_BLUR", "EXPOSURE_EV_RANGE", "FOCUS_RANGE_FLOOR_AT_CM",
+           "FOCUS_RANGE_FLOOR_SHARE", "FOCUS_RANGE_MIN_CM", "GRADES", "LUT_SIZE", "NO_GRADE",
+           "NO_PHOTO", "VIGNETTE_MAX", "PhotoSettings", "blur_sigma_share", "exposure_gain",
            "focus_distance_cm", "focus_range_cm", "lut_strip"]
 
 #: The table's edge: Qt's default, and all a smooth grade needs.
 LUT_SIZE: Final = 16
 #: Two stops up clipped two thirds of a noon picture (3D review): the top stops short of that.
 EXPOSURE_EV_RANGE: Final = (-2.0, 1.5)
-#: Qt's ``depthOfFieldBlurAmount`` at a setting of 1. Its blur has three taps, ``0.53 x amount``
-#: pixels apart, over a HALF-resolution copy of the picture: at 8 and more the taps read as
-#: copies of a trellis and of leaves (3D review of the blur band, at 4K). Never more than this.
-BLUR_MAX: Final = 5.0
+#: The blur's Gaussian sigma at a setting of 1, as a share of the picture's HEIGHT
+#: (``PhotoBlur.qml``, #743): the same share of every picture, so the pane previews what a 4K
+#: save holds. Qt's own depth of field blurred a half-resolution copy with three taps, about 2 px
+#: at any size: a 4K save kept 0.92 of its detail where the pane kept 0.53, and above its 1080p
+#: amount the taps read as copies of a trellis and of leaves.
+BLUR_SIGMA_SHARE: Final = 0.006
 #: What "focus here" switches on when no blur was asked for yet.
 DEFAULT_BLUR: Final = 0.8
 #: Qt's ``vignetteRadius`` at a setting of 1: an exponent, and the control that reaches only
@@ -41,21 +44,24 @@ DEFAULT_BLUR: Final = 0.8
 #: ``Garden.qml``: Qt's default grey BRIGHTENS a picture darker than it (a third of a night).
 VIGNETTE_MAX: Final = 0.20
 #: How deep the band that stays sharp is, as a share of the focused point's depth: half of it
-#: in front of the point, half behind (Qt's ``depthOfFieldFocusRange``). It shrinks with the
-#: blur setting, from the first to the second value: the owner could not tell a high blur from
-#: a low one in a whole-garden view (manual test of #390). Inside a band of 40 % of a 3860 cm view
-#: nothing was out of focus, and a pixel outside the band gets Qt's half-resolution blur in full
-#: whatever the amount (measured at a narrow band: 0.05, 0.5 and 1 gave one picture), so the band
-#: is the slider's main lever. The faint end is wide: at 0.15 about half of the effect sat in the
-#: first 1 % of the slider (3D review).
+#: in front of the point, half behind. It shrinks with the blur setting, from the first to the
+#: second value: the owner could not tell a high blur from a low one in a whole-garden view
+#: (manual test of #390), because inside a band of 40 % of a 3860 cm view nothing was out of
+#: focus. The faint end is wide: at 0.15 about half of the effect sat in the first 1 % of the
+#: slider (3D review). Out of focus grows from 0 at the band's edge to full one band further out.
 FOCUS_RANGE_SHARE_FAINT: Final = 0.60
 FOCUS_RANGE_SHARE_STRONG: Final = 0.03
-_FOCUS_RANGE_MIN_CM: Final = 60.0
+#: The band is never thinner than this: "focus here" on a plant keeps a whole plant sharp (the
+#: owner's call in #390).
+FOCUS_RANGE_MIN_CM: Final = 60.0
+#: Nor thinner than ``FOCUS_RANGE_FLOOR_SHARE`` of the depth at ``FOCUS_RANGE_FLOOR_AT_CM``,
+#: growing with the square of the depth as a lens's depth of field does: at the 38 m whole-plan
+#: camera the strongest blur left about a metre sharp, a tilt-shift scale model (3D review of
+#: #729). Below about 9 m the floor is under the strong share and changes nothing. Decided in
+#: #743's package as the conservative reading of the owner's question; the owner may veto it.
+FOCUS_RANGE_FLOOR_SHARE: Final = 0.08
+FOCUS_RANGE_FLOOR_AT_CM: Final = 2500.0
 NO_GRADE: Final = "none"
-#: The picture height the blur amount is defined at, and the last one it grows to: Qt's blur is in
-#: pixels but over a half-resolution copy, so more amount at 4K only moves the three taps further
-#: apart (copies, not blur: the gradient ratio went 0.66 -> 0.61 from amount 5 to 10).
-_BLUR_REFERENCE_PX: Final = 1080.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,10 +101,10 @@ def exposure_gain(exposure_ev: float) -> float:
 def focus_distance_cm(settings: PhotoSettings, eye: tuple[float, float, float],
                       target: tuple[float, float, float]) -> float:
     """How deep the focused point lies in front of a camera at ``eye`` looking at ``target``;
-    0 without one, or behind the camera. A depth is what Qt takes, but a POINT is what the user
-    picked: on a tour the focus stays on the plant. Along the view's axis, not the way to the
-    point: Qt compares depths, and off-axis the straight distance is sharp somewhere else
-    (a clicked point near a corner kept 0.37 of its sharpness)."""
+    0 without one, or behind the camera. A depth is what the blur takes, but a POINT is what the
+    user picked: on a tour the focus stays on the plant. Along the view's axis, not the way to
+    the point: the blur compares depths (``PhotoBlur.qml``), and off-axis the straight distance
+    is sharp somewhere else (a clicked point near a corner kept 0.37 of its sharpness)."""
     if settings.focus_scene is None:
         return 0.0
     length = math.dist(target, eye)
@@ -112,16 +118,19 @@ def focus_distance_cm(settings: PhotoSettings, eye: tuple[float, float, float],
 def focus_range_cm(distance_cm: float, blur: float) -> float:
     """The sharp band around the focused point: wide at a faint blur, narrow at a strong one
     (geometric: the blur grows about linearly with the log of the band, measured at three
-    cameras, so the slider reads about evenly along its length)."""
+    cameras, so the slider reads about evenly along its length), never thinner than a plant
+    (``FOCUS_RANGE_MIN_CM``) nor than a lens would leave far off (``FOCUS_RANGE_FLOOR_*``)."""
     amount = min(max(blur, 0.0), 1.0)
     share = float(FOCUS_RANGE_SHARE_FAINT * (FOCUS_RANGE_SHARE_STRONG / FOCUS_RANGE_SHARE_FAINT) ** amount)
-    return max(distance_cm * share, _FOCUS_RANGE_MIN_CM)
+    depth = max(distance_cm, 0.0)
+    floor = FOCUS_RANGE_FLOOR_SHARE * depth * depth / FOCUS_RANGE_FLOOR_AT_CM
+    return max(depth * share, floor, FOCUS_RANGE_MIN_CM)
 
 
-def blur_amount(settings: PhotoSettings, picture_height_px: float) -> float:
-    """Qt's blur amount for ``settings.blur`` in a picture of this height: it grows with the height
-    up to 1080 pixels and stays there, because the taps would show as copies above it."""
-    return settings.blur * BLUR_MAX * min(max(picture_height_px, 1.0) / _BLUR_REFERENCE_PX, 1.0)
+def blur_sigma_share(settings: PhotoSettings) -> float:
+    """The blur's Gaussian sigma as a share of the picture's height; 0 without depth of field.
+    The same in every picture of every size (#743)."""
+    return settings.blur * BLUR_SIGMA_SHARE if settings.depth_of_field else 0.0
 
 
 Rgb = NDArray[np.float64]

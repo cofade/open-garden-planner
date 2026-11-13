@@ -8,12 +8,17 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
+from open_garden_planner.core.camera_tours import SavedTour, checked_tours, find_tour
+from open_garden_planner.core.harvest_units import harvest_unit_label
+from open_garden_planner.core.i18n import format_trimmed
+from open_garden_planner.core.plan_north import normalize_north_angle
 from open_garden_planner.core.stacking import STACK_STEP
 
 if TYPE_CHECKING:
@@ -4275,14 +4280,14 @@ class DeletePestLogCommand(Command):
 
 def _harvest_note_text(record: "Any", species_name: str) -> str:
     """Build the summary text for a harvest's linked journal note (US-C1)."""
-    qty = f"{record.quantity:g}"
+    qty = format_trimmed(record.quantity)
     if species_name:
         return QCoreApplication.translate(
             "HarvestJournal", "Harvested {qty} {unit} of {name}"
-        ).format(qty=qty, unit=record.unit, name=species_name)
+        ).format(qty=qty, unit=harvest_unit_label(record.unit), name=species_name)
     return QCoreApplication.translate(
         "HarvestJournal", "Harvested {qty} {unit}"
-    ).format(qty=qty, unit=record.unit)
+    ).format(qty=qty, unit=harvest_unit_label(record.unit))
 
 
 class AddHarvestRecordCommand(Command):
@@ -4506,6 +4511,35 @@ class SetSuccessionPlanCommand(Command):
         self._pm.restore_succession_plan(self._bed_id, self._old)
 
 
+class SetPlanNorthCommand(Command):
+    """Set the plan's north orientation — ONE undo step (#663).
+
+    The old and the new angle are fixed at construction; the new one is
+    validated there (``normalize_north_angle``), before anything reaches the
+    undo stack. A north change touches no canvas item, so the two O(items)
+    restack scans are skipped. Changing it invalidates date-stamped solar
+    results through ``north_angle_changed`` (the app clears the heatmap and its
+    snapshot carries the angle), never by rewriting object geometry.
+    """
+
+    changes_ground_band = False
+
+    def __init__(self, project_manager: "Any", new_angle_deg: object) -> None:
+        self._pm = project_manager
+        self._old: float = project_manager.north_angle_deg
+        self._new: float = normalize_north_angle(new_angle_deg)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Set north orientation")
+
+    def execute(self) -> None:
+        self._pm.set_north_angle(self._new)
+
+    def undo(self) -> None:
+        self._pm.set_north_angle(self._old)
+
+
 class AddJournalNoteCommand(Command):
     """Place a garden journal pin and persist its note dict — undoable (US-12.9).
 
@@ -4689,6 +4723,87 @@ class DeleteManualTaskCommand(Command):
         self._pm.restore_manual_task(self._task_id, self._prior_dict)
 
 
+class _CameraToursCommand(Command):
+    """Replace the plan's saved camera tours in ONE undo step (#737, ADR-072 addendum).
+
+    The whole list before and the whole list after are kept — tuples of immutable
+    ``SavedTour`` — so undo and redo restore exactly what was there, whatever the
+    edit was. Both are fixed at construction, and the new list is checked there
+    (``checked_tours``: a name twice or too many tours raise ``ValueError`` before
+    anything reaches the undo stack): build the command right before executing it.
+    A tour touches no canvas item, so the two O(items) restack scans are skipped.
+    """
+
+    changes_ground_band = False
+    changes_containment = False
+
+    def __init__(self, project_manager: "Any", new_tours: "Sequence[SavedTour]") -> None:
+        self._pm = project_manager
+        self._old: tuple[SavedTour, ...] = tuple(project_manager.camera_tours)
+        self._new: tuple[SavedTour, ...] = checked_tours(new_tours)
+
+    def execute(self) -> None:
+        self._pm.set_camera_tours(self._new)
+
+    def undo(self) -> None:
+        self._pm.set_camera_tours(self._old)
+
+
+class SaveCameraTourCommand(_CameraToursCommand):
+    """Keep a camera tour in the plan — undoable (#737).
+
+    A tour of a new name is added at the end; a tour of a name the plan already has
+    (whatever its case) replaces that one in place.
+    """
+
+    def __init__(self, project_manager: "Any", tour: SavedTour) -> None:
+        tours = list(project_manager.camera_tours)
+        existing = find_tour(tours, tour.name)
+        if existing is None:
+            tours.append(tour)
+        else:
+            tours[tours.index(existing)] = tour
+        super().__init__(project_manager, tours)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Save camera tour")
+
+
+class RenameCameraTourCommand(_CameraToursCommand):
+    """Rename a saved camera tour — undoable (#737). ``ValueError`` when the plan has
+    no tour of that name, or already one of the new name."""
+
+    def __init__(self, project_manager: "Any", name: str, new_name: str) -> None:
+        tours = list(project_manager.camera_tours)
+        existing = find_tour(tours, name)
+        if existing is None:
+            raise ValueError(f"The plan has no camera tour named {name!r}")
+        tours[tours.index(existing)] = replace(existing, name=new_name)
+        super().__init__(project_manager, tours)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Rename camera tour")
+
+
+class DeleteCameraTourCommand(_CameraToursCommand):
+    """Remove a saved camera tour from the plan — undoable (#737). ``ValueError`` when
+    the plan has no tour of that name."""
+
+    def __init__(self, project_manager: "Any", name: str) -> None:
+        tours = list(project_manager.camera_tours)
+        existing = find_tour(tours, name)
+        if existing is None:
+            raise ValueError(f"The plan has no camera tour named {name!r}")
+        tours.remove(existing)
+        super().__init__(project_manager, tours)
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Delete camera tour")
+
+
 # Commands whose effect cannot change an item's ground band (#592). Every one of
 # them moves, resizes, rotates, edits vertices/curves, copies, links/reparents,
 # or changes constraints: ``canvas_scene.on_ground`` reads the item's object
@@ -4723,7 +4838,17 @@ for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
     _ground_band_neutral.changes_ground_band = False
 
 #: Commands that cannot change which plant-parent contains a plant (#629): an add is
-#: derived synchronously by `addItem` and a delete cannot hide anything.
-CONTAINMENT_NEUTRAL_COMMANDS = (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand)
+#: derived synchronously by `addItem` and a delete cannot hide anything. The camera-tour
+#: commands (#737) change the plan's list of tours and never touch a scene item.
+CONTAINMENT_NEUTRAL_COMMANDS = (
+    CreateItemCommand,
+    CreateItemsCommand,
+    DeleteItemsCommand,
+    SetPlanNorthCommand,
+    _CameraToursCommand,
+    SaveCameraTourCommand,
+    RenameCameraTourCommand,
+    DeleteCameraTourCommand,
+)
 for _containment_neutral in CONTAINMENT_NEUTRAL_COMMANDS:
     _containment_neutral.changes_containment = False

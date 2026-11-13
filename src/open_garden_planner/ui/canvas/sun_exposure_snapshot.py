@@ -20,9 +20,17 @@ class ExposureSnapshot:
     bounds: tuple[float, float, float, float]
     casters: tuple[IdentifiedCaster, ...]
     receivers: tuple[SunReceiver, ...]
+    #: The plan's north orientation the map was computed for (#663). Part of
+    #: the identity: a result for the old north is refused, never shown as current.
+    north_angle_deg: float = 0.0
 
 
-def collect_exposure_snapshot(scene: Any, location: dict[str, Any] | None, day: date) -> ExposureSnapshot:
+def collect_exposure_snapshot(
+    scene: Any,
+    location: dict[str, Any] | None,
+    day: date,
+    north_angle_deg: float = 0.0,
+) -> ExposureSnapshot:
     rect = scene.sceneRect()
     width, height = getattr(scene, "width_cm", None), getattr(scene, "height_cm", None)
     bounds = ((0.0, 0.0, float(width), float(height)) if width is not None and height is not None
@@ -49,4 +57,5 @@ def collect_exposure_snapshot(scene: Any, location: dict[str, Any] | None, day: 
         (location or {}).get("latitude"), (location or {}).get("longitude"), bounds,
         tuple(sorted(collect_identified_casters(scene, day), key=lambda caster: caster.item_id)),
         tuple(sorted(receivers, key=lambda receiver: receiver.item_id)),
+        float(north_angle_deg),
     )

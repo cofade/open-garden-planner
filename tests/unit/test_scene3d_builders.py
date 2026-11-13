@@ -1049,7 +1049,8 @@ class TestPolylinesAreBuiltFromTheCentreLine:
             line_record("WALL", BENT_PATH, 120.0, width=4.0))]  # one wall, whoever asks
 
     def test_picket_fence_anatomy(self) -> None:
-        """Posts are the top; pickets stop 0.3 … 4 cm under them (the L0 fence)."""
+        """Posts are the top; pickets stop 0.5 … 1.5 cm under them, each its own way
+        (``fences.PICKET_DROP_CM``, #734 — the L0 fence's 0.3 … 4 cm ramp)."""
         (fence,) = built(line_record("FENCE", ((0.0, 0.0), (400.0, 0.0)), 120.0, style="WOODEN_FENCE"))
         points = fence.mesh.positions.astype(np.float64)
         at_top = points[points[:, 2] == 120.0]
@@ -1057,13 +1058,45 @@ class TestPolylinesAreBuiltFromTheCentreLine:
         assert float(np.abs(at_top[:, 1]).max()) <= 4.5  # 9 cm posts
         tops = np.unique(np.round(points[:, 2], 3))
         picket_tops = tops[(tops > 110.0) & (tops < 120.0)]
-        assert picket_tops.min() >= 116.0 - 1e-3 and picket_tops.max() <= 119.7 + 1e-3
+        assert picket_tops.min() >= 118.5 - 1e-3 and picket_tops.max() <= 119.5 + 1e-3
         assert len(picket_tops) > 5  # no two neighbours level
         # 33 pickets on 4 m at a 12 cm pitch, each centred in its pitch
         low = points[np.isclose(points[:, 2], 2.0, atol=1e-3)]  # where the pickets start
         assert len(np.unique(np.floor(low[:, 0] / fences.PICKET_PITCH_CM).astype(int))) == 33
         assert fence.mesh.triangle_count <= lines.triangle_budget(
             line_record("FENCE", ((0.0, 0.0), (400.0, 0.0)), 120.0, style="WOODEN_FENCE"))
+
+    def test_picket_tops_repeat_no_pattern_and_follow_the_items_seed(self) -> None:
+        """#734: the L0 fence's tops climbed in a ramp (``index * 7919 % 13`` is
+        ``2 * index % 13``) that repeats every 13 pickets, and a low sun drew it as a
+        staircase along the fence's long shadow. Each picket's drop is a hash of the item's
+        seed now: the tops correlate with themselves at no lag (the ramp, the positive
+        control, at 1.0 at lag 13); another item's fence is another fence; one item's is
+        the same every time."""
+        def tops(item_id: str) -> np.ndarray:
+            (fence,) = built(line_record("FENCE", ((0.0, 0.0), (2400.0, 0.0)), 120.0,
+                                         style="WOODEN_FENCE", item_id=item_id))
+            points = fence.mesh.positions.astype(np.float64)
+            post_gap = np.abs(points[:, 0] - np.round(points[:, 0] / 200.0) * 200.0)
+            picket = (points[:, 2] > 110.0) & (points[:, 2] < 120.0) & (post_gap > 8.0)
+            index = np.floor(points[picket, 0] / fences.PICKET_PITCH_CM).astype(int)
+            out = np.full(index.max() + 1, -np.inf)
+            np.maximum.at(out, index, points[picket, 2])
+            return out[np.isfinite(out)]
+
+        def worst_autocorrelation(values: np.ndarray) -> tuple[float, int]:
+            centred = values - values.mean()
+            scores = [float(np.corrcoef(centred[:-lag], centred[lag:])[0, 1]) for lag in range(1, 21)]
+            lag = int(np.argmax(np.abs(scores)))
+            return abs(scores[lag]), lag + 1
+
+        first, again, other = tops("fence-a"), tops("fence-a"), tops("fence-b")
+        assert len(first) > 150 and np.array_equal(first, again)
+        assert not np.allclose(first, other), "two fences are not clones"
+        assert worst_autocorrelation(first)[0] < 0.3, worst_autocorrelation(first)
+        assert first.max() - first.min() <= 1.0 + 1e-6
+        ramp = 120.0 - (4.0 - (np.arange(len(first)) * 7919 % 13) / 13.0 * 4.0)
+        assert worst_autocorrelation(ramp) == (pytest.approx(1.0), 13)
 
     def test_a_shared_corner_has_one_post(self) -> None:
         (bent,) = built(line_record("FENCE", ((0.0, 0.0), (100.0, 0.0), (100.0, 100.0)), 120.0))

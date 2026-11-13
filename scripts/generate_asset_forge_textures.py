@@ -34,6 +34,12 @@ Design contract (docs §8.5 / ADR-042 3b section):
   ``ImageFilter.GaussianBlur`` (Pillow-version-dependent) is gone —
   ``wrap_blur`` is an in-repo separable Gaussian with ``np.roll``.
 - Provenance = this script (``resources/textures/PROVENANCE.md``).
+- Each texture ships TWICE (#785): the 256-px tile above, and the painter's own
+  512-px canvas BEFORE its box downsample as ``textures/x2/<name>.png`` — the
+  same picture at 2 px per cm, which the canvas uses above 100 % zoom
+  (``core.fill_patterns.brush_for_painter``). No recipe knows about it: the
+  detail tile is what ``Tile.finish`` already held, so the 256-px tile IS its
+  2x2 box average (to the rounding of both) and is byte-for-byte what it was.
 
 Usage:
     venv/Scripts/python.exe scripts/generate_asset_forge_textures.py
@@ -64,6 +70,14 @@ TEXTURES_DIR = (
     / "resources"
     / "textures"
 )
+#: The detail tiles (#785): the painter's C x C canvas, ``DETAIL_SCALE`` px per cm.
+DETAIL_SCALE = SS
+
+
+def detail_dir() -> Path:
+    """Where the detail tiles live: ``x2/`` beside the tiles (read at call time —
+    the gate's own tests point ``TEXTURES_DIR`` at a scratch folder)."""
+    return TEXTURES_DIR / f"x{DETAIL_SCALE}"
 
 Color = tuple[float, float, float]
 
@@ -510,13 +524,24 @@ class Tile:
 
     # -- output ----------------------------------------------------------- #
 
+    #: The C x C canvas the newest ``finish()`` rounded (uint8) — the detail tile
+    #: of the texture just built (#785). ``build_detail`` reads it.
+    last_detail: np.ndarray | None = None
+
+    def detail_array(self, blur: float = 0.0) -> np.ndarray:
+        """The finished canvas at its own C x C resolution as float64, BEFORE
+        rounding: what ``final_array`` box-downsamples. This IS the detail tile
+        (#785) — the same picture at ``DETAIL_SCALE`` px per cm."""
+        arr = self.a
+        if blur > 0:
+            arr = wrap_blur(arr, blur * SS)
+        return arr
+
     def final_array(self, blur: float = 0.0) -> np.ndarray:
         """The finished tile as float64 (SIZE, SIZE, 3) BEFORE rounding —
         exposed so the conformance gate can measure how far every value sits
         from a rounding tie (the cross-platform determinism margin)."""
-        arr = self.a
-        if blur > 0:
-            arr = wrap_blur(arr, blur * SS)
+        arr = self.detail_array(blur)
         # box downsample by SS with a fixed, sequential accumulation order
         acc = np.zeros((SIZE, SIZE, 3), dtype=np.float64)
         for i in range(SS):
@@ -525,6 +550,7 @@ class Tile:
         return acc / (SS * SS)
 
     def finish(self, blur: float = 0.0) -> Image.Image:
+        Tile.last_detail = np.clip(np.rint(self.detail_array(blur)), 0, 255).astype(np.uint8)
         out = np.clip(np.rint(self.final_array(blur)), 0, 255).astype(np.uint8)
         return Image.fromarray(out, mode="RGB")
 
@@ -1356,6 +1382,27 @@ def build_texture(name: str) -> Image.Image:
     return TEXTURES[name](rng)
 
 
+def build_detail(name: str) -> Image.Image:
+    """The texture's detail tile (#785): the canvas its recipe painted, at
+    ``DETAIL_SCALE`` px per cm, before the box downsample that makes the tile."""
+    Tile.last_detail = None
+    build_texture(name)
+    detail = Tile.last_detail
+    if detail is None:
+        raise RuntimeError(f"the {name} recipe did not finish a Tile")
+    return Image.fromarray(detail, mode="RGB")
+
+
+def build_both(name: str) -> tuple[Image.Image, Image.Image]:
+    """(tile, detail tile) from ONE run of the recipe."""
+    Tile.last_detail = None
+    tile = build_texture(name)
+    detail = Tile.last_detail
+    if detail is None:
+        raise RuntimeError(f"the {name} recipe did not finish a Tile")
+    return tile, Image.fromarray(detail, mode="RGB")
+
+
 def encode_png(img: Image.Image) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
@@ -1380,6 +1427,16 @@ def is_current(name: str, path: Path | None = None) -> bool:
     return have.shape == want.shape and bool(np.array_equal(have, want))
 
 
+def is_detail_current(name: str, path: Path | None = None) -> bool:
+    """True when the committed detail tile decodes to exactly the generator's pixels."""
+    path = path or detail_dir() / f"{name}.png"
+    have = committed_pixels(path)
+    if have is None:
+        return False
+    want = np.asarray(build_detail(name))
+    return have.shape == want.shape and bool(np.array_equal(have, want))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--check", action="store_true",
@@ -1393,35 +1450,43 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     stale = []
     for name in names:
-        path = TEXTURES_DIR / f"{name}.png"
-        img = build_texture(name)
-        have = committed_pixels(path)
-        same = have is not None and have.shape == (SIZE, SIZE, 3) and bool(
-            np.array_equal(have, np.asarray(img))
-        )
-        if args.check:
-            if same:
-                print(f"ok     {name}.png")
-            else:
-                stale.append(name)
-                if have is None:
-                    print(f"STALE  {name}.png (missing)")
-                elif have.shape != (SIZE, SIZE, 3):
-                    print(f"STALE  {name}.png (shape {have.shape})")
+        tile, detail = build_both(name)
+        # the tile, then its detail tile (#785) — same gate, same rewrite rule
+        for img, path, side in (
+            (tile, TEXTURES_DIR / f"{name}.png", SIZE),
+            (detail, detail_dir() / f"{name}.png", C),
+        ):
+            label = path.relative_to(TEXTURES_DIR).as_posix()
+            have = committed_pixels(path)
+            same = have is not None and have.shape == (side, side, 3) and bool(
+                np.array_equal(have, np.asarray(img))
+            )
+            if args.check:
+                if same:
+                    print(f"ok     {label}")
                 else:
-                    diff = np.abs(have.astype(np.int16) - np.asarray(img).astype(np.int16))
-                    n_px = int(np.count_nonzero(diff.max(axis=2)))
-                    print(f"STALE  {name}.png ({n_px} px differ, max channel delta {int(diff.max())})")
-        elif same:
-            print(f"same   {name}.png (pixels unchanged - file left alone)")
-        else:
-            path.write_bytes(encode_png(img))
-            print(f"wrote  {path}")
+                    stale.append(label)
+                    if have is None:
+                        print(f"STALE  {label} (missing)")
+                    elif have.shape != (side, side, 3):
+                        print(f"STALE  {label} (shape {have.shape})")
+                    else:
+                        diff = np.abs(have.astype(np.int16) - np.asarray(img).astype(np.int16))
+                        n_px = int(np.count_nonzero(diff.max(axis=2)))
+                        print(f"STALE  {label} ({n_px} px differ, "
+                              f"max channel delta {int(diff.max())})")
+            elif same:
+                print(f"same   {label} (pixels unchanged - file left alone)")
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(encode_png(img))
+                print(f"wrote  {path}")
     if args.check:
         if stale:
-            print(f"{len(stale)} texture(s) differ from the generator - regenerate and commit.")
+            print(f"{len(stale)} texture file(s) differ from the generator - regenerate and commit.")
             return 1
-        print(f"OK - {len(names)} texture(s) are pixel-identical to the generator.")
+        print(f"OK - {len(names)} texture(s) and their detail tiles are pixel-identical "
+              "to the generator.")
     return 0
 
 

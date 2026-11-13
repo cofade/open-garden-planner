@@ -412,8 +412,22 @@ stayed; the owner's saved plan recorded exactly that split. The command now walk
 outermost group ancestor's layer as the effective one, so pre-fix plans render
 correctly without a migration.
 
-
 ### PF-PER-28
+
+- **Rule:** Opening a file is a decision about the plan's IDENTITY, not only its data. A shipped read-only resource opened through the generic Open path must take the same copy identity as the gallery: no current file, Save As on the first save, no autosave beside the bundle, no Recent entry, and the trusted display title. Ask the trusted predicate (`core.templates.is_bundled_example`) at the one load path; never attach Save to an install-tree file.
+- **Pinned by:** `tests/integration/test_templates_gallery.py::test_file_open_of_a_bundled_example_is_an_untitled_copy`
+- **Source:** #865
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The gallery and File > Open had two identities for the same file: the gallery made an
+in-memory copy (`current_file=None`), while Open set `current_file` to the bundled
+path, so Save wrote into the installation and the autosave file landed beside it. The
+fix routes a known bundled path through `as_template=True`; the test asserts the
+bundle bytes and mtime are unchanged after a save, the title is the sidecar name, and
+Recent is untouched.
+
+### PF-PER-29
 
 - **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command.
 - **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`

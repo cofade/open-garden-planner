@@ -20,10 +20,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from PyQt6.QtCore import QByteArray, Qt
+from PyQt6.QtCore import QByteArray, QRectF, Qt
 from PyQt6.QtGui import QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 
+from open_garden_planner.core.sprite_raster import paint_sprite
 from open_garden_planner.ui.theme import current_colors, register_theme_listener
 
 _ICONS_DIR = Path(__file__).parent.parent / "resources" / "icons" / "ui"
@@ -37,6 +38,8 @@ _ACCENT_RE = re.compile(re.escape(ACCENT_SENTINEL), re.IGNORECASE)
 _svg_cache: dict[str, str | None] = {}
 _icon_cache: dict[tuple[str, int, int, str, str], QIcon] = {}
 _pixmap_cache: dict[tuple[str, int, int, str, str], QPixmap] = {}
+#: The themed vector of an icon that ``paint_icon`` draws on the plan.
+_renderer_cache: dict[tuple[str, str, str], QSvgRenderer] = {}
 
 
 def clear_cache() -> None:
@@ -47,6 +50,7 @@ def clear_cache() -> None:
     """
     _icon_cache.clear()
     _pixmap_cache.clear()
+    _renderer_cache.clear()
 
 
 register_theme_listener(lambda _colors: clear_cache())
@@ -121,6 +125,42 @@ def get_pixmap(name: str, size: int = 64, color: str | None = None) -> QPixmap |
             return None
         _pixmap_cache[key] = pixmap
     return pixmap
+
+
+def paint_icon(
+    painter: QPainter, name: str, target: QRectF, color: str | None = None
+) -> bool:
+    """Paint an icon into ``target`` (the painter's own units), as fine as the
+    painter shows it.
+
+    For an icon that lies ON the plan and is scaled with it (a badge on a
+    plant): a pixmap of a stated pixel size (``get_pixmap``) is enlarged by the
+    zoom there — a 24-px badge on a 1.1 m plant at 400 % was enlarged 19 times.
+    The resolution is asked of the painter by the one rule every canvas bitmap
+    follows (``core.raster_resolution`` through ``core.sprite_raster``,
+    §8.9.14): the device's own, on the canvas at any zoom and pixel ratio, in
+    an export and on paper. Colours are ``get_pixmap``'s: ``color`` or the
+    theme's ``text_primary`` for the line, the theme's ``accent`` for the
+    sentinel.
+
+    Returns False for an unknown or invalid icon (the caller's fallback), and
+    when nothing could be painted.
+    """
+    svg_text = _svg_text(name)
+    if svg_text is None:
+        return False
+    colors = current_colors()
+    tint = (color or colors["text_primary"]).lower()
+    accent = colors["accent"].lower()
+    key = (name, tint, accent)
+    renderer = _renderer_cache.get(key)
+    if renderer is None:
+        data = _ACCENT_RE.sub(accent, svg_text).replace("currentColor", tint)
+        renderer = QSvgRenderer(QByteArray(data.encode("utf-8")))
+        if not renderer.isValid():
+            return False
+        _renderer_cache[key] = renderer
+    return paint_sprite(painter, target, ("ui-icon", *key), renderer.render)
 
 
 def get_icon(name: str, size: int = 24, color: str | None = None) -> QIcon | None:

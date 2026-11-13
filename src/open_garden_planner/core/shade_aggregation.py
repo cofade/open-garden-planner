@@ -30,8 +30,10 @@ from .shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
     CasterLike,
     GroupedCaster,
+    OpenFrame,
     Polygon,
     Triangle3D,
+    WeightedShadowsResult,
     _clip_triangle_above_z,
     caster_transmittance,
     compute_grouped_shadows,
@@ -39,7 +41,7 @@ from .shadow_geometry import (
     compute_weighted_shadows,
 )
 from .sim_clock import SimInstant
-from .solar import solar_position
+from .solar import scene_azimuth, solar_position
 
 #: Daylight sampling step. 15 min × ≤64 daylight samples covers the perf
 #: budget; the toy-case gate allows one sample of slack.
@@ -123,6 +125,13 @@ class IdentifiedCaster:
     outline is inside its soil, so the estimate must not count it as shade
     whether or not the plant is LINKED to it (#481, the ``spared`` map in
     ``_aggregate_day``).
+
+    ``frame`` (#698): an OPEN FRAME's solid members (a pergola's timber, a trellis's
+    lattice) in the frame's own coordinates (``core.shadow_geometry.OpenFrame``).
+    The caster's shadow stays its prism's; the members weigh it for the sun of each
+    sample (``open_frame_transmittance``). None for every other caster. The caster
+    walk sets it; nothing else decides which kinds are open
+    (``core.object_height.OPEN_FRAME_TYPE_NAMES``).
     """
 
     item_id: str
@@ -135,6 +144,7 @@ class IdentifiedCaster:
     fence_points: tuple[tuple[float, float], ...] = ()
     fence_width_cm: float = 0.0
     transmittance: float | None = None
+    frame: OpenFrame | None = None
 
 
 @dataclass(frozen=True)
@@ -299,7 +309,8 @@ def daylight_samples(
     lon_deg: float,
     day: date,
     step_minutes: int = SAMPLE_STEP_MINUTES,
-
+    *,
+    north_angle_deg: float = 0.0,
 ) -> list[SunSample]:
     """Sun-up sample instants across the UTC civil day, at ``step_minutes``.
 
@@ -311,6 +322,10 @@ def daylight_samples(
     undercount every cell's sun by ~10 min/day at Berlin's solstice.
     ``compute_heatmap`` clamps the elevation it feeds the shadow machinery
     instead (see there).
+
+    ``north_angle_deg`` is the plan's north orientation (#663): each sample's
+    azimuth is mapped into the scene frame here, once, so every cell's
+    receiver-side shading uses the same frame as the 2D shadow overlay.
     """
     samples: list[SunSample] = []
     instant = datetime(day.year, day.month, day.day, tzinfo=UTC)
@@ -320,7 +335,11 @@ def daylight_samples(
         position = solar_position(lat_deg, lon_deg, instant)
         if position.elevation_deg > 0.0:
             samples.append(
-                SunSample(instant, position.elevation_deg, position.azimuth_deg)
+                SunSample(
+                    instant,
+                    position.elevation_deg,
+                    scene_azimuth(position.azimuth_deg, north_angle_deg),
+                )
             )
         instant += step
     return samples
@@ -362,6 +381,7 @@ def compute_heatmap(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    north_angle_deg: float = 0.0,
 
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
@@ -383,7 +403,8 @@ def compute_heatmap(
     oracle's 540).
     """
     result = _aggregate_day(casters, lat_deg, lon_deg, day, grid, rasterize,
-                            step_minutes=step_minutes, progress=progress, should_cancel=should_cancel)
+                            step_minutes=step_minutes, north_angle_deg=north_angle_deg,
+                            progress=progress, should_cancel=should_cancel)
     return result.minutes if result is not None else None
 
 
@@ -397,6 +418,7 @@ def compute_sun_exposure(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    north_angle_deg: float = 0.0,
     include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
@@ -410,6 +432,7 @@ def compute_sun_exposure(
     # sweeps (base included); the anonymous list is only for a caller without ids.
     return _aggregate_day((), lat_deg, lon_deg, day, grid, rasterize,
                           identified=casters, receivers=receivers, step_minutes=step_minutes,
+                          north_angle_deg=north_angle_deg,
                           include_sample_masks=include_sample_masks,
                           progress=progress, should_cancel=should_cancel)
 
@@ -434,16 +457,39 @@ def _slice_roof_triangles_for_elevation(
     return tuple(sliced)
 
 
+def _slice_frame_for_elevation(
+    frame: OpenFrame | None,
+    base_cm: float,
+    elev_cm: float,
+) -> OpenFrame | None:
+    """An open frame's members above a raised receiver's plane, z from the SLICE's own
+    base (#698) — the frame's half of the slice ``_aggregate_day`` makes of a caster.
+
+    A frame standing at or above the plane is the same frame: the slice's base is
+    ``base_cm - elev_cm`` and its members are measured from it as before. One standing
+    below is cut at the plane (the slice's base is the plane itself). None stays None:
+    not an open frame. A frame left without triangles is an open frame with no member
+    above the plane, which shades nothing there.
+    """
+    if frame is None or elev_cm <= 0.0 or base_cm >= elev_cm:
+        return frame
+    return frame.with_triangles(
+        _slice_roof_triangles_for_elevation(frame.triangles, base_cm, elev_cm))
+
+
 def _aggregate_day(
     casters: Sequence[CasterLike],
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
     *, identified: Sequence[IdentifiedCaster] = (), receivers: Sequence[SunReceiver] = (),
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    north_angle_deg: float = 0.0,
     include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> SunExposureResult | None:
-    samples = daylight_samples(lat_deg, lon_deg, day, step_minutes)
+    samples = daylight_samples(
+        lat_deg, lon_deg, day, step_minutes, north_angle_deg=north_angle_deg
+    )
     minutes = np.zeros((grid.rows, grid.cols), dtype=np.float32)
     valid = [receiver for receiver in receivers
              if math.isfinite(receiver.x_cm) and math.isfinite(receiver.y_cm)
@@ -496,6 +542,7 @@ def _aggregate_day(
                     caster.fence_points,
                     caster.fence_width_cm,
                     caster.transmittance,
+                    caster.frame,
                 )))
                 continue
             top_cm = caster.base_cm + caster.height_cm
@@ -514,6 +561,7 @@ def _aggregate_day(
                     caster.fence_points,
                     caster.fence_width_cm,
                     caster.transmittance,
+                    _slice_frame_for_elevation(caster.frame, caster.base_cm, elev),
                 )))
         exclusions = {caster.item_id: np.isin(group_indices, spared.get(caster.item_id, []))
                       for caster, _ in slice_casters}
@@ -522,6 +570,7 @@ def _aggregate_day(
     total = len(samples)
     has_porous = any(
         caster.fence_style is not None
+        or caster.frame is not None
         or (caster.transmittance is not None and 0.0 < caster.transmittance < 1.0)
         for caster in identified
     )
@@ -550,6 +599,7 @@ def _aggregate_day(
             caster.fence_points,
             caster.fence_width_cm,
             caster.transmittance,
+            caster.frame,
         )
         for caster in identified
     ]
@@ -558,7 +608,21 @@ def _aggregate_day(
             return None
         sample_elev = max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG)
         owned_polygons: list[list[Polygon]] = []
-        if identified:
+        weighted: WeightedShadowsResult | None = None
+        if has_porous and identified:
+            # ONE sweep of the casters for a plan with a weighted shade (#698): the
+            # weighted result holds every owner's own shadow too — the very polygons
+            # the grouped sweep makes (pinned in ``tests/unit/test_open_frames.py``),
+            # so that sweep is not run a second time beside it. An owner that lets
+            # all the sun through has no shadow there, and shades no plant.
+            weighted = compute_weighted_shadows(
+                ground_grouped, sample_elev, sample.azimuth_deg, should_cancel
+            )
+            if weighted is None:
+                return None
+            polygons = weighted.union_polygons
+            owned_polygons = [owned for owned, _through in weighted.owned_shadows]
+        elif identified:
             shadows = compute_grouped_shadows(
                 ground_grouped,
                 sample_elev, sample.azimuth_deg, should_cancel)
@@ -568,12 +632,7 @@ def _aggregate_day(
         else:
             polygons = compute_scene_shadows(
                 casters, sample_elev, sample.azimuth_deg)
-        if has_porous and identified:
-            weighted = compute_weighted_shadows(
-                ground_grouped, sample_elev, sample.azimuth_deg, should_cancel
-            )
-            if weighted is None:
-                return None
+        if weighted is not None:
             sun_factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
             for region in weighted.weighted_regions:
                 if region.polygons:
@@ -607,7 +666,7 @@ def _aggregate_day(
                     if elevated is None:
                         return None
                     _, group_owned = elevated
-                for (caster, _), caster_polygons in zip(slice_casters, group_owned, strict=True):
+                for (caster, sliced), caster_polygons in zip(slice_casters, group_owned, strict=True):
                     if should_cancel is not None and should_cancel():
                         return None
                     if not caster_polygons:
@@ -615,8 +674,11 @@ def _aggregate_day(
                     mask = points_in_polygons(caster_polygons, group_points)
                     mask[exclusions[caster.item_id]] = False
                     if np.any(mask):
+                        # an open frame is weighed as the SLICE this plane's
+                        # receivers see (#698); at ground level that is the caster
+                        seen = sliced if sliced.frame is not None else caster
                         t_c = (
-                            caster_transmittance(caster, sample_elev, sample.azimuth_deg)
+                            caster_transmittance(seen, sample_elev, sample.azimuth_deg)
                             if has_porous
                             else 0.0
                         )

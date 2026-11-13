@@ -42,6 +42,30 @@ void DIRECTIONAL_LIGHT()
              * max(dot(NORMAL, TO_LIGHT_DIR), 0.0);
 }
 
+// THE SUN'S GLINT (#803): the direct light's specular, GGX with Schlick's Fresnel for
+// water (F0 0.02), its peak soft-capped at uGlintCap (linear radiance before the look's
+// exposure): Qt's own glint at roughness 0.02 clipped a white blob over 3-6 % of a
+// pond seen at the mirror angle of a morning sun. Above the cap the glint saturates
+// smoothly instead of clipping; below it, it is GGX as before.
+void SPECULAR_LIGHT()
+{
+    vec3 halfway = normalize(TO_LIGHT_DIR + VIEW_VECTOR);
+    float ndl = max(dot(NORMAL, TO_LIGHT_DIR), 0.0);
+    float ndv = max(dot(NORMAL, VIEW_VECTOR), 1e-4);
+    float ndh = max(dot(NORMAL, halfway), 0.0);
+    float alpha = ROUGHNESS * ROUGHNESS;
+    float alpha2 = alpha * alpha;
+    float denom = ndh * ndh * (alpha2 - 1.0) + 1.0;
+    float distribution = alpha2 / (3.14159265 * denom * denom);
+    float k = 0.5 * alpha;
+    float visibility = 0.25 / ((ndl * (1.0 - k) + k) * (ndv * (1.0 - k) + k));
+    float fresnel = 0.02 + 0.98 * pow(1.0 - clamp(dot(halfway, VIEW_VECTOR), 0.0, 1.0), 5.0);
+    vec3 glint = LIGHT_COLOR * SHADOW_CONTRIB * (distribution * visibility * fresnel * ndl);
+    float peak = max(max(glint.r, glint.g), glint.b);
+    float capped = uGlintCap * (1.0 - exp(-peak / uGlintCap));
+    SPECULAR += glint * (peak > 1e-6 ? capped / peak : 0.0);
+}
+
 void IBL_PROBE()
 {
     // compiled without a light probe too (L1.2 sets none; L1.4 adds the sky): the

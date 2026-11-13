@@ -171,6 +171,30 @@ def test_open_plan_returns_a_valid_payload_over_the_transport(
     assert len(app.canvas_scene.items()) == 1  # back to the saved state
 
 
+def test_open_plan_reports_a_bundled_example_copy_over_the_transport(
+    app: Any, qtbot: Any
+) -> None:
+    """#865: the copy identity must survive the model, not only the main-thread body."""
+    from open_garden_planner.services.example_library import bundled_examples
+
+    entry = bundled_examples()[0]
+    app._do_agent_new_plan(900.0, 700.0, True)
+    server = _server(app)
+    try:
+        result = {
+            "tool": "open_plan",
+            "args": {"file_path": str(entry.path), "force": True},
+        }
+        _run(server, _caller(result), qtbot)
+    finally:
+        server.stop()
+
+    payload = result["payload"]
+    assert payload["file_path"] is None
+    assert payload["opened_as_copy"] is True
+    assert app._project_manager.current_file is None
+
+
 def test_lifecycle_tools_refuse_a_dirty_plan_over_the_transport(
     app: Any, qtbot: Any
 ) -> None:

@@ -17,6 +17,12 @@ machine):
   together (a Texture loses its data when a data object it held earlier dies — the Qt texture trap the ground bake found, PF-L3D-05 item 4). A sequence
   A → B → C with a frame after each, then two frames after the old pairs are gone: the same sky,
   its disc at the solar azimuth (`test_a_sky_rebuilt_three_times_…`).
+- **A recorded frame builds the sky of its own sun** (#799). The live view rebuilds the sky
+  only after a 1° sun move; a day lapse moves the sun 0.5-0.7° a frame, so under that rule the
+  sky, its probe and the fog that follows the shown sky's horizon changed on alternate frames
+  (sky-band zigzag 3.86 luma at dawn). `settle_sky` asks for the exact sky
+  (`RECORDING_SKY_REBUILD_DEG` 0): family garden, 300 frames, 640 × 360, high: 147 → 291 sky
+  builds (median 139 ms), 158 → 198 s; alternation 1.86 → 0.08 luma (PF-L3D-28).
 - **Medium sky quality is enough.** 1024 × 512 float texels (8 MB) against High's 2048 × 1024
   (32 MB): the GUI-thread generation 95 → 215 ms in a round-3 A/B on a quiet machine, every shot's
   mean luma within 0.02, the disc's bearing within 0.07°. In the 2026-10-19 boards (a fresh host

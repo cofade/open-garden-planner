@@ -65,7 +65,7 @@ from ..record import (
     lawn_blade_share,
 )
 from . import palette
-from .common import centre_line
+from .common import centre_line, surfaced
 from .kit import MIN_DETAIL_DIMENSION_CM, beam
 from .primitives import F64, bevelled_boxes, flat_mesh, signed_area, sweep
 
@@ -144,11 +144,19 @@ def _shade(weight: float) -> Color:
     return (weight, weight, weight, 1.0)
 
 
+#: What a tinted relief part is made of (#803), by its name; an untinted one (a pond's
+#: coping) takes its palette entries' surfaces.
+RELIEF_SURFACES: Final = {"stones": "stone", "boardwalk": "wood", "kerb": "concrete",
+                          "gravel": "stone", "deck": "wood"}
+
+
 def _relief(meshes: list[Mesh], name: str, kind: str = "vc", *, tinted: bool = True) -> tuple[MeshPart, ...]:
     mesh = Mesh.merge(meshes)
     if not mesh.vertex_count:
         return ()
-    return (MeshPart(mesh, kind, casts_shadow=False, tinted=tinted, name=name, ground_detail=True),)
+    surface = RELIEF_SURFACES.get(name, "") if tinted and kind == "vc" else ""
+    return (MeshPart(mesh, kind, casts_shadow=False, tinted=tinted, name=name, ground_detail=True,
+                     surface=surface),)
 
 
 # ── the 2D painter's walk ────────────────────────────────────────────────────
@@ -286,6 +294,7 @@ def _on_ground(points: F64, record: Record, margin: float) -> np.ndarray:
     return on
 
 
+@surfaced
 def _path(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a path the user gave a height: the plain prism, as before L4
         return default_builder(record)
@@ -469,6 +478,7 @@ def _deck(record: Record, top: float, solid: bool) -> list[Mesh] | None:
     return meshes
 
 
+@surfaced
 def _surface(record: Record) -> tuple[MeshPart, ...]:
     pattern = record.params.get(PARAM_SURFACE_PATTERN)
     deck = isinstance(pattern, str) and pattern in DECK_PATTERNS
@@ -477,7 +487,7 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
         boarded = _deck(record, top, solid=True) if deck else None
         if boarded is not None:
             mesh = Mesh.merge(boarded)
-            return (MeshPart(mesh, "vc", tinted=True, name="deck"),) \
+            return (MeshPart(mesh, "vc", tinted=True, name="deck", surface="wood"),) \
                 if mesh.vertex_count else ()
         # not a deck: the platform shows the item's own fill - a raised driveway or
         # terrace keeps the texture the ground bake painted while it lay flat (#628),
@@ -566,6 +576,7 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
             MeshPart(water, "water", casts_shadow=False, fill_texture=True, name="water"))
 
 
+@surfaced
 def _pond(record: Record) -> tuple[MeshPart, ...]:
     points = np.asarray([point for ring in record.footprints for point in ring], dtype=np.float64)
     if len(points) and ((np.ptp(points, axis=0) < MIN_DETAIL_DIMENSION_CM).any()
@@ -775,6 +786,7 @@ def _cutouts(record: Record) -> list[F64]:
     return rings
 
 
+@surfaced
 def _lawn(record: Record) -> tuple[MeshPart, ...]:
     # A lawn the user gave a height is a solid whose TOP keeps the fill (and its
     # sides the turf's tint) — and it still grows its sward: the blades are what

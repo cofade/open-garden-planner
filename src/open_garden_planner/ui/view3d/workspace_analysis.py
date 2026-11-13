@@ -50,11 +50,13 @@ class WorkspaceAnalysisCoordinator:
         refresh_card: Callable[[], None],
         say_notice: Callable[[str, str], None],
         parent_widget: QWidget,
+        get_north: Callable[[], float] | None = None,
     ) -> None:
         self._get_host = get_host
         self._get_controller = get_controller
         self._get_clock = get_clock
         self._get_location = get_location
+        self._get_north = get_north or (lambda: 0.0)
         self._get_scene = get_scene
         self._get_camera_now = get_camera_now
         self._get_held_parts = get_held_parts
@@ -241,6 +243,7 @@ class WorkspaceAnalysisCoordinator:
             self._get_location,
             controller.plan_size,
             glyphs=cardinal_glyphs,
+            north=self._get_north,
             parent=self._parent,
         )
         analysis.connect_sources(self._shadow_source, self._sun_heatmap, self._sun_hours)

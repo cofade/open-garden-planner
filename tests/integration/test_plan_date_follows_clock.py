@@ -1,0 +1,264 @@
+"""#859: date-driven surfaces follow the plan's SimClock day, not the wall clock."""
+
+from __future__ import annotations
+
+import datetime
+
+import pytest
+
+from open_garden_planner.app.application import GardenPlannerApp
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.project import ProjectManager
+from open_garden_planner.core.sim_clock import SimClock, plan_day_of
+from open_garden_planner.models.succession import SuccessionEntry, SuccessionPlan
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
+from open_garden_planner.ui.views import tasks_view as tasks_module
+from open_garden_planner.ui.views.planting_calendar_view import PlantingCalendarView
+from open_garden_planner.ui.views.tasks_view import TasksView
+
+
+@pytest.fixture
+def window(qtbot, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "open_garden_planner.services.example_library.user_templates_dir", lambda: tmp_path
+    )
+    win = GardenPlannerApp()
+    monkeypatch.setattr(win, "_confirm_discard_changes", lambda: True)
+    qtbot.addWidget(win)
+    return win
+
+
+def _entry(name: str, start: str, end: str) -> SuccessionEntry:
+    return SuccessionEntry(common_name=name, start_date=start, end_date=end)
+
+
+class TestCalendarAndTasks:
+    def test_the_calendar_dashboard_and_today_line_use_the_plan_day(self, qtbot) -> None:
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        pm.set_location({"frost_dates": {"last_spring_frost": "04-09"}})
+        plant = CircleItem(100, 100, 20, object_type=ObjectType.PERENNIAL, name="Tomato")
+        plant.metadata["plant_species"] = {
+            "common_name": "Tomato", "scientific_name": "Solanum lycopersicum",
+            "source_id": "414", "harvest_start": 10, "harvest_end": 18,
+        }
+        scene.addItem(plant)
+
+        view = PlantingCalendarView(scene, pm)
+        qtbot.addWidget(view)
+        view.refresh()
+        assert view._plan_state is not None
+        assert view._plan_state.today == datetime.date(2031, 7, 1)
+        assert view._gantt._today == datetime.date(2031, 7, 1)
+
+        clock.set_date(datetime.date(2032, 3, 20))
+        view.refresh()
+        assert view._plan_state.today == datetime.date(2032, 3, 20)
+        assert view._gantt._today == datetime.date(2032, 3, 20)
+        view.shutdown()
+
+    def test_the_tasks_tab_asks_the_generator_for_the_plan_day(
+        self, qtbot, monkeypatch
+    ) -> None:
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        pm.set_location({"frost_dates": {"last_spring_frost": "04-09"}})
+        seen: list[dict] = []
+        real = tasks_module.build_plan_state
+
+        def spy(*args, **kwargs):
+            seen.append(dict(kwargs))
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(tasks_module, "build_plan_state", spy)
+        view = TasksView(scene, pm)
+        qtbot.addWidget(view)
+        view.refresh()
+        assert seen and seen[-1]["today"] == datetime.date(2031, 7, 1)
+
+    def test_a_fallback_scene_reads_the_wall_day(self) -> None:
+        class Plain:
+            pass
+
+        assert plan_day_of(Plain()) == datetime.date.today()
+
+    def test_marking_done_writes_the_plan_day(self, qtbot) -> None:
+        from open_garden_planner.services.task_generator import Task
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        view = TasksView(scene, pm)
+        qtbot.addWidget(view)
+        view._mark_done(Task(task_id="harvest:tomato", source="calendar",
+                             task_type="harvest", title="Tomato"))
+        assert pm.task_states["harvest:tomato"]["done_date"] == "2031-07-01"
+
+    def test_the_calendar_dashboard_done_toggle_writes_the_plan_day(self, qtbot) -> None:
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        view = PlantingCalendarView(scene, pm)
+        qtbot.addWidget(view)
+        view._on_task_toggled("harvest:tomato", True)
+        assert pm.task_states["harvest:tomato"]["done_date"] == "2031-07-01"
+
+    def test_a_new_manual_task_defaults_to_the_plan_day(self, qtbot) -> None:
+        from PyQt6.QtCore import QDate
+
+        from open_garden_planner.ui.dialogs.task_dialog import TaskDialog
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        dialog = TaskDialog(scene=scene)
+        qtbot.addWidget(dialog)
+        assert dialog._date_edit.date() == QDate(2031, 7, 1)
+
+    def test_snooze_counts_from_the_plan_day(self, qtbot, monkeypatch) -> None:
+        from PyQt6.QtWidgets import QMenu, QWidget
+
+        from open_garden_planner.services.task_generator import Task
+
+        scene = CanvasScene(width_cm=1000, height_cm=800)
+        clock = SimClock()
+        clock.set_date(datetime.date(2031, 7, 1))
+        scene.bind_plan_clock(clock)
+        pm = ProjectManager()
+        view = TasksView(scene, pm)
+        qtbot.addWidget(view)
+        monkeypatch.setattr(
+            QMenu, "exec", lambda menu, *_args: menu.actions()[1].trigger()
+        )
+        view._snooze_menu(
+            Task(task_id="harvest:tomato", source="calendar",
+                 task_type="harvest", title="Tomato"),
+            QWidget(),
+        )
+        assert pm.task_states["harvest:tomato"]["snooze_until"] == "2031-07-08"
+
+
+class TestPlantDetailsAge:
+    def test_the_age_label_follows_the_plan_day_and_a_date_change(self, window) -> None:
+        """#859: the panel is a plan-day readout and must refresh on a scrub."""
+        plant = CircleItem(100, 100, 20, object_type=ObjectType.PERENNIAL, name="Tomato")
+        plant.metadata["plant_species"] = {
+            "common_name": "Tomato", "scientific_name": "Solanum lycopersicum",
+        }
+        plant.metadata["plant_instance"] = {"planting_date": "2031-01-01"}
+        window.canvas_scene.addItem(plant)
+        window.plant_database_panel.set_selected_items([plant])
+        assert window.plant_database_panel.age_label.text()  # "(future)" on a 2026 clock
+
+        window._sim_clock.set_date(datetime.date(2031, 3, 1))
+        assert "(1 mo)" in window.plant_database_panel.age_label.text()
+
+        window._sim_clock.set_date(datetime.date(2033, 1, 1))
+        assert "(2y)" in window.plant_database_panel.age_label.text()
+
+
+class TestFrostAlertsAreLive:
+    def test_a_live_alert_reaches_both_task_surfaces_on_a_2031_plan(self, window) -> None:
+        """#859: the forecast's real day must not be filtered by the plan day."""
+        from PyQt6.QtWidgets import QLabel
+
+        from open_garden_planner.services.weather_service import FrostAlert
+
+        alert = FrostAlert(
+            date=(datetime.date.today() + datetime.timedelta(days=1)).isoformat(),
+            min_temp=-1.0,
+            severity="red",
+            affected_plant_ids=["p1"],
+        )
+        window._sim_clock.set_date(datetime.date(2031, 7, 1))
+        window.calendar_view._current_frost_alerts = [alert]
+        window.calendar_view._rebuild_dashboard()
+        window.tasks_view.set_frost_alerts([alert])
+        window.tasks_view.refresh()
+
+        dashboard = [
+            task
+            for task in window.calendar_view._current_dashboard_tasks
+            if task.task_type.startswith("frost_alert")
+        ]
+        assert len(dashboard) == 1
+        assert dashboard[0].task_id == f"frost:{alert.date}:red"
+
+        labels = [label.text() for label in window.tasks_view.findChildren(QLabel)]
+        assert sum(text.startswith("Frost") for text in labels) == 1
+        # The bucket is the proof: a plan-day bucket would read "Overdue (1)"
+        # for a 2026 alert on a 2031 plan. The alert is tomorrow, so the wall
+        # day's own bucket may read "Today" or "This Week".
+        assert any(
+            text in ("Today (1)", "This Week (1)") for text in labels
+        )
+        assert "Overdue (1)" not in labels
+
+
+class TestOverdueReminderBar:
+    def test_the_bar_counts_plan_day_overdue_tasks(self, window) -> None:
+        """#859: the reminder must agree with the Tasks tab's plan-day bucket."""
+        from PyQt6.QtWidgets import QLabel
+
+        from open_garden_planner.models.task import ManualTask
+
+        window._sim_clock.set_date(datetime.date(2031, 7, 1))
+        window._project_manager.set_manual_task(
+            ManualTask(id="m1", date="2031-06-01", title="Water the seedlings")
+        )
+        window._check_overdue_tasks()
+        labels = [label.text() for label in window._task_reminder_bar.findChildren(QLabel)]
+        assert any("1" in text and "overdue" in text for text in labels)
+
+        # A wall-date-only count would show 1 (only the 2026 task), not 2:
+        # the 2031 task would be silently dropped.
+        window._task_reminder_bar.hide()
+        window._project_manager.set_manual_task(
+            ManualTask(id="m2", date="2026-06-01", title="Old task")
+        )
+        window._check_overdue_tasks()
+        labels = [label.text() for label in window._task_reminder_bar.findChildren(QLabel)]
+        assert any("2" in text and "overdue" in text for text in labels)
+
+
+class TestSuccessionBadge:
+    def test_the_badge_follows_the_plan_day_and_is_rebuilt_on_a_date_change(
+        self, window
+    ) -> None:
+        bed = RectangleItem(
+            100, 100, 200, 150, object_type=ObjectType.GARDEN_BED, name="Bed"
+        )
+        window.canvas_scene.addItem(bed)
+        plan = SuccessionPlan(
+            bed_id=str(bed.item_id),
+            year=2031,
+            entries=[
+                _entry("Lettuce", "2031-06-01", "2031-07-15"),
+                _entry("Kale", "2031-07-16", "2031-09-30"),
+            ],
+        )
+        window._project_manager.set_succession_plan(str(bed.item_id), plan.to_dict())
+
+        window._sim_clock.set_date(datetime.date(2031, 7, 1))
+        assert ("Lettuce", True) in bed._succession_lines
+        assert ("Kale", False) in bed._succession_lines
+
+        window._sim_clock.set_date(datetime.date(2031, 8, 1))
+        assert ("Kale", True) in bed._succession_lines
+        assert ("Lettuce", False) not in bed._succession_lines
+
+    def test_a_date_change_schedules_the_calendar_refresh(self, window) -> None:
+        window._sim_clock.set_date(datetime.date(2031, 7, 1))
+        assert window.calendar_view._refresh_timer.isActive()

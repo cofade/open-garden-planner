@@ -51,6 +51,7 @@ from PyQt6.QtWidgets import (
     QMenu,
 )
 
+from open_garden_planner.core.i18n import format_decimal
 from open_garden_planner.core.plan_io import PlanValidationError, finite_number
 
 logger = logging.getLogger(__name__)
@@ -117,11 +118,11 @@ def _check_image_size(size: QSize) -> None:
             "This image is {megapixels} megapixels and needs about {megabytes} MB "
             "of memory. Background images are limited to {limit} megapixels.",
         ).format(
-            megapixels=f"{megapixels(pixels):.1f}",
+            megapixels=format_decimal(megapixels(pixels), 1),
             # The item keeps the decoded pixmap twice (original + flipped copy);
             # reporting one copy would understate the cost of what is being refused.
             megabytes=pixels * 8 // 1_000_000,
-            limit=f"{megapixels(MAX_BACKGROUND_PIXELS):.1f}",
+            limit=format_decimal(megapixels(MAX_BACKGROUND_PIXELS), 1),
         )
     )
 

@@ -82,6 +82,18 @@ def _check_range(day: date, margin: timedelta = timedelta(0)) -> None:
         )
 
 
+def plan_day_of(scene: object) -> date:
+    """The plan's local day for a view that has no clock of its own (#859).
+
+    A ``CanvasScene`` bound to the app's one SimClock answers ``plan_date``;
+    a bare ``QGraphicsScene`` (a widget test, the Agent API's headless read)
+    falls back to the wall date, the behaviour every surface had before the
+    clock existed.
+    """
+    day = getattr(scene, "plan_date", None)
+    return day if isinstance(day, date) else date.today()
+
+
 class _Slot:
     """One connection: a bound method held weakly, any other callable strongly."""
 

@@ -138,3 +138,90 @@ shortcut map consumed it. The fix is `Shift+S`; the test asserts the tool
 shortcut exists, differs from `snap_action`'s `S`, and that `S` still belongs
 to Snap to Grid. Offscreen Qt has no focus window, so the test pins the
 configuration rather than synthesising a key press.
+
+### PF-UI-37
+
+- **Rule:** `apply_theme()` sets all three carriers of light-or-dark — Qt's colour scheme, the application palette and the stylesheet — and nothing that DETECTS the system's mode reads `QApplication.palette()`, which is the app's own since then.
+- **Pinned by:** `tests/unit/test_theme_palette.py`; `tests/integration/test_theme_surfaces.py::test_the_main_window_follows_the_theme_whatever_windows_says`
+- **Source:** #791, ADR-039 addendum
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The app's light theme on a dark-mode Windows painted white text on cream (1.05:1), invisible
+check boxes and red links. `apply_theme()` wrote a stylesheet and nothing else, and a Qt
+application has three carriers of "light or dark". The palette is read by `palette(text)` in a
+widget stylesheet, by rich-text links (`QPalette.Link`) and by `palette().placeholderText()`. The
+colour scheme (`QStyleHints.colorScheme()`) is what the native style draws everything in that no
+stylesheet rule covers. Both stayed the operating system's. Measured on Qt 6.12, style
+`windows11`: `setColorScheme(Light)` changes the palette synchronously, `Unknown` hands it back to
+the system, and a role set with `app.setPalette` survives a later scheme change.
+
+The fix builds a full `QPalette` from the tokens (`build_palette`) and pins the scheme. The trap
+it creates is the second half of the rule: `detect_system_theme()` used to read the application
+palette, which would now be the app's last theme, so "system" could never follow the system
+again. It asks `_system_color_scheme()` (the seam tests replace), and for `ThemeMode.SYSTEM`
+`apply_theme()` first un-pins the scheme, then resolves. Two things a palette does not reach were
+found by rendering: a check box needs an `::indicator` rule, and the toolbar's overflow button is
+a picture of the style's own, squeezed to 2 px by the `QToolButton` padding rule — it has a
+`QToolBarExtension` rule with the theme's glyph. A widget that PAINTS reads `theme_qcolor(token)`
+while painting; the calendar chart, the soil sparkline and the seed-viability cells each kept a
+light picture in the dark theme, and `tests/unit/test_no_hardcoded_qss_colors.py` now lists every
+painted literal that may stay, with its reason.
+
+### PF-UI-38
+
+- **Rule:** A stylesheet's box rules beat the sizes code sets: a `QPushButton` in a row, a header or a table opts out of the 80 px dialog minimum with `theme.set_compact()`, and a list row that is a widget is sized with `theme.list_row_size_hint()`, which adds the item padding back.
+- **Pinned by:** `tests/integration/test_chrome_layout.py::test_a_compact_button_keeps_the_size_its_code_asks_for`; `tests/integration/test_chrome_layout.py::test_find_plants_rows_keep_their_descenders`; `tests/integration/test_chrome_layout.py::test_the_selection_panels_fit_the_sidebar`; `tests/integration/test_chrome_layout.py::test_the_colour_swatch_is_as_wide_as_the_fields_beside_it`
+- **Source:** #796
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Four layout defects had one cause. The app stylesheet gives `QPushButton` `min-width: 80px`; with
+padding and border that is a 110 px minimum, and a stylesheet minimum replaces the one
+`setFixedWidth` / `setFixedSize` set (measured: an icon button with `setFixedSize(26, 20)` has
+minimum width 110 and maximum width 26, and is laid out 110 px wide). So the Properties panel's
+Arrange row was four 110 px buttons in a 440 px form with no horizontal scroll bar, which cut the
+row AND every field above it; the Tasks tab's arrow was 110 px wide; and every `setFixedWidth(50)`
+on an Edit or Delete button was dead code. Removing the minimum globally was rejected: those dead
+fixed widths would start to apply and cut their texts. `set_compact(button)` sets a `compact`
+property the stylesheet answers with `min-width: 0`; a compact button with a translated text gets
+NO fixed width. A stylesheet minimum still replaces the code's (it is now the padding alone), so a
+compact button's fixed width is its MAXIMUM and the layout gives it its size hint: an icon button
+is a pixel or two under its fixed size, and a button that must be exactly N px wide also answers
+`sizeHint()` with N. The Properties panel's colour swatch was 110 px in a column of 120 px fields
+that way, and the test that pins the column passed only in a process no earlier test had themed.
+
+The same box model squeezes a list row that is a widget: the view gives an item widget the row's
+rectangle minus `QListWidget::item`'s padding, so a row sized to `widget.sizeHint()` was 10 px too
+low and Find Plants cut the descenders of its second line. `list_row_size_hint()` adds the padding
+from the constant the stylesheet itself uses. A one-line row with a minimum height (the layers
+panel, PF-UI-35) absorbs the loss and never showed it.
+
+### PF-UI-39
+
+- **Rule:** A `QScrollArea` remembers its widget's size hint from the FIRST call, and a row added to a visible parent counts in no hint until the event loop has turned; a list that must be as tall as its rows overrides `sizeHint()` and calls `updateGeometry()` on its content's `LayoutRequest`.
+- **Pinned by:** `tests/integration/test_chrome_layout.py::test_todays_tasks_shows_whole_rows_not_one_and_a_half`
+- **Source:** #796
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The Planting Calendar's "Today's Tasks" showed one and a half of eighteen rows. Its scroll area
+was created empty and filled later, and `QScrollArea.sizeHint()` caches its widget's hint the
+first time it is asked (measured: 18 px for a list that had grown to 336 px, while a fresh area
+around the same content said 288). The first fix, `updateGeometry()` at the end of the rebuild,
+worked in a probe and not in the window. A print at the end of `set_data` showed why: the
+content's own hint was 8 px right after thirteen rows had been added, and 375 px one turn of the
+event loop later. A child added to a VISIBLE parent is shown by a queued call, and a layout does
+not count a hidden child. `_FittedScrollArea` (`ui/views/planting_calendar_view.py`) therefore
+answers `sizeHint()` from its content every time and calls `updateGeometry()` whenever the content
+posts a `LayoutRequest`, which is when the rows have arrived.
+
+### PF-UI-40
+
+- **Rule:** A `QStatusBar`'s transient message gets what the permanent widgets leave. On a narrow window, fixed minimum widths on optional segments clip it ("Opened:" at 1280 px). Give the permanent labels no minimum widths, let the optional segments step aside at stated width thresholds, and keep the message to a file NAME, not a full path.
+- **Pinned by:** `tests/integration/test_status_bar_compact.py::test_optional_status_segments_step_aside_on_a_narrow_window`; `tests/integration/test_status_bar_compact.py::test_the_opened_message_names_the_file_not_its_whole_path`
+- **Source:** #858
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Selection, tool and season hide below 1500 px; location below 1200 px.

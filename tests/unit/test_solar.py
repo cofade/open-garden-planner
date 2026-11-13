@@ -254,6 +254,8 @@ def test_location_readers_outside_l5_never_raise_on_hostile_location(hostile_loc
         def _location(self):
             return hostile_location
         _clock = type("Clock", (), {"utc": datetime.now(UTC)})()
+        # The real controller always carries a north provider (#663).
+        _north = staticmethod(lambda: 0.0)
     assert Scene3DController._sun(DummySync()) == NO_LOCATION_SUN
 
     label = QLabel()

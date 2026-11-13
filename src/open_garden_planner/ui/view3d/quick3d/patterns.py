@@ -11,6 +11,11 @@ re-pointed at another ``QQuick3DTextureData`` (that makes the ``Texture`` white:
 ``ogp-3d-renderer`` §5). The sink refcounts the pictures it shows and calls
 ``EngineScene.release_fill`` with the last user, so recolouring a raised lawn
 leaves nothing behind.
+
+``GrassDetailTexture`` (#798): the meadow's grass — the canvas's GRASS picture, untinted,
+as its linear colour over its own mean (``core.scene3d.meadow.grass_detail``), RGBA16F so
+that its mips average light. ONE per host, made with its data at birth and held for the
+host's life; ``Garden.qml``'s ``grassTexture`` shows it and is never re-pointed.
 """
 
 from __future__ import annotations
@@ -18,11 +23,15 @@ from __future__ import annotations
 import weakref
 from typing import ClassVar
 
+import numpy as np
 from PyQt6 import sip
 from PyQt6.QtCore import QByteArray, QSize
 from PyQt6.QtQuick3D import QQuick3DTextureData
 
-__all__ = ["PatternTexture", "textures_alive"]
+from open_garden_planner.core.fill_patterns import FillPattern, pattern_pixels
+from open_garden_planner.core.scene3d.meadow import grass_detail_rgba16f
+
+__all__ = ["GrassDetailTexture", "PatternTexture", "textures_alive"]
 
 
 class PatternTexture(QQuick3DTextureData):
@@ -53,3 +62,21 @@ def textures_alive() -> int:
     keep-alive rule as a number (the same instrument as
     ``ground_tiles.textures_alive``, and asked of sip for the same reason)."""
     return sum(1 for texture in list(_MADE) if not sip.isdeleted(texture))
+
+
+class GrassDetailTexture(QQuick3DTextureData):
+    """The meadow's grass (#798): RGBA16F, its rgb the GRASS texture's linear colour over
+    its mean (1 on average in every channel), uploaded once, at construction."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        found = pattern_pixels(FillPattern.GRASS)
+        if found is None:
+            raise FileNotFoundError("the GRASS fill texture (resources/textures/grass.png)")
+        width, height, pixels = found
+        self.setSize(QSize(width, height))
+        self.setFormat(QQuick3DTextureData.Format.RGBA16F)
+        self.setHasTransparency(False)
+        rgba = np.frombuffer(pixels, dtype=np.uint8).reshape(height, width, 4)
+        self.setTextureData(QByteArray(grass_detail_rgba16f(rgba)))
+        self.update()  # type: ignore[attr-defined]

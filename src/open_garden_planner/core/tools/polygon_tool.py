@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen, QPolygonF
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPolygonItem
 
@@ -33,6 +33,9 @@ class PolygonTool(BaseTool):
 
     CLOSE_THRESHOLD = 15.0  # Scene units (cm) for closing detection
     VERTEX_MARKER_SIZE = 8.0
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("PolygonTool", "Polygon")
 
     def __init__(
         self,

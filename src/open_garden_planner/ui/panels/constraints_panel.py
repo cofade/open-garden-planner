@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.object_types import get_translated_display_name
 from open_garden_planner.ui.constraint_presentation import VIOLATED_COLOR, descriptor_for_name
 from open_garden_planner.ui.icons import get_icon, get_pixmap
+from open_garden_planner.ui.theme import theme_color
 
 if TYPE_CHECKING:
     from open_garden_planner.core.constraints import Constraint, ConstraintGraph
@@ -143,9 +144,33 @@ class ConstraintsPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._scene: CanvasScene | None = None
+        #: The "delete all" action for this panel's section header. The panel
+        #: owns it (icon, theme refresh, enabled only while there is something
+        #: to delete); the main window places it and gives it its tooltip.
+        self.delete_all_button = self._make_delete_all_button()
         self._setup_ui()
 
+    def _make_delete_all_button(self) -> QToolButton:
+        button = QToolButton()
+        button.setObjectName("constraintsDeleteAllBtn")
+        button.setFixedSize(22, 22)
+        button.setIconSize(QSize(16, 16))
+        button.setEnabled(False)
+        button.clicked.connect(self.delete_all)
+        return button
+
+    def refresh_theme_icons(self) -> None:
+        """Theme-switch hook: the header's bin in the theme's error colour.
+
+        It was a "×" character in a 20 px button with 4 px of padding — a red
+        mark about 6 px across (#796).
+        """
+        icon = get_icon("delete", color=theme_color("error"))
+        if icon is not None:
+            self.delete_all_button.setIcon(icon)
+
     def _setup_ui(self) -> None:
+        self.refresh_theme_icons()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
@@ -239,6 +264,7 @@ class ConstraintsPanel(QWidget):
         """Toggle between empty state and list."""
         self._empty_label.setVisible(empty)
         self._list.setVisible(not empty)
+        self.delete_all_button.setEnabled(not empty)
 
     def _build_item_labels(self) -> dict[UUID, str]:
         """Build a mapping from item UUID to a unique display label."""

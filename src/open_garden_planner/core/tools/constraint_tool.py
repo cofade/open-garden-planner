@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.commands import AddConstraintCommand
 from open_garden_planner.core.constraints import AnchorRef, ConstraintGraph, ConstraintType
+from open_garden_planner.core.i18n import LocalizedNumber, format_decimal
 from open_garden_planner.core.measure_snapper import (
     AnchorPoint,
     AnchorType,
@@ -49,6 +50,16 @@ PREVIEW_LINE_COLOR = QColor(0, 120, 255, 160)  # Semi-transparent blue for dista
 PREVIEW_H_COLOR = QColor(180, 0, 200, 200)  # Purple for horizontal
 PREVIEW_V_COLOR = QColor(0, 160, 80, 200)  # Green for vertical
 PEN_WIDTH = 2.5
+
+
+def _distance_preview_text(distance_cm: float) -> str:
+    """A constraint drag's distance, in the UI language's decimal mark (#860)."""
+    return f"{format_decimal(distance_cm / 100.0, 2)} m"
+
+
+def _angle_preview_text(angle_deg: float) -> str:
+    """A constraint drag's angle, in the UI language's decimal mark (#860)."""
+    return f"{format_decimal(angle_deg, 1)}°"
 
 
 class DistanceInputDialog(QDialog):
@@ -89,7 +100,7 @@ class DistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "DistanceInputDialog",
                 "Current distance: {distance:.2f} m",
-            ).format(distance=current_distance_cm / 100.0)
+            ).format(distance=LocalizedNumber(current_distance_cm / 100.0))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -283,7 +294,7 @@ class ConstraintTool(BaseTool):
             text = QCoreApplication.translate("ConstraintTool", "≡ V (same X)")
         else:
             distance_cm = QLineF(start, end_pos).length()
-            text = f"{distance_cm / 100.0:.2f} m"
+            text = _distance_preview_text(distance_cm)
 
         mid_x = (start.x() + snapped_end.x()) / 2
         mid_y = (start.y() + snapped_end.y()) / 2
@@ -1060,7 +1071,7 @@ class AngleInputDialog(QDialog):
         current_label = QLabel(
             QCoreApplication.translate(
                 "AngleInputDialog", "Current angle: {angle:.1f}°"
-            ).format(angle=current_angle_deg)
+            ).format(angle=LocalizedNumber(current_angle_deg))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -1278,7 +1289,7 @@ class AngleConstraintTool(BaseTool):
                 -1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len))
             )
             angle_deg = math.degrees(math.acos(cos_val))
-            text = f"{angle_deg:.1f}°"
+            text = _angle_preview_text(angle_deg)
             self._preview_text = scene.addText(text)
             self._preview_text.setDefaultTextColor(color)
             font = QFont()
@@ -2360,7 +2371,7 @@ class EdgeLengthConstraintTool(BaseTool):
             self._preview_line.setZValue(1001)
             self._graphics_items.append(self._preview_line)
             length_cm = QLineF(p1.point, p2.point).length()
-            self._preview_text = scene.addText(f"{length_cm / 100.0:.2f} m")
+            self._preview_text = scene.addText(_distance_preview_text(length_cm))
             self._preview_text.setDefaultTextColor(PREVIEW_LINE_COLOR)
             font = QFont()
             font.setPointSize(11)
@@ -3830,7 +3841,7 @@ class HDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "HDistanceInputDialog",
                 "Current horizontal distance: {distance:.2f} m",
-            ).format(distance=current_h_dist_cm / 100.0)
+            ).format(distance=LocalizedNumber(current_h_dist_cm / 100.0))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3880,7 +3891,7 @@ class VDistanceInputDialog(QDialog):
             QCoreApplication.translate(
                 "VDistanceInputDialog",
                 "Current vertical distance: {distance:.2f} m",
-            ).format(distance=current_v_dist_cm / 100.0)
+            ).format(distance=LocalizedNumber(current_v_dist_cm / 100.0))
         )
         current_label.setProperty("secondary", True)
         current_label.setStyleSheet("font-style: italic;")
@@ -3950,7 +3961,7 @@ class HorizontalDistanceConstraintTool(ConstraintTool):
         h_dist_cm = abs(end_pos.x() - start.x())
         text = QCoreApplication.translate(
             "HorizontalDistanceConstraintTool", "↔ {d:.2f} m"
-        ).format(d=h_dist_cm / 100.0)
+        ).format(d=LocalizedNumber(h_dist_cm / 100.0))
 
         mid_x = (start.x() + snapped_end.x()) / 2
         mid_y = start.y()
@@ -4059,7 +4070,7 @@ class VerticalDistanceConstraintTool(ConstraintTool):
         v_dist_cm = abs(end_pos.y() - start.y())
         text = QCoreApplication.translate(
             "VerticalDistanceConstraintTool", "↕ {d:.2f} m"
-        ).format(d=v_dist_cm / 100.0)
+        ).format(d=LocalizedNumber(v_dist_cm / 100.0))
 
         mid_x = start.x()
         mid_y = (start.y() + snapped_end.y()) / 2

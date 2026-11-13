@@ -34,7 +34,8 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
+from open_garden_planner.core.plant_cycle_label import plant_cycle_label
+from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE, plan_day_of
 from open_garden_planner.core.worker_lifecycle import retain_worker_until_finished
 from open_garden_planner.models.plant_data import (
     FlowerType,
@@ -49,6 +50,7 @@ from open_garden_planner.models.plant_data import (
 from open_garden_planner.services import get_plant_library
 from open_garden_planner.services.bundled_species_db import merge_calendar_data
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.edible_parts import display_edible_parts, parse_edible_parts
 from open_garden_planner.ui.plant_species_assignment import (
     apply_species_to_item,
@@ -80,8 +82,7 @@ class ClickableDateEdit(QDateEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the date edit."""
         super().__init__(parent)
-        self.setCalendarPopup(True)
-        self.setCalendarWidget(_PlanCalendar(self))
+        as_date_field(self, calendar=_PlanCalendar(self))
         self.setDateRange(_qt_date(MIN_PLAN_DATE), _qt_date(MAX_PLAN_DATE))
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -241,6 +242,11 @@ class EditableField(QWidget):
         # Emit signal if value changed
         if self._value != old_value:
             self.value_changed.emit()
+
+
+#: Edge of the plant drawing in the profile's 96 px tile, in logical pixels: the
+#: tile less its border and a small margin.
+_PROFILE_SPRITE_PX = 88
 
 
 class _ThumbnailWorker(QThread):
@@ -587,17 +593,12 @@ class PlantDatabasePanel(QWidget):
 
         # Cycle (annual/perennial)
         self.cycle_combo = QComboBox()
-        cycle_labels = {
-            PlantCycle.ANNUAL: self.tr("Annual"),
-            PlantCycle.BIENNIAL: self.tr("Biennial"),
-            PlantCycle.PERENNIAL: self.tr("Perennial"),
-        }
         # Leading neutral entry so a species with no cycle data shows "—" rather
         # than being misrepresented as the first concrete option (#231).
         self.cycle_combo.addItem(self.tr("—"), PlantCycle.UNKNOWN.value)
         for item in PlantCycle:
             if item != PlantCycle.UNKNOWN:
-                self.cycle_combo.addItem(cycle_labels.get(item, item.value), item.value)
+                self.cycle_combo.addItem(plant_cycle_label(item), item.value)
         self.cycle_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cycle_combo.currentIndexChanged.connect(self._on_field_changed)
         self.details_form.addRow(self.tr("Cycle:"), self.cycle_combo)
@@ -836,7 +837,6 @@ class PlantDatabasePanel(QWidget):
         planting_layout.setSpacing(4)
 
         self.planting_date_edit = ClickableDateEdit()
-        self.planting_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.planting_date_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         # Date is already initialized to minimum date in __init__, shows as empty
         self.planting_date_edit.dateChanged.connect(self._on_planting_date_changed)
@@ -852,7 +852,6 @@ class PlantDatabasePanel(QWidget):
 
         removal_layout = QHBoxLayout()
         self.removal_date_edit = ClickableDateEdit()
-        self.removal_date_edit.setDisplayFormat("yyyy-MM-dd")
         self.removal_date_edit.setSpecialValueText(self.tr("Not removed"))
         self.removal_date_edit.set_stored_date(None)
         self.removal_date_edit.dateChanged.connect(self._on_removal_date_changed)
@@ -1302,6 +1301,20 @@ class PlantDatabasePanel(QWidget):
         self.removal_date_edit.blockSignals(False)
         self._update_age_label(planted)
 
+    def refresh_plan_date(self) -> None:
+        """Re-derive the age label after the plan's day moved (#859).
+
+        The panel is a passive view of the selection; the plan clock is one of
+        its inputs, so the app calls this from its date-change fan-out. Only the
+        readout is touched: the date editors may hold an uncommitted edit.
+        """
+        item = self._current_plant_item
+        if item is None:
+            return
+        from open_garden_planner.core.plan_timeline import instance_date
+
+        self._update_age_label(instance_date(getattr(item, "metadata", None), "planting_date"))
+
     def _update_age_label(self, planting_date: date | None) -> None:
         """Update the age label based on planting date.
 
@@ -1312,7 +1325,11 @@ class PlantDatabasePanel(QWidget):
             self.age_label.setText("")
             return
 
-        today = date.today()
+        # The plant's age follows the PLAN's day (#859): the canvas and 3D grow
+        # it at that date, so a wall-clock age would contradict the tree drawn
+        # beside the label. A panel with no scene reads the wall date.
+        item = self._current_plant_item
+        today = plan_day_of(item.scene() if item is not None else None)
         if planting_date > today:
             self.age_label.setText(self.tr("(future)"))
             return
@@ -2206,7 +2223,8 @@ class PlantDatabasePanel(QWidget):
         self._profile_links.setText(" · ".join(links) if links else "")
         self._profile_links.setVisible(bool(links))
 
-        # Thumbnail
+        # Thumbnail: the provider's photo when the species has one; until it is
+        # there, and for a species without one, the plant's own drawing.
         thumb_url = plant_data.thumbnail_url or plant_data.image_url
         if thumb_url:
             cached = get_cached_thumbnail(thumb_url)
@@ -2221,13 +2239,12 @@ class PlantDatabasePanel(QWidget):
                     )
                     self._profile_thumbnail.setPixmap(scaled)
                 else:
-                    self._profile_thumbnail.setText("🌱")
+                    self._show_drawn_thumbnail()
             else:
-                # Show placeholder while loading
-                self._profile_thumbnail.setText("🌱")
+                self._show_drawn_thumbnail()
                 self._start_thumbnail_fetch(thumb_url)
         else:
-            self._profile_thumbnail.setText("🌱")
+            self._show_drawn_thumbnail()
 
         # Show the header if there's any content
         has_content = bool(
@@ -2241,6 +2258,41 @@ class PlantDatabasePanel(QWidget):
         # Update favorite button
         self._current_plant_data = plant_data
         self._update_favorite_button()
+
+    def _show_drawn_thumbnail(self) -> None:
+        """Show the selected plant as the plan draws it, where no photo is shown.
+
+        The 118 bundled species carry no picture URL, so their profile showed a
+        seedling emoji in an empty tile (#795). The app ships a drawing of every
+        plant: the sprite on the canvas, resolved by the same rule
+        (``core.plant_renderer.render_plant_pixmap``: species, then category,
+        then the object type's default) and tinted like the item. Upright, not
+        with the item's own turn. The emoji stays for an item that is no plant.
+        """
+        from PyQt6.QtGui import QPixmap
+
+        from open_garden_planner.core.plant_renderer import is_plant_type, render_plant_pixmap
+
+        item = self._current_plant_item
+        object_type = getattr(item, "object_type", None)
+        ratio = self._profile_thumbnail.devicePixelRatioF()
+        sprite = None
+        if item is not None and object_type is not None and is_plant_type(object_type):
+            sprite = render_plant_pixmap(
+                object_type,
+                _PROFILE_SPRITE_PX * ratio,
+                species=getattr(item, "plant_species", "") or "",
+                category=getattr(item, "plant_category", None),
+                tint_color=getattr(item, "fill_color", None),
+            )
+        if sprite is None:
+            self._profile_thumbnail.setText("🌱")
+            return
+        # A copy: the renderer's cache hands the same pixmap to the canvas, which
+        # must not get it back with this label's device pixel ratio.
+        drawn = QPixmap(sprite)
+        drawn.setDevicePixelRatio(ratio)
+        self._profile_thumbnail.setPixmap(drawn)
 
     def shutdown(self) -> None:
         """Clean up background thumbnail worker on teardown (PF-LIF-12)."""

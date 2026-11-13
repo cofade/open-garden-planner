@@ -6,10 +6,11 @@ items. ``render_canvas_image`` must run on the Qt main thread (marshaled via
 ``MainThreadBridge.run_on_main``, same as the other providers).
 
 Coordinate-frame note: the read tools report object positions in the native
-scene frame (cm, CAD Y-up per ADR-002 — origin bottom-left, +y north/up).
-``render_scene_region``'s ``y_flip=True`` (kept for visual parity with the live
-CAD view and every other export) means the output PNG is also Y-up — north at
-the top — so a scene point's pixel ROW is inverted relative to its scene y
+scene frame (cm, CAD Y-up per ADR-002 — origin bottom-left, +y plan-up; north on
+a north-up plan). ``render_scene_region``'s ``y_flip=True`` (kept for visual
+parity with the live CAD view and every other export) means the output PNG is
+also Y-up — plan-up at the top; true north may be turned by the plan's north
+orientation — so a scene point's pixel ROW is inverted relative to its scene y
 (pixel rows count top-down). See ``RenderMeta.px_per_cm``'s field description in
 ``schema.py`` for the exact correction formula, and
 ``tests/unit/test_agent_api_render_coordinate_frame.py`` for the empirical proof.

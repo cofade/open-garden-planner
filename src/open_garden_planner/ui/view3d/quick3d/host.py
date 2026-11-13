@@ -119,6 +119,7 @@ from PyQt6.QtGui import (
     QPlatformSurfaceEvent,
     QQuaternion,
     QVector3D,
+    QVector4D,
     QWindow,
 )
 from PyQt6.QtQuick import (
@@ -132,6 +133,7 @@ from PyQt6.QtQuick import (
 from open_garden_planner.core.fill_patterns import (
     FillPattern,
     pattern_from_name,
+    pattern_rgb,
     tinted_pattern_pixels,
 )
 from open_garden_planner.core.plain_text import log_text
@@ -145,13 +147,14 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_vectors,
 )
 from open_garden_planner.core.scene3d.look import ATMOSPHERE, ao_distance_scale, fog_depth_cm
-from open_garden_planner.core.scene3d.meadow import meadow_frame
+from open_garden_planner.core.scene3d.meadow import GRASS_RELIEF, GRASS_VARIATION, meadow_frame
 from open_garden_planner.core.scene3d.particles import (
     precipitation_buffers,
     precipitation_volume,
 )
 from open_garden_planner.core.scene3d.photo import NO_GRADE, NO_PHOTO, PhotoSettings, lut_strip
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
+from open_garden_planner.core.scene3d.surface_detail import detail_texels
 
 from .adapter import GroundPlacement, PartSpec
 from .cloud_volume import CloudNoiseTexture, SkyViewTexture
@@ -177,12 +180,13 @@ from .look import (
     SkySpec,
     atmosphere_properties,
     atmosphere_sun_direction,
+    painted_sky,
     photo_properties,
     scene_properties,
     sky_properties,
 )
-from .materials import PART_COMPONENTS, tint_uniform
-from .patterns import PatternTexture
+from .materials import PART_COMPONENTS, surface_look, tint_uniform
+from .patterns import GrassDetailTexture, PatternTexture
 from .shots import PerspectiveShot, Shot, TopDownShot
 
 if TYPE_CHECKING:
@@ -450,6 +454,9 @@ class Quick3DHost:
         #: ``Texture`` QML made and the data object Python owns. A picture lives while
         #: at least one Model shows it (the sink refcounts) and never past clear().
         self._fill_pictures: dict[tuple[str, Rgba], tuple[QObject, PatternTexture]] = {}
+        #: The surfaces' detail pictures on show (#801), by pattern name: made with the
+        #: first part that shows one, let go with the fill pictures.
+        self._detail_pictures: dict[str, tuple[QObject, PatternTexture]] = {}
         #: The look on screen, and the sun the pipeline sent last (engine frame; None:
         #: no sun, or it is down). Together they decide the key light (``_apply_light``).
         self._shown_look: LookSpec = NEUTRAL_DAY   # the scene file's own defaults
@@ -552,6 +559,7 @@ class Quick3DHost:
         self._log("qml_loaded", ms=round(self.qml_load_ms, 1), source=source.name)
         try:
             self.set_look(look)
+            self._show_grass()
             self._show_meadow(None)
         except Exception:
             self.close()  # a scene file without the look's properties: no half-built host
@@ -623,6 +631,10 @@ class Quick3DHost:
             _set(model, "partName", spec.name)
             if spec.ground_detail:
                 _set(model, "groundDetail", True)
+            self._apply_surface(model, spec)
+            if spec.sway[0] > 0.0:
+                # #800: the plant's size and phase - its leaves, wood and fruit sway together
+                _set(model, "swayFrame", QVector3D(*spec.sway))
             self._call("applyPlantSeason", model)
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)
@@ -757,11 +769,47 @@ class Quick3DHost:
         return texture
 
     def _forget_fill_textures(self) -> None:
-        """Let every fill picture go (clear(): the Models that showed them are gone)."""
+        """Let every fill picture go (clear(): the Models that showed them are gone) — and
+        every surface's detail picture (#801) with them."""
         pictures, self._fill_pictures = self._fill_pictures, {}
-        for texture, _data in pictures.values():
+        details, self._detail_pictures = self._detail_pictures, {}
+        for texture, _data in (*pictures.values(), *details.values()):
             if not sip.isdeleted(texture):
                 texture.deleteLater()
+
+    def _apply_surface(self, model: QObject, spec: PartSpec) -> None:
+        """What the part is made of (#803), and its detail picture (#801): the numbers of
+        ``materials.surface_look`` on the Model, once, at its birth."""
+        look = surface_look(spec.kind, spec.surface)
+        if look is None:
+            return
+        for name, value in look.properties.items():
+            _set(model, name, float(value))
+        if look.detail_pattern is not None:
+            texture = self._detail_texture(look.detail_pattern)
+            if texture is not None:
+                _set(model, "detailMap", texture)
+
+    def _detail_texture(self, pattern_name: str) -> QObject | None:
+        """The shared ``Texture`` of a surface's detail picture (#801), made once per
+        scene from the canvas's own picture (``core.scene3d.surface_detail``) — None when
+        the picture cannot be read (the part keeps its plain look: honest, not white)."""
+        held = self._detail_pictures.get(pattern_name)
+        if held is not None:
+            return held[0]
+        pattern = pattern_from_name(pattern_name)
+        rgb = pattern_rgb(pattern) if pattern is not None else None
+        if rgb is None:
+            return None
+        texture_data = PatternTexture(int(rgb.shape[1]), int(rgb.shape[0]), detail_texels(rgb))
+        texture = QMetaObject.invokeMethod(
+            self._root, "createPatternTexture", _DIRECT,
+            Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", texture_data))
+        if not isinstance(texture, QObject):
+            raise EngineError(f"the scene created no Texture for the {pattern_name} detail")
+        texture_data.setParent(texture)  # the pair lives and dies together
+        self._detail_pictures[pattern_name] = (texture, texture_data)
+        return texture
 
     def set_sun(self, travel: tuple[float, float, float] | None) -> None:
         """Where the sunlight travels (engine frame) — or None: no sun, or it is down."""
@@ -832,6 +880,20 @@ class Quick3DHost:
     #: How often the meadow's data was loaded into the engine (the gates read it).
     meadow_loads = 0
 
+    #: The meadow's grass (#798): ONE texture for the host's life, made before the first
+    #: frame and never replaced — ``Garden.qml``'s ``grassTexture`` is never re-pointed.
+    _grass: GrassDetailTexture | None = None
+
+    def _show_grass(self) -> None:
+        """Hand the scene the meadow's grass (``core/scene3d/meadow.py``): its texture,
+        the relief's scale and the slow variation. Once, at construction."""
+        if self._grass is not None:
+            return
+        self._grass = GrassDetailTexture()
+        _set(self._root, "grassRelief", float(GRASS_RELIEF))
+        _set(self._root, "grassVariation", QVector4D(*(float(value) for value in GRASS_VARIATION)))
+        _set(self._root, "grassDetail", self._grass)
+
     def _show_meadow(self, plan: tuple[float, float, float, float] | None) -> None:
         """Lay the meadow around ``plan`` (east0, north0, east1, north1 in scene cm; None:
         no plan, no hole) — ``core/scene3d/meadow.py``. Loaded into the one geometry of
@@ -857,6 +919,18 @@ class Quick3DHost:
         self._update_shadow_reach()
 
     _camera_scene: PerspectiveShot | None = None
+
+    def set_fitted_shadows(self, fitted: bool) -> None:
+        """Fit the key light's shadow map to what casts (True) or keep the texel-locked
+        fit of the slices' bounding spheres (False, the view's). FOR A FRAME WHOSE CAMERA
+        DOES NOT MOVE ONLY: a fitted map is about eight times finer on the board's golden
+        hour (no stair-stepped long shadows, no lit teeth under a caster's foot, no streaks
+        through a picket fence at a low sun), but it follows the camera and crawled two to
+        four times as far as the locked one in an orbit (ADR-059 addendum, #734).
+        ``capture(fitted_shadows=True)`` sets it for its own frame only; the orthographic
+        truth view is locked either way."""
+        self._open("set_fitted_shadows")
+        _set(self._root, "fittedShadows", bool(fitted))
 
     def _update_shadow_reach(self) -> None:
         shot, plan = self._camera_scene, self._meadow_plan
@@ -1364,7 +1438,7 @@ class Quick3DHost:
         _set(self._root, "camFov", float(shot.fov_deg))
         _set(self._root, "camVersion", int(_get(self._root, "camVersion")) + 1)
         if self._photo.depth_of_field:   # L6.1: the focus stays on the point, not at a distance
-            self._apply_photo(self._view_height_px())
+            self._apply_photo()
         # where the rain falls follows the camera (L5): around the point it looks at
         volume = precipitation_volume(shot.eye, shot.target)
         _set(self._root, "volumeCenter", _engine_vector((*volume.center_scene, 0.0)))
@@ -1453,7 +1527,7 @@ class Quick3DHost:
             # written) — in the same GUI-thread turn, so no frame shows the painted
             # background between the two calls
             self._call("buildAtmosphere", self._atmosphere_inputs(sky), self._cloud_volume(),
-                       self._sky_view_table(atmosphere_sun_direction(sky)))
+                       self._sky_view_table(sky))
         self.last_sky_build_ms = (time.perf_counter() - started) * 1000.0
         self._sky = sky
         self.sky_builds += 1
@@ -1470,13 +1544,16 @@ class Quick3DHost:
             inputs[name] = value
         return inputs
 
-    def _sky_view_table(self, sun_direction: tuple[float, float, float]) -> SkyViewTexture:
-        """The sky-view table for ``sun_direction``, made once and refilled in place
-        (about 0.1 s of numpy per new sun, on the GUI thread like the painted sky's)."""
+    def _sky_view_table(self, sky: SkySpec) -> SkyViewTexture:
+        """The sky-view table of ``sky`` — its sun's clear sky and its painted sky's
+        profile (#716) — made once and refilled in place (about 0.1 s of numpy per new
+        sun, on the GUI thread like the painted sky's; a new weather at the same sun
+        refills only the profile's alpha from the cached table)."""
+        sun_direction, painted = atmosphere_sun_direction(sky), painted_sky(sky)
         if self._sky_view is None:
-            self._sky_view = SkyViewTexture(sun_direction)
+            self._sky_view = SkyViewTexture(sun_direction, painted)
         else:
-            self._sky_view.set_sun_direction(sun_direction)
+            self._sky_view.set_sky(sun_direction, painted)
         return self._sky_view
 
     def _cloud_volume(self) -> CloudNoiseTexture:
@@ -1512,21 +1589,19 @@ class Quick3DHost:
         (``core.scene3d.photo``). ``NO_PHOTO`` is the view itself. Moves no camera."""
         self._open("set_photo")
         self._photo = settings
-        self._apply_photo(self._view_height_px())
+        self._apply_photo()
         self._apply_grade(settings.grade)
 
     @property
     def photo(self) -> PhotoSettings:
         return self._photo
 
-    def _view_height_px(self) -> float:
-        return float(self._root.height()) * float(self._view.effectiveDevicePixelRatio())
-
-    def _apply_photo(self, picture_height_px: float) -> None:
-        """The photo settings for the camera in place and a picture of this height."""
+    def _apply_photo(self) -> None:
+        """The photo settings for the camera in place. Nothing in them depends on a picture's
+        size: the blur is a share of whatever picture is drawn (#743)."""
         shot = self._camera_scene
         eye, target = (shot.eye, shot.target) if shot is not None else ((0.0, 0.0, 0.0),) * 2
-        for name, value in photo_properties(self._photo, eye, target, picture_height_px).items():
+        for name, value in photo_properties(self._photo, eye, target).items():
             _set(self._root, name, value)
 
     def _apply_grade(self, grade: str) -> None:
@@ -1573,14 +1648,20 @@ class Quick3DHost:
 
     def capture(self, size: tuple[int, int], shot: PerspectiveShot | None = None, *,
                 wind_time_s: float | None = None, photo: PhotoSettings | None = None,
-                label: str = "") -> QImage:
+                label: str = "", fitted_shadows: bool = False) -> QImage:
         """A picture of exactly ``size`` device pixels, without moving anything on screen:
         ``shot`` (None: the camera in place) through the scene's second View3D, whose size
         does not depend on the window's. Selection ring off; the photo settings apply.
         ``wind_time_s``: the wind's clock for this picture (a tour's frames are computed,
         not timed). ``photo``: develop this picture differently from the view (an agent's
-        picture takes ``NO_PHOTO``). Legal on a ``LIVE`` host only (``lifecycle.py``); else
-        ``HostStateError``. ``EngineError`` when no picture comes back.
+        picture takes ``NO_PHOTO``). ``fitted_shadows=True``: the key light's shadow map
+        fitted to the casters for this frame only (``set_fitted_shadows``) — what a STILL
+        picture asks for (a photo, an agent's picture, a held camera's frame); a frame of a
+        moving camera keeps the default, the view's stable fit. The default is what makes a
+        capture at the view's size the view, pixel for pixel (the self-test's check; #734:
+        a fitted frame differs from the view by up to 24 levels along its shadow edges).
+        Legal on a ``LIVE`` host only (``lifecycle.py``); else ``HostStateError``.
+        ``EngineError`` when no picture comes back.
 
         WHY NOTHING JUMPS (ADR-072, measured: the view read back after a capture differs
         in no pixel). Everything below is one synchronous call on the GUI thread, and the
@@ -1633,8 +1714,9 @@ class Quick3DHost:
             _set(root, "captureWidth", width)
             _set(root, "captureHeight", height)
             _set(root, "captureAoDistanceScale", ao_distance_scale(float(height)))
+            _set(root, "fittedShadows", bool(fitted_shadows))
             _set(root, "captureWanted", True)
-            self._apply_photo(float(height))
+            self._apply_photo()
             item = cast("QQuickItem", self._call("captureItem"))
             # Qt multiplies the target size by the window's ratio again
             result = item.grabToImage(QSize(round(width / ratio), round(height / ratio)))
@@ -1649,6 +1731,7 @@ class Quick3DHost:
                     self._drop_capture_view()
             finally:
                 _set(root, "captureAoDistanceScale", 1.0)
+                _set(root, "fittedShadows", False)
                 _set(root, "selectionVisible", ring_before)
                 _set(root, "windTime", wind_before)
                 self._photo = photo_before
@@ -1656,7 +1739,7 @@ class Quick3DHost:
                     self._apply_grade(photo_before.grade)
                 if shot is not None and shot_before is not None:
                     self.set_camera(shot_before.eye, shot_before.target, shot_before.fov_deg)
-                self._apply_photo(self._view_height_px())
+                self._apply_photo()
         if image.isNull() or image.width() == 0 or image.height() == 0:
             raise EngineError(f"capture({label!r}): Qt delivered no picture")
         if (image.width(), image.height()) != (width, height):

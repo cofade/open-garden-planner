@@ -69,10 +69,18 @@ src/open_garden_planner/
 │   ├── plant_art/                # Stdlib-only: what a plant looks like, for 2D and 3D (Phase 17 L1.7, ADR-059 addendum) — see §5.10
 │   │   ├── recipes.py            #   PALETTES / FRUITS / FLOWERS / SPECIES / CATEGORIES — the sprite recipes (moved from the generator script)
 │   │   └── resolve.py            #   resolve_sprite(): species / category / type → sprite and recipe — the ONE rule for 2D and 3D
-│   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028)
+│   ├── plant_sizing.py           # PlantSizing resolver — footprint/override/max_spread precedence (ADR-028);
+│   │                             #   spacing storeys and where a spacing warning is drawn (#786)
+│   ├── plan_north.py             # Qt-free plan north metadata: validation + the plan angle (#663, ADR-037 addendum); the frame rule is core/solar.scene_azimuth
+│   ├── harvest_units.py          # Display names for the harvest log's stable unit keys (#863, #899)
+│   ├── plant_cycle_label.py      # The one translated Annual/Biennial/Perennial vocabulary (#869)
+│   ├── legibility.py             # Qt-free WCAG contrast arithmetic: which ink goes with which halo (#793, §8.9.15)
+│   ├── label_layout.py           # Qt-free: which object labels are shown when room is short, and whether a badge has room on its object (#793, #836, §8.9.15)
 │   ├── solar.py                  # Qt-free NOAA solar position engine — elevation/azimuth/declination/EoT (US-E1, ADR-037);
-│   │                             #   plan_place(): the validity rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
+│   │                             #   scene_azimuth(): the ONE compass→plan-frame rule (#663); plan_place(): the validity
+│   │                             #   rule for a plan's location the L5 readers share (ADR-070; the rest: #697)
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
+│   ├── showcase_moment.py        # Qt-free: a shipped example's moment on that clock, and the user's reading back with the next document or a save (#795)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
 │   │                             #   resolve_height() is the ONE precedence ladder, projected by effective_height_cm /
@@ -80,11 +88,15 @@ src/open_garden_planner/
 │   │                             #   soil_surface_cm (Phase 17 L1.6); casts_2d_shadow (a string of lights: no, L5.4)
 │   ├── string_lights.py          # Qt-free: a string of lights is a LINE — layout(): its posts, spans, bulbs (L5.4)
 │   ├── camera_path.py            # Qt-free: a camera tour as data — spline, drone orbit, frames (L6.2, ADR-072)
+│   ├── camera_tours.py           # Qt-free: named tours kept in the plan — SavedTour, load_tours (the trust boundary), #737
 │   ├── video_yuv.py              # Qt-free: BT.709 YUV frames for a video (L6.2, PF-E3D-20)
+│   ├── mp4_stream.py             # Qt-free: a tour MP4's colour tags and H.264 level, read and written (#807, PF-E3D-31)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
 │   │                             #   ShadowCaster(footprint, height, base): a raised caster's shadow starts base/tanα out (L1.6)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
-│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4)
+│   ├── heatmap_render.py         # Qt-free heatmap rendering — cool→warm ramp LUT + marching-squares hour contours (US-E4);
+│   │                             #   sun_legend(): what the map's key shows, from the same tables (#794, §8.9.18)
+│   ├── soft_edge.py              # Qt-free: the shadow's soft edge as a blurred field — lattice, exact box sums, falloff table (#793, §8.9.18)
 │   ├── scene3d/                  # Qt-free 3D scene core (Phase 17 L1.1, ADR-059) — see §5.10
 │   │   ├── record.py             #   contract v2: Record (outer rings + holes) / Transform / Material / Params, three signatures, the record grid
 │   │   ├── scene_diff.py         #   diff() → SceneDiff(added, removed, transform, material, geometry, reordered)
@@ -151,7 +163,7 @@ src/open_garden_planner/
 │   ├── stacking.py               # Qt-free per-object stacking order (Bring to Front/Forward/Backward/Back), block expansion, parent clamp (ADR-043, §8.25)
 │   ├── canvas_bounds.py          # Qt-free canvas clamping math — the ONE shared rule keeping items on-plan across GUI and Agent API (#380)
 │   ├── alignment.py              # Object alignment helpers
-│   ├── i18n.py                   # Internationalization, translator loading
+│   ├── i18n.py                   # Translator loading and the app's LOCALE: number/month/date formatters, parse_decimal; QtCore only (ADR-077)
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
 │   └── tools/                    # Drawing tools
 │       ├── base_tool.py          # ToolType enum, BaseTool ABC
@@ -188,9 +200,15 @@ src/open_garden_planner/
 │   │   ├── canvas_scene.py       # Scene (holds objects)
 │   │   ├── select_by_id.py       # THE select-by-id path: item ids → the canvas selection (panels, 3D) — L1.8, see §5.15
 │   │   ├── dimension_lines.py    # Dimension line rendering & management
+│   │   ├── plan_labels.py        # The scene's label pass: object labels and succession badges painted after every item (#793, #836, §8.9.15)
+│   │   ├── layout_font.py        # The size a font has on the canvas: layout_pixel_size / device_independent (#836, PF-CAN-59)
 │   │   ├── footprints.py         # THE footprint extraction — item_outline / item_footprints / plant_canopy_radius_cm; shadows, heatmap and 3D all read it (Phase 17 L1.1, ADR-059)
-│   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
-│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
+│   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037);
+│   │   │                         #   set_map_shown(): solved but not painted while the hours-of-sun map is shown (#794)
+│   │   ├── shadow_feather.py     # The overlay's soft edge painted from core/soft_edge, the shade cut out in a device layer (#793)
+│   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4);
+│   │   │                         #   SunMapLabelItem: the hours as labels of the plan, placed where nothing stands (#794)
+│   │   ├── sun_legend.py         # The map's key: paint_sun_legend (canvas view, pictures) + SunMapLegendItem for pictures (#794, §8.9.18)
 │   │   ├── arrange.py            # THE one apply path for per-object stacking order changes — builds ArrangeItemsCommand via core.stacking (ADR-043)
 │   │   ├── geometry_apply.py     # THE canonical resize/rotate/vertex apply path — panel + handles + agent (US-D2.2/D2.6)
 │   │   ├── geometry_inspect.py   # Live scene-frame geometry projection for Agent API reads (US-D2.6)
@@ -205,6 +223,7 @@ src/open_garden_planner/
 │   │       ├── bezier_item.py    # BezierItem (Package B US-B1)
 │   │       ├── background_image_item.py
 │   │       ├── group_item.py     # Group container, drill-down focus outline and ungroup rules (#771, ADR-075)
+│   │       ├── halo_text.py      # Text over a stroked halo: paint_halo_text / HaloTextItem / PlanLabelItem (#793, §8.9.15)
 │   │       ├── split_menu.py     # the one Split Along Line context-menu seam (#664, §8.35)
 │   │       └── resize_handle.py
 │   ├── view3d/                   # the 3D view (Phase 17; US-E6's Qt 3D window left in L1.10): snapshot.py
@@ -233,6 +252,7 @@ src/open_garden_planner/
 │   │   └── journal_panel.py      # Garden-journal browser w/ search + date range (US-12.9)
 │   ├── dialogs/
 │   │   ├── new_project_dialog.py
+│   │   ├── north_orientation_dialog.py # Clickable compass + angle for the plan's true north (#663, ADR-037 addendum)
 │   │   ├── welcome_dialog.py
 │   │   ├── calibration_dialog.py
 │   │   ├── custom_plants_dialog.py
@@ -248,11 +268,15 @@ src/open_garden_planner/
 │   │   ├── task_dialog.py        # Create/edit a ManualTask (US-C2, ADR-029)
 │   │   └── properties_dialog.py
 │   ├── views/
-│   │   └── tasks_view.py         # Unified Tasks dashboard tab + build_plan_state (US-C2, ADR-029)
+│   │   ├── tasks_view.py         # Unified Tasks dashboard tab + build_plan_state (US-C2, ADR-029)
+│   │   └── task_text.py          # ONE row text for a generated task, shared by the Tasks tab and the calendar dashboard (#856)
 │   ├── widgets/
 │   │   ├── toolbar.py            # MainToolbar (5 CAD-style core tools)
 │   │   ├── constraint_toolbar.py # ConstraintToolbar (CAD constraints)
 │   │   ├── category_toolbar.py   # CategoryToolbar (10 category dropdowns + global search) (ADR-018)
+│   │   ├── toolbar_rows.py       # ToolbarRows: the tool toolbars wrap with the window (#796)
+│   │   ├── elided_label.py       # ElidedLabel: a one-line label that gives way to its row (#796)
+│   │   ├── soil_overlay_legend.py # Key to the soil-health overlay's tints, in its toolbar (#796)
 │   │   ├── category_dropdown.py  # Popup palette under each category button (ADR-018)
 │   │   ├── global_search.py      # Toolbar object search across all categories (ADR-018)
 │   │   ├── gallery_data.py       # Source of truth for placeable objects (ADR-018)
@@ -261,6 +285,8 @@ src/open_garden_planner/
 │   │   ├── sun_sim_toolbar.py    # Sun & shade sim date/time-slider toolbar (US-E3)
 │   │   └── collapsible_panel.py
 │   ├── icons.py                  # Central themed icon provider (#279, ADR-039)
+│   ├── date_fields.py            # as_date_field / as_time_field: ISO, 24 hours, week from Monday for every date and time field (#792, ADR-077)
+│   ├── number_fields.py          # Either decimal mark is the decimal mark in a QDoubleSpinBox, typed or pasted (#792, ADR-077)
 │   ├── sim_clock_subscription.py # connect_qobject(): a QObject on the Qt-free sim clock, never called after Qt destroyed it (L1.3)
 
 │   └── theme.py                  # Theme system — single source of chrome colors (ADR-039)
@@ -275,6 +301,7 @@ src/open_garden_planner/
 │   ├── bundled_species_db.py     # Bundled species DB loader + drop-flow hook (issue #170)
 │   ├── scene_rendering.py        # Shared region-render helper (ADR-023, used by PNG + viewport)
 │   ├── export_service.py         # PDF/image export
+│   ├── svg_export.py             # SVG export: recording paint engine + replay into QSvgGenerator (ADR-076)
 │   ├── autosave_service.py       # Autosave logic
 │   ├── soil_service.py           # Soil test history facade (US-12.10a)
 │   ├── task_generator.py         # Pure (PlanState)->list[Task] generators + generate_all (US-C2, ADR-029)
@@ -464,7 +491,7 @@ Black-box view of the visual-refresh subsystem. See §8.4 (theme/tokens), §8.21
 
 | Building block | Responsibility | Interface (in → out) |
 |----------------|----------------|----------------------|
-| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
+| `ui/theme.py` | Single source of truth for every chrome color: `ThemeColors.LIGHT/DARK` (incl. the #279 semantic tokens), the generated application stylesheet (typography/color/button roles as dynamic-property rules, banner/card rules), live-palette helpers (`theme_color`/`theme_qcolor`/`rgba`/`is_dark_theme`/`set_text_role`), the application palette built from the tokens (`build_palette`) and the colour-scheme pin (#791), the geometry roles `set_compact` / `list_row_size_hint` (#796), `contrast_ratio` / `readable_on` for data colours, `register_theme_listener`, `CATEGORY_ICON_TINTS`, and `apply_theme()`'s duck-typed propagation walk (`apply_theme_colors` / `refresh_theme_icons`). | `ThemeMode` → styled app + notified subscribers |
 | `ui/icons.py` | Central themed icon provider — the ONLY render path for `resources/icons/ui/`: substitutes theme colors into the contract SVG text before rasterizing (QSvgRenderer paints raw `currentColor` black), renders at devicePixelRatio, Normal + fully-grayed Disabled modes, cache per (name, size, dpr, tint, accent) cleared via theme listener; `None` for unknown names so every caller's text fallback survives. | name (+ size/tint) → `QIcon`/`QPixmap` \| `None` |
 | `resources/icons/ui/` | The icon set: 150 Tabler-vendored (MIT, pinned v3.45.0; 62 in #279 + 88 in #310) + 12 bespoke glyphs (10 in #279, `lawn` + `partly_cloudy` in #310) on the 24×24 currentColor+sentinel contract, with the binding house-style README, `PROVENANCE.md` (cross-checked by the gate in both directions) and the vendored MIT license text. | files |
 | `scripts/normalize_icons.py` / `check_icon_conformance.py` / `vendor_tabler_icons.py` | Icon asset-forge toolchain: deterministic SVG canonicalizer (idempotence is itself a gate; `--check` for CI drift), mechanical contract+provenance gate (pinned into pytest by `tests/unit/test_icon_conformance.py`), pinned-release Tabler vendoring (the PROVENANCE reproduction recipe). | SVG files → normalized/verified set |
@@ -531,13 +558,15 @@ for other `core` modules.
 | `core/scene3d/frame.py` | Every frame conversion, once: scene ↔ engine (numpy, determinant +1), item-local → scene (`pose_*`), `engine_pose`, `LocalFrame` (an affine scene transform → rigid transform + local coordinates; non-rigid parts are baked), and `sun_direction_scene`. | floats / arrays → floats / arrays |
 | `core/scene3d/polygon.py` | Plane polygons: `signed_area`, `ccw` / `cw`, `is_simple_ring`, `group_rings` (rings → outer rings with their holes), `triangulate_polygon` (the ear clipper; both 3D views shared it until L1.10), `triangulate_region` (outer minus holes, by bridging; bounded in size), `cut_region` (that triangulation, proven by area and orientation, cached) and `is_buildable_region` — the ONE predicate for "a builder can turn this region into a solid", which the snapshot asks for every region it hands on. | rings → regions / triangles / a verdict |
 | `core/scene3d/polygon.py` — what an outline may cost and what is remembered | `WorkBudget` and `MAX_REGION_WORK` (one budget of counted work units for everything ONE item's outline needs; `RegionTooLargeError` beyond it), `MAX_ITEM_VERTICES`, `region_work` / `pay_for_region` (a region cut out of what its caller has left), `touching_pairs` and `stack_height` (what the clipper's work on an outline depends on, counted before the clipper sees it), `ring_keyed` (answers about rings, bounded by the vertices held). The clipper's prices and the order of payment are the snapshot's (`ui/view3d/snapshot.py`: `_stroke_regions`, `_outline_regions`, `_resolved_regions`). | sizes and counts → a refusal before the work, or the work within the bound (§8.29.1, §8.11) |
-| `core/scene3d/mesh.py` | `Mesh` (float32 positions, normals, linear RGBA, uvs; uint32 triangles) with `validate()`, `merge`, `translated`; `MeshPart` (material kind, shadow flag, tint flag); `MATERIAL_KINDS`. | arrays → validated mesh parts |
+| `core/scene3d/mesh.py` | `Mesh` (float32 positions, normals, linear RGBA, uvs; uint32 triangles) with `validate()`, `merge`, `translated`; `MeshPart` (material kind, shadow flag, tint flag, and since #803 its `surface` or its `surface_runs`); `MATERIAL_KINDS`; `surface_pieces` (one part per surface run: what the engine draws a Model for). | arrays → validated mesh parts |
+| `core/scene3d/materials.py` | Qt-free. `TWO_SIDED_KINDS`; since #803 `SURFACES` — what a built part is made of (rubber, plastic, wood, steel, masonry, plaster, roof tile …): its roughness, specular amount and optional `SurfaceDetail` picture (#801: the canvas's own texture, laid by the mesh's uvs or by the face's plane); `detail_of`. Concept: §8.29.12 "Materials". | surface name → numbers and picture |
+| `core/scene3d/surface_detail.py` | Qt-free numpy (#801): a canvas texture as the engine samples it on a 3D surface — `detail_texels` (RGBA8: a linear albedo multiplier of mean 1, the height's slopes along u and v), `albedo_multiplier`, `height_slopes`. | RGB picture → texel bytes |
 | `core/scene3d/build.py` | The builder seam: `Builder`, `BuilderRegistry`, `default_builder` (prism of the outer rings minus their holes to the resolved height, tinted; nothing without a height; refuses a ring that crosses itself and a number that is not finite in float32), `prism_mesh`, `item_seed`, and `verify_builder` — the test instrument for every builder: purity, mesh validity, the height (fraction or absolute cm) and the plan view — two upper bounds on excess (no hole built over, nothing far outside the footprint), never a demand for coverage. | `Record` → `tuple[MeshPart, ...]` |
 | `core/scene3d/sink.py` | `EngineSink` (eleven methods — the eleventh, `set_selection`, since L1.8; `clear()` — hold nothing, legal at any time — is the one recovery needs) and `RecordingSink`, its protocol-enforcing double; `SunState` (angles from `core/solar`), `GroundSpec` (the plan rectangle and, since L1.5, its baked tiles — §5.13). | calls → engine state / a call log |
 | `core/scene3d/sync.py` | `SceneSync`: owns the last applied snapshot; builders before the sink is touched; one transaction or none — records, sun and ground together when handed to one `apply`; contains a failing builder; rebuilds items whose builder was registered late; is poisoned by a failing sink until `reset()`, which calls `sink.clear()` and forgets everything. `expected_state()` is the from-scratch reference. | snapshots → minimal sink calls |
 | `core/scene3d/builders/` (`production_registry`, `register`, `triangle_budget`, `BUILT_WORLD_KINDS`) | The production builders (L1.6, ADR-059 addendum): one module per family, each a `BuiltBuilder` over a shape function. Buildings (walls + a gable roof from the record's live ridge — only on one plain outline: several rings, a hole or an outline the contract resolved, `outline_resolved`, is the plain block of the regions, for every polygon kind), fences and walls (`lines.py` decides from kind and style; a style no builder knows is a plain panel), beds and containers (frame + soil at `soil_surface_cm`), hedges (seeded). Twelve built-world kinds (`register`, `BUILT_WORLD_KINDS`); `production_registry()` adds the three plant kinds through `plants.register` (`builders/plants.py`, below) — 15 in all, none in both families; every other kind keeps the default prism. Rules and how-to: §8.29.6. | `Record` → `tuple[MeshPart, ...]`, top = `height_cm` exactly |
 | `core/scene3d/builders/primitives.py` | Numpy primitives in the item-local frame: `flat_mesh` (every triangle stores its winding normal; `outward=` forces the winding), `boxes`, `bevelled_boxes`, `prism`, `polygon_cap`, `sweep` (profile along a plan polyline, open or closed; corners mitred up to `BEVEL_BEYOND` = 2 offsets, bevelled beyond), `plank`, `lathe` (ring vertices on the 2D circle footprint), `tubes`; `offset_ring` (same corner rule), `split_triangles_by_line`. | arrays → `Mesh` |
-| `core/scene3d/builders/palette.py` | The built world's 13 baked colours, each a mirror of a 2D table entry (object-sprite `MATERIALS`, texture-forge literals) naming its source; `TINT` for parts that take the item's own colour. Pinned to the generators by `tests/unit/test_scene3d_builders_palette.py`. | name → linear RGBA |
+| `core/scene3d/builders/palette.py` | The built world's baked colours, each a mirror of a 2D table entry (object-sprite `MATERIALS`, texture-forge literals) naming its source and, since #803, its surface (`SURFACE_BY_COLOUR`); `TINT` for parts that take the item's own colour. Pinned to the generators by `tests/unit/test_scene3d_builders_palette.py`, to `SURFACES` by `tests/unit/test_scene3d_surfaces.py`. | name → linear RGBA and surface |
 | `core/object_height.py` (`standing_base_cm`, `soil_surface_cm`, `SOIL_DROP_CM`, `MAX_PARENT_HEIGHT_CM`) | Where the soil of a parent is (L1.6, ADR-037 addendum): 2 cm under the rim of a bed (an assumption), at the height of a container (its fill height); no soil parent, no height, or a height beyond the bound (10 km, the contract's `MAX_LENGTH_CM`, mirrored and pinned: a base derived from it would be out of a record's range) → the ground. One rule for the 3D records, the 2D shadow casters and the bed meshes' soil. | parent type + metadata (+ date) → cm |
 | `ui/canvas/footprints.py` (`item_base_cm`, `standing_parent`, `holds_plants`, `footprints_can_self_cross`, `ItemLookup`, `standing_point`, `bed_membership_point`, `shape_contains`, `centre_is_inside`) | Where an item stands: on its parent's soil when it is linked to a visible soil parent (`parent_bed_id`) AND its stable geometric centre (`standing_point`) is inside that parent's shape — else on the ground. The one caller for items: `collect_identified_casters` and `snapshot_records` both use it, and the per-plant sun estimate asks its membership half (`standing_parent`: which soil parent's solid a plant stands in — that parent does not shade it); `ItemLookup` holds each parent's shape for the walk. Also the app's one point-in-bed predicate (`shape_contains`), asked by the link decisions — auto-parenting, the re-link after a drag, the agent's re-link and `link_is_geometric`, `find_smallest_bed_containing` — with the SAME point, `bed_membership_point` (= `standing_point`, #443), so the link and the lift cannot disagree. A known smell: this module is collecting jobs, and `core/commands.py` imports from it (§8.29.6). | canvas item → base in cm |
 | `core/shadow_geometry.py` (`ShadowCaster`, `caster_fields`, `shadow_region`) | The shared 2D caster: `(footprint, height_cm, base_cm)`. `shadow_region` turns one item's ring set into ONE region for the sweep - a closed stroke's hole is bridged by a zero-width slit and a self-crossing outline is split into its lobes (#444) - so a simple ring passes through point for point and the shadow golden fixture stays valid. A raised caster's shadow is its ground shadow moved `base / tan α` along the shadow direction; base 0 is the unchanged, released path. Overlay and heatmap consume the same list. A caster is a `ShadowCaster` or an exact `(footprint, height)` pair; anything else is a `TypeError`. | casters + sun → unioned shadow polygons |
@@ -568,7 +597,7 @@ view. Concept: §8.29.2. Engine facts: the `ogp-3d-renderer` skill.
 | `quick3d/geometry.py` | `BufferGeometry`: hands `EngineBuffers` to `QQuick3DGeometry`; one upload per object, counted. | bytes → GPU geometry |
 | `quick3d/offscreen.py` | `render_records(...)`: records through the real `SceneSync` → `Quick3DSink` → host on a never-shown window; one `QImage`; Qt errors and a backend without 3D raise `RenderError`; failed builders are named. The one place a Qt message recorder is installed (the frame is rendered on the calling thread); refuses to run beside a shown Qt Quick window. For processes that own themselves (self-test, tools, tests) — it blocks and builds a graphics device per call. | records, shot, sun, size → `OffscreenFrame` |
 | `quick3d/selftest.py` | The 3D part of `--selftest`: a scene with every material kind, a pure pixel judge, the run with a log — under its own watchdog when run alone, under the one SUPERVISED watchdog of the whole `--selftest` when `main` runs it. | → `SelftestResult` (OK / FAIL lines) |
-| `quick3d/look.py`, `shots.py`, `materials.py` | Plain data and rules: the mapping of a `LookSpec` (L1.4, §5.14; `NEUTRAL_DAY` until a look arrives — it was the one `Look` of L1.2); `PerspectiveShot` / `TopDownShot` and `top_down_pixel`; material kind → QML part component and the tint rule. No Qt import. | — |
+| `quick3d/look.py`, `shots.py`, `materials.py` | Plain data and rules: the mapping of a `LookSpec` (L1.4, §5.14; `NEUTRAL_DAY` until a look arrives — it was the one `Look` of L1.2); `PerspectiveShot` / `TopDownShot` and `top_down_pixel`; material kind → QML part component, the tint rule and (#803) `surface_look`, the properties a part's Model gets for its surface. No Qt import. | — |
 | `quick3d/qt_messages.py`, `runlog.py` | Qt's messages recorded and classified, by level first (a shader or QML error fails a render) — only around rendering on the calling thread — and the graphics adapter read from Qt's log; a line-flushed log, a watchdog that writes its reason before it ends the process, and the supervising process that ends what the watchdog cannot (`main` dispatches the internal flag `--selftest-supervisor` to it; it acts for one block of its own parent process and for nothing else). | Qt messages → counts, errors |
 | `quick3d/qml/` | `Garden.qml`: lights, cameras, the ground, one part `Component` per material kind, `createPart` / `destroyPart` / `pickAt` / `listParts`; `foliage.vert`, `foliage.frag`, `grass.vert`, `water.frag`. No user-visible strings (scanned: `tests/unit/test_quick3d_qml.py`). | root properties and functions ← Python |
 
@@ -634,6 +663,7 @@ heights and the shadows' places stay with `core/solar` and the records. Concept:
 |----------------|----------------|----------------------|
 | `core/scene3d/look.py` | Qt-free (stdlib + numpy). The rig as data — three day anchors (noon at 30° and above, golden at 6°, low sun at 0.5°) joined by continuous ramps; at 0.5° (the 2D shadow overlay's own threshold) the sun's key light goes and civil twilight fades into the night rig down to −6° (`twilight_rig`); the presets `low` / `medium` / `high` / `ultra` as `PresetSpec` (cost only); `look_for(sun, preset)` → `LookSpec` (plain, frozen, comparable); `sky_is_stale` (1° of great circle); `AutoPreset` — the automatic preset as a state machine over presented-frame counts (dead band, hold time, a growing bar on a level that proved too slow; no data never moves it). | `SunState`, preset → `LookSpec`; frame counts → a preset step |
 | `core/scene3d/weather.py` (L5, ADR-070) | Qt-free. The weather as a look: `WEATHER_SPECS` (clear, partly cloudy (L7), overcast, rain, snow), `apply_weather` / `living_look` (the sky's colours and energy, the key light's strength, the shadows' darkness, the grade, the fog, wetness, snow, wind, the `AtmosphereSpec`; never a direction), `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather`. | `SunState`, preset, weather → `LookSpec` |
+| `core/scene3d/wind.py` (#800, ADR-059 addendum) | Qt-free. The wind's sway of a plant as data: the amplitude rule (`SWAY_SHARE`: 0.5 % of the height under a clear day's wind), `sway_frame` (an item with leaves: its height, reach and phase from its id), `wind_sway_scene` (the look's downwind vector), `sway_offsets` — the numpy statement of the shaders' `plantSway`, pinned to their text; `WIND_FROM_DEG` (the particles' drift too). | an item's `MeshPart`s, the look's wind strength, the clock → `SwayFrame`, offsets |
 | `core/scene3d/particles.py` (L5) | Qt-free. The precipitation's and the ambient life's buffers in the package's vertex layout (seeds, not meshes), `ambient_emitters` (which plants drop leaves, flower, host fireflies — from the records and their phenology), `precipitation_volume`, the 5,000-particle budget. | records, phenology, date → `EngineBuffers` |
 | `core/scene3d/atmosphere_lut.py` (L7, #391) | Qt-free. The atmosphere sky's look-up tables on the CPU — a numpy port of Qt's skymaterial example's `transmittance.frag` / `skytexture.frag` (Hillaire 2020; MIT; licences: `ui/view3d/quick3d/qml/PROVENANCE.md`): `transmittance_lut` (once), `sky_view_lut` / `sky_view_rgba16f` (per sun, ~0.1 s, float32, cached for the last suns), `sky_view_uv` / `sky_view_radiance` (how the shader reads it); `painted_radiance` (Qt's `ProceduralSkyTextureData` formula per direction) and `atmosphere_gain` (the scale that gives the atmosphere the painted sky's light on a horizontal surface); `EARTH_ATMOSPHERE` (turbidity 0.5). | sun direction, painted sky → table, gain |
 | `core/scene3d/cloud_noise.py` (L7, #391) | Qt-free. The 64³ RGBA cloud noise volume — a numpy port of the example's `CloudNoiseTextureData` (Schneider's Perlin-Worley; BSD-3-Clause), deterministic, cached per process; ~1 s, so the look controller makes it on a worker. | → RGBA16F bytes |
@@ -647,12 +677,15 @@ heights and the shadows' places stay with `core/solar` and the records. Concept:
 | `core/scene3d/lights.py`, `builders/lights.py` (L5.4) | Qt-free. The garden light's and the string's builders; where their bulbs are (one function each); `lamp_sources` (posed bulbs and the point each lamp lights from), `nearest_lamps`. | records → lamps |
 | `core/playback.py` (L5.1) | Qt-free. One step of the day or the year playback of the sim clock (`next_step`). | (mode, speed, moment) → next moment |
 | `core/camera_path.py` (L6.2, ADR-072) | Qt-free. A tour as data: `CameraPath` (centripetal Catmull-Rom at constant speed), `DroneOrbit`, `HeldCamera`, `TourSpec`, and `tour_frames`, the exact frames from their index. | spec → frames (camera, date, time, wind) |
+| `core/camera_tours.py` (#737, ADR-072 addendum) | Qt-free. `SavedTour`: an immutable named tour that can always be rendered (`spec()`), with `to_dict` / `from_dict`; `load_tours`, the one reader of the plan's `camera_tours` key and its trust boundary (skips what is no tour, clamps settings, caps counts); `dump_tours`, `checked_tours`, `find_tour`, `clean_tour_name`; the sizes, turns and limits the dialog offers. Held by `ProjectManager.camera_tours`; written only by `set_camera_tours`, which the three tour commands of `core/commands.py` call. | plan file entries ↔ `SavedTour` ↔ `TourSpec` |
 | `core/video_yuv.py` (L6.2) | Qt-free. `rgb_to_yuv420`: limited-range BT.709 4:2:0 in fixed point; `yuv_to_rgb`, the inverse a player applies. Why: PF-E3D-20. | RGB image → Y, Cb, Cr planes |
-| `core/scene3d/photo.py` (L6.1) | Qt-free. `PhotoSettings`, `NO_PHOTO`, `GRADES` and `lut_strip`, the procedural colour tables. | settings → the scene's numbers; grade → table |
+| `core/mp4_stream.py` (#807, ADR-072 addendum "review-grade video") | Qt-free, standard library. `read_stream`: an MP4's video track (codec, profile, level, the colour its SPS and `colr` box state, samples, timing); `tag_colour`: a copy of a finished file with BT.709 limited range in its `colr` box and every SPS and the H.264 level its samples need (`needed_level`, Annex C's bucket), every other bit unchanged; `Mp4Error` for a layout it does not rewrite (anything but FFmpeg's one-track `ftyp`/`free`/`mdat`/`moov`). Called by `Mp4Writer` on a worker thread before a video gets its name. Why: PF-E3D-31. | finished MP4 → tagged MP4, `StreamInfo` |
+| `core/scene3d/photo.py` (L6.1) | Qt-free. `PhotoSettings`, `NO_PHOTO`, `GRADES` and `lut_strip`, the procedural colour tables; the blur's sigma share and the sharp band's floors (#743). | settings → the scene's numbers; grade → table |
+| `ui/view3d/quick3d/qml/PhotoBlur.qml` (#743, ADR-072 addendum) | Photo mode's depth of field: an `Effect` in the environment's chain only while the blur is drawn; far and near layers premultiplied by how far out of focus they are, blurred at a sigma that is a share of the picture's height and at a third of it (`photoblur_layer.frag`, `photoblur_rows.frag`, `photoblur_compose.frag`). Replaces Qt's `depthOfField*`. | focus depth, band, sigma share → the blurred linear picture, before tone mapping |
 | `ui/view3d/workspace_capture.py` (L6) | `WorkspaceCaptureCoordinator`: the strip's Capture menu, photo mode's line and the focus click, Save Photo, `start_tour`, and `capture_blocker` / `agent_picture`. The only caller of `Quick3DHost.capture`. | host, controller, look, clock, camera → pictures |
 | `ui/view3d/tour_recorder.py` (L6.2) | `TourRecorder`: one frame per pass of the event loop; clock, settle, capture, offer; pauses on `HostStateError`. Engine-free: its seams are callables. | spec, writer, callables → `TourResult` |
-| `ui/view3d/tour_dialog.py` (L6.2) | `TourDialog`: camera, time, size; keys; Preview, Save Video, Save PNG Sequence. | coordinator → a recording |
-| `ui/view3d/video_writer.py` (L6.2) | `Mp4Writer`, `PngSequenceWriter`, `NullWriter`, `best_codec`. The only importer of Qt Multimedia, on first use. | frames → a file |
+| `ui/view3d/tour_dialog.py` (L6.2, #737) | `TourDialog`: the plan's saved tours (choose, Save Tour, Save Tour As, Rename, Delete); camera, time, size; keys; Preview, Save Video, Save PNG Sequence. Its controls are a draft; a saved orbit or held view is pinned until "Use Current View". | coordinator → a recording; draft ↔ `SavedTour` |
+| `ui/view3d/video_writer.py` (L6.2) | `Mp4Writer` (constant quality, `VIDEO_QUALITIES`; the finished part tagged by `core/mp4_stream.py` on a worker thread, #807), `PngSequenceWriter`, `NullWriter`, `best_codec`. The only importer of Qt Multimedia, on first use. | frames → a file |
 | `ui/view3d/workspace_living.py` (L5) | `WorkspaceLivingCoordinator`: the 3D strip's Weather button and menu, the life switch, the forecast (`set_forecast`), the plants' life from the Plant Forge's `season_sink`, the nearest lamps on every camera move; tells the look controller and the host. | menu, clock, records, phenology → `LookController` / host calls |
 | `ui/view3d/look_controller.py` | `LookController`: engine-free, one per host, built with ONE render-mode parameter (`software`: no sky, no wind, `auto` = low). Takes the sun the pipeline last sent (`Scene3DController.sync.sun`, after every pass), the settings and the host's frame count, and tells the host the look (`set_look`, only when it changed — also when the sky failed), the sky (`set_sky`, once per noticeable sun move and only once the sun rests 0.3 s — and at most once a second while it keeps moving, `SKY_MAX_STALENESS_MS` — at once on a change of phase; a sky the engine refuses: one error, the plain sky for the session) and the wind (`set_wind_running` / `rest_wind`: only while the pane is shown, motion is not reduced and the adapter is not software). Stores where `auto` settled and its bars. Never takes a frame from the live host. | sun, showing, settings → host calls; `preset_changed`, `sky_rebuilt` |
 | `ui/view3d/quick3d/look.py` | The thin mapping: `scene_properties(look)` (the scene file's look properties, by their QML names), `sky_properties(sky)` (one `ProceduralSkyTextureData`'s inputs; `sky_longitude` = azimuth + 90°), `engine_srgb` (the inverse of the engine's own colour linearisation, for the three colours derived in linear light). Decides nothing; no Qt import. | `LookSpec` → `{property: value}` |
@@ -688,6 +721,22 @@ through the garden. Everything here lives in the workspace (§5.12). Concept: §
 | `ui/view3d/growth_jump.py`, `wipe.py`, `compass_glyphs.py`, `analysis_modes.py` (L2) | `GrowthJump` (+N years on the clock, Back, the two pictures — the only frames besides the click's pick); `BeforeAfterWipe` (in the view's place in the pane); the translated compass letters as outlines; `DrapeMode` / `JUMP_YEARS` (importable without an engine module). | — |
 | `ui/view3d/workspace.py` (L2 seams) | The "Analyze" menu (drape actions, sun path, sweep, Cutaway, jumps, Back), the sun path legend, the ground click → probe (`OrbitInput.ground_clicked`, `perspective_ray`), the X-ray after a resting camera (150 ms), the wipe page; `connect_analysis(shadows, heatmap, request_sun_hours)`; the strip's control row wraps (`_WrapRow`). | — |
 | `ui/view3d/quick3d/` (L2 additions) | `Garden.qml`: `drapeOverlay` / `linesOverlay` (one Model each, `overlay.vert` / `overlay.frag`), a `fade` per part Model (blending only while < 1, alpha kept), `roofsHidden`. `host.py`: `set_overlay`, `set_roofs_hidden`, `set_faded_items`. `offscreen.render_records(overlays=, roofs_hidden=, faded=)`. `selftest.py`: a drape patch and a lines patch judged. | — |
+
+## 5.16 Plan Frame and Shared Display Vocabularies (plan-truth package)
+
+Black-box view of the plan-level data and the one display vocabulary each surface now shares. See ADR-037/066/076/077 addenda; FR-SUN-14, FR-EXP-08, FR-TASK-01, FR-HARVEST-02.
+
+| Building block | Responsibility | Interface (in → out) |
+|----------------|----------------|----------------------|
+| `core/plan_north.py` | True north on the drawing, degrees clockwise from plan-up (0 = up, 135 = down-right). `normalize_north_angle` is the one validity rule (rejects bool, non-number, non-finite); `north_angle_from_plan` reads a file value at load; `north_direction` is the unit vector the canvas arrow draws (the PDF rotates its own arrow). Additive plan metadata; `FILE_VERSION` unchanged. The compass→scene rule itself lives in `core.solar.scene_azimuth`. | number → angle in [0, 360); plan dict → angle; angle → vector |
+| `core/solar.py` (`scene_azimuth`) | The ONE compass→scene rule: `(azimuth + north) % 360`. Every solar consumer that works in the scene frame (2D shadow, heatmap sampling, plant exposure diagnostics, 3D light, sun path/compass) calls it once; the PDF report applies the same angle as a painter rotation. No consumer applies the inverse. | compass azimuth, plan north → scene bearing |
+| `core/harvest_units.py` | Display names for the harvest log's stable unit keys (`kg`, `g`, `pcs`, `bunch`, `L`); an unknown/custom unit is shown as typed. The stored key and the CSV never change. | unit key → translated label |
+| `core/plant_cycle_label.py` | The one translated Annual/Biennial/Perennial vocabulary for the plant list, Plant Details, the custom-plant table and the plant search; an unknown cycle shows the caller's placeholder, not the canvas object type. | cycle value → translated label |
+| `ui/views/task_text.py` | The one row text for a generated task, shared by the Tasks tab and the planting calendar's dashboard ("Harvest Rosemary", not "Rosemary"). | task type, name → row text |
+| `ui/dialogs/north_orientation_dialog.py` | `File > Set North Orientation…`: a clickable/draggable compass plus a numeric angle, with the two controls kept in sync. Returns one validated angle; the caller wraps it in `SetPlanNorthCommand` (one undo step). | current angle → accepted angle |
+
+The north-change fan-out is §6.8; the canvas arrow is a viewport overlay (§8.9.16) and the PDF draws its own with the same angle.
+
 
 ## Developer quality and release tooling
 
@@ -832,7 +881,9 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | --- | --- |
 
-| `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. |
+| `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. Reads a shipped example's trusted sidecar: its title and its showcase moment (#795). |
+
+| `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document or when the copy is saved; the outer holder over a camera tour's clock hold (#795). |
 
 | `services/example_library.py` | Bundled sidecars, localized catalog, local template paths, read-only resource payload. |
 
@@ -840,7 +891,7 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | `ProjectManager.save_template` / `load(as_template=True)` | Normal atomic persistence and load preparation, with untitled-copy semantics. |
 
-| `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. |
+| `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. `example_content(slug)` is the one source of the shipped plans and sidecars; `--check` compares them with it. |
 
 
 
@@ -858,11 +909,14 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `ui/canvas/items/common_menu.py` | Common repeat-action identities and view dispatch; each shape owns its capabilities and bed/Boolean/edit actions. |
 | `ui/canvas/items/group_menu.py` | The one Group/Ungroup context-menu seam (#674): the selection matrix (0/1 object, 2+ objects, one group, group+foreign, 2+ groups), the labels, and dispatch through `CanvasView.group_selected` / `ungroup_selected`. `GroupItem`/`SmartSymbolItem`/curve/construction menus and every `GardenItemMixin` menu call it; a smart symbol is never itself an ungroup target, but the row still appears when another selected group can be dissolved. | item + scene selection → menu actions → view methods |
 | `ui/canvas/roof_ridge_link.py` | The one HOUSE→`ROOF_RIDGE` construction/lookup/update path (#690): `outline_polygon` (polygon or rect corners), `is_owned_ridge` (the shared reverse-owner predicate), `linked_ridge` (validated metadata lookup), `linked_ridges_under` (recursive tree walk for delete/layer moves), `build_linked_ridge` (canonical geometry mapped through the item transform, both metadata links), `update_linked_ridge` (re-derive after a move/resize/rotate). Used by `PolygonTool`, `ChangeObjectTypeCommand`, `RectangleItem`, `PolygonItem`, `MoveToLayerCommand`, the delete paths, the 3D snapshot and the sun/shadow caster. | HOUSE item → linked ridge / updated ridge |
-| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. |
+| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. `selection_frame_rect(item)` is the rect that marks an object - its own outline, never `boundingRect()` (#790, §8.9.17). |
+| `core/legibility.py`, `core/label_layout.py`, `ui/canvas/items/halo_text.py`, `ui/canvas/plan_labels.py` | Canvas text (#793, §8.9.15). `legibility` is the WCAG arithmetic and the two constants (`MIN_TEXT_CONTRAST` 4.5 as painted, `INK_CONTRAST_TARGET` 7.0 for the colour pair); `halo_text` strokes glyph outlines into a halo for the scale bar, dimension labels (`HaloTextItem`) and object labels (`PlanLabelItem`); `plan_labels` paints the object labels from `CanvasScene.drawForeground`, after every item, for the view and for `scene.render()` alike (`LabelPass`, which keeps each viewport's layout until the scene, the zoom or the view's blockers change); `label_layout.place_labels` leaves out the labels that have no room. Both `core` modules import no Qt. Since #836 the same pass paints a bed's succession badge where `label_layout.badge_has_room` allows it; `ui/canvas/layout_font.py` states the size a font in points has on the canvas and gives hand-drawn text a font sized in pixels (PF-CAN-59). |
 | `ui/panels/property_edits.py` | Named appearance/property command handlers; the panel retains widgets, focus and debounce state. |
 | `app/agent_host.py` | MCP-to-document host adapter with an explicit application reference. The application retains lifecycle/state and compatibility methods. |
 | `core/startup_probe.py` | Opt-in isolated startup measurement; normal startup does not activate it. |
 
-`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions;
+`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions
+and keeps the `QT_CORE_ONLY` modules (`core/i18n.py`, `services/task_generator.py`,
+`services/soil_service.py`) off the widget modules;
 the graph and scoped line/import measurements are in the audit evidence. These
 are responsibility extractions, not new domain or persistence implementations.

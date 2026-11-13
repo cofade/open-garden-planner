@@ -70,13 +70,15 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-CAN-08
 
-- **Rule:** Outside a view, `scene.render()` draws `ItemIgnoresTransformations` items at device-pixel size, so exports wrap it in `ExportService._prepare_text_for_export` and `_restore_text_after_export`.
-- **Pinned by:** none — The body names no test for this rule.
-- **Source:** none recorded
+- **Rule:** Outside a view, `scene.render()` draws `ItemIgnoresTransformations` items at device-pixel size, so every export gives those items — and only those — a point size for the output (`scene_rendering.retarget_constant_size_text`); a text note is sized in plan units and is never touched.
+- **Pinned by:** `tests/integration/test_export_text_notes.py`
+- **Source:** #789
 - **Status:** standing
 - **Legacy:** b1faaa9 README L288
 
 - **`ItemIgnoresTransformations` items render at fixed device-pixel size in `scene.render()`**: When rendering via `scene.render()` (not through a QGraphicsView), `ItemIgnoresTransformations` items render at their natural pixel size regardless of the source→target scale. For a large scene (e.g. 5300 cm) rendered into a small image (774 px), a 10 pt text item can appear as 80+ cm on canvas. Fix: call `ExportService._prepare_text_for_export(scene, scale, dpi)` before rendering and `_restore_text_after_export()` after. The scale = `output_width_cm / canvas_width_cm`.
+
+- **Only the constant-pixel-size text (#789)**: the first version of this fix gave EVERY text item of the scene the export's point size. A `TextItem` note and a callout's text have no `ItemIgnoresTransformations`: their font is in plan units and the export's scale already scales them. Forcing one point size on them made a note the user sized on purpose four times too large on a balcony plan and unreadable on a large one. `scene_rendering.draws_at_constant_pixel_size(item)` (the flag on the item or on any ancestor) is the one test, shared by PNG, PDF, SVG, print and the Agent API render. Printing had no label sizing at all — a label was 13 device pixels, a quarter of a millimetre at 1200 dpi — and now uses the same helper.
 
 ### PF-CAN-09
 
@@ -110,23 +112,27 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-CAN-12
 
-- **Rule:** An SVG export of the Y-flipped scene renders `<pattern>` tiles upside-down unless each pattern gets a `patternTransform` flip after `painter.end()`, as `ExportService._fix_svg_pattern_yflip()` does.
-- **Pinned by:** none — The body names no test for this rule.
-- **Source:** none recorded
+- **Rule:** A pattern brush needs no flip of its own in an SVG export: the tile is in the user space of a group that carries the painter's Y-flip, exactly as on a `QImage`. What `QSvgGenerator` does drop is the brush's own transform, which the SVG recorder moves into the world transform (PF-CAN-53).
+- **Pinned by:** `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #787
 - **Status:** standing
 - **Legacy:** b1faaa9 README L298
 
 - **SVG pattern tiles appear Y-inverted under painter Y-flip**: Qt's `QSvgGenerator` records `<pattern>` elements with `patternUnits="userSpaceOnUse"`. When the scene is rendered with a `scale(1,-1)` painter transform, each pattern tile image is stored un-flipped, but renders upside-down inside the Y-flipped coordinate space. Fix: post-process the SVG after `painter.end()` and add `patternTransform="matrix(1,0,0,-1,0,{tile_height})"` to each `<pattern>` element. See `ExportService._fix_svg_pattern_yflip()`.
 
+- **Superseded reading (#787)**: `ExportService._fix_svg_pattern_yflip()` added `patternTransform="matrix(1,0,0,-1,0,h)"` to every pattern after the fact. Measured against the PNG export in headless Edge and in `QSvgRenderer`, a pattern fill under the flipped painter is oriented like the PNG WITHOUT that attribute; the post-processor was removed together with the clip pairing of PF-CAN-13. The roof's two halves — the only texture with a stated direction — are compared with the PNG by the fidelity test.
+
 ### PF-CAN-13
 
-- **Rule:** `QSvgGenerator` never writes painter clip paths, so SVG export must clip each texture group to its one paired shadow path, and the result is judged in a real browser, not `QSvgRenderer`.
-- **Pinned by:** none — The body names only a script for checking this rule, and a script is not a pin.
-- **Source:** none recorded
+- **Rule:** `QSvgGenerator` writes no painter clip in its default SVG Tiny 1.2 mode, and `QSvgRenderer` ignores `clip-path` in any mode: an SVG export writes a clipped shape as geometry already cut to its clip (PF-CAN-53), and a test that rasterises with `QSvgRenderer` cannot see a `<clipPath>`.
+- **Pinned by:** `tests/integration/test_svg_export_fidelity.py`
+- **Source:** #787
 - **Status:** standing
 - **Legacy:** b1faaa9 README L300
 
 - **`QSvgGenerator` does not serialize painter clip regions — texture fills bleed across the canvas**: For texture-filled shapes, Qt emits a "shadow" group containing the polygon `<path>` (`fill="#000000"`) followed by a texture group `<g fill="url(#tex)"><rect x="..." y="..." width="..." height="..."/></g>`. The rect is the *painter's clip bounding rect*, not the polygon shape — and the painter's `setClipPath()` is **never** serialized as `<clipPath>`. In SVG viewers (browsers), the unconstrained rect washes across the whole canvas (often as a brownish overlay if it is a roof-tile texture). PNG export is unaffected because Qt's native renderer applies the clip directly. Fix: post-process the SVG (`ExportService._fix_svg_qt_texture_clipping()`) — pair each non-empty shadow group with the next non-empty texture group in document order, build a `<clipPath>` from the shadow's `<path>` (preserving its `transform`), and wrap the texture group with `clip-path="url(#...)"`. Pairing must be 1:1 with a `used_textures` set; forward-window scans match the same texture from multiple shadows and corrupt the XML tree. Validate SVGs in a real browser (`scripts/svg_preview.py` uses Edge headless) — `QSvgRenderer` is too forgiving and hides this bug.
+
+- **Superseded fix (#787)**: `ExportService._fix_svg_qt_texture_clipping()` paired each black "shadow" group with the next texture group in the written file and wrapped it in a `<clipPath>`. It matched one painter's output shape; the parametric roof and the glasshouse of #768/#769 did not have that shape, nothing was paired, and the family-garden example exported with the roof texture over 70 % of the drawing and zero `<clipPath>` elements. It was removed; the clip is now recorded below the painter.
 
 ### PF-CAN-14
 
@@ -668,4 +674,3 @@ opacity they had. The idle-quiescence pin shows the opacity round trip does not
 restart the #305 render loop. No bare-canvas test could have caught this: the
 canvas fixture has no minimap, and the one running-app test called
 `begin_group_drill_down` directly instead of clicking.
-

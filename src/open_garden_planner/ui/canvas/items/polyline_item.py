@@ -4,7 +4,15 @@ import uuid
 from typing import Any, Final
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QKeyEvent,
+    QPainter,
+    QPainterPath,
+    QPainterPathStroker,
+    QPen,
+)
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPathItem,
@@ -36,7 +44,7 @@ from .path_style_paint import (
     current_render_walk_cap,
     style_paint_reach,
 )
-from .polygon_item import MAX_POLYGON_VERTICES
+from .polygon_item import MAX_FULL_DETAIL_VERTICES, MAX_POLYGON_VERTICES
 from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
 from .string_lights_paint import paint_string_lights, string_layout
 from .string_lights_paint import reach as string_lights_reach
@@ -227,6 +235,31 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
         super()._move_vertex_to(index, pos)
 
+    def grid_cover_path(self) -> QPainterPath:
+        """What the line covers of the plan: its stroke, not what it encloses.
+
+        ``shape()`` of a path item is its stroke united with the path FILLED,
+        and a fill closes an open line from its end back to its start. A
+        railing round three sides of a balcony therefore "covered" the whole
+        balcony: the canvas grid was cut out of it, and the hours on the sun
+        map's contours found no free place on it (#794). A fence stands on its
+        own stroke — the rule the sun study has for its shadow too (#444).
+
+        Above the paint bound of #472 (``MAX_FULL_DETAIL_VERTICES``, the
+        polygon's) the answer is empty, as a polygon's is: the stroke of a line
+        of 16,000 zigzag vertices is an outline of 64,000 elements that
+        crosses itself everywhere, and filling it took 2.7 s on every repaint
+        with the grid on (second review of the 2D branch). The grid is then
+        drawn across the line.
+        """
+        if len(self._points) > MAX_FULL_DETAIL_VERTICES:
+            return QPainterPath()
+        stroker = QPainterPathStroker()
+        stroker.setWidth(max(self.pen().widthF(), 1.0))
+        stroker.setCapStyle(Qt.PenCapStyle.FlatCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        return stroker.createStroke(self.path())
+
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow and style decorations."""
         base = super().boundingRect()
@@ -291,6 +324,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     self.pen(),
                     self.path(),
                     fill_transform=getattr(self, "fill_transform", None),
+                    level_tiles=True,
                 )
             else:
                 path_paint = PathStylePaint(
@@ -300,6 +334,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     clip=clip,
                     budget=budget,
                     fill_transform=getattr(self, "fill_transform", None),
+                    level_tiles=True,
                 )
             path_paint.paint(painter, style)
             self._paint_selection(painter, option)

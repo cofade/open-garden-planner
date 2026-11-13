@@ -3,8 +3,9 @@
 import math
 from collections.abc import Callable
 from datetime import date
+from typing import Any
 
-from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QRectF
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QPageLayout, QPageSize, QPainter, QPen
 from PyQt6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PyQt6.QtWidgets import (
@@ -19,6 +20,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from open_garden_planner.core.i18n import format_decimal
+
 # Scale presets: display name -> scale denominator (0 = fit to page)
 SCALE_PRESETS = [
     (QT_TR_NOOP("Fit to Page"), 0),
@@ -28,6 +31,55 @@ SCALE_PRESETS = [
     ("1:200", 200),
     ("1:500", 500),
 ]
+
+#: The margin of a printout on every side, in millimetres. One constant for the
+#: printer's page layout and for the page count the Print Options dialog states
+#: (#836). Until then the layout was built without a unit, which Qt reads as
+#: points: 10 pt, 3.5 mm, less than most desktop printers can print to, while
+#: the dialog counted pages for 10 mm. 10 mm is inside what common desktop
+#: printers print to, so the sheet that comes out is the sheet the preview showed.
+PRINT_MARGIN_MM = 10.0
+
+#: Height of the footer (project name, scale, date) under the plan, millimetres.
+LEGEND_HEIGHT_MM = 12
+
+
+def default_page_layout(
+    page_size: QPageSize.PageSizeId = QPageSize.PageSizeId.A4,
+) -> QPageLayout:
+    """The page a printout starts from: *page_size* landscape, ``PRINT_MARGIN_MM`` all round.
+
+    The ONE page-layout chokepoint: the printout, the Print Options dialog and the
+    print tests ask here, so the sheet the dialog counted is the sheet that comes
+    out (#870's second half).
+    """
+    return QPageLayout(
+        QPageSize(page_size),
+        QPageLayout.Orientation.Landscape,
+        QMarginsF(PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM, PRINT_MARGIN_MM),
+        QPageLayout.Unit.Millimeter,
+    )
+
+
+def tile_grid(
+    canvas_w_cm: float,
+    canvas_h_cm: float,
+    scale_denominator: int,
+    printable_w_mm: float,
+    content_h_mm: float,
+) -> tuple[int, int]:
+    """(columns, rows) of sheets a plan needs at 1:*scale_denominator*.
+
+    *printable_w_mm* x *content_h_mm* is what one sheet shows of the plan: the
+    page inside its margins, less the footer. The printout and the dialog's
+    page count both ask here.
+    """
+    paper_w_mm = canvas_w_cm * 10.0 / scale_denominator
+    paper_h_mm = canvas_h_cm * 10.0 / scale_denominator
+    return (
+        max(1, math.ceil(paper_w_mm / printable_w_mm)),
+        max(1, math.ceil(paper_h_mm / content_h_mm)),
+    )
 
 
 class PrintOptionsDialog(QDialog):
@@ -104,6 +156,8 @@ class PrintOptionsDialog(QDialog):
 
         self._legend_check = QCheckBox(self.tr("Legend (project name, scale, date)"))
         self._legend_check.setChecked(True)
+        # The legend takes its height from every sheet, so it changes the count.
+        self._legend_check.toggled.connect(self._update_page_info)
         include_layout.addWidget(self._legend_check)
 
         layout.addWidget(include_group)
@@ -111,8 +165,8 @@ class PrintOptionsDialog(QDialog):
         # Canvas info
         info_label = QLabel(
             self.tr("Canvas: {w} m × {h} m").format(
-                w=f"{self._canvas_width_cm / 100:.1f}",
-                h=f"{self._canvas_height_cm / 100:.1f}",
+                w=format_decimal(self._canvas_width_cm / 100, 1),
+                h=format_decimal(self._canvas_height_cm / 100, 1),
             )
         )
         info_label.setProperty("secondary", True)
@@ -136,17 +190,17 @@ class PrintOptionsDialog(QDialog):
         if denom == 0:
             self._page_info_label.setText(self.tr("Single page (scaled to fit)"))
         else:
-            # Estimate pages for A4 landscape at this scale
-            # A4 landscape printable area ~27.7 x 19.0 cm (with margins)
-            printable_w = 27.7
-            printable_h = 19.0
-
-            # At scale 1:denom, 1 cm on paper = denom cm in real world
-            real_w = printable_w * denom
-            real_h = printable_h * denom
-
-            cols = max(1, math.ceil(self._canvas_width_cm / real_w))
-            rows = max(1, math.ceil(self._canvas_height_cm / real_h))
+            # The sheets of the page the preview starts with, counted the way
+            # the printout tiles them: same margin, same footer (#836).
+            printable = default_page_layout().paintRect(QPageLayout.Unit.Millimeter)
+            legend_h_mm = LEGEND_HEIGHT_MM if self._legend_check.isChecked() else 0
+            cols, rows = tile_grid(
+                self._canvas_width_cm,
+                self._canvas_height_cm,
+                denom,
+                printable.width(),
+                printable.height() - legend_h_mm,
+            )
             total = cols * rows
 
             if total == 1:
@@ -186,7 +240,7 @@ class GardenPrintManager:
     """Manages printing of the garden scene with scaling and multi-page support."""
 
     # Legend bar height in mm
-    LEGEND_HEIGHT_MM = 12
+    LEGEND_HEIGHT_MM = LEGEND_HEIGHT_MM
 
     def __init__(
         self,
@@ -194,12 +248,14 @@ class GardenPrintManager:
         project_name: str = "Garden Plan",
         *,
         snapshot_validator: Callable[[], None] | None = None,
+        grid_size_cm: float = 50.0,
     ) -> None:
         """Initialize the print manager.
 
         Args:
             scene: The canvas scene to print
             project_name: Name of the project for the legend
+            grid_size_cm: The canvas's grid spacing, used when "Grid" is on
         """
         self._scene = scene
         self._project_name = project_name
@@ -210,6 +266,7 @@ class GardenPrintManager:
         self._include_grid = False
         self._include_labels = True
         self._include_legend = True
+        self._grid_size_cm = float(grid_size_cm) if grid_size_cm > 0 else 50.0
 
         # State saved/restored during printing
         self._saved_labels_visible: bool | None = None
@@ -243,13 +300,8 @@ class GardenPrintManager:
         """
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
 
-        # Default to A4 landscape for garden plans
-        page_layout = QPageLayout(
-            QPageSize(QPageSize.PageSizeId.A4),
-            QPageLayout.Orientation.Landscape,
-            QMarginsF(10, 10, 10, 10),
-        )
-        printer.setPageLayout(page_layout)
+        # A4 landscape, a stated margin in millimetres (``PRINT_MARGIN_MM``).
+        printer.setPageLayout(default_page_layout())
 
         preview = QPrintPreviewDialog(printer, parent)
         preview.setWindowTitle(
@@ -294,13 +346,25 @@ class GardenPrintManager:
         legend_h_mm = self.LEGEND_HEIGHT_MM if self._include_legend else 0
         content_h_mm = printable_h_mm - legend_h_mm
 
-        # Prepare scene state for printing (text scaling, labels, selection)
+        # Prepare scene state for printing (labels, selection)
         self._prepare_scene_for_print()
+        saved_text: list[tuple[Any, QFont]] = []
 
         try:
             painter = QPainter()
             if not painter.begin(printer):
                 return
+
+            # A constant-pixel-size label is 13 device pixels tall: a quarter of
+            # a millimetre on a 1200-dpi printer. Give labels the size they have
+            # in every other export; a text note keeps its size on the plan (#789).
+            from open_garden_planner.services.export_service import ExportService
+
+            saved_text = ExportService._prepare_text_for_export(
+                scene,
+                self._paper_cm_per_plan_cm(canvas_rect, printable_w_mm, content_h_mm),
+                printer.resolution(),
+            )
 
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -321,7 +385,23 @@ class GardenPrintManager:
 
             painter.end()
         finally:
+            from open_garden_planner.services.export_service import ExportService
+
+            ExportService._restore_text_after_export(saved_text)
             self._restore_scene_after_print()
+
+    def _paper_cm_per_plan_cm(
+        self, canvas_rect: QRectF, printable_w_mm: float, content_h_mm: float
+    ) -> float:
+        """The scale the plan is printed at: 1/denominator, or the fit-to-page scale."""
+        if self._scale_denom > 0:
+            return 1.0 / self._scale_denom
+        if canvas_rect.width() <= 0 or canvas_rect.height() <= 0:
+            return 0.01
+        return min(
+            printable_w_mm / 10.0 / canvas_rect.width(),
+            content_h_mm / 10.0 / canvas_rect.height(),
+        )
 
     def _prepare_scene_for_print(self) -> None:
         """Prepare the scene for printing by adjusting labels and clearing selection.
@@ -425,15 +505,24 @@ class GardenPrintManager:
         # scene.render() uses native Qt coords (Y-down), so we flip the
         # painter to match what the user sees on screen.
         painter.save()
+        # Nothing of the plan is painted outside its frame (#788): the clip is
+        # set here, on the page, and every item intersects it (PF-CAN-54).
+        painter.setClipRect(target_rect, Qt.ClipOperation.IntersectClip)
         painter.translate(0, 2 * offset_y + target_h)
         painter.scale(1, -1)
         self._scene.render(painter, target_rect, canvas_rect)
         painter.restore()
 
+        if self._include_grid:
+            self._draw_print_grid(painter, canvas_rect, target_rect, resolution)
+
         # Draw legend (outside the flip)
         if legend_h_mm > 0:
-            # Calculate effective scale for legend text
-            effective_scale_denom = int(canvas_w * 10 / printable_w_mm) if printable_w_mm > 0 else 100
+            # The scale the plan was fitted at — by its width or by its height,
+            # whichever was short of room (PF-CAN-55). Taken from the width
+            # alone, a plan fitted by its height was printed with a wrong 1:N.
+            fitted = self._paper_cm_per_plan_cm(canvas_rect, printable_w_mm, content_h_mm)
+            effective_scale_denom = round(1.0 / fitted) if fitted > 0 else 100
             self._draw_legend(
                 painter, printer, printable_w_mm, content_h_mm,
                 legend_h_mm, effective_scale_denom,
@@ -462,14 +551,10 @@ class GardenPrintManager:
         canvas_w = canvas_rect.width()  # cm
         canvas_h = canvas_rect.height()  # cm
 
-        # At scale 1:denom, 1 mm on paper = denom/10 cm in real world
-        # So canvas_w cm requires canvas_w * 10 / denom mm on paper
-        paper_w_mm = canvas_w * 10.0 / self._scale_denom
-        paper_h_mm = canvas_h * 10.0 / self._scale_denom
-
-        # Calculate how many pages we need
-        cols = max(1, math.ceil(paper_w_mm / printable_w_mm))
-        rows = max(1, math.ceil(paper_h_mm / content_h_mm))
+        # How many sheets: the count the Print Options dialog stated.
+        cols, rows = tile_grid(
+            canvas_w, canvas_h, self._scale_denom, printable_w_mm, content_h_mm
+        )
 
         # Real-world cm covered per page tile
         tile_w_cm = printable_w_mm * self._scale_denom / 10.0
@@ -480,12 +565,14 @@ class GardenPrintManager:
         content_h_px = content_h_mm / 25.4 * resolution
 
         first_page = True
-        # Iterate rows bottom-to-top in scene coords so that the output
-        # matches the Y-flipped view the user sees (CAD convention: Y-up).
+        # Page 1 is the plan's TOP row, in reading order. The rows are anchored
+        # at the top so a height that is not a whole number of tiles leaves the
+        # plan's short BOTTOM row on the LAST page — its strip at the top of that
+        # sheet, with blank paper below it. The old bottom-to-top mapping put the
+        # remainder first and left sheets 1 and 2 blank below their strip (#871).
         for row in range(rows):
-            # Map to scene row: the user's top row corresponds to the
-            # bottom of the scene (highest Y values).
-            scene_row = rows - 1 - row
+            top_cm = max(0.0, canvas_h - row * tile_h_cm)
+            bottom_cm = max(0.0, canvas_h - (row + 1) * tile_h_cm)
             for col in range(cols):
                 if not first_page:
                     printer.newPage()
@@ -493,9 +580,9 @@ class GardenPrintManager:
 
                 # Source rect in scene coordinates (cm)
                 src_x = canvas_rect.x() + col * tile_w_cm
-                src_y = canvas_rect.y() + scene_row * tile_h_cm
+                src_y = canvas_rect.y() + bottom_cm
                 src_w = min(tile_w_cm, canvas_w - col * tile_w_cm)
-                src_h = min(tile_h_cm, canvas_h - scene_row * tile_h_cm)
+                src_h = max(0.0, top_cm - bottom_cm)
                 source_rect = QRectF(src_x, src_y, src_w, src_h)
 
                 # Target rect in printer pixels (proportional to source)
@@ -505,10 +592,17 @@ class GardenPrintManager:
 
                 # Render this tile with Y-flip to match screen view
                 painter.save()
+                # The tile is the frame: a shadow or a roof that reaches past it
+                # belongs on the next sheet, not on this one's margin and footer
+                # (#788). Every item intersects this clip (PF-CAN-54).
+                painter.setClipRect(target_rect, Qt.ClipOperation.IntersectClip)
                 painter.translate(0, tgt_h)
                 painter.scale(1, -1)
                 self._scene.render(painter, target_rect, source_rect)
                 painter.restore()
+
+                if self._include_grid:
+                    self._draw_print_grid(painter, source_rect, target_rect, resolution)
 
                 # Draw legend on each page (outside the flip)
                 if legend_h_mm > 0:
@@ -521,6 +615,49 @@ class GardenPrintManager:
                         painter, printer, printable_w_mm, content_h_mm,
                         legend_h_mm, self._scale_denom, page_label,
                     )
+
+    def _draw_print_grid(
+        self,
+        painter: QPainter,
+        source_rect: QRectF,
+        target_rect: QRectF,
+        resolution: float,
+    ) -> None:
+        """The canvas grid on a printed page, in the page's own transform (#868).
+
+        Drawn after the scene so it reads over the plan, at the canvas's own
+        spacing: every grid line, every fifth one darker. The pen is a stated
+        width in mm (0.15 mm) converted to device pixels, because a cosmetic
+        pixel at 1200 dpi is a hairline a reader cannot see.
+        """
+        if source_rect.width() <= 0 or source_rect.height() <= 0:
+            return
+        step = self._grid_size_cm
+        if step <= 0:
+            return
+        scale_x = target_rect.width() / source_rect.width()
+        scale_y = target_rect.height() / source_rect.height()
+        minor = QColor(200, 200, 200, 110)
+        major = QColor(170, 170, 170, 150)
+        width = max(1.0, resolution * 0.15 / 25.4)
+        painter.save()
+        painter.setClipRect(target_rect, Qt.ClipOperation.IntersectClip)
+
+        line = math.ceil(source_rect.left() / step) * step
+        while line <= source_rect.right() + 1e-9:
+            x = target_rect.left() + (line - source_rect.left()) * scale_x
+            painter.setPen(QPen(major if round(line / step) % 5 == 0 else minor, width))
+            painter.drawLine(QPointF(x, target_rect.top()), QPointF(x, target_rect.bottom()))
+            line += step
+
+        line = math.ceil(source_rect.top() / step) * step
+        while line <= source_rect.top() + source_rect.height() + 1e-9:
+            y = (target_rect.top() + target_rect.height()
+                 - (line - source_rect.top()) * scale_y)
+            painter.setPen(QPen(major if round(line / step) % 5 == 0 else minor, width))
+            painter.drawLine(QPointF(target_rect.left(), y), QPointF(target_rect.right(), y))
+            line += step
+        painter.restore()
 
     def _draw_legend(
         self,

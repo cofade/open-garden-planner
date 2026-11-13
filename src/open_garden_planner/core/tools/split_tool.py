@@ -73,6 +73,9 @@ class SplitShapeTool(BaseTool):
     accepts_typed_coordinates = False
     # Keep BaseTool's shared anchor snap: both picks and the preview use it.
 
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("SplitShapeTool", "Split along line")
+
     def __init__(self, view: CanvasView) -> None:
         super().__init__(view)
         #: When set, the gesture is scoped to this one source (context menu).

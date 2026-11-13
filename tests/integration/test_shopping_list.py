@@ -145,6 +145,27 @@ class TestPriceEditing:
         assert plant_item.price_each is None
         assert pm.shopping_list_prices == {}
 
+    @pytest.mark.parametrize("text", ["nan", "inf", "1e3", "1_000", "1,234.5"])
+    def test_a_price_python_alone_would_read_is_ignored(self, qtbot, text) -> None:
+        """``float`` reads "nan" (which is not below zero, so the negative-price guard
+        let it through and the plan stored NaN), "inf", an exponent and "1_000"; a price
+        field reads none of them (#792, review round 1)."""
+        QApplication.instance() or QApplication([])
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        _add_plant(scene, "Tomato", "solanum_lycopersicum")
+        pm = ProjectManager()
+        svc = ShoppingListService(scene, MagicMock(), pm)
+        dialog = ShoppingListDialog(service=svc)
+        qtbot.addWidget(dialog)
+
+        cell = dialog._table.item(1, _COL_PRICE)
+        assert cell is not None
+        cell.setText(text)
+        plant_item = dialog._row_items[1]
+        assert plant_item is not None and plant_item.price_each is None
+        assert pm.shopping_list_prices == {}
+        assert dialog._table.item(1, _COL_PRICE).text() == ""
+
     def test_negative_price_resets_cell_and_status(self, qtbot) -> None:
         QApplication.instance() or QApplication([])
         scene = CanvasScene(width_cm=5000, height_cm=3000)
@@ -212,7 +233,9 @@ class TestPdfPagination:
             ShoppingListItem,
         )
         from open_garden_planner.services.pdf_report_service import (
-            _shopping_list_fits,
+            _section_pages,
+            _shopping_list_rows,
+            _table_rows_per_page,
         )
 
         # 200 priced items — guaranteed to overflow A4 portrait.
@@ -223,17 +246,52 @@ class TestPdfPagination:
             )
             for i in range(200)
         ]
-        # Probe helper directly: a small page rect can't fit 200 rows.
+        # The ONE paginator of the report (#870): a small page rect cuts 200
+        # rows into several pages, and one row stays on one page.
         small_rect = QRectF(0, 0, 595, 842)  # A4 portrait points
-        assert not _shopping_list_fits(items, small_rect)
-        # Single-item slice fits.
-        assert _shopping_list_fits(items[:1], small_rect)
+        rows = _shopping_list_rows(items)
+        per_page = _table_rows_per_page(small_rect)
+        assert len(_section_pages(rows, per_page)) > 1
+        assert len(_section_pages(rows[:1], per_page)) == 1
 
         # End-to-end PDF render runs to completion without infinite loop.
         out = tmp_path / "shopping_paginated.pdf"
         from open_garden_planner.services.pdf_report_service import PdfReportService
         PdfReportService.export_shopping_list_to_pdf(items, out)
         assert out.exists() and out.stat().st_size > 0
+
+    def test_the_grand_total_is_the_footer_of_the_last_page_only(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        from open_garden_planner.models.shopping_list import (
+            ShoppingListCategory as Cat,
+        )
+        from open_garden_planner.models.shopping_list import ShoppingListItem
+        from open_garden_planner.services import pdf_report_service as svc
+
+        items = [
+            ShoppingListItem(
+                id=f"x:{i}", category=Cat.PLANTS, name=f"Plant {i}",
+                quantity=1.0, unit="x", price_each=1.25,
+            )
+            for i in range(200)
+        ]
+        seen: list[str | None] = []
+        real = svc._render_table_page
+
+        def spy(painter, page_rect, title, columns, rows, first_index=0,
+                empty_text="", footer=None):
+            seen.append(footer)
+            real(painter, page_rect, title, columns, rows, first_index,
+                 empty_text, footer)
+
+        monkeypatch.setattr(svc, "_render_table_page", spy)
+        svc.PdfReportService.export_shopping_list_to_pdf(
+            items, tmp_path / "shopping_footer.pdf"
+        )
+        assert len(seen) > 1
+        assert all(footer is None for footer in seen[:-1])
+        assert seen[-1] is not None and "Grand total" in seen[-1]
 
 
 

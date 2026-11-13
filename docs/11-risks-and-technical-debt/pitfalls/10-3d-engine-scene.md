@@ -302,14 +302,29 @@ colour picker. `QMediaRecorder.errorOccurred` carries an enum PyQt6 cannot conne
 
 ### PF-E3D-21
 
-- **Rule:** Screen-space reflections, depth of field and glow never share one effect chain: with all three on, Qt 6.12's render thread dies in `d3d11.dll` (`OMSetRenderTargets` on a released view, a read at address 0x16d) at the first frame that draws the blur, and nothing reaches stderr or `app.log`. `Garden.qml` turns reflections off while `photoBlur > 0` (`depthOfFieldActive`). Only Ultra has reflections, so only Ultra crashed; and a probe that isolates the profile runs on the default quality, so it never saw it.
-- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down`
-- **Source:** #390 manual test, two crashes at the same address (v1.36.x exe, `view3d/quality = ultra`); ADR-072; Qt-side cause #744.
+- **Rule:** With glow on, an `ExtendedSceneEnvironment` never runs two effects ahead of its own scene effect: screen-space reflections plus a depth of field (Qt's or the app's `PhotoBlur.qml`), or any two user `Effect`s, kill Qt 6.12's render thread in `d3d11.dll` (a read at address 0x16d in `OMSetRenderTargets`) or draw a wrong picture, and nothing reaches stderr or `app.log`. `Garden.qml` turns reflections off while `photoBlur > 0` (`depthOfFieldActive`). Only Ultra has reflections, so only Ultra crashed; and a probe that isolates the profile runs on the default quality, so it never saw it.
+- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down`; `tests/unit/test_quick3d_qml.py::test_the_look_rules_the_spike_paid_for`
+- **Source:** #390 manual test, two crashes at the same address (v1.36.x exe, `view3d/quality = ultra`); ADR-072; #744 (generalised, reproduced without project code: `adr-048-evidence/qt-effect-chain-glow/`).
 - **Status:** standing
 - **Legacy:** none (new entry).
 
 This is a workaround: the cause inside Qt is open, and the pin is a render-tier test (without the gate the
 driver process dies and writes no result file).
+
+#744 re-tested it with the app's own blur in place of Qt's (#743): reflections kept under the blur on
+Ultra crashed 3 of 3 at the first blurred frame; with the workaround 10 of 10 rounds drew. A cube scene
+with nothing of the app's (`effect_chain_glow_crash.qml` in the evidence folder) crashes
+with reflections, Qt's depth of field and glow (6 of 7 GPU runs with exit 0xC0000005, the seventh ended
+without its ALIVE line; 3 of 3 on WARP) and lives with any one of them removed. Its dump faults at
+`d3d11.dll+0x158c32`, a read at 0x16d: the owner's address. A logged series on WARP (2026-11-10)
+ended 18 of 20 runs with 0xC0000005 and 2 with 0xC0000374 (heap corruption); with a 10-second timer
+6 of 8 died 4 to 5 s after their start and 2 at exit. Three of the 20 lost the device and went on
+with a second QRhi, two of them with a damaged image path in a `QSSG.warning`: memory is overwritten
+or used after its release, and a released render-target view is a guess, not a finding. One earlier
+WARP run of 17 exited with code 0, so a single clean run proves nothing. Two pass-through user `Effect`s with glow
+drew grey where the scene was; reflections plus one user `Effect` with glow crashed when reflections came
+on after the first frame, or drew black. One effect ahead of the scene effect, with any number of passes
+and buffers, was fine every time. The count, not the kind, breaks it.
 
 Both minidumps put the fault at `d3d11.dll+0x158c32`, `CContext::OMSetRenderTargets+0x2e2`. The name came
 from Microsoft's public `d3d11.pdb` (GUID and age from the DLL's CodeView record, downloaded to a local
@@ -372,3 +387,77 @@ Symptom: the same photo looked darker at 4K than at 1080p, and the difference wa
 - **Legacy:** none (new entry).
 
 Symptom: after a cancelled flight one plant stayed at its finest detail until the camera next moved.
+
+### PF-E3D-27
+
+- **Rule:** A post effect that sorts pixels into depth layers counts a layer's SILHOUETTE pixel for a fraction only: the colour is multisampled (partly the thing beside it) while the depth pass takes one sample and puts all of it in the layer. `photoblur_layer.frag` weighs a pixel whose cross neighbour lies outside its layer by `SILHOUETTE_WEIGHT` (0.2).
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_photo_blur_weighs_a_layers_silhouette_for_a_fifth`; `tests/integration/test_directors_cut_render.py::test_the_blur_bleeds_no_sharp_colour_and_softens_a_near_edge`
+- **Source:** #743, the synthetic blur bench of the photo-blur look-dev (ADR-072 addendum "photo mode's own depth of field").
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: a dark, blurred foreground bar over a sharp light panel had a light rim inside its own edge,
+on one side only, 47 levels at a 360 px picture and smaller at 4K: so the preview and a save differed.
+The first theory (two passes writing one buffer aliased it) died when the second pass got a buffer of
+its own and the rim stayed. Debug output of the layer pass showed the weight covering the bar's 15
+pixels plus the one multisampled edge pixel, whose linear colour (0.13) was 26 times the bar's: averaged
+with full weight it lit the whole blurred edge. At a fifth the rim read 14 levels at 360 px and 4 at 4K.
+
+### PF-E3D-28
+
+- **Rule:** Judge an ambient-occlusion change at more than one picture size and on a far camera before shipping it: Qt 6.12's pass leaves the self-occlusion its bias does not remove in a RING of open ground whose distance moves with the picture's height (its sample radius is a world radius on a pixel grid). A view-sized pane and a 1080p or 4K save of the same camera then differ by band, not by a uniform offset, and a mean hides it.
+- **Pinned by:** `tests/integration/test_living_garden_render.py::test_the_living_board_renders_every_shot`; `tests/unit/test_quick3d_qml.py::test_the_environments_constants_are_the_spikes`
+- **Source:** #687 against #831; ADR-070 addendum (#687); `ogp-3d-renderer` reference 24
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Measured through `Quick3DHost.capture` on #831's own setup (family garden, medium, sun 38°/250°, every picture shrunk to 360 rows, against 1080p): the clear look +4.74 mean at 360 px (worst 40-row band +12.27), +1.39 at 720p, -0.14 at 4K (#831's numbers, unchanged). Overcast at the clear AO values +4.14 / +1.22 / -0.13; at #687's (99 / 70 / 21) +0.73 / -0.62 / +1.25 — but the bands swing both ways: 360 px +13.4 and -11.7, 720p +5.1 and -7.5, 4K +11.1 and -7.9 (today +2.1 and -4.0). The far camera's open meadow at 1080p is darkened 0.1 / 7.4 / 18.7 / 16.1 / 7.2 / 3.5 levels from the horizon down (bias 0.3 of the reach), 5.0 / 7.8 / 4.7 / 2.5 / 1.0 at 0.5 — where the pass does nothing for a box's foot any more. A bias scaled by 1080/height below 1080p over-corrected (720p bands up to +8.7). On the board's own cameras (closer, less open meadow) the frames are clean at 720p and 1080p. The bias follows the capture's AO scale (`captureAoDistanceScale`): unscaled, a 4K overcast picture read +4.51 against 1080p.
+
+### PF-E3D-29
+
+- **Rule:** A picture taken from another camera than the view's — a tour's frame, an agent's `render_3d_view` with a camera — is lit by the garden lights nearest ITS target: `WorkspaceCaptureCoordinator` calls `aim_lamps(target)` before the capture and `aim_lamps(None)` after it (a tour: when it ends); the lamp slots are a camera-dependent choice like the precipitation's box, never the pane's.
+- **Pinned by:** `tests/integration/test_directors_cut.py::test_a_tours_frames_light_their_own_lamps_and_the_view_gets_its_back`; `tests/unit/test_scene3d_particles.py::test_a_lamp_fades_in_and_out_of_the_lit_six_and_no_pool_pops`
+- **Source:** #687 (item 2, found while designing the lamp fade); ADR-070 addendum (#687)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (found by reading, then pinned): `camera_moved` is called only from `Workspace._apply_camera`, so a tour over a plan with more than six lanterns lit every frame with the six nearest the PANE's target, at full strength, wherever the tour looked. The test drew nine lanterns, ran a held-camera tour aimed at the last one, and read the host's lamps at each picture: before the fix every frame held the pane's six. The lamp weights (`lights.lit_lamps`: `smoothstep(0, LAMP_FADE_CM, d_out - d)`, 200 cm) have no clock, so the same tour lights the same frames.
+
+### PF-E3D-30
+
+- **Rule:** Ask Qt's recorder for constant quality, never for a bit rate: `AverageBitRateEncoding` and `ConstantBitRateEncoding` both reach Windows' H.264 encoder as CBR, which starves the first second of every video whatever the rate and stops spending near 32 Mbit/s at 1080p30. `ConstantQualityEncoding` with `HighQuality` or `VeryHighQuality` (Media Foundation's quality 90 or 100) keeps every frame alike. Qt passes no profile, so the stream is Constrained Baseline.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_a_video_is_made_at_constant_quality_as_chosen`
+- **Source:** #807, measured on the 3D promo survey's frames (ADR-072 addendum "review-grade video").
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Symptom: the issue proposed 0.35 bit/px for a better video. Measured on a 6 s slow orbit at 1080p30,
+the first 18 frames read 40.4 to 42.0 dB Y-PSNR at every rate from 0.2 to 1.0 bit/px, against 45 to 49
+after them; the average mode and the CBR mode gave byte-identical files; above 0.7 bit/px the encoder
+spent no more (31.0, then 32.1 Mbit/s). The strings in `ffmpegmediaplugin.dll` show what Qt hands
+`h264_mf`: `rate_control` and `quality`, and no `profile`; FFmpeg's encoder takes an unset profile as
+Baseline. Constant quality read 47.1 (Standard) and 49.2 dB (Best) at its worst frame.
+
+### PF-E3D-31
+
+- **Rule:** A tour's MP4 states its colour and its level only because the app writes them after the recorder closes: Qt's recorder writes no colour description (its own decoder read the file as `ColorSpace_Undefined`), and at constant quality the encoder labels the level from the frame size alone (36 Mbit/s as level 4.0, whose Baseline limit is 24). `core/mp4_stream.tag_colour` writes BT.709 limited range into the `colr` box and every SPS and raises the level to what the samples need; a file it cannot rewrite is saved untagged, never lost.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_a_finished_video_states_bt709_in_its_container_and_in_its_stream`; `tests/integration/test_video_writer.py::test_a_video_that_cannot_be_tagged_is_saved_untagged_and_says_so_in_the_log`; `tests/unit/test_mp4_stream.py::test_a_file_whose_frames_outgrow_its_level_states_the_one_they_need`
+- **Source:** #807 (ADR-072 addendum "review-grade video"); supersedes the HD convention of the #735 addendum as the only colour statement.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+No `ffprobe` is needed to check it: Qt's player prints FFmpeg's own stream line, which read
+`yuv420p(progressive)` before and `yuv420p(tv, bt709, progressive)` after, and its frames report
+`ColorSpace_BT709`, `ColorTransfer_BT709` and `ColorRange_Video`; the decoded planes were identical,
+180 of 180. Media Foundation repeats the SPS at every IDR frame (one a second), so a tag in `avcC`
+alone would be undone in the stream: every SPS is rewritten, and the samples move.
+
+### PF-E3D-32
+
+- **Rule:** `PrincipledMaterial.specularAmount` is a switch at 0.01, not a dial at grazing: at 0.01 or less Qt draws no specular at all, above it the amount scales F0 only and a grazing highlight in the sun's colour is nearly the same (a black mat facing a 15° sun: luma 25.4 at 0.01, 62.8 at 0.015, 63.5 at 0.35). A dull dark surface is specular OFF; roughness, not the amount, narrows a sheen.
+- **Pinned by:** `tests/unit/test_scene3d_surfaces.py::test_a_dull_dark_surface_takes_no_specular_at_all`; `tests/integration/test_built_materials_render.py::test_the_trampoline_s_mat_stays_dark_and_its_pad_blue`
+- **Source:** #803; ADR-059 addendum (#801, #803)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: #803 proposed specular 0.05 for rubber to take the warm sheen off the trampoline's mat; measured, 0.05 left it at luma 62.8 - the same as 0.35 (63.5) - while 0.01 read 25.4, exactly the specular-free frame. Sweep (black mat, a 15.2° sun, the camera 6.5 m back along its azimuth, roughness 0.95): 0.0 / 0.005 / 0.01 → 25.4; 0.015 → 62.8; 0.02 → 62.2; 0.05 → 62.8; 0.35 → 63.5. Roughness moved it more: 0.90 → 73.2, 0.98 → 57.7, 1.0 → 54.6 (with the specular on). Cause (consistent with the sweep): Qt keys a principled material's specular in only above 0.01, and its Fresnel reaches 1 at grazing whatever F0 the amount sets. Fix: `SURFACES` gives rubber and canvas specular 0.0; plastic stays on but fully rough (1.0, its pad 8.0° off its blue facing the sun, 9.3° at 0.95).

@@ -27,7 +27,22 @@ horizontal surface (the cosine-weighted luminance of the upper hemisphere: what 
 probe's diffuse light gives the ground) equals the painted sky's: the light balance of
 the accepted look at every moment, the hue and the structure of the physical sky.
 ``painted_radiance`` is that sky (Qt's ``ProceduralSkyTextureData`` formula) per
-direction.
+direction. The light is integrated over the sky AS DRAWN: through the haze band the
+painted sky shows and the atmosphere only takes its share (``haze_share``).
+
+THE PROFILE (``sky_profile``, #716). One gain for the whole sky left the atmosphere's
+steep fall from horizon to zenith in place: its 6–15° band read 1.4–1.8× the painted
+sky's luminance (a cream wash), its zenith 0.5–0.8×, and below its bright low band the
+painted horizon of the haze band read darker — the sky darkened toward the horizon. So
+the gain is redistributed per elevation: every ring of the drawn atmosphere has the mean
+luminance of the painted sky's GRADIENT at that elevation (``painted_gradient``: the
+painted sky without its sun), times one factor that keeps the light on the ground the
+painted sky's (its sun's glow included). The atmosphere keeps its hue and its structure
+round the azimuth — the glow toward the sun, the deeper blue away from it — and the
+haze band mixes two skies of the same mean brightness. Normalising on the painted sky's
+ring MEANS instead spread its sun's glow round the whole ring: a bright ring at the
+sun's elevation (10 % at a 60° sun). The profile rides in the table's alpha
+(``sky_view_rgba16f``), relative to the gain.
 
 Coordinates are the example's "atmosphere coordinates": x, y horizontal, z up (the
 engine frame's ``(−x, −z, y)``: ``ui/view3d/quick3d/look.atmosphere_sun_direction``).
@@ -44,8 +59,11 @@ from typing import Any, Final
 import numpy as np
 from numpy.typing import NDArray
 
+from .look import ATMOSPHERE_HAZE_DEG
+
 __all__ = ["LUT_SIZE", "TRANSMITTANCE_SIZE", "Atmosphere", "EARTH_ATMOSPHERE", "PaintedSky",
-           "atmosphere_gain", "painted_radiance", "sky_view_lut", "sky_view_radiance",
+           "atmosphere_gain", "drawn_radiance", "haze_share", "painted_gradient",
+           "painted_radiance", "sky_profile", "sky_view_lut", "sky_view_radiance",
            "sky_view_rgba16f", "sky_view_uv", "transmittance_lut"]
 
 #: float64 by default; the sky-view loop runs in float32 (as the shader computes)
@@ -297,12 +315,18 @@ def sky_view_lut(sun_direction: tuple[float, float, float],
     return result
 
 
-def sky_view_rgba16f(sun_direction: tuple[float, float, float],
+def sky_view_rgba16f(sun_direction: tuple[float, float, float], painted: PaintedSky | None = None,
                      atmosphere: Atmosphere = EARTH_ATMOSPHERE, size: int = LUT_SIZE) -> bytes:
-    """``sky_view_lut`` as the bytes of an RGBA16F texture (alpha 1), row ``v`` = 0
-    first — what the example's provider wrote (``FRAGCOLOR = vec4(rgb, 1.0)``)."""
+    """``sky_view_lut`` as the bytes of an RGBA16F texture, row ``v`` = 0 first — what
+    the example's provider wrote (``FRAGCOLOR = vec4(rgb, 1.0)``), with this sky's
+    ``sky_profile`` in the alpha of every texel of a row (#716; 1 without a painted
+    sky). ``atmosphere.frag`` multiplies the clear sky by it; the clouds' ambient
+    samples read the rgb alone."""
     rgb = sky_view_lut(sun_direction, atmosphere, size)
-    rgba = np.concatenate((rgb, np.ones(rgb.shape[:2] + (1,))), axis=-1)
+    profile = (np.ones(size) if painted is None
+               else sky_profile(sun_direction, painted, atmosphere, size))
+    alpha = np.broadcast_to(profile[:, None, None], rgb.shape[:2] + (1,))
+    rgba = np.concatenate((rgb, alpha), axis=-1)
     return rgba.astype("<f2").tobytes()
 
 
@@ -368,12 +392,9 @@ def painted_radiance(direction: _F, painted: PaintedSky,
     return np.where((up < 0.0)[..., None], below, sky)
 
 
-def sky_view_radiance(direction: _F, sun_direction: tuple[float, float, float],
-                      atmosphere: Atmosphere = EARTH_ATMOSPHERE) -> _F:
-    """The atmosphere's clear-sky radiance (no gain, no disc, no cloud) per direction,
-    read from the sky-view table as the shader reads it (bilinear, clamped)."""
-    table = sky_view_lut(sun_direction, atmosphere)
-    uv = sky_view_uv(direction)
+def _bilinear(table: _F, uv: _F) -> _F:
+    """``table`` (``(size_v, size_u, channels)``) at ``uv`` as a linearly filtered,
+    clamp-to-edge texture samples it."""
     size_v, size_u = table.shape[:2]
     u = np.clip(uv[..., 0] * size_u - 0.5, 0.0, size_u - 1.0)
     v = np.clip(uv[..., 1] * size_v - 0.5, 0.0, size_v - 1.0)
@@ -383,6 +404,33 @@ def sky_view_radiance(direction: _F, sun_direction: tuple[float, float, float],
     top = table[v0, u0] * (1.0 - fu) + table[v0, u1] * fu
     bottom = table[v1, u0] * (1.0 - fu) + table[v1, u1] * fu
     result: _F = top * (1.0 - fv) + bottom * fv
+    return result
+
+
+def sky_view_radiance(direction: _F, sun_direction: tuple[float, float, float],
+                      atmosphere: Atmosphere = EARTH_ATMOSPHERE) -> _F:
+    """The atmosphere's clear-sky radiance (no gain, no disc, no cloud) per direction,
+    read from the sky-view table as the shader reads it (bilinear, clamped)."""
+    return _bilinear(sky_view_lut(sun_direction, atmosphere), sky_view_uv(direction))
+
+
+def painted_gradient(elevation: _F, painted: PaintedSky) -> _F:
+    """The painted sky above the horizon WITHOUT its sun, linear rgb ``(..., 3)`` at
+    ``elevation`` (radians): ``paintedSky()``'s mix of the horizon colour into the top
+    colour — the same in every direction."""
+    up = np.clip(np.sin(np.asarray(elevation, dtype=np.float64)), 0.0, 1.0)
+    t = _ease(1.0 - np.arccos(up) / (_PI * 0.5), _PAINTED_SKY_CURVE)[..., None]
+    horizon, top = np.asarray(painted.horizon), np.asarray(painted.top)
+    result: _F = (horizon + (top - horizon) * t) * painted.sky_energy
+    return result
+
+
+def haze_share(elevation: _F, haze_deg: float = ATMOSPHERE_HAZE_DEG) -> _F:
+    """How much of the atmosphere ``atmosphere.frag`` mixes over the painted sky at an
+    ``elevation`` (radians) by day: ``smoothstep(0, hazeDeg, elevation)`` — 0 at and below
+    the horizon, where the painted sky shows, 1 above the haze band."""
+    t = np.clip(np.asarray(elevation, dtype=np.float64) / np.radians(max(haze_deg, 0.01)), 0.0, 1.0)
+    result: _F = t * t * (3.0 - 2.0 * t)
     return result
 
 
@@ -400,14 +448,91 @@ def _upper_hemisphere(rings: int = 48, sectors: int = 96) -> tuple[_F, _F]:
     return directions, weights
 
 
+@lru_cache(maxsize=16)
+def _balance(sun_direction: tuple[float, float, float], painted: PaintedSky,
+             atmosphere: Atmosphere) -> tuple[float, float]:
+    """(gain, glow) of one sky. Over the upper hemisphere, cosine-weighted and through
+    the haze band's share ``s`` (the sky as drawn): the gain gives the atmosphere's share
+    the painted sky's light, ``Σ s·painted / Σ s·atmosphere``; the glow is what the
+    painted sky's sun adds to its gradient's light there, ``Σ s·painted /
+    Σ s·gradient`` — the factor that keeps a ring-by-ring profile on the gradient
+    sending the painted sky's light. 0, 1 when the atmosphere sends no light."""
+    directions, weights = _upper_hemisphere()
+    elevation = np.arcsin(np.clip(directions[..., 2], -1.0, 1.0))
+    share = haze_share(elevation) * weights
+    painted_light = float((painted_radiance(directions, painted, sun_direction) @ _REC709
+                           * share).sum())
+    gradient_light = float((painted_gradient(elevation, painted) @ _REC709 * share).sum())
+    atmosphere_light = float((sky_view_radiance(directions, sun_direction, atmosphere) @ _REC709
+                              * share).sum())
+    if atmosphere_light <= 0.0 or gradient_light <= 0.0:
+        return 0.0, 1.0
+    return painted_light / atmosphere_light, painted_light / gradient_light
+
+
 def atmosphere_gain(sun_direction: tuple[float, float, float], painted: PaintedSky,
                     atmosphere: Atmosphere = EARTH_ATMOSPHERE) -> float:
     """The scale that gives the atmosphere the painted sky's light on a horizontal
     surface (module docstring): the ratio of their cosine-weighted upper-hemisphere
-    luminances. 0 when the atmosphere sends no light at all."""
-    directions, weights = _upper_hemisphere()
-    painted_light = float((painted_radiance(directions, painted, sun_direction) @ _REC709
-                           * weights).sum())
-    atmosphere_light = float((sky_view_radiance(directions, sun_direction, atmosphere) @ _REC709
-                              * weights).sum())
-    return painted_light / atmosphere_light if atmosphere_light > 0.0 else 0.0
+    luminances over the sky as drawn — through the haze band each weighted by the
+    atmosphere's share. 0 when the atmosphere sends no light at all. It is the mean of
+    ``sky_profile`` weighted by the atmosphere's own light, and the clouds' scale
+    (``quick3d.look.cloud_light_gain``)."""
+    return _balance(sun_direction, painted, atmosphere)[0]
+
+
+def _row_elevations(size: int = LUT_SIZE) -> _F:
+    """The elevation (radians) of every row of the sky-view table, at its texel centre."""
+    lat = (np.arange(size) + 0.5) / size * 2.0 - 1.0
+    result: _F = lat * lat * np.sign(lat) * _PI * 0.5
+    return result
+
+
+@lru_cache(maxsize=16)
+def _sky_profile(sun_direction: tuple[float, float, float], painted: PaintedSky,
+                 atmosphere: Atmosphere, size: int) -> _F:
+    gain, glow = _balance(sun_direction, painted, atmosphere)
+    elevation = _row_elevations(size)
+    ring = (sky_view_lut(sun_direction, atmosphere, size) @ _REC709).mean(axis=1)
+    above = elevation > 0.0
+    target = glow * (painted_gradient(np.maximum(elevation, 0.0), painted) @ _REC709)
+    profile = np.ones(size)
+    lit = above & (ring > 0.0)
+    if gain > 0.0:
+        profile[lit] = target[lit] / (gain * ring[lit])
+    # at and below the horizon the painted sky shows (share 0): the first row above
+    # keeps the linear filter between the two rows on the profile's own value
+    first = int(np.argmax(above))
+    profile[:first] = profile[first]
+    profile.setflags(write=False)
+    return profile
+
+
+def sky_profile(sun_direction: tuple[float, float, float], painted: PaintedSky,
+                atmosphere: Atmosphere = EARTH_ATMOSPHERE, size: int = LUT_SIZE) -> _F:
+    """Per row of the sky-view table (``(size,)``, row ``v`` = 0 first), the scale
+    relative to ``atmosphere_gain`` that gives that ring of the clear atmosphere the
+    painted GRADIENT's luminance at its elevation, times the glow factor of ``_balance``
+    (module docstring, #716). ``gain × profile × table`` is the clear sky as drawn: the
+    mean luminance of every ring is the painted gradient's × the glow, and over the sky
+    as drawn it sends the painted sky's light onto the ground. Rows at and below the
+    horizon repeat the first row above. Read-only."""
+    return _sky_profile(sun_direction, painted, atmosphere, size)
+
+
+def drawn_radiance(direction: _F, sun_direction: tuple[float, float, float], painted: PaintedSky,
+                   atmosphere: Atmosphere = EARTH_ATMOSPHERE, weight: float = 1.0) -> _F:
+    """The CLEAR sky ``atmosphere.frag`` draws per direction, before its exposure and
+    without the disc: the painted sky, and over it — by its haze share × ``weight`` (the
+    look's ``1 − twilight``) — the atmosphere scaled by the gain and this sky's profile,
+    both read from the table as the shader reads them (bilinear, clamped)."""
+    direction = np.asarray(direction, dtype=np.float64)
+    base = painted_radiance(direction, painted, sun_direction)
+    table = np.concatenate((sky_view_lut(sun_direction, atmosphere),
+                            np.broadcast_to(sky_profile(sun_direction, painted, atmosphere)[:, None, None],
+                                            (LUT_SIZE, LUT_SIZE, 1))), axis=-1)
+    sampled = _bilinear(table, sky_view_uv(direction))
+    sky = sampled[..., :3] * sampled[..., 3:] * atmosphere_gain(sun_direction, painted, atmosphere)
+    share = haze_share(np.arcsin(np.clip(direction[..., 2], -1.0, 1.0)))[..., None] * weight
+    result: _F = base + (sky - base) * share
+    return result

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QT_TR_NOOP, QPointF, Qt
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPainterPath, QPen
 from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 
@@ -31,6 +31,9 @@ class PolylineTool(BaseTool):
     cursor = Qt.CursorShape.CrossCursor
 
     VERTEX_MARKER_SIZE = 8.0
+
+    def _translated_name(self) -> str:
+        return QCoreApplication.translate("PolylineTool", "Polyline")
 
     def __init__(
         self,

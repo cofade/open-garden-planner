@@ -53,6 +53,13 @@
       "selector": "first",
       "scope": ""
     },
+    "task_text": {
+      "file": "ui/views/task_text.py",
+      "context": "TaskText",
+      "symbol": "_VERB_TEMPLATES",
+      "selector": "values",
+      "scope": ""
+    },
     "npk": {
       "file": "ui/dialogs/soil_test_dialog.py",
       "context": "SoilTestDialog",
@@ -511,6 +518,15 @@
       "context": "Permaculture",
       "sources": [
         "traits"
+      ]
+    },
+    {
+      "file": "ui/views/task_text.py",
+      "scope": "task_row_text",
+      "expression": "template",
+      "context": "TaskText",
+      "sources": [
+        "task_text"
       ]
     }
   ],

@@ -40,11 +40,14 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.app.paths import default_dialog_dir
+from open_garden_planner.core.harvest_units import UNIT_CHOICES, harvest_unit_label
+from open_garden_planner.core.i18n import format_trimmed
 from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
+from open_garden_planner.ui.date_fields import as_date_field
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
 #: Default unit choices offered in the (editable) unit combo.
-_UNIT_CHOICES = ("kg", "g", "pcs", "bunch", "L")
+_UNIT_CHOICES = UNIT_CHOICES
 
 
 class HarvestLogDialog(QDialog):
@@ -119,9 +122,7 @@ class HarvestLogDialog(QDialog):
         form = QFormLayout()
 
         # Date
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("yyyy-MM-dd")
+        self._date_edit = as_date_field(QDateEdit())
         today = _date.today()
         self._date_edit.setDate(QDate(today.year, today.month, today.day))
         form.addRow(self.tr("Date"), self._date_edit)
@@ -133,11 +134,13 @@ class HarvestLogDialog(QDialog):
         self._quantity_spin.setValue(0.0)
         form.addRow(self.tr("Quantity"), self._quantity_spin)
 
-        # Unit (editable — gardeners may use their own unit names)
+        # Unit (editable — gardeners may use their own unit names). The shown
+        # text is translated; the item data is the stable stored key (#863).
         self._unit_combo = QComboBox()
         self._unit_combo.setEditable(True)
-        self._unit_combo.addItems(list(_UNIT_CHOICES))
-        self._unit_combo.setCurrentText("kg")
+        for unit in _UNIT_CHOICES:
+            self._unit_combo.addItem(harvest_unit_label(unit), unit)
+        self._unit_combo.setCurrentIndex(0)
         form.addRow(self.tr("Unit"), self._unit_combo)
 
         # Quality
@@ -236,7 +239,9 @@ class HarvestLogDialog(QDialog):
         for r in records:
             if (r.date[:4] if r.date else "?") == year:
                 totals[r.unit] = totals.get(r.unit, 0.0) + r.quantity
-        parts = ", ".join(f"{qty:g} {unit}" for unit, qty in sorted(totals.items()))
+        parts = ", ".join(
+            f"{format_trimmed(qty)} {harvest_unit_label(unit)}"
+            for unit, qty in sorted(totals.items()))
         label = QLabel(self.tr("{year} — {totals}").format(year=year, totals=parts))
         set_text_role(label, "h2")
         label.setStyleSheet("margin-top: 4px;")
@@ -265,7 +270,8 @@ class HarvestLogDialog(QDialog):
 
     def _format_history_row(self, rec: HarvestRecord) -> str:
         text = self.tr("{date} — {qty} {unit}").format(
-            date=rec.date or "?", qty=f"{rec.quantity:g}", unit=rec.unit
+            date=rec.date or "?", qty=format_trimmed(rec.quantity),
+            unit=harvest_unit_label(rec.unit),
         )
         if rec.quality:
             text = text + self.tr(" ({quality})").format(quality=rec.quality)
@@ -420,7 +426,11 @@ class HarvestLogDialog(QDialog):
             except (ValueError, TypeError):
                 pass
         self._quantity_spin.setValue(record.quantity)
-        self._unit_combo.setCurrentText(record.unit)
+        index = self._unit_combo.findData(record.unit)
+        if index >= 0:
+            self._unit_combo.setCurrentIndex(index)
+        else:
+            self._unit_combo.setEditText(record.unit)
         self._quality_edit.setText(record.quality)
         if record.notes:
             self._notes_edit.setPlainText(record.notes)
@@ -462,7 +472,7 @@ class HarvestLogDialog(QDialog):
         kwargs: dict[str, Any] = {
             "date": date_iso,
             "quantity": float(self._quantity_spin.value()),
-            "unit": self._unit_combo.currentText().strip() or "kg",
+            "unit": self._stored_unit(),
             "quality": self._quality_edit.text().strip(),
             "notes": self._notes_edit.toPlainText().strip(),
             "photo_path": self._photo_path,
@@ -472,6 +482,19 @@ class HarvestLogDialog(QDialog):
         if self._edit_journal_note_id is not None:
             kwargs["journal_note_id"] = self._edit_journal_note_id
         return HarvestRecord(**kwargs)
+
+    def _stored_unit(self) -> str:
+        """The stable unit key: the chosen item's data, a typed translated label, or text."""
+        data = self._unit_combo.currentData()
+        text = self._unit_combo.currentText().strip()
+        if data is not None and text == harvest_unit_label(str(data)):
+            return str(data)
+        # A German user may type the label they see ("Bund") instead of the
+        # stored key; it must not split the aggregation from "bunch".
+        for unit in UNIT_CHOICES:
+            if text and text == harvest_unit_label(unit):
+                return unit
+        return text or "kg"
 
     # ── Test helpers ─────────────────────────────────────────────────────────
 

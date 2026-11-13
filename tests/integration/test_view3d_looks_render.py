@@ -258,6 +258,87 @@ def test_far_plan_preserves_shadows_and_has_no_ao_line(tmp_path) -> None:
         assert row["outer_rows"]["step"] <= 3.0, row
 
 
+#: #734: the board's ``--stairs`` (a 23.8 m solid panel and a picket fence at the plan's
+#: south edge, the board's golden hour 15.2° and sunset 5.9°) on the presets a promotion is
+#: recorded on, at 1920 x 1080 — at the tier's 640 x 360 a picket pitch never spans the
+#: 8 px the streak instrument needs. Its frames are STILL PICTURES: the shadow map fitted to
+#: the casters, what ``Quick3DHost.capture(fitted_shadows=True)`` renders for a photo.
+#: Measured on the RTX 4070 (2026-11-10, the final design), the view's texel-locked fit
+#: high / ultra -> fitted high / ultra: the panel's edge 20-40 m out in the default framing,
+#: cm spread across it — 15.2°: 5 / 1 -> 0.64 / 0.63, 5.9°: 11 / 2 -> 2.24 / 2.27; the line
+#: along its foot, the share of it the sun reaches (worst of four frames): 0.339 / 0.011 at
+#: 5.9° -> 0.023 / 0.023; the picket fence's shadow at 5.9°, streaks (the one-pitch-filtered
+#: spread over the shadow's contrast): 0.49 / 0.30 -> 0.165 / 0.136 (worst line).
+#: Which streak lines can be judged is geometry, not the frame: one picket pitch must span
+#: 8 px, so the hero camera judges the 100 and 250 cm lines and the framed camera the 100 cm
+#: line, in every run.
+#: The orbit (the golden-hour camera round the plan, 0.5° a frame, the edge averaged over
+#: 30 cm), 0-10 / 10-20 m: the view's fit 0.079 / 0.094 px high, 0.082 / 0.087 ultra; a
+#: fitted one 0.21 / 0.146 high, 0.106 / 0.117 ultra — a fitted map follows the camera, which
+#: is why the view and a moving tour keep the locked fit (on the family garden through the
+#: capture path: 0.16 / 0.18 locked, 0.69 / 0.38 fitted). The tripwire that a fitted map
+#: still crawls more is on High, where its texels are coarse enough to say so (2.7 x the
+#: view's); Ultra's 4096 pages leave 1.3 x, too close to the dither floor to pin.
+#: The time-lapse (the golden-hour camera held, the sun stepping 0.4° / 0.55° a frame, each
+#: frame traced against its own sun): the light turns under either fit, and the fitted grid's
+#: finer texels crawl less - the reason a held camera's frames are fitted. The board's 8
+#: frames (15.2° to 12.4°), 0-10 / 10-20 m: locked 0.336 / 0.682 px high, 0.175 / 0.321
+#: ultra; fitted 0.265 / 0.517 high, 0.167 / 0.298 ultra (24 frames from golden hour to
+#: sunset, the same scene: locked 0.66 / 0.79, fitted 0.35 / 0.37). Tripwire on High, like
+#: the orbit's: Ultra's margin is 5-7 %.
+STAIRS_SIZE = "1920x1080"
+STAIRS_PRESETS = ("high", "ultra")
+MAX_PANEL_STAIRS_CM = {15.2: 2.5, 5.9: 4.0}
+MAX_FOOT_LIT_SHARE = 0.05
+MAX_STREAK = 0.25
+STREAK_LINES = frozenset({("hero", "100cm"), ("hero", "250cm"), ("framed", "100cm")})
+MAX_VIEW_ORBIT_SWIM_PX = 0.15
+CRAWL_TRIPWIRE_PRESET = "high"
+
+
+def test_a_long_low_sun_shadow_has_no_stairs_no_lit_teeth_and_no_streaks(tmp_path) -> None:
+    """#734. The shadow map's texels along a long shadow on the meadow in a still picture —
+    not what the casters are shaped like (the picket tops' old ramp is pinned without an
+    engine: ``test_scene3d_builders.py::TestPolylinesAreBuiltFromTheCentreLine::``
+    ``test_picket_tops_repeat_no_pattern_and_follow_the_items_seed``) — a moving camera's
+    edge that does not crawl, in the view's fit; and the measured reasons for the routing:
+    a fitted map crawls more in an orbit, less in a held camera's time-lapse."""
+    out = tmp_path / "stairs"
+    metrics = _ok_board(run_board(out, "--size", STAIRS_SIZE, "--presets", ",".join(STAIRS_PRESETS),
+                                  "--shots=", "--stairs"), out)
+    for preset in STAIRS_PRESETS:
+        rows = metrics["stairs"][preset]
+        panel = {row["sun_elev"]: row for row in rows
+                 if row["caster"] == "PLAIN" and row["camera"] == "framed"}
+        for elevation, bound in MAX_PANEL_STAIRS_CM.items():
+            (far,) = [b for b in panel[elevation]["edge"] if b["depth_m"] == [20.0, 40.0]]
+            assert far["stations"] > 500, (preset, elevation, far)   # the instrument saw the edge
+            assert far["wobble_cm"] <= bound, (preset, elevation, far)
+        feet = [row["foot"] for row in rows if "foot" in row]
+        assert len(feet) == 4 and all(foot["samples"] > 300 for foot in feet), feet
+        assert max(foot["lit_share"] for foot in feet) <= MAX_FOOT_LIT_SHARE, (preset, feet)
+        streaks = {(row["camera"], name): line["streak"] for row in rows
+                   for name, line in row.get("streaks", {}).items() if line["streak"] is not None}
+        assert streaks.keys() >= STREAK_LINES, (preset, streaks)   # the instrument saw them
+        assert max(streaks.values()) <= MAX_STREAK, (preset, streaks)
+        orbit = metrics["stairs_orbit"][preset]
+        near = {fit: {tuple(b["depth_m"]): b for b in orbit[fit]} for fit in ("view", "fitted")}
+        for depth in ((0.0, 10.0), (10.0, 20.0)):
+            view = near["view"][depth]
+            assert view["pairs"] > 300 and view["swim_px"] <= MAX_VIEW_ORBIT_SWIM_PX, (preset, view)
+        if preset == CRAWL_TRIPWIRE_PRESET:
+            assert near["fitted"][(0.0, 10.0)]["swim_px"] > near["view"][(0.0, 10.0)]["swim_px"], (
+                "a fitted map no longer crawls more than the locked one: the view could take it", orbit)
+            lapse = metrics["stairs_timelapse"][preset]
+            held = {fit: {tuple(b["depth_m"]): b for b in lapse[fit]} for fit in ("view", "fitted")}
+            for depth in ((0.0, 10.0), (10.0, 20.0)):
+                locked, fitted = held["view"][depth], held["fitted"][depth]
+                assert locked["pairs"] > 300 and fitted["pairs"] > 300, (preset, lapse)
+                assert fitted["swim_px"] <= locked["swim_px"], (
+                    "a held camera's fitted frames crawl more than locked ones: a time-lapse "
+                    "should keep the view's fit", lapse)
+
+
 def test_lawn_blades_do_not_add_dark_stubble_to_the_same_high_look(tmp_path) -> None:
     """#604: isolate blades from High's own AO, cascades and ground lighting."""
     out = tmp_path / "lawn"
@@ -366,12 +447,20 @@ def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:
     to a −7° one, one camera: the light never rises, and crossing sunset (0.6° -> 0.4°,
     where the sun's key light goes as the 2D shadows do) is no larger a step than the
     largest half degree of the day ramp before it. Before the ramp: 0.116 -> 0.034
-    (low), 3.0 to 3.4 times the day ramp's largest step."""
+    (low), 3.0 to 3.4 times the day ramp's largest step. #802: nor does the garden's
+    own light (the rows below the horizon) rise, on this camera and on the view's
+    default framing."""
     metrics, _out = board
     for preset in PRESETS:
         dusk = metrics["dusk"][preset]
         assert len(dusk["rows"]) == 16, dusk
         assert dusk["monotone"], (preset, dusk["rises"])
+        # #802: the GARDEN fades too (the frame is mostly sky): the ground rose from 0.5°
+        # to the night before the twilight fill — on the view's default framing as well
+        assert dusk["ground_monotone"], (preset, dusk["ground_rises"])
+        if preset == PRESETS[0]:
+            assert len(dusk["default_rows"]) == 16, dusk
+            assert dusk["default_monotone"], (preset, dusk["default_rises"])
         assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (preset, dusk)
         night = [row for row in dusk["rows"] if row["target"] <= -6.0]
         assert all(row["night"] for row in night) and not any(
@@ -410,7 +499,10 @@ def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
 #: Review P2: the plan rectangle meets the meadow without a step (luma) on a plan with
 #: nothing on it, in every view along its west and south edge (``plan_edge``). Measured
 #: (960 x 540, low / high): the meadow's material on both, at most 0.21; the plan ground's
-#: old material (roughness 0.92, specular 0.2) up to 4.65 — the positive control.
+#: old material (roughness 0.92, specular 0.2) up to 4.65 — the positive control. Since #798
+#: both sides carry the grass and the board measures the frame LESS the same view without a
+#: plan (``board_probes.difference_frame``): 0.00 at every preset, line 0.93 at most (640 x
+#: 360, 2026-11-10; the frame's own fits read the grass's pattern, to -2.1 / line 3.9).
 MAX_PLAN_EDGE_STEP = 1.0
 #: 3D review of #388: a thin LINE on the edge, which the fitted step cannot see. With the
 #: meadow 5 cm under the plan, ambient occlusion drew one of +-14 luma along every edge
@@ -465,6 +557,95 @@ def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: 
     rows = day_painted.shape[0] // 3
     difference = float(np.abs(day_painted[:rows].astype(np.float64) - day_atmosphere[:rows]).mean())
     assert difference >= MIN_DAY_SKY_DIFFERENCE, difference
+
+
+# ── #716 / #719: where the atmosphere meets the painted horizon ──────────────────
+# The board's `--sky-bands` phase: sky-only frames over the empty meadow at a 300° sun,
+# toward, across and away from it, binned by WORLD elevation (PF-L3D-19), on both skies.
+
+#: #716: from 20° down to 0.5° the clear sky may not darken, away from the sun and across
+#: it (toward it the disc's own glow is in the profile; the painted sky reads 10 there at a
+#: 15° sun). The bound is the band medians' noise: the painted sky reads 0.0 everywhere.
+#: `master` read 16.7-21.9 away (0.7 across) at 15°, 6°, 2° and 0.5°; with the profile 0.0
+#: at every sun (2026-11-10).
+MAX_SKY_INVERSION_LUMA = 1.0
+#: #716: the low band every board camera sees (6-15°), over the azimuth (toward : across :
+#: away = 1 : 2 : 1), against the painted sky's; the issue's bound at sunset, held at every
+#: sun. `master` read 1.37-1.60; with the profile 0.94-1.05.
+MAX_LOW_BAND_RATIO = 1.15
+#: #719: the haze band (3°) minus the deck above it (10°), toward, across and away from a
+#: 6° and a 0.5° sun, on every closed weather. The painted sky reads 3-9; `master`'s
+#: atmosphere 26.5-51.0 at a 0.5° sun (Overcast and Rain), 19.2-38.4 (Snow); with the anchor
+#: at most 5.6 (Overcast and Rain) and 7.4 (Snow).
+MAX_BAND_OVER_DECK_LUMA = 10.0
+#: The sky-band frames see the meadow below the horizon: lit by the painted probe under
+#: both skies (PF-E3D-17), it must not move with the sky drawn above it.
+MAX_GROUND_LUMA_DIFFERENCE = 1.0
+
+_SKY_BANDS: dict[str, tuple[dict[str, Any], Path]] = {}
+
+
+def sky_bands_for(model: str, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    if model not in _SKY_BANDS:
+        out = tmp_path_factory.mktemp(f"sky-bands-{model}") / "board"
+        _SKY_BANDS[model] = _ok_board(run_board(
+            out, "--presets", "medium", "--shots", "none", "--sky-bands", "--sky", model), out), out
+    metrics = _SKY_BANDS[model][0]
+    assert metrics["qt_messages"]["counts"].get("error", 0) == 0, metrics["qt_messages"]
+    bands: dict[str, Any] = metrics["sky_bands"]
+    return bands
+
+
+@pytest.fixture(scope="module")
+def sky_bands(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict[str, Any]]:
+    return {model: sky_bands_for(model, tmp_path_factory) for model in SKY_MODELS}
+
+
+def test_the_clear_sky_never_darkens_on_the_way_down_to_the_horizon(sky_bands) -> None:
+    """#716: the atmosphere's low band was brighter than the painted horizon the haze band
+    mixes in below it — away from a low sun it peaked at 4-5° and fell toward 0.5°."""
+    for model, bands in sky_bands.items():
+        assert set(bands["clear"]) == {"60", "15", "6", "2", "0.5"}, bands["clear"].keys()
+        for sun, rows in bands["clear"].items():
+            for label in ("across", "away"):
+                inversion = rows[label]["inversion"]
+                assert inversion["measured"], (model, sun, label)
+                assert inversion["inversion_luma"] <= MAX_SKY_INVERSION_LUMA, (model, sun, label, inversion)
+
+
+def test_the_atmospheres_low_band_is_as_bright_as_the_painted_skys(sky_bands) -> None:
+    """#716: one gain for the whole sky drew the 6-15° band 1.4-1.8x the painted sky's
+    luminance (a cream wash at golden hour and sunset); per elevation it is the painted
+    sky's now. The painted board is the reference of the ratio."""
+    painted, atmosphere = sky_bands["painted"]["clear"], sky_bands["atmosphere"]["clear"]
+    for sun in ("15", "6", "2", "0.5"):
+        ratio = (atmosphere[sun]["azimuth_mean_low_band_luminance"]
+                 / painted[sun]["azimuth_mean_low_band_luminance"])
+        assert ratio <= MAX_LOW_BAND_RATIO, (sun, ratio)
+
+
+def test_the_cloud_deck_meets_the_painted_horizon_without_a_band(sky_bands) -> None:
+    """#719: under a closed deck the painted haze band read 30-55 luma brighter than the deck
+    10° up at a setting sun (the G5 horizon gate, over 0.15°, cannot see a band 6° tall)."""
+    for model, bands in sky_bands.items():
+        for weather in ("overcast", "rain", "snow"):
+            assert set(bands[weather]) == {"6", "0.5"}, (model, weather)
+            for sun, rows in bands[weather].items():
+                for label in ("toward", "across", "away"):
+                    step = rows[label]["band_minus_deck"]
+                    assert step is not None, (model, weather, sun, label)
+                    assert step <= MAX_BAND_OVER_DECK_LUMA, (model, weather, sun, label, step)
+
+
+def test_the_sky_bands_leave_the_garden_as_it_was(sky_bands) -> None:
+    """The meadow under the sky-band frames is the painted probe's under both skies: the
+    profile and the deck's anchor change the sky drawn, never the light."""
+    painted, atmosphere = sky_bands["painted"], sky_bands["atmosphere"]
+    for weather in ("clear", "overcast", "rain", "snow"):
+        for sun, rows in atmosphere[weather].items():
+            for label in ("toward", "across", "away"):
+                ground = rows[label]["ground_luma"], painted[weather][sun][label]["ground_luma"]
+                assert abs(ground[0] - ground[1]) <= MAX_GROUND_LUMA_DIFFERENCE, (weather, sun, label, ground)
 
 
 def test_the_horizon_hue_seam_is_reported(board) -> None:

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import contextlib
+import datetime
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 from uuid import UUID
 
@@ -12,10 +14,6 @@ from open_garden_planner.core.plant_renderer import is_plant_type
 from open_garden_planner.services.soil_service import (
     SoilService,
 )
-
-if TYPE_CHECKING:
-    import datetime
-
 
 if TYPE_CHECKING:
     from open_garden_planner.app.application import GardenPlannerApp
@@ -100,7 +98,6 @@ def _parse_agent_date(
     quietly ignored, because a wrong reference date produces a confidently wrong
     current_entry.
     """
-    import datetime
 
     if value is None or value == "":
         return fallback
@@ -188,11 +185,16 @@ class AgentHost:
         host = self._host
         from open_garden_planner.agent_api.exports import save_plan_file
 
-        return host._agent_bridge.run_on_main(
-            lambda: save_plan_file(
+        def save() -> dict[str, Any]:
+            result = save_plan_file(
                 host.canvas_scene, host._project_manager, host._soil_service, file_path
             )
-        )
+            # The same end of a showcase the menu's Save has (#795): a saved
+            # example copy is the user's plan, whoever saved it.
+            host._end_showcase_after_save(Path(result["file_path"]))
+            return result
+
+        return host._agent_bridge.run_on_main(save)
 
 
     def _agent_new_plan(
@@ -299,8 +301,13 @@ class AgentHost:
         # needs. The GUI's _open_project_file is the same call wrapped in a
         # modal QMessageBox, which an agent must never raise on its behalf.
         host._load_project_file(str(resolved))
+        # #865: a bundled example is loaded as an UNTITLED COPY, so the document's
+        # identity is the manager's, never the path this call was given. Reporting
+        # `resolved` would claim a file the user cannot save over.
+        current = host._project_manager.current_file
         return {
-            "file_path": str(resolved),
+            "file_path": str(current) if current is not None else None,
+            "opened_as_copy": current is None,
             "width_cm": host.canvas_scene.width_cm,
             "height_cm": host.canvas_scene.height_cm,
             # A load resets the dirty flag, so read it BEFORE, for the same
@@ -1319,7 +1326,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_succession_plan`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import get_succession_plan_for_agent
 
@@ -1356,7 +1362,6 @@ class AgentHost:
     ) -> list[dict[str, Any]]:
         """Main-thread body of the read-only ``find_succession_gaps`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import find_succession_gaps_for_agent
 
@@ -1548,7 +1553,6 @@ class AgentHost:
         ``succession_plans_changed`` signal chain, not by a duplicated call here.
         """
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import (
             SuccessionPlanError,
@@ -1625,12 +1629,14 @@ class AgentHost:
             year=year,
             actionable_only=actionable_only,
             include_propagation=True,
+            # A live frost alert keeps its real-world reference day (#859), the
+            # same rule the GUI surfaces use.
+            weather_today=datetime.date.today(),
         )
 
 
     def _agent_reference_date(self, today: str | None) -> datetime.date:
         """Parse the tool's injected reference date, defaulting to the wall clock."""
-        import datetime
 
         return _parse_agent_date(today, datetime.date.today(), "today")
 
@@ -1666,7 +1672,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_tasks`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import (
             TASK_SOURCES,
@@ -1735,7 +1740,6 @@ class AgentHost:
     ) -> dict[str, Any]:
         """Main-thread body of the read-only ``get_task_calendar`` tool."""
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import get_task_calendar_for_agent
         from open_garden_planner.services.task_generator import generate_for_date_window
@@ -1811,7 +1815,6 @@ class AgentHost:
         stack. One command either way, so one call is exactly one undo step.
         """
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.schema import ManualTaskResult
         from open_garden_planner.core.commands import (
@@ -2187,7 +2190,6 @@ class AgentHost:
         badges and the dashboard all agree with the new reading.
         """
         host = self._host
-        import datetime
 
         from open_garden_planner.agent_api.domain import (
             SoilTestError,
