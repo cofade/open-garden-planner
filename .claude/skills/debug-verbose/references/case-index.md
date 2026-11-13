@@ -238,3 +238,4 @@
 | Case study: an angle dialog was migrated as a length (#673) | [Read](238-case-study-an-angle-dialog-was-migrated-as-length-673.md) |
 | Case study: decimal marks did not preserve Qt rounding (#673) | [Read](239-case-study-decimal-marks-did-not-preserve-qt-rounding-673.md) |
 | Case study: a paired coordinate escaped the unit guard (#673) | [Read](240-case-study-a-paired-coordinate-escaped-the-unit-guard-673.md) |
+| Case study: repainting retained unit text did not reformat it (#673) | [Read](241-case-study-repainting-retained-unit-text-did-not-reformat-it-673.md) |

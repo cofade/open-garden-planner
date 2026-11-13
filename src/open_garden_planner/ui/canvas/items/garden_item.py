@@ -1620,6 +1620,16 @@ class GardenItemMixin(PositionLockMixin):
         return None
 
 
+    def refresh_measurement_text(self) -> None:
+        """Refresh retained labels/handle tooltips without changing plan geometry."""
+        self._update_area_label()
+        # These mixin hooks move only the existing editing decorations. The
+        # polygon/polyline hook also refreshes a dense outline's handle tips.
+        for name in ("_update_vertex_handles", "_update_rect_corner_handles", "_update_circle_annotations"):
+            refresh = getattr(self, name, None)
+            if refresh is not None:
+                refresh()
+
     def _update_area_label(self) -> None:
         """Create, update, or remove the area label child item."""
         if not self._area_label_visible or not hasattr(self, "boundingRect"):

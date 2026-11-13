@@ -256,8 +256,8 @@ class CanvasScene(QGraphicsScene):
 
     def _on_unit_system_changed(self, _system: UnitSystem) -> None:
         for item in self.items():
-            if hasattr(item, "_update_area_label"):
-                item._update_area_label()
+            if hasattr(item, "refresh_measurement_text"):
+                item.refresh_measurement_text()
         self._dimension_line_manager.update_all()
         self._paint_revision += 1
         self.update()

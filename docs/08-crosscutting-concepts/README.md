@@ -1277,8 +1277,12 @@ scale factors as ordinary numeric fields.
 Read-only text uses `core/measurement_display.length_text`, `area_text` and
 `volume_text`, which supply the active preference and UI decimal mark to the pure
 `core/units.py` formatters. Never append a physical unit after formatting a number.
-Qt surfaces subscribe through `units_notifier().changed`; transient overlays read
-the preference on their next redraw. A preference switch must not emit a value edit
+Qt surfaces subscribe through `units_notifier().changed`; the scene refreshes retained
+vertex/circle labels and handle tooltips, the Constraints panel rebuilds its rows while
+keeping the selected constraint, and the view refreshes the active measurement readout.
+The plain tools and graphics-item mixins never subscribe to an application-wide Qt
+signal themselves: the owning view/scene supplies their lifetime. Other transient
+overlays read the preference on their next redraw. A preference switch must not emit a value edit
 or rebuild geometry. Read-only calendar refresh does not flush pending date edits.
 
 Qt's C++ typing/stepping path bypasses a Python setValue override. The spin box

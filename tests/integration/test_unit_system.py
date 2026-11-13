@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from PyQt6.QtWidgets import QGraphicsSimpleTextItem
 
 from open_garden_planner.app.application import GardenPlannerApp
@@ -30,6 +31,7 @@ def test_switching_units_updates_every_surface_and_keeps_the_file(qtbot, monkeyp
         365.76,
     )
     scene.dimension_line_manager.update_all()
+    window.constraints_panel.refresh()
     bed.setSelected(True)
     window.update_coordinates(30.48, 60.96)
     initial_zoom = view._zoom_factor
@@ -51,6 +53,12 @@ def test_switching_units_updates_every_surface_and_keeps_the_file(qtbot, monkeyp
     assert view._format_distance(view._pick_scale_bar_distance()).endswith((" in", " ft"))
     assert "W: 8' 0\"" in [b.text() for b in window.properties_panel.findChildren(LengthSpinBox)]
     assert view.grid_size == 30.48
+    from PyQt6.QtWidgets import QLabel
+
+    constraint_row = window.constraints_panel._list.itemWidget(
+        window.constraints_panel._list.item(0)
+    )
+    assert any("12' 0\"" in label.text() for label in constraint_row.findChildren(QLabel))
     assert window._project_manager.snapshot_dict(scene)["objects"] == original["objects"]
     path = tmp_path / "imperial.ogp"
     window._project_manager.save(scene, path)
@@ -92,6 +100,7 @@ def test_switching_units_refreshes_photo_focus_and_tour_rows(canvas, qtbot, tmp_
     from open_garden_planner.core.units import UnitSystem
     from open_garden_planner.ui.view3d.tour_dialog import TourDialog
     from tests.integration.test_directors_cut import Rig
+
     rig = Rig(canvas, qtbot, tmp_path)
     rig.open_3d()
     capture = rig.workspace.capture
@@ -99,7 +108,7 @@ def test_switching_units_refreshes_photo_focus_and_tour_rows(canvas, qtbot, tmp_
     capture._blur.setValue(60)
     dialog = TourDialog(capture, rig.workspace)
     qtbot.addWidget(dialog)
-    dialog.motion_combo.setCurrentIndex(dialog.motion_combo.findData('path'))
+    dialog.motion_combo.setCurrentIndex(dialog.motion_combo.findData("path"))
     dialog.add_key_button.click()
     keys, camera, photo = tuple(dialog._keys), rig.workspace._camera_now(), capture.settings
     before = capture._focus_label.text(), dialog.keys_list.item(0).text()
@@ -110,3 +119,54 @@ def test_switching_units_refreshes_photo_focus_and_tour_rows(canvas, qtbot, tmp_
     assert tuple(dialog._keys) == keys
     assert rig.workspace._camera_now() == camera
     assert capture.settings == photo
+
+
+@pytest.mark.parametrize("shape", ["rectangle", "polygon", "polyline", "circle"])
+def test_retained_vertex_and_measure_labels_refresh_without_edit(canvas, qtbot, shape):
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtWidgets import QGraphicsTextItem
+
+    from open_garden_planner.core.tools.base_tool import ToolType
+    from open_garden_planner.core.unit_preference import get_unit_preference
+    from open_garden_planner.core.units import UnitSystem
+
+    view, scene = canvas, canvas.scene()
+    from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, PolylineItem
+
+    points = [QPointF(0, 0), QPointF(243.84, 0), QPointF(243.84, 121.92), QPointF(0, 121.92)]
+    item = {
+        "rectangle": lambda: RectangleItem(0, 0, 243.84, 121.92),
+        "polygon": lambda: PolygonItem(points),
+        "polyline": lambda: PolylineItem(points),
+        "circle": lambda: CircleItem(300, 300, 121.92),
+    }[shape]()
+    scene.addItem(item)
+    if shape == "circle":
+        item.setSelected(True)
+    else:
+        item.enter_vertex_edit_mode()
+    view.set_active_tool(ToolType.MEASURE)
+    measure = view._tool_manager.active_tool
+    measure._draw_measurement(QPointF(0, 500), QPointF(365.76, 500))
+    from open_garden_planner.core import ProjectManager
+
+    project = ProjectManager()
+    geometry = project.snapshot_dict(scene)["objects"]
+    undo_count = len(view.command_manager._undo_stack)
+    get_unit_preference().set_system(UnitSystem.IMPERIAL)
+    qtbot.wait(1)
+    if shape == "circle":
+        labels = [item._center_label, item._diameter_label]
+    elif shape == "rectangle":
+        labels = [*item._rect_coord_labels, *item._rect_edge_labels]
+    else:
+        labels = [*item._coord_labels, *item._edge_labels]
+    assert any("8' 0\"" in label._text for label in labels)
+    assert all("cm" not in label._text and " m" not in label._text for label in labels)
+    assert any(
+        text.toPlainText() == "12' 0\""
+        for text in measure._graphics_items
+        if isinstance(text, QGraphicsTextItem)
+    )
+    assert project.snapshot_dict(scene)["objects"] == geometry
+    assert len(view.command_manager._undo_stack) == undo_count

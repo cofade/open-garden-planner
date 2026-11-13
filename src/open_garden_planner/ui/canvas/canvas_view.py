@@ -4661,8 +4661,13 @@ class CanvasView(QGraphicsView):
             else self.tr("Distance, e.g. 12' 6\""))
 
     def _on_unit_system_changed(self, system: UnitSystem) -> None:
+        from open_garden_planner.core.tools.measure_tool import MeasureTool
+
         self.set_grid_size(grid_size_cm(system))
         self._set_calibration_unit_hint()
+        tool = self._tool_manager.active_tool
+        if isinstance(tool, MeasureTool):
+            tool.refresh_unit_text()
         viewport = self.viewport()
         if viewport is not None:
             viewport.update()
