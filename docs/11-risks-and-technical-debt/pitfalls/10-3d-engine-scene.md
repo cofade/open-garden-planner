@@ -440,7 +440,7 @@ Baseline. Constant quality read 47.1 (Standard) and 49.2 dB (Best) at its worst 
 
 ### PF-E3D-31
 
-- **Rule:** A tour's MP4 states its colour and its level only because the app writes them after the recorder closes: Qt's recorder writes no colour description (its own decoder read the file as `ColorSpace_Undefined`), and at constant quality the encoder labels the level from the frame size alone (36 Mbit/s as level 4.0, whose Baseline limit is 24). `core/mp4_stream.tag_colour` writes BT.709 limited range into the `colr` box and every SPS and raises the level to what the samples need; a file it cannot rewrite is saved untagged, never lost.
+- **Rule:** A tour's MP4 states its colour and its level only because the app writes them after the recorder closes: Qt's recorder writes no colour description (its own decoder read the file as `ColorSpace_Undefined`), and at constant quality the encoder labels the level from the frame size alone (36 Mbit/s as level 4.0, whose Baseline limit is 24). `core/mp4_stream.tag_colour` writes BT.709 limited range into the `colr` box and every SPS and raises the level to what the samples need; an intact file whose optional tagging fails unexpectedly may be saved untagged, while a layout error keeps the part and reports failure (ADR-072 reliability addendum).
 - **Pinned by:** `tests/integration/test_video_writer.py::test_a_finished_video_states_bt709_in_its_container_and_in_its_stream`; `tests/integration/test_video_writer.py::test_a_video_that_cannot_be_tagged_is_saved_untagged_and_says_so_in_the_log`; `tests/unit/test_mp4_stream.py::test_a_file_whose_frames_outgrow_its_level_states_the_one_they_need`
 - **Source:** #807 (ADR-072 addendum "review-grade video"); supersedes the HD convention of the #735 addendum as the only colour statement.
 - **Status:** standing
@@ -461,3 +461,24 @@ alone would be undone in the stream: every SPS is rewritten, and the samples mov
 - **Legacy:** none (new entry)
 
 Symptom: #803 proposed specular 0.05 for rubber to take the warm sheen off the trampoline's mat; measured, 0.05 left it at luma 62.8 - the same as 0.35 (63.5) - while 0.01 read 25.4, exactly the specular-free frame. Sweep (black mat, a 15.2° sun, the camera 6.5 m back along its azimuth, roughness 0.95): 0.0 / 0.005 / 0.01 → 25.4; 0.015 → 62.8; 0.02 → 62.2; 0.05 → 62.8; 0.35 → 63.5. Roughness moved it more: 0.90 → 73.2, 0.98 → 57.7, 1.0 → 54.6 (with the specular on). Cause (consistent with the sweep): Qt keys a principled material's specular in only above 0.01, and its Fresnel reaches 1 at grazing whatever F0 the amount sets. Fix: `SURFACES` gives rubber and canvas specular 0.0; plastic stays on but fully rough (1.0, its pad 8.0° off its blue facing the sun, 9.3° at 0.95).
+
+### PF-E3D-33
+
+- **Rule:** Validate encoder output before promoting it: bound sample-table counts by payload bytes, chunk runs by the real offset table, and sample spans by `mdat`. A structural `Mp4Error` keeps the part and reports failure; only an intact part can fall back to untagged delivery. A closing window must name the destination still owned by a delivery worker and the retained part on failure.
+- **Pinned by:** `tests/unit/test_mp4_stream.py::test_table_counts_must_fit_their_payload_before_unpacking`; `tests/unit/test_mp4_stream.py::test_a_chunk_run_cannot_allocate_more_chunks_than_the_offset_table`; `tests/integration/test_tour_video_reliability.py::test_a_broken_render_is_kept_and_never_replaces_the_users_video`; `tests/integration/test_tour_video_reliability.py::test_closing_during_tagging_names_the_eventual_destination_and_the_retained_part`
+- **Source:** #889, #890; ADR-072 reliability addendum.
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The trace showed a truncated `moov` rejected by the tagger immediately followed by
+promotion of the invalid part over the user's previous video. An optional annotation
+failure and an invalid render require different outcomes. A controlled worker pause
+also reproduced the shutdown report naming unfinished output while delivery continued.
+
+### PF-E3D-34
+
+- **Rule:** Validate a saved orbit by sampling its first camera key before accepting it; the playback key's open FOV interval applies to stored and programmatically constructed tours. Cap detailed rejection warnings without dropping the aggregate skipped count or later valid entries.
+- **Pinned by:** `tests/unit/test_camera_tours.py::test_an_unflyable_orbit_is_rejected_when_the_tour_is_built`; `tests/unit/test_camera_tours.py::test_rejected_tours_have_bounded_logs_and_do_not_hide_a_later_valid_tour`; `tests/integration/test_tour_video_reliability.py::test_loading_a_plan_skips_an_unflyable_orbit_and_still_offers_the_good_tour`
+- **Source:** #891; ADR-072 reliability addendum.
+- **Status:** standing
+- **Legacy:** none (new entry)

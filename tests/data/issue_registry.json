@@ -1321,7 +1321,7 @@
   },
   "842": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Ellipse and circle beds paint no crop-rotation border"
   },
   "865": {
@@ -1334,24 +1334,44 @@
     "state": "CLOSED",
     "title": "Print at a fixed scale puts the short row of tiles on top"
   },
-  "904": {
+  "889": {
     "is_pr": false,
     "state": "OPEN",
+    "title": "Video delivery reports a raw error and does not name the kept render when tagging fails unexpectedly"
+  },
+  "890": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A truncated video part is delivered as a success"
+  },
+  "891": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A saved orbit with a field of view of 0 or 180 is kept but cannot be flown"
+  },
+  "896": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Tour dialog: time and number fields should use the app's locale helpers once both visual-polish PRs are merged"
+  },
+  "904": {
+    "is_pr": false,
+    "state": "CLOSED",
     "title": "Callout tool: Escape on an empty annotation leaves an empty callout behind (Text-tool #827 asymmetry)"
   },
   "905": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant details header occupies too much space"
   },
   "909": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Text tool: a cancelled empty annotation still marks a clean project dirty"
   },
   "913": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#904, #909, #842, #905, #881): annotation cancellation, bed borders and panel follow-ups"
   }
 }

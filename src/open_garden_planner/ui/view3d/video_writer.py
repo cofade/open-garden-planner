@@ -16,7 +16,8 @@ asked for: the module costs the app's start nothing. The verified path (ADR-072)
 - The finished file states what it is (``core/mp4_stream.py``): BT.709 limited range in its
   ``colr`` box and every SPS, and the level its frames need. The recorder states neither.
   That copy is made on a worker thread before the file gets the user's name; if it cannot
-  be made, the untagged video is saved, and the log says so.
+  be made, an intact untagged video is saved, and the log says so. A structural error
+  keeps the part file and reports failure; it never overwrites an earlier video.
 
 A writer takes frames as they come and says when it has had enough: ``write`` returns
 False while its queue is full, and the caller offers the same frame again. ``finish`` ends
@@ -39,7 +40,7 @@ import numpy as np
 from PyQt6.QtCore import QCoreApplication, QObject, QSize, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QImage
 
-from open_garden_planner.core.mp4_stream import Mp4Error, StreamInfo, tag_colour
+from open_garden_planner.core.mp4_stream import Mp4Error, StreamInfo, read_stream, tag_colour
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.video_yuv import rgb_to_yuv420
 
@@ -295,6 +296,11 @@ class Mp4Writer(_Sink):
         self._aborted = True
         self.finish()
 
+    @property
+    def delivering(self) -> bool:
+        """The encoder has closed; the worker owns delivery, even during app shutdown."""
+        return self._delivery is not None
+
     def _look_if_stopped(self) -> None:
         recorder = self._recorder
         media = _multimedia()
@@ -323,8 +329,11 @@ class Mp4Writer(_Sink):
 
     def _deliver(self) -> tuple[bool, str]:
         """Worker thread, no Qt: the finished part tagged (``core/mp4_stream.py``) and moved
-        to the user's name. A part that cannot be tagged is moved as it is: the tags are a
-        statement about the render, never a reason to lose it."""
+        to the user's name. Only an intact part may fall back to untagged delivery."""
+        try:
+            self.stream = read_stream(self.part_path, read_samples=False)
+        except Exception as error:   # the encoder's output is untrusted input
+            return self._delivery_failure(error)
         source = self.part_path
         tagged: Path | None = None
         try:
@@ -334,10 +343,12 @@ class Mp4Writer(_Sink):
             tagged = Path(name)
             self.stream = tag_colour(self.part_path, tagged)
             source = tagged
-        except (Mp4Error, OSError) as error:
+        except Exception as error:   # optional tagging must not lose an intact render (#889)
             if tagged is not None:
-                tagged.unlink(missing_ok=True)
+                self._discard_temp(tagged)
             tagged = None
+            if isinstance(error, Mp4Error):   # a malformed sample/layout is not a usable video
+                return self._delivery_failure(error)
             _LOG.warning("Video: %s is saved untagged (%s: %s)", log_text(self.path),
                          type(error).__name__, log_text(error))
         try:
@@ -348,7 +359,7 @@ class Mp4Writer(_Sink):
                 try:   # the render kept by the part's name is the tagged one, where it can be
                     os.replace(tagged, self.part_path)
                 except OSError:
-                    tagged.unlink(missing_ok=True)   # the part itself is the whole render
+                    self._discard_temp(tagged)   # the part itself is the whole render
             return False, _tr(
                 "{path} could not be replaced ({error}). The video is saved as {part}.").format(
                     path=self.path, error=error, part=self.part_path)
@@ -356,6 +367,21 @@ class Mp4Writer(_Sink):
             self._discard_part()
         self._log_delivered()
         return True, ""
+
+    def _delivery_failure(self, error: Exception) -> tuple[bool, str]:
+        _LOG.error("Video: %s was not delivered; render kept at %s (%s: %s)",
+                   log_text(self.path), log_text(self.part_path),
+                   type(error).__name__, log_text(error))
+        return False, _tr(
+            "The video could not be prepared. The render is kept as {part}. "
+            "The destination was not replaced.").format(part=self.part_path)
+
+    @staticmethod
+    def _discard_temp(path: Path) -> None:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as error:
+            _LOG.warning("Video: temporary copy %s stays behind (%s)", log_text(path), log_text(error))
 
     def _log_delivered(self) -> None:
         stream = self.stream
@@ -380,7 +406,9 @@ class Mp4Writer(_Sink):
         if failure is not None:   # a bug in the delivery itself: say it, never hang the dialog
             _LOG.error("Video: delivering %s failed (%s: %s)", log_text(self.path),
                        type(failure).__name__, log_text(failure))
-            self.finished.emit(False, f"{type(failure).__name__}: {failure}")
+            self.finished.emit(False, _tr(
+                "Video delivery failed. Check {path} and {part} for the output.").format(
+                    path=self.path, part=self.part_path))
             return
         ok, message = delivery.result()
         self.finished.emit(ok, message)

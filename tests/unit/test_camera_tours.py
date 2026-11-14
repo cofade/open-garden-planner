@@ -61,6 +61,22 @@ KEYS = (
 ORBIT = DroneOrbit(CameraPose((400.0, 300.0), 2150.75, 33.5, 28.25), 40.0, 2.0, False)
 
 
+@pytest.mark.parametrize("fov", [0.0, 180.0])
+def test_an_unflyable_orbit_is_rejected_when_the_tour_is_built(fov: float) -> None:
+    with pytest.raises(ValueError, match="fov"):
+        SavedTour("Invalid lens", "orbit", orbit=replace(ORBIT, fov_deg=fov))
+
+
+def test_rejected_tours_have_bounded_logs_and_do_not_hide_a_later_valid_tour(caplog) -> None:
+    good = SavedTour("Good", "orbit", orbit=ORBIT)
+    bad = good.to_dict()
+    bad["orbit"]["fov_deg"] = 180.0
+    kept, skipped = load_tours([bad] * 1000 + [good.to_dict()])
+    assert kept == (good,) and skipped == 1000
+    assert len(caplog.records) <= 6
+    assert "1000 of 1001" in caplog.records[-1].message
+
+
 def flight(name: str = "Promo Flight", **changes: Any) -> SavedTour:
     return replace(SavedTour(name, "path", keys=KEYS), **changes)
 

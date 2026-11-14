@@ -144,6 +144,12 @@ class TourRecorder(QObject):
         folder = getattr(self._writer, "folder", None)
         return Path(folder) if folder is not None else None
 
+    def delivery_target(self) -> Path | None:
+        """A completed recording's destination while the delivery worker still owns it."""
+        if getattr(self._writer, "delivering", False):
+            return Path(self._writer.path)
+        return None
+
     def abort_now(self) -> None:
         """End it this instant. The window is closing and no timer step will come."""
         if self._ending:

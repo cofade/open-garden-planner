@@ -30,8 +30,8 @@ and of the ``colr`` box, the number of samples and their timing.
 
 The layout it rewrites is the one FFmpeg's muxer writes for one video track: ``ftyp``,
 ``free``, ``mdat``, then ``moov``. Anything else (``moov`` first, a fragmented file, a second
-track, a constant sample size) raises ``Mp4Error`` and the caller keeps the file as it is: an
-untagged video is still a video, a lost render is not.
+track, a constant sample size) raises ``Mp4Error``. Delivery keeps that part under its own
+name and reports failure; an unreadable render must never replace the user's good video.
 """
 
 from __future__ import annotations
@@ -532,6 +532,18 @@ def _table(box: _Box | None, name: str) -> bytes:
     return box.payload[4:]
 
 
+def _counted_table(box: _Box | None, name: str, stride: int, *, header: int = 4
+                   ) -> tuple[bytes, int]:
+    """Check byte bounds before a count can drive an unpack, loop or allocation (#889)."""
+    data = _table(box, name)
+    if len(data) < header:
+        raise Mp4Error(f"the {name} table ends inside its header")
+    count = struct.unpack_from(">I", data, header - 4)[0]
+    if not count or count * stride != len(data) - header:
+        raise Mp4Error(f"the {name} count does not fit its payload")
+    return data, count
+
+
 def _video_track(moov: _Box) -> _Track:
     if moov.find(b"mvex") is not None:
         raise Mp4Error("a fragmented file")
@@ -547,29 +559,45 @@ def _video_track(moov: _Box) -> _Track:
     if len(entries) != 1 or entries[0].kind not in _VISUAL_ENTRIES:
         raise Mp4Error("the track is not one video sample entry this module knows")
     timescale = struct.unpack_from(">I", mdhd.payload, 20 if mdhd.payload[0] == 1 else 12)[0]
-    sizes_table = _table(stbl.find(b"stsz"), "stsz")
-    constant, count = struct.unpack_from(">II", sizes_table)
+    sizes_table, count = _counted_table(stbl.find(b"stsz"), "stsz", 4, header=8)
+    constant = struct.unpack_from(">I", sizes_table)[0]
     if constant:
         raise Mp4Error("a constant sample size")
     sizes = list(struct.unpack_from(f">{count}I", sizes_table, 8))
     offsets_box = stbl.find(b"stco") or stbl.find(b"co64")
-    offsets_table = _table(offsets_box, "stco")
-    chunks = struct.unpack_from(">I", offsets_table)[0]
     wide = offsets_box is not None and offsets_box.kind == b"co64"
+    offsets_table, chunks = _counted_table(offsets_box, "co64" if wide else "stco", 8 if wide else 4)
     offsets = list(struct.unpack_from(f">{chunks}{'Q' if wide else 'I'}", offsets_table, 4))
-    runs_table = _table(stbl.find(b"stsc"), "stsc")
+    runs_table, run_count = _counted_table(stbl.find(b"stsc"), "stsc", 12)
     runs = [struct.unpack_from(">III", runs_table, 4 + 12 * index)
-            for index in range(struct.unpack_from(">I", runs_table)[0])]
+            for index in range(run_count)]
+    if (runs[0][0] != 1 or any(
+            not 1 <= first <= chunks or not 1 <= per <= count or description != 1
+            or (index > 0 and first <= runs[index - 1][0])
+            for index, (first, per, description) in enumerate(runs))):
+        raise Mp4Error("the stsc runs do not fit the sample and chunk tables")
     per_chunk: list[int] = []
     for index, (first, per, _description) in enumerate(runs):
         last = runs[index + 1][0] - 1 if index + 1 < len(runs) else chunks
-        per_chunk.extend([per] * max(0, last - first + 1))
+        per_chunk.extend([per] * (last - first + 1))
     if len(per_chunk) != chunks or sum(per_chunk) != count:
-        raise Mp4Error("the sample-to-chunk table does not add up")
-    times_table = _table(stbl.find(b"stts"), "stts")
+        raise Mp4Error("the stsc sample-to-chunk table does not add up")
+    times_table, time_count = _counted_table(stbl.find(b"stts"), "stts", 8)
     durations = tuple(struct.unpack_from(">II", times_table, 4 + 8 * index)
-                      for index in range(struct.unpack_from(">I", times_table)[0]))
+                      for index in range(time_count))
+    if (not timescale or sum(n for n, _delta in durations) != count
+            or any(not n or not delta for n, delta in durations)):
+        raise Mp4Error("the stts durations do not describe the samples")
     return _Track(entries[0], stbl, sizes, offsets, per_chunk, timescale, durations)
+
+
+def _validate_sample_spans(track: _Track, mdat: _TopBox) -> None:
+    """No sample read or copy may escape the media payload, or overlap its predecessor."""
+    cursor, end = mdat.start + mdat.header, mdat.start + mdat.size
+    for offset, size in track.spans():
+        if size <= 0 or offset < cursor or offset + size > end:
+            raise Mp4Error("a sample lies outside the mdat payload or overlaps another")
+        cursor = offset + size
 
 
 def _layout_of(handle: BinaryIO, length: int) -> tuple[list[_TopBox], _TopBox, _Box]:
@@ -636,8 +664,9 @@ def read_stream(path: Path, *, read_samples: bool = True) -> StreamInfo:
     file). ``Mp4Error`` when it is not a file this module reads."""
     path = Path(path)
     with path.open("rb") as handle:
-        _boxes, _mdat, moov = _layout_of(handle, path.stat().st_size)
+        _boxes, mdat, moov = _layout_of(handle, path.stat().st_size)
         track = _video_track(moov)
+        _validate_sample_spans(track, mdat)
         entry = track.entry
         width, height = struct.unpack_from(">HH", entry.lead, 24)
         sps: SpsInfo | None = None
@@ -707,15 +736,16 @@ def tag_colour(source: Path, target: Path, tags: ColourTags = BT709_LIMITED) -> 
     try:
         with source.open("rb") as reading, target.open("wb") as writing:
             _rewrite(reading, source.stat().st_size, writing, tags)
+        return read_stream(target, read_samples=False)
     except BaseException:
         target.unlink(missing_ok=True)
         raise
-    return read_stream(target, read_samples=False)
 
 
 def _rewrite(reading: BinaryIO, length: int, writing: BinaryIO, tags: ColourTags) -> None:
     boxes, mdat, moov = _layout_of(reading, length)
     track = _video_track(moov)
+    _validate_sample_spans(track, mdat)
     entry = track.entry
     _set_colr(entry, tags)
     avc = entry.kind in _AVC_ENTRIES

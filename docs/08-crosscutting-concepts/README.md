@@ -3335,6 +3335,18 @@ would recompute. Pinned by `tests/unit/test_string_lights.py::test_a_line_of_twe
 and `tests/integration/test_string_lights_line.py::test_a_crafted_line_of_twenty_thousand_points_is_bounded`
 (one walk for two paints; a moved point lays it out again).
 
+### 8.11.6 Encoder output is untrusted binary input (#889, #890)
+
+`core/mp4_stream.py` validates each sample-table count against the actual payload
+before using it in an unpack, loop or allocation. Sample-to-chunk runs start at one,
+increase strictly and stay within the offset table; their sample totals and timing
+totals agree with the size table. Sample spans stay within `mdat` without overlap.
+This applies even when a caller skips reading sample bytes. Malformed data raises
+`Mp4Error`; delivery keeps the part and never promotes it over the destination.
+An unexpected optional-tagging exception has a separate fallback for an intact part
+(ADR-072 addendum). The regressions are in `tests/unit/test_mp4_stream.py` and
+`tests/integration/test_tour_video_reliability.py`.
+
 ## 8.12 Constraint Solver Architecture
 
 The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 17 constraint types and runs in two phases.
