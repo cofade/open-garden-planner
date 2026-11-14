@@ -201,15 +201,18 @@ class CancellablePlacement:
     ``item`` and ``command`` are the pair that must leave together — the
     CreateItemCommand is already on the undo stack. ``dirty_before`` is the
     document's unsaved-changes flag before the placement (``None`` when the
-    view is not embedded in an application window), and ``mutation_serial``
-    is the undo stack's counter right after the placement's ``execute``: a
-    cancellation restores the flag only when no other command ran since.
+    view is not embedded in an application window), ``mutation_serial`` is the
+    undo stack's counter right after the placement's ``execute`` and
+    ``dirty_serial`` the project's count of dirty requests: a cancellation
+    restores the flag only when neither counter moved except by its own
+    discard.
     """
 
     item: QGraphicsItem
     command: CreateItemCommand
     dirty_before: bool | None
     mutation_serial: int
+    dirty_serial: int
 
 
 class CanvasView(QGraphicsView):
@@ -976,6 +979,7 @@ class CanvasView(QGraphicsView):
             command=command,
             dirty_before=dirty_before,
             mutation_serial=self._command_manager.mutation_serial,
+            dirty_serial=project.dirty_serial if project is not None else 0,
         )
 
     def commit_cancellable_placement(self, _placement: CancellablePlacement) -> None:
@@ -1010,10 +1014,17 @@ class CanvasView(QGraphicsView):
         no_other_mutation = (
             self._command_manager.mutation_serial == placement.mutation_serial + 1
         )
+        # The discard itself is one fresh dirty request; any other one is a
+        # direct project edit (location, soil, tasks) made during the gesture.
+        no_other_dirty_request = (
+            project is not None
+            and project.dirty_serial == placement.dirty_serial + 1
+        )
         if (
             project is not None
             and placement.dirty_before is not None
             and no_other_mutation
+            and no_other_dirty_request
         ):
             project.restore_dirty(placement.dirty_before)
         return True

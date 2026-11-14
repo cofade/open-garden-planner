@@ -794,3 +794,43 @@ class TestEscapeReturnsToSelect:
         assert view.command_manager.undo_depth == depth_before
         assert scene.plan_revision == revision_before
         assert project.is_dirty is False, "a net-zero gesture dirtied a clean plan"
+
+    def test_a_direct_project_change_during_a_pending_annotation_survives_esc(
+        self, qtbot: object
+    ) -> None:
+        """#909: the dirty restore must not hide a non-command project edit.
+
+        ``ProjectManager.set_location`` and its siblings call ``mark_dirty``
+        directly, not through the undo stack. One such edit while an empty note
+        is pending must keep the project dirty after Esc.
+        """
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)  # type: ignore[attr-defined]
+        window.resize(900, 700)
+        window.show()
+        QTest.qWaitForWindowExposed(window)
+
+        project = window._project_manager
+        scene = window.canvas_scene
+        view = window.canvas_view
+        project.mark_clean()
+
+        view.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(400, 300))
+        assert any(isinstance(i, TextItem) for i in scene.items())
+
+        project.mark_dirty()  # the location/soil/task setters' direct path
+
+        QTest.keyClick(view, Qt.Key.Key_Escape)
+
+        assert not any(isinstance(i, TextItem) for i in scene.items())
+        assert project.is_dirty is True, "a real direct edit was cleared with the note"
+
+        # pytest-qt closes the window at teardown; leave it clean for that path.
+        project.mark_clean()

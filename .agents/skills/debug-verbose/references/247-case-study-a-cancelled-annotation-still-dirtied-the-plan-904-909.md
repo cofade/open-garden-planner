@@ -28,8 +28,9 @@ bumped by four independent chokepoints, so "undo the bump" is not a single opera
 **Fix** (`CanvasView.add_cancellable_item` and `CanvasScene`'s plan-change hold): the
 gesture's plan-change announcements are held while the annotation may still be
 cancelled. A committed note releases one revision; a cancelled one releases none. The
-dirty flag is restored from a snapshot only when `CommandManager.mutation_serial`
-proves no other command ran since the placement. The Callout tool now uses the same
+dirty flag is restored from a snapshot only when `CommandManager.mutation_serial` and
+`ProjectManager.dirty_serial` prove that nothing but the discard changed the document
+since the placement. The Callout tool now uses the same
 seam, so an empty callout leaves neither scene item nor history entry.
 
 **Lesson**: a cancellation seam must own the *document* state, not just the scene and

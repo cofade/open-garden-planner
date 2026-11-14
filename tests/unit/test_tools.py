@@ -440,7 +440,7 @@ class TestTextTool:
         mock_item = MagicMock()
         mock_item.content = ""
         mock_command = MagicMock()
-        pending = CancellablePlacement(mock_item, mock_command, None, 0)
+        pending = CancellablePlacement(mock_item, mock_command, None, 0, 0)
 
         tool._pending = pending
         tool.cancel()
@@ -456,7 +456,7 @@ class TestTextTool:
         tool = TextTool(mock_view)
         mock_item = MagicMock()
         mock_item.content = "Garden Bed #1"
-        pending = CancellablePlacement(mock_item, MagicMock(), None, 0)
+        pending = CancellablePlacement(mock_item, MagicMock(), None, 0, 0)
 
         tool._pending = pending
         tool.cancel()
@@ -477,7 +477,7 @@ class TestTextTool:
         tool = TextTool(mock_view)
         mock_item = MagicMock()
         mock_item.content = ""
-        pending = CancellablePlacement(mock_item, MagicMock(), None, 0)
+        pending = CancellablePlacement(mock_item, MagicMock(), None, 0, 0)
 
         tool._pending = pending
         tool.cancel()

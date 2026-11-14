@@ -297,6 +297,12 @@ class ProjectManager(QObject):
         # The title of the example or template this unsaved plan was opened from.
         self._template_title: str | None = None
         self._dirty = False
+        #: Counts every mark_dirty() call, including the idempotent ones made
+        #: while the project is already dirty. A cancelled placement compares
+        #: it with the value it snapshotted, so a direct project edit made
+        #: during the gesture (location, soil, tasks) cannot be cleared by the
+        #: dirty restore (#909).
+        self._dirty_serial = 0
         self._location: dict[str, Any] | None = None
         self._north_angle_deg: float = DEFAULT_NORTH_ANGLE_DEG
         self._task_completions: set[str] = set()
@@ -975,9 +981,15 @@ class ProjectManager(QObject):
 
     def mark_dirty(self) -> None:
         """Mark the project as having unsaved changes."""
+        self._dirty_serial += 1
         if not self._dirty:
             self._dirty = True
             self.dirty_changed.emit(True)
+
+    @property
+    def dirty_serial(self) -> int:
+        """Count of unsaved-change requests (see ``_dirty_serial``)."""
+        return self._dirty_serial
 
     def mark_clean(self) -> None:
         """Mark the project as saved (no unsaved changes)."""
