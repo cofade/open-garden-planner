@@ -429,9 +429,9 @@ Recent is untouched.
 
 ### PF-PER-29
 
-- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair. Resolve the pending pair on **every** way the placement can finish — Esc, a tool switch, and a click that starts the next annotation — not only on the one path the bug report named, and commit a note that has text before keeping the pair (`TextItem.finish_editing`): focus-out is not guaranteed on the tool-switch and click paths, and `TextItem.content`, not the live document, is what the plan serializes.
-- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/integration/test_tool_switching.py::test_clicking_away_with_no_text_leaves_no_empty_annotation`; `tests/unit/test_commands.py::test_discard_refuses_a_command_that_is_not_on_top`; `tests/unit/test_commands.py::test_discard_leaves_a_non_empty_redo_stack_alone`
-- **Source:** #827
+- **Rule:** A tool that cancels a just-created item takes the scene item and its undo command off together — `CommandManager.discard` the exact top command FIRST, and call `scene.removeItem` only when the discard returned `True`; never remove the scene item alone after `add_item()` executed its command. `discard` pops the history entry only (it never calls the command's `undo()`), so the caller owns the other half of the pair. Resolve the pending pair on **every** way the placement can finish — Esc, a tool switch, and a click that starts the next annotation — not only on the one path the bug report named, and commit a note that has text before keeping the pair (`TextItem.finish_editing`): focus-out is not guaranteed on the tool-switch and click paths, and `TextItem.content`, not the live document, is what the plan serializes. A withdrawn pair must also be **net-zero for the document**: suppress only the placement/withdrawal's synchronous announcements and restore the dirty flag only when unchanged scene `plan_revision` plus `CommandManager.mutation_serial` and `ProjectManager.dirty_serial` prove no other change since (`CanvasView.add_cancellable_item` / `discard_cancellable_placement`, ADR-004's #909 addendum).
+- **Pinned by:** `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`; `tests/integration/test_tool_switching.py::test_clicking_away_with_no_text_leaves_no_empty_annotation`; `tests/integration/test_tool_switching.py::test_a_cancelled_empty_annotation_leaves_a_clean_project_clean`; `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_the_plan_revision_alone`; `tests/integration/test_callout.py::test_escaping_an_empty_callout_withdraws_it_and_its_history_entry`; `tests/unit/test_commands.py`
+- **Source:** #827, #904, #909, ADR-004 addenda
 - **Status:** standing
 - **Legacy:** none (new entry)
 
@@ -459,3 +459,15 @@ annotation and its command behind: consistent, but an empty note in the saved
 plan. `cancel()` also commits a note that has text (`TextItem.finish_editing`),
 because those two paths end the placement without a focus-out and `_content`,
 which the serializer reads, is only synced by the commit.
+
+Second symptom (#909): the withdrawn gesture still marked a clean plan dirty and
+moved `plan_revision`, because the placement's `execute()` fires `stack_changed`
+before the cancellation exists and neither `mark_dirty` (idempotent) nor a
+monotonic revision can be undone by `discard()`. Fix: only the synchronous placement
+and withdrawal suppress their own announcements (`CanvasScene.begin_plan_change_hold`).
+Editor completion announces a kept placement once; unrelated writers during editing
+announce immediately. The dirty flag is restored from the pre-placement snapshot only
+when command and project mutation counters plus an unchanged scene revision prove nothing else changed. The Callout tool
+had the mirror-image hole (#904): Esc left the empty callout and its command in
+place; it now uses the same `add_cancellable_item` / `discard_cancellable_placement`
+seam, and `CanvasScene.clear()` drops any hold a document replacement strands.

@@ -1568,6 +1568,36 @@ class GardenItemMixin(PositionLockMixin):
         painter.drawPath(self.shape())  # type: ignore[attr-defined]
         painter.restore()
 
+    #: Crop-rotation status ink, one source for every bed shape (US-12.10f, #842).
+    ROTATION_STATUS_COLORS = {
+        "good": QColor(46, 125, 50, 160),        # Green
+        "suboptimal": QColor(245, 127, 23, 160),  # Amber
+        "violation": QColor(198, 40, 40, 160),    # Red
+    }
+
+    def _draw_rotation_status_border(self, painter: Any, path: QPainterPath) -> None:
+        """Draw the crop-rotation status as a 4 px inner outline (#842).
+
+        Every bed shape draws the same ink from the same source. *path* is the
+        shape's own outline: rectangle and ellipse pass an outline inset by the
+        historical 2 cm gap, a polygon passes its raw vertex path (its
+        ``shape()`` is the stroke envelope, which would draw an uneven
+        double-line).
+        """
+        if self._rotation_status is None or not self._diagnostics_painted():
+            return
+        color = self.ROTATION_STATUS_COLORS.get(self._rotation_status)
+        if color is None:
+            return
+        pen = QPen(color)
+        pen.setWidthF(4.0)
+        pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
+        painter.save()
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+        painter.restore()
+
     def _draw_capacity_badge(self, painter: Any) -> None:
         """Draw a red warning triangle when a container is over capacity (US-C3).
 

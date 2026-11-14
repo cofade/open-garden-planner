@@ -5,7 +5,7 @@
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant P as Properties / Plant Details
+    participant P as Panels / inline annotation editors
     participant H as CommandManager
     participant S as ProjectManager
     U->>P: Edit numeric or text field
@@ -13,6 +13,7 @@ sequenceDiagram
     U->>H: Undo or Redo
     H->>P: before_history_navigation
     P->>H: Commit active text and end numeric gesture
+    P->>P: Finish pending annotation; keep text or withdraw empty pair
     H->>H: Select and apply current history entry
     H->>P: history_navigated
     P->>P: Refresh model values without committing

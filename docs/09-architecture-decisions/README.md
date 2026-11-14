@@ -104,6 +104,51 @@ neither `mark_dirty` nor the monotonic revision counter can be withdrawn from
 `tests/unit/test_commands.py::TestCommandManagerDiscard` and
 `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`.
 
+### Addendum (2026-11-14, #904/#909 — the net-zero annotation gesture)
+
+The tradeoff above is resolved. A placement that may still be cancelled now runs
+through `CanvasView.add_cancellable_item()`, which keeps the immediate
+`execute()` (every placement tool relies on it) but suppresses only the synchronous
+creation and withdrawal bumps with `CanvasScene.begin_plan_change_hold()` /
+`end_plan_change_hold(commit=False)`. No hold spans user input. The editor's
+completion commits a kept placement as one revision; unrelated scene writes during
+editing announce immediately. The revision never moves for a net-zero gesture and never
+rewinds, so revision-keyed consumers (the 3D view, `SunExportGate`) keep their
+monotonic contract.
+
+The dirty flag is still latched by `stack_changed` when the command executes;
+`CanvasView.discard_cancellable_placement()` restores it from the snapshot taken
+before the placement only when `CommandManager.mutation_serial` proves no other
+command ran and `ProjectManager.dirty_serial` proves no direct project edit
+(location, soil, tasks) asked for the dirty state in the meantime. A refused
+discard, an interleaved command or a direct edit therefore keeps the project
+dirty. An unchanged scene `plan_revision` is also required, covering direct scene
+writes (resize/add/remove/move) that do not request project dirtiness themselves.
+`ProjectManager.restore_dirty()` is the one setter for that path.
+
+The Callout tool uses the same seam (#904): Escape on a callout with no text
+discards its `CreateItemCommand` and removes the item, exactly as the Text tool
+does; a callout with text is committed and kept. Both editors notify their tool when
+editing ends; the tool disconnects that notification before resolving its pending
+pair. Save and history navigation flush inline annotation editors first. Placement
+identity guards stop a stale completion from committing another placement, and a
+destroyed item's completion is a no-op. `dirty_serial` counts every dirty, clean and
+restore request, even when the flag stays unchanged.
+
+Alternatives rejected: deferring the command's `execute()` until the annotation
+is committed (breaks the execute-immediately contract and leaves an un-undoable
+item on screen); rewinding `plan_revision` to the snapshot (an ABA value for
+consumers that key on it); restoring the dirty flag unconditionally (would hide a
+real change made between placement and cancellation); a hold spanning the whole
+gesture (delayed unrelated revisions and could drop a canvas resize on cancellation).
+
+No `.ogp` change and no `FILE_VERSION` bump. Pinned by
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect::test_escaping_an_empty_text_annotation_leaves_the_plan_revision_alone`,
+`...::test_a_committed_text_annotation_announces_one_plan_change`,
+`...::test_a_cancelled_empty_annotation_leaves_a_clean_project_clean`,
+`tests/integration/test_callout.py::TestCancel::test_escaping_an_empty_callout_withdraws_it_and_its_history_entry`
+and `tests/unit/test_commands.py::TestMutationSerial`.
+
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
 **Status**: Accepted

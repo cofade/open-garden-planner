@@ -15,6 +15,21 @@ from open_garden_planner.core.project import (
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 
 
+def test_dirty_serial_records_every_request_and_restore_only_signals_changes(qtbot):
+    project = ProjectManager()
+    signals = []
+    project.dirty_changed.connect(signals.append)
+    serial = project.dirty_serial
+    project.mark_clean()
+    project.mark_dirty()
+    project.mark_dirty()
+    project.restore_dirty(True)
+    project.restore_dirty(False)
+    project.restore_dirty(False)
+    assert project.dirty_serial == serial + 6
+    assert signals == [True, False]
+
+
 class TestProjectData:
     """Tests for ProjectData class."""
 

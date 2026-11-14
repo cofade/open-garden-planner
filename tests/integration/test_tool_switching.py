@@ -286,6 +286,83 @@ class TestEscapeReturnsToSelect:
         assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
         assert manager.undo_depth == depth_before
 
+    def test_escaping_an_empty_text_annotation_leaves_the_plan_revision_alone(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """#909: a net-zero gesture must not announce a plan change."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+        revision_before = canvas.scene().plan_revision
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        assert any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert canvas.scene().plan_revision == revision_before, (
+            "the pending placement is held: it is not a plan change until committed"
+        )
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert not any(isinstance(i, TextItem) for i in canvas.scene().items())
+        assert canvas.scene().plan_revision == revision_before
+
+    def test_a_committed_text_annotation_announces_one_plan_change(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The held gesture releases as exactly one revision when it commits."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+        revision_before = canvas.scene().plan_revision
+        changes: list[int] = []
+        canvas.scene().plan_changed.connect(changes.append)
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+        item = next(i for i in canvas.scene().items() if isinstance(i, TextItem))
+        item.setPlainText("Garden Bed #1")
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.scene().plan_revision == revision_before + 1
+        assert changes == [revision_before + 1]
+
+    def test_a_document_replacement_drops_a_pending_annotations_hold(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Loading another plan mid-annotation must not silence its plan changes (#909)."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)
+
+        canvas.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(300, 300))
+
+        # A load replaces the document under the pending annotation.
+        canvas.scene().clear()
+        revision = canvas.scene().plan_revision
+        canvas.scene().note_plan_changed()
+        assert canvas.scene().plan_revision == revision + 1, (
+            "the replacement document's changes were still held"
+        )
+
+        # The stale Escape must not raise and must let go of the dead item.
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+
     def test_non_empty_text_annotation_escape_preserves_undo_history(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
@@ -550,9 +627,9 @@ class TestEscapeReturnsToSelect:
         assert first.scene() is canvas.scene(), "a refused discard keeps the pair"
         assert manager.undo_depth == depth_before + 3
 
-        manager.undo()  # the second, empty note
-        assert first.scene() is canvas.scene()
-        manager.undo()  # the interleaved rectangle
+        # History first flushes (and withdraws) the second empty editor, then
+        # undoes the interleaved rectangle. The refused first pair stays intact.
+        manager.undo()
         assert other_item.scene() is None
         assert first.scene() is canvas.scene()
         manager.undo()  # the first note
@@ -681,3 +758,81 @@ class TestEscapeReturnsToSelect:
             window.main_toolbar._buttons[ToolType.SELECT], Qt.MouseButton.LeftButton
         )
         assert view.tool_manager.active_tool_type == ToolType.SELECT
+
+    def test_a_cancelled_empty_annotation_leaves_a_clean_project_clean(
+        self, qtbot: object
+    ) -> None:
+        """#909: click + Esc must not ask to save a plan that did not change."""
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)  # type: ignore[attr-defined]
+        window.resize(900, 700)
+        window.show()
+        QTest.qWaitForWindowExposed(window)
+
+        project = window._project_manager
+        scene = window.canvas_scene
+        view = window.canvas_view
+        project.mark_clean()
+        revision_before = scene.plan_revision
+        depth_before = view.command_manager.undo_depth
+
+        view.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(400, 300))
+        assert any(isinstance(i, TextItem) for i in scene.items())
+        # While the note may still be kept, the placement IS an unsaved change.
+        assert project.is_dirty is True
+
+        QTest.keyClick(view, Qt.Key.Key_Escape)
+
+        assert not any(isinstance(i, TextItem) for i in scene.items())
+        assert view.command_manager.undo_depth == depth_before
+        assert scene.plan_revision == revision_before
+        assert project.is_dirty is False, "a net-zero gesture dirtied a clean plan"
+
+    def test_a_direct_project_change_during_a_pending_annotation_survives_esc(
+        self, qtbot: object
+    ) -> None:
+        """#909: the dirty restore must not hide a non-command project edit.
+
+        ``ProjectManager.set_location`` and its siblings call ``mark_dirty``
+        directly, not through the undo stack. One such edit while an empty note
+        is pending must keep the project dirty after Esc.
+        """
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtTest import QTest
+
+        from open_garden_planner.app.application import GardenPlannerApp
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)  # type: ignore[attr-defined]
+        window.resize(900, 700)
+        window.show()
+        QTest.qWaitForWindowExposed(window)
+
+        project = window._project_manager
+        scene = window.canvas_scene
+        view = window.canvas_view
+        project.mark_clean()
+
+        view.set_active_tool(ToolType.TEXT)
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(400, 300))
+        assert any(isinstance(i, TextItem) for i in scene.items())
+
+        location = {"latitude": 52.5, "longitude": 13.4}
+        project.set_location(location)
+
+        QTest.keyClick(view, Qt.Key.Key_Escape)
+
+        assert not any(isinstance(i, TextItem) for i in scene.items())
+        assert project.is_dirty is True, "a real direct edit was cleared with the note"
+        assert project.location == location
+
+        # pytest-qt closes the window at teardown; leave it clean for that path.
+        project.mark_clean()

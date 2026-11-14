@@ -245,3 +245,51 @@ class TestPlantThumbnailDownload:
 
         panel.shutdown()
         assert panel._thumb_worker is None
+
+
+class TestProfileHeaderHeight:
+    """#905: the profile header must not eat the space the details need."""
+
+    def test_the_details_scroll_gets_the_surplus_sidebar_height(self, qtbot) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        panel.resize(450, 1198)
+        panel.show()
+        panel.set_selected_items([
+            _plant(
+                PlantSpeciesData(
+                    common_name="Apple tree",
+                    scientific_name="Malus domestica",
+                    description="A garden apple tree.",
+                )
+            )
+        ])
+        QApplication.processEvents()
+
+        assert panel._profile_header.isVisibleTo(panel)
+        # The header keeps the height its own content asks for...
+        natural = panel._profile_header.heightForWidth(panel._profile_header.width())
+        assert panel._profile_header.height() <= natural + 2
+        # ...and the details viewport receives the rest of the sidebar.
+        assert panel.details_scroll.height() > 400
+
+    def test_wrapped_header_content_is_fully_readable(self, qtbot) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        panel.resize(414, 1198)
+        panel.setStyleSheet("QLabel { font-size: 18px; }")
+        panel.show()
+        panel.set_selected_items([_plant(PlantSpeciesData(
+            common_name="A very long common plant name with several descriptive words",
+            scientific_name="Malus domestica",
+            description="A garden apple tree with abundant fragrant flowers and sweet fruit. "
+                        "It prefers a sheltered sunny position and rich, well drained garden soil.",
+        ))])
+        QApplication.processEvents()
+        for label in (panel._profile_name, panel._profile_description):
+            assert label.height() >= label.heightForWidth(label.width())
+        assert panel.details_scroll.height() > 400

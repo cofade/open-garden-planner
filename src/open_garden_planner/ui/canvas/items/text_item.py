@@ -3,7 +3,7 @@
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QColor,
     QFont,
@@ -225,6 +225,8 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     # ── Editing ──────────────────────────────────────────────────
 
+    editing_finished = pyqtSignal()
+
     def start_editing(self) -> None:
         """Enter inline text editing mode."""
         self._editing = True
@@ -252,6 +254,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         cursor.clearSelection()
         self.setTextCursor(cursor)
         self.clearFocus()
+        self.editing_finished.emit()
 
     # ── Qt event overrides ───────────────────────────────────────
 

@@ -1,6 +1,6 @@
 """Callout annotation tool — click target, drag to text box position."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent, QPen
@@ -10,7 +10,8 @@ from .base_tool import BaseTool, ToolType
 from .preview_z import PREVIEW_Z_LINE
 
 if TYPE_CHECKING:
-    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+    from open_garden_planner.ui.canvas.canvas_view import CancellablePlacement, CanvasView
+    from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
 
 
 class CalloutTool(BaseTool):
@@ -32,10 +33,17 @@ class CalloutTool(BaseTool):
         super().__init__(view)
         self._target: QPointF | None = None
         self._preview: QGraphicsLineItem | None = None
+        # The placed callout's command + document snapshot, so Escape on an
+        # empty annotation can withdraw both (#904), exactly like the Text
+        # tool did in #827.
+        self._pending: CancellablePlacement | None = None
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         if event.button() != Qt.MouseButton.LeftButton:
             return False
+        # A new drag also finishes a previous annotation: an empty one leaves
+        # no trace (#904), a typed one is committed.
+        self.cancel()
         self._target = scene_pos
         # Show a thin preview line while dragging
         scene = self._view.scene()
@@ -73,6 +81,7 @@ class CalloutTool(BaseTool):
             box_offset = QPointF(80.0, -60.0)
 
         self._cleanup_preview()
+        self._target = None
 
         from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
 
@@ -83,22 +92,45 @@ class CalloutTool(BaseTool):
             else None
         )
         item = CalloutItem(target, box_offset, content="", layer_id=layer_id)
-        self._view.add_item(item, "callout")
+        self._pending = self._view.add_cancellable_item(item, "callout")
+        item.editing_finished.connect(self.cancel)
         item.start_editing()
         return True
 
     def key_press(self, event: QKeyEvent) -> bool:
         if event.key() == Qt.Key.Key_Escape:
-            if self._target is not None:
-                self.cancel()
-            else:
-                self._view.set_active_tool(ToolType.SELECT)
+            self.cancel()
+            self._view.set_active_tool(ToolType.SELECT)
             return True
         return False
 
     def cancel(self) -> None:
+        """Cancel the drag or a pending empty callout (#904).
+
+        Empty mirrors the Text tool's #827 rule: the placement's
+        ``CreateItemCommand`` is discarded first and the item leaves with it,
+        so an Escape on an annotation with no text leaves neither a blank
+        callout nor a ghost history entry. A callout that has text is
+        committed and kept, exactly like a text note.
+        """
         self._cleanup_preview()
         self._target = None
+
+        pending, self._pending = self._pending, None
+        if pending is None:
+            return
+        item = cast("CalloutItem", pending.item)
+        try:
+            item.editing_finished.disconnect(self.cancel)
+            item.finish_editing()
+            has_text = bool(item.content.strip())
+        except RuntimeError:
+            # The item died with a document replacement: nothing to keep.
+            has_text = False
+        if has_text:
+            self._view.commit_cancellable_placement(pending)
+            return
+        self._view.discard_cancellable_placement(pending)
 
     def _cleanup_preview(self) -> None:
         if self._preview is not None:

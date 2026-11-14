@@ -10,6 +10,7 @@ import contextlib
 import json
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 
@@ -193,6 +194,28 @@ _log = logging.getLogger(__name__)
 
 
 
+@dataclass(frozen=True)
+class CancellablePlacement:
+    """A placed item whose creating tool may still cancel it (#827, #904, #909).
+
+    ``item`` and ``command`` are the pair that must leave together — the
+    CreateItemCommand is already on the undo stack. ``dirty_before`` is the
+    document's unsaved-changes flag before the placement (``None`` when the
+    view is not embedded in an application window), ``mutation_serial`` is the
+    undo stack's counter right after the placement's ``execute`` and
+    ``dirty_serial`` the project's count of dirty requests: a cancellation
+    restores the flag only when neither counter moved except by its own
+    discard, and no other scene content revision was announced.
+    """
+
+    item: QGraphicsItem
+    command: CreateItemCommand
+    dirty_before: bool | None
+    mutation_serial: int
+    dirty_serial: int
+    plan_revision: int = 0
+
+
 class CanvasView(QGraphicsView):
     """Graphics view for the garden canvas.
 
@@ -369,6 +392,8 @@ class CanvasView(QGraphicsView):
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
+        self._cancellable_placement: CancellablePlacement | None = None
+        self._command_manager.before_history_navigation.connect(self.finish_annotation_edits)
         # the scene's plan revision moves with every executed / undone / redone command
         self._canvas_scene.set_command_manager(self._command_manager)
 
@@ -926,6 +951,115 @@ class CanvasView(QGraphicsView):
         command = CreateItemCommand(self.scene(), item, item_type)
         self._command_manager.execute(command)
         return command
+
+    def add_cancellable_item(
+        self, item: QGraphicsItem, item_type: str = "item"
+    ) -> CancellablePlacement:
+        """Add an item whose creating tool may still cancel it (#904, #909).
+
+        Same immediate execute as :meth:`add_item` — every placement tool
+        relies on that contract — plus two bookkeeping facts that make a
+        cancellation truly net-zero:
+
+        * the scene suppresses only the synchronous placement's announcements.
+          The editor's completion announces a kept annotation; other writers
+          between placement and completion announce normally;
+        * the document's unsaved-changes flag and the undo stack's mutation
+          counter are snapshotted, so :meth:`discard_cancellable_placement`
+          can put the flag back when nothing else happened.
+        """
+        project = getattr(self.window(), "_project_manager", None)
+        dirty_before = project.is_dirty if project is not None else None
+        self._canvas_scene.begin_plan_change_hold()
+        try:
+            command = CreateItemCommand(self._canvas_scene, item, item_type)
+            self._command_manager.execute(command)
+        finally:
+            self._canvas_scene.end_plan_change_hold(commit=False)
+        placement = CancellablePlacement(
+            item=item,
+            command=command,
+            dirty_before=dirty_before,
+            mutation_serial=self._command_manager.mutation_serial,
+            dirty_serial=project.dirty_serial if project is not None else 0,
+            plan_revision=self._canvas_scene.plan_revision,
+        )
+        self._cancellable_placement = placement
+        return placement
+
+    def commit_cancellable_placement(self, placement: CancellablePlacement) -> None:
+        """Finish a placement that became a real annotation: announce its change."""
+        if self._cancellable_placement is not placement:
+            return
+        self._cancellable_placement = None
+        try:
+            if placement.item.scene() is self._canvas_scene:
+                self._canvas_scene.note_plan_changed()
+        except RuntimeError:
+            # A replaced document already destroyed the pending item.
+            pass
+
+    def finish_annotation_edits(self) -> None:
+        """Flush inline text before save/history chooses the content to use."""
+        from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        for item in self._canvas_scene.items():
+            if isinstance(item, (TextItem, CalloutItem)):
+                item.finish_editing()
+
+    def discard_cancellable_placement(self, placement: CancellablePlacement) -> bool:
+        """Take a cancelled placement off scene and stack, leaving no trace (#827, #909).
+
+        The command is discarded FIRST and the item is removed only when the
+        discard succeeded, so scene and history always move together. A
+        refused discard (another command was pushed in between) keeps the
+        item-plus-command pair and announces the gesture as the real change it
+        then is. On success only the withdrawal's synchronous revision bumps
+        are suppressed. The dirty flag is restored only if neither command
+        nor project state changed in between.
+
+        Returns ``True`` when the pair was fully withdrawn.
+        """
+        if self._cancellable_placement is not placement:
+            return False
+        # Suppress only our own synchronous withdrawal. Unrelated writers while
+        # the user edits have already announced their changes normally.
+        self._canvas_scene.begin_plan_change_hold()
+        try:
+            discarded = self._command_manager.discard(placement.command)
+            if discarded:
+                try:
+                    still_in_scene = placement.item.scene() is self._canvas_scene
+                except RuntimeError:
+                    still_in_scene = False
+                if still_in_scene:
+                    self._canvas_scene.removeItem(placement.item)
+        finally:
+            self._canvas_scene.end_plan_change_hold(commit=False)
+        if not discarded:
+            self.commit_cancellable_placement(placement)
+            return False
+        self._cancellable_placement = None
+        project = getattr(self.window(), "_project_manager", None)
+        no_other_mutation = (
+            self._command_manager.mutation_serial == placement.mutation_serial + 1
+        )
+        # The discard itself is one fresh dirty request; any other one is a
+        # direct project edit (location, soil, tasks) made during the gesture.
+        no_other_dirty_request = (
+            project is not None
+            and project.dirty_serial == placement.dirty_serial + 1
+        )
+        if (
+            project is not None
+            and placement.dirty_before is not None
+            and no_other_mutation
+            and no_other_dirty_request
+            and self._canvas_scene.plan_revision == placement.plan_revision
+        ):
+            project.restore_dirty(placement.dirty_before)
+        return True
 
     def request_soil_test(self, target_id: str, display_name: str = "") -> None:
         """Forward a soil-test request from a bed's context menu (US-12.10a).

@@ -392,6 +392,11 @@ class PlantDatabasePanel(QWidget):
 
         # === PROFILE HEADER (US-G2, issue #317) ===
         self._profile_header = QWidget()
+        # Wrapped labels need the height for the available width, rather than
+        # a sizeHint cap. The scroll area's stretch gets surplus space (#905).
+        header_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        header_policy.setHeightForWidth(True)
+        self._profile_header.setSizePolicy(header_policy)
         profile_layout = QHBoxLayout(self._profile_header)
         profile_layout.setContentsMargins(0, 0, 0, 0)
         profile_layout.setSpacing(8)
@@ -485,6 +490,8 @@ class PlantDatabasePanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        #: The details viewport — exposed for the #905 layout test.
+        self.details_scroll = scroll
 
         # Container for plant info
         self.info_widget = QWidget()
@@ -519,7 +526,7 @@ class PlantDatabasePanel(QWidget):
         self.info_layout.addStretch()
 
         scroll.setWidget(self.info_widget)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         # Initially hide details
         self._hide_details()

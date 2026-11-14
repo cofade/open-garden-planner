@@ -543,19 +543,11 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             self._draw_grid_overlay(painter)
 
         # Draw crop rotation status indicator (colored inner border on beds)
-        if self._rotation_status is not None and self._diagnostics_painted():
-            _rotation_colors = {
-                "good": QColor(46, 125, 50, 160),
-                "suboptimal": QColor(245, 127, 23, 160),
-                "violation": QColor(198, 40, 40, 160),
-            }
-            indicator_color = _rotation_colors.get(self._rotation_status)
-            if indicator_color is not None:
-                indicator_pen = QPen(indicator_color)
-                indicator_pen.setWidthF(4.0)
-                painter.setPen(indicator_pen)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawPolygon(self.polygon())
+        if self._rotation_status is not None:
+            rotation_path = QPainterPath()
+            rotation_path.addPolygon(self.polygon())
+            rotation_path.closeSubpath()
+            self._draw_rotation_status_border(painter, rotation_path)
 
         # Draw soil mismatch border outside rotation border (US-12.10d)
         if is_bed_type(self.object_type):

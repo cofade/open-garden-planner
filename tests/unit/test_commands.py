@@ -336,6 +336,44 @@ class TestCommandManagerDiscard:
         assert manager.last_command is third
 
 
+class TestMutationSerial:
+    """The stack's mutation counter, used by a cancellable placement (#909)."""
+
+    @pytest.fixture
+    def manager(self, qtbot) -> CommandManager:
+        return CommandManager()
+
+    @pytest.fixture
+    def scene(self, qtbot) -> QGraphicsScene:
+        return QGraphicsScene()
+
+    def test_every_stack_mutation_advances_it(self, manager, scene) -> None:
+        start = manager.mutation_serial
+        command = CreateItemCommand(scene, QGraphicsRectItem(0, 0, 10, 10), "test")
+
+        manager.execute(command)
+        assert manager.mutation_serial == start + 1
+        manager.undo()
+        assert manager.mutation_serial == start + 2
+        manager.redo()
+        assert manager.mutation_serial == start + 3
+        manager.discard(command)
+        assert manager.mutation_serial == start + 4
+        manager.clear()
+        assert manager.mutation_serial == start + 5
+
+    def test_a_refused_discard_does_not_advance_it(self, manager, scene) -> None:
+        first = CreateItemCommand(scene, QGraphicsRectItem(0, 0, 10, 10), "first")
+        second = CreateItemCommand(scene, QGraphicsRectItem(0, 0, 10, 10), "second")
+        manager.execute(first)
+        manager.execute(second)
+        before = manager.mutation_serial
+
+        assert manager.discard(first) is False
+
+        assert manager.mutation_serial == before
+
+
 class TestCompoundCommand:
     """Several commands undone as ONE step (a drag that also links a plant, #627)."""
 

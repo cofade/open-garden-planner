@@ -43,7 +43,8 @@ def _draw_callout(
     box_pos: QPointF,
 ) -> None:
     """Simulate click at target, drag to box_pos, release."""
-    view.set_active_tool(ToolType.CALLOUT)
+    if view.tool_manager.active_tool_type != ToolType.CALLOUT:
+        view.set_active_tool(ToolType.CALLOUT)
     tool = view.tool_manager.active_tool
     press_event = _mouse_event()
     move_event = _mouse_event()
@@ -114,16 +115,77 @@ class TestCancel:
         assert consumed is True
         assert canvas.tool_manager.active_tool.tool_type == ToolType.SELECT
 
+    def test_escaping_an_empty_callout_withdraws_it_and_its_history_entry(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """#904: an empty callout leaves with its CreateItemCommand, like a text note (#827)."""
+        from PyQt6.QtTest import QTest
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)  # type: ignore[attr-defined]
+        manager = canvas.command_manager
+        depth_before = manager.undo_depth
+
+        _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        assert len(_callouts(canvas)) == 1
+        assert manager.undo_depth == depth_before + 1
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert canvas.tool_manager.active_tool_type == ToolType.SELECT
+        assert len(_callouts(canvas)) == 0
+        assert manager.undo_depth == depth_before
+        assert not manager.can_redo, "Esc is not a history transition"
+
+    def test_escaping_a_callout_with_text_keeps_it(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A finished callout is a real annotation and survives the same Esc."""
+        from PyQt6.QtTest import QTest
+
+        canvas.resize(800, 600)
+        canvas.show()
+        QTest.qWaitForWindowExposed(canvas)  # type: ignore[attr-defined]
+        manager = canvas.command_manager
+
+        _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        item = _callouts(canvas)[0]
+        item._text_child.setPlainText("North border")
+
+        QTest.keyClick(canvas, Qt.Key.Key_Escape)
+
+        assert len(_callouts(canvas)) == 1
+        assert item.content == "North border"
+        assert manager.undo_depth == 1
+
+    def test_a_new_callout_click_withdraws_a_previous_empty_one(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """Clicking elsewhere starts the next callout; the empty one leaves no trace."""
+        _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        first = _callouts(canvas)[0]
+
+        _draw_callout(canvas, QPointF(400, 300), QPointF(600, 200))
+
+        callouts = _callouts(canvas)
+        assert len(callouts) == 1
+        assert callouts[0] is not first
+        assert first.scene() is None
+        assert canvas.command_manager.undo_depth == 1
+
 
 class TestUndo:
     def test_undo_removes_callout(self, canvas: CanvasView, qtbot: object) -> None:
         _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        _callouts(canvas)[0]._text_child.setPlainText("Callout")
         assert len(_callouts(canvas)) == 1
         canvas.command_manager.undo()
         assert len(_callouts(canvas)) == 0
 
     def test_redo_restores_callout(self, canvas: CanvasView, qtbot: object) -> None:
         _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        _callouts(canvas)[0]._text_child.setPlainText("Callout")
         canvas.command_manager.undo()
         canvas.command_manager.redo()
         assert len(_callouts(canvas)) == 1
@@ -141,6 +203,7 @@ class TestSerialization:
 
         item = _callouts(canvas)[0]
         # Commit editing so content is stable
+        item._text_child.setPlainText("Callout")
         item._commit_edit()
 
         orig_pos = item.pos()
