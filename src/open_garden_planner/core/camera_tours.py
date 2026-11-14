@@ -85,6 +85,7 @@ MAX_TOUR_KEYS: Final = 100
 MAX_NAME_LENGTH: Final = 60
 #: No camera is further than this from the plan's origin: ten times the largest canvas.
 MAX_REACH_CM: Final = 1_000_000.0
+_MAX_REJECT_LOGS: Final = 5
 
 
 def clean_tour_name(text: object) -> str:
@@ -222,6 +223,10 @@ class SavedTour:
                 and ORBIT_TURNS[0] <= self.orbit.turns <= ORBIT_TURNS[1]):
             raise ValueError(f"An orbit makes {ORBIT_TURNS[0]} to {ORBIT_TURNS[1]} whole turns, "
                              f"got {self.orbit.turns!r}")
+        if self.orbit is not None:
+            # Use the motion's own CameraKey validation: even a programmatically built
+            # tour must be flyable, before any caller samples its path (#891).
+            self.orbit.at(0.0)
         if self.motion == "hold" and self.held is None:
             raise ValueError("A held tour needs its view")
         if self.date_range is not None and self.time_range is not None:
@@ -333,18 +338,23 @@ def load_tours(raw: Any) -> tuple[tuple[SavedTour, ...], int]:
         return (), 1
     kept: list[SavedTour] = []
     names: set[str] = set()
+    reported = 0
     for index, entry in enumerate(raw):
         if len(kept) >= MAX_TOURS:
             break
         try:
             tour = SavedTour.from_dict(entry)
         except Exception as error:   # untrusted input: skip it, whatever it raises
-            _LOG.warning("Camera tours: entry %d is not a tour this build can render (%s: %s)",
-                         index, type(error).__name__, log_text(error))
+            if reported < _MAX_REJECT_LOGS:
+                _LOG.warning("Camera tours: entry %d is not a tour this build can render (%s: %s)",
+                             index, type(error).__name__, log_text(error))
+                reported += 1
             continue
         if tour.name.casefold() in names:
-            _LOG.warning("Camera tours: entry %d repeats the name %s; skipped", index,
-                         log_text(tour.name))
+            if reported < _MAX_REJECT_LOGS:
+                _LOG.warning("Camera tours: entry %d repeats the name %s; skipped", index,
+                             log_text(tour.name))
+                reported += 1
             continue
         names.add(tour.name.casefold())
         kept.append(tour)

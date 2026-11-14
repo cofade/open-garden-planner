@@ -11881,7 +11881,7 @@ para asignar datos de especie.</translation>
     <context>
         <name>ProjectManager</name>
         <message>
-            <location filename="../../core/project.py" line="1266" />
+            <location filename="../../core/project.py" line="1267" />
             <source>Choose a template filename outside the current project and bundled examples.</source>
             <translation>Elija un nombre de archivo de plantilla distinto del proyecto actual y de los ejemplos incluidos.</translation>
         </message>
@@ -15143,7 +15143,7 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
             <translation>3D no está disponible en este ordenador.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="440" />
+            <location filename="../../ui/view3d/video_writer.py" line="468" />
             <source>A frame could not be saved. Is the disk full?</source>
             <translation>No se pudo guardar un fotograma. ¿Está lleno el disco?</translation>
         </message>
@@ -15168,8 +15168,8 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
             <translation>Ya existe un recorrido llamado '{name}'. ¿Reemplazarlo?</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="248" />
-            <location filename="../../ui/view3d/video_writer.py" line="271" />
+            <location filename="../../ui/view3d/video_writer.py" line="249" />
+            <location filename="../../ui/view3d/video_writer.py" line="272" />
             <source>A video frame could not be prepared.</source>
             <translation>No se pudo preparar un fotograma de vídeo.</translation>
         </message>
@@ -15473,7 +15473,7 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
             <translation>La cámara se queda en la vista actual. Ideal para un time-lapse.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_recorder.py" line="267" />
+            <location filename="../../ui/view3d/tour_recorder.py" line="273" />
             <source>The recording failed: {message}</source>
             <translation>La grabación ha fallado: {message}</translation>
         </message>
@@ -15483,22 +15483,27 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
             <translation>Los recorridos guardados en este plano. Se guardan con el archivo del plano.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="307" />
+            <location filename="../../ui/view3d/video_writer.py" line="375" />
+            <source>The video could not be prepared. The render is kept as {part}. The destination was not replaced.</source>
+            <translation>No se pudo preparar el vídeo. El archivo renderizado se conserva en {part}. No se ha reemplazado el archivo de destino.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/video_writer.py" line="313" />
             <source>The video file could not be closed.</source>
             <translation>No se pudo cerrar el archivo de vídeo.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="220" />
+            <location filename="../../ui/view3d/video_writer.py" line="221" />
             <source>The video file {path} cannot be written: {error}</source>
             <translation>No se puede escribir el archivo de vídeo {path}: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="190" />
+            <location filename="../../ui/view3d/video_writer.py" line="191" />
             <source>This computer has no video encoder for MP4 files. Save a PNG sequence instead.</source>
             <translation>Este equipo no tiene codificador de vídeo para archivos MP4. Guarde una secuencia PNG.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="429" />
+            <location filename="../../ui/view3d/video_writer.py" line="457" />
             <source>This folder already holds the frames of another tour. Choose an empty one.</source>
             <translation>Esta carpeta ya contiene los fotogramas de otro recorrido. Elija una vacía.</translation>
         </message>
@@ -15545,7 +15550,12 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
             <translation>Usar la vista actual</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="99" />
+            <location filename="../../ui/view3d/video_writer.py" line="409" />
+            <source>Video delivery failed. Check {path} and {part} for the output.</source>
+            <translation>No se pudo entregar el vídeo. Busque el archivo de salida en {path} y {part}.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/video_writer.py" line="100" />
             <source>Video is not available in this build of the app.</source>
             <translation>El vídeo no está disponible en esta versión de la aplicación.</translation>
         </message>
@@ -15574,7 +15584,7 @@ El inventario es suyo, no de un plano: todos los planos que abra muestran los mi
             <translation>{count} fotogramas se renderizaron antes de que la vista 3D alcanzara su fecha.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="352" />
+            <location filename="../../ui/view3d/video_writer.py" line="363" />
             <source>{path} could not be replaced ({error}). The video is saved as {part}.</source>
             <translation>No se pudo reemplazar {path} ({error}). El vídeo se ha guardado como {part}.</translation>
         </message>
@@ -16449,7 +16459,8 @@ Detalles: {error}</translation>
             <translation>Recorrido de &amp;cámara...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="835" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="837" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="845" />
             <source>Camera Tour</source>
             <translation>Recorrido de cámara</translation>
         </message>
@@ -16883,7 +16894,7 @@ Detalles: {error}</translation>
             <translation>No se pudo guardar la imagen en {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="836" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="846" />
             <source>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</source>
             <translation>La grabación no pudo cerrarse antes de que se cerrara la ventana. La salida inacabada puede quedar en {path}.</translation>
         </message>
@@ -16946,6 +16957,11 @@ Detalles: {error}</translation>
             <location filename="../../ui/view3d/workspace.py" line="1445" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Usar modo de compatibilidad</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace_capture.py" line="838" />
+            <source>Video delivery is still finishing. Its destination is {path}; if it cannot be delivered, the render is kept as {part}. Check the application log for the result.</source>
+            <translation>La entrega del vídeo aún está en curso. Su destino es {path}; si no se puede entregar, el archivo renderizado se conserva en {part}. Consulte el resultado en el registro de la aplicación.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="123" />

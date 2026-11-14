@@ -12036,7 +12036,7 @@ to assign species data.</source>
     <context>
         <name>ProjectManager</name>
         <message>
-            <location filename="../../core/project.py" line="1266" />
+            <location filename="../../core/project.py" line="1267" />
             <source>Choose a template filename outside the current project and bundled examples.</source>
             <translation>Выберите имя файла шаблона за пределами текущего проекта и встроенных примеров.</translation>
         </message>
@@ -15298,7 +15298,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>3D недоступно на этом компьютере.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="440" />
+            <location filename="../../ui/view3d/video_writer.py" line="468" />
             <source>A frame could not be saved. Is the disk full?</source>
             <translation>Не удалось сохранить кадр. Диск заполнен?</translation>
         </message>
@@ -15323,8 +15323,8 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Облёт с названием "{name}" уже существует. Заменить его?</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="248" />
-            <location filename="../../ui/view3d/video_writer.py" line="271" />
+            <location filename="../../ui/view3d/video_writer.py" line="249" />
+            <location filename="../../ui/view3d/video_writer.py" line="272" />
             <source>A video frame could not be prepared.</source>
             <translation>Не удалось подготовить кадр видео.</translation>
         </message>
@@ -15628,7 +15628,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Камера остаётся там, где сейчас вид. Подходит для замедленной съёмки.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_recorder.py" line="267" />
+            <location filename="../../ui/view3d/tour_recorder.py" line="273" />
             <source>The recording failed: {message}</source>
             <translation>Запись не удалась: {message}</translation>
         </message>
@@ -15638,22 +15638,27 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Облёты, сохранённые в этом плане. Они сохраняются вместе с файлом плана.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="307" />
+            <location filename="../../ui/view3d/video_writer.py" line="375" />
+            <source>The video could not be prepared. The render is kept as {part}. The destination was not replaced.</source>
+            <translation>Не удалось подготовить видео. Результат рендеринга сохранён в {part}. Целевой файл не был заменён.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/video_writer.py" line="313" />
             <source>The video file could not be closed.</source>
             <translation>Не удалось закрыть видеофайл.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="220" />
+            <location filename="../../ui/view3d/video_writer.py" line="221" />
             <source>The video file {path} cannot be written: {error}</source>
             <translation>Видеофайл {path} не может быть записан: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="190" />
+            <location filename="../../ui/view3d/video_writer.py" line="191" />
             <source>This computer has no video encoder for MP4 files. Save a PNG sequence instead.</source>
             <translation>На этом компьютере нет видеокодера для файлов MP4. Сохраните вместо этого последовательность PNG.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="429" />
+            <location filename="../../ui/view3d/video_writer.py" line="457" />
             <source>This folder already holds the frames of another tour. Choose an empty one.</source>
             <translation>В этой папке уже лежат кадры другого облёта. Выберите пустую папку.</translation>
         </message>
@@ -15700,7 +15705,12 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Использовать текущий вид</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="99" />
+            <location filename="../../ui/view3d/video_writer.py" line="409" />
+            <source>Video delivery failed. Check {path} and {part} for the output.</source>
+            <translation>Не удалось сохранить готовое видео. Проверьте наличие результата в {path} и {part}.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/video_writer.py" line="100" />
             <source>Video is not available in this build of the app.</source>
             <translation>Видео недоступно в этой сборке приложения.</translation>
         </message>
@@ -15729,7 +15739,7 @@ The inventory is yours, not a plan's: every plan you open shows the same packets
             <translation>Кадров, отрисованных до того, как 3D-вид дошёл до их даты: {count}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="352" />
+            <location filename="../../ui/view3d/video_writer.py" line="363" />
             <source>{path} could not be replaced ({error}). The video is saved as {part}.</source>
             <translation>Не удалось заменить {path} ({error}). Видео сохранено как {part}.</translation>
         </message>
@@ -16601,7 +16611,8 @@ Details: {error}</source>
             <translation>Облёт &amp;камеры...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="835" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="837" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="845" />
             <source>Camera Tour</source>
             <translation>Облёт камеры</translation>
         </message>
@@ -17031,7 +17042,7 @@ Details: {error}</source>
             <translation>Не удалось сохранить изображение в {path}.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="836" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="846" />
             <source>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</source>
             <translation>Не удалось закрыть запись до закрытия окна. Незавершённый файл может остаться по пути {path}.</translation>
         </message>
@@ -17094,6 +17105,11 @@ Details: {error}</source>
             <location filename="../../ui/view3d/workspace.py" line="1445" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Использовать режим совместимости в следующий раз</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace_capture.py" line="838" />
+            <source>Video delivery is still finishing. Its destination is {path}; if it cannot be delivered, the render is kept as {part}. Check the application log for the result.</source>
+            <translation>Сохранение готового видео ещё продолжается. Целевой путь: {path}; если сохранить файл там не удастся, результат рендеринга останется в {part}. Результат операции указан в журнале приложения.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="123" />

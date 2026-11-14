@@ -1112,12 +1112,17 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
 - **FR-3D-TOUR-02** (L6.2): A tour is saved as an **MP4 video** (H.264 where the system has an encoder,
   else MPEG-4) or a **PNG sequence**. It is rendered frame by frame, so a slower computer takes
   longer and writes the same video. A progress bar shows each frame, Cancel stops it, and a cancelled
-  or failed video leaves nothing behind and never replaces an earlier file. When an earlier file is
+  video leaves nothing behind and never replaces an earlier file. A structurally invalid finished
+  video is kept under its part name, reports failure with that path, and never replaces the
+  destination (#889, #890). An intact video whose optional tagging fails unexpectedly can be
+  delivered untagged, with the reason and destination in the log. When an earlier file is
   held open (a player has it), the finished video stays beside it and the message says where; a later
   recording of the same name takes a free part name and never deletes that kept render. **Esc or the
   window's X asks before throwing away a recording that has already run for 10 s**; Cancel keeps it
   running. Closing the app ends a running recording and waits (bounded) for its file to close; if
-  the encoder cannot close in time, it names the unfinished output so the user can find it. If
+  the encoder cannot close in time, it names the unfinished output so the user can find it.
+  A closed recording still being delivered names its eventual destination and the retained
+  part on failure; delivery continues after the window closes. If
   the 3D view stops being visible, the recording waits and goes on. Frames are limited-range
   BT.709 YUV computed by the app, and every offered size is HD. *(#807)* A video is encoded at
   constant quality, **Standard** or **Best, for Publishing** (the dialog's **Video quality**, not
@@ -1149,7 +1154,10 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   keyframes each. The file's format version does not change: a release from before this
   feature opens a plan with tours and ignores them (and writes the plan back without them if it
   saves). A tour in a file that cannot be read is skipped, the rest of the plan loads, and the
-  status bar says how many were skipped. The look of the picture (photo mode, weather, quality)
+  status bar says how many were skipped. An orbit with FOV 0 or 180 is rejected before playback;
+  rejected entries produce at most five detailed warnings plus the aggregate count (#891).
+  Tour number, date and time controls follow FR-I18N-10/11/12 (#896).
+  The look of the picture (photo mode, weather, quality)
   is not part of a tour: it is the view's when the tour is rendered. Not included: a tour is not
   kept in the crash-recovery file (which holds the drawing only).
 - **FR-AGENT-31** (L6.3, #390, ADR-072): **`render_3d_view`** renders a PNG of the 3D view for an

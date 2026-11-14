@@ -12589,6 +12589,45 @@ tags read back by Qt, the untagged fallback, the kept render), `tests/integratio
 `tests/integration/test_tour_persistence.py` (the older orbit through the dialog, an eased tilted
 orbit kept and flown again); the render tier's tour scenario probes its MP4.
 
+### ADR-072 addendum: tour and video reliability (#889, #890, #891, #896)
+
+**Status:** Accepted for implementation; owner manual testing pending.
+
+**Decision:** Refine #807 decision 3's fallback: a structural `Mp4Error` is a failed
+delivery, not permission to overwrite a good destination with an unreadable part.
+Keep that part and name it in the translated failure message. Validate the encoder's
+table counts, chunk runs, sample bounds and durations before attempting colour tagging.
+Only a structurally intact part may be delivered untagged when optional tagging fails
+with an unexpected `Exception` (including allocation errors) or an I/O error. Log the
+exception and final path; do not expose a bare exception as the entire user message.
+Temporary-copy cleanup must not hide the delivery outcome or its primary exception.
+Before untagged fallback, read and validate the samples too: an early copy failure can
+otherwise bypass the tagger's later malformed-NAL detection. This extra full scan is
+needed only on fallback, not on every successful recording.
+
+A delivery worker already owns a closed recording. Window close waits for it within
+the existing limit, then names its destination and its retained-part path on failure;
+it must not describe that recording as an unfinished file left at the part path. The
+non-daemon worker finishes independently of the window.
+
+A `SavedTour` validates an orbit by sampling its first camera key, using the same FOV
+and camera rules as playback. A hostile plan produces at most five per-entry warnings
+and one aggregate skipped count; later valid entries are still read. Valid saved
+motions, serialized data and the file version stay unchanged.
+
+**Locale scope:** #896's date/time adapters landed in #838 and its coordinate formatting
+landed in #908. Keep those shared helpers. Explicit integration coverage now exercises
+German/English on opposite system locales, pasted decimal marks, metric/imperial
+coordinate rows and save/reopen without changing stored numeric values.
+
+**Rejected:** unconditional untagged promotion after a layout error (destroys a good
+video); a second MP4 repair or encoder path (cannot prove the missing bytes); an
+unbounded GUI-thread join on a gigabyte copy (freezes close).
+
+**Pinned by:** `tests/unit/test_mp4_stream.py`, `tests/unit/test_camera_tours.py`,
+`tests/integration/test_tour_video_reliability.py`, and the real encoder/decoder workflows
+in `tests/integration/test_video_writer.py`.
+
 ## ADR-073: The Microsoft Store as a second distribution channel (MSIX), and the #375 decision record (issue #375, #358, #356)
 
 **Status**: Accepted (2026-11-06). Packaging and pipeline shipped; the Store listing itself
