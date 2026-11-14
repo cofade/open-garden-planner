@@ -8930,7 +8930,8 @@ There is no depth of field without a focused point, so the first blur above 0 fo
 the camera looks at (a click moves it; while walking, the ground under the view's centre), and a new
 plan gives the kept blur its point once the new camera is framed. While the blur is drawn the Ultra
 preset's screen-space reflections stand down: with glow on, Qt 6.12's effect chain breaks as soon as two
-effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744). The pane is
+effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744,
+[QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289)). The pane is
 still a few levels brighter than a save below 1080p: Qt's ambient occlusion is pixel-sized (ADR-072
 addendum, open). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's

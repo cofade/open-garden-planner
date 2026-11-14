@@ -322,7 +322,8 @@ ended 18 of 20 runs with 0xC0000005 and 2 with 0xC0000374 (heap corruption); wit
 with a second QRhi, two of them with a damaged image path in a `QSSG.warning`: memory is overwritten
 or used after its release, and a released render-target view is a guess, not a finding. One earlier
 WARP run of 17 exited with code 0, so a single clean run proves nothing. Qt's own `qml.exe` 6.12.0
-(2026-11-14) crashed the file in 10 of 10 WARP runs and 2 of 3 GPU runs. Two pass-through user `Effect`s with glow
+(2026-11-14, `d3d11.dll` 10.0.26100.9818) crashed the file in 10 of 10 WARP runs with the 3-second
+timer and 2 of 3 GPU runs. Two pass-through user `Effect`s with glow
 drew grey where the scene was; reflections plus one user `Effect` with glow crashed when reflections came
 on after the first frame, or drew black. One effect ahead of the scene effect, with any number of passes
 and buffers, was fine every time. The count, not the kind, breaks it.

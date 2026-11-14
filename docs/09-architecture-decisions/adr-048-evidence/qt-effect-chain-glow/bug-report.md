@@ -1,11 +1,27 @@
 # Upstream report [QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289): glow, reflections and depth of field in one ExtendedSceneEnvironment crash on Direct3D 11
 
 Filed on 2026-11-14 from the owner's Qt account for #744: space "Qt (QTBUG)", type Bug, component
-Quick: 3D, affects version 6.12.0, platform Windows. Claude Fable 5 prepared the report and Claude
-Opus reviewed it; Claude Opus 5.5 added the series with Qt's own `qml.exe` on the day of filing.
-`effect_chain_glow_crash.qml` in this folder is the ticket's only attachment, byte-identical to the
-committed file (git blob `3eee7913`). The text below the line is the report as filed: the title, the
-"Environment" field, then the description.
+Quick: 3D, affects version 6.12.0, platform Windows. The ticket's only attachment is
+`effect_chain_glow_crash.qml` from this folder: the download hashes to git blob `3eee7913`
+(`git hash-object --no-filters`). The text below the line is the report as filed: the title, the
+"Environment" field, then the description. It stays as filed; corrections go here and, as a
+comment, on the ticket.
+
+**Notes on the filed text:**
+
+- **Direct3D build per series.** The crash dump and the PyQt6 series (2026-11-09 and 2026-11-10)
+  ran with `d3d11.dll` 10.0.26100.9711; the offset `d3d11.dll+0x158c32` belongs to that build. The
+  `qml.exe` series (2026-11-14) ran with 10.0.26100.9818 (`d3d11.dll`, `d3d10warp.dll` and
+  `dxgi.dll`, from the Windows update of 2026-11-11). The report names only .9711.
+- **Loader per series.** The first table is the only `qml.exe` evidence. The second table (its Run
+  column reads `qml …`), the "earlier runs" and the dump came from the PyQt6 loader with a
+  `QQmlApplicationEngine`.
+- **Never attach a minidump** to the ticket: it holds process memory and the process environment
+  (user name, profile paths, any token set in the environment). Attach a log only after removing
+  the pipeline-cache path and every `C:/Users/...` path from it (`QSG_INFO` prints them).
+- **Follow-up.** Requests on the ticket ("Need More Info") are answered from the owner's reporting
+  account. Every status change of the ticket is recorded in PF-E3D-21 and in the ADR-072 addendum
+  "photo mode's own depth of field", item 5.
 
 ---
 
