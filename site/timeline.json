@@ -4,7 +4,7 @@
   "timezone": "UTC",
   "repo": "cofade/open-garden-planner",
   "baseline_at": "2026-10-28T17:19:46Z",
-  "updated_at": "2026-11-13T06:48:15Z",
+  "updated_at": "2026-11-14T06:25:48Z",
   "days": [
     {
       "date": "2026-02-14",
@@ -2256,6 +2256,20 @@
         {
           "from": "2026-11-12T20:11:09Z",
           "to": "2026-11-13T06:48:15Z",
+          "kind": "new"
+        }
+      ]
+    },
+    {
+      "date": "2026-11-13",
+      "historical": 0.0,
+      "observed": 4.0,
+      "gap": 0.0,
+      "partial": false,
+      "windows": [
+        {
+          "from": "2026-11-13T22:16:34Z",
+          "to": "2026-11-14T06:25:48Z",
           "kind": "new"
         }
       ]
