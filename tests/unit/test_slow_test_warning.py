@@ -17,7 +17,7 @@ from tests.slow_test_warning import (
 )
 
 
-def _report(node_id: str, duration: float, *, when: str = "call", properties=()):
+def _report(node_id: str, duration: float, *, when: str = "teardown", properties=()):
     return SimpleNamespace(
         nodeid=node_id, duration=duration, when=when, user_properties=list(properties)
     )
@@ -51,8 +51,9 @@ class _Config:
 def test_the_guard_is_the_projects_hang_guard(pytestconfig, monkeypatch) -> None:
     """The plugin reads the real setting, not a copy of its number."""
     monkeypatch.delenv("PYTEST_TIMEOUT", raising=False)
-    if pytestconfig.getoption("timeout", None) is None:
-        assert guard_seconds(pytestconfig) == float(pytestconfig.getini("timeout")) > 0
+    if pytestconfig.getoption("timeout", None) is not None:
+        pytest.skip("this run sets --timeout, so the ini value is not the guard")
+    assert guard_seconds(pytestconfig) == float(pytestconfig.getini("timeout")) > 0
 
 
 def test_the_plugin_is_registered_for_every_run(pytestconfig) -> None:
@@ -101,11 +102,10 @@ def test_more_than_half_of_the_guard_is_slow(seconds: float, guard: float, slow:
     assert is_slow(seconds, guard) is slow
 
 
-def test_only_slow_call_phases_are_named_against_the_guard_that_applies() -> None:
+def test_slow_tests_are_named_against_the_guard_that_applies() -> None:
     plugin = SlowTestWarning(180.0)
     plugin.pytest_runtest_logreport(_report("a.py::slow", 120.0))
     plugin.pytest_runtest_logreport(_report("a.py::fast", 3.0))
-    plugin.pytest_runtest_logreport(_report("a.py::slow_setup", 120.0, when="setup"))
     plugin.pytest_runtest_logreport(
         _report("a.py::own_budget_quiet", 400.0, properties=[(GUARD_PROPERTY, 900.0)])
     )
@@ -116,6 +116,21 @@ def test_only_slow_call_phases_are_named_against_the_guard_that_applies() -> Non
         _report("a.py::guard_off", 999.0, properties=[(GUARD_PROPERTY, 0.0)])
     )
     assert plugin.slow == [("a.py::slow", 120.0, 180.0), ("a.py::own_budget_named", 500.0, 900.0)]
+
+
+def test_setup_call_and_teardown_are_summed_and_the_teardown_decides() -> None:
+    """pytest-timeout times all three phases, so the warning does too."""
+    plugin = SlowTestWarning(180.0)
+    plugin.pytest_runtest_logreport(_report("a.py::heavy_fixture", 60.0, when="setup"))
+    plugin.pytest_runtest_logreport(_report("a.py::heavy_fixture", 20.0, when="call"))
+    assert plugin.slow == []  # not decided before the teardown
+    plugin.pytest_runtest_logreport(_report("a.py::heavy_fixture", 15.0, when="teardown"))
+    assert plugin.slow == [("a.py::heavy_fixture", 95.0, 180.0)]
+    marked = [(GUARD_PROPERTY, 900.0)]
+    plugin.pytest_runtest_logreport(_report("a.py::m", 400.0, when="setup", properties=marked))
+    plugin.pytest_runtest_logreport(_report("a.py::m", 100.0, when="call", properties=marked))
+    plugin.pytest_runtest_logreport(_report("a.py::m", 0.0, properties=marked))
+    assert plugin.slow[-1] == ("a.py::m", 500.0, 900.0)
 
 
 def test_the_summary_is_a_github_warning_only_under_github_actions(monkeypatch) -> None:

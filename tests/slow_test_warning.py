@@ -10,8 +10,8 @@ for 124-157 s under coverage for days, until runs crossed 180 s and failed the
 required Coverage check (#918).
 
 This plugin fails nothing, so it cannot be flaky itself. After the run it names
-every test whose call phase took more than half of the limit that applied to
-it: the test's own ``timeout`` marker if it has one, otherwise the run's limit
+every test whose setup, call and teardown together took more than half of the
+limit that applied to it (pytest-timeout times all three): the test's own ``timeout`` marker if it has one, otherwise the run's limit
 (``--timeout``, then ``PYTEST_TIMEOUT``, then the ini value). Under GitHub
 Actions each line is a ``::warning`` annotation, so the creep shows on the pull
 request while there is still room. ``tests/conftest.py`` registers the plugin
@@ -83,35 +83,40 @@ def warning_line(node_id: str, seconds: float, guard: float, *, github: bool) ->
 
 
 class SlowTestWarning:
-    """Collects the slow call phases and names them in the terminal summary."""
+    """Collects the slow tests and names them in the terminal summary."""
 
     def __init__(self, guard: float) -> None:
         self.guard = guard
         self.slow: list[tuple[str, float, float]] = []
+        self._running: dict[str, tuple[float, float]] = {}
 
-    @pytest.hookimpl(hookwrapper=True)
+    @pytest.hookimpl(wrapper=True)
     def pytest_runtest_makereport(
         self, item: pytest.Item, call: pytest.CallInfo[Any]
-    ) -> Generator[None, Any, None]:
+    ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
         # Runs where the test runs (an xdist worker), the only place that sees
-        # the marker; the controller gets the limit with the report.
-        outcome = yield
-        if call.when == "call":
-            seconds = marker_seconds(item)
-            if seconds is not None:
-                outcome.get_result().user_properties.append((GUARD_PROPERTY, seconds))
+        # the marker; the controller gets the limit with each report.
+        report = yield
+        seconds = marker_seconds(item)
+        if seconds is not None:
+            report.user_properties.append((GUARD_PROPERTY, seconds))
+        return report
 
     def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
         # Under xdist the controller receives every worker's reports here, so
-        # the summary of the controller covers the whole run.
-        if report.when != "call":
-            return
-        guard = self.guard
+        # the summary of the controller covers the whole run. A test's phases
+        # are summed; its teardown report, which every test gets, decides.
+        seconds, guard = self._running.get(report.nodeid, (0.0, self.guard))
         for key, value in report.user_properties:
             if key == GUARD_PROPERTY:
                 guard = float(value)
-        if is_slow(report.duration, guard):
-            self.slow.append((report.nodeid, report.duration, guard))
+        seconds += report.duration
+        if report.when != "teardown":
+            self._running[report.nodeid] = (seconds, guard)
+            return
+        self._running.pop(report.nodeid, None)
+        if is_slow(seconds, guard):
+            self.slow.append((report.nodeid, seconds, guard))
 
     def pytest_terminal_summary(self, terminalreporter: pytest.TerminalReporter) -> None:
         if not self.slow:

@@ -212,7 +212,8 @@ def test_no_point_of_a_large_plan_is_a_label_nobody_can_see(qtbot) -> None:
 
     One shape query over the whole plan covers every point of it at once: Qt
     returns an item there only where the item's shape meets the area, through
-    the same ``collidesWithPath`` a point query uses. Then a point query
+    the same ``collidesWithPath`` that a point query uses for a label (an item
+    that ignores the view's transform). Then a point query
     (``itemAt``) at the middle of every label that is not painted, where the
     review's third of the plan lay.
 

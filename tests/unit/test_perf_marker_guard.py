@@ -38,6 +38,10 @@ is a real hole, verified, not a caveat about a hypothetical:
 - **Call resolution is static.** It follows lexical functions, `self`/`cls` methods,
   explicit class calls and local instances constructed or annotated with a named class.
   Dynamic receivers, instance aliases and imported helper function calls are not resolved.
+- **A duration measured in another process is invisible.**
+  `tests/integration/test_slow_test_warning_run.py` asserts on what an inner pytest run
+  reports about its own sleeps; no clock from `TIMING_SOURCES` runs in this process. Its
+  bounds are wide on purpose (a 1.2 s sleep against a 2 s kill, a 1.6 s one against 3 s).
 - **It is one-directional.** It proves a marker is *required* where it fires, not that
   every marker present is needed. Two tests in `test_nfr_budgets.py` are marked because
   they build the same scenario on the quiet runner, not because they assert a duration.
