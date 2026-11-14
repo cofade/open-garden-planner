@@ -1319,6 +1319,11 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
+  "842": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ellipse and circle beds paint no crop-rotation border"
+  },
   "865": {
     "is_pr": false,
     "state": "CLOSED",

@@ -246,3 +246,4 @@
 | Case study: an edited unit test waited at cleanup (#673) | [Read](246-case-study-an-edited-unit-test-waited-at-cleanup-673.md) |
 | Case study: a cancelled annotation still dirtied the plan, and an empty callout stayed behind (#904, #909) | [Read](247-case-study-a-cancelled-annotation-still-dirtied-the-plan-904-909.md) |
 | Case study: profile header clipped wrapped content (#905) | [Read](248-case-study-profile-header-clipped-wrapped-content-905.md) |
+| Case study: rotation border lost the polygon closing edge (#842) | [Read](249-case-study-rotation-border-lost-the-polygon-closing-edge-842.md) |
