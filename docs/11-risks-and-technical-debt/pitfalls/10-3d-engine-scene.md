@@ -328,7 +328,8 @@ drew grey where the scene was; reflections plus one user `Effect` with glow cras
 on after the first frame, or drew black. One effect ahead of the scene effect, with any number of passes
 and buffers, was fine every time. The count, not the kind, breaks it.
 
-Both minidumps put the fault at `d3d11.dll+0x158c32`, `CContext::OMSetRenderTargets+0x2e2`. The name came
+Both minidumps put the fault at `d3d11.dll+0x158c32`, `CContext::OMSetRenderTargets+0x2e2` (`d3d11.dll`
+10.0.26100.9711; the offset and the name hold only for that build). The name came
 from Microsoft's public `d3d11.pdb` (GUID and age from the DLL's CodeView record, downloaded to a local
 folder) and `dbghelp.dll` through `ctypes`: no debugger is needed. On Ultra, with photo mode on, a
 click that sets the focus died at once (3 of 3); with photo mode off, 20 clicks on a raised bed were
