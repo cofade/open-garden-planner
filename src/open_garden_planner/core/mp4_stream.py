@@ -597,7 +597,7 @@ def _validate_sample_spans(track: _Track, mdat: _TopBox) -> None:
     cursor, end = mdat.start + mdat.header, mdat.start + mdat.size
     for offset, size in track.spans():
         if size <= 0 or offset < cursor or offset + size > end:
-            raise Mp4Error("a sample lies outside the mdat payload or overlaps another")
+            raise Mp4Error("invalid sample bounds or order in mdat")
         cursor = offset + size
 
 
