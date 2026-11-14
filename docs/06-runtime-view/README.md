@@ -1130,8 +1130,12 @@ When the last frame is out, the recorder emits `finishing` (Cancel is too late f
 `Mp4Writer` stops Qt's recorder, waits for the part file to close, then hands it to a worker
 thread: `core/mp4_stream.tag_colour` writes a tagged copy (colour in the `colr` box and every SPS,
 the level the frames need), the copy replaces the user's file, the part goes. The GUI thread polls
-the worker and emits `finished` with its outcome; a part that cannot be tagged is renamed as it is
-(issue #807).
+the worker and emits `finished` with its outcome. Before tagging, the worker validates the
+part's sample tables and media bounds. A structural `Mp4Error` keeps the part, reports its
+path and leaves the destination alone; an unexpected tagging exception can deliver an intact
+part untagged (#889, #890). If window close outlasts its bounded wait while this worker runs,
+the message names both its destination and the retained part on failure. The non-daemon
+worker still completes delivery; the application log records its result.
 
 A tour kept in the plan (issue #737) takes the plan's write path, not the capture's:
 

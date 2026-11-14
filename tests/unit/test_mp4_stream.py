@@ -254,6 +254,43 @@ def write(tmp_path: Path, data: bytes, name: str = "tour.part.mp4") -> Path:
     return path
 
 
+@pytest.mark.parametrize(("kind", "field_offset"), [
+    (b"stsz", 12), (b"stco", 8), (b"stsc", 8), (b"stts", 8),
+])
+def test_table_counts_must_fit_their_payload_before_unpacking(
+        tmp_path: Path, kind: bytes, field_offset: int) -> None:
+    data = bytearray(mp4(samples_of(MEDIA_FOUNDATION_SPS)))
+    struct.pack_into(">I", data, data.index(kind) + field_offset, 0xFFFFFFFF)
+    source = write(tmp_path, bytes(data))
+    target = tmp_path / "tagged.mp4"
+    with pytest.raises(Mp4Error, match=kind.decode()):
+        tag_colour(source, target)
+    assert not target.exists()
+    assert source.read_bytes() == data
+
+
+def test_a_chunk_run_cannot_allocate_more_chunks_than_the_offset_table(tmp_path: Path) -> None:
+    data = bytearray(mp4(samples_of(MEDIA_FOUNDATION_SPS)))
+    # The next run claims to start far beyond the actual two chunks.
+    struct.pack_into(">I", data, data.index(b"stsc") + 24, 0xFFFFFFFF)
+    with pytest.raises(Mp4Error, match="stsc"):
+        read_stream(write(tmp_path, bytes(data)))
+
+
+@pytest.mark.parametrize(("kind", "offset", "value"), [
+    (b"stsc", 12, 0), (b"stsc", 16, 0), (b"stsc", 20, 2),
+    (b"stsc", 24, 1), (b"stts", 12, 5), (b"stts", 16, 0),
+    (b"stsz", 16, 0xFFFFFFFF), (b"stco", 12, 0xFFFFFFFF),
+    (b"stco", 16, 1),
+])
+def test_sample_tables_must_describe_real_nonoverlapping_timed_samples(
+        tmp_path: Path, kind: bytes, offset: int, value: int) -> None:
+    data = bytearray(mp4(samples_of(MEDIA_FOUNDATION_SPS)))
+    struct.pack_into(">I", data, data.index(kind) + offset, value)
+    with pytest.raises(Mp4Error):
+        read_stream(write(tmp_path, bytes(data)), read_samples=False)
+
+
 def nal_bodies(path: Path) -> list[list[bytes]]:
     """Every sample's NAL units, through the file's own tables (offsets, sizes, chunks)."""
     data = path.read_bytes()

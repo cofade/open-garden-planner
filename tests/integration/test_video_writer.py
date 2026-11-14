@@ -14,7 +14,7 @@ import pytest
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QColor, QImage, QPainter
 
-from open_garden_planner.core.mp4_stream import BT709_LIMITED, Mp4Error, read_stream
+from open_garden_planner.core.mp4_stream import BT709_LIMITED, read_stream
 from open_garden_planner.core.video_yuv import yuv_to_rgb
 from open_garden_planner.ui.view3d.video_writer import (
     CODECS,
@@ -417,11 +417,11 @@ def test_a_video_that_cannot_be_tagged_is_saved_untagged_and_says_so_in_the_log(
         qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture) -> None:
     """The tags are a statement about a finished render; failing to write them must never
-    cost the render (a layout ``mp4_stream`` does not rewrite, a full disk)."""
+    cost the intact render (for example a full disk during the tagging copy)."""
     needs_an_encoder()
 
     def refuse(_source: Path, _target: Path, *_a: Any, **_k: Any) -> Any:
-        raise Mp4Error("a layout this test invented")
+        raise OSError("the tagging copy could not be written")
 
     monkeypatch.setattr("open_garden_planner.ui.view3d.video_writer.tag_colour", refuse)
     path = tmp_path / "tour.mp4"

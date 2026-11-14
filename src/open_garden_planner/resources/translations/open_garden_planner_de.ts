@@ -12306,7 +12306,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <context>
         <name>ProjectManager</name>
         <message>
-            <location filename="../../core/project.py" line="1266" />
+            <location filename="../../core/project.py" line="1267" />
             <source>Choose a template filename outside the current project and bundled examples.</source>
             <translation>Wählen Sie einen Vorlagendateinamen außerhalb des aktuellen Projekts und der mitgelieferten Beispiele.</translation>
         </message>
@@ -15645,7 +15645,7 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
             <translation>3D ist auf diesem Computer nicht verfügbar.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="440" />
+            <location filename="../../ui/view3d/video_writer.py" line="468" />
             <source>A frame could not be saved. Is the disk full?</source>
             <translation>Ein Einzelbild konnte nicht gespeichert werden. Ist der Datenträger voll?</translation>
         </message>
@@ -15670,8 +15670,8 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
             <translation>Eine Fahrt mit dem Namen '{name}' ist bereits vorhanden. Ersetzen?</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="248" />
-            <location filename="../../ui/view3d/video_writer.py" line="271" />
+            <location filename="../../ui/view3d/video_writer.py" line="249" />
+            <location filename="../../ui/view3d/video_writer.py" line="272" />
             <source>A video frame could not be prepared.</source>
             <translation>Ein Videobild konnte nicht vorbereitet werden.</translation>
         </message>
@@ -15975,7 +15975,7 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
             <translation>Die Kamera bleibt bei der aktuellen Ansicht. Gut für einen Zeitraffer.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/tour_recorder.py" line="267" />
+            <location filename="../../ui/view3d/tour_recorder.py" line="273" />
             <source>The recording failed: {message}</source>
             <translation>Die Aufnahme ist fehlgeschlagen: {message}</translation>
         </message>
@@ -15985,22 +15985,27 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
             <translation>Die in diesem Plan gespeicherten Fahrten. Sie werden mit der Plandatei gespeichert.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="307" />
+            <location filename="../../ui/view3d/video_writer.py" line="375" />
+            <source>The video could not be prepared. The render is kept as {part}. The destination was not replaced.</source>
+            <translation>Das Video konnte nicht vorbereitet werden. Die gerenderte Datei bleibt unter {part} erhalten. Die Zieldatei wurde nicht ersetzt.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/video_writer.py" line="313" />
             <source>The video file could not be closed.</source>
             <translation>Die Videodatei konnte nicht abgeschlossen werden.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="220" />
+            <location filename="../../ui/view3d/video_writer.py" line="221" />
             <source>The video file {path} cannot be written: {error}</source>
             <translation>Die Videodatei {path} kann nicht geschrieben werden: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="190" />
+            <location filename="../../ui/view3d/video_writer.py" line="191" />
             <source>This computer has no video encoder for MP4 files. Save a PNG sequence instead.</source>
             <translation>Dieser Computer hat keinen Video-Encoder für MP4-Dateien. Speichern Sie stattdessen eine PNG-Sequenz.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="429" />
+            <location filename="../../ui/view3d/video_writer.py" line="457" />
             <source>This folder already holds the frames of another tour. Choose an empty one.</source>
             <translation>Dieser Ordner enthält bereits die Bilder einer anderen Fahrt. Wählen Sie einen leeren Ordner.</translation>
         </message>
@@ -16047,7 +16052,12 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
             <translation>Aktuelle Ansicht verwenden</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="99" />
+            <location filename="../../ui/view3d/video_writer.py" line="409" />
+            <source>Video delivery failed. Check {path} and {part} for the output.</source>
+            <translation>Das Video konnte nicht bereitgestellt werden. Prüfen Sie {path} und {part}, um die Ausgabedatei zu finden.</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/video_writer.py" line="100" />
             <source>Video is not available in this build of the app.</source>
             <translation>Video ist in dieser Version der App nicht verfügbar.</translation>
         </message>
@@ -16076,7 +16086,7 @@ Der Bestand gehört Ihnen, nicht einem Plan: Jeder Plan, den Sie öffnen, zeigt 
             <translation>{count} Bilder wurden gerendert, bevor die 3D-Ansicht bei ihrem Datum angekommen war.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/video_writer.py" line="352" />
+            <location filename="../../ui/view3d/video_writer.py" line="363" />
             <source>{path} could not be replaced ({error}). The video is saved as {part}.</source>
             <translation>{path} konnte nicht ersetzt werden ({error}). Das Video ist als {part} gespeichert.</translation>
         </message>
@@ -16951,7 +16961,8 @@ Details: {error}</translation>
             <translation>&amp;Kamerafahrt...</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="835" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="837" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="845" />
             <source>Camera Tour</source>
             <translation>Kamerafahrt</translation>
         </message>
@@ -17385,7 +17396,7 @@ Details: {error}</translation>
             <translation>Das Bild konnte nicht unter {path} gespeichert werden.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="836" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="846" />
             <source>The recording could not be closed before the window went. Its unfinished output may stay at {path}.</source>
             <translation>Die Aufnahme konnte vor dem Schließen des Fensters nicht abgeschlossen werden. Die unfertige Ausgabe bleibt möglicherweise unter {path}.</translation>
         </message>
@@ -17448,6 +17459,11 @@ Details: {error}</translation>
             <location filename="../../ui/view3d/workspace.py" line="1445" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Kompatibilitätsmodus verwenden</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace_capture.py" line="838" />
+            <source>Video delivery is still finishing. Its destination is {path}; if it cannot be delivered, the render is kept as {part}. Check the application log for the result.</source>
+            <translation>Das Video wird noch fertiggestellt. Das Ziel ist {path}; falls es dort nicht gespeichert werden kann, bleibt die gerenderte Datei unter {part} erhalten. Das Ergebnis steht im Anwendungsprotokoll.</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="123" />

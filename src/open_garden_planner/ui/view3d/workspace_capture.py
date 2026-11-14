@@ -829,6 +829,16 @@ class WorkspaceCaptureCoordinator(QObject):
         loop.exec()
         if self._recorder is not None:
             path = recorder.output_path()
+            target = recorder.delivery_target()
+            if target is not None:
+                _LOG.warning("Camera tour: delivery continues after window close; destination %s, "
+                             "retained render on failure %s", target, path)
+                QMessageBox.warning(
+                    self._parent, _tr("Camera Tour"),
+                    _tr("Video delivery is still finishing. Its destination is {path}; "
+                        "if it cannot be delivered, the render is kept as {part}. "
+                        "Check the application log for the result.").format(path=target, part=path))
+                return
             _LOG.warning("Camera tour: the file had not closed when the window went; "
                          "its unfinished output may stay at %s", path)
             QMessageBox.warning(

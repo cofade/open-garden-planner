@@ -25,6 +25,11 @@ remains a current limitation. The 2D analytic shadow and sun-hours calculations 
 separate from the 3D renderer's lighting. Unknown plant heights can use labelled
 illustrative category heights in 3D; analytical heights remain unknown.
 
+Camera tours are stored with the plan. Video delivery validates MP4 sample tables before
+replacing the destination; an invalid render stays under its part name and the failure
+message identifies it. The delivery decisions are recorded in
+[ADR-072](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-072-addendum-tour-and-video-reliability-889-890-891-896).
+
 ## Detailed documentation
 
 | Document | Purpose |

@@ -1778,6 +1778,9 @@ def test_a_writer_that_never_closes_is_named_on_exit(
         def output_path(self) -> Path:
             return self.path
 
+        def delivery_target(self) -> None:
+            return None
+
     capture = rig.workspace.capture
     stuck = Stuck()
     capture._recorder = stuck

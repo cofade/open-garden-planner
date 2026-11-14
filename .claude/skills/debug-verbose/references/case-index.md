@@ -247,3 +247,4 @@
 | Case study: a cancelled annotation still dirtied the plan, and an empty callout stayed behind (#904, #909) | [Read](247-case-study-a-cancelled-annotation-still-dirtied-the-plan-904-909.md) |
 | Case study: profile header clipped wrapped content (#905) | [Read](248-case-study-profile-header-clipped-wrapped-content-905.md) |
 | Case study: rotation border lost the polygon closing edge (#842) | [Read](249-case-study-rotation-border-lost-the-polygon-closing-edge-842.md) |
+| Case study: a truncated video promoted as success (#889, #890, #891) | [Read](250-case-study-a-truncated-video-promoted-as-success-889-891.md) |
