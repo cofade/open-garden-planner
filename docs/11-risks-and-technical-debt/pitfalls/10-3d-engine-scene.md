@@ -474,6 +474,9 @@ The trace showed a truncated `moov` rejected by the tagger immediately followed 
 promotion of the invalid part over the user's previous video. An optional annotation
 failure and an invalid render require different outcomes. A controlled worker pause
 also reproduced the shutdown report naming unfinished output while delivery continued.
+Preserve the primary parse failure when cleanup fails. If tagging fails before reading
+the samples, validate their contents before any untagged fallback; valid tables alone
+do not prove the sample bytes are valid.
 
 ### PF-E3D-34
 

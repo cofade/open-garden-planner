@@ -349,6 +349,12 @@ class Mp4Writer(_Sink):
             tagged = None
             if isinstance(error, Mp4Error):   # a malformed sample/layout is not a usable video
                 return self._delivery_failure(error)
+            try:
+                # The copy may have failed before the tagger reached a malformed NAL.
+                # Prove sample structure too before promoting an untagged fallback.
+                self.stream = read_stream(self.part_path)
+            except Exception as validation_error:
+                return self._delivery_failure(validation_error)
             _LOG.warning("Video: %s is saved untagged (%s: %s)", log_text(self.path),
                          type(error).__name__, log_text(error))
         try:

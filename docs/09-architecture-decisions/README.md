@@ -12599,7 +12599,10 @@ table counts, chunk runs, sample bounds and durations before attempting colour t
 Only a structurally intact part may be delivered untagged when optional tagging fails
 with an unexpected `Exception` (including allocation errors) or an I/O error. Log the
 exception and final path; do not expose a bare exception as the entire user message.
-Temporary-copy cleanup must not hide the delivery outcome.
+Temporary-copy cleanup must not hide the delivery outcome or its primary exception.
+Before untagged fallback, read and validate the samples too: an early copy failure can
+otherwise bypass the tagger's later malformed-NAL detection. This extra full scan is
+needed only on fallback, not on every successful recording.
 
 A delivery worker already owns a closed recording. Window close waits for it within
 the existing limit, then names its destination and its retained-part path on failure;

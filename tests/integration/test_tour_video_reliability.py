@@ -96,6 +96,31 @@ def test_a_held_temporary_copy_cannot_mask_a_structural_error_and_promote_bad_vi
     assert writer.part_path.read_bytes() == bad
 
 
+def test_an_early_tagging_io_error_cannot_promote_malformed_samples(
+        qtbot, tmp_path, monkeypatch) -> None:
+    """A copy can fail before the tagger reaches the bad NAL: metadata is not sufficient."""
+    from open_garden_planner.core import mp4_stream
+
+    writer = Mp4Writer(tmp_path / "tour.mp4", (1280, 720), 30)
+    writer.path.write_bytes(b"GOOD VIDEO")
+    bad = bytearray(mp4(samples_of(MEDIA_FOUNDATION_SPS)))
+    struct.pack_into(">I", bad, bad.index(b"mdat") + 4, 0xFFFFFFFF)
+    writer.part_path.write_bytes(bad)
+
+    def full_disk(*_args):
+        raise OSError("disk full before samples were copied")
+
+    monkeypatch.setattr(mp4_stream, "_copy", full_disk)
+    outcome = []
+    writer.finished.connect(lambda ok, text: outcome.append((ok, text)))
+    writer._close(True)
+    qtbot.waitUntil(lambda: bool(outcome), timeout=5000)
+    assert outcome[0][0] is False
+    assert str(writer.part_path) in outcome[0][1]
+    assert writer.path.read_bytes() == b"GOOD VIDEO"
+    assert writer.part_path.read_bytes() == bad
+
+
 def test_closing_during_tagging_names_the_eventual_destination_and_the_retained_part(
         canvas, qtbot, tmp_path, monkeypatch) -> None:
     rig = TourRig(canvas, qtbot, tmp_path)

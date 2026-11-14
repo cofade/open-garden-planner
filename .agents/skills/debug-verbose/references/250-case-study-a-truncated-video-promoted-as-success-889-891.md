@@ -38,3 +38,9 @@ Pins: `tests/unit/test_mp4_stream.py`, `tests/unit/test_camera_tours.py`, and
 regression first returned success and overwrote `GOOD VIDEO`. Cleanup now preserves
 its primary exception; the regression refuses delivery and keeps both original files.
 Never let best-effort cleanup change a trust-boundary failure's classification.
+
+**Second review:** an I/O failure while copying the MP4 header occurs before the
+tagger reads samples. A malformed NAL could therefore still be promoted untagged.
+The fallback now reads and validates sample contents too, before replacement. The
+combined early-copy-failure regression failed first and then preserved `GOOD VIDEO`.
+The routine successful path does not pay for that extra scan.
