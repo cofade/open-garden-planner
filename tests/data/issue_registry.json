@@ -466,7 +466,7 @@
   },
   "358": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Norton 360 detects Open Garden Planner 1.27.9 as FileRepMalware[Misc]"
   },
   "364": {
@@ -1056,7 +1056,7 @@
   },
   "673": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Metric/imperial unit system preference: render and enter every measurement in the chosen units"
   },
   "674": {
@@ -1306,7 +1306,7 @@
   },
   "827": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Text tool: Esc on an empty annotation leaves a ghost item on the undo stack"
   },
   "831": {
@@ -1328,5 +1328,15 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Print at a fixed scale puts the short row of tiles on top"
+  },
+  "904": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Callout tool: Escape on an empty annotation leaves an empty callout behind (Text-tool #827 asymmetry)"
+  },
+  "909": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Text tool: a cancelled empty annotation still marks a clean project dirty"
   }
 }

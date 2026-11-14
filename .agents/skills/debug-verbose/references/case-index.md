@@ -244,3 +244,4 @@
 | Case study: an async badge changed a sun-map comparison (#673) | [Read](244-case-study-an-async-badge-changed-a-sun-map-comparison-673.md) |
 | Case study: prefixed fields refused partial fractions (#673) | [Read](245-case-study-prefixed-fields-refused-partial-fractions-673.md) |
 | Case study: an edited unit test waited at cleanup (#673) | [Read](246-case-study-an-edited-unit-test-waited-at-cleanup-673.md) |
+| Case study: a cancelled annotation still dirtied the plan, and an empty callout stayed behind (#904, #909) | [Read](247-case-study-a-cancelled-annotation-still-dirtied-the-plan-904-909.md) |

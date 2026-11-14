@@ -245,3 +245,32 @@ class TestPlantThumbnailDownload:
 
         panel.shutdown()
         assert panel._thumb_worker is None
+
+
+class TestProfileHeaderHeight:
+    """#905: the profile header must not eat the space the details need."""
+
+    def test_the_details_scroll_gets_the_surplus_sidebar_height(self, qtbot) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        panel = PlantDatabasePanel()
+        qtbot.addWidget(panel)
+        panel.resize(450, 1198)
+        panel.show()
+        panel.set_selected_items([
+            _plant(
+                PlantSpeciesData(
+                    common_name="Apple tree",
+                    scientific_name="Malus domestica",
+                    description="A garden apple tree.",
+                )
+            )
+        ])
+        QApplication.processEvents()
+
+        assert panel._profile_header.isVisibleTo(panel)
+        # The header keeps the height its own content asks for...
+        natural = panel._profile_header.sizeHint().height()
+        assert panel._profile_header.height() <= natural + 2
+        # ...and the details viewport receives the rest of the sidebar.
+        assert panel.details_scroll.height() > 400

@@ -104,6 +104,44 @@ neither `mark_dirty` nor the monotonic revision counter can be withdrawn from
 `tests/unit/test_commands.py::TestCommandManagerDiscard` and
 `tests/integration/test_tool_switching.py::test_escaping_an_empty_text_annotation_leaves_no_ghost_undo_entry`.
 
+### Addendum (2026-11-14, #904/#909 — the net-zero annotation gesture)
+
+The tradeoff above is resolved. A placement that may still be cancelled now runs
+through `CanvasView.add_cancellable_item()`, which keeps the immediate
+`execute()` (every placement tool relies on it) but holds the scene's plan-change
+announcements for the whole gesture: `CanvasScene.begin_plan_change_hold()` makes
+`note_plan_changed()` only remember that content moved, and
+`end_plan_change_hold(commit=...)` announces the held change as ONE revision when
+the annotation is committed or drops it entirely when the annotation is
+cancelled. The revision therefore never moves for a net-zero gesture and never
+rewinds, so revision-keyed consumers (the 3D view, `SunExportGate`) keep their
+monotonic contract.
+
+The dirty flag is still latched by `stack_changed` when the command executes;
+`CanvasView.discard_cancellable_placement()` restores it from the snapshot taken
+before the placement only when `CommandManager.mutation_serial` proves no other
+command ran in the meantime (a refused discard, or an interleaved command, keeps
+the project dirty). `ProjectManager.restore_dirty()` is the one setter for that
+path.
+
+The Callout tool uses the same seam (#904): Escape on a callout with no text
+discards its `CreateItemCommand` and removes the item, exactly as the Text tool
+does; a callout with text is committed and kept. `clear()` drops every hold,
+because a document replacement kills the pending annotation with it.
+
+Alternatives rejected: deferring the command's `execute()` until the annotation
+is committed (breaks the execute-immediately contract and leaves an un-undoable
+item on screen); rewinding `plan_revision` to the snapshot (an ABA value for
+consumers that key on it); restoring the dirty flag unconditionally (would hide a
+real change made between placement and cancellation).
+
+No `.ogp` change and no `FILE_VERSION` bump. Pinned by
+`tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect::test_escaping_an_empty_text_annotation_leaves_the_plan_revision_alone`,
+`...::test_a_committed_text_annotation_announces_one_plan_change`,
+`...::test_a_cancelled_empty_annotation_leaves_a_clean_project_clean`,
+`tests/integration/test_callout.py::TestCancel::test_escaping_an_empty_callout_withdraws_it_and_its_history_entry`
+and `tests/unit/test_commands.py::TestMutationSerial`.
+
 ## ADR-005: Fixed Sidebar (Not Dockable)
 
 **Status**: Accepted

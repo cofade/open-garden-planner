@@ -96,6 +96,16 @@ class CommandManager(QObject):
         self._redo_stack: list[Command] = []
         self._preparing_history = False
         self._last_command: Command | None = None
+        #: Counts every stack mutation (execute, register_applied, undo, redo,
+        #: discard, clear). A cancelled placement compares it with the value it
+        #: snapshotted to prove no OTHER change slipped in before it rolled the
+        #: document's dirty flag back (#909).
+        self._mutation_serial = 0
+
+    @property
+    def mutation_serial(self) -> int:
+        """Monotonic count of stack mutations (see ``_mutation_serial``)."""
+        return self._mutation_serial
 
     @property
     def last_command(self) -> Command | None:
@@ -126,6 +136,7 @@ class CommandManager(QObject):
 
         Clears the redo stack since we've branched off.
         """
+        self._mutation_serial += 1
         command.execute()
         self._undo_stack.append(command)
 
@@ -152,6 +163,7 @@ class CommandManager(QObject):
         every "already applied" call site in sync with :meth:`execute`; do NOT
         hand-roll ``_undo_stack.append`` + signal emits at call sites (issue #209).
         """
+        self._mutation_serial += 1
         self._undo_stack.append(command)
         had_redo = len(self._redo_stack) > 0
         self._redo_stack.clear()
@@ -174,6 +186,7 @@ class CommandManager(QObject):
         command.undo()
         self._redo_stack.append(command)
 
+        self._mutation_serial += 1
         self._last_command = command
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.can_redo_changed.emit(True)
@@ -197,6 +210,7 @@ class CommandManager(QObject):
             raise
         self._undo_stack.append(command)
 
+        self._mutation_serial += 1
         self._last_command = command
         self.can_undo_changed.emit(True)
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
@@ -245,6 +259,7 @@ class CommandManager(QObject):
             return False
         self._undo_stack.pop()
 
+        self._mutation_serial += 1
         self._last_command = command
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.stack_changed.emit()
@@ -255,6 +270,7 @@ class CommandManager(QObject):
         self._undo_stack.clear()
         self._redo_stack.clear()
         self._last_command = None
+        self._mutation_serial += 1
         self.can_undo_changed.emit(False)
         self.can_redo_changed.emit(False)
 

@@ -19,6 +19,35 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+FROZEN_EXE = ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
+FROZEN_SBOM = ROOT / "dist/ogp-sbom.cdx.json"
+
+
+def _frozen_artifact_complete() -> bool:
+    """The exe alone is not a frozen artifact: its inventory must be there too (#881)."""
+    return FROZEN_EXE.is_file() and FROZEN_SBOM.is_file()
+
+
+_FROZEN_SKIP = pytest.mark.skipif(
+    not _frozen_artifact_complete(),
+    reason="no complete frozen Windows artifact (executable + SBOM) in this checkout",
+)
+
+
+def test_a_bare_pyinstaller_build_is_not_a_complete_frozen_artifact(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#881: the documented pre-merge build writes the exe but no SBOM."""
+    exe = tmp_path / "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
+    exe.parent.mkdir(parents=True)
+    exe.touch()
+    monkeypatch.setattr(sys.modules[__name__], "FROZEN_EXE", exe)
+    monkeypatch.setattr(sys.modules[__name__], "FROZEN_SBOM", tmp_path / "dist/ogp-sbom.cdx.json")
+
+    assert not _frozen_artifact_complete()
+
+    (tmp_path / "dist/ogp-sbom.cdx.json").write_text("{}", encoding="utf-8")
+    assert _frozen_artifact_complete()
 
 
 def _load_module(name: str, path: Path):
@@ -147,16 +176,13 @@ def test_the_real_lock_names_every_runtime_distribution() -> None:
     assert missing == [], f"runtime distributions absent from pylock.toml: {missing}"
 
 
-@pytest.mark.skipif(
-    not (ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe").is_file(),
-    reason="no frozen Windows artifact in this checkout",
-)
+@_FROZEN_SKIP
 def test_frozen_hook_dependencies_are_in_the_inventory() -> None:
     """An independent archive observation must catch hook/vendoring omissions."""
     readers = pytest.importorskip("PyInstaller.archive.readers")
-    archive = readers.CArchiveReader(str(ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe"))
+    archive = readers.CArchiveReader(str(FROZEN_EXE))
     pyz = archive.open_embedded_archive(next(n for n in archive.toc if n.endswith(".pyz")))
-    sbom = json.loads((ROOT / "dist/ogp-sbom.cdx.json").read_text(encoding="utf-8"))
+    sbom = json.loads(FROZEN_SBOM.read_text(encoding="utf-8"))
     names = {c["name"] for c in sbom["components"]}
     # These are observed frozen hook inputs, not roots in project.dependencies.
     for module, distribution in (
@@ -168,10 +194,7 @@ def test_frozen_hook_dependencies_are_in_the_inventory() -> None:
             assert distribution in names, f"frozen {module} has no inventory component"
 
 
-@pytest.mark.skipif(
-    not (ROOT / "dist/OpenGardenPlanner/OpenGardenPlanner.exe").is_file(),
-    reason="no frozen Windows artifact in this checkout",
-)
+@_FROZEN_SKIP
 def test_frozen_check_rejects_manifest_archive_drift(monkeypatch) -> None:
     """Changing ownership evidence cannot make the executable acquire a module."""
     pytest.importorskip("PyInstaller.archive.readers")
@@ -182,7 +205,7 @@ def test_frozen_check_rejects_manifest_archive_drift(monkeypatch) -> None:
     assert manifest is not None
     manifest["python_modules"].append("invented.module")
     monkeypatch.setattr(inventory, "_collected_manifest", lambda _bundle: manifest)
-    sbom = json.loads((ROOT / "dist/ogp-sbom.cdx.json").read_text(encoding="utf-8"))
+    sbom = json.loads(FROZEN_SBOM.read_text(encoding="utf-8"))
     problems = inventory._check(
         ROOT / "dist", ROOT / "pylock.toml", inventory.collect_records(bundle),
         sbom["metadata"]["component"]["version"], bundle,

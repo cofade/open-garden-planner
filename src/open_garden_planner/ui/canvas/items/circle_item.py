@@ -585,6 +585,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # (the fill tile at the painter's resolution, #785)
         paint_shape(self, painter, option, widget, super().paint)
 
+        # Crop-rotation status for circular beds (#842). Only this fallback
+        # path can carry it: plant and furniture circles are never beds.
+        if self._rotation_status is not None:
+            rotation_path = QPainterPath()
+            rotation_path.addEllipse(self.rect().adjusted(2.0, 2.0, -2.0, -2.0))
+            self._draw_rotation_status_border(painter, rotation_path)
+
         # Draw soil mismatch border for circular beds (US-12.10d)
         self._draw_soil_mismatch_border(painter)
 

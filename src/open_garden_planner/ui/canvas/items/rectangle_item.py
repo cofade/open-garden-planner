@@ -332,9 +332,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                 # Draw soil mismatch border on top of the pixmap-rendered raised
                 # bed too — without this, RAISED_BED items never show the border
                 # (US-12.10/F2.6b: this branch returns early before line 317).
-                # The succession badge is a graphics-item child (managed by
-                # GardenItemMixin) so it renders independently of paint().
+                # The crop-rotation border has the same story (#842): it lives
+                # below this early return, so it is drawn here too.
                 if is_bed_type(self.object_type):
+                    self._draw_rotation_status_border(painter, self._rotation_border_path())
                     self._draw_soil_mismatch_border(painter)
                 return
 
@@ -387,21 +388,8 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             self._draw_grid_overlay(painter)
 
         # Draw crop rotation status indicator (colored inner border on beds)
-        if self._rotation_status is not None and self._diagnostics_painted():
-            _rotation_colors = {
-                "good": QColor(46, 125, 50, 160),       # Green
-                "suboptimal": QColor(245, 127, 23, 160),  # Amber
-                "violation": QColor(198, 40, 40, 160),    # Red
-            }
-            indicator_color = _rotation_colors.get(self._rotation_status)
-            if indicator_color is not None:
-                rect = self.rect()
-                indicator_pen = QPen(indicator_color)
-                indicator_pen.setWidthF(4.0)
-                painter.setPen(indicator_pen)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                gap = 2.0
-                painter.drawRect(rect.adjusted(gap, gap, -gap, -gap))
+        if self._rotation_status is not None:
+            self._draw_rotation_status_border(painter, self._rotation_border_path())
 
         # Draw soil mismatch border outside rotation border (US-12.10d)
         if is_bed_type(self.object_type):
@@ -410,6 +398,12 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self._draw_capacity_badge(painter)
         # The succession badge is a graphics-item child (managed in the mixin)
         # so it renders upright despite the canvas Y-flip.
+
+    def _rotation_border_path(self) -> QPainterPath:
+        """The crop-rotation inner outline, inset by the historical 2 cm gap (#842)."""
+        path = QPainterPath()
+        path.addRect(self.rect().adjusted(2.0, 2.0, -2.0, -2.0))
+        return path
 
     def itemChange(
         self,

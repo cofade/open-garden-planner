@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QPainter, QPen
+from PyQt6.QtGui import QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -113,6 +113,12 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         # F9: soil-mismatch border for bed-typed ellipses (US-12.10d).
         from open_garden_planner.core.object_types import is_bed_type
         if is_bed_type(self.object_type):
+            # The crop-rotation inner border was missing on ellipse/circle beds
+            # while rectangle and polygon beds painted it (#842).
+            if self._rotation_status is not None:
+                rotation_path = QPainterPath()
+                rotation_path.addEllipse(self.rect().adjusted(2.0, 2.0, -2.0, -2.0))
+                self._draw_rotation_status_border(painter, rotation_path)
             self._draw_soil_mismatch_border(painter)
 
     def itemChange(

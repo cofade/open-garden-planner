@@ -985,6 +985,20 @@ class ProjectManager(QObject):
             self._dirty = False
             self.dirty_changed.emit(False)
 
+    def restore_dirty(self, dirty: bool) -> None:
+        """Put the unsaved-changes flag back after a cancelled gesture (#909).
+
+        Only for a gesture that was fully withdrawn: the caller (a tool through
+        ``CanvasView.discard_cancellable_placement``) has proved that no other
+        command executed since the snapshot, so the flag ``mark_dirty`` set for
+        the placement click can be cleared again. Emits only when the state
+        actually changes, exactly like :meth:`mark_dirty` / :meth:`mark_clean`.
+        """
+        if self._dirty == dirty:
+            return
+        self._dirty = dirty
+        self.dirty_changed.emit(dirty)
+
     def new_project(self) -> None:
         """Start a new untitled project."""
         self._current_file = None

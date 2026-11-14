@@ -1,6 +1,6 @@
 """Text annotation tool."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, Qt
 from PyQt6.QtGui import QKeyEvent, QMouseEvent
@@ -8,8 +8,7 @@ from PyQt6.QtGui import QKeyEvent, QMouseEvent
 from .base_tool import BaseTool, ToolType
 
 if TYPE_CHECKING:
-    from open_garden_planner.core.commands import Command
-    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+    from open_garden_planner.ui.canvas.canvas_view import CancellablePlacement, CanvasView
     from open_garden_planner.ui.canvas.items.text_item import TextItem
 
 
@@ -31,11 +30,10 @@ class TextTool(BaseTool):
 
     def __init__(self, view: "CanvasView") -> None:
         super().__init__(view)
-        self._pending_item: TextItem | None = None
-        # The CreateItemCommand add_item executed for that item, kept so an
-        # empty cancellation can take the pair off scene AND stack (#827).
-        # Assigned and cleared together with _pending_item.
-        self._pending_command: Command | None = None
+        # The placement command AND the document-state snapshot that let an
+        # empty cancellation leave no trace at all (#827, #909). One object
+        # so the pair cannot drift apart.
+        self._pending: CancellablePlacement | None = None
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Place a text item on left click."""
@@ -58,9 +56,7 @@ class TextTool(BaseTool):
             content="",
             layer_id=layer_id,
         )
-        command = self._view.add_item(item, "text")
-        self._pending_item = item
-        self._pending_command = command
+        self._pending = self._view.add_cancellable_item(item, "text")
         item.start_editing()
         return True
 
@@ -78,13 +74,15 @@ class TextTool(BaseTool):
         return False
 
     def cancel(self) -> None:
-        """Cancel a pending text annotation, keeping scene and history in step (#827).
+        """Cancel a pending text annotation, keeping scene, history and dirty state in step.
 
         The placement click already executed its ``CreateItemCommand``, so
         removing the item from the scene alone left the command on the undo
-        stack: undo became a no-op and redo resurrected the empty annotation.
-        The sequence therefore discards the command FIRST and removes the item
-        from the scene only when the discard proved the command left the stack.
+        stack (#827). ``CanvasView.discard_cancellable_placement`` discards the
+        command first and removes the item only when the discard proved the
+        command left the stack; it also drops the gesture's held plan changes
+        and restores the document's dirty flag, so click + Esc on a clean plan
+        leaves it clean (#909).
 
         A note that has text is a real change: it is committed first (the
         placement can end without a focus-out — a tool switch, a click that
@@ -95,23 +93,20 @@ class TextTool(BaseTool):
         STAYS in the scene — an item-plus-command pair is consistent in both
         directions, a scene without its command is exactly the bug (#827).
 
-        Both pending references are cleared first, so repeated
+        The pending reference is cleared first, so repeated
         cancel/deactivate/click calls are no-ops.
         """
-        item = self._pending_item
-        command = self._pending_command
-        self._pending_item = None
-        self._pending_command = None
-
-        if item is None or command is None:
+        pending, self._pending = self._pending, None
+        if pending is None:
             return
-        scene = self._view.scene()
-        if scene is None:
-            return
-        item.finish_editing()
-        if item.toPlainText().strip():
+        item = cast("TextItem", pending.item)
+        try:
+            item.finish_editing()
+            has_text = bool(item.content.strip())
+        except RuntimeError:
+            # The item died with a document replacement: nothing to keep.
+            has_text = False
+        if has_text:
+            self._view.commit_cancellable_placement(pending)
             return  # a real annotation: keep item + command
-        if not self._view.command_manager.discard(command):
-            return  # interleaved: item stays in the scene with its command
-        if item.scene() is not None:
-            scene.removeItem(item)
+        self._view.discard_cancellable_placement(pending)

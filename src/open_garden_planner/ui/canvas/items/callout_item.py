@@ -264,6 +264,14 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self._text_child.setTextCursor(cursor)
         self.update()
 
+    def finish_editing(self) -> None:
+        """Commit the typed text and leave edit mode (idempotent).
+
+        The cancellation seam the tool calls before deciding whether an empty
+        callout may be withdrawn; ``content`` is only current after this (#904).
+        """
+        self._commit_edit()
+
     # ── Qt events ─────────────────────────────────────────────────
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:

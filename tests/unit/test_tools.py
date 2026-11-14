@@ -430,50 +430,57 @@ class TestTextTool:
         view.command_manager = MagicMock()
         return view
 
-    def test_cancel_when_discard_fails_keeps_item_in_scene(
+    def test_cancel_hands_an_empty_annotation_to_the_seam(
         self, mock_view
     ) -> None:
-        """If discard fails (e.g. interleaved command), item stays in scene."""
+        """An annotation with no text goes to the view's cancellation seam (#904/#909)."""
+        from open_garden_planner.ui.canvas.canvas_view import CancellablePlacement
+
         tool = TextTool(mock_view)
-        scene = MagicMock()
-        mock_view.scene.return_value = scene
-        mock_view.command_manager.discard.return_value = False
-
         mock_item = MagicMock()
-        mock_item.toPlainText.return_value = ""
-        mock_item.scene.return_value = scene
+        mock_item.content = ""
         mock_command = MagicMock()
+        pending = CancellablePlacement(mock_item, mock_command, None, 0)
 
-        tool._pending_item = mock_item
-        tool._pending_command = mock_command
-
+        tool._pending = pending
         tool.cancel()
 
-        mock_view.command_manager.discard.assert_called_once_with(mock_command)
-        scene.removeItem.assert_not_called()
+        mock_item.finish_editing.assert_called_once_with()
+        mock_view.discard_cancellable_placement.assert_called_once_with(pending)
+        mock_view.commit_cancellable_placement.assert_not_called()
 
-    def test_repeated_cancel_only_discards_and_removes_once(self, mock_view) -> None:
-        """Both pending references are cleared first, so a second cancel is a no-op.
+    def test_a_note_with_text_is_committed_not_discarded(self, mock_view) -> None:
+        """Typed text is a real change: the pair stays, only the edit is finished."""
+        from open_garden_planner.ui.canvas.canvas_view import CancellablePlacement
+
+        tool = TextTool(mock_view)
+        mock_item = MagicMock()
+        mock_item.content = "Garden Bed #1"
+        pending = CancellablePlacement(mock_item, MagicMock(), None, 0)
+
+        tool._pending = pending
+        tool.cancel()
+
+        mock_item.finish_editing.assert_called_once_with()
+        mock_view.commit_cancellable_placement.assert_called_once_with(pending)
+        mock_view.discard_cancellable_placement.assert_not_called()
+
+    def test_repeated_cancel_only_resolves_the_pair_once(self, mock_view) -> None:
+        """The pending reference is cleared first, so a second cancel is a no-op.
 
         The click path calls ``cancel()`` and the Esc that follows reaches it
         again through ``deactivate()``; the second call must not discard or
-        remove a second time.
+        commit a second time.
         """
+        from open_garden_planner.ui.canvas.canvas_view import CancellablePlacement
+
         tool = TextTool(mock_view)
-        scene = MagicMock()
-        mock_view.scene.return_value = scene
-        mock_view.command_manager.discard.return_value = True
-
         mock_item = MagicMock()
-        mock_item.toPlainText.return_value = ""
-        mock_item.scene.return_value = scene
-        mock_command = MagicMock()
+        mock_item.content = ""
+        pending = CancellablePlacement(mock_item, MagicMock(), None, 0)
 
-        tool._pending_item = mock_item
-        tool._pending_command = mock_command
-
+        tool._pending = pending
         tool.cancel()
         tool.cancel()
 
-        mock_view.command_manager.discard.assert_called_once_with(mock_command)
-        scene.removeItem.assert_called_once_with(mock_item)
+        mock_view.discard_cancellable_placement.assert_called_once_with(pending)

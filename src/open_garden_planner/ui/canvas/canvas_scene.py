@@ -335,6 +335,13 @@ class CanvasScene(QGraphicsScene):
 
         # The plan revision (class docstring). A layer change is plan content.
         self._plan_revision = 0
+        # A cancellable gesture (an annotation placement, #909) holds plan-change
+        # announcements until it is committed or cancelled: a net-zero gesture
+        # must not move the revision at all, and a committed one announces its
+        # whole gesture as ONE change.
+        self._plan_change_holds = 0
+        self._plan_change_held = False
+        self._plan_change_commit = False
         self.layers_changed.connect(self.note_plan_changed)
 
         # The paint revision (class docstring) and what is kept until it moves.
@@ -1022,9 +1029,56 @@ class CanvasScene(QGraphicsScene):
         times in one turn of the event loop (listeners coalesce). It repaints
         nothing — a writer whose change shows on the canvas still calls
         ``item.update()`` itself.
+
+        While a cancellable gesture holds announcements (``begin_plan_change_hold``),
+        the nudge only remembers that content changed. Releasing the hold either
+        announces the gesture once (commit) or drops it (cancel), so a click+Esc
+        that leaves the scene and the undo stack exactly as they were leaves the
+        revision unchanged too (#909).
         """
+        if self._plan_change_holds:
+            self._plan_change_held = True
+            return
         self._plan_revision += 1
         self.plan_changed.emit(self._plan_revision)
+
+    def begin_plan_change_hold(self) -> None:
+        """Hold plan-change announcements for a gesture that may be cancelled (#909).
+
+        Used by ``CanvasView.add_cancellable_item``: the placement's
+        ``CreateItemCommand`` runs immediately (the execute-immediately
+        contract every placement tool relies on) but its content changes are
+        announced only when the tool commits the annotation. A cancelled
+        placement releases with ``commit=False``: no revision move reaches the
+        3D view, the hours-of-sun map or the dirty state.
+
+        Holds nest; a commit at any level wins when the outermost releases.
+        """
+        self._plan_change_holds += 1
+
+    def end_plan_change_hold(self, *, commit: bool) -> None:
+        """Release a hold from :meth:`begin_plan_change_hold` (#909).
+
+        Args:
+            commit: ``True`` when the gesture became a real change: its held
+                changes are announced as one plan revision. ``False`` when it
+                was cancelled: a net-zero gesture leaves the revision alone.
+
+        Releasing a hold that no longer exists is a no-op: ``clear()`` drops
+        every hold when the document is replaced, and the tool's pending
+        placement then dies with it.
+        """
+        if self._plan_change_holds <= 0:
+            return
+        self._plan_change_commit = self._plan_change_commit or commit
+        self._plan_change_holds -= 1
+        if self._plan_change_holds:
+            return
+        announce = self._plan_change_held and self._plan_change_commit
+        self._plan_change_held = False
+        self._plan_change_commit = False
+        if announce:
+            self.note_plan_changed()
 
     @property
     def paint_revision(self) -> int:
@@ -2127,6 +2181,13 @@ class CanvasScene(QGraphicsScene):
         (``core.sprite_raster.clear_sprite_cache``).
         """
         self.reset_document_diagnostics()
+        # A document replacement ends every cancellable gesture's hold: the
+        # pending annotation died with the old document, and the next document's
+        # changes must be announced normally. The tool's later release is then a
+        # documented no-op (#909).
+        self._plan_change_holds = 0
+        self._plan_change_held = False
+        self._plan_change_commit = False
         self._compare_items.clear()
         self._compare_overlay_visible = False
         self._calibration_markers.clear()
