@@ -12591,7 +12591,7 @@ orbit kept and flown again); the render tier's tour scenario probes its MP4.
 
 ### ADR-072 addendum: tour and video reliability (#889, #890, #891, #896)
 
-**Status:** Accepted for implementation; owner manual testing pending.
+**Status:** Shipped in v1.40.2; owner manual testing accepted on 2026-11-14.
 
 **Decision:** Refine #807 decision 3's fallback: a structural `Mp4Error` is a failed
 delivery, not permission to overwrite a good destination with an unreadable part.
