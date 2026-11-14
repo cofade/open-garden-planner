@@ -146,8 +146,9 @@ class TourRecorder(QObject):
 
     def delivery_target(self) -> Path | None:
         """A completed recording's destination while the delivery worker still owns it."""
-        if getattr(self._writer, "delivering", False):
-            return Path(self._writer.path)
+        target = getattr(self._writer, "path", None)
+        if getattr(self._writer, "delivering", False) and target is not None:
+            return Path(target)
         return None
 
     def abort_now(self) -> None:
