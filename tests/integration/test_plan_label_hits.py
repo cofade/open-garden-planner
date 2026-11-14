@@ -211,14 +211,15 @@ def test_no_point_of_a_large_plan_is_a_label_nobody_can_see(qtbot) -> None:
     points on a label that is not painted. No point is on any label now.
 
     One shape query over the whole plan covers every point of it at once: Qt
-    returns an item there only where the item's shape meets the area, the test
-    a press runs at its one point. Then a real press at the middle of every
-    label that is not painted, where the review's third of the plan lay.
+    returns an item there only where the item's shape meets the area, through
+    the same ``collidesWithPath`` a point query uses. Then a point query
+    (``itemAt``) at the middle of every label that is not painted, where the
+    review's third of the plan lay.
 
     Not point by point: a label ignores the view's transform, so Qt's index
     cannot place it, and every query walks all the objects and their labels in
-    Python (about 11 ms each here). 4,335 sampled presses took 33-76 s, and
-    more than the 180 s hang guard under branch coverage (#918).
+    Python (5 to 6 ms each, #919). 4,335 sampled point queries took 33-76 s,
+    and more than the 180 s hang guard under branch coverage (#918).
     """
     view, scene, items = show_large_plan(qtbot)
     painted = _painted(view, scene)
