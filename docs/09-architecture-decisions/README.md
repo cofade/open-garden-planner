@@ -106,6 +106,8 @@ neither `mark_dirty` nor the monotonic revision counter can be withdrawn from
 
 ### Addendum (2026-11-14, #904/#909 — the net-zero annotation gesture)
 
+**Status**: Shipped in v1.40.1 (PR #913); owner manual testing passed on 2026-11-14.
+
 The tradeoff above is resolved. A placement that may still be cancelled now runs
 through `CanvasView.add_cancellable_item()`, which keeps the immediate
 `execute()` (every placement tool relies on it) but suppresses only the synchronous
