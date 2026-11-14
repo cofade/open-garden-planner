@@ -478,6 +478,12 @@ Preserve the primary parse failure when cleanup fails. If tagging fails before r
 the samples, validate their contents before any untagged fallback; valid tables alone
 do not prove the sample bytes are valid.
 
+Live verification (2026-11-14): the shown-window capture driver first refused the MP4
+output location when invoked with a relative `--out` path. Repeating with an absolute
+output directory recorded and decoded all 60 frames at 1280 x 720, BT.709 limited range,
+with no part left and the camera and clock restored. Use an absolute output directory
+for this Qt Multimedia probe; a driver invocation failure is not a successful recording.
+
 ### PF-E3D-34
 
 - **Rule:** Validate a saved orbit by sampling its first camera key before accepting it; the playback key's open FOV interval applies to stored and programmatically constructed tours. Cap detailed rejection warnings without dropping the aggregate skipped count or later valid entries.
