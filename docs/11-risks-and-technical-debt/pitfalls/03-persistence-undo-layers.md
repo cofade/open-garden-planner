@@ -463,11 +463,11 @@ which the serializer reads, is only synced by the commit.
 Second symptom (#909): the withdrawn gesture still marked a clean plan dirty and
 moved `plan_revision`, because the placement's `execute()` fires `stack_changed`
 before the cancellation exists and neither `mark_dirty` (idempotent) nor a
-monotonic revision can be undone by `discard()`. Fix: the placement holds the
-scene's plan-change announcements (`CanvasScene.begin_plan_change_hold`) until
-the tool commits, so a cancelled gesture announces nothing and a committed one
-announces once; the dirty flag is restored from the pre-placement snapshot only
-when `CommandManager.mutation_serial` proves nothing else ran. The Callout tool
+monotonic revision can be undone by `discard()`. Fix: only the synchronous placement
+and withdrawal suppress their own announcements (`CanvasScene.begin_plan_change_hold`).
+Editor completion announces a kept placement once; unrelated writers during editing
+announce immediately. The dirty flag is restored from the pre-placement snapshot only
+when command and project mutation counters prove nothing else changed. The Callout tool
 had the mirror-image hole (#904): Esc left the empty callout and its command in
 place; it now uses the same `add_cancellable_item` / `discard_cancellable_placement`
 seam, and `CanvasScene.clear()` drops any hold a document replacement strands.

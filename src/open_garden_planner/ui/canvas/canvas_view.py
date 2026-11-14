@@ -391,6 +391,8 @@ class CanvasView(QGraphicsView):
 
         # Command manager for undo/redo
         self._command_manager = CommandManager(self)
+        self._cancellable_placement: CancellablePlacement | None = None
+        self._command_manager.before_history_navigation.connect(self.finish_annotation_edits)
         # the scene's plan revision moves with every executed / undone / redone command
         self._canvas_scene.set_command_manager(self._command_manager)
 
@@ -958,9 +960,9 @@ class CanvasView(QGraphicsView):
         relies on that contract — plus two bookkeeping facts that make a
         cancellation truly net-zero:
 
-        * the scene holds plan-change announcements until the tool commits
-          (``CanvasScene.begin_plan_change_hold``), so a cancelled placement
-          moves neither ``plan_revision`` nor the 3D view;
+        * the scene suppresses only the synchronous placement's announcements.
+          The editor's completion announces a kept annotation; other writers
+          between placement and completion announce normally;
         * the document's unsaved-changes flag and the undo stack's mutation
           counter are snapshotted, so :meth:`discard_cancellable_placement`
           can put the flag back when nothing else happened.
@@ -971,20 +973,38 @@ class CanvasView(QGraphicsView):
         try:
             command = CreateItemCommand(self._canvas_scene, item, item_type)
             self._command_manager.execute(command)
-        except BaseException:
+        finally:
             self._canvas_scene.end_plan_change_hold(commit=False)
-            raise
-        return CancellablePlacement(
+        placement = CancellablePlacement(
             item=item,
             command=command,
             dirty_before=dirty_before,
             mutation_serial=self._command_manager.mutation_serial,
             dirty_serial=project.dirty_serial if project is not None else 0,
         )
+        self._cancellable_placement = placement
+        return placement
 
-    def commit_cancellable_placement(self, _placement: CancellablePlacement) -> None:
+    def commit_cancellable_placement(self, placement: CancellablePlacement) -> None:
         """Finish a placement that became a real annotation: announce its change."""
-        self._canvas_scene.end_plan_change_hold(commit=True)
+        if self._cancellable_placement is not placement:
+            return
+        self._cancellable_placement = None
+        try:
+            if placement.item.scene() is self._canvas_scene:
+                self._canvas_scene.note_plan_changed()
+        except RuntimeError:
+            # A replaced document already destroyed the pending item.
+            pass
+
+    def finish_annotation_edits(self) -> None:
+        """Flush inline text before save/history chooses the content to use."""
+        from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        for item in self._canvas_scene.items():
+            if isinstance(item, (TextItem, CalloutItem)):
+                item.finish_editing()
 
     def discard_cancellable_placement(self, placement: CancellablePlacement) -> bool:
         """Take a cancelled placement off scene and stack, leaving no trace (#827, #909).
@@ -993,23 +1013,32 @@ class CanvasView(QGraphicsView):
         discard succeeded, so scene and history always move together. A
         refused discard (another command was pushed in between) keeps the
         item-plus-command pair and announces the gesture as the real change it
-        then is. On success the plan revision stays where it was (the scene's
-        hold swallows the gesture's bumps) and, if no other command ran since
-        the placement, so does the document's dirty flag.
+        then is. On success only the withdrawal's synchronous revision bumps
+        are suppressed. The dirty flag is restored only if neither command
+        nor project state changed in between.
 
         Returns ``True`` when the pair was fully withdrawn.
         """
-        if not self._command_manager.discard(placement.command):
-            self._canvas_scene.end_plan_change_hold(commit=True)
+        if self._cancellable_placement is not placement:
             return False
+        # Suppress only our own synchronous withdrawal. Unrelated writers while
+        # the user edits have already announced their changes normally.
+        self._canvas_scene.begin_plan_change_hold()
         try:
-            still_in_scene = placement.item.scene() is not None
-        except RuntimeError:
-            # The item died with a document replacement; nothing to remove.
-            still_in_scene = False
-        if still_in_scene:
-            self._canvas_scene.removeItem(placement.item)
-        self._canvas_scene.end_plan_change_hold(commit=False)
+            discarded = self._command_manager.discard(placement.command)
+            if discarded:
+                try:
+                    still_in_scene = placement.item.scene() is self._canvas_scene
+                except RuntimeError:
+                    still_in_scene = False
+                if still_in_scene:
+                    self._canvas_scene.removeItem(placement.item)
+        finally:
+            self._canvas_scene.end_plan_change_hold(commit=False)
+        if not discarded:
+            self.commit_cancellable_placement(placement)
+            return False
+        self._cancellable_placement = None
         project = getattr(self.window(), "_project_manager", None)
         no_other_mutation = (
             self._command_manager.mutation_serial == placement.mutation_serial + 1

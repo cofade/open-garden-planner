@@ -20,7 +20,7 @@ from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_b
 from open_garden_planner.core.furniture_renderer import is_furniture_type, paint_furniture
 from open_garden_planner.core.growth_model import grown_spread_cm
 from open_garden_planner.core.measurement_display import length_text as _format_edge_length
-from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style
+from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
 from open_garden_planner.core.plant_renderer import (
     PlantCategory,
     is_plant_type,
@@ -585,9 +585,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # (the fill tile at the painter's resolution, #785)
         paint_shape(self, painter, option, widget, super().paint)
 
-        # Crop-rotation status for circular beds (#842). Only this fallback
-        # path can carry it: plant and furniture circles are never beds.
-        if self._rotation_status is not None:
+        # Crop-rotation status is a soil-bed diagnostic (#842).
+        if is_bed_type(self.object_type) and self._rotation_status is not None:
             rotation_path = QPainterPath()
             rotation_path.addEllipse(self.rect().adjusted(2.0, 2.0, -2.0, -2.0))
             self._draw_rotation_status_border(painter, rotation_path)

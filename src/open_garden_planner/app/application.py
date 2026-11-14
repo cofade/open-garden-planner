@@ -3962,6 +3962,7 @@ class GardenPlannerApp(QMainWindow):
         """Capture active editors before persistence or a document boundary."""
         self.properties_panel.flush_pending_edits()
         self.plant_database_panel.flush_pending_edits()
+        self.canvas_view.finish_annotation_edits()
 
     def _confirm_discard_changes(self) -> bool:
         """Ask user to save if there are unsaved changes.

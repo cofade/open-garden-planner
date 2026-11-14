@@ -1591,7 +1591,7 @@ class GardenItemMixin(PositionLockMixin):
             return
         pen = QPen(color)
         pen.setWidthF(4.0)
-        pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
         painter.save()
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)

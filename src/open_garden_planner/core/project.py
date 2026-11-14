@@ -297,7 +297,7 @@ class ProjectManager(QObject):
         # The title of the example or template this unsaved plan was opened from.
         self._template_title: str | None = None
         self._dirty = False
-        #: Counts every mark_dirty() call, including the idempotent ones made
+        #: Counts every dirty-state request, including the idempotent ones made
         #: while the project is already dirty. A cancelled placement compares
         #: it with the value it snapshotted, so a direct project edit made
         #: during the gesture (location, soil, tasks) cannot be cleared by the
@@ -988,11 +988,12 @@ class ProjectManager(QObject):
 
     @property
     def dirty_serial(self) -> int:
-        """Count of unsaved-change requests (see ``_dirty_serial``)."""
+        """Count of dirty/clean/restore requests, even when the flag stays put."""
         return self._dirty_serial
 
     def mark_clean(self) -> None:
         """Mark the project as saved (no unsaved changes)."""
+        self._dirty_serial += 1
         if self._dirty:
             self._dirty = False
             self.dirty_changed.emit(False)
@@ -1006,6 +1007,7 @@ class ProjectManager(QObject):
         the placement click can be cleared again. Emits only when the state
         actually changes, exactly like :meth:`mark_dirty` / :meth:`mark_clean`.
         """
+        self._dirty_serial += 1
         if self._dirty == dirty:
             return
         self._dirty = dirty

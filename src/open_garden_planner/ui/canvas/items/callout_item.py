@@ -4,7 +4,7 @@ import math
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
+from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -35,6 +35,8 @@ from .resize_handle import RotationHandleMixin
 
 class _CalloutTextChild(QGraphicsTextItem):
     """Child text item for CalloutItem that routes focus/key events back to the parent."""
+
+    editing_finished = pyqtSignal()
 
     def focusOutEvent(self, event: Any) -> None:
         parent = self.parentItem()
@@ -248,6 +250,11 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self._text_child.setTextCursor(cursor)
         self.update()
 
+    @property
+    def editing_finished(self) -> Any:
+        """The child owns the Qt signal because the callout is a QGraphicsItem."""
+        return self._text_child.editing_finished
+
     def _on_text_focus_out(self) -> None:
         """Called by _CalloutTextChild.focusOutEvent when the text child loses focus."""
         if self._editing:
@@ -263,6 +270,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         cursor.clearSelection()
         self._text_child.setTextCursor(cursor)
         self.update()
+        self._text_child.editing_finished.emit()
 
     def finish_editing(self) -> None:
         """Commit the typed text and leave edit mode (idempotent).

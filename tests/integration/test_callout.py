@@ -43,7 +43,8 @@ def _draw_callout(
     box_pos: QPointF,
 ) -> None:
     """Simulate click at target, drag to box_pos, release."""
-    view.set_active_tool(ToolType.CALLOUT)
+    if view.tool_manager.active_tool_type != ToolType.CALLOUT:
+        view.set_active_tool(ToolType.CALLOUT)
     tool = view.tool_manager.active_tool
     press_event = _mouse_event()
     move_event = _mouse_event()
@@ -177,12 +178,14 @@ class TestCancel:
 class TestUndo:
     def test_undo_removes_callout(self, canvas: CanvasView, qtbot: object) -> None:
         _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        _callouts(canvas)[0]._text_child.setPlainText("Callout")
         assert len(_callouts(canvas)) == 1
         canvas.command_manager.undo()
         assert len(_callouts(canvas)) == 0
 
     def test_redo_restores_callout(self, canvas: CanvasView, qtbot: object) -> None:
         _draw_callout(canvas, QPointF(100, 100), QPointF(300, 50))
+        _callouts(canvas)[0]._text_child.setPlainText("Callout")
         canvas.command_manager.undo()
         canvas.command_manager.redo()
         assert len(_callouts(canvas)) == 1
@@ -200,6 +203,7 @@ class TestSerialization:
 
         item = _callouts(canvas)[0]
         # Commit editing so content is stable
+        item._text_child.setPlainText("Callout")
         item._commit_edit()
 
         orig_pos = item.pos()

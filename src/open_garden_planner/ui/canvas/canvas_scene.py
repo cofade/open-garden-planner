@@ -178,9 +178,10 @@ class CanvasScene(QGraphicsScene):
     was repainted": a hover, a selection, a tool's preview, the sun's shadow moving —
     and an edit. Nothing can tell them apart from that signal, so a consumer that must
     follow the PLAN (the 3D view) used to read the whole plan on every repaint.
-    ``plan_revision`` is one integer that moves exactly when plan content changed, and
-    ``plan_changed`` says so at once. It is bumped where the scene and the undo stack
-    already have a chokepoint:
+    ``plan_revision`` is a monotonic content generation; ``plan_changed`` announces
+    recorded changes. A pending annotation announces its creation when editing
+    ends; only its synchronous creation and withdrawal suppress their own bumps.
+    Other writes announce at the scene and undo-stack chokepoints:
 
     - a garden item enters or leaves the scene, moves, turns, is scaled, is shown or
       hidden, changes its z or its parent — ``items/garden_item.handle_item_change``,
@@ -335,10 +336,9 @@ class CanvasScene(QGraphicsScene):
 
         # The plan revision (class docstring). A layer change is plan content.
         self._plan_revision = 0
-        # A cancellable gesture (an annotation placement, #909) holds plan-change
-        # announcements until it is committed or cancelled: a net-zero gesture
-        # must not move the revision at all, and a committed one announces its
-        # whole gesture as ONE change.
+        # Synchronous annotation creation/withdrawal (#909) suppresses its own
+        # bumps. No hold spans user input; editor completion announces a kept
+        # placement separately, so unrelated writers always announce at once.
         self._plan_change_holds = 0
         self._plan_change_held = False
         self._plan_change_commit = False
@@ -1030,11 +1030,9 @@ class CanvasScene(QGraphicsScene):
         nothing — a writer whose change shows on the canvas still calls
         ``item.update()`` itself.
 
-        While a cancellable gesture holds announcements (``begin_plan_change_hold``),
-        the nudge only remembers that content changed. Releasing the hold either
-        announces the gesture once (commit) or drops it (cancel), so a click+Esc
-        that leaves the scene and the undo stack exactly as they were leaves the
-        revision unchanged too (#909).
+        Annotation creation and withdrawal suppress their own synchronous bumps
+        with ``begin_plan_change_hold``. No hold spans user input: unrelated
+        writers during inline editing reach this fast path immediately (#909).
         """
         if self._plan_change_holds:
             self._plan_change_held = True
@@ -1043,14 +1041,13 @@ class CanvasScene(QGraphicsScene):
         self.plan_changed.emit(self._plan_revision)
 
     def begin_plan_change_hold(self) -> None:
-        """Hold plan-change announcements for a gesture that may be cancelled (#909).
+        """Hold announcements for a synchronous placement/withdrawal scope (#909).
 
         Used by ``CanvasView.add_cancellable_item``: the placement's
         ``CreateItemCommand`` runs immediately (the execute-immediately
-        contract every placement tool relies on) but its content changes are
-        announced only when the tool commits the annotation. A cancelled
-        placement releases with ``commit=False``: no revision move reaches the
-        3D view, the hours-of-sun map or the dirty state.
+        contract every placement tool relies on). The view drops those immediate
+        bumps and announces the placement separately at editor completion. Never
+        keep a hold open across user input or unrelated plan writes.
 
         Holds nest; a commit at any level wins when the outermost releases.
         """

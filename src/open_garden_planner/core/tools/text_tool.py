@@ -57,6 +57,7 @@ class TextTool(BaseTool):
             layer_id=layer_id,
         )
         self._pending = self._view.add_cancellable_item(item, "text")
+        item.editing_finished.connect(self.cancel)
         item.start_editing()
         return True
 
@@ -101,6 +102,7 @@ class TextTool(BaseTool):
             return
         item = cast("TextItem", pending.item)
         try:
+            item.editing_finished.disconnect(self.cancel)
             item.finish_editing()
             has_text = bool(item.content.strip())
         except RuntimeError:

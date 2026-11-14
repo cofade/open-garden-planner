@@ -55,7 +55,7 @@ def _scene_with(kind: str) -> tuple[CanvasScene, object]:
     return scene, item
 
 
-def _render(scene: CanvasScene) -> QImage:
+def _render(scene: CanvasScene, *, export: bool = False) -> QImage:
     rect = scene.canvas_rect
     image = QImage(int(rect.width()), int(rect.height()), QImage.Format.Format_RGB32)
     image.fill(QColor("white"))
@@ -66,7 +66,7 @@ def _render(scene: CanvasScene) -> QImage:
         painter,
         QRectF(0, 0, image.width(), image.height()),
         rect,
-        hide_overlays=False,
+        hide_overlays=export,
         hide_construction=True,
     )
     painter.end()
@@ -117,7 +117,8 @@ def test_the_rotation_border_stays_out_of_an_export(kind: str, qtbot: object) ->
     bed.set_rotation_status(_VIOLATION)  # type: ignore[attr-defined]
 
     on_canvas = _render(scene)
-    scene.set_diagnostic_overlays_visible(False)
-    exported = _render(scene)
+    exported = _render(scene, export=True)
 
     assert _changed_pixels(on_canvas, exported) != []
+    bed.set_rotation_status(None)
+    assert exported == _render(scene, export=True)

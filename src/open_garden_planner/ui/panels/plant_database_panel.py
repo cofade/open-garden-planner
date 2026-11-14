@@ -392,13 +392,11 @@ class PlantDatabasePanel(QWidget):
 
         # === PROFILE HEADER (US-G2, issue #317) ===
         self._profile_header = QWidget()
-        # The header keeps its natural height when the panel is the only one
-        # expanded; the surplus goes to the details scroll area below. Without
-        # the vertical cap the tiled-out profile header grew to fill the whole
-        # sidebar (#905).
-        self._profile_header.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum
-        )
+        # Wrapped labels need the height for the available width, rather than
+        # a sizeHint cap. The scroll area's stretch gets surplus space (#905).
+        header_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        header_policy.setHeightForWidth(True)
+        self._profile_header.setSizePolicy(header_policy)
         profile_layout = QHBoxLayout(self._profile_header)
         profile_layout.setContentsMargins(0, 0, 0, 0)
         profile_layout.setSpacing(8)

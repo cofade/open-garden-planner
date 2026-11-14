@@ -627,9 +627,9 @@ class TestEscapeReturnsToSelect:
         assert first.scene() is canvas.scene(), "a refused discard keeps the pair"
         assert manager.undo_depth == depth_before + 3
 
-        manager.undo()  # the second, empty note
-        assert first.scene() is canvas.scene()
-        manager.undo()  # the interleaved rectangle
+        # History first flushes (and withdraws) the second empty editor, then
+        # undoes the interleaved rectangle. The refused first pair stays intact.
+        manager.undo()
         assert other_item.scene() is None
         assert first.scene() is canvas.scene()
         manager.undo()  # the first note
@@ -825,12 +825,14 @@ class TestEscapeReturnsToSelect:
         QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(400, 300))
         assert any(isinstance(i, TextItem) for i in scene.items())
 
-        project.mark_dirty()  # the location/soil/task setters' direct path
+        location = {"latitude": 52.5, "longitude": 13.4}
+        project.set_location(location)
 
         QTest.keyClick(view, Qt.Key.Key_Escape)
 
         assert not any(isinstance(i, TextItem) for i in scene.items())
         assert project.is_dirty is True, "a real direct edit was cleared with the note"
+        assert project.location == location
 
         # pytest-qt closes the window at teardown; leave it clean for that path.
         project.mark_clean()

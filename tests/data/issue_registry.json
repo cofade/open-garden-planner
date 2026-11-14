@@ -1334,9 +1334,19 @@
     "state": "OPEN",
     "title": "Callout tool: Escape on an empty annotation leaves an empty callout behind (Text-tool #827 asymmetry)"
   },
+  "905": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plant details header occupies too much space"
+  },
   "909": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Text tool: a cancelled empty annotation still marks a clean project dirty"
+  },
+  "913": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#904, #909, #842, #905, #881): annotation cancellation, bed borders and panel follow-ups"
   }
 }

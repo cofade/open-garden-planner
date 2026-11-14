@@ -108,12 +108,11 @@ neither `mark_dirty` nor the monotonic revision counter can be withdrawn from
 
 The tradeoff above is resolved. A placement that may still be cancelled now runs
 through `CanvasView.add_cancellable_item()`, which keeps the immediate
-`execute()` (every placement tool relies on it) but holds the scene's plan-change
-announcements for the whole gesture: `CanvasScene.begin_plan_change_hold()` makes
-`note_plan_changed()` only remember that content moved, and
-`end_plan_change_hold(commit=...)` announces the held change as ONE revision when
-the annotation is committed or drops it entirely when the annotation is
-cancelled. The revision therefore never moves for a net-zero gesture and never
+`execute()` (every placement tool relies on it) but suppresses only the synchronous
+creation and withdrawal bumps with `CanvasScene.begin_plan_change_hold()` /
+`end_plan_change_hold(commit=False)`. No hold spans user input. The editor's
+completion commits a kept placement as one revision; unrelated scene writes during
+editing announce immediately. The revision never moves for a net-zero gesture and never
 rewinds, so revision-keyed consumers (the 3D view, `SunExportGate`) keep their
 monotonic contract.
 
@@ -127,14 +126,19 @@ dirty. `ProjectManager.restore_dirty()` is the one setter for that path.
 
 The Callout tool uses the same seam (#904): Escape on a callout with no text
 discards its `CreateItemCommand` and removes the item, exactly as the Text tool
-does; a callout with text is committed and kept. `clear()` drops every hold,
-because a document replacement kills the pending annotation with it.
+does; a callout with text is committed and kept. Both editors notify their tool when
+editing ends; the tool disconnects that notification before resolving its pending
+pair. Save and history navigation flush inline annotation editors first. Placement
+identity guards stop a stale completion from committing another placement, and a
+destroyed item's completion is a no-op. `dirty_serial` counts every dirty, clean and
+restore request, even when the flag stays unchanged.
 
 Alternatives rejected: deferring the command's `execute()` until the annotation
 is committed (breaks the execute-immediately contract and leaves an un-undoable
 item on screen); rewinding `plan_revision` to the snapshot (an ABA value for
 consumers that key on it); restoring the dirty flag unconditionally (would hide a
-real change made between placement and cancellation).
+real change made between placement and cancellation); a hold spanning the whole
+gesture (delayed unrelated revisions and could drop a canvas resize on cancellation).
 
 No `.ogp` change and no `FILE_VERSION` bump. Pinned by
 `tests/integration/test_tool_switching.py::TestEscapeReturnsToSelect::test_escaping_an_empty_text_annotation_leaves_the_plan_revision_alone`,

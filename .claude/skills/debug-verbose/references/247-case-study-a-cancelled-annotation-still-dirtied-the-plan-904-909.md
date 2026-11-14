@@ -26,8 +26,9 @@ after removeItem:   dirty=True  rev=5   <- the item leaving the scene
 bumped by four independent chokepoints, so "undo the bump" is not a single operation.
 
 **Fix** (`CanvasView.add_cancellable_item` and `CanvasScene`'s plan-change hold): the
-gesture's plan-change announcements are held while the annotation may still be
-cancelled. A committed note releases one revision; a cancelled one releases none. The
+synchronous creation and withdrawal suppress only their own plan-change bumps.
+No hold spans user input; editing completion announces a kept note once, while
+unrelated writers announce immediately. A cancelled note releases no revision. The
 dirty flag is restored from a snapshot only when `CommandManager.mutation_serial` and
 `ProjectManager.dirty_serial` prove that nothing but the discard changed the document
 since the placement. The Callout tool now uses the same
@@ -40,3 +41,13 @@ snapshot restore with a mutation counter. Pinned by
 `tests/integration/test_tool_switching.py::test_a_cancelled_empty_annotation_leaves_a_clean_project_clean`,
 `tests/integration/test_callout.py::test_escaping_an_empty_callout_withdraws_it_and_its_history_entry`
 and `tests/unit/test_commands.py`.
+
+**Review follow-up (PR #913)**: the first hold spanned user input and hid a canvas
+resize. Instrumented reproduction printed `[ANNOTATION] resize while pending:
+revision=0, before=0`; finishing a typed note also left revision 0. The scopes now
+cover only synchronous placement/withdrawal. Editors notify the tool on completion,
+and save/history flush them first. Dirty restoration also checks every project
+dirty/clean/restore request, including idempotent calls: location edits bypass the
+command stack. Pins: `tests/integration/test_annotation_lifecycle.py`,
+`tests/integration/test_tool_switching.py::test_a_direct_project_change_during_a_pending_annotation_survives_esc`,
+`tests/unit/test_project.py::test_dirty_serial_records_every_request_and_restore_only_signals_changes`.
