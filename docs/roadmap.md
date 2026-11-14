@@ -50,6 +50,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 | ✅ | Package 3D visual polish (#687, #716, #719, #734, #737, #743, #798–#803, #805, #807) | Grass on the meadow, built parts that look like their material, tiled roofs, sharp low-sun shadows in stills, a clean horizon, a steady day lapse with a twilight fill, wind that shows, publishable tour video with an eased orbit, tours kept in the plan | v1.39.0; [PR #882](https://github.com/cofade/open-garden-planner/pull/882); ADR-059 and ADR-072 addenda |
 | ✅ | Package plan truth & reports (#663, #856–#860, #863–#865, #868–#871, #899) | Plan north, the plan date on every date-driven surface, one identity for an opened example, task row text, status-bar room, locale numbers, harvest units, PDF legend/plant-list, print grid/order and the shopping-list paginator | v1.39.1; [PR #903](https://github.com/cofade/open-garden-planner/pull/903); ADR-037/066/076/077 addenda; ADR-062; FR-SUN-14, FR-EXAMPLE-11, FR-TASK-01/04; §8.20, §8.31, §8.33, §8.36 |
 | ✅ | Measurement units (#673) | Metric / Imperial (US) display and input | v1.40.0; [PR #908](https://github.com/cofade/open-garden-planner/pull/908); ADR-078; FR-MEAS-07 |
+| ✅ | Small follow-ups (#904, #909, #842, #905, #881) | Annotation cancellation, bed rotation borders, plant-header layout and frozen-inventory guard | v1.40.1; [PR #913](https://github.com/cofade/open-garden-planner/pull/913); ADR-004 addendum |
 
 ### Phase 16: Platform & Community (future)
 
