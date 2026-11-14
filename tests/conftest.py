@@ -759,10 +759,14 @@ def pytest_configure(config: pytest.Config) -> None:
     """Global test configuration hook.
 
     Opts out of Windows power throttling (EcoQoS) on Windows when running tests,
-    preventing 1.8x timing drift on Windows dev machines (#616).
+    preventing 1.8x timing drift on Windows dev machines (#616), and names the
+    tests that use more than half of the hang guard (#918).
     """
     if sys.platform == "win32":
         disable_windows_power_throttling()
+    from tests import slow_test_warning
+
+    slow_test_warning.register(config)
 
 
 @pytest.fixture(autouse=True)

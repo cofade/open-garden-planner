@@ -1342,6 +1342,10 @@ All integration tests live in `tests/integration/`. Shared fixtures are in `test
 
 Every test runs under `pytest-timeout` (`timeout = 180` in `pyproject.toml`; dev dependency). A hung full-app test therefore fails loudly instead of silently freezing the battery (§11.4, 2026-08-17). If a legitimate test needs longer, mark it `@pytest.mark.timeout(N)` with a comment saying why — do not raise the global value.
 
+**Under branch coverage the same test runs 2.5 to 3 times slower.** The Coverage partitions (§8.10.4) run every non-perf test with branch tracing, and their result feeds the required Coverage check. A test that took 33-76 s in the Test job took 124-157 s there for days, then crossed 180 s on some runs and blocked merges (#918). `tests/slow_test_warning.py`, registered by `tests/conftest.py` for every run, names each test whose call phase takes more than half of the guard; under GitHub Actions the line is a `::warning` annotation on the run. It fails nothing, so it cannot be flaky. Treat the warning as a defect: cut the test's work, or move it to the `perf` set. A test with its own `timeout` marker is left out.
+
+**A scene query on a labelled plan is linear in the plan.** A plan label ignores the view's transform, so Qt's BSP index cannot place it, and every `itemAt`, `items(point)` or `items(rect)` checks every labelled object and its labels in Python: about 11 ms per query on the 853-object plan of `tests/large_plan.py`. Test hit behaviour with one shape query over the area (`scene.items(area, IntersectsItemShape, …, view.transform())` finds an item only where its shape meets the area, the same test a press runs at its point) plus real presses where they matter, not a grid of thousands of presses (`test_no_point_of_a_large_plan_is_a_label_nobody_can_see`: 4,335 presses, 49 s; now one query and 623 presses, 5 s).
+
 ### Test isolation: the user's data directory and the locations Qt hands out
 
 A test process must not read or write anything the user owns — **and neither may it read
