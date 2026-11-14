@@ -1,24 +1,21 @@
-# Draft upstream report: glow, reflections and depth of field in one ExtendedSceneEnvironment crash on Direct3D 11
+# Upstream report [QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289): glow, reflections and depth of field in one ExtendedSceneEnvironment crash on Direct3D 11
 
-Not filed. Filing needs the owner's Qt account (create in the "Qt (QTBUG)" space, not COIN).
-Attach `effect_chain_glow_crash.qml` from this folder. Prepared for #744 of Open Garden Planner.
-The text below the line is the report. It states observations only: the cause inside Qt's source
-is not located. Open before filing: the file was loaded with a `QQmlApplicationEngine` from
-PyQt6, never with Qt's own `qml` tool (run it a few times with the official `qml.exe` 6.12.0
-first). Never attach a minidump (it holds process memory), and remove the pipeline-cache path
-from any `QSG_INFO` log before attaching it.
+Filed on 2026-11-14 from the owner's Qt account for #744: space "Qt (QTBUG)", type Bug, component
+Quick: 3D, affects version 6.12.0, platform Windows. Claude Fable 5 prepared the report and Claude
+Opus reviewed it; Claude Opus 5.5 added the series with Qt's own `qml.exe` on the day of filing.
+`effect_chain_glow_crash.qml` in this folder is the ticket's only attachment, byte-identical to the
+committed file (git blob `3eee7913`). The text below the line is the report as filed: the title, the
+"Environment" field, then the description.
 
 ---
 
 **Title:** ExtendedSceneEnvironment with glow, screen-space reflections and depth of field crashes on Direct3D 11 (access violation in d3d11.dll, heap corruption at exit)
 
-**Affected version:** 6.12.0
+**Environment:**
 
-**Component:** Quick: 3D
+Windows 11 Pro (10.0.26200), Direct3D 11, threaded render loop. Reproduced on an NVIDIA GeForce RTX 4070 (driver 610.88) and on WARP (Microsoft Basic Render Driver). Other backends and other Qt versions not tested.
 
-**Platform:** Windows 11 Pro (10.0.26200), Direct3D 11, threaded render loop. Reproduced on an NVIDIA GeForce RTX 4070 (driver 610.88) and on WARP (Microsoft Basic Render Driver). Other backends and other Qt versions not tested.
-
-**Environment:** Qt 6.12.0 from the PyQt6-Qt6 6.12.0 wheel (official Qt binaries, signed by The Qt Company Oy). The attached file imports only `QtQuick`, `QtQuick3D` and `QtQuick3D.Helpers`. All numbers below were taken by loading it with a `QQmlApplicationEngine`.
+Qt 6.12.0. The first series below was run with Qt's own `qml.exe` from the official Qt 6.12.0 binaries (MSVC 2022 64-bit, download.qt.io, signed by The Qt Company Oy). The second series was run with Qt 6.12.0 from the PyQt6-Qt6 6.12.0 wheel (official Qt binaries, signed by The Qt Company Oy), loading the file with a `QQmlApplicationEngine`. The attached file imports only `QtQuick`, `QtQuick3D` and `QtQuick3D.Helpers`.
 
 ## Steps
 
@@ -37,7 +34,20 @@ The process ends with an access violation (exit code 0xC0000005) or with heap co
 (0xC0000374). The exit code is the signal: the `ALIVE` line can still appear in a run that
 crashes.
 
-One logged series on WARP (`QSG_RHI_PREFER_SOFTWARE_RENDERER=1`, `QT_FORCE_STDERR_LOGGING=1`):
+Series with Qt's own `qml.exe` (official Qt 6.12.0 binaries, `QT_FORCE_STDERR_LOGGING=1`; WARP rows with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`):
+
+| Run | Adapter | Runs | 0xC0000005 | 0xC0000374 | Exit code 0 |
+|---|---|---|---|---|---|
+| `qml effect_chain_glow_crash.qml` | WARP | 10 | 8 | 2 | 0 |
+| `qml effect_chain_glow_crash.qml -- --seconds=10` | WARP | 3 | 1 | 1 | 1 |
+| `qml effect_chain_glow_crash.qml -- --no-glow` | WARP | 3 | 0 | 0 | 3 |
+| `qml effect_chain_glow_crash.qml -- --no-ssr` | WARP | 3 | 0 | 0 | 3 |
+| `qml effect_chain_glow_crash.qml -- --no-dof` | WARP | 3 | 0 | 0 | 3 |
+| `qml effect_chain_glow_crash.qml` | RTX 4070 | 3 | 2 | 0 | 1 |
+
+In 1 of the 10 WARP runs with the 3-second timer, Qt printed `Device loss detected in Present()` and `Graphics device lost, cleaning up scenegraph and releasing RHI` before it crashed. In the other runs of this series Qt printed no warning.
+
+An earlier logged series on WARP, with the file loaded with a `QQmlApplicationEngine` from the PyQt6-Qt6 6.12.0 wheel (`QSG_RHI_PREFER_SOFTWARE_RENDERER=1`, `QT_FORCE_STDERR_LOGGING=1`):
 
 | Run | Runs | 0xC0000005 | 0xC0000374 | Exit code 0 |
 |---|---|---|---|---|
