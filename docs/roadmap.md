@@ -34,10 +34,9 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 |-------|-------------|----------------|
 | Measurement units | #907 | Temperature, precipitation, harvest mass and a Canadian mixed preset. |
 | Store/MSIX readiness | #767, #764, #375 | Distribution and user-data safety on the second channel. |
-| 3D rendering quality and performance | #744, #534, #531, #883, #886, #889, #891, #894 | The 3D view's trust and frame budget. |
+| 3D rendering quality and performance | #744, #534, #531, #883, #886, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #828, #666 | Precision and editing depth. |
 | Architecture and tech debt | #829, #667 | Remove redundant surfaces and make tests repeatable. |
-| Tour and video reliability | #889, #890, #891, #896 | Safe MP4 delivery, flyable saved tours and locale regression coverage; implementation awaiting manual testing. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -52,7 +51,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 | ✅ | Package plan truth & reports (#663, #856–#860, #863–#865, #868–#871, #899) | Plan north, the plan date on every date-driven surface, one identity for an opened example, task row text, status-bar room, locale numbers, harvest units, PDF legend/plant-list, print grid/order and the shopping-list paginator | v1.39.1; [PR #903](https://github.com/cofade/open-garden-planner/pull/903); ADR-037/066/076/077 addenda; ADR-062; FR-SUN-14, FR-EXAMPLE-11, FR-TASK-01/04; §8.20, §8.31, §8.33, §8.36 |
 | ✅ | Measurement units (#673) | Metric / Imperial (US) display and input | v1.40.0; [PR #908](https://github.com/cofade/open-garden-planner/pull/908); ADR-078; FR-MEAS-07 |
 | ✅ | Small follow-ups (#904, #909, #842, #905, #881) | Annotation cancellation, bed rotation borders, plant-header layout and frozen-inventory guard | v1.40.1; [PR #913](https://github.com/cofade/open-garden-planner/pull/913); ADR-004 addendum |
-| 🚧 | Tour and video reliability (#889, #890, #891, #896) | Bounded MP4 tables, safe delivery and shutdown reporting, saved-orbit validation, tour locale coverage | Awaiting manual testing; ADR-072 addendum; FR-3D-TOUR-02/04 |
+| ✅ | Tour and video reliability (#889, #890, #891, #896) | Bounded MP4 tables, safe delivery and shutdown reporting, saved-orbit validation, tour locale coverage | v1.40.2; [PR #915](https://github.com/cofade/open-garden-planner/pull/915); ADR-072 addendum; FR-3D-TOUR-02/04 |
 
 ### Phase 16: Platform & Community (future)
 
