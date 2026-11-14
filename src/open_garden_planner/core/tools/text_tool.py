@@ -81,8 +81,8 @@ class TextTool(BaseTool):
         removing the item from the scene alone left the command on the undo
         stack (#827). ``CanvasView.discard_cancellable_placement`` discards the
         command first and removes the item only when the discard proved the
-        command left the stack; it also drops the gesture's held plan changes
-        and restores the document's dirty flag, so click + Esc on a clean plan
+        command left the stack; it suppresses the withdrawal's own plan changes
+        and guards restoration of the document's dirty flag, so click + Esc on a clean plan
         leaves it clean (#909).
 
         A note that has text is a real change: it is committed first (the

@@ -122,7 +122,9 @@ before the placement only when `CommandManager.mutation_serial` proves no other
 command ran and `ProjectManager.dirty_serial` proves no direct project edit
 (location, soil, tasks) asked for the dirty state in the meantime. A refused
 discard, an interleaved command or a direct edit therefore keeps the project
-dirty. `ProjectManager.restore_dirty()` is the one setter for that path.
+dirty. An unchanged scene `plan_revision` is also required, covering direct scene
+writes (resize/add/remove/move) that do not request project dirtiness themselves.
+`ProjectManager.restore_dirty()` is the one setter for that path.
 
 The Callout tool uses the same seam (#904): Escape on a callout with no text
 discards its `CreateItemCommand` and removes the item, exactly as the Text tool

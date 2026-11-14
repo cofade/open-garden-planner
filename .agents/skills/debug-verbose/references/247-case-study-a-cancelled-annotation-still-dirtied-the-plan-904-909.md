@@ -51,3 +51,9 @@ dirty/clean/restore request, including idempotent calls: location edits bypass t
 command stack. Pins: `tests/integration/test_annotation_lifecycle.py`,
 `tests/integration/test_tool_switching.py::test_a_direct_project_change_during_a_pending_annotation_survives_esc`,
 `tests/unit/test_project.py::test_dirty_serial_records_every_request_and_restore_only_signals_changes`.
+
+**Second review**: a raw canvas resize announces a revision but does not request
+project dirtiness. Cancellation therefore also requires the scene revision to be
+unchanged before restoring the old dirty flag. The regression observed the resize
+revision advancing while cancellation still cleared dirty; it now retains dirty.
+Direct scene add/remove/move paths are pinned by the same integration module.

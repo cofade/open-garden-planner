@@ -57,6 +57,7 @@ def test_resize_during_empty_placement_is_announced_and_survives_cancel(window):
     tool.cancel()
     assert item.scene() is None
     assert scene.plan_revision == after_resize
+    assert window._project_manager.is_dirty
 
 
 def test_refused_discard_keeps_pair_dirty_and_announces_it(window):
@@ -129,6 +130,26 @@ def test_a_successful_discard_after_interleaved_commands_keeps_dirty(window):
     command = CreateItemCommand(scene, other, "rectangle")
     view.command_manager.execute(command)
     assert view.command_manager.discard(command)
+    tool.cancel()
+    assert item.scene() is None
+    assert window._project_manager.is_dirty
+
+
+@pytest.mark.parametrize("mutation", ["add", "remove", "move"])
+def test_direct_scene_write_during_annotation_keeps_dirty(window, mutation):
+    scene = window.canvas_scene
+    bed = RectangleItem(20, 20, 30, 30)
+    scene.addItem(bed)
+    window._project_manager.mark_clean()
+    tool, item = _place(window)
+    revision = scene.plan_revision
+    if mutation == "add":
+        scene.addItem(RectangleItem(100, 100, 30, 30))
+    elif mutation == "remove":
+        scene.removeItem(bed)
+    else:
+        bed.setPos(10, 10)
+    assert scene.plan_revision > revision
     tool.cancel()
     assert item.scene() is None
     assert window._project_manager.is_dirty

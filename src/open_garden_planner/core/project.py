@@ -1003,7 +1003,8 @@ class ProjectManager(QObject):
 
         Only for a gesture that was fully withdrawn: the caller (a tool through
         ``CanvasView.discard_cancellable_placement``) has proved that no other
-        command executed since the snapshot, so the flag ``mark_dirty`` set for
+        command, project-state request or scene revision changed since the snapshot,
+        so the flag ``mark_dirty`` set for
         the placement click can be cleared again. Emits only when the state
         actually changes, exactly like :meth:`mark_dirty` / :meth:`mark_clean`.
         """

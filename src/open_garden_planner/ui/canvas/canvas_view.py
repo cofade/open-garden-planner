@@ -205,7 +205,7 @@ class CancellablePlacement:
     undo stack's counter right after the placement's ``execute`` and
     ``dirty_serial`` the project's count of dirty requests: a cancellation
     restores the flag only when neither counter moved except by its own
-    discard.
+    discard, and no other scene content revision was announced.
     """
 
     item: QGraphicsItem
@@ -213,6 +213,7 @@ class CancellablePlacement:
     dirty_before: bool | None
     mutation_serial: int
     dirty_serial: int
+    plan_revision: int = 0
 
 
 class CanvasView(QGraphicsView):
@@ -981,6 +982,7 @@ class CanvasView(QGraphicsView):
             dirty_before=dirty_before,
             mutation_serial=self._command_manager.mutation_serial,
             dirty_serial=project.dirty_serial if project is not None else 0,
+            plan_revision=self._canvas_scene.plan_revision,
         )
         self._cancellable_placement = placement
         return placement
@@ -1054,6 +1056,7 @@ class CanvasView(QGraphicsView):
             and placement.dirty_before is not None
             and no_other_mutation
             and no_other_dirty_request
+            and self._canvas_scene.plan_revision == placement.plan_revision
         ):
             project.restore_dirty(placement.dirty_before)
         return True

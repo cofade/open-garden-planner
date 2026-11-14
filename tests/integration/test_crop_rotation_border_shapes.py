@@ -109,6 +109,14 @@ def test_every_bed_shape_paints_the_rotation_status_border(
     violation_green = sum(QColor(violation.pixel(x, y)).green() for x, y in changed)
     assert good_green > violation_green, f"the {kind} border did not follow the status"
 
+    if kind == "polygon":
+        # Every side, including last-to-first, must carry the diagnostic ink.
+        # Rendering flips Y; sample the middle of each scene-space edge.
+        for x, y in ((200, 100), (300, 175), (200, 250), (100, 175)):
+            patch = [(px, py) for px in range(x - 3, x + 4)
+                     for py in range(good.height() - y - 3, good.height() - y + 4)]
+            assert any(point in changed for point in patch), (kind, x, y)
+
 
 @pytest.mark.parametrize("kind", ["rectangle", "rectangle-raised", "polygon", "ellipse", "circle"])
 def test_the_rotation_border_stays_out_of_an_export(kind: str, qtbot: object) -> None:

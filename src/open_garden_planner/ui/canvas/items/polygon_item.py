@@ -546,6 +546,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         if self._rotation_status is not None:
             rotation_path = QPainterPath()
             rotation_path.addPolygon(self.polygon())
+            rotation_path.closeSubpath()
             self._draw_rotation_status_border(painter, rotation_path)
 
         # Draw soil mismatch border outside rotation border (US-12.10d)

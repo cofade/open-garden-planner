@@ -1016,7 +1016,7 @@ class CanvasScene(QGraphicsScene):
 
     @property
     def plan_revision(self) -> int:
-        """One integer that moves exactly when plan content changed (class docstring)."""
+        """Monotonic generation of announced plan content (class docstring)."""
         return self._plan_revision
 
     def note_plan_changed(self) -> None:
