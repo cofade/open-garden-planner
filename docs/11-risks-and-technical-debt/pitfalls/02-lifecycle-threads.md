@@ -167,3 +167,23 @@ receives it. A guard comparing the sender's coordinates was written first; its d
 fired (nothing reached it after the disconnect) and it went. Not covered: the calendar's frost
 alerts keep the old plan's alerts after a cleared location or a failed fetch (#694, older than
 L5).
+
+### PF-LIF-13
+
+- **Rule:** Connect a worker signal that answers one request to an UNDECORATED bound method of the owning `QObject`, and pass the request identity on the worker; never to a lambda that captures the owner. PyQt skips delivery to a bound-method receiver whose object is gone, but a lambda has no receiver and runs on a deleted holder; the first signal emission then crashes the process (#898).
+- **Pinned by:** `tests/unit/test_forecast_holder.py::test_a_queued_worker_result_never_reaches_a_deleted_holder`; `tests/unit/test_forecast_holder.py::test_a_worker_result_carries_the_request_values_not_the_holders`; `tests/unit/test_forecast_holder.py::test_a_worker_failure_carries_the_request_values_not_the_holders`; `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`
+- **Source:** #898 (master CI run 43649444367: three xdist workers lost in the Test job across `test_polygon_paint_bound.py`, `test_agent_task_soil_tools.py` and `test_save_location.py`, plus one in Coverage partition (0) in `test_agent_task_soil_tools.py`; all four stacks end in the `forecast_holder.py` `<lambda>` during pytest-qt event processing).
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+The `ForecastHolder` connection read `worker.success.connect(lambda f: self._safe_worker_success(...))`
+so the request's generation and place needed no worker fields. The lambda is not a `QObject`
+receiver, so nothing disconnects it when the app/holder is destroyed; a queued success then calls
+into a wrapper whose C++ object is gone and, on Linux, segfaults. The fix connects
+`self._on_worker_signal_success` (undecorated, as PF-LIF-12 requires) and reads generation, lat
+and lon from `self.sender()`. Two measurement traps for the pin: `QObject.receivers(signal)` still
+reports the connection after `sip.delete(receiver)`, so a count is not a disconnection signal;
+and PyQt still resolves a Python class method on the deleted wrapper, which is why the test patches
+`_safe_worker_success` to record calls instead of asserting the count. Retain the worker until
+`finished` at start (not only in `shutdown`) so a holder that dies without `shutdown()` cannot let
+Python collect a running `QThread` (#480 class).

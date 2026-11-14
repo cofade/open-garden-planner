@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import logging
 import sys
 
 from PyQt6.QtCore import QObject, QThread, QTimer, pyqtSignal
@@ -31,6 +32,8 @@ from open_garden_planner.services.weather_service import (
     get_weather_service,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class _WeatherFetchWorker(QThread):
     """QThread that fetches a forecast in the background."""
@@ -38,10 +41,18 @@ class _WeatherFetchWorker(QThread):
     success = pyqtSignal(object)  # WeatherForecast
     error = pyqtSignal(str)
 
-    def __init__(self, lat: float, lon: float, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        lat: float,
+        lon: float,
+        parent: QObject | None = None,
+        *,
+        generation: int = 0,
+    ) -> None:
         super().__init__(parent)
         self._lat = lat
         self._lon = lon
+        self._generation = generation
         self._is_cancelled = False
 
     def cancel(self) -> None:
@@ -203,13 +214,42 @@ class ForecastHolder(QObject):
 
         gen = self._generation
         lat, lon = self._lat, self._lon
-        worker = WeatherFetchWorker(lat, lon)
+        worker = WeatherFetchWorker(lat, lon, generation=gen)
         self._worker = worker
-        # UNDECORATED callables to respect PF-LIF-12 disconnect semantics
-        worker.success.connect(lambda f: self._safe_worker_success(f, gen, lat, lon))
-        worker.error.connect(lambda msg: self._safe_worker_failed(msg, gen, lat, lon))
+        # Bound, UNDECORATED methods to respect PF-LIF-12 disconnect semantics AND
+        # let Qt drop the connections with this holder (#898: a lambda outlived the
+        # deleted holder, and the queued result crashed the Linux CI worker).
+        worker.success.connect(self._on_worker_signal_success)
+        worker.error.connect(self._on_worker_signal_failed)
         worker.finished.connect(self._on_worker_finished)
         worker.start()
+        # The holder may die without shutdown() (tests, a parent's teardown); keep
+        # the wrapper alive until the OS thread finishes so ~QThread never runs on
+        # a running thread (#480 class).
+        retain_worker_until_finished(worker)
+
+    def _on_worker_signal_success(self, forecast: WeatherForecast) -> None:
+        """Deliver a worker result, reading the request it answers from the sender.
+
+        The connection is a bound method of this holder, so Qt removes it when the
+        holder is destroyed. A lambda would survive its holder and a queued result
+        would crash the process (#898).
+        """
+        worker = self.sender()
+        if not isinstance(worker, WeatherFetchWorker):
+            logger.debug("Dropped a worker result from %r", worker)
+            return
+        self._safe_worker_success(
+            forecast, worker._generation, worker._lat, worker._lon
+        )
+
+    def _on_worker_signal_failed(self, message: str) -> None:
+        """Deliver a worker failure; bound-method receiver as for success (#898)."""
+        worker = self.sender()
+        if not isinstance(worker, WeatherFetchWorker):
+            logger.debug("Dropped a worker failure from %r", worker)
+            return
+        self._safe_worker_failed(message, worker._generation, worker._lat, worker._lon)
 
     def _safe_worker_success(
         self, forecast: WeatherForecast, gen: int, lat: float, lon: float
