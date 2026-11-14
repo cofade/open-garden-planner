@@ -32,3 +32,9 @@ the merged date-field and units work already addressed #896.
 
 Pins: `tests/unit/test_mp4_stream.py`, `tests/unit/test_camera_tours.py`, and
 `tests/integration/test_tour_video_reliability.py`.
+
+**Review follow-up:** a scanner holding the temporary copy made cleanup raise
+`PermissionError`, hiding the original malformed-NAL `Mp4Error`. The new combined
+regression first returned success and overwrote `GOOD VIDEO`. Cleanup now preserves
+its primary exception; the regression refuses delivery and keeps both original files.
+Never let best-effort cleanup change a trust-boundary failure's classification.

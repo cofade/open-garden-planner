@@ -68,6 +68,34 @@ def test_a_broken_render_is_kept_and_never_replaces_the_users_video(
     assert writer.part_path.exists() and not list(tmp_path.glob("*.tmp.mp4"))
 
 
+def test_a_held_temporary_copy_cannot_mask_a_structural_error_and_promote_bad_video(
+        qtbot, tmp_path, monkeypatch) -> None:
+    """A scanner's cleanup error must not turn a malformed NAL into an optional-tag failure."""
+    writer = Mp4Writer(tmp_path / "tour.mp4", (1280, 720), 30)
+    writer.path.write_bytes(b"GOOD VIDEO")
+    bad = bytearray(mp4(samples_of(MEDIA_FOUNDATION_SPS)))
+    struct.pack_into(">I", bad, bad.index(b"mdat") + 4, 0xFFFFFFFF)
+    writer.part_path.write_bytes(bad)
+    # The structural failure is in the samples, not in the tables read before tagging.
+    assert read_stream(writer.part_path, read_samples=False).samples == 6
+    unlink = Path.unlink
+
+    def held(path, *args, **kwargs):
+        if path.name.endswith(".tmp.mp4"):
+            raise PermissionError("scanner holds the temporary file")
+        return unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", held)
+    outcome = []
+    writer.finished.connect(lambda ok, text: outcome.append((ok, text)))
+    writer._close(True)
+    qtbot.waitUntil(lambda: bool(outcome), timeout=5000)
+    assert outcome[0][0] is False
+    assert str(writer.part_path) in outcome[0][1]
+    assert writer.path.read_bytes() == b"GOOD VIDEO"
+    assert writer.part_path.read_bytes() == bad
+
+
 def test_closing_during_tagging_names_the_eventual_destination_and_the_retained_part(
         canvas, qtbot, tmp_path, monkeypatch) -> None:
     rig = TourRig(canvas, qtbot, tmp_path)

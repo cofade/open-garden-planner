@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import struct
 from collections.abc import Iterator
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Final
@@ -730,15 +731,18 @@ def _patched_sample(sample: bytes, length_size: int, tags: ColourTags, level: in
 def tag_colour(source: Path, target: Path, tags: ColourTags = BT709_LIMITED) -> StreamInfo:
     """Write ``source`` to ``target`` with ``tags`` stated in the ``colr`` box and in every
     SPS (module docstring); returns what ``target`` says, its samples unread. ``target`` is
-    written whole or not at all: ``Mp4Error`` (a layout this module does not rewrite) or
-    ``OSError`` remove it, and ``source`` is never changed."""
+    written whole or removed on failure when possible; a cleanup error never masks the
+    primary failure (especially a structural ``Mp4Error``). ``source`` is never changed."""
     source, target = Path(source), Path(target)
     try:
         with source.open("rb") as reading, target.open("wb") as writing:
             _rewrite(reading, source.stat().st_size, writing, tags)
         return read_stream(target, read_samples=False)
     except BaseException:
-        target.unlink(missing_ok=True)
+        # A scanner can hold the incomplete copy. Never let its PermissionError hide
+        # an Mp4Error: delivery would then promote a corrupt source as an I/O fallback.
+        with suppress(OSError):
+            target.unlink(missing_ok=True)
         raise
 
 
