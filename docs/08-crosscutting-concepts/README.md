@@ -1529,6 +1529,15 @@ def canvas(qtbot):
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
 
+**Wait for the result of the gesture (#930).** A nonempty cache can belong to an
+earlier refresh. After selecting a tree, wait for its canopy row; after deselecting,
+wait for that row to disappear. Waiting only for nonempty sun evaluations returned
+immediately when the initial refresh had already completed, leaving the selection's
+timer pending and the row absent under coverage. Keep a pre-populated initial cache
+in the regression to force that ordering. Use `qtbot.waitUntil` on the observable
+result rather than a fixed sleep or an unrelated ready flag
+(`test_unmeasured_selection_and_preview_do_not_collect_shadow_geometry`).
+
 **Fonts on the dev box (PF-TST-26, #562/#573).** On Windows the `offscreen` platform has no font database: Qt falls back to a box engine in which every glyph is as wide as the pixel size and every advance is a whole number (Verdana 9 pt "Today": 60 px, really 34–37 px). A width, a row count or a rounding claim measured there says nothing about real fonts. The suite now registers `verdana.ttf`, `arial.ttf` and `segoeui.ttf` from `%WINDIR%/Fonts` once in the session fixture `tests/conftest.py::ui_font_family`, and makes Verdana 10 the application font when the platform's database is empty. `tests/unit/test_test_font_contract.py` fails if either the chosen family or the application font resolves to the box engine. Measured: `tests/integration/test_plan_sun_controls.py` went from 20 failed / 55 passed / 3 skipped to **78 passed in 76.9 s** on the Windows dev box; Linux CI already had real fonts. `test_plan_timeline.py` no longer registers `arial.ttf` inside one test and leaves it in the process-global database; the session fixture owns it. For real font metrics without a window on screen, `minimal:enable_fonts` remains the manual alternative (`tests/conftest.py` only sets `offscreen` as a default):
 
 ```bash

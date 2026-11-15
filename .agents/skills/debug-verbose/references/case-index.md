@@ -252,3 +252,4 @@
 | Case study: a waitUntil band accepted the mid-settle layout (#924) | [Read](252-case-study-a-waituntil-band-accepted-the-mid-settle-layout-924.md) |
 | Case study: canvas preview invalidated the snap index (#847, #848, #877, #878) | [Read](253-case-study-canvas-preview-invalidated-snap-index-847.md) |
 | Case study: unmeasured sun diagnostics block selection (#927) | [Read](254-case-study-unmeasured-sun-diagnostics-block-selection-927.md) |
+| Case study: a sun-selection wait observed an earlier refresh (#930) | [Read](255-case-study-sun-selection-wait-observed-an-earlier-refresh-930.md) |

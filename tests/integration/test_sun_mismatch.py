@@ -211,13 +211,16 @@ def test_unmeasured_selection_and_preview_do_not_collect_shadow_geometry(
     collect = Mock(wraps=coordinator_module.collect_exposure_snapshot)
     monkeypatch.setattr(coordinator_module, "collect_exposure_snapshot", collect)
     tree = by_name(win)["Reference tree"]
+    # Reproduce the covered-worker ordering: initial evaluations already exist
+    # before selection schedules its own refresh (#930).
+    win.sun_exposure_coordinator.refresh()
+    assert win.sun_exposure_coordinator.evaluations
+    assert win.canopy_panel.tree.topLevelItemCount() == 0
     tree.setSelected(True)
-    qtbot.waitUntil(lambda: bool(win.sun_exposure_coordinator.evaluations))
-    assert win.canopy_panel.tree.topLevelItemCount() == 1
+    qtbot.waitUntil(lambda: win.canopy_panel.tree.topLevelItemCount() == 1)
     tree.setSelected(False)
     win.canvas_scene.update()  # preview/repaint notification, no content change
-    qtbot.wait(120)
-    assert win.canopy_panel.tree.topLevelItemCount() == 0
+    qtbot.waitUntil(lambda: win.canopy_panel.tree.topLevelItemCount() == 0)
     assert win._sun_heatmap.run_count == 0
     assert all(e.hours is None for e in win.sun_exposure_coordinator.evaluations.values())
     if not has_location:
