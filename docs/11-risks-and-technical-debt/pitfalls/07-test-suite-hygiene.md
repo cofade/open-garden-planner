@@ -530,3 +530,21 @@ flush but on 6.12 only after one more round with a collection — measured with 
 both. It is not a product leak: the running app's event loop turns on.
 
 The second case came from the render tier: `test_one_fill_picture_per_pattern_and_colour` read two fill pictures alive after a recolour and after a removal on 6.12 (`master`'s code on the 6.12 wheels too). A probe counting the survivors after each step: 6.11 — 1, 1, 0 with no events; 6.12 — 2, then 1 after one `sendPostedEvents(DeferredDelete)`, and 0 after the removal plus one round. Not a leak: the measurement flushes one round before it counts.
+
+### PF-TST-37
+
+- **Rule:** A `qtbot.waitUntil` predicate names the EXACT final layout value the assertion below reads, never a neighbouring band: a band returns at a mid-settle value and the next line's exact-equality assertion fails on a slower runner (#924).
+- **Pinned by:** `tests/integration/test_chrome_layout.py::test_todays_tasks_shows_whole_rows_not_one_and_a_half`
+- **Source:** #924 (master CI run 43649444367, Coverage partition (1); `assert 100 == (92 + (2 * 0))`, while the same tree passed in run 43646470225).
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`_FittedScrollArea` re-asks its content's `sizeHint()` on every `LayoutRequest`, so the final
+height is computable inside the predicate. The measured failure was the second wait: it accepted
+anything below `_DASHBOARD_MIN_H + 20` (104 px), returned while the layout still sat at 100 px
+against a 92 px content hint, and the exact-equality assertion one line later failed. The first
+wait had the same shape (`> floor`, then exactly the cap) but did not happen to fail in this run.
+Both now wait for the exact expressions they assert (the second also waits for the scrollbar's
+final `maximum() == 0`), with the same 3000 ms bound. This is the general rule for geometry
+waits: when the test knows the final value, make the wait carry it — a band only delays the
+failure to the next line, where the failure report no longer names the race.

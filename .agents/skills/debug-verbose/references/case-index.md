@@ -248,3 +248,5 @@
 | Case study: profile header clipped wrapped content (#905) | [Read](248-case-study-profile-header-clipped-wrapped-content-905.md) |
 | Case study: rotation border lost the polygon closing edge (#842) | [Read](249-case-study-rotation-border-lost-the-polygon-closing-edge-842.md) |
 | Case study: a truncated video promoted as success (#889, #890, #891) | [Read](250-case-study-a-truncated-video-promoted-as-success-889-891.md) |
+| Case study: a queued worker result crashed a deleted forecast holder (#898) | [Read](251-case-study-a-queued-worker-result-crashed-a-deleted-forecast-holder-898.md) |
+| Case study: a waitUntil band accepted the mid-settle layout (#924) | [Read](252-case-study-a-waituntil-band-accepted-the-mid-settle-layout-924.md) |

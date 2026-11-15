@@ -1336,23 +1336,28 @@
   },
   "889": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Video delivery reports a raw error and does not name the kept render when tagging fails unexpectedly"
   },
   "890": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A truncated video part is delivered as a success"
   },
   "891": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A saved orbit with a field of view of 0 or 180 is kept but cannot be flown"
   },
   "896": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Tour dialog: time and number fields should use the app's locale helpers once both visual-polish PRs are merged"
+  },
+  "898": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Test worker segfaults in the forecast holder's worker lambda during pytest-qt event processing"
   },
   "904": {
     "is_pr": false,
@@ -1373,5 +1378,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#904, #909, #842, #905, #881): annotation cancellation, bed borders and panel follow-ups"
+  },
+  "920": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "chore: sync version to v1.40.2 after PR #915"
+  },
+  "924": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky CI: test_todays_tasks_shows_whole_rows_not_one_and_a_half fails on a still-settling layout (partition 1)"
   }
 }

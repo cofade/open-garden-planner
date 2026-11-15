@@ -163,17 +163,29 @@ def test_todays_tasks_shows_whole_rows_not_one_and_a_half(qtbot, qapp) -> None:
     empty_height = dashboard._content_scroll.height()
 
     dashboard.set_data(_dashboard_tasks(18))
+    # Wait for the FINAL height, not a band above the floor: a mid-settle read
+    # satisfies "> floor" and then fails the exact assertion below. The measured
+    # #924 failure was the second wait (100 px against a 92 px hint); this one
+    # had the same shape.
     qtbot.waitUntil(
-        lambda: dashboard._content_scroll.height() > calendar._DASHBOARD_MIN_H, timeout=3000)
+        lambda: dashboard._content_scroll.height()
+        == calendar._DASHBOARD_MAX_H + 2 * dashboard._content_scroll.frameWidth(),
+        timeout=3000)
     scroll = dashboard._content_scroll
     row_height = scroll.widget().findChildren(QPushButton)[0].parentWidget().height()
     assert scroll.height() == calendar._DASHBOARD_MAX_H + 2 * scroll.frameWidth()
     assert scroll.height() >= 4 * row_height > 0
     assert empty_height < row_height        # what the list used to keep
 
-    # Two tasks: exactly their height, no empty band and no scroll bar.
+    # Two tasks: exactly their height, no empty band and no scroll bar. The wait
+    # names both final conditions; the old "< floor + 20" band returned at 100 px
+    # while the content's hint was 92 px and the next line failed (#924).
     dashboard.set_data(_dashboard_tasks(2))
-    qtbot.waitUntil(lambda: scroll.height() < calendar._DASHBOARD_MIN_H + 20, timeout=3000)
+    qtbot.waitUntil(
+        lambda: scroll.height()
+        == scroll.widget().sizeHint().height() + 2 * scroll.frameWidth()
+        and scroll.verticalScrollBar().maximum() == 0,
+        timeout=3000)
     assert scroll.height() == scroll.widget().sizeHint().height() + 2 * scroll.frameWidth()
     assert scroll.verticalScrollBar().maximum() == 0
 
