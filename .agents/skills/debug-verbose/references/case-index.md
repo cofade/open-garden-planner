@@ -251,3 +251,4 @@
 | Case study: a queued worker result crashed a deleted forecast holder (#898) | [Read](251-case-study-a-queued-worker-result-crashed-a-deleted-forecast-holder-898.md) |
 | Case study: a waitUntil band accepted the mid-settle layout (#924) | [Read](252-case-study-a-waituntil-band-accepted-the-mid-settle-layout-924.md) |
 | Case study: canvas preview invalidated the snap index (#847, #848, #877, #878) | [Read](253-case-study-canvas-preview-invalidated-snap-index-847.md) |
+| Case study: unmeasured sun diagnostics block selection (#927) | [Read](254-case-study-unmeasured-sun-diagnostics-block-selection-927.md) |

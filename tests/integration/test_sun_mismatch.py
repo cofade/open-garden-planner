@@ -194,6 +194,37 @@ def test_cached_diagnostics_over_real_unauthenticated_mcp(sun_app, qtbot):
     assert win._sun_heatmap.run_count == run_count
 
 
+@pytest.mark.parametrize("has_location", [False, True])
+def test_unmeasured_selection_and_preview_do_not_collect_shadow_geometry(
+    sun_app, qtbot, monkeypatch, has_location,
+):
+    """A UI refresh needs a new footprint only to validate an existing result."""
+    from unittest.mock import Mock
+
+    from open_garden_planner.ui import sun_exposure_coordinator as coordinator_module
+
+    win = sun_app
+    if not has_location:
+        win._project_manager.set_location(None)
+    assert win._sun_heatmap.snapshot is None
+    assert win._sun_heatmap.displayed_snapshot is None
+    collect = Mock(wraps=coordinator_module.collect_exposure_snapshot)
+    monkeypatch.setattr(coordinator_module, "collect_exposure_snapshot", collect)
+    tree = by_name(win)["Reference tree"]
+    tree.setSelected(True)
+    qtbot.waitUntil(lambda: bool(win.sun_exposure_coordinator.evaluations))
+    assert win.canopy_panel.tree.topLevelItemCount() == 1
+    tree.setSelected(False)
+    win.canvas_scene.update()  # preview/repaint notification, no content change
+    qtbot.wait(120)
+    assert win.canopy_panel.tree.topLevelItemCount() == 0
+    assert win._sun_heatmap.run_count == 0
+    assert all(e.hours is None for e in win.sun_exposure_coordinator.evaluations.values())
+    if not has_location:
+        assert all(e.reason == "no_location" for e in win.sun_exposure_coordinator.evaluations.values())
+    assert collect.call_count == 0, "unmeasured diagnostics must not offset every caster"
+
+
 def test_german_names_hints_canopy_and_badge(sun_app, qtbot):
     win = sun_app
     north = by_name(win)["Northern tomato"]

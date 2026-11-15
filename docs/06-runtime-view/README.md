@@ -479,7 +479,7 @@ flowchart TD
     L["GardenPlannerApp._on_north_angle_changed"]
     A["CanvasView.set_north_angle<br/>→ viewport N arrow turns"]
     D["SunShadowController.schedule_recompute<br/>→ 2D overlay at scene_azimuth"]
-    E["SunExposureCoordinator.schedule<br/>→ plant badges and evaluations"]
+    E["SunExposureCoordinator.schedule<br/>→ validate geometry only if a measurement exists<br/>→ plant badges and evaluations"]
     H["live map on: schedule a new day<br/>off: clear the old map and toolbar"]
     W["Workspace.north_changed<br/>→ 3D relight; AnalysisController compass/sun path"]
     U --> C --> S --> L

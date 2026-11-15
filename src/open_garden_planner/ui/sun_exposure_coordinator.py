@@ -103,15 +103,19 @@ class SunExposureCoordinator(QObject):
 
     def _refresh(self) -> None:
         location = self.project_manager.location
-        snapshot = collect_exposure_snapshot(
-            self.scene, location, self.clock.plan_date, self._north()
-        )
         measured = (self.heatmap.displayed_snapshot if self.heatmap.exposure_reason == "ready"
                     else self.heatmap.snapshot)
-        if measured is not None and snapshot != measured:
-            self.heatmap.invalidate_exposure()
+        # Selection and preview repaints refresh the diagnostics too. Without a
+        # requested/measured snapshot there is nothing to validate: offsetting a
+        # dense fence here blocked every selection for seconds (#927).
+        if measured is not None:
+            snapshot = collect_exposure_snapshot(
+                self.scene, location, self.clock.plan_date, self._north()
+            )
+            if snapshot != measured:
+                self.heatmap.invalidate_exposure()
         reason = self.heatmap.exposure_reason
-        if snapshot.latitude is None or snapshot.longitude is None:
+        if (location or {}).get("latitude") is None or (location or {}).get("longitude") is None:
             reason = "no_location"
         hint = "" if reason == "ready" else unavailable_message(reason)
         self.toolbar.set_exposure_hint(hint)

@@ -1413,5 +1413,15 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Flaky CI: test_todays_tasks_shows_whole_rows_not_one_and_a_half fails on a still-settling layout (partition 1)"
+  },
+  "926": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#848, #877, #878): retain canvas caches and bound long-line painting"
+  },
+  "927": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sun diagnostics block ordinary selection by rebuilding unmeasured long-line footprints"
   }
 }
