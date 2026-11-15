@@ -166,10 +166,8 @@ class MinimapWidget(QWidget):
         """The view was panned or zoomed: move the viewport frame.
 
         The thumbnail is the whole plan and does not depend on the view, so it
-        is NOT rendered again. A render is not only the cost of painting the
-        scene: it disables every item's cache for its duration, which drops
-        their device pictures, and the canvas then paints every visible item
-        again at the next step of the very pan or zoom that caused it (#784).
+        is not rendered again. A scene edit refreshes the thumbnail, using
+        Qt's separate device cache without dropping the viewport's (#847).
         """
         if not self._enabled:
             return
@@ -270,15 +268,14 @@ class MinimapWidget(QWidget):
             ]
             painter.begin(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            # A scene.render is not a viewport paint: disable item caches, or a
-            # cached styled path reports the whole item as its exposed rect and
-            # #450's viewport clip would paint only the main view's slice.
-            from open_garden_planner.services.scene_rendering import _uncached_items
+            # Qt keeps a separate device cache for this painter. Switching cache
+            # modes discards the live viewport's picture (#847). The render cap
+            # also tells styled paths to use their whole-item thumbnail clip.
             from open_garden_planner.ui.canvas.items.path_style_paint import (
                 temporary_walk_cap,
             )
 
-            with _uncached_items(self._canvas_scene), temporary_walk_cap():
+            with temporary_walk_cap():
                 self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
         finally:
             # Whatever the render did: no live painter on the pixmap, and no

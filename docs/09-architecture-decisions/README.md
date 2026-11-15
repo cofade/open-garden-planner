@@ -13439,3 +13439,33 @@ before.
 - *Force English decimal marks to keep the pure module Qt-free.* Rejected: the explicit decimal-mark argument and thin adapter preserve the later locale contract.
 
 **Consequences**: No dependency or file-format change. Metric remains the default. Temperature, precipitation, harvest mass and a Canadian mixed preset need separate decisions (#907); DXF unit selection and per-plan overrides are deferred. Tests: `test_units.py`, `test_unit_preference.py`, `test_unit_spin_box.py`, `test_units_surfaces.py`, `test_unit_dialogs.py`, `test_unit_reports.py`, `test_units_guard.py`, `test_coordinate_units.py` and the save/reopen workflow in `tests/integration/test_unit_system.py`. FR-MEAS-07; §8.9.19.
+
+### ADR-076 addendum: canvas pictures have explicit consumers (#847, #848, #877, #878)
+
+**Decision (2026-11-15):** A minimap keeps the live scene's item-cache modes.
+Qt's device caches preserve the viewport picture when the thumbnail is painted
+(measured on Qt 6.12.0). Its existing scoped walk cap also selects a styled
+line's whole-item clip. Exports continue to disable caches for exact output.
+The shadow overlay uses the same capped-render scope to paint exactly without
+changing its live zoom state; cache mode alone no longer identifies a thumbnail.
+The shared interactive-paint predicate excludes capped scene renders as well,
+preserving filled polygon thumbnails. Polylines explicitly apply their new
+outline bound to thumbnails; other consumers keep their previous classification.
+Do not select the thumbnail's clip from the live viewport or introduce a
+second scene-construction path just to preserve caches.
+
+The grid builds its visible picture on the first nonempty partial paint after
+invalidation. Up to four exact subpixel phases share its existing 64 MB bound;
+phase and scale changes never reuse resampled pixels. This replaces repeatedly
+painting small uncached dirty rectangles, which never established a new cache.
+
+Polylines adopt the existing polygon threshold: above 256 points, unselected
+interactive painting uses a cosmetic one-pixel exact outline. Selected items
+and exports retain full detail. This bounds the costly wide stroke without
+decimating geometric data. The shared paint revision invalidates the snap
+index too, including before delivery of Qt's queued change signal. No new
+setting, dependency, serialization field or file-version change.
+
+Embedded pixel tests capture the owning window and crop its viewport; a
+viewport-only grab cannot prove backing-store offset handling. Tests and
+measurements: §8.37; FR-GRID-05 and FR-EDIT-20.

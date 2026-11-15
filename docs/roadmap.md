@@ -37,6 +37,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | 3D rendering quality and performance | #744, #534, #531, #883, #886, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #828, #666 | Precision and editing depth. |
 | Architecture and tech debt | #829, #667 | Remove redundant surfaces and make tests repeatable. |
+| 2D canvas follow-ups | #841, #843–#849, #877–#879, #919 | Plan precision, repaint cost and embedded-window rendering. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -44,6 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| 🧪 | Canvas repaint package (#848, #877, #878, #927; partial #847) | Minimap cache preservation, preview snapping, bounded polyline paint, partial grid refresh, embedded-window pixel checks and unmeasured sun-diagnostic refresh | Implemented; pending owner acceptance; §8.27, §8.37, ADR-076 addendum |
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |
 | ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |
 | ✅ | Package 2D visual polish (#698, #782, #784–#796, #836) | Sharp sprites and fills, a cheap repaint with the sun overlay, quiet spacing warnings, legible labels, true exports, theme and locale fixes, examples in a showcase state, a key for the hours-of-sun map | v1.38.0; [PR #838](https://github.com/cofade/open-garden-planner/pull/838); ADR-076, ADR-077; §8.36, §8.37 |

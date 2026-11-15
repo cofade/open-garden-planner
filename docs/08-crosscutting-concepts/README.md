@@ -5515,7 +5515,7 @@ Guild links are orthogonal to §8.14 plant-parent relationships; no new bed pred
 
 US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposure` shares the explicit day's sample loop with the existing grid aggregator. `collect_identified_casters` is the single footprint / height / base collector (one `ItemLookup` per walk; `collect_shadow_casters` flattens it for the overlay). Sparse coverage uses unioned owner footprints — each swept from where its owner stands — and excludes the receiver's own UUID, every soil solid whose outline contains the receiver (a bed, raised bed, container or wall planter with a height: `IdentifiedCaster.holds_plants`, so a plant inside a bed it was never linked to reads the bed's real sun, #481) and, for a plant that stands in a soil parent with a height, that parent (`SunReceiver.stands_on`, from `footprints.standing_parent`: without it every plant in a raised bed read 0 hours, ADR-056 addendum). Receiver coordinates use base-shape centres transformed by `mapToScene`; badge/decorative bounds are never sampling geometry. Row zero remains south.
 
-`SunExposureCoordinator` compares immutable runtime snapshots in 60 ms and publishes cached evaluations. Commands are subscribed separately because metadata-only changes need not repaint. Requirement-only edits reclassify without recomputing. No panel, selection, repaint or Agent API read can start work. Ordinary edits retain the grid's visual snapshot with a stale tooltip, but clear receiver minutes, badges and mismatches. Missing location, cancellation, absent results, hidden plants and out-of-grid centres remain unavailable rather than becoming zero hours. Known unavailable requirements produce `sun_evaluation` information diagnostics; Information is a panel severity filter and counts say diagnostics.
+`SunExposureCoordinator` debounces refreshes by 60 ms and publishes cached evaluations. It collects an immutable geometry snapshot only when a requested or displayed measurement needs validation. Without one, unavailable evaluations and canopy selection use the location and plant data directly; a selection or a preview must not offset every fence just to discard the result (#927). Owner acceptance of the canvas package exposed 2.5-second UI stalls from a 16,000-point stress fence on every selection, even without a location. The same unmeasured refresh takes under 1 ms after this guard; selected full-detail rendering of that hostile line is a separate cost, so ordinary acceptance plans must keep it separate from the stress fixture. Commands are subscribed separately because metadata-only changes need not repaint. Requirement-only edits reclassify without recomputing. No panel, selection, repaint or Agent API read can start a measurement. Ordinary edits retain the grid's visual snapshot with a stale tooltip, but clear receiver minutes, badges and mismatches. Missing location, cancellation, absent results, hidden plants and out-of-grid centres remain unavailable rather than becoming zero hours. Known unavailable requirements produce `sun_evaluation` information diagnostics; Information is a panel severity filter and counts say diagnostics. `test_unmeasured_selection_and_preview_do_not_collect_shadow_geometry` pins the zero-walk path with and without a location; the measured-result and stale-result workflows remain in `test_sun_mismatch.py`.
 
 `DiagnosticsCoordinator` is the sole general-panel publisher. Producers cache records and emit `CanvasScene.diagnostics_changed`; `ProjectManager.diagnostics_snapshot` harvests all producers for both UI and MCP conversion. Rows store UUIDs and resolve them at click time; document replacement cancels pending navigation. Sun records use enclosing-group navigation UUIDs and retain the physical receiver in details. Theme-aware runtime child badges stay inside plant footprints, with unchanged transform origins, snapping and serialization. Translated labels and one-decimal localized hours are presentation only.
 
@@ -9613,8 +9613,8 @@ painted before. They are what a paint needs of the WHOLE scene, kept until
 **`CanvasScene.paint_revision`** moves — the rule of this section, and the sun
 overlay's since US-E3: **scene-wide state is taken again at most once per
 paint revision, never once per paint.** It is taken lazily: the first paint
-after the revision moved collects the covers, lays the labels out and (when it
-covers the viewport) makes the grid layer, inside that paint; every later
+after the revision moved collects the covers, lays the labels out and makes
+the grid layer, including on a partial paint (#878); every later
 paint and pan reads what is kept, and so does a zoom for the covers (the
 labels and the grid layer are in device pixels and are taken again for a new
 zoom). (The text here used to say "never inside a paint", which the code never
@@ -9677,7 +9677,7 @@ lattice to sum. A scrub step at fit should therefore be lighter than the
   item's update blit its picture (0.3–0.6 ms). Against the direct paint the
   cached picture differs by the rounding of premultiplied alpha, 3 levels at
   most (`TestPixelsUnchanged`: three zooms, two sun positions); an export, a
-  print, the minimap and the Agent API render disable item caches first and get
+  print and the Agent API render disable item caches first and get
   the direct paint, bit for bit.
 - A **zoom** invalidates a device cache at every wheel step. While steps keep
   coming the overlay paints the picture of its last rasterisation, scaled, and
@@ -9719,15 +9719,58 @@ lattice to sum. A scrub step at fit should therefore be lighter than the
   high-density display was not measured.
 
 **The minimap renders the plan on a scene change, never on a pan or a zoom.**
-Its render disables every item's cache (`scene.render` is not a viewport
-paint), and switching a cache mode drops the item's device picture. Wired to
-the scroll bars it did that 100 ms into every pan: the next step painted every
-item the exposed strip touched in full, the overlay among them — 52 ms a step
-on average and up to 150 ms at twice fit (21 ms and up to 64 since), which a
-probe that repaints without running the event loop never shows. Still true
-after any scene change (a scrub, an edit, the overlay's own settle): the next
-frame that touches an item paints it once.
-`tests/unit/test_minimap_widget.py::TestViewportChangesDoNotRender`.
+It keeps the live items' cache modes (#847): Qt keeps the thumbnail device's
+picture separately, so rendering it does not discard the viewport's. The
+existing `temporary_walk_cap` scope tells a styled line to use its whole-item
+thumbnail clip, rather than the live viewport's clip; its work budget still
+applies. Exports retain the separate uncached, full-detail path.
+The shared `is_interactive_paint` predicate excludes a capped scene render,
+so a polygon above the canvas detail bound retains its filled thumbnail.
+Polylines explicitly opt into their new thumbnail outline bound (#848).
+The sun overlay also reads that scope: it paints exactly for the thumbnail
+without reading or mutating its live zoom/stand-in state. Keeping cache modes
+alone let a thumbnail request a settle at its own scale; the live-controller
+regression is in `test_sun_overlay_cache.py`.
+Pinned by `test_minimap_does_not_reset_body_caches` and the styled-path cases in
+`tests/unit/test_minimap_widget.py`.
+
+**Preview movement does not rebuild snapping (#847).** `CanvasView` stamps its
+snap index with `CanvasScene.paint_revision` and compares it before each query,
+so synchronous geometry edits invalidate before Qt's queued `changed` arrives.
+The signal invalidates only when the stamp differs. The rectangle-drag probe
+on 853 objects counted ten rebuilds for ten preview moves before, zero after;
+under cProfile the ten input dispatches took 731 ms before and 10 ms after
+(Windows, Qt 6.12.0, 2026-11-15; event-loop painting measured separately).
+`test_rectangle_preview_does_not_rebuild_the_snap_index` counts this and checks
+that moving a real object still rebuilds the index.
+
+**The grid keeps exact subpixel phases (#847, #878).** The first nonempty paint
+of a new revision builds its visible layer, even if only a small rectangle is
+dirty. A pan can retain up to four device-pixel phases under the existing
+64 MB total bound; at 125% or 150% scaling, later pans use whole-pixel copies
+of the matching phase. No blurred fractional translation is substituted.
+A revision or scale change discards all phases. The counting and direct-pixel
+controls live in `tests/integration/test_canvas_repaint_package.py`.
+
+**Long polylines share the polygon paint bound (#848).** Above 256 points an
+unselected line on the canvas draws its exact path with a solid cosmetic
+one-pixel pen, omitting its shadow and style decoration. Selected lines and
+uncached exports retain the stored width and style; points, hit geometry and
+saved data remain exact. The bound also applies in a minimap thumbnail.
+`test_long_unselected_line_uses_a_cosmetic_outline` exercises the real cached
+viewport at 256, 257 and 16,000 points; the selected/exported control checks
+that the stored stroke returns.
+
+**Pixel tests preserve the window's offset (#877).** `tests/canvas_host.py`
+embeds a view below a 180-pixel header. `grab_viewport` captures the owning
+window before cropping: grabbing the viewport alone erases the backing-store
+offset being tested. The sharpness fixture runs standalone and embedded;
+`test_shadow_pixels_reach_the_bottom_in_a_window` compares the lower strip
+against a standalone control through both `paint_feather` and the shadow
+overlay, plus a selected sprite larger than the 1024-pixel cache threshold.
+Reinstating the zero-offset device bounds makes that sprite control fail
+(226 levels in the lower strip); the corrected bounds pass. Keep the owning
+window's Python wrapper alive for the whole test.
 
 **A large plan, a large viewport (review of the branch).** Measured on a plan of
 853 named objects built in code (`tests/large_plan.py`: 746 perennials, 107
@@ -9843,8 +9886,8 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
   scrub no longer do.
 - The grid layer is made again at every zoom step and after every scene change
   that repaints the viewport (what every paint cost before); a pan pays for it
-  once per 256 px, and at a fractional display scaling a pan by an odd number
-  of logical pixels pays for it at that step.
+  once per 256 px per retained subpixel phase, subject to the shared memory
+  bound. A display ratio needing more than four phases can still rebuild.
 - An outline of more than 256 vertices is not cut out of the grid and does not
   keep the sun map's hour labels off it (§8.9.17). A traced fence of 300 points
   is such an outline.

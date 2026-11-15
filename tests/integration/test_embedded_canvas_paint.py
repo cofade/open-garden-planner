@@ -11,15 +11,22 @@ top-level view, whose offset is zero.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QRect, QRectF
-from PyQt6.QtGui import QImage, QPainter, QPaintEvent
-from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget
+import uuid
 
+import numpy as np
+import pytest
+from PyQt6.QtCore import QRect, QRectF
+from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath, QPaintEvent
+from PyQt6.QtWidgets import QApplication, QGraphicsItem, QWidget
+
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.sprite_raster import device_bounds
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-
-HEADER_PX = 180
+from open_garden_planner.ui.canvas.items import CircleItem
+from open_garden_planner.ui.canvas.shadow_feather import paint_feather
+from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowOverlayItem
+from tests.canvas_host import HEADER_PX, embed_canvas, grab_viewport
 
 
 class _Probe(QWidget):
@@ -38,20 +45,7 @@ class _Probe(QWidget):
 
 
 def _window_with(child: QWidget, qtbot: object) -> QWidget:
-    window = QWidget()
-    layout = QVBoxLayout(window)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
-    header = QWidget()
-    header.setFixedHeight(HEADER_PX)
-    layout.addWidget(header)
-    layout.addWidget(child)
-    qtbot.addWidget(window)  # type: ignore[attr-defined]
-    window.resize(700, 700)
-    window.show()
-    qtbot.waitExposed(window)  # type: ignore[attr-defined]
-    QApplication.processEvents()
-    return window
+    return embed_canvas(child, qtbot)
 
 
 def test_a_child_widgets_bounds_are_where_its_painter_paints(qtbot: object) -> None:
@@ -98,3 +92,59 @@ def test_the_grid_reaches_the_bottom_of_an_embedded_canvas(qtbot: object) -> Non
         f"the grid changes {changed} sampled pixels in the bottom {HEADER_PX // 2} px of the "
         "plan: the embedded canvas does not paint its grid there"
     )
+
+
+@pytest.mark.parametrize("kind", ["feather", "shadow-overlay", "selected-oversized-sprite"])
+def test_shadow_pixels_reach_the_bottom_in_a_window(qtbot, kind):
+    """Compare the bottom of a real embedded paint with the standalone control.
+
+    The shade crosses the viewport's bottom edge; a missing strip cannot hide
+    in the empty page below it. The feather case exercises its own layer path.
+    """
+    shade = QPainterPath()
+    shade.addRect(QRectF(160, 0, 180, 350))
+    windows = []
+
+    class FeatherItem(QGraphicsItem):
+        def boundingRect(self):
+            return QRectF(0, 0, 600, 500)
+
+        def paint(self, painter, option, widget=None):
+            paint_feather(painter, self.boundingRect(), self.boundingRect(),
+                          shade, (), QColor(0, 0, 0, 100))
+
+    def capture(embedded):
+        scene = CanvasScene(600, 500)
+        scene.set_shadows_enabled(False)
+        if kind == "selected-oversized-sprite":
+            item = CircleItem(300, 250, 260, object_type=ObjectType.TREE)
+            item._item_id = uuid.UUID(int=1)  # same stable sprite rotation in both controls
+            item.setSelected(True)  # bypass Qt's pixmap cache: paint into the backing store
+        else:
+            item = FeatherItem() if kind == "feather" else SunShadowOverlayItem()
+        if kind == "shadow-overlay":
+            item.set_clip_rect(scene.canvas_rect)
+            item.set_shadow_path(shade)
+        scene.addItem(item)
+        view = CanvasView(scene)
+        view.set_grid_visible(False)
+        if embedded:
+            windows.append(embed_canvas(view, qtbot, size=(700, 520)))
+        else:
+            qtbot.addWidget(view)
+            view.setFixedSize(700, 520)
+            view.show()
+            qtbot.waitExposed(view)
+        view.set_zoom(2.0)
+        view.centerOn(300, 250 if kind == "selected-oversized-sprite" else 180)
+        QApplication.processEvents()
+        image = grab_viewport(view).convertToFormat(QImage.Format.Format_RGBA8888)
+        raw = image.constBits()
+        return np.frombuffer(raw.asstring(image.sizeInBytes()), dtype=np.uint8).reshape(
+            image.height(), image.bytesPerLine() // 4, 4
+        )[:, :image.width(), :3].copy()
+
+    standalone, embedded = capture(False), capture(True)
+    bottom = np.abs(embedded[-100:, 80:-80].astype(int) - standalone[-100:, 80:-80])
+    assert bottom.max() <= 1, f"{kind}: the embedded paint differs by {bottom.max()} levels"
+    assert standalone[-100:, 80:-80].min() < 230, "the control paints no edge in this strip"

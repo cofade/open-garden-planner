@@ -379,6 +379,7 @@ class CanvasView(QGraphicsView):
         self._current_snap: SnapCandidate | None = None
         self._snap_indicator_item = None  # QGraphicsItem placeholder
         self._snap_index_dirty = True
+        self._snap_index_revision = -1
         scene.changed.connect(self._on_scene_changed_for_snap)
 
         # Shared typed-coordinate buffer (Package A US-A1/A2/A4).
@@ -2459,12 +2460,18 @@ class CanvasView(QGraphicsView):
         return self.clamp_to_canvas(snapped)
 
     def _on_scene_changed_for_snap(self, _rects: object) -> None:
-        """Mark the snap spatial index for rebuild on next query."""
-        self._snap_index_dirty = True
+        """Invalidate for plan changes, never for a tool's preview (#847).
+
+        The paint revision also covers timeline visibility. Checking it at
+        query time below catches edits before Qt emits its queued ``changed``.
+        """
+        if self._snap_index_revision != self._canvas_scene.paint_revision:
+            self._snap_index_dirty = True
 
     def _ensure_snap_index(self) -> None:
         """Lazily rebuild the spatial index from the current scene."""
-        if not self._snap_index_dirty:
+        revision = self._canvas_scene.paint_revision
+        if not self._snap_index_dirty and self._snap_index_revision == revision:
             return
         from PyQt6.QtWidgets import QGraphicsItem as _QGI
 
@@ -2475,6 +2482,7 @@ class CanvasView(QGraphicsView):
         ]
         self._point_snapper.update_scene(items, scene_bounds=self.scene().sceneRect())
         self._snap_index_dirty = False
+        self._snap_index_revision = revision
 
     @property
     def current_snap_candidate(self) -> SnapCandidate | None:

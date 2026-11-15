@@ -285,6 +285,21 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         widget: QWidget | None = None,
     ) -> None:
         """Paint the polyline with style-specific rendering and optional shadow."""
+        if (
+            len(self._points) > MAX_FULL_DETAIL_VERTICES
+            and not self.isSelected()
+            and (is_interactive_paint(self, widget) or current_render_walk_cap() is not None)
+        ):
+            pen = QPen(self.pen())
+            pen.setCosmetic(True)
+            pen.setWidthF(1.0)
+            pen.setStyle(Qt.PenStyle.SolidLine)
+            painter.save()
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(self.path())
+            painter.restore()
+            return
         # A string of lights (L5.4): its posts, wire and bulbs — no style, no drop
         # shadow (a 12 cm dark band beside a wire; the owner's manual test of #389)
         if self.object_type == ObjectType.STRING_LIGHTS:
@@ -388,7 +403,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         visible, and the budget is what stops a path that zigzags through the
         whole viewport from costing an unbounded amount.
         """
-        if not is_interactive_paint(self, widget):
+        if current_render_walk_cap() is not None or not is_interactive_paint(self, widget):
             return None
         exposed = option.exposedRect
         if not exposed.isValid() or exposed.isEmpty():

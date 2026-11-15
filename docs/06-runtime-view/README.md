@@ -1,5 +1,29 @@
 # 6. Runtime View
 
+## Canvas preview and repaint reuse (#847, #878)
+
+```mermaid
+sequenceDiagram
+    participant U as Pointer move
+    participant V as CanvasView
+    participant S as CanvasScene
+    participant I as Snap index
+    U->>V: Move rectangle preview
+    V->>S: Read paint revision
+    alt Revision changed since last snap query
+        V->>I: Rebuild from current objects
+    else Preview only
+        V->>I: Query retained index
+    end
+    V->>S: Update preview rectangle
+    S-->>V: Queued changed (paint revision unchanged)
+    V->>V: Reuse kept grid and label picture
+```
+
+The first partial paint after a real edit refreshes the grid's visible layer.
+A minimap refresh keeps viewport item-cache modes; its scoped render cap selects
+the whole-item style clip. Bounds, phases and measured counts are in §8.37.
+
 ## Committed panel edits, persistence and history (PR #566)
 
 ```mermaid
@@ -455,7 +479,7 @@ flowchart TD
     L["GardenPlannerApp._on_north_angle_changed"]
     A["CanvasView.set_north_angle<br/>→ viewport N arrow turns"]
     D["SunShadowController.schedule_recompute<br/>→ 2D overlay at scene_azimuth"]
-    E["SunExposureCoordinator.schedule<br/>→ plant badges and evaluations"]
+    E["SunExposureCoordinator.schedule<br/>→ validate geometry only if a measurement exists<br/>→ plant badges and evaluations"]
     H["live map on: schedule a new day<br/>off: clear the old map and toolbar"]
     W["Workspace.north_changed<br/>→ 3D relight; AnalysisController compass/sun path"]
     U --> C --> S --> L

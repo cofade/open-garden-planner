@@ -2,6 +2,7 @@
 
 This page summarises the [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md).
 That document owns current work and delivery status. GitHub issues own the current work list.
+The canonical Current work table includes the 2D canvas performance and precision follow-ups.
 The overview, infrastructure table, and Phase 17 status below come directly from that document.
 
 ## Overview
