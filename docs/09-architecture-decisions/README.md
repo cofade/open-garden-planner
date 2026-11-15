@@ -13448,6 +13448,9 @@ Qt's device caches preserve the viewport picture when the thumbnail is painted
 line's whole-item clip. Exports continue to disable caches for exact output.
 The shadow overlay uses the same capped-render scope to paint exactly without
 changing its live zoom state; cache mode alone no longer identifies a thumbnail.
+The shared interactive-paint predicate excludes capped scene renders as well,
+preserving filled polygon thumbnails. Polylines explicitly apply their new
+outline bound to thumbnails; other consumers keep their previous classification.
 Do not select the thumbnail's clip from the live viewport or introduce a
 second scene-construction path just to preserve caches.
 

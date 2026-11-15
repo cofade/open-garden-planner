@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from unittest.mock import patch
 
 import numpy as np
@@ -12,13 +13,15 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core import sprite_raster
-from open_garden_planner.core.item_look import adopt_pen
+from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.item_look import adopt_pen, fill_brush
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.sprite_raster import KeptLayer
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import RectangleItem
+from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
 from tests.canvas_host import grab_viewport
@@ -208,6 +211,29 @@ def test_minimap_does_not_reset_body_caches(qtbot):
     paints = item.paints
     view.viewport().repaint()
     assert item.paints == paints, "the minimap discarded the body's viewport cache"
+
+
+def test_long_polygon_keeps_its_filled_minimap_picture(qtbot):
+    scene = CanvasScene(1000, 800)
+    item = PolygonItem(
+        [QPointF(500 + 200 * math.cos(i * math.tau / 300),
+                 400 + 200 * math.sin(i * math.tau / 300)) for i in range(300)],
+        object_type=ObjectType.LAWN, fill_pattern=FillPattern.SOLID,
+    )
+    item.fill_color = QColor("magenta")
+    item.setBrush(fill_brush(item, item.fill_color))
+    scene.addItem(item)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(700, 500)
+    view.show()
+    view.fit_in_view()
+    QApplication.processEvents()
+    minimap = MinimapWidget(view, scene)
+    minimap._update_timer.stop()
+    minimap._do_update()
+    thumbnail = minimap._thumbnail.toImage()
+    assert thumbnail.pixelColor(thumbnail.width() // 2, thumbnail.height() // 2) == QColor("magenta")
 
 
 @pytest.mark.parametrize("count", [256, 257, 16000])

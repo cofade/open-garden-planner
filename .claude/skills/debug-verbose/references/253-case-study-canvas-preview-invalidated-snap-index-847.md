@@ -53,3 +53,10 @@ rendered with a live device cache and expected one full layout walk. The new
 interactive outline intentionally makes zero walks. Explicitly disable its
 cache, as the full-detail export seam does, so the test still proves that two
 full paints share one bounded layout and a moved vertex invalidates it.
+
+**Final consumer check:** A 300-point magenta lawn thumbnail became page-coloured
+(`#f5f5dc`) instead of filled (`#ff00ff`) after caches were retained. The polygon
+also used cache mode as consumer identity. The shared `is_interactive_paint`
+now excludes capped scene renders; only polylines explicitly opt into the new
+thumbnail outline bound. `test_long_polygon_keeps_its_filled_minimap_picture`
+pins the previous filled appearance.

@@ -246,27 +246,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1924" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1935" />
             <source>Arrange</source>
             <translation>Arrange</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1938" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1949" />
             <source>Bring Forward</source>
             <translation>Bring Forward</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1933" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1944" />
             <source>Bring to Front</source>
             <translation>Bring to Front</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1943" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1954" />
             <source>Send Backward</source>
             <translation>Send Backward</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1948" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1959" />
             <source>Send to Back</source>
             <translation>Send to Back</translation>
         </message>
@@ -385,32 +385,32 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1125" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1136" />
             <source>Add soil test…</source>
             <translation>Add soil test…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1118" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1129" />
             <source>Hide Grid</source>
             <translation>Hide Grid</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1131" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1142" />
             <source>Log Harvest…</source>
             <translation>Log Harvest…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1128" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1139" />
             <source>Log Pest/Disease…</source>
             <translation>Log Pest/Disease…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1134" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1145" />
             <source>Plan Succession…</source>
             <translation>Plan Succession…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1120" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1131" />
             <source>Show Grid</source>
             <translation>Show Grid</translation>
         </message>
@@ -2206,7 +2206,7 @@
             <translation>text content</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2091" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2102" />
             <location filename="../../ui/panels/property_edits.py" line="178" />
             <source>type</source>
             <translation>type</translation>
@@ -5297,7 +5297,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation>Group</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="510" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="521" />
             <source>Lock position</source>
             <translation>Lock position</translation>
         </message>
@@ -5307,7 +5307,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation>Ungroup</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="508" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="519" />
             <source>Unlock position</source>
             <translation>Unlock position</translation>
         </message>
@@ -5315,12 +5315,12 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2029" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2040" />
             <source>Change Type</source>
             <translation>Change Type</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1877" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1888" />
             <source>Move to Layer</source>
             <translation>Move to Layer</translation>
         </message>

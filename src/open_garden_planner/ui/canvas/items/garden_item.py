@@ -332,7 +332,18 @@ def is_interactive_paint(item: object, widget: QWidget | None) -> bool:
     painted by a real widget; ``TestIsInteractivePaint`` pins both halves. The
     full reachability history — this idiom shipped wrong twice — is in
     ``docs/11-risks-and-technical-debt/`` PF-CAN-20, not here.
+
+    A capped whole-scene thumbnail keeps cache modes but is explicitly not
+    interactive. A polyline separately applies its outline bound to thumbnails;
+    a polygon retains its previous full-detail thumbnail fill (#847, #848).
     """
+    from .path_style_paint import current_render_walk_cap
+
+    # A small whole-scene render retains device cache modes (#847). Those
+    # modes no longer identify its consumer: a long polygon must still keep
+    # its filled thumbnail, rather than use the canvas-only outline.
+    if current_render_walk_cap() is not None:
+        return False
     return widget is not None or (
         isinstance(item, QGraphicsItem)
         and item.cacheMode() != QGraphicsItem.CacheMode.NoCache

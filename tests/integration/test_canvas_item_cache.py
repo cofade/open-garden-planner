@@ -681,19 +681,20 @@ class TestTheMaskIsTheItem:
 
 
 class TestIsInteractivePaint:
-    """The predicate's own halves, called directly (#503).
+    """Pin cache/widget classification and the explicit thumbnail scope (#503, #847)."""
 
-    ``is_interactive_paint`` is now a three-line expression used by exactly one
-    caller (``PolygonItem``'s over-budget bound), so its docstring's claim that
-    "the direct-call tests exercise it" had no test behind it. These are those
-    tests: the cache-mode half (the one the #503 story is about) and the
-    ``widget is not None`` half, which the docstring keeps as robustness for a
-    cache-disabled item painted by a real widget.
+    @pytest.mark.parametrize("with_widget", [False, True])
+    def test_capped_scene_render_is_not_the_live_canvas(self, qtbot, with_widget) -> None:
+        from open_garden_planner.ui.canvas.items.path_style_paint import temporary_walk_cap
 
-    Deliberately direct calls, not a rendered scenario: this pins the predicate,
-    where the #503 defect was a predicate whose condition never held on the
-    path it guarded.
-    """
+        item = RectangleItem(0, 0, 10, 10, object_type=ObjectType.GENERIC_RECTANGLE)
+        widget = QWidget() if with_widget else None
+        if widget is not None:
+            qtbot.addWidget(widget)
+        assert is_interactive_paint(item, widget)
+        with temporary_walk_cap():
+            assert not is_interactive_paint(item, widget)
+        assert is_interactive_paint(item, widget)
 
     def test_a_cached_item_is_interactive_without_a_widget(self) -> None:
         """The #503 case: Qt hands ``widget = 0`` to every cached paint."""

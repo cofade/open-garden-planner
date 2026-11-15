@@ -9724,6 +9724,9 @@ picture separately, so rendering it does not discard the viewport's. The
 existing `temporary_walk_cap` scope tells a styled line to use its whole-item
 thumbnail clip, rather than the live viewport's clip; its work budget still
 applies. Exports retain the separate uncached, full-detail path.
+The shared `is_interactive_paint` predicate excludes a capped scene render,
+so a polygon above the canvas detail bound retains its filled thumbnail.
+Polylines explicitly opt into their new thumbnail outline bound (#848).
 The sun overlay also reads that scope: it paints exactly for the thumbnail
 without reading or mutating its live zoom/stand-in state. Keeping cache modes
 alone let a thumbnail request a settle at its own scale; the live-controller

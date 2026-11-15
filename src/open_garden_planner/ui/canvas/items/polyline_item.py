@@ -288,7 +288,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         if (
             len(self._points) > MAX_FULL_DETAIL_VERTICES
             and not self.isSelected()
-            and is_interactive_paint(self, widget)
+            and (is_interactive_paint(self, widget) or current_render_walk_cap() is not None)
         ):
             pen = QPen(self.pen())
             pen.setCosmetic(True)

@@ -246,27 +246,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1924" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1935" />
             <source>Arrange</source>
             <translation>Organizar</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1938" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1949" />
             <source>Bring Forward</source>
             <translation>Traer adelante</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1933" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1944" />
             <source>Bring to Front</source>
             <translation>Traer al frente</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1943" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1954" />
             <source>Send Backward</source>
             <translation>Enviar atrás</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1948" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1959" />
             <source>Send to Back</source>
             <translation>Enviar al fondo</translation>
         </message>
@@ -385,32 +385,32 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1125" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1136" />
             <source>Add soil test…</source>
             <translation>Añadir análisis de suelo…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1118" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1129" />
             <source>Hide Grid</source>
             <translation>Ocultar cuadrícula</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1131" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1142" />
             <source>Log Harvest…</source>
             <translation>Registrar cosecha…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1128" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1139" />
             <source>Log Pest/Disease…</source>
             <translation>Registrar plaga/enfermedad…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1134" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1145" />
             <source>Plan Succession…</source>
             <translation>Planificar siembra escalonada…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1120" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1131" />
             <source>Show Grid</source>
             <translation>Mostrar cuadrícula</translation>
         </message>
@@ -2198,7 +2198,7 @@
             <translation>contenido del texto</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2091" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2102" />
             <location filename="../../ui/panels/property_edits.py" line="178" />
             <source>type</source>
             <translation>tipo</translation>
@@ -5162,7 +5162,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Agrupar</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="510" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="521" />
             <source>Lock position</source>
             <translation>Bloquear posición</translation>
         </message>
@@ -5172,7 +5172,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Desagrupar</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="508" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="519" />
             <source>Unlock position</source>
             <translation>Desbloquear posición</translation>
         </message>
@@ -5180,12 +5180,12 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2029" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2040" />
             <source>Change Type</source>
             <translation>Cambiar tipo</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1877" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1888" />
             <source>Move to Layer</source>
             <translation>Mover a la capa</translation>
         </message>
