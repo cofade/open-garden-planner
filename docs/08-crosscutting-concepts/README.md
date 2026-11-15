@@ -1342,6 +1342,10 @@ All integration tests live in `tests/integration/`. Shared fixtures are in `test
 
 Every test runs under `pytest-timeout` (`timeout = 180` in `pyproject.toml`; dev dependency). A hung full-app test therefore fails loudly instead of silently freezing the battery (§11.4, 2026-08-17). If a legitimate test needs longer, mark it `@pytest.mark.timeout(N)` with a comment saying why — do not raise the global value.
 
+**Under branch coverage a test runs slower, by a factor that depends on how much of its work is Python** (about 1.4x for Qt painting, §8.10.10; 9x in one pure-Python measurement, §8.10.5). The Coverage partitions (§8.10.4) trace every non-perf test, and their result feeds the required Coverage check. A test that took 33-76 s in the Test job took 124-157 s there for days, then crossed 180 s on some runs and blocked merges (#918). `tests/slow_test_warning.py`, registered by `tests/conftest.py` for every run, names each test whose setup, call and teardown together take more than half of the limit that applies to it (pytest-timeout times all three): its own `timeout` marker, else `--timeout`, else `PYTEST_TIMEOUT`, else the ini value. Under GitHub Actions the line is a `::warning` annotation on the run. It fails nothing, so it cannot be flaky. Only a warning from a Coverage partition is an early warning: a test named in the untraced Test job may be close to the guard, or past it, under coverage already. Treat the warning as a defect: cut the test's work, or give the test a `timeout` marker with a comment saying why, and the warning then measures against that marker.
+
+**A scene query on a labelled plan is linear in the plan.** A plan label ignores the view's transform, so Qt's BSP index cannot place it, and every `itemAt`, `items(point)` or `items(rect)` checks every labelled object and its labels in Python: 5 to 6 ms per query untraced on the 853-object plan of `tests/large_plan.py` (#919). Test hit behaviour with one shape query over the area (`scene.items(area, IntersectsItemShape, …, view.transform())` finds an item only where its shape meets the area; for an item that ignores the view's transform, such as a label, a point query runs the same `collidesWithPath`, while for other items it calls `contains()`, so an item that overrides `contains()` would make the two disagree) plus point queries where they matter, not a grid of thousands of them. `test_no_point_of_a_large_plan_is_a_label_nobody_can_see` went from 4,335 point queries to one area query and 623 point queries: 4 to 5 times faster back to back on one machine, and 17.7 s in Coverage partition (0), where green runs had taken 124-157 s. An untransformable item is returned by `itemAt` when its shape is not empty, whatever PF-CAN-40's wording suggests (#923).
+
 ### Test isolation: the user's data directory and the locations Qt hands out
 
 A test process must not read or write anything the user owns — **and neither may it read
@@ -8942,7 +8946,8 @@ There is no depth of field without a focused point, so the first blur above 0 fo
 the camera looks at (a click moves it; while walking, the ground under the view's centre), and a new
 plan gives the kept blur its point once the new camera is framed. While the blur is drawn the Ultra
 preset's screen-space reflections stand down: with glow on, Qt 6.12's effect chain breaks as soon as two
-effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744). The pane is
+effects run ahead of its own scene effect, reflections and the blur here (PF-E3D-21, #744,
+[QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289)). The pane is
 still a few levels brighter than a save below 1080p: Qt's ambient occlusion is pixel-sized (ADR-072
 addendum, open). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's

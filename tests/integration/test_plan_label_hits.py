@@ -25,7 +25,7 @@ from open_garden_planner.ui.canvas.items import CircleItem, RectangleItem
 from open_garden_planner.ui.canvas.items.garden_item import SuccessionBadgeItem
 from open_garden_planner.ui.canvas.items.halo_text import PlanLabelItem
 from open_garden_planner.ui.canvas.sun_heatmap import SunMapLabelItem
-from tests.large_plan import show_large_plan
+from tests.large_plan import LARGE_PLAN_SIZE_CM, show_large_plan
 
 LEFT = Qt.MouseButton.LeftButton
 NO_MODIFIER = Qt.KeyboardModifier.NoModifier
@@ -208,19 +208,41 @@ def scene_shows_badge(scene: CanvasScene, world, badge: SuccessionBadgeItem) -> 
 
 def test_no_point_of_a_large_plan_is_a_label_nobody_can_see(qtbot) -> None:
     """The review's measurement: 853 named plants at fit, 35 % of the plan's
-    points on a label that is not painted. No point is on any label now."""
-    view, scene, _items = show_large_plan(qtbot)
+    points on a label that is not painted. No point is on any label now.
+
+    One shape query over the whole plan covers every point of it at once: Qt
+    returns an item there only where the item's shape meets the area, through
+    the same ``collidesWithPath`` that a point query uses for a label (an item
+    that ignores the view's transform). Then a point query
+    (``itemAt``) at the middle of every label that is not painted, where the
+    review's third of the plan lay.
+
+    Not point by point: a label ignores the view's transform, so Qt's index
+    cannot place it, and every query walks all the objects and their labels in
+    Python (5 to 6 ms each, #919). 4,335 sampled point queries took 33-76 s,
+    and more than the 180 s hang guard under branch coverage (#918).
+    """
+    view, scene, items = show_large_plan(qtbot)
     painted = _painted(view, scene)
     labels = [item for item in scene.items() if isinstance(item, PlanLabelItem)]
     assert len(labels) == 853 and 0 < len(painted) < len(labels)
 
-    top_left = view.mapFromScene(QPointF(0.0, 3000.0))
-    bottom_right = view.mapFromScene(QPointF(5000.0, 0.0))
-    on_a_label = sampled = 0
-    for x in range(top_left.x() + 3, bottom_right.x() - 3, 17):
-        for y in range(top_left.y() + 3, bottom_right.y() - 3, 17):
-            sampled += 1
-            hit = scene.itemAt(view.mapToScene(QPoint(x, y)), view.transform())
-            on_a_label += isinstance(hit, PlanLabelItem)
-    assert sampled > 3000
-    assert on_a_label == 0, f"{on_a_label} of {sampled} sampled points are on a label"
+    plan = QRectF(0.0, 0.0, *LARGE_PLAN_SIZE_CM)
+    found = scene.items(
+        plan, Qt.ItemSelectionMode.IntersectsItemShape, Qt.SortOrder.DescendingOrder,
+        view.transform(),
+    )
+    found_ids = {id(item) for item in found}
+    assert all(id(item) in found_ids for item in items), "the query must find the objects"
+    takers = [item for item in found if isinstance(item, PlanLabelItem)]
+    assert not takers, f"{len(takers)} labels take a click somewhere on the plan"
+
+    hidden = [label for label in labels if id(label) not in painted]
+    on_a_label = [
+        label for label in hidden
+        if isinstance(
+            scene.itemAt(view.mapToScene(_label_box(view, label).center().toPoint()), view.transform()),
+            PlanLabelItem,
+        )
+    ]
+    assert not on_a_label, f"a press on {len(on_a_label)} of {len(hidden)} hidden labels hits the label"

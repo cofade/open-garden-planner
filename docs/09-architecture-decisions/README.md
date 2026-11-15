@@ -12404,9 +12404,10 @@ at 360 px than at 4K, and left a blurred near bar's edge 1 px wide at 4K.
    own scene effect break its chain (PF-E3D-21): reflections with Qt's depth of field, reflections
    with one user effect, two pass-through user effects (a wrong picture, or a crash). One effect
    ahead of it, with any number of passes and buffers, is fine. A reproducer without project code is
-   in `adr-048-evidence/qt-effect-chain-glow/` with a bug-report draft; filing it needs the owner's
-   Qt account. Re-test on every Qt bump; when it is fixed, drop the `depthOfFieldActive` term from
-   `ssrEnabled` and invert the `ultra_blur` gate.
+   in `adr-048-evidence/qt-effect-chain-glow/`, filed upstream as
+   [QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289) (2026-11-14). Re-test on every
+   Qt bump and on every change of that ticket; when it is fixed, drop the `depthOfFieldActive` term
+   from `ssrEnabled` and invert the `ultra_blur` gate.
 
 **Measured** (dev box, RTX 4070, Direct3D 11, medium preset unless named; GPU shared with other
 work, so costs are ranges of A/B rounds interleaved):

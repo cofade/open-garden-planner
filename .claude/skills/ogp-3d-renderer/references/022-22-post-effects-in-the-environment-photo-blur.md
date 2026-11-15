@@ -16,7 +16,8 @@ lessons: PF-E3D-21, PF-E3D-27. Measured on the dev box (RTX 4070, Direct3D 11; W
   pass-through user effects + glow drew grey where the cube was; SSR + one user effect + glow drew
   black, or crashed when SSR came on after the first frame; any pair without glow, and any single
   effect with glow (one with three passes and two buffers included), drew right. Reproducer:
-  `docs/09-architecture-decisions/adr-048-evidence/qt-effect-chain-glow/`.
+  `docs/09-architecture-decisions/adr-048-evidence/qt-effect-chain-glow/`. Upstream: QTBUG-152289
+  (filed 2026-11-14).
 - **A `Shader`'s plain relative path inside an Effect component resolves against the file that
   INSTANTIATES the component**, not the component's own: the bench fixture in `tests/integration`
   read no shader ("Failed to read shader code from tests/integration/photoblur_layer.frag") until
