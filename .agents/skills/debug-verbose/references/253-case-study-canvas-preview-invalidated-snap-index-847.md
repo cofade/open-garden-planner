@@ -47,3 +47,9 @@ the old offset defect. A fixed-id tree of radius 260 cm at 200% covers 1196
 pixels and paints uncached into the backing store. The corrected test passes
 with current bounds and fails with the original zero-offset bounds (226-level
 lower-strip difference). Choose a specimen past the actual branch threshold.
+
+**Full-suite control:** The crafted 20,000-point string-light layout test
+rendered with a live device cache and expected one full layout walk. The new
+interactive outline intentionally makes zero walks. Explicitly disable its
+cache, as the full-detail export seam does, so the test still proves that two
+full paints share one bounded layout and a moved vertex invalidates it.

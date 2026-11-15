@@ -25,7 +25,7 @@ from unittest.mock import MagicMock
 import pytest
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QImage, QMouseEvent, QPainter
-from PyQt6.QtWidgets import QComboBox, QGraphicsScene
+from PyQt6.QtWidgets import QComboBox, QGraphicsItem, QGraphicsScene
 
 from open_garden_planner.core.object_height import (
     NO_2D_SHADOW_TYPE_NAMES,
@@ -250,6 +250,9 @@ def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch)
 
     points = [(float(i) * 10.0, 30.0 * (i % 2)) for i in range(20_000)]
     item = _string(points)
+    # Exercise the full-detail render (as exports do). Unselected interactive
+    # lines above 256 points intentionally draw only their outline (#848).
+    item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
     walks: list[int] = []
     real = polyline_item.string_layout
     monkeypatch.setattr(polyline_item, "string_layout",
