@@ -366,20 +366,17 @@ class KeptLayer:
 
     A pan moves the layer with the plan. Its place is kept as the device
     transform's translation, so a repaint after a pan lays it down moved by
-    whole device pixels (a pan by part of one, at a fractional display
-    scaling, is drawn afresh: nothing is resampled). What a pan brings into
+    whole device pixels. Up to four subpixel phases share the memory budget,
+    so 125% and 150% display scaling reuse their own exact pixels without
+    resampling. What a pan brings into
     view lies outside a layer that covers the viewport alone, so a layer made
     because a pan ran out of it reaches ``margin_px`` further on every side —
     and only then: the layer made after a scene change or a zoom step is one
     viewport, because most of those are followed by another.
 
-    The layer is made on a paint that covers all the widget shows of
-    ``whole``, or when a pan ran out of the one that is held. A partial
-    repaint of ANOTHER picture (the key or the zoom changed) is painted
-    through ``paint_layer``'s own route for its rectangle — what every paint
-    did until the second review of the 2D branch — and makes no layer: a drag
-    repaints two small rectangles a frame, and must not pay a viewport for
-    them.
+    The first nonempty paint after the key or scale changes builds the whole
+    visible layer, including when that first paint is partial (#878). Later
+    partial paints reuse it; they never repeat the cut-out until a new revision.
 
     Bound: ``MAX_LAYER_PIXELS`` (64 MB) — a viewport that large gets no
     margin, and a larger one no kept layer at all. ``bytes_used`` says what is
@@ -393,17 +390,23 @@ class KeptLayer:
         self._scale: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
         self._origin: tuple[float, float] = (0.0, 0.0)
         self._area = QRect()
+        # Up to four subpixel phases (125% display scaling), under ONE byte
+        # budget. A phase is never resampled: only whole-device-pixel moves
+        # reuse it. Each tuple is its image, device origin and device area.
+        self._phases: list[tuple[QImage, tuple[float, float], QRect]] = []
         self.builds = 0
 
     def clear(self) -> None:
         """Drop the layer (the picture is switched off, the plan is replaced)."""
         self._layer = None
         self._key = None
+        self._phases.clear()
 
     @property
     def bytes_used(self) -> int:
         """The bytes of the layer that is held."""
-        return 0 if self._layer is None else self._layer.sizeInBytes()
+        active = 0 if self._layer is None else self._layer.sizeInBytes()
+        return active + sum(image.sizeInBytes() for image, _origin, _area in self._phases)
 
     def paint(
         self, painter: QPainter, whole: QRectF, exposed: QRectF, key: Hashable, draw: SpriteDraw
@@ -423,6 +426,8 @@ class KeptLayer:
         origin = (to_device.dx(), to_device.dy())
         layer = self._layer
         same_picture = layer is not None and self._key == key and self._scale == scale
+        if not same_picture:
+            self._phases.clear()
         moved = (origin[0] - self._origin[0], origin[1] - self._origin[1])
         steps = (round(moved[0]), round(moved[1]))
         # ... and it lies a whole number of device pixels from where it was made
@@ -437,21 +442,34 @@ class KeptLayer:
                 source = QRectF(area.translated(-held.x(), -held.y()))
                 _lay_layer(painter, from_device, area, layer, source)
                 return True
+        if same_picture and not in_step and layer is not None:
+            for index, (image, at, saved_area) in enumerate(self._phases):
+                delta = (origin[0] - at[0], origin[1] - at[1])
+                shift = (round(delta[0]), round(delta[1]))
+                if abs(delta[0] - shift[0]) >= 1e-6 or abs(delta[1] - shift[1]) >= 1e-6:
+                    continue
+                held = saved_area.translated(*shift)
+                if held.contains(area):
+                    self._phases.pop(index)
+                    self._phases.append((layer, self._origin, self._area))
+                    self._layer, self._origin, self._area = image, at, saved_area
+                    _lay_layer(painter, from_device, area, image,
+                               QRectF(area.translated(-held.x(), -held.y())))
+                    return True
         bounds = device_bounds(painter).toAlignedRect()
         shown = to_device.mapRect(whole).toAlignedRect()
-        # Qt hands a paint of the whole viewport a rectangle that may stop a
-        # pixel short of its edge.
-        whole_view = area.adjusted(-2, -2, 2, 2).contains(shown.intersected(bounds))
-        if (not in_step and not whole_view) or device_scale(painter) < raw_device_scale(painter):
+        if device_scale(painter) < raw_device_scale(painter):
             return _paint_exposed(painter, wanted, draw, None)
         # A pan ran out of the layer: the next one reaches further.
-        margin = self._margin if in_step else 0
+        margin = self._margin if same_picture else 0
         region = shown.intersected(bounds.adjusted(-margin, -margin, margin, margin))
         if region.width() * region.height() > MAX_LAYER_PIXELS:
             region = shown.intersected(bounds)
         if region.width() * region.height() > MAX_LAYER_PIXELS:
             self.clear()
             return _paint_exposed(painter, wanted, draw, None)
+        if same_picture and not in_step and layer is not None:
+            self._phases.append((layer, self._origin, self._area))
         layer = _render_layer(
             to_device, region, 1.0, from_device.mapRect(QRectF(region)), draw, None
         )
@@ -461,6 +479,8 @@ class KeptLayer:
         self._layer, self._key, self._scale, self._origin, self._area = (
             layer, key, scale, origin, region,
         )
+        while self._phases and (len(self._phases) > 3 or self.bytes_used > 4 * MAX_LAYER_PIXELS):
+            self._phases.pop(0)
         self.builds += 1
         _lay_layer(
             painter, from_device, area, layer, QRectF(area.translated(-region.x(), -region.y()))

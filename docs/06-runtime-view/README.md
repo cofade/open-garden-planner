@@ -1,5 +1,29 @@
 # 6. Runtime View
 
+## Canvas preview and repaint reuse (#847, #878)
+
+```mermaid
+sequenceDiagram
+    participant U as Pointer move
+    participant V as CanvasView
+    participant S as CanvasScene
+    participant I as Snap index
+    U->>V: Move rectangle preview
+    V->>S: Read paint revision
+    alt Revision changed since last snap query
+        V->>I: Rebuild from current objects
+    else Preview only
+        V->>I: Query retained index
+    end
+    V->>S: Update preview rectangle
+    S-->>V: Queued changed (paint revision unchanged)
+    V->>V: Reuse kept grid and label picture
+```
+
+The first partial paint after a real edit refreshes the grid's visible layer.
+A minimap refresh keeps viewport item-cache modes; its scoped render cap selects
+the whole-item style clip. Bounds, phases and measured counts are in §8.37.
+
 ## Committed panel edits, persistence and history (PR #566)
 
 ```mermaid

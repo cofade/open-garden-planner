@@ -1324,6 +1324,16 @@
     "state": "CLOSED",
     "title": "Ellipse and circle beds paint no crop-rotation border"
   },
+  "847": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas repaint cost left on large plans: minimap render drops all item caches, rectangle tool costs 16/38 ms a move, grid layer redrawn on odd-pixel pans"
+  },
+  "848": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
+  },
   "865": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1333,6 +1343,16 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Print at a fixed scale puts the short row of tiles on top"
+  },
+  "877": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas pixel tests never paint a view embedded in a window"
+  },
+  "878": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The kept grid layer is rebuilt only by a whole-viewport paint"
   },
   "889": {
     "is_pr": false,
@@ -1356,7 +1376,7 @@
   },
   "898": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Test worker segfaults in the forecast holder's worker lambda during pytest-qt event processing"
   },
   "904": {
@@ -1379,6 +1399,11 @@
     "state": "MERGED",
     "title": "fix(#904, #909, #842, #905, #881): annotation cancellation, bed borders and panel follow-ups"
   },
+  "919": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Every scene query on a large plan walks all labelled objects in Python (5-6 ms per press and per hover move at 853 objects)"
+  },
   "920": {
     "is_pr": true,
     "state": "MERGED",
@@ -1386,7 +1411,7 @@
   },
   "924": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Flaky CI: test_todays_tasks_shows_whole_rows_not_one_and_a_half fails on a still-settling layout (partition 1)"
   }
 }

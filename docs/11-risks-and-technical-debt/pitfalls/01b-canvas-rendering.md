@@ -146,3 +146,27 @@ height that is not a whole number of tiles, that is the SHORT top row, so sheets
 bottom of the last sheet. The Grid checkbox had been stored and never read; the grid
 now paints over the plan in the page transform. Both defects are visible only in a
 rasterised printout, which is what the tests read.
+
+### PF-CAN-63
+
+- **Rule:** A kept picture is invalidated by the state it reads, and its consumer selects its render scope explicitly; a preview's repaint is no geometry edit, and a thumbnail is no live viewport clip.
+- **Pinned by:** `tests/integration/test_canvas_repaint_package.py`; `tests/integration/test_embedded_canvas_paint.py`; `tests/integration/test_canvas_sharpness.py`; `tests/unit/test_minimap_widget.py`
+- **Source:** #847, #848, #877, #878
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Stamp the snap index with the shared paint revision and compare at query time:
+Qt's queued `changed` includes preview movement but cannot announce a real edit
+synchronously. The rectangle-drag probe counted ten rebuilds at one unchanged
+revision; the retained index counted zero, and a moved object still rebuilt.
+Keep item-cache modes during a minimap render; the scoped thumbnail walk cap
+selects a whole-item style clip without discarding the viewport's device cache.
+The grid builds on its first nonempty paint after invalidation and keeps exact
+subpixel phases under one memory bound. Do not require a full repaint to make
+a partial repaint cacheable.
+
+Paint tests must capture the owning window before cropping the viewport:
+grabbing the viewport alone removes its offset in the backing store. Retain
+the host window's Python wrapper; `qtbot.addWidget` keeps only a weak reference.
+For a clipped minimap frame, put the view inside the plan before testing a
+pan: moving an already-outside viewport may leave the frame clipped to zero.

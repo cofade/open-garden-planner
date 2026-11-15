@@ -40,6 +40,7 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.item_cache import ITEM_CACHE_BUDGET_KB
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
+from tests.canvas_host import embed_canvas, grab_viewport
 
 CANVAS_W, CANVAS_H = 1200.0, 900.0
 
@@ -124,10 +125,14 @@ def _build(kind: str, rotation: float) -> tuple[CanvasScene, QGraphicsItem, floa
     return scene, item, half, gains[rotation]
 
 
-@pytest.fixture
-def make_view(qtbot):
+@pytest.fixture(params=["standalone", "embedded"])
+def make_view(qtbot, request):
+    windows = []  # qtbot keeps weak references; keep each owning wrapper alive.
     def make(scene: CanvasScene) -> CanvasView:
         view = CanvasView(scene)
+        if request.param == "embedded":
+            windows.append(embed_canvas(view, qtbot, size=(900, 700)))
+            return view
         view.resize(900, 700)
         view.show()
         qtbot.addWidget(view)
@@ -144,7 +149,7 @@ def _interior(view: CanvasView, zoom: float, half_cm: float) -> QImage:
     view.set_zoom(zoom)
     view.centerOn(QPointF(600, 450))
     QApplication.processEvents()
-    image = view.viewport().grab().toImage()
+    image = grab_viewport(view)
     ratio = image.devicePixelRatio()
     center = view.mapFromScene(QPointF(600, 450))
     half = int(half_cm * zoom)

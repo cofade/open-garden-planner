@@ -561,6 +561,11 @@ class TestViewportChangesDoNotRender:
             real(self, event)
 
         monkeypatch.setattr(MinimapWidget, "paintEvent", paint_event)
+        # The frame is clipped to the plan. Start inside it: the process-wide
+        # cursor/earlier view state can leave the new view beyond its left edge,
+        # where a 200-px pan still has a clipped x of zero (#847).
+        view.centerOn(canvas_pair[1].canvas_rect.center())
+        QApplication.processEvents()
         before = minimap._viewport_rect_on_minimap()
         bar = view.horizontalScrollBar()
         bar.setValue(bar.value() + 200)
