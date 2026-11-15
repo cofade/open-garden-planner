@@ -11,6 +11,7 @@ from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QTransform
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
+from open_garden_planner.core import sprite_raster
 from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.sprite_raster import KeptLayer
 from open_garden_planner.core.tools import ToolType
@@ -60,6 +61,37 @@ def test_fractional_display_pan_reuses_each_pixel_phase(qtbot):
     finally:
         painter.end()
     assert layer.builds <= 3, "150% display scaling must not rebuild on every odd-pixel pan"
+
+
+def test_grid_phases_invalidate_and_stay_in_one_memory_budget(qtbot, monkeypatch):
+    monkeypatch.setattr(sprite_raster, "MAX_LAYER_PIXELS", 50000)
+    layer = KeptLayer()
+    image = QImage(180, 180, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.white)
+    whole = QRectF(-1000, -1000, 2000, 2000)
+    painter = QPainter(image)
+
+    def draw(p, rect):
+        p.fillRect(rect, QColor("red"))
+
+    try:
+        for step in range(8):
+            painter.setTransform(QTransform.fromTranslate(step * 1.25, 0))
+            layer.paint(painter, whole, whole, 1, draw)
+            assert 0 < layer.bytes_used <= 4 * 50000
+        assert layer.builds > 4, "the reduced budget must evict earlier phases"
+        before = layer.builds
+        layer.paint(painter, whole, whole, 2, draw)
+        assert layer.builds == before + 1
+        assert not layer._phases, "a new picture must discard all old phases"
+        painter.scale(1.1, 1.1)
+        layer.paint(painter, whole, whole, 2, draw)
+        assert layer.builds == before + 2
+        assert not layer._phases, "a new scale must discard all old phases"
+    finally:
+        painter.end()
+    layer.clear()
+    assert layer.bytes_used == 0 and not layer._phases
 
 
 def _pixels(image):

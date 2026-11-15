@@ -9724,6 +9724,10 @@ picture separately, so rendering it does not discard the viewport's. The
 existing `temporary_walk_cap` scope tells a styled line to use its whole-item
 thumbnail clip, rather than the live viewport's clip; its work budget still
 applies. Exports retain the separate uncached, full-detail path.
+The sun overlay also reads that scope: it paints exactly for the thumbnail
+without reading or mutating its live zoom/stand-in state. Keeping cache modes
+alone let a thumbnail request a settle at its own scale; the live-controller
+regression is in `test_sun_overlay_cache.py`.
 Pinned by `test_minimap_does_not_reset_body_caches` and the styled-path cases in
 `tests/unit/test_minimap_widget.py`.
 
@@ -9760,7 +9764,10 @@ window before cropping: grabbing the viewport alone erases the backing-store
 offset being tested. The sharpness fixture runs standalone and embedded;
 `test_shadow_pixels_reach_the_bottom_in_a_window` compares the lower strip
 against a standalone control through both `paint_feather` and the shadow
-overlay. Keep the owning window's Python wrapper alive for the whole test.
+overlay, plus a selected sprite larger than the 1024-pixel cache threshold.
+Reinstating the zero-offset device bounds makes that sprite control fail
+(226 levels in the lower strip); the corrected bounds pass. Keep the owning
+window's Python wrapper alive for the whole test.
 
 **A large plan, a large viewport (review of the branch).** Measured on a plan of
 853 named objects built in code (`tests/large_plan.py`: 746 perennials, 107

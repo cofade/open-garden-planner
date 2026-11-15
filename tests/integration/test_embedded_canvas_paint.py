@@ -11,15 +11,19 @@ top-level view, whose offset is zero.
 
 from __future__ import annotations
 
+import uuid
+
 import numpy as np
 import pytest
 from PyQt6.QtCore import QRect, QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath, QPaintEvent
 from PyQt6.QtWidgets import QApplication, QGraphicsItem, QWidget
 
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.sprite_raster import device_bounds
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items import CircleItem
 from open_garden_planner.ui.canvas.shadow_feather import paint_feather
 from open_garden_planner.ui.canvas.sun_shadow_controller import SunShadowOverlayItem
 from tests.canvas_host import HEADER_PX, embed_canvas, grab_viewport
@@ -90,7 +94,7 @@ def test_the_grid_reaches_the_bottom_of_an_embedded_canvas(qtbot: object) -> Non
     )
 
 
-@pytest.mark.parametrize("kind", ["feather", "shadow-overlay"])
+@pytest.mark.parametrize("kind", ["feather", "shadow-overlay", "selected-oversized-sprite"])
 def test_shadow_pixels_reach_the_bottom_in_a_window(qtbot, kind):
     """Compare the bottom of a real embedded paint with the standalone control.
 
@@ -112,7 +116,12 @@ def test_shadow_pixels_reach_the_bottom_in_a_window(qtbot, kind):
     def capture(embedded):
         scene = CanvasScene(600, 500)
         scene.set_shadows_enabled(False)
-        item = FeatherItem() if kind == "feather" else SunShadowOverlayItem()
+        if kind == "selected-oversized-sprite":
+            item = CircleItem(300, 250, 260, object_type=ObjectType.TREE)
+            item._item_id = uuid.UUID(int=1)  # same stable sprite rotation in both controls
+            item.setSelected(True)  # bypass Qt's pixmap cache: paint into the backing store
+        else:
+            item = FeatherItem() if kind == "feather" else SunShadowOverlayItem()
         if kind == "shadow-overlay":
             item.set_clip_rect(scene.canvas_rect)
             item.set_shadow_path(shade)
@@ -127,7 +136,7 @@ def test_shadow_pixels_reach_the_bottom_in_a_window(qtbot, kind):
             view.show()
             qtbot.waitExposed(view)
         view.set_zoom(2.0)
-        view.centerOn(300, 180)
+        view.centerOn(300, 250 if kind == "selected-oversized-sprite" else 180)
         QApplication.processEvents()
         image = grab_viewport(view).convertToFormat(QImage.Format.Format_RGBA8888)
         raw = image.constBits()

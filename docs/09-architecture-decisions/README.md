@@ -13446,6 +13446,8 @@ before.
 Qt's device caches preserve the viewport picture when the thumbnail is painted
 (measured on Qt 6.12.0). Its existing scoped walk cap also selects a styled
 line's whole-item clip. Exports continue to disable caches for exact output.
+The shadow overlay uses the same capped-render scope to paint exactly without
+changing its live zoom state; cache mode alone no longer identifies a thumbnail.
 Do not select the thumbnail's clip from the live viewport or introduce a
 second scene-construction path just to preserve caches.
 

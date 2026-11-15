@@ -33,3 +33,17 @@ which was the combined-run failure after the implementation tests.
 Pinned by `tests/integration/test_canvas_repaint_package.py`,
 `tests/integration/test_embedded_canvas_paint.py`, the parametrized sharpness
 fixture, and `tests/unit/test_minimap_widget.py`. See §8.37 and PF-CAN-63.
+
+**Review finding:** Keeping cache modes sent a capped thumbnail through the
+shadow overlay's live zoom path: the new controller-backed test observed
+`_pending = (0.1775, 0, 0, 0.1775)` after the minimap render, previously None.
+The overlay now reads the existing capped-render scope and paints exactly
+without changing its live stand-in or settle state. The regression was
+observed failing before the fix in `test_sun_overlay_cache.py`.
+
+**Test mutation control:** The first selected sprite was 1012 device pixels
+wide, just below the 1024-pixel exposed-layer threshold; it could not detect
+the old offset defect. A fixed-id tree of radius 260 cm at 200% covers 1196
+pixels and paints uncached into the backing store. The corrected test passes
+with current bounds and fails with the original zero-offset bounds (226-level
+lower-strip difference). Choose a specimen past the actual branch threshold.

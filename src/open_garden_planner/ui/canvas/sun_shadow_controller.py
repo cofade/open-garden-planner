@@ -360,11 +360,16 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     ) -> None:
         if painter is None or self.path().isEmpty():
             return
+        from .items.path_style_paint import current_render_walk_cap
+
         if (
             self.settle_requested is None
             or self.cacheMode() == QGraphicsItem.CacheMode.NoCache
+            or current_render_walk_cap() is not None
         ):
-            # an export, a print, the minimap; an overlay nobody settles
+            # An export, a print, a capped thumbnail; an overlay nobody settles.
+            # A minimap keeps cache modes, but must never read or mutate the
+            # live viewport's zoom/stand-in state (#847).
             self._paint_exact(painter)
             return
         to_device = painter.deviceTransform()

@@ -105,6 +105,34 @@ def _pixels(image: QImage) -> np.ndarray:
 
 
 class TestRasterisedOncePerSolve:
+    def test_minimap_does_not_change_the_live_zoom_state(self, staged, monkeypatch) -> None:
+        from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
+
+        scene, controller, view = staged
+        overlay = _overlay(scene)
+        controller.settle_overlay()
+        view.viewport().repaint()
+        before = (overlay._picture, overlay._picture_key, overlay._picture_rect,
+                  list(overlay._settled), overlay._pending,
+                  overlay._stand_in_due, overlay._stand_in_of)
+        requested = []
+        monkeypatch.setattr(overlay, "settle_requested", lambda: requested.append(True))
+        minimap = MinimapWidget(view, scene)
+        minimap._update_timer.stop()
+        minimap._do_update()
+        after = (overlay._picture, overlay._picture_key, overlay._picture_rect,
+                 list(overlay._settled), overlay._pending,
+                 overlay._stand_in_due, overlay._stand_in_of)
+        assert after == before, "thumbnail rendering changed the live shadow's zoom state"
+        assert not requested, "a thumbnail requested a live zoom settle"
+        thumbnail = _pixels(minimap._thumbnail.toImage())
+        from open_garden_planner.services.scene_rendering import _uncached_items
+
+        with _uncached_items(scene):
+            minimap._do_update()
+        exact = _pixels(minimap._thumbnail.toImage())
+        assert np.abs(thumbnail - exact).max() <= CACHE_TOLERANCE
+
     def test_the_overlay_is_device_cached(self, staged) -> None:
         scene, _controller, _view = staged
         assert _overlay(scene).cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
