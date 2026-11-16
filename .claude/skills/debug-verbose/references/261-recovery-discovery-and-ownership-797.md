@@ -33,5 +33,14 @@ multiple candidates, nested startup and failed recovery. Unit tests cover stale
 candidates, deduplication and symlink-entry cleanup. The instrumentation was external
 to the tracked source and is not part of the product.
 
+**Review follow-up:** Two isolated workflow extensions also failed before their
+fixes: a second explicit open after failed Yes loaded the old original, and
+No followed by another autosave overwrote the deferred backup. A Yes no longer
+caches the refusal for later explicit opens. New snapshots use a per-document
+UUID path, reused across timer ticks, and discovery recognizes legacy plus UUID
+filenames. No ? edit ? autosave ? accepted close/discard preserves the deferred
+bytes and makes the older recovery discoverable again. Distinct untitled documents
+retain independent snapshots too.
+
 **Lesson:** Recovery is discovery, decision, load and retention. A direct loader test
 cannot prove the path a person takes after restarting the app.

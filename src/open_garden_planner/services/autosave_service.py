@@ -6,11 +6,13 @@ and recovery detection on startup.
 
 from __future__ import annotations
 
+import glob
 import logging
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
@@ -27,8 +29,9 @@ class AutoSaveManager(QObject):
     """Manages automatic saving and crash recovery.
 
     Auto-saves are stored in:
-    - For saved projects: Same directory as project, named ~autosave_{filename}.ogp
-    - For unsaved projects: System temp directory, named ~autosave_untitled.ogp
+    - Saved projects: Same directory, ~autosave_{filename}__{document_uuid}.ogp
+    - Unsaved projects: System temp, ~autosave_untitled__{document_uuid}.ogp
+    Legacy fixed filenames remain discoverable.
 
     Signals:
         autosave_performed: Emitted when an auto-save completes (path: str)
@@ -57,6 +60,7 @@ class AutoSaveManager(QObject):
         # Paths belong to the document that wrote/adopted them, not whichever
         # filename project_changed has just rebound us to (#797).
         self._owned_autosaves: set[Path] = set()
+        self._write_path: Path | None = None
 
         # Update timer interval from settings
         self._update_timer_interval()
@@ -75,6 +79,8 @@ class AutoSaveManager(QObject):
         Args:
             path: Path to the project file, or None for untitled
         """
+        if path != self._current_project_path:
+            self._write_path = None
         self._current_project_path = path
 
     def set_dirty(self, dirty: bool) -> None:
@@ -152,15 +158,21 @@ class AutoSaveManager(QObject):
         Returns:
             Path where auto-save should be written
         """
+        if self._write_path is not None:
+            return self._write_path
         if self._current_project_path:
             # Save next to the project file
             project_dir = self._current_project_path.parent
             project_name = self._current_project_path.stem
-            return project_dir / f"{self.AUTOSAVE_PREFIX}{project_name}{self.AUTOSAVE_EXTENSION}"
+            base = project_dir / f"{self.AUTOSAVE_PREFIX}{project_name}{self.AUTOSAVE_EXTENSION}"
         else:
             # Save to temp directory for untitled projects
             temp_dir = Path(tempfile.gettempdir())
-            return temp_dir / f"{self.AUTOSAVE_PREFIX}untitled{self.AUTOSAVE_EXTENSION}"
+            base = temp_dir / f"{self.AUTOSAVE_PREFIX}untitled{self.AUTOSAVE_EXTENSION}"
+        # A new document/process never replaces another crash's deferred work.
+        # Reuse this path on timer ticks, not a fresh file on every autosave.
+        self._write_path = base.with_name(f"{base.stem}__{uuid4().hex}{base.suffix}")
+        return self._write_path
 
     def _save_to_file(self, path: Path) -> None:
         """Save the scene to a file.
@@ -192,6 +204,7 @@ class AutoSaveManager(QObject):
                 logger.info(f"Deleted auto-save file: {autosave_path}")
             except OSError as e:
                 logger.warning(f"Failed to delete auto-save file: {e}")
+        self._write_path = None
 
     def adopt_recovery_file(self, path: Path) -> None:
         """Keep a recovered source until this document is saved or discarded."""
@@ -200,6 +213,8 @@ class AutoSaveManager(QObject):
     def preserve_recovery_file(self, path: Path) -> None:
         """A declined recovery remains on disk, outside this document's cleanup."""
         self._owned_autosaves.discard(path.absolute())
+        if self._write_path is not None and self._write_path.absolute() == path.absolute():
+            self._write_path = None
 
     @classmethod
     def find_recovery_files(cls) -> list[tuple[Path, dict[str, Any]]]:
@@ -208,15 +223,7 @@ class AutoSaveManager(QObject):
         Returns:
             List of (path, metadata) tuples for each recovery file found
         """
-        recovery_files = []
-
-        # Check temp directory for untitled auto-saves
-        temp_dir = Path(tempfile.gettempdir())
-        untitled_autosave = temp_dir / f"{cls.AUTOSAVE_PREFIX}untitled{cls.AUTOSAVE_EXTENSION}"
-        if untitled_autosave.exists():
-            metadata = cls._read_autosave_metadata(untitled_autosave)
-            if metadata:
-                recovery_files.append((untitled_autosave, metadata))
+        recovery_files = cls._find_recoveries(None)
 
         # Saved plans write beside their original, rather than in the system
         # temp directory. Bound discovery to the same ten recent plans the UI
@@ -239,31 +246,48 @@ class AutoSaveManager(QObject):
         Returns:
             (autosave_path, metadata) tuple if found, None otherwise
         """
+        found = cls._find_recoveries(project_path)
+        return found[0] if found else None
+
+    @classmethod
+    def _find_recoveries(cls, project_path: Path | None) -> list[tuple[Path, dict[str, Any]]]:
+        """Read legacy and document-specific snapshots, newest first; never delete."""
+        found: list[tuple[int, Path, dict[str, Any]]] = []
         try:
-            project_name = project_path.stem
-            autosave_path = project_path.parent / (
-                f"{cls.AUTOSAVE_PREFIX}{project_name}{cls.AUTOSAVE_EXTENSION}"
-            )
-            if not autosave_path.is_file():
-                return None
-            metadata = cls._read_autosave_metadata(autosave_path)
-            if metadata:
-                original = metadata.get("original_file")
-                if not isinstance(original, str):
-                    return None
-                if Path(original).resolve() != project_path.resolve():
-                    return None
-                # An already saved newer original must not be replaced by
-                # an obsolete recovery file. A missing original is recoverable.
-                if (project_path.exists()
-                        and autosave_path.stat().st_mtime_ns <= project_path.stat().st_mtime_ns):
-                    return None
-                return (autosave_path, metadata)
+            directory = project_path.parent if project_path is not None else Path(tempfile.gettempdir())
+            name = project_path.stem if project_path is not None else "untitled"
+            base = directory / f"{cls.AUTOSAVE_PREFIX}{name}{cls.AUTOSAVE_EXTENSION}"
+            pattern = glob.escape(base.stem) + "__" + "[0-9a-f]" * 32 + base.suffix
+            candidates = [base, *directory.glob(pattern)]
+            original_mtime = (project_path.stat().st_mtime_ns
+                              if project_path is not None and project_path.exists() else None)
+            for candidate in candidates:
+                try:
+                    if not candidate.is_file():
+                        continue
+                    metadata = cls._read_autosave_metadata(candidate)
+                    if metadata is None:
+                        continue
+                    original = metadata.get("original_file")
+                    if project_path is None:
+                        if original is not None:
+                            continue
+                    elif (not isinstance(original, str)
+                          or Path(original).resolve() != project_path.resolve()):
+                        continue
+                    stamp = candidate.stat().st_mtime_ns
+                    if original_mtime is not None and stamp <= original_mtime:
+                        continue
+                    found.append((stamp, candidate, metadata))
+                except Exception as e:
+                    logger.warning("Failed to inspect recovery %s: %s", candidate, e)
         except Exception as e:
             # User-controlled recovery metadata and filesystem paths are one
             # ingestion boundary; an unreadable candidate must not abort startup.
             logger.warning("Failed to inspect recovery for %s: %s", project_path, e)
-        return None
+        return [(path, metadata) for _stamp, path, metadata in sorted(
+            found, key=lambda entry: (entry[0], str(entry[1])), reverse=True,
+        )]
 
     @classmethod
     def _read_autosave_metadata(cls, path: Path) -> dict[str, Any] | None:

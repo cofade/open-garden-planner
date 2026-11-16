@@ -376,3 +376,34 @@ def test_recovery_load_failure_does_not_fall_back_to_old_original(
     monkeypatch.setattr(window, "_load_project_file", lambda *_: pytest.fail("original opened"))
     window._open_project_file(str(original))
     assert errors and backup.read_bytes() == previous
+    window._open_project_file(str(original))
+    assert len(errors) == 2 and backup.read_bytes() == previous
+
+
+def test_declined_recovery_survives_new_autosave_and_document_discard(
+    recovery_window, monkeypatch, tmp_path,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window, _startup = recovery_window
+    original, backup, original_bytes = crashed_saved_plan(tmp_path)
+    deferred_bytes = backup.read_bytes()
+    monkeypatch.setattr(QMessageBox, "question", lambda *_: QMessageBox.StandardButton.No)
+    window._open_project_file(str(original))
+    window.canvas_scene.addItem(RectangleItem(10, 20, 30, 40, name="Later work"))
+    window._project_manager.mark_dirty()
+    assert window._autosave_manager.perform_autosave()
+    latest = window._autosave_manager._get_autosave_path()
+    assert backup.read_bytes() == deferred_bytes
+    assert latest != backup and latest.exists()
+    assert any(i.get("name") == "Later work" for i in read_plan(latest)["objects"])
+    assert AutoSaveManager.find_recovery_for_project(original)[0] == latest
+    # Another timer tick reuses this document's path rather than leaking versions.
+    assert window._autosave_manager.perform_autosave()
+    assert window._autosave_manager._get_autosave_path() == latest
+    # Closing after accepted discard cleans only this document; a restarted service can
+    # still discover the earlier deferred recovery with its original name/note.
+    window.close()
+    assert not latest.exists() and backup.read_bytes() == deferred_bytes
+    assert AutoSaveManager.find_recovery_for_project(original)[0] == backup
+    assert original.read_bytes() == original_bytes

@@ -413,7 +413,9 @@ another prompt or replace an accepted recovery. The Agent API's non-modal loader
 does not choose recovery on its caller's behalf. Cleanup tracks paths the current
 document wrote or explicitly adopted, rather than deriving a path from the newly
 loaded/saved filename. Save As therefore removes the previous untitled snapshot
-without deleting a destination plan's pending recovery (#797, PR #932 manual test).
+without deleting a destination plan's pending recovery. Writes reuse a per-document
+UUID filename, preserving deferred or foreign snapshots; discovery includes legacy
+fixed filenames and offers the newest matching version (#797, PR #932 manual test).
 
 ## 6.7 Agent Task and Soil Requests (US-D3.3/D3.4)
 

@@ -3039,6 +3039,7 @@ class GardenPlannerApp(QMainWindow):
         finally:
             self._recovery_prompt_active = False
         if result == QMessageBox.StandardButton.Yes:
+            self._recovery_prompted_paths.discard(key)
             self._startup_recovery_handled = True
             self._load_recovery_file(autosave_path)
             # Also stop the original open if recovery fails: keep its backup

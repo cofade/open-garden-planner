@@ -107,7 +107,10 @@ class TestAutoSaveManager:
         path = manager._get_autosave_path()
 
         assert path.parent == Path(tempfile.gettempdir())
-        assert path.name == "~autosave_untitled.ogp"
+        assert path.stem.startswith("~autosave_untitled__")
+        assert len(path.stem.rsplit("__", 1)[1]) == 32
+        assert path.suffix == ".ogp"
+        assert manager._get_autosave_path() == path
 
     def test_autosave_path_saved_project(self, manager, qtbot, tmp_path) -> None:
         """Test auto-save path for saved projects."""
@@ -116,7 +119,10 @@ class TestAutoSaveManager:
         path = manager._get_autosave_path()
 
         assert path.parent == tmp_path
-        assert path.name == "~autosave_my_garden.ogp"
+        assert path.stem.startswith("~autosave_my_garden__")
+        assert len(path.stem.rsplit("__", 1)[1]) == 32
+        assert path.suffix == ".ogp"
+        assert manager._get_autosave_path() == path
 
     def test_perform_autosave_creates_file(self, manager, scene, qtbot, tmp_path) -> None:
         """Test that perform_autosave creates a file."""
@@ -133,7 +139,7 @@ class TestAutoSaveManager:
         result = manager.perform_autosave()
 
         assert result is True
-        autosave_path = tmp_path / "~autosave_test.ogp"
+        autosave_path = manager._get_autosave_path()
         assert autosave_path.exists()
 
         # Verify file content
@@ -160,7 +166,7 @@ class TestAutoSaveManager:
 
         # Create auto-save
         manager.perform_autosave()
-        autosave_path = tmp_path / "~autosave_test.ogp"
+        autosave_path = manager._get_autosave_path()
         assert autosave_path.exists()
 
         # Clear auto-save
@@ -182,6 +188,33 @@ class TestAutoSaveManager:
 
 
 class TestAutoSaveRecovery:
+    def test_untitled_documents_keep_distinct_discoverable_snapshots(self, qtbot, monkeypatch, tmp_path):
+        monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+        first = AutoSaveManager(ProjectManager())
+        second = AutoSaveManager(ProjectManager())
+        scene = QGraphicsScene()
+        first.set_scene(scene)
+        second.set_scene(scene)
+        assert first.perform_autosave()
+        first_path = first._get_autosave_path()
+        first_bytes = first_path.read_bytes()
+        assert second.perform_autosave()
+        second_path = second._get_autosave_path()
+        assert first_path != second_path and first_path.read_bytes() == first_bytes
+        assert {path for path, _ in AutoSaveManager.find_recovery_files()} == {first_path, second_path}
+        first.clear_autosave()
+        assert not first_path.exists() and second_path.exists()
+
+    def test_saved_plan_with_glob_characters_discovers_its_snapshot(self, qtbot, tmp_path):
+        manager = AutoSaveManager(ProjectManager())
+        scene = QGraphicsScene()
+        manager.set_scene(scene)
+        original = tmp_path / "garden[1].ogp"
+        manager.set_project_path(original)
+        assert manager.perform_autosave()
+        snapshot = manager._get_autosave_path()
+        assert AutoSaveManager.find_recovery_for_project(original)[0] == snapshot
+
     """Tests for auto-save recovery functionality."""
 
     @pytest.mark.parametrize("stale", [False, True])

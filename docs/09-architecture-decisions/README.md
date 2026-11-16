@@ -83,6 +83,15 @@ another file to delete. The rejected alternative was unconditional deletion of
 failed recovery, Save As, duplicate prompts and foreign-backup regressions are
 pinned in `tests/integration/test_autosave_recovery.py` and `tests/unit/test_autosave.py`.
 
+The review found that cleanup ownership alone did not protect a declined recovery
+from the next autosave write. New snapshots therefore have a per-document UUID
+suffix, reused on timer ticks. Discovery recognizes both legacy fixed names and
+UUID names, validates their original association and offers the newest valid
+snapshot first. Other versions remain on disk; no recursive directory search or
+new settings/file-format field is introduced. Distinct untitled documents also
+keep distinct temp snapshots. A deliberate GUI retry after failed Yes asks again;
+the startup guard still prevents nested/delayed startup from replacing the work.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted (CommandManager; see Addenda)
