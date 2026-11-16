@@ -3136,9 +3136,9 @@ the exact image-equality assertion remains unchanged. Pinned by
 
 ### 8.10.18 Expected failures and portable raster assertions (#897, #921, #922)
 
-An `xfail` names the expected exception: the remaining memory-slope tripwires use
-`raises=AssertionError`. `pytest-timeout` raises pytest's `Failed`, so a timeout
-must fail CI instead of becoming an expected defect. The collection-wide guard is
+An `xfail` names the expected exception: the remaining memory-slope tripwires and
+platform lifecycle controls use `raises=AssertionError`. `pytest-timeout` raises
+pytest's `Failed`, so a timeout must fail CI instead of becoming an expected defect. The collection-wide guard is
 `tests/unit/test_xfail_contract.py::test_expected_failures_do_not_mask_pytest_timeouts`.
 The former non-Windows blanket markers for #897 are removed.
 

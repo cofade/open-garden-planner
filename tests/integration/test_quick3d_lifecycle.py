@@ -1059,7 +1059,7 @@ def _unmeasured_elsewhere(*platforms: str) -> pytest.MarkDecorator:
     the CI log of the other platform then says ``XFAIL`` or ``XPASS``, and that is
     the measurement."""
     measured = any(sys.platform.startswith(name) for name in platforms)
-    return pytest.mark.xfail(not measured, strict=False,
+    return pytest.mark.xfail(not measured, strict=False, raises=AssertionError,
                              reason=f"measured on {' and '.join(platforms)} only")
 
 
