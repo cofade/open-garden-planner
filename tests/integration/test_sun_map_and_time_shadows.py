@@ -16,8 +16,8 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 import numpy as np
-from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QImage, QPainter
+from PyQt6.QtCore import QRect, QRectF, Qt
+from PyQt6.QtGui import QImage, QPainter, QTransform
 
 from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
@@ -25,6 +25,7 @@ from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.items import RectangleItem
 from open_garden_planner.ui.canvas.sun_heatmap import SunHeatmapController
+from open_garden_planner.ui.canvas.sun_legend import SunMapLegendItem
 from open_garden_planner.ui.canvas.sun_shadow_controller import (
     STATE_ACTIVE,
     STATE_NIGHT,
@@ -64,6 +65,25 @@ def _picture(scene: CanvasScene) -> np.ndarray:
     bits.setsize(image.sizeInBytes())
     rows = np.frombuffer(bits, dtype=np.uint8).reshape(image.height(), image.bytesPerLine() // 4, 4)
     return rows[:, : image.width(), :3].astype(np.int16).copy()
+
+
+def _assert_map_unchanged(scene: CanvasScene, first: np.ndarray, second: np.ndarray) -> None:
+    """Exact map pixels; only the independent key's raster edges may round (#897)."""
+    height, width = first.shape[:2]
+    world = QTransform()
+    world.translate(0, height)
+    world.scale(width / scene.canvas_rect.width(), -height / scene.canvas_rect.height())
+    key = next(item for item in scene.items() if isinstance(item, SunMapLegendItem))
+    box = key.deviceTransform(world).mapRect(key.plan_label_blocker()).toAlignedRect()
+    box = box.intersected(QRect(0, 0, width, height))
+    delta = np.abs(first - second).sum(axis=2)
+    key_pixels = delta[box.top():box.bottom() + 1, box.left():box.right() + 1]
+    # Full Ubuntu coverage reproduced 229 key-text pixels with <=6 levels per
+    # channel (summed <=16), while every map pixel was identical. Keep the
+    # existing sub-ink bound from the key tests; real shadows exceed 60.
+    assert key_pixels.max() < 30, "the key changes beyond sub-ink raster rounding"
+    delta[box.top():box.bottom() + 1, box.left():box.right() + 1] = 0
+    assert not delta.any(), "the map changes with the time-of-day shadow"
 
 
 def test_a_shown_map_takes_the_overlay_off_the_canvas(qtbot) -> None:
@@ -184,14 +204,16 @@ def test_the_map_is_the_same_picture_whatever_the_time_of_day(qtbot) -> None:
         assert heatmap.run_for_day(DAY)
     assert heatmap.heatmap_visible() and shadows.map_shown
 
-    at_noon = _picture(scene)
-    shadows.set_sim_datetime(EVENING)
-    in_the_evening = _picture(scene)
-    assert np.array_equal(at_noon, in_the_evening)
+    try:
+        at_noon = _picture(scene)
+        shadows.set_sim_datetime(EVENING)
+        in_the_evening = _picture(scene)
+        _assert_map_unchanged(scene, at_noon, in_the_evening)
 
-    # switching the map off brings the evening's shadow back
-    heatmap.clear()
-    assert not shadows.map_shown
-    evening_shadow = _picture(scene)
-    assert np.abs(evening_shadow - without_map).sum(axis=2).max() > 60
-    heatmap.shutdown()
+        # switching the map off brings the evening's shadow back
+        heatmap.clear()
+        assert not shadows.map_shown
+        evening_shadow = _picture(scene)
+        assert np.abs(evening_shadow - without_map).sum(axis=2).max() > 60
+    finally:
+        heatmap.shutdown()

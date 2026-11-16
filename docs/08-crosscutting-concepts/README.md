@@ -3155,6 +3155,21 @@ between identical Linux renders; its <30 summed-channel bound remains below the
 >90 visible-ink positive control. The succession-tag test measures full-coverage
 green pixels actually overlapped by a white object, rather than assuming that an
 alpha-215 tag has an invariant threshold-green area on black and white backgrounds.
+The contrast sample must be nonempty, not larger than an arbitrary glyph area:
+the default 8 pt italic area label in Ubuntu's Liberation Sans has four solid-ink
+pixels, while its measured ink/halo contrast still exceeds 4.5:1. Missing-ink and
+missing-halo mutation controls pin that distinction. QtSvg's Linux reader treats
+a CSS font-family list as one family and substitutes the wrong font. The SVG
+note test adapts that syntax only in the bytes passed to its test renderer; the
+exported file, font-size assertions and 8% bound remain unchanged. A native
+Chromium control rendered the original SVG at 240.5 cm versus 239.25 cm on canvas;
+QtSvg gave 275.5 cm with the list and 239.0 cm with its primary family alone.
+The map/time-of-day comparison remains pixel-exact outside the legend's own
+device rectangle. A full Ubuntu coverage replay isolated 229 changing key-text
+pixels (at most six levels per channel, summed sixteen); only that rectangle
+uses the key tests' sub-ink bound. A control that restores the hidden time-of-day
+shadow must fail the map comparison. This avoids weakening the map invariant
+because of the independent legend's raster edges.
 
 The translation gate's bottleneck was repeated AST traversal, not catalog lookups.
 `Sources` builds one per-inventory node/parent index per file, shared by all audits;

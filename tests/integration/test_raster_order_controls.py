@@ -1,10 +1,15 @@
 """The portable raster assertions still reject the original defects (#897)."""
 
 import pytest
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPen
 
 from open_garden_planner.ui.canvas import plan_labels
+from open_garden_planner.ui.canvas.items import halo_text
 from open_garden_planner.ui.canvas.items.garden_item import SuccessionBadgeItem
 from open_garden_planner.ui.canvas.sun_legend import SunMapLegendItem
+from tests.integration import test_canvas_legibility as legibility
+from tests.integration import test_sun_map_and_time_shadows as map_shadows
 from tests.integration.test_succession_badge_export import (
     test_what_stands_in_the_bed_does_not_cover_the_badge as check_badge_order,
 )
@@ -31,3 +36,26 @@ def test_sun_key_oracle_rejects_ink_when_the_key_does_not_block_labels(mapped, m
     monkeypatch.delattr(SunMapLegendItem, "plan_label_blocker")
     with pytest.raises(AssertionError, match="the label was painted under the key"):
         check_label_exclusion(mapped)
+
+
+@pytest.mark.parametrize("missing", ["ink", "halo"])
+def test_area_contrast_oracle_rejects_missing_ink_or_halo(qtbot, monkeypatch, missing):
+    if missing == "ink":
+        monkeypatch.setattr(halo_text.PlanLabelItem, "paint_text", lambda *_: None)
+    else:
+        monkeypatch.setattr(halo_text, "halo_pen", lambda *_: QPen(Qt.PenStyle.NoPen))
+    canvas = legibility.canvas.__wrapped__(qtbot)
+    with pytest.raises(AssertionError, match="area label on soil"):
+        legibility.test_an_area_label_reads_on_every_background(canvas, "soil")
+
+
+def test_map_oracle_rejects_the_time_of_day_shadow_showing_through(qtbot, monkeypatch):
+    original = map_shadows._picture
+
+    def with_shadow(scene):
+        map_shadows._overlay(scene).setVisible(True)
+        return original(scene)
+
+    monkeypatch.setattr(map_shadows, "_picture", with_shadow)
+    with pytest.raises(AssertionError, match="the map changes with the time-of-day shadow"):
+        map_shadows.test_the_map_is_the_same_picture_whatever_the_time_of_day(qtbot)

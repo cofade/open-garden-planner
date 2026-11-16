@@ -89,7 +89,11 @@ def _label_contrast(with_label: QImage, without: QImage, ink: QColor, region: QR
             now = QColor(with_label.pixel(x, y))
             if _distance(now, QColor(without.pixel(x, y))) > 12 and _distance(now, ink) <= 45:
                 ink_pixels.add((x, y))
-    if len(ink_pixels) < 12:
+    # Count only pixels at the stroke's actual colour. Their area depends on
+    # the platform's font rasterizer: 8 pt italic Liberation Sans has four
+    # such pixels, yet its halo separates the visible text at >4.5:1 (#897).
+    # Contrast needs a nonempty sample, not a minimum glyph area.
+    if not ink_pixels:
         return 1.0       # no label to be seen: as unreadable as it gets
     # What meets the eye beside a stroke: the neighbours of the ink that are not
     # themselves a blend toward it (the anti-aliased edge belongs to the glyph).
