@@ -1792,6 +1792,15 @@ gate is green while half of it never ran. `-m perf` is required because `addopts
 `-m 'not perf'` otherwise wins and collects nothing at all; `-n 0` is required because
 running these across workers is the condition the split exists to prevent.
 
+**Nested pytest controls pin their own worker count (#921).** An outer `-n 0`
+does not reach a subprocess's command line. A child that inherits this repository's
+`-n auto` can start another full pool: the broken-QML positive control started
+20 workers on the dev box, exhausted Windows commit memory and returned internal
+error 3 instead of the expected assertion failure 1. Its single-file child now
+passes `-n 0` explicitly. Keep the existing failed-test count, no-skips and named
+cause assertions: a resource failure must never satisfy the negative control.
+Pinned by `tests/ui/test_quick3d_host.py::test_a_broken_scene_file_fails_the_tier_instead_of_skipping_it`.
+
 The audit that produced the split was, twice, incomplete: it read `tests/perf/` and
 grepped for `time.`, and missed four unmarked bounds including two classes literally
 named `TestPerf`. `tests/unit/test_perf_marker_guard.py` now closes that mechanically —
