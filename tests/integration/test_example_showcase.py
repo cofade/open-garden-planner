@@ -256,8 +256,8 @@ def test_a_raising_clock_listener_cannot_leave_a_half_opened_document(window, tm
     manager = window.canvas_view.command_manager
     assert manager.can_undo
     stale = tmp_path / "stale-autosave.ogp"
-    stale.write_text("{}", encoding="utf-8")
     window._autosave_manager._get_autosave_path = lambda: stale
+    assert window._autosave_manager.perform_autosave()
 
     def broken(_change):
         raise RuntimeError("a listener that raises")

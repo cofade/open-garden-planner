@@ -65,6 +65,24 @@ was a second list of plan-level stores in the autosave service, which would drif
 autosave with every `ProjectData` field represented, exercises the window's actual
 binding and pending name edit, and preserves the old recovery on a failed write.
 
+**Owner-test addendum (PR #932): discovery and snapshot ownership.** A complete
+snapshot was insufficient: startup searched only the untitled temp path, and
+opening a saved original rebound the autosave path before cleanup, deleting the
+very backup that had not been offered. Discover adjacent backups for the ten
+recent plans at startup and for an explicitly opened original before its GUI
+load. Ignore an older backup, preserve a declined one, and delete one only on
+explicit Discard. Recover at most one document at startup; nested/delayed startup
+callbacks must not overwrite recovered work. Programmatic loads remain non-modal.
+
+`AutoSaveManager` owns the paths its current document wrote or adopted after
+recovery. Save/discard cleanup uses that set, not the current filename, which may
+already have changed. Adopted sources survive until a successful save or explicit
+document discard. Cleanup keeps the named symlink entry, never resolves it into
+another file to delete. The rejected alternative was unconditional deletion of
+`~autosave_<current filename>.ogp` after load/Save As. Startup/open/No/Discard,
+failed recovery, Save As, duplicate prompts and foreign-backup regressions are
+pinned in `tests/integration/test_autosave_recovery.py` and `tests/unit/test_autosave.py`.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted (CommandManager; see Addenda)

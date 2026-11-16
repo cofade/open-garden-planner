@@ -471,3 +471,23 @@ when command and project mutation counters plus an unchanged scene revision prov
 had the mirror-image hole (#904): Esc left the empty callout and its command in
 place; it now uses the same `add_cancellable_item` / `discard_cancellable_placement`
 seam, and `CanvasScene.clear()` drops any hold a document replacement strands.
+
+
+## PF-PER-30
+
+**Rule:** Discover saved-plan autosaves before opening originals, and clean only snapshots written or explicitly adopted by the current document.
+
+**Pinned by:** `tests/integration/test_autosave_recovery.py` startup, explicit-open, Save As, declined-own-backup and failed-recovery regressions; `tests/unit/test_autosave.py` recent-file freshness and symlink cleanup checks.
+
+**Source:** #797; PR #932 manual test 1 (2026-11-16); ADR-003 complete-autosave addendum.
+
+**Status:** standing
+
+A complete snapshot is useless when startup searches only the temporary untitled
+filename while saved plans write beside the original. The GUI checks both bounded
+Recent candidates and an explicitly opened plan before loading it. A load or Save
+As emits `project_changed` before cleanup; deriving the cleanup filename from the
+new current path deletes an unoffered destination backup and leaves the old one.
+Track paths written or adopted by this document, preserve a declined recovery, and
+consume an accepted source only after successful save or explicit discard. Unlink
+the named entry without resolving symlink targets. See ADR-003 for the policy.

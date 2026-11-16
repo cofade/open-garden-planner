@@ -10,7 +10,7 @@ import logging
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
@@ -54,6 +54,9 @@ class AutoSaveManager(QObject):
         self._scene: QGraphicsScene | None = None
         self._current_project_path: Path | None = None
         self._is_dirty = False
+        # Paths belong to the document that wrote/adopted them, not whichever
+        # filename project_changed has just rebound us to (#797).
+        self._owned_autosaves: set[Path] = set()
 
         # Update timer interval from settings
         self._update_timer_interval()
@@ -133,6 +136,7 @@ class AutoSaveManager(QObject):
         autosave_path = self._get_autosave_path()
         try:
             self._save_to_file(autosave_path)
+            self.adopt_recovery_file(autosave_path)
             logger.info(f"Auto-saved to: {autosave_path}")
             self.autosave_performed.emit(str(autosave_path))
             return True
@@ -176,17 +180,29 @@ class AutoSaveManager(QObject):
         write_plan(path, save_data)
 
     def clear_autosave(self) -> None:
-        """Delete the current auto-save file (e.g., after manual save)."""
-        autosave_path = self._get_autosave_path()
-        if autosave_path.exists():
+        """Remove this document's snapshots after a successful save or discard.
+
+        Never infer ownership from the current filename: a successful load or
+        Save As has already emitted project_changed by the time cleanup runs.
+        """
+        for autosave_path in tuple(self._owned_autosaves):
             try:
-                autosave_path.unlink()
+                autosave_path.unlink(missing_ok=True)
+                self._owned_autosaves.discard(autosave_path)
                 logger.info(f"Deleted auto-save file: {autosave_path}")
             except OSError as e:
                 logger.warning(f"Failed to delete auto-save file: {e}")
 
+    def adopt_recovery_file(self, path: Path) -> None:
+        """Keep a recovered source until this document is saved or discarded."""
+        self._owned_autosaves.add(path.absolute())
+
+    def preserve_recovery_file(self, path: Path) -> None:
+        """A declined recovery remains on disk, outside this document's cleanup."""
+        self._owned_autosaves.discard(path.absolute())
+
     @classmethod
-    def find_recovery_files(cls) -> list[tuple[Path, dict]]:
+    def find_recovery_files(cls) -> list[tuple[Path, dict[str, Any]]]:
         """Find all auto-save files that may need recovery.
 
         Returns:
@@ -202,10 +218,19 @@ class AutoSaveManager(QObject):
             if metadata:
                 recovery_files.append((untitled_autosave, metadata))
 
+        # Saved plans write beside their original, rather than in the system
+        # temp directory. Bound discovery to the same ten recent plans the UI
+        # keeps; explicitly opened plans are also checked by the GUI wrapper.
+        seen = {path.absolute() for path, _metadata in recovery_files}
+        for recent in get_settings().recent_files[:10]:
+            found = cls.find_recovery_for_project(Path(recent))
+            if found is not None and found[0].absolute() not in seen:
+                recovery_files.append(found)
+                seen.add(found[0].absolute())
         return recovery_files
 
     @classmethod
-    def find_recovery_for_project(cls, project_path: Path) -> tuple[Path, dict] | None:
+    def find_recovery_for_project(cls, project_path: Path) -> tuple[Path, dict[str, Any]] | None:
         """Find recovery file for a specific project.
 
         Args:
@@ -214,19 +239,34 @@ class AutoSaveManager(QObject):
         Returns:
             (autosave_path, metadata) tuple if found, None otherwise
         """
-        project_dir = project_path.parent
-        project_name = project_path.stem
-        autosave_path = project_dir / f"{cls.AUTOSAVE_PREFIX}{project_name}{cls.AUTOSAVE_EXTENSION}"
-
-        if autosave_path.exists():
+        try:
+            project_name = project_path.stem
+            autosave_path = project_path.parent / (
+                f"{cls.AUTOSAVE_PREFIX}{project_name}{cls.AUTOSAVE_EXTENSION}"
+            )
+            if not autosave_path.is_file():
+                return None
             metadata = cls._read_autosave_metadata(autosave_path)
             if metadata:
+                original = metadata.get("original_file")
+                if not isinstance(original, str):
+                    return None
+                if Path(original).resolve() != project_path.resolve():
+                    return None
+                # An already saved newer original must not be replaced by
+                # an obsolete recovery file. A missing original is recoverable.
+                if (project_path.exists()
+                        and autosave_path.stat().st_mtime_ns <= project_path.stat().st_mtime_ns):
+                    return None
                 return (autosave_path, metadata)
-
+        except Exception as e:
+            # User-controlled recovery metadata and filesystem paths are one
+            # ingestion boundary; an unreadable candidate must not abort startup.
+            logger.warning("Failed to inspect recovery for %s: %s", project_path, e)
         return None
 
     @classmethod
-    def _read_autosave_metadata(cls, path: Path) -> dict | None:
+    def _read_autosave_metadata(cls, path: Path) -> dict[str, Any] | None:
         """Read auto-save metadata from a file.
 
         Args:
@@ -238,7 +278,10 @@ class AutoSaveManager(QObject):
         try:
             from open_garden_planner.core.plan_io import read_plan
             data = read_plan(path)
-            return data.get("autosave_metadata", {})
+            metadata = data.get("autosave_metadata")
+            if not isinstance(metadata, dict) or not isinstance(metadata.get("timestamp"), str):
+                return None
+            return metadata
         except Exception as e:
             logger.warning(f"Failed to read auto-save metadata from {path}: {e}")
             return None

@@ -258,3 +258,4 @@
 | Case study: The translation gate walked each AST nine times (#922) | [Read](258-repeated-source-audits-922.md) |
 | Case study: Linux raster controls confused noise and paint order (#897) | [Read](259-portable-raster-oracles-897.md) |
 | Case study: A pin probe clicked below the painted head (#923) | [Read](260-journal-pin-device-coordinates-923.md) |
+| Case study: Saved-plan recovery was never discovered (#797) | [Read](261-recovery-discovery-and-ownership-797.md) |

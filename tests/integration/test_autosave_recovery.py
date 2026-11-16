@@ -158,3 +158,221 @@ def test_failed_autosave_keeps_existing_recovery_and_dirty_document(qtbot, monke
         assert not manager.perform_autosave()
     assert recovery.read_bytes() == b"previous recovery"
     assert project.is_dirty and project.current_file is None
+
+
+@pytest.fixture
+def recovery_window(qtbot, monkeypatch, tmp_path):
+    from PyQt6.QtWidgets import QMessageBox
+
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.app.settings import get_settings
+
+    # Drive startup explicitly, without its delayed callback racing the test.
+    startup = GardenPlannerApp._startup_sequence
+    monkeypatch.setattr(GardenPlannerApp, "_startup_sequence", lambda _self: None)
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+    get_settings().show_welcome_on_startup = False
+    get_settings().recent_files = []
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
+    monkeypatch.setattr(QMessageBox, "information", lambda *_args: None)
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args: pytest.fail(str(args)))
+    yield window, lambda: startup(window)
+    window._project_manager.mark_clean()
+
+
+def crashed_saved_plan(tmp_path):
+    """A prior process saved the original, edited it, autosaved, then died."""
+    import os
+
+    scene = CanvasScene()
+    item = RectangleItem(100, 200, 300, 400, name="Original name")
+    scene.addItem(item)
+    project = ProjectManager()
+    path = tmp_path / "saved.ogp"
+    project.save(scene, path)
+    original = path.read_bytes()
+    item.name = "Recovered name"
+    project.set_journal_note(JournalNote(id="recovered-note", text="Recovered note"))
+    manager = AutoSaveManager(project)
+    manager.set_scene(scene)
+    manager.set_project_path(path)
+    assert manager.perform_autosave()
+    backup = manager._get_autosave_path()
+    # Explicit ordering, independent of filesystem timestamp resolution.
+    stamp = 1_700_000_000_000_000_000
+    os.utime(path, ns=(stamp, stamp))
+    os.utime(backup, ns=(stamp + 1_000_000_000, stamp + 1_000_000_000))
+    return path, backup, original
+
+
+def test_startup_finds_saved_plan_recovers_and_save_as_consumes_backup(
+    recovery_window, monkeypatch, tmp_path,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window, startup = recovery_window
+    original, backup, original_bytes = crashed_saved_plan(tmp_path)
+    prompts = []
+
+    def accept(*args):
+        prompts.append(args[2])
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", accept)
+    startup()
+    assert len(prompts) == 1, "startup must discover the saved plan's adjacent autosave"
+    assert "Recovered name" in {getattr(i, "name", "") for i in window.canvas_scene.items()}
+    assert window._project_manager.garden_journal_notes["recovered-note"]["text"] == "Recovered note"
+    assert window._project_manager.current_file is None and window._project_manager.is_dirty
+    assert backup.exists(), "accepting recovery must not delete the only durable recovered copy"
+    assert original.read_bytes() == original_bytes
+    restored = tmp_path / "restored.ogp"
+    window._save_to_file(restored)
+    assert any(i.get("name") == "Recovered name" for i in read_plan(restored)["objects"])
+    assert not backup.exists(), "successful Save As consumes the adopted recovery copy"
+    assert original.read_bytes() == original_bytes
+
+
+@pytest.mark.parametrize("choice", ["Yes", "No", "Discard"])
+def test_open_original_offers_adjacent_recovery_even_outside_recent_files(
+    recovery_window, monkeypatch, tmp_path, choice,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    from open_garden_planner.app.settings import get_settings
+
+    window, _startup = recovery_window
+    original, backup, original_bytes = crashed_saved_plan(tmp_path)
+    get_settings().recent_files = []
+    backup_bytes = backup.read_bytes()
+    prompts = []
+
+    def answer(*args):
+        prompts.append(args[2])
+        return getattr(QMessageBox.StandardButton, choice)
+
+    monkeypatch.setattr(QMessageBox, "question", answer)
+    window._open_project_file(str(original))
+    assert len(prompts) == 1
+    names = {getattr(i, "name", "") for i in window.canvas_scene.items()}
+    assert ("Recovered name" if choice == "Yes" else "Original name") in names
+    assert window._project_manager.is_dirty == (choice == "Yes")
+    assert window._project_manager.current_file == (None if choice == "Yes" else original)
+    if choice == "Discard":
+        assert not backup.exists()
+    else:
+        assert backup.read_bytes() == backup_bytes, "No defers recovery; only Discard deletes it"
+    assert original.read_bytes() == original_bytes
+
+
+def test_programmatic_load_does_not_delete_unowned_destination_autosave(
+    recovery_window, tmp_path,
+):
+    window, _startup = recovery_window
+    original, backup, _original_bytes = crashed_saved_plan(tmp_path)
+    backup_bytes = backup.read_bytes()
+    window._load_project_file(str(original))
+    assert backup.read_bytes() == backup_bytes, "loading an original must not destroy its recovery"
+
+
+def test_save_as_removes_own_untitled_snapshot_and_preserves_foreign_backup(
+    recovery_window, tmp_path,
+):
+    window, _startup = recovery_window
+    destination, foreign_backup, _original_bytes = crashed_saved_plan(tmp_path)
+    foreign_bytes = foreign_backup.read_bytes()
+    window.canvas_scene.addItem(RectangleItem(10, 20, 30, 40, name="Untitled work"))
+    window._project_manager.mark_dirty()
+    assert window._autosave_manager.perform_autosave()
+    untitled = window._autosave_manager._get_autosave_path()
+    assert untitled.exists() and untitled != foreign_backup
+    window._save_to_file(destination)
+    assert not untitled.exists()
+    assert foreign_backup.read_bytes() == foreign_bytes
+
+
+def test_command_line_recovery_does_not_nest_or_repeat_startup_prompts(
+    recovery_window, monkeypatch, tmp_path,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window, startup = recovery_window
+    original, _backup, _original_bytes = crashed_saved_plan(tmp_path)
+    prompts = []
+
+    def accept(*args):
+        prompts.append(args[2])
+        startup()  # The delayed callback fires inside a modal question's event loop.
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", accept)
+    window._open_project_file(str(original))
+    startup()  # It may also be delivered after recovery has already completed.
+    assert len(prompts) == 1
+    assert window._project_manager.is_dirty and window._project_manager.current_file is None
+    assert "Recovered name" in {getattr(i, "name", "") for i in window.canvas_scene.items()}
+
+
+def test_startup_recovers_only_one_document_and_keeps_other_candidates(
+    recovery_window, monkeypatch, tmp_path,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window, startup = recovery_window
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    _first_plan, first_backup, _ = crashed_saved_plan(first)
+    _second_plan, second_backup, _ = crashed_saved_plan(second)
+    prompts = []
+
+    def accept(*args):
+        prompts.append(args[2])
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", accept)
+    startup()
+    assert len(prompts) == 1, "a second recovery must not overwrite the first recovered document"
+    assert first_backup.exists() and second_backup.exists()
+
+
+def test_declined_own_backup_survives_reloading_original(
+    recovery_window, monkeypatch, tmp_path,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window, _startup = recovery_window
+    path = tmp_path / "active.ogp"
+    window._save_to_file(path)
+    window.canvas_scene.addItem(RectangleItem(10, 20, 30, 40, name="Unsaved work"))
+    window._project_manager.mark_dirty()
+    assert window._autosave_manager.perform_autosave()
+    backup = window._autosave_manager._get_autosave_path()
+    previous = backup.read_bytes()
+    monkeypatch.setattr(QMessageBox, "question", lambda *_: QMessageBox.StandardButton.No)
+    window._open_project_file(str(path))
+    assert backup.read_bytes() == previous
+
+
+def test_recovery_load_failure_does_not_fall_back_to_old_original(
+    recovery_window, monkeypatch, tmp_path,
+):
+    from PyQt6.QtWidgets import QMessageBox
+
+    window, _startup = recovery_window
+    original, backup, _ = crashed_saved_plan(tmp_path)
+    previous = backup.read_bytes()
+    monkeypatch.setattr(QMessageBox, "question", lambda *_: QMessageBox.StandardButton.Yes)
+    errors = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args: errors.append(args[2]))
+
+    def fail(*args, **kwargs):
+        raise OSError("Recovery read failed")
+
+    monkeypatch.setattr(window._project_manager, "load", fail)
+    monkeypatch.setattr(window, "_load_project_file", lambda *_: pytest.fail("original opened"))
+    window._open_project_file(str(original))
+    assert errors and backup.read_bytes() == previous

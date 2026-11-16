@@ -9,7 +9,7 @@ Its detailed architecture follows [arc42](https://arc42.org/).
 |---|---|
 | Application | Main window, document lifecycle, settings, UI state and the global Metric / Imperial (US) display preference. Geometry and Agent API lengths stay centimetres ([ADR-078](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-078-a-unit-preference-over-the-centimetre-model-issue-673)). |
 | Canvas and tools | Drawing, selection, snapping, constraints, annotations, layers, and item rendering. |
-| Commands and project data | Undo/redo, snapshots, shared complete-plan serialization for Save and crash recovery, clipboard data, and atomic plan loading. |
+| Commands and project data | Undo/redo, snapshots, shared complete-plan serialization for Save and crash recovery, discovery of saved-plan backups, document-owned cleanup, clipboard data, and atomic plan loading. |
 | Garden models and services | Plant data, companion planting, crop rotation, succession, soil, weather, tasks, harvest, and journal records. |
 | Export services | Shared PNG, SVG, PDF, DXF, CSV, and shopping-list output used by GUI and Agent API surfaces. |
 | Agent API | Embedded loopback MCP server with main-thread dispatch. Reads and exports remain open locally. Editing requires explicit enablement and a token. |

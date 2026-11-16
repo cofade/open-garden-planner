@@ -184,6 +184,56 @@ class TestAutoSaveManager:
 class TestAutoSaveRecovery:
     """Tests for auto-save recovery functionality."""
 
+    @pytest.mark.parametrize("stale", [False, True])
+    def test_recent_discovery_deduplicates_and_rejects_stale_snapshots(self, qtbot, tmp_path, stale):
+        import os
+
+        from open_garden_planner.core.plan_io import write_plan
+        from open_garden_planner.core.project import ProjectData
+
+        original = tmp_path / "saved.ogp"
+        backup = tmp_path / "~autosave_saved.ogp"
+        data = ProjectData().to_dict()
+        write_plan(original, data)
+        data["autosave_metadata"] = {"timestamp": "2026-11-16T12:00:00Z",
+                                     "original_file": str(original)}
+        write_plan(backup, data)
+        stamp = 1_700_000_000_000_000_000
+        os.utime(original, ns=(stamp, stamp))
+        os.utime(backup, ns=(stamp + 1_000_000_000, stamp + 1_000_000_000))
+        settings = get_settings()
+        settings.recent_files = [str(original), str(original)]
+        if stale:
+            stamp = backup.stat().st_mtime_ns + 1_000_000_000
+            os.utime(original, ns=(stamp, stamp))
+        found = AutoSaveManager.find_recovery_files()
+        assert [path for path, _ in found if path == backup] == ([] if stale else [backup])
+        assert backup.exists(), "discovery must never remove an obsolete snapshot"
+
+    def test_clear_only_removes_created_or_adopted_files(self, qtbot, tmp_path):
+        project = ProjectManager()
+        manager = AutoSaveManager(project)
+        plan = tmp_path / "saved.ogp"
+        manager.set_project_path(plan)
+        backup = manager._get_autosave_path()
+        backup.write_bytes(b"another process's recovery")
+        manager.clear_autosave()
+        assert backup.read_bytes() == b"another process's recovery"
+
+    def test_adopted_symlink_cleanup_preserves_its_target(self, qtbot, tmp_path):
+        target = tmp_path / "original.ogp"
+        target.write_bytes(b"must survive")
+        link = tmp_path / "~autosave_saved.ogp"
+        try:
+            link.symlink_to(target)
+        except OSError:
+            pytest.skip("symlinks unavailable")
+        manager = AutoSaveManager(ProjectManager())
+        manager.adopt_recovery_file(link)
+        manager.clear_autosave()
+        assert not link.is_symlink()
+        assert target.read_bytes() == b"must survive"
+
     def test_find_recovery_for_project(self, qtbot, tmp_path) -> None:
         """Test finding recovery file for a specific project."""
         # Create a fake auto-save file
