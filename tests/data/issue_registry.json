@@ -1331,7 +1331,7 @@
   },
   "848": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
   },
   "865": {
@@ -1346,12 +1346,12 @@
   },
   "877": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas pixel tests never paint a view embedded in a window"
   },
   "878": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The kept grid layer is rebuilt only by a whole-viewport paint"
   },
   "889": {
@@ -1416,12 +1416,22 @@
   },
   "926": {
     "is_pr": true,
-    "state": "OPEN",
-    "title": "fix(#848, #877, #878): retain canvas caches and bound long-line painting"
+    "state": "MERGED",
+    "title": "fix(#848, #877, #878, #927): bound canvas repaint and sun diagnostics"
   },
   "927": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sun diagnostics block ordinary selection by rebuilding unmeasured long-line footprints"
+  },
+  "929": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "chore: sync version to v1.40.4 after PR #926"
+  },
+  "930": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky unmeasured sun selection test waits for evaluations from an earlier refresh"
   }
 }

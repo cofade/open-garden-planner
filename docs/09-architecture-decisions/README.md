@@ -13442,6 +13442,8 @@ before.
 
 ### ADR-076 addendum: canvas pictures have explicit consumers (#847, #848, #877, #878)
 
+**Status:** Shipped in v1.40.4 (PR #926); owner acceptance confirmed on 2026-11-15.
+
 **Decision (2026-11-15):** A minimap keeps the live scene's item-cache modes.
 Qt's device caches preserve the viewport picture when the thumbnail is painted
 (measured on Qt 6.12.0). Its existing scoped walk cap also selects a styled

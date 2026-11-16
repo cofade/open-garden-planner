@@ -33,3 +33,7 @@ the community documentation in this wiki does not mark Phase 16 complete.
 
 The canonical roadmap's "Current work" section lists the active themes and links to the
 open issues. No roadmap phase is active.
+
+The canvas repaint and sun-diagnostic package shipped in
+[v1.40.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.40.4).
+Remaining canvas follow-ups stay in the canonical Current work table.
