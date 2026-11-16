@@ -38,7 +38,7 @@ fixes: a second explicit open after failed Yes loaded the old original, and
 No followed by another autosave overwrote the deferred backup. A Yes no longer
 caches the refusal for later explicit opens. New snapshots use a per-document
 UUID path, reused across timer ticks, and discovery recognizes legacy plus UUID
-filenames. No ? edit ? autosave ? accepted close/discard preserves the deferred
+filenames. Declining recovery, editing, autosaving and accepting close/discard preserves the deferred
 bytes and makes the older recovery discoverable again. Distinct untitled documents
 retain independent snapshots too.
 

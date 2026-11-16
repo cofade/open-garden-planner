@@ -269,7 +269,7 @@ A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF
 - **Undecodable item accounting**:
   Malformed or unknown items in `.ogp` files are skipped with a logged warning, and the skipped count is tracked in `ProjectManager.last_load_skipped_items_count` for diagnostics reporting.
 - **Auto-save recovery on crash**:
-  Periodic autosaves write to `~autosave_...` next to the project file (or in temp for untitled plans). Autosaves are cleared only after a new file load succeeds.
+  Periodic autosaves use a per-document UUID path next to the project (or in temp for untitled plans), preserving earlier recoveries. Successful save, load or explicit discard cleans only snapshots owned by the departing document; a failed load preserves them. See ADR-003 and FR-FILE-06/07 for discovery and retention.
 - **No silent failures — handled logging & crash backstop (AUD-063, TD-023, #405, ADR-052)**:
   Handled errors and warnings across all application components are routed to a persistent rotating file handler (`app.log`, 1 MB, 3 backups) in the user data directory, with console echoing to stderr when available (preventing discarded records in the windowed frozen executable where `sys.stderr is None`). Uncaught exceptions are intercepted by `_install_excepthook` in `main.py`, written to `crash.log`, and surfaced to the user via a recoverable error dialog so unsaved work can be preserved.
 
