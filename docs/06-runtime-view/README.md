@@ -373,15 +373,17 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    T([Timer fires every N seconds<br/>configurable])
+    T([Timer fires every N minutes<br/>configurable])
     Dirty{Unsaved<br/>changes?}
     Skip([Skip])
-    Ser["Serialize current state to temp file<br/>~/.open-garden-planner/autosave/&lt;project-hash&gt;.ogp"]
+    Flush["Live ProjectManager.before_save<br/>flush pending property edits"]
+    Build["ProjectManager.recovery_dict<br/>canonical _build_project_data<br/>scene + all plan stores + dragged pins"]
+    Ser["Atomic write + recovery metadata<br/>beside saved plan, or system temp for untitled<br/>leave filename, dirty state and recent files unchanged"]
     Manual[On next successful manual save<br/>remove auto-save file]
 
     T --> Dirty
     Dirty -->|no| Skip
-    Dirty -->|yes| Ser --> Manual
+    Dirty -->|yes| Flush --> Build --> Ser --> Manual
 ```
 
 ```mermaid

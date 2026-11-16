@@ -36,6 +36,7 @@ dependencies = [
     # lock disagrees, or if Qt Quick 3D is not in what they pin.
     # When bumping these two pins: re-check QTBUG-151940 (TD-040) as
     # docs/08-crosscutting-concepts/README.md §8.29.5 known limit 11 says.
+    # Also re-check QTBUG-152289 (TD-041), §8.29.15 "Re-check QTBUG-152289".
     # 6.12 is an LTS and brings SkyMaterial (Phase 17 L7, #391, ADR-048 addendum).
     "PyQt6==6.12.0",
     "PyQt6-Qt6==6.12.0",

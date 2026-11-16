@@ -548,3 +548,23 @@ Both now wait for the exact expressions they assert (the second also waits for t
 final `maximum() == 0`), with the same 3000 ms bound. This is the general rule for geometry
 waits: when the test knows the final value, make the wait carry it — a band only delays the
 failure to the next line, where the failure report no longer names the race.
+
+### PF-TST-38
+
+- **Rule:** Expected-failure markers must name AssertionError so that pytest-timeout failures remain fatal.
+- **Pinned by:** `tests/unit/test_xfail_contract.py::test_expected_failures_do_not_mask_pytest_timeouts`; `tests/integration/test_example_showcase.py::test_unevaluated_sun_exposure_is_one_row_that_selects_its_plants`
+- **Source:** #921
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A non-strict platform xfail accepted pytest-timeout's Failed exception and hid 215 s hangs. Restrict the expected exception; batch complete selection publication so one click does not rebuild every consumer 174 times. See §8.10.18.
+
+### PF-TST-39
+
+- **Rule:** Raster assertions must compare visible ink with a positive control and account for sub-ink antialiasing and intentional translucency.
+- **Pinned by:** `tests/integration/test_succession_badge_export.py::test_what_stands_in_the_bed_does_not_cover_the_badge`; `tests/integration/test_sun_map_legend.py::test_no_label_of_the_plan_touches_the_key_in_a_picture`
+- **Source:** #897
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The old Linux xfails hid two faulty oracles: an alpha-215 tag changed threshold-green area when its background became white, and identical renders changed eleven antialiased pixels by up to four channel levels. The controls now measure overlapped full-coverage tag pixels and an excluded label with a >90-ink positive control. See §8.10.18.

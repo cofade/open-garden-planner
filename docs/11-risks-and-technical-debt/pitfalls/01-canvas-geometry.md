@@ -520,20 +520,23 @@ test that makes the pin itself selectable and draggable is PF-CAN-40.
 
 ### PF-CAN-40
 
-- **Rule:** `QGraphicsScene.itemAt` never returns an `ItemIgnoresTransformations` item (measured on Qt 6.12, with or without the canvas Y flip), so a constant-screen-size item such as a journal pin needs its own hit test. The view must also drive the interaction it owns - select/toggle, drag with one undo step, double-click - because Qt's press path cannot start it.
-- **Pinned by:** `tests/integration/test_garden_journal.py::TestPinPointerInteraction`
-- **Source:** #674, PR #713 manual test 4; #728 (2026-11-04)
+- **Rule:** For a constant-screen-size journal pin, map its visible head with deviceTransform(viewportTransform()) and supply the view transform to scene queries; an untransformed local-to-scene point tests a different place under zoom or the Y flip. Qt itemAt can return the pin. Keep the view's one-step undo and lost-release path.
+- **Pinned by:** `tests/integration/test_journal_pin_geometry.py::test_item_at_finds_the_actual_device_sized_pin_head`; `tests/integration/test_journal_pin_geometry.py::test_canvas_pin_query_agrees_with_the_visible_head`; `tests/integration/test_garden_journal.py::TestPinPointerInteraction`
+- **Source:** #674, #728, #923; ADR-002
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-The pin was only selectable from the Journal panel. `scene.items(pos)` finds it,
-but `scene.itemAt(pos, transform)` and `QGraphicsView.itemAt` return None even
-with an identity transform, so Qt's press cleared the selection and started a
-rubber band instead of dragging. `CanvasView._journal_pin_at` now performs the
-same walk (stopping at a drag handle or another selectable item above the pin),
-and `_begin_pin_interaction`/`mouseMoveEvent`/`mouseReleaseEvent` select, toggle,
-drag and commit one `MoveItemsCommand`; double-click opens the note. A pin inside
-a group is deliberately not intercepted - the group remains the click target.
+The old probe's `mapToScene(QPointF(0, -10))` treated screen pixels as plan
+centimetres: with a Y flip it clicked below the tip, rather than the painted
+head. An identity `scene.items(point)` found the pin while the transformed
+`itemAt` did not, reproducing the contradictory #728 observation. This does
+not establish an upstream picking failure: at the actual device-mapped head,
+`itemAt` returns the pin at positive and negative scales, including 0.3 and
+3.7. Correcting the old QTest head exposed a missing undo on a lost release.
+`CanvasView._journal_pin_at` now uses `viewportTransform()` for its candidate
+walk; the view retains selection/toggle, drag, one undo, double-click and
+occlusion/group rules. The historical owner session cannot be reconstructed
+from a claim alone; these are the measured coordinate cause and current pins.
 
 ### PF-CAN-41
 

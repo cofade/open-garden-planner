@@ -964,7 +964,7 @@ def test_the_wind_soak_runs_the_default_steady_state(wind_soak) -> None:
     assert gpu is None or gpu <= driver.WIND_SOAK_BOUND_MB_PER_MIN, wind_soak["gpu_curve_mb"]
 
 
-@pytest.mark.xfail(strict=False, reason=(
+@pytest.mark.xfail(strict=False, raises=AssertionError, reason=(
     "#534 (FU-L14-2): committed memory grows while the wind runs, intermittently - L1.4 "
     "2.6 MB/min over 2 min and 2.09 over 6; L1.9's six 4-5 min soaks 0.0-1.51 second-half; "
     "the final render tier of 2026-10-19 2.637. Neither strict nor an assertion is honest "

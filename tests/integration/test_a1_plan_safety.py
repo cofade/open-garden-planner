@@ -74,13 +74,14 @@ def test_rejected_open_preserves_active_document_and_history(qtbot, tmp_path, mo
 
 
 def test_failed_autosave_keeps_recovery_file(qtbot, tmp_path):
+    from open_garden_planner.core.project import ProjectManager
     from open_garden_planner.services.autosave_service import AutoSaveManager
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
     scene = CanvasScene()
     item = RectangleItem(0, 0, 100, 100)
     scene.addItem(item)
-    autosave = AutoSaveManager()
+    autosave = AutoSaveManager(ProjectManager())
     autosave._scene = scene
     path = tmp_path / "recovery.ogp"
     autosave._save_to_file(path)

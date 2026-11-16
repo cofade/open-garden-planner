@@ -6,7 +6,6 @@ session clock was seeded late in the evening, when the sun is long down.
 """
 
 import json
-import sys
 from datetime import UTC, date, datetime, time
 from pathlib import Path
 
@@ -442,7 +441,6 @@ def test_the_pdf_cover_is_titled_with_the_examples_name_in_the_users_language(
 # ── 4. the diagnostics list ─────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 def test_unevaluated_sun_exposure_is_one_row_that_selects_its_plants(window, qtbot):
     open_example(window, "raised-bed")
     panel = window.diagnostics_panel
@@ -462,9 +460,12 @@ def test_unevaluated_sun_exposure_is_one_row_that_selects_its_plants(window, qtb
     row = panel.rows.item(texts.index(folded[0]))
     assert set(row.data(Qt.ItemDataRole.UserRole)) == plant_ids
     assert len(row.data(Qt.ItemDataRole.UserRole)) == 174
+    changes = []
+    window.canvas_scene.selectionChanged.connect(lambda: changes.append(True))
     panel.rows.itemClicked.emit(row)
     qtbot.waitUntil(lambda: len(window.canvas_scene.selectedItems()) == 174, timeout=5000)
     assert {str(item.item_id) for item in window.canvas_scene.selectedItems()} == plant_ids
+    assert len(changes) == 1, "one navigation must publish one complete selection, not 174 rebuilds"
 
 
 def test_the_showcase_is_wired_to_the_tours_own_hold_and_a_broken_wiring_is_loud(

@@ -49,6 +49,22 @@ unexpected failures after scene mutation retain the existing protective reset.
 The format remains 1.4. This is input/persistence hardening, not a geometry clamp
 or a claim that finite hostile outlines have bounded rendering costs.
 
+### Addendum — complete autosave snapshots (#797)
+
+Autosave binds to the live `ProjectManager`. Its `recovery_dict(scene)` emits
+`before_save` to flush pending form edits, then uses Save's `_build_project_data`
+with detached journal-pin reconciliation. `AutoSaveManager` adds recovery metadata
+and writes through the same atomic `write_plan` boundary. It never constructs a
+temporary manager or serializes the scene alone: scene geometry is only one part
+of a document. Autosave neither marks clean nor changes the current file, recent
+files or the journal store. Recovery still loads a standalone complete document,
+then makes it untitled and dirty. No format/version change. The rejected alternative
+was a second list of plan-level stores in the autosave service, which would drift.
+
+`tests/integration/test_autosave_recovery.py` compares a normal save and a recovered
+autosave with every `ProjectData` field represented, exercises the window's actual
+binding and pending name edit, and preserves the old recovery on a failed write.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted (CommandManager; see Addenda)

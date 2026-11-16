@@ -615,9 +615,9 @@ class TestPdfGardenNotesPage:
 class TestPinPointerInteraction:
     """A pin is selected, dragged and opened by its visible head (PF-CAN-40).
 
-    A pin carries ``ItemIgnoresTransformations``, which ``QGraphicsScene.itemAt``
-    never hits, so the canvas owns a small pin hit test. These tests drive real
-    viewport events rather than calling that helper.
+    A pin's local units are screen pixels, so its visible head is mapped with
+    ``deviceTransform(viewportTransform())``. The canvas owns its undo and lost
+    release path. These tests drive real viewport events.
     """
 
     @staticmethod
@@ -632,7 +632,8 @@ class TestPinPointerInteraction:
 
     @staticmethod
     def _head(view: CanvasView, pin: JournalPinItem) -> QPoint:
-        return view.mapFromScene(pin.mapToScene(QPointF(0.0, -10.0)))
+        # The pin's local units are screen pixels, including under the Y flip.
+        return pin.deviceTransform(view.viewportTransform()).map(QPointF(0.0, -15.0)).toPoint()
 
     def test_click_selects_the_pin_and_ctrl_click_adds_a_shape(self, qtbot) -> None:
         scene, view = self._canvas(qtbot)

@@ -8,6 +8,7 @@ import pytest
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.app.settings import AppSettings, get_settings
+from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.services.autosave_service import AutoSaveManager
 from open_garden_planner.ui.canvas.items import RectangleItem
 
@@ -73,7 +74,7 @@ class TestAutoSaveManager:
     @pytest.fixture
     def manager(self, qtbot, scene) -> AutoSaveManager:
         """Create an auto-save manager for testing."""
-        mgr = AutoSaveManager()
+        mgr = AutoSaveManager(ProjectManager())
         mgr.set_scene(scene)
         return mgr
 
@@ -145,7 +146,7 @@ class TestAutoSaveManager:
 
     def test_perform_autosave_skips_without_scene(self, qtbot) -> None:
         """Test that auto-save skips when no scene is set."""
-        mgr = AutoSaveManager()
+        mgr = AutoSaveManager(ProjectManager())
         # Don't set scene
         result = mgr.perform_autosave()
         assert result is False
@@ -264,7 +265,7 @@ class TestAutoSaveTimer:
     def manager(self, qtbot) -> AutoSaveManager:
         """Create an auto-save manager for testing."""
         scene = QGraphicsScene()
-        mgr = AutoSaveManager()
+        mgr = AutoSaveManager(ProjectManager())
         mgr.set_scene(scene)
         return mgr
 

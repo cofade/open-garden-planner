@@ -253,3 +253,8 @@
 | Case study: canvas preview invalidated the snap index (#847, #848, #877, #878) | [Read](253-case-study-canvas-preview-invalidated-snap-index-847.md) |
 | Case study: unmeasured sun diagnostics block selection (#927) | [Read](254-case-study-unmeasured-sun-diagnostics-block-selection-927.md) |
 | Case study: a sun-selection wait observed an earlier refresh (#930) | [Read](255-case-study-sun-selection-wait-observed-an-earlier-refresh-930.md) |
+| Case study: Autosave recovered only scene geometry (#797) | [Read](256-complete-autosave-stores-797.md) |
+| Case study: One diagnostic click emitted 174 selections (#921) | [Read](257-selection-notifications-921.md) |
+| Case study: The translation gate walked each AST nine times (#922) | [Read](258-repeated-source-audits-922.md) |
+| Case study: Linux raster controls confused noise and paint order (#897) | [Read](259-portable-raster-oracles-897.md) |
+| Case study: A pin probe clicked below the painted head (#923) | [Read](260-journal-pin-device-coordinates-923.md) |

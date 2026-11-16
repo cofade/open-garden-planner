@@ -425,9 +425,8 @@ class CanvasView(QGraphicsView):
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
-        # A journal pin being dragged with the Select tool. A pin carries
-        # ItemIgnoresTransformations, which QGraphicsScene.itemAt never hits,
-        # so Qt's own drag machinery cannot pick it up (PF-CAN-40).
+        # A journal pin dragged through the view's undo/lost-release path.
+        # Its screen-sized glyph needs a device-aware query (PF-CAN-40).
         self._pin_drag_item: QGraphicsItem | None = None
 
         # Group drill-down (#771): the one member that receives edit focus
@@ -1098,10 +1097,9 @@ class CanvasView(QGraphicsView):
     def _journal_pin_at(self, scene_pos: QPointF) -> QGraphicsItem | None:
         """The top-level journal pin under *scene_pos*, or None.
 
-        ``QGraphicsScene.itemAt`` never returns an ``ItemIgnoresTransformations``
-        item (measured on Qt 6.12 - with or without the canvas Y flip), so a pin
-        is invisible to Qt's own press / drag / double-click machinery even
-        though ``scene.items(pos)`` finds it. This walk is the pin's hit test;
+        The pin's local units are screen pixels. Supply the view's device
+        transform so the query hits its painted head under zoom and the Y flip;
+        an untransformed query tests a different place (#923). This walk
         it stops at a drag handle or another selectable item above the pin, and
         ignores a pin inside a group (the group is the click target there).
         """
@@ -1116,7 +1114,10 @@ class CanvasView(QGraphicsView):
         if scene is None:
             return None
         selectable = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
-        for candidate in scene.items(scene_pos):
+        for candidate in scene.items(
+            scene_pos, Qt.ItemSelectionMode.IntersectsItemShape,
+            Qt.SortOrder.DescendingOrder, self.viewportTransform(),
+        ):
             if isinstance(candidate, DRAG_HANDLE_TYPES):
                 return None
             if isinstance(candidate, JournalPinItem):
@@ -2892,8 +2893,8 @@ class CanvasView(QGraphicsView):
                 event.accept()
                 return
 
-        # A journal pin's constant-screen glyph cannot be hit by Qt's own
-        # itemAt; give the Select tool the click it needs (PF-CAN-40).
+        # A journal pin uses our selection/undo path at its device-sized head
+        # (PF-CAN-40), including lost-release recovery.
         tool = self._tool_manager.active_tool
         if (
             event.button() == Qt.MouseButton.LeftButton
@@ -3498,7 +3499,7 @@ class CanvasView(QGraphicsView):
                 event.accept()
                 return
 
-        # A pin is invisible to Qt's hit test (PF-CAN-40): open its note here.
+        # Open a note through the same device-aware pin query (PF-CAN-40).
         if event.button() == Qt.MouseButton.LeftButton:
             tool = self._tool_manager.active_tool
             if (

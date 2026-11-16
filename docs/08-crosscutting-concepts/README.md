@@ -3134,6 +3134,35 @@ readiness. A controlled run found nine badge pixels changing between captures;
 the exact image-equality assertion remains unchanged. Pinned by
 `tests/integration/test_sun_map_workflow.py::test_hours_of_sun_from_the_button_to_the_export_and_back`.
 
+### 8.10.18 Expected failures and portable raster assertions (#897, #921, #922)
+
+An `xfail` names the expected exception: the remaining memory-slope tripwires use
+`raises=AssertionError`. `pytest-timeout` raises pytest's `Failed`, so a timeout
+must fail CI instead of becoming an expected defect. The collection-wide guard is
+`tests/unit/test_xfail_contract.py::test_expected_failures_do_not_mask_pytest_timeouts`.
+The former non-Windows blanket markers for #897 are removed.
+
+One diagnostic row may select 174 plants. `replace_selection` blocks intermediate
+scene signals and publishes one final `selectionChanged`; an unchanged selection
+publishes none. The showcase workflow pins that count. Unbatched navigation emitted
+174 signals and took 17.009 s on the Linux CPU probe before coverage; the same
+Windows test after batching took 1.15 s including the rest of its workflow. These
+are mechanism evidence, not a cross-machine speed ratio.
+
+Raster assertions must distinguish visible content from rounding and translucency.
+The sun-key exclusion test observes up to four channel levels at eleven pixels
+between identical Linux renders; its <30 summed-channel bound remains below the
+>90 visible-ink positive control. The succession-tag test measures full-coverage
+green pixels actually overlapped by a white object, rather than assuming that an
+alpha-215 tag has an invariant threshold-green area on black and white backgrounds.
+
+The translation gate's bottleneck was repeated AST traversal, not catalog lookups.
+`Sources` builds one per-inventory node/parent index per file, shared by all audits;
+it keeps no global source cache. The counting guard and hostile/missing-key tests
+in `tests/unit/test_translation_gate.py` preserve the full source/catalog/binary
+contract. A same-machine branch-coverage + cProfile run dropped from 192.28 million
+calls / 61.56 s to 63.71 million / 26.92 s; timings include profiler overhead.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -9017,6 +9046,28 @@ detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth
 profile is Constrained Baseline (no Qt API for another); a year tour started within an hour of midnight uses the nearest reading within the
 missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
 sun moves by at most that hour).
+
+#### Re-check QTBUG-152289 (#916, TD-041)
+
+Re-test on **every Qt pair version bump** and **every change of
+[QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289)**. The owner's
+upstream reporting account watches the ticket. Never attach a minidump or an
+unscrubbed log; external evidence uses the standalone reproducer only.
+
+Follow [ADR-048 evidence, "Effect chain with glow"](../09-architecture-decisions/adr-048-evidence/README.md)
+(search that page for the title): its recipe uses official Qt binaries and
+`qml.exe`, about ten WARP repetitions and each of the `--no-glow`, `--no-ssr`
+and `--no-dof` controls. Read process exit codes, including exit-time crashes,
+rather than accepting an `ALIVE` line. Record the Qt version and file versions
+of `d3d11.dll`, `d3d10warp.dll` and `dxgi.dll`: a Windows update can change the
+result without changing Qt. Repeat against the locked PyQt6 bundle before
+changing the app's workaround.
+
+When the failure is fixed, remove the `depthOfFieldActive` term from `ssrEnabled`
+in the production QML, invert the `ultra_blur` regression gate, and verify that
+Ultra has reflections while blur is drawn. Until that evidence exists, keep
+the workaround and record the re-test under #744. The dependency-bump entry
+points link here; the upstream recipe remains in ADR-048's evidence directory.
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

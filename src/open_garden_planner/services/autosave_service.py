@@ -4,15 +4,21 @@ Provides automatic periodic saving to a temporary location
 and recovery detection on startup.
 """
 
+from __future__ import annotations
+
 import logging
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.config.settings import get_settings
+
+if TYPE_CHECKING:
+    from open_garden_planner.core.project import ProjectManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +42,11 @@ class AutoSaveManager(QObject):
     AUTOSAVE_PREFIX = "~autosave_"
     AUTOSAVE_EXTENSION = ".ogp"
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(self, project_manager: ProjectManager, parent: QObject | None = None) -> None:
         """Initialize the auto-save manager."""
         super().__init__(parent)
 
+        self._project_manager = project_manager
         self._settings = get_settings()
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._on_timer_tick)
@@ -157,17 +164,9 @@ class AutoSaveManager(QObject):
         Args:
             path: Path to save to
         """
-        # Import here to avoid circular dependency
-        from open_garden_planner.core.project import ProjectManager
-
-        # Create a temporary ProjectManager just for serialization
-        pm = ProjectManager()
-
-        # Serialize scene data
-        data = pm._serialize_scene(self._scene)
-
         # Add auto-save metadata
-        save_data = data.to_dict()
+        assert self._scene is not None
+        save_data = self._project_manager.recovery_dict(self._scene)
         save_data["autosave_metadata"] = {
             "timestamp": datetime.now(UTC).isoformat(),
             "original_file": str(self._current_project_path) if self._current_project_path else None,

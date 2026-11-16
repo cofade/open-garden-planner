@@ -584,7 +584,7 @@ The runbook for acting on the monthly issue:
    Chromium — 6.140 beside 6.12 — and an older one fails to import: PF-CI-17; `PyQt6-Pdf`, a
    `dev` extra, follows it) and keep `mcp` on v1; `tests/unit/test_dependency_governance.py`
    pins those caps. Any change of the Qt pair's version also triggers the QTBUG-151940 re-check (TD-040, §8.29.5 known
-   limit 11).
+   limit 11) and the QTBUG-152289 re-check (TD-041, §8.29.15 "Re-check QTBUG-152289").
 3. `python scripts/check_dependency_lock.py` (lock/export agreement) and the full gates,
    including the frozen-exe smoke and `--selftest` — a dependency change is exactly what
    those checks exist for.

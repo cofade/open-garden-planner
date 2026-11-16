@@ -2935,7 +2935,7 @@ class GardenPlannerApp(QMainWindow):
         """Set up the auto-save manager."""
         from open_garden_planner.services import AutoSaveManager
 
-        self._autosave_manager = AutoSaveManager(self)
+        self._autosave_manager = AutoSaveManager(self._project_manager, self)
         self._autosave_manager.set_scene(self.canvas_scene)
 
         # Connect dirty state changes

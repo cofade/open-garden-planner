@@ -12,8 +12,6 @@ measured the scale bar at 1.25:1 on soil); with one it is the halo.
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QImage, QPainter
@@ -215,7 +213,6 @@ def test_an_object_label_reads_on_every_background(canvas, background: str) -> N
     assert ratio >= MIN_TEXT_CONTRAST, f"object label on {background}: {ratio:.2f}:1"
 
 
-@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 @pytest.mark.parametrize("background", ["lawn", "soil", "roof", "shadow"])
 def test_an_area_label_reads_on_every_background(canvas, background: str) -> None:
     view, scene = canvas
@@ -224,9 +221,12 @@ def test_an_area_label_reads_on_every_background(canvas, background: str) -> Non
     bed.area_label_visible = True
     with_label = _grab(view)
     ink = bed._area_label_item.brush().color()
+    area_region = bed._area_label_item.deviceTransform(view.viewportTransform()).mapRect(
+        bed._area_label_item.boundingRect()
+    ).toAlignedRect()
     bed.area_label_visible = False
     without = _grab(view)
-    ratio = _label_contrast(with_label, without, ink, _label_region(view, bed))
+    ratio = _label_contrast(with_label, without, ink, area_region)
     assert ratio >= MIN_TEXT_CONTRAST, f"area label on {background}: {ratio:.2f}:1"
 
 
@@ -268,7 +268,6 @@ def test_a_label_is_centred_on_its_object_at_every_zoom(canvas, zoom: float, rot
     assert area_box.top() < box.bottom() + 8.0
 
 
-@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 @pytest.mark.parametrize("zoom", [0.42, 1.0, 3.5])
 def test_the_area_is_shown_together_with_the_name(canvas, zoom: float) -> None:
     """The area hangs under the name, closer than two strangers' labels may lie.
@@ -287,10 +286,11 @@ def test_the_area_is_shown_together_with_the_name(canvas, zoom: float) -> None:
 
     with_area = _grab(view)
     ink = bed._area_label_item.brush().color()
+    region = bed._area_label_item.deviceTransform(view.viewportTransform()).mapRect(
+        bed._area_label_item.boundingRect()
+    ).toAlignedRect()
     bed.area_label_visible = False
     without = _grab(view)
-    centre = view.mapFromScene(bed.mapToScene(bed.rect().center()))
-    region = QRect(centre.x() - 80, centre.y() + 6, 160, 30)        # under the name
     ratio = _label_contrast(with_area, without, ink, region)
     assert ratio >= MIN_TEXT_CONTRAST, f"area under the name at zoom {zoom}: {ratio:.2f}:1"
 
