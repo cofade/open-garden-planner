@@ -98,7 +98,43 @@ _STYLE_MITRE_LIMIT: Final = float(QPen().miterLimit())
 #: bounds its stroke representation so Qt's path stroker does not spend seconds
 #: resolving tens of thousands of self-intersections (#928).
 DENSE_PATH_MAX_VERTICES: Final = 256
+DENSE_EXACT_STROKE_LIMIT: Final = 4096
+DENSE_FOLD_RATIO: Final = 4.0
 DENSE_STROKE_BUCKETS: Final = 16
+
+
+def needs_bounded_stroke(points: Sequence[QPointF]) -> bool:
+    """Whether ``points`` needs envelope decimation before wide/styled stroking (#928).
+
+    Polylines up to ``DENSE_PATH_MAX_VERTICES`` always stay exact; polylines
+    above ``DENSE_EXACT_STROKE_LIMIT`` always decimate. Between those limits,
+    only tightly folded zigzags (arc length > ``DENSE_FOLD_RATIO`` times the
+    bounding diagonal) decimate, keeping smooth 300–4,096 point curves exact
+    between the 2D canvas and 3D ground bake.
+    """
+    n = len(points)
+    if n <= DENSE_PATH_MAX_VERTICES:
+        return False
+    if n > DENSE_EXACT_STROKE_LIMIT:
+        return True
+    p0 = points[0]
+    min_x = max_x = prev_x = p0.x()
+    min_y = max_y = prev_y = p0.y()
+    arc_len = 0.0
+    for pt in points[1:]:
+        x, y = pt.x(), pt.y()
+        arc_len += math.hypot(x - prev_x, y - prev_y)
+        prev_x, prev_y = x, y
+        if x < min_x:
+            min_x = x
+        elif x > max_x:
+            max_x = x
+        if y < min_y:
+            min_y = y
+        elif y > max_y:
+            max_y = y
+    diag = math.hypot(max_x - min_x, max_y - min_y)
+    return arc_len > DENSE_FOLD_RATIO * max(diag, 1.0)
 
 
 def bounded_stroke_points(
@@ -332,7 +368,7 @@ class PathStylePaint:
 
     def _dense_stroke_points(self) -> list[QPointF]:
         """Bounded points used for wide/offset stroking on dense polylines (#928)."""
-        if len(self._points) <= DENSE_PATH_MAX_VERTICES:
+        if not needs_bounded_stroke(self._points):
             return self._points
         if self._stroke_points_cache is None:
             self._stroke_points_cache = bounded_stroke_points(self._points)
@@ -340,7 +376,7 @@ class PathStylePaint:
 
     def _stroke_path(self) -> QPainterPath:
         """Bounded path passed to QPainterPathStroker / drawPath (#928)."""
-        if len(self._points) <= DENSE_PATH_MAX_VERTICES:
+        if not needs_bounded_stroke(self._points):
             return self._path
         if self._stroke_path_cache is None:
             self._stroke_path_cache = build_polyline_path(self._dense_stroke_points())

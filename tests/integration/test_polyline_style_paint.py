@@ -439,3 +439,43 @@ def test_dense_polyline_exports_preserve_width_and_bound_paths(
     # Bounded stroke path rather than 16,000 raw line segments in SVG
     assert svg_text.count(" L ") < 500
     assert item.point_count == 16_000
+
+
+def test_selected_dense_polyline_partial_exposed_rect_does_not_poison_cache(qtbot: Any) -> None:
+    """Painting a selected dense polyline with a partial ``option.exposedRect``
+    must cache the whole polyline, not clip segments outside the first expose (#928)."""
+    from PyQt6.QtWidgets import QStyle, QStyleOptionGraphicsItem
+
+    from open_garden_planner.core.item_look import adopt_pen
+
+    pts = _dense_fence_points(16_000)
+    item = PolylineItem(pts, object_type=ObjectType.FENCE, path_fence_style=PathFenceStyle.WOODEN_FENCE)
+    adopt_pen(item, QPen(QColor(255, 0, 255), 14.0))
+    item.shadows_enabled = False
+    item.setSelected(True)
+
+    opt_left = QStyleOptionGraphicsItem()
+    opt_left.state = QStyle.StateFlag.State_Selected
+    opt_left.exposedRect = QRectF(0.0, 90.0, 80.0, 330.0)
+    img_left = QImage(420, 440, QImage.Format.Format_RGBA8888_Premultiplied)
+    img_left.fill(BACKGROUND)
+    p1 = QPainter(img_left)
+    try:
+        item._paint_dense_selected_cached(p1, opt_left, None)
+    finally:
+        p1.end()
+
+    opt_full = QStyleOptionGraphicsItem()
+    opt_full.state = QStyle.StateFlag.State_Selected
+    opt_full.exposedRect = QRectF(0.0, 90.0, 320.0, 330.0)
+    img_full = QImage(420, 440, QImage.Format.Format_RGBA8888_Premultiplied)
+    img_full.fill(BACKGROUND)
+    p2 = QPainter(img_full)
+    try:
+        item._paint_dense_selected_cached(p2, opt_full, None)
+    finally:
+        p2.end()
+
+    px = _array(img_full)
+    right_half = px[:, 200:310, :]
+    assert np.any(right_half != 255), "partial exposedRect poisoned the whole-item selected cache"

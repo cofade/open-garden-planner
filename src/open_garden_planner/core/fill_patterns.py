@@ -541,7 +541,7 @@ def brush_for_painter(brush: QBrush, painter: QPainter) -> QBrush | None:
     brush's own transform included — rounded up to a power of two.
 
     None for a solid brush, a tile this module did not make, and level 1: at
-    100 % and below a fill is painted with exactly the brush it has.
+    50–100 % zoom a fill is painted with exactly the brush it has.
     """
     if brush.style() != Qt.BrushStyle.TexturePattern:
         return None

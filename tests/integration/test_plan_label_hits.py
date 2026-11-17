@@ -346,3 +346,32 @@ def test_plan_label_in_plain_scene_ignores_parent_and_view_transforms(qtbot) -> 
             if c.red() + c.green() + c.blue() < 600:
                 ink += 1
     assert ink > 10, "PlanLabelItem did not paint upright in a plain QGraphicsScene"
+
+
+def test_grouped_small_circle_with_long_name_keeps_tight_group_bounds(canvas) -> None:
+    """#919: Python-tracked ``ItemIgnoresTransformations`` on ``PlanLabelItem`` must
+    not inflate ``GroupItem.boundingRect()`` or catch ``scene.itemAt()`` clicks
+    far outside the group's members."""
+    from PyQt6.QtGui import QTransform
+
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+
+    _view, scene = canvas
+    circle = CircleItem(
+        500,
+        500,
+        5.0,
+        object_type=ObjectType.PERENNIAL,
+        name="Cherry Tomato Super Sweet 100 Variety Very Long Name",
+    )
+    circle.shadows_enabled = False
+    scene.addItem(circle)
+    circle.initialize_label()
+
+    group = GroupItem()
+    scene.addItem(group)
+    group.addToGroup(circle)
+
+    assert group.boundingRect().width() == pytest.approx(circle.boundingRect().width() + 8.0)
+    assert group.boundingRect().width() < 26.0
+    assert scene.itemAt(QPointF(350, 500), QTransform()) is None

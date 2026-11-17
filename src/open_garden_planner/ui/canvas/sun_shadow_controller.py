@@ -160,7 +160,7 @@ _DEBOUNCE_MS = 150
 # until steps pause for this long (#846). Slightly above playback STEP_MS (200)
 # so animation frames do not re-feather between ticks.
 _SCRUB_SETTLE_MS = 260
-_SCRUB_WINDOW_NS = 350_000_000
+_SCRUB_WINDOW_NS = 500_000_000
 
 # While a zoom is under way the overlay shows the picture of its last
 # rasterisation, scaled; it is rasterised for the new zoom once this long has
@@ -181,9 +181,10 @@ _PICTURE_MAX_SIDE = 2048
 # zoom step: 60-130 ms at fit, 25-45 ms at 4 times fit, 6-13 ms at 8 times).
 _PICTURE_MAX_ENLARGEMENT = 4.0
 
-# How many zooms count as "rasterised for": more than one, because two views of
-# one scene (or a view and a redraw at another scale) alternate.
-_SETTLED_SCALES = 4
+# Only the currently held rasterised scale matches ``_picture`` and Qt's
+# ``DeviceCoordinateCache``, so returning to a prior zoom also steps through
+# the stand-in picture first and settles on the timer (#846).
+_SETTLED_SCALES = 1
 
 
 def _enlargement(kept: tuple[float, ...], now: tuple[float, ...]) -> float:
@@ -1000,6 +1001,7 @@ class SunShadowController(QObject):
         self._settle.timeout.connect(self.settle_overlay)
         # After rapid timeline scrubbing stops, rasterise the soft edge (#846).
         self._last_clock_tick_ns = 0
+        self._last_solved_paint_revision: int | None = None
         self._caster_cache: (
             tuple[
                 int,
@@ -1197,6 +1199,8 @@ class SunShadowController(QObject):
             canvas_key,
             caster_key_part,
         )
+        if paint_rev is not None:
+            self._last_solved_paint_revision = paint_rev
         overlay = self._alive_overlay()
         if key == self._last_key and overlay is not None and self._overlay_wanted:
             self._set_state(STATE_ACTIVE)
@@ -1242,11 +1246,17 @@ class SunShadowController(QObject):
     # ── internals ──────────────────────────────────────────────
 
     def _on_scene_changed(self, _regions: list[QRectF] | None = None) -> None:
-        # Qt's scene.changed also fires asynchronously after our own overlay
-        # update; keep _caster_cache here because CanvasScene.paint_revision
-        # already invalidates it on any real plan/item change (#846).
+        # Qt's scene.changed fires asynchronously after our own overlay update;
+        # ignore it when CanvasScene.paint_revision has not moved so _debounce
+        # never wipes _caster_cache between 200 ms Animate ticks (#846).
         if not self._enabled:
             return
+        raw_rev = getattr(self._scene, "paint_revision", None)
+        paint_rev = raw_rev if isinstance(raw_rev, int) else None
+        if paint_rev is not None and paint_rev == self._last_solved_paint_revision:
+            return
+        if paint_rev is not None:
+            self._caster_cache = None
         with contextlib.suppress(RuntimeError):  # #230 teardown guard
             self._debounce.start()
 
@@ -1369,6 +1379,9 @@ class SunShadowController(QObject):
         night_regions = (WeightedShadowRegion([list(night_poly)], occlusion=1.0, transmittance=0.0),)
         overlay.set_weighted_regions(night_regions)
         self._show(overlay)
+        raw_rev = getattr(self._scene, "paint_revision", None)
+        if isinstance(raw_rev, int):
+            self._last_solved_paint_revision = raw_rev
         self._last_key = night_key
         self.recompute_count += 1
         self._publish((night_poly,), night_regions)

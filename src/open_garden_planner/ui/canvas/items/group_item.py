@@ -255,6 +255,30 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         self._drill_down_child = child
         self.update()
 
+    def childrenBoundingRect(self) -> QRectF:
+        """Return union of non-screen-space descendant bounds (#919).
+
+        ``PlanLabelItem`` keeps ``ItemIgnoresTransformations`` in Python so Qt's
+        BSP tree stays active. Excluding screen-space descendants here prevents
+        pixel-sized labels from inflating ``GroupItem`` bounds, selection
+        frames, or ``scene.itemAt`` hit-testing.
+        """
+        ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+        bounds = QRectF()
+        stack = list(self.childItems())
+        while stack:
+            child = stack.pop()
+            if getattr(child, "_ignores_transformations", False) or bool(
+                child.flags() & ignore_flag
+            ):
+                continue
+            rect = child.boundingRect()
+            if not rect.isEmpty():
+                mapped = child.mapRectToItem(self, rect)
+                bounds = mapped if bounds.isEmpty() else bounds.united(mapped)
+            stack.extend(child.childItems())
+        return bounds
+
     def boundingRect(self) -> QRectF:
         """Return children bounding rect with a small margin."""
         return self.childrenBoundingRect().adjusted(-4, -4, 4, 4)

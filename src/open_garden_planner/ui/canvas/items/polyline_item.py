@@ -46,6 +46,7 @@ from .path_style_paint import (
     bounded_stroke_points,
     build_polyline_path,
     current_render_walk_cap,
+    needs_bounded_stroke,
     style_paint_reach,
 )
 from .polygon_item import MAX_FULL_DETAIL_VERTICES, MAX_POLYGON_VERTICES
@@ -178,10 +179,10 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
     def prepareGeometryChange(self) -> None:
         """Invalidate derived dense-stroke and selected raster caches (#928)."""
+        super().prepareGeometryChange()
         self._dense_stroke_cache = None
         self._dense_shape_cache = None
         self._dense_selected_cache = None
-        super().prepareGeometryChange()
 
     def setPen(self, pen: QPen) -> None:
         """Notify while the old pen still determines our extra styled bounds."""
@@ -288,14 +289,15 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
     def _bounded_stroke_geometry(self) -> tuple[list[QPointF], QPainterPath]:
         """Return ``(points, path)`` bounded for wide/styled stroking (#928).
 
-        Sparse polylines (``<= MAX_FULL_DETAIL_VERTICES``) return their exact
-        ``self._points`` and ``self.path()`` unchanged. Denser polylines return
-        an envelope-preserving decimation so Qt's ``QPainterPathStroker`` never
-        resolves tens of thousands of self-intersections, while ``self._points``
-        and ``self.path()`` remain intact for editing and serialization.
+        Polylines that do not exceed the folding/vertex guard return their
+        exact ``self._points`` and ``self.path()`` unchanged. Denser/folded
+        polylines return an envelope-preserving decimation so Qt's
+        ``QPainterPathStroker`` never resolves tens of thousands of
+        self-intersections, while ``self._points`` and ``self.path()`` remain
+        intact for editing and serialization.
         """
         path = self.path()
-        if len(self._points) <= MAX_FULL_DETAIL_VERTICES:
+        if not needs_bounded_stroke(self._points):
             return self._points, path
         cached = self._dense_stroke_cache
         if cached is None or cached[0] != path:
@@ -307,7 +309,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
     def shape(self) -> QPainterPath:
         """Return stroked shape for hit-testing, bounded for dense polylines (#928)."""
-        if len(self._points) <= MAX_FULL_DETAIL_VERTICES:
+        if not needs_bounded_stroke(self._points):
             return super().shape()
         path = self.path()
         width = max(self.pen().widthF(), 1.0)
@@ -375,13 +377,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # preserve stored pen width and style without passing all N vertices to
         # Qt's path stroker, and cache the selected canvas raster (including
         # shadow) across repaints (#928).
-        if (
-            self.object_type != ObjectType.ROOF_RIDGE
-            and (
-                (self.isSelected() and len(self._points) > MAX_FULL_DETAIL_VERTICES)
-                or len(self._points) > 4096
-            )
-        ):
+        if needs_bounded_stroke(self._points) and self.object_type != ObjectType.ROOF_RIDGE:
             if (
                 self.isSelected()
                 and is_interactive_paint(self, widget)
@@ -452,6 +448,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         *,
         include_shadow: bool = False,
         include_selection: bool = True,
+        use_whole_clip: bool = False,
     ) -> None:
         """Paint a dense polyline's body (and optionally shadow/selection) using
         bounded envelope geometry and capped style walks (#928).
@@ -461,7 +458,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         bounded_pts, bounded_path = self._bounded_stroke_geometry()
         style = self._path_fence_style
         if style in STYLES_PAINTED:
-            clip = self._canvas_paint_clip(option, widget)
+            clip = None if use_whole_clip else self._canvas_paint_clip(option, widget)
             if clip is None:
                 clip = self._whole_item_clip()
             budget = WalkBudget(
@@ -537,6 +534,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     widget,
                     include_shadow=True,
                     include_selection=False,
+                    use_whole_clip=True,
                 )
             finally:
                 cache_painter.end()

@@ -5,7 +5,7 @@ from datetime import date
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPaintEngine, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QGraphicsEllipseItem,
     QGraphicsItem,
@@ -27,7 +27,6 @@ from open_garden_planner.core.plant_renderer import (
     paint_plant,
 )
 from open_garden_planner.core.plant_sizing import sizing_for_item, spacing_conflict_arcs
-from open_garden_planner.core.sprite_raster import paint_sprite
 
 from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin
@@ -39,6 +38,8 @@ from .resize_handle import (
     _format_coordinate,
     resize_rect_item_keeping_anchor,
 )
+
+_UNSET_DATE = object()
 
 
 def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
@@ -186,7 +187,10 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self._plant_category: PlantCategory | None = None
         self._plant_species: str = ""
         self._cached_bounding_rect: QRectF | None = None
-        self._cached_bounding_rect_key: tuple[Any, ...] | None = None
+        self._cached_bounding_rect_date: object = _UNSET_DATE
+        self._cached_bounding_rect_spread: Any = None
+        self._cached_bounding_rect_diam: Any = None
+        self._cached_bounding_rect_pdate: Any = None
         self._cached_spacing_ring: tuple[
             tuple[Any, ...], tuple[tuple[float, float], ...], QPainterPath
         ] | None = None
@@ -287,45 +291,40 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         """Drop cached geometry after Qt removes the old rect from its index (PF-CAN-43)."""
         super().prepareGeometryChange()
         self._cached_bounding_rect = None
-        self._cached_bounding_rect_key = None
+        self._cached_bounding_rect_date = _UNSET_DATE
         self._cached_spacing_ring = None
 
     def setRect(self, *args: Any) -> None:
         """Invalidate cached geometry after C++ updates the ellipse rect."""
         super().setRect(*args)
         self._cached_bounding_rect = None
-        self._cached_bounding_rect_key = None
+        self._cached_bounding_rect_date = _UNSET_DATE
         self._cached_spacing_ring = None
 
     def setPen(self, *args: Any) -> None:
         """Invalidate cached bounding rect after C++ updates the pen."""
         super().setPen(*args)
         self._cached_bounding_rect = None
-        self._cached_bounding_rect_key = None
+        self._cached_bounding_rect_date = _UNSET_DATE
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for plant SVG overflow, shadow, and companion ring."""
+        plan_date = getattr(self.scene(), "drawn_plan_date", None)
         meta = self._metadata
-        species = meta.get("plant_species") if isinstance(meta, dict) else None
         instance = meta.get("plant_instance") if isinstance(meta, dict) else None
-        scene = self.scene()
-        key: tuple[Any, ...] = (
-            self._object_type,
-            self.isSelected(),
-            self._shadows_enabled,
-            self._companion_highlight,
-            self._antagonist_warning,
-            self._spacing_circles_visible,
-            self._spacing_overlap,
-            self._spacing_radius_cm,
-            species.get("max_spread_cm") if isinstance(species, dict) else None,
-            instance.get("current_spread_cm") if isinstance(instance, dict) else None,
-            instance.get("current_diameter_cm") if isinstance(instance, dict) else None,
-            instance.get("current_height_cm") if isinstance(instance, dict) else None,
-            instance.get("planting_date") if isinstance(instance, dict) else None,
-            getattr(scene, "drawn_plan_date", None),
-        )
-        if self._cached_bounding_rect is not None and self._cached_bounding_rect_key == key:
+        if isinstance(instance, dict):
+            spread = instance.get("current_spread_cm")
+            diam = instance.get("current_diameter_cm")
+            pdate = instance.get("planting_date")
+        else:
+            spread = diam = pdate = None
+        if (
+            self._cached_bounding_rect is not None
+            and self._cached_bounding_rect_date == plan_date
+            and self._cached_bounding_rect_spread == spread
+            and self._cached_bounding_rect_diam == diam
+            and self._cached_bounding_rect_pdate == pdate
+        ):
             return QRectF(self._cached_bounding_rect)
 
         base = super().boundingRect()
@@ -366,7 +365,10 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             extra = spacing_r - self._radius + self._SPACING_RING_MAX_CM
             base = base.adjusted(-extra, -extra, extra, extra)
         self._cached_bounding_rect = QRectF(base)
-        self._cached_bounding_rect_key = key
+        self._cached_bounding_rect_date = plan_date
+        self._cached_bounding_rect_spread = spread
+        self._cached_bounding_rect_diam = diam
+        self._cached_bounding_rect_pdate = pdate
         return base
 
     def grid_cover_path(self) -> QPainterPath:
@@ -484,47 +486,6 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             pen.setDashPattern(list(self._SPACING_DASH_PATTERN))
             p.setPen(pen)
             p.drawPath(path)
-
-        engine = painter.paintEngine()
-        if spacing_r > 0 and (
-            engine is None
-            or engine.type()
-            not in (
-                QPaintEngine.Type.SVG,
-                QPaintEngine.Type.Picture,
-                QPaintEngine.Type.Pdf,
-                QPaintEngine.Type.User,
-            )
-        ):
-            center = self.rect().center()
-            margin = casing_width / 2.0 + px
-            target = QRectF(
-                center.x() - spacing_r - margin,
-                center.y() - spacing_r - margin,
-                (spacing_r + margin) * 2.0,
-                (spacing_r + margin) * 2.0,
-            )
-            sprite_key = (
-                "spacing_ring",
-                round(spacing_r, 4),
-                tuple((round(s, 3), round(sp, 3)) for s, sp in arcs),
-                color.rgba(),
-                round(width, 4),
-                round(casing_width, 4),
-            )
-
-            def _draw_sprite(p: QPainter, pixmap_rect: QRectF) -> None:
-                p.save()
-                p.scale(
-                    pixmap_rect.width() / target.width(),
-                    pixmap_rect.height() / target.height(),
-                )
-                p.translate(-target.topLeft())
-                _draw_vector(p)
-                p.restore()
-
-            if paint_sprite(painter, target, sprite_key, _draw_sprite):
-                return
 
         painter.save()
         _draw_vector(painter)
@@ -801,8 +762,15 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged,
             QGraphicsItem.GraphicsItemChange.ItemSceneHasChanged,
         ):
-            self._cached_bounding_rect = None
-            self._cached_bounding_rect_key = None
+            if (
+                change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged
+                and self._spacing_circles_visible
+                and is_plant_type(self.object_type)
+            ):
+                self.prepareGeometryChange()
+            else:
+                self._cached_bounding_rect = None
+                self._cached_bounding_rect_date = _UNSET_DATE
             self._cached_spacing_ring = None
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()

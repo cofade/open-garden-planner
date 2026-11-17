@@ -609,6 +609,72 @@ class TestTimelineScrub:
         qtbot.waitUntil(lambda: not overlay._feather_deferred, timeout=3000)
         view.viewport().repaint()
         assert len(feather_calls) == 1
+        assert len(caster_calls) == 0
+
+    def test_animate_200ms_ticks_do_not_wipe_caster_cache_via_debounce(
+        self, staged, qtbot, monkeypatch
+    ) -> None:
+        """200 ms Animate ticks fire after the 150 ms _debounce interval; the
+        overlay's own scene.changed echo must not wipe _caster_cache (#846)."""
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, view = staged
+        caster_calls: list[int] = []
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        now_ns = [10_000_000_000_000_000]
+        monkeypatch.setattr(
+            sun_shadow_controller.time,
+            "monotonic_ns",
+            lambda: now_ns[0],
+        )
+
+        for step in range(5):
+            controller.set_sim_datetime(datetime(2026, 6, 21, 10, step * 10, tzinfo=UTC))
+            view.viewport().repaint()
+            if step < 4:
+                qtbot.wait(170)  # longer than _DEBOUNCE_MS (150 ms)
+                now_ns[0] += 200_000_000
+
+        assert len(caster_calls) == 1
+        qtbot.wait(220)
+        assert len(caster_calls) == 1
+
+    def test_returning_to_prior_settled_zoom_uses_stand_in_before_settle(
+        self, staged, qtbot
+    ) -> None:
+        """Returning to a previously settled zoom uses the stand-in picture first
+        and settles asynchronously rather than rasterising synchronously (#846)."""
+        scene, controller, view = staged
+        overlay = _overlay(scene)
+        fit_zoom = view.zoom_factor
+        controller.settle_overlay()
+        view.viewport().repaint()
+
+        # Zoom to 1.12x fit and let it settle there.
+        view.set_zoom(fit_zoom * 1.12)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        controller.settle_overlay()
+        view.viewport().repaint()
+        before_return = overlay.exact_paints
+
+        # Return to fit zoom: must paint stand-in without synchronous rasterisation.
+        view.set_zoom(fit_zoom)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        assert overlay.exact_paints == before_return
+        assert overlay._pending is not None
+
+        qtbot.waitUntil(lambda: overlay._pending is None, timeout=3000)
+        view.viewport().repaint()
+        assert overlay.exact_paints == before_return + 1
 
     def test_scene_edit_during_scrub_invalidates_caster_cache(
         self, staged, monkeypatch

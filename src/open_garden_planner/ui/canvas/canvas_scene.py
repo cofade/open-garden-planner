@@ -316,6 +316,7 @@ class CanvasScene(QGraphicsScene):
         # The label pass, with each viewport's kept layout (``plan_labels``);
         # made at the first paint.
         self._label_pass: LabelPass | None = None
+        self._suppress_label_pass: bool = False
         # What each viewport's view draws over it that no label may touch
         # (``set_label_blockers``), by the viewport itself, held weakly: an
         # entry goes with its widget. Not by ``id(viewport)``, as it was: an id
@@ -424,7 +425,7 @@ class CanvasScene(QGraphicsScene):
         carry the same labels as the canvas.
         """
         super().drawForeground(painter, rect)
-        if painter is None:
+        if painter is None or self._suppress_label_pass:
             return
         if self._label_pass is None:
             from open_garden_planner.ui.canvas.plan_labels import LabelPass

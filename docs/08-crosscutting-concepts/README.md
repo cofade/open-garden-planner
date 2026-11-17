@@ -9931,10 +9931,9 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A zoom step repaints every visible item's device cache: 25–32 ms near fit on
   this plan, overlay on or off (48–64 ms on the machine under load). With the
   spacing rings off it is lower; how the rings are drawn is another change's.
-- A zoom step that returns to a zoom the overlay was rasterised for (one of
-  the last four) rasterises it at once instead of showing the kept picture:
-  95–99 ms at 112 % on this plan. The table's zoom steps are steps to a new
-  zoom.
+- Returning to a prior zoom scale also steps through the kept stand-in picture
+  first and rasterises once `_settle` fires (#846: `_SETTLED_SCALES = 1`).
+  Only the active zoom matching `_picture` stays settled.
 - The **first** zoom across a raster level (100 %, 200 %, 400 % …) rasterises
   each visible sprite at the new level and tints the detail tiles in use: one
   frame of 0.2–0.5 s on this plan (61 plants; 0.7 s measured once under load),
@@ -9946,7 +9945,7 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
 - A **scrub** step is no longer uncached (#846): rapid consecutive
-  `_on_clock_changed` steps (within `_SCRUB_WINDOW_NS = 350 ms`, covering slider
+  `_on_clock_changed` steps (within `_SCRUB_WINDOW_NS = 500 ms`, covering slider
   drags and 200 ms `Animate` ticks) reuse the `(paint_revision, plan_date)`
   caster snapshot (`SunShadowController._caster_cache`) and defer `paint_feather`
   + `_paint_and_keep` pixmap allocation (`SunShadowOverlayItem.set_feather_deferred`)
