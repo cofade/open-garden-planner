@@ -13520,6 +13520,8 @@ measurements: §8.37; FR-GRID-05 and FR-EDIT-20.
 
 ### ADR-076 addendum: editing frames and plan writing (#840, #841, #843, #844, #853, #867, #872, #874)
 
+**Status:** Shipped in v1.40.6 (PR #934) after owner manual acceptance.
+
 **Decision (2026-11-17):**
 
 1. `core/item_geometry.py` owns `selection_frame_rect` and its scene-space adapter.
