@@ -16,14 +16,12 @@ Choose metric or imperial lengths and areas, and litres or US quarts and gallons
 
 ## Current status
 
-Latest release: [v1.40.4](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.40.5](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
 owns current work and delivery status. [Open issues](https://github.com/cofade/open-garden-planner/issues)
-own the work list. The current themes are remaining measurement quantities, Store/MSIX readiness, 3D rendering quality and
-performance, CAD and drawing tools, and architecture and technical debt. See the roadmap's
-"Current work" section for the issue pointers.
+own the work list. See the roadmap's "Current work" section for the active themes and issue pointers.
 
 ## Community
 

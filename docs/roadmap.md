@@ -45,7 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
-| 🚧 | Recovery and test reliability (#797, #897, #916, #921, #922, #923) | Complete autosaves, bounded selection notifications, portable CPU raster tests, a cheaper full translation gate, and measured Qt guidance | Draft delivery; ADR-003 addendum; §8.10.18; PF-CAN-40 |
+| ✅ | Recovery and test reliability (#797, #897, #916, #921, #922, #923) | Complete autosaves, bounded selection notifications, portable CPU raster tests, a cheaper full translation gate, and measured Qt guidance | v1.40.5; [PR #932](https://github.com/cofade/open-garden-planner/pull/932); ADR-003 addendum; §8.10.18; PF-CAN-40 |
 | ✅ | Canvas repaint package (#848, #877, #878, #927; partial #847) | Canvas repaint caches and unmeasured sun diagnostics | v1.40.4; [PR #926](https://github.com/cofade/open-garden-planner/pull/926); §8.27, §8.37, ADR-076 addendum |
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |
 | ✅ | Package #681/#664/#771 | Monthly dependency refresh, scene-wide split along a line, group drill-down | v1.37.10; [PR #783](https://github.com/cofade/open-garden-planner/pull/783); ADR-075; FR-35 |

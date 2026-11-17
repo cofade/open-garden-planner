@@ -51,6 +51,8 @@ or a claim that finite hostile outlines have bounded rendering costs.
 
 ### Addendum — complete autosave snapshots (#797)
 
+**Status:** Shipped in v1.40.5 (PR #932) after owner manual acceptance.
+
 Autosave binds to the live `ProjectManager`. Its `recovery_dict(scene)` emits
 `before_save` to flush pending form edits, then uses Save's `_build_project_data`
 with detached journal-pin reconciliation. `AutoSaveManager` adds recovery metadata
