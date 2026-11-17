@@ -23,6 +23,11 @@ The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/maste
 owns current work and delivery status. [Open issues](https://github.com/cofade/open-garden-planner/issues)
 own the work list. See the roadmap's "Current work" section for the active themes and issue pointers.
 
+Canvas editing contracts are documented in the
+[canvas concepts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#8917-handles-sit-on-the-outline-the-grid-lies-under-the-objects-790-793):
+object geometry drives snap/alignment, editing handles follow screen size, and
+plan text has a stable physical size across screen resolutions.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

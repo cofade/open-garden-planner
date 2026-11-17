@@ -12,6 +12,8 @@ from enum import Enum, auto
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.core.item_geometry import scene_frame_rect
+
 
 class AlignMode(Enum):
     """Alignment modes for multi-selection."""
@@ -51,7 +53,7 @@ def align_items(
     if len(items) < 2:
         return []
 
-    rects = [(item, item.sceneBoundingRect()) for item in items]
+    rects = [(item, scene_frame_rect(item)) for item in items]
     result: list[tuple[QGraphicsItem, QPointF]] = []
 
     if mode == AlignMode.LEFT:
@@ -118,7 +120,7 @@ def distribute_items(
     if len(items) < 3:
         return []
 
-    rects = [(item, item.sceneBoundingRect()) for item in items]
+    rects = [(item, scene_frame_rect(item)) for item in items]
 
     if mode == DistributeMode.HORIZONTAL:
         # Sort by horizontal center position

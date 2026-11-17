@@ -29,7 +29,7 @@ from open_garden_planner.core.measurement_display import length_text
 from open_garden_planner.core.units import LengthStyle
 from open_garden_planner.ui.canvas.items import GardenItemMixin
 from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
-from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem
+from open_garden_planner.ui.canvas.items.halo_text import HaloTextItem, PlanLabelItem
 
 # Colors
 COLOR_SATISFIED = QColor(0, 120, 200)  # Blue
@@ -545,7 +545,8 @@ class DimensionLineManager:
 
         # Distance text
         text_str = length_text(target_distance, style=LengthStyle.METRES)
-        text_item = HaloTextItem(text_str, centered=True)
+        text_item = PlanLabelItem(text_str)
+        text_item.free_extent_px = math.inf
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -615,7 +616,8 @@ class DimensionLineManager:
 
         # Distance text
         text_str = "↔ " + length_text(target_distance, style=LengthStyle.METRES)
-        text_item = HaloTextItem(text_str, centered=True)
+        text_item = PlanLabelItem(text_str)
+        text_item.free_extent_px = math.inf
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -679,7 +681,8 @@ class DimensionLineManager:
 
         # Distance text
         text_str = "↕ " + length_text(target_distance, style=LengthStyle.METRES)
-        text_item = HaloTextItem(text_str, centered=True)
+        text_item = PlanLabelItem(text_str)
+        text_item.free_extent_px = math.inf
         font = QFont()
         font.setPointSize(10)
         font.setBold(True)
@@ -725,7 +728,8 @@ class DimensionLineManager:
 
         # Label badge at midpoint
         mid = QPointF((pos_a.x() + pos_b.x()) / 2, (pos_a.y() + pos_b.y()) / 2)
-        text_item = HaloTextItem(label, centered=True)
+        text_item = PlanLabelItem(label)
+        text_item.free_extent_px = math.inf
         font = QFont()
         font.setPointSize(11)
         font.setBold(True)

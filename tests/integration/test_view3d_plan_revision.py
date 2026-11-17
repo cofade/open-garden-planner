@@ -232,6 +232,7 @@ def _a_hover_over_items(live: Live, mouse_event: MagicMock) -> dict[str, Any]:
     selected bed (it lights up — proof that the hover arrived) and off it again."""
     canvas, viewport = live.canvas, live.canvas.viewport()
     canvas.set_zoom(1.0)
+    live.scene.clearSelection()
     live.bed.setSelected(True)
     _turns()
     handles = [child for child in live.bed.childItems() if isinstance(child, ResizeHandle)]

@@ -13516,3 +13516,54 @@ setting, dependency, serialization field or file-version change.
 Embedded pixel tests capture the owning window and crop its viewport; a
 viewport-only grab cannot prove backing-store offset handling. Tests and
 measurements: §8.37; FR-GRID-05 and FR-EDIT-20.
+
+
+### ADR-076 addendum: editing frames and plan writing (#840, #841, #843, #844, #853, #867, #872, #874)
+
+**Decision (2026-11-17):**
+
+1. `core/item_geometry.py` owns `selection_frame_rect` and its scene-space adapter.
+   The old handle-module import re-exports the same function. Object snapping uses
+   it for both the moving selection and targets; alignment and distribution use
+   the same frame. Capacity badges read the local frame. Paint bounds remain free
+   to include rings, foliage, strokes and diagnostic overflow. Nested groups derive
+   their frame from document members, excluding their labels.
+2. A multi-selection keeps object outlines and suppresses individual resize and
+   rotation handles. One logical edit target, including a drilled-down member,
+   retains handles. Resize corners need 16 screen pixels on both local axes;
+   edge handles need 32. These bounds leave one 8-pixel handle-width between
+   neighbours. A grabbed handle stays visible until release. Zoom and selection
+   refresh the existing handles; the rotation offset is 25 device-independent
+   pixels along the parent's local Y axis, including ancestor transforms.
+3. Dimension text joins the retained foreground label pass. Labels of one owner
+   move together inside the plan edge before collision placement. Upright succession
+   tags fit inside the bed's actual transformed outline, including concave polygons,
+   and reserve their space against names. A bounded 9-by-9 placement search favours
+   the visual bottom-left; if full text has no safe position it becomes a compact
+   crop-following arrow. Beds smaller than 3 pixels cannot carry a readable indicator.
+   Warning arcs exclude editing handles and annotations. The minimap suppresses
+   diagnostic paint in a restoring scope that schedules no scene updates.
+4. Text notes resolve historical whole-point sizes at a fixed 96 dpi and give Qt
+   a pixel-sized font. This preserves the historical 96 dpi appearance and the
+   stored `font_size`; hosts with another logical DPI now show the same plan size.
+   No file-format bump or rewriting of stored sizes. The Properties conversion
+   uses this same fixed reference. Fonts remain unhinted. A native Windows pixel
+   test compares letter gaps with a 12-times-size reference and proves sensitivity
+   by restoring full hinting as a negative control.
+5. Fit-to-window reserves the ruler strips and an 8-pixel stroke/rounding margin.
+   Text notes reserve room from contour labels and contour lines. Contours read a
+   retained annotation-cover path keyed by the paint revision; moving or editing
+   a note invalidates that path without recomputing the hours-of-sun field.
+
+**Alternatives:** A group-wide resize frame would introduce group scaling semantics;
+retain outlines instead. Changing stored text sizes would corrupt old plans; keep
+stored values and fix their resolution. Rotating the succession text with its bed
+would lose upright writing; place the upright rectangle inside the actual outline.
+Hiding every zoomed-out tag loses the only hint of a succession plan; use an arrow.
+
+**Evidence:** `tests/integration/test_canvas_editing_precision.py`,
+`test_canvas_label_precision.py`, `test_canvas_native_pixels.py`,
+`test_text_note_size.py`, `test_export_text_notes.py`, and
+`tests/unit/test_item_geometry.py`. The #879 native partial/full repaint probe
+currently finds no difference on either master or this branch; that issue remains
+open and is not claimed fixed.

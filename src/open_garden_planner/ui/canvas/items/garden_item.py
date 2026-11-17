@@ -298,6 +298,26 @@ class SuccessionBadgeItem(QGraphicsItem):
             y += self._line_h * (1.0 + self._ROW_GAP)
         painter.restore()
 
+    def paint_indicator(self, painter: QPainter) -> None:
+        """A crop-following arrow when the full upright tag has no room."""
+        rect = self.boundingRect()
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self._BG)
+        painter.drawRoundedRect(rect, rect.height() * 0.2, rect.height() * 0.2)
+        pen = QPen(self._COLOR_CURRENT, rect.height() * 0.12)
+        painter.setPen(pen)
+        mid = rect.center()
+        left = QPointF(rect.left() + rect.width() * 0.2, mid.y())
+        right = QPointF(rect.right() - rect.width() * 0.2, mid.y())
+        painter.drawLine(left, right)
+        painter.drawLine(right, QPointF(right.x() - rect.width() * 0.2,
+                                       mid.y() - rect.height() * 0.25))
+        painter.drawLine(right, QPointF(right.x() - rect.width() * 0.2,
+                                       mid.y() + rect.height() * 0.25))
+        painter.restore()
+
 
 # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
 
@@ -1612,7 +1632,7 @@ class GardenItemMixin(PositionLockMixin):
     def _draw_capacity_badge(self, painter: Any) -> None:
         """Draw a red warning triangle when a container is over capacity (US-C3).
 
-        Placed at the visual top-left of the bounding rect so it does not collide
+        Placed at the visual top-left of the geometric outline so it does not collide
         with the antagonist/spacing badges (which sit top-right on plants).
         Reuses the bar+dot "!" convention so no text is drawn (text would render
         upside-down on the Y-flipped canvas, see §8.14).
@@ -1626,7 +1646,9 @@ class GardenItemMixin(PositionLockMixin):
 
         if not is_container_type(self.object_type):
             return
-        rect = self.boundingRect()  # type: ignore[attr-defined]
+        from open_garden_planner.core.item_geometry import selection_frame_rect
+
+        rect = selection_frame_rect(self)  # type: ignore[arg-type]
         s = min(rect.width(), rect.height()) * 0.28
         if s <= 0:
             return

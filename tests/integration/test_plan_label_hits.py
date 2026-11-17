@@ -178,9 +178,8 @@ def test_a_press_on_an_hour_of_the_sun_map_starts_a_box_selection(canvas) -> Non
     assert plant.isSelected()
 
 
-def test_a_press_on_a_left_out_succession_badge_starts_a_box_selection(canvas) -> None:
-    """A bed too small on screen for its badge: the badge is not painted and
-    reaches past the bed."""
+def test_a_press_on_a_succession_tags_unused_text_bounds_starts_a_box_selection(canvas) -> None:
+    """A tiny bed gets the compact arrow; its unused full-text bounds take no click."""
     view, scene = canvas
     bed = RectangleItem(2500, 1500, 60, 40, object_type=ObjectType.RAISED_BED)
     scene.addItem(bed)
@@ -189,7 +188,7 @@ def test_a_press_on_a_left_out_succession_badge_starts_a_box_selection(canvas) -
     badge = bed._succession_badge_item
     assert isinstance(badge, SuccessionBadgeItem) and badge.isVisible()
     world = view.viewportTransform()
-    assert not scene_shows_badge(scene, world, badge), "the badge is painted: the test needs it left out"
+    assert scene_shows_badge(scene, world, badge), "the compact indicator should be shown"
     box = badge.deviceTransform(world).mapRect(badge.boundingRect())
     body = bed.deviceTransform(world).mapRect(bed.rect())
     start = QPoint(int(box.right()) - 3, int(box.top()) + 3)

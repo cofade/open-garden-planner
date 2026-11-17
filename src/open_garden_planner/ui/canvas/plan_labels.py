@@ -32,9 +32,10 @@ from typing import TYPE_CHECKING, TypeVar
 
 from PyQt6 import sip
 from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtGui import QPainter, QTransform
+from PyQt6.QtGui import QPainter, QPainterPath, QTransform
 from PyQt6.QtWidgets import QGraphicsItem, QWidget
 
+from open_garden_planner.core.item_geometry import object_outline
 from open_garden_planner.core.label_layout import LabelCandidate, badge_has_room, place_labels
 from open_garden_planner.ui.canvas.items.garden_item import SuccessionBadgeItem
 from open_garden_planner.ui.canvas.items.halo_text import PlanLabelItem
@@ -51,7 +52,8 @@ _Item = TypeVar("_Item", PlanLabelItem, SuccessionBadgeItem)
 
 
 def plan_labels_shown(
-    scene: QGraphicsScene, world: QTransform, blocked: Sequence[QRectF] = ()
+    scene: QGraphicsScene, world: QTransform, blocked: Sequence[QRectF] = (),
+    *, badges: Sequence[ShownBadge] | None = None,
 ) -> list[ShownLabel]:
     """The object labels a paint of ``scene`` with the transform ``world`` shows.
 
@@ -84,6 +86,8 @@ def plan_labels_shown(
 
     for rect in blocked:
         block(rect)
+    for _badge, _device, box in (succession_badges_shown(scene, world) if badges is None else badges):
+        block(box)
     for item in scene.items():
         blocker = getattr(item, "plan_label_blocker", None)
         if blocker is not None and item.isVisible():
@@ -114,6 +118,36 @@ def plan_labels_shown(
         labels.append((item, device, box))
     if not candidates:
         return []
+    # Keep each owner's name/area stack together when an edge pushes it inward.
+    # The plan's device rect moves with a pan: the kept layout remains reusable.
+    canvas = getattr(scene, "canvas_rect", None)
+    if canvas is not None:
+        bounds = world.mapRect(canvas)
+        stacks: dict[object, list[int]] = {}
+        for index, entry in enumerate(labels):
+            if entry is not None:
+                owner_key = candidates[index].owner
+                stacks.setdefault(owner_key if owner_key is not None else (index,), []).append(index)
+        for indices in stacks.values():
+            box = QRectF()
+            for index in indices:
+                entry = labels[index]
+                assert entry is not None
+                box = box.united(entry[2])
+            dx = max(bounds.left() - box.left(), min(0.0, bounds.right() - box.right()))
+            dy = max(bounds.top() - box.top(), min(0.0, bounds.bottom() - box.bottom()))
+            for index in indices:
+                entry = labels[index]
+                assert entry is not None
+                item, device, rect = entry
+                rect = rect.translated(dx, dy)
+                labels[index] = (item, device * QTransform.fromTranslate(dx, dy), rect)
+                candidate = candidates[index]
+                candidates[index] = LabelCandidate(
+                    (rect.left(), rect.top(), rect.right(), rect.bottom()),
+                    candidate.owner_extent_px, candidate.pinned, candidate.rank,
+                    candidate.tie, candidate.owner,
+                )
     placed = (labels[index] for index in place_labels(candidates))
     return [label for label in placed if label is not None]
 
@@ -147,14 +181,49 @@ def succession_badges_shown(scene: QGraphicsScene, world: QTransform) -> list[Sh
             continue
         owner = item.parentItem()
         if owner is not None:
-            frame = owner.deviceTransform(world).mapRect(selection_frame_rect(owner))
-            # With its margin: from the bed's corner to the badge's far corner.
-            bounds = item.boundingRect()
-            reach = device.mapRect(QRectF(0.0, bounds.top(), bounds.right(), -bounds.top()))
-            if not badge_has_room(reach.width(), reach.height(), frame.width(), frame.height()):
+            outline = owner.deviceTransform(world).map(object_outline(owner))
+            frame = outline.boundingRect()
+            full = badge_has_room(box.width(), box.height(), frame.width(), frame.height())
+            placement = _badge_placement(outline, box.width(), box.height()) if full else None
+            scale = 1.0
+            if placement is None:
+                # An upright crop-following arrow remains when the text has no
+                # room. At subpixel bed sizes no readable indicator can fit.
+                size = min(10.0, min(frame.width(), frame.height()) * 0.4)
+                if size < 3.0:
+                    continue
+                scale = size / max(box.width(), box.height())
+                placement = _badge_placement(outline, box.width() * scale, box.height() * scale)
+            if placement is None:
                 continue
+            bounds = item.boundingRect()
+            device = QTransform.fromScale(scale, scale)
+            device = device * QTransform.fromTranslate(
+                placement.x() - bounds.left() * scale,
+                placement.y() - bounds.top() * scale,
+            )
+            box = device.mapRect(bounds)
         shown.append((item, device, box))
     return shown
+
+
+def _badge_placement(outline: QPainterPath, width: float, height: float) -> QPointF | None:
+    """Find an upright rectangle contained by the actual bed, not its AABB.
+
+    A bounded 9 by 9 search favours the visual bottom-left. Containment is
+    checked against the whole path, including concave polygon beds. A tag
+    that does not fit falls back to its compact indicator.
+    """
+    frame = outline.boundingRect().adjusted(1, 1, -1, -1)
+    if width > frame.width() or height > frame.height():
+        return None
+    for row in range(9):
+        y = frame.bottom() - height - (frame.height() - height) * row / 8
+        for column in range(9):
+            x = frame.left() + (frame.width() - width) * column / 8
+            if outline.contains(QRectF(x, y, width, height)):
+                return QPointF(x, y)
+    return None
 
 
 @dataclass(frozen=True)
@@ -218,8 +287,9 @@ class LabelPass:
         exposed = world.mapRect(rect)
         viewport = painter.device()
         if not isinstance(viewport, QWidget):
-            _draw(painter, succession_badges_shown(scene, world), exposed, _paint_badge)
-            _draw(painter, plan_labels_shown(scene, world), exposed, _paint_label)
+            badges = succession_badges_shown(scene, world)
+            _draw(painter, badges, exposed, _paint_badge)
+            _draw(painter, plan_labels_shown(scene, world, badges=badges), exposed, _paint_label)
             return
         kept = self._layout_for(scene, viewport, world, exposed)
         moved = QPointF(world.dx(), world.dy()) - kept.origin
@@ -241,12 +311,13 @@ class LabelPass:
             and (not blocked or kept.origin == origin)
         ):
             return kept
-        labels = plan_labels_shown(scene, world, blocked)
+        badges = succession_badges_shown(scene, world)
+        labels = plan_labels_shown(scene, world, blocked, badges=badges)
         self.layouts += 1
         new = _KeptLayout(
             scene.paint_revision, scale, origin, blocked, labels,
-            succession_badges_shown(scene, world),
-            {id(item): box for item, _device, box in labels},
+            badges,
+            {id(item): box for item, _device, box in [*labels, *badges]},
         )
         if kept is not None:
             _repaint_what_changed(viewport, kept, new, exposed)
@@ -274,14 +345,22 @@ def _repaint_what_changed(
             viewport.update()
         return
     moved = new.origin - old.origin
-    for label in old.boxes.keys() ^ new.boxes.keys():
-        box = new.boxes[label] if label in new.boxes else old.boxes[label].translated(moved)
-        if not exposed.contains(box):
-            viewport.update(box.toAlignedRect())
+    for label in old.boxes.keys() | new.boxes.keys():
+        before = old.boxes.get(label)
+        before = before.translated(moved) if before is not None else None
+        after = new.boxes.get(label)
+        if before == after:
+            continue
+        for box in (before, after):
+            if box is not None and not exposed.contains(box):
+                viewport.update(box.adjusted(-1, -1, 1, 1).toAlignedRect())
 
 
 def _paint_badge(item: SuccessionBadgeItem, painter: QPainter) -> None:
-    item.paint_badge(painter)
+    if painter.worldTransform().m11() < 0.99:
+        item.paint_indicator(painter)
+    else:
+        item.paint_badge(painter)
 
 
 def _paint_label(item: PlanLabelItem, painter: QPainter) -> None:

@@ -391,6 +391,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         width = min(self._SPACING_RING_PX * px, self._SPACING_RING_MAX_CM)
         casing_width = min(self._SPACING_CASING_PX * px, self._SPACING_RING_MAX_CM)
         painter.save()
+        self._clip_spacing_ring_away_from_edit_handles(painter)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         casing = QPen(self._SPACING_CASING_COLOR)
@@ -404,6 +405,37 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         painter.setPen(pen)
         painter.drawPath(path)
         painter.restore()
+
+    def _clip_spacing_ring_away_from_edit_handles(self, painter: QPainter) -> None:
+        """A higher-z tree must not paint warning arcs through another edit target.
+
+        Labels have their own final pass; drag handles and vertex annotations
+        remain children. Exclude their actual device bounds from the ring,
+        including the screen-sized antialias margin, without walking the plan.
+        """
+        scene = self.scene()
+        if scene is None:
+            return
+        from .group_item import selection_tree
+
+        world = painter.worldTransform()
+        inverse, invertible = world.inverted()
+        if not invertible:
+            return
+        scene_to_device = self.sceneTransform().inverted()[0] * world
+        clip = QPainterPath()
+        clip.addRect(self.boundingRect())
+        changed = False
+        for child in selection_tree(scene.selectedItems()):
+            if (child.isVisible() and child.parentItem() is not None
+                    and child.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations):
+                box = child.deviceTransform(scene_to_device).mapRect(child.boundingRect())
+                excluded = QPainterPath()
+                excluded.addRect(box.adjusted(-2, -2, 2, 2))
+                clip = clip.subtracted(inverse.map(excluded))
+                changed = True
+        if changed:
+            painter.setClipPath(clip, Qt.ClipOperation.IntersectClip)
 
     def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
         """The diameter (cm) the plant's SVG icon should render at the plan date.

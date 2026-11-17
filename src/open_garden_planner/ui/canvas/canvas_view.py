@@ -452,6 +452,8 @@ class CanvasView(QGraphicsView):
         self._canvas_scene.selectionChanged.connect(
             self._on_selection_changed_for_group_drill
         )
+        self._canvas_scene.selectionChanged.connect(self._refresh_edit_handles)
+        self.drill_down_changed.connect(self._refresh_edit_handles)
         self._canvas_scene.document_replaced.connect(self._reset_group_drill_down)
         self._pin_drag_offset = QPointF()
         # The item a rotation gesture is turning (issue #485). During rotation
@@ -848,6 +850,19 @@ class CanvasView(QGraphicsView):
         transform.translate(0, -self._canvas_scene.height_cm)
         self.setTransform(transform)
         self._refresh_dense_vertex_overlays()
+        self._refresh_edit_handles()
+
+    def _refresh_edit_handles(self) -> None:
+        """Refresh screen-sized editing affordances after selection or zoom (#840)."""
+        if not hasattr(self, "_drill_down_item"):
+            return
+        from .items.group_item import selection_tree
+
+        for item in selection_tree(self._canvas_scene.selectedItems()):
+            for name in ("update_resize_handles", "update_rotation_handle"):
+                refresh = getattr(item, name, None)
+                if refresh is not None:
+                    refresh()
 
     def scrollContentsBy(self, dx: int, dy: int) -> None:
         """Keep a dense vertex-edit sample tied to the visible viewport pixels."""
@@ -1554,13 +1569,22 @@ class CanvasView(QGraphicsView):
         self.set_zoom(1.0)
 
     def fit_in_view(self) -> None:
-        """Fit the canvas (not the padded scene) in the view."""
-        # Fit to the actual canvas rect, not the padded scene rect
+        """Fit the plan into the viewport area below and right of its rulers."""
         canvas_rect = self._canvas_scene.canvas_rect
-        self.fitInView(canvas_rect, Qt.AspectRatioMode.KeepAspectRatio)
-        # Extract zoom factor from current transform
-        transform = self.transform()
-        self._zoom_factor = abs(transform.m11())  # m11 is the x scale factor
+        viewport = self.viewport()
+        if viewport is None:
+            return
+        # The 8 px margin keeps edge strokes clear of chrome and scroll rounding.
+        ruler = self.RULER_SIZE if self._guides_visible else 0
+        available = QRectF(viewport.rect()).adjusted(ruler + 8, ruler + 8, -8, -8)
+        if available.isEmpty() or canvas_rect.isEmpty():
+            return
+        self._zoom_factor = min(available.width() / canvas_rect.width(),
+                                available.height() / canvas_rect.height())
+        self._apply_transform()
+        delta = (self.mapToScene(viewport.rect().center())
+                 - self.mapToScene(available.center().toPoint()))
+        self.centerOn(canvas_rect.center() + delta)
         self.zoom_changed.emit(self.zoom_percent)
 
     # Soil health overlay (US-12.10b)
@@ -3198,9 +3222,11 @@ class CanvasView(QGraphicsView):
             return
 
         # Compute combined bounding rect of all selected items
-        combined = selected[0].sceneBoundingRect()
+        from open_garden_planner.core.item_geometry import scene_frame_rect
+
+        combined = scene_frame_rect(selected[0])
         for item in selected[1:]:
-            combined = combined.united(item.sceneBoundingRect())
+            combined = combined.united(scene_frame_rect(item))
 
         # Compute snap against other items (exclude background images as targets)
         exclude = set(selected)

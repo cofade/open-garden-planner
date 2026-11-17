@@ -1,5 +1,23 @@
 # 6. Runtime View
 
+## Editing affordances after selection and zoom (#840)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant V as CanvasView
+    participant I as Selected items
+    U->>V: Select, multi-select or zoom
+    V->>V: Resolve one logical edit target
+    V->>I: Refresh existing handle positions and visibility
+    I->>I: Convert device-pixel gaps through the full item transform
+    Note over V,I: No geometry or undo step changes
+```
+
+A note edit or move advances the scene paint revision. The next contour paint
+refreshes its retained annotation exclusion; the computed sun-hours field remains
+unchanged. Labels and succession tags share one foreground collision pass.
+
 ## Canvas preview and repaint reuse (#847, #878)
 
 ```mermaid

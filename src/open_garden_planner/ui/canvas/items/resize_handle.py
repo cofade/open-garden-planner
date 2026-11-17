@@ -2,7 +2,7 @@
 
 import math
 from enum import Enum, auto
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen
@@ -235,6 +235,10 @@ if TYPE_CHECKING:
 
 
 
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+
+
 class HandlePosition(Enum):
     """Position of resize handle on an item's bounding rect."""
 
@@ -273,6 +277,22 @@ ROTATION_HANDLE_SIZE = 10.0  # pixels (cosmetic)
 ROTATION_HANDLE_COLOR = QColor(46, 204, 113)  # Green
 ROTATION_HANDLE_HOVER_COLOR = QColor(88, 214, 141)  # Lighter green
 ROTATION_SNAP_ANGLE = 15.0  # degrees for snapping when Shift is held
+
+
+def _editing_view(item: QGraphicsItem) -> "CanvasView | None":
+    scene = item.scene()
+    if scene is not None:
+        return next((cast("CanvasView", view) for view in scene.views()
+                     if hasattr(view, "effective_selection")), None)
+    return None
+
+
+def _individual_handles_allowed(item: QGraphicsItem) -> bool:
+    """A multi-selection has outlines; only one logical edit target has handles."""
+    if getattr(item, "is_vertex_edit_mode", False):
+        return False
+    view = _editing_view(item)
+    return view is None or view.effective_selection() == [item]
 
 
 class DimensionDisplay(QGraphicsItem):
@@ -874,11 +894,15 @@ class RotationHandle(QGraphicsEllipseItem):
             if views:
                 view = views[0]
 
-        # Calculate offset in scene coordinates
+        # Convert a device-pixel distance along the parent's local Y axis.
+        # Include the parent's transform (a drilled-down group member can scale).
         offset = ROTATION_HANDLE_OFFSET
         if view:
-            # Adjust offset based on view transform
-            scale = view.transform().m11()
+            anchor = QPointF(rect.center().x(), rect.top())
+            transform = view.viewportTransform()
+            delta = (transform.map(self._parent_item.mapToScene(anchor + QPointF(0, 1)))
+                     - transform.map(self._parent_item.mapToScene(anchor)))
+            scale = math.hypot(delta.x(), delta.y())
             if scale > 0:
                 offset = ROTATION_HANDLE_OFFSET / scale
 
@@ -1081,6 +1105,30 @@ class ResizeHandlesMixin:
 
         for handle in self._resize_handles:
             handle.update_position()
+        self._update_resize_handle_visibility()
+
+    def _update_resize_handle_visibility(self) -> None:
+        item = self  # QGraphicsItem supplied by the concrete class.
+        allowed = _individual_handles_allowed(item)  # type: ignore[arg-type]
+        view = _editing_view(item)  # type: ignore[arg-type]
+        width = height = float("inf")
+        if view is not None:
+            frame = selection_frame_rect(item)  # type: ignore[arg-type]
+            transform = item.deviceTransform(view.viewportTransform())  # type: ignore[attr-defined]
+            origin = transform.map(frame.topLeft())
+            dx = transform.map(frame.topRight()) - origin
+            dy = transform.map(frame.bottomLeft()) - origin
+            width, height = math.hypot(dx.x(), dx.y()), math.hypot(dy.x(), dy.y())
+        # At least one handle-width of clear space between adjacent 8 px handles.
+        # Two corners need 16 px; adding an edge midpoint needs 32 px.
+        corners = {HandlePosition.TOP_LEFT, HandlePosition.TOP_RIGHT,
+                   HandlePosition.BOTTOM_LEFT, HandlePosition.BOTTOM_RIGHT}
+        for handle in self._resize_handles:
+            show = allowed and min(width, height) >= 2 * HANDLE_SIZE
+            if handle.handle_position not in corners:
+                show = show and min(width, height) >= 4 * HANDLE_SIZE
+            # A resize may cross the visibility threshold. Keep its grab alive.
+            handle.setVisible(show or handle._is_dragging)
 
     def show_resize_handles(self) -> None:
         """Show all resize handles."""
@@ -1243,6 +1291,9 @@ class RotationHandleMixin:
             return
 
         self._rotation_handle.update_position()
+        self._rotation_handle.setVisible(
+            _individual_handles_allowed(self) or self._rotation_handle._is_dragging  # type: ignore[arg-type]
+        )
 
     def show_rotation_handle(self) -> None:
         """Show the rotation handle."""
@@ -1250,7 +1301,7 @@ class RotationHandleMixin:
             self.create_rotation_handle()
 
         if self._rotation_handle is not None:
-            self._rotation_handle.show()
+            self.update_rotation_handle()
 
     def hide_rotation_handle(self) -> None:
         """Hide the rotation handle."""

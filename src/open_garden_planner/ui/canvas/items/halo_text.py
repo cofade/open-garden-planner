@@ -196,9 +196,12 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         self._picture_key: tuple[str, str, int, int, float] | None = None
         self._picture_cache = QPixmap()
         self.setBrush(QColor(0, 0, 0))
+        self.setFont(self.font())
 
     def setFont(self, font: QFont) -> None:
         """Set the font; the text's measured size is taken again."""
+        font = QFont(font)
+        font.setStyleStrategy(font.styleStrategy() | QFont.StyleStrategy.NoSubpixelAntialias)
         super().setFont(font)
         self._measured = None
 

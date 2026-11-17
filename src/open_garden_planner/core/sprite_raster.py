@@ -420,6 +420,13 @@ class KeptLayer:
         if found is None:
             return False
         to_device, from_device, area = found
+        # Intersect in device space too. Qt's inverse/forward mapping of a
+        # partial exposure can round a plan edge one pixel outward (e.g.
+        # 29.9999999999999 vs 30). No pixel outside the whole picture belongs
+        # to this layer; asking for that row rebuilt it at every rubber-band
+        # move after fitting the view with room for its rulers (#853).
+        shown = to_device.mapRect(whole).toAlignedRect()
+        area = area.intersected(shown)
         if area.isEmpty():
             return True
         scale = (to_device.m11(), to_device.m12(), to_device.m21(), to_device.m22())
@@ -457,7 +464,6 @@ class KeptLayer:
                                QRectF(area.translated(-held.x(), -held.y())))
                     return True
         bounds = device_bounds(painter).toAlignedRect()
-        shown = to_device.mapRect(whole).toAlignedRect()
         if device_scale(painter) < raw_device_scale(painter):
             return _paint_exposed(painter, wanted, draw, None)
         # A pan ran out of the layer: the next one reaches further.
