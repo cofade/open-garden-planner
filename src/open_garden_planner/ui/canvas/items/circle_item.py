@@ -328,6 +328,11 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         path.addEllipse(rect.center(), radius, radius)
         return path
 
+    @property
+    def _needs_live_spacing_paint(self) -> bool:
+        """Warning arcs read other items' editing geometry on every paint."""
+        return self._spacing_circles_visible and self._spacing_overlap == "overlap"
+
     def _painted_spacing_ring_cm(self) -> float | None:
         """Radius of the spacing ring this plant shows right now, or ``None``.
 

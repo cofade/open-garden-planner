@@ -77,3 +77,17 @@ All three native partial/full controls now match exactly. Pins are
 `test_vertex_mode_and_decoration_mutations_invalidate_the_retained_path` and
 `test_same_size_content_changes_repaint_relocated_foreground` in the package's
 integration files.
+
+### Third review: selection changes can outlive cached plant paint
+
+A warmed, unselected tree retained its old warning arc when a rectangle gained
+handles. A viewport repaint alone left 528 stale RGBA channel values. Updating
+the tree cleared the difference. Warning arcs now use live paint while they are
+shown. The existing plant raster cache still supplies the sprite. The viewport
+regression warms the tree before selecting the neighbouring rectangle.
+
+The collision pass treated occupied rectangles as label candidates. An overlap
+could therefore discard part of a still-painted succession tag's reserved room.
+The index now admits every occupied rectangle before considering labels. The
+regression places a name in the part of a tag extending past a view blocker.
+Measured angles use the same dimension placement path as lengths and radii.

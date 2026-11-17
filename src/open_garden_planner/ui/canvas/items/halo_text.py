@@ -414,8 +414,11 @@ class PlanLabelItem(HaloTextItem):
     #: The size on screen an ownerless label is placed as (pixels); see the class.
     free_extent_px: float = 0.0
 
-    def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
-        super().__init__(label_text(text), parent, centered=True)
+    def __init__(
+        self, text: str = "", parent: QGraphicsItem | None = None, *,
+        rank: int = 0, centered: bool = True,
+    ) -> None:
+        super().__init__(label_text(text), parent, centered=centered)
         self.rank = rank
         note_label_changed(self)
 

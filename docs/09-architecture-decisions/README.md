@@ -13543,6 +13543,10 @@ measurements: §8.37; FR-GRID-05 and FR-EDIT-20.
    square crop-following arrow, independent of crop-name length and row count. The retained placement carries its variant explicitly and its paint signature tracks same-size content changes. Beds smaller than 3 pixels cannot carry a readable indicator.
    Warning arcs exclude editing handles and annotations using one retained device-space exclusion path per paint revision and view transform. A shared editing-decoration mixin also invalidates it on transient scene, parent, visibility, position and transform mutations; measured-text setters cover annotation size changes. The minimap suppresses
    diagnostic paint in a restoring scope that schedules no scene updates.
+   Every occupied rectangle is indexed before label placement, even when two
+   occupied regions overlap. Measured angles share the dimension label pass.
+   Plants with visible warning arcs bypass the Qt item paint cache so exclusions
+   follow a nearby selection immediately. Their existing sprite rasters are reused.
 4. Text notes resolve historical whole-point sizes at a fixed 96 dpi and give Qt
    a pixel-sized font. This preserves the historical 96 dpi appearance and the
    stored `font_size`; hosts with another logical DPI now show the same plan size.

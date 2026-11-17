@@ -71,6 +71,54 @@ def test_succession_tag_keeps_names_out_of_its_room(canvas):
     assert label not in [entry[0] for entry in plan_labels_shown(scene, view.viewportTransform())]
 
 
+def test_overlapping_blockers_still_reserve_the_whole_succession_tag(canvas):
+    view, scene = canvas
+    bed = RectangleItem(800, 600, 500, 350, object_type=ObjectType.RAISED_BED)
+    scene.addItem(bed)
+    badge = bed._ensure_succession_badge_item()
+    badge.set_lines([("Lettuce followed by carrots", True)])
+    bed._position_succession_badge()
+    label = PlanLabelItem("X")
+    label.free_extent_px = 100
+    label.setFlag(label.GraphicsItemFlag.ItemIgnoresTransformations)
+    scene.addItem(label)
+    view.set_zoom(1)
+    world = view.viewportTransform()
+    tag_box = succession_badges_shown(scene, world)[0][2]
+    cover = QRectF(tag_box.left() - 5, tag_box.top(), 10, tag_box.height())
+    label.setPos(world.inverted()[0].map(QPointF(tag_box.right() - 2, tag_box.center().y())))
+    assert not cover.intersects(label.deviceTransform(world).mapRect(label.boundingRect()))
+    assert label not in [entry[0] for entry in plan_labels_shown(scene, world, [cover])]
+
+
+def test_a_warmed_warning_ring_repaints_when_another_item_gains_handles(canvas, monkeypatch):
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    view, scene = canvas
+    scene.set_spacing_circles_visible(True)
+    tree = CircleItem(600, 550, 40, object_type=ObjectType.TREE)
+    scene.addItem(tree)
+    tree.spacing_radius_cm = 175
+    tree.set_spacing_overlap("overlap")
+    target = RectangleItem(730, 490, 100, 100)
+    scene.addItem(target)
+    view.set_zoom(1)
+    view.centerOn(QPointF(680, 550))
+    painted = []
+    original = tree._paint_spacing_ring
+
+    def record(painter, radius):
+        painted.append(scene.edit_decoration_covers(view.viewportTransform()).isEmpty())
+        original(painter, radius)
+
+    monkeypatch.setattr(tree, "_paint_spacing_ring", record)
+    view.viewport().repaint()
+    assert painted and painted[-1]
+    target.setSelected(True)
+    view.viewport().repaint()
+    assert not painted[-1]
+
+
 def test_tiny_bed_still_has_succession_indicator(canvas):
     view, scene = canvas
     bed = RectangleItem(800, 600, 250, 180, object_type=ObjectType.RAISED_BED)
@@ -120,6 +168,32 @@ def test_dimension_text_takes_room_before_object_names(canvas):
     shown = plan_labels_shown(scene, view.viewportTransform())
     assert dimensions[0] in [entry[0] for entry in shown]
     assert label not in [entry[0] for entry in shown]
+
+
+def test_angle_dimension_text_takes_room_before_object_names(canvas):
+    from uuid import uuid4
+
+    from PyQt6.QtGui import QColor
+
+    from open_garden_planner.ui.canvas.dimension_lines import DimensionLineGroup
+
+    view, scene = canvas
+    group = DimensionLineGroup(uuid4())
+    scene.dimension_line_manager._build_angle_arc(
+        group, QPointF(400, 700), QPointF(500, 700), QPointF(500, 800),
+        90, QColor("black"),
+    )
+    view.set_zoom(1)
+    world = view.viewportTransform()
+    dimension, _device, box = next(entry for entry in plan_labels_shown(scene, world)
+                                   if entry[0] in group.items)
+    label = PlanLabelItem("X")
+    label.free_extent_px = 100
+    label.setFlag(label.GraphicsItemFlag.ItemIgnoresTransformations)
+    label.setPos(world.inverted()[0].map(box.center()))
+    scene.addItem(label)
+    shown = [entry[0] for entry in plan_labels_shown(scene, world)]
+    assert dimension in shown and label not in shown
 
 
 def test_sun_contour_does_not_cross_a_text_note(canvas, monkeypatch):

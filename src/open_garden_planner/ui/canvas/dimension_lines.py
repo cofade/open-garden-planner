@@ -1396,7 +1396,8 @@ class DimensionLineManager:
             pos_b.y() + math.sin(mid_angle_rad) * label_r,
         )
         text_str = f"{format_decimal(target_angle_deg, 1)}°"
-        text_item = HaloTextItem(text_str)
+        text_item = PlanLabelItem(text_str, centered=False)
+        text_item.free_extent_px = math.inf
         font = QFont()
         font.setPointSize(9)
         font.setBold(True)

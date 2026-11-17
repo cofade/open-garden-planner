@@ -332,7 +332,9 @@ class SuccessionBadgeItem(QGraphicsItem):
 
 def enable_device_coordinate_cache(item: QGraphicsItem) -> None:
     """Enable DeviceCoordinateCache for static items to speed up repaints."""
-    item.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
+    mode = QGraphicsItem.CacheMode
+    item.setCacheMode(mode.NoCache if getattr(item, "_needs_live_spacing_paint", False)
+                      else mode.DeviceCoordinateCache)
 
 
 def disable_cache(item: QGraphicsItem) -> None:
@@ -1278,6 +1280,7 @@ class GardenItemMixin(PositionLockMixin):
         self._spacing_overlap = overlap_type
         self._spacing_conflicts = conflicts
         self._spacing_conflict_place = place
+        self._refresh_spacing_cache_mode()
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
@@ -1294,10 +1297,16 @@ class GardenItemMixin(PositionLockMixin):
         if self._spacing_circles_visible == value:
             return
         self._spacing_circles_visible = value
+        self._refresh_spacing_cache_mode()
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
             self.update()
+
+    def _refresh_spacing_cache_mode(self) -> None:
+        if (isinstance(self, QGraphicsItem) and not self.isSelected()
+                and hasattr(self, "_needs_live_spacing_paint")):
+            enable_device_coordinate_cache(self)
 
     def effective_spacing_radius(self) -> float | None:
         """Return the spacing radius in cm, or None if no data available.

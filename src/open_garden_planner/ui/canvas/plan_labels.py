@@ -24,7 +24,6 @@ view states the ones it draws over its viewport with
 
 from __future__ import annotations
 
-import math
 import weakref
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -90,16 +89,13 @@ def plan_labels_shown(
     # The minimap suppresses screen-space items with this flag instead of
     # hiding them; what it suppresses must not reappear through this pass.
     no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
-    labels: list[ShownLabel | None] = []
+    labels: list[ShownLabel] = []
     candidates: list[LabelCandidate] = []
+    blockers: list[tuple[float, float, float, float]] = []
 
     def block(rect: QRectF) -> None:
-        # placed before every label, and never painted by this pass
-        candidates.append(LabelCandidate(
-            rect=(rect.left(), rect.top(), rect.right(), rect.bottom()),
-            owner_extent_px=math.inf, pinned=True,
-        ))
-        labels.append(None)
+        if not rect.isEmpty():
+            blockers.append((rect.left(), rect.top(), rect.right(), rect.bottom()))
 
     for rect in blocked:
         block(rect)
@@ -141,22 +137,17 @@ def plan_labels_shown(
     if canvas is not None:
         bounds = world.mapRect(canvas)
         stacks: dict[object, list[int]] = {}
-        for index, entry in enumerate(labels):
-            if entry is not None:
-                owner_key = candidates[index].owner
-                stacks.setdefault(owner_key if owner_key is not None else (index,), []).append(index)
+        for index, candidate in enumerate(candidates):
+            owner_key = candidate.owner
+            stacks.setdefault(owner_key if owner_key is not None else (index,), []).append(index)
         for indices in stacks.values():
             box = QRectF()
             for index in indices:
-                entry = labels[index]
-                assert entry is not None
-                box = box.united(entry[2])
+                box = box.united(labels[index][2])
             dx = max(bounds.left() - box.left(), min(0.0, bounds.right() - box.right()))
             dy = max(bounds.top() - box.top(), min(0.0, bounds.bottom() - box.bottom()))
             for index in indices:
-                entry = labels[index]
-                assert entry is not None
-                item, device, rect = entry
+                item, device, rect = labels[index]
                 rect = rect.translated(dx, dy)
                 labels[index] = (item, device * QTransform.fromTranslate(dx, dy), rect)
                 candidate = candidates[index]
@@ -165,8 +156,7 @@ def plan_labels_shown(
                     candidate.owner_extent_px, candidate.pinned, candidate.rank,
                     candidate.tie, candidate.owner,
                 )
-    placed = (labels[index] for index in place_labels(candidates))
-    return [label for label in placed if label is not None]
+    return [labels[index] for index in place_labels(candidates, blocked=blockers)]
 
 
 def _free_label_tie(item: PlanLabelItem) -> str:
