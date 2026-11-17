@@ -1126,7 +1126,11 @@ moves together inside the plan boundary. Succession tags are placed upright
 inside the actual bed shape and block other labels. The compact arrow replaces
 a tag without room for text; below 3 px there is no readable indicator. Both the
 full tag and arrow participate in the same retained layout and repaint damage.
-A warning arc excludes selected editing decorations through one retained device-space path per revision and view transform. Minimap rendering scopes
+Retained paint signatures include text, font, colours and variant, so a same-size
+content change repaints the actual relocated rectangle.
+A warning arc excludes selected editing decorations through one retained device-space path per revision and view transform. `EditDecorationMixin` and measured-text
+setters invalidate that path on transient decoration mutations, including vertex
+mode transitions and dense-overlay resampling. Minimap rendering scopes
 out diagnostic paint without `update()` calls, so it cannot feed its own timer.
 
 Text notes resolve stored whole points at a fixed 96 dpi into pixel-sized fonts.

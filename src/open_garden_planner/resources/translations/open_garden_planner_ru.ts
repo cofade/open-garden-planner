@@ -246,27 +246,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1961" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1965" />
             <source>Arrange</source>
             <translation>Упорядочить</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1975" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1979" />
             <source>Bring Forward</source>
             <translation>Переместить вперёд</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1970" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1974" />
             <source>Bring to Front</source>
             <translation>На передний план</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1980" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1984" />
             <source>Send Backward</source>
             <translation>Переместить назад</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1985" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1989" />
             <source>Send to Back</source>
             <translation>На задний план</translation>
         </message>
@@ -385,32 +385,32 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1160" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1164" />
             <source>Add soil test…</source>
             <translation>Добавить анализ почвы…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1153" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1157" />
             <source>Hide Grid</source>
             <translation>Скрыть сетку</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1166" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1170" />
             <source>Log Harvest…</source>
             <translation>Зафиксировать урожай…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1163" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1167" />
             <source>Log Pest/Disease…</source>
             <translation>Зафиксировать вредителей/болезни…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1169" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1173" />
             <source>Plan Succession…</source>
             <translation>Спланировать севооборот…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1155" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1159" />
             <source>Show Grid</source>
             <translation>Показать сетку</translation>
         </message>
@@ -2182,7 +2182,7 @@
             <translation>Текст подписи</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2128" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2132" />
             <location filename="../../ui/panels/property_edits.py" line="178" />
             <source>type</source>
             <translation>Тип</translation>
@@ -5257,7 +5257,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Сгруппировать</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="545" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="549" />
             <source>Lock position</source>
             <translation>Заблокировать положение</translation>
         </message>
@@ -5267,7 +5267,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Разгруппировать</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="543" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="547" />
             <source>Unlock position</source>
             <translation>Разблокировать положение</translation>
         </message>
@@ -5275,12 +5275,12 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2066" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2070" />
             <source>Change Type</source>
             <translation>Изменить тип</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1914" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1918" />
             <source>Move to Layer</source>
             <translation>Переместить на слой</translation>
         </message>
@@ -8862,12 +8862,12 @@ You can capture the satellite view directly from the map below instead.</source>
     <context>
         <name>MidpointHandle</name>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="420" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="421" />
             <source>Add Vertex Here</source>
             <translation>Добавить узел здесь</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="355" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="356" />
             <source>Click to add a vertex</source>
             <translation>Кликните, чтобы добавить узел</translation>
         </message>
@@ -15930,17 +15930,17 @@ Open Garden Planner закроется, когда начнётся устано
     <context>
         <name>VertexHandle</name>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="279" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="280" />
             <source>Delete Vertex</source>
             <translation>Удалить узел</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="276" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="277" />
             <source>Insert Vertex After</source>
             <translation>Добавить узел после</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="274" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="275" />
             <source>Insert Vertex Before</source>
             <translation>Добавить узел до</translation>
         </message>

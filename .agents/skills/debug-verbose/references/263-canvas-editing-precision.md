@@ -58,3 +58,22 @@ visibility, and one retained device-space exclusion path serves every ring.
 `test_selected_ring_paints_prepare_decoration_exclusions_once` counts one selected
 subtree traversal for two paints of 30 selected trees. A badge placement carries
 its compact/full variant explicitly instead of inferring it from transform scale.
+
+
+### Second review: retained paint needs geometry and content ownership
+
+Entering vertex mode left the new exclusion cache unchanged while a fresh path
+included another 314 by 121 px of annotation room. `EditDecorationMixin` now
+invalidates at scene/parent/visibility/position/transform mutations for handles
+and annotations; measured-text setters also invalidate. This covers mode changes
+and dense overlay resampling without claiming that a plan edit occurred.
+
+A native same-size replacement found another omission: rotated tag `AAAA` to
+`BBBB` left 814 stale channel values, and edge-clamped text/colour changes left
+1333 / 480. Repeated full paints differed by zero. Retained foreground entries
+now keep immutable paint signatures as well as boxes; text, font, ink/halo and
+badge variant changes damage the actual placement even when its size is equal.
+All three native partial/full controls now match exactly. Pins are
+`test_vertex_mode_and_decoration_mutations_invalidate_the_retained_path` and
+`test_same_size_content_changes_repaint_relocated_foreground` in the package's
+integration files.

@@ -33,3 +33,11 @@ def test_balcony_note_clears_the_furniture_with_native_fonts(native_pixels):
     for result in native_pixels["balcony"].values():
         assert not result["overlaps"]
         assert result["note"][0] + result["note"][2] < 300
+
+
+def test_same_size_content_changes_repaint_relocated_foreground(native_pixels):
+    for case, result in native_pixels["foreground"].items():
+        assert result["equal_bounds"], case
+        assert result["changed"] > 0, f"{case}: missing content must not pass"
+        assert result["repeat_noise"] == 0, f"{case}: reject raster noise in the oracle"
+        assert result["stale"] == 0, f"{case}: the partial repaint left stale pixels"

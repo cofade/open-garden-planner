@@ -246,27 +246,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1961" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1965" />
             <source>Arrange</source>
             <translation>Arrange</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1975" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1979" />
             <source>Bring Forward</source>
             <translation>Bring Forward</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1970" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1974" />
             <source>Bring to Front</source>
             <translation>Bring to Front</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1980" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1984" />
             <source>Send Backward</source>
             <translation>Send Backward</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1985" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1989" />
             <source>Send to Back</source>
             <translation>Send to Back</translation>
         </message>
@@ -385,32 +385,32 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1160" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1164" />
             <source>Add soil test…</source>
             <translation>Add soil test…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1153" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1157" />
             <source>Hide Grid</source>
             <translation>Hide Grid</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1166" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1170" />
             <source>Log Harvest…</source>
             <translation>Log Harvest…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1163" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1167" />
             <source>Log Pest/Disease…</source>
             <translation>Log Pest/Disease…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1169" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1173" />
             <source>Plan Succession…</source>
             <translation>Plan Succession…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1155" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1159" />
             <source>Show Grid</source>
             <translation>Show Grid</translation>
         </message>
@@ -2206,7 +2206,7 @@
             <translation>text content</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2128" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2132" />
             <location filename="../../ui/panels/property_edits.py" line="178" />
             <source>type</source>
             <translation>type</translation>
@@ -5297,7 +5297,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation>Group</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="545" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="549" />
             <source>Lock position</source>
             <translation>Lock position</translation>
         </message>
@@ -5307,7 +5307,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation>Ungroup</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="543" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="547" />
             <source>Unlock position</source>
             <translation>Unlock position</translation>
         </message>
@@ -5315,12 +5315,12 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2066" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2070" />
             <source>Change Type</source>
             <translation>Change Type</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1914" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1918" />
             <source>Move to Layer</source>
             <translation>Move to Layer</translation>
         </message>
@@ -8906,12 +8906,12 @@ You can capture the satellite view directly from the map below instead.</transla
     <context>
         <name>MidpointHandle</name>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="420" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="421" />
             <source>Add Vertex Here</source>
             <translation>Add Vertex Here</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="355" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="356" />
             <source>Click to add a vertex</source>
             <translation>Click to add a vertex</translation>
         </message>
@@ -16006,17 +16006,17 @@ Continue?</translation>
     <context>
         <name>VertexHandle</name>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="279" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="280" />
             <source>Delete Vertex</source>
             <translation>Delete Vertex</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="276" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="277" />
             <source>Insert Vertex After</source>
             <translation>Insert Vertex After</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="274" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="275" />
             <source>Insert Vertex Before</source>
             <translation>Insert Vertex Before</translation>
         </message>

@@ -257,3 +257,37 @@ def test_selected_ring_paints_prepare_decoration_exclusions_once(canvas, monkeyp
             tree._paint_spacing_ring(painter, 250)
     painter.end()
     assert len(calls) == 1
+
+
+def test_vertex_mode_and_decoration_mutations_invalidate_the_retained_path(canvas):
+    from open_garden_planner.ui.canvas.items.vertex_handles import AnnotationLabel
+
+    view, scene = canvas
+    item = RectangleItem(500, 500, 300, 180)
+    scene.addItem(item)
+    view.set_zoom(1)
+    item.setSelected(True)
+    world = view.viewportTransform()
+    before = scene.edit_decoration_covers(world)
+    item.enter_vertex_edit_mode()
+
+    def assert_fresh():
+        kept = scene.edit_decoration_covers(world)
+        scene.invalidate_edit_decoration_covers()
+        assert kept == scene.edit_decoration_covers(world)
+        return kept
+
+    after = assert_fresh()
+    assert after != before
+    handle = item._rect_corner_handles[0]
+    handle.setPos(handle.pos() + QPointF(30, 20))
+    assert assert_fresh() != after
+    label = next(child for child in item.childItems() if isinstance(child, AnnotationLabel))
+    label.set_text("A much longer editing annotation")
+    assert_fresh()
+    label.hide()
+    assert_fresh()
+    label.show()
+    assert_fresh()
+    item.exit_vertex_edit_mode()
+    assert_fresh()

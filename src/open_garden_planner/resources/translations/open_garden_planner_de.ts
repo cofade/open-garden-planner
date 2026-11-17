@@ -254,27 +254,27 @@
     <context>
         <name>ArrangeActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1961" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1965" />
             <source>Arrange</source>
             <translation>Anordnen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1975" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1979" />
             <source>Bring Forward</source>
             <translation>Weiter nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1970" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1974" />
             <source>Bring to Front</source>
             <translation>Ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1980" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1984" />
             <source>Send Backward</source>
             <translation>Weiter nach hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1985" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1989" />
             <source>Send to Back</source>
             <translation>Ganz nach hinten</translation>
         </message>
@@ -393,22 +393,22 @@
     <context>
         <name>BedActions</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1160" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1164" />
             <source>Add soil test…</source>
             <translation>Bodentest hinzufügen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1153" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1157" />
             <source>Hide Grid</source>
             <translation>Raster ausblenden</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1166" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1170" />
             <source>Log Harvest…</source>
             <translation>Ernte erfassen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1163" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1167" />
             <source>Log Pest/Disease…</source>
             <translation>Schädling/Krankheit erfassen…</translation>
         </message>
@@ -417,12 +417,12 @@
             <translation type="vanished">Anbaufolge planen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1169" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1173" />
             <source>Plan Succession…</source>
             <translation>Anbaufolge planen…</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1155" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1159" />
             <source>Show Grid</source>
             <translation>Raster einblenden</translation>
         </message>
@@ -2226,7 +2226,7 @@
             <translation>Textinhalt</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2128" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2132" />
             <location filename="../../ui/panels/property_edits.py" line="178" />
             <source>type</source>
             <translation>Typ</translation>
@@ -5349,7 +5349,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Gruppieren</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="545" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="549" />
             <source>Lock position</source>
             <translation>Position sperren</translation>
         </message>
@@ -5359,7 +5359,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Gruppe aufheben</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="543" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="547" />
             <source>Unlock position</source>
             <translation>Position entsperren</translation>
         </message>
@@ -5367,12 +5367,12 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>GardenItemMixin</name>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="2066" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="2070" />
             <source>Change Type</source>
             <translation>Typ ändern</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/garden_item.py" line="1914" />
+            <location filename="../../ui/canvas/items/garden_item.py" line="1918" />
             <source>Move to Layer</source>
             <translation>Auf Ebene verschieben</translation>
         </message>
@@ -9026,12 +9026,12 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
     <context>
         <name>MidpointHandle</name>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="420" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="421" />
             <source>Add Vertex Here</source>
             <translation>Hier Knoten einfügen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="355" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="356" />
             <source>Click to add a vertex</source>
             <translation>Klicken zum Hinzufügen eines Knotens</translation>
         </message>
@@ -16273,17 +16273,17 @@ Fortfahren?</translation>
     <context>
         <name>VertexHandle</name>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="279" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="280" />
             <source>Delete Vertex</source>
             <translation>Knoten löschen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="276" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="277" />
             <source>Insert Vertex After</source>
             <translation>Knoten danach einfügen</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/vertex_handles.py" line="274" />
+            <location filename="../../ui/canvas/items/vertex_handles.py" line="275" />
             <source>Insert Vertex Before</source>
             <translation>Knoten davor einfügen</translation>
         </message>

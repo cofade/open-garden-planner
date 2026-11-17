@@ -258,6 +258,7 @@ class _KeptLayout:
     labels: list[ShownLabel]
     badges: list[ShownBadge]
     boxes: dict[int, QRectF]                    # the labels by identity (``_repaint_what_changed``)
+    signatures: dict[int, object]               # a same-size text/colour edit still needs paint
 
 
 class LabelPass:
@@ -339,6 +340,8 @@ class LabelPass:
             scene.paint_revision, scale, origin, blocked, labels,
             badges,
             {id(item): box for item, _device, box in [*labels, *badges]},
+            {**{id(item): item.paint_signature() for item, _device, _box in labels},
+             **{id(entry[0]): (entry[0].paint_signature(), entry.compact) for entry in badges}},
         )
         if kept is not None:
             _repaint_what_changed(viewport, kept, new, exposed)
@@ -370,7 +373,7 @@ def _repaint_what_changed(
         before = old.boxes.get(label)
         before = before.translated(moved) if before is not None else None
         after = new.boxes.get(label)
-        if before == after:
+        if before == after and old.signatures.get(label) == new.signatures.get(label):
             continue
         for box in (before, after):
             if box is not None and not exposed.contains(box):

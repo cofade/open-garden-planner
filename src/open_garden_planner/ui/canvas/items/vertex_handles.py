@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.measurement_display import coordinate_text
 from open_garden_planner.core.measurement_display import length_text as _format_edge_length
 
+from .edit_decoration import EditDecorationMixin, note_edit_decoration_changed
 from .garden_item import PositionLockMixin
 
 if TYPE_CHECKING:
@@ -94,7 +95,7 @@ def _topology_context(item: Any) -> tuple[Any, Any] | None:
     return graph, item_id
 
 
-class VertexHandle(QGraphicsRectItem):
+class VertexHandle(EditDecorationMixin, QGraphicsRectItem):
     """A draggable handle for moving polygon vertices.
 
     Displayed at each vertex when in vertex edit mode.
@@ -316,7 +317,7 @@ class VertexHandle(QGraphicsRectItem):
         event.accept()
 
 
-class MidpointHandle(QGraphicsEllipseItem):
+class MidpointHandle(EditDecorationMixin, QGraphicsEllipseItem):
     """A handle displayed at edge midpoints for adding new vertices.
 
     Clicking on this handle adds a new vertex at the midpoint position.
@@ -424,7 +425,7 @@ class MidpointHandle(QGraphicsEllipseItem):
         event.accept()
 
 
-class AnnotationLabel(QGraphicsItem):
+class AnnotationLabel(EditDecorationMixin, QGraphicsItem):
     """A small label with background, used for vertex coordinates and edge lengths.
 
     Renders at fixed screen size regardless of zoom level.
@@ -451,6 +452,7 @@ class AnnotationLabel(QGraphicsItem):
         self._text = text
         self.prepareGeometryChange()
         self.update()
+        note_edit_decoration_changed(self)
 
     def set_screen_offset(self, dx: float, dy: float) -> None:
         """Shift the label ``(dx, dy)`` screen pixels from its anchor (x right, y down).
@@ -464,6 +466,7 @@ class AnnotationLabel(QGraphicsItem):
         self.prepareGeometryChange()
         self._screen_offset = offset
         self.update()
+        note_edit_decoration_changed(self)
 
     def plate_size(self) -> QSizeF:
         """Size of the label's plate in screen pixels."""
@@ -1322,7 +1325,7 @@ class VertexEditMixin:
             self._position_label()
 
 
-class RectCornerHandle(QGraphicsRectItem):
+class RectCornerHandle(EditDecorationMixin, QGraphicsRectItem):
     """A draggable handle for moving rectangle corners.
 
     Displayed at each corner when in vertex edit mode for rectangles.
@@ -2426,7 +2429,7 @@ _CURVE_TANGENT_KINDS = frozenset(
 )
 
 
-class CurveControlHandle(QGraphicsRectItem):
+class CurveControlHandle(EditDecorationMixin, QGraphicsRectItem):
     """A draggable control point for reshaping a placed Bezier or Arc.
 
     Each handle is a fixed-screen-size square parented to the curve item. On

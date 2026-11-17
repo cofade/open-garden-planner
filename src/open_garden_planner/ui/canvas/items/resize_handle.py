@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QGraphicsSimpleTextItem,
 )
 
+from .edit_decoration import EditDecorationMixin
 from .handle_geometry import (
     HANDLE_BORDER_COLOR as HANDLE_BORDER_COLOR,
 )
@@ -376,7 +377,7 @@ class DimensionDisplay(QGraphicsItem):
 
 
 
-class ResizeHandle(QGraphicsRectItem):
+class ResizeHandle(EditDecorationMixin, QGraphicsRectItem):
     """A draggable handle for resizing items.
 
     Handles are displayed at corners and edges of selected items.
@@ -841,7 +842,7 @@ class AngleDisplay(QGraphicsItem):
         self.hide()
 
 
-class RotationHandle(QGraphicsEllipseItem):
+class RotationHandle(EditDecorationMixin, QGraphicsEllipseItem):
     """A circular handle for rotating items.
 
     Displayed above the item's top center when selected.

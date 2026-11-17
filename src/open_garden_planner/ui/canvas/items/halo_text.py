@@ -47,6 +47,8 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.legibility import halo_for, legible_ink
 from open_garden_planner.core.plain_text import clip_line
 
+from .edit_decoration import EditDecorationMixin, note_edit_decoration_changed
+
 #: Width of the stroke under the glyphs as a share of the font's ascent; half of
 #: it shows around each glyph. A share, not a pixel count: an export gives the
 #: labels another font size, and the halo has to grow and shrink with the text.
@@ -167,7 +169,7 @@ def paint_halo_text(
     painter.restore()
 
 
-class HaloTextItem(QGraphicsSimpleTextItem):
+class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
     """A simple text item whose glyphs lie on a halo.
 
     ``setBrush`` keeps its meaning (the text colour); the colour actually used
@@ -204,11 +206,13 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         font.setStyleStrategy(font.styleStrategy() | QFont.StyleStrategy.NoSubpixelAntialias)
         super().setFont(font)
         self._measured = None
+        note_edit_decoration_changed(self)
 
     def setText(self, text: str | None) -> None:
         """Set the text; its measured size is taken again."""
         super().setText(text)
         self._measured = None
+        note_edit_decoration_changed(self)
 
     def _measure(self) -> tuple[QRectF, float]:
         """The text's own rect at the origin and the margin its halo needs.
@@ -239,6 +243,7 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         self.prepareGeometryChange()
         self._screen_offset = offset
         self.update()
+        note_edit_decoration_changed(self)
 
     def stack_under(self, other: HaloTextItem | None) -> None:
         """Hang this text one line below ``other`` while ``other`` is shown.
@@ -252,6 +257,12 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         self.prepareGeometryChange()
         self._stacked_under = other
         self.update()
+        note_edit_decoration_changed(self)
+
+    def paint_signature(self) -> tuple[str, str, int, int]:
+        """The actual ink/halo content, independent of its retained placement."""
+        return (self.text(), self.font().key(), self.brush().color().rgba(),
+                self._halo_color.rgba())
 
     def text_rect(self) -> QRectF:
         """The text's own rect (no halo) in item coordinates, where it is painted."""
@@ -308,10 +319,7 @@ class HaloTextItem(QGraphicsSimpleTextItem):
         screen the label never changes with the zoom (it ignores the view's
         transformations), so one picture serves every paint.
         """
-        key = (
-            self.text(), self.font().key(), self.brush().color().rgba(),
-            self._halo_color.rgba(), pixel_ratio,
-        )
+        key = (*self.paint_signature(), pixel_ratio)
         if key != self._picture_key:
             text_rect, margin = self._measure()
             picture = QPixmap(
@@ -425,6 +433,10 @@ class PlanLabelItem(HaloTextItem):
 
     def setFont(self, font: QFont) -> None:
         super().setFont(font)
+        note_label_changed(self)
+
+    def setBrush(self, brush: QBrush | QColor | Qt.GlobalColor | int | QGradient) -> None:
+        super().setBrush(brush)
         note_label_changed(self)
 
     def set_screen_offset(self, dx: float, dy: float) -> None:

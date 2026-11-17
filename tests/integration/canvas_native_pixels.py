@@ -146,8 +146,81 @@ def balcony_note_boxes():
     return result
 
 
+def relocated_content_changes():
+    from PyQt6.QtGui import QColor
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
+    from open_garden_planner.ui.canvas.items import RectangleItem
+    from open_garden_planner.ui.canvas.items.halo_text import PlanLabelItem
+    from open_garden_planner.ui.canvas.plan_labels import plan_labels_shown, succession_badges_shown
+
+    results = {}
+    for case in ("rotated_tag", "edge_label", "edge_colour"):
+        scene = CanvasScene(3000, 2000)
+        view = CanvasView(scene)
+        view.resize(900, 640)
+        view.set_grid_visible(False)
+        view.show()
+        QTest.qWaitForWindowExposed(view)
+        if case == "rotated_tag":
+            bed = RectangleItem(800, 600, 500, 350, object_type=ObjectType.RAISED_BED)
+            scene.addItem(bed)
+            bed.set_succession_indicator([("AAAA", True)])
+            label = bed._succession_badge_item
+            label.setFont(QFont("Consolas", 12))
+            bed._apply_rotation(37)
+            view.set_zoom(1)
+            view.centerOn(bed.mapToScene(bed.rect().center()))
+            entries = succession_badges_shown
+        else:
+            label = PlanLabelItem("AAAAAAAA")
+            label.free_extent_px = 100
+            label.setFont(QFont("Consolas", 12))
+            label.setFlag(label.GraphicsItemFlag.ItemIgnoresTransformations)
+            label.setPos(0, scene.height_cm)
+            scene.addItem(label)
+            view.fit_in_view()
+            entries = plan_labels_shown
+        QTest.qWait(100)
+
+        def grab(target=view):
+            image = target.screen().grabWindow(target.viewport().winId()).toImage()
+            assert not image.isNull()
+            return _pixels(image.convertToFormat(QImage.Format.Format_ARGB32))
+
+        initial = grab()
+        before = entries(scene, view.viewportTransform())[0][2]
+        if case == "rotated_tag":
+            label.set_lines([("BBBB", True)])
+        elif case == "edge_colour":
+            label.setBrush(QColor("purple"))
+        else:
+            label.setText("BBBBBBBB")
+        QTest.qWait(100)
+        partial = grab()
+        after = entries(scene, view.viewportTransform())[0][2]
+        view.viewport().repaint()
+        full = grab()
+        view.viewport().repaint()
+        repeated = grab()
+        results[case] = {
+            "equal_bounds": before == after,
+            "changed": int(np.count_nonzero(initial != full)),
+            "stale": int(np.count_nonzero(partial != full)),
+            "repeat_noise": int(np.count_nonzero(full != repeated)),
+        }
+        view.setScene(None)
+        view.close()
+        view.deleteLater()
+        scene.clear()
+    return results
+
+
 if __name__ == "__main__":
     app = QApplication([])
     assert app.platformName() == "windows"
     print(json.dumps({"gaps": letter_gaps(), "hinted": letter_gaps(True),
-                      "repaints": repaint_differences(), "balcony": balcony_note_boxes()}))
+                      "repaints": repaint_differences(), "balcony": balcony_note_boxes(),
+                      "foreground": relocated_content_changes()}))

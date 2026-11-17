@@ -322,6 +322,10 @@ class SuccessionBadgeItem(QGraphicsItem):
                                        mid.y() + rect.height() * 0.25))
         painter.restore()
 
+    def paint_signature(self) -> tuple[str, tuple[tuple[str, bool, bool], ...]]:
+        """The bounded rows actually painted, including translated overflow text."""
+        return self._font.key(), tuple(self._rendered_rows())
+
 
 # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
 
