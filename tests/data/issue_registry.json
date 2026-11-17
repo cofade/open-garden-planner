@@ -1324,10 +1324,30 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
+  "840": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Selection handles: eight on every object of a multi-selection, covering small plants at fit zoom, rotation handle far away after zooming in"
+  },
+  "841": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Capacity badge, snapping and alignment still read boundingRect: a shown spacing ring or badge moves a plant's anchors"
+  },
   "842": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Ellipse and circle beds paint no crop-rotation border"
+  },
+  "843": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Plan labels: dimension labels are outside the declutter, edge labels are cut at fit zoom, warning arcs cross labels below"
+  },
+  "844": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Succession badge: overhangs a rotated bed, takes no part in label collision, gives no hint when zoomed out"
   },
   "847": {
     "is_pr": false,
@@ -1339,6 +1359,11 @@
     "state": "CLOSED",
     "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
   },
+  "853": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Rulers cover the plan's left and top 20 px at fit zoom"
+  },
   "854": {
     "is_pr": false,
     "state": "OPEN",
@@ -1349,10 +1374,25 @@
     "state": "CLOSED",
     "title": "Opening a bundled example through File > Open attaches Save to the shipped file"
   },
+  "867": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Balcony example: the text note runs under the furniture and across the sun map's contour lines"
+  },
   "871": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Print at a fixed scale puts the short row of tiles on top"
+  },
+  "872": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Text note size follows the screen's logical DPI"
+  },
+  "874": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
   },
   "877": {
     "is_pr": false,
@@ -1363,6 +1403,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "The kept grid layer is rebuilt only by a whole-viewport paint"
+  },
+  "879": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Partial and full repaint differ by a few pixels at a selected item's handles"
   },
   "889": {
     "is_pr": false,

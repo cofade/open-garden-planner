@@ -25,9 +25,14 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.plain_text import ELLIPSIS
-from open_garden_planner.ui.canvas.layout_font import layout_dpi, layout_pixel_size
+from open_garden_planner.ui.canvas.layout_font import (
+    PLAN_TEXT_DPI,
+    layout_pixel_size,
+    plan_text_font,
+)
 
 from .garden_item import GardenItemMixin
+from .halo_text import note_label_changed
 from .resize_handle import RotationHandleMixin
 
 #: Maximum characters loaded into a canvas text item's Qt QTextDocument (#873).
@@ -56,7 +61,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
       on a 72-dpi sheet at 1:1, which is not a length on the plan. Its meaning
       is frozen: a stored value must draw what it always drew.
     * ``em_height_cm`` is the size the note has on the plan: the font's em in
-      plan centimetres. A scene item's points are laid out at the screen's
+      plan centimetres. Stored points are resolved at a fixed
       96 pixels per inch and a pixel of the item is a plan centimetre, so a
       stored 1.0 is a 28 pt font with an em of 37 cm (capital letters 27 cm).
       This is what the Properties panel states and takes;
@@ -105,6 +110,9 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
             metadata=metadata,
         )
         QGraphicsTextItem.__init__(self)
+        document = self.document()
+        assert document is not None
+        document.contentsChanged.connect(self._on_document_contents_changed)
 
         self.init_rotation_handle()
 
@@ -138,6 +146,10 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
 
     # ── Font / content properties ────────────────────────────────
+
+    def _on_document_contents_changed(self) -> None:
+        """Inline edits change the room a note reserves before they are committed."""
+        note_label_changed(self)
 
     @property
     def content(self) -> str:
@@ -183,12 +195,12 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         Fonts come in whole points, so the nearest one is taken; for a height
         read from ``em_height_cm`` that is the font the note already has.
         """
-        return max(cls.MIN_FONT_SIZE, height_cm * 72.0 / layout_dpi() / cls._CM_TO_PT)
+        return max(cls.MIN_FONT_SIZE, height_cm * 72.0 / PLAN_TEXT_DPI / cls._CM_TO_PT)
 
     @classmethod
     def em_height_for_font_size(cls, font_size: float) -> float:
         """The em on the plan, in centimetres, of a note stored with *font_size*."""
-        return layout_pixel_size(QFont("Arial", cls._points(font_size)))
+        return layout_pixel_size(plan_text_font("Arial", cls._points(font_size)))
 
     @classmethod
     def _points(cls, font_size: float) -> int:
@@ -224,7 +236,7 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     def _apply_font(self) -> None:
         """Apply current font settings (the stored ``font_size`` as whole points)."""
-        font = QFont(self._font_family, self._points(self._font_size))
+        font = plan_text_font(self._font_family, self._points(self._font_size))
         font.setBold(self._bold)
         font.setItalic(self._italic)
         # A note is laid out once, at its nominal size, and then scaled with the
@@ -236,6 +248,11 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
         font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
         self.setFont(font)
         self.setDefaultTextColor(self._text_color)
+        note_label_changed(self)
+
+    def plan_label_blocker(self) -> QRectF:
+        """Contour labels and object names must not cross an authored text note."""
+        return self.boundingRect()
 
     # ── Editing ──────────────────────────────────────────────────
 

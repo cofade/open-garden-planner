@@ -138,7 +138,7 @@ def test_a_note_keeps_its_size_in_an_svg_export(
     assert written, "the note is not a <text> element"
     units_per_cm = width_cm / 2.54 * svg_export.SVG_UNITS_PER_INCH / CANVAS_W
     assert float(written.group(1)) == pytest.approx(units_per_cm, rel=1e-3)
-    font_px = note.font().pointSizeF() * round(svg_export.logical_dpi()) / 72.0
+    font_px = note.font().pixelSize()
     assert float(written.group(2)) == pytest.approx(font_px, rel=1e-3)
 
     # QtSvg interprets a CSS family list as one family on Linux, falling back

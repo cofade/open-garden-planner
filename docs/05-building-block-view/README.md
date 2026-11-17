@@ -12,6 +12,16 @@
 | `ui/diagnostics_coordinator` | One general-panel publisher harvesting existing, guild and sun producers through the shared converter. |
 | `ui/panels/canopy_panel` / `ui/sun_exposure_text` | UUID navigation and translated, dated exposure/unavailable presentation. |
 
+## Canvas editing geometry (#840, #841)
+
+`core/item_geometry.py` supplies local object frames, scene frames and filled
+outlines without importing UI modules. Handles retain their former import as an
+alias; snapping and alignment use the same implementation. `ui/canvas/plan_labels`
+places upright text and tags with retained content signatures. The shared
+`ui/canvas/items/edit_decoration.py` mixin reports transient decoration mutations,
+while `CanvasScene` retains annotation exclusions
+for sun-map contours. See the ADR-076 editing addendum and section 8.9.17.
+
 ## 5.1 High-Level Architecture
 
 ### Measurement display and input (ADR-078, #673)

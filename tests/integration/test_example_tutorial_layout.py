@@ -9,6 +9,23 @@ from open_garden_planner.ui.canvas.items.text_item import TextItem
 
 
 @pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_balcony_note_does_not_run_under_furniture(qtbot, language):
+    from open_garden_planner.core.furniture_renderer import is_furniture_type
+    from open_garden_planner.core.item_geometry import object_outline
+    from open_garden_planner.core.object_types import ObjectType
+
+    entry = next(entry for entry in bundled_examples(language) if entry.path.stem == "balcony")
+    scene = CanvasScene()
+    ProjectManager().load(scene, entry.path, as_template=True)
+    note = next(item for item in scene.items() if isinstance(item, TextItem))
+    for item in scene.items():
+        kind = getattr(item, "object_type", None)
+        if is_furniture_type(kind) or kind is ObjectType.PARASOL:
+            outline = item.sceneTransform().map(object_outline(item))
+            assert not outline.intersects(note.sceneBoundingRect()), (item.name, language)
+
+
+@pytest.mark.parametrize("language", ["en", "de", "es"])
 def test_every_tutorial_annotation_stays_inside_its_canvas(qtbot, language):
     for entry in bundled_examples(language):
         scene = CanvasScene()

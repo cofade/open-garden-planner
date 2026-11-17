@@ -213,8 +213,8 @@ class SunMapLabelItem(PlanLabelItem):
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
 
 
-class _SunContourPathItem(QGraphicsPathItem):
-    """Contour line whose stroke scales to print/export DPI (#851).
+class SunContourItem(QGraphicsPathItem):
+    """Contour line that clips around authored notes (#934) and scales to export DPI (#851).
 
     On the interactive canvas (96 dpi), draws with a cosmetic pen (``1.6`` px
     on even hours, ``0.7`` px on odd hours). In high-DPI exports (300-dpi PNG,
@@ -228,7 +228,7 @@ class _SunContourPathItem(QGraphicsPathItem):
     def __init__(
         self,
         path: QPainterPath,
-        base_width_px: float,
+        base_width_px: float = 1.6,
     ) -> None:
         super().__init__(path)
         self._base_width_px = base_width_px
@@ -248,36 +248,48 @@ class _SunContourPathItem(QGraphicsPathItem):
     ) -> None:
         if painter is None:
             return
-        dpi_scale = 1.0
-        if widget is None:
-            from open_garden_planner.services.svg_export import logical_dpi
+        covers = getattr(self.scene(), "annotation_covers", None)
+        painter.save()
+        try:
+            if covers is not None:
+                clip_path = QPainterPath()
+                clip_path.addRect(self.boundingRect())
+                clip_path = clip_path.subtracted(self.mapFromScene(covers()))
+                painter.setClipPath(clip_path, Qt.ClipOperation.IntersectClip)
 
-            base_dpi = max(self._BASE_DPI, logical_dpi())
-            scene = self.scene()
-            export_dpi = getattr(scene, "_export_dpi", None) if scene is not None else None
-            if isinstance(export_dpi, (int, float)) and export_dpi > base_dpi:
-                dpi_scale = float(export_dpi) / base_dpi
-            else:
-                device = painter.device()
-                if device is not None and device.logicalDpiX() > base_dpi:
-                    dpi_scale = float(device.logicalDpiX()) / base_dpi
-        if dpi_scale > 1.0:
-            world = painter.worldTransform()
-            world_scale = max(
-                math.hypot(world.m11(), world.m12()),
-                math.hypot(world.m21(), world.m22()),
-            )
-            if math.isfinite(world_scale) and world_scale > 0.0:
-                pen = QPen(self.pen())
-                pen.setCosmetic(False)
-                pen.setWidthF((self._base_width_px * dpi_scale) / world_scale)
-                painter.save()
-                painter.setPen(pen)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawPath(self.path())
-                painter.restore()
-                return
-        super().paint(painter, option, widget)
+            dpi_scale = 1.0
+            if widget is None:
+                from open_garden_planner.services.svg_export import logical_dpi
+
+                base_dpi = max(self._BASE_DPI, logical_dpi())
+                scene = self.scene()
+                export_dpi = getattr(scene, "_export_dpi", None) if scene is not None else None
+                if isinstance(export_dpi, (int, float)) and export_dpi > base_dpi:
+                    dpi_scale = float(export_dpi) / base_dpi
+                else:
+                    device = painter.device()
+                    if device is not None and device.logicalDpiX() > base_dpi:
+                        dpi_scale = float(device.logicalDpiX()) / base_dpi
+            if dpi_scale > 1.0:
+                world = painter.worldTransform()
+                world_scale = max(
+                    math.hypot(world.m11(), world.m12()),
+                    math.hypot(world.m21(), world.m22()),
+                )
+                if math.isfinite(world_scale) and world_scale > 0.0:
+                    pen = QPen(self.pen())
+                    pen.setCosmetic(False)
+                    pen.setWidthF((self._base_width_px * dpi_scale) / world_scale)
+                    painter.setPen(pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawPath(self.path())
+                    return
+            super().paint(painter, option, widget)
+        finally:
+            painter.restore()
+
+
+_SunContourPathItem = SunContourItem
 
 
 def _clip_segment_outside_rects(
@@ -863,7 +875,7 @@ class SunHeatmapController(QObject):
                 else:
                     path.moveTo(sx, sy)
                     path.lineTo(ex, ey)
-            line = _SunContourPathItem(
+            line = SunContourItem(
                 path,
                 1.6 if even else 0.7,
             )

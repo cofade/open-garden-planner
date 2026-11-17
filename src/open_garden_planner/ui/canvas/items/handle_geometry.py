@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
 )
 
+from open_garden_planner.core.item_geometry import selection_frame_rect as selection_frame_rect
+
 from .garden_item import note_plan_changed
 
 if TYPE_CHECKING:
@@ -222,24 +224,3 @@ def _has_blocking_constraints(item: "QGraphicsItem") -> bool:
         if c.constraint_type not in scale_invariant:
             return True
     return False
-
-
-def selection_frame_rect(item: "QGraphicsItem") -> QRectF:
-    """The rect an item's selection handles sit on: its own outline.
-
-    ``boundingRect()`` is the repaint region. It holds the outline plus
-    everything painted around it: the drop shadow, the pen, a plant sprite's
-    leaf overflow, a companion ring, a warning badge and the spacing ring. A
-    magnolia drawn 2.20 m wide had its handles on an 8.64 m box while its
-    spacing ring was shown (#790), and a badge moved them off-centre. Handles
-    belong on what a drag resizes: ``rect()`` for a circle, rectangle or
-    ellipse and the vertex hull for a polygon. Only an item with neither (a
-    text, a callout, a line) falls back to its bounding rect.
-    """
-    rect_fn = getattr(item, "rect", None)
-    if callable(rect_fn):
-        return QRectF(rect_fn())
-    polygon_fn = getattr(item, "polygon", None)
-    if callable(polygon_fn):
-        return QRectF(polygon_fn().boundingRect())
-    return item.boundingRect()

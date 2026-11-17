@@ -351,6 +351,8 @@ class CanvasScene(QGraphicsScene):
         # Not connected: Qt's ``changed`` (class docstring).
         self._paint_revision = 0
         self._standing_covers: tuple[int, list[StandingCover]] | None = None
+        self._annotation_covers: tuple[int, QPainterPath] | None = None
+        self._edit_decoration_covers: tuple[int, tuple[float, ...], QPainterPath] | None = None
         #: How often what stands on the plan was collected — the instrument of
         #: the grid's cut-out (counted, never timed: §8.10.10).
         self.standing_cover_builds = 0
@@ -555,6 +557,21 @@ class CanvasScene(QGraphicsScene):
     def diagnostic_overlays_visible(self) -> bool:
         """Whether garden items paint their diagnostic decorations."""
         return self._diagnostic_overlays_visible
+
+    @contextmanager
+    def suppress_diagnostic_paint(self) -> Iterator[None]:
+        """Omit diagnostics for an auxiliary render without dirtying the scene.
+
+        The minimap paints the live scene. Scheduling item updates while it
+        paints would feed its own changed subscription indefinitely (#305).
+        This scope changes only the consumer's paint policy, even on failure.
+        """
+        visible = self._diagnostic_overlays_visible
+        self._diagnostic_overlays_visible = False
+        try:
+            yield
+        finally:
+            self._diagnostic_overlays_visible = visible
 
     def set_diagnostic_overlays_visible(self, visible: bool) -> None:
         """Switch every item's painted diagnostic decoration on or off.
@@ -1101,6 +1118,51 @@ class CanvasScene(QGraphicsScene):
             self._standing_covers = kept
             self.standing_cover_builds += 1
         return kept[1]
+
+    def annotation_covers(self) -> QPainterPath:
+        """The plan-space room of text notes, kept for contour painting (#867)."""
+        kept = self._annotation_covers
+        if kept is None or kept[0] != self._paint_revision:
+            from .items.text_item import TextItem
+
+            covered = QPainterPath()
+            covered.setFillRule(Qt.FillRule.WindingFill)
+            for item in self.items():
+                if isinstance(item, TextItem) and item.isVisible():
+                    path = QPainterPath()
+                    path.addRect(item.boundingRect())
+                    covered.addPath(item.sceneTransform().map(path))
+            kept = (self._paint_revision, covered)
+            self._annotation_covers = kept
+        return QPainterPath(kept[1])
+
+    def invalidate_edit_decoration_covers(self) -> None:
+        """Handle visibility can change without a document edit (zoom/drill-down)."""
+        self._edit_decoration_covers = None
+
+    def edit_decoration_covers(self, world: QTransform) -> QPainterPath:
+        """Device-space selected decorations, prepared once rather than per tree.
+
+        Normalise inverse-composition floating-point noise in the cache key;
+        the paths themselves keep the full supplied transform precision.
+        """
+        pose = tuple(round(value, 12) for value in (
+            world.m11(), world.m12(), world.m21(), world.m22(), world.dx(), world.dy(),
+        ))
+        kept = self._edit_decoration_covers
+        if kept is None or kept[0] != self._paint_revision or kept[1] != pose:
+            from .items.group_item import selection_tree
+
+            covered = QPainterPath()
+            covered.setFillRule(Qt.FillRule.WindingFill)
+            for child in selection_tree(self.selectedItems()):
+                if (child.isVisible() and child.parentItem() is not None
+                        and child.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations):
+                    box = child.deviceTransform(world).mapRect(child.boundingRect())
+                    covered.addRect(box.adjusted(-2, -2, 2, 2))
+            kept = (self._paint_revision, pose, covered.simplified())
+            self._edit_decoration_covers = kept
+        return QPainterPath(kept[2])
 
     @property
     def guide_lines(self) -> list[GuideLine]:
@@ -2197,6 +2259,8 @@ class CanvasScene(QGraphicsScene):
         self._provisional_z = {}
         # What is kept for painting describes them too.
         self._standing_covers = None
+        self._annotation_covers = None
+        self._edit_decoration_covers = None
         if self._label_pass is not None:
             self._label_pass.clear()
         self._paint_revision += 1

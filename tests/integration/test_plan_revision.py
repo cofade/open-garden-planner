@@ -372,12 +372,21 @@ def test_every_plan_item_class_announces_through_the_one_hook() -> None:
             change = _method(node, "itemChange")
             if change is None:
                 continue
+            if path.name == "edit_decoration.py" and node.name == "EditDecorationMixin":
+                # Transient handles invalidate only the spacing-ring exclusion
+                # cache. They must never publish a document edit.
+                calls = set(_calls(change))
+                assert "note_edit_decoration_changed" in calls
+                assert calls.isdisjoint({"handle_item_change", "announce_plan_change",
+                                         "note_label_changed"})
+                hooked[node.name] = path.name
+                continue
             hook = _OTHER_HOOKS.get(node.name, "handle_item_change")
             assert _first_statement_calls(change) == [hook], (
                 f"{path.name}: {node.name}.itemChange must call the hook first")
             hooked[node.name] = path.name
     assert sorted(hooked) == [
-        "ArcItem", "BezierItem", "CalloutItem", "CircleItem", "EllipseItem", "GroupItem",
+        "ArcItem", "BezierItem", "CalloutItem", "CircleItem", "EditDecorationMixin", "EllipseItem", "GroupItem",
         "JournalPinItem", "PlanLabelItem", "PolygonItem", "PolylineItem", "RectangleItem",
         "SuccessionBadgeItem", "TextItem"], hooked
 

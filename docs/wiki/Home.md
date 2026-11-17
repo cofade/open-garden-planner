@@ -16,12 +16,17 @@ Choose metric or imperial lengths and areas, and litres or US quarts and gallons
 
 ## Current status
 
-Latest release: [v1.40.5](https://github.com/cofade/open-garden-planner/releases/latest).
+Latest release: [v1.40.6](https://github.com/cofade/open-garden-planner/releases/latest).
 Phases 1–15 and Phase 17 are complete. Phase 16, Platform & Community, is future work.
 
 The [canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
 owns current work and delivery status. [Open issues](https://github.com/cofade/open-garden-planner/issues)
 own the work list. See the roadmap's "Current work" section for the active themes and issue pointers.
+
+Canvas editing contracts are documented in the
+[canvas concepts](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#8917-handles-sit-on-the-outline-the-grid-lies-under-the-objects-790-793):
+object geometry drives snap/alignment, editing handles follow screen size, and
+plan text has a stable physical size across screen resolutions.
 
 ## Community
 

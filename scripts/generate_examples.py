@@ -395,10 +395,10 @@ def balcony():
     manager = ProjectManager()
     _site(manager, "Freiburg im Breisgau", 47.9990, 7.8421)
     _soil(manager, pots[0])
-    _note(scene, 20, 238, text(
-        "21 Sep 2026 · 4 basil,\n6 parsley, 4 thyme;\nwater separately.\nBasil → Soil Test:\nfictional sample;\nFreiburg: demo.\nPlan & Sun: 21 Jun\n15:00 → wall, rails,\nparasol.",
-        "21.09.2026 · 4 Basilikum,\n6 Petersilien, 4 Thymiane;\ngetrennt gießen.\nBasilikum → Bodentest:\nÜbungsprobe;\nFreiburg: fiktiv.\nPlan & Sonne: 21. Jun\n15 Uhr → Wand,\nGeländer, Schirm.",
-        "21 sep 2026 · 4 albahacas,\n6 perejiles, 4 tomillos;\nriego separado.\nAlbahaca → Suelo:\nanálisis ficticio;\nFriburgo: ejemplo.\nPlan y sol: 21 jun\n15:00 → pared,\nbarandilla, sombrilla."), 0.15)
+    _note(scene, 20, 196, text(
+        "21 Sep 2026 · 4 basil / 6 parsley / 4 thyme.\nWater separately. Basil trough → Soil Test: fictional sample.\nFreiburg / frost: demo data. Plan & Sun → 21 June, 15:00.\nCompare wall, rails and parasol shadows.",
+        "21.09.2026 · 4 Basilikum / 6 Petersilien / 4 Thymiane.\nGetrennt gießen. Basilikumtrog → Bodentest: Übungsprobe.\nFreiburg / Frost: fiktiv. Plan & Sonne → 21. Juni, 15 Uhr.\nWand, Geländer und Schirm vergleichen.",
+        "21 sep 2026 · 4 albahacas / 6 perejiles / 4 tomillos.\nRiego separado. Albahaca → Análisis de suelo: ficticio.\nFriburgo / heladas: ejemplo. Plan y sol → 21 junio, 15:00.\nComparar pared, barandilla y sombrilla."), 0.24)
     for key, entries in (
         ("ocimum basilicum", [("2026-06-28", 1, "bunch", FIRST_PICK), ("2026-07-19", 2, "bunch", AROMATIC),
                               ("2026-08-15", 2, "bunch"), ("2026-09-06", 1, "bunch")]),

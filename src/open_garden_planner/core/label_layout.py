@@ -86,10 +86,11 @@ class LabelCandidate:
 def place_labels(
     candidates: Sequence[LabelCandidate],
     *,
+    blocked: Sequence[tuple[float, float, float, float]] = (),
     min_owner_px: float = LABEL_MIN_OWNER_PX,
     gap_px: float = LABEL_GAP_PX,
 ) -> list[int]:
-    """Indices of the candidates to paint, in the order they were placed."""
+    """Indices of the candidates to paint after reserving every blocked rectangle."""
     order = sorted(
         (
             index
@@ -105,6 +106,20 @@ def place_labels(
         ),
     )
     cells: dict[tuple[int, int], list[tuple[float, float, float, float, Hashable | None]]] = {}
+
+    def cell_keys(left: float, top: float, right: float, bottom: float) -> list[tuple[int, int]]:
+        return [
+            (column, row)
+            for column in range(int(left // _CELL_PX), int(right // _CELL_PX) + 1)
+            for row in range(int(top // _CELL_PX), int(bottom // _CELL_PX) + 1)
+        ]
+
+    # Blockers describe paint that already exists. Their union still blocks
+    # labels when two badges or other decorations overlap.
+    for rect in blocked:
+        for key in cell_keys(*rect):
+            cells.setdefault(key, []).append((*rect, None))
+
     placed: list[int] = []
     left_out: set[Hashable] = set()
     for index in order:
@@ -113,11 +128,7 @@ def place_labels(
             continue
         left, top, right, bottom = candidates[index].rect
         grown = (left - gap_px, top - gap_px, right + gap_px, bottom + gap_px)
-        keys = [
-            (column, row)
-            for column in range(int(grown[0] // _CELL_PX), int(grown[2] // _CELL_PX) + 1)
-            for row in range(int(grown[1] // _CELL_PX), int(grown[3] // _CELL_PX) + 1)
-        ]
+        keys = cell_keys(*grown)
         if any(
             grown[0] < other[2] and other[0] < grown[2] and grown[1] < other[3] and other[1] < grown[3]
             for key in keys

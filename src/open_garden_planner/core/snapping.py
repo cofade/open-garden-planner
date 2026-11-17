@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtWidgets import QGraphicsItem
 
+from open_garden_planner.core.item_geometry import scene_frame_rect
+
 
 @dataclass
 class SnapGuide:
@@ -61,7 +63,7 @@ class ObjectSnapper:
         """Extract horizontal and vertical snap values from an item.
 
         Returns x-values (left, center, right) and y-values (top, center, bottom)
-        from the item's scene bounding rect.
+        from the item's geometric frame in scene coordinates.
 
         Args:
             item: A graphics item on the scene.
@@ -69,7 +71,7 @@ class ObjectSnapper:
         Returns:
             Tuple of (x_values, y_values) in scene coordinates.
         """
-        rect = item.sceneBoundingRect()
+        rect = scene_frame_rect(item)
         x_vals = [rect.left(), rect.center().x(), rect.right()]
         y_vals = [rect.top(), rect.center().y(), rect.bottom()]
         return x_vals, y_vals

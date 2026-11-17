@@ -53,8 +53,8 @@ class TestObjectSnapper:
     def test_snap_x_to_left_edge(self, snapper, scene) -> None:
         """Test snapping to the left edge of a target item."""
         target = self._make_selectable_rect(scene, 200, 0, 100, 100)
-        # sceneBoundingRect includes pen margin (~0.5), so target left is ~199.5
-        target_left = target.sceneBoundingRect().left()
+        # Snap to geometry, independently of the outline pen.
+        target_left = target.mapRectToScene(target.rect()).left()
         dragged = QRectF(148, 50, 50, 50)
         result = snapper.snap(dragged, list(scene.items()), exclude=set())
         assert result.snapped_x
@@ -65,7 +65,7 @@ class TestObjectSnapper:
     def test_snap_y_to_top_edge(self, snapper, scene) -> None:
         """Test snapping to the top edge of a target item."""
         target = self._make_selectable_rect(scene, 0, 200, 100, 100)
-        target_top = target.sceneBoundingRect().top()
+        target_top = target.mapRectToScene(target.rect()).top()
         dragged = QRectF(50, 148, 50, 50)
         result = snapper.snap(dragged, list(scene.items()), exclude=set())
         assert result.snapped_y

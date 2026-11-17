@@ -381,6 +381,11 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         path.addEllipse(rect.center(), radius, radius)
         return path
 
+    @property
+    def _needs_live_spacing_paint(self) -> bool:
+        """Warning arcs read other items' editing geometry on every paint."""
+        return self._spacing_circles_visible and self._spacing_overlap == "overlap"
+
     def _painted_spacing_ring_cm(self) -> float | None:
         """Radius of the spacing ring this plant shows right now, or ``None``.
 
@@ -488,8 +493,42 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             p.drawPath(path)
 
         painter.save()
+        self._clip_spacing_ring_away_from_edit_handles(painter)
         _draw_vector(painter)
         painter.restore()
+
+    def _clip_spacing_ring_away_from_edit_handles(self, painter: QPainter) -> None:
+        """A higher-z tree must not paint warning arcs through another edit target.
+
+        Labels have their own final pass; drag handles and vertex annotations
+        remain children. Exclude their actual device bounds from the ring,
+        including the screen-sized antialias margin, without walking the plan.
+        """
+        scene = self.scene()
+        if scene is None:
+            return
+        world = painter.worldTransform()
+        inverse, invertible = world.inverted()
+        if not invertible:
+            return
+        scene_to_device = self.sceneTransform().inverted()[0] * world
+        covers = getattr(scene, "edit_decoration_covers", None)
+        if covers is None:
+            return
+        excluded = covers(scene_to_device)
+        if excluded.isEmpty():
+            return
+        # Cull the shared device path to this ring before transforming it back
+        # to item coordinates. Do not walk every selected subtree per plant.
+        interest = QPainterPath()
+        interest.addRect(world.mapRect(self.boundingRect()))
+        excluded = excluded.intersected(interest)
+        if excluded.isEmpty():
+            return
+        clip = QPainterPath()
+        clip.addRect(self.boundingRect())
+        clip = clip.subtracted(inverse.map(excluded))
+        painter.setClipPath(clip, Qt.ClipOperation.IntersectClip)
 
     def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
         """The diameter (cm) the plant's SVG icon should render at the plan date.
