@@ -34,4 +34,4 @@ the community documentation in this wiki does not mark Phase 16 complete.
 The canonical roadmap's "Current work" section lists the active themes and links to the
 open issues. No roadmap phase is active.
 
-Current release: [v1.40.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.40.5).
+Current release: [v1.40.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.40.6).
