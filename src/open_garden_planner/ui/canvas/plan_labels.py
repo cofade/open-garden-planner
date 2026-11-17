@@ -47,7 +47,24 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 ShownLabel = tuple[PlanLabelItem, QTransform, QRectF]
-ShownBadge = tuple[SuccessionBadgeItem, QTransform, QRectF]
+
+
+class ShownBadge(tuple[SuccessionBadgeItem, QTransform, QRectF]):
+    """A retained badge placement with an explicit variant.
+
+    Keep the existing three-element inspection API used by export probes;
+    the paint variant belongs to the placement, never to an inferred scale.
+    """
+
+    compact: bool
+
+    def __new__(cls, item: SuccessionBadgeItem, device: QTransform, box: QRectF,
+                *, compact: bool = False) -> ShownBadge:
+        entry = super().__new__(cls, (item, device, box))
+        entry.compact = compact
+        return entry
+
+
 _Item = TypeVar("_Item", PlanLabelItem, SuccessionBadgeItem)
 
 
@@ -180,30 +197,34 @@ def succession_badges_shown(scene: QGraphicsScene, world: QTransform) -> list[Sh
         if box.isEmpty():
             continue
         owner = item.parentItem()
+        compact = False
         if owner is not None:
             outline = owner.deviceTransform(world).map(object_outline(owner))
             frame = outline.boundingRect()
             full = badge_has_room(box.width(), box.height(), frame.width(), frame.height())
             placement = _badge_placement(outline, box.width(), box.height()) if full else None
-            scale = 1.0
+            scale_x = scale_y = 1.0
             if placement is None:
+                compact = True
                 # An upright crop-following arrow remains when the text has no
                 # room. At subpixel bed sizes no readable indicator can fit.
-                size = min(10.0, min(frame.width(), frame.height()) * 0.4)
+                # Independent of crop text/row count. The font-relative cap
+                # also follows export retargeting, like the full tag's padding.
+                size = min(item._line_h * 0.8, min(frame.width(), frame.height()) * 0.4)
                 if size < 3.0:
                     continue
-                scale = size / max(box.width(), box.height())
-                placement = _badge_placement(outline, box.width() * scale, box.height() * scale)
+                scale_x, scale_y = size / box.width(), size / box.height()
+                placement = _badge_placement(outline, size, size)
             if placement is None:
                 continue
             bounds = item.boundingRect()
-            device = QTransform.fromScale(scale, scale)
+            device = QTransform.fromScale(scale_x, scale_y)
             device = device * QTransform.fromTranslate(
-                placement.x() - bounds.left() * scale,
-                placement.y() - bounds.top() * scale,
+                placement.x() - bounds.left() * scale_x,
+                placement.y() - bounds.top() * scale_y,
             )
             box = device.mapRect(bounds)
-        shown.append((item, device, box))
+        shown.append(ShownBadge(item, device, box, compact=compact))
     return shown
 
 
@@ -356,8 +377,8 @@ def _repaint_what_changed(
                 viewport.update(box.adjusted(-1, -1, 1, 1).toAlignedRect())
 
 
-def _paint_badge(item: SuccessionBadgeItem, painter: QPainter) -> None:
-    if painter.worldTransform().m11() < 0.99:
+def _paint_badge(item: SuccessionBadgeItem, painter: QPainter, compact: bool = False) -> None:
+    if compact:
         item.paint_indicator(painter)
     else:
         item.paint_badge(painter)
@@ -379,7 +400,8 @@ def _draw(
     if moved is not None and moved.isNull():
         moved = None
     seen = exposed if moved is None else exposed.translated(-moved)
-    for item, device, box in shown:
+    for entry in shown:
+        item, device, box = entry
         # An item destroyed since the layout (and not through the scene, which
         # would have said so) is passed over, not painted from a dead wrapper.
         if not box.intersects(seen) or sip.isdeleted(item):
@@ -389,5 +411,8 @@ def _draw(
             device = device * QTransform.fromTranslate(moved.x(), moved.y())
         painter.setWorldTransform(device)
         painter.setOpacity(item.effectiveOpacity())
-        paint(item, painter)
+        if isinstance(entry, ShownBadge):
+            _paint_badge(entry[0], painter, entry.compact)
+        else:
+            paint(item, painter)
         painter.restore()

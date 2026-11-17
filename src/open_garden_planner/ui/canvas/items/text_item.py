@@ -97,6 +97,9 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
             metadata=metadata,
         )
         QGraphicsTextItem.__init__(self)
+        document = self.document()
+        assert document is not None
+        document.contentsChanged.connect(self._on_document_contents_changed)
 
         self.init_rotation_handle()
 
@@ -130,6 +133,10 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     # ── Font / content properties ────────────────────────────────
 
+    def _on_document_contents_changed(self) -> None:
+        """Inline edits change the room a note reserves before they are committed."""
+        note_label_changed(self)
+
     @property
     def content(self) -> str:
         """Text content."""
@@ -139,7 +146,6 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     def content(self, value: str) -> None:
         self._content = value
         self.setPlainText(value)
-        note_label_changed(self)
 
     @property
     def font_family(self) -> str:

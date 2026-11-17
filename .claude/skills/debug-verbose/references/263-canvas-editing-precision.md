@@ -44,3 +44,17 @@ its scenes and detach/delete its closed view before QApplication teardown.
 **Lesson:** Derive geometry from geometry and screen distances through the full
 transform. A changed fit scale can expose a cache boundary even when the cache's
 key is unchanged. Prove a pixel oracle sees its negative control.
+
+### Review-driven regressions
+
+The first independent review reproduced four defects: inline document edits did
+not move the retained annotation revision; an 80-character crop name reduced the
+compact marker below one pixel high; a handle kept its drag-only visibility after
+release; and rebuilding selected decorations per tree made 60 ring paints cost
+116 ms versus 14 ms without clipping. Each received a failing regression before
+its fix. Document `contentsChanged` now invalidates the annotation room, compact
+markers have a fixed square aspect independent of text, release refreshes handle
+visibility, and one retained device-space exclusion path serves every ring.
+`test_selected_ring_paints_prepare_decoration_exclusions_once` counts one selected
+subtree traversal for two paints of 30 selected trees. A badge placement carries
+its compact/full variant explicitly instead of inferring it from transform scale.

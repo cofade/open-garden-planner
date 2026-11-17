@@ -858,6 +858,7 @@ class CanvasView(QGraphicsView):
             return
         from .items.group_item import selection_tree
 
+        self._canvas_scene.invalidate_edit_decoration_covers()
         for item in selection_tree(self._canvas_scene.selectedItems()):
             for name in ("update_resize_handles", "update_rotation_handle"):
                 refresh = getattr(item, name, None)

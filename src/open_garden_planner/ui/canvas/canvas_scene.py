@@ -351,6 +351,7 @@ class CanvasScene(QGraphicsScene):
         self._paint_revision = 0
         self._standing_covers: tuple[int, list[StandingCover]] | None = None
         self._annotation_covers: tuple[int, QPainterPath] | None = None
+        self._edit_decoration_covers: tuple[int, tuple[float, ...], QPainterPath] | None = None
         #: How often what stands on the plan was collected — the instrument of
         #: the grid's cut-out (counted, never timed: §8.10.10).
         self.standing_cover_builds = 0
@@ -1133,6 +1134,34 @@ class CanvasScene(QGraphicsScene):
             kept = (self._paint_revision, covered)
             self._annotation_covers = kept
         return QPainterPath(kept[1])
+
+    def invalidate_edit_decoration_covers(self) -> None:
+        """Handle visibility can change without a document edit (zoom/drill-down)."""
+        self._edit_decoration_covers = None
+
+    def edit_decoration_covers(self, world: QTransform) -> QPainterPath:
+        """Device-space selected decorations, prepared once rather than per tree.
+
+        Normalise inverse-composition floating-point noise in the cache key;
+        the paths themselves keep the full supplied transform precision.
+        """
+        pose = tuple(round(value, 12) for value in (
+            world.m11(), world.m12(), world.m21(), world.m22(), world.dx(), world.dy(),
+        ))
+        kept = self._edit_decoration_covers
+        if kept is None or kept[0] != self._paint_revision or kept[1] != pose:
+            from .items.group_item import selection_tree
+
+            covered = QPainterPath()
+            covered.setFillRule(Qt.FillRule.WindingFill)
+            for child in selection_tree(self.selectedItems()):
+                if (child.isVisible() and child.parentItem() is not None
+                        and child.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations):
+                    box = child.deviceTransform(world).mapRect(child.boundingRect())
+                    covered.addRect(box.adjusted(-2, -2, 2, 2))
+            kept = (self._paint_revision, pose, covered.simplified())
+            self._edit_decoration_covers = kept
+        return QPainterPath(kept[2])
 
     @property
     def guide_lines(self) -> list[GuideLine]:
@@ -2230,6 +2259,7 @@ class CanvasScene(QGraphicsScene):
         # What is kept for painting describes them too.
         self._standing_covers = None
         self._annotation_covers = None
+        self._edit_decoration_covers = None
         if self._label_pass is not None:
             self._label_pass.clear()
         self._paint_revision += 1

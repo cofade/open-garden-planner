@@ -300,8 +300,12 @@ class SuccessionBadgeItem(QGraphicsItem):
 
     def paint_indicator(self, painter: QPainter) -> None:
         """A crop-following arrow when the full upright tag has no room."""
-        rect = self.boundingRect()
+        # The retained placement maps the full tag bounds onto a square. Paint
+        # in device coordinates so even a very long crop name cannot squash
+        # the arrow's stroke or its aspect ratio.
+        rect = painter.worldTransform().mapRect(self.boundingRect())
         painter.save()
+        painter.resetTransform()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(self._BG)

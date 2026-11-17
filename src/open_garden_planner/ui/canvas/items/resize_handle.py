@@ -542,6 +542,11 @@ class ResizeHandle(QGraphicsRectItem):
         self._drag_start_pos = None
         self._initial_rect = None
         self._initial_parent_pos = None
+        if self._parent_item is not None and hasattr(self._parent_item, 'update_resize_handles'):
+            self._parent_item.update_resize_handles()
+            invalidate = getattr(self._parent_item.scene(), 'invalidate_edit_decoration_covers', None)
+            if invalidate is not None:
+                invalidate()
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Start resize operation."""

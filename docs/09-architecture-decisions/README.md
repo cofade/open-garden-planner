@@ -13540,8 +13540,8 @@ measurements: §8.37; FR-GRID-05 and FR-EDIT-20.
    tags fit inside the bed's actual transformed outline, including concave polygons,
    and reserve their space against names. A bounded 9-by-9 placement search favours
    the visual bottom-left; if full text has no safe position it becomes a compact
-   crop-following arrow. Beds smaller than 3 pixels cannot carry a readable indicator.
-   Warning arcs exclude editing handles and annotations. The minimap suppresses
+   square crop-following arrow, independent of crop-name length and row count. The retained placement carries its variant explicitly. Beds smaller than 3 pixels cannot carry a readable indicator.
+   Warning arcs exclude editing handles and annotations using one retained device-space exclusion path per paint revision and view transform. The minimap suppresses
    diagnostic paint in a restoring scope that schedules no scene updates.
 4. Text notes resolve historical whole-point sizes at a fixed 96 dpi and give Qt
    a pixel-sized font. This preserves the historical 96 dpi appearance and the
@@ -13553,7 +13553,7 @@ measurements: §8.37; FR-GRID-05 and FR-EDIT-20.
 5. Fit-to-window reserves the ruler strips and an 8-pixel stroke/rounding margin.
    Text notes reserve room from contour labels and contour lines. Contours read a
    retained annotation-cover path keyed by the paint revision; moving or editing
-   a note invalidates that path without recomputing the hours-of-sun field.
+   a note, including live document edits through `contentsChanged`, invalidates that path without recomputing the hours-of-sun field.
 
 **Alternatives:** A group-wide resize frame would introduce group scaling semantics;
 retain outlines instead. Changing stored text sizes would corrupt old plans; keep

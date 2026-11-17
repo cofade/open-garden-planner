@@ -416,26 +416,28 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         scene = self.scene()
         if scene is None:
             return
-        from .group_item import selection_tree
-
         world = painter.worldTransform()
         inverse, invertible = world.inverted()
         if not invertible:
             return
         scene_to_device = self.sceneTransform().inverted()[0] * world
+        covers = getattr(scene, "edit_decoration_covers", None)
+        if covers is None:
+            return
+        excluded = covers(scene_to_device)
+        if excluded.isEmpty():
+            return
+        # Cull the shared device path to this ring before transforming it back
+        # to item coordinates. Do not walk every selected subtree per plant.
+        interest = QPainterPath()
+        interest.addRect(world.mapRect(self.boundingRect()))
+        excluded = excluded.intersected(interest)
+        if excluded.isEmpty():
+            return
         clip = QPainterPath()
         clip.addRect(self.boundingRect())
-        changed = False
-        for child in selection_tree(scene.selectedItems()):
-            if (child.isVisible() and child.parentItem() is not None
-                    and child.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations):
-                box = child.deviceTransform(scene_to_device).mapRect(child.boundingRect())
-                excluded = QPainterPath()
-                excluded.addRect(box.adjusted(-2, -2, 2, 2))
-                clip = clip.subtracted(inverse.map(excluded))
-                changed = True
-        if changed:
-            painter.setClipPath(clip, Qt.ClipOperation.IntersectClip)
+        clip = clip.subtracted(inverse.map(excluded))
+        painter.setClipPath(clip, Qt.ClipOperation.IntersectClip)
 
     def _visual_plant_diameter_cm(self, footprint_diameter: float) -> float:
         """The diameter (cm) the plant's SVG icon should render at the plan date.

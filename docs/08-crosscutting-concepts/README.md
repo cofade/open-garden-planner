@@ -1126,14 +1126,14 @@ moves together inside the plan boundary. Succession tags are placed upright
 inside the actual bed shape and block other labels. The compact arrow replaces
 a tag without room for text; below 3 px there is no readable indicator. Both the
 full tag and arrow participate in the same retained layout and repaint damage.
-A warning arc excludes selected editing decorations. Minimap rendering scopes
+A warning arc excludes selected editing decorations through one retained device-space path per revision and view transform. Minimap rendering scopes
 out diagnostic paint without `update()` calls, so it cannot feed its own timer.
 
 Text notes resolve stored whole points at a fixed 96 dpi into pixel-sized fonts.
 The em-height conversion uses that fixed reference, preserving the old 96 dpi
 appearance and stored sizes across screens. Note bounds block labels and contour
 lines; the scene retains their exclusion path by `paint_revision`. A text/font
-change says so explicitly. The native Windows child test measures letter gaps
+change says so explicitly, including inline document `contentsChanged`. The native Windows child test measures letter gaps
 against a 12-times-size reference; restoring full hinting must fail the bound.
 The offscreen font-setting test remains supplementary. See ADR-076 addendum.
 

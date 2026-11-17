@@ -149,3 +149,22 @@ def test_zoomed_handle_still_drags_and_undoes_once(shown_canvas):
     assert len(manager._undo_stack) == 1
     manager.undo()
     assert item.rect() == before
+
+
+def test_shrinking_past_handle_threshold_keeps_grab_until_release(shown_canvas):
+    view, scene = shown_canvas
+    item = RectangleItem(400, 400, 150, 100)
+    scene.addItem(item)
+    view.set_zoom(1)
+    item.setSelected(True)
+    view.centerOn(item.rect().center())
+    handle = next(h for h in item._resize_handles
+                  if h.handle_position is HandlePosition.BOTTOM_RIGHT)
+    start = view.mapFromScene(handle.scenePos())
+    end = view.mapFromScene(QPointF(410, 410))
+    QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, pos=start)
+    QTest.mouseMove(view.viewport(), end)
+    assert handle._is_dragging and handle.isVisible()
+    assert item.rect().width() < 16 and item.rect().height() < 16
+    QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, pos=end)
+    assert not any(h.isVisible() for h in item._resize_handles)

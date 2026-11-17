@@ -192,3 +192,68 @@ def test_minimap_omits_warning_arcs_without_scheduling_an_idle_loop(canvas, qtbo
     monkeypatch.setattr(minimap, "_do_update", count)
     qtbot.wait(350)
     assert len(paints) <= 1, "thumbnail painting must not feed scene.changed forever"
+
+
+def test_inline_text_edit_invalidates_retained_annotation_room(canvas):
+    from PyQt6.QtGui import QTextCursor
+
+    _view, scene = canvas
+    note = TextItem(100, 800, "A short note", font_size=0.42)
+    scene.addItem(note)
+    before = scene.annotation_covers().boundingRect()
+    revision = scene.paint_revision
+    note.start_editing()
+    cursor = note.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.End)
+    cursor.insertText(" longer text" * 30)
+    note.setTextCursor(cursor)
+    assert scene.paint_revision > revision
+    assert scene.annotation_covers().boundingRect().width() > before.width() * 3
+    note.finish_editing()
+    assert note.content.endswith(" longer text")
+
+
+@pytest.mark.parametrize("lines", [[("x" * 80, True)], [("Lettuce", True), ("Carrot", False)]])
+def test_compact_indicator_is_square_independently_of_crop_text(canvas, lines):
+    view, scene = canvas
+    bed = RectangleItem(800, 600, 250, 180, object_type=ObjectType.RAISED_BED)
+    scene.addItem(bed)
+    bed.set_succession_indicator(lines)
+    view.set_zoom(0.1)
+    shown = succession_badges_shown(scene, view.viewportTransform())
+    assert len(shown) == 1
+    box = shown[0][2]
+    assert box.height() >= 3
+    assert box.width() == pytest.approx(box.height(), abs=1e-6)
+
+
+def test_selected_ring_paints_prepare_decoration_exclusions_once(canvas, monkeypatch):
+    from PyQt6.QtGui import QPainter
+
+    from open_garden_planner.ui.canvas.items import CircleItem, group_item
+
+    view, scene = canvas
+    trees = []
+    for index in range(30):
+        tree = CircleItem(200 + index % 10 * 220, 300 + index // 10 * 300,
+                          50, object_type=ObjectType.TREE)
+        tree.metadata["plant_species"] = {"max_spread_cm": 500}
+        scene.addItem(tree)
+        tree.setSelected(True)
+        trees.append(tree)
+    calls = []
+    original = group_item.selection_tree
+
+    def counted(items):
+        calls.append(1)
+        return original(items)
+
+    monkeypatch.setattr(group_item, "selection_tree", counted)
+    image = QImage(1000, 800, QImage.Format.Format_ARGB32)
+    painter = QPainter(image)
+    for _repeat in range(2):
+        for tree in trees:
+            painter.setWorldTransform(tree.sceneTransform() * view.viewportTransform())
+            tree._paint_spacing_ring(painter, 250)
+    painter.end()
+    assert len(calls) == 1

@@ -228,7 +228,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "fd5f6e3afe95812fc96ad1d75aa4641272a4a72a16316cfde5236021405099e5"
+          "current_sha256": "8affb9cf761b8fc9016309e40848f58c6c3985d9a14c0e701f73eea6f073c0fc"
         },
         {
           "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -973,7 +973,7 @@
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "9a52b66fa642140dac775480e02bd0db01557699bf2ba8799ded7453e639a29f"
+          "current_sha256": "0ea6b8950fee019c3a34238e1873815743641ea749dc491828bf5b9a572be782"
         },
         {
           "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "9dccece71256b111c0a5e41de24eb28998254beb71a937afd16740f183eeea86"
+          "current_sha256": "190201fc0ed1e16f8cf17dcd2cb7ad0cda47c72551f91fa2cac369fb5dbee8a9"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1628,7 +1628,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
           "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
-          "current_sha256": "fd5f6e3afe95812fc96ad1d75aa4641272a4a72a16316cfde5236021405099e5"
+          "current_sha256": "8affb9cf761b8fc9016309e40848f58c6c3985d9a14c0e701f73eea6f073c0fc"
         },
         {
           "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
@@ -2373,7 +2373,7 @@
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
           "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
-          "current_sha256": "9a52b66fa642140dac775480e02bd0db01557699bf2ba8799ded7453e639a29f"
+          "current_sha256": "0ea6b8950fee019c3a34238e1873815743641ea749dc491828bf5b9a572be782"
         },
         {
           "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "9dccece71256b111c0a5e41de24eb28998254beb71a937afd16740f183eeea86"
+          "current_sha256": "190201fc0ed1e16f8cf17dcd2cb7ad0cda47c72551f91fa2cac369fb5dbee8a9"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -3076,6 +3076,18 @@
         ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
         ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
         ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+        ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
+      ]
+    },
+    {
+      "issue": 841,
+      "reason": "Canvas editing package centralizes geometric object frames and fixes plan text resolution at 96 dpi; refresh the architecture invariant note and shifted CanvasScene citations in both libraries. Original migration hashes are preserved. New debug-verbose case 263 records measured evidence and review fixes.",
+      "fragments": [
+        ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+        ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+        ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+        ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
         ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
       ]
     }
