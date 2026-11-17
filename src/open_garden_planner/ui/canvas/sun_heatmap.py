@@ -289,56 +289,6 @@ class SunContourItem(QGraphicsPathItem):
             painter.restore()
 
 
-_SunContourPathItem = SunContourItem
-
-
-def _clip_segment_outside_rects(
-    sx: float,
-    sy: float,
-    ex: float,
-    ey: float,
-    rects: list[tuple[float, float, float, float]],
-) -> list[tuple[tuple[float, float], tuple[float, float]]]:
-    """Split segment ``(sx, sy)-(ex, ey)`` into pieces outside ``rects`` (#867)."""
-    pieces: list[tuple[tuple[float, float], tuple[float, float]]] = [((sx, sy), (ex, ey))]
-    for xmin, ymin, xmax, ymax in rects:
-        next_pieces: list[tuple[tuple[float, float], tuple[float, float]]] = []
-        for (ax, ay), (bx, by) in pieces:
-            dx = bx - ax
-            dy = by - ay
-            t0 = 0.0
-            t1 = 1.0
-            outside = False
-            for p, q in (
-                (-dx, ax - xmin),
-                (dx, xmax - ax),
-                (-dy, ay - ymin),
-                (dy, ymax - ay),
-            ):
-                if abs(p) < 1e-12:
-                    if q < 0.0:
-                        outside = True
-                        break
-                else:
-                    r = q / p
-                    if p < 0.0:
-                        if r > t0:
-                            t0 = r
-                    elif r < t1:
-                        t1 = r
-            if outside or t0 >= t1:
-                next_pieces.append(((ax, ay), (bx, by)))
-            else:
-                if t0 > 1e-6:
-                    next_pieces.append(((ax, ay), (ax + t0 * dx, ay + t0 * dy)))
-                if t1 < 1.0 - 1e-6:
-                    next_pieces.append(((ax + t1 * dx, ay + t1 * dy), (bx, by)))
-        pieces = next_pieces
-        if not pieces:
-            break
-    return pieces
-
-
 class StandingMask:
     """Where something stands on the plan: a raster of every drawn object that
     stands on the ground (``canvas_scene.is_standing_object``, what it covers:
@@ -845,15 +795,6 @@ class SunHeatmapController(QObject):
         # the blur can flatten a sharp 1-cell peak below its own top hour.
         field = smooth_field(minutes, passes=2)
         max_minutes = float(field.max()) if field.size else 0.0
-        from open_garden_planner.ui.canvas.items.text_item import TextItem
-
-        text_boxes: list[tuple[float, float, float, float]] = []
-        for scene_item in self._scene.items():
-            if isinstance(scene_item, TextItem) and scene_item.isVisible():
-                r = scene_item.sceneBoundingRect().adjusted(-4.0, -4.0, 4.0, 4.0)
-                if r.isValid() and not r.isEmpty():
-                    text_boxes.append((r.left(), r.top(), r.right(), r.bottom()))
-
         placed_labels: list[tuple[float, float]] = []
         standing = StandingMask(self._scene, grid)
         for threshold in hour_levels(max_minutes):
@@ -866,15 +807,8 @@ class SunHeatmapController(QObject):
             for start, end in segments:
                 sx, sy = self._grid_to_scene(start, grid)
                 ex, ey = self._grid_to_scene(end, grid)
-                if text_boxes:
-                    for (ax, ay), (bx, by) in _clip_segment_outside_rects(
-                        sx, sy, ex, ey, text_boxes
-                    ):
-                        path.moveTo(ax, ay)
-                        path.lineTo(bx, by)
-                else:
-                    path.moveTo(sx, sy)
-                    path.lineTo(ex, ey)
+                path.moveTo(sx, sy)
+                path.lineTo(ex, ey)
             line = SunContourItem(
                 path,
                 1.6 if even else 0.7,
