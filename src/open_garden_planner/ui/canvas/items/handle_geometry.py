@@ -224,5 +224,3 @@ def _has_blocking_constraints(item: "QGraphicsItem") -> bool:
         if c.constraint_type not in scale_invariant:
             return True
     return False
-
-
