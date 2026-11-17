@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
+from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 _SELECTABLE = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
@@ -64,9 +65,13 @@ def replace_selection(scene: QGraphicsScene, items: Sequence[QGraphicsItem]) -> 
     wanted = {id(item): item for item in items}
     if {id(item) for item in scene.selectedItems()} == set(wanted):
         return
-    scene.clearSelection()
-    for item in wanted.values():
-        item.setSelected(True)
+    # A list row can stand for hundreds of plants. Refreshing every consumer
+    # after each intermediate selection made that one click quadratic (#921).
+    with QSignalBlocker(scene):
+        scene.clearSelection()
+        for item in wanted.values():
+            item.setSelected(True)
+    scene.selectionChanged.emit()
 
 
 def select_by_ids(scene: QGraphicsScene, item_ids: Iterable[str]) -> list[QGraphicsItem]:

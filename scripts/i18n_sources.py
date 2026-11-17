@@ -27,6 +27,13 @@ class Sources:
             )
             for p in sorted(self.base.rglob("*.py"))
         }
+        # All audits inspect the same immutable parse. Index it once per inventory,
+        # never globally: a later invocation must see edits to the source (#922).
+        self.nodes = {file: tuple(ast.walk(tree)) for file, tree in self.trees.items()}
+        self.parents = {
+            file: {child: parent for parent in nodes for child in ast.iter_child_nodes(parent)}
+            for file, nodes in self.nodes.items()
+        }
         self.keys: dict[Key, set[tuple[str, str]]] = {}
         self.errors: list[str] = []
         path = root / "scripts/i18n_bindings.json"
@@ -180,8 +187,8 @@ class Sources:
                     if isinstance(call, ast.Call) and ast.unparse(call.func) == function:
                         values.extend(self.strings(call.args[int(index)], file))
             elif selector == "property_calls":
-                for source_file, tree in self.trees.items():
-                    for call in ast.walk(tree):
+                for source_file in self.trees:
+                    for call in self.nodes[source_file]:
                         if (
                             isinstance(call, ast.Call)
                             and ast.unparse(call.func) == "ChangePropertyCommand"
@@ -245,17 +252,18 @@ class Sources:
 
     def audit(self, file: str) -> None:
         tree = self.trees[file]
+        nodes = self.nodes[file]
         # Resolve actual Qt bindings rather than treating every .translate as
         # localization (QPainter and transforms have that method too).
         qt_names = {
             n.asname or n.name
-            for i in ast.walk(tree)
+            for i in nodes
             if isinstance(i, ast.ImportFrom)
             and i.module in {"PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets"}
             for n in i.names
             if n.name in {"QCoreApplication", "QGuiApplication", "QApplication"}
         }
-        for imported in ast.walk(tree):
+        for imported in nodes:
             if isinstance(imported, ast.Import):
                 for alias in imported.names:
                     if alias.name == "PyQt6.QtCore":
@@ -267,7 +275,7 @@ class Sources:
                     if alias.name == "QtCore"
                 )
         translators = {f"{name}.translate" for name in qt_names}
-        for n in ast.walk(tree):
+        for n in nodes:
             if isinstance(n, ast.ImportFrom) and n.module == "PyQt6.QtCore":
                 for alias in n.names:
                     if alias.name in {"QT_TR_NOOP", "QT_TRANSLATE_NOOP"} and alias.asname:
@@ -285,10 +293,11 @@ class Sources:
         changed = True
         while changed:
             previous = set(translators)
-            for n in ast.walk(tree):
+            for n in nodes:
                 if (
                     isinstance(n, ast.Assign | ast.AnnAssign)
                     and n.value is not None
+                    and isinstance(n.value, ast.Name | ast.Attribute)
                     and ast.unparse(n.value) in translators
                 ):
                     targets = n.targets if isinstance(n, ast.Assign) else [n.target]
@@ -321,13 +330,13 @@ class Sources:
                         function.args.args[0].arg,
                     )
 
-        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        parents = self.parents[file]
         self.wrapper_exports[file] = (
             set(wrappers)
             | {name for name in translators if "." not in name}
             | {name.split(".")[0] for name in qt_names}
         )
-        for reference in ast.walk(tree):
+        for reference in nodes:
             if isinstance(reference, ast.Name) and reference.id in wrappers:
                 parent = parents.get(reference)
                 if not isinstance(parent, ast.Call) or parent.func is not reference:
@@ -496,10 +505,10 @@ class Sources:
                 raise CatalogError(f"ambiguous local translation module: {module}")
             return self.wrapper_exports.get(selected[0], set()) if selected else set()
 
-        for file, tree in self.trees.items():
+        for file, nodes in self.nodes.items():
             module_aliases: dict[str, set[str]] = {}
-            parents = {c: p for p in ast.walk(tree) for c in ast.iter_child_nodes(p)}
-            for node in ast.walk(tree):
+            parents = self.parents[file]
+            for node in nodes:
                 if isinstance(node, ast.ImportFrom):
                     package = list(Path(file).parent.parts)
                     if node.level:
@@ -524,7 +533,9 @@ class Sources:
                         exports = exports_for(module)
                         prefix = alias.asname or alias.name
                         module_aliases[prefix] = exports
-            for reference in ast.walk(tree):
+            if not module_aliases:
+                continue
+            for reference in nodes:
                 if isinstance(reference, ast.Attribute) and ast.unparse(reference) in {
                     f"{prefix}.{name}" for prefix, names in module_aliases.items() for name in names
                 }:

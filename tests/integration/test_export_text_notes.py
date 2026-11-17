@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import io
 import re
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -119,7 +118,6 @@ def test_a_note_keeps_its_size_in_a_png_export(
     assert exported == pytest.approx(on_canvas, abs=slack), (note_size, width_cm, dpi)
 
 
-@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 @pytest.mark.parametrize("note_size", NOTE_SIZES)
 @pytest.mark.parametrize("width_cm", PAPER_WIDTHS_CM)
 def test_a_note_keeps_its_size_in_an_svg_export(
@@ -143,7 +141,18 @@ def test_a_note_keeps_its_size_in_an_svg_export(
     font_px = note.font().pointSizeF() * round(svg_export.logical_dpi()) / 72.0
     assert float(written.group(2)) == pytest.approx(font_px, rel=1e-3)
 
-    renderer = QSvgRenderer(str(target))
+    # QtSvg interprets a CSS family list as one family on Linux, falling back
+    # to DejaVu Sans instead of Arial's Liberation Sans substitute. Measured:
+    # canvas 239.25 cm, unmodified SVG in Chromium 240.5, QtSvg 275.5; using
+    # the primary family alone gives 239.0. Adapt only the test renderer's
+    # font-list syntax; keep the exported file and the 8% size bound unchanged.
+    svg = target.read_text(encoding="utf-8")
+    qt_svg = re.sub(
+        r'''font-family="'([^']+)', (?:sans-serif|serif|monospace)"''',
+        r'font-family="\1"',
+        svg,
+    )
+    renderer = QSvgRenderer(qt_svg.encode("utf-8"))
     image = QImage(2000, round(2000 * CANVAS_H / CANVAS_W), QImage.Format.Format_RGB32)
     image.fill(QColor("white"))
     painter = QPainter(image)

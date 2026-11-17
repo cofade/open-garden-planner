@@ -373,32 +373,49 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    T([Timer fires every N seconds<br/>configurable])
+    T([Timer fires every N minutes<br/>configurable])
     Dirty{Unsaved<br/>changes?}
     Skip([Skip])
-    Ser["Serialize current state to temp file<br/>~/.open-garden-planner/autosave/&lt;project-hash&gt;.ogp"]
-    Manual[On next successful manual save<br/>remove auto-save file]
+    Flush["Live ProjectManager.before_save<br/>flush pending property edits"]
+    Build["ProjectManager.recovery_dict<br/>canonical _build_project_data<br/>scene + all plan stores + dragged pins"]
+    Ser["Atomic write + recovery metadata<br/>beside saved plan, or system temp for untitled<br/>leave filename, dirty state and recent files unchanged"]
+    Manual[On successful save or explicit discard<br/>remove snapshots owned by this document]
 
     T --> Dirty
     Dirty -->|no| Skip
-    Dirty -->|yes| Ser --> Manual
+    Dirty -->|yes| Flush --> Build --> Ser --> Manual
 ```
 
 ```mermaid
 flowchart TD
-    Boot([On startup])
+    Boot([On startup: untitled temp snapshot<br/>and adjacent snapshots of ten recent plans])
+    Open([GUI opens an original:<br/>check its adjacent snapshot])
     Check{Auto-save<br/>files found?}
     Prompt["Prompt user:<br/>'Recover unsaved changes?'"]
-    Load[Load auto-save]
-    Del[Delete auto-save<br/>proceed normally]
+    Load[Load one complete recovery<br/>untitled and dirty; retain its source until save]
+    Keep[Keep snapshot on disk<br/>open original only when explicitly requested]
+    Del[Delete only the explicitly discarded snapshot]
     Done([Continue])
 
     Boot --> Check
+    Open --> Check
     Check -->|no| Done
     Check -->|yes| Prompt
     Prompt -->|Yes| Load
-    Prompt -->|No| Del
+    Prompt -->|No| Keep --> Done
+    Prompt -->|Discard| Del --> Done
+    Load --> Done
 ```
+
+Discovery ignores snapshots older than their original and never deletes candidates.
+The modal prompt is shared by startup and GUI open; reentrant startup cannot show
+another prompt or replace an accepted recovery. The Agent API's non-modal loader
+does not choose recovery on its caller's behalf. Cleanup tracks paths the current
+document wrote or explicitly adopted, rather than deriving a path from the newly
+loaded/saved filename. Save As therefore removes the previous untitled snapshot
+without deleting a destination plan's pending recovery. Writes reuse a per-document
+UUID filename, preserving deferred or foreign snapshots; discovery includes legacy
+fixed filenames and offers the newest matching version (#797, PR #932 manual test).
 
 ## 6.7 Agent Task and Soil Requests (US-D3.3/D3.4)
 

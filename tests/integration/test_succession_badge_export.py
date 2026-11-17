@@ -13,7 +13,6 @@ black bed, its text by being bright.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -244,25 +243,39 @@ def test_the_badge_is_left_out_where_it_would_cover_its_bed(qtbot) -> None:
     assert _badge_box(_grab(view)) is None, f"the badge covers a bed of {on_screen.width():.0f} px"
 
 
-@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 def test_what_stands_in_the_bed_does_not_cover_the_badge(qtbot) -> None:
     """The bed's plants are drawn after the bed; the badge is drawn after them."""
     scene, _bed = _scene()
     view = _view(scene, qtbot, 1.0)
-    alone = int(_badge_green(_grab(view)).sum())
-    assert alone > 500
-    view.close()
+    alone = _badge_green(_grab(view))
+    assert int(alone.sum()) > 500
+    # Compare only full-coverage interiors: fractional glyph/rounded edges
+    # legitimately change as the translucent tag's underlying colour changes.
+    interior = np.zeros_like(alone)
+    interior[1:-1, 1:-1] = np.logical_and.reduce([
+        alone[y:y + alone.shape[0] - 2, x:x + alone.shape[1] - 2]
+        for y in range(3) for x in range(3)
+    ])
 
     # Something on the badge's corner of the bed, drawn after the bed (white:
     # a plant's own green would be taken for the badge's).
     pot = CircleItem(BED.left() + 30, BED.top() + 30, 28)
     _marked(pot, QColor(255, 255, 255))
     scene.addItem(pot)
-    view = _view(scene, qtbot, 1.0)
-    covered = int(_badge_green(_grab(view)).sum())
-    assert abs(covered - alone) <= 0.01 * alone, (
-        f"what stands in the bed is painted over the badge: {covered} of {alone} px of it show"
-    )
+    covered = _badge_green(_grab(view))
+    _bed._succession_badge_item.setVisible(False)
+    # The tag is translucent: white underneath can ADD threshold-green edge
+    # pixels. Measure its paint order only where the white pot would cover it.
+    overlap = interior & _bright(_grab(view))
+    assert int(overlap.sum()) > 100, "the pot must actually stand over the tag"
+    # A one-device-pixel antialiasing shift is not an occlusion. A tag drawn
+    # below the pot loses a whole interior, which this neighbourhood cannot fill.
+    padded = np.pad(covered, 1)
+    nearby_green = np.logical_or.reduce([
+        padded[y:y + covered.shape[0], x:x + covered.shape[1]]
+        for y in range(3) for x in range(3)
+    ])
+    assert nearby_green[overlap].all(), "the pot covers ink that the tag must paint above it"
 
 
 def test_the_badge_follows_its_bed_when_the_bed_is_resized(qtbot, tmp_path: Path) -> None:

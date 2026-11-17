@@ -2935,8 +2935,11 @@ class GardenPlannerApp(QMainWindow):
         """Set up the auto-save manager."""
         from open_garden_planner.services import AutoSaveManager
 
-        self._autosave_manager = AutoSaveManager(self)
+        self._autosave_manager = AutoSaveManager(self._project_manager, self)
         self._autosave_manager.set_scene(self.canvas_scene)
+        self._recovery_prompt_active = False
+        self._startup_recovery_handled = False
+        self._recovery_prompted_paths: set[Path] = set()
 
         # Connect dirty state changes
         self._project_manager.dirty_changed.connect(self._autosave_manager.set_dirty)
@@ -2984,13 +2987,30 @@ class GardenPlannerApp(QMainWindow):
         """
         from open_garden_planner.services import AutoSaveManager
 
+        # A command-line open can show a modal recovery question before the
+        # delayed startup callback fires. Do not nest another prompt/Welcome.
+        if self._recovery_prompt_active or self._startup_recovery_handled:
+            return True
         recovery_files = AutoSaveManager.find_recovery_files()
-        if not recovery_files:
-            return False
-
-        recovered = False
-        # Found recovery file(s) - ask user what to do
         for autosave_path, metadata in recovery_files:
+            if self._offer_recovery(autosave_path, metadata):
+                # Never replace recovered work with another candidate without
+                # a save/discard decision. Others remain available on disk.
+                return True
+        return False
+
+    def _offer_recovery(self, autosave_path: Path, metadata: dict[str, Any]) -> bool:
+        """Offer one recovery; True means the normal open must not continue."""
+        from open_garden_planner.services import AutoSaveManager
+
+        if self._recovery_prompt_active:
+            return True
+        key = autosave_path.resolve()
+        if key in self._recovery_prompted_paths:
+            return False
+        self._recovery_prompted_paths.add(key)
+        self._recovery_prompt_active = True
+        try:
             timestamp = metadata.get("timestamp", "unknown time")
             original_file = metadata.get("original_file")
 
@@ -3016,16 +3036,20 @@ class GardenPlannerApp(QMainWindow):
                 QMessageBox.StandardButton.Yes,
             )
 
-            if result == QMessageBox.StandardButton.Yes:
-                # Load the recovery file
-                self._load_recovery_file(autosave_path)
-                recovered = True
-            elif result == QMessageBox.StandardButton.Discard:
-                # Delete the recovery file
-                AutoSaveManager.delete_recovery_file(autosave_path)
-            # If No, just leave it for next time
-
-        return recovered
+        finally:
+            self._recovery_prompt_active = False
+        if result == QMessageBox.StandardButton.Yes:
+            self._recovery_prompted_paths.discard(key)
+            self._startup_recovery_handled = True
+            self._load_recovery_file(autosave_path)
+            # Also stop the original open if recovery fails: keep its backup
+            # and show the recovery error, rather than silently loading old work.
+            return True
+        if result == QMessageBox.StandardButton.Discard:
+            AutoSaveManager.delete_recovery_file(autosave_path)
+        else:
+            self._autosave_manager.preserve_recovery_file(autosave_path)
+        return False
 
     def _load_recovery_file(self, recovery_path: Path) -> None:
         """Load a recovery file.
@@ -3049,6 +3073,7 @@ class GardenPlannerApp(QMainWindow):
             # After the rewire, like every document change (#795): the clock
             # re-raises a listener's error.
             self._showcase_moment.document_opened(None)
+            self._autosave_manager.adopt_recovery_file(recovery_path)
 
             self.statusBar().showMessage(self.tr("Recovered from auto-save. Remember to save your work!"))
             QMessageBox.information(
@@ -3356,6 +3381,11 @@ class GardenPlannerApp(QMainWindow):
             file_path: Path to the project file to open
         """
         try:
+            from open_garden_planner.services import AutoSaveManager
+
+            recovery = AutoSaveManager.find_recovery_for_project(Path(file_path))
+            if recovery is not None and self._offer_recovery(*recovery):
+                return
             self._load_project_file(file_path)
         except Exception as e:
             QMessageBox.critical(self, self.tr("Error"), self.tr("Failed to open file:\n{error}").format(error=self._plan_error_message(e)))

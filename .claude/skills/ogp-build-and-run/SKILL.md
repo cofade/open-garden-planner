@@ -186,7 +186,8 @@ poisoned providers, asserting `is_running`, and runs the A1 checks. (Until Phase
 L1.10 it also imported the six Qt 3D bindings and compared the runtime with their
 wheel's micro; that view and its two wheels are gone, and the two remaining Qt pins
 are guarded by `tests/unit/test_qt_runtime_pins.py`. When bumping them, run the
-QTBUG-151940 re-check in docs §8.29.5 known limit 11 (TD-040).)
+QTBUG-151940 re-check in docs §8.29.5 known limit 11 (TD-040) and the
+QTBUG-152289 re-check in docs §8.29.15 "Re-check QTBUG-152289" (TD-041).)
 
 Since Phase 17 L1.2 it **renders**: the Qt Quick 3D engine package
 (`ui/view3d/quick3d/`) is lazily loaded too, and its scene is QML and shader
@@ -315,8 +316,8 @@ uninstaller copies any top-level `$INSTDIR\*.ogp` to
 |---|---|---|
 | Frozen exe bundle | `dist/OpenGardenPlanner/` (installer: `dist/OpenGardenPlanner-v{V}-Setup.exe`; intermediates in `build/`) | `installer/build_installer.py` |
 | Default save/open/export dir | `<Documents>/Open Garden Planner` — or the open project's folder. EVERY file dialog must route through `app/paths.py` (`default_dialog_dir()` / `default_save_path()`), the single chokepoint; it never returns the CWD/install dir | `src/open_garden_planner/app/paths.py` (issue #199) |
-| Autosave (saved project) | Same directory as the project: `~autosave_{name}.ogp` | `src/open_garden_planner/services/autosave_service.py` |
-| Autosave (untitled) | System temp dir: `~autosave_untitled.ogp` | same |
+| Autosave (saved project) | Same directory: `~autosave_{name}__{document_uuid}.ogp`; legacy fixed names remain discoverable (FR-FILE-06) | `src/open_garden_planner/services/autosave_service.py` |
+| Autosave (untitled) | System temp dir: `~autosave_untitled__{document_uuid}.ogp`; legacy fixed name remains discoverable | same |
 | QSettings | `QSettings("cofade", "Open Garden Planner")` → Windows registry `HKCU\Software\cofade\Open Garden Planner`; Linux `~/.config/cofade/Open Garden Planner.conf` (tests redirect to org `cofade_test`) | `config/settings.py:22` `create_qsettings`, `tests/conftest.py` |
 | App-data dir | Windows `%APPDATA%\OpenGardenPlanner`; Linux `$XDG_DATA_HOME`-or-`~/.local/share` `/OpenGardenPlanner`; macOS `~/Library/Application Support/OpenGardenPlanner` | `services/plant_library.py::get_app_data_dir()` |
 | User smart symbols | `<app-data>/smart_symbols/*.json` (drop-a-file extensible; the app ships no bundled set since #770 — fixtures live in `tests/fixtures/smart_symbols/`) | `services/smart_symbol_library.py` |

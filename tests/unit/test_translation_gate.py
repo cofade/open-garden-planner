@@ -1,5 +1,6 @@
 """The translation contract must fail for missing source OR locale coverage."""
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,21 @@ def checked_project(tmp_path, qtbot):
 
 def test_complete_third_locale_is_discovered(checked_project):
     assert check(checked_project) == []
+
+
+def test_source_audits_share_one_tree_traversal_per_file(checked_project, monkeypatch):
+    """Alias and wrapper checks must not repeatedly walk the same source tree (#922)."""
+    walks = {}
+    original = ast.walk
+
+    def counted(node):
+        if isinstance(node, ast.Module):
+            walks[node] = walks.get(node, 0) + 1
+        return original(node)
+
+    monkeypatch.setattr(ast, "walk", counted)
+    assert inventory(checked_project)
+    assert walks and max(walks.values()) == 1, list(walks.values())
 
 
 @pytest.mark.parametrize("change", ["missing", "wrong_context", "wrong_comment", "different_key"])

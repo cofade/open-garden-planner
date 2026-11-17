@@ -17,7 +17,6 @@ The hour labels are measured in ``tests/integration/test_sun_map_labels.py``.
 
 from __future__ import annotations
 
-import sys
 from datetime import date
 
 import numpy as np
@@ -441,7 +440,6 @@ def test_no_label_of_the_plan_touches_the_key_on_the_canvas(mapped) -> None:
     assert with_key.shape == without_key.shape
 
 
-@pytest.mark.xfail(sys.platform != "win32", reason="fails on the Linux CI runner: #897", strict=False)
 def test_no_label_of_the_plan_touches_the_key_in_a_picture(mapped) -> None:
     _view, scene, _controller = mapped
     item = _legend_item(scene)
@@ -451,7 +449,13 @@ def test_no_label_of_the_plan_touches_the_key_in_a_picture(mapped) -> None:
     scene.addItem(under)
     with_label = pixels(export(scene))
     under.setVisible(False)
-    assert np.array_equal(with_label, pixels(export(scene))), "the label was painted under the key"
+    without_label = pixels(export(scene))
+    # Identical Linux renders differ at eleven antialiased pixels by at most
+    # four channel levels. Visible halo ink exceeds 90 summed levels, as the
+    # positive control below requires; allow only sub-ink raster rounding.
+    assert np.abs(with_label - without_label).sum(axis=2).max() < 30, (
+        "the label was painted under the key"
+    )
     # without the key the label is in the picture
     under.setVisible(True)
     scene.removeItem(item)

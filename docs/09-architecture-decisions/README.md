@@ -49,6 +49,49 @@ unexpected failures after scene mutation retain the existing protective reset.
 The format remains 1.4. This is input/persistence hardening, not a geometry clamp
 or a claim that finite hostile outlines have bounded rendering costs.
 
+### Addendum — complete autosave snapshots (#797)
+
+Autosave binds to the live `ProjectManager`. Its `recovery_dict(scene)` emits
+`before_save` to flush pending form edits, then uses Save's `_build_project_data`
+with detached journal-pin reconciliation. `AutoSaveManager` adds recovery metadata
+and writes through the same atomic `write_plan` boundary. It never constructs a
+temporary manager or serializes the scene alone: scene geometry is only one part
+of a document. Autosave neither marks clean nor changes the current file, recent
+files or the journal store. Recovery still loads a standalone complete document,
+then makes it untitled and dirty. No format/version change. The rejected alternative
+was a second list of plan-level stores in the autosave service, which would drift.
+
+`tests/integration/test_autosave_recovery.py` compares a normal save and a recovered
+autosave with every `ProjectData` field represented, exercises the window's actual
+binding and pending name edit, and preserves the old recovery on a failed write.
+
+**Owner-test addendum (PR #932): discovery and snapshot ownership.** A complete
+snapshot was insufficient: startup searched only the untitled temp path, and
+opening a saved original rebound the autosave path before cleanup, deleting the
+very backup that had not been offered. Discover adjacent backups for the ten
+recent plans at startup and for an explicitly opened original before its GUI
+load. Ignore an older backup, preserve a declined one, and delete one only on
+explicit Discard. Recover at most one document at startup; nested/delayed startup
+callbacks must not overwrite recovered work. Programmatic loads remain non-modal.
+
+`AutoSaveManager` owns the paths its current document wrote or adopted after
+recovery. Save/discard cleanup uses that set, not the current filename, which may
+already have changed. Adopted sources survive until a successful save or explicit
+document discard. Cleanup keeps the named symlink entry, never resolves it into
+another file to delete. The rejected alternative was unconditional deletion of
+`~autosave_<current filename>.ogp` after load/Save As. Startup/open/No/Discard,
+failed recovery, Save As, duplicate prompts and foreign-backup regressions are
+pinned in `tests/integration/test_autosave_recovery.py` and `tests/unit/test_autosave.py`.
+
+The review found that cleanup ownership alone did not protect a declined recovery
+from the next autosave write. New snapshots therefore have a per-document UUID
+suffix, reused on timer ticks. Discovery recognizes both legacy fixed names and
+UUID names, validates their original association and offers the newest valid
+snapshot first. Other versions remain on disk; no recursive directory search or
+new settings/file-format field is introduced. Distinct untitled documents also
+keep distinct temp snapshots. A deliberate GUI retry after failed Yes asks again;
+the startup guard still prevents nested/delayed startup from replacing the work.
+
 ## ADR-004: Command Pattern for Undo/Redo
 
 **Status**: Accepted (CommandManager; see Addenda)

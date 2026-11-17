@@ -269,7 +269,7 @@ A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF
 - **Undecodable item accounting**:
   Malformed or unknown items in `.ogp` files are skipped with a logged warning, and the skipped count is tracked in `ProjectManager.last_load_skipped_items_count` for diagnostics reporting.
 - **Auto-save recovery on crash**:
-  Periodic autosaves write to `~autosave_...` next to the project file (or in temp for untitled plans). Autosaves are cleared only after a new file load succeeds.
+  Periodic autosaves use a per-document UUID path next to the project (or in temp for untitled plans), preserving earlier recoveries. Successful save, load or explicit discard cleans only snapshots owned by the departing document; a failed load preserves them. See ADR-003 and FR-FILE-06/07 for discovery and retention.
 - **No silent failures — handled logging & crash backstop (AUD-063, TD-023, #405, ADR-052)**:
   Handled errors and warnings across all application components are routed to a persistent rotating file handler (`app.log`, 1 MB, 3 backups) in the user data directory, with console echoing to stderr when available (preventing discarded records in the windowed frozen executable where `sys.stderr is None`). Uncaught exceptions are intercepted by `_install_excepthook` in `main.py`, written to `crash.log`, and surfaced to the user via a recoverable error dialog so unsaved work can be preserved.
 
@@ -1792,6 +1792,15 @@ gate is green while half of it never ran. `-m perf` is required because `addopts
 `-m 'not perf'` otherwise wins and collects nothing at all; `-n 0` is required because
 running these across workers is the condition the split exists to prevent.
 
+**Nested pytest controls pin their own worker count (#921).** An outer `-n 0`
+does not reach a subprocess's command line. A child that inherits this repository's
+`-n auto` can start another full pool: the broken-QML positive control started
+20 workers on the dev box, exhausted Windows commit memory and returned internal
+error 3 instead of the expected assertion failure 1. Its single-file child now
+passes `-n 0` explicitly. Keep the existing failed-test count, no-skips and named
+cause assertions: a resource failure must never satisfy the negative control.
+Pinned by `tests/ui/test_quick3d_host.py::test_a_broken_scene_file_fails_the_tier_instead_of_skipping_it`.
+
 The audit that produced the split was, twice, incomplete: it read `tests/perf/` and
 grepped for `time.`, and missed four unmarked bounds including two classes literally
 named `TestPerf`. `tests/unit/test_perf_marker_guard.py` now closes that mechanically —
@@ -3133,6 +3142,50 @@ capturing either time-of-day image: heatmap readiness does not imply badge
 readiness. A controlled run found nine badge pixels changing between captures;
 the exact image-equality assertion remains unchanged. Pinned by
 `tests/integration/test_sun_map_workflow.py::test_hours_of_sun_from_the_button_to_the_export_and_back`.
+
+### 8.10.18 Expected failures and portable raster assertions (#897, #921, #922)
+
+An `xfail` names the expected exception: the remaining memory-slope tripwires and
+platform lifecycle controls use `raises=AssertionError`. `pytest-timeout` raises
+pytest's `Failed`, so a timeout must fail CI instead of becoming an expected defect. The collection-wide guard is
+`tests/unit/test_xfail_contract.py::test_expected_failures_do_not_mask_pytest_timeouts`.
+The former non-Windows blanket markers for #897 are removed.
+
+One diagnostic row may select 174 plants. `replace_selection` blocks intermediate
+scene signals and publishes one final `selectionChanged`; an unchanged selection
+publishes none. The showcase workflow pins that count. Unbatched navigation emitted
+174 signals and took 17.009 s on the Linux CPU probe before coverage; the same
+Windows test after batching took 1.15 s including the rest of its workflow. These
+are mechanism evidence, not a cross-machine speed ratio.
+
+Raster assertions must distinguish visible content from rounding and translucency.
+The sun-key exclusion test observes up to four channel levels at eleven pixels
+between identical Linux renders; its <30 summed-channel bound remains below the
+>90 visible-ink positive control. The succession-tag test measures full-coverage
+green pixels actually overlapped by a white object, rather than assuming that an
+alpha-215 tag has an invariant threshold-green area on black and white backgrounds.
+The contrast sample must be nonempty, not larger than an arbitrary glyph area:
+the default 8 pt italic area label in Ubuntu's Liberation Sans has four solid-ink
+pixels, while its measured ink/halo contrast still exceeds 4.5:1. Missing-ink and
+missing-halo mutation controls pin that distinction. QtSvg's Linux reader treats
+a CSS font-family list as one family and substitutes the wrong font. The SVG
+note test adapts that syntax only in the bytes passed to its test renderer; the
+exported file, font-size assertions and 8% bound remain unchanged. A native
+Chromium control rendered the original SVG at 240.5 cm versus 239.25 cm on canvas;
+QtSvg gave 275.5 cm with the list and 239.0 cm with its primary family alone.
+The map/time-of-day comparison remains pixel-exact outside the legend's own
+device rectangle. A full Ubuntu coverage replay isolated 229 changing key-text
+pixels (at most six levels per channel, summed sixteen); only that rectangle
+uses the key tests' sub-ink bound. A control that restores the hidden time-of-day
+shadow must fail the map comparison. This avoids weakening the map invariant
+because of the independent legend's raster edges.
+
+The translation gate's bottleneck was repeated AST traversal, not catalog lookups.
+`Sources` builds one per-inventory node/parent index per file, shared by all audits;
+it keeps no global source cache. The counting guard and hostile/missing-key tests
+in `tests/unit/test_translation_gate.py` preserve the full source/catalog/binary
+contract. A same-machine branch-coverage + cProfile run dropped from 192.28 million
+calls / 61.56 s to 63.71 million / 26.92 s; timings include profiler overhead.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -9017,6 +9070,28 @@ detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth
 profile is Constrained Baseline (no Qt API for another); a year tour started within an hour of midnight uses the nearest reading within the
 missing hour on the frame's date at a DST change (the dates the dialog names are kept, and the
 sun moves by at most that hour).
+
+#### Re-check QTBUG-152289 (#916, TD-041)
+
+Re-test on **every Qt pair version bump** and **every change of
+[QTBUG-152289](https://qt-project.atlassian.net/browse/QTBUG-152289)**. The owner's
+upstream reporting account watches the ticket. Never attach a minidump or an
+unscrubbed log; external evidence uses the standalone reproducer only.
+
+Follow [ADR-048 evidence, "Effect chain with glow"](../09-architecture-decisions/adr-048-evidence/README.md)
+(search that page for the title): its recipe uses official Qt binaries and
+`qml.exe`, about ten WARP repetitions and each of the `--no-glow`, `--no-ssr`
+and `--no-dof` controls. Read process exit codes, including exit-time crashes,
+rather than accepting an `ALIVE` line. Record the Qt version and file versions
+of `d3d11.dll`, `d3d10warp.dll` and `dxgi.dll`: a Windows update can change the
+result without changing Qt. Repeat against the locked PyQt6 bundle before
+changing the app's workaround.
+
+When the failure is fixed, remove the `depthOfFieldActive` term from `ssrEnabled`
+in the production QML, invert the `ultra_blur` regression gate, and verify that
+Ultra has reflections while blur is drawn. Until that evidence exists, keep
+the workaround and record the re-test under #744. The dependency-bump entry
+points link here; the upstream recipe remains in ADR-048's evidence directory.
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

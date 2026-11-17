@@ -290,8 +290,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   detail lives in the GitHub release, the ADR, and the issue.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062). Subscribe to
   its signals. Every rect resize uses `geometry_apply.py`; every Arrange surface uses
-  `build_arrange_command`; scene teardown uses `CanvasScene.clear()`. Read the
-  architecture contract for the full invariants.
+  `build_arrange_command`; scene teardown uses `CanvasScene.clear()`; autosave uses the live project's
+  `recovery_dict()`. Read the architecture contract for the full invariants.
 - Wiki sources are in `docs/wiki/`; validate offline. Publication follows owner approval
   and protected merge (ADR-051), and must be reported pending until completed. Never use
   the published Roadmap as a second tracker.

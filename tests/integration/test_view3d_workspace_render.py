@@ -467,7 +467,7 @@ def test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds(soak_rebuild_on: d
         soak, "gpu_curve_mb")
 
 
-@pytest.mark.xfail(strict=False, reason=(
+@pytest.mark.xfail(strict=False, raises=AssertionError, reason=(
     "QTBUG-151940 is unfixed: " + KNOWN_532 + ". A tripwire for the day Qt (or a tile path outside the "
     "buffer manager's maps) stops the leak - NOT strict: on bench_small the leak reads 9.3 to "
     "11.4 MB per rebuild on the RTX 4070 (eight runs, 2026-10-19; seven under 10), against the "

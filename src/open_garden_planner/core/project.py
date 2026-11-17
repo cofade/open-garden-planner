@@ -1134,6 +1134,15 @@ class ProjectManager(QObject):
         data.camera_tours = plan_tours.dump_tours(self._camera_tours)
         return data
 
+    def recovery_dict(self, scene: QGraphicsScene) -> dict[str, Any]:
+        """Flush pending edits and snapshot the entire plan without changing save identity.
+
+        Recovery uses Save's canonical builder, including dragged journal-pin positions.
+        It must not mark the document clean, replace its filename, or add a recent file.
+        """
+        self.before_save.emit()
+        return self._build_project_data(scene, sync_journal=True).to_dict()
+
     def snapshot_dict(self, scene: QGraphicsScene, *,
                       as_of_date: date | None = None) -> dict[str, Any]:
         """Return a read-only ``.ogp``-shaped dict of the current plan.

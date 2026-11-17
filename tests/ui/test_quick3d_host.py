@@ -2612,7 +2612,7 @@ def test_a_broken_scene_file_fails_the_tier_instead_of_skipping_it(tmp_path: Pat
     env.pop("CI", None)  # the canary's CI rule is not what is under test here
     this = Path(__file__).resolve()
     proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
-        [sys.executable, "-m", "pytest", str(this), "-q", "-p", "no:cacheprovider",
+        [sys.executable, "-m", "pytest", str(this), "-q", "-n", "0", "-p", "no:cacheprovider",
          "--deselect", f"{this.relative_to(REPO).as_posix()}::{_CONTROL}"],
         env=env, capture_output=True, text=True, timeout=170, cwd=REPO)
     summary = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else ""
