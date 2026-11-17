@@ -388,13 +388,15 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
     ) -> None:
         """Paint with selection indicator when selected."""
         from PyQt6.QtWidgets import QStyle
+
+        is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
         # Remove focus and selection boxes drawn by Qt (we draw our own cosmetic selection box)
         option.state &= ~(
             QStyle.StateFlag.State_HasFocus | QStyle.StateFlag.State_Selected
         )
 
         # Draw a thin dashed selection border when selected and not editing
-        if (option.state & QStyle.StateFlag.State_Selected) and not self._editing:
+        if is_selected and not self._editing:
             painter.save()
             pen = QPen(QColor(0, 100, 255), 1, Qt.PenStyle.DashLine)
             pen.setCosmetic(True)

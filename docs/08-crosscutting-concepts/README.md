@@ -10010,7 +10010,7 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
   `CanvasView._set_current_snap` dirties only the 12-px indicator pads; and
   `fill_patterns` provides contrast-preserving periodic mip tiles at `0.5`,
   `0.25`, and `0.125` px/cm (`COARSE_LEVELS`) below 50 % zoom (#849) while
-  `_SunContourPathItem` scales cosmetic contour widths for high-DPI PNG/SVG
+  `SunContourItem` scales cosmetic contour widths for high-DPI PNG/SVG
   exports (#851). PF-CAN-65, PF-CAN-66.
 - A pan with the sun map's key on screen lays the labels out at every step:
   the key stays where it is while the labels move under it.

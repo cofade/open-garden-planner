@@ -221,6 +221,33 @@ def test_huge_text_item_bounds_display_and_selection_paint(qtbot, ui_font_family
     view.viewport().repaint()
     view.viewport().repaint()
 
+    # Verify the custom cosmetic dashed selection border is actually painted when
+    # selected (without leaking State_Selected to QGraphicsTextItem.paint).
+    from PyQt6.QtWidgets import QStyle, QStyleOptionGraphicsItem
+
+    def _paint_border_blue_pixels(selected: bool) -> int:
+        img = QImage(320, 80, QImage.Format.Format_ARGB32)
+        img.fill(QColor("white"))
+        p = QPainter(img)
+        try:
+            p.translate(10, 10)
+            opt = QStyleOptionGraphicsItem()
+            if selected:
+                opt.state |= QStyle.StateFlag.State_Selected
+            item.paint(p, opt)
+            assert not (opt.state & QStyle.StateFlag.State_Selected)
+        finally:
+            p.end()
+        return sum(
+            1
+            for y in range(img.height())
+            for x in range(img.width())
+            if (c := img.pixelColor(x, y)).blue() > 180 and c.red() < 80
+        )
+
+    assert _paint_border_blue_pixels(False) == 0
+    assert _paint_border_blue_pixels(True) > 0
+
     # Untouched edit commit keeps full 1M-char content; real edit replaces it
     item.start_editing()
     item.finish_editing()
