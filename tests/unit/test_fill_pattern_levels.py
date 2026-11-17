@@ -1,8 +1,8 @@
-"""Fill tiles by level (#785): the detail tile above 100 %, the 256-px tile at
-100 % and below — and always the same picture in the same place.
+"""Fill tiles by level (#785, #849): the detail tile above 100 %, the 256-px
+tile at 50–100 %, and contrast-preserving band-limited coarse tiles below 50 %
+— always the same picture in the same place.
 
-The levels are ``core.fill_patterns``' (its module docstring); the rule that
-picks one is ``core.raster_resolution``'s.
+The levels are ``core.fill_patterns``' (its module docstring).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QTransform
 
 from open_garden_planner.core import fill_patterns
 from open_garden_planner.core.fill_patterns import (
+    COARSE_LEVELS,
     DETAIL_LEVEL,
     LEVEL_TILE_CACHE_MAX_BYTES,
     FillPattern,
@@ -93,8 +94,8 @@ def _gradient_energy(pixels: np.ndarray) -> float:
 class TestTileLevel:
     @pytest.mark.parametrize(
         ("scale", "level"),
-        [(1.0, 1.0), (1.5, 2.0), (2.0, 2.0), (9.5, 2.0), (0.56, 1.0), (0.3, 1.0),
-         (0.12, 1.0), (0.001, 1.0)],
+        [(1.0, 1.0), (1.5, 2.0), (2.0, 2.0), (9.5, 2.0), (0.56, 1.0), (0.4, 0.5),
+         (0.3, 0.25), (0.2, 0.25), (0.15, 0.125), (0.12, 0.125), (0.001, 0.125)],
     )
     def test_a_fill_takes_the_level_its_scale_calls_for(self, scale: float, level: float) -> None:
         assert tile_level(scale) == level
@@ -103,12 +104,12 @@ class TestTileLevel:
         assert DETAIL_LEVEL == 2.0 and tile_level(1000.0) == DETAIL_LEVEL
 
 
-class TestHundredPercentAndBelowIsUnchanged:
-    """What a fill looks like at 100 % zoom — and zoomed out — must not move by
-    one level of one pixel: there the brush is the brush it always was."""
+class TestFiftyToHundredPercentIsUnchanged:
+    """What a fill looks like at 50–100 % zoom must not move by one level of
+    one pixel: there the brush is the brush it always was."""
 
     @pytest.mark.parametrize("pattern", _TEXTURED, ids=lambda p: p.name)
-    @pytest.mark.parametrize("scale", [1.0, 0.56, 0.25, 0.1])
+    @pytest.mark.parametrize("scale", [1.0, 0.56])
     def test_the_brush_is_left_alone(self, pattern: FillPattern, scale: float) -> None:
         brush = create_pattern_brush(pattern, _GREEN)
         image = QImage(8, 8, QImage.Format.Format_RGB32)
@@ -119,7 +120,7 @@ class TestHundredPercentAndBelowIsUnchanged:
         assert refined is None
 
     @pytest.mark.parametrize("rotation", [0.0, 30.0])
-    @pytest.mark.parametrize("scale", [1.0, 0.25])
+    @pytest.mark.parametrize("scale", [1.0, 0.56])
     def test_pixels_are_identical(self, rotation: float, scale: float) -> None:
         brush = create_pattern_brush(FillPattern.BRICK, _GREEN,
                                      FillTransform(angle_deg=20.0, offset_x_cm=7.0))
@@ -136,6 +137,69 @@ class TestHundredPercentAndBelowIsUnchanged:
         foreign.fill(_GREEN)
         assert brush_for_painter(QBrush(foreign), painter) is None
         painter.end()
+
+
+class TestZoomedOutAntiMoire:
+    """Coarse mip tiles below 50 % zoom eliminate brick/roof-tile moire while
+    preserving texture contrast (#849, #503)."""
+
+    @pytest.mark.parametrize("pattern", _TEXTURED, ids=lambda p: p.name)
+    @pytest.mark.parametrize("level", COARSE_LEVELS)
+    def test_every_pattern_has_coarse_levels_and_keeps_opaque_format(
+        self, pattern: FillPattern, level: float
+    ) -> None:
+        tile = level_tile(pattern, _GREEN, level)
+        expected = round(256 * level)
+        assert tile is not None
+        assert tile.width() == expected and tile.height() == expected
+        assert not tile.hasAlphaChannel()
+
+    @pytest.mark.parametrize("pattern", [FillPattern.BRICK, FillPattern.ROOF_TILES], ids=lambda p: p.name)
+    @pytest.mark.parametrize("scale", [0.15, 0.20, 0.25, 0.30])
+    def test_zoomed_out_reduces_moire_and_preserves_contrast(
+        self, pattern: FillPattern, scale: float
+    ) -> None:
+        brush = create_pattern_brush(pattern, QColor("#b05040"))
+        refined = _fill(brush, scale, size=240)
+        unrefined = _fill(brush, scale, size=240, refine=False)
+        level = tile_level(scale)
+        tile = level_tile(pattern, QColor("#b05040"), level)
+        assert tile is not None
+        coarse_brush = QBrush(tile)
+        coarse_brush.setTransform(QTransform.fromScale(1.0 / level, 1.0 / level))
+        ideal_hi = _fill(coarse_brush, scale * 8.0, size=240 * 8, refine=False)
+        ideal = _box(ideal_hi, 8)
+        rms_new = float(np.sqrt(((refined - ideal) ** 2).mean()))
+
+        raw_hi = _fill(brush, scale * 8.0, size=240 * 8, refine=False)
+        raw_ideal = _box(raw_hi, 8)
+        rms_old = float(np.sqrt(((unrefined - raw_ideal) ** 2).mean()))
+
+        assert rms_new < 0.6 * rms_old, (pattern.name, scale, rms_new, rms_old)
+        # Contrast guard (#503): luminance std stays well above TEXTURE_SPREAD_MIN (8.0)
+        assert float(refined.mean(axis=2).std()) > 10.0
+
+    @pytest.mark.parametrize("level", COARSE_LEVELS)
+    def test_coarse_tile_wraps_seamlessly(self, level: float) -> None:
+        from PIL import Image
+
+        tile = level_tile(FillPattern.BRICK, _GREEN, level)
+        assert tile is not None
+        qimg = tile.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+        bits = qimg.constBits()
+        bits.setsize(qimg.sizeInBytes())
+        arr = np.frombuffer(bits, dtype=np.uint8).reshape(
+            qimg.height(), qimg.bytesPerLine() // 4, 4
+        )[:, : qimg.width(), :3].copy()
+        pil = Image.fromarray(arr, mode="RGB")
+        across, along = tileability.seam_ratios(pil)
+        assert max(across, along) <= tileability.SEAM_RATIO_THRESHOLD, (level, across, along)
+
+    def test_coarse_tile_keeps_translucent_alpha(self) -> None:
+        tile = level_tile(FillPattern.BRICK, QColor(96, 150, 70, 120), 0.25)
+        assert tile is not None and tile.hasAlphaChannel()
+        alpha = tile.toImage().convertToFormat(QImage.Format.Format_ARGB32).pixelColor(2, 2)
+        assert alpha.alpha() == 120
 
 
 class TestDetailTile:
@@ -177,7 +241,7 @@ class TestDetailTile:
         assert alpha.alpha() == 120
 
     def test_there_is_no_other_level(self) -> None:
-        for level in (1.0, 0.5, 4.0):
+        for level in (1.0, 4.0, 0.0625):
             assert level_tile(FillPattern.GRASS, _GREEN, level) is None
         assert level_tile(FillPattern.SOLID, _GREEN, DETAIL_LEVEL) is None
 

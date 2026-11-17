@@ -557,3 +557,113 @@ class TestPixelsUnchanged:
         assert polygons
         path_polygons = _overlay(scene).path().toSubpathPolygons()
         assert len(path_polygons) == len(polygons)
+
+
+class TestTimelineScrub:
+    """#846: rapid timeline scrubbing caches scene casters on paint_revision and
+    defers the expensive soft-edge feather pass until scrubbing pauses."""
+
+    def test_rapid_scrub_defers_feather_and_caches_casters_until_settle(
+        self, staged, qtbot, monkeypatch
+    ) -> None:
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, view = staged
+        overlay = _overlay(scene)
+        feather_calls: list[int] = []
+        caster_calls: list[int] = []
+        real_feather = sun_shadow_controller.paint_feather
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_feather(*args, **kwargs):
+            feather_calls.append(1)
+            return real_feather(*args, **kwargs)
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "paint_feather", counting_feather)
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        # Step 1 after idle is settled immediately (full feather + fresh walk).
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 0, tzinfo=UTC))
+        view.viewport().repaint()
+        assert len(feather_calls) == 1
+        assert len(caster_calls) == 1
+        assert not overlay._feather_deferred
+
+        feather_calls.clear()
+        caster_calls.clear()
+
+        # Steps 2..6 in rapid succession enter scrub mode: no feather, cached casters.
+        for minute in (10, 20, 30, 40, 50):
+            controller.set_sim_datetime(datetime(2026, 6, 21, 10, minute, tzinfo=UTC))
+            view.viewport().repaint()
+
+        assert overlay._feather_deferred
+        assert len(feather_calls) == 0
+        assert len(caster_calls) == 0
+
+        # Once scrubbing pauses, the settle timer restores the soft edge once.
+        qtbot.waitUntil(lambda: not overlay._feather_deferred, timeout=3000)
+        view.viewport().repaint()
+        assert len(feather_calls) == 1
+
+    def test_scene_edit_during_scrub_invalidates_caster_cache(
+        self, staged, monkeypatch
+    ) -> None:
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, view = staged
+        caster_calls: list[int] = []
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 0, tzinfo=UTC))
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 10, tzinfo=UTC))
+        assert len(caster_calls) == 1
+
+        # Move a caster -> paint_revision advances -> next scrub step re-walks.
+        caster = next(item for item in scene.items() if isinstance(item, RectangleItem))
+        caster.setPos(caster.pos() + QPointF(20.0, 0.0))
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 20, tzinfo=UTC))
+        view.viewport().repaint()
+        assert len(caster_calls) == 2
+
+    def test_export_during_active_scrub_still_renders_feather(
+        self, staged, monkeypatch
+    ) -> None:
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, _view = staged
+        overlay = _overlay(scene)
+        feather_calls: list[int] = []
+        real_feather = sun_shadow_controller.paint_feather
+
+        def counting_feather(*args, **kwargs):
+            feather_calls.append(1)
+            return real_feather(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "paint_feather", counting_feather)
+
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 0, tzinfo=UTC))
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 10, tzinfo=UTC))
+        assert overlay._feather_deferred
+        feather_calls.clear()
+
+        image = QImage(900, 675, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        try:
+            render_scene_region(
+                scene, painter, QRectF(0, 0, 900, 675), QRectF(0, 0, 1200, 900), y_flip=True
+            )
+        finally:
+            painter.end()
+        assert len(feather_calls) == 1

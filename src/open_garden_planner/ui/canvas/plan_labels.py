@@ -93,7 +93,7 @@ def plan_labels_shown(
             continue
         if item.flags() & no_contents:
             continue
-        device = item.deviceTransform(world)
+        device = item.screen_device_transform(world)
         box = device.mapRect(item.boundingRect())
         owner = item.parentItem()
         extent, pinned = item.free_extent_px, False

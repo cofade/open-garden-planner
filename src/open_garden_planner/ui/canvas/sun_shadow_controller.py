@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import date, datetime
@@ -155,6 +156,12 @@ _FEATHER_MARGIN_CM = 2.0 * FEATHER_REACH_CM
 
 _DEBOUNCE_MS = 150
 
+# While a timeline scrub or playback is under way, defer the soft-edge pass
+# until steps pause for this long (#846). Slightly above playback STEP_MS (200)
+# so animation frames do not re-feather between ticks.
+_SCRUB_SETTLE_MS = 260
+_SCRUB_WINDOW_NS = 350_000_000
+
 # While a zoom is under way the overlay shows the picture of its last
 # rasterisation, scaled; it is rasterised for the new zoom once this long has
 # passed without another zoom step (#784).
@@ -263,6 +270,15 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._picture_rect = QRectF()  # ... and the item rect it covers
         self._picture_key: tuple[Any, ...] | None = None
         self._region_tones: tuple[ToneRegion, ...] = ()
+        self._feather_deferred = False
+
+    def set_feather_deferred(self, deferred: bool) -> None:
+        """Skip the soft-edge pass during rapid timeline scrubbing (#846)."""
+        if deferred == self._feather_deferred:
+            return
+        self._feather_deferred = deferred
+        if not deferred:
+            self.update()
 
     def set_clip_rect(self, rect: QRectF | None) -> None:
         """Bound all painting to ``rect`` (the canvas); None = unbounded."""
@@ -288,6 +304,12 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     def set_weighted_regions(self, regions: Sequence[WeightedShadowRegion]) -> None:
         """Cache pre-partitioned weighted shadow regions for porous/opaque painting."""
         self._weighted_regions = tuple(regions)
+        if len(self._weighted_regions) == 1 and abs(self._weighted_regions[0].occlusion - 1.0) < 1e-6:
+            self._region_paths = ()
+            self._region_tones = ()
+            self._generation += 1
+            self.update()
+            return
         built: list[tuple[QPainterPath, QColor]] = []
         tones: list[ToneRegion] = []
         base_alpha = _SHADOW_COLOR.alpha()
@@ -370,6 +392,9 @@ class SunShadowOverlayItem(QGraphicsPathItem):
             # An export, a print, a capped thumbnail; an overlay nobody settles.
             # A minimap keeps cache modes, but must never read or mutate the
             # live viewport's zoom/stand-in state (#847).
+            self._paint_exact(painter, allow_deferred=False)
+            return
+        if self._feather_deferred:
             self._paint_exact(painter)
             return
         to_device = painter.deviceTransform()
@@ -535,12 +560,12 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self._picture_rect = from_device.mapRect(QRectF(area))
         self._stand_in_of = (self._generation, scale)
 
-    def _paint_exact(self, painter: QPainter) -> None:
+    def _paint_exact(self, painter: QPainter, *, allow_deferred: bool = True) -> None:
         """Rasterise the overlay for what ``painter`` shows of it."""
         self.exact_paints += 1
-        self._rasterise(painter)
+        self._rasterise(painter, feathered=not (allow_deferred and self._feather_deferred))
 
-    def _rasterise(self, painter: QPainter) -> None:
+    def _rasterise(self, painter: QPainter, *, feathered: bool = True) -> None:
         """Paint the overlay: the soft edge, then the core."""
         path = self.path()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -550,7 +575,7 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # share — a fence's shade running into a house's — lies inside the
         # WHOLE shadow and gets no edge at all.
         by_region = self._paints_regions()
-        if self._feathered and self._clip_rect is not None:
+        if feathered and self._feathered and self._clip_rect is not None:
             paint_feather(
                 painter,
                 self.boundingRect(),
@@ -973,6 +998,23 @@ class SunShadowController(QObject):
         self._settle.setSingleShot(True)
         self._settle.setInterval(_SETTLE_MS)
         self._settle.timeout.connect(self.settle_overlay)
+        # After rapid timeline scrubbing stops, rasterise the soft edge (#846).
+        self._last_clock_tick_ns = 0
+        self._caster_cache: (
+            tuple[
+                int,
+                date | None,
+                list[IdentifiedCaster],
+                list[ShadowCaster],
+                tuple[Any, ...],
+                bool,
+            ]
+            | None
+        ) = None
+        self._scrub_settle = QTimer(self)
+        self._scrub_settle.setSingleShot(True)
+        self._scrub_settle.setInterval(_SCRUB_SETTLE_MS)
+        self._scrub_settle.timeout.connect(self._on_scrub_settled)
         scene.changed.connect(self._on_scene_changed)
 
     # ── public API ─────────────────────────────────────────────
@@ -1060,6 +1102,7 @@ class SunShadowController(QObject):
 
     def schedule_recompute(self) -> None:
         """Debounced recompute — wire scene/stack change signals here."""
+        self._caster_cache = None
         if not self._enabled:
             return
         with contextlib.suppress(RuntimeError):  # #230 teardown guard
@@ -1067,9 +1110,14 @@ class SunShadowController(QObject):
 
     def recompute_now(self) -> None:
         """Recompute the overlay immediately (empty states short-circuit)."""
+        self._recompute(from_clock=False, scrubbing=False)
+
+    def _recompute(self, *, from_clock: bool, scrubbing: bool) -> None:
         global _last_identified
         if not self._enabled:
             return
+        if not from_clock:
+            self._caster_cache = None
         location = self._location_provider()
         latitude = location.get("latitude") if isinstance(location, dict) else None
         longitude = location.get("longitude") if isinstance(location, dict) else None
@@ -1092,46 +1140,67 @@ class SunShadowController(QObject):
         # US-E8: the sim clock doubles as the growth timeline — dated plants
         # cast their date-projected (grown) shadows. L1.0: grown for the plan's
         # LOCAL date (the heatmap's and 3D's), no longer the instant's UTC date.
-        _last_identified = None
-        casters = collect_shadow_casters(
-            self._scene, at_date=self._clock.plan_date
-        )
-        identified: list[IdentifiedCaster] = (
-            _last_identified[2]
-            if _last_identified is not None
-            and _last_identified[0] == id(self._scene)
-            and _last_identified[1] == self._clock.plan_date
-            else []
-        )
+        plan_date = self._clock.plan_date
+        raw_rev = getattr(self._scene, "paint_revision", None)
+        paint_rev = raw_rev if isinstance(raw_rev, int) else None
+        cached = self._caster_cache
+        if (
+            from_clock
+            and scrubbing
+            and paint_rev is not None
+            and cached is not None
+            and cached[0] == paint_rev
+            and cached[1] == plan_date
+        ):
+            _rev, _dt, identified, casters, caster_key_part, has_enriched = cached
+        else:
+            _last_identified = None
+            casters = collect_shadow_casters(self._scene, at_date=plan_date)
+            identified = (
+                _last_identified[2]
+                if _last_identified is not None
+                and _last_identified[0] == id(self._scene)
+                and _last_identified[1] == plan_date
+                else []
+            )
+            enriched_key = tuple(
+                (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm,
+                 c.transmittance, c.frame)
+                for c in identified
+            )
+            caster_key_part = (
+                # the base too: a bed that keeps its footprint but changes what its
+                # plants stand on must not be skipped as "nothing changed"
+                tuple((tuple(c.footprint), c.height_cm, c.base_cm) for c in casters),
+                enriched_key,
+            )
+            has_enriched = any(
+                c.roof_triangles or c.fence_style is not None or c.transmittance is not None
+                or c.frame is not None
+                for c in identified
+            )
+            if paint_rev is not None:
+                self._caster_cache = (
+                    paint_rev, plan_date, identified, casters, caster_key_part, has_enriched
+                )
+            else:
+                self._caster_cache = None
         canvas_key = (
             (round(canvas_rect.width(), 3), round(canvas_rect.height(), 3))
             if canvas_rect is not None
             else None
-        )
-        enriched_key = tuple(
-            (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm, c.transmittance,
-             c.frame)
-            for c in identified
         )
         key = (
             round(position.elevation_deg, 4),
             round(position.azimuth_deg, 4),
             round(north, 4),
             canvas_key,
-            # the base too: a bed that keeps its footprint but changes what its
-            # plants stand on must not be skipped as "nothing changed"
-            tuple((tuple(c.footprint), c.height_cm, c.base_cm) for c in casters),
-            enriched_key,
+            caster_key_part,
         )
         overlay = self._alive_overlay()
         if key == self._last_key and overlay is not None and self._overlay_wanted:
             self._set_state(STATE_ACTIVE)
             return
-        has_enriched = any(
-            c.roof_triangles or c.fence_style is not None or c.transmittance is not None
-            or c.frame is not None
-            for c in identified
-        )
         if has_enriched:
             weighted = compute_weighted_shadows(
                 identified, position.elevation_deg, position.azimuth_deg
@@ -1154,6 +1223,10 @@ class SunShadowController(QObject):
             path.addPolygon(QPolygonF([QPointF(x, y) for x, y in polygon]))
             path.closeSubpath()
         overlay = self._ensure_overlay()
+        if not scrubbing:
+            with contextlib.suppress(RuntimeError):
+                self._scrub_settle.stop()
+        overlay.set_feather_deferred(scrubbing)
         overlay.set_clip_rect(canvas_rect)
         overlay.set_shadow_path(path)
         overlay.set_weighted_regions(regions)
@@ -1169,12 +1242,34 @@ class SunShadowController(QObject):
     # ── internals ──────────────────────────────────────────────
 
     def _on_scene_changed(self, _regions: list[QRectF] | None = None) -> None:
-        self.schedule_recompute()
+        # Qt's scene.changed also fires asynchronously after our own overlay
+        # update; keep _caster_cache here because CanvasScene.paint_revision
+        # already invalidates it on any real plan/item change (#846).
+        if not self._enabled:
+            return
+        with contextlib.suppress(RuntimeError):  # #230 teardown guard
+            self._debounce.start()
 
     def _on_clock_changed(self, _change: SimChange) -> None:
         """Any new sim instant (date or time) moves the sun: re-solve now."""
-        if self._enabled:
-            self.recompute_now()
+        if not self._enabled:
+            return
+        now = time.monotonic_ns()
+        scrubbing = (now - self._last_clock_tick_ns) <= _SCRUB_WINDOW_NS
+        self._last_clock_tick_ns = now
+        self._recompute(from_clock=True, scrubbing=scrubbing)
+        if scrubbing:
+            with contextlib.suppress(RuntimeError):  # #230 teardown guard
+                self._scrub_settle.start()
+        else:
+            with contextlib.suppress(RuntimeError):
+                self._scrub_settle.stop()
+
+    def _on_scrub_settled(self) -> None:
+        """Timeline scrubbing paused: rasterise the soft edge once (#846)."""
+        overlay = self._alive_overlay()
+        if overlay is not None:
+            overlay.set_feather_deferred(False)
 
     def _alive_overlay(self) -> SunShadowOverlayItem | None:
         """The overlay if its C++ object still lives in our scene, else None.
@@ -1219,14 +1314,21 @@ class SunShadowController(QObject):
     def settle_overlay(self) -> None:
         """Rasterise the overlay for the zoom it is shown at now (the settle
         timer's slot; a caller that cannot wait for it calls this)."""
+        with contextlib.suppress(RuntimeError):  # #230 teardown guard
+            self._scrub_settle.stop()
         overlay = self._alive_overlay()
         if overlay is not None:
+            overlay.set_feather_deferred(False)
             overlay.settle()
 
     def _clear_overlay(self) -> None:
         self._last_key = None
+        self._caster_cache = None
+        with contextlib.suppress(RuntimeError):
+            self._scrub_settle.stop()
         overlay = self._alive_overlay()
         if overlay is not None and self._overlay_wanted:
+            overlay.set_feather_deferred(False)
             overlay.set_shadow_path(QPainterPath())
             overlay.setVisible(False)
         self._overlay_wanted = False
@@ -1258,6 +1360,7 @@ class SunShadowController(QObject):
         path = QPainterPath()
         path.addRect(canvas_rect)
         overlay = self._ensure_overlay()
+        overlay.set_feather_deferred(False)
         overlay.set_clip_rect(canvas_rect)
         overlay.set_shadow_path(path)
         left, top, right, bottom = (canvas_rect.left(), canvas_rect.top(), canvas_rect.right(),

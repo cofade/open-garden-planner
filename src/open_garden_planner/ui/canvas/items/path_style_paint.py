@@ -94,6 +94,74 @@ MAX_SPACING_CM: Final = 1e7
 _STYLE_MITRE_LIMIT: Final = float(QPen().miterLimit())
 
 
+#: A caller that paints a dense polyline (> ``DENSE_PATH_MAX_VERTICES``)
+#: bounds its stroke representation so Qt's path stroker does not spend seconds
+#: resolving tens of thousands of self-intersections (#928).
+DENSE_PATH_MAX_VERTICES: Final = 256
+DENSE_STROKE_BUCKETS: Final = 16
+
+
+def bounded_stroke_points(
+    points: Sequence[QPointF],
+    buckets: int = DENSE_STROKE_BUCKETS,
+) -> list[QPointF]:
+    """Return an envelope-preserving sub-list of ``points`` for wide/styled stroking.
+
+    Leaves polylines with at most ``buckets * 3 + 2`` points untouched. For
+    denser polylines, partitions the interior vertices into ``buckets`` slices
+    and keeps each slice's entry vertex plus its two extrema perpendicular to
+    the slice chord. That runs in O(N) Python arithmetic, keeps the exact
+    start/end and visual envelope of tightly folded zigzags or curves at any
+    angle, and caps the stroked vertex count to ``<= buckets * 3 + 2`` (#928).
+    """
+    n = len(points)
+    if n <= buckets * 3 + 2:
+        return list(points)
+    out_indices = [0]
+    span = n - 2
+    for b in range(buckets):
+        start = 1 + (b * span) // buckets
+        end = 1 + ((b + 1) * span) // buckets
+        if start >= end:
+            continue
+        p0 = points[start]
+        p1 = points[end - 1]
+        dx = p1.x() - p0.x()
+        dy = p1.y() - p0.y()
+        if abs(dx) + abs(dy) < 1e-9:
+            dx, dy = 1.0, 1.0
+        min_v = float("inf")
+        max_v = float("-inf")
+        min_i = start
+        max_i = start
+        p0x, p0y = p0.x(), p0.y()
+        for idx in range(start, end):
+            pt = points[idx]
+            v = dx * (pt.y() - p0y) - dy * (pt.x() - p0x)
+            if v < min_v:
+                min_v = v
+                min_i = idx
+            if v > max_v:
+                max_v = v
+                max_i = idx
+        for cand in sorted({start, min_i, max_i}):
+            if cand != out_indices[-1]:
+                out_indices.append(cand)
+    if out_indices[-1] != n - 1:
+        out_indices.append(n - 1)
+    return [points[i] for i in out_indices]
+
+
+def build_polyline_path(points: Sequence[QPointF]) -> QPainterPath:
+    """Build a ``QPainterPath`` through ``points``."""
+    path = QPainterPath()
+    if points:
+        path.moveTo(points[0])
+        for point in points[1:]:
+            path.lineTo(point)
+    return path
+
+
 def style_paint_reach(width_cm: float) -> float:
     """Conservative cm beyond the centre-line box, including fixed decorations.
 
@@ -251,18 +319,32 @@ class PathStylePaint:
         self._clip = clip
         self._budget = budget
         if path is None:
-            path = QPainterPath()
-            if self._points:
-                path.moveTo(self._points[0])
-                for point in self._points[1:]:
-                    path.lineTo(point)
+            path = build_polyline_path(self._points)
         self._path = path
+        self._stroke_points_cache: list[QPointF] | None = None
+        self._stroke_path_cache: QPainterPath | None = None
 
     def pen(self) -> QPen:
         return self._pen
 
     def path(self) -> QPainterPath:
         return self._path
+
+    def _dense_stroke_points(self) -> list[QPointF]:
+        """Bounded points used for wide/offset stroking on dense polylines (#928)."""
+        if len(self._points) <= DENSE_PATH_MAX_VERTICES:
+            return self._points
+        if self._stroke_points_cache is None:
+            self._stroke_points_cache = bounded_stroke_points(self._points)
+        return self._stroke_points_cache
+
+    def _stroke_path(self) -> QPainterPath:
+        """Bounded path passed to QPainterPathStroker / drawPath (#928)."""
+        if len(self._points) <= DENSE_PATH_MAX_VERTICES:
+            return self._path
+        if self._stroke_path_cache is None:
+            self._stroke_path_cache = build_polyline_path(self._dense_stroke_points())
+        return self._stroke_path_cache
 
     def paint(self, painter: QPainter, style: PathFenceStyle) -> bool:
         """Paint the polyline in ``style``. False — and nothing painted — for
@@ -300,7 +382,7 @@ class PathStylePaint:
         stroker.setWidth(width)
         stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        return stroker.createStroke(self.path())
+        return stroker.createStroke(self._stroke_path())
 
     def _paint_rim(self, painter: QPainter, outer: float, inner: float, color: QColor) -> None:
         """Raster-mask the rim in bounded device tiles, then composite it once.
@@ -317,7 +399,7 @@ class PathStylePaint:
             pen = QPen(color, outer, Qt.PenStyle.SolidLine,
                        Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
             painter.setPen(pen)
-            painter.drawPath(self.path())
+            painter.drawPath(self._stroke_path())
             return
         outside, inside = self._stroke_outline(outer), self._stroke_outline(inner)
         transform = painter.deviceTransform()
@@ -423,7 +505,7 @@ class PathStylePaint:
         base_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
         base_pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
         painter.setPen(base_pen)
-        painter.drawPath(self.path())
+        painter.drawPath(self._stroke_path())
 
         # Cross lines (brick pattern)
         line_pen = QPen(color.darker(120))
@@ -558,7 +640,7 @@ class PathStylePaint:
         rail_pen = QPen(color)
         rail_pen.setWidthF(1.5)
         painter.setPen(rail_pen)
-        painter.drawPath(self.path())
+        painter.drawPath(self._stroke_path())
 
         # Vertical bars
         bar_spacing = width * 2.0
@@ -643,7 +725,7 @@ class PathStylePaint:
         base_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         base_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(base_pen)
-        painter.drawPath(self.path())
+        painter.drawPath(self._stroke_path())
 
         # Leaf bumps along edges
         bump_spacing = width * 0.5
@@ -681,7 +763,7 @@ class PathStylePaint:
         base_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
         base_pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
         painter.setPen(base_pen)
-        painter.drawPath(self.path())
+        painter.drawPath(self._stroke_path())
 
         # Stone blocks
         stone_spacing = width * 0.6
@@ -819,7 +901,7 @@ class PathStylePaint:
         Returns:
             Offset QPainterPath, or None if not enough points
         """
-        points = self._points
+        points = self._dense_stroke_points()
         if len(points) < 2:
             return None
 

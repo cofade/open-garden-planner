@@ -327,8 +327,9 @@ class MinimapWidget(QWidget):
             if item is focus_item:
                 continue
             flags = item.flags()
+            ignores = getattr(item, "_ignores_transformations", False) or bool(flags & ignore_flag)
             if item.isVisible() and not (flags & no_contents) and (
-                bool(flags & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
+                ignores or item.zValue() >= _OVERLAY_Z_MIN
             ):
                 if not (flags & selectable) and item.isSelected():
                     opacity = item.opacity()

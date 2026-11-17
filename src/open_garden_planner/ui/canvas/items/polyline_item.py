@@ -1,5 +1,6 @@
 """Polyline item for the garden canvas."""
 
+import math
 import uuid
 from typing import Any, Final
 
@@ -12,6 +13,7 @@ from PyQt6.QtGui import (
     QPainterPath,
     QPainterPathStroker,
     QPen,
+    QPixmap,
 )
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -41,6 +43,8 @@ from .path_style_paint import (
     STYLES_PAINTED,
     PathStylePaint,
     WalkBudget,
+    bounded_stroke_points,
+    build_polyline_path,
     current_render_walk_cap,
     style_paint_reach,
 )
@@ -62,6 +66,14 @@ MAX_POLYLINE_VERTICES: Final = MAX_POLYGON_VERTICES
 CANVAS_PATH_ELEMENTS = 65_536
 CANVAS_PATH_STEPS = 65_536
 CANVAS_PATH_DASHES = 131_072
+#: Walk cap for dense (> ``MAX_FULL_DETAIL_VERTICES``) polylines when stroked
+#: in full width/style (selected canvas paint or export), bounding element
+#: loops on tightly folded zigzags (#928).
+DENSE_PATH_ELEMENTS = 1_500
+DENSE_PATH_STEPS = 2_500
+DENSE_PATH_DASHES = 2_000
+#: Maximum raster dimension (px) for the selected dense-polyline pixmap cache.
+_MAX_DENSE_CACHE_PX = 2048
 
 
 class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin, QGraphicsPathItem):
@@ -104,6 +116,12 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self._points = points.copy()
         #: A string of lights' layout and the path it was made for (``_lights_layout``)
         self._lights_cache: tuple[QPainterPath, Layout] | None = None
+        #: Bounded envelope stroke points/path for dense polylines (#928).
+        self._dense_stroke_cache: tuple[QPainterPath, list[QPointF], QPainterPath] | None = None
+        #: Cached stroked shape for hit-testing dense polylines (#928).
+        self._dense_shape_cache: tuple[QPainterPath, float, QPainterPath] | None = None
+        #: Zoom-keyed item-local raster cache for selected dense polylines (#928).
+        self._dense_selected_cache: tuple[tuple[Any, ...], QPixmap, QRectF] | None = None
 
         # Initialize rotation handle and vertex editing
         self.init_rotation_handle()
@@ -157,6 +175,13 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self._path_fence_style = value
         if hasattr(self, 'update'):
             self.update()
+
+    def prepareGeometryChange(self) -> None:
+        """Invalidate derived dense-stroke and selected raster caches (#928)."""
+        self._dense_stroke_cache = None
+        self._dense_shape_cache = None
+        self._dense_selected_cache = None
+        super().prepareGeometryChange()
 
     def setPen(self, pen: QPen) -> None:
         """Notify while the old pen still determines our extra styled bounds."""
@@ -260,6 +285,44 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
         return stroker.createStroke(self.path())
 
+    def _bounded_stroke_geometry(self) -> tuple[list[QPointF], QPainterPath]:
+        """Return ``(points, path)`` bounded for wide/styled stroking (#928).
+
+        Sparse polylines (``<= MAX_FULL_DETAIL_VERTICES``) return their exact
+        ``self._points`` and ``self.path()`` unchanged. Denser polylines return
+        an envelope-preserving decimation so Qt's ``QPainterPathStroker`` never
+        resolves tens of thousands of self-intersections, while ``self._points``
+        and ``self.path()`` remain intact for editing and serialization.
+        """
+        path = self.path()
+        if len(self._points) <= MAX_FULL_DETAIL_VERTICES:
+            return self._points, path
+        cached = self._dense_stroke_cache
+        if cached is None or cached[0] != path:
+            pts = bounded_stroke_points(self._points)
+            bpath = build_polyline_path(pts)
+            cached = (path, pts, bpath)
+            self._dense_stroke_cache = cached
+        return cached[1], cached[2]
+
+    def shape(self) -> QPainterPath:
+        """Return stroked shape for hit-testing, bounded for dense polylines (#928)."""
+        if len(self._points) <= MAX_FULL_DETAIL_VERTICES:
+            return super().shape()
+        path = self.path()
+        width = max(self.pen().widthF(), 1.0)
+        cached = self._dense_shape_cache
+        if cached is None or cached[0] != path or cached[1] != width:
+            _pts, bpath = self._bounded_stroke_geometry()
+            stroker = QPainterPathStroker()
+            stroker.setWidth(width)
+            stroker.setCapStyle(self.pen().capStyle())
+            stroker.setJoinStyle(self.pen().joinStyle())
+            stroked = stroker.createStroke(bpath)
+            cached = (path, width, stroked)
+            self._dense_shape_cache = cached
+        return cached[2]
+
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow and style decorations."""
         base = super().boundingRect()
@@ -306,6 +369,31 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             paint_string_lights(painter, self._lights_layout(), self.pen().widthF(),
                                 self.pen().color())
             self._paint_selection(painter, option)
+            return
+
+        # Dense polylines (> MAX_FULL_DETAIL_VERTICES) when selected or exported:
+        # preserve stored pen width and style without passing all N vertices to
+        # Qt's path stroker, and cache the selected canvas raster (including
+        # shadow) across repaints (#928).
+        if (
+            self.object_type != ObjectType.ROOF_RIDGE
+            and (
+                (self.isSelected() and len(self._points) > MAX_FULL_DETAIL_VERTICES)
+                or len(self._points) > 4096
+            )
+        ):
+            if (
+                self.isSelected()
+                and is_interactive_paint(self, widget)
+                and self._paint_dense_selected_cached(painter, option, widget)
+            ):
+                return
+            self._paint_dense_body(
+                painter,
+                option,
+                widget,
+                include_shadow=self._shadows_enabled,
+            )
             return
 
         # Draw shadow first
@@ -355,6 +443,123 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             self._paint_selection(painter, option)
         else:
             super().paint(painter, option, widget)
+
+    def _paint_dense_body(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None,
+        *,
+        include_shadow: bool = False,
+        include_selection: bool = True,
+    ) -> None:
+        """Paint a dense polyline's body (and optionally shadow/selection) using
+        bounded envelope geometry and capped style walks (#928).
+        """
+        if include_shadow and self._shadows_enabled:
+            self._paint_shadow(painter)
+        bounded_pts, bounded_path = self._bounded_stroke_geometry()
+        style = self._path_fence_style
+        if style in STYLES_PAINTED:
+            clip = self._canvas_paint_clip(option, widget)
+            if clip is None:
+                clip = self._whole_item_clip()
+            budget = WalkBudget(
+                DENSE_PATH_ELEMENTS,
+                DENSE_PATH_STEPS,
+                DENSE_PATH_DASHES,
+            )
+            PathStylePaint(
+                bounded_pts,
+                self.pen(),
+                bounded_path,
+                clip=clip,
+                budget=budget,
+                fill_transform=getattr(self, "fill_transform", None),
+                level_tiles=True,
+            ).paint(painter, style)
+        else:
+            painter.save()
+            painter.setPen(self.pen())
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawPath(bounded_path)
+            painter.restore()
+        if include_selection:
+            self._paint_selection(painter, option)
+
+    def _paint_dense_selected_cached(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None,
+    ) -> bool:
+        """Cache and blit the selected dense polyline raster at the current zoom (#928)."""
+        bounds = self.boundingRect()
+        if not bounds.isValid() or bounds.isEmpty():
+            return False
+        wt = painter.worldTransform()
+        scale = max(math.hypot(wt.m11(), wt.m12()), math.hypot(wt.m21(), wt.m22()), 0.25)
+        device = painter.device()
+        dpr = float(device.devicePixelRatioF()) if device is not None else 1.0
+        px_scale = min(scale * max(dpr, 1.0), 8.0)
+        pad_cm = 2.0 / px_scale
+        target_rect = bounds.adjusted(-pad_cm, -pad_cm, pad_cm, pad_cm)
+        px_w = math.ceil(target_rect.width() * px_scale)
+        px_h = math.ceil(target_rect.height() * px_scale)
+        if px_w <= 0 or px_h <= 0 or px_w > _MAX_DENSE_CACHE_PX or px_h > _MAX_DENSE_CACHE_PX:
+            return False
+
+        pen = self.pen()
+        cache_key = (
+            self.path(),
+            pen.color().rgba(),
+            pen.widthF(),
+            pen.style().value,
+            pen.capStyle().value,
+            pen.joinStyle().value,
+            self._path_fence_style,
+            self._shadows_enabled,
+            getattr(self, "fill_transform", None),
+            round(px_scale, 3),
+        )
+        cached = self._dense_selected_cache
+        if cached is None or cached[0] != cache_key:
+            pixmap = QPixmap(px_w, px_h)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            cache_painter = QPainter(pixmap)
+            cache_painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            cache_painter.scale(px_scale, px_scale)
+            cache_painter.translate(-target_rect.left(), -target_rect.top())
+            try:
+                self._paint_dense_body(
+                    cache_painter,
+                    option,
+                    widget,
+                    include_shadow=True,
+                    include_selection=False,
+                )
+            finally:
+                cache_painter.end()
+            cached = (cache_key, pixmap, target_rect)
+            self._dense_selected_cache = cached
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        painter.drawPixmap(cached[2], cached[1], QRectF(cached[1].rect()))
+        painter.restore()
+        self._paint_selection(painter, option)
+        return True
+
+    def _whole_item_clip(self) -> tuple[float, float, float, float]:
+        """Item-local bounding box expanded by style reach for dense walk caps."""
+        rect = self.boundingRect()
+        reach = style_paint_reach(self.pen().widthF())
+        return (
+            rect.left() - reach,
+            rect.top() - reach,
+            rect.right() + reach,
+            rect.bottom() + reach,
+        )
 
     def _lights_layout(self) -> Layout:
         """The string of lights' layout, made again only when its line changed: the
@@ -441,7 +646,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             shadow_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(shadow_pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        shadow_path = self.path().translated(
+        _pts, stroke_path = self._bounded_stroke_geometry()
+        shadow_path = stroke_path.translated(
             self.SHADOW_OFFSET_X, self.SHADOW_OFFSET_Y,
         )
         painter.drawPath(shadow_path)
@@ -470,8 +676,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 QColor(70, 45, 20), QColor(155, 90, 52), QColor(210, 150, 100),
             )
 
-        path = self.path()
-        pts = self._points
+        pts, path = self._bounded_stroke_geometry()
         if len(pts) < 2:
             painter.setPen(self.pen())
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -537,6 +742,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         if option.state & QStyle.StateFlag.State_Selected:
             painter.save()
             sel_pen = QPen(QColor(0, 120, 215), 1.0, Qt.PenStyle.DashLine)
+            sel_pen.setCosmetic(True)
             painter.setPen(sel_pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(self.boundingRect())
@@ -559,6 +765,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 if not self.is_vertex_edit_mode:
                     self.show_rotation_handle()
             else:  # Being deselected
+                self._dense_selected_cache = None
                 if self.is_vertex_edit_mode:
                     self.exit_vertex_edit_mode()
                 self.hide_rotation_handle()

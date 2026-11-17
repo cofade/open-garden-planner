@@ -92,3 +92,64 @@ def test_overlay_repaint_ratio(qtbot) -> None:
         f"a repaint with the sun overlay on costs {ratio:.1f} times one with it off "
         f"(bound {OVERLAY_REPAINT_RATIO}); rounds on/off ms: {readings}"
     )
+
+
+#: An active timeline scrub step (recompute + viewport repaint) against a
+#: settled feathered step on family-garden at fit zoom (#846): measured ~0.42x.
+SCRUB_STEP_RATIO = 0.75
+
+
+@pytest.mark.perf
+def test_timeline_scrub_step_ratio(qtbot) -> None:
+    """#846: rapid timeline scrub steps avoid the full soft-edge + caster-walk
+    cost of a settled step."""
+    scene = CanvasScene()
+    ProjectManager().load(scene, FAMILY_GARDEN)
+    view = CanvasView(scene)
+    view.resize(1453, 898)
+    view.show()
+    qtbot.addWidget(view)
+    qtbot.waitExposed(view)
+    view.fit_in_view()
+    QApplication.processEvents()
+
+    controller = SunShadowController(scene, lambda: BERLIN)
+    controller.set_sim_datetime(datetime(2026, 6, 21, 10, 0, tzinfo=UTC))
+    controller.set_enabled(True)
+    QApplication.processEvents()
+    view.viewport().repaint()
+
+    viewport = view.viewport()
+    ratios: list[float] = []
+    readings: list[tuple[float, float]] = []
+    for round_idx in range(5):
+        hour = 11 + round_idx
+        gc.collect()
+        # 1. Settled baseline (reset scrub window so this step runs full walk + feather)
+        controller._last_clock_tick_ns = 0
+        t0 = time.perf_counter()
+        controller.set_sim_datetime(datetime(2026, 6, 21, hour, 0, tzinfo=UTC))
+        viewport.repaint()
+        settled_ms = (time.perf_counter() - t0) * 1000.0
+
+        # 2. Active scrub steps (enter scrub on step 1, measure step 2)
+        controller.set_sim_datetime(datetime(2026, 6, 21, hour, 10, tzinfo=UTC))
+        viewport.repaint()
+        t1 = time.perf_counter()
+        controller.set_sim_datetime(datetime(2026, 6, 21, hour, 20, tzinfo=UTC))
+        viewport.repaint()
+        scrub_ms = (time.perf_counter() - t1) * 1000.0
+
+        readings.append((scrub_ms, settled_ms))
+        ratios.append(scrub_ms / max(settled_ms, 1e-6))
+
+    ratio = statistics.median(ratios)
+    print(
+        "[SCRUB-PERF] scrub/settled ms per round: "
+        + " ".join(f"{a:.1f}/{b:.1f}" for a, b in readings)
+        + f" | ratio median {ratio:.2f}"
+    )
+    assert ratio <= SCRUB_STEP_RATIO, (
+        f"a timeline scrub step costs {ratio:.2f}x a settled step "
+        f"(bound {SCRUB_STEP_RATIO}); rounds scrub/settled ms: {readings}"
+    )

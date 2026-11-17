@@ -260,3 +260,6 @@
 | Case study: A pin probe clicked below the painted head (#923) | [Read](260-journal-pin-device-coordinates-923.md) |
 | Case study: Saved-plan recovery was never discovered (#797) | [Read](261-recovery-discovery-and-ownership-797.md) |
 | Case study: A nested pytest guard started another worker pool (#921) | [Read](262-nested-guard-worker-pool-921.md) |
+| Case study: untransformable label child poisoned Qt's BSP tree (#919) | [Read](263-case-study-untransformable-label-bsp-poisoning-919.md) |
+| Case study: lighter hairline along sun-shadow outlines from DestinationOut + SourceOver (#854) | [Read](264-case-study-shadow-feather-outline-hairline-854.md) |
+| Case study: selected dense polyline blocked for 5–10 s in QPainterPathStroker (#928) | [Read](265-case-study-selected-dense-polyline-stroker-928.md) |

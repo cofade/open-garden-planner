@@ -26,9 +26,11 @@ those disagree, **they win and this file is the bug**.
 
 Read the canonical source first, then the compact delivery aid:
 
-- `gh issue list --state open` and each candidate's full `gh issue view <n>` — the real source
-  for scope, status, dependencies and the decisions an issue is waiting on. **The issue tracker
-  is the only work list**; the project-board automation was deleted in #293.
+- `gh issue list --state open --json number,title,labels,assignees` and each candidate's full
+  `gh issue view <n>` — the real source for scope, status, dependencies and the decisions an
+  issue is waiting on. **Exclude any issue carrying the `claimed` label** (already actively
+  being worked on by another contributor/agent). **The issue tracker is the only work list**;
+  the project-board automation was deleted in #293.
 - `docs/roadmap.md` — current work, phase status and the one-line delivery index.
 - merged PRs and `git log` — delivery history, used to verify work is actually on `master`.
 
@@ -49,7 +51,7 @@ claim forward. If the roadmap drifts, correct it in this package's PR.
 ```bash
 GH="C:/Program Files/GitHub CLI/gh.exe"   # Windows dev machine; in a Linux/cloud session use
                                           # the GitHub MCP tools instead (ogp-change-control §2.6)
-"$GH" issue list --state open --limit 60
+"$GH" issue list --state open --limit 60 --json number,title,labels,assignees
 git log --oneline -15 origin/master
 "$GH" pr list --state all --limit 10 --json number,title,headRefName,state,baseRefName
 git branch -a --contains <merge-sha>      # is that merged PR's work really ON master?
@@ -88,6 +90,25 @@ both, not for skipping B.
 State the choice and the reasoning in one short paragraph before writing any code. If the honest
 answer is that the highest-value package is blocked on the owner, say so and pick the next one —
 do not invent work to look busy.
+
+### Claim and assign every issue before starting
+
+Right after finalizing the package selection — and **before** proceeding to Step 3 or writing
+any code — claim every issue in the package so multi-contributor and multi-agent sessions do not
+duplicate work or collide:
+
+1. Re-verify none of the selected issues gained the `claimed` label since Step 1:
+   ```bash
+   "$GH" issue view <id> --json labels --jq '.labels[].name'
+   ```
+2. Add the `"claimed"` label and assign each issue to the active GitHub account (`@me`):
+   ```bash
+   for id in <issue-numbers>; do
+     "$GH" issue edit "$id" --add-label "claimed" --add-assignee "@me"
+   done
+   ```
+   In a Linux/cloud session without `gh.exe` (`ogp-change-control` §2.6), use the corresponding
+   GitHub MCP issue-update tool to add the `"claimed"` label and assign the active account.
 
 ## 3. Plan against the issue specs, not against a summary
 

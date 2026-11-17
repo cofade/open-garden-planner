@@ -31,6 +31,7 @@ from open_garden_planner.core.object_types import ObjectType
 
 from .garden_item import GardenItemMixin
 from .resize_handle import RotationHandleMixin
+from .text_item import MAX_DISPLAY_TEXT_CHARS, bound_display_text
 
 
 class _CalloutTextChild(QGraphicsTextItem):
@@ -86,9 +87,10 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         self._box_offset: QPointF = box_offset
         self._content: str = content
         self._editing: bool = False
+        self._edit_initial_display_text: str | None = None
 
         # Child text item with Y-flip (same trick as TextItem for the canvas Y-axis flip)
-        self._text_child = _CalloutTextChild(content, self)
+        self._text_child = _CalloutTextChild(bound_display_text(content), self)
         self._text_child.setTransform(QTransform().scale(1.0, -1.0))
         font = QFont(self._FONT_FAMILY, self._FONT_SIZE_PT)
         # Scaled with the plan like a text note: design metrics (see TextItem).
@@ -117,7 +119,8 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     @content.setter
     def content(self, value: str) -> None:
         self._content = value
-        self._text_child.setPlainText(value)
+        self._text_child.setPlainText(bound_display_text(value))
+        self._update_text_pos()
 
     @property
     def box_offset(self) -> QPointF:
@@ -236,6 +239,7 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
     def start_editing(self) -> None:
         """Enter inline text editing mode."""
         self._editing = True
+        self._edit_initial_display_text = self._text_child.toPlainText()
         self._text_child.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
         # Restore widget focus to the canvas view so key events reach the scene
         # (e.g. after a context menu stole keyboard focus from the view).
@@ -264,7 +268,16 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         if not self._editing:
             return
         self._editing = False
-        self._content = self._text_child.toPlainText()
+        edited = self._text_child.toPlainText()
+        if (
+            self._edit_initial_display_text is None
+            or edited != self._edit_initial_display_text
+        ):
+            self._content = edited
+            if len(edited) > MAX_DISPLAY_TEXT_CHARS:
+                self._text_child.setPlainText(bound_display_text(edited))
+                self._update_text_pos()
+        self._edit_initial_display_text = None
         self._text_child.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         cursor = self._text_child.textCursor()
         cursor.clearSelection()

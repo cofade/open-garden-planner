@@ -488,3 +488,53 @@ def test_the_showcase_is_wired_to_the_tours_own_hold_and_a_broken_wiring_is_loud
     with pytest.raises(AttributeError, match="capture"):
         window._showcase_moment.document_opened((date(2026, 6, 21), time(11, 0)))
 
+
+@pytest.mark.parametrize("language", ("en", "de", "es"))
+def test_balcony_tutorial_note_clears_furniture_containers_and_sun_contours(window, language):
+    """#867: the balcony note stays inside the canvas, clear of furniture/pots/wall
+    and clear of the dense 21 June sun-map contour band."""
+    from open_garden_planner.core.heatmap_render import hour_levels, iso_segments, smooth_field
+    from open_garden_planner.core.shade_aggregation import HeatmapGrid, compute_sun_exposure
+    from open_garden_planner.ui.canvas.items.text_item import TextItem
+    from open_garden_planner.ui.canvas.sun_exposure_snapshot import collect_exposure_snapshot
+    from open_garden_planner.ui.canvas.sun_heatmap import rasterize_polygons_qimage
+
+    open_example(window, "balcony", language)
+    scene = window.canvas_scene
+    notes = [item for item in scene.items() if isinstance(item, TextItem)]
+    assert len(notes) == 1
+    note_rect = notes[0].sceneBoundingRect()
+    assert scene.canvas_rect.contains(note_rect)
+
+    obstacles = (
+        ObjectType.CHAIR,
+        ObjectType.TABLE_RECTANGULAR,
+        ObjectType.PARASOL,
+        ObjectType.CONTAINER,
+        ObjectType.WALL,
+    )
+    for item in scene.items():
+        if getattr(item, "object_type", None) in obstacles:
+            assert not note_rect.intersects(item.sceneBoundingRect()), (
+                language, item.object_type, note_rect, item.sceneBoundingRect()
+            )
+
+    if language == "en":
+        place = window._project_manager.location
+        snap = collect_exposure_snapshot(scene, place, date(2026, 6, 21), 0.0)
+        grid = HeatmapGrid.for_rect(0.0, 0.0, scene.width_cm, scene.height_cm, 10.0)
+        result = compute_sun_exposure(
+            list(snap.casters), snap.receivers, place["latitude"], place["longitude"],
+            date(2026, 6, 21), grid, rasterize_polygons_qimage, north_angle_deg=0.0,
+        )
+        field = smooth_field(result.minutes, passes=2)
+        inner = note_rect.adjusted(3.0, 3.0, -3.0, -3.0)
+        hits = 0
+        for threshold in hour_levels(float(field.max())):
+            for (x1, y1), (x2, y2) in iso_segments(field, threshold):
+                p1 = QPointF((x1 + 0.5) * grid.cell_cm, (y1 + 0.5) * grid.cell_cm)
+                p2 = QPointF((x2 + 0.5) * grid.cell_cm, (y2 + 0.5) * grid.cell_cm)
+                if inner.contains(p1) or inner.contains(p2):
+                    hits += 1
+        assert hits <= 15, f"note crosses too many 21 June sun-map contour segments ({hits})"
+

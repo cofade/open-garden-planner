@@ -37,7 +37,7 @@ No roadmap phase is active. Open work is tracked in GitHub issues; the current t
 | 3D rendering quality and performance | #744, #534, #531, #883, #886, #894 | The 3D view's trust and frame budget. |
 | CAD and drawing tools | #828, #666 | Precision and editing depth. |
 | Architecture and tech debt | #829, #667 | Remove redundant surfaces and make tests repeatable. |
-| 2D canvas follow-ups | #841, #843–#847, #849, #879, #919, #928 | Plan precision, repaint cost and embedded-window rendering. |
+| 2D canvas follow-ups | #841, #843–#845, #879 | Plan precision, repaint cost and embedded-window rendering. |
 
 This table is a pointer, not a tracker. Each issue owns its scope and acceptance criteria.
 
@@ -45,6 +45,7 @@ This table is a pointer, not a tracker. Each issue owns its scope and acceptance
 
 | Status | ID | Scope | Version / reference |
 |--------|----|-------|---------------------|
+| ✅ | 2D canvas, sun overlay & export fixes (#846, #847, #849, #851, #854, #867, #873, #919, #928) | BSP-indexed labels, bounded selected dense polylines & text notes, sun-shadow outline compensation & scrub deferral, 300-dpi/SVG contour pens, anti-moire zoom fills, balcony tutorial note layout | §8.37; PF-CAN-64–66 |
 | ✅ | Recovery and test reliability (#797, #897, #916, #921, #922, #923) | Complete autosaves, bounded selection notifications, portable CPU raster tests, a cheaper full translation gate, and measured Qt guidance | v1.40.5; [PR #932](https://github.com/cofade/open-garden-planner/pull/932); ADR-003 addendum; §8.10.18; PF-CAN-40 |
 | ✅ | Canvas repaint package (#848, #877, #878, #927; partial #847) | Canvas repaint caches and unmeasured sun diagnostics | v1.40.4; [PR #926](https://github.com/cofade/open-garden-planner/pull/926); §8.27, §8.37, ADR-076 addendum |
 | ✅ | Package #768–#776 | Parametric glasshouse and pergola, Smart Symbols retirement, sprite orientation, layers-panel fixes | v1.37.9; [PR #779](https://github.com/cofade/open-garden-planner/pull/779); ADR-032 addendum; FR-3D-BUILT-01a–01c |

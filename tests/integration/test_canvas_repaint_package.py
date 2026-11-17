@@ -263,3 +263,185 @@ def test_long_unselected_line_uses_a_cosmetic_outline(qtbot, count):
         view.viewport().repaint()
     assert any(p.isCosmetic() and p.widthF() == 1 for p in strokes) == (count > 256)
     assert item.points == [QPointF(i * 300 / count, (i % 2) * 300) for i in range(count)]
+
+
+def test_rectangle_tool_hover_and_drag_do_not_walk_whole_plan(qtbot, monkeypatch) -> None:
+    """#847/#919 counting gate: RectangleTool hover and drag on 853 objects
+    must not trigger whole-plan ``boundingRect`` walks or full-viewport snap repaints.
+    """
+    from PyQt6.QtCore import QEvent
+    from PyQt6.QtGui import QMouseEvent
+
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    view, _scene, _items = show_large_plan(qtbot)
+    view.set_snap_enabled(True)
+    view.set_grid_visible(False)
+    view.set_active_tool(ToolType.RECTANGLE)
+    view._ensure_snap_index()
+    QApplication.processEvents()
+
+    bounding_calls = 0
+    real_rect = CircleItem.boundingRect
+
+    def counted_rect(self: CircleItem) -> QRectF:
+        nonlocal bounding_calls
+        bounding_calls += 1
+        return real_rect(self)
+
+    monkeypatch.setattr(CircleItem, "boundingRect", counted_rect)
+
+    # Hover moves
+    moves = 10
+    for step in range(moves):
+        pt = QPointF(300.0 + step * 10.0, 300.0 + step * 5.0)
+        ev = QMouseEvent(
+            QEvent.Type.MouseMove,
+            pt,
+            pt,
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        QApplication.sendEvent(view.viewport(), ev)
+        QApplication.processEvents()
+
+    hover_calls = bounding_calls
+    assert hover_calls / moves <= 40, (
+        f"RectangleTool hover called CircleItem.boundingRect {hover_calls / moves:.1f}x/move"
+    )
+
+    # Drag moves
+    bounding_calls = 0
+    press_pt = QPointF(300.0, 300.0)
+    QApplication.sendEvent(
+        view.viewport(),
+        QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            press_pt,
+            press_pt,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+    QApplication.processEvents()
+    for step in range(moves):
+        pt = QPointF(315.0 + step * 15.0, 310.0 + step * 10.0)
+        ev = QMouseEvent(
+            QEvent.Type.MouseMove,
+            pt,
+            pt,
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        QApplication.sendEvent(view.viewport(), ev)
+        QApplication.processEvents()
+
+    drag_calls = bounding_calls
+    # Before #919/#847 each move walked ~1,600 CircleItem.boundingRect calls;
+    # with BSP indexing + dirty-rect snap updates, only items overlapping the
+    # growing preview rect and dynamic input overlay are visited (~76/move).
+    assert drag_calls / moves <= 150, (
+        f"RectangleTool drag called CircleItem.boundingRect {drag_calls / moves:.1f}x/move"
+    )
+    view.active_tool.cancel()
+
+
+def test_circle_spacing_ring_and_bounding_rect_caches(qtbot, monkeypatch) -> None:
+    """#847/#919: CircleItem caches spacing conflict geometry and boundingRect,
+    and invalidates cleanly when geometry, state, or plan date changes.
+    """
+    from datetime import date
+
+    from open_garden_planner.ui.canvas.items import circle_item as circle_mod
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    scene = CanvasScene(1000, 800)
+    scene.set_shadows_enabled(False)
+    plant = CircleItem(
+        400.0,
+        400.0,
+        25.0,
+        object_type=ObjectType.PERENNIAL,
+        name="P1",
+        metadata={"plant_species": {"common_name": "P1", "max_spread_cm": 90.0}},
+    )
+    plant.spacing_radius_cm = 45.0
+    plant.set_spacing_overlap("overlap", [(440.0, 400.0, 45.0)])
+    scene.addItem(plant)
+
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(600, 500)
+    view.show()
+    view.fit_in_view()
+    QApplication.processEvents()
+
+    arc_calls = 0
+    real_arcs = circle_mod.spacing_conflict_arcs
+
+    def counted_arcs(*args, **kwargs):
+        nonlocal arc_calls
+        arc_calls += 1
+        return real_arcs(*args, **kwargs)
+
+    monkeypatch.setattr(circle_mod, "spacing_conflict_arcs", counted_arcs)
+
+    # First paint already cached the spacing ring; repeated repaints hit cache.
+    for _ in range(5):
+        plant.update()
+        view.viewport().repaint()
+    assert arc_calls == 0, f"spacing_conflict_arcs recomputed {arc_calls}x without state change"
+
+    # Position change invalidates the cached spacing ring once.
+    plant.setPos(20.0, 0.0)
+    plant.update()
+    view.viewport().repaint()
+    assert arc_calls == 1
+
+    # Repeated repaints at the new position hit the cache again.
+    for _ in range(3):
+        plant.update()
+        view.viewport().repaint()
+    assert arc_calls == 1
+
+    # Bounding rect cache invalidates across geometry & diagnostic state changes.
+    base_rect = plant.boundingRect()
+    assert plant.boundingRect() == base_rect
+
+    plant.set_antagonist_warning(True)
+    with_warn = plant.boundingRect()
+    assert with_warn != base_rect
+
+    plant.set_companion_highlight("beneficial")
+    with_highlight = plant.boundingRect()
+    assert with_highlight != with_warn
+
+    plant.shadows_enabled = True
+    with_shadow = plant.boundingRect()
+    assert with_shadow != with_highlight
+
+    plant.spacing_radius_cm = 120.0
+    with_big_spacing = plant.boundingRect()
+    assert with_big_spacing.width() > with_shadow.width()
+
+    plant.setRect(0.0, 0.0, 100.0, 100.0)
+    assert plant.boundingRect() != with_big_spacing
+
+    pen = plant.pen()
+    pen.setWidthF(12.0)
+    plant.setPen(pen)
+    with_thick_pen = plant.boundingRect()
+    assert with_thick_pen.width() > plant.rect().width()
+
+    # Plan date change invalidates via prepareGeometryChange in refresh_timeline.
+    plant.metadata["plant_instance"] = {
+        "planting_date": "2026-01-01",
+        "current_spread_cm": 10.0,
+    }
+    plant.prepareGeometryChange()
+    scene._painted_plan_date = date(2026, 6, 1)
+    r1 = plant.boundingRect()
+    assert r1 is not None

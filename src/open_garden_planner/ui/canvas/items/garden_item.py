@@ -1718,6 +1718,15 @@ class GardenItemMixin(PositionLockMixin):
         if self._label_item is not None:
             self._label_item.hide()
 
+        # Bound the inline editor to the same single-line cap as PlanLabelItem so
+        # a hostile/huge object name (e.g. 1M chars) never stalls Qt's text
+        # layout (#873). Remember the initial bounded text so an untouched
+        # close does not overwrite the full stored self._name.
+        from .halo_text import label_text
+
+        initial_text = label_text(self._name)
+        self._edit_label_initial_text = initial_text
+
         # Create editable text item if it doesn't exist
         if self._edit_label_item is None:
             # TYPE_CHECKING guard
@@ -1776,7 +1785,7 @@ class GardenItemMixin(PositionLockMixin):
                     else:
                         super().keyPressEvent(event)
 
-            self._edit_label_item = EditableLabel(self._name, self)
+            self._edit_label_item = EditableLabel(initial_text, self)
 
             # Configure appearance to match the static label exactly
             font = QFont("Arial", 10)
@@ -1807,7 +1816,7 @@ class GardenItemMixin(PositionLockMixin):
             # Connect signal to reposition as text changes
             self._edit_label_item.document().contentsChanged.connect(self._reposition_edit_label)
         else:
-            self._edit_label_item.setPlainText(self._name)
+            self._edit_label_item.setPlainText(initial_text)
             self._edit_label_item.show()
 
         # Defer focus so Qt finishes processing the triggering mouse event first.
@@ -1849,9 +1858,15 @@ class GardenItemMixin(PositionLockMixin):
         """Finish editing the label and save changes."""
         if self._edit_label_item is None or not self._edit_label_item.isVisible():
             return
-        new_text = self._edit_label_item.toPlainText().strip()
+        raw_text = self._edit_label_item.toPlainText()
         self._edit_label_item.hide()
-        self.name = new_text
+        initial_text = getattr(self, "_edit_label_initial_text", None)
+        if initial_text is not None and raw_text == initial_text:
+            # Unchanged inline editor must not overwrite a clipped/multiline name (#873).
+            if self._label_item is not None:
+                self._label_item.show()
+            return
+        self.name = raw_text.strip()
         if self._label_item is not None:
             self._label_item.show()
 

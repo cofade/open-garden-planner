@@ -1261,7 +1261,7 @@
   },
   "797": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Auto-save writes the scene only: a recovered plan may lose location, soil tests, tasks, harvest logs and camera tours"
   },
   "798": {
@@ -1339,6 +1339,11 @@
     "state": "CLOSED",
     "title": "A line above the 256-vertex paint bound has no simplified picture: 334 ms per zoom step with a 16,000-vertex zigzag line"
   },
+  "854": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sun shadow: a faint lighter hairline runs along a shade's outline"
+  },
   "865": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1381,7 +1386,7 @@
   },
   "897": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Four new 2D canvas tests fail on the Linux CI runner and are marked expected-to-fail there"
   },
   "898": {
@@ -1421,17 +1426,17 @@
   },
   "921": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A non-strict xfail swallows the hang guard: a showcase test runs 215 s on Linux CI and still reports XFAIL"
   },
   "922": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The i18n coverage gate test takes 92 s under coverage, more than half of the hang guard"
   },
   "923": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "PF-CAN-40 overstates: itemAt does return ItemIgnoresTransformations items; narrow the rule to the journal pin's measured cause"
   },
   "924": {
@@ -1448,6 +1453,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Sun diagnostics block ordinary selection by rebuilding unmeasured long-line footprints"
+  },
+  "928": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Selected dense polyline still blocks for seconds in exact full-detail painting"
   },
   "929": {
     "is_pr": true,

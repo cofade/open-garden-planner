@@ -246,3 +246,103 @@ def test_no_point_of_a_large_plan_is_a_label_nobody_can_see(qtbot) -> None:
         )
     ]
     assert not on_a_label, f"a press on {len(on_a_label)} of {len(hidden)} hidden labels hits the label"
+
+
+def test_scene_query_on_large_plan_uses_bsp_index_not_full_walk(qtbot, monkeypatch) -> None:
+    """§8.10.10 counting gate for #919: ``scene.itemAt`` uses Qt's BSP tree.
+
+    With ``ItemIgnoresTransformations`` kept off C++ ``PlanLabelItem``, a
+    point query on the 853-object plan calls ``CircleItem.boundingRect`` and
+    ``PlanLabelItem.boundingRect`` only for local BSP candidates (<= 15 calls
+    per query), instead of walking all 853 objects and labels on every move.
+    """
+    view, scene, _items = show_large_plan(qtbot)
+    circle_calls = 0
+    label_calls = 0
+    real_circle_rect = CircleItem.boundingRect
+    real_label_rect = PlanLabelItem.boundingRect
+
+    def counted_circle_rect(self: CircleItem) -> QRectF:
+        nonlocal circle_calls
+        circle_calls += 1
+        return real_circle_rect(self)
+
+    def counted_label_rect(self: PlanLabelItem) -> QRectF:
+        nonlocal label_calls
+        label_calls += 1
+        return real_label_rect(self)
+
+    monkeypatch.setattr(CircleItem, "boundingRect", counted_circle_rect)
+    monkeypatch.setattr(PlanLabelItem, "boundingRect", counted_label_rect)
+
+    queries = 20
+    view_tx = view.transform()
+    for index in range(queries):
+        pt = view.mapToScene(QPoint(200 + index * 50, 300 + (index % 5) * 40))
+        scene.itemAt(pt, view_tx)
+
+    assert circle_calls / queries <= 15, (
+        f"scene.itemAt walked {circle_calls / queries:.1f} circles/query (expected <= 15)"
+    )
+    assert label_calls / queries <= 15, (
+        f"scene.itemAt walked {label_calls / queries:.1f} labels/query (expected <= 15)"
+    )
+
+
+def test_plan_label_in_plain_scene_ignores_parent_and_view_transforms(qtbot) -> None:
+    """In a plain ``QGraphicsScene`` (``paints_plan_labels`` False), a
+    ``PlanLabelItem`` whose ``ItemIgnoresTransformations`` flag was set via
+    ``setFlag`` or ``setFlags`` keeps its C++ flag clear for BSP indexing while
+    still painting upright at constant pixel size under rotated parents and
+    scaled views.
+    """
+    from PyQt6.QtGui import QColor, QImage, QPainter
+    from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem, QGraphicsScene, QGraphicsView
+
+    scene = QGraphicsScene(-500, -500, 1000, 1000)
+    parent = QGraphicsRectItem(-50, -50, 100, 100)
+    parent.setRotation(40.0)
+    parent.setScale(2.0)
+    scene.addItem(parent)
+
+    label = PlanLabelItem("Lavender", parent)
+    label.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+    assert not (label.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+    assert label._ignores_transformations
+
+    label_flags = PlanLabelItem("Sage", parent)
+    label_flags.setPos(0, 40)
+    label_flags.setFlags(
+        label_flags.flags() | QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+    )
+    assert not (label_flags.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+    assert label_flags._ignores_transformations
+
+    view = QGraphicsView(scene)
+    qtbot.addWidget(view)
+    view.resize(400, 300)
+    view.scale(0.35, -0.35)
+    view.show()
+    qtbot.waitExposed(view)
+
+    # Device transform matches constant-screen-size upright mapping.
+    dt = label.deviceTransform(view.viewportTransform())
+    assert dt.m11() == pytest.approx(1.0)
+    assert dt.m12() == pytest.approx(0.0)
+    assert dt.m21() == pytest.approx(0.0)
+    assert dt.m22() == pytest.approx(1.0)
+
+    # Rendering through the plain-scene paint path paints pixels at the anchor.
+    img = QImage(400, 300, QImage.Format.Format_ARGB32_Premultiplied)
+    img.fill(QColor("white"))
+    painter = QPainter(img)
+    view.render(painter)
+    painter.end()
+    box = dt.mapRect(label.boundingRect()).toAlignedRect()
+    ink = 0
+    for y in range(max(0, box.top()), min(img.height(), box.bottom() + 1)):
+        for x in range(max(0, box.left()), min(img.width(), box.right() + 1)):
+            c = img.pixelColor(x, y)
+            if c.red() + c.green() + c.blue() < 600:
+                ink += 1
+    assert ink > 10, "PlanLabelItem did not paint upright in a plain QGraphicsScene"

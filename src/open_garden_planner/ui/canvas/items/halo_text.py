@@ -404,13 +404,53 @@ class PlanLabelItem(HaloTextItem):
     free_extent_px: float = 0.0
 
     def __init__(self, text: str = "", parent: QGraphicsItem | None = None, *, rank: int = 0) -> None:
+        self._ignores_transformations: bool = False
         super().__init__(label_text(text), parent, centered=True)
         self.rank = rank
         note_label_changed(self)
 
+    def setFlag(
+        self, flag: QGraphicsItem.GraphicsItemFlag, enabled: bool = True
+    ) -> None:
+        """Keep ``ItemIgnoresTransformations`` in Python so Qt's BSP index stays active (#919).
+
+        Setting ``ItemIgnoresTransformations`` on a C++ ``QGraphicsItem`` child
+        forces Qt's ``QGraphicsSceneBspTreeIndex`` to place its top-level parent
+        into ``untransformableItems``, bypassing spatial indexing on every query
+        and paint. ``PlanLabelItem`` is painted in screen space by
+        ``LabelPass`` (or ``paint`` in a plain ``QGraphicsScene``) without
+        needing C++ Qt to set the flag.
+        """
+        if flag == QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations:
+            self._ignores_transformations = bool(enabled)
+            return
+        super().setFlag(flag, enabled)
+
+    def setFlags(self, flags: QGraphicsItem.GraphicsItemFlag) -> None:
+        """Strip ``ItemIgnoresTransformations`` from C++ flags while recording it (#919)."""
+        ignore = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+        self._ignores_transformations = bool(flags & ignore)
+        super().setFlags(flags & ~ignore)
+
+    def screen_device_transform(self, world: QTransform) -> QTransform:
+        """Transform from item coordinates to device pixels under ``world``."""
+        if not self._ignores_transformations:
+            return super().deviceTransform(world)
+        anchor = world.map(self.scenePos())
+        return self.transform() * QTransform.fromTranslate(anchor.x(), anchor.y())
+
+    def deviceTransform(self, viewportTransform: QTransform) -> QTransform:
+        """Return the device transform, honouring Python-tracked ``ItemIgnoresTransformations``."""
+        return self.screen_device_transform(viewportTransform)
+
     def shape(self) -> QPainterPath:
         """Nothing: no point of the plan is a hit on a label (class docstring)."""
         return QPainterPath()
+
+    def contains(self, point: QPointF) -> bool:  # noqa: ARG002
+        """Nothing: ``QGraphicsSimpleTextItem.contains`` checks ``boundingRect``,
+        not ``shape``, so without this a transformable label still catches clicks."""
+        return False
 
     # The scene keeps the layout of its labels between paints; a label says
     # when it changed what that layout was taken from (``note_label_changed``).
@@ -444,5 +484,14 @@ class PlanLabelItem(HaloTextItem):
         widget: QWidget | None = None,
     ) -> None:
         if painter is None or getattr(self.scene(), "paints_plan_labels", False):
+            return
+        if self._ignores_transformations:
+            anchor = painter.worldTransform().map(QPointF(0.0, 0.0))
+            painter.save()
+            painter.setWorldTransform(
+                self.transform() * QTransform.fromTranslate(anchor.x(), anchor.y())
+            )
+            self.paint_text(painter, option, widget)
+            painter.restore()
             return
         self.paint_text(painter, option, widget)

@@ -55,6 +55,8 @@ from PyQt6.QtWidgets import (
     QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 from open_garden_planner.core.heatmap_render import (
@@ -209,6 +211,73 @@ class SunMapLabelItem(PlanLabelItem):
         self.setBrush(_LABEL_TEXT_COLOR)
         self.setZValue(_LABEL_Z)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+
+
+class _SunContourPathItem(QGraphicsPathItem):
+    """Contour line whose stroke scales to print/export DPI (#851).
+
+    On the interactive canvas (96 dpi), draws with a cosmetic pen (``1.6`` px
+    on even hours, ``0.7`` px on odd hours). In high-DPI exports (300-dpi PNG,
+    PDF, print) where a raw cosmetic pen would shrink into a faint hairline,
+    switches to a non-cosmetic scene-unit pen sized to the export DPI ratio so
+    PNG, SVG (scaled via ``svg_export.py``), and screen match.
+    """
+
+    _BASE_DPI = 96.0
+
+    def __init__(
+        self,
+        path: QPainterPath,
+        base_width_px: float,
+    ) -> None:
+        super().__init__(path)
+        self._base_width_px = base_width_px
+        pen = QPen(_CONTOUR_COLOR)
+        pen.setCosmetic(True)  # crisp, ~constant width at any zoom
+        pen.setWidthF(base_width_px)
+        self.setPen(pen)
+
+    def boundingRect(self) -> QRectF:
+        return super().boundingRect().adjusted(-2.0, -2.0, 2.0, 2.0)
+
+    def paint(
+        self,
+        painter: QPainter | None,
+        option: QStyleOptionGraphicsItem | None,
+        widget: QWidget | None = None,
+    ) -> None:
+        if painter is None:
+            return
+        dpi_scale = 1.0
+        if widget is None:
+            from open_garden_planner.services.svg_export import logical_dpi
+
+            base_dpi = max(self._BASE_DPI, logical_dpi())
+            scene = self.scene()
+            export_dpi = getattr(scene, "_export_dpi", None) if scene is not None else None
+            if isinstance(export_dpi, (int, float)) and export_dpi > base_dpi:
+                dpi_scale = float(export_dpi) / base_dpi
+            else:
+                device = painter.device()
+                if device is not None and device.logicalDpiX() > base_dpi:
+                    dpi_scale = float(device.logicalDpiX()) / base_dpi
+        if dpi_scale > 1.0:
+            world = painter.worldTransform()
+            world_scale = max(
+                math.hypot(world.m11(), world.m12()),
+                math.hypot(world.m21(), world.m22()),
+            )
+            if math.isfinite(world_scale) and world_scale > 0.0:
+                pen = QPen(self.pen())
+                pen.setCosmetic(False)
+                pen.setWidthF((self._base_width_px * dpi_scale) / world_scale)
+                painter.save()
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawPath(self.path())
+                painter.restore()
+                return
+        super().paint(painter, option, widget)
 
 
 class StandingMask:
@@ -731,11 +800,10 @@ class SunHeatmapController(QObject):
                 ex, ey = self._grid_to_scene(end, grid)
                 path.moveTo(sx, sy)
                 path.lineTo(ex, ey)
-            line = QGraphicsPathItem(path)
-            pen = QPen(_CONTOUR_COLOR)
-            pen.setCosmetic(True)  # crisp, ~constant width at any zoom
-            pen.setWidthF(1.6 if even else 0.7)
-            line.setPen(pen)
+            line = _SunContourPathItem(
+                path,
+                1.6 if even else 0.7,
+            )
             line.setZValue(_CONTOUR_Z)
             line.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
             self._scene.addItem(line)

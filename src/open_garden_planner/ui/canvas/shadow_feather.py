@@ -31,10 +31,11 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from typing import Any, cast
 
 import numpy as np
 from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
-from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath
+from PyQt6.QtGui import QColor, QImage, QPainter, QPainterPath, QTransform
 
 from open_garden_planner.core.raster_resolution import device_scale, raw_device_scale
 from open_garden_planner.core.soft_edge import (
@@ -76,10 +77,18 @@ def _premultiplied(color: QColor) -> np.ndarray:
 def _picture(pixels: np.ndarray) -> QImage:
     """``pixels`` (rows of premultiplied ARGB32) as an image with its own memory."""
     rows, columns = pixels.shape
-    picture = QImage(
-        pixels.tobytes(), columns, rows, columns * 4, QImage.Format.Format_ARGB32_Premultiplied
+    picture = QImage(columns, rows, QImage.Format.Format_ARGB32_Premultiplied)
+    if picture.isNull():
+        return picture
+    bits = picture.bits()
+    if bits is None:
+        raise MemoryError("the falloff's raster could not be written")
+    bits.setsize(picture.sizeInBytes())
+    dest = np.frombuffer(cast(Any, bits), dtype=np.uint32).reshape(
+        rows, picture.bytesPerLine() // 4
     )
-    return picture.copy()  # not the temporary buffer's
+    dest[:, :columns] = pixels
+    return picture
 
 
 def falloff_pictures(
@@ -145,6 +154,103 @@ def falloff_pictures(
         tone[inner] * np.float32(color.alpha()) + np.float32(0.5), np.float32(255.0)
     ).astype(np.uint8)
     return mask_picture, _picture(_premultiplied(color)[alpha])
+
+
+def _cut_out_shade(
+    device: QImage,
+    to_device: QTransform,
+    clip_rect: QRectF,
+    shown: QRectF,
+    shade: QPainterPath,
+    tones: Sequence[ToneRegion],
+    color: QColor,
+) -> bool:
+    """Cut ``shade`` out of ``device`` with exact ``SourceOver`` seam compensation.
+
+    When the overlay later draws ``shade`` on top with ``SourceOver``, a boundary
+    pixel with inside coverage ``c`` gets ``c * alpha_s + (1 - c * alpha_s) * alpha_layer``.
+    A plain ``DestinationOut`` cut leaves ``(1 - c) * alpha_f``, producing
+    ``alpha - c * (1 - c) * alpha^2 < alpha`` — a visible lighter hairline along
+    every non-pixel-aligned edge (#854). Scaling the boundary pixels by
+    ``(1 - c) / (1 - c * alpha_s)`` makes the ``SourceOver`` result equal the exact
+    geometric mix ``c * alpha_s + (1 - c) * alpha_f`` with no dip.
+
+    Returns False if the coverage buffer could not be allocated (caller falls back
+    to plain ``DestinationOut``).
+    """
+    pixels_all = to_device.mapRect(shown).toAlignedRect().intersected(device.rect())
+    if pixels_all.isEmpty():
+        return True
+    pw, ph = pixels_all.width(), pixels_all.height()
+    cov = QImage(pw, ph, QImage.Format.Format_ARGB32_Premultiplied)
+    if cov.isNull():
+        return False
+    cov.fill(0)
+    cov_tx = to_device * QTransform.fromTranslate(-pixels_all.x(), -pixels_all.y())
+    cp = QPainter(cov)
+    try:
+        cp.setRenderHint(QPainter.RenderHint.Antialiasing)
+        cp.setPen(Qt.PenStyle.NoPen)
+        cp.setTransform(cov_tx)
+        cp.setClipRect(clip_rect, Qt.ClipOperation.IntersectClip)
+        cp.fillPath(shade, QColor(0, 0, 0, 255))
+    finally:
+        cp.end()
+    cov_bits = cov.constBits()
+    dev_bits = device.bits()
+    if cov_bits is None or dev_bits is None:
+        return False
+    cov_bits.setsize(cov.sizeInBytes())
+    dev_bits.setsize(device.sizeInBytes())
+    c32 = np.frombuffer(cast(Any, cov_bits), dtype=np.uint32).reshape(
+        ph, cov.bytesPerLine() // 4
+    )[:, :pw]
+    y0, x0 = pixels_all.y(), pixels_all.x()
+    dev_stride = device.bytesPerLine() // 4
+    l32 = np.frombuffer(cast(Any, dev_bits), dtype=np.uint32).reshape(
+        device.height(), dev_stride
+    )[y0 : y0 + ph, x0 : x0 + pw]
+    l4 = np.frombuffer(cast(Any, dev_bits), dtype=np.uint8).reshape(
+        device.height(), dev_stride, 4
+    )[y0 : y0 + ph, x0 : x0 + pw, :]
+    l32[c32 == 0xFF000000] = 0
+    ys, xs = np.where((c32 > 0) & (c32 < 0xFF000000))
+    if not ys.size:
+        return True
+    cf = (c32[ys, xs] >> 24).astype(np.float32) * np.float32(1.0 / 255.0)
+    if tones:
+        cov_tones = QImage(pw, ph, QImage.Format.Format_ARGB32_Premultiplied)
+        if cov_tones.isNull():
+            return False
+        cov_tones.fill(0)
+        tp = QPainter(cov_tones)
+        try:
+            tp.setRenderHint(QPainter.RenderHint.Antialiasing)
+            tp.setPen(Qt.PenStyle.NoPen)
+            tp.setTransform(cov_tx)
+            tp.setClipRect(clip_rect, Qt.ClipOperation.IntersectClip)
+            base_alpha = color.alpha()
+            for outline, occlusion in tones:
+                reg_alpha = max(1, min(255, round(base_alpha * occlusion)))
+                tp.fillPath(outline, QColor(0, 0, 0, reg_alpha))
+        finally:
+            tp.end()
+        t_bits = cov_tones.constBits()
+        if t_bits is None:
+            return False
+        t_bits.setsize(cov_tones.sizeInBytes())
+        t32 = np.frombuffer(cast(Any, t_bits), dtype=np.uint32).reshape(
+            ph, cov_tones.bytesPerLine() // 4
+        )[:, :pw]
+        cas = (t32[ys, xs] >> 24).astype(np.float32) * np.float32(1.0 / 255.0)
+    else:
+        cas = cf * np.float32(color.alpha() / 255.0)
+    denom = np.maximum(np.float32(1.0) - cas, np.float32(1.0 / 255.0))
+    factor = np.minimum((np.float32(1.0) - cf) / denom, np.float32(1.0))
+    l4[ys, xs] = np.clip(
+        l4[ys, xs].astype(np.float32) * factor[:, None] + np.float32(0.5), 0.0, 255.0
+    ).astype(np.uint8)
+    return True
 
 
 def paint_feather(
@@ -241,9 +347,10 @@ def paint_feather(
                 layer.drawImage(field, tint, QRectF(tint.rect()))
             layer.restore()
         # 4. the shade itself is drawn by the overlay, with its own flat tone
-        layer.setRenderHint(QPainter.RenderHint.Antialiasing)
-        layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationOut)
-        layer.fillPath(shade, QColor(0, 0, 0))
+        if not _cut_out_shade(device, to_device, clip_rect, shown, shade, tones, color):
+            layer.setRenderHint(QPainter.RenderHint.Antialiasing)
+            layer.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationOut)
+            layer.fillPath(shade, QColor(0, 0, 0))
         layer.restore()
 
     paint_layer(painter, bounds, draw)

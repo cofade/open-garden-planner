@@ -2582,13 +2582,21 @@ class CanvasView(QGraphicsView):
         return snapped
 
     def _set_current_snap(self, candidate: SnapCandidate | None) -> None:
-        """Update the current snap candidate; trigger redraw on change."""
+        """Update the current snap candidate; trigger dirty-rect redraw on change."""
         previous = self._current_snap
         self._current_snap = candidate
-        if previous is None and candidate is None:
+        if previous == candidate:
             return
-        # Repainting the viewport draws (or clears) the indicator glyph.
-        self.viewport().update()
+        viewport = self.viewport()
+        if viewport is None:
+            return
+        from PyQt6.QtCore import QRect
+
+        pad = 12
+        for snap in (previous, candidate):
+            if snap is not None:
+                vp = self.mapFromScene(snap.point)
+                viewport.update(QRect(vp.x() - pad, vp.y() - pad, pad * 2 + 1, pad * 2 + 1))
 
     # Drag-and-drop from gallery panel and plant lists panel
 

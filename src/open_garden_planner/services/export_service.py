@@ -299,6 +299,9 @@ class ExportService:
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
 
+        has_prev_export_dpi = hasattr(scene, "_export_dpi")
+        prev_export_dpi = getattr(scene, "_export_dpi", None)
+        scene._export_dpi = dpi  # type: ignore[attr-defined]
         try:
             # Single helper call owns ALL bookkeeping: overlay hide,
             # construction hide, text scaling, Y-flip, and scene render.
@@ -315,6 +318,10 @@ class ExportService:
                 y_flip=True,
             )
         finally:
+            if has_prev_export_dpi:
+                scene._export_dpi = prev_export_dpi  # type: ignore[attr-defined]
+            elif hasattr(scene, "_export_dpi"):
+                delattr(scene, "_export_dpi")
             painter.end()
 
         # Save the image
