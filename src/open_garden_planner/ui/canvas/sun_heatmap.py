@@ -55,6 +55,8 @@ from PyQt6.QtWidgets import (
     QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsScene,
+    QStyleOptionGraphicsItem,
+    QWidget,
 )
 
 from open_garden_planner.core.heatmap_render import (
@@ -276,6 +278,26 @@ class SunHeatmapOverlayItem(QGraphicsPixmapItem):
         self.setZValue(_HEATMAP_Z)
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         self.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+
+
+class SunContourItem(QGraphicsPathItem):
+    """A contour is writing beneath authored notes, not a line through them."""
+
+    def paint(self, painter: QPainter | None, option: QStyleOptionGraphicsItem | None,
+              widget: QWidget | None = None) -> None:
+        if painter is None:
+            return
+        covers = getattr(self.scene(), "annotation_covers", None)
+        if covers is None:
+            super().paint(painter, option, widget)
+            return
+        path = QPainterPath()
+        path.addRect(self.boundingRect())
+        path = path.subtracted(self.mapFromScene(covers()))
+        painter.save()
+        painter.setClipPath(path, Qt.ClipOperation.IntersectClip)
+        super().paint(painter, option, widget)
+        painter.restore()
 
 
 class HeatmapWorker(QThread):
@@ -731,7 +753,7 @@ class SunHeatmapController(QObject):
                 ex, ey = self._grid_to_scene(end, grid)
                 path.moveTo(sx, sy)
                 path.lineTo(ex, ey)
-            line = QGraphicsPathItem(path)
+            line = SunContourItem(path)
             pen = QPen(_CONTOUR_COLOR)
             pen.setCosmetic(True)  # crisp, ~constant width at any zoom
             pen.setWidthF(1.6 if even else 0.7)

@@ -260,3 +260,4 @@
 | Case study: A pin probe clicked below the painted head (#923) | [Read](260-journal-pin-device-coordinates-923.md) |
 | Case study: Saved-plan recovery was never discovered (#797) | [Read](261-recovery-discovery-and-ownership-797.md) |
 | Case study: A nested pytest guard started another worker pool (#921) | [Read](262-nested-guard-worker-pool-921.md) |
+| Case study: object frames and device pixels leaked into each other (#840, #841, #843, #844, #853, #867, #872, #874) | [Read](263-canvas-editing-precision.md) |

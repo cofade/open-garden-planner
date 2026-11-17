@@ -21,6 +21,16 @@ from __future__ import annotations
 from PyQt6.QtGui import QFont, QFontInfo, QGuiApplication
 
 _FALLBACK_DPI = 96.0
+# Plan text preserves the historic 96 dpi appearance on every host. Its stored
+# point size is a file-format convention, not the resolution of the current screen.
+PLAN_TEXT_DPI = 96.0
+
+
+def plan_text_font(family: str, points: int) -> QFont:
+    """A plan-scaled font with the historical 96 dpi em, expressed in cm/pixels."""
+    font = QFont(family)
+    font.setPixelSize(max(1, round(points * PLAN_TEXT_DPI / 72.0)))
+    return font
 
 
 def layout_dpi() -> float:

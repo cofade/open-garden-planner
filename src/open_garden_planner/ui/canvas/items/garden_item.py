@@ -298,13 +298,43 @@ class SuccessionBadgeItem(QGraphicsItem):
             y += self._line_h * (1.0 + self._ROW_GAP)
         painter.restore()
 
+    def paint_indicator(self, painter: QPainter) -> None:
+        """A crop-following arrow when the full upright tag has no room."""
+        # The retained placement maps the full tag bounds onto a square. Paint
+        # in device coordinates so even a very long crop name cannot squash
+        # the arrow's stroke or its aspect ratio.
+        rect = painter.worldTransform().mapRect(self.boundingRect())
+        painter.save()
+        painter.resetTransform()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self._BG)
+        painter.drawRoundedRect(rect, rect.height() * 0.2, rect.height() * 0.2)
+        pen = QPen(self._COLOR_CURRENT, rect.height() * 0.12)
+        painter.setPen(pen)
+        mid = rect.center()
+        left = QPointF(rect.left() + rect.width() * 0.2, mid.y())
+        right = QPointF(rect.right() - rect.width() * 0.2, mid.y())
+        painter.drawLine(left, right)
+        painter.drawLine(right, QPointF(right.x() - rect.width() * 0.2,
+                                       mid.y() - rect.height() * 0.25))
+        painter.drawLine(right, QPointF(right.x() - rect.width() * 0.2,
+                                       mid.y() + rect.height() * 0.25))
+        painter.restore()
+
+    def paint_signature(self) -> tuple[str, tuple[tuple[str, bool, bool], ...]]:
+        """The bounded rows actually painted, including translated overflow text."""
+        return self._font.key(), tuple(self._rendered_rows())
+
 
 # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
 
 
 def enable_device_coordinate_cache(item: QGraphicsItem) -> None:
     """Enable DeviceCoordinateCache for static items to speed up repaints."""
-    item.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
+    mode = QGraphicsItem.CacheMode
+    item.setCacheMode(mode.NoCache if getattr(item, "_needs_live_spacing_paint", False)
+                      else mode.DeviceCoordinateCache)
 
 
 def disable_cache(item: QGraphicsItem) -> None:
@@ -1250,6 +1280,7 @@ class GardenItemMixin(PositionLockMixin):
         self._spacing_overlap = overlap_type
         self._spacing_conflicts = conflicts
         self._spacing_conflict_place = place
+        self._refresh_spacing_cache_mode()
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
@@ -1266,10 +1297,16 @@ class GardenItemMixin(PositionLockMixin):
         if self._spacing_circles_visible == value:
             return
         self._spacing_circles_visible = value
+        self._refresh_spacing_cache_mode()
         if hasattr(self, 'prepareGeometryChange'):
             self.prepareGeometryChange()
         if hasattr(self, 'update'):
             self.update()
+
+    def _refresh_spacing_cache_mode(self) -> None:
+        if (isinstance(self, QGraphicsItem) and not self.isSelected()
+                and hasattr(self, "_needs_live_spacing_paint")):
+            enable_device_coordinate_cache(self)
 
     def effective_spacing_radius(self) -> float | None:
         """Return the spacing radius in cm, or None if no data available.
@@ -1612,7 +1649,7 @@ class GardenItemMixin(PositionLockMixin):
     def _draw_capacity_badge(self, painter: Any) -> None:
         """Draw a red warning triangle when a container is over capacity (US-C3).
 
-        Placed at the visual top-left of the bounding rect so it does not collide
+        Placed at the visual top-left of the geometric outline so it does not collide
         with the antagonist/spacing badges (which sit top-right on plants).
         Reuses the bar+dot "!" convention so no text is drawn (text would render
         upside-down on the Y-flipped canvas, see §8.14).
@@ -1626,7 +1663,9 @@ class GardenItemMixin(PositionLockMixin):
 
         if not is_container_type(self.object_type):
             return
-        rect = self.boundingRect()  # type: ignore[attr-defined]
+        from open_garden_planner.core.item_geometry import selection_frame_rect
+
+        rect = selection_frame_rect(self)  # type: ignore[arg-type]
         s = min(rect.width(), rect.height()) * 0.28
         if s <= 0:
             return

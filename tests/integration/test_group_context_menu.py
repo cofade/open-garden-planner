@@ -505,11 +505,13 @@ def test_a_just_grouped_selection_offers_ungroup_only(qtbot, monkeypatch) -> Non
     view.group_selected()
     group = first.parentItem()
     assert isinstance(group, GroupItem)
-    # The members are still reported as selected by Qt — that is the trap.
-    assert set(scene.selectedItems()) != {group}
-
-    labels = _labels(_open_menu(group, monkeypatch))
-    assert labels & {GROUP, UNGROUP} == {UNGROUP}
+    # A selection read by the handle refresh can retire Qt's transient member
+    # entries. Supply the recorded spill explicitly so this pin still exercises
+    # the top-level filter, whichever selection observer ran first.
+    with monkeypatch.context() as patch:
+        patch.setattr(scene, "selectedItems", lambda: [group, first, second])
+        labels = _labels(_open_menu(group, patch))
+        assert labels & {GROUP, UNGROUP} == {UNGROUP}
 
     _open_menu(group, monkeypatch, choose=UNGROUP)
     assert first.parentItem() is None and second.parentItem() is None

@@ -86,8 +86,7 @@ def test_a_stored_size_is_drawn_with_the_font_it_always_had(qtbot, stored: float
     _scene_, note = _scene(stored)
     font = note.font()
     assert font.family() == "Arial"
-    assert font.pointSize() == points
-    assert font.pixelSize() == -1, "the font is sized in points, as it always was"
+    assert font.pixelSize() == round(points * 96 / 72), "historic 96 dpi plan size"
     assert FILE_VERSION == "1.4", "the file format did not change for this"
 
 
@@ -130,7 +129,7 @@ def test_a_size_typed_into_the_panel_is_the_size_drawn(qtbot, typed: float) -> N
 def test_a_stored_size_survives_the_panel(qtbot, stored: float) -> None:
     """Showing a note changes nothing; retyping the shown size keeps its font."""
     scene, note = _scene(stored)
-    points = note.font().pointSize()
+    points = note.font().pixelSize()
     before = _picture(scene) if stored in STORED else None
 
     panel, manager = _panel(note)
@@ -141,11 +140,11 @@ def test_a_stored_size_survives_the_panel(qtbot, stored: float) -> None:
     spin = _size_spin(panel)
     shown = spin.value()
     spin.setValue(shown + 40.0)
-    assert note.font().pointSize() != points
+    assert note.font().pixelSize() != points
     spin.setValue(shown)
-    assert note.font().pointSize() == points, (
+    assert note.font().pixelSize() == points, (
         f"stored {stored}: shown as {shown:g} cm, retyped, and the font went from "
-        f"{points} pt to {note.font().pointSize()} pt"
+        f"{points} px to {note.font().pixelSize()} px"
     )
     if before is not None:
         assert np.array_equal(_picture(scene), before), "the note is drawn differently"

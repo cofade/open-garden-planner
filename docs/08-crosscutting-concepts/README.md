@@ -1107,6 +1107,40 @@ Pin: `tests/integration/test_selection_frame.py`,
 `tests/integration/test_sun_map_labels.py::test_an_open_fence_covers_its_line_not_the_ground_it_encloses`;
 PF-CAN-51, PF-CAN-60.
 
+#### Editing frames, screen space and writing (#840, #841, #843, #844, #853, #867, #872, #874)
+
+The canonical object frame is now `core.item_geometry.selection_frame_rect`;
+`handle_geometry` re-exports it. Object snap targets, the moving selection,
+alignment, distribution and capacity badges read this frame, never paint bounds.
+A group takes the union of its document members' geometric frames.
+
+Multi-selection shows outlines without per-object resize or rotation handles.
+One logical target retains the full handle set when both local axes span 32 px,
+corners only from 16 px, and no resize handles below 16 px. Zoom restores them;
+a handle being dragged stays available until release. The rotation handle's gap
+is recomputed as 25 screen pixels after zoom, including a group member's ancestor
+transform. Fit-to-window reserves the rulers plus an 8 px margin.
+
+Dimensions, object names and areas use one collision pass. A name/area stack
+moves together inside the plan boundary. Succession tags are placed upright
+inside the actual bed shape and block other labels. The compact arrow replaces
+a tag without room for text; below 3 px there is no readable indicator. Both the
+full tag and arrow participate in the same retained layout and repaint damage.
+Retained paint signatures include text, font, colours and variant, so a same-size
+content change repaints the actual relocated rectangle.
+A warning arc excludes selected editing decorations through one retained device-space path per revision and view transform. `EditDecorationMixin` and measured-text
+setters invalidate that path on transient decoration mutations, including vertex
+mode transitions and dense-overlay resampling. Minimap rendering scopes
+out diagnostic paint without `update()` calls, so it cannot feed its own timer.
+
+Text notes resolve stored whole points at a fixed 96 dpi into pixel-sized fonts.
+The em-height conversion uses that fixed reference, preserving the old 96 dpi
+appearance and stored sizes across screens. Note bounds block labels and contour
+lines; the scene retains their exclusion path by `paint_revision`. A text/font
+change says so explicitly, including inline document `contentsChanged`. The native Windows child test measures letter gaps
+against a 12-times-size reference; restoring full hinting must fail the bound.
+The offscreen font-setting test remains supplementary. See ADR-076 addendum.
+
 ### 8.9.18 The sun map's key and labels, and the shadow's soft edge (#794, #793)
 
 What is painted with the sun study besides the shadows and the map themselves,

@@ -275,7 +275,7 @@ class MinimapWidget(QWidget):
                 temporary_walk_cap,
             )
 
-            with temporary_walk_cap():
+            with temporary_walk_cap(), self._canvas_scene.suppress_diagnostic_paint():
                 self._canvas_scene.render(painter, QRectF(0, 0, w, h), canvas_rect)
         finally:
             # Whatever the render did: no live painter on the pixmap, and no

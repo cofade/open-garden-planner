@@ -32,6 +32,11 @@ The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (o
 
 `boundingRect()` is the repaint region: outline plus shadow, pen, sprite overflow, badge and spacing ring. A magnolia drawn 2.20 m wide showed its handles on an 8.64 m box while its ring was on show. The same confusion of units put labels off-centre: a label that ignores the view's transformations has its position in plan units and its size in pixels, so `setPos(centre - size / 2)` is right at one zoom only, and two such labels anchored at two plan points overlap once the points are closer on screen than the text is wide. A report that states where an object stands reads the same rectangle: the PDF plant list took its Position column from `boundingRect().center()`, and a plant with an antagonist badge in one corner was listed beside itself (found by the review of the 2D branch). See §8.9.17.
 
+The #841 follow-up moves the canonical frame to `core/item_geometry.py`; the
+old handle import is an alias. Both object-snap sides, align/distribute and the
+capacity badge use it. `tests/integration/test_canvas_editing_precision.py` and
+`tests/unit/test_item_geometry.py` pin decoration independence and nested groups.
+
 ### PF-CAN-52
 
 - **Rule:** Text that the view scales (a `TextItem` note, a callout) is laid out unhinted (`PreferNoHinting`); text with a halo strokes the glyph outline path, because `drawText` with a wide pen outlines nothing, and takes that outline from the layout that draws the glyphs, never from `QPainterPath.addText`; and a label that shows text from the plan shows a bounded text (`halo_text.label_text`), because stroking outlines costs what the text is long.
@@ -41,6 +46,13 @@ The family-garden example needs 17 MB of item caches in a 1453 x 898 viewport (o
 - **Legacy:** none (new entry)
 
 A hinted font rounds every advance to the pixel grid of the one size it is laid out at; the zoom magnifies the rounding into uneven gaps ("thy me"). Measured on Windows over one line: glyph positions up to 10.25 px from linear before and 1.9 px after; worst letter gap at 3.3x zoom 2.85 px off before and 1.15 px after. An exact point size and the document's design metrics add nothing to that (same gaps to 0.01 px). The offscreen platform the suite runs on does not hint (0.0 px either way), so the test pins the font setup, not pixels. A halo built by `addText` is a second layout of the text: a bold 10 pt label ended 3.9 px past it on Windows and 15 px on the offscreen platform, which gives a bold face a regular outline. A label's contrast is measured, not judged: §8.9.15. And the halo made a label's cost its text's length: an object's name went into its label as the plan file had it, so a name of a million characters froze the canvas for 47 s at its first paint and one of a million and a half crashed Qt's stroker (access violation). Only with a real font: the offscreen platform's box font has no outlines to stroke (56 ms), so the test that carried such a name passed alone and hung in a run where another test had registered the suite's font. `PlanLabelItem` and the succession badge show `core.plain_text.clip_line` of what they are given — the rule of every row and card that shows a name (§8.11).
+
+The #872/#874 follow-up resolves note fonts at fixed 96 dpi into pixels, keeping
+stored values and the historical 96 dpi appearance. The native Windows pixel
+oracle now compares letter gaps with a high-resolution reference and proves
+sensitivity by restoring full hinting: 0.5 px versus 2-2.5 px in the measured
+sample. Pinned by `tests/integration/test_canvas_native_pixels.py` and
+`tests/integration/test_canvas_label_precision.py`.
 
 ### PF-CAN-53
 

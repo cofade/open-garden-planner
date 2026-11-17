@@ -233,14 +233,16 @@ def test_the_badge_keeps_its_size_on_screen_while_it_has_room(qtbot) -> None:
     assert 30 <= heights[0] <= 70, "three lines of small text and their padding"
 
 
-def test_the_badge_is_left_out_where_it_would_cover_its_bed(qtbot) -> None:
-    """Zoomed far out the bed is smaller than its badge: the badge is not drawn."""
+def test_the_badge_becomes_a_small_indicator_where_text_would_cover_its_bed(qtbot) -> None:
+    """Zoomed out the text becomes a contained crop-following arrow (#844)."""
     scene, bed = _scene()
     view = _view(scene, qtbot, 0.2)
     world = view.viewportTransform()
     on_screen = world.mapRect(bed.sceneBoundingRect())
     assert on_screen.width() < 140, "the test's zoom leaves the bed large"
-    assert _badge_box(_grab(view)) is None, f"the badge covers a bed of {on_screen.width():.0f} px"
+    box = _badge_box(_grab(view))
+    assert box is not None
+    assert box[2] - box[0] + 1 <= 12 and box[3] - box[1] + 1 <= 12
 
 
 def test_what_stands_in_the_bed_does_not_cover_the_badge(qtbot) -> None:
