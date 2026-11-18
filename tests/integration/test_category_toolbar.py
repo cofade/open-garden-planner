@@ -103,7 +103,7 @@ class TestCategoryDropdownFlow:
         assert "Apple Tree" in visible_names
         assert "Oak" in hidden_names
 
-    @pytest.mark.parametrize("dimensions", ((800, 800), (400, 360)))
+    @pytest.mark.parametrize("dimensions", ((800, 800), (400, 360), (267, 260)))
     def test_vegetable_popup_stays_on_screen_and_places_filtered_item(
         self, qtbot, themed_gallery, monkeypatch, dimensions
     ) -> None:

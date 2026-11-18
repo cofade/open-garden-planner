@@ -13605,7 +13605,10 @@ The plan uses its own footprint for tile faces, while the 3D roof and solar
 caster use the modeled pitch and overhang. A linked house ridge stays in the
 document as the gable's editable axis. Scene visibility and selection flags
 activate it while the roof is gabled. An older one-way link resolves through
-the building's forward reference. New garage/shed objects default to gray
+the building's forward reference. A roof-style edit and a type conversion
+refresh the same derived visibility rule. A layer-filtered image can reveal
+a hidden layer while keeping an inactive cap out of the picture.
+New garage/shed objects default to gray
 roof tiles. Existing fill choices are read from the saved item. Flat roofs
 use a single surface with the selected fill. The tool
 shed's automatic sprite keeps its roof, and an explicit choice uses the

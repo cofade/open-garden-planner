@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.theme import set_text_role
+from open_garden_planner.ui.widgets.elided_label import ElidedLabel
 from open_garden_planner.ui.widgets.gallery_data import (
     THUMB_SIZE,
     GalleryCategory,
@@ -40,6 +41,10 @@ if TYPE_CHECKING:
 
 GRID_COLS = 3
 DRAG_THRESHOLD = 10
+TILE_WIDTH = THUMB_SIZE + 16
+TILE_HEIGHT = THUMB_SIZE + 24
+TILE_SPACING = 4
+RESULT_GUTTER = 36  # Popup margins and room for the scrollbar.
 
 
 class _ThumbnailButton(QToolButton):
@@ -52,7 +57,7 @@ class _ThumbnailButton(QToolButton):
         self._item = item
         self._drag_start_pos: QPoint | None = None
 
-        self.setFixedSize(THUMB_SIZE + 16, THUMB_SIZE + 24)
+        self.setFixedSize(TILE_WIDTH, TILE_HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self._list_store: PlantListStore | None = None
@@ -270,6 +275,7 @@ class CategoryDropdown(QWidget):
         super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         self._category = category
         self._buttons: list[_ThumbnailButton] = []
+        self._columns = GRID_COLS
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -283,10 +289,10 @@ class CategoryDropdown(QWidget):
         layout.setSpacing(4)
         self._layout = layout
 
-        header = QLabel(self._category.name)
-        set_text_role(header, "h2")
-        header.setStyleSheet("padding: 2px 4px;")
-        layout.addWidget(header)
+        self._header = ElidedLabel(self._category.name)
+        set_text_role(self._header, "h2")
+        self._header.setContentsMargins(4, 2, 4, 2)
+        layout.addWidget(self._header)
 
         self._search_box = QLineEdit()
         self._search_box.setPlaceholderText(self.tr("Filter…"))
@@ -314,7 +320,7 @@ class CategoryDropdown(QWidget):
         grid_widget = QWidget()
         self._grid = QGridLayout(grid_widget)
         self._grid.setContentsMargins(0, 0, 0, 0)
-        self._grid.setSpacing(4)
+        self._grid.setSpacing(TILE_SPACING)
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         self._results.setWidget(grid_widget)
         layout.addWidget(self._results, stretch=1)
@@ -342,7 +348,7 @@ class CategoryDropdown(QWidget):
             self._grid.removeWidget(btn)
             visible = gallery_matches(btn.item, needle, layers=layers, functions=functions)
             if visible:
-                row, column = divmod(index, GRID_COLS)
+                row, column = divmod(index, self._columns)
                 self._grid.addWidget(btn, row, column)
                 index += 1
             btn.setVisible(visible)
@@ -358,14 +364,16 @@ class CategoryDropdown(QWidget):
 
     def show_below(self, anchor: QWidget) -> None:
         """Start a fresh browse session within the anchor screen's work area."""
-        with QSignalBlocker(self._search_box):
-            self._search_box.clear()
-        self.trait_filters.clear()
-        self._apply_filter("")
         screen = anchor.screen()
         if screen is None:
             return
         work_area = screen.availableGeometry()
+        columns = (work_area.width() - RESULT_GUTTER + TILE_SPACING) // (TILE_WIDTH + TILE_SPACING)
+        self._columns = max(1, min(GRID_COLS, columns))
+        with QSignalBlocker(self._search_box):
+            self._search_box.clear()
+        self.trait_filters.clear()
+        self._apply_filter("")
         self._size_trait_controls(work_area.width(), work_area.height())
         layout = self._layout
         layout.activate()
@@ -377,9 +385,16 @@ class CategoryDropdown(QWidget):
         desired_height = chrome_height + self._grid.sizeHint().height()
         open_above = below < desired_height and above > below
         room = above if open_above else below
-        minimum = chrome_height + min(THUMB_SIZE + 24, self._grid.sizeHint().height())
-        height = min(desired_height, room if room >= minimum else work_area.height())
-        desired_width = max(layout.sizeHint().width(), self._grid.sizeHint().width() + 36)
+        minimum = chrome_height + min(TILE_HEIGHT, self._grid.sizeHint().height())
+        available_height = work_area.height()
+        if room >= minimum:
+            available_height = min(available_height, room)
+        height = min(desired_height, available_height)
+        desired_width = max(
+            layout.sizeHint().width(),
+            self._header.sizeHint().width() + 12,
+            self._grid.sizeHint().width() + RESULT_GUTTER,
+        )
         if not self._trait_scroll.isHidden():
             desired_width = max(desired_width, self.trait_filters.sizeHint().width() + 32)
         width = min(desired_width, work_area.width())
@@ -399,8 +414,11 @@ class CategoryDropdown(QWidget):
         margins = self._layout.contentsMargins()
         self.trait_filters.fit_width(screen_width - margins.left() - margins.right() - scrollbar)
         hint = self.trait_filters.sizeHint()
-        # Short or heavily scaled displays can scroll the chips independently.
-        self._trait_scroll.setFixedHeight(min(hint.height(), screen_height // 2))
+        # Budget the chips after reserving the search and a whole results row.
+        self._trait_scroll.setFixedHeight(0)
+        self._layout.activate()
+        headroom = screen_height - self._layout.minimumSize().height() - TILE_HEIGHT
+        self._trait_scroll.setFixedHeight(min(hint.height(), screen_height // 2, max(0, headroom)))
         for bar in (self._trait_scroll.verticalScrollBar(), self._trait_scroll.horizontalScrollBar()):
             if bar is not None:
                 bar.setValue(0)

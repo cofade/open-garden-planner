@@ -21,6 +21,7 @@ from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
+from open_garden_planner.agent_api.render import render_canvas_image
 from open_garden_planner.core.commands import ChangeObjectTypeCommand
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType
@@ -170,6 +171,39 @@ def test_legacy_one_way_ridge_does_not_snap_or_select_when_roof_is_flat(qtbot, t
     view.command_manager.undo()
     assert ridge.isVisible() and ridge in scene.items(mid)
     assert ridge.flags() & ridge.GraphicsItemFlag.ItemIsSelectable
+
+
+def test_flat_house_to_greenhouse_reuses_and_shows_its_ridge_on_redo(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    item = _house_rect(scene)
+    panel._on_property_changed(item, "object_type", ObjectType.HOUSE)
+    panel._on_roof_style_changed(item, "flat")
+    ridge = _ridge_of(item)
+    assert ridge is not None and not ridge.isVisible()
+
+    panel._on_property_changed(item, "object_type", ObjectType.GREENHOUSE)
+    assert _ridge_of(item) is ridge and ridge.isVisible()
+    assert ridge.metadata["ridge_finish"] == "aluminium"
+    view.command_manager.undo()
+    assert _ridge_of(item) is ridge and not ridge.isVisible()
+    view.command_manager.redo()
+    assert _ridge_of(item) is ridge and ridge.isVisible()
+
+
+def test_layer_filtered_image_keeps_inactive_roof_cap_hidden(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    item = _house_rect(scene)
+    panel._on_property_changed(item, "object_type", ObjectType.HOUSE)
+    panel._on_roof_style_changed(item, "flat")
+    ridge = _ridge_of(item)
+    assert ridge is not None and not ridge.isVisible()
+    region = (90.0, 40.0, 420.0, 220.0)
+    live = render_canvas_image(scene, region, None, 420)
+    selected = render_canvas_image(scene, region, [str(item.layer_id)], 420)
+    assert selected["png_bytes"] == live["png_bytes"]
+    assert not ridge.isVisible()
 
 
 def test_undo_removes_the_ridge_and_redo_restores_the_same_one(qtbot) -> None:

@@ -1907,13 +1907,13 @@ class PropertiesPanel(QWidget):
             else:
                 itm.metadata[key] = value
             if key == "roof_style":
-                from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
-                from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+                from open_garden_planner.ui.canvas.roof_ridge_link import (
+                    linked_ridge,
+                    refresh_ridge_visibility,
+                )
 
                 itm.update()
-                scene = itm.scene()
-                if isinstance(scene, CanvasScene) and (ridge := linked_ridge(itm)) is not None:
-                    scene._apply_item_visibility(ridge)
+                refresh_ridge_visibility(linked_ridge(itm))
 
         return apply
 

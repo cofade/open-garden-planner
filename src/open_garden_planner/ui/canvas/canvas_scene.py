@@ -38,7 +38,6 @@ from open_garden_planner.core import stacking
 from open_garden_planner.core.object_height import lies_on_ground
 from open_garden_planner.core.object_types import ObjectType, is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
-from open_garden_planner.core.roof_style import FLAT, HIP, SHED, roof_style
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.core.sprite_raster import clear_sprite_cache
 from open_garden_planner.core.units import UnitSystem
@@ -46,6 +45,7 @@ from open_garden_planner.models.layer import Layer, create_default_layers
 from open_garden_planner.ui.units_notifier import units_notifier
 
 from .item_cache import ensure_item_cache_budget
+from .roof_ridge_link import ridge_cap_is_active
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.items.garden_item import GardenItemMixin
@@ -2099,10 +2099,15 @@ class CanvasScene(QGraphicsScene):
         self.refresh_timeline()
 
     def is_present(self, item: QGraphicsItem) -> bool:
+        """Whether the item participates at the current time and roof style."""
         if isinstance(item, QGraphicsItemGroup):
             members = [child for child in item.childItems() if hasattr(child, "item_id")]
             return not members or any(self.is_present(child) for child in members)
-        return not is_plant_type(getattr(item, "object_type", None)) or plant_present(
+        kind = getattr(item, "object_type", None)
+        if kind == ObjectType.ROOF_RIDGE:
+            owner = getattr(item, "_find_owner_polygon", lambda: None)()
+            return ridge_cap_is_active(owner)
+        return not is_plant_type(kind) or plant_present(
             getattr(item, "metadata", None), self.plan_date)
 
     def refresh_timeline(self) -> None:
@@ -2149,34 +2154,29 @@ class CanvasScene(QGraphicsScene):
             parent = parent.parentItem()
         kind = getattr(item, "object_type", None)
         is_ridge = kind == ObjectType.ROOF_RIDGE
-        active_cap = True
         # A roof cap follows the owner's group (issue #741) and only participates
         # in the canvas while its stored ridge is the roof's visible axis (#946).
         if is_ridge:
-            owner = None
-            if hasattr(item, "_find_owner_polygon"):
-                owner = item._find_owner_polygon()
+            owner = getattr(item, "_find_owner_polygon", lambda: None)()
+            present = ridge_cap_is_active(owner)
             if owner is not None:
-                active_cap = (
-                    getattr(owner, "object_type", None) != ObjectType.HOUSE
-                    or roof_style(getattr(owner, "metadata", None)) not in (FLAT, HIP, SHED)
-                )
                 owner_parent = owner.parentItem()
                 while owner_parent is not None:
                     pl = getattr(owner_parent, "layer_id", None)
                     if pl:
                         layer_id = pl
                     owner_parent = owner_parent.parentItem()
+        else:
+            present = self.is_present(item)
         layer = self.get_layer_by_id(layer_id) if layer_id else None
-        present = self.is_present(item)
         if is_ridge or layer is not None or isinstance(item, QGraphicsItemGroup) or is_plant_type(kind):
-            item.setVisible(active_cap and present and (layer is None or layer.visible))
+            item.setVisible(present and (layer is None or layer.visible))
         if layer is not None and item.group() is None:
             # A group's opacity is inherited by its members; setting the same
             # opacity on both would square it (0.5 -> 0.25).
             item.setOpacity(layer.opacity)
         if (layer is not None or is_ridge) and item.group() is None:
-            editable = active_cap and (layer is None or not layer.locked)
+            editable = (not is_ridge or present) and (layer is None or not layer.locked)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, editable)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, editable)
 
