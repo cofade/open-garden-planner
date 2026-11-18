@@ -137,6 +137,19 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
     Supports selection, movement, resizing, and rotation.
     """
 
+    # PF-CAN-61: class-level defaults protect boundingRect during GC teardown.
+    _radius: float = 0.0
+    _cached_bounding_rect: QRectF | None = None
+    _cached_bounding_rect_date: object = _UNSET_DATE
+    _cached_bounding_rect_spread: Any = None
+    _cached_bounding_rect_diam: Any = None
+    _cached_bounding_rect_pdate: Any = None
+    _cached_visual_diameter: float | None = None
+    _cached_visual_diameter_key: tuple[Any, ...] | None = None
+    _cached_spacing_ring_cm: Any = _UNSET_RING
+    _cached_spacing_ring_cm_key: tuple[Any, ...] | None = None
+    _cached_spacing_ring: Any = None
+
     def __init__(
         self,
         center_x: float,
@@ -411,13 +424,22 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             return None
         meta = self._metadata
         species = meta.get("plant_species") if isinstance(meta, dict) else None
+        sp_sig = (
+            (
+                id(species),
+                species.get("max_spread_cm"),
+                species.get("min_spacing_cm"),
+            )
+            if isinstance(species, dict)
+            else None
+        )
         key = (
             self._spacing_circles_visible,
             self._spacing_overlap,
             selected,
             self._radius,
             self._spacing_radius_cm,
-            id(species) if isinstance(species, dict) else None,
+            sp_sig,
             self.object_type,
         )
         if self._cached_spacing_ring_cm is not _UNSET_RING and self._cached_spacing_ring_cm_key == key:
@@ -519,6 +541,10 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             p.drawPath(path)
 
         painter.save()
+        if self._needs_live_spacing_paint:
+            live_items = getattr(self.scene(), "_live_spacing_ring_items", None)
+            if live_items is not None:
+                live_items.add(self)
         self._clip_spacing_ring_away_from_edit_handles(painter)
         _draw_vector(painter)
         painter.restore()
@@ -587,7 +613,19 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             pdate = instance.get("planting_date")
         else:
             spread = diam = pdate = None
-        key = (footprint_diameter, day, id(species), spread, diam, pdate, self.object_type)
+        key = (
+            footprint_diameter,
+            day,
+            id(species),
+            species.get("max_spread_cm"),
+            species.get("min_spread_cm"),
+            species.get("days_to_maturity"),
+            species.get("growth_rate"),
+            spread,
+            diam,
+            pdate,
+            self.object_type,
+        )
         if self._cached_visual_diameter is not None and self._cached_visual_diameter_key == key:
             return self._cached_visual_diameter
         grown = grown_spread_cm(

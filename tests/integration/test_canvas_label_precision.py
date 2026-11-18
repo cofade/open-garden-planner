@@ -117,6 +117,25 @@ def test_a_warmed_warning_ring_repaints_when_another_item_gains_handles(canvas, 
     target.setSelected(True)
     view.viewport().repaint()
     assert not painted[-1]
+    assert tree in scene._clipped_spacing_ring_items
+
+    # Moving a selected PolygonItem onto and away from the warning ring updates the clip cache.
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    target.setSelected(False)
+    poly = PolygonItem(
+        [QPointF(730, 490), QPointF(830, 490), QPointF(830, 590), QPointF(730, 590)],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    scene.addItem(poly)
+    poly.setSelected(True)
+    view.viewport().repaint()
+    assert tree in scene._clipped_spacing_ring_items
+    paints_before_move = len(painted)
+    poly.setPos(500, 0)
+    view.viewport().repaint()
+    assert len(painted) > paints_before_move
+    assert tree not in scene._clipped_spacing_ring_items
 
 
 def test_tiny_bed_still_has_succession_indicator(canvas):

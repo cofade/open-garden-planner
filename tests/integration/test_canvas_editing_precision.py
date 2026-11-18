@@ -224,6 +224,47 @@ def test_box_selection_over_position_locked_lawn_selects_plants_not_lawn(shown_c
 
     assert set(scene.selectedItems()) == {plant_a, plant_b}
     assert not lawn.isSelected()
+    assert scene.mouseGrabberItem() is None
+
+    # Dragging the newly box-selected plants moves both plants (the locked lawn did not keep the mouse grab).
+    pos_a_before = QPointF(plant_a.pos())
+    pos_b_before = QPointF(plant_b.pos())
+    move_start = view.mapFromScene(QPointF(500.0, 600.0))
+    move_end = view.mapFromScene(QPointF(550.0, 600.0))
+    QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, pos=move_start)
+    QTest.mouseMove(view.viewport(), move_end)
+    QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, pos=move_end)
+    assert plant_a.pos() != pos_a_before
+    assert plant_b.pos() != pos_b_before
+
+
+def test_unlocked_plant_under_higher_z_locked_layer_can_be_dragged(shown_canvas):
+    """An unlocked selectable item underneath a higher-Z locked layer can still be clicked and dragged."""
+    from open_garden_planner.models.layer import Layer
+
+    view, scene = shown_canvas
+    low_layer = Layer(name="Understory", z_order=1, locked=False)
+    high_locked_layer = Layer(name="Locked Trees", z_order=2, locked=True)
+    scene.set_layers([low_layer, high_locked_layer])
+
+    shrub = CircleItem(300.0, 300.0, 40.0, object_type=ObjectType.PERENNIAL, layer_id=low_layer.id)
+    scene.addItem(shrub)
+    tree = CircleItem(300.0, 300.0, 150.0, object_type=ObjectType.TREE, layer_id=high_locked_layer.id)
+    scene.addItem(tree)
+    scene.update_layer_lock(high_locked_layer.id, True)
+    assert tree.zValue() > shrub.zValue()
+
+    view.set_zoom(1.0)
+    view.centerOn(QPointF(300.0, 300.0))
+    pos_before = QPointF(shrub.pos())
+    pt1 = view.mapFromScene(QPointF(300.0, 300.0))
+    pt2 = view.mapFromScene(QPointF(380.0, 300.0))
+    QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, pos=pt1)
+    QTest.mouseMove(view.viewport(), pt2)
+    assert not view.active_tool._is_box_selecting
+    QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, pos=pt2)
+    assert scene.selectedItems() == [shrub]
+    assert shrub.pos() != pos_before
 
 
 def test_box_selection_starting_on_locked_layer_item_selects_unlocked_plants(shown_canvas):

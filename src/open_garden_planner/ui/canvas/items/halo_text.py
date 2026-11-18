@@ -180,6 +180,18 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
     offset computed from one cannot cancel the other.
     """
 
+    # PF-CAN-61: class-level defaults protect Qt virtuals (boundingRect /
+    # itemChange) if Python cyclic GC clears ``__dict__`` before destroying C++.
+    _centered: bool = False
+    _screen_offset: QPointF = QPointF(0.0, 0.0)
+    _stacked_under: HaloTextItem | None = None
+    _halo_color: QColor = QColor(255, 255, 255, HALO_ALPHA)
+    _outline_key: tuple[str, str] | None = None
+    _measured: tuple[QRectF, float] | None = None
+    _cached_bounding_rect: QRectF | None = None
+    _cached_bounding_rect_above: tuple[bool, float] | None = None
+    _picture_key: tuple[str, str, int, int, float] | None = None
+
     def __init__(
         self,
         text: str = "",
@@ -187,7 +199,6 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         *,
         centered: bool = False,
     ) -> None:
-        super().__init__(text, parent)
         self._centered = centered
         self._screen_offset = QPointF(0.0, 0.0)
         self._stacked_under: HaloTextItem | None = None
@@ -199,6 +210,7 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         self._cached_bounding_rect_above: tuple[bool, float] | None = None
         self._picture_key: tuple[str, str, int, int, float] | None = None
         self._picture_cache = QPixmap()
+        super().__init__(text, parent)
         self.setBrush(QColor(0, 0, 0))
         self.setFont(self.font())
 
@@ -433,6 +445,8 @@ class PlanLabelItem(HaloTextItem):
 
     #: The size on screen an ownerless label is placed as (pixels); see the class.
     free_extent_px: float = 0.0
+    _ignores_transformations: bool = False
+    rank: int = 0
 
     def __init__(
         self, text: str = "", parent: QGraphicsItem | None = None, *,

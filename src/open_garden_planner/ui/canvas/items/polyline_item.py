@@ -84,6 +84,11 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
     Supports selection, movement, rotation, and style presets.
     """
 
+    # PF-CAN-61: class-level defaults protect boundingRect during GC teardown.
+    _path_fence_style: PathFenceStyle = PathFenceStyle.NONE
+    _cached_bounding_rect: QRectF | None = None
+    _cached_bounding_rect_key: tuple[Any, ...] | None = None
+
     def __init__(
         self,
         points: list[QPointF],

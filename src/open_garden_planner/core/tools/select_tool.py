@@ -96,8 +96,10 @@ class SelectTool(BaseTool):
         from open_garden_planner.ui.canvas.items.resize_handle import DRAG_HANDLE_TYPES
 
         item = self._view.scene().itemAt(scene_pos, self._view.transform())
-        if item is None:
-            item = self._selectable_under(scene_pos)
+        if not isinstance(item, DRAG_HANDLE_TYPES):
+            selectable = self._selectable_under(scene_pos)
+            if selectable is not None:
+                item = selectable
 
         if item is not None:
             # Shift+click and Ctrl+click both toggle multi-select (#522). The
@@ -201,6 +203,7 @@ class SelectTool(BaseTool):
             self._pending_box_start = None
             self._pending_box_press_pos = None
             self._is_box_selecting = True
+            self._release_scene_mouse_grabber()
             if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
                 scene = self._view.scene()
                 if scene is not None:
@@ -289,8 +292,22 @@ class SelectTool(BaseTool):
         """Cancel box selection."""
         self._cleanup_box()
 
+    def _release_scene_mouse_grabber(self) -> None:
+        """Release any item mouse grabber when box selection takes over the drag."""
+        scene = self._view.scene()
+        grabber = scene.mouseGrabberItem() if scene is not None else None
+        if isinstance(grabber, QGraphicsItem):
+            grabber.ungrabMouse()
+        drag_starts = getattr(self._view, "_drag_start_positions", None)
+        if isinstance(drag_starts, dict):
+            drag_starts.clear()
+        thaw = getattr(self._view, "_thaw_fixed_drag_items", None)
+        if callable(thaw):
+            thaw()
+
     def _cleanup_box(self) -> None:
         """Remove box selection visuals and reset state."""
+        self._release_scene_mouse_grabber()
         if self._box_item is not None:
             self._view.scene().removeItem(self._box_item)
             self._box_item = None
