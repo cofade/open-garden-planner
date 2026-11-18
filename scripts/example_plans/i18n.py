@@ -32,6 +32,40 @@ SPECIES_NAMES = {
     "Apple Tree": ("Apfelbaum", "Manzano"), "Peach Tree": ("Pfirsichbaum", "Melocotonero"),
     "Currant": ("Johannisbeere", "Grosellero"), "Bean (Bush)": ("Buschbohne", "Judía de mata baja"),
 }
+#: Every other bundled species, named as the plant gallery names it (the app's own
+#: ``GalleryData`` translations), so that a plant in an example reads like the same plant
+#: dragged from the gallery. ``tests/unit/test_example_specs.py`` holds the two together.
+SPECIES_NAMES |= {
+    "Artichoke": ("Artischocke", "Alcachofa"), "Asparagus": ("Spargel", "Espárrago"),
+    "Barberry": ("Berberitze", "Berberis"), "Blackberry": ("Brombeere", "Zarzamora"),
+    "Broad Bean": ("Ackerbohne", "Haba"), "Broccoli": ("Brokkoli", "Brócoli"),
+    "Brussels Sprouts": ("Rosenkohl", "Coles de Bruselas"), "Camellia": ("Kamelie", "Camelia"),
+    "Cauliflower": ("Blumenkohl", "Coliflor"), "Celery": ("Sellerie", "Apio"),
+    "Chamomile": ("Kamille", "Manzanilla"), "Chicory": ("Chicorée", "Achicoria"),
+    "Chili Pepper": ("Chili", "Chile/Guindilla"), "Chinese Cabbage": ("Chinakohl", "Col china"),
+    "Clematis": ("Waldrebe", "Clemátide"), "Coriander": ("Koriander", "Cilantro"),
+    "Crocus": ("Krokus", "Croco"), "Daffodil": ("Narzisse", "Narciso"), "Dill": ("Dill", "Eneldo"),
+    "Eggplant": ("Aubergine", "Berenjena"), "Elderberry": ("Holunder", "Saúco"),
+    "Endive": ("Endivie", "Escarola"), "Fennel": ("Fenchel", "Hinojo"),
+    "Fig Tree": ("Feigenbaum", "Higuera"), "Flax": ("Lein", "Lino"),
+    "Garden Pea": ("Gartenerbse", "Guisante"), "Hibiscus": ("Hibiskus", "Hibisco"),
+    "Holly": ("Stechpalme", "Acebo"), "Hyssop": ("Ysop", "Hisopo"), "Jasmine": ("Jasmin", "Jazmín"),
+    "Juniper": ("Wacholder", "Enebro"), "Kohlrabi": ("Kohlrabi", "Colinabo"),
+    "Lemon Balm": ("Zitronenmelisse", "Melisa"), "Lemon Tree": ("Zitronenbaum", "Limonero"),
+    "Maple": ("Ahorn", "Arce"), "Melon": ("Melone", "Melón"),
+    "Nasturtium": ("Kapuzinerkresse", "Capuchina"), "Oak": ("Eiche", "Roble"),
+    "Olive Tree": ("Olivenbaum", "Olivo"), "Orange Tree": ("Orangenbaum", "Naranjo"),
+    "Parsnip": ("Pastinake", "Chirivía"), "Petunia": ("Petunie", "Petunia"),
+    "Pine": ("Kiefer", "Pino"), "Plum Tree": ("Pflaumenbaum", "Ciruelo"),
+    "Potato": ("Kartoffel", "Patata"), "Privet": ("Liguster", "Aligustre"),
+    "Rhubarb": ("Rhabarber", "Ruibarbo"), "Rocket (Arugula)": ("Rucola", "Rúcula"),
+    "Spearmint": ("Grüne Minze", "Hierbabuena"), "Spirea": ("Spierstrauch", "Espirea"),
+    "Sweet Corn": ("Zuckermais", "Maíz dulce"), "Sweet Pea": ("Duftwicke", "Guisante de olor"),
+    "Sweet Potato": ("Süßkartoffel", "Boniato"), "Valerian": ("Baldrian", "Valeriana"),
+    "Viburnum": ("Schneeball", "Viburno"), "Walnut Tree": ("Walnussbaum", "Nogal"),
+    "Watermelon": ("Wassermelone", "Sandía"), "Willow": ("Weide", "Sauce"),
+    "Winter Squash": ("Winterkürbis", "Calabaza de invierno"), "Wisteria": ("Glyzinie", "Glicinia"),
+}
 for _en, (_de, _es) in SPECIES_NAMES.items():
     text(_en, _de, _es)
 

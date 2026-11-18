@@ -100,6 +100,12 @@ def site(manager, city, latitude, longitude):
                               "last_spring_frost": "05-15", "first_fall_frost": "10-15"}})
 
 
+#: A soil sample's remark in a plan whose sample is not tied to one teaching date.
+SOIL_NOTE = text("Fictional sample; not a real soil analysis.",
+                 "Fiktive Probe; keine echte Bodenanalyse.",
+                 "Muestra ficticia; no es un análisis real.")
+
+
 def soil(manager, bed, ph=6.5):
     note = text("Fictional teaching sample, 20 May 2026; not a real soil analysis.",
                 "Fiktive Übungsprobe vom 20. Mai 2026; keine echte Bodenanalyse.",

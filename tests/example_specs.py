@@ -64,6 +64,8 @@ SPECS: dict[str, ExampleSpec] = {
     "raised-bed": ExampleSpec(12, "2026-09-21", "day", (52.52, 13.405), plants=174, heavy=True),
     "balcony": ExampleSpec(13, "2026-09-21", "day", (47.999, 7.8421), plants=14, paths=False,
                            heavy=True),
+    "allotment": ExampleSpec(9, "2026-07-18", "morning", (51.3397, 12.3731), plants=216,
+                             woody_harvests=4),
 }
 
 #: The first three plans: teaching plans with a dated tutorial note, pinned in detail by
@@ -76,8 +78,9 @@ HEAVY = tuple(slug for slug, spec in SPECS.items() if spec.heavy)
 
 #: A plant's common name that is the same word in English and in the plan's language.
 COGNATES = {
-    "de": frozenset({"Aster", "Magnolia", "Oregano", "Rhododendron", "Rose", "Zucchini"}),
-    "es": frozenset({"Cosmos", "Magnolia", "Zinnia"}),
+    "de": frozenset({"Aster", "Dill", "Kohlrabi", "Magnolia", "Oregano", "Rhododendron", "Rose",
+                     "Zucchini"}),
+    "es": frozenset({"Cosmos", "Magnolia", "Petunia", "Zinnia"}),
 }
 
 
