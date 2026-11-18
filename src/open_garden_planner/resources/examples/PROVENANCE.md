@@ -17,6 +17,7 @@ models, textures, satellite images or reads from the owner's custom plant librar
 | `cottage-garden.ogp` | 12 × 12 m formal four-square garden: **123 plants** in four box-edged beds around a rose roundel, inside a picket fence with gravel cross paths. Two guide lines carry the axes; three distance constraints hold the measures between the box edgings and to the bench. |
 | `terraced-house-garden.ogp` | 6 × 18 m between two hedges, with true north turned 35 degrees: **23 plants**, a house with a flat-roofed extension, a timber deck, a lawn with sandbox and swing, an apple tree, two borders, a raised bed and a shed with a mono-pitch roof. A second stored tour holds the camera while one day's shadows pass. |
 | `roof-terrace.ogp` | 10 × 8 m timber deck on a city roof: **34 plants**, every one in a vessel: four herb and strawberry troughs, an olive and a fig in tubs, three wall planters, a raised bed with a fictional soil sample, two planter pots and a climber on a trellis. Picnic table, loungers, parasol, a string of lights and two lanterns. |
+| `spring-garden.ogp` | 14 × 10 m on an April day: **191 plants**, of them 64 crocus, 58 daffodils and 44 tulips planted the autumn before, with magnolia, cherry, plum, apple, forsythia, lilac and rhododendron. The west tulip bed has a fictional soil sample. A second stored tour holds the camera while the year 2026 passes. |
 
 The root `.ogp` files are canonical English. `de/` and `es/` hold localized
 variants with identical stable IDs, coordinates, botanical dimensions, species keys,

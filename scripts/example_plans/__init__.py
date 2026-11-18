@@ -15,9 +15,10 @@ from . import (
     food_forest,
     raised_bed,
     roof_terrace,
+    spring_garden,
     terraced_house_garden,
 )
 
 PLANS = {plan.SLUG: plan for plan in (food_forest, raised_bed, balcony, family_garden,
                                          allotment, cottage_garden, terraced_house_garden,
-                                         roof_terrace)}
+                                         roof_terrace, spring_garden)}
