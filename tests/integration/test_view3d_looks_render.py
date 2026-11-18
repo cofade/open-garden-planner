@@ -52,14 +52,15 @@ from tests.integration.quick3d_render_support import (
     BOARD_PROCESS_TIMEOUT_S,
     QML_SOURCE,
     REPO,
-    board_render_tier,
+    board_timeout,
     driver_messages,
     keep_artifacts,
     load_rgb,
     render_env,
+    render_tier,
 )
 
-pytestmark = board_render_tier
+pytestmark = render_tier
 
 BOARD = REPO / "scripts" / "render_beauty_board.py"
 DRIVER = REPO / "tests" / "integration" / "view3d_looks_driver.py"
@@ -117,10 +118,14 @@ def _run(command: list[str], out: Path, *, timeout: int = TIMEOUT_S,
     return proc
 
 
-def run_board(out: Path, *arguments: str) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+def run_board(out: Path, *arguments: str, full: bool = False
+              ) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+    if full:
+        watchdog, timeout = ["--phase-watchdog-s", str(BOARD_PHASE_WATCHDOG_S)], BOARD_PROCESS_TIMEOUT_S
+    else:
+        watchdog, timeout = ["--watchdog-s", str(TIMEOUT_S - 60)], TIMEOUT_S
     proc = _run([sys.executable, str(BOARD), "--out", str(out), "--size", SIZE,
-                 "--phase-watchdog-s", str(BOARD_PHASE_WATCHDOG_S), *arguments], out,
-                timeout=BOARD_PROCESS_TIMEOUT_S)
+                 *watchdog, *arguments], out, timeout=timeout)
     file = out / "metrics.json"
     return proc, (json.loads(file.read_text(encoding="utf-8")) if file.is_file() else {})
 
@@ -179,12 +184,13 @@ def board_for(model: str, tmp_path_factory: pytest.TempPathFactory) -> tuple[dic
         out = tmp_path_factory.mktemp(f"looks-{model}") / "board"
         _BOARDS[model] = _ok_board(run_board(
             out, "--presets", ",".join(PRESETS), "--shots", "noon,december_noon,night", "--iou",
-            "--orient", "--horizon", "--moods", "--dusk", "--fence", "--edge", "--sky", model),
+            "--orient", "--horizon", "--moods", "--dusk", "--fence", "--edge", "--sky", model,
+            full=True),
             out), out
     return _BOARDS[model]
 
 
-@pytest.fixture(scope="module", params=SKY_MODELS)
+@pytest.fixture(scope="module", params=[pytest.param(sky, marks=board_timeout) for sky in SKY_MODELS])
 def board(request: pytest.FixtureRequest,
           tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
     return board_for(str(request.param), tmp_path_factory)

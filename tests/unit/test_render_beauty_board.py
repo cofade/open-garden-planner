@@ -122,7 +122,7 @@ def test_shadow_iou_forces_flat_ground_even_with_grass_requested(monkeypatch, tm
 
 
 def test_each_enabled_board_phase_has_its_own_watchdog(monkeypatch, qtbot, tmp_path) -> None:
-    from open_garden_planner.ui.view3d.quick3d import runlog
+    from open_garden_planner.ui.view3d.quick3d import offscreen, runlog
 
     completed: list[str] = []
     active: list[str] = []
@@ -138,20 +138,26 @@ def test_each_enabled_board_phase_has_its_own_watchdog(monkeypatch, qtbot, tmp_p
             completed.append(active.pop())
 
     def record(name):
-        def run(instance, *_args):
+        def run(_instance, *_args):
             assert active == [f"beauty board: {name}"]
-            if name == "load":
-                instance.width, instance.depth = 2400.0, 1600.0
         run.__name__ = name
         return run
 
+    def ensure_application():
+        assert active == ["beauty board: startup"]
+
+    def load(instance):
+        assert active == ["beauty board: startup"]
+        instance.width, instance.depth = 2400.0, 1600.0
+
     monkeypatch.setattr(runlog, "watchdog", watchdog)
-    monkeypatch.setattr(board.Board, "load", record("load"))
+    monkeypatch.setattr(offscreen, "ensure_application", ensure_application)
+    monkeypatch.setattr(board.Board, "load", load)
     monkeypatch.setattr(board.Board, "shadow_iou", record("shadow_iou"))
     monkeypatch.setattr(board.Board, "dusk", record("dusk"))
     args = board._parse(["--shots", "none", "--iou", "--dusk", "--phase-watchdog-s", "780"])
     board.run(args, tmp_path, lambda *_args, **_kwargs: None, {})
-    assert completed == ["beauty board: load", "beauty board: shadow_iou", "beauty board: dusk"]
+    assert completed == ["beauty board: startup", "beauty board: shadow_iou", "beauty board: dusk"]
 
 
 @pytest.mark.parametrize("size", [(640, 360), (960, 540), (1280, 720)])

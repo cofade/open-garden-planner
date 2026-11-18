@@ -2251,7 +2251,6 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
             operation(*params)
 
     started = time.perf_counter()
-    offscreen.ensure_application()
     metrics.update({"platform": platform.platform(), "python": sys.version.split()[0],
                     "qt": QT_VERSION_STR, "size": str(args.size), "software": bool(args.software),
                     "sky_light": not args.software, "sky_model": str(args.sky),
@@ -2259,7 +2258,12 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
     board = Board(args, out, log, metrics)
     log("start", qt=QT_VERSION_STR, size=args.size, presets=args.presets, shots=args.shots,
         software=bool(args.software))
-    phase(board.load)
+
+    def startup() -> None:
+        offscreen.ensure_application()
+        board.load()
+
+    phase(startup)
     defaults = default_shots(board.width, board.depth)
     shots, presets = _chosen(args, defaults)
     metrics["presets"] = presets

@@ -97,7 +97,7 @@ render_tier = [
 # original hang diagnostic per phase and a separate ceiling for the entire child.
 BOARD_PHASE_WATCHDOG_S = 780
 BOARD_PROCESS_TIMEOUT_S = 2700
-board_render_tier = [pytest.mark.timeout(BOARD_PROCESS_TIMEOUT_S + 60), *render_tier]
+board_timeout = pytest.mark.timeout(BOARD_PROCESS_TIMEOUT_S + 60)
 
 
 #: The variables the app derives its per-user data directory from
