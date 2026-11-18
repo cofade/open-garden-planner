@@ -243,8 +243,17 @@ Facts verified 2026-07-05 against v1.23.0. Re-verify volatile facts before publi
 
 ## Offline example content (US-F5, #316)
 
-`resources/examples/PROVENANCE.md` records the CC-BY-SA-4.0 plans and rendered
-thumbnails. They are illustrative learning layouts, not climate-specific designs.
+`resources/examples/PROVENANCE.md` records the thirteen CC-BY-SA-4.0 plans (#940)
+and their rendered thumbnails. They are illustrative layouts, not climate-specific
+designs: frost dates, soil samples and harvest records are fictional and say so, and
+the places are public city references, never a surveyed garden.
 Succession dates are retained calendar dates. Templates remove named site/history
 fields and paths, but users must review free-form names and text before sharing.
-See ADR-066 and FR-EXAMPLE-01 through 05; owner executable acceptance is pending.
+See ADR-066 and FR-EXAMPLE-01 through 14.
+
+The README's pictures and any promo video come from these shipped plans (#564), so a
+viewer can open the same plan and get the same picture. Do not show a plan, a plant or
+a look in public material that the shipped app does not contain. Two limits to state
+when a picture could suggest otherwise: the 2D plan has no seasonal look (#839), and a
+plan's season in 3D follows one calendar for every place (the hemisphere flips it,
+the climate does not change it).

@@ -1329,6 +1329,11 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
+  "839": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D plan: plants look the same in every season (trees in full leaf and fruit on 21 December)"
+  },
   "840": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1523,5 +1528,10 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Flaky unmeasured sun selection test waits for evaluations from an earlier refresh"
+  },
+  "940": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ship 13 bundled example plans as showcase material (nine new, food forest enlarged)"
   }
 }
