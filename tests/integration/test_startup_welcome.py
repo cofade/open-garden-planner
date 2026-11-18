@@ -170,11 +170,8 @@ def test_real_entrypoint_shows_modal_welcome_dialog_without_stubs(tmp_path: Path
 
     probe = tmp_path / "verify_startup_welcome.py"
     probe.write_text(
-        """import atexit
-import os
+        """import os
 import sys
-import tempfile
-from pathlib import Path
 
 from PyQt6.QtCore import QStandardPaths, QTimer
 from PyQt6.QtWidgets import QApplication
@@ -188,26 +185,25 @@ QStandardPaths.setTestModeEnabled(True)
 
 from open_garden_planner import main as app_main
 from open_garden_planner.app.application import GardenPlannerApp
-from open_garden_planner.app.settings import AppSettings, create_qsettings
+from open_garden_planner.app.settings import create_qsettings
 from open_garden_planner.services import AutoSaveManager
 from open_garden_planner.ui.dialogs import WelcomeDialog
 
-# Clear only this throwaway test key after startup finishes.
-def _cleanup() -> None:
-    s = create_qsettings()
-    s.clear()
-    s.sync()
-
-atexit.register(_cleanup)
 create_qsettings().clear()
 AutoSaveManager.find_recovery_files = classmethod(lambda _cls: [])
 
 seen: dict[str, object] = {}
+win_ref: list[GardenPlannerApp] = []
 orig_init = GardenPlannerApp.__init__
+
+def _cleanup_settings() -> None:
+    s = create_qsettings()
+    s.clear()
+    s.sync()
 
 def _observe_window(self: GardenPlannerApp, *args: object, **kwargs: object) -> None:
     orig_init(self, *args, **kwargs)
-    seen["window"] = self
+    win_ref.append(self)
     deadline_ms = [6000]
 
     def _poll_modal() -> None:
@@ -222,16 +218,21 @@ def _observe_window(self: GardenPlannerApp, *args: object, **kwargs: object) -> 
         deadline_ms[0] -= 25
         if deadline_ms[0] <= 0:
             seen["timeout"] = True
+            _cleanup_settings()
+            win_ref.clear()
             QApplication.exit(2)
             return
         QTimer.singleShot(25, _poll_modal)
 
     def _verify_after_close() -> None:
-        win = seen["window"]
+        win = win_ref.pop()
         seen["window_visible_after_close"] = win.isVisible()
         seen["still_modal"] = QApplication.activeModalWidget() is not None
         win.close()
-        QApplication.exit(0)
+        win.deleteLater()
+        QApplication.processEvents()
+        _cleanup_settings()
+        QTimer.singleShot(0, lambda: QApplication.exit(0))
 
     QTimer.singleShot(50, _poll_modal)
 

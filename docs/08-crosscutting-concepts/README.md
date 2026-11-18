@@ -9994,10 +9994,11 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- A **scrub** step is no longer uncached (#846): rapid consecutive
-  `_on_clock_changed` steps (within `_SCRUB_WINDOW_NS = 500 ms`, covering slider
-  drags and 200 ms `Animate` ticks) reuse the `(paint_revision, plan_date)`
-  caster snapshot (`SunShadowController._caster_cache`) and defer `paint_feather`
+- A **timeline/Animate** step is no longer uncached (#846, #928): `_on_clock_changed`
+  reuses the `(paint_revision, plan_date)` caster snapshot
+  (`SunShadowController._caster_cache`) on every matching clock tick regardless of
+  interval, and rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
+  covering slider drags and 200 ms `Animate` ticks) also defer `paint_feather`
   + `_paint_and_keep` pixmap allocation (`SunShadowOverlayItem.set_feather_deferred`)
   until `_scrub_settle` (`260 ms`) fires. Measured on `family-garden.ogp` at fit
   (`1453 × 898`): `test_timeline_scrub_step_ratio` reads `0.38×` a settled step
