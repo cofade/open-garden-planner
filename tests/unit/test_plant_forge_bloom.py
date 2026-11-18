@@ -2,18 +2,21 @@
 
 The rules pinned here: a crown's flowers are counted by its surface, never a fixed
 number; a bulb's flowers stand on scapes above its leaves; every petal shows from both
-sides; the flowers keep their 2D colours; and every flowering species holds the truth
-gates at every LOD.
+sides; a plant that flowers before or with its leaves carries fewer of them while it
+flowers, and exactly its usual leaves outside its bloom window; the flowers keep their
+2D colours; and every flowering species holds the truth gates at every LOD.
 """
 
 from __future__ import annotations
 
 import colorsys
+import datetime
 from dataclasses import replace
 
 import numpy as np
 import pytest
 
+from open_garden_planner.core.phenology import evaluate_phenology
 from open_garden_planner.core.plant_art import (
     CATEGORY_TRAITS,
     FLOWERS,
@@ -49,6 +52,7 @@ FLOWERING: tuple[SpriteRef, ...] = tuple(
 BULBS: tuple[SpriteRef, ...] = tuple(
     s for s in FLOWERING if traits_for(s).flower.habit == "scape"  # type: ignore[union-attr]
 )
+PRECOCIOUS = ("magnolia", "forsythia", "peach_tree", "plum_tree", "cherry_tree")
 
 
 def _part(parts, name: str):
@@ -169,6 +173,57 @@ def test_petals_keep_the_2d_sprite_hue(sprite: SpriteRef) -> None:
     hue = colorsys.rgb_to_hsv(*srgb)[0] * 360.0
     want = colorsys.rgb_to_hsv(*(int(FLOWERS[spec][0][i:i + 2], 16) / 255.0 for i in (1, 3, 5)))[0] * 360.0
     assert abs((hue - want + 180.0) % 360.0 - 180.0) <= 10.0
+
+
+def _days(year: int = 2026):
+    day = datetime.date(year, 1, 1)
+    while day.year == year:
+        yield day
+        day += datetime.timedelta(days=1)
+
+
+@pytest.mark.parametrize("species", PRECOCIOUS)
+def test_a_precocious_bloomer_carries_fewer_leaves_in_bloom(species: str) -> None:
+    sprite = SpriteRef("species", species)
+    traits = traits_for(sprite)
+    assert traits.bloom_leaf_density < 0.5
+    first = datetime.date(2026, traits.bloom_months[0], 20)
+    in_bloom = evaluate_phenology(sprite, first, latitude_deg=50.0)
+    summer = evaluate_phenology(sprite, datetime.date(2026, 7, 15), latitude_deg=50.0)
+    assert in_bloom.bloom == 1.0
+    assert in_bloom.leaf_density <= traits.bloom_leaf_density + 1e-9
+    assert summer.leaf_density == 1.0
+
+
+@pytest.mark.parametrize("species", PRECOCIOUS)
+@pytest.mark.parametrize("latitude", [50.0, -35.0])
+def test_outside_its_bloom_a_precocious_bloomer_keeps_its_usual_leaves(
+    species: str, latitude: float,
+) -> None:
+    """The rule never touches a day out of bloom, and the leaves have unfolded by the
+    bloom window's last day: no jump when the flowers go. Oak: the same deciduous year."""
+    sprite = SpriteRef("species", species)
+    oak = SpriteRef("species", "oak")
+    for day in _days():
+        state = evaluate_phenology(sprite, day, latitude_deg=latitude)
+        usual = evaluate_phenology(oak, day, latitude_deg=latitude).leaf_density
+        if state.bloom == 0.0:
+            assert state.leaf_density == usual, day
+        else:
+            assert state.leaf_density <= usual, day
+            following = evaluate_phenology(sprite, day + datetime.timedelta(days=1),
+                                           latitude_deg=latitude)
+            if following.bloom == 0.0:   # the window's last day
+                assert state.leaf_density == pytest.approx(usual, abs=0.02), day
+
+
+@pytest.mark.parametrize("species", ["apple_tree", "pear_tree", "lilac", "oak"])
+def test_a_plant_that_flowers_among_its_leaves_keeps_them(species: str) -> None:
+    sprite = SpriteRef("species", species)
+    oak = SpriteRef("species", "oak")
+    for day in _days():
+        assert (evaluate_phenology(sprite, day).leaf_density
+                == evaluate_phenology(oak, day).leaf_density), day
 
 
 @pytest.mark.parametrize("sprite", FLOWERING, ids=lambda s: f"{s.group}/{s.name}")

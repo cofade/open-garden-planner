@@ -21,7 +21,8 @@ sprite never needed:
   (does the plant flower before the last frost and after the first one: #940).
 - **Flowers** (``FlowerTraits``, #940): where they stand (on the crown's surface, on
   scapes above a bulb's leaves, on stem tips), their real size, cup and facing, and the
-  share of the crown they cover in full bloom.
+  share of the crown they cover in full bloom; ``bloom_leaf_density``: the leaves a
+  plant that flowers before or with them carries while it is in flower.
 
 Standard library only (no Qt, no numpy — pinned by ``tests/unit/test_plant_art.py``).
 """
@@ -190,6 +191,11 @@ class Traits3D:
     #: How its flowers stand in 3D, or None: no ``flowers`` recipe and no fruit-tree
     #: blossom (``FlowerTraits``; clusters, puffs and umbels have their own builders).
     flower: FlowerTraits | None = None
+    #: The share of its leaves a deciduous plant carries while it flowers (#940): below
+    #: 1.0 it flowers before or with its leaves (``_PRECOCIOUS_BLOOM_LEAF_DENSITY``), and
+    #: ``core/phenology.py`` holds its leaves at this share until the last quarter of the
+    #: bloom window, when they unfold. 1.0: flowering does not change its leaves.
+    bloom_leaf_density: float = 1.0
 
     @property
     def evergreen(self) -> bool:
@@ -421,6 +427,20 @@ _FROST_HARDY_BLOOM_STEMS: Final[frozenset[str]] = frozenset({
     # perennial herbs and the frost-hardy pea
     "lavender", "rosemary", "thyme", "sage", "oregano", "chives", "chamomile", "pea",
 })
+
+#: Deciduous plants that flower before or with their leaves, and the share of their
+#: leaves out while they flower (#940): magnolia and forsythia flower on bare wood,
+#: peach, plum and cherry as their buds break. The share is of leaf AREA: the leaves
+#: that have broken by then are a few centimetres long, the model's are full-grown.
+#: Apple and pear flower among leaves that are already unfolding, so their spring flush
+#: stands as it is.
+_PRECOCIOUS_BLOOM_LEAF_DENSITY: Final[dict[str, float]] = {
+    "magnolia": 0.08,
+    "forsythia": 0.06,
+    "peach_tree": 0.10,
+    "plum_tree": 0.12,
+    "cherry_tree": 0.18,
+}
 
 #: One flower's real radius is half its recipe radius: the 2D recipes draw a flower
 #: about as many sprite units across as it measures in centimetres (#940).
@@ -925,10 +945,12 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
 
 
 def _with_flowering(traits: Traits3D, stem: str, recipe: Recipe) -> Traits3D:
-    """``traits`` with how it flowers in 3D (#940)."""
+    """``traits`` with how it flowers in 3D (#940): its flower and its leaves in bloom."""
     return replace(
         traits,
         flower=_flower_traits_for(stem, recipe, traits.archetype, traits.blossom_spec),
+        bloom_leaf_density=(_PRECOCIOUS_BLOOM_LEAF_DENSITY.get(stem, 1.0)
+                            if traits.deciduous else 1.0),
     )
 
 
