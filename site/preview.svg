@@ -834,8 +834,8 @@
 <rect x="1044.747" y="275.500" width="2.901" height="34.500" fill="#2da44e"><title>2026-11-15: 3 (Increment of the current release)</title></rect>
 <rect x="1044.747" y="275.500" width="2.901" height="0.000" fill="#bf8700"><title>2026-11-15: 0 (Gap estimate)</title></rect>
 <rect x="1048.374" y="310.000" width="2.901" height="0.000" fill="#8b949e"><title>2026-11-17: 0 (Historical estimate)</title></rect>
-<rect x="1048.374" y="275.500" width="2.901" height="34.500" fill="#2da44e"><title>2026-11-17: 3 (Increment of the current release)</title></rect>
-<rect x="1048.374" y="275.500" width="2.901" height="0.000" fill="#bf8700"><title>2026-11-17: 0 (Gap estimate)</title></rect>
+<rect x="1048.374" y="252.500" width="2.901" height="57.500" fill="#2da44e"><title>2026-11-17: 5 (Increment of the current release)</title></rect>
+<rect x="1048.374" y="252.500" width="2.901" height="0.000" fill="#bf8700"><title>2026-11-17: 0 (Gap estimate)</title></rect>
 <text x="62" y="335">2026-02-14</text>
 <text x="1052" y="335" text-anchor="end">2026-11-17 (UTC)</text>
 <rect x="24" y="360" width="11" height="11" fill="#8b949e"/>
