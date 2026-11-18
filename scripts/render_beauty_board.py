@@ -108,6 +108,7 @@ import statistics
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -138,6 +139,7 @@ from open_garden_planner.core.scene3d import (  # noqa: E402
     pose_ring,
 )
 from open_garden_planner.core.scene3d.look import (  # noqa: E402
+    MEADOW_FLAT,
     NEUTRAL_DAY,
     PRESETS,
     LookSpec,
@@ -847,7 +849,8 @@ class Board:
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
               baked: bool = False, ambient: Any = None,
-              lamps: Any = (), fitted: bool = False) -> tuple[np.ndarray, Any, dict[str, Any]]:
+              lamps: Any = (), fitted: bool = False, flat_ground: bool = False,
+              show_meadow: bool = True) -> tuple[np.ndarray, Any, dict[str, Any]]:
         """Render one frame in a host of its own, save it, account for its Qt messages.
         ``baked``: the plan's flat surfaces are painted onto its ground (L1.5 —
         every board shot; the probes' oracles want it bare, #586). ``fitted``: the shadow
@@ -856,6 +859,9 @@ class Board:
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
         look = self.with_meadow(self.with_sky_model(look))
+        if flat_ground:
+            look = replace(look, open_ground_grass=False,
+                           preset=replace(look.preset, meadow_surface=MEADOW_FLAT))
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
@@ -866,7 +872,8 @@ class Board:
                 prefer_software=self.software, plant_date=build_date,
                 latitude_deg=float(self.location.get("latitude", 52.0)),
                 frost_dates=self.location.get("frost_dates"), ambient=ambient, lamps=lamps,
-                fitted_shadows=fitted or bool(self.args.photo_shadows))
+                fitted_shadows=fitted or bool(self.args.photo_shadows),
+                show_meadow=show_meadow)
         except RenderError as error:
             self._count(dict(error.qt))
             self.write()             # what Qt said is in metrics.json before the run ends
@@ -1281,6 +1288,7 @@ class Board:
                 name = f"iou_{int(elevation)}_{preset}"
                 rgb, _frame, info = self.frame(
                     name, records, sun=sun, look=look_for(sun, preset), ground=IOU_GROUND,
+                    flat_ground=True,
                     shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
                 reach = CASTER_HEIGHT / math.tan(math.radians(elevation))
                 east, north = IOU_CENTRE
@@ -1594,29 +1602,8 @@ class Board:
                 default_rises = rises_of([row["ground_luminance"] for row in default_rows])
                 out[preset].update(default_rows=default_rows, default_rises=default_rises,
                                    default_monotone=not default_rises)
-            # The sky-facing set-sun probe (#695): the meadow camera hides the sun behind
-            # the poplar, so a black disc at twilight went unseen for three reviews. A
-            # sky-only frame at the sun's own bearing measures it on every weather.
             azimuth = found[0.0][1].azimuth_deg if 0.0 in found else found[min(found)][1].azimuth_deg
-            eye = (self.width / 2.0, self.depth / 2.0, 160.0)
-            target = (eye[0] + math.sin(math.radians(azimuth)) * 1000.0,
-                      eye[1] + math.cos(math.radians(azimuth)) * 1000.0,
-                      eye[2] + 1000.0 * math.tan(math.radians(3.0)))
-            sky_rows = []
-            for sun_elevation in SKY_DUSK_ELEVATIONS:
-                sun = SunState(sun_elevation, azimuth)
-                look = weather_look(sun, preset, weather)
-                camera = probes.Pinhole(eye=eye, target=target, fov_deg=70.0, size=self.size)
-                rgb, _frame, info = self.frame(
-                    f"skydusk{tag}_{sun_elevation:+.1f}_{preset}", {}, sun=sun, look=look,
-                    ground=None, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
-                measured = probes.sun_dip(rgb, camera, azimuth,
-                                          sun_elevation_deg=sun_elevation)
-                measured.update(target=sun_elevation,
-                                ok=(measured["measured"]
-                                    and measured["dip_luma"] >= -SKY_DUSK_DIP_BOUND),
-                                file=info["file"])
-                sky_rows.append(measured)
+            sky_rows = self.sky_dusk(azimuth, preset, weather)
             out[preset]["sky_dusk"] = sky_rows
             out[preset]["sky_dusk_ok"] = all(row["ok"] for row in sky_rows)
             self.log("sky_dusk", weather=weather, preset=preset, ok=out[preset]["sky_dusk_ok"],
@@ -1636,6 +1623,35 @@ class Board:
                 raise RuntimeError(
                     f"the set sun dips more than {SKY_DUSK_DIP_BOUND:g} luma under its rows "
                     f"({weather}, {preset}); see metrics.json")
+
+    def sky_dusk(self, azimuth: float, preset: str, weather: str) -> list[dict[str, Any]]:
+        """Measure the set sun against the sky at its own bearing (#695, #886).
+
+        The normal garden shot can hide a black disc behind a tree. Even with no
+        plan ground, the endless meadow covers the negative-elevation sky rows.
+        """
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        tag = "" if weather == "clear" else f"_{weather}"
+        eye = (self.width / 2.0, self.depth / 2.0, 160.0)
+        bearing = math.radians(azimuth)
+        target = (eye[0] + math.sin(bearing) * 1000.0,
+                  eye[1] + math.cos(bearing) * 1000.0,
+                  eye[2] + 1000.0 * math.tan(math.radians(3.0)))
+        camera = probes.Pinhole(eye=eye, target=target, fov_deg=70.0, size=self.size)
+        shot = PerspectiveShot(camera.eye, camera.target, camera.fov_deg)
+        rows = []
+        for elevation in SKY_DUSK_ELEVATIONS:
+            sun = SunState(elevation, azimuth)
+            rgb, _frame, info = self.frame(
+                f"skydusk{tag}_{elevation:+.1f}_{preset}", {}, sun=sun,
+                look=weather_look(sun, preset, weather), ground=None, show_meadow=False, shot=shot)
+            row = probes.sun_dip(rgb, camera, azimuth, sun_elevation_deg=elevation)
+            row.update(target=elevation,
+                       ok=row["measured"] and row["dip_luma"] >= -SKY_DUSK_DIP_BOUND,
+                       file=info["file"])
+            rows.append(row)
+        return rows
 
     def sky_bands(self, presets: list[str]) -> None:
         """How the sky meets the painted horizon (#716, #719), per elevation band.
@@ -2191,6 +2207,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="load Garden.qml and its shaders from this folder (positive controls)")
     parser.add_argument("--watchdog-s", type=float, default=1800.0,
                         help="dump all stacks to board.log and exit 1 after this long (0 = off)")
+    parser.add_argument("--phase-watchdog-s", type=float, default=0.0,
+                        help="bound each phase separately, in place of the whole-board watchdog")
     parser.add_argument("--analysis", action="store_true",
                         help="each shot again with the 2D drapes, the sun path and Cutaway (L2)")
     parser.add_argument("--living", action="store_true",
@@ -2222,9 +2240,17 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
     from PyQt6.QtCore import QT_VERSION_STR
 
     from open_garden_planner.ui.view3d.quick3d import offscreen
+    from open_garden_planner.ui.view3d.quick3d.runlog import watchdog
+
+    def phase(operation: Callable[..., None], *params: Any, label: str | None = None) -> None:
+        if args.phase_watchdog_s > 0:
+            name = label or operation.__name__
+            with watchdog(args.phase_watchdog_s, log, what=f"beauty board: {name}", supervised=True):
+                operation(*params)
+        else:
+            operation(*params)
 
     started = time.perf_counter()
-    offscreen.ensure_application()
     metrics.update({"platform": platform.platform(), "python": sys.version.split()[0],
                     "qt": QT_VERSION_STR, "size": str(args.size), "software": bool(args.software),
                     "sky_light": not args.software, "sky_model": str(args.sky),
@@ -2232,8 +2258,14 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
     board = Board(args, out, log, metrics)
     log("start", qt=QT_VERSION_STR, size=args.size, presets=args.presets, shots=args.shots,
         software=bool(args.software))
-    board.load()
-    shots, presets = _chosen(args, default_shots(board.width, board.depth))
+
+    def startup() -> None:
+        offscreen.ensure_application()
+        board.load()
+
+    phase(startup)
+    defaults = default_shots(board.width, board.depth)
+    shots, presets = _chosen(args, defaults)
     metrics["presets"] = presets
     board.write()
     if args.list:
@@ -2245,53 +2277,53 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
                   f"{look.mood.exposure:.3f}  key {look.mood.sun_color}")
         return board
     if args.shots != "none":
-        board.shoot(shots, presets)
+        phase(board.shoot, shots, presets)
     if args.living:
-        board.living(presets)
-        board.living_occlusion(presets)
+        phase(board.living, presets)
+        phase(board.living_occlusion, presets)
         for weather in HORIZON_WEATHERS:   # the cloudy skies, probed like the clear one
             if args.horizon:
-                board.horizon(default_shots(board.width, board.depth), presets, weather)
+                phase(board.horizon, defaults, presets, weather, label=f"horizon ({weather})")
             if args.moods:
-                board.mood_strip(default_shots(board.width, board.depth), presets, weather)
+                phase(board.mood_strip, defaults, presets, weather, label=f"moods ({weather})")
             if args.dusk:
-                board.dusk(default_shots(board.width, board.depth), presets, weather)
+                phase(board.dusk, defaults, presets, weather, label=f"dusk ({weather})")
             # #687: the weather's own ambient occlusion and ground, at the plan's far
             # framings and its edge
             if args.far_plan:
-                board.far_plan(presets, weather)
+                phase(board.far_plan, presets, weather, label=f"far plan ({weather})")
             if args.edge:
-                board.plan_edge(default_shots(board.width, board.depth), presets, weather)
+                phase(board.plan_edge, defaults, presets, weather, label=f"plan edge ({weather})")
     if args.analysis:
-        board.analysis(shots, presets)
+        phase(board.analysis, shots, presets)
     if args.moods:
-        board.mood_strip(default_shots(board.width, board.depth), presets)
+        phase(board.mood_strip, defaults, presets)
     if args.iou:
-        board.shadow_iou(presets)
+        phase(board.shadow_iou, presets)
     if args.orient:
-        board.orientation(plan_day(shots[0].when_utc) if shots else date(2026, 6, 21))
-        board.sky_azimuth()
+        phase(board.orientation, plan_day(shots[0].when_utc) if shots else date(2026, 6, 21))
+        phase(board.sky_azimuth)
     if args.horizon:
-        board.horizon(default_shots(board.width, board.depth), presets)
+        phase(board.horizon, defaults, presets)
     if args.far_plan:
-        board.far_plan(presets)
+        phase(board.far_plan, presets)
     if args.dusk:
-        board.dusk(default_shots(board.width, board.depth), presets)
+        phase(board.dusk, defaults, presets)
     if args.fence:
-        board.fence_moire(default_shots(board.width, board.depth), presets)
+        phase(board.fence_moire, defaults, presets)
     if args.edge:
-        board.plan_edge(default_shots(board.width, board.depth), presets)
+        phase(board.plan_edge, defaults, presets)
     if args.meadow:
-        board.meadow(default_shots(board.width, board.depth), presets)
+        phase(board.meadow, defaults, presets)
     if args.sky_bands:
-        board.sky_bands(presets)
+        phase(board.sky_bands, presets)
     if args.stairs:
-        board.stairs(presets)
+        phase(board.stairs, presets)
     if shots and (args.iou or args.orient or args.horizon or args.dusk or args.fence or args.edge
                   or args.stairs):
-        board.restore_check(shots[0], presets[0])
+        phase(board.restore_check, shots[0], presets[0])
     if args.fps_seconds > 0 and shots:
-        board.frame_rate(shots[0], presets, float(args.fps_seconds))
+        phase(board.frame_rate, shots[0], presets, float(args.fps_seconds))
     metrics["total_s"] = round(time.perf_counter() - started, 2)
     return board
 
@@ -2315,7 +2347,8 @@ def main(argv: list[str] | None = None) -> int:
     board: Board | None = None
     code = 0
     try:
-        with watchdog(float(args.watchdog_s), log, what="the beauty board", supervised=True):
+        with watchdog(0.0 if args.phase_watchdog_s > 0 else args.watchdog_s,
+                      log, what="the beauty board", supervised=True):
             board = run(args, out, log, metrics)
         metrics["status"] = "ok"
     except RenderError as error:   # a shader or QML error: the frames are not to be trusted

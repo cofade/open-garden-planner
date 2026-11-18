@@ -442,8 +442,10 @@ class Quick3DHost:
 
     def __init__(self, size: tuple[int, int] = (1280, 720), *, qml_dir: Path | None = None,
                  look: LookSpec = NEUTRAL_DAY, log: Callable[..., None] | None = None,
-                 prefer_software: bool = False, sky_probe: bool = True) -> None:
+                 prefer_software: bool = False, sky_probe: bool = True,
+                 show_meadow: bool = True) -> None:
         self._log: Callable[..., None] = log if log is not None else (lambda *_a, **_k: None)
+        self._meadow_enabled = show_meadow
         self._parts: set[_Part] = set()  # THE owner of every Model and geometry
         #: The analysis overlays' geometries by layer (L2, ``set_overlay``), and the
         #: items whose parts are drawn faded with their opacity (``set_faded_items``).
@@ -899,7 +901,7 @@ class Quick3DHost:
         no plan, no hole) — ``core/scene3d/meadow.py``. Loaded into the one geometry of
         the scene's one meadow Model, like the selection ring, and only when the plan's
         rectangle changed: an edit creates, destroys and loads nothing."""
-        if plan == self._meadow_plan:
+        if not self._meadow_enabled or plan == self._meadow_plan:
             return
         buffers = engine_buffers(meadow_frame(plan))
         geometry = self._meadow

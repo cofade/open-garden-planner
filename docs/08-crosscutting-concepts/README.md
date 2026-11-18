@@ -2253,6 +2253,22 @@ the frame comes back white). So tests that need pixels form an opt-in tier.
 The scene definitions are plain engine-free functions in the driver module that both halves
 import, so the test predicts from the same records the driver rendered.
 
+**Full Beauty Boards (#892).** The looks and living boards launch a fresh hidden
+host for each frame. Together their weather, dusk and truth phases can take
+longer than the 780-second deadline for a single driver. These full-board tests
+pass `--phase-watchdog-s 780` and give the child 2,700 seconds to exit. The board
+logs each named phase and its supervised deadline. Its ordinary CLI still
+offers a whole-run `--watchdog-s` for other runs. Use each frame's
+`open_ms` and `breakdown_ms` to distinguish host startup from the total amount of
+work. The full meadow, wind sequence and low-sun image comparisons are intended
+for the hardware render tier.
+
+The paired first-frame check used the bench plan's noon camera at High,
+640 × 360, on an otherwise idle RTX 4070 with Direct3D 11. One new process
+per frame gave a 7.67–8.07 second range on master (median 7.72) and 7.54–7.76
+seconds on the verification branch (median 7.63). These are host-open and
+readback timings, including a fresh isolated shader cache, for this machine.
+
 **Which files the CI job runs (#540).** The `render3d` job (`.github/workflows/ci.yml`) runs the
 engine-package files above, then — as a **separate pytest invocation**, because `-k` filters the
 whole session — **`test_view3d_workspace_render.py`**, filtered to the default workspace's G5
