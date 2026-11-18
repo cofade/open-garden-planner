@@ -1305,27 +1305,32 @@
     <context>
         <name>CategoryDropdown</name>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="184" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="187" />
             <source>Add to Favorites</source>
             <translation>Add to Favorites</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="192" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="195" />
             <source>Add to List</source>
             <translation>Add to List</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="287" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="291" />
             <source>Filter…</source>
             <translation>Filter…</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="178" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="314" />
+            <source>No matching items</source>
+            <translation>No matching items</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/category_dropdown.py" line="181" />
             <source>Remove from Favorites</source>
             <translation>Remove from Favorites</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/category_dropdown.py" line="151" />
+            <location filename="../../ui/widgets/category_dropdown.py" line="154" />
             <source>{name} (Favorite)</source>
             <translation>{name} (Favorite)</translation>
         </message>
@@ -1901,7 +1906,7 @@
             <translation>Move item</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2829" />
+            <location filename="../../ui/panels/properties_panel.py" line="2835" />
             <source>Move item (constrained)</source>
             <translation>Move item (constrained)</translation>
         </message>
@@ -2083,7 +2088,7 @@
             <translation>font size</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2151" />
+            <location filename="../../ui/panels/properties_panel.py" line="2157" />
             <source>frost protection</source>
             <translation>frost protection</translation>
         </message>
@@ -2113,7 +2118,7 @@
             <translation>label visibility</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="3099" />
+            <location filename="../../ui/panels/properties_panel.py" line="3105" />
             <source>name</source>
             <translation>name</translation>
         </message>
@@ -2151,17 +2156,17 @@
             <translation type="vanished">removal_date</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1938" />
+            <location filename="../../ui/panels/properties_panel.py" line="1944" />
             <source>roof overhang</source>
             <translation>roof overhang</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1928" />
+            <location filename="../../ui/panels/properties_panel.py" line="1934" />
             <source>roof pitch</source>
             <translation>roof pitch</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1918" />
+            <location filename="../../ui/panels/properties_panel.py" line="1924" />
             <source>roof style</source>
             <translation>roof style</translation>
         </message>
@@ -2171,7 +2176,7 @@
             <translation>soil depth</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2169" />
+            <location filename="../../ui/panels/properties_panel.py" line="2175" />
             <source>spacing radius</source>
             <translation>spacing radius</translation>
         </message>
@@ -2196,12 +2201,12 @@
             <translation>symbol parameter</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2350" />
+            <location filename="../../ui/panels/properties_panel.py" line="2356" />
             <source>text color</source>
             <translation>text color</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2319" />
+            <location filename="../../ui/panels/properties_panel.py" line="2325" />
             <source>text content</source>
             <translation>text content</translation>
         </message>
@@ -11381,53 +11386,53 @@ Please check your internet connection and API credentials.</translation>
     <context>
         <name>PlantingCalendarView</name>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="2026" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="2028" />
             <source>Clear {name} from {bed} (succession)</source>
             <translation>Clear {name} from {bed} (succession)</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1350" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1352" />
             <source>Direct sow</source>
             <translation>Direct sow</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1538" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1540" />
             <source>First frost</source>
             <translation>First frost</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1539" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1541" />
             <source>Germination</source>
             <translation>Germination</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1541" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1543" />
             <source>Harden off</source>
             <translation>Harden off</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1352" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1354" />
             <source>Harvest</source>
             <translation>Harvest</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1349" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1351" />
             <source>Indoor sow</source>
             <translation>Indoor sow</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1537" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1539" />
             <source>Last frost</source>
             <translation>Last frost</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1654" />
-            <location filename="../../ui/views/planting_calendar_view.py" line="1790" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1656" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1792" />
             <source>No detailed data available</source>
             <translation>No detailed data available</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1550" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1552" />
             <source>No location set.
 Use File › Set Garden Location to configure frost dates
 before the planting calendar can be shown.</source>
@@ -11436,7 +11441,7 @@ Use File › Set Garden Location to configure frost dates
 before the planting calendar can be shown.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1558" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1560" />
             <source>No plants with calendar data found.
 Place plants on the canvas and use Search Plant Database
 to assign species data.</source>
@@ -11445,38 +11450,38 @@ Place plants on the canvas and use Search Plant Database
 to assign species data.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1540" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1542" />
             <source>Prick out</source>
             <translation>Prick out</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1367" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1369" />
             <source>Show propagation steps</source>
             <translation>Show propagation steps</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="2024" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="2026" />
             <source>Sow {name} in {bed} (succession)</source>
             <translation>Sow {name} in {bed} (succession)</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1761" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1763" />
             <source>The end date of a propagation step cannot be before its start date — the step was not changed.</source>
             <translation>The end date of a propagation step cannot be before its start date — the step was not changed.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1536" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1538" />
             <source>Today</source>
             <translation>Today</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1351" />
-            <location filename="../../ui/views/planting_calendar_view.py" line="1542" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1353" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1544" />
             <source>Transplant</source>
             <translation>Transplant</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="2032" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="2034" />
             <source>{title} — {names}</source>
             <translation>{title} — {names}</translation>
         </message>
@@ -11484,12 +11489,12 @@ to assign species data.</translation>
     <context>
         <name>PolygonItem</name>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="872" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="852" />
             <source>Array Along Path...</source>
             <translation>Array Along Path...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="861" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="841" />
             <source>Boolean</source>
             <translation>Boolean</translation>
         </message>
@@ -11509,7 +11514,7 @@ to assign species data.</translation>
             <translation>Create Linear Array...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="836" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="816" />
             <source>Delete</source>
             <translation>Delete</translation>
         </message>
@@ -11519,37 +11524,37 @@ to assign species data.</translation>
             <translation>Duplicate</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="800" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="780" />
             <source>Edit Label</source>
             <translation>Edit Label</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="796" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="776" />
             <source>Edit Vertices</source>
             <translation>Edit Vertices</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="793" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="773" />
             <source>Exit Vertex Edit Mode</source>
             <translation>Exit Vertex Edit Mode</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="865" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="845" />
             <source>Intersect</source>
             <translation>Intersect</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="829" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="809" />
             <source>Show Area</source>
             <translation>Show Area</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="868" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="848" />
             <source>Subtract</source>
             <translation>Subtract</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polygon_item.py" line="862" />
+            <location filename="../../ui/canvas/items/polygon_item.py" line="842" />
             <source>Union</source>
             <translation>Union</translation>
         </message>
@@ -11566,7 +11571,7 @@ to assign species data.</translation>
     <context>
         <name>PolylineItem</name>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="655" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="918" />
             <source>Array Along Path...</source>
             <translation>Array Along Path...</translation>
         </message>
@@ -11586,7 +11591,7 @@ to assign species data.</translation>
             <translation>Create Linear Array...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="642" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="905" />
             <source>Delete</source>
             <translation>Delete</translation>
         </message>
@@ -11596,17 +11601,17 @@ to assign species data.</translation>
             <translation>Duplicate</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="625" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="888" />
             <source>Edit Label</source>
             <translation>Edit Label</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="621" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="884" />
             <source>Edit Vertices</source>
             <translation>Edit Vertices</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="618" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="881" />
             <source>Exit Vertex Edit Mode</source>
             <translation>Exit Vertex Edit Mode</translation>
         </message>
@@ -12209,17 +12214,17 @@ to assign species data.</translation>
             <translation>Automatic</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2456" />
+            <location filename="../../ui/panels/properties_panel.py" line="2462" />
             <source>Bark</source>
             <translation>Bark</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2260" />
+            <location filename="../../ui/panels/properties_panel.py" line="2266" />
             <source>Bold</source>
             <translation>Bold</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2455" />
+            <location filename="../../ui/panels/properties_panel.py" line="2461" />
             <source>Brick</source>
             <translation>Brick</translation>
         </message>
@@ -12234,7 +12239,7 @@ to assign species data.</translation>
             <translation>Bring to Front</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2917" />
+            <location filename="../../ui/panels/properties_panel.py" line="2923" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</translation>
         </message>
@@ -12244,22 +12249,22 @@ to assign species data.</translation>
             <translation>Cells:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2464" />
+            <location filename="../../ui/panels/properties_panel.py" line="2470" />
             <source>Clay</source>
             <translation>Clay</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2282" />
+            <location filename="../../ui/panels/properties_panel.py" line="2288" />
             <source>Color:</source>
             <translation>Color:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2462" />
+            <location filename="../../ui/panels/properties_panel.py" line="2468" />
             <source>Compost</source>
             <translation>Compost</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2445" />
+            <location filename="../../ui/panels/properties_panel.py" line="2451" />
             <source>Concrete</source>
             <translation>Concrete</translation>
         </message>
@@ -12274,12 +12279,12 @@ to assign species data.</translation>
             <translation>Container</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2205" />
+            <location filename="../../ui/panels/properties_panel.py" line="2211" />
             <source>Content:</source>
             <translation>Content:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2466" />
+            <location filename="../../ui/panels/properties_panel.py" line="2472" />
             <source>Corten steel</source>
             <translation>Corten steel</translation>
         </message>
@@ -12294,17 +12299,17 @@ to assign species data.</translation>
             <translation>Custom height (0 = back to automatic)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2536" />
+            <location filename="../../ui/panels/properties_panel.py" line="2542" />
             <source>Dash Dot</source>
             <translation>Dash Dot</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2534" />
+            <location filename="../../ui/panels/properties_panel.py" line="2540" />
             <source>Dashed</source>
             <translation>Dashed</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2465" />
+            <location filename="../../ui/panels/properties_panel.py" line="2471" />
             <source>Decking</source>
             <translation>Decking</translation>
         </message>
@@ -12319,7 +12324,7 @@ to assign species data.</translation>
             <translation>Diameter:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2535" />
+            <location filename="../../ui/panels/properties_panel.py" line="2541" />
             <source>Dotted</source>
             <translation>Dotted</translation>
         </message>
@@ -12334,12 +12339,12 @@ to assign species data.</translation>
             <translation>Effective:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2435" />
+            <location filename="../../ui/panels/properties_panel.py" line="2441" />
             <source>Fill Color:</source>
             <translation>Fill Color:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2480" />
+            <location filename="../../ui/panels/properties_panel.py" line="2486" />
             <source>Fill Pattern:</source>
             <translation>Fill Pattern:</translation>
         </message>
@@ -12349,7 +12354,7 @@ to assign species data.</translation>
             <translation>Fill depth used to calculate soil volume in the Shopping List</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2463" />
+            <location filename="../../ui/panels/properties_panel.py" line="2469" />
             <source>Flagstone</source>
             <translation>Flagstone</translation>
         </message>
@@ -12359,12 +12364,12 @@ to assign species data.</translation>
             <translation>Flat</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2241" />
+            <location filename="../../ui/panels/properties_panel.py" line="2247" />
             <source>Font height on the plan. Capital letters are about 70 % as tall. The text takes the nearest available size.</source>
             <translation>Font height on the plan. Capital letters are about 70 % as tall. The text takes the nearest available size.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2223" />
+            <location filename="../../ui/panels/properties_panel.py" line="2229" />
             <source>Font:</source>
             <translation>Font:</translation>
         </message>
@@ -12384,7 +12389,7 @@ to assign species data.</translation>
             <translation>From measured current height</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2128" />
+            <location filename="../../ui/panels/properties_panel.py" line="2134" />
             <source>Frost protection:</source>
             <translation>Frost protection:</translation>
         </message>
@@ -12394,17 +12399,17 @@ to assign species data.</translation>
             <translation>Gable</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2453" />
+            <location filename="../../ui/panels/properties_panel.py" line="2459" />
             <source>Glass</source>
             <translation>Glass</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2443" />
+            <location filename="../../ui/panels/properties_panel.py" line="2449" />
             <source>Grass</source>
             <translation>Grass</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2444" />
+            <location filename="../../ui/panels/properties_panel.py" line="2450" />
             <source>Gravel</source>
             <translation>Gravel</translation>
         </message>
@@ -12434,7 +12439,7 @@ to assign species data.</translation>
             <translation>Has drainage holes</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2454" />
+            <location filename="../../ui/panels/properties_panel.py" line="2460" />
             <source>Hedge</source>
             <translation>Hedge</translation>
         </message>
@@ -12449,12 +12454,12 @@ to assign species data.</translation>
             <translation>Hip</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2056" />
+            <location filename="../../ui/panels/properties_panel.py" line="2062" />
             <source>Invalid symbol parameter value — geometry unchanged.</source>
             <translation>Invalid symbol parameter value — geometry unchanged.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2265" />
+            <location filename="../../ui/panels/properties_panel.py" line="2271" />
             <source>Italic</source>
             <translation>Italic</translation>
         </message>
@@ -12464,7 +12469,7 @@ to assign species data.</translation>
             <translation>Label:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2461" />
+            <location filename="../../ui/panels/properties_panel.py" line="2467" />
             <source>Lattice</source>
             <translation>Lattice</translation>
         </message>
@@ -12475,7 +12480,7 @@ to assign species data.</translation>
             <translation>Layer:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2694" />
+            <location filename="../../ui/panels/properties_panel.py" line="2700" />
             <source>Locked in place: unlock to move (Fix in place constraint).</source>
             <translation>Locked in place: unlock to move (Fix in place constraint).</translation>
         </message>
@@ -12490,7 +12495,7 @@ to assign species data.</translation>
             <translation>Metal</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2449" />
+            <location filename="../../ui/panels/properties_panel.py" line="2455" />
             <source>Mulch</source>
             <translation>Mulch</translation>
         </message>
@@ -12507,7 +12512,7 @@ not yet implemented</translation>
             <translation>Name:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2105" />
+            <location filename="../../ui/panels/properties_panel.py" line="2111" />
             <source>Needs frost protection</source>
             <translation>Needs frost protection</translation>
         </message>
@@ -12536,7 +12541,7 @@ not yet implemented</translation>
             <translation>Object height:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2119" />
+            <location filename="../../ui/panels/properties_panel.py" line="2125" />
             <source>Override frost sensitivity:
 checked = always protect, unchecked = never protect, indeterminate = use the plant database default</source>
             <translation>Override frost sensitivity:
@@ -12548,22 +12553,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Parent Bed</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2577" />
+            <location filename="../../ui/panels/properties_panel.py" line="2583" />
             <source>Pattern Angle:</source>
             <translation>Pattern Angle:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2607" />
+            <location filename="../../ui/panels/properties_panel.py" line="2613" />
             <source>Pattern Offset:</source>
             <translation>Pattern Offset:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2584" />
+            <location filename="../../ui/panels/properties_panel.py" line="2590" />
             <source>Pattern Scale:</source>
             <translation>Pattern Scale:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2459" />
+            <location filename="../../ui/panels/properties_panel.py" line="2465" />
             <source>Pebbles</source>
             <translation>Pebbles</translation>
         </message>
@@ -12578,22 +12583,22 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Position:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2092" />
+            <location filename="../../ui/panels/properties_panel.py" line="2098" />
             <source>Recommended spacing radius (half of plant spread)</source>
             <translation>Recommended spacing radius (half of plant spread)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2625" />
+            <location filename="../../ui/panels/properties_panel.py" line="2631" />
             <source>Reset Pattern</source>
             <translation>Reset Pattern</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2627" />
+            <location filename="../../ui/panels/properties_panel.py" line="2633" />
             <source>Restore the pattern's original angle, scale and offset</source>
             <translation>Restore the pattern's original angle, scale and offset</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2450" />
+            <location filename="../../ui/panels/properties_panel.py" line="2456" />
             <source>Roof Tiles</source>
             <translation>Roof Tiles</translation>
         </message>
@@ -12613,7 +12618,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Roof style:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2451" />
+            <location filename="../../ui/panels/properties_panel.py" line="2457" />
             <source>Sand</source>
             <translation>Sand</translation>
         </message>
@@ -12654,17 +12659,17 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1337" />
-            <location filename="../../ui/panels/properties_panel.py" line="2253" />
+            <location filename="../../ui/panels/properties_panel.py" line="2259" />
             <source>Size:</source>
             <translation>Size:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2460" />
+            <location filename="../../ui/panels/properties_panel.py" line="2466" />
             <source>Slate</source>
             <translation>Slate</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2448" />
+            <location filename="../../ui/panels/properties_panel.py" line="2454" />
             <source>Soil</source>
             <translation>Soil</translation>
         </message>
@@ -12684,13 +12689,13 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Soil volume:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2442" />
-            <location filename="../../ui/panels/properties_panel.py" line="2533" />
+            <location filename="../../ui/panels/properties_panel.py" line="2448" />
+            <location filename="../../ui/panels/properties_panel.py" line="2539" />
             <source>Solid</source>
             <translation>Solid</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2096" />
+            <location filename="../../ui/panels/properties_panel.py" line="2102" />
             <source>Spacing radius:</source>
             <translation>Spacing radius:</translation>
         </message>
@@ -12700,49 +12705,49 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Spacing:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2452" />
+            <location filename="../../ui/panels/properties_panel.py" line="2458" />
             <source>Stone</source>
             <translation>Stone</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2502" />
+            <location filename="../../ui/panels/properties_panel.py" line="2508" />
             <source>Stroke Color:</source>
             <translation>Stroke Color:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2550" />
+            <location filename="../../ui/panels/properties_panel.py" line="2556" />
             <source>Stroke Style:</source>
             <translation>Stroke Style:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2521" />
+            <location filename="../../ui/panels/properties_panel.py" line="2527" />
             <source>Stroke Width:</source>
             <translation>Stroke Width:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2273" />
-            <location filename="../../ui/panels/properties_panel.py" line="2408" />
+            <location filename="../../ui/panels/properties_panel.py" line="2279" />
+            <location filename="../../ui/panels/properties_panel.py" line="2414" />
             <source>Style:</source>
             <translation>Style:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1960" />
+            <location filename="../../ui/panels/properties_panel.py" line="1966" />
             <source>Symbol definition not found — showing cached geometry.</source>
             <translation>Symbol definition not found — showing cached geometry.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1972" />
+            <location filename="../../ui/panels/properties_panel.py" line="1978" />
             <source>Symbol definition version mismatch — saved geometry is read-only.</source>
             <translation>Symbol definition version mismatch — saved geometry is read-only.</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1546" />
-            <location filename="../../ui/panels/properties_panel.py" line="2458" />
+            <location filename="../../ui/panels/properties_panel.py" line="2464" />
             <source>Terracotta</source>
             <translation>Terracotta</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2182" />
+            <location filename="../../ui/panels/properties_panel.py" line="2188" />
             <source>Text</source>
             <translation>Text</translation>
         </message>
@@ -12752,7 +12757,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Total: {count} plant(s)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2571" />
+            <location filename="../../ui/panels/properties_panel.py" line="2577" />
             <source>Turns the 2D texture only; the object's geometry and measurements stay unchanged</source>
             <translation>Turns the 2D texture only; the object's geometry and measurements stay unchanged</translation>
         </message>
@@ -12772,18 +12777,18 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>W: </translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2447" />
+            <location filename="../../ui/panels/properties_panel.py" line="2453" />
             <source>Water</source>
             <translation>Water</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2457" />
+            <location filename="../../ui/panels/properties_panel.py" line="2463" />
             <source>Wildflower Meadow</source>
             <translation>Wildflower Meadow</translation>
         </message>
         <message>
             <location filename="../../ui/panels/properties_panel.py" line="1548" />
-            <location filename="../../ui/panels/properties_panel.py" line="2446" />
+            <location filename="../../ui/panels/properties_panel.py" line="2452" />
             <source>Wood</source>
             <translation>Wood</translation>
         </message>
@@ -12797,17 +12802,17 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation type="vanished">{litres:.1f} L</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2088" />
+            <location filename="../../ui/panels/properties_panel.py" line="2094" />
             <source>—</source>
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2385" />
+            <location filename="../../ui/panels/properties_panel.py" line="2391" />
             <source>── Fences ──</source>
             <translation>── Fences ──</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2370" />
+            <location filename="../../ui/panels/properties_panel.py" line="2376" />
             <source>── Paths ──</source>
             <translation>── Paths ──</translation>
         </message>
@@ -12833,12 +12838,12 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>RectangleItem</name>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="693" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="679" />
             <source>Array Along Path...</source>
             <translation>Array Along Path...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="682" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="668" />
             <source>Boolean</source>
             <translation>Boolean</translation>
         </message>
@@ -12858,7 +12863,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Create Linear Array...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="657" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="643" />
             <source>Delete</source>
             <translation>Delete</translation>
         </message>
@@ -12868,37 +12873,37 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
             <translation>Duplicate</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="619" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="605" />
             <source>Edit Label</source>
             <translation>Edit Label</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="615" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="601" />
             <source>Edit Vertices</source>
             <translation>Edit Vertices</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="612" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="598" />
             <source>Exit Vertex Edit Mode</source>
             <translation>Exit Vertex Edit Mode</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="686" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="672" />
             <source>Intersect</source>
             <translation>Intersect</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="650" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="636" />
             <source>Show Area</source>
             <translation>Show Area</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="689" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="675" />
             <source>Subtract</source>
             <translation>Subtract</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/rectangle_item.py" line="683" />
+            <location filename="../../ui/canvas/items/rectangle_item.py" line="669" />
             <source>Union</source>
             <translation>Union</translation>
         </message>
@@ -17278,12 +17283,12 @@ Details: {error}</translation>
     <context>
         <name>_DashboardPanel</name>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="315" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="317" />
             <source>Collapse/expand</source>
             <translation>Collapse/expand</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="390" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="392" />
             <source>Coming Up</source>
             <translation>Coming Up</translation>
         </message>
@@ -17292,7 +17297,7 @@ Details: {error}</translation>
             <translation type="vanished">Direct sow %1</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="481" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="483" />
             <source>Done</source>
             <translation>Done</translation>
         </message>
@@ -17301,23 +17306,23 @@ Details: {error}</translation>
             <translation type="vanished">Harvest %1</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="469" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="471" />
             <source>Highlight on canvas</source>
             <translation>Highlight on canvas</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="485" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="487" />
             <source>Mark as done</source>
             <translation>Mark as done</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="336" />
-            <location filename="../../ui/views/planting_calendar_view.py" line="376" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="338" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="378" />
             <source>No upcoming tasks in the next 30 days.</source>
             <translation>No upcoming tasks in the next 30 days.</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="387" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="389" />
             <source>Overdue</source>
             <translation>Overdue</translation>
         </message>
@@ -17334,18 +17339,18 @@ Details: {error}</translation>
             <translation type="vanished">Start indoor sowing of %1</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="389" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="391" />
             <source>This Week</source>
             <translation>This Week</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="388" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="390" />
             <source>Today</source>
             <translation>Today</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="307" />
-            <location filename="../../ui/views/planting_calendar_view.py" line="372" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="309" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="374" />
             <source>Today's Tasks</source>
             <translation>Today's Tasks</translation>
         </message>
@@ -17357,57 +17362,57 @@ Details: {error}</translation>
     <context>
         <name>_DetailPanel</name>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1126" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1128" />
             <source>Frost tolerance: {level}</source>
             <translation>Frost tolerance: {level}</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="911" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="913" />
             <source>Germination</source>
             <translation>Germination</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1119" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1121" />
             <source>Germination: {min}–{max} days</source>
             <translation>Germination: {min}–{max} days</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="913" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="915" />
             <source>Harden off</source>
             <translation>Harden off</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="910" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="912" />
             <source>Indoor sow</source>
             <translation>Indoor sow</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1129" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1131" />
             <source>Maturity: {min}–{max} days</source>
             <translation>Maturity: {min}–{max} days</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1122" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1124" />
             <source>Min. germ. temp: {temp} °C</source>
             <translation>Min. germ. temp: {temp} °C</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="912" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="914" />
             <source>Prick out</source>
             <translation>Prick out</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="902" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="904" />
             <source>Propagation Steps</source>
             <translation>Propagation Steps</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="944" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="946" />
             <source>Reset to calculated date</source>
             <translation>Reset to calculated date</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1124" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1126" />
             <source>Seed depth: {depth}</source>
             <translation>Seed depth: {depth}</translation>
         </message>
@@ -17416,22 +17421,22 @@ Details: {error}</translation>
             <translation type="vanished">Seed depth: {depth} cm</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="914" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="916" />
             <source>Transplant</source>
             <translation>Transplant</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1185" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1187" />
             <source>half-hardy</source>
             <translation>half-hardy</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1184" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1186" />
             <source>hardy</source>
             <translation>hardy</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="1186" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="1188" />
             <source>tender</source>
             <translation>tender</translation>
         </message>
@@ -17507,12 +17512,12 @@ Details: {error}</translation>
     <context>
         <name>_GanttWidget</name>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="650" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="652" />
             <source>Plant</source>
             <translation>Plant</translation>
         </message>
         <message>
-            <location filename="../../ui/views/planting_calendar_view.py" line="756" />
+            <location filename="../../ui/views/planting_calendar_view.py" line="758" />
             <source>Propagation</source>
             <translation>Propagation</translation>
         </message>

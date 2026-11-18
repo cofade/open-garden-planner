@@ -31,7 +31,7 @@ from .fill_paint import paint_shape
 from .garden_item import GardenItemMixin, is_interactive_paint
 from .greenhouse_paint import paint_greenhouse
 from .resize_handle import ResizeHandlesMixin, RotationHandleMixin, VertexEditMixin
-from .roof_paint import paint_roof_with_ridge
+from .roof_paint import paint_building_roof
 
 # --- Issue #472: bound what a crafted plan can cost the 2D canvas -----------
 #
@@ -378,7 +378,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
           full transform, so a rotated house gets a ridge along its rotated
           long axis. The projection path kept the old orientation, so a house
           rotated 90 degrees kept a ridge at 0 degrees — 180 cm off — and
-          ``_paint_with_ridge`` mirrors the roof texture along this line, so
+          The gable painter mirrors the roof texture along this line, so
           the roof itself was wrong too.
 
         A ridge endpoint dragged by hand (see ``PolylineItem._move_vertex_to``,
@@ -391,23 +391,6 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Shared with RectangleItem (a rectangle converted to HOUSE): one
         # derivation, one place that knows how any HOUSE outline maps its ridge.
         update_linked_ridge(self)
-
-    def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:
-        """Paint a HOUSE polygon with tiles mirrored on each side of its ridge.
-
-        The shared implementation lives in ``roof_paint.paint_roof_with_ridge``
-        so a rectangle converted into a HOUSE (#690) draws the identical roof;
-        this method keeps the polygon's own outline and brush/cockpit wiring.
-        """
-        paint_roof_with_ridge(
-            painter,
-            self,
-            self.polygon(),
-            ridge,
-            self.brush(),
-            self.pen(),
-            self.fill_transform,
-        )
 
     def _draw_grid_overlay(self, painter: QPainter) -> None:
         """Draw a square-foot grid overlay clipped to the polygon boundary."""
@@ -520,11 +503,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             painter.drawPolygon(shadow_poly)
             painter.restore()
 
-        # For HOUSE polygons with a ridge: use mirrored tile rendering
         ridge = self._find_ridge()
-        if ridge is not None and self.object_type == ObjectType.HOUSE:
-            self._paint_with_ridge(painter, ridge)
-        else:
+        if not paint_building_roof(painter, self, poly, ridge):
             # the fill tile at the painter's resolution (#785)
             paint_shape(self, painter, option, widget, super().paint)
 

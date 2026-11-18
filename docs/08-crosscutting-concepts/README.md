@@ -148,7 +148,14 @@ This pattern was systematically applied across all item classes in issues #148/#
 
 ### 8.4.1 Color tokens & the no-hex rule
 
-Base/surface/text/border/accent/status tokens plus the #279 semantic additions: `success_bg`/`warning_bg`/`error_bg`/`info_bg` (tinted banner/card surfaces), `caution` ("this week" urgency yellow), and the `overlay_*` family (dynamic-input overlay — deliberately **constant across modes** because it floats over the always-light canvas). Canvas colors are identical in both modes by design (the garden always renders bright; pinned by `test_default_canvas_color`).
+Base/surface/text/border/accent/status tokens include the tinted banner/card surfaces, the urgency yellow and the dynamic-input overlay colors. The plan surface and its drawing colors stay bright in both themes. The surround outside the plan follows the chrome theme (#861).
+
+In System mode, a queued `QStyleHints.colorSchemeChanged` callback reapplies the
+published theme after Qt processes its own palette change. The callback checks
+the current preference and effective palette, so switching an explicit theme
+does not trigger a second restyle. The calendar uses one series color for the
+legend and every row state, calibrated to 3:1 on the darkest light row and
+lightest dark row.
 
 **The no-hex rule**: widget code never hardcodes a chrome color. Styling comes either from the generated stylesheet (via the dynamic properties below) or from the live-palette helpers `theme_color()` / `theme_qcolor()` / `rgba(token, alpha)`. Enforced mechanically by `tests/unit/test_no_hardcoded_qss_colors.py` — the allowlist is EMPTY and stays that way without an ADR-039-documented reason.
 
@@ -4986,6 +4993,14 @@ groups (Theme, Language, Auto-Save intervals) carry the icon on the submenu
 title only. The 3D window's Refresh/Walk toolbar, the crop-rotation status
 prefix and the constraint rows' delete "×" were the last text-only
 controls; all are iconized.
+
+### 8.21.6 Browsing a category popup (#951)
+
+The category popup uses the anchor's screen work area and opens where it
+has room. Search and trait chips stay above the scrollable results. The same
+thumbnail buttons are packed into the first available rows on every filter
+edit, then the results return to the top. An empty result has a status label.
+Reopening starts a new browse session with both filter types cleared.
 
 ## 8.22 Plant Sprite Pipeline (#281, ADR-040)
 

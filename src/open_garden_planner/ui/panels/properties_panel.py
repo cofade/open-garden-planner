@@ -1906,6 +1906,12 @@ class PropertiesPanel(QWidget):
                 itm.metadata.pop(key, None)
             else:
                 itm.metadata[key] = value
+            if key == "roof_style":
+                from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+
+                itm.update()
+                if ridge := linked_ridge(itm):
+                    ridge.update()
 
         return apply
 

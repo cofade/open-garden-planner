@@ -3,9 +3,28 @@
 from typing import Any
 
 import pytest
+from PyQt6.QtCore import QTranslator
 
 from open_garden_planner.core.i18n import _TRANSLATIONS_DIR, SUPPORTED_LANGUAGES, load_translator
 from open_garden_planner.core.object_types import ObjectType, get_translated_display_name
+
+
+@pytest.mark.parametrize(
+    ("language", "marigold", "geranium", "pot_marigold"),
+    [
+        ("de", "Studentenblume", "Geranie", "Ringelblume"),
+        ("es", "Tagete", "Geranio", "Maravilla (caléndula)"),
+        ("ru", "Бархатцы", "Пеларгония", "Календула"),
+    ],
+)
+def test_gallery_names_distinguish_tagetes_calendula_and_pelargonium(
+    qtbot, language, marigold, geranium, pot_marigold
+) -> None:
+    translator = QTranslator()
+    assert translator.load(str(_TRANSLATIONS_DIR / f"open_garden_planner_{language}.qm"))
+    for source, expected in (("Marigold", marigold), ("Geranium", geranium),
+                             ("Pot Marigold", pot_marigold)):
+        assert translator.translate("GalleryData", source) == expected
 
 
 class TestSupportedLanguages:

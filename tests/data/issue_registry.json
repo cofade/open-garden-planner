@@ -1324,6 +1324,11 @@
     "state": "CLOSED",
     "title": "Export follow-ups: harvest summary cut after one page, succession badge size, text size unit, print margins"
   },
+  "838": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#698, #782, #784-#796, #836): 2D visual polish - sharp canvas, legible overlays, exports, theme and locale"
+  },
   "840": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1351,7 +1356,7 @@
   },
   "847": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas repaint cost left on large plans: minimap render drops all item caches, rectangle tool costs 16/38 ms a move, grid layer redrawn on odd-pixel pans"
   },
   "848": {
@@ -1366,8 +1371,13 @@
   },
   "854": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sun shadow: a faint lighter hairline runs along a shade's outline"
+  },
+  "861": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Theme: no live follow of a Windows light/dark change in \"System\"; three calendar colours below 3:1 in the light theme; canvas surround is the same grey in both themes"
   },
   "865": {
     "is_pr": false,
@@ -1411,12 +1421,12 @@
   },
   "885": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Shadow IoU probe renders the grass texture; its ground should be flat"
   },
   "886": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Beauty Board never ends with status ok: the set-sun sky dip check fails on master too"
   },
   "889": {
@@ -1434,14 +1444,9 @@
     "state": "CLOSED",
     "title": "A saved orbit with a field of view of 0 or 180 is kept but cannot be flown"
   },
-  "892": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Looks and living render boards exceed their 780 s watchdog on a loaded machine"
-  },
   "893": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Intermittent access violation at exit of a 3D render driver after a clean run"
   },
   "896": {
@@ -1481,7 +1486,7 @@
   },
   "919": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Every scene query on a large plan walks all labelled objects in Python (5-6 ms per press and per hover move at 853 objects)"
   },
   "920": {
@@ -1521,7 +1526,7 @@
   },
   "928": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Selected dense polyline still blocks for seconds in exact full-detail painting"
   },
   "929": {
@@ -1533,5 +1538,10 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Flaky unmeasured sun selection test waits for evaluations from an earlier refresh"
+  },
+  "951": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Selecting plants - View changes and unable to find and use desired plant."
   }
 }

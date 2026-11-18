@@ -148,7 +148,7 @@ def test_the_planting_calendar_chart_paints_in_the_theme(
 @pytest.mark.parametrize(("mode", "windows_dark"), _COMBINATIONS)
 def test_every_bar_of_the_chart_stands_out_on_its_row(
         themed, qtbot, mode, windows_dark) -> None:
-    """Harvest's dark red is 2.2:1 on the dark theme's rows; the series adapt."""
+    """The calendar's painted series meet 3:1 in both themes."""
     colors = themed(mode, windows_dark)
     chart = _chart(qtbot)
     image = grab_image(chart)
@@ -160,11 +160,7 @@ def test_every_bar_of_the_chart_stands_out_on_its_row(
         assert painted.name() == calendar._series_qcolor(base).name(), task_type
         ratio = contrast_ratio(painted, row)
         _report(f"calendar chart: {task_type} bar", mode, windows_dark, ratio)
-        if mode is ThemeMode.DARK:
-            assert ratio >= GRAPHIC_CONTRAST, task_type
-        else:
-            # The light theme draws the reference colours, unchanged.
-            assert painted.name() == base.name(), task_type
+        assert ratio >= GRAPHIC_CONTRAST, task_type
 
 
 def test_the_chart_fills_its_scroll_area_and_scrolls_below_its_minimum(qtbot, qapp) -> None:

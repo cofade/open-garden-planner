@@ -1,6 +1,6 @@
 """Shared translated trait controls; values always remain language independent."""
 
-from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, pyqtSignal
+from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QSignalBlocker, pyqtSignal
 from PyQt6.QtWidgets import QGridLayout, QToolButton, QWidget
 
 from open_garden_planner.models.plant_data import PermacultureLayer, PlantFunction
@@ -47,3 +47,9 @@ class TraitFilters(QWidget):
     @property
     def functions(self) -> set[str]:
         return {key for key, button in self.function_buttons.items() if button.isChecked()}
+
+    def clear(self) -> None:
+        """Reset the controls as part of a caller's batched filter update."""
+        for button in (*self.layer_buttons.values(), *self.function_buttons.values()):
+            with QSignalBlocker(button):
+                button.setChecked(False)

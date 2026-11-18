@@ -17,7 +17,8 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF
+from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
+from PyQt6.QtGui import QImage, QPainter
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.commands import ChangeObjectTypeCommand
@@ -86,6 +87,55 @@ def test_properties_panel_conversion_creates_the_linked_ridge(qtbot) -> None:
 
     p1, p2 = _expected_ridge_endpoints(rect)
     assert ridge.points[0] == p1 and ridge.points[-1] == p2
+
+
+@pytest.mark.parametrize("shape", ("rectangle", "polygon"))
+@pytest.mark.parametrize("kind", (ObjectType.HOUSE, ObjectType.GARAGE_SHED))
+def test_roof_style_changes_the_plan_picture_and_undo_restores_it(qtbot, shape, kind) -> None:
+    scene, view = _scene_view(qtbot)
+    scene.set_shadows_enabled(False)
+    if shape == "rectangle":
+        item = _house_rect(scene)
+    else:
+        item = PolygonItem([QPointF(100, 50), QPointF(500, 50),
+                            QPointF(500, 250), QPointF(100, 250)])
+        scene.addItem(item)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(item, "object_type", kind)
+
+    def picture() -> QImage:
+        image = QImage(420, 220, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        scene.render(painter, QRectF(0, 0, 420, 220), QRectF(90, 40, 420, 220))
+        painter.end()
+        return image
+
+    automatic = picture()
+    if kind == ObjectType.GARAGE_SHED:
+        assert automatic.pixelColor(210, 110) == item.pen().color(), (
+            "automatic sheds have a roof seam across the tile planes"
+        )
+    styles = []
+    for style in ("hip", "shed", "flat"):
+        panel._on_roof_style_changed(item, style)
+        ridge = linked_ridge(item)
+        if ridge is not None:
+            assert ridge.shape().isEmpty(), "inactive roof cap must not intercept clicks"
+        styles.append(picture())
+        assert styles[-1] != automatic, style
+        view.command_manager.undo()
+        if ridge is not None:
+            assert not ridge.shape().isEmpty()
+        assert picture() == automatic, style
+        view.command_manager.redo()
+        assert picture() == styles[-1], style
+        view.command_manager.undo()
+    assert styles[0] != styles[1]
+    assert styles[-1].pixelColor(210, 110) == styles[-1].pixelColor(210, 80), (
+        "flat roof has a single surface and no centre ridge"
+    )
+    assert (linked_ridge(item) is not None) == (kind == ObjectType.HOUSE)
 
 
 def test_undo_removes_the_ridge_and_redo_restores_the_same_one(qtbot) -> None:

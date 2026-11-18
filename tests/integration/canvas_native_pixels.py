@@ -6,6 +6,7 @@ import faulthandler
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[2]
@@ -22,7 +23,7 @@ import tests.conftest  # noqa: E402, F401 -- isolate all stores before app impor
 keep_windows_behind()
 
 import numpy as np  # noqa: E402
-from PyQt6.QtCore import QPointF, QRect, QRectF, Qt  # noqa: E402
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt  # noqa: E402
 from PyQt6.QtGui import QFont, QFontInfo, QImage, QPainter  # noqa: E402
 from PyQt6.QtTest import QTest  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QGraphicsScene  # noqa: E402
@@ -85,6 +86,135 @@ def _pixels(image: QImage) -> np.ndarray:
     data = image.bits()
     data.setsize(image.sizeInBytes())
     return np.frombuffer(data, np.uint8).reshape(image.height(), image.bytesPerLine())[:, :image.width()*4].reshape(image.height(), image.width(), 4).copy()
+
+
+def embedded_shed_repaints() -> dict:
+    """Capture the main window's existing backing store through the edit sequence."""
+    from unittest.mock import patch
+
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.core.commands import ResizeItemCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.geometry_apply import (
+        apply_rect_like_geometry,
+        build_rect_resize,
+    )
+
+    with (
+        patch.object(GardenPlannerApp, "_startup_sequence"),
+        patch.object(GardenPlannerApp, "_start_update_check"),
+    ):
+        window = GardenPlannerApp()
+    window.showNormal()
+    window.resize(1100, 720)
+    window.show()
+    assert QTest.qWaitForWindowExposed(window)
+    window._load_project_file(str(ROOT / "src/open_garden_planner/resources/examples/family-garden.ogp"))
+    view = window.canvas_view
+    scene = view.scene()
+    scene.set_shadows_enabled(False)
+    view.set_grid_visible(False)
+    viewport = view.viewport()
+    shed = next(item for item in scene.items()
+                if getattr(item, "object_type", None) == ObjectType.GARAGE_SHED)
+    view.set_zoom(0.77)
+    view.centerOn(shed.sceneBoundingRect().center())
+    scene.clearSelection()
+    shed.setSelected(True)
+
+    class PaintRegions(QObject):
+        def __init__(self):
+            super().__init__()
+            self.regions = []
+
+        def eventFilter(self, watched, event):
+            if event.type() == QEvent.Type.Paint:
+                self.regions.append(event.region().boundingRect().getRect())
+            return False
+
+    regions = PaintRegions()
+    viewport.installEventFilter(regions)
+
+    def grab() -> QImage:
+        frame = window.screen().grabWindow(window.winId())
+        assert not frame.isNull()
+        ratio = frame.devicePixelRatio()
+        origin = viewport.mapTo(window, QPoint())
+        crop = QRect(round(origin.x() * ratio), round(origin.y() * ratio),
+                     round(viewport.width() * ratio), round(viewport.height() * ratio))
+        return frame.toImage().copy(crop).convertToFormat(QImage.Format.Format_ARGB32)
+
+    def bounds(mask):
+        rows, columns = np.nonzero(mask)
+        return [int(columns.min()), int(rows.min()), int(columns.max()), int(rows.max())] if len(rows) else []
+
+    def settle() -> None:
+        # Deliver queued scene changes, then the thumbnail's own 100 ms
+        # throttle and backing-store update before comparing the same state.
+        QTest.qWait(1)
+        deadline = time.monotonic() + 2
+        while window._minimap._update_timer.isActive() and time.monotonic() < deadline:
+            QTest.qWait(10)
+        assert not window._minimap._update_timer.isActive()
+        QTest.qWait(1)
+
+    def resize() -> None:
+        rect = shed.rect()
+        old, new = build_rect_resize(shed, rect.width() + 35, rect.height() - 17)
+        view.command_manager.execute(ResizeItemCommand(shed, old, new, apply_rect_like_geometry))
+
+    QTest.qWait(120)  # Startup fit timer precedes the edit sweep.
+    view.set_zoom(0.77)
+    view.centerOn(shed.sceneBoundingRect().center())
+    settle()
+    results = {}
+    last = grab()
+    edits = (
+        ("shed_to_glasshouse", lambda: shed._dispatch_change_type(ObjectType.GREENHOUSE)),
+        ("move", lambda: shed.moveBy(17.3, -6.1)),
+        ("rotate", lambda: shed._apply_rotation(31.7)),
+        ("undo_type", view.command_manager.undo),
+        ("redo_type", view.command_manager.redo),
+        ("resize", resize),
+        ("undo_resize", view.command_manager.undo),
+    )
+    for name, edit in edits:
+        regions.regions.clear()
+        edit()
+        settle()
+        partial = grab()
+        ordinary = list(regions.regions)
+        viewport.repaint()
+        full = grab()
+        viewport.repaint()
+        repeated = grab()
+        partial_pixels, full_pixels = _pixels(partial), _pixels(full)
+        diff = np.any(partial_pixels != full_pixels, axis=2)
+        if folder := os.environ.get("OGP_PIXEL_ARTIFACT_DIR"):
+            Path(folder).mkdir(parents=True, exist_ok=True)
+            partial.save(str(Path(folder) / f"{name}-partial.png"))
+            full.save(str(Path(folder) / f"{name}-full.png"))
+            mask = QImage(diff.shape[1], diff.shape[0], QImage.Format.Format_RGB32)
+            mask_bits = mask.bits()
+            mask_bits.setsize(mask.sizeInBytes())
+            pixels = np.frombuffer(mask_bits, np.uint32).reshape(diff.shape)
+            pixels[:] = np.where(diff, 0xFFFFFFFF, 0xFF000000)
+            mask.save(str(Path(folder) / f"{name}-difference.png"))
+        results[name] = {
+            "changed": int(np.any(_pixels(last) != full_pixels, axis=2).sum()),
+            "diff": int(diff.sum()),
+            "diff_bounds": bounds(diff),
+            "repeat_noise": int(np.any(full_pixels != _pixels(repeated), axis=2).sum()),
+            "regions": ordinary,
+        }
+        last = full
+    assert shed.isSelected()
+    window._project_manager.mark_clean()
+    # Release Qt-owned children while Python and QApplication are both alive.
+    window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+    assert window.close()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    return results
 
 
 def _letter_centres(note: TextItem, zoom: float, font_multiplier: int = 1) -> np.ndarray:
@@ -223,4 +353,5 @@ if __name__ == "__main__":
     assert app.platformName() == "windows"
     print(json.dumps({"gaps": letter_gaps(), "hinted": letter_gaps(True),
                       "repaints": repaint_differences(), "balcony": balcony_note_boxes(),
-                      "foreground": relocated_content_changes()}))
+                      "foreground": relocated_content_changes(),
+                      "embedded_shed": embedded_shed_repaints()}))

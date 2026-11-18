@@ -212,3 +212,15 @@ Plain antialiased `DestinationOut` leaves `(1 - c) * alpha_f` on boundary pixels
 - **Legacy:** none (new entry)
 
 Passing 16,000 tightly packed vertices inside a 300 cm clip into Qt's non-cosmetic `QPainterPathStroker` blocked selected polyline repaints for 5–10 s across `_paint_shadow`, base/style strokes, and selection highlight even with `WalkBudget` active; decimating stroked paths through `bounded_stroke_points()` and caching selected dense bodies per zoom preserves stored width, style, and `self._points` in bounded time. In high-DPI exports (`#851`), raw 1-px cosmetic contour pens shrank into hairlines in 300-dpi PNGs and skewed in SVG; `SunContourItem` scales contour strokes to the export DPI ratio and `svg_export` keeps cosmetic widths consistent across outputs. Below 50 % zoom (`#849`), `fill_patterns` prefilters tiles periodically at `0.5`, `0.25`, and `0.125` px/cm with mean-preserving AC contrast gain so Qt's bilinear sampler avoids brick/roof-tile moire without flattening interior spread.
+
+### PF-CAN-67
+
+- **Rule:** Wait for the minimap's thumbnail timer before comparing native partial and full repaints. Crop the owning window's backing store without asking the widget to redraw, and capture a second full repaint as a stability control.
+- **Pinned by:** `tests/integration/test_canvas_native_pixels.py::test_selected_shed_replacement_repaints_in_the_main_window`
+- **Source:** #879
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The first undo capture differed by 810 pixels, all inside the minimap. Seven
+settled main-window edits matched on v1.40.8, including replacing the selected
+shed with a glasshouse.

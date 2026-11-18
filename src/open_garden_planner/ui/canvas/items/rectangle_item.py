@@ -41,7 +41,7 @@ from .garden_item import GardenItemMixin
 from .greenhouse_paint import paint_greenhouse
 from .pergola_paint import paint_pergola
 from .resize_handle import RectVertexEditMixin, ResizeHandlesMixin, RotationHandleMixin
-from .roof_paint import paint_roof_with_ridge
+from .roof_paint import paint_building_roof
 
 
 def _show_properties_dialog(item: QGraphicsRectItem) -> None:
@@ -307,6 +307,13 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             painter.drawRect(shadow_rect)
             painter.restore()
 
+        if self.object_type in (ObjectType.HOUSE, ObjectType.GARAGE_SHED, ObjectType.TOOL_SHED):
+            polygon = outline_polygon(self)
+            if polygon is not None and paint_building_roof(
+                painter, self, polygon, linked_ridge(self)
+            ):
+                return
+
         if is_furniture_type(self.object_type):
             rect = self.rect()
             # The canvas (and every export) draws the scene through a
@@ -357,27 +364,6 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self.pen(),
                     ridge_points_local(self, linked_ridge(self)),
                 )
-        # A HOUSE is drawn as its roof seen from above. A ridge-less rectangle
-        # paints a flat fill, but one converted into a HOUSE (#690) owns a
-        # ROOF_RIDGE, and its tiles must lap down-slope on BOTH sides of it —
-        # the same ridge-aware paint the polygon tool's houses have used since
-        # #372. Without this branch the converted house's tiles lapped back up
-        # toward the ridge (manual test of PR #713, 2.1).
-        elif self.object_type == ObjectType.HOUSE:
-            ridge = linked_ridge(self)
-            polygon = outline_polygon(self)
-            if ridge is not None and polygon is not None:
-                paint_roof_with_ridge(
-                    painter,
-                    self,
-                    polygon,
-                    ridge,
-                    self.brush(),
-                    self.pen(),
-                    self.fill_transform,
-                )
-            else:
-                paint_shape(self, painter, option, widget, super().paint)
         else:
             # The fill tile at the painter's resolution (#785); at 100 % zoom
             # this IS the base class's paint.

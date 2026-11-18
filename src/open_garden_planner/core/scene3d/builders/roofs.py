@@ -5,7 +5,7 @@ The roof is two planes through the ridge LINE:
     z_top(p) = top − cap_rise − slope · |d(p)|        d = signed distance to the line
 
 over the footprint grown by the overhang. That is the model the 2D canvas
-already paints — ``PolygonItem._paint_with_ridge`` splits the house along the
+already paints. The plan's gable painter splits the house along the
 infinite line through its ridge and lays the tiles down-slope on either side —
 so 2D and 3D agree for any footprint (convex or not) and any ridge chord,
 including one the user dragged off-centre.
@@ -26,14 +26,15 @@ where it would push the eaves under ``eave_floor_cm`` (a door still fits).
 
 Tiles (#801): the tile faces (and the ridge tile) carry uvs in CENTIMETRES, which
 ``built_detail.vert`` lays the surface's picture by. A gable's are the 2D brush's
-frame (``ui/canvas/items/roof_paint.paint_roof_with_ridge``): u along the ridge from
+frame (``ui/canvas/items/roof_paint``): u along the ridge from
 its middle, v the plan distance from the ridge line on either side — the canvas
 mirrors its picture across the ridge, and so does |d| — so a roof seen from above IS
 the plan's picture, tile for tile; on the slope a course is 1 / cos(pitch) longer
 than in plan, as a real tile is longer than its shadow on the plan. A hip's faces
 and a shed's plane run u along their own eave (the outline's counter-clockwise
 direction, from its centre) and v down the face from its top (``face_tile_uvs``):
-the canvas draws no hips, so there size and lap direction agree, not the phase.
+the canvas uses the same hip partition inside the wall footprint. Its tiles use
+their own plan origin, so size and lap direction agree while phase may differ.
 Ported from the spike's ``gable_house_parts``, which handled convex footprints
 at scene positions and left the slab's edges open.
 """
@@ -422,16 +423,18 @@ def _clip(polygon: F64, normal: F64, bound: float) -> F64:
 MAX_HIP_CORNERS = 64
 
 
-def hip_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoof | None:
-    """Walls and a hip roof over a CONVEX footprint: every edge of the eaves slopes
-    up at the same pitch, so the roof is the lower envelope of one plane per edge —
-    on a rectangle four faces meeting in a ridge, on a square a pyramid. Its apex
-    (or ridge) is at ``top_cm``. None for a footprint that is not convex (a hip roof
-    over an L needs a straight skeleton; the caller shows another roof)."""
-    ring = ccw_ring(footprint)
-    if len(ring) < 3 or len(ring) > MAX_HIP_CORNERS or not is_convex(ring):
-        return None
-    outline = offset_ring(ring, style.overhang_cm)
+@dataclass(frozen=True, slots=True)
+class HipPlan:
+    """The nearest-eave faces and their axes in plan coordinates."""
+
+    faces: list[tuple[int, F64]]
+    edge: F64
+    inward: F64
+    offsets: F64
+
+
+def hip_plan(outline: F64) -> HipPlan:
+    """Partition a bounded, convex CCW outline into one face per nearest eave."""
     edge = np.roll(outline, -1, axis=0) - outline
     edge /= np.maximum(np.linalg.norm(edge, axis=1, keepdims=True), 1e-12)
     inward = np.stack([-edge[:, 1], edge[:, 0]], axis=1)  # left of travel: the inside
@@ -445,6 +448,21 @@ def hip_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoof
                 face = _clip(face, inward[i] - inward[j], offsets[i] - offsets[j])  # d_i <= d_j
         if len(face) >= 3:
             faces.append((i, face))
+    return HipPlan(faces, edge, inward, offsets)
+
+
+def hip_roof(footprint: ArrayLike, top_cm: float, style: RoofStyle) -> GableRoof | None:
+    """Walls and a hip roof over a CONVEX footprint: every edge of the eaves slopes
+    up at the same pitch, so the roof is the lower envelope of one plane per edge —
+    on a rectangle four faces meeting in a ridge, on a square a pyramid. Its apex
+    (or ridge) is at ``top_cm``. None for a footprint that is not convex (a hip roof
+    over an L needs a straight skeleton; the caller shows another roof)."""
+    ring = ccw_ring(footprint)
+    if len(ring) < 3 or len(ring) > MAX_HIP_CORNERS or not is_convex(ring):
+        return None
+    outline = offset_ring(ring, style.overhang_cm)
+    plan = hip_plan(outline)
+    faces, edge, inward, offsets = plan.faces, plan.edge, plan.inward, plan.offsets
     if not faces:
         return None
     reach = max(float((face @ inward[i] - offsets[i]).max()) for i, face in faces)

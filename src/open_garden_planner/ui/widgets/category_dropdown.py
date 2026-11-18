@@ -6,7 +6,7 @@ and drag-to-canvas, plus an in-popup search field that filters thumbnails.
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QCoreApplication, QMimeData, QPoint, Qt, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QMimeData, QPoint, QSignalBlocker, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QContextMenuEvent,
     QDrag,
@@ -17,6 +17,8 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QScrollArea,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -28,6 +30,7 @@ from open_garden_planner.ui.widgets.gallery_data import (
     THUMB_SIZE,
     GalleryCategory,
     GalleryItem,
+    gallery_matches,
 )
 
 if TYPE_CHECKING:
@@ -277,6 +280,7 @@ class CategoryDropdown(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(4)
+        self._layout = layout
 
         header = QLabel(self._category.name)
         set_text_role(header, "h2")
@@ -295,26 +299,26 @@ class CategoryDropdown(QWidget):
         self.trait_filters.changed.connect(lambda: self._apply_filter(self._search_box.text()))
         layout.addWidget(self.trait_filters)
 
+        self._results = QScrollArea()
+        self._results.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._results.setWidgetResizable(True)
+        self._results.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         grid_widget = QWidget()
-        grid_layout = QGridLayout(grid_widget)
-        grid_layout.setContentsMargins(0, 0, 0, 0)
-        grid_layout.setSpacing(4)
+        self._grid = QGridLayout(grid_widget)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setSpacing(4)
+        self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self._results.setWidget(grid_widget)
+        layout.addWidget(self._results, stretch=1)
 
-        for i, item in enumerate(self._category.items):
-            row = i // GRID_COLS
-            col = i % GRID_COLS
-            btn = _ThumbnailButton(item)
+        self._empty = QLabel(self.tr("No matching items"), grid_widget)
+        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._grid.addWidget(self._empty, 0, 0, 1, GRID_COLS)
+        for item in self._category.items:
+            btn = _ThumbnailButton(item, grid_widget)
             btn.clicked_item.connect(self._on_item_clicked)
-            grid_layout.addWidget(btn, row, col)
             self._buttons.append(btn)
-
-        layout.addWidget(grid_widget)
-
-        self.adjustSize()
-        max_width = (THUMB_SIZE + 16) * GRID_COLS + 32
-        if not self.trait_filters.isHidden():
-            max_width = max(max_width, self.trait_filters.minimumSizeHint().width() + 32)
-        self.setFixedWidth(max_width)
+        self._apply_filter("")
 
     def _on_item_clicked(self, item: GalleryItem) -> None:
         self.tool_selected.emit(item.tool_type)
@@ -323,12 +327,20 @@ class CategoryDropdown(QWidget):
 
     def _apply_filter(self, text: str) -> None:
         needle = text.strip().lower()
+        layers = self.trait_filters.layers
+        functions = self.trait_filters.functions
+        index = 0
         for btn in self._buttons:
-            from open_garden_planner.ui.widgets.gallery_data import gallery_matches
-
-            visible = gallery_matches(btn.item, needle, layers=self.trait_filters.layers,
-                                      functions=self.trait_filters.functions)
+            self._grid.removeWidget(btn)
+            visible = gallery_matches(btn.item, needle, layers=layers, functions=functions)
+            if visible:
+                row, column = divmod(index, GRID_COLS)
+                self._grid.addWidget(btn, row, column)
+                index += 1
             btn.setVisible(visible)
+        self._empty.setVisible(index == 0)
+        self._results.verticalScrollBar().setValue(0)
+        self._results.horizontalScrollBar().setValue(0)
 
     def refresh_thumbnails(self) -> None:
         """Re-pull each button's pixmap after a theme switch (see §8.21)."""
@@ -336,14 +348,31 @@ class CategoryDropdown(QWidget):
             btn.update_thumbnail()
 
     def show_below(self, anchor: QWidget) -> None:
-        """Show the popup directly beneath the given anchor widget."""
-        self._search_box.clear()
-        self._search_box.setFocus()
-        for btn in self._buttons:
-            btn._update_favorite_state()
-        anchor_bottom_left = anchor.mapToGlobal(anchor.rect().bottomLeft())
-        self.move(anchor_bottom_left)
+        """Start a fresh browse session within the anchor screen's work area."""
+        with QSignalBlocker(self._search_box):
+            self._search_box.clear()
+        self.trait_filters.clear()
+        self._apply_filter("")
+        layout = self._layout
+        layout.activate()
+        work_area = anchor.screen().availableGeometry()
+        anchor_top = anchor.mapToGlobal(QPoint())
+        anchor_bottom = anchor_top.y() + anchor.height()
+        below = work_area.bottom() + 1 - anchor_bottom
+        above = anchor_top.y() - work_area.top()
+        chrome_height = layout.minimumSize().height()
+        desired_height = chrome_height + self._grid.sizeHint().height()
+        open_above = below < desired_height and above > below
+        room = above if open_above else below
+        height = min(desired_height, room if room > chrome_height else work_area.height())
+        desired_width = max(layout.sizeHint().width(), self._grid.sizeHint().width() + 36)
+        width = min(desired_width, work_area.width())
+        x = max(work_area.left(), min(anchor_top.x(), work_area.right() + 1 - width))
+        y = anchor_top.y() - height if open_above else anchor_bottom
+        y = max(work_area.top(), min(y, work_area.bottom() + 1 - height))
+        self.setGeometry(x, y, width, height)
         self.show()
+        self._search_box.setFocus()
 
 
 # Backwards compatibility / descriptive alias

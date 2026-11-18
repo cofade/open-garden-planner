@@ -137,12 +137,32 @@
           "y": 840.0
         },
         {
-          "x": 1400.0,
+          "x": 1380.0,
           "y": 840.0
         },
         {
-          "x": 1560.0,
-          "y": 700.0
+          "x": 1515.0,
+          "y": 800.0
+        },
+        {
+          "x": 1585.0,
+          "y": 705.0
+        },
+        {
+          "x": 1638.0,
+          "y": 525.0
+        },
+        {
+          "x": 1625.0,
+          "y": 486.0
+        },
+        {
+          "x": 1566.0,
+          "y": 427.0
+        },
+        {
+          "x": 1549.0,
+          "y": 400.0
         },
         {
           "x": 1560.0,
@@ -233,11 +253,11 @@
           "y": 650.0
         },
         {
-          "x": 1000.0,
+          "x": 630.0,
           "y": 650.0
         },
         {
-          "x": 1000.0,
+          "x": 662.0,
           "y": 712.0
         },
         {
@@ -259,11 +279,7 @@
         "d539a51e-b46b-4476-b608-f9dff8654dfc",
         "4421e7aa-0c3e-4c95-a9dd-578c54548b94",
         "92a84ac7-8b93-4ca1-b64d-0014d18982d8",
-        "8b373789-0371-46ed-8147-2d786228e17b",
-        "a73bd9b7-8b9f-444f-8f73-a13cede40a53",
-        "93e93978-aea7-4ad1-9861-bda40ef3d768",
-        "a4008da6-bce7-452e-9432-2aee21c4e3ee",
-        "661c4530-9781-4ffb-b1d4-9c904b316118"
+        "8b373789-0371-46ed-8147-2d786228e17b"
       ],
       "stack_order": 23552
     },
@@ -305,6 +321,43 @@
         "d365cbfa-c4be-4c08-b1b3-d91fbd4b9929"
       ],
       "stack_order": 34816
+    },
+    {
+      "type": "polygon",
+      "item_id": "41408ea1-cc95-5c61-b225-3cec9c549116",
+      "points": [
+        {
+          "x": 700.0,
+          "y": 650.0
+        },
+        {
+          "x": 1000.0,
+          "y": 650.0
+        },
+        {
+          "x": 1000.0,
+          "y": 712.0
+        },
+        {
+          "x": 730.0,
+          "y": 712.0
+        }
+      ],
+      "object_type": "GARDEN_BED",
+      "name": "Perennial border (east)",
+      "label_visible": false,
+      "fill_color": "#ff8b5a2b",
+      "stroke_color": "#ff228b22",
+      "stroke_width": 2.5,
+      "fill_pattern": "SOIL",
+      "stroke_style": "SOLID",
+      "child_item_ids": [
+        "661c4530-9781-4ffb-b1d4-9c904b316118",
+        "a4008da6-bce7-452e-9432-2aee21c4e3ee",
+        "93e93978-aea7-4ad1-9861-bda40ef3d768",
+        "a73bd9b7-8b9f-444f-8f73-a13cede40a53"
+      ],
+      "stack_order": 103424
     },
     {
       "type": "polygon",
@@ -1280,7 +1333,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "chrysanthemum",
-      "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
+      "parent_bed_id": "41408ea1-cc95-5c61-b225-3cec9c549116",
       "stack_order": 30720
     },
     {
@@ -1333,7 +1386,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "lily",
-      "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
+      "parent_bed_id": "41408ea1-cc95-5c61-b225-3cec9c549116",
       "stack_order": 31744
     },
     {
@@ -1401,7 +1454,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "borage",
-      "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
+      "parent_bed_id": "41408ea1-cc95-5c61-b225-3cec9c549116",
       "stack_order": 32768
     },
     {
@@ -1456,7 +1509,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "plant_species": "pansy",
-      "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
+      "parent_bed_id": "41408ea1-cc95-5c61-b225-3cec9c549116",
       "stack_order": 33792
     },
     {

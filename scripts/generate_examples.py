@@ -3,10 +3,9 @@
 Run from the repository root. Layouts are illustrative, not climate prescriptions.
 Deterministic IDs and dates keep content reviewable across regenerations.
 
-Three are teaching plans authored here. The fourth, ``family-garden``, is the 3D view's
-showcase: the very plan the bench fixture ``bench_small.ogp`` is, built by the same
-``make_bench_plans.build_small`` so that it cannot drift from what every Beauty Board shows,
-and with that fixture's item ids, because a plant's procedural shape is seeded by its id.
+Three are teaching plans authored here. The ``family-garden`` showcase starts from
+``make_bench_plans.build_small`` and adapts the layout for walking. It keeps the
+fixture's plant IDs, which seed their procedural shape.
 """
 
 from __future__ import annotations
@@ -30,11 +29,16 @@ from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 from PyQt6.QtWidgets import QApplication
 
-from open_garden_planner.core.commands import CreateItemsCommand
+from open_garden_planner.core.commands import CreateItemsCommand, ResizeItemCommand
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.growth_model import years_to_maturity
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
-from open_garden_planner.core.item_look import adopt_pen, restore_stored_look
+from open_garden_planner.core.item_look import (
+    adopt_pen,
+    copy_visual_style,
+    inherit_item_identity,
+    restore_stored_look,
+)
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.plan_io import write_plan
 from open_garden_planner.core.project import ProjectManager
@@ -49,7 +53,14 @@ from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.services.scene_rendering import render_scene_region
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
-from open_garden_planner.ui.canvas.items import CircleItem, PolylineItem, RectangleItem, TextItem
+from open_garden_planner.ui.canvas.items import (
+    CircleItem,
+    PolygonItem,
+    PolylineItem,
+    RectangleItem,
+    TextItem,
+)
+from open_garden_planner.ui.canvas.items.polygon_item import polygon_resize_apply
 from open_garden_planner.ui.plant_creation import build_species_plant
 
 
@@ -422,6 +433,7 @@ for _en, _de, _es in (
     ("Gravel path", "Kiesweg", "Camino de grava"), ("Stepping stones", "Trittsteine", "Pasaderas"),
     ("Herb strip", "Kräuterstreifen", "Franja de hierbas"),
     ("Perennial border", "Staudenrabatte", "Arriate de vivaces"),
+    ("Perennial border (east)", "Staudenrabatte (Ost)", "Arriate de vivaces (este)"),
     ("Flower bed", "Blumenbeet", "Parterre de flores"),
     ("Raised bed 1", "Hochbeet 1", "Bancal elevado 1"), ("Raised bed 2", "Hochbeet 2", "Bancal elevado 2"),
     ("Raised bed 3", "Hochbeet 3", "Bancal elevado 3"), ("Pot 1", "Topf 1", "Maceta 1"),
@@ -503,6 +515,40 @@ def _name_of(item):
     return getattr(item, "name", "") or species.get("common_name", "")
 
 
+def _make_walks_clear(scene: CanvasScene) -> None:
+    """Give the 50 cm stone walk and the 80 cm gravel walk room in the showcase (#866)."""
+    gravel = next(item for item in scene.items()
+                  if isinstance(item, PolylineItem) and item.name == "Gravel path")
+    # Go around the birch on its east side, between the crown and the
+    # vegetables before turning back toward the west side of the trellis.
+    bends = [(1380, 840), (1515, 800), (1585, 705), (1638, 525),
+             (1625, 486), (1566, 427), (1549, 400)]
+    points = gravel.points
+    rerouted = gravel.clone_with_points([points[0], *(QPointF(x, y) for x, y in bends), points[-1]])
+    inherit_item_identity(gravel, rerouted)
+    scene.removeItem(gravel)
+    scene.addItem(rerouted)
+
+    # The edges facing the stone walk follow its diagonal with a clearance
+    # of just over 5 cm outside the stroke. The existing plants stay put.
+    border = next(item for item in scene.items()
+                  if isinstance(item, PolygonItem) and item.name == "Perennial border")
+    position = {"pos_x": border.x(), "pos_y": border.y()}
+    before = position | {"vertices": [{"x": p.x(), "y": p.y()} for p in border.polygon()]}
+    west = [(180, 650), (630, 650), (662, 712), (180, 712)]
+    after = position | {"vertices": [{"x": x, "y": y} for x, y in west]}
+    ResizeItemCommand(border, before, after, polygon_resize_apply).execute()
+
+    east = PolygonItem(
+        [QPointF(700, 650), QPointF(1000, 650), QPointF(1000, 712), QPointF(730, 712)],
+        ObjectType.GARDEN_BED, "Perennial border (east)", layer_id=border.layer_id,
+    )
+    # Derive one extra identity without consuming the bench builder's seed.
+    east._item_id = uuid5(border.item_id, "family-garden-east-border")
+    copy_visual_style(border, east)
+    CreateItemsCommand(scene, [east]).execute()
+
+
 def family_garden():
     """The bench plan as an example: ``make_bench_plans.build_small``, one builder for both."""
     from make_bench_plans import BERLIN, build_small
@@ -527,6 +573,7 @@ def family_garden():
             cherries += 1
     assert widened == set(FAMILY_PATH_WIDTH_CM), widened
     assert moved == set(FAMILY_MOVED_CM) and cherries == 1, (moved, cherries)
+    _make_walks_clear(builder.scene)
     manager = ProjectManager()
     manager.set_location(dict(BERLIN) | {"timezone": "Europe/Berlin"})
     # What a Berlin garden planted on 15 April (its trees stood before) has given by 21 June.

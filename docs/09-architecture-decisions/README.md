@@ -1448,6 +1448,15 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **Not decided here** (#830, the owner's): the parasol as a raised canopy, what glasshouse glass transmits, and the 0 h cell under every plant — which is why contours still crowd round every solid.
 
+### ADR-037 addendum — narrow gaps in the 2D soft edge (#880)
+
+Keep the 7 cm reach confirmed in the #838 manual test. A gap up to 4 cm
+and an enclosed hole of 8 cm can show at full shade tone because neighboring
+feathers overlap. The overlay is a display of computed shade with a visual
+falloff. The shadow solution, the 3D drape and the hours-of-sun map continue
+to use the computed geometry. FR-SUN-03 states the display limit and the
+measured widening sequence.
+
 ### ADR-037 addendum - the plan's north orientation (#663, 2026-11-11)
 
 **Status**: Shipped in v1.39.1 (PR #903; owner's manual test 2026-11-12).
@@ -13576,6 +13585,27 @@ Hiding every zoomed-out tag loses the only hint of a succession plan; use an arr
 **Evidence:** `tests/integration/test_canvas_editing_precision.py`,
 `test_canvas_label_precision.py`, `test_canvas_native_pixels.py`,
 `test_text_note_size.py`, `test_export_text_notes.py`, and
-`tests/unit/test_item_geometry.py`. The #879 native partial/full repaint probe
-currently finds no difference on either master or this branch; that issue remains
-open and is not claimed fixed.
+`tests/unit/test_item_geometry.py`. The rectangle-only #879 probe found no
+difference when #934 was reviewed. The expanded main-window probe now drives
+the selected shed-to-glasshouse conversion, move, rotation, undo, redo and
+resize against the Family Garden. At 77% zoom, a 633 × 498 viewport and device
+pixel ratio 1, #838 (`7e4d42ee`) differed by four pixels in three steps, within
+one channel level at the selection frame. #934 (`b5c434b0`) differed by up to
+322 pixels. The same seven captures on v1.40.8 matched a full repaint exactly
+after the minimap thumbnail settled. A second full repaint matched the first
+on each of those revisions. The new comparison gates the shipped behavior
+and records the event regions. The original 131-pixel capture was unavailable.
+
+### ADR-076 addendum — roof style in the plan (#946, #862)
+
+The rectangle and polygon roof painters share the plan footprint and the
+stored roof style. The 3D builder supplies the hip's nearest-eave partition
+and the automatic garage/shed ridge direction. Non-convex hips use a gable.
+The plan uses its own footprint for tile faces, while the 3D roof and solar
+caster use the modeled pitch and overhang. A linked house ridge stays in the
+document as the gable's editable axis. It paints and receives hits as a cap
+while the roof is gabled. The default concrete shed fill is displayed as
+gray roof tiles on pitched roofs. Flat roofs use a single surface. The tool
+shed's automatic sprite keeps its roof, and an explicit choice uses the
+shared painter. `test_house_roof_ridge.py` checks the property edit and undo
+against actual scene pixels.
