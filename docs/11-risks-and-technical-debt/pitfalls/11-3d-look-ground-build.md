@@ -305,13 +305,20 @@ renders each look once per round and compares medians over 40 rounds.
 
 ### PF-L3D-19
 
-- **Rule:** A probe that compares "near" and "away" pixels of a perspective frame must bin them by the world quantity it cares about (elevation, bearing, distance) — an image row is a plane, not a cone.
-- **Pinned by:** `tests/unit/test_board_probes.py::test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not`
-- **Source:** #695, #717
+- **Rule:** Bin near and away samples by world elevation. Omit the continuous meadow as well as the plan ground when measuring the sky below the horizon.
+- **Pinned by:** `tests/unit/test_board_probes.py::test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not`; `tests/integration/test_view3d_looks_render.py::test_the_set_sun_probe_reaches_below_the_horizon_without_measuring_grass`
+- **Source:** #695, #717, #886
 - **Status:** standing
 - **Legacy:** none (new entry)
 
 Symptom: the new set-sun probe failed the **painted** sky on every frame with a 19.7–24.2 luma dip, always at the same reported elevation (−1.12°), while the images looked clean. Root cause: `sun_dip` compared pixels in the same image row; with a 70° field and a +3° pitch the away columns in the horizon rows sit several degrees higher in the sky, and the sky's vertical gradient read as a dip. Fix: compare near (±10° of the sun's bearing) and away (15–45°) pixels in the same 0.25° world-elevation band. The first synthetic positive control passed because its disc and band shared rows; the real camera exposed the difference.
+
+The same probe later read the **meadow** below the horizon. `ground=None` removes
+the plan rectangle and leaves the continuous meadow, which produced a false
+dip of 11.71 luma at −0.62° in the Low baseline. The probe now omits the meadow
+as well and still measures the five elevations against the original 10-luma
+bound. The perspective shadow IoU probe (#885) keeps its receiver, sets the
+receiver and meadow to flat ground, and keeps each preset's cascades and bias.
 
 ### PF-L3D-20
 

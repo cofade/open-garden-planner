@@ -76,6 +76,11 @@ def sequence(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, 
     return out, result["data"]
 
 
+def test_foliage_capture_releases_the_native_window_before_process_exit(tmp_path: Path) -> None:
+    _proc, result = _run(tmp_path / "close", "sequence", seconds="0", fps="30", subjects="tree")
+    assert result["data"]["window_destroyed"] is True
+
+
 def _still_copy(tmp_path: Path) -> Path:
     """The scene with the sway taken out of every shader: what the frames were before."""
     qml = tmp_path / "qml"

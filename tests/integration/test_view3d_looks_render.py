@@ -48,16 +48,18 @@ from open_garden_planner.core.scene3d.look import (
 )
 from tests.integration import view3d_looks_driver as driver
 from tests.integration.quick3d_render_support import (
+    BOARD_PHASE_WATCHDOG_S,
+    BOARD_PROCESS_TIMEOUT_S,
     QML_SOURCE,
     REPO,
+    board_render_tier,
     driver_messages,
     keep_artifacts,
     load_rgb,
     render_env,
-    render_tier,
 )
 
-pytestmark = render_tier
+pytestmark = board_render_tier
 
 BOARD = REPO / "scripts" / "render_beauty_board.py"
 DRIVER = REPO / "tests" / "integration" / "view3d_looks_driver.py"
@@ -105,10 +107,11 @@ MAX_HORIZON_STEP, MAX_HORIZON_DIP, MAX_HORIZON_RIDGE = 6.0, 4.5, 2.5
 SOAK_BOUND_MB, SOAK_CONTROL_MB = driver.SOAK_BOUND_MB, driver.SOAK_CONTROL_MB
 
 
-def _run(command: list[str], out: Path, **env: str) -> subprocess.CompletedProcess[str]:
+def _run(command: list[str], out: Path, *, timeout: int = TIMEOUT_S,
+         **env: str) -> subprocess.CompletedProcess[str]:
     out.mkdir(parents=True, exist_ok=True)
     proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
-        command, env=render_env(out, **env), capture_output=True, text=True, timeout=TIMEOUT_S,
+        command, env=render_env(out, **env), capture_output=True, text=True, timeout=timeout,
         cwd=REPO)
     keep_artifacts(out, proc)
     return proc
@@ -116,7 +119,8 @@ def _run(command: list[str], out: Path, **env: str) -> subprocess.CompletedProce
 
 def run_board(out: Path, *arguments: str) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
     proc = _run([sys.executable, str(BOARD), "--out", str(out), "--size", SIZE,
-                 "--watchdog-s", str(TIMEOUT_S - 60), *arguments], out)
+                 "--phase-watchdog-s", str(BOARD_PHASE_WATCHDOG_S), *arguments], out,
+                timeout=BOARD_PROCESS_TIMEOUT_S)
     file = out / "metrics.json"
     return proc, (json.loads(file.read_text(encoding="utf-8")) if file.is_file() else {})
 
@@ -440,6 +444,19 @@ def test_fog_meets_the_sky_at_every_preset_and_in_every_mood(board) -> None:
             for label in ("away", "across"):
                 assert mood[label]["step"] <= MAX_CLEAR_HORIZON_STEP, (
                     preset, mood_name, label, mood[label])
+
+
+@pytest.mark.parametrize("sky", SKY_MODELS)
+def test_the_set_sun_probe_reaches_below_the_horizon_without_measuring_grass(
+        tmp_path: Path, sky: str) -> None:
+    out = tmp_path / "set-sun"
+    proc, result = run_scenario(out, "set_sun", sky=sky)
+    assert proc.returncode == 0 and result.get("status") == "ok", _report(proc, out, "render.log")
+    assert not result["data"]["qt_errors"]
+    rows = result["data"]["rows"]
+    assert [row["target"] for row in rows] == [1.0, 0.4, 0.0, -1.0, -3.0]
+    assert all(row["measured"] and row["dip_luma"] >= -MAX_SKY_DUSK_DIP for row in rows), rows
+    assert rows[-1]["elevation_deg"] < 0.0
 
 
 def test_dusk_fades_and_sunset_is_no_cliff(board) -> None:

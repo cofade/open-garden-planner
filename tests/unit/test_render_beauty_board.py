@@ -13,7 +13,9 @@ from __future__ import annotations
 import ast
 import json
 import math
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -95,6 +97,61 @@ def test_the_probes_scene_is_the_spikes_caster() -> None:
     record = board.caster_record()
     ring = pose_ring(record.transform, record.footprints[0])
     assert sorted(ring) == sorted(board.caster_footprint()) and record.height_cm == 200.0
+
+
+def test_shadow_iou_forces_flat_ground_even_with_grass_requested(monkeypatch, tmp_path) -> None:
+    from open_garden_planner.ui.view3d.quick3d import offscreen
+
+    instance = board.Board(board._parse(["--open-ground", "grass", "--meadow-surface", "2"]),
+                           tmp_path, lambda *_args, **_kwargs: None, {})
+    instance.location = {}
+    monkeypatch.setattr(board.probes, "shadow_iou", lambda *_args, **_kwargs: {"iou": 1.0})
+
+    def render(_records, *, look, sun, **_kwargs):
+        assert look.preset.meadow_surface == board.MEADOW_FLAT
+        assert not look.open_ground_grass
+        assert look.shadow == board.look_for(sun, "high").shadow
+        return SimpleNamespace(
+            image=SimpleNamespace(save=lambda _path: True, width=lambda: 1, height=lambda: 1),
+            rgba=lambda: np.zeros((1, 1, 4)), qt={}, graphics_api="", adapter="",
+            device_pixel_ratio=1.0, open_ms=0.0, breakdown_ms={}, items=1, parts=1,
+            build_failures={}, sky_builds=0)
+
+    monkeypatch.setattr(offscreen, "render_records", render)
+    instance.shadow_iou(["high"])
+
+
+def test_each_enabled_board_phase_has_its_own_watchdog(monkeypatch, qtbot, tmp_path) -> None:
+    from open_garden_planner.ui.view3d.quick3d import runlog
+
+    completed: list[str] = []
+    active: list[str] = []
+
+    @contextmanager
+    def watchdog(seconds, _log, *, what, supervised):
+        assert seconds == 780 and supervised
+        assert not active
+        active.append(what)
+        try:
+            yield
+        finally:
+            completed.append(active.pop())
+
+    def record(name):
+        def run(instance, *_args):
+            assert active == [f"beauty board: {name}"]
+            if name == "load":
+                instance.width, instance.depth = 2400.0, 1600.0
+        run.__name__ = name
+        return run
+
+    monkeypatch.setattr(runlog, "watchdog", watchdog)
+    monkeypatch.setattr(board.Board, "load", record("load"))
+    monkeypatch.setattr(board.Board, "shadow_iou", record("shadow_iou"))
+    monkeypatch.setattr(board.Board, "dusk", record("dusk"))
+    args = board._parse(["--shots", "none", "--iou", "--dusk", "--phase-watchdog-s", "780"])
+    board.run(args, tmp_path, lambda *_args, **_kwargs: None, {})
+    assert completed == ["beauty board: load", "beauty board: shadow_iou", "beauty board: dusk"]
 
 
 @pytest.mark.parametrize("size", [(640, 360), (960, 540), (1280, 720)])

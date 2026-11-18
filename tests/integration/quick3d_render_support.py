@@ -93,6 +93,12 @@ render_tier = [
     pytest.mark.timeout(900),
 ]
 
+# Full looks and living boards render many independent phases (#892). Keep the
+# original hang diagnostic per phase and a separate ceiling for the entire child.
+BOARD_PHASE_WATCHDOG_S = 780
+BOARD_PROCESS_TIMEOUT_S = 2700
+board_render_tier = [pytest.mark.timeout(BOARD_PROCESS_TIMEOUT_S + 60), *render_tier]
+
 
 #: The variables the app derives its per-user data directory from
 #: (``services/plant_library.get_app_data_dir`` reads them on every call), and the

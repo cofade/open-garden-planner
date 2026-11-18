@@ -398,11 +398,12 @@ def test_a_sky_without_an_away_band_is_not_measured() -> None:
     assert result["measured"] is False
 
 
-def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not() -> None:
+@pytest.mark.parametrize("elevation", [0.4, -3.0])
+def test_a_black_set_sun_is_a_dip_and_a_sky_without_it_is_not(elevation: float) -> None:
     """#695: the board's dusk camera had the sun behind a poplar, so a black sun with a
     dark halo survived three reviews. A sky-only frame near the sun's bearing measures it;
     the same sky without the disc does not."""
-    azimuth, elevation = 270.0, 0.4
+    azimuth = 270.0
     look = math.radians(azimuth)
     camera = P.Pinhole(
         eye=(0.0, 0.0, 160.0),

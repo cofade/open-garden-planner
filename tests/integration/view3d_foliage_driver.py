@@ -170,8 +170,19 @@ class Garden:
         self.host.set_faded_items(set(), 1.0)
         return np.abs(full.astype(np.int16) - faded.astype(np.int16)).max(axis=2) > 10
 
-    def close(self) -> None:
+    def close(self) -> bool:
+        from PyQt6 import sip
+        from PyQt6.QtCore import QCoreApplication, QEvent
+
+        view = self.host._view  # noqa: SLF001 - the native window must die, not just the Python host
         self.host.close()
+        # Run deferred Qt destruction while the app, watchdog and diagnostics
+        # are still alive, before Python starts tearing down the process (#893).
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+        QCoreApplication.processEvents()
+        if not sip.isdeleted(view):
+            raise RuntimeError("the foliage capture window survived deferred deletion")
+        return True
 
 
 def luma(rgb: np.ndarray) -> np.ndarray:
@@ -256,7 +267,7 @@ def scenario_sequence(ctx: Context) -> dict[str, Any]:
             out[subject] = row
             ctx.log("sequence", subject=subject, mask=row["mask_px"], repeat=row["repeat_max_diff"])
     finally:
-        garden.close()
+        out["window_destroyed"] = garden.close()
     return out
 
 
