@@ -1,0 +1,24 @@
+{
+  "name_en": "Wildlife garden with pond - 18 x 14 m",
+  "name_de": "Naturgarten mit Teich - 18 x 14 m",
+  "name_es": "Jardín natural con estanque - 18 x 14 m",
+  "name_ru": "Природный сад с прудом - 18 x 14 м",
+  "description_en": "A flower meadow around a pond: a boardwalk to a deck at the water, a willow on the bank, an oak with a hammock, birch, elder and wild shrubs, and drifts of chamomile, flax, borage, coneflower and pot marigold for the insects. Nothing is mown; trodden paths lead round. Made for the 3D view. Lüneburg reference; opens on a morning of 14 June 2026. Illustrative layout.",
+  "description_de": "Eine Blumenwiese um einen Teich: ein Holzsteg führt zum Deck am Wasser, am Ufer steht eine Weide, an der Eiche hängt eine Hängematte, dazu Birke, Holunder und Wildsträucher sowie Inseln aus Kamille, Lein, Borretsch, Sonnenhut und Ringelblume für die Insekten. Gemäht wird nichts; Trampelpfade führen herum. Gemacht für die 3D-Ansicht. Referenz Lüneburg; öffnet am Morgen des 14. Juni 2026. Beispielentwurf.",
+  "description_es": "Una pradera de flores alrededor de un estanque: una pasarela lleva a una tarima junto al agua, un sauce en la orilla, un roble con una hamaca, abedul, saúco y arbustos silvestres, y manchas de manzanilla, lino, borraja, equinácea y caléndula para los insectos. No se siega nada; unos senderos pisados dan la vuelta. Pensado para la vista 3D. Referencia Lüneburg; se abre una mañana del 14 de junio de 2026. Diseño ilustrativo.",
+  "description_ru": "Цветущий луг вокруг пруда: деревянный настил ведёт к площадке у воды, на берегу растёт ива, на дубе висит гамак, рядом берёза, бузина и дикие кустарники, а для насекомых — куртины ромашки, льна, огуречной травы, эхинацеи и календулы. Ничего не косят; вокруг ведут протоптанные тропинки. Создан для 3D-вида. Ориентир: Люнебург; открывается утром 14 июня 2026 года. Примерный проект.",
+  "order": 3,
+  "tags": [
+    "wildlife",
+    "pond",
+    "meadow"
+  ],
+  "showcase_date": "2026-06-14",
+  "showcase_utc_time": "06:35",
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md.",
+  "attribution_ru": "Авторы Open Garden Planner; встроенные данные видов под лицензией CC-BY-SA-4.0; см. PROVENANCE.md."
+}
