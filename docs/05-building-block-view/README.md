@@ -912,6 +912,7 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `ProjectManager.save_template` / `load(as_template=True)` | Normal atomic persistence and load preparation, with untitled-copy semantics. |
 
 | `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. `example_content(slug)` is the one source of the shipped plans and sidecars; `--check` compares them with it. |
+| `scripts/capture_readme_media.py` (#564) | Takes the README's pictures from the app's own window on the bundled plans (`Studio`: open an example, set the sidebar, the mode and the clock, grab the window with the engine's frame painted into the 3D pane). Run by hand; needs a graphics card. |
 | `scripts/example_plans/` (#940) | One module per example plan (`SLUG`, `META`, `build()`), and what they share: `plan.Plan` (the builder: shapes, buildings, plants, guild, succession, guide, distance, hint; ids from what an item is and where it stands), `i18n` (the table of words, applied by field; a missing word stops the generation), `sites` (the places), `tours` (the stored orbit and time-lapses, framed from the plan's bounds), `thumbnails`. Dev-time only: not shipped. |
 
 

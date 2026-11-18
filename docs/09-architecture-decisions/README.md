@@ -10967,6 +10967,19 @@ rotated north, stored camera tours and 61 of the 118 species.
     flower by their own months and only tender ones wait for the frost-free season; a lawn
     with the wildflower fill is a flower meadow in 3D. Everything else found became an issue:
     #941 to #949, and #839 for the seasonal 2D look.
+13. **An independent 3D review judged every plan before the pictures were taken.** Its plan
+    findings were fixed in the plans: an orbit pitch per plan, hedges in runs, plants in
+    containers instead of on planter pots, a young walnut, sown annuals at a seedling's size,
+    a dusk tour that ends in twilight. Its engine findings became #953 to #966, except two
+    that the pictures needed: flowers that can be seen at garden scale, and decision 14.
+14. **A bundled example opens in 3D on the side its stored orbit starts from**
+    (`core/camera_tours.opening_side`, `Workspace.open_from`). The default side looks into an
+    afternoon sun and, over a garden wall, at the wall. The distance stays the pane's own;
+    "Reset 3D View" and every plan that is not a bundled example keep the default side.
+15. **The README's pictures come from the shipped plans through a script** (#564):
+    `scripts/capture_readme_media.py`. A picture that cannot be re-shot goes stale with the
+    next change to the look. The download button links to the installer of one release and
+    the version sync moves it, because "the latest installer" has no fixed address.
 
 **Rejected.** Hand-drawn plans saved from the app (the generation gate compares every shipped
 file with the generator, and three languages cannot be kept in step by hand); a per-plan

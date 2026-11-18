@@ -9439,6 +9439,9 @@ Authoring rules (#940), each with what holds it:
 | Orchard and specimen trees stand as far apart as their grown crowns need. | The spacing check reports a true overlap, and a teaching plan must not open with warnings. | `test_the_spacing_diagnostics_of_the_four_examples` |
 | The hint is the plan's only text and lies alone on the top layer `Hints`. | Hide that layer and the plan is ready for a picture. | `test_the_hint_lies_alone_on_the_top_layer_and_is_the_plans_only_text`; `test_hiding_the_hint_layer_leaves_the_plan_ready_for_a_picture` |
 | Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range is a wall time on the computer's clock. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
+| A plan may give its orbit a pitch of its own (`ORBIT_PITCH_DEG`) and a start of its own (`ORBIT_SUN_OFFSET_DEG`). | At the dialog's 18 degrees a wall or a hedge hides the garden behind it; the allotment starts over its see-through front. Values were set from renders. | `Framing`; `test_an_example_is_first_seen_in_3d_from_where_its_stored_orbit_starts` |
+| A hedge longer than 8 m is drawn as runs (`authoring.runs`). | A hedge has one budget of leaves per item, and a long one renders as a painted wall (#954). | the generation gate |
+| A plant in a pot stands in a container that is its parent, never on a `PLANTER_POT`. | A planter pot is furniture: the plant sinks into it and the pot looks empty. | 3D review of #940 |
 | Every place is in Central European Time. | The clock and a tour's time range read the computer's zone; the plan's `timezone` is not read (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
 
 Keep the field-classification test aligned with ProjectData. New project fields
@@ -9446,6 +9449,15 @@ must be explicitly kept or stripped; unknown serialized top-level keys are dropp
 The filter is not a free-text anonymizer. Succession dates are retained calendar
 dates, so authors state their example year rather than claiming climate adaptation.
 See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gallery.py`.
+
+**The README's pictures (#564).** `scripts/capture_readme_media.py` takes every picture under
+`docs/images/readme/` from the app's own main window on the bundled plans: English interface,
+light theme, High quality, a temporary profile. The 3D pane is a native window that
+`QWidget.grab()` leaves empty, so the script grabs the window and paints the engine's own frame
+of the pane into it. It is run by hand on a machine with a graphics card, after a change to the
+look or to a plan; `tests/unit/test_readme_showcase.py` holds that every picture the README
+shows exists, has alt text, is written by the script and weighs at most 600 KiB, and that no
+picture is left over.
 
 ### Showcase state (#795)
 

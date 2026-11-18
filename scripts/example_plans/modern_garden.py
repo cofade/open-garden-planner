@@ -40,7 +40,7 @@ def more_tours(framing):
     """The same orbit while the evening passes: 19:15 to 21:00 on a Central European
     summer clock. The sun sets at about 20:30 in Munich in mid August, and the lamps are
     fully on when it stands three degrees under the horizon. It ends in twilight, six
-    degrees under: later, the faces turned away from the moon are black (#806)."""
+    degrees under: later, the faces turned away from the moon are black (#953)."""
     return [orbit_tour(framing.orbit(), DUSK, time_range=(time(19, 15), time(21, 0)))]
 
 

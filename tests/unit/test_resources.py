@@ -59,8 +59,10 @@ class TestResourceFiles:
             assert header[:4] == b"\x89PNG"
 
 
-class TestReadmeBanner:
-    """Tests for README.md banner integration (US-1.9)."""
+class TestReadmeTop:
+    """What the README opens with. US-1.9 put the static banner first; #564 replaced it
+    with the title, the download button and a picture of the app itself
+    (``tests/unit/test_readme_showcase.py`` holds the button and the pictures)."""
 
     @pytest.fixture
     def readme_path(self) -> Path:
@@ -71,23 +73,8 @@ class TestReadmeBanner:
         """Test that README.md exists."""
         assert readme_path.exists()
 
-    def test_readme_contains_banner_reference(self, readme_path: Path) -> None:
-        """Test that README.md contains the banner image reference (US-1.9)."""
+    def test_readme_opens_with_the_title_and_shows_the_app_not_the_banner(self, readme_path: Path) -> None:
         content = readme_path.read_text(encoding="utf-8")
-        assert "banner.png" in content, "README.md should reference banner.png"
-
-    def test_readme_banner_is_at_top(self, readme_path: Path) -> None:
-        """Test that the banner image is at the top of README.md."""
-        content = readme_path.read_text(encoding="utf-8")
-        lines = content.strip().split("\n")
-        # First non-empty line should be the banner image
-        first_line = lines[0].strip()
-        assert first_line.startswith("!["), "README should start with banner image"
-        assert "banner.png" in first_line
-
-    def test_readme_banner_image_syntax(self, readme_path: Path) -> None:
-        """Test that the banner uses correct Markdown image syntax."""
-        content = readme_path.read_text(encoding="utf-8")
-        # Check for proper markdown image syntax ![alt](path)
-        assert "![" in content
-        assert "](src/open_garden_planner/resources/icons/banner.png)" in content
+        assert content.lstrip().startswith("# Open Garden Planner\n")
+        assert "banner.png" not in content, "the hero picture stands where the banner stood"
+        assert "](docs/images/readme/hero.jpg)" in content

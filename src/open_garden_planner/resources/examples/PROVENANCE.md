@@ -20,7 +20,7 @@ models, textures, satellite images or reads from the owner's custom plant librar
 | `spring-garden.ogp` | 14 × 10 m on an April day: **191 plants**, of them 64 crocus, 58 daffodils and 44 tulips planted the autumn before, with magnolia, cherry, plum, apple, forsythia, lilac and rhododendron. The west tulip bed has a fictional soil sample. A second stored tour holds the camera while the year 2026 passes. |
 | `wildlife-garden.ogp` | 18 × 14 m flower meadow around a pond: **118 plants**: willow, oak, birch, two elders, viburnum, barberry and holly, six irises on the bank, and drifts of pot marigold, cosmos, flax, chamomile, borage, coneflower, valerian, chicory and hyssop. A boardwalk and a deck at the water, a hammock, trodden paths. The meadow is a lawn with the wildflower fill. |
 | `mediterranean-courtyard.ogp` | 12 × 10 m walled patio: **23 plants**: an olive, a fig and a windmill palm in gravel beds, a lemon and an orange in tubs, two grape vines on the pergola, lavender, rosemary, sage and thyme along the walls, pelargoniums in four pots. A house with a hip roof, a plunge pool in a terracotta surround, two loungers, a string of lights and four lanterns. |
-| `modern-garden.ogp` | 15 × 12 m: **22 plants**: a red Japanese maple, five box spheres, miscanthus and lavender in three corten beds, a bamboo screen. A flat-roofed bungalow, a slate terrace with hot tub, loungers and fire pit, a reflecting pool, ten lanterns and a string of lights. Four guide lines carry the grid. A second stored tour runs the orbit from 19:15 to 21:45 on the computer's clock. No harvest history: nothing here is eaten. |
+| `modern-garden.ogp` | 15 × 12 m: **22 plants**: a red Japanese maple, five box spheres, miscanthus and lavender in three corten beds, a bamboo screen. A flat-roofed bungalow, a slate terrace with hot tub, loungers and fire pit, a reflecting pool, ten lanterns and a string of lights. Four guide lines carry the grid. A second stored tour runs the orbit from 19:15 to 21:00 on the computer's clock. No harvest history: nothing here is eaten. |
 | `japanese-garden.ogp` | 12 × 10 m: **30 plants**: two red Japanese maples, a birch, two pines, eight bamboos, three rhododendrons, four box, three miscanthus, six irises and a juniper. A raked sand court with two moss islands and three rocks, a pond with a plank bridge, a tea house with a hip roof and a timber veranda, slate, pebbles and stepping stones, three lanterns. No harvest history. |
 
 The root `.ogp` files are canonical English. `de/` and `es/` hold localized
@@ -29,34 +29,55 @@ planting dates, links and canonical artwork species strings. Object names, speci
 common-name snapshots, layer names, guild text, succession display names, soil notes
 and tutorial annotations are translated. Domain codes such as `edible_parts` remain
 canonical. Root `.meta.json` files provide localized names/descriptions/attributions;
-root PNGs show the English plan, while matching `de/` and `es/` PNGs are rendered
-from each saved localized plan, including its translated tutorial notes. No location
+there is one PNG per plan, rendered from the English plan at its showcase moment with
+the hint layer hidden, so a thumbnail carries no words in any language (#940). No location
 or soil state is copied into
 ordinary user-exported templates; the separately validated bundled-example copy path
 retains these explicit demonstration records.
 
 ## Site and date conventions
 
-The teaching date is **21 September 2026**. The family garden is at its best on
-**21 June 2026**, the date of the Beauty Board. Since #795 an example opens on its
-date with a daytime sun: each sidecar names `showcase_date` and `showcase_utc_time`
-(11:00 UTC, which is 13:00 on a wall clock in all four places, about a quarter of an
-hour before solar noon in Berlin). The application moves its session clock there
-while the example is open and puts the user's own reading back with the next
-document; nothing is saved in settings or in a plan. The balcony also invites a
-**21 June 2026, 15:00 local time** shadow comparison.
+Every example opens on a day and in a light of its own (#795, #940): its sidecar
+names `showcase_date` and `showcase_utc_time`, the application moves its session clock
+there while the example is open and puts the user's own reading back with the next
+document. Nothing is saved in settings or in a plan. The three teaching plans keep
+**21 September 2026**, the family garden **21 June 2026**, each at 11:00 UTC. The
+balcony also invites a **21 June 2026, 15:00 local time** shadow comparison.
 
-| Plan | Rounded public city reference | Time zone |
-| --- | --- | --- |
-| Raised bed | Berlin, 52.5200° N, 13.4050° E | `Europe/Berlin` |
-| Food forest | Bonn, 50.7374° N, 7.0982° E | `Europe/Berlin` |
-| Balcony | Freiburg im Breisgau, 47.9990° N, 7.8421° E | `Europe/Berlin` |
-| Family garden | Berlin, 52.5200° N, 13.4050° E | `Europe/Berlin` |
+All thirteen places lie in the Central European time zone, because the session clock
+and the time-of-day tours read the computer's zone, not the plan's (#945): on a
+computer set to it, the local times below are what the toolbar shows.
+
+| Plan | Rounded public city reference | Opens on (UTC; local) | Sun at that moment | Frost dates stored (last / first) |
+| --- | --- | --- | --- | --- |
+| Family garden | Berlin, 52.5200° N, 13.4050° E | 21 June 2026, 11:00; 13:00 | 61° up, south | 9 April / 31 October |
+| Mediterranean courtyard | Valencia, 39.4699° N, 0.3763° W | 21 June 2026, 18:25; 20:25 | 11° up, west-north-west | 1 February / 20 December |
+| Wildlife garden | Lüneburg, 53.2464° N, 10.4115° E | 14 June 2026, 06:35; 08:35 | 30° up, east | 5 May / 15 October |
+| Japanese garden | Düsseldorf, 51.2277° N, 6.7735° E | 20 October 2026, 13:50; 15:50 | 20° up, south-west | 10 April / 5 November |
+| Modern garden | Munich, 48.1351° N, 11.5820° E | 15 August 2026, 17:40; 19:40 | 7° up, west | 1 May / 15 October |
+| Cottage garden | Bamberg, 49.8988° N, 10.9028° E | 20 June 2026, 09:00; 11:00 | 52° up, south-east | 5 May / 12 October |
+| Spring garden | Heidelberg, 49.3988° N, 8.6724° E | 18 April 2026, 11:00; 13:00 | 51° up, south | 8 April / 1 November |
+| Terraced-house garden | Cologne, 50.9375° N, 6.9603° E | 21 June 2026, 16:15; 18:15 | 30° up, west | 10 April / 5 November |
+| Allotment | Leipzig, 51.3397° N, 12.3731° E | 18 July 2026, 07:00; 09:00 | 32° up, east | 25 April / 20 October |
+| Food forest | Bonn, 50.7374° N, 7.0982° E | 21 September 2026, 11:00; 13:00 | 40° up, south | 15 May / 15 October |
+| Roof terrace | Vienna, 48.2082° N, 16.3738° E | 12 July 2026, 08:30; 10:30 | 50° up, south-east | 15 April / 25 October |
+| Raised bed | Berlin, 52.5200° N, 13.4050° E | 21 September 2026, 11:00; 13:00 | 38° up, south | 15 May / 15 October |
+| Balcony | Freiburg im Breisgau, 47.9990° N, 7.8421° E | 21 September 2026, 11:00; 13:00 | 42° up, south | 15 May / 15 October |
+
+The terraced-house garden's true north is turned by 35 degrees; every other plan has
+north at the top. Each plan stores a camera tour named "Garden orbit": one turn around
+the plan that starts with the showcase sun behind the camera (the allotment starts over
+its see-through front fence instead) and looks down at a pitch chosen per plan, so
+that a wall or a hedge does not hide the garden. Three plans store a second tour: the
+modern garden's orbit from 19:15 to 21:00, the spring garden's held camera through
+the year 2026, the terraced-house garden's held camera from 06:00 to 21:00. A bundled
+example's 3D view opens on the side its orbit starts from.
 
 These coordinates are city references, not the address of a surveyed garden or
-balcony. The three teaching plans store **fictional example frost dates** of 15 May /
-15 October; the family garden has the bench plan's 9 April / 31 October. None of these
-are local climate statistics or a forecast. Both soil records are clearly
+balcony. The frost dates in the table are **fictional example dates**, chosen to be
+plausible for the place and stored so that calendars and bloom have something to work
+with; the family garden has the bench plan's. None of these are local climate
+statistics or a forecast. Both soil records are clearly
 labelled **fictional teaching samples**, dated 20 May 2026: pH 6.5, Rapitest N1/P2/K3,
 loamy texture. They are not observations or a fertilization prescription.
 
@@ -73,6 +94,14 @@ entry; not a real harvest record.", translated in `de/` and `es/`).
 | Food forest | apple (3), peach (3), currant (3), strawberry (4), runner bean (3), chives (3), carrot (1) | 2025 and 2026, up to 18 September |
 | Raised bed | lettuce (2), carrot (2), chives (5), pot marigold (2) | 2025 (chives) and 2026, up to 19 September |
 | Balcony | basil (4), thyme (4), parsley (1) | 2025 (thyme) and 2026, up to 14 September |
+| Allotment | strawberry (3), garden pea (3), potato (1), lettuce (2), rhubarb (3), raspberry (3), currant (2), plum (1) | 2025 and 2026, up to 15 July |
+| Cottage garden | lettuce (2), strawberry (3), chives (3), currant (2), sage (2) | 2024 to 2026, up to 17 June |
+| Terraced-house garden | lettuce (2), strawberry (3), sage (1) | 2025 and 2026, up to 18 June |
+| Roof terrace | strawberry (3), basil (2), lettuce (2), thyme (2) | 2025 and 2026, up to 5 July |
+| Spring garden | chives (3), rhubarb (2), thyme (2) | 2024 to 2026, up to 11 April |
+| Wildlife garden | chamomile (2), borage (1), pot marigold (1) | 2025 and 2026, up to 10 June |
+| Mediterranean courtyard | rosemary (2), sage (1), thyme (2) | 2025 and 2026, up to 13 June |
+| Modern garden, Japanese garden | none: nothing in them is eaten | |
 
 The records of a species sit on one plant of it (the one nearest the plan's
 south-west corner), as a harvest logged from that plant's context menu would. No date
@@ -103,6 +132,20 @@ peach 6 m / 5 m, currant 1.8 m / 1.5 m. No species maxima were changed for appea
 Strawberries date from April 2024, chives April 2021, thyme May 2023; basil and
 runner beans from 20 May 2026, parsley 20 August 2026. The forest's sunny root strip
 contains June-sown carrots, not last year's garlic left unharvested into autumn.
+
+### Sizes in the plans added with #940
+
+The application grows a plant from its planting date and its size at planting. In the
+nine plans added with #940 an established tree, shrub or perennial therefore carries a
+recent planting date (1 March 2026, or 25 October 2025 where it must stand through
+the winter) together with the size it is meant to have on the showcase day, instead of
+a nursery size years back that the growth model would turn into a full-grown tree in a
+tub. Sown annuals carry their sowing date and a seedling's size. These dates describe
+how the plan is drawn, not a planting recommendation. The food forest's walnut is a
+young tree planted on 5 November 2025; its six asters stand at its canopy edge.
+
+A long hedge is drawn as runs of at most 8 m, which is how it keeps its leaves in the
+3D view; the runs carry the same name.
 
 ## Placement brief and sources
 

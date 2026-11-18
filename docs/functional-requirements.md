@@ -1278,7 +1278,8 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   examples store a second tour: the modern garden's runs from evening into night and the
   garden lights come on, the terraced-house garden's holds the camera while a day's shadows
   pass, the spring garden's holds it while the year 2026 passes. A tour's time of day is
-  read on the computer's clock.
+  read on the computer's clock. An example's 3D view opens on the side its orbit starts
+  from, at the distance that fits the view; **Reset 3D View** goes to the default side.
 - **FR-EXAMPLE-14** (#940): The examples lie in eleven German and Austrian places and in
   Valencia, and show, between them: a rotated north, guide lines and distance constraints, a
   succession plan, soil samples, three guilds, container planting, a flower meadow, garden
