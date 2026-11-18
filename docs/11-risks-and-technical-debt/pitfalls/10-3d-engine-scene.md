@@ -494,3 +494,18 @@ for this Qt Multimedia probe; a driver invocation failure is not a successful re
 - **Source:** #891; ADR-072 reliability addendum.
 - **Status:** standing
 - **Legacy:** none (new entry)
+
+### PF-E3D-35
+
+- **Rule:** Complete deferred Qt Quick window deletion inside the render driver's watchdog before reporting a successful result.
+- **Pinned by:** `tests/integration/test_view3d_foliage_render.py::test_foliage_capture_releases_the_native_window_before_process_exit`
+- **Source:** #893
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The foliage driver wrote `status: ok` before a native process-exit crash. The
+local trace confirmed that the window survived `Quick3DHost.close()`, which
+schedules `deleteLater()`. The driver now processes deferred deletions while
+Qt and the watchdog are live and requires the native window to be gone. The
+parent still requires a clean exit. The historical crash has no native stack
+trace that identifies the failing Qt call.

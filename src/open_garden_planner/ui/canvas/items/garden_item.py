@@ -332,9 +332,7 @@ class SuccessionBadgeItem(QGraphicsItem):
 
 def enable_device_coordinate_cache(item: QGraphicsItem) -> None:
     """Enable DeviceCoordinateCache for static items to speed up repaints."""
-    mode = QGraphicsItem.CacheMode
-    item.setCacheMode(mode.NoCache if getattr(item, "_needs_live_spacing_paint", False)
-                      else mode.DeviceCoordinateCache)
+    item.setCacheMode(QGraphicsItem.CacheMode.DeviceCoordinateCache)
 
 
 def disable_cache(item: QGraphicsItem) -> None:

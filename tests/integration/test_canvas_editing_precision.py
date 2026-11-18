@@ -168,3 +168,99 @@ def test_shrinking_past_handle_threshold_keeps_grab_until_release(shown_canvas):
     assert item.rect().width() < 16 and item.rect().height() < 16
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, pos=end)
     assert not any(h.isVisible() for h in item._resize_handles)
+
+
+def test_box_selection_over_position_locked_lawn_selects_plants_not_lawn(shown_canvas):
+    """Dragging from/over a position-locked lawn draws a selection box for plants; clicking selects the lawn."""
+    from open_garden_planner.core.constraints import AnchorRef, AnchorType, ConstraintType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    view, scene = shown_canvas
+    lawn = PolygonItem(
+        [
+            QPointF(0.0, 0.0),
+            QPointF(2500.0, 0.0),
+            QPointF(2500.0, 1500.0),
+            QPointF(0.0, 1500.0),
+        ],
+        object_type=ObjectType.LAWN,
+    )
+    scene.addItem(lawn)
+    anchor = AnchorRef(lawn.item_id, AnchorType.CENTER)
+    scene.constraint_graph.add_constraint(
+        anchor,
+        anchor,
+        0.0,
+        constraint_type=ConstraintType.FIXED,
+        target_x=1250.0,
+        target_y=750.0,
+    )
+    assert lawn.is_position_locked()
+
+    plant_a = CircleItem(500.0, 600.0, 40.0, object_type=ObjectType.PERENNIAL)
+    plant_b = CircleItem(700.0, 600.0, 40.0, object_type=ObjectType.PERENNIAL)
+    scene.addItem(plant_a)
+    scene.addItem(plant_b)
+
+    view.set_zoom(1.0)
+    view.centerOn(QPointF(600.0, 600.0))
+
+    # Clicking the locked lawn without dragging still selects it so the user can unlock it.
+    lawn_only_pt = view.mapFromScene(QPointF(300.0, 400.0))
+    QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=lawn_only_pt)
+    assert scene.selectedItems() == [lawn]
+
+    # Dragging a box starting on the locked lawn across both plants selects only the plants.
+    drag_start = view.mapFromScene(QPointF(400.0, 750.0))
+    drag_mid = view.mapFromScene(QPointF(600.0, 600.0))
+    drag_end = view.mapFromScene(QPointF(800.0, 450.0))
+    QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, pos=drag_start)
+    QTest.mouseMove(view.viewport(), drag_mid)
+    select_tool = view.active_tool
+    assert select_tool._is_box_selecting
+    assert select_tool._box_item is not None
+    QTest.mouseMove(view.viewport(), drag_end)
+    QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, pos=drag_end)
+
+    assert set(scene.selectedItems()) == {plant_a, plant_b}
+    assert not lawn.isSelected()
+
+
+def test_box_selection_starting_on_locked_layer_item_selects_unlocked_plants(shown_canvas):
+    """Starting a drag on an item in a locked layer draws a box and selects unlocked items."""
+    from open_garden_planner.models.layer import Layer
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    view, scene = shown_canvas
+    bg_layer = Layer(name="Background", z_order=0, locked=True)
+    fg_layer = scene.active_layer
+    scene.set_layers([bg_layer, fg_layer])
+
+    lawn = PolygonItem(
+        [
+            QPointF(0.0, 0.0),
+            QPointF(2500.0, 0.0),
+            QPointF(2500.0, 1500.0),
+            QPointF(0.0, 1500.0),
+        ],
+        object_type=ObjectType.LAWN,
+        layer_id=bg_layer.id,
+    )
+    scene.addItem(lawn)
+    scene.update_layer_lock(bg_layer.id, True)
+    assert not bool(lawn.flags() & lawn.GraphicsItemFlag.ItemIsSelectable)
+
+    plant = CircleItem(600.0, 600.0, 40.0, object_type=ObjectType.PERENNIAL, layer_id=fg_layer.id)
+    scene.addItem(plant)
+
+    view.set_zoom(1.0)
+    view.centerOn(QPointF(600.0, 600.0))
+
+    drag_start = view.mapFromScene(QPointF(450.0, 750.0))
+    drag_end = view.mapFromScene(QPointF(750.0, 450.0))
+    QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, pos=drag_start)
+    QTest.mouseMove(view.viewport(), drag_end)
+    assert view.active_tool._is_box_selecting
+    QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, pos=drag_end)
+
+    assert scene.selectedItems() == [plant]

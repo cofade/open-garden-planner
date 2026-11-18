@@ -15,6 +15,10 @@ AI-assisted contributions are welcome. Contributors remain responsible for the c
 Every user story requires an end-to-end integration test. Bug fixes need an appropriate regression test.
 Documentation changes require documentation checks, not an unrelated UI test.
 
+Changes to 3D rendering can use the real-engine render tier and Beauty Board for
+pixel evidence. The [render-tier guide](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#8108-the-3d-render-tier-phase-17-l12)
+explains the graphics backends, local commands and artifact logs.
+
 ## Community policies
 
 - [Code of Conduct](https://github.com/cofade/open-garden-planner/blob/master/CODE_OF_CONDUCT.md)

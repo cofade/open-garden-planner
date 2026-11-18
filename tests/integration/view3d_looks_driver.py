@@ -580,8 +580,19 @@ def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
         pump()
 
 
+def scenario_set_sun(ctx: Context) -> dict[str, Any]:
+    from scripts import render_beauty_board as board
+
+    args = board._parse(["--size", "1280x720", "--sky", ctx.arguments["sky"]])
+    run = board.Board(args, ctx.out, ctx.log, {})
+    run.load()
+    return {"rows": run.sky_dusk(310.82, "high", "clear"),
+            "qt_errors": run.qt_errors}
+
+
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "sky_sequence": scenario_sky_sequence,
+    "set_sun": scenario_set_sun,
     "atmosphere_sequence": scenario_atmosphere_sequence,
     "wind": scenario_wind,
     "controller": scenario_controller,

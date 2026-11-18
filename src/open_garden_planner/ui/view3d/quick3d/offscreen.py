@@ -208,6 +208,7 @@ def render_records(
     lamps: Sequence[tuple[float, float, float, float]] = (),
     sky_probe: bool = True,
     fitted_shadows: bool = False,
+    show_meadow: bool = True,
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -216,7 +217,8 @@ def render_records(
     this inside the running app.
 
     ``sun=None``: no sunlight (fill only). ``ground=None``: the endless meadow
-    without a plan rectangle. ``ground_baker``: paints the plan's flat surfaces
+    without a plan rectangle. ``show_meadow=False`` omits the meadow, for probes
+    that need to see the sky below the horizon. ``ground_baker``: paints the plan's flat surfaces
     onto that rectangle (``ui.view3d.ground_bake.GroundBaker()``, L1.5); without
     one the plan ground is bare. The picture shows the finished ground: a baker
     with a time budget is run until nothing is pending (``GroundBaker(budget_s=
@@ -270,7 +272,8 @@ def render_records(
     try:
         with qt_messages.graphics_info() if graphics_info else contextlib.nullcontext():
             host = Quick3DHost(size, qml_dir=qml_dir, look=look, log=emit,
-                               prefer_software=prefer_software, sky_probe=sky_probe)
+                               prefer_software=prefer_software, sky_probe=sky_probe,
+                               show_meadow=show_meadow)
             breakdown["qml_load"] = host.qml_load_ms
             api = host.graphics_api()
             if not host.renders_3d():

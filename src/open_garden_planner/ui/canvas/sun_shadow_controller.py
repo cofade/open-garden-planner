@@ -993,7 +993,7 @@ class SunShadowController(QObject):
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
         self._debounce.setInterval(_DEBOUNCE_MS)
-        self._debounce.timeout.connect(self.recompute_now)
+        self._debounce.timeout.connect(self._on_debounce_timeout)
         # After the last step of a zoom the overlay is rasterised for it (#784).
         self._settle = QTimer(self)
         self._settle.setSingleShot(True)
@@ -1109,6 +1109,18 @@ class SunShadowController(QObject):
             return
         with contextlib.suppress(RuntimeError):  # #230 teardown guard
             self._debounce.start()
+
+    def _on_debounce_timeout(self) -> None:
+        """Run debounced recompute once any active canvas drag finishes."""
+        try:
+            views = self._scene.views()
+        except (RuntimeError, AttributeError):
+            views = []
+        if any(getattr(v, "is_interacting", False) for v in views):
+            with contextlib.suppress(RuntimeError):  # #230 teardown guard
+                self._debounce.start()
+            return
+        self.recompute_now()
 
     def recompute_now(self) -> None:
         """Recompute the overlay immediately (empty states short-circuit)."""

@@ -4551,6 +4551,12 @@ class GardenPlannerApp(QMainWindow):
         """
         import math
 
+        view = getattr(self, "canvas_view", None)
+        if view is not None and getattr(view, "is_interacting", False):
+            with contextlib.suppress(RuntimeError):
+                self._companion_update_timer.start()
+            return
+
         try:
             scene_items = self.canvas_scene.items()
         except RuntimeError:
@@ -4561,7 +4567,6 @@ class GardenPlannerApp(QMainWindow):
         # left with a stale ring/badge); only named plants take part in the
         # relationship scan.
         canvas_plants = [it for it in scene_items if self._is_canvas_plant(it)]
-        all_plants = [it for it in canvas_plants if self.canvas_scene.is_present(it) and self._companion_species_name(it)]
 
         # Desired final state per plant, computed before any setter call so
         # each item is mutated at most once this pass.
@@ -4569,24 +4574,34 @@ class GardenPlannerApp(QMainWindow):
         warnings: dict[int, bool] = {id(it): False for it in canvas_plants}
 
         if self._companion_warnings_enabled:
-            # 1. Selection-based coloured rings (beneficial / antagonistic)
-            selected_plants = [it for it in self._effective_selection() if it in all_plants]
-            for selected_plant in selected_plants:
-                sel_center = selected_plant.mapToScene(selected_plant.rect().center())  # type: ignore[attr-defined]
-                sel_species = self._companion_species_name(selected_plant)
+            plant_records: list[tuple[object, float, float, str]] = []
+            for it in canvas_plants:
+                if not self.canvas_scene.is_present(it):
+                    continue
+                species = self._companion_species_name(it)
+                if not species:
+                    continue
+                center = it.mapToScene(it.rect().center())  # type: ignore[attr-defined]
+                plant_records.append((it, center.x(), center.y(), species))
 
-                for other in all_plants:
+            by_id = {id(rec[0]): rec for rec in plant_records}
+            radius = self._companion_radius_cm
+
+            # 1. Selection-based coloured rings (beneficial / antagonistic)
+            for selected_plant in self._effective_selection():
+                sel_rec = by_id.get(id(selected_plant))
+                if sel_rec is None:
+                    continue
+                _, sel_x, sel_y, sel_species = sel_rec
+
+                for other, other_x, other_y, other_species in plant_records:
                     if other is selected_plant:
                         continue
-                    other_center = other.mapToScene(other.rect().center())  # type: ignore[attr-defined]
-                    dist = math.hypot(
-                        sel_center.x() - other_center.x(),
-                        sel_center.y() - other_center.y(),
-                    )
-                    if dist > self._companion_radius_cm:
+                    if abs(sel_x - other_x) > radius or abs(sel_y - other_y) > radius:
+                        continue
+                    if math.hypot(sel_x - other_x, sel_y - other_y) > radius:
                         continue
 
-                    other_species = self._companion_species_name(other)
                     rel = self._companion_service.get_relationship(sel_species, other_species)
                     if rel is None:
                         continue
@@ -4598,19 +4613,15 @@ class GardenPlannerApp(QMainWindow):
                         highlights[id(other)] = BENEFICIAL
 
             # 2. Permanent warning badge: show on any plant that has an antagonist nearby
-            for plant_a in all_plants:
-                center_a = plant_a.mapToScene(plant_a.rect().center())  # type: ignore[attr-defined]
-                species_a = self._companion_species_name(plant_a)
-                for plant_b in all_plants:
+            for plant_a, xa, ya, species_a in plant_records:
+                for plant_b, xb, yb, species_b in plant_records:
                     if plant_b is plant_a:
                         continue
-                    center_b = plant_b.mapToScene(plant_b.rect().center())  # type: ignore[attr-defined]
-                    dist = math.hypot(center_a.x() - center_b.x(), center_a.y() - center_b.y())
-                    if dist > self._companion_radius_cm:
+                    if abs(xa - xb) > radius or abs(ya - yb) > radius:
                         continue
-                    rel = self._companion_service.get_relationship(
-                        species_a, self._companion_species_name(plant_b)
-                    )
+                    if math.hypot(xa - xb, ya - yb) > radius:
+                        continue
+                    rel = self._companion_service.get_relationship(species_a, species_b)
                     if rel is not None and rel.type == ANTAGONISTIC:
                         warnings[id(plant_a)] = True
                         break  # one antagonist is enough
@@ -4645,6 +4656,12 @@ class GardenPlannerApp(QMainWindow):
         final state then set once (issue #305).
         """
         import math
+
+        view = getattr(self, "canvas_view", None)
+        if view is not None and getattr(view, "is_interacting", False):
+            with contextlib.suppress(RuntimeError):
+                self._spacing_update_timer.start()
+            return
 
         # Container capacity is independent of the spacing-circle toggle, so it
         # runs first — on the same triggers (timer, selection, create/move).
@@ -4770,10 +4787,13 @@ class GardenPlannerApp(QMainWindow):
         per plant the spacing circle of every neighbour it is too close to.
         """
         # Filter to plants that have spacing data
-        with_data = [
-            p for p in plants
-            if p.effective_spacing_radius() is not None
-        ]
+        with_data = []
+        radii: list[float] = []
+        for p in plants:
+            radius = p.effective_spacing_radius()
+            if radius is not None:
+                with_data.append(p)
+                radii.append(radius)
         if len(with_data) < 2:
             # Single plant with data gets "ideal"
             for p in with_data:
@@ -4789,30 +4809,34 @@ class GardenPlannerApp(QMainWindow):
         # A tree and what grows under its crown share ground on purpose, so a
         # pair is compared within its storey only (core.plant_sizing, #786).
         storeys = [spacing_storey_for_item(p) for p in with_data]
+        centers = [p.mapToScene(p.rect().center()) for p in with_data]
 
         for i, plant_a in enumerate(with_data):
-            center_a = plant_a.mapToScene(plant_a.rect().center())
-            radius_a = plant_a.effective_spacing_radius()
+            center_a = centers[i]
+            ax, ay = center_a.x(), center_a.y()
+            radius_a = radii[i]
+            storey_a = storeys[i]
 
             for j in range(i + 1, len(with_data)):
                 plant_b = with_data[j]
-                center_b = plant_b.mapToScene(plant_b.rect().center())
-                radius_b = plant_b.effective_spacing_radius()
+                center_b = centers[j]
+                bx, by = center_b.x(), center_b.y()
+                radius_b = radii[j]
 
                 dist = distance(  # type: ignore[operator]
-                    center_a.x() - center_b.x(),
-                    center_a.y() - center_b.y(),
+                    ax - bx,
+                    ay - by,
                 )
 
-                if spacings_conflict(dist, radius_a, radius_b, storeys[i], storeys[j]):
+                if spacings_conflict(dist, radius_a, radius_b, storey_a, storeys[j]):
                     overlap_set.add(id(plant_a))
                     overlap_set.add(id(plant_b))
                     if conflicts is not None:
                         conflicts.setdefault(id(plant_a), []).append(
-                            (center_b.x(), center_b.y(), radius_b)
+                            (bx, by, radius_b)
                         )
                         conflicts.setdefault(id(plant_b), []).append(
-                            (center_a.x(), center_a.y(), radius_a)
+                            (ax, ay, radius_a)
                         )
 
         for plant in with_data:

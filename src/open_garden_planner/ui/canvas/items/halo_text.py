@@ -195,10 +195,17 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         self._outline_key: tuple[str, str] | None = None
         self._outline = QPainterPath()
         self._measured: tuple[QRectF, float] | None = None
+        self._cached_bounding_rect: QRectF | None = None
+        self._cached_bounding_rect_above: tuple[bool, float] | None = None
         self._picture_key: tuple[str, str, int, int, float] | None = None
         self._picture_cache = QPixmap()
         self.setBrush(QColor(0, 0, 0))
         self.setFont(self.font())
+
+    def prepareGeometryChange(self) -> None:
+        """Invalidate cached bounding rect when Qt geometry changes."""
+        super().prepareGeometryChange()
+        self._cached_bounding_rect = None
 
     def setFont(self, font: QFont) -> None:
         """Set the font; the text's measured size is taken again."""
@@ -206,12 +213,14 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         font.setStyleStrategy(font.styleStrategy() | QFont.StyleStrategy.NoSubpixelAntialias)
         super().setFont(font)
         self._measured = None
+        self._cached_bounding_rect = None
         note_edit_decoration_changed(self)
 
     def setText(self, text: str | None) -> None:
         """Set the text; its measured size is taken again."""
         super().setText(text)
         self._measured = None
+        self._cached_bounding_rect = None
         note_edit_decoration_changed(self)
 
     def _measure(self) -> tuple[QRectF, float]:
@@ -281,8 +290,19 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         return QPointF(dx, dy)
 
     def boundingRect(self) -> QRectF:
+        above = self._stacked_under
+        above_key = (
+            (True, above._measure()[0].height())
+            if above is not None and above.isVisible()
+            else None
+        )
+        if self._cached_bounding_rect is not None and self._cached_bounding_rect_above == above_key:
+            return self._cached_bounding_rect
         margin = self._measure()[1]
-        return self.text_rect().adjusted(-margin, -margin, margin, margin)
+        rect = self.text_rect().adjusted(-margin, -margin, margin, margin)
+        self._cached_bounding_rect = rect
+        self._cached_bounding_rect_above = above_key
+        return rect
 
     def shape(self) -> QPainterPath:
         path = QPainterPath()

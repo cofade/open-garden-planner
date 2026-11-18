@@ -1409,6 +1409,16 @@
     "state": "OPEN",
     "title": "Partial and full repaint differ by a few pixels at a selected item's handles"
   },
+  "885": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Shadow IoU probe renders the grass texture; its ground should be flat"
+  },
+  "886": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board never ends with status ok: the set-sun sky dip check fails on master too"
+  },
   "889": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1423,6 +1433,16 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "A saved orbit with a field of view of 0 or 180 is kept but cannot be flown"
+  },
+  "892": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Looks and living render boards exceed their 780 s watchdog on a loaded machine"
+  },
+  "893": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Intermittent access violation at exit of a 3D render driver after a clean run"
   },
   "896": {
     "is_pr": false,

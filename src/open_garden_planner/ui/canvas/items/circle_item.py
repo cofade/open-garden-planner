@@ -40,6 +40,7 @@ from .resize_handle import (
 )
 
 _UNSET_DATE = object()
+_UNSET_RING = object()
 
 
 def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
@@ -191,6 +192,10 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         self._cached_bounding_rect_spread: Any = None
         self._cached_bounding_rect_diam: Any = None
         self._cached_bounding_rect_pdate: Any = None
+        self._cached_visual_diameter: float | None = None
+        self._cached_visual_diameter_key: tuple[Any, ...] | None = None
+        self._cached_spacing_ring_cm: Any = _UNSET_RING
+        self._cached_spacing_ring_cm_key: tuple[Any, ...] | None = None
         self._cached_spacing_ring: tuple[
             tuple[Any, ...], tuple[tuple[float, float], ...], QPainterPath
         ] | None = None
@@ -292,6 +297,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         super().prepareGeometryChange()
         self._cached_bounding_rect = None
         self._cached_bounding_rect_date = _UNSET_DATE
+        self._cached_visual_diameter = None
+        self._cached_spacing_ring_cm = _UNSET_RING
         self._cached_spacing_ring = None
 
     def setRect(self, *args: Any) -> None:
@@ -299,6 +306,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         super().setRect(*args)
         self._cached_bounding_rect = None
         self._cached_bounding_rect_date = _UNSET_DATE
+        self._cached_visual_diameter = None
+        self._cached_spacing_ring_cm = _UNSET_RING
         self._cached_spacing_ring = None
 
     def setPen(self, *args: Any) -> None:
@@ -325,7 +334,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             and self._cached_bounding_rect_diam == diam
             and self._cached_bounding_rect_pdate == pdate
         ):
-            return QRectF(self._cached_bounding_rect)
+            return self._cached_bounding_rect
 
         base = super().boundingRect()
         if is_plant_type(self.object_type):
@@ -397,9 +406,26 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         """
         if not self._spacing_circles_visible or not is_plant_type(self.object_type):
             return None
-        if not (self.isSelected() or self._spacing_overlap == "overlap"):
+        selected = self.isSelected()
+        if not (selected or self._spacing_overlap == "overlap"):
             return None
-        return sizing_for_item(self).spacing_ring_radius_cm
+        meta = self._metadata
+        species = meta.get("plant_species") if isinstance(meta, dict) else None
+        key = (
+            self._spacing_circles_visible,
+            self._spacing_overlap,
+            selected,
+            self._radius,
+            self._spacing_radius_cm,
+            id(species) if isinstance(species, dict) else None,
+            self.object_type,
+        )
+        if self._cached_spacing_ring_cm is not _UNSET_RING and self._cached_spacing_ring_cm_key == key:
+            return self._cached_spacing_ring_cm  # type: ignore[no-any-return]
+        result = sizing_for_item(self).spacing_ring_radius_cm
+        self._cached_spacing_ring_cm = result
+        self._cached_spacing_ring_cm_key = key
+        return result
 
     def _spacing_ring_data(
         self, spacing_r: float
@@ -507,6 +533,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         scene = self.scene()
         if scene is None:
             return
+        if not scene.selectedItems():
+            return
         world = painter.worldTransform()
         inverse, invertible = world.inverted()
         if not invertible:
@@ -525,6 +553,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         excluded = excluded.intersected(interest)
         if excluded.isEmpty():
             return
+        clipped_items = getattr(scene, "_clipped_spacing_ring_items", None)
+        if clipped_items is not None:
+            clipped_items.add(self)
         clip = QPainterPath()
         clip.addRect(self.boundingRect())
         clip = clip.subtracted(inverse.map(excluded))
@@ -543,14 +574,29 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         the shadow, which already did this. Falls back to the footprint
         diameter, unchanged, for a plant with no growth data set.
         """
-        species = self.metadata.get("plant_species")
+        meta = self.metadata
+        species = meta.get("plant_species") if isinstance(meta, dict) else None
         if not isinstance(species, dict):
             return footprint_diameter
-        day = getattr(self.scene(), "drawn_plan_date", None) or date.today()
+        scene = self.scene()
+        day = (getattr(scene, "drawn_plan_date", None) if scene is not None else None) or date.today()
+        instance = meta.get("plant_instance") if isinstance(meta, dict) else None
+        if isinstance(instance, dict):
+            spread = instance.get("current_spread_cm")
+            diam = instance.get("current_diameter_cm")
+            pdate = instance.get("planting_date")
+        else:
+            spread = diam = pdate = None
+        key = (footprint_diameter, day, id(species), spread, diam, pdate, self.object_type)
+        if self._cached_visual_diameter is not None and self._cached_visual_diameter_key == key:
+            return self._cached_visual_diameter
         grown = grown_spread_cm(
-            species, self.metadata, day, getattr(self.object_type, "name", "")
+            species, meta, day, getattr(self.object_type, "name", "")
         )
-        return grown if grown is not None else footprint_diameter
+        result = grown if grown is not None else footprint_diameter
+        self._cached_visual_diameter = result
+        self._cached_visual_diameter_key = key
+        return result
 
     def paint(
         self,
@@ -810,6 +856,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             else:
                 self._cached_bounding_rect = None
                 self._cached_bounding_rect_date = _UNSET_DATE
+                self._cached_visual_diameter = None
+                self._cached_spacing_ring_cm = _UNSET_RING
             self._cached_spacing_ring = None
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()

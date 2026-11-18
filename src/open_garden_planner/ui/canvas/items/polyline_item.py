@@ -123,6 +123,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         self._dense_shape_cache: tuple[QPainterPath, float, QPainterPath] | None = None
         #: Zoom-keyed item-local raster cache for selected dense polylines (#928).
         self._dense_selected_cache: tuple[tuple[Any, ...], QPixmap, QRectF] | None = None
+        self._cached_bounding_rect: QRectF | None = None
+        self._cached_bounding_rect_key: tuple[Any, ...] | None = None
 
         # Initialize rotation handle and vertex editing
         self.init_rotation_handle()
@@ -178,16 +180,24 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             self.update()
 
     def prepareGeometryChange(self) -> None:
-        """Invalidate derived dense-stroke and selected raster caches (#928)."""
+        """Invalidate derived dense-stroke, selected raster, and bounding rect caches (#928)."""
         super().prepareGeometryChange()
         self._dense_stroke_cache = None
         self._dense_shape_cache = None
         self._dense_selected_cache = None
+        self._cached_bounding_rect = None
+
+    def setPath(self, path: QPainterPath) -> None:
+        """Invalidate cached bounding rect when path changes."""
+        self.prepareGeometryChange()
+        super().setPath(path)
+        self._cached_bounding_rect = None
 
     def setPen(self, pen: QPen) -> None:
         """Notify while the old pen still determines our extra styled bounds."""
         self.prepareGeometryChange()
         super().setPen(pen)
+        self._cached_bounding_rect = None
 
     def apply_style_preset(self) -> None:
         """Apply visual properties from the current style preset.
@@ -327,6 +337,14 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
     def boundingRect(self) -> QRectF:
         """Return bounding rect, expanded for shadow and style decorations."""
+        key = (
+            self._shadows_enabled,
+            self._path_fence_style,
+            self.object_type,
+            self.pen().widthF(),
+        )
+        if self._cached_bounding_rect is not None and self._cached_bounding_rect_key == key:
+            return self._cached_bounding_rect
         base = super().boundingRect()
         # Extra margin for styled rendering (wider than stroke)
         style_margin = self.pen().widthF() / 2.0 + 2.0
@@ -341,6 +359,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         m = self._shadow_margin()
         if m > 0:
             base = base.adjusted(-m, -m, m, m)
+        self._cached_bounding_rect = base
+        self._cached_bounding_rect_key = key
         return base
 
     def paint(

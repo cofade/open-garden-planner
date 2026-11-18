@@ -226,6 +226,10 @@ class MinimapWidget(QWidget):
         # reporter wasn't sure whether they had left the minimap on or off.
         if not self._enabled:
             return
+        if getattr(self._canvas_view, "is_interacting", False):
+            with contextlib.suppress(RuntimeError):
+                self._update_timer.start()
+            return
 
         canvas_rect = self._canvas_scene.canvas_rect
         if canvas_rect.isEmpty():

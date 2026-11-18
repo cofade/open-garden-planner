@@ -250,6 +250,8 @@ class CanvasScene(QGraphicsScene):
     #: something to count on (the #230 teardown trap; seen as "'CanvasScene'
     #: object has no attribute" in the group menu tests; PF-CAN-61).
     _paint_revision = 0
+    _edit_decoration_covers: tuple[int, tuple[float, ...], QPainterPath] | None = None
+    _clipped_spacing_ring_items: weakref.WeakSet[QGraphicsItem] | None = None
     diagnostics_changed = pyqtSignal()
     timeline_changed = pyqtSignal()
     active_layer_changed = pyqtSignal(object)  # Layer or None
@@ -353,11 +355,13 @@ class CanvasScene(QGraphicsScene):
         self._standing_covers: tuple[int, list[StandingCover]] | None = None
         self._annotation_covers: tuple[int, QPainterPath] | None = None
         self._edit_decoration_covers: tuple[int, tuple[float, ...], QPainterPath] | None = None
+        self._clipped_spacing_ring_items: weakref.WeakSet[QGraphicsItem] = weakref.WeakSet()
         #: How often what stands on the plan was collected — the instrument of
         #: the grid's cut-out (counted, never timed: §8.10.10).
         self.standing_cover_builds = 0
         self.plan_changed.connect(self.note_paint_changed)
         self.selectionChanged.connect(self.note_paint_changed)
+        self.selectionChanged.connect(self._invalidate_spacing_ring_caches_for_decorations)
 
         # Constraint graph for distance constraints
         from open_garden_planner.core.constraints import ConstraintGraph
@@ -1136,33 +1140,102 @@ class CanvasScene(QGraphicsScene):
             self._annotation_covers = kept
         return QPainterPath(kept[1])
 
+    @pyqtSlot()
+    def _invalidate_spacing_ring_caches_for_decorations(self) -> None:
+        """Invalidate cached warning-ring items so they re-clip against current handles."""
+        clipped = self._clipped_spacing_ring_items
+        if clipped is not None:
+            for item in list(clipped):
+                clipped.discard(item)
+                with contextlib.suppress(RuntimeError):
+                    item.update()
+        try:
+            selected = self.selectedItems()
+        except RuntimeError:
+            return
+        if not selected:
+            return
+        try:
+            items = self.items()
+        except RuntimeError:
+            return
+        views = self.views()
+        if not views:
+            for item in items:
+                if getattr(item, "_needs_live_spacing_paint", False):
+                    item.update()
+            return
+        from .items.group_item import selection_tree
+
+        decorations = [
+            child
+            for child in selection_tree(selected)
+            if (
+                child.isVisible()
+                and child.parentItem() is not None
+                and bool(child.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+            )
+        ]
+        if not decorations:
+            return
+        scene_bounds = QRectF()
+        for view in views:
+            world = view.viewportTransform()
+            inv, invertible = world.inverted()
+            if not invertible:
+                continue
+            for child in decorations:
+                box = child.deviceTransform(world).mapRect(child.boundingRect()).adjusted(-2, -2, 2, 2)
+                scene_bounds = scene_bounds.united(inv.mapRect(box))
+        if not scene_bounds.isEmpty():
+            for item in items:
+                if (
+                    getattr(item, "_needs_live_spacing_paint", False)
+                    and item.sceneBoundingRect().intersects(scene_bounds)
+                ):
+                    item.update()
+
     def invalidate_edit_decoration_covers(self) -> None:
         """Handle visibility can change without a document edit (zoom/drill-down)."""
+        had_covers = self._edit_decoration_covers is not None
         self._edit_decoration_covers = None
+        try:
+            has_selected = bool(self.selectedItems())
+        except RuntimeError:
+            has_selected = False
+        if had_covers or bool(self._clipped_spacing_ring_items) or has_selected:
+            self._invalidate_spacing_ring_caches_for_decorations()
 
     def edit_decoration_covers(self, world: QTransform) -> QPainterPath:
         """Device-space selected decorations, prepared once rather than per tree.
 
         Normalise inverse-composition floating-point noise in the cache key;
         the paths themselves keep the full supplied transform precision.
+        Cache at zero translation so ``DeviceCoordinateCache`` items with
+        per-item offscreen pixmap origins share one simplified path per zoom.
         """
         pose = tuple(round(value, 12) for value in (
-            world.m11(), world.m12(), world.m21(), world.m22(), world.dx(), world.dy(),
+            world.m11(), world.m12(), world.m21(), world.m22(),
         ))
         kept = self._edit_decoration_covers
         if kept is None or kept[0] != self._paint_revision or kept[1] != pose:
             from .items.group_item import selection_tree
 
+            world_zero = QTransform(
+                world.m11(), world.m12(), world.m21(), world.m22(), 0.0, 0.0,
+            )
             covered = QPainterPath()
             covered.setFillRule(Qt.FillRule.WindingFill)
             for child in selection_tree(self.selectedItems()):
                 if (child.isVisible() and child.parentItem() is not None
                         and child.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations):
-                    box = child.deviceTransform(world).mapRect(child.boundingRect())
+                    box = child.deviceTransform(world_zero).mapRect(child.boundingRect())
                     covered.addRect(box.adjusted(-2, -2, 2, 2))
             kept = (self._paint_revision, pose, covered.simplified())
             self._edit_decoration_covers = kept
-        return QPainterPath(kept[2])
+        if kept[2].isEmpty():
+            return QPainterPath()
+        return kept[2].translated(world.dx(), world.dy())
 
     @property
     def guide_lines(self) -> list[GuideLine]:
@@ -2261,6 +2334,8 @@ class CanvasScene(QGraphicsScene):
         self._standing_covers = None
         self._annotation_covers = None
         self._edit_decoration_covers = None
+        if self._clipped_spacing_ring_items is not None:
+            self._clipped_spacing_ring_items.clear()
         if self._label_pass is not None:
             self._label_pass.clear()
         self._paint_revision += 1

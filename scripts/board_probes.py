@@ -398,8 +398,8 @@ def sun_dip(rgb: Any, camera: Pinhole, sun_azimuth_deg: float, *,
     ``sun_elevation_deg``, only bands within ``near_elevation_deg`` of the sun's own
     elevation count: under partial cloud an isolated cumulus elsewhere in the sky is
     legitimately dark (it read a 48-luma "dip" 6.6° above a 0.4° sun), but the disc's
-    own rows are where a black sun hides. Used on a sky-only frame (``ground=None``),
-    so a sun below the geometric horizon is still measured. ``measured`` is False when
+    own rows are where a black sun hides. Used on a frame with both the plan ground and
+    the meadow omitted, so the sky below the geometric horizon is visible. ``measured`` is False when
     no band had both a near and an away sample: a gate must fail closed, not read that
     as a clean sky.
     """
