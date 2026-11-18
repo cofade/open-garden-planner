@@ -310,6 +310,12 @@ def _evaluate_cached(
         # Calendar frost dates already describe local seasons. Do not apply the
         # hemisphere phase shift to them again, or round windows to whole months.
         ripeness = _harvest_ripeness(plan_date, harvest_weeks, frost_mmdd)
+        # A perennial's fruit ripens in its own months (#940): its record's frost-anchored
+        # window holds only inside them. An annual's months ARE that window (it carries
+        # ``harvest_weeks``); a vine's window 18 weeks after a February frost is June.
+        if (traits.harvest_weeks is None and traits.fruit_months
+                and s_month not in traits.fruit_months):
+            ripeness = 0.0
     else:
         ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months, ramp_from=0.55)
     # Outside the plan's frost-free season a TENDER plant does not flower: it is planted
