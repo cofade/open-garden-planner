@@ -16,6 +16,10 @@ from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 from .tours import orbit_tour
 
 SLUG = "modern-garden"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the wall hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 30.0
+CORTEN = "#8b4a2a"
 DUSK = text("Evening into night", "Vom Abend in die Nacht", "Del atardecer a la noche")
 
 META = {
@@ -33,10 +37,11 @@ META = {
 
 
 def more_tours(framing):
-    """The same orbit while the evening passes: 19:15 to 21:45 on a Central European
+    """The same orbit while the evening passes: 19:15 to 21:00 on a Central European
     summer clock. The sun sets at about 20:30 in Munich in mid August, and the lamps are
-    fully on when it stands three degrees under the horizon."""
-    return [orbit_tour(framing.orbit(), DUSK, time_range=(time(19, 15), time(21, 45)))]
+    fully on when it stands three degrees under the horizon. It ends in twilight, six
+    degrees under: later, the faces turned away from the moon are black (#806)."""
+    return [orbit_tour(framing.orbit(), DUSK, time_range=(time(19, 15), time(21, 0)))]
 
 
 def build():
@@ -75,13 +80,15 @@ def build():
     plan.line([(900, 670), (1010, 670), (1010, 1100), (940, 1160)], T.PATH,
               text("Stepping stones", "Trittsteine", "Pasaderas"), style=PathFenceStyle.STEPPING_STONES, wide=55)
     corten = text("Corten bed", "Cortenbeet", "Bancal de corten")
-    beds = [plan.rect(1090, y, 330, 95, T.RAISED_BED, corten, tall=50, fill=FillPattern.CORTEN)
-            for y in (600, 790, 980)]
+    # a metal container, not a raised bed: a raised bed's frame is always timber in 3D
+    steel = {"container_material": "metal"}
+    beds = [plan.rect(1090, y, 330, 95, T.CONTAINER, corten, tall=50, fill=FillPattern.CORTEN,
+                      color=CORTEN, meta=steel) for y in (600, 790, 980)]
     plan.row("miscanthus sinensis", (1140, 647), (1370, 647), 3, parent=beds[0], size=(150, 90))
     plan.row("lavandula angustifolia", (1130, 837), (1380, 837), 5, parent=beds[1], size=(45, 50))
     plan.row("miscanthus sinensis", (1140, 1027), (1370, 1027), 3, parent=beds[2], size=(150, 90))
-    screen = plan.rect(1405, 70, 70, 400, T.RAISED_BED, text("Bamboo trough", "Bambustrog", "Jardinera de bambú"),
-                       tall=50, fill=FillPattern.CORTEN)
+    screen = plan.rect(1405, 70, 70, 400, T.CONTAINER, text("Bamboo trough", "Bambustrog", "Jardinera de bambú"),
+                       tall=50, fill=FillPattern.CORTEN, color=CORTEN, meta=steel)
     plan.row("fargesia murielae", (1440, 110), (1440, 430), 5, parent=screen, size=(320, 85))
 
     # ── light for the evening

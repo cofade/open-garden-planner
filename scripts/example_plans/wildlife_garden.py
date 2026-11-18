@@ -12,6 +12,9 @@ from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "wildlife-garden"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the hedge hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 28.0
 #: Trees and shrubs were moved here last autumn at the size they have; the meadow's
 #: perennials are in their third year, its annuals were sown this spring.
 WOODY, PERENNIAL, ANNUAL = "2025-10-25", "2024-04-20", "2026-04-12"
@@ -36,15 +39,16 @@ def build():
     # one polygon, and everything that clears the grass is drawn after it, so above it
     plan.rect(0, 0, 1800, 1400, T.LAWN, text("Flower meadow", "Blumenwiese", "Pradera de flores"),
               fill=FillPattern.WILDFLOWER, color=a.MEADOW_GREEN)
-    plan.line([(12, 12), (12, 1388), (1788, 1388), (1788, 12)], T.FENCE,
-              text("Wild hedge", "Wildhecke", "Seto silvestre"), style=PathFenceStyle.HEDGE_FENCE, tall=170)
+    hedge = text("Wild hedge", "Wildhecke", "Seto silvestre")
+    for run in a.runs([(12, 12), (12, 1388), (1788, 1388), (1788, 12)]):
+        plan.line(run, T.FENCE, hedge, style=PathFenceStyle.HEDGE_FENCE, tall=170)
     fence = text("Front fence", "Vorderzaun", "Valla delantera")
     plan.line([(12, 12), (850, 12)], T.FENCE, fence, style=PathFenceStyle.WOODEN_FENCE, tall=110)
     plan.line([(950, 12), (1788, 12)], T.FENCE, fence, style=PathFenceStyle.WOODEN_FENCE, tall=110)
 
     # ── the mown paths: in from the gate, and once round the pond
     mown = text("Trodden path", "Trampelpfad", "Sendero pisado")
-    plan.line([(900, 20), (900, 210), (620, 340), (320, 430)], T.PATH, mown,
+    plan.line([(900, 45), (900, 210), (620, 340), (320, 430)], T.PATH, mown,
               style=PathFenceStyle.DIRT_PATH, wide=80)
     plan.line([(900, 210), (1300, 330), (1600, 560), (1650, 900), (1640, 1150), (1300, 1210),
                (820, 1160), (540, 1000), (560, 580)], T.PATH, mown,
@@ -58,7 +62,7 @@ def build():
               text("Boardwalk", "Holzsteg", "Pasarela"), style=PathFenceStyle.WOODEN_BOARDWALK, wide=100)
     plan.rect(780, 700, 170, 170, T.TERRACE_PATIO, text("Pond deck", "Teichdeck", "Tarima del estanque"),
               fill=FillPattern.DECKING)
-    plan.rect(800, 800, 130, 48, T.BENCH, text("Bench", "Sitzbank", "Banco"))
+    plan.rect(800, 800, 130, 48, T.BENCH, text("Bench", "Sitzbank", "Banco"), turn=180)
     for x, y in ((845, 610), (825, 690), (900, 935), (1010, 1015), (1300, 1005), (1420, 650)):
         plan.plant("iris germanica", x, y, planted=PERENNIAL)
 
@@ -76,8 +80,10 @@ def build():
     plan.rect(1670, 60, 90, 90, T.COMPOST_BIN, text("Compost", "Kompost", "Compostador"), tall=90)
 
     # ── flowers in the meadow, in drifts
-    plan.drift("calendula officinalis", (110, 140, 430, 230), 16, gap=42, planted=ANNUAL)
-    plan.drift("cosmos bipinnatus", (130, 150, 400, 210), 9, gap=48, seed="south-west", planted=ANNUAL)
+    plan.drift("calendula officinalis", (110, 140, 430, 230), 16, gap=42, planted=ANNUAL,
+               size=(10, 10))
+    plan.drift("cosmos bipinnatus", (130, 150, 400, 210), 9, gap=48, seed="south-west", planted=ANNUAL,
+               size=(10, 10))  # sown: cosmos is not 1.8 m tall in mid June
     plan.drift("linum usitatissimum", (1010, 70, 480, 200), 30, gap=24, planted=ANNUAL)
     plan.drift("chamaemelum nobile", (1000, 90, 520, 190), 10, gap=62, seed="south", planted=PERENNIAL)
     plan.drift("borago officinalis", (620, 400, 220, 170), 9, gap=58, planted=ANNUAL)

@@ -28,10 +28,10 @@ from example_plans import PLANS
 from example_plans.authoring import hint_layer_id
 from example_plans.i18n import localized_plan
 from example_plans.thumbnails import thumbnail
-from example_plans.tours import Framing, orbit_tour, showcase_moment
+from example_plans.tours import SUN_BEHIND_DEG, Framing, orbit_tour, showcase_moment
 from PyQt6.QtWidgets import QApplication
 
-from open_garden_planner.core.camera_tours import load_tours
+from open_garden_planner.core.camera_tours import DEFAULT_ORBIT_PITCH_DEG, load_tours
 from open_garden_planner.core.plan_io import write_plan
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.sim_clock import SimClock
@@ -106,7 +106,9 @@ def example_content(slug):
     for item in scene.items():
         if hasattr(item, "label_visible"):
             item.label_visible = False
-    framing = Framing(scene, manager, module.META)
+    framing = Framing(scene, manager, module.META,
+                      pitch_deg=getattr(module, "ORBIT_PITCH_DEG", DEFAULT_ORBIT_PITCH_DEG),
+                      sun_offset_deg=getattr(module, "ORBIT_SUN_OFFSET_DEG", SUN_BEHIND_DEG))
     manager.set_camera_tours([orbit_tour(framing.orbit()),
                               *getattr(module, "more_tours", lambda _framing: [])(framing)])
     raw = manager._build_project_data(scene).to_dict()

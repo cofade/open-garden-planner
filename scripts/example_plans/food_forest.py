@@ -167,9 +167,9 @@ def _orchard_meadow(scene, layers):
     meadow.fill_pattern = FillPattern.WILDFLOWER
     meadow.setBrush(create_pattern_brush(meadow.fill_pattern, meadow.fill_color))
     scene.addItem(meadow)
-    a.line(scene, [(20, 1010), (20, 1980), (2980, 1980), (2980, 20), (2010, 20)], T.FENCE,
-           text("Field hedge", "Feldhecke", "Seto de campo"), 180, PathFenceStyle.HEDGE_FENCE,
-           item_id=_own("hedge"))
+    hedge = text("Field hedge", "Feldhecke", "Seto de campo")
+    for number, run in enumerate(a.runs([(20, 1010), (20, 1980), (2980, 1980), (2980, 20), (2010, 20)])):
+        a.line(scene, run, T.FENCE, hedge, 180, PathFenceStyle.HEDGE_FENCE, item_id=_own("hedge", number))
     path = a.line(scene, [(1930, 290), (2230, 340), (2360, 820), (2150, 1250), (1250, 1320), (450, 1260),
                           (300, 1010)], T.PATH, text("Meadow path", "Wiesenpfad", "Sendero de la pradera"),
                   0, PathFenceStyle.DIRT_PATH, item_id=_own("path"))
@@ -191,7 +191,7 @@ def _orchard_meadow(scene, layers):
            item_id=_own("bench"))
 
     # the walnut and the company it tolerates: asters at its canopy edge
-    walnut = a.plant(scene, "juglans regia", 2520, 1520, layer=layers[0], planted="2022-11-05",
+    walnut = a.plant(scene, "juglans regia", 2520, 1520, layer=layers[0], planted="2025-11-05",
                      nursery_size=(220, 130), item_id=_own("walnut"))
     template = deepcopy(GuildLibrary(user_dir=BUNDLED_EXAMPLES / "_no_user_guilds")
                         .templates["walnut-tolerant-guild"].to_dict())
@@ -200,7 +200,7 @@ def _orchard_meadow(scene, layers):
     guild_id = str(_own("guild"))
     changes = [(walnut, {"guild_id": guild_id, "role": "centre", "name": text(
         "Walnut guild", "Walnussgilde", "Gremio del nogal"), "template": template})]
-    for dx, dy in ((430, 0), (215, 372), (-215, 372), (-430, 0), (-215, -372), (215, -372)):
+    for dx, dy in ((180, 0), (90, 156), (-90, 156), (-180, 0), (-90, -156), (90, -156)):
         aster = a.plant(scene, "symphyotrichum novi-belgii", 2520 + dx, 1520 + dy, layer=layers[3],
                         planted="2024-04-20", item_id=_own("aster", dx, dy))
         changes.append((aster, {"guild_id": guild_id, "role": "pollinator_attractor"}))

@@ -734,21 +734,22 @@
     },
     {
       "type": "rectangle",
-      "item_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
+      "item_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "x": 1090.0,
       "y": 600.0,
       "width": 330.0,
       "height": 95.0,
-      "object_type": "RAISED_BED",
+      "object_type": "CONTAINER",
       "name": "Corten bed",
       "metadata": {
-        "object_height_cm": 50.0
+        "object_height_cm": 50.0,
+        "container_material": "metal"
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
+      "fill_color": "#ff8b4a2a",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -812,7 +813,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
-      "parent_bed_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
+      "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "stack_order": 24576
     },
     {
@@ -869,7 +870,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
-      "parent_bed_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
+      "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "stack_order": 25600
     },
     {
@@ -926,26 +927,27 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
-      "parent_bed_id": "3821b8c1-56d9-5eec-870d-0ec087cd09e0",
+      "parent_bed_id": "389937c1-c2de-502e-827e-1f24b8a5bfce",
       "stack_order": 26624
     },
     {
       "type": "rectangle",
-      "item_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
+      "item_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "x": 1090.0,
       "y": 790.0,
       "width": 330.0,
       "height": 95.0,
-      "object_type": "RAISED_BED",
+      "object_type": "CONTAINER",
       "name": "Corten bed",
       "metadata": {
-        "object_height_cm": 50.0
+        "object_height_cm": 50.0,
+        "container_material": "metal"
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
+      "fill_color": "#ff8b4a2a",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -1025,7 +1027,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
-      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
+      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 27648
     },
     {
@@ -1096,7 +1098,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
-      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
+      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 28672
     },
     {
@@ -1167,7 +1169,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
-      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
+      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 29696
     },
     {
@@ -1238,7 +1240,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
-      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
+      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 30720
     },
     {
@@ -1309,26 +1311,27 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lavender",
-      "parent_bed_id": "a6565c7a-90e7-5d68-bdef-23319bdb0d4b",
+      "parent_bed_id": "3058ac7b-d96f-5097-8b1c-143c35df46ab",
       "stack_order": 31744
     },
     {
       "type": "rectangle",
-      "item_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
+      "item_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "x": 1090.0,
       "y": 980.0,
       "width": 330.0,
       "height": 95.0,
-      "object_type": "RAISED_BED",
+      "object_type": "CONTAINER",
       "name": "Corten bed",
       "metadata": {
-        "object_height_cm": 50.0
+        "object_height_cm": 50.0,
+        "container_material": "metal"
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
+      "fill_color": "#ff8b4a2a",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -1392,7 +1395,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
-      "parent_bed_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
+      "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "stack_order": 32768
     },
     {
@@ -1449,7 +1452,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
-      "parent_bed_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
+      "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "stack_order": 33792
     },
     {
@@ -1506,26 +1509,27 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Miscanthus",
-      "parent_bed_id": "cbe1d4f6-dde5-5d6a-9e9e-c01479f22807",
+      "parent_bed_id": "8b061c3f-0f5f-55c5-a018-69d6ac460bb0",
       "stack_order": 34816
     },
     {
       "type": "rectangle",
-      "item_id": "bfba0b29-cb32-5de0-a14c-935e258bee57",
+      "item_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "x": 1405.0,
       "y": 70.0,
       "width": 70.0,
       "height": 400.0,
-      "object_type": "RAISED_BED",
+      "object_type": "CONTAINER",
       "name": "Bamboo trough",
       "metadata": {
-        "object_height_cm": 50.0
+        "object_height_cm": 50.0,
+        "container_material": "metal"
       },
       "layer_id": "b397a8a3-d81a-51ad-b146-2ba6e788a7d7",
       "label_visible": false,
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
+      "fill_color": "#ff8b4a2a",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
       "fill_pattern": "CORTEN",
       "stroke_style": "SOLID",
       "child_item_ids": [
@@ -1591,7 +1595,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
-      "parent_bed_id": "bfba0b29-cb32-5de0-a14c-935e258bee57",
+      "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 36864
     },
     {
@@ -1648,7 +1652,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
-      "parent_bed_id": "bfba0b29-cb32-5de0-a14c-935e258bee57",
+      "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 37888
     },
     {
@@ -1705,7 +1709,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
-      "parent_bed_id": "bfba0b29-cb32-5de0-a14c-935e258bee57",
+      "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 38912
     },
     {
@@ -1762,7 +1766,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
-      "parent_bed_id": "bfba0b29-cb32-5de0-a14c-935e258bee57",
+      "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 39936
     },
     {
@@ -1819,7 +1823,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Bamboo",
-      "parent_bed_id": "bfba0b29-cb32-5de0-a14c-935e258bee57",
+      "parent_bed_id": "d32dc2ab-99ef-52e3-a348-a101e5cd3a60",
       "stack_order": 40960
     },
     {
@@ -2044,9 +2048,9 @@
           750.0,
           600.0
         ],
-        "distance_cm": 1960.0,
+        "distance_cm": 2256.0,
         "yaw_deg": 63.3,
-        "pitch_deg": 18.0,
+        "pitch_deg": 30.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,
@@ -2067,9 +2071,9 @@
           750.0,
           600.0
         ],
-        "distance_cm": 1960.0,
+        "distance_cm": 2256.0,
         "yaw_deg": 63.3,
-        "pitch_deg": 18.0,
+        "pitch_deg": 30.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,
@@ -2077,7 +2081,7 @@
       },
       "time_range": [
         "19:15",
-        "21:45"
+        "21:00"
       ],
       "duration_s": 12.0,
       "fps": 30,

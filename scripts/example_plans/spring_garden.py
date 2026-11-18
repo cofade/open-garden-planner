@@ -52,7 +52,7 @@ def build():
               style=PathFenceStyle.WOODEN_FENCE, tall=120)
     plan.rect(350, 760, 700, 215, T.TERRACE_PATIO, text("Terrace", "Terrasse", "Terraza"),
               fill=FillPattern.FLAGSTONE)
-    plan.line([(690, 30), (640, 230), (760, 440), (700, 640), (700, 760)], T.PATH,
+    plan.line([(690, 60), (640, 230), (760, 440), (700, 640), (700, 760)], T.PATH,
               text("Gravel path", "Kiesweg", "Camino de grava"), style=PathFenceStyle.GRAVEL_PATH, wide=90)
     plan.rect(420, 900, 150, 50, T.BENCH, text("Bench", "Sitzbank", "Banco"))
     plan.circle(815, 905, 55, T.TABLE_ROUND, text("Table", "Tisch", "Mesa"))

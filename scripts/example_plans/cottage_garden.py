@@ -12,6 +12,9 @@ from .i18n import text
 from .plan import AnchorType, FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "cottage-garden"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the hedge hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 26.0
 
 META = {
     "name_en": "Cottage garden - 12 x 12 m", "name_de": "Bauerngarten - 12 x 12 m",
@@ -91,7 +94,8 @@ def build():
 
     # ── north-west: the flowers
     bed = beds[False, True]
-    plan.row("helianthus annuus", (195, 1065), (475, 1065), 4, parent=bed, planted="2026-04-26")
+    plan.row("helianthus annuus", (195, 1065), (475, 1065), 4, parent=bed, planted="2026-04-26",
+             size=(10, 10))  # sown: a sunflower is not three metres tall in June
     plan.row("dahlia pinnata", (190, 960), (480, 960), 4, parent=bed, planted="2026-05-14", size=(90, 70))
     plan.row("paeonia lactiflora", (200, 860), (460, 860), 3, parent=bed, planted="2023-10-07", size=(70, 80))
     plan.row("echinacea purpurea", (180, 780), (390, 780), 4, parent=bed, planted="2024-04-20")

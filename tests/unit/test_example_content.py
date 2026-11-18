@@ -76,7 +76,7 @@ def test_the_orchard_meadow_holds_standard_trees_and_a_walnut_guild():
     assert len({o["metadata"]["guild"]["guild_id"] for o in members}) == 1
     for aster in (o for o in members if o is not walnut):
         distance = math.hypot(aster["center_x"] - walnut["center_x"], aster["center_y"] - walnut["center_y"])
-        assert 400 <= distance <= 460, "at the young walnut's canopy edge"
+        assert 160 <= distance <= 200, "at the young walnut's canopy edge"
     meadows = [o for o in plan["objects"] if o.get("object_type") == "LAWN" and o.get("fill_pattern") == "WILDFLOWER"]
     # one meadow round the forest garden: two that touch show their seam in 3D
     assert len(meadows) == 1 and meadows[0]["type"] == "polygon"

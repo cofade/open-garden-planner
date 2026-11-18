@@ -1076,19 +1076,26 @@
     },
     {
       "type": "circle",
-      "item_id": "b94e0b3c-7496-54c1-97b1-259425c497a3",
+      "item_id": "f16a0124-eb7f-548b-b0e7-07393ad5cc2a",
       "center_x": 90.0,
       "center_y": 760.0,
       "radius": 26,
-      "object_type": "PLANTER_POT",
+      "object_type": "CONTAINER_ROUND",
       "name": "Planter pot",
+      "metadata": {
+        "object_height_cm": 35.0,
+        "container_material": "terracotta"
+      },
       "layer_id": "93f5d03e-c0c0-536c-b7c4-a9aa554543a9",
       "label_visible": false,
-      "fill_color": "#ffb4783c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ffaa6e46",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
+      "fill_pattern": "SOIL",
       "stroke_style": "SOLID",
+      "child_item_ids": [
+        "da850f14-cce9-55b3-9c2f-b4dd54617680"
+      ],
       "stack_order": 33792
     },
     {
@@ -1145,23 +1152,31 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "parent_bed_id": "f16a0124-eb7f-548b-b0e7-07393ad5cc2a",
       "stack_order": 34816
     },
     {
       "type": "circle",
-      "item_id": "2ce3d503-5c9c-5631-b9ce-6af9b18c4a23",
+      "item_id": "2cf08770-ceee-588b-b68f-e32f5a658d14",
       "center_x": 560.0,
       "center_y": 430.0,
       "radius": 26,
-      "object_type": "PLANTER_POT",
+      "object_type": "CONTAINER_ROUND",
       "name": "Planter pot",
+      "metadata": {
+        "object_height_cm": 35.0,
+        "container_material": "terracotta"
+      },
       "layer_id": "93f5d03e-c0c0-536c-b7c4-a9aa554543a9",
       "label_visible": false,
-      "fill_color": "#ffb4783c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ffaa6e46",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
+      "fill_pattern": "SOIL",
       "stroke_style": "SOLID",
+      "child_item_ids": [
+        "2d1bde26-aa7b-56bd-9285-93df9aeefffa"
+      ],
       "stack_order": 35840
     },
     {
@@ -1218,23 +1233,31 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "parent_bed_id": "2cf08770-ceee-588b-b68f-e32f5a658d14",
       "stack_order": 36864
     },
     {
       "type": "circle",
-      "item_id": "9b3d03ae-f55f-5647-81ab-07e76967e829",
+      "item_id": "df61a7c8-4101-5357-919e-3bee21e069ee",
       "center_x": 790.0,
       "center_y": 770.0,
       "radius": 26,
-      "object_type": "PLANTER_POT",
+      "object_type": "CONTAINER_ROUND",
       "name": "Planter pot",
+      "metadata": {
+        "object_height_cm": 35.0,
+        "container_material": "terracotta"
+      },
       "layer_id": "93f5d03e-c0c0-536c-b7c4-a9aa554543a9",
       "label_visible": false,
-      "fill_color": "#ffb4783c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ffaa6e46",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
+      "fill_pattern": "SOIL",
       "stroke_style": "SOLID",
+      "child_item_ids": [
+        "f2f5f1a9-8317-52c1-a5da-25faeeea8af3"
+      ],
       "stack_order": 37888
     },
     {
@@ -1291,23 +1314,31 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "parent_bed_id": "df61a7c8-4101-5357-919e-3bee21e069ee",
       "stack_order": 38912
     },
     {
       "type": "circle",
-      "item_id": "b789175b-af93-5534-959b-c4665a8d4b21",
+      "item_id": "784678ea-b4cc-50b8-8df0-136a7391bdde",
       "center_x": 960.0,
       "center_y": 770.0,
       "radius": 26,
-      "object_type": "PLANTER_POT",
+      "object_type": "CONTAINER_ROUND",
       "name": "Planter pot",
+      "metadata": {
+        "object_height_cm": 35.0,
+        "container_material": "terracotta"
+      },
       "layer_id": "93f5d03e-c0c0-536c-b7c4-a9aa554543a9",
       "label_visible": false,
-      "fill_color": "#ffb4783c",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ffaa6e46",
+      "stroke_color": "#ff784623",
+      "stroke_width": 2.0,
+      "fill_pattern": "SOIL",
       "stroke_style": "SOLID",
+      "child_item_ids": [
+        "9af06ba6-2111-5257-8759-84c46b5104bf"
+      ],
       "stack_order": 39936
     },
     {
@@ -1364,6 +1395,7 @@
       "stroke_style": "SOLID",
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Geranium",
+      "parent_bed_id": "784678ea-b4cc-50b8-8df0-136a7391bdde",
       "stack_order": 40960
     },
     {
@@ -2327,9 +2359,9 @@
           600.0,
           500.0
         ],
-        "distance_cm": 1968.0,
-        "yaw_deg": 73.8,
-        "pitch_deg": 18.0,
+        "distance_cm": 2520.0,
+        "yaw_deg": 71.6,
+        "pitch_deg": 34.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,

@@ -370,7 +370,7 @@
       "stroke_color": "#ff7d5c3e",
       "stroke_width": 80.0,
       "path_fence_style": "DIRT_PATH",
-      "stack_order": 11264
+      "stack_order": 21504
     },
     {
       "type": "circle",
@@ -523,7 +523,7 @@
     },
     {
       "type": "polyline",
-      "item_id": "34d99613-ec07-534e-bb6d-b6b271c70af9",
+      "item_id": "2eeb0ed3-9900-5cdb-865d-21220402eb22",
       "points": [
         {
           "x": 20.0,
@@ -531,14 +531,252 @@
         },
         {
           "x": 20.0,
+          "y": 1495.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 10240
+    },
+    {
+      "type": "polyline",
+      "item_id": "5b6b0c49-548d-55e7-bc3b-f64cad8e33fe",
+      "points": [
+        {
+          "x": 20.0,
+          "y": 1495.0
+        },
+        {
+          "x": 20.0,
+          "y": 1980.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 11264
+    },
+    {
+      "type": "polyline",
+      "item_id": "cb47d610-fc93-5433-888a-e515289d28f3",
+      "points": [
+        {
+          "x": 20.0,
           "y": 1980.0
         },
+        {
+          "x": 760.0,
+          "y": 1980.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 12288
+    },
+    {
+      "type": "polyline",
+      "item_id": "900ac6b9-3b40-5eed-bc64-43b022754d69",
+      "points": [
+        {
+          "x": 760.0,
+          "y": 1980.0
+        },
+        {
+          "x": 1500.0,
+          "y": 1980.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 13312
+    },
+    {
+      "type": "polyline",
+      "item_id": "a072fdbf-521f-5fc3-b8b3-c0cfdf149393",
+      "points": [
+        {
+          "x": 1500.0,
+          "y": 1980.0
+        },
+        {
+          "x": 2240.0,
+          "y": 1980.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 14336
+    },
+    {
+      "type": "polyline",
+      "item_id": "d00b8244-e6a6-5893-ac8f-1d08bffe1391",
+      "points": [
+        {
+          "x": 2240.0,
+          "y": 1980.0
+        },
+        {
+          "x": 2980.0,
+          "y": 1980.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 15360
+    },
+    {
+      "type": "polyline",
+      "item_id": "91c53fdb-df77-5581-9cb2-b4aa2a820002",
+      "points": [
         {
           "x": 2980.0,
           "y": 1980.0
         },
         {
           "x": 2980.0,
+          "y": 1327.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 16384
+    },
+    {
+      "type": "polyline",
+      "item_id": "095a51a8-b4e8-5d83-b49f-da10bb588645",
+      "points": [
+        {
+          "x": 2980.0,
+          "y": 1327.0
+        },
+        {
+          "x": 2980.0,
+          "y": 673.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 17408
+    },
+    {
+      "type": "polyline",
+      "item_id": "44f09b9e-8db6-53f5-90be-58605c13b09f",
+      "points": [
+        {
+          "x": 2980.0,
+          "y": 673.0
+        },
+        {
+          "x": 2980.0,
+          "y": 20.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 18432
+    },
+    {
+      "type": "polyline",
+      "item_id": "1ea680d9-a1ff-5e71-95bb-0fdd2d3b607c",
+      "points": [
+        {
+          "x": 2980.0,
+          "y": 20.0
+        },
+        {
+          "x": 2495.0,
+          "y": 20.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Feldhecke",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 19456
+    },
+    {
+      "type": "polyline",
+      "item_id": "70bb0696-dd74-5beb-b16d-d8e0ad148bfb",
+      "points": [
+        {
+          "x": 2495.0,
           "y": 20.0
         },
         {
@@ -556,7 +794,7 @@
       "stroke_color": "#ff3c7828",
       "stroke_width": 8.0,
       "path_fence_style": "HEDGE_FENCE",
-      "stack_order": 10240
+      "stack_order": 20480
     },
     {
       "type": "circle",
@@ -614,7 +852,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Pear Tree",
-      "stack_order": 12288
+      "stack_order": 22528
     },
     {
       "type": "rectangle",
@@ -632,7 +870,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 13312
+      "stack_order": 23552
     },
     {
       "type": "rectangle",
@@ -650,7 +888,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 14336
+      "stack_order": 24576
     },
     {
       "type": "circle",
@@ -694,7 +932,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2022-11-05",
+          "planting_date": "2025-11-05",
           "current_height_cm": 220,
           "current_spread_cm": 130
         },
@@ -738,7 +976,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Walnut Tree",
-      "stack_order": 15360
+      "stack_order": 25600
     },
     {
       "type": "circle",
@@ -2674,8 +2912,8 @@
     },
     {
       "type": "circle",
-      "item_id": "31bdc11d-3783-592a-8448-c003837821a4",
-      "center_x": 2950.0,
+      "item_id": "5dfc7d99-3dfa-5888-bfff-1ee3ee23609a",
+      "center_x": 2700.0,
       "center_y": 1520.0,
       "radius": 30.0,
       "object_type": "SHRUB",
@@ -2734,9 +2972,9 @@
     },
     {
       "type": "circle",
-      "item_id": "2f6ea74b-b152-5cd8-ae85-5caf9a9da318",
-      "center_x": 2735.0,
-      "center_y": 1892.0,
+      "item_id": "25fb1484-a8a4-5ecc-be01-0a51c3c7c5b0",
+      "center_x": 2610.0,
+      "center_y": 1676.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Aster",
@@ -2794,9 +3032,9 @@
     },
     {
       "type": "circle",
-      "item_id": "e4501f85-2118-55cf-891a-79e9177aa9b4",
-      "center_x": 2305.0,
-      "center_y": 1892.0,
+      "item_id": "c254c50f-ff47-5a4b-99df-e4b08b08f9fd",
+      "center_x": 2430.0,
+      "center_y": 1676.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Aster",
@@ -2854,8 +3092,8 @@
     },
     {
       "type": "circle",
-      "item_id": "cc6b7b1c-cd59-565c-bfae-48be8b0f5436",
-      "center_x": 2090.0,
+      "item_id": "77d57817-9d31-595d-ad04-7762ab21e6a1",
+      "center_x": 2340.0,
       "center_y": 1520.0,
       "radius": 30.0,
       "object_type": "SHRUB",
@@ -2914,9 +3152,9 @@
     },
     {
       "type": "circle",
-      "item_id": "409f2da5-5583-50d4-bdfa-bc4a76bcbd4f",
-      "center_x": 2305.0,
-      "center_y": 1148.0,
+      "item_id": "b1d40598-cb01-56d3-943d-fa2ce82c0821",
+      "center_x": 2430.0,
+      "center_y": 1364.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Aster",
@@ -2974,9 +3212,9 @@
     },
     {
       "type": "circle",
-      "item_id": "b6e3619e-d283-582b-9498-e04a7ec86a9e",
-      "center_x": 2735.0,
-      "center_y": 1148.0,
+      "item_id": "e0d1de49-d519-5ca3-971c-be3e4094d252",
+      "center_x": 2610.0,
+      "center_y": 1364.0,
       "radius": 30.0,
       "object_type": "SHRUB",
       "name": "Aster",
@@ -9301,7 +9539,7 @@
           1500.0,
           1000.0
         ],
-        "distance_cm": 4734.0,
+        "distance_cm": 3735.0,
         "yaw_deg": 312.0,
         "pitch_deg": 18.0,
         "fov_deg": 40.0,

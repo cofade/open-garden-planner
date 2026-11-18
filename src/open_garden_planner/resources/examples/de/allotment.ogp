@@ -80,7 +80,7 @@
       "stroke_color": "#ff8c8c8c",
       "stroke_width": 100.0,
       "path_fence_style": "PAVED_PATH",
-      "stack_order": 5120
+      "stack_order": 12288
     },
     {
       "type": "polygon",
@@ -112,7 +112,7 @@
       "stroke_width": 2.0,
       "fill_pattern": "DECKING",
       "stroke_style": "SOLID",
-      "stack_order": 7168
+      "stack_order": 14336
     },
     {
       "type": "rectangle",
@@ -150,7 +150,7 @@
         "115be5f2-cb67-52b0-bfa9-367938f8da9c",
         "83b0b71f-8b0f-5369-8234-1ae7e87fad5c"
       ],
-      "stack_order": 22528
+      "stack_order": 29696
     },
     {
       "type": "rectangle",
@@ -226,7 +226,7 @@
         "176b52dc-a225-5275-9b40-03f897266e90",
         "e8509a03-685d-5379-a00b-193b9e193d13"
       ],
-      "stack_order": 41984
+      "stack_order": 49152
     },
     {
       "type": "rectangle",
@@ -252,7 +252,7 @@
         "2037bbb1-bb52-5cdd-90a9-3f4fa976d625",
         "3542ce73-5fe8-5829-82b6-3c8a5531b4d9"
       ],
-      "stack_order": 100352
+      "stack_order": 107520
     },
     {
       "type": "rectangle",
@@ -306,7 +306,7 @@
         "a17a644e-57b0-5f6f-9a70-578038b5633c",
         "76c74c07-3f63-5008-975a-1855fb2d1b57"
       ],
-      "stack_order": 107520
+      "stack_order": 114688
     },
     {
       "type": "rectangle",
@@ -344,7 +344,7 @@
         "678c5d36-8e97-59ce-9a75-10a7022fcced",
         "c3c1e0d6-65ad-50f4-9459-16971fb96e99"
       ],
-      "stack_order": 143360
+      "stack_order": 150528
     },
     {
       "type": "rectangle",
@@ -366,7 +366,7 @@
         "e19bcad1-4984-53f3-a6cd-e3215adc750a",
         "3dd3b7dd-a127-5f7e-b311-c01dbadc7177"
       ],
-      "stack_order": 162816
+      "stack_order": 169984
     },
     {
       "type": "rectangle",
@@ -391,7 +391,7 @@
         "28937bf8-b983-5e53-b8ae-f2376a07fb89",
         "66dd1c82-0ec4-538c-b283-6aeebb6bd94e"
       ],
-      "stack_order": 165888
+      "stack_order": 173056
     },
     {
       "type": "rectangle",
@@ -421,7 +421,7 @@
         "3f3330dd-72a4-585d-9505-0a107a643eb0",
         "186c94d3-cc95-5977-bcc5-89cc89bbe866"
       ],
-      "stack_order": 172032
+      "stack_order": 179200
     },
     {
       "type": "rectangle",
@@ -475,7 +475,7 @@
         "e6284b1d-dbeb-527f-b4d0-4a77e8dfbe2e",
         "36aa7cf0-98e9-59ab-9de2-1a8332fd6993"
       ],
-      "stack_order": 183296
+      "stack_order": 190464
     },
     {
       "type": "rectangle",
@@ -501,7 +501,7 @@
         "607f30c1-bff7-57ff-872b-2db8ec4b5504",
         "09f21003-562f-5b21-8a3f-b0662ebf047b"
       ],
-      "stack_order": 228352
+      "stack_order": 235520
     },
     {
       "type": "polygon",
@@ -559,7 +559,7 @@
         "b7ae5911-ed4f-5abb-a568-5f0ba1681d45",
         "fc304c3c-3bd8-5a5b-af19-d83853fb0cd2"
       ],
-      "stack_order": 235520
+      "stack_order": 242688
     },
     {
       "type": "rectangle",
@@ -582,7 +582,7 @@
         "25940039-1774-55d5-b5ae-1483a307e829",
         "93f8f8cc-eb51-5f35-8304-60f106a99570"
       ],
-      "stack_order": 253952
+      "stack_order": 261120
     },
     {
       "type": "polyline",
@@ -644,11 +644,178 @@
         },
         {
           "x": 30.0,
+          "y": 757.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 4096
+    },
+    {
+      "type": "polyline",
+      "item_id": "8b79da3a-541f-5d06-a811-a33af18e537d",
+      "points": [
+        {
+          "x": 30.0,
+          "y": 757.0
+        },
+        {
+          "x": 30.0,
+          "y": 1363.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 5120
+    },
+    {
+      "type": "polyline",
+      "item_id": "1f6a736f-cb0b-5888-80a2-409ccd4c27a5",
+      "points": [
+        {
+          "x": 30.0,
+          "y": 1363.0
+        },
+        {
+          "x": 30.0,
+          "y": 1970.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 6144
+    },
+    {
+      "type": "polyline",
+      "item_id": "7ff99bf5-99fb-588a-9a27-a6edc4f8ca50",
+      "points": [
+        {
+          "x": 30.0,
+          "y": 1970.0
+        },
+        {
+          "x": 750.0,
+          "y": 1970.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 7168
+    },
+    {
+      "type": "polyline",
+      "item_id": "9f02b2f2-84a2-5c80-96db-d085d5cc35a0",
+      "points": [
+        {
+          "x": 750.0,
           "y": 1970.0
         },
         {
           "x": 1470.0,
           "y": 1970.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 8192
+    },
+    {
+      "type": "polyline",
+      "item_id": "2568504d-b82e-5c39-832a-f38f3fd55d9e",
+      "points": [
+        {
+          "x": 1470.0,
+          "y": 1970.0
+        },
+        {
+          "x": 1470.0,
+          "y": 1363.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 9216
+    },
+    {
+      "type": "polyline",
+      "item_id": "5302997f-9266-5d81-97ac-9bfd25042cf8",
+      "points": [
+        {
+          "x": 1470.0,
+          "y": 1363.0
+        },
+        {
+          "x": 1470.0,
+          "y": 757.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Grenzhecke",
+      "metadata": {
+        "object_height_cm": 140.0
+      },
+      "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 10240
+    },
+    {
+      "type": "polyline",
+      "item_id": "28f01425-f1af-5083-900d-ecec88cc404c",
+      "points": [
+        {
+          "x": 1470.0,
+          "y": 757.0
         },
         {
           "x": 1470.0,
@@ -665,16 +832,16 @@
       "stroke_color": "#ff3c7828",
       "stroke_width": 8.0,
       "path_fence_style": "HEDGE_FENCE",
-      "stack_order": 4096
+      "stack_order": 11264
     },
     {
       "type": "rectangle",
-      "item_id": "0dce0e8a-4b24-5a93-b06d-9ccd3cd35c43",
+      "item_id": "9ddc9743-2102-5a84-b92f-da0082642809",
       "x": 960.0,
       "y": 1650.0,
       "width": 420.0,
       "height": 290.0,
-      "object_type": "GARAGE_SHED",
+      "object_type": "TOOL_SHED",
       "name": "Laube",
       "metadata": {
         "object_height_cm": 270.0,
@@ -683,12 +850,12 @@
       },
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
       "label_visible": false,
-      "fill_color": "#ffa9a9a9",
-      "stroke_color": "#ff696969",
-      "stroke_width": 2.0,
+      "fill_color": "#ffa0825a",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
       "fill_pattern": "ROOF_TILES",
       "stroke_style": "SOLID",
-      "stack_order": 6144
+      "stack_order": 13312
     },
     {
       "type": "circle",
@@ -705,7 +872,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 8192
+      "stack_order": 15360
     },
     {
       "type": "rectangle",
@@ -724,7 +891,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "rotation_angle": 90,
-      "stack_order": 9216
+      "stack_order": 16384
     },
     {
       "type": "rectangle",
@@ -743,7 +910,7 @@
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
       "rotation_angle": -90,
-      "stack_order": 10240
+      "stack_order": 17408
     },
     {
       "type": "circle",
@@ -763,7 +930,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 11264
+      "stack_order": 18432
     },
     {
       "type": "circle",
@@ -780,7 +947,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 12288
+      "stack_order": 19456
     },
     {
       "type": "circle",
@@ -797,7 +964,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 13312
+      "stack_order": 20480
     },
     {
       "type": "rectangle",
@@ -818,7 +985,7 @@
       "stroke_width": 2.5,
       "fill_pattern": "GLASS",
       "stroke_style": "SOLID",
-      "stack_order": 14336
+      "stack_order": 21504
     },
     {
       "type": "polyline",
@@ -842,7 +1009,7 @@
       "label_visible": false,
       "stroke_color": "#ffb0b5b9",
       "stroke_width": 2.0,
-      "stack_order": 15360
+      "stack_order": 22528
     },
     {
       "type": "rectangle",
@@ -860,7 +1027,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 16384
+      "stack_order": 23552
     },
     {
       "type": "rectangle",
@@ -878,7 +1045,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 17408
+      "stack_order": 24576
     },
     {
       "type": "rectangle",
@@ -899,7 +1066,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 18432
+      "stack_order": 25600
     },
     {
       "type": "rectangle",
@@ -920,7 +1087,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 19456
+      "stack_order": 26624
     },
     {
       "type": "rectangle",
@@ -938,7 +1105,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 20480
+      "stack_order": 27648
     },
     {
       "type": "circle",
@@ -955,7 +1122,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 21504
+      "stack_order": 28672
     },
     {
       "type": "circle",
@@ -1022,7 +1189,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 23552
+      "stack_order": 30720
     },
     {
       "type": "circle",
@@ -1089,7 +1256,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 24576
+      "stack_order": 31744
     },
     {
       "type": "circle",
@@ -1156,7 +1323,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 25600
+      "stack_order": 32768
     },
     {
       "type": "circle",
@@ -1223,7 +1390,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 26624
+      "stack_order": 33792
     },
     {
       "type": "circle",
@@ -1290,7 +1457,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 27648
+      "stack_order": 34816
     },
     {
       "type": "circle",
@@ -1357,7 +1524,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 28672
+      "stack_order": 35840
     },
     {
       "type": "circle",
@@ -1424,7 +1591,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 29696
+      "stack_order": 36864
     },
     {
       "type": "circle",
@@ -1491,7 +1658,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 30720
+      "stack_order": 37888
     },
     {
       "type": "circle",
@@ -1558,7 +1725,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 31744
+      "stack_order": 38912
     },
     {
       "type": "circle",
@@ -1625,7 +1792,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 32768
+      "stack_order": 39936
     },
     {
       "type": "circle",
@@ -1692,7 +1859,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 33792
+      "stack_order": 40960
     },
     {
       "type": "circle",
@@ -1759,7 +1926,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 34816
+      "stack_order": 41984
     },
     {
       "type": "circle",
@@ -1826,7 +1993,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 35840
+      "stack_order": 43008
     },
     {
       "type": "circle",
@@ -1893,7 +2060,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 36864
+      "stack_order": 44032
     },
     {
       "type": "circle",
@@ -1960,7 +2127,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 37888
+      "stack_order": 45056
     },
     {
       "type": "circle",
@@ -2027,7 +2194,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 38912
+      "stack_order": 46080
     },
     {
       "type": "circle",
@@ -2094,7 +2261,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 39936
+      "stack_order": 47104
     },
     {
       "type": "circle",
@@ -2161,7 +2328,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Potato",
       "parent_bed_id": "2a580463-2ccf-5092-be14-1fb2db91eac4",
-      "stack_order": 40960
+      "stack_order": 48128
     },
     {
       "type": "circle",
@@ -2235,7 +2402,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 43008
+      "stack_order": 50176
     },
     {
       "type": "circle",
@@ -2309,7 +2476,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 44032
+      "stack_order": 51200
     },
     {
       "type": "circle",
@@ -2383,7 +2550,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 45056
+      "stack_order": 52224
     },
     {
       "type": "circle",
@@ -2457,7 +2624,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 46080
+      "stack_order": 53248
     },
     {
       "type": "circle",
@@ -2531,7 +2698,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 47104
+      "stack_order": 54272
     },
     {
       "type": "circle",
@@ -2605,7 +2772,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 48128
+      "stack_order": 55296
     },
     {
       "type": "circle",
@@ -2679,7 +2846,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 49152
+      "stack_order": 56320
     },
     {
       "type": "circle",
@@ -2753,7 +2920,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 50176
+      "stack_order": 57344
     },
     {
       "type": "circle",
@@ -2827,7 +2994,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 51200
+      "stack_order": 58368
     },
     {
       "type": "circle",
@@ -2901,7 +3068,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 52224
+      "stack_order": 59392
     },
     {
       "type": "circle",
@@ -2975,7 +3142,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 53248
+      "stack_order": 60416
     },
     {
       "type": "circle",
@@ -3049,7 +3216,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 54272
+      "stack_order": 61440
     },
     {
       "type": "circle",
@@ -3116,7 +3283,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 55296
+      "stack_order": 62464
     },
     {
       "type": "circle",
@@ -3183,7 +3350,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 56320
+      "stack_order": 63488
     },
     {
       "type": "circle",
@@ -3250,7 +3417,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 57344
+      "stack_order": 64512
     },
     {
       "type": "circle",
@@ -3317,7 +3484,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 58368
+      "stack_order": 65536
     },
     {
       "type": "circle",
@@ -3384,7 +3551,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 59392
+      "stack_order": 66560
     },
     {
       "type": "circle",
@@ -3451,7 +3618,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 60416
+      "stack_order": 67584
     },
     {
       "type": "circle",
@@ -3518,7 +3685,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 61440
+      "stack_order": 68608
     },
     {
       "type": "circle",
@@ -3585,7 +3752,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 62464
+      "stack_order": 69632
     },
     {
       "type": "circle",
@@ -3652,7 +3819,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 63488
+      "stack_order": 70656
     },
     {
       "type": "circle",
@@ -3719,7 +3886,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 64512
+      "stack_order": 71680
     },
     {
       "type": "circle",
@@ -3786,7 +3953,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 65536
+      "stack_order": 72704
     },
     {
       "type": "circle",
@@ -3853,7 +4020,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 66560
+      "stack_order": 73728
     },
     {
       "type": "circle",
@@ -3920,7 +4087,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 67584
+      "stack_order": 74752
     },
     {
       "type": "circle",
@@ -3987,7 +4154,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 68608
+      "stack_order": 75776
     },
     {
       "type": "circle",
@@ -4054,7 +4221,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 69632
+      "stack_order": 76800
     },
     {
       "type": "circle",
@@ -4121,7 +4288,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 70656
+      "stack_order": 77824
     },
     {
       "type": "circle",
@@ -4188,7 +4355,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 71680
+      "stack_order": 78848
     },
     {
       "type": "circle",
@@ -4255,7 +4422,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 72704
+      "stack_order": 79872
     },
     {
       "type": "circle",
@@ -4322,7 +4489,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 73728
+      "stack_order": 80896
     },
     {
       "type": "circle",
@@ -4389,7 +4556,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Carrot",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 74752
+      "stack_order": 81920
     },
     {
       "type": "circle",
@@ -4463,7 +4630,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 75776
+      "stack_order": 82944
     },
     {
       "type": "circle",
@@ -4537,7 +4704,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 76800
+      "stack_order": 83968
     },
     {
       "type": "circle",
@@ -4611,7 +4778,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 77824
+      "stack_order": 84992
     },
     {
       "type": "circle",
@@ -4685,7 +4852,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 78848
+      "stack_order": 86016
     },
     {
       "type": "circle",
@@ -4759,7 +4926,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 79872
+      "stack_order": 87040
     },
     {
       "type": "circle",
@@ -4833,7 +5000,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 80896
+      "stack_order": 88064
     },
     {
       "type": "circle",
@@ -4907,7 +5074,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 81920
+      "stack_order": 89088
     },
     {
       "type": "circle",
@@ -4981,7 +5148,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 82944
+      "stack_order": 90112
     },
     {
       "type": "circle",
@@ -5055,7 +5222,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 83968
+      "stack_order": 91136
     },
     {
       "type": "circle",
@@ -5129,7 +5296,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 84992
+      "stack_order": 92160
     },
     {
       "type": "circle",
@@ -5203,7 +5370,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 86016
+      "stack_order": 93184
     },
     {
       "type": "circle",
@@ -5277,7 +5444,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Onion",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 87040
+      "stack_order": 94208
     },
     {
       "type": "circle",
@@ -5344,7 +5511,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 88064
+      "stack_order": 95232
     },
     {
       "type": "circle",
@@ -5411,7 +5578,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 89088
+      "stack_order": 96256
     },
     {
       "type": "circle",
@@ -5478,7 +5645,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 90112
+      "stack_order": 97280
     },
     {
       "type": "circle",
@@ -5545,7 +5712,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 91136
+      "stack_order": 98304
     },
     {
       "type": "circle",
@@ -5612,7 +5779,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 92160
+      "stack_order": 99328
     },
     {
       "type": "circle",
@@ -5679,7 +5846,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 93184
+      "stack_order": 100352
     },
     {
       "type": "circle",
@@ -5746,7 +5913,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 94208
+      "stack_order": 101376
     },
     {
       "type": "circle",
@@ -5813,7 +5980,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 95232
+      "stack_order": 102400
     },
     {
       "type": "circle",
@@ -5880,7 +6047,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 96256
+      "stack_order": 103424
     },
     {
       "type": "circle",
@@ -5947,7 +6114,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 97280
+      "stack_order": 104448
     },
     {
       "type": "circle",
@@ -6014,7 +6181,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 98304
+      "stack_order": 105472
     },
     {
       "type": "circle",
@@ -6081,7 +6248,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Garlic",
       "parent_bed_id": "47b5b415-d114-57c4-9373-7cfc0d64bd73",
-      "stack_order": 99328
+      "stack_order": 106496
     },
     {
       "type": "circle",
@@ -6152,7 +6319,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
       "parent_bed_id": "66b54e3d-eede-5b31-a170-40eb6cabdcbd",
-      "stack_order": 101376
+      "stack_order": 108544
     },
     {
       "type": "circle",
@@ -6223,7 +6390,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
       "parent_bed_id": "66b54e3d-eede-5b31-a170-40eb6cabdcbd",
-      "stack_order": 102400
+      "stack_order": 109568
     },
     {
       "type": "circle",
@@ -6294,7 +6461,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Cabbage",
       "parent_bed_id": "66b54e3d-eede-5b31-a170-40eb6cabdcbd",
-      "stack_order": 103424
+      "stack_order": 110592
     },
     {
       "type": "circle",
@@ -6365,7 +6532,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Kale",
       "parent_bed_id": "66b54e3d-eede-5b31-a170-40eb6cabdcbd",
-      "stack_order": 104448
+      "stack_order": 111616
     },
     {
       "type": "circle",
@@ -6436,7 +6603,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Kale",
       "parent_bed_id": "66b54e3d-eede-5b31-a170-40eb6cabdcbd",
-      "stack_order": 105472
+      "stack_order": 112640
     },
     {
       "type": "circle",
@@ -6507,7 +6674,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Kale",
       "parent_bed_id": "66b54e3d-eede-5b31-a170-40eb6cabdcbd",
-      "stack_order": 106496
+      "stack_order": 113664
     },
     {
       "type": "circle",
@@ -6580,7 +6747,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 108544
+      "stack_order": 115712
     },
     {
       "type": "circle",
@@ -6653,7 +6820,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 109568
+      "stack_order": 116736
     },
     {
       "type": "circle",
@@ -6726,7 +6893,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 110592
+      "stack_order": 117760
     },
     {
       "type": "circle",
@@ -6799,7 +6966,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 111616
+      "stack_order": 118784
     },
     {
       "type": "circle",
@@ -6872,7 +7039,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 112640
+      "stack_order": 119808
     },
     {
       "type": "circle",
@@ -6945,7 +7112,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 113664
+      "stack_order": 120832
     },
     {
       "type": "circle",
@@ -7018,7 +7185,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 114688
+      "stack_order": 121856
     },
     {
       "type": "circle",
@@ -7091,7 +7258,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 115712
+      "stack_order": 122880
     },
     {
       "type": "circle",
@@ -7164,7 +7331,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 116736
+      "stack_order": 123904
     },
     {
       "type": "circle",
@@ -7237,7 +7404,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 117760
+      "stack_order": 124928
     },
     {
       "type": "circle",
@@ -7310,7 +7477,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 118784
+      "stack_order": 125952
     },
     {
       "type": "circle",
@@ -7383,7 +7550,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Bean (Bush)",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 119808
+      "stack_order": 126976
     },
     {
       "type": "circle",
@@ -7451,7 +7618,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 120832
+      "stack_order": 128000
     },
     {
       "type": "circle",
@@ -7519,7 +7686,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 121856
+      "stack_order": 129024
     },
     {
       "type": "circle",
@@ -7587,7 +7754,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 122880
+      "stack_order": 130048
     },
     {
       "type": "circle",
@@ -7655,7 +7822,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 123904
+      "stack_order": 131072
     },
     {
       "type": "circle",
@@ -7723,7 +7890,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 124928
+      "stack_order": 132096
     },
     {
       "type": "circle",
@@ -7791,7 +7958,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 125952
+      "stack_order": 133120
     },
     {
       "type": "circle",
@@ -7859,7 +8026,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 126976
+      "stack_order": 134144
     },
     {
       "type": "circle",
@@ -7927,7 +8094,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 128000
+      "stack_order": 135168
     },
     {
       "type": "circle",
@@ -7995,7 +8162,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 129024
+      "stack_order": 136192
     },
     {
       "type": "circle",
@@ -8063,7 +8230,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 130048
+      "stack_order": 137216
     },
     {
       "type": "circle",
@@ -8131,7 +8298,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 131072
+      "stack_order": 138240
     },
     {
       "type": "circle",
@@ -8199,7 +8366,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 132096
+      "stack_order": 139264
     },
     {
       "type": "circle",
@@ -8267,7 +8434,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 133120
+      "stack_order": 140288
     },
     {
       "type": "circle",
@@ -8335,7 +8502,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 134144
+      "stack_order": 141312
     },
     {
       "type": "circle",
@@ -8403,7 +8570,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 135168
+      "stack_order": 142336
     },
     {
       "type": "circle",
@@ -8471,7 +8638,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 136192
+      "stack_order": 143360
     },
     {
       "type": "circle",
@@ -8539,7 +8706,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 137216
+      "stack_order": 144384
     },
     {
       "type": "circle",
@@ -8607,7 +8774,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 138240
+      "stack_order": 145408
     },
     {
       "type": "circle",
@@ -8675,7 +8842,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 139264
+      "stack_order": 146432
     },
     {
       "type": "circle",
@@ -8743,7 +8910,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 140288
+      "stack_order": 147456
     },
     {
       "type": "circle",
@@ -8811,7 +8978,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 141312
+      "stack_order": 148480
     },
     {
       "type": "circle",
@@ -8879,7 +9046,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Beet",
       "parent_bed_id": "4cb098b8-2cfb-51ca-a072-22d252757e60",
-      "stack_order": 142336
+      "stack_order": 149504
     },
     {
       "type": "circle",
@@ -8951,7 +9118,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 144384
+      "stack_order": 151552
     },
     {
       "type": "circle",
@@ -9023,7 +9190,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 145408
+      "stack_order": 152576
     },
     {
       "type": "circle",
@@ -9095,7 +9262,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 146432
+      "stack_order": 153600
     },
     {
       "type": "circle",
@@ -9167,7 +9334,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 147456
+      "stack_order": 154624
     },
     {
       "type": "circle",
@@ -9239,7 +9406,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 148480
+      "stack_order": 155648
     },
     {
       "type": "circle",
@@ -9311,7 +9478,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 149504
+      "stack_order": 156672
     },
     {
       "type": "circle",
@@ -9383,7 +9550,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 150528
+      "stack_order": 157696
     },
     {
       "type": "circle",
@@ -9455,7 +9622,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 151552
+      "stack_order": 158720
     },
     {
       "type": "circle",
@@ -9527,7 +9694,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 152576
+      "stack_order": 159744
     },
     {
       "type": "circle",
@@ -9599,7 +9766,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 153600
+      "stack_order": 160768
     },
     {
       "type": "circle",
@@ -9671,7 +9838,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 154624
+      "stack_order": 161792
     },
     {
       "type": "circle",
@@ -9743,7 +9910,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 155648
+      "stack_order": 162816
     },
     {
       "type": "circle",
@@ -9815,7 +9982,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 156672
+      "stack_order": 163840
     },
     {
       "type": "circle",
@@ -9887,7 +10054,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 157696
+      "stack_order": 164864
     },
     {
       "type": "circle",
@@ -9959,7 +10126,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 158720
+      "stack_order": 165888
     },
     {
       "type": "circle",
@@ -10031,7 +10198,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 159744
+      "stack_order": 166912
     },
     {
       "type": "circle",
@@ -10103,7 +10270,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 160768
+      "stack_order": 167936
     },
     {
       "type": "circle",
@@ -10175,7 +10342,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Strawberry",
       "parent_bed_id": "cfdd4a83-25e4-5cca-a021-000669386803",
-      "stack_order": 161792
+      "stack_order": 168960
     },
     {
       "type": "circle",
@@ -10246,7 +10413,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rhubarb",
       "parent_bed_id": "cd1c064a-f46e-5d21-abd3-5fd099169dec",
-      "stack_order": 163840
+      "stack_order": 171008
     },
     {
       "type": "circle",
@@ -10317,7 +10484,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Rhubarb",
       "parent_bed_id": "cd1c064a-f46e-5d21-abd3-5fd099169dec",
-      "stack_order": 164864
+      "stack_order": 172032
     },
     {
       "type": "circle",
@@ -10388,7 +10555,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
       "parent_bed_id": "fd3aa7f5-a9f3-5a2f-bc27-d5374ddd378e",
-      "stack_order": 166912
+      "stack_order": 174080
     },
     {
       "type": "circle",
@@ -10459,7 +10626,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
       "parent_bed_id": "fd3aa7f5-a9f3-5a2f-bc27-d5374ddd378e",
-      "stack_order": 167936
+      "stack_order": 175104
     },
     {
       "type": "circle",
@@ -10530,7 +10697,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
       "parent_bed_id": "fd3aa7f5-a9f3-5a2f-bc27-d5374ddd378e",
-      "stack_order": 168960
+      "stack_order": 176128
     },
     {
       "type": "circle",
@@ -10601,7 +10768,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
       "parent_bed_id": "fd3aa7f5-a9f3-5a2f-bc27-d5374ddd378e",
-      "stack_order": 169984
+      "stack_order": 177152
     },
     {
       "type": "circle",
@@ -10672,7 +10839,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Tomato",
       "parent_bed_id": "fd3aa7f5-a9f3-5a2f-bc27-d5374ddd378e",
-      "stack_order": 171008
+      "stack_order": 178176
     },
     {
       "type": "circle",
@@ -10745,7 +10912,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 173056
+      "stack_order": 180224
     },
     {
       "type": "circle",
@@ -10818,7 +10985,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 174080
+      "stack_order": 181248
     },
     {
       "type": "circle",
@@ -10891,7 +11058,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 175104
+      "stack_order": 182272
     },
     {
       "type": "circle",
@@ -10964,7 +11131,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 176128
+      "stack_order": 183296
     },
     {
       "type": "circle",
@@ -11037,7 +11204,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 177152
+      "stack_order": 184320
     },
     {
       "type": "circle",
@@ -11110,7 +11277,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 178176
+      "stack_order": 185344
     },
     {
       "type": "circle",
@@ -11183,7 +11350,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 179200
+      "stack_order": 186368
     },
     {
       "type": "circle",
@@ -11256,7 +11423,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 180224
+      "stack_order": 187392
     },
     {
       "type": "circle",
@@ -11329,7 +11496,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 181248
+      "stack_order": 188416
     },
     {
       "type": "circle",
@@ -11402,7 +11569,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Marigold",
       "parent_bed_id": "8f6259a5-9a84-5cc5-9fb0-c2851a4b25d0",
-      "stack_order": 182272
+      "stack_order": 189440
     },
     {
       "type": "circle",
@@ -11475,7 +11642,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 184320
+      "stack_order": 191488
     },
     {
       "type": "circle",
@@ -11548,7 +11715,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 185344
+      "stack_order": 192512
     },
     {
       "type": "circle",
@@ -11621,7 +11788,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 186368
+      "stack_order": 193536
     },
     {
       "type": "circle",
@@ -11694,7 +11861,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 187392
+      "stack_order": 194560
     },
     {
       "type": "circle",
@@ -11767,7 +11934,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 188416
+      "stack_order": 195584
     },
     {
       "type": "circle",
@@ -11840,7 +12007,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 189440
+      "stack_order": 196608
     },
     {
       "type": "circle",
@@ -11913,7 +12080,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 190464
+      "stack_order": 197632
     },
     {
       "type": "circle",
@@ -11986,7 +12153,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Lettuce",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 191488
+      "stack_order": 198656
     },
     {
       "type": "circle",
@@ -12053,7 +12220,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 192512
+      "stack_order": 199680
     },
     {
       "type": "circle",
@@ -12120,7 +12287,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 193536
+      "stack_order": 200704
     },
     {
       "type": "circle",
@@ -12187,7 +12354,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 194560
+      "stack_order": 201728
     },
     {
       "type": "circle",
@@ -12254,7 +12421,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 195584
+      "stack_order": 202752
     },
     {
       "type": "circle",
@@ -12321,7 +12488,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 196608
+      "stack_order": 203776
     },
     {
       "type": "circle",
@@ -12388,7 +12555,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 197632
+      "stack_order": 204800
     },
     {
       "type": "circle",
@@ -12455,7 +12622,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 198656
+      "stack_order": 205824
     },
     {
       "type": "circle",
@@ -12522,7 +12689,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 199680
+      "stack_order": 206848
     },
     {
       "type": "circle",
@@ -12589,7 +12756,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 200704
+      "stack_order": 207872
     },
     {
       "type": "circle",
@@ -12656,7 +12823,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Rocket (Arugula)",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 201728
+      "stack_order": 208896
     },
     {
       "type": "circle",
@@ -12724,7 +12891,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 202752
+      "stack_order": 209920
     },
     {
       "type": "circle",
@@ -12792,7 +12959,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 203776
+      "stack_order": 210944
     },
     {
       "type": "circle",
@@ -12860,7 +13027,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 204800
+      "stack_order": 211968
     },
     {
       "type": "circle",
@@ -12928,7 +13095,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 205824
+      "stack_order": 212992
     },
     {
       "type": "circle",
@@ -12996,7 +13163,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 206848
+      "stack_order": 214016
     },
     {
       "type": "circle",
@@ -13064,7 +13231,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 207872
+      "stack_order": 215040
     },
     {
       "type": "circle",
@@ -13132,7 +13299,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 208896
+      "stack_order": 216064
     },
     {
       "type": "circle",
@@ -13200,7 +13367,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 209920
+      "stack_order": 217088
     },
     {
       "type": "circle",
@@ -13268,7 +13435,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 210944
+      "stack_order": 218112
     },
     {
       "type": "circle",
@@ -13336,7 +13503,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 211968
+      "stack_order": 219136
     },
     {
       "type": "circle",
@@ -13404,7 +13571,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 212992
+      "stack_order": 220160
     },
     {
       "type": "circle",
@@ -13472,7 +13639,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 214016
+      "stack_order": 221184
     },
     {
       "type": "circle",
@@ -13540,7 +13707,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 215040
+      "stack_order": 222208
     },
     {
       "type": "circle",
@@ -13608,7 +13775,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 216064
+      "stack_order": 223232
     },
     {
       "type": "circle",
@@ -13676,7 +13843,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 217088
+      "stack_order": 224256
     },
     {
       "type": "circle",
@@ -13744,7 +13911,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Radish",
       "parent_bed_id": "eef95f4c-b455-5f39-8428-286aa774b13b",
-      "stack_order": 218112
+      "stack_order": 225280
     },
     {
       "type": "rectangle",
@@ -13775,7 +13942,7 @@
         "3fcba33a-097e-50ac-af83-9ecfdac43b61",
         "0c38ed25-ccea-56f0-b2b2-ded5184cce75"
       ],
-      "stack_order": 219136
+      "stack_order": 226304
     },
     {
       "type": "circle",
@@ -13848,7 +14015,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 220160
+      "stack_order": 227328
     },
     {
       "type": "circle",
@@ -13921,7 +14088,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 221184
+      "stack_order": 228352
     },
     {
       "type": "circle",
@@ -13994,7 +14161,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 222208
+      "stack_order": 229376
     },
     {
       "type": "circle",
@@ -14067,7 +14234,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 223232
+      "stack_order": 230400
     },
     {
       "type": "circle",
@@ -14140,7 +14307,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 224256
+      "stack_order": 231424
     },
     {
       "type": "circle",
@@ -14213,7 +14380,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 225280
+      "stack_order": 232448
     },
     {
       "type": "circle",
@@ -14286,7 +14453,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 226304
+      "stack_order": 233472
     },
     {
       "type": "circle",
@@ -14359,7 +14526,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Garden Pea",
       "parent_bed_id": "73f9e639-fac4-5727-9b4f-0b505a39c45e",
-      "stack_order": 227328
+      "stack_order": 234496
     },
     {
       "type": "circle",
@@ -14431,7 +14598,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Parsley",
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
-      "stack_order": 229376
+      "stack_order": 236544
     },
     {
       "type": "circle",
@@ -14503,7 +14670,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Chives",
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
-      "stack_order": 230400
+      "stack_order": 237568
     },
     {
       "type": "circle",
@@ -14571,7 +14738,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Dill",
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
-      "stack_order": 231424
+      "stack_order": 238592
     },
     {
       "type": "circle",
@@ -14642,7 +14809,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Sage",
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
-      "stack_order": 232448
+      "stack_order": 239616
     },
     {
       "type": "circle",
@@ -14711,7 +14878,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Thyme",
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
-      "stack_order": 233472
+      "stack_order": 240640
     },
     {
       "type": "circle",
@@ -14782,7 +14949,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Oregano",
       "parent_bed_id": "7900a11e-01ad-5e5e-9682-707863ca2611",
-      "stack_order": 234496
+      "stack_order": 241664
     },
     {
       "type": "circle",
@@ -14893,7 +15060,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sweet Corn",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 236544
+      "stack_order": 243712
     },
     {
       "type": "circle",
@@ -14967,7 +15134,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sweet Corn",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 237568
+      "stack_order": 244736
     },
     {
       "type": "circle",
@@ -15041,7 +15208,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sweet Corn",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 238592
+      "stack_order": 245760
     },
     {
       "type": "circle",
@@ -15115,7 +15282,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sweet Corn",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 239616
+      "stack_order": 246784
     },
     {
       "type": "circle",
@@ -15189,7 +15356,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sweet Corn",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 240640
+      "stack_order": 247808
     },
     {
       "type": "circle",
@@ -15268,7 +15435,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Runner Bean",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 241664
+      "stack_order": 248832
     },
     {
       "type": "circle",
@@ -15347,7 +15514,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Runner Bean",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 242688
+      "stack_order": 249856
     },
     {
       "type": "circle",
@@ -15432,7 +15599,7 @@
       "plant_category": "FLOWERING_PERENNIAL",
       "plant_species": "Winter Squash",
       "parent_bed_id": "2b5d0ae6-84d8-5bbc-84a4-15b5ce4b73ff",
-      "stack_order": 243712
+      "stack_order": 250880
     },
     {
       "type": "circle",
@@ -15490,7 +15657,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Raspberry",
-      "stack_order": 244736
+      "stack_order": 251904
     },
     {
       "type": "circle",
@@ -15548,7 +15715,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Raspberry",
-      "stack_order": 245760
+      "stack_order": 252928
     },
     {
       "type": "circle",
@@ -15606,7 +15773,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Raspberry",
-      "stack_order": 246784
+      "stack_order": 253952
     },
     {
       "type": "circle",
@@ -15664,7 +15831,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Currant",
-      "stack_order": 247808
+      "stack_order": 254976
     },
     {
       "type": "circle",
@@ -15722,7 +15889,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Currant",
-      "stack_order": 248832
+      "stack_order": 256000
     },
     {
       "type": "circle",
@@ -15780,7 +15947,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Gooseberry",
-      "stack_order": 249856
+      "stack_order": 257024
     },
     {
       "type": "circle",
@@ -15838,7 +16005,7 @@
       "stroke_style": "SOLID",
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Gooseberry",
-      "stack_order": 250880
+      "stack_order": 258048
     },
     {
       "type": "circle",
@@ -15896,7 +16063,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Plum Tree",
-      "stack_order": 251904
+      "stack_order": 259072
     },
     {
       "type": "rectangle",
@@ -15914,14 +16081,14 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 252928
+      "stack_order": 260096
     },
     {
       "type": "circle",
       "item_id": "155d9240-fcbb-57f1-929d-f8554ffc8161",
       "center_x": 1225.0,
       "center_y": 217.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -15972,7 +16139,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-28"
+          "planting_date": "2026-04-28",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
@@ -15985,14 +16154,14 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
       "parent_bed_id": "3a7d5b3c-a762-550f-86ad-251762b913aa",
-      "stack_order": 254976
+      "stack_order": 262144
     },
     {
       "type": "circle",
       "item_id": "25940039-1774-55d5-b5ae-1483a307e829",
       "center_x": 1315.0,
       "center_y": 217.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -16043,7 +16212,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-28"
+          "planting_date": "2026-04-28",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
@@ -16056,14 +16227,14 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
       "parent_bed_id": "3a7d5b3c-a762-550f-86ad-251762b913aa",
-      "stack_order": 256000
+      "stack_order": 263168
     },
     {
       "type": "circle",
       "item_id": "93f8f8cc-eb51-5f35-8304-60f106a99570",
       "center_x": 1405.0,
       "center_y": 217.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -16114,7 +16285,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-28"
+          "planting_date": "2026-04-28",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
@@ -16127,7 +16300,7 @@
       "plant_category": "SPREADING_SHRUB",
       "plant_species": "Sunflower",
       "parent_bed_id": "3a7d5b3c-a762-550f-86ad-251762b913aa",
-      "stack_order": 257024
+      "stack_order": 264192
     },
     {
       "type": "text",
@@ -16401,9 +16574,9 @@
           750.0,
           1000.0
         ],
-        "distance_cm": 2544.0,
-        "yaw_deg": 236.3,
-        "pitch_deg": 18.0,
+        "distance_cm": 2649.0,
+        "yaw_deg": 26.3,
+        "pitch_deg": 24.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,

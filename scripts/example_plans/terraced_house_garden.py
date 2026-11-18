@@ -16,6 +16,9 @@ from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 from .tours import held_tour
 
 SLUG = "terraced-house-garden"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the hedge hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 45.0
 #: The gallery picture: the deck, the extension and the top of the lawn, not an 18 m sliver.
 THUMBNAIL = (0, 760, 600, 760)
 NORTH_DEG = 35.0
@@ -36,8 +39,9 @@ META = {
 
 
 def more_tours(framing):
-    """From the bottom of the garden towards the house, while the sun goes round."""
-    return [held_tour(framing.pose(0.0, 38.0), SHADOWS, time_range=(time(6, 0), time(21, 0)))]
+    """From the long side and well above, so that the narrow plot fills the picture
+    while the sun goes round."""
+    return [held_tour(framing.pose(90.0, 55.0), SHADOWS, time_range=(time(6, 0), time(21, 0)))]
 
 
 def build():
@@ -61,7 +65,7 @@ def build():
         plan.rect(x, y, 42, 42, T.CHAIR, text("Chair", "Stuhl", "Silla"))
     plan.circle(150, 1240, 125, T.PARASOL, text("Parasol", "Sonnenschirm", "Sombrilla"), tall=240)
     plan.circle(545, 1075, 28, T.BBQ_GRILL, text("BBQ", "Grill", "Barbacoa"))
-    plan.rect(345, 1025, 190, 65, T.LOUNGER, text("Lounger", "Liege", "Tumbona"))
+    plan.rect(60, 1020, 190, 65, T.LOUNGER, text("Lounger", "Liege", "Tumbona"))
 
     # ── the neighbours' hedges down both sides, the borders in front of them
     hedge = text("Neighbour's hedge", "Nachbarhecke", "Seto del vecino")

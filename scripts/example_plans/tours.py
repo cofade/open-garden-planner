@@ -47,7 +47,11 @@ def plan_bounds(scene, day: date) -> Bounds:
 class Framing:
     """How the plan fits a 16:9 picture: what a plan module is given to build its tours."""
 
-    def __init__(self, scene, manager, meta: dict) -> None:
+    def __init__(self, scene, manager, meta: dict, *, pitch_deg: float = DEFAULT_ORBIT_PITCH_DEG,
+                 sun_offset_deg: float = SUN_BEHIND_DEG) -> None:
+        #: The plan's own orbit: how steeply it looks down (a walled garden needs more
+        #: than the dialog's default to be seen over its wall) and where it starts.
+        self.pitch_deg, self.sun_offset_deg = float(pitch_deg), float(sun_offset_deg)
         self.day, self.utc_time = showcase_moment(meta)
         self.bounds = plan_bounds(scene, self.day)
         self.aspect = DEFAULT_SIZE[0] / DEFAULT_SIZE[1]
@@ -64,16 +68,17 @@ class Framing:
         return CameraPose((round(east, 1), round(north, 1)), float(round(framed.distance_cm)),
                           round(float(yaw_deg) % 360.0, 1), round(float(pitch_deg), 1))
 
-    def orbit(self, *, sun_offset_deg: float = SUN_BEHIND_DEG) -> CameraPose:
+    def orbit(self) -> CameraPose:
         """Where the orbit starts: far enough to keep the whole plan in the picture all the
-        way round, and turned so that the showcase sun is behind the camera."""
+        way round, at the plan's own pitch, and turned by the plan's own offset from the
+        showcase sun (by default the sun is behind the camera)."""
         distance = max(frame_pose(self.bounds, self.aspect, yaw_deg=float(yaw),
-                                  pitch_deg=DEFAULT_ORBIT_PITCH_DEG).distance_cm
+                                  pitch_deg=self.pitch_deg).distance_cm
                        for yaw in range(0, 360, 5))
         east, north = self.bounds.center
         return CameraPose((round(east, 1), round(north, 1)), float(round(distance)),
-                          round((self.sun_bearing + sun_offset_deg) % 360.0, 1),
-                          round(clamp_orbit_pitch(DEFAULT_ORBIT_PITCH_DEG, distance), 1))
+                          round((self.sun_bearing + self.sun_offset_deg) % 360.0, 1),
+                          round(clamp_orbit_pitch(self.pitch_deg, distance), 1))
 
 
 def orbit_tour(pose: CameraPose, name: str = ORBIT, *, date_range=None, time_range=None,

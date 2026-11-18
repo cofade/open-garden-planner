@@ -12,6 +12,11 @@ from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "allotment"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the hedge hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 24.0
+#: ... and it starts over the chain-link front, which can be seen through.
+ORBIT_SUN_OFFSET_DEG = 290.0
 #: The gallery picture: the beds on both sides of the main path, not the whole tall plot.
 THUMBNAIL = (0, 560, 1500, 844)
 
@@ -38,14 +43,14 @@ def build():
     front = text("Front fence", "Vorderzaun", "Valla delantera")
     plan.line([(30, 150), (660, 150)], T.FENCE, front, style=PathFenceStyle.CHAIN_LINK, tall=120)
     plan.line([(840, 150), (1470, 150)], T.FENCE, front, style=PathFenceStyle.CHAIN_LINK, tall=120)
-    plan.line([(30, 150), (30, 1970), (1470, 1970), (1470, 150)], T.FENCE,
-              text("Boundary hedge", "Grenzhecke", "Seto de linde"),
-              style=PathFenceStyle.HEDGE_FENCE, tall=140)
+    hedge = text("Boundary hedge", "Grenzhecke", "Seto de linde")
+    for run in a.runs([(30, 150), (30, 1970), (1470, 1970), (1470, 150)]):
+        plan.line(run, T.FENCE, hedge, style=PathFenceStyle.HEDGE_FENCE, tall=140)
     plan.line([(750, 150), (750, 1410)], T.PATH, text("Main path", "Hauptweg", "Camino principal"),
               style=PathFenceStyle.PAVED_PATH, wide=100)
 
     # ── the summer house and its terrace
-    plan.shed(960, 1650, 420, 290, T.GARAGE_SHED, text("Summer house", "Laube", "Caseta"),
+    plan.shed(960, 1650, 420, 290, T.TOOL_SHED, text("Summer house", "Laube", "Caseta"),
               tall=270, roof="shed", pitch=12, fill=FillPattern.ROOF_TILES)
     plan.rect(960, 1420, 420, 230, T.TERRACE_PATIO, text("Terrace", "Terrasse", "Terraza"),
               fill=FillPattern.DECKING)
@@ -141,7 +146,8 @@ def build():
     plan.plant("prunus domestica", 1000, 335, planted="2021-11-06", size=(170, 100))
     plan.rect(1215, 330, 150, 50, T.BENCH, text("Bench", "Sitzbank", "Banco"))
     sun = bed(1180, 170, 270, 95, text("Sunflower corner", "Sonnenblumenecke", "Rincón de girasoles"))
-    plan.row("helianthus annuus", (1225, 217), (1405, 217), 3, parent=sun, planted="2026-04-28")
+    plan.row("helianthus annuus", (1225, 217), (1405, 217), 3, parent=sun, planted="2026-04-28",
+             size=(10, 10))  # sown: a sunflower is not three metres tall in July
 
     plan.hint(40, 128, text(
         "18 Jul 2026 · 1  Right-click the salad bed: Succession Plan (2027). The potato bed has a soil test.\n"

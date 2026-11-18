@@ -431,9 +431,9 @@
     },
     {
       "type": "rectangle",
-      "item_id": "3c013bc5-ecc6-58c2-a063-07fad453a83c",
-      "x": 345.0,
-      "y": 1025.0,
+      "item_id": "3fd35c01-d15b-58f1-b858-f293830d757f",
+      "x": 60.0,
+      "y": 1020.0,
       "width": 190.0,
       "height": 65.0,
       "object_type": "LOUNGER",
@@ -2310,9 +2310,9 @@
           300.0,
           900.0
         ],
-        "distance_cm": 2475.0,
+        "distance_cm": 3507.0,
         "yaw_deg": 85.7,
-        "pitch_deg": 18.0,
+        "pitch_deg": 45.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,
@@ -2330,9 +2330,9 @@
       "motion": "hold",
       "held": {
         "eye": [
-          300.0,
-          -1652.4,
-          1994.1
+          -1147.7,
+          900.0,
+          2067.5
         ],
         "target": [
           300.0,

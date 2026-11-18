@@ -14,6 +14,9 @@ from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "mediterranean-courtyard"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the wall hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 34.0
 
 META = {
     "name_en": "Mediterranean courtyard - 12 x 10 m", "name_de": "Mediterraner Innenhof - 12 x 10 m",
@@ -25,7 +28,7 @@ META = {
     "description_ru": "Дворик за стенами в золотой час: олива и инжир в грунте, лимон и апельсин в кадках, пальма у бассейна, виноград на перголе над обеденным столом, лаванда и розмарин вдоль стен. Каменные плиты и терракота, два шезлонга и гирлянда. Ориентир: Валенсия, 39 градусов северной широты: сравните солнце с северным планом. Открывается вечером 21 июня 2026 года. Примерный проект.",
     "order": 2,
     "tags": ["mediterranean", "patio", "golden-hour"],
-    "showcase_date": "2026-06-21", "showcase_utc_time": "18:40",
+    "showcase_date": "2026-06-21", "showcase_utc_time": "18:25",
 }
 
 
@@ -80,8 +83,9 @@ def build():
     plan.plant("citrus sinensis", 1085, 725, parent=orange_tub, size=(210, 150))
     pot = text("Planter pot", "Pflanztopf", "Maceta")
     for x, y in ((90, 790), (560, 460), (790, 800), (960, 800)):
-        plan.circle(x, y - 30, 26, T.PLANTER_POT, pot)
-        plan.plant("pelargonium x hortorum", x, y - 30, size=(35, 40))
+        clay = plan.circle(x, y - 30, 26, T.CONTAINER_ROUND, pot, tall=35,
+                           meta={"container_material": "terracotta"})
+        plan.plant("pelargonium x hortorum", x, y - 30, parent=clay, size=(35, 40))
 
     # ── herbs along the walls
     west = plan.rect(28, 470, 62, 290, T.GARDEN_BED, text("Lavender border", "Lavendelsaum", "Arriate de lavanda"),

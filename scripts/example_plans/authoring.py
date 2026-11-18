@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from uuid import NAMESPACE_URL, uuid5
 
 from PyQt6.QtCore import QPointF
@@ -81,6 +82,21 @@ NOTE_ON_PALE, NOTE_ON_LAWN = "#243528", "#fdfbee"
 #: ready for a picture. Its id is its own, so that giving a plan the layer changes no
 #: other id (the ids of the three first plans are numbered in the order they appear).
 HINTS = text("Hints", "Hinweise", "Indicaciones")
+
+
+def runs(points, longest: float = 800.0) -> list[list[tuple[float, float]]]:
+    """A polyline cut into straight runs of at most ``longest`` cm.
+
+    A hedge is one item with one budget of leaves, however long it is: a 45 m hedge
+    spreads them so thin that it renders as a painted wall (3D review of #940). Runs of
+    8 m carry about as many leaves per metre as a garden hedge that reads as one."""
+    pieces = []
+    for (x0, y0), (x1, y1) in zip(points, points[1:], strict=False):
+        count = max(1, math.ceil(math.hypot(x1 - x0, y1 - y0) / longest))
+        stops = [(round(x0 + (x1 - x0) * step / count), round(y0 + (y1 - y0) * step / count))
+                 for step in range(count + 1)]
+        pieces += [[start, end] for start, end in zip(stops, stops[1:], strict=False)]
+    return pieces
 
 
 def hint_layer_id(slug):

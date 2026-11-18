@@ -7000,7 +7000,7 @@
       "item_id": "f78f4fe0-a8ea-5a7e-b291-190511062153",
       "center_x": 195.0,
       "center_y": 1065.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -7051,7 +7051,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-26"
+          "planting_date": "2026-04-26",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
@@ -7071,7 +7073,7 @@
       "item_id": "5ffbe191-4349-590e-a278-b166e8e3dc94",
       "center_x": 288.3,
       "center_y": 1065.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -7122,7 +7124,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-26"
+          "planting_date": "2026-04-26",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
@@ -7142,7 +7146,7 @@
       "item_id": "8459836b-0720-5780-bd69-0f890ce08781",
       "center_x": 381.7,
       "center_y": 1065.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -7193,7 +7197,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-26"
+          "planting_date": "2026-04-26",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
@@ -7213,7 +7219,7 @@
       "item_id": "f1a9fda2-1c7a-5ac1-a414-d7007928cb76",
       "center_x": 475.0,
       "center_y": 1065.0,
-      "radius": 45.0,
+      "radius": 5.0,
       "object_type": "SHRUB",
       "name": "Sonnenblume",
       "metadata": {
@@ -7264,7 +7270,9 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-26"
+          "planting_date": "2026-04-26",
+          "current_height_cm": 10.0,
+          "current_spread_cm": 10.0
         }
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
@@ -9536,9 +9544,9 @@
           600.0,
           600.0
         ],
-        "distance_cm": 1723.0,
+        "distance_cm": 1866.0,
         "yaw_deg": 261.8,
-        "pitch_deg": 18.0,
+        "pitch_deg": 26.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,

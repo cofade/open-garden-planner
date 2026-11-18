@@ -234,11 +234,11 @@
     },
     {
       "type": "polyline",
-      "item_id": "12982c1f-a0ed-541e-b3bf-2b0fbfeb5f00",
+      "item_id": "bec83dd3-f92d-5efc-953a-cb5fd46db275",
       "points": [
         {
           "x": 600.0,
-          "y": 30.0
+          "y": 50.0
         },
         {
           "x": 600.0,
@@ -474,37 +474,53 @@
     },
     {
       "type": "polygon",
-      "item_id": "1752935e-a92e-59eb-9214-2f06a370d916",
+      "item_id": "7c9b55ae-406c-5cd2-8c43-4eaafb68b502",
       "points": [
         {
           "x": 255.0,
-          "y": 330.0
+          "y": 332.0
         },
         {
-          "x": 300.0,
+          "x": 272.0,
           "y": 322.0
+        },
+        {
+          "x": 296.0,
+          "y": 320.0
+        },
+        {
+          "x": 314.0,
+          "y": 334.0
         },
         {
           "x": 318.0,
           "y": 356.0
         },
         {
+          "x": 304.0,
+          "y": 372.0
+        },
+        {
           "x": 282.0,
           "y": 378.0
         },
         {
+          "x": 260.0,
+          "y": 372.0
+        },
+        {
           "x": 250.0,
-          "y": 362.0
+          "y": 352.0
         }
       ],
       "object_type": "GENERIC_POLYGON",
       "name": "Stein",
       "metadata": {
-        "object_height_cm": 45.0
+        "object_height_cm": 60.0
       },
       "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
       "label_visible": false,
-      "fill_color": "#ff8f8b84",
+      "fill_color": "#ffa49e93",
       "stroke_color": "#ff4682b4",
       "stroke_width": 2.0,
       "fill_pattern": "STONE",
@@ -513,33 +529,49 @@
     },
     {
       "type": "polygon",
-      "item_id": "2762a78f-4494-5110-8d0a-c2653482b473",
+      "item_id": "e9dc771a-f61c-5784-8671-2b0894b376a6",
       "points": [
         {
           "x": 545.0,
-          "y": 280.0
+          "y": 282.0
+        },
+        {
+          "x": 562.0,
+          "y": 275.0
         },
         {
           "x": 580.0,
-          "y": 276.0
+          "y": 277.0
         },
         {
-          "x": 592.0,
+          "x": 591.0,
+          "y": 290.0
+        },
+        {
+          "x": 590.0,
+          "y": 306.0
+        },
+        {
+          "x": 576.0,
+          "y": 316.0
+        },
+        {
+          "x": 558.0,
+          "y": 317.0
+        },
+        {
+          "x": 546.0,
           "y": 304.0
-        },
-        {
-          "x": 560.0,
-          "y": 318.0
         }
       ],
       "object_type": "GENERIC_POLYGON",
       "name": "Stein",
       "metadata": {
-        "object_height_cm": 45.0
+        "object_height_cm": 40.0
       },
       "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
       "label_visible": false,
-      "fill_color": "#ff8f8b84",
+      "fill_color": "#ffa49e93",
       "stroke_color": "#ff4682b4",
       "stroke_width": 2.0,
       "fill_pattern": "STONE",
@@ -548,37 +580,53 @@
     },
     {
       "type": "polygon",
-      "item_id": "2b0ce602-dfdf-53b2-8e03-530d46d18078",
+      "item_id": "98ea17fa-6c1a-5e02-8475-c585daef1a68",
       "points": [
         {
           "x": 420.0,
-          "y": 190.0
-        },
-        {
-          "x": 462.0,
-          "y": 182.0
-        },
-        {
-          "x": 476.0,
-          "y": 214.0
+          "y": 192.0
         },
         {
           "x": 440.0,
-          "y": 232.0
+          "y": 183.0
         },
         {
-          "x": 414.0,
-          "y": 214.0
+          "x": 462.0,
+          "y": 184.0
+        },
+        {
+          "x": 475.0,
+          "y": 198.0
+        },
+        {
+          "x": 474.0,
+          "y": 216.0
+        },
+        {
+          "x": 458.0,
+          "y": 229.0
+        },
+        {
+          "x": 438.0,
+          "y": 231.0
+        },
+        {
+          "x": 420.0,
+          "y": 222.0
+        },
+        {
+          "x": 413.0,
+          "y": 206.0
         }
       ],
       "object_type": "GENERIC_POLYGON",
       "name": "Stein",
       "metadata": {
-        "object_height_cm": 45.0
+        "object_height_cm": 25.0
       },
       "layer_id": "93c07dc5-2de3-5511-8b50-bc544fd5588f",
       "label_visible": false,
-      "fill_color": "#ff8f8b84",
+      "fill_color": "#ffa49e93",
       "stroke_color": "#ff4682b4",
       "stroke_width": 2.0,
       "fill_pattern": "STONE",
@@ -2380,9 +2428,9 @@
           600.0,
           500.0
         ],
-        "distance_cm": 2774.0,
+        "distance_cm": 3298.0,
         "yaw_deg": 0.2,
-        "pitch_deg": 18.0,
+        "pitch_deg": 34.0,
         "fov_deg": 40.0,
         "turns": 1,
         "clockwise": true,

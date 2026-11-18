@@ -13,6 +13,9 @@ from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "japanese-garden"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the fence hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 34.0
 #: Everything was planted last autumn at the size it has, so it stands all year.
 SET = "2025-10-25"
 
@@ -45,10 +48,14 @@ def build():
     plan.polygon([(190, 300), (290, 270), (380, 320), (360, 410), (250, 430), (180, 380)], T.LAWN, island)
     plan.polygon([(500, 250), (590, 240), (640, 300), (600, 360), (510, 340)], T.LAWN, island)
     rock = text("Rock", "Stein", "Roca")
-    for points in ([(255, 330), (300, 322), (318, 356), (282, 378), (250, 362)],
-                   [(545, 280), (580, 276), (592, 304), (560, 318)],
-                   [(420, 190), (462, 182), (476, 214), (440, 232), (414, 214)]):
-        plan.polygon(points, T.GENERIC_POLYGON, rock, tall=45, fill=FillPattern.STONE, color="#8f8b84")
+    for tall, points in (
+            (60, [(255, 332), (272, 322), (296, 320), (314, 334), (318, 356), (304, 372), (282, 378),
+                  (260, 372), (250, 352)]),
+            (40, [(545, 282), (562, 275), (580, 277), (591, 290), (590, 306), (576, 316), (558, 317),
+                  (546, 304)]),
+            (25, [(420, 192), (440, 183), (462, 184), (475, 198), (474, 216), (458, 229), (438, 231),
+                  (420, 222), (413, 206)])):
+        plan.polygon(points, T.GENERIC_POLYGON, rock, tall=tall, fill=FillPattern.STONE, color="#a49e93")
     plan.plant("pinus sylvestris", 300, 400, planted=SET, size=(320, 240))
 
     # ── the tea house, its veranda and the way to it
@@ -58,7 +65,7 @@ def build():
               fill=FillPattern.DECKING)
     plan.rect(390, 560, 70, 380, T.TERRACE_PATIO, text("Slate walk", "Schieferweg", "Paseo de pizarra"),
               fill=FillPattern.SLATE, color="#7b8088")
-    plan.line([(600, 30), (600, 90)], T.PATH, text("Gate path", "Torweg", "Camino de la puerta"),
+    plan.line([(600, 50), (600, 90)], T.PATH, text("Gate path", "Torweg", "Camino de la puerta"),
               style=PathFenceStyle.PAVED_PATH, wide=90)
     plan.line([(700, 300), (790, 380), (780, 480), (700, 540), (560, 560), (460, 590)], T.PATH,
               text("Stepping stones", "Trittsteine", "Pasaderas"), style=PathFenceStyle.STEPPING_STONES, wide=55)

@@ -12,6 +12,9 @@ from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "roof-terrace"
+#: The stored orbit looks down more steeply than the dialog's 18 degrees: from there
+#: the parapet hid the garden behind it (3D review of #940).
+ORBIT_PITCH_DEG = 26.0
 
 META = {
     "name_en": "Roof terrace - 10 x 8 m", "name_de": "Dachterrasse - 10 x 8 m",
@@ -83,8 +86,9 @@ def build():
     plan.circle(60, 130, 12, T.GARDEN_LIGHT, lantern)
     plan.circle(940, 130, 12, T.GARDEN_LIGHT, lantern)
     for x in (120, 200):
-        plan.circle(x + 27.5, 467.5, 28, T.PLANTER_POT, text("Planter pot", "Pflanztopf", "Maceta"))
-        plan.plant("pelargonium x hortorum", x + 27.5, 467.5, size=(35, 40))
+        clay = plan.circle(x + 27.5, 467.5, 28, T.CONTAINER_ROUND, text("Planter pot", "Pflanztopf", "Maceta"),
+                           tall=35, meta={"container_material": "terracotta"})
+        plan.plant("pelargonium x hortorum", x + 27.5, 467.5, parent=clay, size=(35, 40))
 
     plan.hint(40, 262, text(
         "12 Jul 2026 · 1  Drag a plant out of its trough: it leaves the container. Drop it back: it belongs again.\n"
