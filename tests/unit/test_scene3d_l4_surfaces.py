@@ -512,6 +512,179 @@ def test_a_lawn_s_blades_are_remembered_by_its_own_geometry() -> None:
     assert surfaces.sward_cache_info() == {"hits": 0, "misses": 0, "entries": 0, "bytes": 0}
 
 
+# ── a flower meadow (#940): a lawn whose fill pattern is WILDFLOWER ──────────
+
+
+def meadow(params=None, ring=None, height=None):
+    return polygon_record("LAWN", ring if ring is not None else rectangle(800.0, 600.0), height,
+                          params={"seed": "meadow", "surface_pattern": surfaces.MEADOW_PATTERN, **(params or {})})
+
+
+def _heads(part) -> np.ndarray:  # noqa: ANN001 - a MeshPart
+    """Each head's vertices: its polygon's corners, then its eye's."""
+    return part.mesh.positions.astype(np.float64).reshape(-1, surfaces.HEAD_VERTICES, 3)
+
+
+def _rims(heads: np.ndarray) -> np.ndarray:
+    return heads[:, :surfaces.HEAD_PETALS]
+
+
+def test_a_wildflower_lawn_is_a_meadow_of_taller_blades_and_flower_heads() -> None:
+    blades, flowers = verify_builder(REGISTRY.builder_for("LAWN"), meadow(), plan_margin_cm=10.0)
+    for part in (blades, flowers):  # the same name: the engine shows both from High, sways and lights both
+        assert (part.material_kind, part.name) == ("grass", surfaces.LAWN_BLADES)
+        assert part.ground_detail and not part.casts_shadow and not part.fill_texture
+    assert blades.tinted and not flowers.tinted  # the heads carry their own colours
+    # the plan's blade density, the same as a lawn's — one in MEADOW_FLOWER_EVERY a stem
+    count = blades.mesh.triangle_count // 3
+    assert 0.8 * 220.0 * 48.0 <= count <= 1.2 * 220.0 * 48.0
+    heads = _heads(flowers)
+    assert len(heads) == pytest.approx(count / surfaces.MEADOW_FLOWER_EVERY, rel=0.15)
+    assert flowers.mesh.triangle_count == surfaces.HEAD_TRIANGLES * len(heads)
+    # taller: a lawn's blades end below 10 cm, a meadow's stand about 24 cm, up to its top
+    tips = blades.mesh.positions.astype(np.float64).reshape(-1, 5, 3)[:, 4, 2]
+    lawn_top = max(float(part.mesh.positions[:, 2].max()) for part in REGISTRY.build(lawn()))
+    assert lawn_top < 10.0 and 20.0 < float(np.median(tips)) < 28.0
+    assert float(heads[:, :, 2].max()) <= surfaces.MEADOW_TOP_CM
+    # the heads stand over the grass, each on the tip of a stem
+    assert float(np.median(_rims(heads).mean(axis=1)[:, 2])) > float(np.percentile(tips, 75))
+    stem_tips = blades.mesh.positions.astype(np.float64).reshape(-1, 5, 3)[:, 4]
+    centres = _rims(heads).mean(axis=1)    # the rim's middle is the stem's tip
+    gap = np.linalg.norm(centres[:, None, :] - stem_tips[None, :, :], axis=2).min(axis=1)
+    assert float(gap.max()) < 0.01
+    # every vertex of a head sways with its stem: one uv a head; and one normal a head,
+    # one colour a triangle (a far head is a sliver: nothing to extrapolate across it)
+    uvs = flowers.mesh.uvs.reshape(len(heads), -1, 2)
+    assert np.all(uvs == uvs[:, :1])
+    normals = flowers.mesh.normals.reshape(len(heads), -1, 3)
+    assert np.all(normals == normals[:, :1])
+    corners = flowers.mesh.colors[flowers.mesh.indices]
+    assert np.all(corners == corners[:, :1])
+    # the eye stands over the dome's apex, inside the rim
+    eye, middle = heads[:, surfaces.HEAD_PETALS:], centres[:, None, :]
+    assert np.all(eye.mean(axis=1)[:, 2] > centres[:, 2] + 0.1)
+    reach = np.linalg.norm(eye - middle, axis=2).max(axis=1)
+    assert np.all(reach < np.linalg.norm(_rims(heads) - middle, axis=2).min(axis=1))
+
+
+@pytest.mark.parametrize("drift", [0.0, surfaces.MEADOW_DRIFT])
+def test_a_meadow_s_flowers_are_the_2d_sprites_colours_in_their_shares(
+        drift: float, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without drifts every kind takes its share; with them (the default) a kind grows
+    in patches, so a 20 x 15 m sample strays from the shares, but every kind is there."""
+    monkeypatch.setattr(surfaces, "MEADOW_DRIFT", drift)
+    surfaces.clear_lawn_cache()
+    (_blades, flowers) = REGISTRY.build(meadow(ring=rectangle(2000.0, 1500.0)))
+    surfaces.clear_lawn_cache()
+    petals, centres = surfaces.flower_colours()
+    colours = flowers.mesh.colors.astype(np.float64).reshape(-1, surfaces.HEAD_VERTICES, 4)[:, :, :3]
+    rim, middle = colours[:, 1], colours[:, -1]   # a corner's petal colour, the eye's centre colour
+
+    def kind_of(colour, table):  # the entry whose colour this is, times the head's brightness
+        ratio = colour[:, None, :] / table[None, :, :]
+        spread = ratio.max(axis=2) - ratio.min(axis=2)
+        return spread.argmin(axis=1), spread.min(axis=1), ratio.mean(axis=2)[np.arange(len(colour)), spread.argmin(axis=1)]
+
+    kind, spread, bright = kind_of(rim, petals)
+    assert float(spread.max()) < 1e-4
+    assert bright.min() >= 0.9 - 1e-6 and bright.max() <= 1.05 + 1e-6
+    assert np.allclose(middle, centres[kind] * bright[:, None], atol=1e-5)  # its centre, the same entry
+    shares = np.bincount(kind, minlength=len(surfaces.MEADOW_FLOWERS)) / len(kind)
+    wanted = np.asarray([share for _key, share, _radius in surfaces.MEADOW_FLOWERS])
+    assert np.allclose(shares, wanted / wanted.sum(), atol=0.025 if drift == 0.0 else 0.06)
+    assert shares.min() > 0.04
+    from open_garden_planner.core.plant_art import FLOWERS
+    from open_garden_planner.core.scene3d.color import srgb_to_linear
+
+    assert np.allclose(petals, [srgb_to_linear(FLOWERS[key][0]) for key, _s, _r in surfaces.MEADOW_FLOWERS])
+
+
+def test_a_cut_out_takes_a_meadow_s_flowers_with_their_stems() -> None:
+    cut = ((-200.0, -150.0), (200.0, -150.0), (200.0, 150.0), (-200.0, 150.0))  # a quarter
+    whole = _heads(REGISTRY.build(meadow())[1])
+    blades, flowers = REGISTRY.build(meadow({"lawn_cutouts": (cut,)}))
+    heads = _heads(flowers)
+
+    def under(points, margin):   # a stem's tip (its rim's middle) is at most STEM_REACH_CM off its root
+        return (np.abs(points[:, 0]) < 200.0 + margin) & (np.abs(points[:, 1]) < 150.0 + margin)
+
+    reach = surfaces.STEM_REACH_CM + 0.01
+    assert not under(_rims(heads).mean(axis=1), -reach).any()
+    tips = _rims(whole).mean(axis=1)
+    # every head whose stem is surely outside stays, every one surely inside goes
+    assert int((~under(tips, reach)).sum()) <= len(heads) <= int((~under(tips, -reach)).sum())
+    assert len(heads) < len(whole)
+    assert blades.tinted and not flowers.tinted
+
+
+def test_a_raised_meadow_s_flowers_ride_its_top() -> None:
+    sides, cap, blades, flowers = REGISTRY.build(meadow(height=20.0))
+    assert (sides.name, cap.name) == ("lawn_sides", "lawn")
+    assert 20.0 <= float(blades.mesh.positions[:, 2].min()) < 21.0
+    assert float(flowers.mesh.positions[:, 2].min()) > 20.0 + surfaces.MEADOW_BLADE_CM
+
+
+def test_a_meadow_without_a_share_of_the_plan_s_blades_grows_nothing() -> None:
+    assert REGISTRY.build(meadow({"lawn_blades": 0})) == ()
+    blades, flowers = REGISTRY.build(meadow({"lawn_blades": 600}))
+    assert blades.mesh.triangle_count // 3 == pytest.approx(600, rel=0.1)
+    assert len(_heads(flowers)) == pytest.approx(600 / surfaces.MEADOW_FLOWER_EVERY, rel=0.35)
+
+
+@pytest.mark.parametrize("pattern", [None, "GRASS", "SOLID", "CLAY", "wildflower"])
+def test_only_wildflower_makes_a_meadow_and_a_lawn_stays_the_lawn_it_was(pattern) -> None:
+    """Every other lawn builds exactly what it built before #940 — the plain blades,
+    array for array."""
+    params = {} if pattern is None else {"surface_pattern": pattern}
+    built = REGISTRY.build(lawn({"seed": "same", **params}))
+    plain = REGISTRY.build(lawn({"seed": "same"}))
+    assert len(built) == len(plain) == 1 and built[0] == plain[0]
+    assert not surfaces.is_meadow(lawn(params))
+
+
+@pytest.mark.parametrize("kind", ["TERRACE_PATIO", "DRIVEWAY"])
+def test_another_surface_with_the_wildflower_pattern_is_no_meadow(kind) -> None:
+    def build(pattern):
+        return REGISTRY.build(polygon_record(kind, rectangle(500.0, 400.0), None,
+                                             params={"seed": "t", "surface_pattern": pattern}))
+
+    assert build(surfaces.MEADOW_PATTERN) == build("STONE")
+    assert not surfaces.is_meadow(polygon_record(kind, rectangle(500.0, 400.0), None,
+                                                 params={"surface_pattern": surfaces.MEADOW_PATTERN}))
+
+
+def test_the_sward_memory_keeps_a_meadow_apart_from_a_lawn() -> None:
+    surfaces.clear_lawn_cache()
+    plain = REGISTRY.build(lawn({"seed": "s"}))
+    flowered = REGISTRY.build(meadow({"seed": "s"}))
+    assert surfaces.sward_cache_info()["misses"] == 2  # the same outline, seed and share: two swards
+    assert REGISTRY.build(lawn({"seed": "s"})) == plain and REGISTRY.build(meadow({"seed": "s"})) == flowered
+    info = surfaces.sward_cache_info()
+    assert (info["hits"], info["entries"]) == (2, 2)
+    assert info["bytes"] > surfaces._sward((rectangle(800.0, 600.0),), (), "s", None).nbytes
+    surfaces.clear_lawn_cache()
+
+
+def test_a_meadow_s_triangles_are_the_lawn_s_and_its_heads_at_most() -> None:
+    """The budget: the same blades as a lawn of the same share (the plan's
+    ``MAX_PLAN_BLADES`` bounds them), and a head on at most one blade in
+    ``MEADOW_FLOWER_EVERY / (1 + MEADOW_RICHNESS)`` — measured: +18 to +24 % on 15 x 10 m."""
+    ring = rectangle(1500.0, 1000.0)
+    (plain,) = REGISTRY.build(lawn({"seed": "budget"}, ring=ring))
+    blades, flowers = REGISTRY.build(meadow({"seed": "budget"}, ring=ring))
+    assert blades.mesh.triangle_count == plain.mesh.triangle_count
+    most = surfaces.HEAD_TRIANGLES * (plain.mesh.triangle_count // 3) * (1.0 + surfaces.MEADOW_RICHNESS) \
+        / surfaces.MEADOW_FLOWER_EVERY
+    assert flowers.mesh.triangle_count <= most
+    assert blades.mesh.triangle_count + flowers.mesh.triangle_count <= 1.3 * plain.mesh.triangle_count
+
+
+def test_two_meadows_are_no_clones() -> None:
+    first, second = (REGISTRY.build(meadow({"seed": seed})) for seed in ("one", "two"))
+    for a, b in zip(first, second, strict=True):
+        assert a.mesh.positions.shape != b.mesh.positions.shape or not np.array_equal(a.mesh.positions, b.mesh.positions)
+
+
 def test_the_sward_memory_is_capped_in_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
     surfaces.clear_lawn_cache()
     one = surfaces._sward((rectangle(800.0, 600.0),), (), "a", None).nbytes
