@@ -10,6 +10,9 @@ from __future__ import annotations
 from copy import deepcopy
 from uuid import NAMESPACE_URL, uuid5
 
+from PyQt6.QtCore import QPointF
+from PyQt6.QtGui import QColor
+
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
 from open_garden_planner.core.item_look import adopt_pen
@@ -20,6 +23,7 @@ from open_garden_planner.models.plant_data import PermacultureLayer
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.services.guild_library import GuildLibrary
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.items import PolygonItem
 
 from . import authoring as a
 from .i18n import text
@@ -152,11 +156,17 @@ def _orchard_meadow(scene, layers):
     their own (``OWN_IDS``), so that no item of the first plan changed its id."""
     T = ObjectType
     OWN_IDS.clear()
-    meadow = text("Orchard meadow", "Streuobstwiese", "Pradera de frutales")
-    for x, y, width, height in ((0, 1000, 3000, 1000), (2000, 0, 1000, 1000)):
-        item = a.rect(scene, x, y, width, height, T.LAWN, meadow, item_id=_own("meadow", x, y))
-        item.fill_pattern = FillPattern.WILDFLOWER
-        item.setBrush(create_pattern_brush(item.fill_pattern, item.fill_color))
+    # One polygon round the forest garden, not two rectangles: where two meadows meet,
+    # each bakes its outline and its flower drifts stop, and the seam shows in 3D.
+    meadow = PolygonItem([QPointF(x, y) for x, y in (
+        (0, 1000), (2000, 1000), (2000, 0), (3000, 0), (3000, 2000), (0, 2000))],
+        object_type=T.LAWN, name=text("Orchard meadow", "Streuobstwiese", "Pradera de frutales"),
+        layer_id=scene.active_layer.id)
+    meadow._item_id = _own("meadow")
+    meadow.fill_color = QColor(a.MEADOW_GREEN)
+    meadow.fill_pattern = FillPattern.WILDFLOWER
+    meadow.setBrush(create_pattern_brush(meadow.fill_pattern, meadow.fill_color))
+    scene.addItem(meadow)
     a.line(scene, [(20, 1010), (20, 1980), (2980, 1980), (2980, 20), (2010, 20)], T.FENCE,
            text("Field hedge", "Feldhecke", "Seto de campo"), 180, PathFenceStyle.HEDGE_FENCE,
            item_id=_own("hedge"))

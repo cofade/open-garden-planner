@@ -288,40 +288,44 @@
       "stack_order": 5120
     },
     {
-      "type": "rectangle",
-      "item_id": "b684ad81-8c78-5c48-9b19-1be895aa7c6d",
-      "x": 0.0,
-      "y": 1000.0,
-      "width": 3000.0,
-      "height": 1000.0,
+      "type": "polygon",
+      "item_id": "7f537328-c1ec-5acf-910e-b3721cae8708",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 1000.0
+        },
+        {
+          "x": 2000.0,
+          "y": 1000.0
+        },
+        {
+          "x": 2000.0,
+          "y": 0.0
+        },
+        {
+          "x": 3000.0,
+          "y": 0.0
+        },
+        {
+          "x": 3000.0,
+          "y": 2000.0
+        },
+        {
+          "x": 0.0,
+          "y": 2000.0
+        }
+      ],
       "object_type": "LAWN",
       "name": "Streuobstwiese",
       "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
       "label_visible": false,
-      "fill_color": "#ff64b43c",
+      "fill_color": "#ff7fa348",
       "stroke_color": "#ff3c821e",
       "stroke_width": 2.0,
       "fill_pattern": "WILDFLOWER",
       "stroke_style": "SOLID",
       "stack_order": 9216
-    },
-    {
-      "type": "rectangle",
-      "item_id": "db33d324-9404-5eb8-933b-01e1e1bc5ba3",
-      "x": 2000.0,
-      "y": 0.0,
-      "width": 1000.0,
-      "height": 1000.0,
-      "object_type": "LAWN",
-      "name": "Streuobstwiese",
-      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
-      "label_visible": false,
-      "fill_color": "#ff64b43c",
-      "stroke_color": "#ff3c821e",
-      "stroke_width": 2.0,
-      "fill_pattern": "WILDFLOWER",
-      "stroke_style": "SOLID",
-      "stack_order": 10240
     },
     {
       "type": "polyline",
@@ -366,7 +370,7 @@
       "stroke_color": "#ff7d5c3e",
       "stroke_width": 80.0,
       "path_fence_style": "DIRT_PATH",
-      "stack_order": 12288
+      "stack_order": 11264
     },
     {
       "type": "circle",
@@ -552,7 +556,7 @@
       "stroke_color": "#ff3c7828",
       "stroke_width": 8.0,
       "path_fence_style": "HEDGE_FENCE",
-      "stack_order": 11264
+      "stack_order": 10240
     },
     {
       "type": "circle",
@@ -610,7 +614,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Pear Tree",
-      "stack_order": 13312
+      "stack_order": 12288
     },
     {
       "type": "rectangle",
@@ -628,7 +632,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 14336
+      "stack_order": 13312
     },
     {
       "type": "rectangle",
@@ -646,7 +650,7 @@
       "stroke_width": 1.0,
       "fill_pattern": "SOLID",
       "stroke_style": "SOLID",
-      "stack_order": 15360
+      "stack_order": 14336
     },
     {
       "type": "circle",
@@ -734,7 +738,7 @@
       "stroke_style": "SOLID",
       "plant_category": "ROUND_DECIDUOUS",
       "plant_species": "Walnut Tree",
-      "stack_order": 16384
+      "stack_order": 15360
     },
     {
       "type": "circle",

@@ -107,6 +107,10 @@ def site(manager, city, latitude, longitude):
                               "last_spring_frost": "05-15", "first_fall_frost": "10-15"}})
 
 
+#: A flower meadow's green: a lawn with the WILDFLOWER fill takes its fill colour for the
+#: blades in 3D, and with a lawn's own lime the two cannot be told apart from 25 m.
+MEADOW_GREEN = "#7fa348"
+
 #: A soil sample's remark in a plan whose sample is not tied to one teaching date.
 SOIL_NOTE = text("Fictional sample; not a real soil analysis.",
                  "Fiktive Probe; keine echte Bodenanalyse.",

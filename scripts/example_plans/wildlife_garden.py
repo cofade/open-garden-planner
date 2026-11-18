@@ -33,8 +33,9 @@ META = {
 def build():
     T, plan = ObjectType, Plan(SLUG, 1800, 1400, layer=text("Wildlife garden", "Naturgarten", "Jardín natural"))
     plan.site("lueneburg")
+    # one polygon, and everything that clears the grass is drawn after it, so above it
     plan.rect(0, 0, 1800, 1400, T.LAWN, text("Flower meadow", "Blumenwiese", "Pradera de flores"),
-              fill=FillPattern.WILDFLOWER)
+              fill=FillPattern.WILDFLOWER, color=a.MEADOW_GREEN)
     plan.line([(12, 12), (12, 1388), (1788, 1388), (1788, 12)], T.FENCE,
               text("Wild hedge", "Wildhecke", "Seto silvestre"), style=PathFenceStyle.HEDGE_FENCE, tall=170)
     fence = text("Front fence", "Vorderzaun", "Valla delantera")
