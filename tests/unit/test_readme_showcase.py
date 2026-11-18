@@ -55,3 +55,28 @@ def test_every_readme_picture_exists_and_says_what_it_shows():
             continue                       # a badge served by its own site
         assert (ROOT / path).is_file(), path
         assert len(alt.strip()) >= 12, f"{path}: alt text says what the picture shows"
+
+
+def test_the_readme_shows_every_bundled_example_and_links_to_its_plan():
+    from tests.example_specs import SPECS
+
+    for slug in SPECS:
+        assert f"docs/images/readme/examples/{slug}.jpg" in README, slug
+        assert f"src/open_garden_planner/resources/examples/{slug}.ogp" in README, slug
+    assert "resources/examples/PROVENANCE.md" in README, "the attribution is one click away"
+
+
+def test_the_readme_pictures_are_the_capture_scripts_and_none_is_left_over():
+    """Every picture comes out of ``scripts/capture_readme_media.py`` and is used: a
+    picture nobody re-shoots goes stale, and one nobody shows is weight in every clone."""
+    folder = ROOT / "docs/images/readme"
+    shown = {path or html_path for _alt, path, html_path, _html_alt in IMAGES}
+    kept = {path.relative_to(ROOT).as_posix() for path in folder.rglob("*") if path.is_file()}
+    assert kept == {path for path in shown if path.startswith("docs/images/readme/")}
+    for path in sorted(kept):
+        assert (ROOT / path).stat().st_size <= 600 * 1024, f"{path}: a README picture loads fast"
+    script = (ROOT / "scripts/capture_readme_media.py").read_text(encoding="utf-8")
+    for path in sorted(kept - {"docs/images/readme/download-windows.svg"}):
+        name = Path(path).stem
+        stem = name if "/examples/" not in path else "examples/"
+        assert f'"{stem}' in script or f'f"{stem.split("-")[0]}-' in script, f"{path}: no shot writes it"
