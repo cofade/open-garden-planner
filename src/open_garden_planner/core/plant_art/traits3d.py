@@ -16,8 +16,9 @@ sprite never needed:
 - **Season & phenology** (on ``Traits3D``): ``deciduous`` flag, Northern-Hemisphere
   illustrative ``bloom_months`` (1..12) and ``blossom_spec``, ``harvest_weeks``
   (weeks relative to last spring frost from ``plant_species.json``), ``fruit_months``
-  derived from the harvest window via ``fruit_months_from_harvest_window``, and
-  ``autumn_palette`` (always a key of ``recipes.PALETTES``).
+  derived from the harvest window via ``fruit_months_from_harvest_window``,
+  ``autumn_palette`` (always a key of ``recipes.PALETTES``) and ``frost_hardy_bloom``
+  (does the plant flower before the last frost and after the first one: #940).
 
 Standard library only (no Qt, no numpy — pinned by ``tests/unit/test_plant_art.py``).
 """
@@ -25,7 +26,7 @@ Standard library only (no Qt, no numpy — pinned by ``tests/unit/test_plant_art
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 from .recipes import CATEGORIES, FLOWERS, PALETTES, SPECIES, Recipe, palette_key
@@ -147,6 +148,11 @@ class Traits3D:
     fruit_months: tuple[int, ...]
     harvest_weeks: tuple[int, int] | None
     autumn_palette: str
+    #: The plant flowers by its own ``bloom_months``, frost season or not: it stays in
+    #: the ground over winter (``_FROST_HARDY_BLOOM_STEMS``). False: its flowers wait
+    #: for the plan's frost-free season (``core/phenology.py``), as a tender plant is
+    #: planted out after the last frost.
+    frost_hardy_bloom: bool = False
 
     @property
     def evergreen(self) -> bool:
@@ -354,6 +360,30 @@ _FRUIT_BLOSSOM_SPEC: Final[dict[str, str]] = {
     "currant": "cream",
     "fruit_tree": "pink",
 }
+
+#: Species that flower by their own bloom months even outside the plan's frost-free
+#: season (#940): bulbs, hardy perennials and herbs, shrubs, climbers and fruit trees
+#: that stay in the ground over winter. Crocus and daffodil flower before the last
+#: frost, apple and magnolia blossom often does, asters and chrysanthemums go on
+#: after the first. Every other plant is tender or planted out after the last frost,
+#: and its flowers wait for the frost-free season. Species stems only: a category
+#: says nothing about a plant's hardiness. No bundled record that draws one of these
+#: is ``frost_tolerance: "tender"`` (drift-guarded, ``tests/unit/test_phenology.py``).
+_FROST_HARDY_BLOOM_STEMS: Final[frozenset[str]] = frozenset({
+    # fruit and ornamental trees
+    "apple_tree", "pear_tree", "plum_tree", "peach_tree", "cherry_tree", "olive_tree",
+    "magnolia",
+    # flowering and berry shrubs
+    "forsythia", "camellia", "rhododendron", "lilac", "viburnum", "spirea", "elderberry",
+    "privet", "barberry", "blueberry", "raspberry", "blackberry", "gooseberry", "currant",
+    "rose", "hydrangea", "hibiscus",
+    # woody climbers
+    "wisteria", "clematis", "jasmine",
+    # bulbs and hardy perennials
+    "crocus", "daffodil", "tulip", "pansy", "peony", "iris", "lily", "aster", "chrysanthemum",
+    # perennial herbs and the frost-hardy pea
+    "lavender", "rosemary", "thyme", "sage", "oregano", "chives", "chamomile", "pea",
+})
 
 #: Evergreen recipes (never shed leaves in winter).
 _EVERGREEN_STEMS: Final[frozenset[str]] = frozenset({
@@ -774,9 +804,14 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
     )
 
 
+def _species_traits(stem: str, recipe: Recipe) -> Traits3D:
+    traits = _build_traits(GROUP_SPECIES, stem, recipe)
+    return replace(traits, frost_hardy_bloom=True) if stem in _FROST_HARDY_BLOOM_STEMS else traits
+
+
 #: 3D traits for every species recipe (111).
 SPECIES_TRAITS: Final[dict[str, Traits3D]] = {
-    stem: _build_traits(GROUP_SPECIES, stem, recipe) for stem, recipe in SPECIES.items()
+    stem: _species_traits(stem, recipe) for stem, recipe in SPECIES.items()
 }
 
 #: 3D traits for every category recipe (15).

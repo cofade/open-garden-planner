@@ -293,9 +293,13 @@ def _evaluate_cached(
         ripeness = _harvest_ripeness(plan_date, harvest_weeks, frost_mmdd)
     else:
         ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months, ramp_from=0.55)
+    # Outside the plan's frost-free season a TENDER plant does not flower: it is planted
+    # out after the last frost. A hardy one flowers by its own months — crocus and
+    # daffodil before the last frost, asters after the first (#940).
     if (frost_window[0] and frost_window[1]
             and not _inside_frost_free_season(plan_date, *frost_window)):
-        bloom = 0.0
+        if not traits.frost_hardy_bloom:
+            bloom = 0.0
         if harvest_weeks is None:
             ripeness = 0.0
 

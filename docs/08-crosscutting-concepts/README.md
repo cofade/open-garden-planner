@@ -8554,6 +8554,12 @@ Flower, fruit/pod and tuber parts have independent seasonal controls. Recorded
 harvest windows use `core/calendar_windows.py` and the plan's local frost dates,
 including cross-year and leap-day anchors. Illustrative bloom/leaf seasons shift
 six months in the southern hemisphere; the recorded frost calendar does not.
+Outside the plan's frost-free season only a tender plant's flowers are held back,
+because it is planted out after the last frost. A hardy species
+(`Traits3D.frost_hardy_bloom`: bulbs, hardy perennials and herbs, shrubs, woody
+climbers, fruit trees) flowers by its own bloom months, so crocus and daffodil bloom
+before the last frost and asters after the first (#940). Category fallbacks stay
+gated; the curated set is drift-guarded against the species file's `frost_tolerance`.
 Seasonal state changes update shader/Model values without copying mesh buffers.
 Plant existence remains the shared lifetime clock's responsibility (#315).
 
