@@ -137,7 +137,7 @@ src/open_garden_planner/
 │   │   │   ├── utility.py        #     L4: compost bin, cold frame, rain barrel, water tap, wheelbarrow, bird bath
 │   │   │   ├── lights.py         #     L5.4: garden light, string lights, where their bulbs are (ADR-070)
 │   │   │   ├── structures.py     #     L4: pergola (parametric, core/pergola), trellis, greenhouse (glass, core/greenhouse)
-│   │   │   ├── surfaces.py       #     L4: ground-detail relief — path styles, kerbs / decks, pond water + coping, lawn blades
+│   │   │   ├── surfaces.py       #     L4: ground-detail relief — path styles, kerbs / decks, pond water + coping, lawn blades, a WILDFLOWER lawn's meadow (#940)
 │   │   │   ├── roofs.py          #     gable / hip / shed / flat roofs + the walls' top under them (L4.1)
 │   │   │   ├── facade.py         #     L4: windows on the walls that hold them, the door on params["door_wall"]
 │   │   │   ├── buildings.py      #     HOUSE, GARAGE_SHED, TOOL_SHED: roof style, pitch, overhang (core/roof_style)

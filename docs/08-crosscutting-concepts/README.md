@@ -8652,6 +8652,24 @@ flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
 (measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
 L2's multiply drapes (ADR-065 decision 9).
 
+**A flower meadow (#940, ADR-065 addendum).** A LAWN whose fill pattern is WILDFLOWER is a
+meadow in 3D; no other lawn and no other kind changes. The snapshot writes `surface_pattern`
+into a LAWN's record for that pattern only, so every other lawn's record, mesh and baseline
+stays byte for byte. `surfaces._lawn` grows the lawn's own blade share as taller, looser
+blades (`MEADOW_BLADE_CM` 24 before variation, 12–38 cm; a tip at most 7 cm off its root; a
+darker foot and a mottle following patches of tall and short grass) and puts a flower head on
+one blade in `MEADOW_FLOWER_EVERY` (6) on average: a flat, tilted five-cornered polygon in a
+`plant_art.FLOWERS` entry's petal colour with a triangle eye in its centre colour (white,
+yellow, lilac, blue, red), each kind growing in drifts. A head has one normal and each of its
+triangles one colour: a far head is a sub-pixel sliver, and a centre-to-rim gradient that a
+multisampled pixel extrapolated came out as pure red, blue or black pixels (PF-L3D-36). The heads are a second, untinted `grass` part under the blades' name
+`lawn_blades`, so `lawnBlades` (High and Ultra only), `lawn.frag` and the grass sway apply with
+no QML change; a meadow blade's wind weight grows with its height (at the tip `uv.x² = √(h /
+7 cm)`). Relief reaches `MEADOW_TOP_CM` (44 cm) and stays inside the footprint plus 10 cm; the
+sward memory keys a meadow apart from a lawn. The flowers do not follow the season (the lawn
+has no phenology, #943). Pinned by the meadow cases of `test_scene3d_l4_surfaces.py`,
+`tests/integration/test_scene3d_meadow.py` and `tests/perf/test_scene3d_meadow_budget.py`.
+
 **The meadow's grass (#798, ADR-048 addendum "the meadow's grass").** The meadow and the plan's
 open ground are no longer one flat colour (73–80 % of the default framing was flat green): ONE
 shader, `ground.frag`, draws the baked tiles, the bare plan rectangle and the meadow, so the

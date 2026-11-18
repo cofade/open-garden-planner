@@ -10675,6 +10675,26 @@ and count, no wall-of-planks, chamfer unchanged, smooth loop, dense/curved shado
 transmittance) and `test_string_lights.py` (#709's 40 cm gap and 2.5 cm chord rule on
 the same sampled arc).
 
+### ADR-065 addendum: a WILDFLOWER lawn is a flower meadow (#940)
+
+**Context:** The bundled example plans of #940 need a wildflower meadow that reads as one
+in 3D. A fill pattern reached 3D only as the baked ground picture (the 2D tint makes the
+WILDFLOWER texture a light-specked green), and a LAWN with that fill grew the plain 7 cm
+blades.
+
+**Decision:** For this one case the pattern is geometry: the snapshot writes
+`surface_pattern` (a build-only param, as for a deck) into a LAWN's record only when it is
+WILDFLOWER, and the lawn builder grows a meadow — the lawn's blade share as taller, looser
+blades, and flower heads on about one blade in six, in drifts, in `plant_art.FLOWERS`
+colours, as a second untinted part named `lawn_blades`. No QML, shader, asset, setting or
+file-format change. The rule and its pins: §8.29.12.
+
+**Consequences:** Below High a meadow is only its painted picture. The heads flower all
+year (#943). Grass up to 38 cm and heads up to 44 cm hide a plant lower than that standing
+in the meadow: a plant does not cut a lawn (`context._NOT_A_CUTOUT`). A meadow costs about
++22 % of a lawn's triangles of the same area and its first build about 1.6 times the lawn's;
+the plan's blade budget bounds both.
+
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 
 **Status:** Accepted; owner executable acceptance confirmed on 27 October 2026; shipped in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) via [PR #610](https://github.com/cofade/open-garden-planner/pull/610).

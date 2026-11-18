@@ -479,3 +479,13 @@ Symptom: the 3D promo survey read the family garden's black trampoline mat (#303
 - **Legacy:** none (new entry)
 
 Symptom (first build of #801's roof): the canvas's own recolour rule (`fill_patterns._tint_texture`: colour x lum / mean(lum), in sRGB) taken into linear light brightens a surface by mean(s^2.2) - and on the noon roof, whose red channel sat at 239, 15.4 % of the roof's pixels clipped red at full contrast. Fix: the texel stores s^2.2 / mean(s^2.2) x 0.4 (R; linear, mean 1), slopes in G and B; the roof takes 0.6 of the contrast (5.3 % red-clipped, which is the flat roof's own 239 lifted by its lightest tiles), masonry 0.8, plaster 0.85. Measured: the noon roof's mean -0.6 % luma, 0.0° hue against the same roof without the picture; the far roof mips to the flat colour, so the shadow, IoU and board colour gates did not move.
+
+### PF-L3D-36
+
+- **Rule:** A part that can shrink below a pixel - a flower head, a micro-leaf seen edge-on - carries ONE value per triangle of every varying the fragment shader reads (its normal, its colour): under MSAA a covered pixel is shaded at its centre, outside the sliver, and a centre-to-rim gradient extrapolated there comes out negative or zero - `lawn.frag` normalises a zero normal into NaN and pure red, blue or black pixels.
+- **Pinned by:** `tests/unit/test_scene3d_l4_surfaces.py::test_a_wildflower_lawn_is_a_meadow_of_taller_blades_and_flower_heads`
+- **Source:** #940; ADR-065 addendum (#940)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom (#940's first meadow): 7-38 single pixels a frame of (0, 0, 0), (0, 0, 252), (96, 0, 0), (0, 132, 0) along the far edge of a flower meadow at High and Ultra, none on the base commit's frames of the same plan. Each head was a domed fan whose centre vertex had the flower's centre colour and an upright normal and whose rim had the petal colour and tilted normals. Fix: one normal a head, the petals one colour, the centre a separate eye triangle in its own colour - 0 such pixels in all eight frames of the same board (noon, golden hour, December noon, walk at High and Ultra). A lawn blade was never affected: its colour varies only along its length, not across the width a far blade is thin in.
