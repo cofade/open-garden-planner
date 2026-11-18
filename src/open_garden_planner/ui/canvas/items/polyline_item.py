@@ -2,10 +2,8 @@
 
 import math
 import uuid
-import weakref
 from typing import Any, Final
 
-from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import (
     QBrush,
@@ -37,8 +35,8 @@ from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
     get_style,
+    is_ridge_bearing_type,
 )
-from open_garden_planner.core.roof_style import FLAT, HIP, SHED, roof_style
 from open_garden_planner.core.string_lights import Layout
 
 from .garden_item import GardenItemMixin, is_interactive_paint
@@ -86,8 +84,6 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
     Used for fences, walls, paths, and other linear features.
     Supports selection, movement, rotation, and style presets.
     """
-
-    _ridge_owner: weakref.ReferenceType[QGraphicsItem] | None = None
 
     # PF-CAN-61: class-level defaults protect boundingRect during GC teardown.
     _path_fence_style: PathFenceStyle = PathFenceStyle.NONE
@@ -256,38 +252,30 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
     def _find_owner_polygon(self) -> "QGraphicsItem | None":
         """Look up the building that owns this ridge via metadata."""
         pid = self.get_metadata("owner_polygon_id") if hasattr(self, "get_metadata") else None
-        if not pid:
-            return None
         scene = self.scene()
         if scene is None:
             return None
-        cached = self._ridge_owner() if self._ridge_owner is not None else None
-        if (
-            cached is not None and not sip.isdeleted(cached)
-            and cached.scene() is scene and str(getattr(cached, "item_id", None)) == str(pid)
-        ):
-            return cached
-        finder = getattr(scene, "find_item_by_id", None)
-        if callable(finder):
-            try:
-                owner = finder(uuid.UUID(str(pid)))
-            except ValueError:
-                return None
-        else:
-            owner = next((item for item in scene.items()
-                          if str(getattr(item, "item_id", None)) == str(pid)), None)
-        if owner is not None:
-            self._ridge_owner = weakref.ref(owner)
-        return owner
 
-    def _ridge_cap_inactive(self) -> bool:
-        if self.object_type != ObjectType.ROOF_RIDGE:
-            return False
-        owner = self._find_owner_polygon()
-        return (
-            getattr(owner, "object_type", None) == ObjectType.HOUSE
-            and roof_style(getattr(owner, "metadata", None)) in (FLAT, HIP, SHED)
-        )
+        if pid:
+            finder = getattr(scene, "find_item_by_id", None)
+            if callable(finder):
+                try:
+                    found = finder(uuid.UUID(str(pid)))
+                except ValueError:
+                    return None
+                return found if isinstance(found, QGraphicsItem) else None
+            return next((item for item in scene.items()
+                         if str(getattr(item, "item_id", None)) == str(pid)), None)
+
+        # Older plans can carry only the building-to-ridge link.
+        ridge_id = str(self.item_id)
+        owners = [
+            item for item in scene.items()
+            if isinstance(item, GardenItemMixin)
+            and is_ridge_bearing_type(item.object_type)
+            and str(item.get_metadata("ridge_item_id")) == ridge_id
+        ]
+        return owners[0] if len(owners) == 1 else None
 
     def _move_vertex_to(self, index: int, pos: QPointF) -> None:
         """Move a vertex, constraining ROOF_RIDGE endpoints to the polygon boundary."""
@@ -353,8 +341,6 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
     def shape(self) -> QPainterPath:
         """Return stroked shape for hit-testing, bounded for dense polylines (#928)."""
-        if self._ridge_cap_inactive():
-            return QPainterPath()
         if not needs_bounded_stroke(self._points):
             return super().shape()
         path = self.path()
@@ -406,8 +392,6 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         widget: QWidget | None = None,
     ) -> None:
         """Paint the polyline with style-specific rendering and optional shadow."""
-        if self._ridge_cap_inactive():
-            return
         if (
             len(self._points) > MAX_FULL_DETAIL_VERTICES
             and not self.isSelected()

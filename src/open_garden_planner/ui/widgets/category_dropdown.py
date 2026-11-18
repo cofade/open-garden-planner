@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QScrollArea,
     QSizePolicy,
+    QStyle,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -266,7 +267,7 @@ class CategoryDropdown(QWidget):
     item_selected = pyqtSignal(object)
 
     def __init__(self, category: GalleryCategory, parent: QWidget | None = None) -> None:
-        super().__init__(parent, Qt.WindowType.Popup)
+        super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         self._category = category
         self._buttons: list[_ThumbnailButton] = []
         self._setup_ui()
@@ -294,10 +295,17 @@ class CategoryDropdown(QWidget):
         layout.addWidget(self._search_box)
         from open_garden_planner.ui.widgets.trait_filters import TraitFilters
 
-        self.trait_filters = TraitFilters(self)
-        self.trait_filters.setVisible(any(item.species or item.plant_category for item in self._category.items))
+        self.trait_filters = TraitFilters()
         self.trait_filters.changed.connect(lambda: self._apply_filter(self._search_box.text()))
-        layout.addWidget(self.trait_filters)
+        self._trait_scroll = QScrollArea()
+        self._trait_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._trait_scroll.setWidgetResizable(True)
+        self._trait_scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self._trait_scroll.setWidget(self.trait_filters)
+        self._trait_scroll.setVisible(
+            any(item.species or item.plant_category for item in self._category.items)
+        )
+        layout.addWidget(self._trait_scroll)
 
         self._results = QScrollArea()
         self._results.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -339,8 +347,9 @@ class CategoryDropdown(QWidget):
                 index += 1
             btn.setVisible(visible)
         self._empty.setVisible(index == 0)
-        self._results.verticalScrollBar().setValue(0)
-        self._results.horizontalScrollBar().setValue(0)
+        for bar in (self._results.verticalScrollBar(), self._results.horizontalScrollBar()):
+            if bar is not None:
+                bar.setValue(0)
 
     def refresh_thumbnails(self) -> None:
         """Re-pull each button's pixmap after a theme switch (see §8.21)."""
@@ -353,9 +362,13 @@ class CategoryDropdown(QWidget):
             self._search_box.clear()
         self.trait_filters.clear()
         self._apply_filter("")
+        screen = anchor.screen()
+        if screen is None:
+            return
+        work_area = screen.availableGeometry()
+        self._size_trait_controls(work_area.width(), work_area.height())
         layout = self._layout
         layout.activate()
-        work_area = anchor.screen().availableGeometry()
         anchor_top = anchor.mapToGlobal(QPoint())
         anchor_bottom = anchor_top.y() + anchor.height()
         below = work_area.bottom() + 1 - anchor_bottom
@@ -364,8 +377,11 @@ class CategoryDropdown(QWidget):
         desired_height = chrome_height + self._grid.sizeHint().height()
         open_above = below < desired_height and above > below
         room = above if open_above else below
-        height = min(desired_height, room if room > chrome_height else work_area.height())
+        minimum = chrome_height + min(THUMB_SIZE + 24, self._grid.sizeHint().height())
+        height = min(desired_height, room if room >= minimum else work_area.height())
         desired_width = max(layout.sizeHint().width(), self._grid.sizeHint().width() + 36)
+        if not self._trait_scroll.isHidden():
+            desired_width = max(desired_width, self.trait_filters.sizeHint().width() + 32)
         width = min(desired_width, work_area.width())
         x = max(work_area.left(), min(anchor_top.x(), work_area.right() + 1 - width))
         y = anchor_top.y() - height if open_above else anchor_bottom
@@ -373,6 +389,21 @@ class CategoryDropdown(QWidget):
         self.setGeometry(x, y, width, height)
         self.show()
         self._search_box.setFocus()
+
+    def _size_trait_controls(self, screen_width: int, screen_height: int) -> None:
+        if self._trait_scroll.isHidden():
+            return
+        self.ensurePolished()
+        style = self.style()
+        scrollbar = style.pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent) if style else 0
+        margins = self._layout.contentsMargins()
+        self.trait_filters.fit_width(screen_width - margins.left() - margins.right() - scrollbar)
+        hint = self.trait_filters.sizeHint()
+        # Short or heavily scaled displays can scroll the chips independently.
+        self._trait_scroll.setFixedHeight(min(hint.height(), screen_height // 2))
+        for bar in (self._trait_scroll.verticalScrollBar(), self._trait_scroll.horizontalScrollBar()):
+            if bar is not None:
+                bar.setValue(0)
 
 
 # Backwards compatibility / descriptive alias

@@ -13603,9 +13603,11 @@ stored roof style. The 3D builder supplies the hip's nearest-eave partition
 and the automatic garage/shed ridge direction. Non-convex hips use a gable.
 The plan uses its own footprint for tile faces, while the 3D roof and solar
 caster use the modeled pitch and overhang. A linked house ridge stays in the
-document as the gable's editable axis. It paints and receives hits as a cap
-while the roof is gabled. The default concrete shed fill is displayed as
-gray roof tiles on pitched roofs. Flat roofs use a single surface. The tool
+document as the gable's editable axis. Scene visibility and selection flags
+activate it while the roof is gabled. An older one-way link resolves through
+the building's forward reference. New garage/shed objects default to gray
+roof tiles. Existing fill choices are read from the saved item. Flat roofs
+use a single surface with the selected fill. The tool
 shed's automatic sprite keeps its roof, and an explicit choice uses the
 shared painter. `test_house_roof_ridge.py` checks the property edit and undo
 against actual scene pixels.

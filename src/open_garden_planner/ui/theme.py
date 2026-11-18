@@ -1358,6 +1358,11 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         background-color: {colors['button_pressed']};
     }}
 
+    #CategoryDropdown QToolButton:checked {{
+        background-color: {colors['selection']};
+        border-color: {colors['accent']};
+    }}
+
     #GlobalSearchResults {{
         background-color: {colors['surface']};
         border: 1px solid {colors['border']};

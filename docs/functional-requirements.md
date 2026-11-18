@@ -313,19 +313,19 @@ Pre-defined object types for common property elements:
 - **FR-UI-07**: Status bar: cursor coordinates, zoom %, selection count, current tool
 - **FR-UI-08**: Welcome screen with recent files
 - **FR-UI-09**: Remember window size, position, panel states between sessions
-- **FR-UI-10**: Visual thumbnail gallery sidebar for object/plant browsing
+- **FR-UI-10**: The category toolbar opens visual thumbnail galleries for browsing and placing objects and plants.
 - **FR-UI-11**: Fullscreen preview mode (F11) hiding all UI overlays
 - **FR-UI-12**: Toggleable object labels on canvas
 - **FR-UI-13** *(issue #304)*: Across the main toolbar and the constraint toolbar **exactly one tool button is highlighted at any time — the active tool's**. The two toolbars own separate exclusive `QButtonGroup`s, so the app reconciles them itself: `ToolManager` emits `tool_type_changed(ToolType)` alongside the display-name `tool_changed(str)`; `GardenPlannerApp` forwards it to both toolbars' `set_active_tool()`, each of which unchecks its own group when the active tool is not one of its buttons. (Before this, the sync was a hard-coded map from tool *display name* to `ToolType` that knew only three of the ~15 constraint tools — every other tool, e.g. **Equal Size**, never reached the toolbars at all, so **Select** stayed highlighted too and the user could only reach objects via right-click; keying on display names — several of which are translated at import — was a second fragility the type-keyed signal removes.) Pinned by `tests/integration/test_toolbar_highlight_sync.py` (which drives every constraint-toolbar tool plus the main-toolbar tools through the real window).
 - **FR-UI-14** *(issue #569)*: Preferences keeps every control at its natural height on a short screen. The settings form lives in a scroll area with Save / Cancel outside the viewport, so Tab reveals the last setting instead of a control squeezed to zero height; the dialog opens at its content height capped to the available screen height rather than at the scroll area's small size hint. Pinned by `tests/integration/test_preferences_layout.py` at 400 and 800 px, 10 and 14 pt, in both themes.
 
-### FR-10.3 Object Gallery Sidebar
+### FR-10.3 Object Gallery
 - Category-based thumbnail gallery (Trees, Shrubs, Flowers, Furniture, etc.)
 - Each item: illustration thumbnail (~64-80px) + name label
 - Click thumbnail to enter placement mode
 - Drag from thumbnail to canvas for direct placement
-- Search/filter box at top
-- Collapsible categories
+- Category popups fit the screen work area and scroll their results. Name
+  and plant trait filters pack matches at the top and clear on reopening.
 
 ### FR-10.4 Accessibility
 - **FR-UI-20**: Keyboard navigation for all functions (Deferred / partial; see ACCESSIBILITY.md for current keyboard shortcut coverage and navigation boundaries)
@@ -926,8 +926,9 @@ The built world complete (L4, #388, ADR-065).
   The plan draws the chosen roof within the building outline. Gables use two
   mirrored tile planes, hips show their eave-to-ridge seams, single slopes
   fall from the high eave, and flat roofs show one surface. Automatic
-  garage/shed roofs use the long axis of the footprint and gray roof tiles
-  in the default style. The roof-aware sun study uses the 3D roof geometry
+  garage/shed roofs use the long axis of the footprint. New garage/shed
+  objects default to gray roof tiles. Saved fill choices also apply to the
+  roof on the plan. The roof-aware sun study uses the 3D roof geometry
   including pitch and overhang (FR-SUN-03).
 - **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).

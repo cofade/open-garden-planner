@@ -31,13 +31,8 @@ from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF, QTransform
 from PyQt6.QtWidgets import QGraphicsItem
 
-from open_garden_planner.core.fill_patterns import (
-    FillPattern,
-    FillTransform,
-    brush_for_painter,
-    create_pattern_brush,
-)
-from open_garden_planner.core.object_types import ObjectType, get_style
+from open_garden_planner.core.fill_patterns import FillTransform, brush_for_painter
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.roof_style import BUILDING_KINDS, FLAT, GABLE, HIP, SHED, roof_style
 from open_garden_planner.core.scene3d.builders.primitives import ccw_ring
 from open_garden_planner.core.scene3d.builders.roofs import (
@@ -109,13 +104,6 @@ def paint_building_roof(
         style = GABLE if kind == ObjectType.GARAGE_SHED or ridge_points else FLAT
 
     brush = item.brush()
-    default = get_style(kind)
-    default_pattern = item.fill_pattern == default.fill_pattern
-    if style == FLAT:
-        if default_pattern:
-            brush = QBrush(item.fill_color)
-    elif kind in (ObjectType.GARAGE_SHED, ObjectType.TOOL_SHED) and default_pattern:
-        brush = create_pattern_brush(FillPattern.ROOF_TILES, item.fill_color)
     pen = item.pen()
     transform = item.fill_transform
     path = _polygon_path(polygon)
@@ -136,7 +124,7 @@ def paint_building_roof(
         shade.setColorAt(1.0, tone)
         painter.fillPath(path, QBrush(shade))
     else:
-        points = tuple((p.x(), p.y()) for p in polygon)
+        points = tuple((p.x(), p.y()) for p in (polygon.at(i) for i in range(polygon.count())))
         hip = _hip_faces(points) if style == HIP and len(points) <= MAX_HIP_CORNERS else None
         if hip is not None:
             _paint_hip(painter, hip, brush, pen, transform)

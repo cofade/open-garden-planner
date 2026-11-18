@@ -471,7 +471,7 @@
       "fill_color": "#ffa9a9a9",
       "stroke_color": "#ff696969",
       "stroke_width": 2.0,
-      "fill_pattern": "CONCRETE",
+      "fill_pattern": "ROOF_TILES",
       "stroke_style": "SOLID",
       "stack_order": 9216
     },

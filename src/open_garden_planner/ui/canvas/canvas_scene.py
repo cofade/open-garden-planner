@@ -36,8 +36,9 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core import stacking
 from open_garden_planner.core.object_height import lies_on_ground
-from open_garden_planner.core.object_types import is_plant_type
+from open_garden_planner.core.object_types import ObjectType, is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
+from open_garden_planner.core.roof_style import FLAT, HIP, SHED, roof_style
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.core.sprite_raster import clear_sprite_cache
 from open_garden_planner.core.units import UnitSystem
@@ -2146,12 +2147,20 @@ class CanvasScene(QGraphicsScene):
             if parent_layer:
                 layer_id = parent_layer
             parent = parent.parentItem()
-        # Fallback for ROOF_RIDGE: if the owning house is grouped, resolve through the group (issue #741)
-        if getattr(getattr(item, "object_type", None), "name", None) == "ROOF_RIDGE":
+        kind = getattr(item, "object_type", None)
+        is_ridge = kind == ObjectType.ROOF_RIDGE
+        active_cap = True
+        # A roof cap follows the owner's group (issue #741) and only participates
+        # in the canvas while its stored ridge is the roof's visible axis (#946).
+        if is_ridge:
             owner = None
             if hasattr(item, "_find_owner_polygon"):
                 owner = item._find_owner_polygon()
             if owner is not None:
+                active_cap = (
+                    getattr(owner, "object_type", None) != ObjectType.HOUSE
+                    or roof_style(getattr(owner, "metadata", None)) not in (FLAT, HIP, SHED)
+                )
                 owner_parent = owner.parentItem()
                 while owner_parent is not None:
                     pl = getattr(owner_parent, "layer_id", None)
@@ -2160,14 +2169,16 @@ class CanvasScene(QGraphicsScene):
                     owner_parent = owner_parent.parentItem()
         layer = self.get_layer_by_id(layer_id) if layer_id else None
         present = self.is_present(item)
-        if layer is not None or isinstance(item, QGraphicsItemGroup) or is_plant_type(getattr(item, "object_type", None)):
-            item.setVisible(present and (layer is None or layer.visible))
+        if is_ridge or layer is not None or isinstance(item, QGraphicsItemGroup) or is_plant_type(kind):
+            item.setVisible(active_cap and present and (layer is None or layer.visible))
         if layer is not None and item.group() is None:
             # A group's opacity is inherited by its members; setting the same
             # opacity on both would square it (0.5 -> 0.25).
             item.setOpacity(layer.opacity)
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not layer.locked)
-            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not layer.locked)
+        if (layer is not None or is_ridge) and item.group() is None:
+            editable = active_cap and (layer is None or not layer.locked)
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, editable)
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, editable)
 
     def _update_items_visibility(self) -> None:
         """Combine layer and plant-date visibility; construction has its own toggle."""

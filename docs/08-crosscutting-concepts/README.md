@@ -4997,7 +4997,9 @@ controls; all are iconized.
 ### 8.21.6 Browsing a category popup (#951)
 
 The category popup uses the anchor's screen work area and opens where it
-has room. Search and trait chips stay above the scrollable results. The same
+has room for at least one results row. Search and trait chips stay above
+the scrollable results. The chips wrap into fewer columns on narrow
+screens and scroll independently when the work area is short. The same
 thumbnail buttons are packed into the first available rows on every filter
 edit, then the results return to the top. An empty result has a status label.
 Reopening starts a new browse session with both filter types cleared.

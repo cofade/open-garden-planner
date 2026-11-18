@@ -558,6 +558,8 @@ def family_garden():
     for item in builder.scene.items():
         _establish(item)
         name = _name_of(item)
+        if getattr(item, "object_type", None) is ObjectType.GARAGE_SHED:
+            builder.filled(item, FillPattern.ROOF_TILES)
         if getattr(item, "object_type", None) is ObjectType.PATH and item.name in FAMILY_PATH_WIDTH_CM:
             pen = item.pen()
             pen.setWidthF(FAMILY_PATH_WIDTH_CM[item.name])

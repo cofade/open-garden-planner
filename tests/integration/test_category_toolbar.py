@@ -8,14 +8,23 @@ ConstraintToolbar (CAD constraints). It holds:
 
 
 import pytest
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QPoint, QRect, Qt
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core.tools import ToolType
+from open_garden_planner.ui.theme import ThemeMode, generate_stylesheet
 from open_garden_planner.ui.widgets.category_dropdown import CategoryDropdown
 from open_garden_planner.ui.widgets.category_toolbar import CategoryToolbar
 from open_garden_planner.ui.widgets.gallery_data import build_toolbar_categories
 from open_garden_planner.ui.widgets.global_search import GlobalSearchField
+
+
+@pytest.fixture
+def themed_gallery(qapp):
+    original = qapp.styleSheet()
+    qapp.setStyleSheet(generate_stylesheet(ThemeMode.LIGHT))
+    yield
+    qapp.setStyleSheet(original)
 
 
 class TestCategoryToolbarStructure:
@@ -94,7 +103,10 @@ class TestCategoryDropdownFlow:
         assert "Apple Tree" in visible_names
         assert "Oak" in hidden_names
 
-    def test_vegetable_popup_stays_on_screen_and_places_filtered_item(self, qtbot) -> None:
+    @pytest.mark.parametrize("dimensions", ((800, 800), (400, 360)))
+    def test_vegetable_popup_stays_on_screen_and_places_filtered_item(
+        self, qtbot, themed_gallery, monkeypatch, dimensions
+    ) -> None:
         tb = CategoryToolbar()
         qtbot.addWidget(tb)
         tb.show()
@@ -102,11 +114,13 @@ class TestCategoryDropdownFlow:
                      if category.icon_name == "vegetable")
         anchor = tb._category_buttons[index]
         dropdown = tb._category_dropdowns[index]
-        work_area = anchor.screen().availableGeometry()
+        work_area = QRect(0, 0, *dimensions)
+        monkeypatch.setattr(anchor.screen(), "availableGeometry", lambda: work_area)
         tb.move(work_area.topLeft() + QPoint(0, work_area.height() // 3))
         qtbot.mouseClick(anchor, Qt.MouseButton.LeftButton)
         QApplication.processEvents()
         assert work_area.contains(dropdown.frameGeometry())
+        assert dropdown._results.viewport().height() >= dropdown._buttons[0].height()
         assert dropdown._results.verticalScrollBar().maximum() > 0
         dropdown._results.verticalScrollBar().setValue(
             dropdown._results.verticalScrollBar().maximum()
