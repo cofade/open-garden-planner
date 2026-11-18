@@ -28,12 +28,13 @@ from example_plans import PLANS
 from example_plans.authoring import hint_layer_id
 from example_plans.i18n import localized_plan
 from example_plans.thumbnails import thumbnail
-from example_plans.tours import orbit_pose, orbit_tour
+from example_plans.tours import orbit_pose, orbit_tour, showcase_moment
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core.camera_tours import load_tours
 from open_garden_planner.core.plan_io import write_plan
 from open_garden_planner.core.project import ProjectManager
+from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
@@ -166,10 +167,15 @@ def main(argv=None):
         # picture serves every language: the hint layer, the only text in a plan, is hidden.
         path = BUNDLED_EXAMPLES / (slug + ".ogp")
         manager.load(scene, path, as_template=True)
+        # At the plan's showcase moment, as the app shows it: plants are drawn at the
+        # size they have on that day, and what is planted later is not there yet.
+        clock = SimClock()
+        clock.set_utc_time_on(*showcase_moment(METADATA[slug]))
+        scene.bind_plan_clock(clock)
         for layer in scene.layers:
             if layer.id == hint_layer_id(slug):
                 scene.update_layer_visibility(layer.id, False)
-        thumbnail(scene, path.with_suffix(".png"))
+        thumbnail(scene, path.with_suffix(".png"), getattr(PLANS[slug], "THUMBNAIL", None))
         for language in LANGUAGES:
             (BUNDLED_EXAMPLES / language / (slug + ".png")).unlink(missing_ok=True)
         scene.clear()

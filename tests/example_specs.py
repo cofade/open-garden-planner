@@ -66,6 +66,8 @@ SPECS: dict[str, ExampleSpec] = {
                            heavy=True),
     "allotment": ExampleSpec(9, "2026-07-18", "morning", (51.3397, 12.3731), plants=216,
                              woody_harvests=4),
+    "cottage-garden": ExampleSpec(6, "2026-06-20", "day", (49.8988, 10.9028), plants=123,
+                                  woody_harvests=1, paths=False),
 }
 
 #: The first three plans: teaching plans with a dated tutorial note, pinned in detail by

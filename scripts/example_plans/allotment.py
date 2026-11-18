@@ -12,6 +12,8 @@ from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 
 SLUG = "allotment"
+#: The gallery picture: the beds on both sides of the main path, not the whole tall plot.
+THUMBNAIL = (0, 560, 1500, 844)
 
 META = {
     "name_en": "Allotment - 15 x 20 m", "name_de": "Schrebergarten - 15 x 20 m",

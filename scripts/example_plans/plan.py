@@ -22,13 +22,12 @@ from open_garden_planner.core.constraints import AnchorRef
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
 from open_garden_planner.core.item_look import adopt_pen
-from open_garden_planner.core.measure_snapper import AnchorType
+from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.core.object_height import METADATA_KEY as HEIGHT_KEY
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
 from open_garden_planner.core.roof_style import OVERHANG_KEY, PITCH_KEY, ROOF_STYLES, STYLE_KEY
-from open_garden_planner.models.harvest_log import HarvestHistory, HarvestRecord
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.models.plant_data import species_key
 from open_garden_planner.models.soil_test import SoilTestHistory, SoilTestRecord
@@ -340,11 +339,24 @@ class Plan:
         self.scene.guide_lines.append(GuideLine(is_horizontal=x is None,
                                                 position=float(y if x is None else x)))
 
-    def distance(self, first, second, cm, *, anchors=(AnchorType.CENTER, AnchorType.CENTER)):
-        """A distance constraint between two items, drawn as a dimension line."""
+    def distance(self, first, second, *, anchors=(AnchorType.CENTER, AnchorType.CENTER),
+                 indexes=(0, 0)):
+        """A distance constraint between two items, drawn as a dimension line. Its length is
+        the distance the two anchors have now: the plan is drawn to measure, and a
+        constraint that disagreed with the drawing would move an item on the first edit."""
+        points = []
+        for item, kind, index in zip((first, second), anchors, indexes, strict=True):
+            found = [anchor.point for anchor in get_anchor_points(item)
+                     if anchor.anchor_type is kind and anchor.anchor_index == index]
+            assert len(found) == 1, (self.slug, item.name, kind, index, len(found))
+            points.append(found[0])
+        cm = round(((points[0].x() - points[1].x()) ** 2
+                    + (points[0].y() - points[1].y()) ** 2) ** 0.5, 1)
+        assert cm > 0, (self.slug, first.name, second.name)
         return self.scene.constraint_graph.add_constraint(
-            AnchorRef(first.item_id, anchors[0]), AnchorRef(second.item_id, anchors[1]),
-            float(cm), constraint_id=self._id("constraint", first.item_id, second.item_id))
+            AnchorRef(first.item_id, anchors[0], indexes[0]),
+            AnchorRef(second.item_id, anchors[1], indexes[1]), cm,
+            constraint_id=self._id("constraint", first.item_id, second.item_id, *anchors))
 
     def done(self):
         assert self.manager.location, f"{self.slug} has no place"
@@ -355,5 +367,4 @@ class Plan:
         return self.scene, self.manager
 
 
-__all__ = ["ESTABLISHED", "FillPattern", "HarvestHistory", "HarvestRecord", "ObjectType",
-           "PathFenceStyle", "Plan"]
+__all__ = ["ESTABLISHED", "AnchorType", "FillPattern", "ObjectType", "PathFenceStyle", "Plan"]
