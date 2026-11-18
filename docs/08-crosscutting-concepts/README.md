@@ -8662,7 +8662,7 @@ one blade in `MEADOW_FLOWER_EVERY` (6) on average: a flat, tilted five-cornered 
 `plant_art.FLOWERS` entry's petal colour with a triangle eye in its centre colour (white,
 yellow, lilac, blue, red), each kind growing in drifts. A head has one normal and each of its
 triangles one colour: a far head is a sub-pixel sliver, and a centre-to-rim gradient that a
-multisampled pixel extrapolated came out as pure red, blue or black pixels. The heads are a second, untinted `grass` part under the blades' name
+multisampled pixel extrapolated came out as pure red, blue or black pixels (PF-L3D-36). The heads are a second, untinted `grass` part under the blades' name
 `lawn_blades`, so `lawnBlades` (High and Ultra only), `lawn.frag` and the grass sway apply with
 no QML change; a meadow blade's wind weight grows with its height (at the tip `uv.x² = √(h /
 7 cm)`). Relief reaches `MEADOW_TOP_CM` (44 cm) and stays inside the footprint plus 10 cm; the
