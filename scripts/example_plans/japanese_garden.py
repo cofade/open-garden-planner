@@ -9,7 +9,6 @@ lies here side by side.
 
 from __future__ import annotations
 
-from . import authoring as a
 from .i18n import text
 from .plan import FillPattern, ObjectType, PathFenceStyle, Plan
 

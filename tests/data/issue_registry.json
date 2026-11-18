@@ -824,6 +824,11 @@
     "state": "CLOSED",
     "title": "Windows offscreen Plan & Sun layout checks depend on font discovery and test order"
   },
+  "564": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Overhaul the repository showcase: README visuals, example plans, and GitHub metadata"
+  },
   "565": {
     "is_pr": true,
     "state": "MERGED",
@@ -1326,12 +1331,12 @@
   },
   "840": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Selection handles: eight on every object of a multi-selection, covering small plants at fit zoom, rotation handle far away after zooming in"
   },
   "841": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Capacity badge, snapping and alignment still read boundingRect: a shown spacing ring or badge moves a plant's anchors"
   },
   "842": {
@@ -1341,17 +1346,17 @@
   },
   "843": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plan labels: dimension labels are outside the declutter, edge labels are cut at fit zoom, warning arcs cross labels below"
   },
   "844": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Succession badge: overhangs a rotated bed, takes no part in label collision, gives no hint when zoomed out"
   },
   "847": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas repaint cost left on large plans: minimap render drops all item caches, rectangle tool costs 16/38 ms a move, grid layer redrawn on odd-pixel pans"
   },
   "848": {
@@ -1361,7 +1366,7 @@
   },
   "853": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Rulers cover the plan's left and top 20 px at fit zoom"
   },
   "865": {
@@ -1371,7 +1376,7 @@
   },
   "867": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Balcony example: the text note runs under the furniture and across the sun map's contour lines"
   },
   "871": {
@@ -1381,12 +1386,12 @@
   },
   "872": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Text note size follows the screen's logical DPI"
   },
   "874": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
   },
   "877": {
@@ -1406,12 +1411,12 @@
   },
   "885": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Shadow IoU probe renders the grass texture; its ground should be flat"
   },
   "886": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Beauty Board never ends with status ok: the set-sun sky dip check fails on master too"
   },
   "889": {
@@ -1429,14 +1434,9 @@
     "state": "CLOSED",
     "title": "A saved orbit with a field of view of 0 or 180 is kept but cannot be flown"
   },
-  "892": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Looks and living render boards exceed their 780 s watchdog on a loaded machine"
-  },
   "893": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Intermittent access violation at exit of a 3D render driver after a clean run"
   },
   "896": {
@@ -1476,7 +1476,7 @@
   },
   "919": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Every scene query on a large plan walks all labelled objects in Python (5-6 ms per press and per hover move at 853 objects)"
   },
   "920": {
