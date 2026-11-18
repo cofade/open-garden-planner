@@ -1220,16 +1220,17 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
 
 - **FR-EXAMPLE-07** (#390): The examples include **Family garden**, a 24 × 16 m whole garden made to
   explore in 3D, the plan of the project's own renders. Its names are localized; its botany is not.
-- **FR-EXAMPLE-01**: Welcome and File offer at least three offline examples with
-  localized names/descriptions, PNG previews and visible license attribution.
-  User templates in the app-data templates directory appear alongside them.
+- **FR-EXAMPLE-01**: Welcome and File offer thirteen offline examples (#940) in a fixed
+  order, the same in every language, with localized names/descriptions, PNG previews and
+  visible license attribution. User templates in the app-data templates directory appear
+  after them.
 - **FR-EXAMPLE-02**: Opening an example or any `.ogp` through New from template
   creates an untitled, dirty copy through the normal document loader. Saving asks
   for a destination; bundled bytes and modification times stay unchanged.
   Known bundled examples retain their public demonstration location, fictional
   soil tests and fictional harvest history; external templates use the portable subset. English, German and
-  Spanish examples include localized object names, notes, tutorial annotations and
-  matching language-specific gallery thumbnails.
+  Spanish examples include localized object names, notes, hints and tour names. One gallery
+  thumbnail serves every language: it shows the plan without its hint text (#940).
 - **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
   inventory, preference and image data plus absolute paths. Geometry, species,
   layers, guilds, constraints, smart symbols and succession dates stay portable.
@@ -1242,18 +1243,22 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   group guild plants in cultivated soil, keep raised-bed plants inside the drawn
   soil, and explain a dated sun/soil/guild workflow with editable plan annotations.
 
-- **FR-EXAMPLE-08** (#795): An example opens on its reference date with a daytime sun,
-  however late the wall clock is: Family garden on 21 June 2026, the teaching plans on
-  21 September 2026. The Plan & Sun strip shows that moment. Opening or creating another
+- **FR-EXAMPLE-08** (#795, #940): An example opens on its reference date with the sun above
+  the horizon, however late the wall clock is, and never with the night overlay on the plan.
+  Each example has its own date and its own light: midday, a morning, a late afternoon or
+  golden hour (for example Family garden on 21 June 2026 at midday, the spring garden on
+  18 April 2026, the Mediterranean courtyard on the evening of 21 June 2026). The Plan & Sun
+  strip shows that moment. Opening or creating another
   document puts the clock back to the reading the user had before, and so does saving the
   copy (Save or Save As): it is the user's plan from then on, the status bar says that it
   now follows their own date and time, and a date or time they set afterwards stays when
   another document opens. The moment itself is never saved; a copy saved from an example
   opens like any plan of the user's. A plant added before the copy is saved is planted on
   the example's date, one added after it on the user's date.
-- **FR-EXAMPLE-09** (#795): Each example has a small harvest history that is marked as
-  fictional, so the Harvest tab, a plant's harvest log and the report's harvest page show
-  content. The Seed Inventory is the user's own and stays as it is; when it is empty the
+- **FR-EXAMPLE-09** (#795, #940): An example with edible plants has a small harvest history
+  that is marked as fictional, so the Harvest tab, a plant's harvest log and the report's
+  harvest page show content. An ornamental example (the modern and the Japanese garden) has
+  none. The Seed Inventory is the user's own and stays as it is; when it is empty the
   tab says what it is for and how to add a packet.
 - **FR-EXAMPLE-10** (#795): For every plan, not only examples: Plant Details show a
   species without a photo as the plan draws it, and the Diagnostics panel lists the
@@ -1264,7 +1269,23 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
   file, it does not enter Recent, the report cover carries the sidecar's name, and the
   first save is a Save As. The bundled bytes are never written.
 
-ADR-066, `tests/integration/test_templates_gallery.py` and
+- **FR-EXAMPLE-12** (#940): Every example but Family garden carries one hint text that says
+  what the plan shows and what to try. The hint lies alone on the top layer **Hints**:
+  hiding that layer in the Layers panel leaves the plan without any text, ready for a
+  picture.
+- **FR-EXAMPLE-13** (#940): Every example stores a camera tour **Garden orbit** (one eased
+  turn around the whole plan, starting with the showcase sun behind the camera). Three
+  examples store a second tour: the modern garden's runs from evening into night and the
+  garden lights come on, the terraced-house garden's holds the camera while a day's shadows
+  pass, the spring garden's holds it while the year 2026 passes. A tour's time of day is
+  read on the computer's clock.
+- **FR-EXAMPLE-14** (#940): The examples lie in eleven German and Austrian places and in
+  Valencia, and show, between them: a rotated north, guide lines and distance constraints, a
+  succession plan, soil samples, three guilds, container planting, a flower meadow, garden
+  lights, all four roof styles and a year time-lapse.
+
+ADR-066, `tests/example_specs.py`, `tests/integration/test_example_plans.py`,
+`tests/integration/test_templates_gallery.py` and
 `tests/integration/test_example_showcase.py` own the behavior.
 
 ## FR-STATS: Public download reporting (ADR-067, #634 follow-up, #677)

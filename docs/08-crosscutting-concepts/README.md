@@ -9359,10 +9359,23 @@ existing scheduler. Date navigation remains available without a location.
 
 ## 8.33 Offline examples and template authoring (US-F5, ADR-066)
 
-Four examples ship: three teaching plans and `family-garden`, the 3D view's showcase (the plan of
-the Beauty Board, ADR-066 addendum). `scripts/generate_examples.py [slug ...]` regenerates the
-named ones, or all; `--check` compares the shipped plans and sidecars with what the generator
-makes and writes nothing.
+Thirteen examples ship (#940). `family-garden` is the 3D view's showcase (the plan of the Beauty
+Board, ADR-066 addendum) and has no hint; the other twelve each show one side of the app and say so
+in a hint. `scripts/generate_examples.py [slug ...]` regenerates the named ones, or all; `--check`
+compares the shipped plans and sidecars with what the generator makes and writes nothing.
+
+| Where | What it holds |
+|---|---|
+| `scripts/generate_examples.py` | the command line, ids, tours, the three shipped files per plan |
+| `scripts/example_plans/<plan>.py` | one plan: `SLUG`, the sidecar's `META`, `build()`; optional `more_tours(framing)`, `THUMBNAIL`, `IDS` |
+| `scripts/example_plans/plan.py` | `Plan`, the builder of a new plan (shapes, buildings, plants, guild, succession, guide, distance, hint) |
+| `scripts/example_plans/authoring.py` | the helpers of the first three plans, kept as they were |
+| `scripts/example_plans/i18n.py`, `sites.py`, `tours.py`, `thumbnails.py` | the words, the places, the stored tours, the gallery picture |
+| `tests/example_specs.py` | what each plan is meant to be, stated a second time by hand |
+
+The sidecar's `order` is the gallery's order (`services/example_library.bundled_examples`), the same
+in every language. One thumbnail serves every language: it is rendered at the plan's showcase moment
+with the hint layer hidden, so it shows no text.
 
 Welcome's Examples & templates tab and File > New from example share
 `TemplateGallery`; File > New from template accepts any `.ogp`. Both call the one
@@ -9376,17 +9389,33 @@ bundled example takes the same copy semantics** (#865): `_load_project_file` ask
 in the install tree, Recent is untouched, and the report cover carries the sidecar's
 name.
 
-To author a bundled example, edit `scripts/generate_examples.py`, run it in the
-locked environment, inspect all three rendered previews and add its provenance.
+To author a bundled example, add a module to `scripts/example_plans/`, register it in the
+package's `PLANS`, add its row to `tests/example_specs.py` and to `PROVENANCE.md`, run the
+generator in the locked environment and look at the plan in 2D and in 3D.
 The shipped `.ogp` and `.meta.json` files are never edited by hand:
 `tests/integration/test_example_generation.py` fails when one differs from the
-generator's `example_content(slug)`. Thumbnails are written by the plain run and
-are not compared (they are rendered with the machine's fonts).
+generator's `example_content(slug)`, and when the generator and the table of
+`tests/example_specs.py` do not name the same plans. Thumbnails are written by the plain run
+and are not compared (they are rendered with the machine's fonts).
 Use the ordinary constructors and CreateItemsCommand so bed links and child lists
-agree. Parents and children must share a layer for the z-order clamp. IDs are
-normalized before the saved plan is reloaded and rendered. Every registered locale
+agree. Parents and children must share a layer for the z-order clamp. Every registered locale
 needs sidecar name/description text. These content strings follow the existing
 localized-data convention; widget text goes through Qt translation as usual.
+
+Authoring rules (#940), each with what holds it:
+
+| Rule | Why | Held by |
+|---|---|---|
+| A new plan's item id is made from the item's kind, name and place (`Plan._id`). The first three plans keep ids numbered in the order they appear (`IDS = "serial"`); an item added to one of them gets an id of its own (`OWN_IDS`). | A plant's sprite turn and 3D shape are seeded by its id. Tuning one item must not reshuffle a plan, and the food forest's 122 first items kept their ids when the orchard was added. | `_own_ids` in the generator; `test_example_generation.py` |
+| A word at a translated field (`i18n.TRANSLATED`) that is not in the table stops the generation. A word anywhere else is never touched. | The translation fell back to English silently; a registered word could have rewritten a value that only read the same. | `test_a_word_without_a_translation_stops_the_generation` |
+| A species is named as the plant gallery names it (`GalleryData`), except the names the first plans already shipped. | A plant in an example reads like the same plant dragged from the gallery. | `i18n.SPECIES_NAMES` |
+| The builder refuses a shape and type pair the Properties panel does not offer (`get_valid_types_for_shape`). A lawn, a terrace or a hedge is a polygon; a round table, a planter pot or a water tap is a circle; a string of lights is a polyline. | Nobody could have drawn the other pair. A `HEDGE_SECTION` rectangle is an older form the loader converts to a `HEDGE_POLYGON`, which renumbers its anchors: a constraint on it did not survive the load. | `Plan._add`; `test_the_cottage_garden_is_drawn_to_measure` |
+| A distance constraint's length is read off the drawing (`Plan.distance`). | A constraint that disagreed with the drawing would move an item on the user's first edit. | the same test |
+| A woody plant's size on the showcase date comes from the growth model, not from the size it is given. Give an established plant a recent planting date and the size it has; give a plant that must be old enough for a harvest its real planting year and check its grown size. | A walnut planted in 2014 as a nursery tree is 20 m wide in 2026; an olive in a tub planted in 2021 was 8 m tall. | the author's eyes; `Plan.done` |
+| Orchard and specimen trees stand as far apart as their grown crowns need. | The spacing check reports a true overlap, and a teaching plan must not open with warnings. | `test_the_spacing_diagnostics_of_the_four_examples` |
+| The hint is the plan's only text and lies alone on the top layer `Hints`. | Hide that layer and the plan is ready for a picture. | `test_the_hint_lies_alone_on_the_top_layer_and_is_the_plans_only_text`; `test_hiding_the_hint_layer_leaves_the_plan_ready_for_a_picture` |
+| Every plan stores an eased orbit computed from its own bounds and its showcase sun (`tours.Framing`), with every number rounded; a plan may add a time-lapse of the day or the year. | No view is open when a plan is authored, and `--check` compares JSON. A tour's time range is a wall time on the computer's clock. | `test_an_examples_stored_tours_are_there_and_can_be_flown` |
+| Every place is in Central European Time. | The clock and a tour's time range read the computer's zone; the plan's `timezone` is not read (#945). | `test_an_example_has_its_place_its_plants_and_its_north` |
 
 Keep the field-classification test aligned with ProjectData. New project fields
 must be explicitly kept or stripped; unknown serialized top-level keys are dropped.
@@ -9407,8 +9436,12 @@ An example opens as it is meant to be seen, however late it is on the wall clock
 
 The moment is a UTC time of day on the plan's LOCAL reference date, not a wall
 time: the clock reads wall time in the computer's zone (ADR-053), and midday on a
-wall clock in Auckland is night over a garden in Berlin. All four examples use
-11:00 UTC, which is 13:00 on a wall clock in their own place.
+wall clock in Auckland is night over a garden in Berlin. The first four examples use
+11:00 UTC, which is 13:00 on a wall clock in their own place. Since #940 a plan names the
+light it is meant to be seen in (`tests/example_specs.LIGHT`: day, morning, afternoon or
+golden hour), and the tests read that light off the sun over the plan's own place at its
+moment. No plan opens after sunset: the 2D canvas would show its night overlay
+(FR-EXAMPLE-08). The modern garden opens at golden hour and stores dusk as a tour.
 
 Data rules the content tests hold (`tests/unit/test_example_content.py`):
 
@@ -9429,8 +9462,10 @@ Data rules the content tests hold (`tests/unit/test_example_content.py`):
 - One English string has one translation per language in the generator's table
   (`text()` asserts it).
 
-End to end: `tests/integration/test_example_showcase.py` opens every example
-through the gallery's path in a window whose clock was seeded at 22:30. It saves
+End to end: `tests/integration/test_example_plans.py` opens every example through the
+gallery's path and checks its day, its light, its hint layer and its stored tours.
+`tests/integration/test_example_showcase.py` opens the first four
+through the same path in a window whose clock was seeded at 22:30. It saves
 the copy through File > Save, drops a plant through the canvas's creation path and
 reads the planting date back from the file; a test of "nothing of the example is
 saved" that only looks for key names cannot fail and was replaced by these.

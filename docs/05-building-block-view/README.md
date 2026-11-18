@@ -905,13 +905,14 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 | `core/showcase_moment.py` | Puts the one sim clock at an example's moment and gives the user's reading back with the next document or when the copy is saved; the outer holder over a camera tour's clock hold (#795). |
 
-| `services/example_library.py` | Bundled sidecars, localized catalog, local template paths, read-only resource payload. |
+| `services/example_library.py` | Bundled sidecars, localized catalog in the sidecars' fixed `order` (#940), one thumbnail per example, local template paths, read-only resource payload. |
 
 | `ui/widgets/template_gallery.py` | Shared thumbnail selection widget for Welcome and File. |
 
 | `ProjectManager.save_template` / `load(as_template=True)` | Normal atomic persistence and load preparation, with untitled-copy semantics. |
 
 | `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. `example_content(slug)` is the one source of the shipped plans and sidecars; `--check` compares them with it. |
+| `scripts/example_plans/` (#940) | One module per example plan (`SLUG`, `META`, `build()`), and what they share: `plan.Plan` (the builder: shapes, buildings, plants, guild, succession, guide, distance, hint; ids from what an item is and where it stands), `i18n` (the table of words, applied by field; a missing word stops the generation), `sites` (the places), `tours` (the stored orbit and time-lapses, framed from the plan's bounds), `thumbnails`. Dev-time only: not shipped. |
 
 
 
