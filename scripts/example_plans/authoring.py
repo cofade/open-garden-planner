@@ -28,8 +28,11 @@ from .i18n import text
 TEACHING_DATE, SHOWCASE_UTC_TIME = "2026-09-21", "11:00"
 
 
-def plant(scene, key, x, y, parent=None, layer=None, planted="2026-05-20", nursery_size=None):
+def plant(scene, key, x, y, parent=None, layer=None, planted="2026-05-20", nursery_size=None,
+          item_id=None):
     item = build_species_plant(scene, QPointF(x, y), get_species_db()[key])
+    if item_id is not None:
+        item._item_id = item_id
     item.name = item.metadata["plant_species"]["common_name"]
     item.metadata["plant_instance"] = {"planting_date": planted}
     if nursery_size:
@@ -42,9 +45,11 @@ def plant(scene, key, x, y, parent=None, layer=None, planted="2026-05-20", nurse
     return item
 
 
-def rect(scene, x, y, width, height, kind, name, height_cm=None):
+def rect(scene, x, y, width, height, kind, name, height_cm=None, item_id=None):
     item = RectangleItem(x, y, width, height, object_type=kind, name=name,
                          layer_id=scene.active_layer.id)
+    if item_id is not None:
+        item._item_id = item_id
     if height_cm is not None:
         item.metadata["object_height_cm"] = height_cm
     if kind is ObjectType.PATH:
@@ -56,9 +61,11 @@ def rect(scene, x, y, width, height, kind, name, height_cm=None):
     return item
 
 
-def line(scene, points, kind, name, height_cm, preset=PathFenceStyle.NONE):
+def line(scene, points, kind, name, height_cm, preset=PathFenceStyle.NONE, item_id=None):
     item = PolylineItem([QPointF(x, y) for x, y in points], object_type=kind,
                         name=name, layer_id=scene.active_layer.id, path_fence_style=preset)
+    if item_id is not None:
+        item._item_id = item_id
     item.metadata["object_height_cm"] = height_cm
     scene.addItem(item)
     return item

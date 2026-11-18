@@ -4,8 +4,8 @@
     "modified": "2026-10-26T00:00:00+00:00"
   },
   "canvas": {
-    "width": 2000,
-    "height": 1000
+    "width": 3000,
+    "height": 2000
   },
   "layers": [
     {
@@ -288,6 +288,87 @@
       "stack_order": 5120
     },
     {
+      "type": "rectangle",
+      "item_id": "b684ad81-8c78-5c48-9b19-1be895aa7c6d",
+      "x": 0.0,
+      "y": 1000.0,
+      "width": 3000.0,
+      "height": 1000.0,
+      "object_type": "LAWN",
+      "name": "Pradera de frutales",
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "fill_color": "#ff64b43c",
+      "stroke_color": "#ff3c821e",
+      "stroke_width": 2.0,
+      "fill_pattern": "WILDFLOWER",
+      "stroke_style": "SOLID",
+      "stack_order": 9216
+    },
+    {
+      "type": "rectangle",
+      "item_id": "db33d324-9404-5eb8-933b-01e1e1bc5ba3",
+      "x": 2000.0,
+      "y": 0.0,
+      "width": 1000.0,
+      "height": 1000.0,
+      "object_type": "LAWN",
+      "name": "Pradera de frutales",
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "fill_color": "#ff64b43c",
+      "stroke_color": "#ff3c821e",
+      "stroke_width": 2.0,
+      "fill_pattern": "WILDFLOWER",
+      "stroke_style": "SOLID",
+      "stack_order": 10240
+    },
+    {
+      "type": "polyline",
+      "item_id": "ad4b228d-19bf-50f7-88a7-f3896a79b89a",
+      "points": [
+        {
+          "x": 1930.0,
+          "y": 290.0
+        },
+        {
+          "x": 2230.0,
+          "y": 340.0
+        },
+        {
+          "x": 2360.0,
+          "y": 820.0
+        },
+        {
+          "x": 2150.0,
+          "y": 1250.0
+        },
+        {
+          "x": 1250.0,
+          "y": 1320.0
+        },
+        {
+          "x": 450.0,
+          "y": 1260.0
+        },
+        {
+          "x": 300.0,
+          "y": 1010.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Sendero de la pradera",
+      "metadata": {
+        "object_height_cm": 0
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff7d5c3e",
+      "stroke_width": 80.0,
+      "path_fence_style": "DIRT_PATH",
+      "stack_order": 12288
+    },
+    {
       "type": "circle",
       "item_id": "34e1f622-7446-5a7c-8e09-d492ff11aae4",
       "center_x": 550.0,
@@ -437,6 +518,225 @@
       "stack_order": 8192
     },
     {
+      "type": "polyline",
+      "item_id": "34d99613-ec07-534e-bb6d-b6b271c70af9",
+      "points": [
+        {
+          "x": 20.0,
+          "y": 1010.0
+        },
+        {
+          "x": 20.0,
+          "y": 1980.0
+        },
+        {
+          "x": 2980.0,
+          "y": 1980.0
+        },
+        {
+          "x": 2980.0,
+          "y": 20.0
+        },
+        {
+          "x": 2010.0,
+          "y": 20.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "Seto de campo",
+      "metadata": {
+        "object_height_cm": 180
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "stroke_color": "#ff3c7828",
+      "stroke_width": 8.0,
+      "path_fence_style": "HEDGE_FENCE",
+      "stack_order": 11264
+    },
+    {
+      "type": "circle",
+      "item_id": "9394bfa3-85a4-5c75-8c13-041373b5eea6",
+      "center_x": 400.0,
+      "center_y": 1650.0,
+      "radius": 350.0,
+      "object_type": "TREE",
+      "name": "Peral",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Pyrus communis",
+          "common_name": "Peral",
+          "family": "Rosaceae",
+          "genus": "Pyrus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 300.0,
+          "max_height_cm": 1200.0,
+          "min_spread_cm": 250.0,
+          "max_spread_cm": 700.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2019-11-09",
+          "current_height_cm": 180,
+          "current_spread_cm": 100
+        }
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Pear Tree",
+      "stack_order": 13312
+    },
+    {
+      "type": "rectangle",
+      "item_id": "5d6f9086-62d6-535a-9e5c-845047348836",
+      "x": 650.0,
+      "y": 1600.0,
+      "width": 210.0,
+      "height": 90.0,
+      "object_type": "HAMMOCK",
+      "name": "Hamaca",
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "fill_color": "#ff4f9d97",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 14336
+    },
+    {
+      "type": "rectangle",
+      "item_id": "0af4ee76-e2ee-5554-bd9e-1dcac30b7254",
+      "x": 1700.0,
+      "y": 1400.0,
+      "width": 150.0,
+      "height": 55.0,
+      "object_type": "BENCH",
+      "name": "Banco de la pradera",
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "fill_color": "#ff966e46",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 15360
+    },
+    {
+      "type": "circle",
+      "item_id": "3efa0807-40cb-5fd9-bbbd-809e82e91112",
+      "center_x": 2520.0,
+      "center_y": 1520.0,
+      "radius": 1000.0,
+      "object_type": "TREE",
+      "name": "Nogal",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Juglans regia",
+          "common_name": "Nogal",
+          "family": "Juglandaceae",
+          "genus": "Juglans",
+          "cycle": "perennial",
+          "growth_rate": "slow",
+          "flower_type": "monoecious",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 1000.0,
+          "max_height_cm": 3500.0,
+          "min_spread_cm": 800.0,
+          "max_spread_cm": 2000.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "seeds"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2022-11-05",
+          "current_height_cm": 220,
+          "current_spread_cm": 130
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "centre",
+          "name": "Gremio del nogal",
+          "template": {
+            "id": "walnut-tolerant-guild",
+            "version": 1,
+            "name": "Gremio tolerante al nogal",
+            "description": "Nogal con \u00e1steres para polinizadores. Penn State describe las especies de Aster como tolerantes sobre todo a partir de observaciones; la especie, el suelo y las condiciones siguen siendo decisivos.",
+            "centre": "juglans regia",
+            "roles": [
+              {
+                "function": "pollinator_attractor",
+                "count_min": 3,
+                "ring_radius_cm": "canopy_edge",
+                "suggested_species": [
+                  "symphyotrichum novi-belgii"
+                ]
+              }
+            ],
+            "license": "CC-BY-SA-4.0",
+            "attribution": "Colaboradores de Open Garden Planner; tolerancia descrita por Penn State Extension, funci\u00f3n polinizadora seg\u00fan RHS.",
+            "sources": [
+              "https://extension.psu.edu/landscaping-and-gardening-around-walnuts-and-other-juglone-producing-plants",
+              "https://www.rhs.org.uk/science/research/plants-for-pollinators"
+            ],
+            "name_de": "Walnussvertr\u00e4gliche Gilde",
+            "description_de": "Walnuss mit best\u00e4uberfreundlichen Astern. Die Vertr\u00e4glichkeitsangaben beruhen \u00fcberwiegend auf Beobachtungen; Art, Boden und Bedingungen bleiben entscheidend."
+          }
+        }
+      },
+      "layer_id": "2c66bece-43c4-53e7-8bd0-2186edf3e470",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Walnut Tree",
+      "stack_order": 16384
+    },
+    {
       "type": "circle",
       "item_id": "91997b71-f81e-5468-90b5-ead8dc131cc7",
       "center_x": 1470.0,
@@ -494,6 +794,122 @@
       "plant_species": "Peach Tree",
       "parent_bed_id": "6ca206be-a267-5577-825e-974779cf6198",
       "stack_order": 1024
+    },
+    {
+      "type": "circle",
+      "item_id": "c8c67b22-d18a-52c5-b3f4-bb699a6c41f3",
+      "center_x": 1100.0,
+      "center_y": 1600.0,
+      "radius": 300.0,
+      "object_type": "TREE",
+      "name": "Manzano",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Malus domestica",
+          "common_name": "Manzano",
+          "family": "Rosaceae",
+          "genus": "Malus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 200.0,
+          "max_height_cm": 800.0,
+          "min_spread_cm": 200.0,
+          "max_spread_cm": 600.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2018-11-10",
+          "current_height_cm": 170,
+          "current_spread_cm": 90
+        }
+      },
+      "layer_id": "64c531e5-1a9c-511f-a59a-a034986f6bc7",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Apple Tree",
+      "stack_order": 2048
+    },
+    {
+      "type": "circle",
+      "item_id": "5fac2317-e86a-5823-bcc3-4f6c342c4fda",
+      "center_x": 2500.0,
+      "center_y": 200.0,
+      "radius": 300.0,
+      "object_type": "TREE",
+      "name": "Ciruelo",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Prunus domestica",
+          "common_name": "Ciruelo",
+          "family": "Rosaceae",
+          "genus": "Prunus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "partially_self_fertile",
+          "min_height_cm": 300.0,
+          "max_height_cm": 800.0,
+          "min_spread_cm": 250.0,
+          "max_spread_cm": 600.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2018-11-10",
+          "current_height_cm": 180,
+          "current_spread_cm": 100
+        }
+      },
+      "layer_id": "64c531e5-1a9c-511f-a59a-a034986f6bc7",
+      "label_visible": false,
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "ROUND_DECIDUOUS",
+      "plant_species": "Plum Tree",
+      "stack_order": 3072
     },
     {
       "type": "circle",
@@ -2251,6 +2667,366 @@
       "plant_species": "Borage",
       "parent_bed_id": "6ca206be-a267-5577-825e-974779cf6198",
       "stack_order": 22528
+    },
+    {
+      "type": "circle",
+      "item_id": "31bdc11d-3783-592a-8448-c003837821a4",
+      "center_x": 2950.0,
+      "center_y": 1520.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "\u00c1ster",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Symphyotrichum novi-belgii",
+          "common_name": "\u00c1ster",
+          "family": "Asteraceae",
+          "genus": "Symphyotrichum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "pollinator_attractor"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "pollinator_attractor"
+        }
+      },
+      "layer_id": "c289173a-7b74-5fb5-a561-74fd557171aa",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Aster",
+      "stack_order": 23552
+    },
+    {
+      "type": "circle",
+      "item_id": "2f6ea74b-b152-5cd8-ae85-5caf9a9da318",
+      "center_x": 2735.0,
+      "center_y": 1892.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "\u00c1ster",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Symphyotrichum novi-belgii",
+          "common_name": "\u00c1ster",
+          "family": "Asteraceae",
+          "genus": "Symphyotrichum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "pollinator_attractor"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "pollinator_attractor"
+        }
+      },
+      "layer_id": "c289173a-7b74-5fb5-a561-74fd557171aa",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Aster",
+      "stack_order": 24576
+    },
+    {
+      "type": "circle",
+      "item_id": "e4501f85-2118-55cf-891a-79e9177aa9b4",
+      "center_x": 2305.0,
+      "center_y": 1892.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "\u00c1ster",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Symphyotrichum novi-belgii",
+          "common_name": "\u00c1ster",
+          "family": "Asteraceae",
+          "genus": "Symphyotrichum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "pollinator_attractor"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "pollinator_attractor"
+        }
+      },
+      "layer_id": "c289173a-7b74-5fb5-a561-74fd557171aa",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Aster",
+      "stack_order": 25600
+    },
+    {
+      "type": "circle",
+      "item_id": "cc6b7b1c-cd59-565c-bfae-48be8b0f5436",
+      "center_x": 2090.0,
+      "center_y": 1520.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "\u00c1ster",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Symphyotrichum novi-belgii",
+          "common_name": "\u00c1ster",
+          "family": "Asteraceae",
+          "genus": "Symphyotrichum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "pollinator_attractor"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "pollinator_attractor"
+        }
+      },
+      "layer_id": "c289173a-7b74-5fb5-a561-74fd557171aa",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Aster",
+      "stack_order": 26624
+    },
+    {
+      "type": "circle",
+      "item_id": "409f2da5-5583-50d4-bdfa-bc4a76bcbd4f",
+      "center_x": 2305.0,
+      "center_y": 1148.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "\u00c1ster",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Symphyotrichum novi-belgii",
+          "common_name": "\u00c1ster",
+          "family": "Asteraceae",
+          "genus": "Symphyotrichum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "pollinator_attractor"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "pollinator_attractor"
+        }
+      },
+      "layer_id": "c289173a-7b74-5fb5-a561-74fd557171aa",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Aster",
+      "stack_order": 27648
+    },
+    {
+      "type": "circle",
+      "item_id": "b6e3619e-d283-582b-9498-e04a7ec86a9e",
+      "center_x": 2735.0,
+      "center_y": 1148.0,
+      "radius": 30.0,
+      "object_type": "SHRUB",
+      "name": "\u00c1ster",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Symphyotrichum novi-belgii",
+          "common_name": "\u00c1ster",
+          "family": "Asteraceae",
+          "genus": "Symphyotrichum",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 150.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 8,
+          "ph_min": 5.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": [
+            "pollinator_attractor"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2024-04-20"
+        },
+        "guild": {
+          "guild_id": "787ebaa5-1f10-5e43-a04d-7cc932150cba",
+          "role": "pollinator_attractor"
+        }
+      },
+      "layer_id": "c289173a-7b74-5fb5-a561-74fd557171aa",
+      "label_visible": false,
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_category": "SPREADING_SHRUB",
+      "plant_species": "Aster",
+      "stack_order": 28672
     },
     {
       "type": "circle",
@@ -8294,7 +9070,7 @@
       "item_id": "508dfd00-c7ae-55a0-9db6-b846b20c2132",
       "x": 70.0,
       "y": 95.0,
-      "content": "21 sep 2026 \u00b7 1  Gremio: manzano \u2192 Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014\u20132026; observe los \u00e1rboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias.",
+      "content": "21 sep 2026 \u00b7 1  Gremio: manzano \u2192 Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014\u20132026; observe los \u00e1rboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias.  4  Pradera de frutales: seleccione el nogal \u2192 Gremios; \u00e1steres en el borde de su copa.",
       "font_family": "Arial",
       "font_size": 0.65,
       "bold": true,
@@ -8518,10 +9294,10 @@
       "motion": "orbit",
       "orbit": {
         "target": [
-          1000.0,
-          500.0
+          1500.0,
+          1000.0
         ],
-        "distance_cm": 2543.0,
+        "distance_cm": 4734.0,
         "yaw_deg": 312.0,
         "pitch_deg": 18.0,
         "fov_deg": 40.0,

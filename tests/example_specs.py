@@ -59,7 +59,7 @@ class ExampleSpec:
 SPECS: dict[str, ExampleSpec] = {
     "family-garden": ExampleSpec(1, "2026-06-21", "day", (52.52, 13.405), plants=61, hint=False,
                                  woody_harvests=1, heavy=True),
-    "food-forest": ExampleSpec(10, "2026-09-21", "day", (50.7374, 7.0982), plants=114,
+    "food-forest": ExampleSpec(10, "2026-09-21", "day", (50.7374, 7.0982), plants=124,
                                woody_harvests=3, heavy=True),
     "raised-bed": ExampleSpec(12, "2026-09-21", "day", (52.52, 13.405), plants=174, heavy=True),
     "balcony": ExampleSpec(13, "2026-09-21", "day", (47.999, 7.8421), plants=14, paths=False,

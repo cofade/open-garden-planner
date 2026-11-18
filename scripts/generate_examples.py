@@ -68,14 +68,15 @@ def _own_ids(raw, slug, ids):
       stands, so adding an item changes no other id; a plant's sprite turn and 3D shape
       are seeded by its id. Only ids the app made at random are numbered.
     - ``"serial"``: the three first plans. Every id is numbered in the order it appears,
-      except the hint layer's own, so that giving a plan that layer renumbered nothing.
+      except the hint layer's own and those a module names in ``OWN_IDS``, so that giving
+      a plan that layer, or the food forest its orchard, renumbered no item that was there.
     - ``"bench"``: the showcase keeps the bench plan's ids, which are fixed by its seed.
     """
     if ids == "bench":
         return raw
     if ids == "serial":
-        hints = str(hint_layer_id(slug))
-        return _stable_ids(raw, slug, keep=lambda value: value == hints)
+        own = {str(hint_layer_id(slug)), *getattr(PLANS[slug], "OWN_IDS", ())}
+        return _stable_ids(raw, slug, keep=lambda value: value in own)
     assert ids == "keyed", ids
     return _stable_ids(raw, slug + "/made", keep=lambda value: UUID(value).version == 5)
 

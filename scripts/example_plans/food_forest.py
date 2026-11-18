@@ -1,4 +1,9 @@
-"""The food forest: established trees, an apple guild, mulched beds and harvest paths."""
+"""The food forest and its orchard meadow.
+
+The dense half: established trees, an apple guild, mulched beds and harvest paths, as it
+shipped first. Around it, since #940, the open half: standard fruit trees in a flower
+meadow, with a young walnut and the asters that stand its company.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +12,8 @@ from uuid import NAMESPACE_URL, uuid5
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
-from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.item_look import adopt_pen
+from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.models.plant_data import PermacultureLayer
@@ -17,18 +23,19 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 
 from . import authoring as a
 from .i18n import text
+from .plan import GUILD_WORDS
 
 SLUG = "food-forest"
 IDS = "serial"
 
 META = {
-    "name_en": "Food forest - 200 m²", "name_de": "Waldgarten - 200 m²",
-    "name_es": "Bosque comestible - 200 m²",
-    "name_ru": "Лесосад - 200 м²",
-    "description_en": "Established trees, a grouped apple guild, accessible mulched beds and a sunny edible edge. Opens on 21 September 2026 in daylight; Bonn reference coordinates, fictional frost dates and harvest log. Illustrative layout; adapt species and spacing to your site.",
-    "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Öffnet am 21. September 2026 bei Tageslicht; Referenzkoordinaten Bonn, fiktive Frostdaten und fiktives Erntebuch. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
-    "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Se abre el 21 de septiembre de 2026 con luz de día; coordenadas de referencia de Bonn, heladas y cosechas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
-    "description_ru": "Взрослые деревья, гильдия яблони в группах посадки, мульчированные грядки с проходами и солнечная съедобная опушка. Открывается на 21 сентября 2026 года при дневном свете; координаты Бонна, условные даты заморозков и условный журнал урожая. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
+    "name_en": "Food forest with orchard meadow - 600 m²", "name_de": "Waldgarten mit Streuobstwiese - 600 m²",
+    "name_es": "Bosque comestible con pradera de frutales - 600 m²",
+    "name_ru": "Лесосад с плодовым лугом - 600 м²",
+    "description_en": "A dense food forest beside an open orchard: established trees, a grouped apple guild, mulched beds and a sunny edible edge; around them standard fruit trees in a flower meadow and a young walnut with its asters. Opens on 21 September 2026 in daylight; Bonn reference coordinates, fictional frost dates and harvest log. Illustrative layout; adapt species and spacing to your site.",
+    "description_de": "Ein dichter Waldgarten neben einer offenen Streuobstwiese: alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete und ein sonniger essbarer Saum; ringsum Hochstämme in einer Blumenwiese und eine junge Walnuss mit ihren Astern. Öffnet am 21. September 2026 bei Tageslicht; Referenzkoordinaten Bonn, fiktive Frostdaten und fiktives Erntebuch. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
+    "description_es": "Un bosque comestible denso junto a una pradera de frutales: árboles establecidos, un gremio de manzano y bancales acolchados; alrededor, frutales de tronco alto en una pradera de flores y un nogal joven con sus ásteres. Se abre el 21 de septiembre de 2026 con luz de día; coordenadas de referencia de Bonn, heladas y cosechas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
+    "description_ru": "Густой лесосад рядом с открытым плодовым лугом: взрослые деревья, гильдия яблони, мульчированные грядки и солнечная съедобная опушка; вокруг — высокоштамбовые плодовые деревья на цветущем лугу и молодой орех с астрами. Открывается на 21 сентября 2026 года при дневном свете; координаты Бонна, условные даты заморозков и условный журнал урожая. Пример планировки; адаптируйте виды и расстояния под ваш участок.",
     "order": 10,
     "tags": ["food-forest", "guild", "timeline"],
     "showcase_date": a.TEACHING_DATE, "showcase_utc_time": a.SHOWCASE_UTC_TIME,
@@ -36,7 +43,7 @@ META = {
 
 
 def build():
-    scene = CanvasScene(width_cm=2000, height_cm=1000)
+    scene = CanvasScene(width_cm=3000, height_cm=2000)
     layer_names = [
         ("Canopy", "Baumschicht", "Dosel"), ("Sub Canopy", "Untere Baumschicht", "Subdosel"),
         ("Shrub", "Strauchschicht", "Arbustos"), ("Herbaceous", "Krautschicht", "Herbáceas"),
@@ -103,9 +110,10 @@ def build():
     GuildMembershipCommand(changes).execute()
     a.rect(scene, 1200, 145, 150, 55, ObjectType.BENCH, text("Harvest bench", "Erntebank", "Banco de cosecha"))
     a.note(scene, 70, 95, text(
-        "21 Sep 2026 · 1  Apple guild: select apple → Guilds; inspect grouped plants and the unfilled fixer role.\n2  Plan & Sun: scrub 2014–2026; inspect the established trees (planted 2014 / 2016).\n3  Hours of Sun: compare the south edge with the tree shade. Bonn reference; frost dates are fictional.",
-        "21.09.2026 · 1  Apfelgilde: Apfelbaum → Gilden; Pflanzgruppen und die unbesetzte Stickstoffbinder-Rolle prüfen.\n2  Plan & Sonne: 2014–2026 durchgehen; alte Bäume prüfen (gepflanzt 2014 / 2016).\n3  Sonnenstunden: Südsaum mit Baumschatten vergleichen. Referenz Bonn; Frostdaten sind fiktiv.",
-        "21 sep 2026 · 1  Gremio: manzano → Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014–2026; observe los árboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias."), 0.65, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
+        "21 Sep 2026 · 1  Apple guild: select apple → Guilds; inspect grouped plants and the unfilled fixer role.\n2  Plan & Sun: scrub 2014–2026; inspect the established trees (planted 2014 / 2016).\n3  Hours of Sun: compare the south edge with the tree shade. Bonn reference; frost dates are fictional.  4  Orchard meadow: select the walnut → Guilds; asters stand at its canopy edge.",
+        "21.09.2026 · 1  Apfelgilde: Apfelbaum → Gilden; Pflanzgruppen und die unbesetzte Stickstoffbinder-Rolle prüfen.\n2  Plan & Sonne: 2014–2026 durchgehen; alte Bäume prüfen (gepflanzt 2014 / 2016).\n3  Sonnenstunden: Südsaum mit Baumschatten vergleichen. Referenz Bonn; Frostdaten sind fiktiv.  4  Streuobstwiese: Walnuss wählen → Gilden; Astern stehen an ihrem Kronenrand.",
+        "21 sep 2026 · 1  Gremio: manzano → Gremios; observe los grupos y el rol de fijador sin cubrir.\n2  Plan y sol: recorra 2014–2026; observe los árboles establecidos (plantados en 2014 / 2016).\n3  Horas de sol: compare el borde sur y la sombra. Referencia Bonn; heladas ficticias.  4  Pradera de frutales: seleccione el nogal → Gremios; ásteres en el borde de su copa."), 0.65, a.NOTE_ON_LAWN, bold=True, layer=a.hint_layer(scene, SLUG))
+    _orchard_meadow(scene, layers)
     manager = ProjectManager()
     a.site(manager, "Bonn", 50.7374, 7.0982)
     # Two seasons of the perennials, one of this year's sowings; nothing after 21 September.
@@ -126,3 +134,64 @@ def build():
     ):
         a.harvest(manager, "food-forest", a.first(scene, key), entries)
     return scene, manager
+
+
+#: The ids of the orchard's items: their own, not numbered with the first plan's.
+OWN_IDS: set[str] = set()
+
+
+def _own(*parts):
+    made = uuid5(NAMESPACE_URL, "ogp-example/food-forest/orchard/" + ":".join(str(p) for p in parts))
+    assert str(made) not in OWN_IDS, parts
+    OWN_IDS.add(str(made))
+    return made
+
+
+def _orchard_meadow(scene, layers):
+    """The open half, north and east of the forest garden (#940). Its items have ids of
+    their own (``OWN_IDS``), so that no item of the first plan changed its id."""
+    T = ObjectType
+    OWN_IDS.clear()
+    meadow = text("Orchard meadow", "Streuobstwiese", "Pradera de frutales")
+    for x, y, width, height in ((0, 1000, 3000, 1000), (2000, 0, 1000, 1000)):
+        item = a.rect(scene, x, y, width, height, T.LAWN, meadow, item_id=_own("meadow", x, y))
+        item.fill_pattern = FillPattern.WILDFLOWER
+        item.setBrush(create_pattern_brush(item.fill_pattern, item.fill_color))
+    a.line(scene, [(20, 1010), (20, 1980), (2980, 1980), (2980, 20), (2010, 20)], T.FENCE,
+           text("Field hedge", "Feldhecke", "Seto de campo"), 180, PathFenceStyle.HEDGE_FENCE,
+           item_id=_own("hedge"))
+    path = a.line(scene, [(1930, 290), (2230, 340), (2360, 820), (2150, 1250), (1250, 1320), (450, 1260),
+                          (300, 1010)], T.PATH, text("Meadow path", "Wiesenpfad", "Sendero de la pradera"),
+                  0, PathFenceStyle.DIRT_PATH, item_id=_own("path"))
+    pen = path.pen()
+    pen.setWidthF(80.0)
+    adopt_pen(path, pen)
+    # Standard trees, planted over the years as young nursery trees and as far apart as
+    # their grown crowns need: the walnut alone will reach ten metres to every side, so
+    # the meadow holds three fruit trees and no more (the spacing check reports none).
+    for key, x, y, planted, size, layer in (
+            ("pyrus communis", 400, 1650, "2019-11-09", (180, 100), layers[0]),
+            ("malus domestica", 1100, 1600, "2018-11-10", (170, 90), layers[1]),
+            ("prunus domestica", 2500, 200, "2018-11-10", (180, 100), layers[1])):
+        a.plant(scene, key, x, y, layer=layer, planted=planted, nursery_size=size,
+                item_id=_own("tree", key, x, y))
+    a.rect(scene, 650, 1600, 210, 90, T.HAMMOCK, text("Hammock", "Hängematte", "Hamaca"),
+           item_id=_own("hammock"))
+    a.rect(scene, 1700, 1400, 150, 55, T.BENCH, text("Meadow bench", "Wiesenbank", "Banco de la pradera"),
+           item_id=_own("bench"))
+
+    # the walnut and the company it tolerates: asters at its canopy edge
+    walnut = a.plant(scene, "juglans regia", 2520, 1520, layer=layers[0], planted="2022-11-05",
+                     nursery_size=(220, 130), item_id=_own("walnut"))
+    template = deepcopy(GuildLibrary(user_dir=BUNDLED_EXAMPLES / "_no_user_guilds")
+                        .templates["walnut-tolerant-guild"].to_dict())
+    for field, (german, spanish) in GUILD_WORDS["walnut-tolerant-guild"].items():
+        text(template[field], german, spanish)
+    guild_id = str(_own("guild"))
+    changes = [(walnut, {"guild_id": guild_id, "role": "centre", "name": text(
+        "Walnut guild", "Walnussgilde", "Gremio del nogal"), "template": template})]
+    for dx, dy in ((430, 0), (215, 372), (-215, 372), (-430, 0), (-215, -372), (215, -372)):
+        aster = a.plant(scene, "symphyotrichum novi-belgii", 2520 + dx, 1520 + dy, layer=layers[3],
+                        planted="2024-04-20", item_id=_own("aster", dx, dy))
+        changes.append((aster, {"guild_id": guild_id, "role": "pollinator_attractor"}))
+    GuildMembershipCommand(changes).execute()

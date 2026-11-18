@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from open_garden_planner.core.solar import solar_position
-from tests.example_specs import LIGHT, SPECS, showcase_utc
+from tests.example_specs import COGNATES, LIGHT, SPECS, showcase_utc
 
 RESOURCES = Path(__file__).parents[2] / "src/open_garden_planner/resources"
 EXAMPLES = RESOURCES / "examples"
@@ -54,9 +54,36 @@ def test_main_raised_bed_is_full_and_mature_footprints_clear_the_actual_sprite_s
         assert (reference - planted).days == ages[species(plant)]
 
 
+def in_the_forest_garden(obj):
+    """The dense half of the food forest plan: the 20 x 10 m it was before the orchard."""
+    return obj["center_x"] < 2000 and obj["center_y"] < 1000
+
+
+def test_the_orchard_meadow_holds_standard_trees_and_a_walnut_guild():
+    """The open half (#940): no beds, trees far enough apart for their grown crowns, and
+    the walnut with the asters it tolerates."""
+    plan = load("food-forest")
+    orchard = [o for o in plan["objects"] if species(o) and not in_the_forest_garden(o)]
+    assert Counter(map(species, orchard)) == {
+        "pyrus communis": 1, "malus domestica": 1, "prunus domestica": 1, "juglans regia": 1,
+        "symphyotrichum novi-belgii": 6,
+    }
+    assert not any(o.get("parent_bed_id") for o in orchard)
+    walnut = next(o for o in orchard if species(o) == "juglans regia")
+    members = [o for o in orchard if o["metadata"].get("guild")]
+    assert Counter(o["metadata"]["guild"]["role"] for o in members) == {
+        "centre": 1, "pollinator_attractor": 6}
+    assert len({o["metadata"]["guild"]["guild_id"] for o in members}) == 1
+    for aster in (o for o in members if o is not walnut):
+        distance = math.hypot(aster["center_x"] - walnut["center_x"], aster["center_y"] - walnut["center_y"])
+        assert 400 <= distance <= 460, "at the young walnut's canopy edge"
+    meadows = [o for o in plan["objects"] if o.get("object_type") == "LAWN" and o.get("fill_pattern") == "WILDFLOWER"]
+    assert len(meadows) == 2 and plan["canvas"] == {"width": 3000, "height": 2000}
+
+
 def test_forest_uses_established_trees_grouped_ground_cover_and_local_guild_members():
     plan = load("food-forest")
-    plants = [o for o in plan["objects"] if species(o)]
+    plants = [o for o in plan["objects"] if species(o) and in_the_forest_garden(o)]
     assert not any(species(o) == "solanum tuberosum" for o in plants)
     assert Counter(map(species, plants)) == {
         "malus domestica": 1, "prunus persica": 1, "ribes rubrum": 3,
@@ -300,7 +327,8 @@ def test_localized_examples_keep_geometry_ids_art_and_botanical_truth(slug, lang
             before, after = old["metadata"]["plant_species"], new["metadata"]["plant_species"]
             assert {k: v for k, v in before.items() if k != "common_name"} == {
                 k: v for k, v in after.items() if k != "common_name"}
-            assert before["common_name"] != after["common_name"]
+            assert (before["common_name"] != after["common_name"]
+                    or before["common_name"] in COGNATES[language])
             assert old["metadata"]["plant_instance"] == new["metadata"]["plant_instance"]
         if old["type"] == "text":
             assert old["content"] != new["content"]
