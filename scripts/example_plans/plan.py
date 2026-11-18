@@ -195,10 +195,12 @@ class Plan:
         owner.set_metadata("ridge_item_id", str(ridge.item_id))
         return ridge
 
-    def house(self, points, name, *, tall=None, roof=None, pitch=None, overhang=None, ridge=True):
+    def house(self, points, name, *, tall=None, roof=None, pitch=None, overhang=None, ridge=True,
+              fill=None, color=None):
         """A HOUSE polygon. With ``ridge`` it gets its linked roof ridge (a gable or a hip
-        along it); a flat-roofed house has none."""
-        house = self.polygon(points, ObjectType.HOUSE, name, tall=tall)
+        along it); a flat-roofed house has none, and ``fill`` gives it a roof that does not
+        read as tiles in the plan."""
+        house = self.polygon(points, ObjectType.HOUSE, name, tall=tall, fill=fill, color=color)
         self._roof(house, roof, pitch, overhang)
         if ridge:
             self._ridge(house, house.polygon())

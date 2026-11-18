@@ -7,7 +7,15 @@ that ship.
 
 from __future__ import annotations
 
-from . import allotment, balcony, cottage_garden, family_garden, food_forest, raised_bed
+from . import (
+    allotment,
+    balcony,
+    cottage_garden,
+    family_garden,
+    food_forest,
+    raised_bed,
+    terraced_house_garden,
+)
 
 PLANS = {plan.SLUG: plan for plan in (food_forest, raised_bed, balcony, family_garden,
-                                         allotment, cottage_garden)}
+                                         allotment, cottage_garden, terraced_house_garden)}

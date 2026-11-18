@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
 
-from open_garden_planner.core.camera_path import DroneOrbit, clamp_orbit_pitch
+from open_garden_planner.core.camera_path import CameraKey, DroneOrbit, clamp_orbit_pitch
 from open_garden_planner.core.camera_tours import (
     DEFAULT_DURATION_S,
     DEFAULT_ORBIT_PITCH_DEG,
@@ -44,22 +44,36 @@ def plan_bounds(scene, day: date) -> Bounds:
     return Bounds.of_plan(scene.width_cm, scene.height_cm, top)
 
 
-def orbit_pose(scene, manager, meta: dict, *, sun_offset_deg: float = SUN_BEHIND_DEG) -> CameraPose:
-    """Where the orbit starts: far enough to keep the whole plan in a 16:9 frame all the
-    way round, and turned so that the sun of the showcase moment is behind the camera."""
-    day, utc_time = showcase_moment(meta)
-    bounds = plan_bounds(scene, day)
-    aspect = DEFAULT_SIZE[0] / DEFAULT_SIZE[1]
-    distance = max(frame_pose(bounds, aspect, yaw_deg=float(yaw),
-                              pitch_deg=DEFAULT_ORBIT_PITCH_DEG).distance_cm
-                   for yaw in range(0, 360, 5))
-    location = manager.location or {}
-    sun = solar_position(location["latitude"], location["longitude"],
-                         datetime.combine(day, utc_time, tzinfo=UTC))
-    yaw = (scene_azimuth(sun.azimuth_deg, manager.north_angle_deg) + sun_offset_deg) % 360.0
-    east, north = bounds.center
-    return CameraPose((round(east, 1), round(north, 1)), float(round(distance)), round(yaw, 1),
-                      round(clamp_orbit_pitch(DEFAULT_ORBIT_PITCH_DEG, distance), 1))
+class Framing:
+    """How the plan fits a 16:9 picture: what a plan module is given to build its tours."""
+
+    def __init__(self, scene, manager, meta: dict) -> None:
+        self.day, self.utc_time = showcase_moment(meta)
+        self.bounds = plan_bounds(scene, self.day)
+        self.aspect = DEFAULT_SIZE[0] / DEFAULT_SIZE[1]
+        location = manager.location or {}
+        sun = solar_position(location["latitude"], location["longitude"],
+                             datetime.combine(self.day, self.utc_time, tzinfo=UTC))
+        #: The sun's bearing at the showcase moment in the plan's own frame.
+        self.sun_bearing = scene_azimuth(sun.azimuth_deg, manager.north_angle_deg)
+
+    def pose(self, yaw_deg: float, pitch_deg: float) -> CameraPose:
+        """The whole plan seen along ``yaw_deg`` (0 = plan-up), tilted ``pitch_deg`` down."""
+        framed = frame_pose(self.bounds, self.aspect, yaw_deg=float(yaw_deg), pitch_deg=float(pitch_deg))
+        east, north = framed.target
+        return CameraPose((round(east, 1), round(north, 1)), float(round(framed.distance_cm)),
+                          round(float(yaw_deg) % 360.0, 1), round(float(pitch_deg), 1))
+
+    def orbit(self, *, sun_offset_deg: float = SUN_BEHIND_DEG) -> CameraPose:
+        """Where the orbit starts: far enough to keep the whole plan in the picture all the
+        way round, and turned so that the showcase sun is behind the camera."""
+        distance = max(frame_pose(self.bounds, self.aspect, yaw_deg=float(yaw),
+                                  pitch_deg=DEFAULT_ORBIT_PITCH_DEG).distance_cm
+                       for yaw in range(0, 360, 5))
+        east, north = self.bounds.center
+        return CameraPose((round(east, 1), round(north, 1)), float(round(distance)),
+                          round((self.sun_bearing + sun_offset_deg) % 360.0, 1),
+                          round(clamp_orbit_pitch(DEFAULT_ORBIT_PITCH_DEG, distance), 1))
 
 
 def orbit_tour(pose: CameraPose, name: str = ORBIT, *, date_range=None, time_range=None,
@@ -70,4 +84,13 @@ def orbit_tour(pose: CameraPose, name: str = ORBIT, *, date_range=None, time_ran
     if duration_s is None:
         duration_s = DEFAULT_DURATION_S if lapse else ORBIT_SECONDS_PER_TURN
     return SavedTour(name=name, motion="orbit", orbit=DroneOrbit(pose, ease=True),
+                     date_range=date_range, time_range=time_range, duration_s=duration_s)
+
+
+def held_tour(pose: CameraPose, name: str, *, date_range=None, time_range=None,
+              duration_s: float = DEFAULT_DURATION_S) -> SavedTour:
+    """The camera stands still while the day or the year passes."""
+    assert (date_range is None) != (time_range is None), "a held tour is a time-lapse"
+    eye = tuple(round(value, 1) for value in pose.eye)
+    return SavedTour(name=name, motion="hold", held=CameraKey(eye, pose.target_scene),
                      date_range=date_range, time_range=time_range, duration_s=duration_s)

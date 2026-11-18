@@ -28,7 +28,7 @@ from example_plans import PLANS
 from example_plans.authoring import hint_layer_id
 from example_plans.i18n import localized_plan
 from example_plans.thumbnails import thumbnail
-from example_plans.tours import orbit_pose, orbit_tour, showcase_moment
+from example_plans.tours import Framing, orbit_tour, showcase_moment
 from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core.camera_tours import load_tours
@@ -105,8 +105,9 @@ def example_content(slug):
     for item in scene.items():
         if hasattr(item, "label_visible"):
             item.label_visible = False
-    pose = orbit_pose(scene, manager, module.META)
-    manager.set_camera_tours([orbit_tour(pose), *getattr(module, "more_tours", lambda _pose: [])(pose)])
+    framing = Framing(scene, manager, module.META)
+    manager.set_camera_tours([orbit_tour(framing.orbit()),
+                              *getattr(module, "more_tours", lambda _framing: [])(framing)])
     raw = manager._build_project_data(scene).to_dict()
     raw["metadata"] = {"modified": "2026-10-26T00:00:00+00:00"}
     scene.clear()

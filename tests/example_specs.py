@@ -68,6 +68,8 @@ SPECS: dict[str, ExampleSpec] = {
                              woody_harvests=4),
     "cottage-garden": ExampleSpec(6, "2026-06-20", "day", (49.8988, 10.9028), plants=123,
                                   woody_harvests=1, paths=False),
+    "terraced-house-garden": ExampleSpec(8, "2026-06-21", "afternoon", (50.9375, 6.9603), plants=23,
+                                         more_tours=("Shadows over the day",), north_angle_deg=35.0),
 }
 
 #: The first three plans: teaching plans with a dated tutorial note, pinned in detail by
