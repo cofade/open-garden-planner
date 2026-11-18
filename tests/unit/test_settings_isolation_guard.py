@@ -106,9 +106,22 @@ def test_the_tooling_scan_matches_exact_session_markers_only() -> None:
     assert settings_module._tooling_environment_marker(
         {"OPENCODE_SESSION_ID": "ses_x"}
     ) == "OPENCODE_SESSION_ID"
+    assert settings_module._tooling_environment_marker(
+        {"ANTIGRAVITY_AGENT": "1"}
+    ) == "ANTIGRAVITY_AGENT"
+    assert settings_module._tooling_environment_marker(
+        {"ANTIGRAVITY_CONVERSATION_ID": "conv_x"}
+    ) == "ANTIGRAVITY_CONVERSATION_ID"
     # API keys are not session markers; a developer's shell may hold them.
     assert settings_module._tooling_environment_marker({"CODEX_API_KEY": "sk-x"}) is None
     assert settings_module._tooling_environment_marker({"GEMINI_API_KEY": "x"}) is None
+
+
+def test_antigravity_probe_is_refused(production, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "windows")
+    monkeypatch.setenv("ANTIGRAVITY_AGENT", "1")
+    with pytest.raises(settings_module.SettingsIsolationError, match="ANTIGRAVITY_AGENT"):
+        settings_module.create_qsettings()
 
 
 def test_the_product_marker_is_set_inside_main_not_at_import() -> None:

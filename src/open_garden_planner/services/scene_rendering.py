@@ -90,7 +90,7 @@ def draws_at_constant_pixel_size(item: QGraphicsItem) -> bool:
     flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
     current: QGraphicsItem | None = item
     while current is not None:
-        if current.flags() & flag:
+        if getattr(current, "_ignores_transformations", False) or (current.flags() & flag):
             return True
         current = current.parentItem()
     return False

@@ -1326,12 +1326,12 @@
   },
   "840": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Selection handles: eight on every object of a multi-selection, covering small plants at fit zoom, rotation handle far away after zooming in"
   },
   "841": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Capacity badge, snapping and alignment still read boundingRect: a shown spacing ring or badge moves a plant's anchors"
   },
   "842": {
@@ -1341,12 +1341,12 @@
   },
   "843": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plan labels: dimension labels are outside the declutter, edge labels are cut at fit zoom, warning arcs cross labels below"
   },
   "844": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Succession badge: overhangs a rotated bed, takes no part in label collision, gives no hint when zoomed out"
   },
   "847": {
@@ -1361,8 +1361,13 @@
   },
   "853": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Rulers cover the plan's left and top 20 px at fit zoom"
+  },
+  "854": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sun shadow: a faint lighter hairline runs along a shade's outline"
   },
   "865": {
     "is_pr": false,
@@ -1371,7 +1376,7 @@
   },
   "867": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Balcony example: the text note runs under the furniture and across the sun map's contour lines"
   },
   "871": {
@@ -1381,12 +1386,12 @@
   },
   "872": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Text note size follows the screen's logical DPI"
   },
   "874": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Text-note letter spacing is pinned only by the font's hinting setting, not by a pixel test"
   },
   "877": {
@@ -1513,6 +1518,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Sun diagnostics block ordinary selection by rebuilding unmeasured long-line footprints"
+  },
+  "928": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Selected dense polyline still blocks for seconds in exact full-detail painting"
   },
   "929": {
     "is_pr": true,

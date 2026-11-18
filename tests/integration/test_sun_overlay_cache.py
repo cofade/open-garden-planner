@@ -557,3 +557,271 @@ class TestPixelsUnchanged:
         assert polygons
         path_polygons = _overlay(scene).path().toSubpathPolygons()
         assert len(path_polygons) == len(polygons)
+
+
+class TestTimelineScrub:
+    """#846: rapid timeline scrubbing caches scene casters on paint_revision and
+    defers the expensive soft-edge feather pass until scrubbing pauses."""
+
+    def test_rapid_scrub_defers_feather_and_caches_casters_until_settle(
+        self, staged, qtbot, monkeypatch
+    ) -> None:
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, view = staged
+        overlay = _overlay(scene)
+        feather_calls: list[int] = []
+        caster_calls: list[int] = []
+        real_feather = sun_shadow_controller.paint_feather
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_feather(*args, **kwargs):
+            feather_calls.append(1)
+            return real_feather(*args, **kwargs)
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "paint_feather", counting_feather)
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        # Step 1 after idle is settled immediately (full feather + fresh walk).
+        # Use 2026-06-22 (distinct from staged's 2026-06-21) so _caster_cache starts cold.
+        controller.set_sim_datetime(datetime(2026, 6, 22, 10, 0, tzinfo=UTC))
+        view.viewport().repaint()
+        assert len(feather_calls) == 1
+        assert len(caster_calls) == 1
+        assert not overlay._feather_deferred
+
+        feather_calls.clear()
+        caster_calls.clear()
+
+        # Steps 2..6 in rapid succession enter scrub mode: no feather, cached casters.
+        for minute in (10, 20, 30, 40, 50):
+            controller.set_sim_datetime(datetime(2026, 6, 22, 10, minute, tzinfo=UTC))
+            view.viewport().repaint()
+
+        assert overlay._feather_deferred
+        assert len(feather_calls) == 0
+        assert len(caster_calls) == 0
+
+        # Once scrubbing pauses, the settle timer restores the soft edge once.
+        qtbot.waitUntil(lambda: not overlay._feather_deferred, timeout=3000)
+        view.viewport().repaint()
+        assert len(feather_calls) == 1
+        assert len(caster_calls) == 0
+
+    def test_slow_clock_ticks_past_scrub_window_still_reuse_caster_cache(
+        self, staged, monkeypatch
+    ) -> None:
+        """Single time-of-day steps and Animate ticks > _SCRUB_WINDOW_NS apart must
+        still reuse _caster_cache whenever paint_revision and plan_date are unchanged."""
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        _scene, controller, view = staged
+        caster_calls: list[int] = []
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        now_ns = [10_000_000_000_000_000]
+        monkeypatch.setattr(
+            sun_shadow_controller.time,
+            "monotonic_ns",
+            lambda: now_ns[0],
+        )
+
+        # First tick on a new plan_date solves and warms _caster_cache.
+        controller.set_sim_datetime(datetime(2026, 6, 22, 10, 0, tzinfo=UTC))
+        view.viewport().repaint()
+        assert len(caster_calls) == 1
+
+        # Subsequent ticks separated by > _SCRUB_WINDOW_NS (non-scrubbing) reuse cache.
+        for minute in (15, 30, 45):
+            now_ns[0] += sun_shadow_controller._SCRUB_WINDOW_NS * 3
+            controller.set_sim_datetime(datetime(2026, 6, 22, 10, minute, tzinfo=UTC))
+            view.viewport().repaint()
+
+        assert len(caster_calls) == 1
+
+    def test_dense_wooden_fence_polyline_caches_footprint_across_time_and_date(
+        self, qtbot, monkeypatch
+    ) -> None:
+        """A dense porous fence polyline caches both scene casters across non-scrubbing
+        clock ticks and its pyclipper footprint across plan-date changes, while
+        invalidating when the fence itself moves (#928)."""
+        from open_garden_planner.core.object_types import PathFenceStyle
+        from open_garden_planner.ui.canvas import footprints as footprints_mod
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+        from open_garden_planner.ui.canvas.items import PolylineItem
+
+        scene = CanvasScene(1000.0, 1000.0)
+        pts = [QPointF((i % 20) * 10.0, (i // 20) * 10.0) for i in range(400)]
+        fence = PolylineItem(pts, object_type=ObjectType.FENCE)
+        fence.path_fence_style = PathFenceStyle.WOODEN_FENCE
+        scene.addItem(fence)
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(SUNS["noon"])
+
+        footprint_calls: list[int] = []
+        real_poly_fp = footprints_mod.polyline_footprint
+
+        def counting_poly_fp(*args, **kwargs):
+            footprint_calls.append(1)
+            return real_poly_fp(*args, **kwargs)
+
+        monkeypatch.setattr(footprints_mod, "polyline_footprint", counting_poly_fp)
+
+        now_ns = [10_000_000_000_000_000]
+        monkeypatch.setattr(
+            sun_shadow_controller.time,
+            "monotonic_ns",
+            lambda: now_ns[0],
+        )
+
+        # Initial enable builds footprint once.
+        controller.set_enabled(True)
+        assert len(footprint_calls) == 1
+
+        # Non-scrubbing time-of-day steps hit _caster_cache -> no rebuild.
+        now_ns[0] += sun_shadow_controller._SCRUB_WINDOW_NS * 3
+        controller.set_sim_datetime(datetime(2026, 6, 21, 13, 0, tzinfo=UTC))
+        assert len(footprint_calls) == 1
+
+        # A different plan_date bypasses _caster_cache, yet PolylineItem cache keeps footprint.
+        now_ns[0] += sun_shadow_controller._SCRUB_WINDOW_NS * 3
+        controller.set_sim_datetime(datetime(2026, 7, 15, 13, 0, tzinfo=UTC))
+        assert len(footprint_calls) == 1
+
+        # Moving the fence changes sceneTransform() -> invalidates cached footprint.
+        fence.setPos(QPointF(25.0, 0.0))
+        controller.recompute_now()
+        assert len(footprint_calls) == 2
+
+    def test_animate_200ms_ticks_do_not_wipe_caster_cache_via_debounce(
+        self, staged, qtbot, monkeypatch
+    ) -> None:
+        """200 ms Animate ticks fire after the 150 ms _debounce interval; the
+        overlay's own scene.changed echo must not wipe _caster_cache (#846)."""
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, view = staged
+        caster_calls: list[int] = []
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        now_ns = [10_000_000_000_000_000]
+        monkeypatch.setattr(
+            sun_shadow_controller.time,
+            "monotonic_ns",
+            lambda: now_ns[0],
+        )
+
+        for step in range(5):
+            controller.set_sim_datetime(datetime(2026, 6, 22, 10, step * 10, tzinfo=UTC))
+            view.viewport().repaint()
+            if step < 4:
+                qtbot.wait(170)  # longer than _DEBOUNCE_MS (150 ms)
+                now_ns[0] += 200_000_000
+
+        assert len(caster_calls) == 1
+        qtbot.wait(220)
+        assert len(caster_calls) == 1
+
+    def test_returning_to_prior_settled_zoom_uses_stand_in_before_settle(
+        self, staged, qtbot
+    ) -> None:
+        """Returning to a previously settled zoom uses the stand-in picture first
+        and settles asynchronously rather than rasterising synchronously (#846)."""
+        scene, controller, view = staged
+        overlay = _overlay(scene)
+        fit_zoom = view.zoom_factor
+        controller.settle_overlay()
+        view.viewport().repaint()
+
+        # Zoom to 1.12x fit and let it settle there.
+        view.set_zoom(fit_zoom * 1.12)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        controller.settle_overlay()
+        view.viewport().repaint()
+        before_return = overlay.exact_paints
+
+        # Return to fit zoom: must paint stand-in without synchronous rasterisation.
+        view.set_zoom(fit_zoom)
+        view.centerOn(QPointF(600, 450))
+        view.viewport().repaint()
+        assert overlay.exact_paints == before_return
+        assert overlay._pending is not None
+
+        qtbot.waitUntil(lambda: overlay._pending is None, timeout=3000)
+        view.viewport().repaint()
+        assert overlay.exact_paints == before_return + 1
+
+    def test_scene_edit_during_scrub_invalidates_caster_cache(
+        self, staged, monkeypatch
+    ) -> None:
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, view = staged
+        caster_calls: list[int] = []
+        real_collect = sun_shadow_controller.collect_shadow_casters
+
+        def counting_collect(*args, **kwargs):
+            caster_calls.append(1)
+            return real_collect(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "collect_shadow_casters", counting_collect)
+
+        controller.set_sim_datetime(datetime(2026, 6, 22, 10, 0, tzinfo=UTC))
+        controller.set_sim_datetime(datetime(2026, 6, 22, 10, 10, tzinfo=UTC))
+        assert len(caster_calls) == 1
+
+        # Move a caster -> paint_revision advances -> next scrub step re-walks.
+        caster = next(item for item in scene.items() if isinstance(item, RectangleItem))
+        caster.setPos(caster.pos() + QPointF(20.0, 0.0))
+        controller.set_sim_datetime(datetime(2026, 6, 22, 10, 20, tzinfo=UTC))
+        view.viewport().repaint()
+        assert len(caster_calls) == 2
+
+    def test_export_during_active_scrub_still_renders_feather(
+        self, staged, monkeypatch
+    ) -> None:
+        from open_garden_planner.ui.canvas import sun_shadow_controller
+
+        scene, controller, _view = staged
+        overlay = _overlay(scene)
+        feather_calls: list[int] = []
+        real_feather = sun_shadow_controller.paint_feather
+
+        def counting_feather(*args, **kwargs):
+            feather_calls.append(1)
+            return real_feather(*args, **kwargs)
+
+        monkeypatch.setattr(sun_shadow_controller, "paint_feather", counting_feather)
+
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 0, tzinfo=UTC))
+        controller.set_sim_datetime(datetime(2026, 6, 21, 10, 10, tzinfo=UTC))
+        assert overlay._feather_deferred
+        feather_calls.clear()
+
+        image = QImage(900, 675, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        try:
+            render_scene_region(
+                scene, painter, QRectF(0, 0, 900, 675), QRectF(0, 0, 1200, 900), y_flip=True
+            )
+        finally:
+            painter.end()
+        assert len(feather_calls) == 1

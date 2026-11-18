@@ -9981,10 +9981,9 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A zoom step repaints every visible item's device cache: 25–32 ms near fit on
   this plan, overlay on or off (48–64 ms on the machine under load). With the
   spacing rings off it is lower; how the rings are drawn is another change's.
-- A zoom step that returns to a zoom the overlay was rasterised for (one of
-  the last four) rasterises it at once instead of showing the kept picture:
-  95–99 ms at 112 % on this plan. The table's zoom steps are steps to a new
-  zoom.
+- Returning to a prior zoom scale also steps through the kept stand-in picture
+  first and rasterises once `_settle` fires (#846: `_SETTLED_SCALES = 1`).
+  Only the active zoom matching `_picture` stays settled.
 - The **first** zoom across a raster level (100 %, 200 %, 400 % …) rasterises
   each visible sprite at the new level and tints the detail tiles in use: one
   frame of 0.2–0.5 s on this plan (61 plants; 0.7 s measured once under load),
@@ -9995,22 +9994,41 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - A sprite the device shows more than 1024 px of is drawn from the vector at
   every zoom step, at a cost that grows with the window (10–16 ms per
   megapixel shown): a canopy filling a 4K window is the worst case, not measured.
-- **A scrub step is unchanged.** #784 is titled after the stutter of a scrub,
-  and this branch does not remove it: a scrub step still rasterises the
-  overlay once per solve (60–130 ms at fit with the strokes, 7–25 ms zoomed
-  in; 82–84 ms against 100–106 ms in the table above, which is within the
-  noise). What #784 removed is the cost of everything ELSE while the overlay
-  is on. The candidate, not built: a half-resolution picture while solves keep
-  arriving, settled the way a zoom is — it changes the pixels of a scrub
-  frame, so it is the owner's to ask for. The reduced picture kept for a zoom
-  above 2048 px is deliberately not made during a scrub.
+- A **timeline/Animate** step is no longer uncached (#846, #928): `_on_clock_changed`
+  reuses the `(paint_revision, plan_date)` caster snapshot
+  (`SunShadowController._caster_cache`) on every matching clock tick regardless of
+  interval, and rapid consecutive steps (within `_SCRUB_WINDOW_NS = 500 ms`,
+  covering slider drags and 200 ms `Animate` ticks) also defer `paint_feather`
+  + `_paint_and_keep` pixmap allocation (`SunShadowOverlayItem.set_feather_deferred`)
+  until `_scrub_settle` (`260 ms`) fires. Measured on `family-garden.ogp` at fit
+  (`1453 × 898`): `test_timeline_scrub_step_ratio` reads `0.38×` a settled step
+  (`31.4/77.5`, `29.3/77.0`, `26.5/72.6`, `24.9/72.3`, `24.8/64.9` ms; standalone
+  repaint alone `47.39 → 11.83 ms`). Exports, minimap, and `settle_overlay()`
+  always paint full soft edges; `shadow_feather._cut_out_shade` also compensates
+  boundary pixels by `(1 - c) / (1 - c * alpha_s)` so `SourceOver` leaves no
+  lighter hairline along shade outlines (#854).
 - A zoom step on a large plan is every visible item's device cache: 51 ms
   on the 853-object plan with nothing else left in it.
-- Labels as items: Qt keeps an item that ignores transformations out of its
-  spatial index and walks the owner of every such item on every paint. With
-  853 labels shown that is 2.2 ms of a 40-pixel repaint (4.9–5.7 ms with the
-  label pass switched off, against 2.8–3.1 ms with the labels hidden), before
-  and after this branch.
+- **Labels no longer bypass Qt's BSP tree (#919):** `PlanLabelItem` tracks
+  `ItemIgnoresTransformations` in Python (`_ignores_transformations`) rather than
+  setting Qt's C++ flag, keeping all parent objects spatially indexed in
+  `QGraphicsSceneBspTreeIndex`, and `CircleItem.boundingRect()` is cached until
+  `prepareGeometryChange()` (PF-CAN-64). `test_scene_query_on_large_plan_uses_bsp_index_not_full_walk`
+  pins local BSP candidate counts.
+- **Selected dense polylines, huge text, rectangle moves, spacing rings, and zoomed-out fills:**
+  `PathStylePaint` and `PolylineItem` decimate stroked paths above 256 vertices
+  via envelope-preserving `bounded_stroke_points()` and cache selected dense
+  bodies per zoom while keeping `self._points` and stored width/style intact
+  (#928: 16,000-vertex alternating fence `10,838.6 ms` → `61.1 ms` cold /
+  `2.17 ms` warm on Windows/Qt 6.12). `EditableLabel` edits `label_text()`
+  (80 chars) and `TextItem` / `CalloutItem` cap Qt document layout at
+  `MAX_DISPLAY_TEXT_CHARS = 2_000` with cosmetic selection pens while preserving
+  untouched full strings (#873). `CircleItem` caches spacing-warning arcs;
+  `CanvasView._set_current_snap` dirties only the 12-px indicator pads; and
+  `fill_patterns` provides contrast-preserving periodic mip tiles at `0.5`,
+  `0.25`, and `0.125` px/cm (`COARSE_LEVELS`) below 50 % zoom (#849) while
+  `SunContourItem` scales cosmetic contour widths for high-DPI PNG/SVG
+  exports (#851). PF-CAN-65, PF-CAN-66.
 - A pan with the sun map's key on screen lays the labels out at every step:
   the key stays where it is while the labels move under it.
 - An edit under way (a drag of an object, a handle) moves the paint revision
@@ -10025,21 +10043,21 @@ on the stroke outline costs 22–180 ms and is wrong (even-odd holes).
 - An outline of more than 256 vertices is not cut out of the grid and does not
   keep the sun map's hour labels off it (§8.9.17). A traced fence of 300 points
   is such an outline.
-- A LINE has no degraded picture above that bound (a polygon has: #472): a
-  zoom step rasterises the whole stroke of a 16,000-vertex zigzag line, 330 ms
-  here and on master alike. Not touched by this branch.
-- The rectangle tool's hover and drag cost 16 and 38 ms a move on 853 objects
-  with nothing rebuilt — the same with the grid and the labels off. Not looked
-  into here: it is not what is kept.
 
 Pinned as a ratio, never in milliseconds: `tests/perf/test_sun_overlay_repaint.py`
-(marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.06–1.14 with
-the fix, 16.9 before) and `tests/perf/test_canvas_repaint_ratios.py` (on the
+(marker `perf`; repaint with the overlay on ≤ 2 × off — measured 1.03–1.14 with
+the fix, 16.9 before; active timeline scrub step ≤ 0.75 × settled — measured
+0.38×), `tests/perf/test_canvas_repaint_ratios.py` (on the
 853-object plan: a repaint with the grid's cut-out ≤ 2 × the lines alone,
 measured 1.09–1.11 and 1.47 once under load, 3.5 before, and 0.70–0.86 since
 the view keeps the finished layer; a 40-pixel repaint with the label pass
 ≤ 2 × without, measured 1.02–1.09, 2.8 before). Counted, on
-any machine: `tests/integration/test_sun_overlay_cache.py`,
+any machine: `tests/integration/test_sun_overlay_cache.py` (including `TestTimelineScrub`),
+`tests/integration/test_shadow_feather_concave.py`,
+`tests/integration/test_plan_label_hits.py`,
+`tests/integration/test_plan_label_text_bound.py`,
+`tests/integration/test_polyline_style_paint.py`,
+`tests/integration/test_canvas_repaint_package.py`,
 `tests/integration/test_grid_cover_cache.py`,
 `tests/integration/test_label_layout_cache.py`,
 `tests/integration/test_polygon_paint_bound.py::TestTheGridCutOutIsBounded`,

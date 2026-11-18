@@ -45,11 +45,20 @@ class SelectTool(BaseTool):
         self._box_start: QPointF | None = None
         self._box_item: QGraphicsRectItem | None = None
         self._is_box_selecting = False
+        self._pending_drill_target: QGraphicsItem | None = None
+        self._pending_drill_press_pos: QPointF | None = None
+        self._pending_box_start: QPointF | None = None
+        self._pending_box_press_pos: QPointF | None = None
 
     def mouse_press(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Handle mouse press - start box selection if clicking on empty area."""
         if event.button() != Qt.MouseButton.LeftButton:
             return False
+
+        self._pending_drill_target = None
+        self._pending_drill_press_pos = None
+        self._pending_box_start = None
+        self._pending_box_press_pos = None
 
         multi_held = event.modifiers() & (
             Qt.KeyboardModifier.ShiftModifier
@@ -68,8 +77,11 @@ class SelectTool(BaseTool):
                     # body drag. Qt would drag the whole group instead.
                     self._view.begin_drill_down_drag(drill_target, scene_pos)
                     return True
-                self._view.begin_group_drill_down(drill_target)
-                # Let Qt process the press so it establishes the selection.
+                # Defer entering drill-down until mouse release so pressing and
+                # dragging on a selected group drags the whole group as one unit;
+                # only a stationary click drills into the member.
+                self._pending_drill_target = drill_target
+                self._pending_drill_press_pos = QPointF(event.position())
                 return False
             if self._view.group_drill_should_end_on_press(scene_pos) is True:
                 # A click elsewhere in the group (or outside it) returns the
@@ -120,6 +132,24 @@ class SelectTool(BaseTool):
                 # the selection - the canvas's own rule, and the one the 3D
                 # selection bridge copies.
                 return False
+            if not isinstance(item, DRAG_HANDLE_TYPES):
+                top_item = item
+                parent = top_item.parentItem()
+                while isinstance(parent, QGraphicsItem):
+                    top_item = parent
+                    parent = top_item.parentItem()
+                is_locked_or_immovable = (
+                    getattr(top_item, "is_position_locked", lambda: False)()
+                    or not bool(
+                        top_item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+                    )
+                    or not bool(
+                        top_item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+                    )
+                )
+                if is_locked_or_immovable and self._view.drill_down_item is None:
+                    self._pending_box_start = QPointF(scene_pos)
+                    self._pending_box_press_pos = QPointF(event.position())
             # Normal click - let QGraphicsView handle it
             return False
 
@@ -152,8 +182,33 @@ class SelectTool(BaseTool):
                 return candidate
         return None
 
-    def mouse_move(self, _event: QMouseEvent, scene_pos: QPointF) -> bool:
+    def mouse_move(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Handle mouse move - update box selection rubber band."""
+        if (
+            self._pending_drill_target is not None
+            and self._pending_drill_press_pos is not None
+            and (event.position() - self._pending_drill_press_pos).manhattanLength() > 4.0
+        ):
+            self._pending_drill_target = None
+            self._pending_drill_press_pos = None
+
+        if (
+            not self._is_box_selecting
+            and self._pending_box_start is not None
+            and self._pending_box_press_pos is not None
+            and bool(event.buttons() & Qt.MouseButton.LeftButton)
+            and (event.position() - self._pending_box_press_pos).manhattanLength() > 4.0
+        ):
+            self._box_start = self._pending_box_start
+            self._pending_box_start = None
+            self._pending_box_press_pos = None
+            self._is_box_selecting = True
+            self._release_scene_mouse_grabber()
+            if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+                scene = self._view.scene()
+                if scene is not None:
+                    scene.clearSelection()
+
         if not self._is_box_selecting or self._box_start is None:
             return False
 
@@ -194,6 +249,9 @@ class SelectTool(BaseTool):
     def mouse_release(self, event: QMouseEvent, scene_pos: QPointF) -> bool:
         """Handle mouse release - complete box selection."""
         if not self._is_box_selecting or event.button() != Qt.MouseButton.LeftButton:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self._pending_box_start = None
+                self._pending_box_press_pos = None
             return False
 
         if self._box_start is not None:
@@ -210,17 +268,55 @@ class SelectTool(BaseTool):
 
         return True
 
+    def finish_pending_drill_down(self, event: QMouseEvent, dragged: bool) -> None:
+        """Enter group drill-down if a press on a group member stayed stationary."""
+        target = self._pending_drill_target
+        press_pos = self._pending_drill_press_pos
+        self._pending_drill_target = None
+        self._pending_drill_press_pos = None
+        if (
+            target is None
+            or dragged
+            or event.button() != Qt.MouseButton.LeftButton
+        ):
+            return
+        if (
+            press_pos is not None
+            and (event.position() - press_pos).manhattanLength() > 4.0
+        ):
+            return
+        if target.scene() is self._view.scene():
+            self._view.begin_group_drill_down(target)
+
     def cancel(self) -> None:
         """Cancel box selection."""
         self._cleanup_box()
 
+    def _release_scene_mouse_grabber(self) -> None:
+        """Release any item mouse grabber when box selection takes over the drag."""
+        scene = self._view.scene()
+        grabber = scene.mouseGrabberItem() if scene is not None else None
+        if isinstance(grabber, QGraphicsItem):
+            grabber.ungrabMouse()
+        drag_starts = getattr(self._view, "_drag_start_positions", None)
+        if isinstance(drag_starts, dict):
+            drag_starts.clear()
+        thaw = getattr(self._view, "_thaw_fixed_drag_items", None)
+        if callable(thaw):
+            thaw()
+
     def _cleanup_box(self) -> None:
         """Remove box selection visuals and reset state."""
+        self._release_scene_mouse_grabber()
         if self._box_item is not None:
             self._view.scene().removeItem(self._box_item)
             self._box_item = None
         self._box_start = None
         self._is_box_selecting = False
+        self._pending_drill_target = None
+        self._pending_drill_press_pos = None
+        self._pending_box_start = None
+        self._pending_box_press_pos = None
 
     def _make_rect(self, p1: QPointF, p2: QPointF) -> QRectF:
         """Create a normalized rectangle from two points."""
@@ -252,8 +348,10 @@ class SelectTool(BaseTool):
         for item in scene.items():
             if not item.isVisible():
                 continue
-            # Skip non-selectable items and our own box item
+            # Skip non-selectable, position-locked items, and our own box item
             if not (item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable):
+                continue
+            if getattr(item, "is_position_locked", lambda: False)():
                 continue
             if item is self._box_item:
                 continue

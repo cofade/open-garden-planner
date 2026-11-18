@@ -760,3 +760,54 @@ def test_escape_in_a_panel_leaves_the_drill_down_like_escape_on_the_canvas(
         assert canvas.tool_manager.active_tool_type == ToolType.MEASURE, widget
         QTest.keyClick(widget, Qt.Key.Key_Escape)
         assert canvas.tool_manager.active_tool_type == ToolType.SELECT, widget
+
+
+def test_dragging_a_newly_grouped_or_selected_group_moves_all_members_together(canvas) -> None:
+    """Pressing and dragging on a member of a selected group drags the whole group."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    _show(canvas)
+    scene = canvas.scene()
+    plant_a = CircleItem(80, 50, 30, object_type=ObjectType.PERENNIAL)
+    plant_b = CircleItem(220, 50, 30, object_type=ObjectType.PERENNIAL)
+    for plant in (plant_a, plant_b):
+        plant.layer_id = scene.active_layer.id
+        scene.addItem(plant)
+        plant.setSelected(True)
+
+    canvas.group_selected()
+    group = next(item for item in scene.items() if isinstance(item, GroupItem))
+    assert scene.selectedItems() == [group]
+    assert canvas.drill_down_item is None
+
+    group_pos_before = QPointF(group.pos())
+    center_a_before = plant_a.sceneBoundingRect().center()
+    center_b_before = plant_b.sceneBoundingRect().center()
+    undo_before = canvas.command_manager.undo_depth
+
+    press_pt = canvas.mapFromScene(center_a_before)
+    release_pt = press_pt + QPoint(40, -25)
+    QTest.mousePress(canvas.viewport(), Qt.MouseButton.LeftButton, pos=press_pt)
+    QTest.mouseMove(canvas.viewport(), press_pt + QPoint(20, -12))
+    QTest.mouseMove(canvas.viewport(), release_pt)
+    QTest.mouseRelease(canvas.viewport(), Qt.MouseButton.LeftButton, pos=release_pt)
+    QTest.qWait(20)
+
+    assert canvas.drill_down_item is None
+    group_delta = group.pos() - group_pos_before
+    assert group_delta != QPointF(0, 0)
+    delta_a = plant_a.sceneBoundingRect().center() - center_a_before
+    delta_b = plant_b.sceneBoundingRect().center() - center_b_before
+    assert delta_a.x() == pytest.approx(group_delta.x(), abs=1e-6)
+    assert delta_a.y() == pytest.approx(group_delta.y(), abs=1e-6)
+    assert delta_b.x() == pytest.approx(group_delta.x(), abs=1e-6)
+    assert delta_b.y() == pytest.approx(group_delta.y(), abs=1e-6)
+    assert canvas.command_manager.undo_depth == undo_before + 1
+
+    canvas.command_manager.undo()
+    assert group.pos() == group_pos_before
+    assert plant_a.sceneBoundingRect().center().x() == pytest.approx(center_a_before.x(), abs=1e-6)
+    assert plant_a.sceneBoundingRect().center().y() == pytest.approx(center_a_before.y(), abs=1e-6)
+    assert plant_b.sceneBoundingRect().center().x() == pytest.approx(center_b_before.x(), abs=1e-6)
+    assert plant_b.sceneBoundingRect().center().y() == pytest.approx(center_b_before.y(), abs=1e-6)

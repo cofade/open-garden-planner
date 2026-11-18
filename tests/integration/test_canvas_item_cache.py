@@ -404,7 +404,12 @@ def _mask_from(
 
 
 def _canvas_render(
-    qtbot: object, factory: Callable[[], QGraphicsItem], *, zoom: float
+    qtbot: object,
+    factory: Callable[[], QGraphicsItem],
+    *,
+    zoom: float,
+    pattern: FillPattern = TEXTURE,
+    color: QColor = FLAT_FILL,
 ) -> tuple[np.ndarray, np.ndarray]:
     """(intensity array, interior mask) for ``factory()``'s item at ``zoom``.
 
@@ -416,7 +421,7 @@ def _canvas_render(
     and passed (verified: the branch fires, the test does not notice).
     """
     item = factory()
-    item.setBrush(create_pattern_brush(TEXTURE, QColor(FLAT_FILL)))
+    item.setBrush(create_pattern_brush(pattern, QColor(color)))
 
     scene = CanvasScene(width_cm=2000, height_cm=2000)
     scene.addItem(item)
@@ -622,6 +627,30 @@ class TestTexturesAreNeverDropped:
             f"the export lost the {shape}'s texture; cache-disabled render "
             "paths must keep full detail"
         )
+
+    @pytest.mark.parametrize("zoom", [0.15, 0.20, 0.25, 0.30])
+    def test_brick_fill_keeps_contrast_at_low_zoom(
+        self, qtbot: object, zoom: float
+    ) -> None:
+        """#849/#503: brick anti-moire mip levels at 15–30 % zoom must still
+        keep texture contrast well above TEXTURE_SPREAD_MIN."""
+        def _brick_rect() -> QGraphicsItem:
+            item = RectangleItem(200, 200, 600, 400, object_type=ObjectType.GENERIC_RECTANGLE)
+            item.fill_pattern = FillPattern.BRICK
+            item.fill_color = QColor("#b05040")
+            item.setBrush(create_pattern_brush(FillPattern.BRICK, QColor("#b05040")))
+            return item
+
+        intensity, mask = _canvas_render(
+            qtbot,
+            _brick_rect,
+            zoom=zoom,
+            pattern=FillPattern.BRICK,
+            color=QColor("#b05040"),
+        )
+        count, spread = _interior_stats(intensity, mask)
+        assert count > 0
+        assert spread > TEXTURE_SPREAD_MIN, (zoom, spread)
 
 
 class TestTheMaskIsTheItem:

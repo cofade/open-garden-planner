@@ -697,3 +697,34 @@ def test_each_capped_path_gets_its_own_budget(
     assert set(per_path) == {0.0, 1000.0}
     assert all(count > 0 for count in per_path.values())
     assert sum(per_path.values()) <= 2 * 4096
+
+
+def test_named_circle_update_after_minimap_render_restarts_timer(
+    minimap: MinimapWidget, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+) -> None:
+    """#919: Python-tracked ``PlanLabelItem``s must not enter ``_self_dirty_rects``
+    and suppress subsequent real item update triggers on the minimap."""
+    from PyQt6.QtWidgets import QApplication
+
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+    _view, scene = canvas_pair
+    circle = CircleItem(
+        500,
+        500,
+        40.0,
+        object_type=ObjectType.PERENNIAL,
+        name="Cherry Tomato Super Sweet 100",
+    )
+    scene.addItem(circle)
+    circle.initialize_label()
+    QApplication.processEvents()
+
+    minimap._do_update()
+    assert minimap._self_dirty_rects == []
+    minimap._update_timer.stop()
+
+    circle.update()
+    QApplication.processEvents()
+    assert minimap._update_timer.isActive() is True

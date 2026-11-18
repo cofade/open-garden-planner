@@ -180,6 +180,18 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
     offset computed from one cannot cancel the other.
     """
 
+    # PF-CAN-61: class-level defaults protect Qt virtuals (boundingRect /
+    # itemChange) if Python cyclic GC clears ``__dict__`` before destroying C++.
+    _centered: bool = False
+    _screen_offset: QPointF = QPointF(0.0, 0.0)
+    _stacked_under: HaloTextItem | None = None
+    _halo_color: QColor = QColor(255, 255, 255, HALO_ALPHA)
+    _outline_key: tuple[str, str] | None = None
+    _measured: tuple[QRectF, float] | None = None
+    _cached_bounding_rect: QRectF | None = None
+    _cached_bounding_rect_above: tuple[bool, float] | None = None
+    _picture_key: tuple[str, str, int, int, float] | None = None
+
     def __init__(
         self,
         text: str = "",
@@ -187,7 +199,6 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         *,
         centered: bool = False,
     ) -> None:
-        super().__init__(text, parent)
         self._centered = centered
         self._screen_offset = QPointF(0.0, 0.0)
         self._stacked_under: HaloTextItem | None = None
@@ -195,10 +206,18 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         self._outline_key: tuple[str, str] | None = None
         self._outline = QPainterPath()
         self._measured: tuple[QRectF, float] | None = None
+        self._cached_bounding_rect: QRectF | None = None
+        self._cached_bounding_rect_above: tuple[bool, float] | None = None
         self._picture_key: tuple[str, str, int, int, float] | None = None
         self._picture_cache = QPixmap()
+        super().__init__(text, parent)
         self.setBrush(QColor(0, 0, 0))
         self.setFont(self.font())
+
+    def prepareGeometryChange(self) -> None:
+        """Invalidate cached bounding rect when Qt geometry changes."""
+        super().prepareGeometryChange()
+        self._cached_bounding_rect = None
 
     def setFont(self, font: QFont) -> None:
         """Set the font; the text's measured size is taken again."""
@@ -206,12 +225,14 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         font.setStyleStrategy(font.styleStrategy() | QFont.StyleStrategy.NoSubpixelAntialias)
         super().setFont(font)
         self._measured = None
+        self._cached_bounding_rect = None
         note_edit_decoration_changed(self)
 
     def setText(self, text: str | None) -> None:
         """Set the text; its measured size is taken again."""
         super().setText(text)
         self._measured = None
+        self._cached_bounding_rect = None
         note_edit_decoration_changed(self)
 
     def _measure(self) -> tuple[QRectF, float]:
@@ -281,8 +302,19 @@ class HaloTextItem(EditDecorationMixin, QGraphicsSimpleTextItem):
         return QPointF(dx, dy)
 
     def boundingRect(self) -> QRectF:
+        above = self._stacked_under
+        above_key = (
+            (True, above._measure()[0].height())
+            if above is not None and above.isVisible()
+            else None
+        )
+        if self._cached_bounding_rect is not None and self._cached_bounding_rect_above == above_key:
+            return self._cached_bounding_rect
         margin = self._measure()[1]
-        return self.text_rect().adjusted(-margin, -margin, margin, margin)
+        rect = self.text_rect().adjusted(-margin, -margin, margin, margin)
+        self._cached_bounding_rect = rect
+        self._cached_bounding_rect_above = above_key
+        return rect
 
     def shape(self) -> QPainterPath:
         path = QPainterPath()
@@ -413,18 +445,60 @@ class PlanLabelItem(HaloTextItem):
 
     #: The size on screen an ownerless label is placed as (pixels); see the class.
     free_extent_px: float = 0.0
+    _ignores_transformations: bool = False
+    rank: int = 0
 
     def __init__(
         self, text: str = "", parent: QGraphicsItem | None = None, *,
         rank: int = 0, centered: bool = True,
     ) -> None:
+        self._ignores_transformations: bool = False
         super().__init__(label_text(text), parent, centered=centered)
         self.rank = rank
         note_label_changed(self)
 
+    def setFlag(
+        self, flag: QGraphicsItem.GraphicsItemFlag, enabled: bool = True
+    ) -> None:
+        """Keep ``ItemIgnoresTransformations`` in Python so Qt's BSP index stays active (#919).
+
+        Setting ``ItemIgnoresTransformations`` on a C++ ``QGraphicsItem`` child
+        forces Qt's ``QGraphicsSceneBspTreeIndex`` to place its top-level parent
+        into ``untransformableItems``, bypassing spatial indexing on every query
+        and paint. ``PlanLabelItem`` is painted in screen space by
+        ``LabelPass`` (or ``paint`` in a plain ``QGraphicsScene``) without
+        needing C++ Qt to set the flag.
+        """
+        if flag == QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations:
+            self._ignores_transformations = bool(enabled)
+            return
+        super().setFlag(flag, enabled)
+
+    def setFlags(self, flags: QGraphicsItem.GraphicsItemFlag) -> None:
+        """Strip ``ItemIgnoresTransformations`` from C++ flags while recording it (#919)."""
+        ignore = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+        self._ignores_transformations = bool(flags & ignore)
+        super().setFlags(flags & ~ignore)
+
+    def screen_device_transform(self, world: QTransform) -> QTransform:
+        """Transform from item coordinates to device pixels under ``world``."""
+        if not self._ignores_transformations:
+            return super().deviceTransform(world)
+        anchor = world.map(self.scenePos())
+        return self.transform() * QTransform.fromTranslate(anchor.x(), anchor.y())
+
+    def deviceTransform(self, viewportTransform: QTransform) -> QTransform:
+        """Return the device transform, honouring Python-tracked ``ItemIgnoresTransformations``."""
+        return self.screen_device_transform(viewportTransform)
+
     def shape(self) -> QPainterPath:
         """Nothing: no point of the plan is a hit on a label (class docstring)."""
         return QPainterPath()
+
+    def contains(self, point: QPointF) -> bool:  # noqa: ARG002
+        """Nothing: ``QGraphicsSimpleTextItem.contains`` checks ``boundingRect``,
+        not ``shape``, so without this a transformable label still catches clicks."""
+        return False
 
     # The scene keeps the layout of its labels between paints; a label says
     # when it changed what that layout was taken from (``note_label_changed``).
@@ -462,5 +536,14 @@ class PlanLabelItem(HaloTextItem):
         widget: QWidget | None = None,
     ) -> None:
         if painter is None or getattr(self.scene(), "paints_plan_labels", False):
+            return
+        if self._ignores_transformations:
+            anchor = painter.worldTransform().map(QPointF(0.0, 0.0))
+            painter.save()
+            painter.setWorldTransform(
+                self.transform() * QTransform.fromTranslate(anchor.x(), anchor.y())
+            )
+            self.paint_text(painter, option, widget)
+            painter.restore()
             return
         self.paint_text(painter, option, widget)

@@ -33,4 +33,10 @@ class DiagnosticsCoordinator(QObject):
 
     def refresh(self) -> None:
         with contextlib.suppress(RuntimeError):
+            views_fn = getattr(self.scene, "views", None)
+            if callable(views_fn) and any(
+                getattr(v, "is_interacting", False) for v in views_fn()
+            ):
+                self.timer.start(100)
+                return
             self.panel.set_records(diagnostics_from_records(ProjectManager.diagnostics_snapshot(self.scene)))

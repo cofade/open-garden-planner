@@ -461,6 +461,15 @@ def item_outline(item: Any, at_date: date | None = None) -> ItemOutline | None:
     return None
 
 
+def _polyline_outline_footprints(
+    item: Any, scene_points: list[Point], width: float, style: str
+) -> list[Polygon]:
+    del item
+    if style == "PAVED_PATH":
+        return polyline_bevel_footprint(scene_points, width)
+    return polyline_footprint(scene_points, width)
+
+
 def item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     """Scene-space footprint polygon(s) of one canvas item.
 
@@ -472,6 +481,14 @@ def item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     ``at_date`` (US-E8) resizes a measured plant's canopy circle to its
     projected spread — display/shadow only.
     """
+    if isinstance(item, PolylineItem):
+        raw_w = item.pen().widthF()
+        width = raw_w if raw_w > 0 else 1.0
+        style_name = getattr(getattr(item, "path_fence_style", None), "name", "")
+        cache_key = (item.sceneTransform(), item.path(), float(width), style_name)
+        cached = getattr(item, "_cached_shadow_footprint", None)
+        if cached is not None and cached[0] == cache_key:
+            return [list(fp) for fp in cached[1]]
     outline = item_outline(item, at_date)
     if outline is None:
         return []
@@ -481,9 +498,14 @@ def item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     points = [item.mapToScene(QPointF(x, y)) for x, y in outline.points]
     scene_points = [(p.x(), p.y()) for p in points]
     if outline.shape == OUTLINE_POLYLINE:
-        if outline.style == "PAVED_PATH":
-            return polyline_bevel_footprint(scene_points, outline.width_cm or 1.0)
-        return polyline_footprint(scene_points, outline.width_cm or 1.0)
+        width = float(outline.width_cm or 1.0)
+        result = _polyline_outline_footprints(item, scene_points, width, outline.style)
+        if isinstance(item, PolylineItem):
+            item._cached_shadow_footprint = (
+                (item.sceneTransform(), item.path(), width, outline.style),
+                tuple(tuple(fp) for fp in result),
+            )
+        return result
     return [scene_points]
 
 
