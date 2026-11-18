@@ -65,16 +65,18 @@ class TestBundledSpeciesDb:
             # Trees
             "apple tree", "cherry tree", "pear tree", "plum tree", "peach tree",
             "fig tree", "olive tree", "lemon tree", "orange tree", "walnut tree",
-            "oak", "maple", "birch", "willow", "magnolia", "pine", "spruce",
+            "oak", "maple", "japanese maple", "birch", "willow", "magnolia", "pine", "spruce",
+            "windmill palm",
             # Shrubs
             "boxwood", "rhododendron", "blueberry", "raspberry", "blackberry",
             "gooseberry", "currant", "holly", "juniper", "forsythia", "lilac",
             "elderberry", "privet", "viburnum", "barberry", "camellia", "spirea",
+            "grape vine", "bamboo",
             # Flowers & Perennials
             "rose", "lavender", "sunflower", "tulip", "daffodil", "dahlia",
             "peony", "iris", "lily", "marigold", "zinnia", "cosmos", "aster",
             "chrysanthemum", "geranium", "petunia", "pansy", "hydrangea",
-            "clematis", "wisteria", "jasmine", "hibiscus", "crocus",
+            "clematis", "wisteria", "jasmine", "hibiscus", "crocus", "miscanthus",
             # Vegetables & Herbs
             "tomato", "pepper", "eggplant", "zucchini", "cucumber", "pumpkin",
             "bean", "pea", "corn", "carrot", "radish", "potato", "onion",

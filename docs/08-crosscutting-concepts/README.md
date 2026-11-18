@@ -208,7 +208,7 @@ A stylesheet's box rules beat the sizes widget code sets, silently (PF-UI-38, PF
 - Gates: `scripts/normalize_icons.py` (idempotent canonicalizer) + `scripts/check_icon_conformance.py` + per-icon PROVENANCE — no entry, no merge
 
 ### Plant SVGs (`resources/plants/`, ADR-040)
-- **Generated, never hand-edited**: all 108 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
+- **Generated, never hand-edited**: all 111 species + 15 category sprites are emitted by `scripts/generate_plant_sprites.py` in the user-approved "Lush Sprite" style; committed files must byte-match regeneration (`--check` + determinism test). See §8.22.
 - Top-down, rotation-safe radial shading; QtSvg-subset only; contract in `resources/plants/README.md`, provenance in `resources/plants/PROVENANCE.md`
 - Consumed unchanged by `core/plant_renderer.py` (stable per-item rotation, optional tint); the canvas paints them through `paint_plant`, rasterised at the painter's resolution (§8.9.14)
 
@@ -4118,7 +4118,7 @@ confirmation, accepted under the loopback-trust model. See ADR-034 addendum
 **Resources & prompts (US-D1.5).** Five read-only resources — `garden://plan`
 (curated `PlanSummary`), `garden://plan/raw` (uncurated snapshot dict),
 `garden://canvas.png` (full-canvas PNG, no region/layer args), `garden://
-diagnostics`, `garden://species` (bundled species DB, 118 records) — and two
+diagnostics`, `garden://species` (bundled species DB, 123 records) — and two
 read-analysis prompts, `audit-plan` and `describe-garden` (new Qt-free
 `agent_api/prompts.py`), round out the epic's "tools + resources + prompts"
 MCP surface. Four of the five resources are one-line reuses of existing
@@ -5599,7 +5599,7 @@ only subdivides the same band, it does not widen it).
 
 ## 8.26 Recorded permaculture traits and guild templates
 
-Species traits are curated facts/design annotations, not a planting-success score. `unknown` and empty functions mean no recorded fact. Botanical niche is independent of the illustration category and drawing layer. `scripts/curate_permaculture_traits.py` is the explicit reviewable assignment table for all 118 bundled species: tall woodland/walnut trees use canopy; fruit/smaller ornamental trees sub-canopy; woody bushes/subshrubs shrub; selected low spreading plants ground-cover; harvested underground crops root; climbing/trailing crops vine; remaining herbaceous crops/bulbs/flowers herbaceous. This is a representative food-forest niche, not a universal cultivar height prediction. A bulb grown for flowers stays herbaceous, while garlic grown underground is root. User snapshots can be edited independently.
+Species traits are curated facts/design annotations, not a planting-success score. `unknown` and empty functions mean no recorded fact. Botanical niche is independent of the illustration category and drawing layer. `scripts/curate_permaculture_traits.py` is the explicit reviewable assignment table for all 123 bundled species: tall woodland/walnut trees use canopy; fruit/smaller ornamental trees sub-canopy; woody bushes/subshrubs shrub; selected low spreading plants ground-cover; harvested underground crops root; climbing/trailing crops vine; remaining herbaceous crops/bulbs/flowers herbaceous. This is a representative food-forest niche, not a universal cultivar height prediction. A bulb grown for flowers stays herbaceous, while garlic grown underground is root. User snapshots can be edited independently.
 
 ### Function evidence and limitations
 

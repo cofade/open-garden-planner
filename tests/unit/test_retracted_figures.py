@@ -297,7 +297,7 @@ class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
         # cache would still duplicate the wide sweep if its consumers land on
         # different workers. The invariant and the prose lint share these runs.
         counts: set[int] = set()
-        for args, expected in (((), 1836), (("--wide",), 17884)):
+        for args, expected in (((), 1862), (("--wide",), 18138)):
             output = _run(SWEEP, *args)
             missed = _figure(output, "missed by the GUI now")
             surplus = _figure(output, "listed now but not by the agent")

@@ -177,7 +177,7 @@ def test_traits_and_guild_warning_over_real_mcp(guild_canvas, qtbot):
         assert result["detail"]["functions"] == []
         assert result["warnings"][0]["details"]["function"] == "nitrogen_fixer"
         assert result["warnings"][0]["details"]["present_count"] == 0
-        assert len(result["species"]) == 118
+        assert len(result["species"]) == 123
         assert all("functions" in species and "permaculture_layer" in species for species in result["species"])
     finally:
         server.stop()

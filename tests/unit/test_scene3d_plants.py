@@ -19,7 +19,7 @@ numbers may not lie. Gates (the story's G2 – G6):
   to the fit itself) and what is MEASURED (how little the fit repairs, where
   the mass is — tripwires with stated headroom over the full sweep);
 - G3 colour — the foliage hue is within 10° of the foliage of the 2D sprite, as
-  QSvgRenderer draws it, for all 123 sprites;
+  QSvgRenderer draws it, for all 126 sprites;
 - G4 coverage — every archetype of the tables has a builder, and a record is
   resolved by the 2D rule;
 - G5 determinism (≤ 1e-6) and no clones (side silhouettes of two ids differ);
@@ -1154,7 +1154,7 @@ def sprite_foliage_rgb(generator: ModuleType, sprite: SpriteRef) -> np.ndarray:
 
 
 def test_foliage_hue_is_the_2d_sprite_s(qtbot) -> None:
-    """Gate G3 over all 123 sprites: the area-weighted mean of the foliage vertex
+    """Gate G3 over all 126 sprites: the area-weighted mean of the foliage vertex
     colours (in sRGB) has the hue of the sprite's rendered foliage, ± 10°.
 
     The reference is the RENDERED sprite, not the palette entries: the palette is
@@ -1931,7 +1931,7 @@ class TestFitReport:
 
 
 def test_the_tip_weights_are_measured_from_the_sprites(qtbot) -> None:
-    """``FOLIAGE_TIP_WEIGHT``, derived: for each of the 123 sprites, the tip weight
+    """``FOLIAGE_TIP_WEIGHT``, derived: for each of the 126 sprites, the tip weight
     whose plain sRGB mix of its palette's base and tip anchors has the hue of the
     sprite's foliage as QSvgRenderer draws it; the constant is the median of its
     archetype's sprites (run with ``-s`` to see the medians)."""

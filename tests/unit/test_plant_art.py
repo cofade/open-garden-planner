@@ -16,7 +16,7 @@ pins the move:
 - the dormant spike's palette copy still equals the shared table (until L1.10).
 
 The sprites themselves are pinned by ``test_plant_sprite_conformance.py``, which
-regenerates all 123 SVGs in memory and compares them with the shipped files.
+regenerates all 126 SVGs in memory and compares them with the shipped files.
 
 **#446 changed the rule** (a plant's name is matched as a whole name, not as a
 substring). The golden was regenerated from the new rule; the rule it replaced
@@ -148,10 +148,10 @@ def test_package_is_stdlib_only(path: Path) -> None:
 
 class TestTables:
     def test_counts(self) -> None:
-        assert len(recipes.SPECIES) == 108
+        assert len(recipes.SPECIES) == 111
         assert len(recipes.CATEGORIES) == 15
         assert len(recipes.PALETTES) == 9
-        assert len(recipes.FRUITS) == 18
+        assert len(recipes.FRUITS) == 19
         assert len(recipes.FLOWERS) == 13
 
     def test_the_generator_holds_the_package_s_tables(self) -> None:
@@ -165,7 +165,7 @@ class TestTables:
             assert loaded == packaged and list(loaded) == list(packaged), name
         assert generator.DEFAULT_PALETTE == recipes.DEFAULT_PALETTE == "fresh"
         assert generator.HEDGE_PALETTE == recipes.HEDGE_PALETTE == "dark"
-        assert len(generator.generate_all()) == 123
+        assert len(generator.generate_all()) == 126
 
     def test_the_generator_defines_no_table_of_its_own(self) -> None:
         """A table literal left behind in the script would be a second source: every
@@ -187,7 +187,7 @@ class TestTables:
     def test_the_generator_needs_nothing_but_the_standard_library(self) -> None:
         """It was a standard-library script before the tables moved out of it, and it
         still is: with PyQt6 and numpy unimportable it loads, imports no app module,
-        and regenerates all 123 sprites without drift. (An ``import
+        and regenerates all 126 sprites without drift. (An ``import
         open_garden_planner.core.plant_art.recipes`` in it looked just as innocent:
         the package's files are stdlib-only — and importing them runs
         ``core/__init__.py``, which loads PyQt6. Review round 1.)"""
@@ -206,7 +206,7 @@ class TestTables:
         result = subprocess.run([sys.executable, "-c", code, str(SCRIPT)], capture_output=True,
                                 text=True, timeout=120, check=False)
         assert result.returncode == 0, result.stderr
-        assert result.stdout.split() == ["123", "0", "0"]
+        assert result.stdout.split() == ["126", "0", "0"]
 
     def test_every_palette_has_the_six_anchors(self) -> None:
         for name, palette in recipes.PALETTES.items():
@@ -249,7 +249,7 @@ class TestTables:
 class TestResolution:
     def test_the_golden_covers_the_whole_sprite_set(self) -> None:
         answers = {sprite for *_rest, sprite in GOLDEN_ROWS if sprite}
-        assert len(GOLDEN_ROWS) == 1562 and len(answers) == 123
+        assert len(GOLDEN_ROWS) == 1624 and len(answers) == 126
         assert any(sprite is None for *_rest, sprite in GOLDEN_ROWS)
 
     @pytest.mark.parametrize("available", [None, _file_exists, resolve.has_recipe],
@@ -257,7 +257,7 @@ class TestResolution:
     def test_resolve_sprite_answers_the_golden(self, available) -> None:
         """Held to the golden's answers — whichever way availability is asked: the
         2D renderer asks for a file, the 3D builder for a recipe, and the two sets
-        are the same 123 names."""
+        are the same 126 names."""
         wrong = []
         for species, kind, category, expected in GOLDEN_ROWS:
             sprite = resolve_sprite(kind, species, category, available=available)
@@ -272,7 +272,7 @@ class TestResolution:
         exactly the committed rows."""
         script = _load_golden_script()
         assert script.golden_text() == GOLDEN.read_text(encoding="utf-8")
-        assert len(script.cases()) == len(GOLDEN_ROWS) == 1562
+        assert len(script.cases()) == len(GOLDEN_ROWS) == 1624
 
     def test_the_2d_renderer_resolves_through_it(self, qtbot, monkeypatch) -> None:
         from open_garden_planner.core import plant_renderer
@@ -585,8 +585,11 @@ class TestTheNameIsMatchedAsAWholeName:
 
     def test_the_rule_changes_nothing_else_in_the_bundled_data(self) -> None:
         """The blast radius, measured rather than asserted: of the bundled
-        species' 118 names, the new rule changes exactly one name — the melon,
-        which was drawn as an eggplant — in all three plant kinds."""
+        species' 123 names, the new rule changes exactly one name — the melon,
+        which was drawn as an eggplant — in all three plant kinds; the exact
+        category aliases change three more, each drawn with its category's look
+        instead of the one its plant kind picks: Lemon Balm (#387), Miscanthus and
+        Windmill Palm (#940)."""
         bundled = json.loads(BUNDLED.read_text(encoding="utf-8"))["plants"]
         script = _load_golden_script()
         changed = []
@@ -604,16 +607,25 @@ class TestTheNameIsMatchedAsAWholeName:
             ("Lemon Balm", "PERENNIAL", "species/lemon_tree", "categories/herb"),
             ("Lemon Balm", "SHRUB", "species/lemon_tree", "categories/herb"),
             ("Lemon Balm", "TREE", "species/lemon_tree", "categories/herb"),
+            ("Miscanthus", "PERENNIAL", "categories/flowering_perennial", "categories/ornamental_grass"),
+            ("Miscanthus", "SHRUB", "categories/spreading_shrub", "categories/ornamental_grass"),
+            ("Miscanthus", "TREE", "categories/round_deciduous", "categories/ornamental_grass"),
+            ("Windmill Palm", "PERENNIAL", "categories/flowering_perennial", "categories/palm"),
+            ("Windmill Palm", "SHRUB", "categories/spreading_shrub", "categories/palm"),
+            ("Windmill Palm", "TREE", "categories/round_deciduous", "categories/palm"),
         ]
 
     def test_the_change_is_small_and_measured(self) -> None:
-        """80 of the golden's 1,562 answers change, and 41 distinct names are
-        involved. The number is pinned so that a later change to the rule is a
+        """92 of the golden's 1,624 answers change, and 52 distinct (name, before,
+        after) triples are involved: 80 / 41 until #940 added its five species —
+        the two category aliases, the new sprites' own file stems, and "palm",
+        which the old substring rule would draw as the Japanese maple (it is
+        inside "acer palmatum"). The number is pinned so that a later change to the rule is a
         deliberate act with a visible number attached."""
         script = _load_golden_script()
         rows = script.legacy_diff()
-        assert len(rows) == 80
-        assert len({(name, was, now) for name, _kind, _cat, was, now in rows}) == 41
+        assert len(rows) == 92
+        assert len({(name, was, now) for name, _kind, _cat, was, now in rows}) == 52
 
     def test_recipe_for_and_resolve_recipe(self) -> None:
         assert recipe_for(SpriteRef("species", "tomato")) is recipes.SPECIES["tomato"]
@@ -630,7 +642,7 @@ class TestTheNameIsMatchedAsAWholeName:
         from open_garden_planner.core.object_types import ObjectType
 
         plants = json.loads(BUNDLED.read_text(encoding="utf-8"))["plants"]
-        assert len(plants) == 118
+        assert len(plants) == 123
         species_sprites = 0
         for record in plants:
             name = record["common_name"]
@@ -643,7 +655,7 @@ class TestTheNameIsMatchedAsAWholeName:
                 assert path is not None
                 assert (path.parent.name, path.stem) == (sprite.group, sprite.name), name
             species_sprites += resolved[0].group == "species"
-        assert species_sprites == 104  # the other 14 take a category recipe
+        assert species_sprites == 107  # the other 16 take a category recipe
 
 
 class TestTraits3D:
@@ -695,7 +707,7 @@ class TestTraits3D:
         assert allowed_2d_hexes >= BARK_COLORS
 
         all_traits = [*SPECIES_TRAITS.values(), *CATEGORY_TRAITS.values()]
-        assert len(all_traits) == 123
+        assert len(all_traits) == 126
         for t in all_traits:
             assert t.crown.shape in CROWN_SHAPES, t.sprite
             assert 0.0 <= t.crown.trunk_share <= 0.78, t.sprite

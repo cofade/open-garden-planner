@@ -247,6 +247,7 @@ _PERENNIAL_FRUIT_MONTHS: Final[dict[str, tuple[int, ...]]] = {
     "blackberry": (7, 8, 9),
     "gooseberry": (6, 7, 8),
     "currant": (6, 7, 8),
+    "grape_vine": (9, 10),
     "fruit_tree": (8, 9, 10),
 }
 
@@ -356,12 +357,13 @@ _FRUIT_BLOSSOM_SPEC: Final[dict[str, str]] = {
 
 #: Evergreen recipes (never shed leaves in winter).
 _EVERGREEN_STEMS: Final[frozenset[str]] = frozenset({
-    # conifers & palms
+    # conifers, palms & bamboo
     "pine",
     "spruce",
     "juniper",
     "conifer",
     "palm",
+    "bamboo",
     # evergreen trees
     "olive_tree",
     "lemon_tree",
@@ -396,6 +398,7 @@ _DECIDUOUS_WOODY_STEMS: Final[frozenset[str]] = frozenset({
     "birch",
     "willow",
     "magnolia",
+    "japanese_maple",
     "round_deciduous",
     "columnar_tree",
     "weeping_tree",
@@ -420,6 +423,7 @@ _DECIDUOUS_WOODY_STEMS: Final[frozenset[str]] = frozenset({
     "jasmine",
     "clematis",
     "wisteria",
+    "grape_vine",
     "climbing_plant",
 })
 
@@ -516,6 +520,15 @@ _TREE_OVERRIDES: Final[dict[str, tuple[CrownTraits, BranchingTraits, str, str]]]
         BranchingTraits(480, 2.5, 0.018, 0.16, 0.09, BARK_SHINGLE, 1.0),
         "ovate",
         "autumn",
+    ),
+    # #940: low-branched and layered, as wide as tall; twisting limbs, fine lobed
+    # leaves. Its summer palette is already red (the red-leaved garden forms), so its
+    # autumn palette is the same one: the season tint warms it, never muddies it.
+    "japanese_maple": (
+        CrownTraits("spreading", trunk_share=0.14, taper=-0.20, droop=0.30, aspect_xy=1.06),
+        BranchingTraits(500, 2.4, 0.016, 0.06, 0.13, BARK_GREY, 1.0),
+        "lobed",
+        "redleaf",
     ),
     "round_deciduous": (
         CrownTraits("round", trunk_share=0.30, taper=0.0, droop=0.15, aspect_xy=1.0),
@@ -750,7 +763,7 @@ def _build_traits(group: str, stem: str, recipe: Recipe) -> Traits3D:
     )
 
 
-#: 3D traits for every species recipe (108).
+#: 3D traits for every species recipe (111).
 SPECIES_TRAITS: Final[dict[str, Traits3D]] = {
     stem: _build_traits(GROUP_SPECIES, stem, recipe) for stem, recipe in SPECIES.items()
 }

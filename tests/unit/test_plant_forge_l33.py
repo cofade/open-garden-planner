@@ -85,7 +85,7 @@ class TestL33HerbaceousArchetypes:
     def test_l33_recipe_coverage(self) -> None:
         archetypes_seen = {recipe_for(s)["a"] for s in L33_SPRITES}
         assert archetypes_seen == L33_ARCHETYPES
-        assert len(L33_SPRITES) == 39
+        assert len(L33_SPRITES) == 40
 
     @pytest.mark.parametrize("sprite", L33_SPRITES, ids=lambda s: f"{s.group}/{s.name}")
     def test_dimensional_truth_and_verify_builder(self, sprite: SpriteRef) -> None:
