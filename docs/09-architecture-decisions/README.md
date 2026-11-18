@@ -11589,6 +11589,7 @@ past midnight, the firefly season's date, one life assembly for the product and 
    It keeps the sky model, camera, five elevations and 10-luma limit. At 1280 × 720
    on Direct3D 11, the worst dip across the measured clear and cloudy runs on the
    painted and atmosphere skies was 1.8 luma.
+   The correction shipped in v1.40.7 after owner acceptance of PR #937.
 2. **The dew rises from solar midnight.** Round 2's symmetric fade had also been the dew's ramp
    at the midnight meridian; the hemisphere fix removed it, and north of ~61° in June the dew
    switched 0 → 1 in one frame. It now rises over 15° of azimuth after solar midnight
