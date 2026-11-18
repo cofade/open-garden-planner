@@ -7,6 +7,11 @@ All colours are derived strictly from `core.plant_art` (`FRUITS`, `FLOWERS`,
 `PALETTES`) in linear light, with `WHITE_BARK_SHADE = 0.7` applied to bright
 white petals/umbels so low winter/spring sun never clips.
 
+Flowers (#940) stand as ``Traits3D.flower`` says: a crown's are as many as cover its
+share of the crown's surface (``blossom_count``), on the crown's outer shell; a bulb's
+and a stemmed flower's own builders place theirs (``flowers_geo``). Every petal is
+double-sided with bent normals, so a flower shows from above and below.
+
 Qt-free: standard library + NumPy only.
 """
 
@@ -19,12 +24,12 @@ from typing import Any, Final
 import numpy as np
 
 from ..plant_art import FLOWERS, FRUITS, PALETTES, WHITE_BARK_SHADE, recipe_for
-from ..plant_art.traits3d import Traits3D
+from ..plant_art.traits3d import FlowerTraits, Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
 from .assemble import PART_FOLIAGE, PART_WOOD, REACH_MAX, _fix_vc_flat_normals
-from .foliage import RawGeo, concat_geo, empty_geo, normalize_vec
-from .lod import LOD0, LOD2, triangle_budget_for_lod, validate_lod
+from .foliage import RawGeo, concat_geo, crown_surface_cm2, empty_geo, normalize_vec
+from .lod import LOD0, LOD1, LOD2, triangle_budget_for_lod, validate_lod
 from .tube import frustum_tubes
 
 FLOWER_PART: Final[str] = "flowers"
@@ -248,92 +253,310 @@ def build_fruit_accents(
     return _spheroids_geo(centers, r_xy, r_z, c_top, c_mid, c_bot, sides=sides)
 
 
-def _cupped_flowers_geo(
-    centers: np.ndarray,
-    outward_dirs: np.ndarray,
-    flower_radii: np.ndarray,
-    n_petals: int,
-    petal_outer: np.ndarray,
-    petal_light: np.ndarray,
-    center_col: np.ndarray,
-    rng: np.random.Generator,
-    *,
-    double: bool = False,
-) -> RawGeo:
-    """Build 3D cupped multi-petal blossoms with a central disc at `centers`."""
-    n_flw = len(centers)
-    if n_flw == 0:
-        return empty_geo()
+#: How far a petal's tip rises along its flower's facing, per unit of ``cup`` and of the
+#: flower's radius (#940): a cup of 1.15 is a tulip's goblet, 1.5 times as deep as wide.
+PETAL_RISE_PER_CUP: Final[float] = 1.3
+#: A petal's width as a share of the ring it stands on, so that the petals of a flower
+#: close into one coloured disc (or goblet) instead of a thin star (#940).
+PETAL_RING_SHARE: Final[float] = 0.88
+#: A petal's normals lean to the sky by this much (a unit normal plus this up) and out
+#: from its flower's centre by ``PETAL_SPREAD_BEND`` per unit of radius: a petal is
+#: thin, and seen from below it shows the sun through it, not a black back (#940).
+PETAL_SKY_BEND: Final[float] = 0.8
+PETAL_SPREAD_BEND: Final[float] = 0.35
+#: How far a petal's tip turns from the petal's colour to its light tip colour - the 2D
+#: sprite's mix for a double flower's inner ring (``generate_plant_sprites.flower_head``).
+PETAL_TIP_LIGHT: Final[float] = 0.45
+#: Petals drawn per flower at LOD0 (quads) and LOD1 (one triangle each, single whorl).
+PETALS_MAX_LOD0: Final[int] = 10
+PETALS_MAX_LOD1: Final[int] = 6
+#: How far a flower may grow when its LOD cannot afford the flowers its crown holds:
+#: fewer, larger flowers keep the crown's share in bloom, as fewer, larger leaves keep
+#: a distant crown's leaf area (``foliage.crown_leaf_budget``) (#940).
+FLOWER_ENLARGE_MAX: Final[dict[int, float]] = {LOD0: 1.8, LOD1: 3.0}
+#: Triangles kept free of a LOD's budget when the flowers are counted.
+FLOWER_BUDGET_RESERVE: Final[int] = 64
 
-    petals = max(int(n_petals), 3)
-    up_Axis = normalize_vec(outward_dirs + np.array([0.0, 0.0, 0.45], dtype=np.float64)[None, :])
-    helper = np.zeros_like(up_Axis)
-    polar = np.abs(up_Axis[:, 2]) >= 0.92
+
+def _frame_for(axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Two unit vectors ``(t, b)`` with ``(t, b, axis)`` right-handed, per row of ``axis``."""
+    helper = np.zeros_like(axis)
+    polar = np.abs(axis[:, 2]) >= 0.92
     helper[polar, 0] = 1.0
     helper[~polar, 2] = 1.0
-    tangent = normalize_vec(np.cross(helper, up_Axis))
-    bitangent = normalize_vec(np.cross(up_Axis, tangent))
+    tangent = normalize_vec(np.cross(helper, axis))
+    bitangent = normalize_vec(np.cross(axis, tangent))
+    return tangent, bitangent
 
-    whorls = [(1.0, 0.28, 0.0)]
+
+def _oriented_spheroids_geo(
+    centers: np.ndarray,
+    axes: np.ndarray,
+    radii_xy: np.ndarray,
+    radii_axis: np.ndarray,
+    color_top: np.ndarray,
+    color_mid: np.ndarray,
+    color_bot: np.ndarray,
+    *,
+    sides: int,
+) -> RawGeo:
+    """``_spheroids_geo`` with each spheroid's pole turned from +z to its row of ``axes``."""
+    geo = _spheroids_geo(np.zeros_like(centers), radii_xy, radii_axis, color_top, color_mid,
+                         color_bot, sides=sides)
+    if geo.vertex_count == 0:
+        return geo
+    per = geo.vertex_count // len(centers)
+    tangent, bitangent = _frame_for(axes)
+    basis = np.stack([tangent, bitangent, axes], axis=1)            # (N, 3 local, 3 world)
+    local = geo.pos.astype(np.float64).reshape(len(centers), per, 3)
+    geo.pos = (np.einsum("npk,nkw->npw", local, basis) + centers[:, None, :]).reshape(-1, 3).astype(np.float32)
+    local_n = geo.nrm.astype(np.float64).reshape(len(centers), per, 3)
+    geo.nrm = normalize_vec(np.einsum("npk,nkw->npw", local_n, basis).reshape(-1, 3)).astype(np.float32)
+    return geo
+
+
+def _petals_geo(
+    centers: np.ndarray,
+    facing: np.ndarray,
+    radii: np.ndarray,
+    n_petals: int,
+    cup: float,
+    petal: np.ndarray,
+    light: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    quad: bool,
+) -> RawGeo:
+    """One whorl of petals round each flower, DOUBLE-SIDED: every petal twice, once
+    wound to face its flower's ``facing`` (the inside of the cup: ``petal`` at the base
+    to ``light`` at the tip) and once wound away from it (the petal's back). The plant's
+    ``vc`` material culls back faces, so a single-sided petal vanishes from half the
+    world - before #940 every petal faced the ground and no flower showed from above.
+
+    A petal widens from its base to a blunt tip that closes the ring with its
+    neighbours (``PETAL_RING_SHARE``), so a flower reads as one disc or goblet, not a
+    spiky star. ``quad``: two triangles (a fan-shaped petal); else one (a wedge).
+    Its normals are BENT, like the foliage's: toward the sky (``PETAL_SKY_BEND``) and
+    out from the flower's centre, so that a thin petal seen from below takes the sun
+    through it (a lit underside) instead of the black of a face turned from the light."""
+    n = len(centers)
+    p = max(int(n_petals), 3)
+    if n == 0:
+        return empty_geo()
+    tangent, bitangent = _frame_for(facing)
+    phase = rng.uniform(0.0, 2.0 * math.pi, size=(n, 1))
+    angle = phase + 2.0 * math.pi * np.arange(p)[None, :] / p + rng.uniform(-0.08, 0.08, size=(n, p))
+    ca, sa = np.cos(angle)[..., None], np.sin(angle)[..., None]          # (n, p, 1)
+    radial = ca * tangent[:, None, :] + sa * bitangent[:, None, :]       # (n, p, 3)
+    side = -sa * tangent[:, None, :] + ca * bitangent[:, None, :]
+    up = facing[:, None, :]
+    r = radii[:, None, None]
+    c = centers[:, None, :]
+    rise = PETAL_RISE_PER_CUP * float(cup) * r
+    tip_w = PETAL_RING_SHARE * 2.0 * math.pi * r / p                      # closes the ring
+    base = c + radial * (0.10 * r)
+    tip = c + radial * r + up * rise
+    # the 2D flower: a petal of `petal` with a light tip over about a third of it
+    tip_col = petal + PETAL_TIP_LIGHT * (light - petal)
+    if quad:
+        corners = [base - side * (0.12 * tip_w), tip - side * (0.5 * tip_w),
+                   tip + side * (0.5 * tip_w), base + side * (0.12 * tip_w)]
+        front_tri = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.uint32)   # wound to face +facing
+        front_col = [petal * 0.92, tip_col, tip_col, petal * 0.92]
+        back_col = [petal * 0.82, petal * 0.95, petal * 0.95, petal * 0.82]
+    else:
+        corners = [base, tip - side * (0.5 * tip_w), tip + side * (0.5 * tip_w)]
+        front_tri = np.array([[0, 1, 2]], dtype=np.uint32)
+        front_col = [petal * 0.92, tip_col, tip_col]
+        back_col = [petal * 0.82, petal * 0.95, petal * 0.95]
+    k = len(corners)
+    v = np.stack(corners, axis=2)                                         # (n, p, k, 3)
+    # the face's winding normal; a deep cup can tip a petal past its flower's plane, so
+    # each front face is wound toward +facing
+    face_n = normalize_vec(np.cross(v[:, :, front_tri[0, 1]] - v[:, :, 0],
+                                    v[:, :, front_tri[0, 2]] - v[:, :, 0]))
+    wrong = (face_n * up).sum(axis=-1) < 0.0                              # (n, p)
+    face_n = np.where(wrong[..., None], -face_n, face_n)
+    tri_one = np.where(wrong.reshape(-1, 1, 1), front_tri[:, ::-1][None], front_tri[None])
+    offsets = (np.arange(n * p, dtype=np.uint32) * k)[:, None, None]
+    front = (tri_one + offsets).reshape(-1, 3).astype(np.uint32)
+    pts = v.reshape(-1, 3)
+    count = len(pts)
+    back = (front[:, ::-1] + count).astype(np.uint32)
+
+    sky = np.array([0.0, 0.0, PETAL_SKY_BEND], dtype=np.float64)
+    spread = PETAL_SPREAD_BEND * (v - c[:, :, None, :]) / r[:, :, None, :]
+    n_front = normalize_vec(face_n[:, :, None, :] + sky + spread).reshape(-1, 3)
+    n_back = normalize_vec(-face_n[:, :, None, :] + sky + spread).reshape(-1, 3)
+
+    col_front = np.ones((k, 4), dtype=np.float32)
+    col_back = np.ones((k, 4), dtype=np.float32)
+    col_front[:, :3] = np.asarray(front_col, dtype=np.float32)
+    col_back[:, :3] = np.asarray(back_col, dtype=np.float32)
+    col = np.concatenate([np.tile(col_front, (n * p, 1)), np.tile(col_back, (n * p, 1))])
+    pos = np.concatenate([pts, pts]).astype(np.float32)
+    nrm = np.concatenate([n_front, n_back]).astype(np.float32)
+    uv = np.zeros((len(pos), 2), dtype=np.float32)
+    return RawGeo(pos=pos, nrm=nrm, col=col, uv=uv, tri=np.concatenate([front, back]))
+
+
+def flower_lod_form(flower: FlowerTraits, lod: int) -> tuple[int, bool, bool, int]:
+    """``(petals, quad petals, second whorl, disc sides)`` of one flower at ``lod``."""
+    if lod == LOD0:
+        return min(flower.petals, PETALS_MAX_LOD0), True, flower.double, 5
+    return min(flower.petals, PETALS_MAX_LOD1), False, False, 4
+
+
+def flower_triangles(flower: FlowerTraits, lod: int) -> int:
+    """Triangles one flower costs at ``lod`` (both faces of every petal, and its disc)."""
+    petals, quad, double, disc_sides = flower_lod_form(flower, lod)
+    per_whorl = petals * (4 if quad else 2)
+    disc = 4 * disc_sides if flower.disc_radius > 0.0 else 0
+    return per_whorl * (2 if double else 1) + disc
+
+
+def blossom_count(
+    surface_cm2: float, cover: float, radius_cm: float, affordable: int, *, enlarge_max: float,
+) -> tuple[int, float]:
+    """``(count, radius_cm)`` of the flowers that cover ``cover`` of ``surface_cm2`` (#940).
+
+    The count follows the crown's surface, never a fixed number. When the LOD cannot
+    afford it, fewer flowers each grow - up to ``enlarge_max`` times - so the share of
+    the crown in bloom holds as far as it can."""
+    if affordable <= 0 or cover <= 0.0 or surface_cm2 <= 0.0:
+        return 0, radius_cm
+    wanted = max(1, math.ceil(cover * surface_cm2 / (math.pi * radius_cm * radius_cm)))
+    count = min(wanted, int(affordable))
+    return count, radius_cm * min(math.sqrt(wanted / count), enlarge_max)
+
+
+def flowers_geo(
+    flower: FlowerTraits,
+    spec: str,
+    centers: np.ndarray,
+    facing: np.ndarray,
+    radii: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    lod: int,
+) -> RawGeo:
+    """Flowers of ``flower``'s form at ``centers``, each turned to its row of ``facing``,
+    in the colours of ``FLOWERS[spec]`` (the 2D table): petals, a second inner whorl for
+    a double flower, and its centre."""
+    if len(centers) == 0:
+        return empty_geo()
+    outer_hex, light_hex, center_hex = FLOWERS.get(spec, FLOWERS["white"])
+    c_outer = _hex_to_linear_rgb(outer_hex)
+    c_light = _hex_to_linear_rgb(light_hex)
+    c_center = _hex_to_linear_rgb(center_hex)
+    petals, quad, double, disc_sides = flower_lod_form(flower, lod)
+    facing = normalize_vec(np.asarray(facing, dtype=np.float64))
+    centers = np.asarray(centers, dtype=np.float64)
+    radii = np.asarray(radii, dtype=np.float64)
+    geos = [_petals_geo(centers, facing, radii, petals, flower.cup, c_outer, c_light, rng, quad=quad)]
     if double:
-        whorls.append((0.68, 0.48, math.pi / petals))
-
-    geos: list[RawGeo] = []
-    # Central stamen/disc button via compact spheroid
-    disc_r = np.maximum(flower_radii * 0.26, 0.4)
-    geos.append(
-        _spheroids_geo(
-            centers + up_Axis * (disc_r[:, None] * 0.35),
-            disc_r,
-            disc_r * 0.65,
-            center_col,
-            center_col * 0.85,
-            center_col * 0.65,
-            sides=5,
-        )
-    )
-
-    for scale_r, cup_lift, phase_off in whorls:
-        for p_i in range(petals):
-            angle = phase_off + 2.0 * math.pi * p_i / petals + rng.uniform(-0.08, 0.08, size=n_flw)
-            ca = np.cos(angle)[:, None]
-            sa = np.sin(angle)[:, None]
-            radial = ca * tangent + sa * bitangent
-            side = -sa * tangent + ca * bitangent
-
-            p_len = (flower_radii * scale_r)[:, None]
-            p_wid = (flower_radii * scale_r * (2.1 / max(petals, 4)))[:, None]
-
-            v_base = centers + radial * (p_len * 0.16)
-            v_left = centers + radial * (p_len * 0.58) - side * (p_wid * 0.5) + up_Axis * (p_len * cup_lift * 0.5)
-            v_right = centers + radial * (p_len * 0.58) + side * (p_wid * 0.5) + up_Axis * (p_len * cup_lift * 0.5)
-            v_tip = centers + radial * p_len + up_Axis * (p_len * cup_lift)
-
-            pos = np.empty((n_flw * 4, 3), dtype=np.float32)
-            pos[0::4] = v_base
-            pos[1::4] = v_right
-            pos[2::4] = v_tip
-            pos[3::4] = v_left
-
-            # Compute exact winding normals per triangle so vc validation is exact
-            nrm = np.repeat(up_Axis.astype(np.float32), 4, axis=0)
-            col_single = np.ones((4, 4), dtype=np.float32)
-            col_single[0, :3] = petal_outer * 0.88
-            col_single[1, :3] = 0.5 * (petal_outer + petal_light)
-            col_single[2, :3] = petal_light
-            col_single[3, :3] = 0.5 * (petal_outer + petal_light)
-            col = np.tile(col_single, (n_flw, 1))
-
-            base = (np.arange(n_flw, dtype=np.uint32) * 4)[:, None]
-            t0 = np.column_stack([base[:, 0], base[:, 0] + 1, base[:, 0] + 2])
-            t1 = np.column_stack([base[:, 0], base[:, 0] + 2, base[:, 0] + 3])
-            tri = np.empty((n_flw * 2, 3), dtype=np.uint32)
-            tri[0::2] = t0
-            tri[1::2] = t1
-            uv = np.zeros((len(pos), 2), dtype=np.float32)
-            geos.append(RawGeo(pos=pos, nrm=nrm, col=col, uv=uv, tri=tri))
-
+        # the inner whorl: smaller and deeper, in the 2D sprite's inner colour
+        inner = c_outer + PETAL_TIP_LIGHT * (c_light - c_outer)
+        geos.append(_petals_geo(centers + facing * (0.06 * radii[:, None]), facing, radii * 0.66,
+                                petals, flower.cup + 0.35, inner, c_light, rng, quad=quad))
+    if flower.disc_radius > 0.0:
+        disc_r = np.maximum(radii * flower.disc_radius, 0.3)
+        depth = np.maximum(radii * flower.disc_depth, 0.2)
+        geos.append(_oriented_spheroids_geo(
+            centers + facing * (0.5 * depth[:, None]), facing, disc_r, depth,
+            c_center, c_center * 0.85, c_center * 0.65, sides=disc_sides,
+        ))
     return concat_geo(geos)
+
+
+def _flower_facing(outward: np.ndarray, face_up: float, rng: np.random.Generator) -> np.ndarray:
+    """``outward`` turned toward the sky by ``face_up`` (0..1), with a little scatter."""
+    up = np.array([0.0, 0.0, 1.0], dtype=np.float64)[None, :]
+    turned = (1.0 - float(face_up)) * normalize_vec(outward) + float(face_up) * up
+    return normalize_vec(turned + rng.normal(0.0, 0.12, size=outward.shape))
+
+
+#: The crown's outer shell (#940): a flower anchors on a leaf at least this far out
+#: along its direction from the crown's centre, as a share of the farthest leaf there.
+CROWN_SHELL: Final[float] = 0.78
+#: Direction bins round the crown's centre (azimuth x height) the shell is measured in.
+_SHELL_AZIMUTH_BINS: Final[int] = 18
+_SHELL_HEIGHT_BINS: Final[int] = 9
+#: No flower faces more steeply down than this (z of its outward direction): what
+#: hangs under the crown is hidden by it from every camera but a worm's.
+_SHELL_LOWEST_Z: Final[float] = -0.55
+
+
+def crown_flower_anchors(
+    points: np.ndarray, count: int, rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+    """``count`` anchors on the outer shell of the foliage ``points`` and their outward
+    directions (#940). A flower inside the crown is hidden by its leaves: the anchors are
+    leaves within ``CROWN_SHELL`` of the farthest leaf in their direction from the
+    crown's centre (the foliage's bounding-box centre)."""
+    pts = np.asarray(points, dtype=np.float64)
+    if count <= 0 or len(pts) == 0:
+        return np.zeros((0, 3)), np.zeros((0, 3))
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    centre = 0.5 * (lo + hi)
+    half = np.maximum(0.5 * (hi - lo), 1e-3)
+    rel = (pts - centre) / half                      # the crown as a unit sphere
+    dist = np.linalg.norm(rel, axis=1)
+    dirs = rel / np.maximum(dist, 1e-9)[:, None]
+    az = np.floor((np.arctan2(dirs[:, 1], dirs[:, 0]) + math.pi) / (2.0 * math.pi)
+                  * _SHELL_AZIMUTH_BINS).astype(np.int64) % _SHELL_AZIMUTH_BINS
+    el = np.clip(np.floor((dirs[:, 2] + 1.0) * 0.5 * _SHELL_HEIGHT_BINS).astype(np.int64),
+                 0, _SHELL_HEIGHT_BINS - 1)
+    cell = az * _SHELL_HEIGHT_BINS + el
+    farthest = np.zeros(_SHELL_AZIMUTH_BINS * _SHELL_HEIGHT_BINS)
+    np.maximum.at(farthest, cell, dist)
+    shell = (dist >= CROWN_SHELL * farthest[cell]) & (dirs[:, 2] >= _SHELL_LOWEST_Z)
+    candidates = np.flatnonzero(shell)
+    if len(candidates) == 0:
+        candidates = np.arange(len(pts))
+    if count <= len(candidates):
+        chosen = rng.choice(candidates, size=count, replace=False)
+        jitter = np.zeros((count, 3))
+    else:
+        chosen = rng.choice(candidates, size=count, replace=True)
+        jitter = rng.normal(0.0, 0.04, size=(count, 3)) * half[None, :]
+    outward = normalize_vec(dirs[chosen] * half[None, :])   # back to the crown's own shape
+    return pts[chosen] + jitter, outward
+
+
+def _crown_flowers_geo(
+    traits: Traits3D,
+    flower: FlowerTraits,
+    height_cm: float,
+    radius_cm: float,
+    rng: np.random.Generator,
+    *,
+    lod: int,
+    anchor_points: np.ndarray | None,
+    max_tris: int | None,
+) -> RawGeo:
+    """A crown's flowers (#940): as many as cover ``flower.cover`` of the crown's surface
+    (``foliage.crown_surface_cm2``), within the LOD's budget, on its outer shell."""
+    budget = triangle_budget_for_lod(lod) if max_tris is None else int(max_tris)
+    affordable = max(0, budget - FLOWER_BUDGET_RESERVE) // flower_triangles(flower, lod)
+    surface = crown_surface_cm2(height_cm, radius_cm, traits.crown.trunk_share)
+    count, radius = blossom_count(surface, flower.cover, flower.radius_cm, affordable,
+                                  enlarge_max=FLOWER_ENLARGE_MAX.get(lod, 1.0))
+    if count == 0:
+        return empty_geo()
+    if anchor_points is not None and len(anchor_points) >= 4:
+        anchors, outward = crown_flower_anchors(anchor_points, count, rng)
+    else:
+        anchors = _select_crown_anchors(None, count, height_cm, radius_cm, rng,
+                                        z_range=(0.42, 0.94), radial_range=(0.40, 0.90))
+        crown_c = np.array([0.0, 0.0, height_cm * 0.45], dtype=np.float64)
+        outward = normalize_vec(anchors - crown_c[None, :])
+    facing = _flower_facing(outward, flower.face_up, rng)
+    radii = radius * rng.uniform(0.85, 1.15, size=count)
+    # the flower sits on the leaves it anchors on, not inside them
+    centers = anchors + outward * (0.35 * radii[:, None])
+    return flowers_geo(flower, str(traits.blossom_spec or "white"), centers, facing, radii,
+                       rng, lod=lod)
 
 
 def build_blossom_accents(
@@ -344,8 +567,12 @@ def build_blossom_accents(
     *,
     lod: int = LOD0,
     anchor_points: np.ndarray | None = None,
+    max_tris: int | None = None,
 ) -> RawGeo:
-    """Build 3D blossoms (`flowers`, `clusters`, `puffs`, or spring `blossom_spec`)."""
+    """Build 3D blossoms: a crown's flowers (``Traits3D.flower`` with the ``crown`` habit:
+    a ``flowers`` recipe or a fruit tree's blossom), ``clusters`` and ``puffs``. A bulb's
+    and a stemmed flower's own builders place theirs (``scape`` / ``head``, #940).
+    ``max_tris``: the LOD's triangles left for them."""
     if lod == LOD2:
         return empty_geo()
 
@@ -353,56 +580,11 @@ def build_blossom_accents(
     geos: list[RawGeo] = []
     plant_scale = max(min(height_cm, radius_cm * 2.0) / 120.0, 0.30)
 
-    # 1. Explicit `flowers` key or spring `traits.blossom_spec`
-    flw_dict = recipe.get("flowers")
-    if isinstance(flw_dict, Mapping) or traits.blossom_spec is not None:
-        if isinstance(flw_dict, Mapping):
-            spec_name = str(flw_dict.get("spec", traits.blossom_spec or "white"))
-            petals = int(flw_dict.get("petals", 5))
-            ref_r = float(flw_dict.get("radius", 5.0))
-            n_base = int(flw_dict.get("n", 5))
-            double = bool(flw_dict.get("double", False))
-        else:
-            spec_name = str(traits.blossom_spec or "white")
-            petals = 5
-            ref_r = 4.2
-            n_base = 6
-            double = False
-
-        outer_hex, light_hex, center_hex = FLOWERS.get(spec_name, FLOWERS["white"])
-        c_outer = _hex_to_linear_rgb(outer_hex)
-        c_light = _hex_to_linear_rgb(light_hex)
-        c_center = _hex_to_linear_rgb(center_hex)
-
-        count = max(3, n_base * (2 if lod == LOD0 else 1))
-        petals_lod = min(petals, 8 if lod == LOD0 else 5)
-        anchors = _select_crown_anchors(
-            anchor_points,
-            count,
-            height_cm,
-            radius_cm,
-            rng,
-            z_range=(0.42, 0.94),
-            radial_range=(0.40, 0.90),
-        )
-        crown_c = np.array([0.0, 0.0, height_cm * 0.45], dtype=np.float64)
-        outward = normalize_vec(anchors - crown_c[None, :])
-        flw_r = np.clip(ref_r * 0.65 * plant_scale, 1.1, max(radius_cm * 0.18, 2.0)) * rng.uniform(
-            0.85, 1.15, size=len(anchors)
-        )
-        geos.append(
-            _cupped_flowers_geo(
-                anchors,
-                outward,
-                flw_r,
-                petals_lod,
-                c_outer,
-                c_light,
-                c_center,
-                rng,
-                double=double and lod == LOD0,
-            )
-        )
+    # 1. A crown's flowers, counted by its surface (#940)
+    flower = traits.flower
+    if flower is not None and flower.habit == "crown":
+        geos.append(_crown_flowers_geo(traits, flower, height_cm, radius_cm, rng, lod=lod,
+                                       anchor_points=anchor_points, max_tris=max_tris))
 
     # 2. `clusters` (lilac, hydrangea, rhododendron, viburnum, wisteria, chives, geranium)
     clusters_dict = recipe.get("clusters")
@@ -702,6 +884,13 @@ def _clamp_accent_geo(geo: RawGeo, height_cm: float, radius_cm: float) -> RawGeo
     return out
 
 
+def flower_part(geo: RawGeo, height_cm: float, radius_cm: float) -> MeshPart:
+    """``geo`` - flowers a builder placed in its fitted frame (a sunflower's heads, #940) -
+    clamped into the plant's height and reach, as the plant's ``flowers`` part."""
+    return MeshPart(mesh=_clamp_accent_geo(geo, height_cm, radius_cm).to_mesh(),
+                    material_kind="vc", casts_shadow=True, tinted=False, name=FLOWER_PART)
+
+
 def build_accents(
     traits: Traits3D,
     height_cm: float,
@@ -792,13 +981,12 @@ def build_accents(
             )
         )
 
-    # 5. Blossoms (`flowers`, `clusters`, `puffs`, or spring `blossom_spec`)
+    # 5. Blossoms (a crown's `flowers` or fruit-tree blossom, `clusters`, `puffs`)
+    crown_flower = traits.flower is not None and traits.flower.habit == "crown"
     if family in (None, FLOWER_PART) and (
-        "flowers" in recipe
-        or "clusters" in recipe
-        or "puffs" in recipe
-        or traits.blossom_spec is not None
+        crown_flower or "clusters" in recipe or "puffs" in recipe
     ):
+        used = sum(part.triangle_count for part in parts)
         parts.append(
             build_blossom_accents(
                 traits,
@@ -807,6 +995,7 @@ def build_accents(
                 rng,
                 lod=lod,
                 anchor_points=anchor_points,
+                max_tris=None if max_tris is None else max_tris - used,
             )
         )
 
@@ -843,8 +1032,10 @@ def attach_accents(
     lod: int = LOD0,
 ) -> tuple[MeshPart, ...]:
     """Attach `PART_ACCENTS` to an already-fitted `(wood, foliage)` part tuple without altering them."""
-    if lod == LOD2 or any(p.name in SEASONAL_PARTS for p in parts):
+    if lod == LOD2:
         return parts
+    # A bulb's and a stemmed flower's builder places its own flowers (#940)
+    present = {p.name for p in parts} & SEASONAL_PARTS
 
     used_tris = sum(p.mesh.triangle_count for p in parts)
     remaining = triangle_budget_for_lod(lod) - used_tris
@@ -864,6 +1055,8 @@ def attach_accents(
 
     added: list[MeshPart] = []
     for family in (TUBER_PART, FRUIT_PART, FLOWER_PART):
+        if family in present:
+            continue
         accent_geo = build_accents(
             traits, height_cm, radius_cm, seed, lod=lod,
             anchor_points=anchors, basal_center=basal_center,
@@ -882,16 +1075,23 @@ def attach_accents(
 
 __all__ = [
     "ACCENT_FAMILIES",
+    "CROWN_SHELL",
+    "FLOWER_ENLARGE_MAX",
     "FLOWER_PART",
     "FRUIT_PART",
     "TUBER_PART",
     "SEASONAL_PARTS",
     "attach_accents",
+    "blossom_count",
     "build_accents",
     "build_blossom_accents",
     "build_fruit_accents",
     "build_pod_accents",
     "build_tuber_accents",
     "build_umbel_accents",
+    "crown_flower_anchors",
+    "flower_part",
+    "flower_triangles",
+    "flowers_geo",
 ]
 

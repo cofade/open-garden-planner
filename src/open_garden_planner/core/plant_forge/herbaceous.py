@@ -18,7 +18,8 @@ from ..plant_art import recipe_for
 from ..plant_art.traits3d import Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
-from .assemble import fit_forged_parts
+from .accents import FLOWER_PART, PETAL_RISE_PER_CUP, flower_part, flowers_geo
+from .assemble import PART_WOOD, fit_forged_parts
 from .foliage import (
     RawGeo,
     concat_geo,
@@ -28,7 +29,7 @@ from .foliage import (
     normalize_vec,
     palette_leaf_colors,
 )
-from .lod import LOD0, LOD1, validate_lod
+from .lod import LOD0, LOD1, LOD2, validate_lod
 from .trees import bark_linear_rgba
 from .tube import frustum_tubes
 
@@ -242,6 +243,8 @@ def build_forged_grass(
     validate_lod(lod)
     if traits.crown.shape == "vase":
         return _forged_culm_clump(traits, height_cm, radius_cm, seed, lod=lod, accents=accents)
+    if traits.flower is not None and traits.flower.habit == "scape":
+        return _forged_flowering_bulb(traits, height_cm, radius_cm, seed, lod=lod)
     rng = _seed_rng(seed, 0x612A5501)
 
     if lod == LOD0:
@@ -334,6 +337,87 @@ def build_forged_grass(
     foliage = concat_geo([blades, plumes])
     accent_geo = accents if accents is not None else empty_geo()
     return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+
+
+#: A flowering bulb's leaves stop at this share of its height; leafless scapes carry
+#: its flowers above them to the plant's full height (#940). Before, the blades and
+#: the leaf sprays at the culm tips reached the top, and the flowers sat among them.
+BULB_LEAF_TOP: float = 0.6
+#: The most flowers one bulb clump shows (a big drift of one item stays affordable).
+BULB_FLOWERS_MAX: int = 24
+#: Per LOD: strap leaves, segments per leaf, scape sides.
+_BULB_LODS: dict[int, tuple[int, int, int]] = {LOD0: (22, 5, 5), LOD1: (14, 4, 4)}
+_BULB_LOD2: tuple[int, int, int] = (8, 3, 4)
+
+
+def bulb_flower_count(radius_cm: float, flower_radius_cm: float, cover: float) -> int:
+    """How many flowers a bulb clump of ``radius_cm`` shows: they cover ``cover`` of its
+    ground seen from above (``FlowerTraits.cover``), at least one (#940)."""
+    share = cover * (radius_cm / max(flower_radius_cm, 1e-3)) ** 2
+    return int(min(max(round(share), 1), BULB_FLOWERS_MAX))
+
+
+def _forged_flowering_bulb(
+    traits: Traits3D,
+    height_cm: float,
+    radius_cm: float,
+    seed: int,
+    *,
+    lod: int,
+) -> tuple[MeshPart, ...]:
+    """A flowering bulb (tulip, daffodil, crocus, iris, lily; #940): a tuft of strap
+    leaves up to ``BULB_LEAF_TOP`` of its height and one leafless scape per flower, the
+    flower on its tip at the top. Its flowers are inside the fit, so the plant's top is
+    a flower's (``fit_forged_parts(..., accents_name=FLOWER_PART)``); at LOD2 no flower
+    is built and the scapes reach the top."""
+    flower = traits.flower
+    assert flower is not None
+    rng = _seed_rng(seed, 0xB01B5CA9)
+    n_blades, segs, sides = _BULB_LODS.get(lod, _BULB_LOD2)
+    n_flowers = bulb_flower_count(radius_cm, flower.radius_cm, flower.cover)
+    r_f = flower.radius_cm * rng.uniform(0.9, 1.1, size=n_flowers)
+
+    # The scapes: a sunflower-seed spiral inside the clump, each flower its own height
+    k = np.arange(n_flowers, dtype=np.float64)
+    az = float(rng.uniform(0.0, 2.0 * math.pi)) + k * GOLDEN_ANGLE
+    reach = radius_cm * np.minimum(0.15 + 0.5 * np.sqrt((k + 0.5) / n_flowers), 0.75)
+    reach = np.maximum(reach - 0.4 * r_f, 0.0) if n_flowers > 1 else reach * 0.0
+    # how far a flower stands above its scape's tip (the fit takes the rest)
+    rise = r_f * np.maximum(PETAL_RISE_PER_CUP * flower.cup * flower.face_up, 1.0 - flower.face_up)
+    tip_z = (height_cm - rise) * rng.uniform(0.86, 1.0, size=n_flowers)
+    tallest = int(rng.integers(0, n_flowers))
+    tip_z[tallest] = height_cm - rise[tallest]
+    tips = np.column_stack([np.cos(az) * reach, np.sin(az) * reach, tip_z])
+    roots = np.column_stack([np.cos(az) * radius_cm * 0.06, np.sin(az) * radius_cm * 0.06,
+                             np.zeros(n_flowers)])
+    scape_r = max(min(height_cm, radius_cm) * 0.02, 0.22)
+    wood = frustum_tubes(roots, tips, np.full(n_flowers, scape_r), np.full(n_flowers, scape_r * 0.7),
+                         sides=sides, color_rgba=bark_linear_rgba(traits.branching))
+
+    # The leaves: broad straps arching from the base, below the flowers
+    idx = np.arange(n_blades, dtype=np.float64)
+    frac = idx / max(n_blades - 1, 1)
+    b_az = float(rng.uniform(0.0, 2.0 * math.pi)) + idx * GOLDEN_ANGLE + rng.uniform(-0.22, 0.22, size=n_blades)
+    reaches = radius_cm * (0.35 + 0.65 * (frac ** 0.7)) * rng.uniform(0.80, 1.10, size=n_blades)
+    leaf_top = BULB_LEAF_TOP * height_cm
+    peak_z = leaf_top * (1.0 - 0.35 * frac) * rng.uniform(0.80, 1.0, size=n_blades)
+    blade_tip_z = leaf_top * (0.75 - 0.55 * frac) * rng.uniform(0.70, 1.0, size=n_blades)
+    strap = traits.leaf.length_cm * traits.leaf.width_ratio
+    widths = min(strap, radius_cm * 0.35) * rng.uniform(0.80, 1.15, size=n_blades)
+    origins = np.column_stack([np.cos(b_az) * radius_cm * 0.1 * frac,
+                               np.sin(b_az) * radius_cm * 0.1 * frac, np.zeros(n_blades)])
+    cols = palette_leaf_colors(traits.palette, traits.sprite, peak_z / max(height_cm, 1.0), frac, rng)
+    center = np.array([0.0, 0.0, leaf_top * 0.5], dtype=np.float64)
+    foliage = _curved_blades_geo(origins, b_az, reaches, peak_z, blade_tip_z, widths, 0.30,
+                                 segs, cols, rng, center=center, cup=0.10)
+
+    if lod == LOD2:
+        return fit_forged_parts(wood, foliage, empty_geo(), height_cm, radius_cm)
+    out = np.column_stack([np.cos(az), np.sin(az), np.zeros(n_flowers)])
+    facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
+                           + rng.normal(0.0, 0.10, size=(n_flowers, 3)))
+    flowers = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, r_f, rng, lod=lod)
+    return fit_forged_parts(wood, foliage, flowers, height_cm, radius_cm, accents_name=FLOWER_PART)
 
 
 #: Per LOD: culms, segments per culm, tube sides, the most leaves.
@@ -938,11 +1022,28 @@ def build_forged_flower(
 
     foliage = concat_geo([stem_blades, crown_micro])
     accent_geo = accents if accents is not None else empty_geo()
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    parts = fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    flower = traits.flower
+    if flower is None or flower.habit != "head" or lod == LOD2:
+        return parts
+    # One head on each stem's tip (#940), placed in the fitted frame so the stems and
+    # leaves stand exactly as they would without it. A stem is `stem_segs` frustums in a
+    # row (`frustum_tubes`: a base ring then a top ring of `sides` vertices each).
+    stem_wood = next(p.mesh for p in parts if p.name == PART_WOOD).positions.astype(np.float64)
+    rings = stem_wood.reshape(-1, 2, sides, 3)
+    tips = rings[(np.arange(n_stems) + 1) * stem_segs - 1, 1].mean(axis=1)
+    out = np.column_stack([np.cos(stem_az), np.sin(stem_az), np.zeros(n_stems)])
+    facing = normalize_vec((1.0 - flower.face_up) * out + flower.face_up * np.array([0.0, 0.0, 1.0])
+                           + rng.normal(0.0, 0.08, size=(n_stems, 3)))
+    radii = flower.radius_cm * rng.uniform(0.85, 1.1, size=n_stems)
+    heads = flowers_geo(flower, str(traits.blossom_spec or "white"), tips, facing, radii, rng, lod=lod)
+    return (*parts, flower_part(heads, height_cm, radius_cm))
 
 
 __all__ = [
+    "BULB_LEAF_TOP",
     "GOLDEN_ANGLE",
+    "bulb_flower_count",
     "build_forged_allium",
     "build_forged_feathery",
     "build_forged_flower",

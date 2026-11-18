@@ -22,19 +22,26 @@ from ..scene3d.builders.plants import FOLIAGE_TIP_WEIGHT
 from ..scene3d.mesh import Mesh
 
 
+def crown_surface_cm2(height_cm: float, radius_cm: float, trunk_share: float) -> float:
+    """The crown's outer surface (cm²): the ellipsoid of the plant's radius and of half
+    the height above its clear trunk, by Knud Thomsen's approximation (p=1.6075).
+    Leaves (``crown_leaf_budget``) and flowers (``accents.blossom_count``) count by it."""
+    rz = max(height_cm * (1.0 - trunk_share) * 0.5, 1.0)
+    p = 1.6075
+    return 4.0 * math.pi * ((radius_cm**(2*p) + 2*(radius_cm*rz)**p) / 3)**(1/p)
+
+
 def crown_leaf_budget(
     height_cm: float, radius_cm: float, trunk_share: float,
     leaf_length: float, width_ratio: float, max_leaves: int,
 ) -> tuple[int, float]:
     """Preserve 1.6 crown-surface areas of leaves within a triangle budget.
 
-    The ellipsoid area uses Knud Thomsen's approximation (p=1.6075).
+    The crown's surface is ``crown_surface_cm2``.
     A diamond leaf has area length*width/2. Prefer more leaves, then enlarge
     them when a distant LOD cannot afford the count; never thin the crown.
     """
-    rz = max(height_cm * (1.0 - trunk_share) * 0.5, 1.0)
-    p = 1.6075
-    surface = 4.0 * math.pi * ((radius_cm**(2*p) + 2*(radius_cm*rz)**p) / 3)**(1/p)
+    surface = crown_surface_cm2(height_cm, radius_cm, trunk_share)
     target = 1.6 * surface
     leaf_area = 0.5 * leaf_length**2 * width_ratio
     wanted = max(1, math.ceil(target / max(leaf_area, 1e-6)))
@@ -250,6 +257,8 @@ def micro_leaves(
 __all__ = [
     "RawGeo",
     "concat_geo",
+    "crown_leaf_budget",
+    "crown_surface_cm2",
     "empty_geo",
     "micro_leaves",
     "normalize_vec",

@@ -208,6 +208,14 @@ class TestL35SeasonalAccents:
             traits = traits_for(sprite)
             if (set(recipe) & FEATURE_KEYS) or traits.blossom_spec is not None:
                 featured_count += 1
+                if traits.flower is not None and traits.flower.habit != "crown":
+                    # a bulb's scapes and a stemmed flower's heads: its own builder
+                    # places the flowers (#940), not ``build_accents``
+                    parts = forge_plant(sprite, 120.0, 50.0, seed=42, lod=LOD0, cache=None)
+                    flowers = [p for p in parts if p.name == "flowers"]
+                    assert flowers and flowers[0].mesh.triangle_count > 0, sprite
+                    flowers[0].validate()
+                    continue
                 geo = build_accents(traits, 120.0, 50.0, seed=42, lod=LOD0)
                 assert geo.triangle_count > 0, f"{sprite} failed to build accent geometry"
                 part = MeshPart(mesh=geo.to_mesh(), material_kind="vc", casts_shadow=True, tinted=False, name=PART_ACCENTS)
