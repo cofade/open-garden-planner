@@ -261,8 +261,8 @@ cannot expose this failure.
 
 ### PF-UI-43
 
-- **Rule:** Bound category popups to the anchor screen's work area. Keep the search and trait controls above a scrollable result grid, and re-pack matching buttons when filters change.
-- **Pinned by:** `tests/integration/test_category_toolbar.py::TestCategoryDropdownFlow::test_vegetable_popup_stays_on_screen_and_places_filtered_item`
+- **Rule:** Keep category popups within the anchor screen and re-pack matching buttons in scrollable results.
+- **Pinned by:** `tests/integration/test_category_toolbar.py`
 - **Source:** #951
 - **Status:** standing
 - **Legacy:** none (new entry)

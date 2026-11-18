@@ -215,12 +215,14 @@ Passing 16,000 tightly packed vertices inside a 300 cm clip into Qt's non-cosmet
 
 ### PF-CAN-67
 
-- **Rule:** Wait for the minimap's thumbnail timer before comparing native partial and full repaints. Crop the owning window's backing store without asking the widget to redraw, and capture a second full repaint as a stability control.
+- **Rule:** Compare the settled native viewport with two full repaints.
 - **Pinned by:** `tests/integration/test_canvas_native_pixels.py::test_selected_shed_replacement_repaints_in_the_main_window`
 - **Source:** #879
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-The first undo capture differed by 810 pixels, all inside the minimap. Seven
-settled main-window edits matched on v1.40.8, including replacing the selected
-shed with a glasshouse.
+Wait for the minimap's thumbnail timer. Crop the owning window's backing
+store without asking the widget to redraw, then capture a second full repaint
+as a stability control. The first undo capture differed by 810 pixels, all
+inside the minimap. Seven settled main-window edits matched on v1.40.8,
+including replacing the selected shed with a glasshouse.
