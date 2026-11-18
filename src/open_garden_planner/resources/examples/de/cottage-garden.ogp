@@ -29,12 +29,26 @@
   ],
   "objects": [
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "17fe9f52-7619-556c-9b6e-b5a36c52d8b2",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 1200.0,
-      "height": 1200.0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 1200.0,
+          "y": 0.0
+        },
+        {
+          "x": 1200.0,
+          "y": 1200.0
+        },
+        {
+          "x": 0.0,
+          "y": 1200.0
+        }
+      ],
       "object_type": "LAWN",
       "name": "Wiesenstreifen",
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
@@ -47,12 +61,26 @@
       "stack_order": 1024
     },
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "422103b4-de11-5b70-931e-d47be3897a70",
-      "x": 100.0,
-      "y": 160.0,
-      "width": 1000.0,
-      "height": 1000.0,
+      "points": [
+        {
+          "x": 100.0,
+          "y": 160.0
+        },
+        {
+          "x": 1100.0,
+          "y": 160.0
+        },
+        {
+          "x": 1100.0,
+          "y": 1160.0
+        },
+        {
+          "x": 100.0,
+          "y": 1160.0
+        }
+      ],
       "object_type": "TERRACE_PATIO",
       "name": "Kiesfl\u00e4che",
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
@@ -447,170 +475,282 @@
       "stack_order": 3072
     },
     {
-      "type": "rectangle",
-      "item_id": "41333991-7ac4-501c-81c6-56e088edba5b",
-      "x": 520.0,
-      "y": 200.0,
-      "width": 20.0,
-      "height": 270.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "0476d541-2462-5f81-83e5-924ae8c24973",
+      "points": [
+        {
+          "x": 520.0,
+          "y": 200.0
+        },
+        {
+          "x": 540.0,
+          "y": 200.0
+        },
+        {
+          "x": 540.0,
+          "y": 470.0
+        },
+        {
+          "x": 520.0,
+          "y": 470.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 5120
     },
     {
-      "type": "rectangle",
-      "item_id": "3069d9d1-eadb-5398-a93f-8dc71242c64e",
-      "x": 140.0,
-      "y": 580.0,
-      "width": 270.0,
-      "height": 20.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "a3d31ccc-a4bd-57fb-a946-f0106d7df238",
+      "points": [
+        {
+          "x": 140.0,
+          "y": 580.0
+        },
+        {
+          "x": 410.0,
+          "y": 580.0
+        },
+        {
+          "x": 410.0,
+          "y": 600.0
+        },
+        {
+          "x": 140.0,
+          "y": 600.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 6144
     },
     {
-      "type": "rectangle",
-      "item_id": "cc3412f6-9082-579b-a6ae-b244e7974e0a",
-      "x": 520.0,
-      "y": 850.0,
-      "width": 20.0,
-      "height": 270.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "7928b271-c2bb-5519-aa34-b710ee89045d",
+      "points": [
+        {
+          "x": 520.0,
+          "y": 850.0
+        },
+        {
+          "x": 540.0,
+          "y": 850.0
+        },
+        {
+          "x": 540.0,
+          "y": 1120.0
+        },
+        {
+          "x": 520.0,
+          "y": 1120.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 8192
     },
     {
-      "type": "rectangle",
-      "item_id": "51f04cd6-ea85-50b9-a55b-c05774cf27f1",
-      "x": 140.0,
-      "y": 720.0,
-      "width": 270.0,
-      "height": 20.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "18241d5a-dd4a-53de-b939-babb6ef7960e",
+      "points": [
+        {
+          "x": 140.0,
+          "y": 720.0
+        },
+        {
+          "x": 410.0,
+          "y": 720.0
+        },
+        {
+          "x": 410.0,
+          "y": 740.0
+        },
+        {
+          "x": 140.0,
+          "y": 740.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 9216
     },
     {
-      "type": "rectangle",
-      "item_id": "bc107b02-7f39-5208-b5d7-53101018631d",
-      "x": 660.0,
-      "y": 200.0,
-      "width": 20.0,
-      "height": 270.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "f891a6b1-f265-5ac3-82e4-d68ab80078bf",
+      "points": [
+        {
+          "x": 660.0,
+          "y": 200.0
+        },
+        {
+          "x": 680.0,
+          "y": 200.0
+        },
+        {
+          "x": 680.0,
+          "y": 470.0
+        },
+        {
+          "x": 660.0,
+          "y": 470.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 11264
     },
     {
-      "type": "rectangle",
-      "item_id": "d049d78a-9f91-5dfb-8f8e-a598b010bd68",
-      "x": 790.0,
-      "y": 580.0,
-      "width": 270.0,
-      "height": 20.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "a4b19734-7319-5990-a9a8-74e075fc808b",
+      "points": [
+        {
+          "x": 790.0,
+          "y": 580.0
+        },
+        {
+          "x": 1060.0,
+          "y": 580.0
+        },
+        {
+          "x": 1060.0,
+          "y": 600.0
+        },
+        {
+          "x": 790.0,
+          "y": 600.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 12288
     },
     {
-      "type": "rectangle",
-      "item_id": "cd83d83f-5d07-5fca-b4cd-1b8f1f151609",
-      "x": 660.0,
-      "y": 850.0,
-      "width": 20.0,
-      "height": 270.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "081530b1-eac9-551a-ab0b-7cba335b327a",
+      "points": [
+        {
+          "x": 660.0,
+          "y": 850.0
+        },
+        {
+          "x": 680.0,
+          "y": 850.0
+        },
+        {
+          "x": 680.0,
+          "y": 1120.0
+        },
+        {
+          "x": 660.0,
+          "y": 1120.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 14336
     },
     {
-      "type": "rectangle",
-      "item_id": "853f4f4b-98ab-5204-a284-afc59f9b944a",
-      "x": 790.0,
-      "y": 720.0,
-      "width": 270.0,
-      "height": 20.0,
-      "object_type": "HEDGE_SECTION",
+      "type": "polygon",
+      "item_id": "e8895b77-bf57-57d1-8d5b-659a06ea2520",
+      "points": [
+        {
+          "x": 790.0,
+          "y": 720.0
+        },
+        {
+          "x": 1060.0,
+          "y": 720.0
+        },
+        {
+          "x": 1060.0,
+          "y": 740.0
+        },
+        {
+          "x": 790.0,
+          "y": 740.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
       "name": "Buchseinfassung",
       "metadata": {
         "object_height_cm": 35.0
       },
       "layer_id": "04815933-3849-5aa7-a009-cb32b8e24ae5",
       "label_visible": false,
-      "fill_color": "#ff3c7828",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
       "stroke_style": "SOLID",
       "stack_order": 15360
     },
@@ -9194,41 +9334,41 @@
   ],
   "constraints": [
     {
-      "constraint_id": "21f60500-9b82-530c-bf10-905290837b2a",
+      "constraint_id": "4ca8f5b8-ef1b-506b-8ca5-2840b63e0146",
       "anchor_a": {
-        "item_id": "41333991-7ac4-501c-81c6-56e088edba5b",
+        "item_id": "0476d541-2462-5f81-83e5-924ae8c24973",
         "anchor_type": "EDGE_RIGHT",
-        "anchor_index": 0
+        "anchor_index": 1
       },
       "anchor_b": {
-        "item_id": "bc107b02-7f39-5208-b5d7-53101018631d",
+        "item_id": "f891a6b1-f265-5ac3-82e4-d68ab80078bf",
         "anchor_type": "EDGE_LEFT",
-        "anchor_index": 0
+        "anchor_index": 3
       },
       "target_distance": 120.0,
       "visible": true,
       "constraint_type": "DISTANCE"
     },
     {
-      "constraint_id": "895820fe-5987-5f8f-ba6c-b49606f8c1ea",
+      "constraint_id": "5ebecc3e-b840-54c3-a31c-b80c47041b75",
       "anchor_a": {
-        "item_id": "cc3412f6-9082-579b-a6ae-b244e7974e0a",
+        "item_id": "7928b271-c2bb-5519-aa34-b710ee89045d",
         "anchor_type": "EDGE_RIGHT",
-        "anchor_index": 0
+        "anchor_index": 1
       },
       "anchor_b": {
-        "item_id": "cd83d83f-5d07-5fca-b4cd-1b8f1f151609",
+        "item_id": "081530b1-eac9-551a-ab0b-7cba335b327a",
         "anchor_type": "EDGE_LEFT",
-        "anchor_index": 0
+        "anchor_index": 3
       },
       "target_distance": 120.0,
       "visible": true,
       "constraint_type": "DISTANCE"
     },
     {
-      "constraint_id": "1f92e4ac-f00b-55e3-ab94-6b9eec79675c",
+      "constraint_id": "66198515-6246-5edb-9987-e9a1b444e991",
       "anchor_a": {
-        "item_id": "41333991-7ac4-501c-81c6-56e088edba5b",
+        "item_id": "0476d541-2462-5f81-83e5-924ae8c24973",
         "anchor_type": "CENTER",
         "anchor_index": 0
       },

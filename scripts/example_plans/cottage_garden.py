@@ -44,7 +44,8 @@ def build():
         return [(CX + (x - CX) * (-1 if east else 1), CY + (y - CY) * (-1 if north else 1))
                 for x, y in points]
 
-    # one bed, drawn in the south-west and mirrored: the inner corner is cut for the roundel
+    # one bed, drawn in the south-west and mirrored: the inner corner is cut for the roundel.
+    # The box is a hedge polygon: a hedge-section rectangle is an older form the loader converts.
     outline = [(140, 200), (530, 200), (530, 470), (410, 590), (140, 590)]
     names = {(False, False): text("Vegetable bed", "Gemüsebeet", "Bancal de hortalizas"),
              (True, False): text("Cabbage and leek bed", "Kohl- und Lauchbeet", "Bancal de coles y puerros"),
@@ -58,9 +59,9 @@ def build():
                                              names[east, north], fill=FillPattern.SOIL)
             # box along the two sides on the paths; the cut corner stays open
             (x0, y0), (x1, y1) = mirrored([(520, 200), (540, 470)], east, north)
-            edges[east, north] = plan.rect(min(x0, x1), min(y0, y1), 20, 270, T.HEDGE_SECTION, box, tall=35)
+            edges[east, north] = plan.rect(min(x0, x1), min(y0, y1), 20, 270, T.HEDGE_POLYGON, box, tall=35)
             (x0, y0), (x1, y1) = mirrored([(140, 580), (410, 600)], east, north)
-            plan.rect(min(x0, x1), min(y0, y1), 270, 20, T.HEDGE_SECTION, box, tall=35)
+            plan.rect(min(x0, x1), min(y0, y1), 270, 20, T.HEDGE_POLYGON, box, tall=35)
 
     # ── the roundel: a rose among lavender
     roundel = plan.polygon([(CX + dx, CY + dy) for dx, dy in (

@@ -29,12 +29,26 @@
   ],
   "objects": [
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "80f37ef7-6e36-57c2-aadd-cf5d0b8ad4f4",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 1000.0,
-      "height": 800.0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 1000.0,
+          "y": 0.0
+        },
+        {
+          "x": 1000.0,
+          "y": 800.0
+        },
+        {
+          "x": 0.0,
+          "y": 800.0
+        }
+      ],
       "object_type": "TERRACE_PATIO",
       "name": "Tarima de azotea",
       "layer_id": "c3894511-db8d-507c-9f23-1585bcd8a1f5",
@@ -2727,12 +2741,18 @@
       "stack_order": 52224
     },
     {
-      "type": "rectangle",
-      "item_id": "64d0e79a-a1f7-5a36-92c2-60a89b5b165a",
-      "x": 290.0,
-      "y": 574.0,
-      "width": 660.0,
-      "height": 10.0,
+      "type": "polyline",
+      "item_id": "c7d50d13-0aad-5086-990b-4cfc6a3039db",
+      "points": [
+        {
+          "x": 290.0,
+          "y": 579.0
+        },
+        {
+          "x": 950.0,
+          "y": 579.0
+        }
+      ],
       "object_type": "STRING_LIGHTS",
       "name": "Guirnalda de luces",
       "metadata": {
@@ -2740,11 +2760,8 @@
       },
       "layer_id": "c3894511-db8d-507c-9f23-1585bcd8a1f5",
       "label_visible": false,
-      "fill_color": "#00eee1c6",
       "stroke_color": "#ff303336",
       "stroke_width": 12.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
       "stack_order": 53248
     },
     {
@@ -2782,12 +2799,11 @@
       "stack_order": 55296
     },
     {
-      "type": "rectangle",
-      "item_id": "c5e7d694-571c-5225-bbab-9fd9d0901ec6",
-      "x": 120.0,
-      "y": 440.0,
-      "width": 55.0,
-      "height": 55.0,
+      "type": "circle",
+      "item_id": "250c8de2-5224-5087-983b-584e7355684e",
+      "center_x": 147.5,
+      "center_y": 467.5,
+      "radius": 28,
       "object_type": "PLANTER_POT",
       "name": "Maceta",
       "layer_id": "c3894511-db8d-507c-9f23-1585bcd8a1f5",
@@ -2856,12 +2872,11 @@
       "stack_order": 57344
     },
     {
-      "type": "rectangle",
-      "item_id": "9af3681d-ca52-5174-a4b2-be86171631c0",
-      "x": 200.0,
-      "y": 440.0,
-      "width": 55.0,
-      "height": 55.0,
+      "type": "circle",
+      "item_id": "a2173661-d38a-56f4-bfb9-e2f7e562f65d",
+      "center_x": 227.5,
+      "center_y": 467.5,
+      "radius": 28,
       "object_type": "PLANTER_POT",
       "name": "Maceta",
       "layer_id": "c3894511-db8d-507c-9f23-1585bcd8a1f5",

@@ -24,7 +24,11 @@ from open_garden_planner.core.guild_commands import GuildMembershipCommand
 from open_garden_planner.core.item_look import adopt_pen
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.core.object_height import METADATA_KEY as HEIGHT_KEY
-from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
+from open_garden_planner.core.object_types import (
+    ObjectType,
+    PathFenceStyle,
+    get_valid_types_for_shape,
+)
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
 from open_garden_planner.core.roof_style import OVERHANG_KEY, PITCH_KEY, ROOF_STYLES, STYLE_KEY
@@ -51,6 +55,9 @@ from .i18n import TRANSLATIONS, text
 from .sites import SITES
 
 GARDEN = text("Garden", "Garten", "Jardín")
+#: The shape name ``get_valid_types_for_shape`` knows each item class by.
+SHAPES = {RectangleItem: "rectangle", CircleItem: "circle", PolygonItem: "polygon",
+          PolylineItem: "polyline"}
 #: The bundled guild templates' own words in the plans' languages. The templates ship an
 #: English and a German text; the Spanish is authored here, beside the German it matches.
 GUILD_WORDS = {
@@ -113,6 +120,10 @@ class Plan:
         return made
 
     def _add(self, item, kind, name, x, y, layer=None):
+        shape = SHAPES.get(type(item))
+        # the pairs the Properties panel offers; a rectangle that claims to be a lawn or a
+        # round table would be a plan nobody could have drawn
+        assert shape is None or kind in get_valid_types_for_shape(shape), (self.slug, shape, kind.name)
         item._item_id = self._id(kind.name, name, f"{x:g},{y:g}")
         item.layer_id = (layer or self.ground).id
         self.scene.addItem(item)
@@ -137,7 +148,12 @@ class Plan:
     def rect(self, x, y, width, height, kind, name="", *, tall=None, fill=None, color=None,
              turn=0.0, meta=None, layer=None):
         """A rectangle with its south-west corner at (x, y); ``turn`` degrees about its
-        centre, ``tall`` its height above the ground in cm."""
+        centre, ``tall`` its height above the ground in cm. A kind that only a polygon can
+        be (a lawn, a terrace, a hedge) is drawn as the polygon of the same four corners."""
+        if kind not in get_valid_types_for_shape("rectangle"):
+            assert not turn, "turn the corners instead"
+            return self.polygon([(x, y), (x + width, y), (x + width, y + height), (x, y + height)],
+                                kind, name, tall=tall, fill=fill, color=color, meta=meta, layer=layer)
         item = RectangleItem(x, y, width, height, object_type=kind, name=name)
         self._add(self._dress(item, tall, fill, color, meta), kind, name, x, y, layer)
         if turn:
@@ -341,23 +357,23 @@ class Plan:
         self.scene.guide_lines.append(GuideLine(is_horizontal=x is None,
                                                 position=float(y if x is None else x)))
 
-    def distance(self, first, second, *, anchors=(AnchorType.CENTER, AnchorType.CENTER),
-                 indexes=(0, 0)):
+    def distance(self, first, second, *, anchors=(AnchorType.CENTER, AnchorType.CENTER)):
         """A distance constraint between two items, drawn as a dimension line. Its length is
         the distance the two anchors have now: the plan is drawn to measure, and a
-        constraint that disagreed with the drawing would move an item on the first edit."""
-        points = []
-        for item, kind, index in zip((first, second), anchors, indexes, strict=True):
-            found = [anchor.point for anchor in get_anchor_points(item)
-                     if anchor.anchor_type is kind and anchor.anchor_index == index]
-            assert len(found) == 1, (self.slug, item.name, kind, index, len(found))
-            points.append(found[0])
-        cm = round(((points[0].x() - points[1].x()) ** 2
-                    + (points[0].y() - points[1].y()) ** 2) ** 0.5, 1)
+        constraint that disagreed with the drawing would move an item on the first edit.
+        Each anchor is the one of its kind the item has (a four-cornered shape has one
+        edge to each side); its index is the item's own, which a polygon numbers by edge."""
+        found = []
+        for item, kind in zip((first, second), anchors, strict=True):
+            mine = [anchor for anchor in get_anchor_points(item) if anchor.anchor_type is kind]
+            assert len(mine) == 1, (self.slug, item.name, kind, len(mine))
+            found.append(mine[0])
+        cm = round(((found[0].point.x() - found[1].point.x()) ** 2
+                    + (found[0].point.y() - found[1].point.y()) ** 2) ** 0.5, 1)
         assert cm > 0, (self.slug, first.name, second.name)
         return self.scene.constraint_graph.add_constraint(
-            AnchorRef(first.item_id, anchors[0], indexes[0]),
-            AnchorRef(second.item_id, anchors[1], indexes[1]), cm,
+            AnchorRef(first.item_id, anchors[0], found[0].anchor_index),
+            AnchorRef(second.item_id, anchors[1], found[1].anchor_index), cm,
             constraint_id=self._id("constraint", first.item_id, second.item_id, *anchors))
 
     def done(self):

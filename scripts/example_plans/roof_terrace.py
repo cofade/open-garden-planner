@@ -77,13 +77,13 @@ def build():
     plan.rect(700, 150, 65, 190, T.LOUNGER, lounger)
     plan.rect(800, 150, 65, 190, T.LOUNGER, lounger)
     plan.circle(782, 245, 125, T.PARASOL, text("Parasol", "Sonnenschirm", "Sombrilla"), tall=240)
-    plan.rect(290, 574, 660, 10, T.STRING_LIGHTS, text("String of lights", "Lichterkette", "Guirnalda de luces"),
-              tall=230)
+    plan.line([(290, 579), (950, 579)], T.STRING_LIGHTS,
+              text("String of lights", "Lichterkette", "Guirnalda de luces"), tall=230)
     lantern = text("Lantern", "Laterne", "Farol")
     plan.circle(60, 130, 12, T.GARDEN_LIGHT, lantern)
     plan.circle(940, 130, 12, T.GARDEN_LIGHT, lantern)
     for x in (120, 200):
-        plan.rect(x, 440, 55, 55, T.PLANTER_POT, text("Planter pot", "Pflanztopf", "Maceta"))
+        plan.circle(x + 27.5, 467.5, 28, T.PLANTER_POT, text("Planter pot", "Pflanztopf", "Maceta"))
         plan.plant("pelargonium x hortorum", x + 27.5, 467.5, size=(35, 40))
 
     plan.hint(40, 262, text(

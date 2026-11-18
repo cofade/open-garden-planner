@@ -29,12 +29,26 @@
   ],
   "objects": [
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "c08b2fe6-ca15-529c-ac3d-8f5e81223691",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 1500.0,
-      "height": 2000.0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 1500.0,
+          "y": 0.0
+        },
+        {
+          "x": 1500.0,
+          "y": 2000.0
+        },
+        {
+          "x": 0.0,
+          "y": 2000.0
+        }
+      ],
       "object_type": "LAWN",
       "name": "Plot lawn",
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
@@ -69,12 +83,26 @@
       "stack_order": 5120
     },
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "e0840f02-3206-5e49-b2c8-4aec4d4aa3e7",
-      "x": 960.0,
-      "y": 1420.0,
-      "width": 420.0,
-      "height": 230.0,
+      "points": [
+        {
+          "x": 960.0,
+          "y": 1420.0
+        },
+        {
+          "x": 1380.0,
+          "y": 1420.0
+        },
+        {
+          "x": 1380.0,
+          "y": 1650.0
+        },
+        {
+          "x": 960.0,
+          "y": 1650.0
+        }
+      ],
       "object_type": "TERRACE_PATIO",
       "name": "Terrace",
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
@@ -663,12 +691,11 @@
       "stack_order": 6144
     },
     {
-      "type": "rectangle",
-      "item_id": "6a5142ac-5fc5-5ce5-9ac4-dce9bbaac69c",
-      "x": 1060.0,
-      "y": 1490.0,
-      "width": 90.0,
-      "height": 90.0,
+      "type": "circle",
+      "item_id": "e879e597-72d6-5cf2-8d79-6f9c2c6d0fc5",
+      "center_x": 1105.0,
+      "center_y": 1535.0,
+      "radius": 45,
       "object_type": "TABLE_ROUND",
       "name": "Table",
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",
@@ -914,12 +941,11 @@
       "stack_order": 20480
     },
     {
-      "type": "rectangle",
-      "item_id": "57a8f897-cf0a-5431-9370-8e2d40bdf15d",
-      "x": 815.0,
-      "y": 770.0,
-      "width": 22.0,
-      "height": 22.0,
+      "type": "circle",
+      "item_id": "ab189fc8-2a50-54de-92f1-678739cc58e5",
+      "center_x": 826.0,
+      "center_y": 781.0,
+      "radius": 11,
       "object_type": "WATER_TAP",
       "name": "Water tap",
       "layer_id": "52cfaf2b-93db-5a30-bcc4-d6124fb99b94",

@@ -49,7 +49,7 @@ def build():
               tall=270, roof="shed", pitch=12, fill=FillPattern.ROOF_TILES)
     plan.rect(960, 1420, 420, 230, T.TERRACE_PATIO, text("Terrace", "Terrasse", "Terraza"),
               fill=FillPattern.DECKING)
-    plan.rect(1060, 1490, 90, 90, T.TABLE_ROUND, text("Table", "Tisch", "Mesa"))
+    plan.circle(1105, 1535, 45, T.TABLE_ROUND, text("Table", "Tisch", "Mesa"))
     plan.rect(995, 1512, 45, 45, T.CHAIR, text("Chair", "Stuhl", "Silla"), turn=90)
     plan.rect(1170, 1512, 45, 45, T.CHAIR, "Chair", turn=-90)
     plan.circle(1290, 1535, 105, T.PARASOL, text("Parasol", "Sonnenschirm", "Sombrilla"), tall=230)
@@ -65,7 +65,7 @@ def build():
     plan.rect(580, 1850, 90, 90, T.COMPOST_BIN, compost, tall=90)
     plan.rect(580, 1740, 90, 90, T.COMPOST_BIN, compost, tall=90)
     plan.rect(420, 1590, 140, 70, T.WHEELBARROW, text("Wheelbarrow", "Schubkarre", "Carretilla"))
-    plan.rect(815, 770, 22, 22, T.WATER_TAP, text("Water tap", "Wasserhahn", "Grifo"))
+    plan.circle(826, 781, 11, T.WATER_TAP, text("Water tap", "Wasserhahn", "Grifo"))
 
     # ── west of the path: the row crops
     def bed(x, y, width, height, name):

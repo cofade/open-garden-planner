@@ -29,12 +29,26 @@
   ],
   "objects": [
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "c5b513c2-55e1-5703-bd3d-06affc0dd3b2",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 1800.0,
-      "height": 1400.0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 1800.0,
+          "y": 0.0
+        },
+        {
+          "x": 1800.0,
+          "y": 1400.0
+        },
+        {
+          "x": 0.0,
+          "y": 1400.0
+        }
+      ],
       "object_type": "LAWN",
       "name": "Pradera de flores",
       "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",
@@ -209,12 +223,26 @@
       "stack_order": 8192
     },
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "724421c3-7f95-5205-8813-9b7c2f79a165",
-      "x": 780.0,
-      "y": 700.0,
-      "width": 170.0,
-      "height": 170.0,
+      "points": [
+        {
+          "x": 780.0,
+          "y": 700.0
+        },
+        {
+          "x": 950.0,
+          "y": 700.0
+        },
+        {
+          "x": 950.0,
+          "y": 870.0
+        },
+        {
+          "x": 780.0,
+          "y": 870.0
+        }
+      ],
       "object_type": "TERRACE_PATIO",
       "name": "Tarima del estanque",
       "layer_id": "55f59d67-d2d8-5e12-ae18-6945334e08cb",

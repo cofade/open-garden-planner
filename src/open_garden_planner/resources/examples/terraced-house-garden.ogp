@@ -29,12 +29,26 @@
   ],
   "objects": [
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "5948537e-9a51-54f9-b32e-d181534a83e9",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 600.0,
-      "height": 1800.0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 600.0,
+          "y": 0.0
+        },
+        {
+          "x": 600.0,
+          "y": 1800.0
+        },
+        {
+          "x": 0.0,
+          "y": 1800.0
+        }
+      ],
       "object_type": "LAWN",
       "name": "Lawn",
       "layer_id": "600b9015-a34f-5fd3-bba1-cbe9d8cd8413",

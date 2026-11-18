@@ -55,7 +55,7 @@ def build():
     plan.line([(690, 30), (640, 230), (760, 440), (700, 640), (700, 760)], T.PATH,
               text("Gravel path", "Kiesweg", "Camino de grava"), style=PathFenceStyle.GRAVEL_PATH, wide=90)
     plan.rect(420, 900, 150, 50, T.BENCH, text("Bench", "Sitzbank", "Banco"))
-    plan.rect(760, 850, 110, 110, T.TABLE_ROUND, text("Table", "Tisch", "Mesa"))
+    plan.circle(815, 905, 55, T.TABLE_ROUND, text("Table", "Tisch", "Mesa"))
     plan.rect(890, 882, 45, 45, T.CHAIR, text("Chair", "Stuhl", "Silla"), turn=-90)
     plan.rect(695, 882, 45, 45, T.CHAIR, "Chair", turn=90)
     plan.circle(520, 330, 26, T.BIRD_BATH, text("Bird bath", "Vogeltränke", "Bebedero de pájaros"))

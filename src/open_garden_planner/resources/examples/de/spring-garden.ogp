@@ -29,12 +29,26 @@
   ],
   "objects": [
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "1d6f23d3-8245-55f2-85ba-d3824024cc6c",
-      "x": 0.0,
-      "y": 0.0,
-      "width": 1400.0,
-      "height": 1000.0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 1400.0,
+          "y": 0.0
+        },
+        {
+          "x": 1400.0,
+          "y": 1000.0
+        },
+        {
+          "x": 0.0,
+          "y": 1000.0
+        }
+      ],
       "object_type": "LAWN",
       "name": "Rasen",
       "layer_id": "0f7a1682-ca02-55ff-b53c-c723b785658c",
@@ -47,12 +61,26 @@
       "stack_order": 1024
     },
     {
-      "type": "rectangle",
+      "type": "polygon",
       "item_id": "af0a11bd-e7e7-5700-b790-188640f1a7c3",
-      "x": 350.0,
-      "y": 760.0,
-      "width": 700.0,
-      "height": 215.0,
+      "points": [
+        {
+          "x": 350.0,
+          "y": 760.0
+        },
+        {
+          "x": 1050.0,
+          "y": 760.0
+        },
+        {
+          "x": 1050.0,
+          "y": 975.0
+        },
+        {
+          "x": 350.0,
+          "y": 975.0
+        }
+      ],
       "object_type": "TERRACE_PATIO",
       "name": "Terrasse",
       "layer_id": "0f7a1682-ca02-55ff-b53c-c723b785658c",
@@ -334,12 +362,11 @@
       "stack_order": 6144
     },
     {
-      "type": "rectangle",
-      "item_id": "c78b44a4-a79b-5ff9-832d-bd33116f2b19",
-      "x": 760.0,
-      "y": 850.0,
-      "width": 110.0,
-      "height": 110.0,
+      "type": "circle",
+      "item_id": "0908bb61-4906-5fc2-94db-b6f6e0d92a93",
+      "center_x": 815.0,
+      "center_y": 905.0,
+      "radius": 55,
       "object_type": "TABLE_ROUND",
       "name": "Tisch",
       "layer_id": "0f7a1682-ca02-55ff-b53c-c723b785658c",
